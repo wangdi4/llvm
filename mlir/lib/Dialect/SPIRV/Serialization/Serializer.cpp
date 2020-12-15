@@ -751,12 +751,15 @@ LogicalResult Serializer::processDecoration(Location loc, uint32_t resultID,
              << attrName << " attribute " << strAttr.getValue();
     }
     return emitError(loc, "expected string attribute for ") << attrName;
+  case spirv::Decoration::Aliased:
   case spirv::Decoration::Flat:
+  case spirv::Decoration::NonReadable:
+  case spirv::Decoration::NonWritable:
   case spirv::Decoration::NoPerspective:
-    if (auto unitAttr = attr.second.dyn_cast<UnitAttr>()) {
-      // For unit attributes, the args list has no values so we do nothing
+  case spirv::Decoration::Restrict:
+    // For unit attributes, the args list has no values so we do nothing
+    if (auto unitAttr = attr.second.dyn_cast<UnitAttr>())
       break;
-    }
     return emitError(loc, "expected unit attribute for ") << attrName;
   default:
     return emitError(loc, "unhandled decoration ") << decorationName;
@@ -1745,7 +1748,7 @@ LogicalResult Serializer::processSelectionOp(spirv::SelectionOp selectionOp) {
     return failure();
 
   // There is nothing to do for the merge block in the selection, which just
-  // contains a spv._merge op, itself. But we need to have an OpLabel
+  // contains a spv.mlir.merge op, itself. But we need to have an OpLabel
   // instruction to start a new SPIR-V block for ops following this SelectionOp.
   // The block should use the <id> for the merge block.
   return encodeInstructionInto(functionBody, spirv::Opcode::OpLabel, {mergeID});
@@ -1805,7 +1808,7 @@ LogicalResult Serializer::processLoopOp(spirv::LoopOp loopOp) {
     return failure();
 
   // There is nothing to do for the merge block in the loop, which just contains
-  // a spv._merge op, itself. But we need to have an OpLabel instruction to
+  // a spv.mlir.merge op, itself. But we need to have an OpLabel instruction to
   // start a new SPIR-V block for ops following this LoopOp. The block should
   // use the <id> for the merge block.
   return encodeInstructionInto(functionBody, spirv::Opcode::OpLabel, {mergeID});

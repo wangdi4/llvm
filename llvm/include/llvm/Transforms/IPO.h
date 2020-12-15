@@ -32,6 +32,13 @@ class InlineReportBuilder; // INTEL
 
 //===----------------------------------------------------------------------===//
 //
+// This pass adds !annotation metadata to entries in the
+// @llvm.global.annotations global constant.
+//
+ModulePass *createAnnotation2MetadataLegacyPass();
+
+//===----------------------------------------------------------------------===//
+//
 // These functions removes symbols from functions and modules.  If OnlyDebugInfo
 // is true, only debugging information is removed from the module.
 //

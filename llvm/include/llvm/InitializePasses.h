@@ -106,6 +106,8 @@ void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
+void initializeAnnotation2MetadataLegacyPass(PassRegistry &);
+void initializeAnnotationRemarksLegacyPass(PassRegistry &);
 void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
@@ -421,7 +423,7 @@ void initializeReassociateLegacyPassPass(PassRegistry&);
 void initializeRedundantDbgInstEliminationPass(PassRegistry&);
 void initializeRegAllocFastPass(PassRegistry&);
 void initializeRegBankSelectPass(PassRegistry&);
-void initializeRegToMemPass(PassRegistry&);
+void initializeRegToMemLegacyPass(PassRegistry&);
 void initializeRegUsageInfoCollectorPass(PassRegistry&);
 void initializeRegUsageInfoPropagationPass(PassRegistry&);
 void initializeRegionInfoPassPass(PassRegistry&);
@@ -449,7 +451,7 @@ void initializeScalarizeMaskedMemIntrinPass(PassRegistry&);
 void initializeScalarizerLegacyPassPass(PassRegistry&);
 void initializeScavengerTestPass(PassRegistry&);
 void initializeScopedNoAliasAAWrapperPassPass(PassRegistry&);
-void initializeSeparateConstOffsetFromGEPPass(PassRegistry&);
+void initializeSeparateConstOffsetFromGEPLegacyPassPass(PassRegistry &);
 void initializeShadowStackGCLoweringPass(PassRegistry&);
 void initializeShrinkWrapPass(PassRegistry&);
 void initializeSimpleInlinerPass(PassRegistry&);

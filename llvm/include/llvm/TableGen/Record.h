@@ -24,6 +24,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SMLoc.h"
+#include "llvm/Support/Timer.h"
 #include "llvm/Support/TrailingObjects.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -88,7 +89,7 @@ public:
   /// a bit set is not an int, but they are convertible.
   virtual bool typeIsA(const RecTy *RHS) const;
 
-  /// Returns the type representing list<this>.
+  /// Returns the type representing list<thistype>.
   ListRecTy *getListTy();
 };
 
@@ -809,8 +810,8 @@ public:
 class BinOpInit : public OpInit, public FoldingSetNode {
 public:
   enum BinaryOp : uint8_t { ADD, SUB, MUL, AND, OR, XOR, SHL, SRA, SRL, LISTCONCAT,
-                            LISTSPLAT, STRCONCAT, CONCAT, EQ, NE, LE, LT, GE,
-                            GT, SETDAGOP };
+                            LISTSPLAT, STRCONCAT, INTERLEAVE, CONCAT, EQ,
+                            NE, LE, LT, GE, GT, SETDAGOP };
 
 private:
   Init *LHS, *RHS;
@@ -830,7 +831,6 @@ public:
                         RecTy *Type);
   static Init *getStrConcat(Init *lhs, Init *rhs);
   static Init *getListConcat(TypedInit *lhs, Init *rhs);
-  static Init *getListSplat(TypedInit *lhs, Init *rhs);
 
   void Profile(FoldingSetNodeID &ID) const;
 
@@ -866,7 +866,7 @@ public:
 /// !op (X, Y, Z) - Combine two inits.
 class TernOpInit : public OpInit, public FoldingSetNode {
 public:
-  enum TernaryOp : uint8_t { SUBST, FOREACH, IF, DAG };
+  enum TernaryOp : uint8_t { SUBST, FOREACH, FILTER, IF, DAG };
 
 private:
   Init *LHS, *MHS, *RHS;
@@ -1744,6 +1744,13 @@ class RecordKeeper {
   std::map<std::string, Init *, std::less<>> ExtraGlobals;
   unsigned AnonCounter = 0;
 
+  // These members are for the phase timing feature. We need a timer group,
+  // the last timer started, and a flag to say whether the last timer
+  // is the special "backend overall timer."
+  TimerGroup *TimingGroup = nullptr;
+  Timer *LastTimer = nullptr;
+  bool BackendTimer = false;
+
 public:
   /// Get the main TableGen input file's name.
   const std::string getInputFilename() const { return InputFilename; }
@@ -1803,6 +1810,30 @@ public:
   }
 
   Init *getNewAnonymousName();
+
+  /// Start phase timing; called if the --time-phases option is specified.
+  void startPhaseTiming() {
+    TimingGroup = new TimerGroup("TableGen", "TableGen Phase Timing");
+  }
+
+  /// Start timing a phase. Automatically stops any previous phase timer.
+  void startTimer(StringRef Name);
+
+  /// Stop timing a phase.
+  void stopTimer();
+
+  /// Start timing the overall backend. If the backend starts a timer,
+  /// then this timer is cleared.
+  void startBackendTimer(StringRef Name);
+
+  /// Stop timing the overall backend.
+  void stopBackendTimer();
+
+  /// Stop phase timing and print the report.
+  void stopPhaseTiming() {
+    if (TimingGroup)
+      delete TimingGroup;
+  }
 
   //===--------------------------------------------------------------------===//
   // High-level helper methods, useful for tablegen backends.

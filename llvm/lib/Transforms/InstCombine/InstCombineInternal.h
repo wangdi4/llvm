@@ -103,9 +103,7 @@ public:
   Instruction *visitSRem(BinaryOperator &I);
   Instruction *visitFRem(BinaryOperator &I);
   bool simplifyDivRemOfSelectWithZeroOp(BinaryOperator &I);
-  Instruction *commonRemTransforms(BinaryOperator &I);
   Instruction *commonIRemTransforms(BinaryOperator &I);
-  Instruction *commonDivTransforms(BinaryOperator &I);
   Instruction *commonIDivTransforms(BinaryOperator &I);
   Instruction *visitUDiv(BinaryOperator &I);
   Instruction *visitSDiv(BinaryOperator &I);
@@ -780,9 +778,6 @@ public:
   Instruction *foldSelectInstWithICmp(SelectInst &SI, ICmpInst *ICI);
   Instruction *foldSelectValueEquivalence(SelectInst &SI, ICmpInst &ICI);
 
-  Instruction *OptAndOp(BinaryOperator *Op, ConstantInt *OpRHS,
-                        ConstantInt *AndRHS, BinaryOperator &TheAnd);
-
   Value *insertRangeTest(Value *V, const APInt &Lo, const APInt &Hi,
                          bool isSigned, bool Inside);
   Instruction *PromoteCastOfAllocation(BitCastInst &CI, AllocaInst &AI);
@@ -796,10 +791,10 @@ public:
 
   Instruction *SimplifyAnyMemTransfer(AnyMemTransferInst *MI);
 #if INTEL_CUSTOMIZATION
-  unsigned int GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
+  unsigned int GenFieldsForStruct(AnyMemTransferInst *MI, StructType *STy,
                                   Value *StrippedSrc, Value *StrippedDest,
                                   unsigned Index);
-  void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
+  void GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI);
   bool ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0, Value *Op1,
                                 unsigned Size);
 

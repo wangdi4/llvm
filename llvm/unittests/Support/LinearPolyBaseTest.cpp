@@ -12,10 +12,13 @@
 using namespace llvm;
 
 class Poly3D;
-template <> struct llvm::LinearPolyBaseTypeTraits<Poly3D> {
+
+namespace llvm {
+template <> struct LinearPolyBaseTypeTraits<Poly3D> {
   using ScalarTy = int64_t;
   static const unsigned Dimensions = 3;
 };
+}
 
 using Poly3DBase = LinearPolyBase<Poly3D>;
 class Poly3D : public Poly3DBase {
@@ -80,10 +83,12 @@ TEST(LinearPolyBase, Poly3D_Invert) {
 }
 
 class Univariate3D;
-template <> struct llvm::LinearPolyBaseTypeTraits<Univariate3D> {
+namespace llvm {
+template <> struct LinearPolyBaseTypeTraits<Univariate3D> {
   using ScalarTy = int64_t;
   static const unsigned Dimensions = 3;
 };
+}
 
 using Univariate3DBase = UnivariateLinearPolyBase<Univariate3D>;
 class Univariate3D : public Univariate3DBase {
@@ -135,6 +140,11 @@ TEST(UnivariateLinearPolyBase, Univariate3D_Add) {
   Univariate3D X(42, 0);
   X += Univariate3D(42, 0);
   EXPECT_EQ(X, Univariate3D(84, 0));
+
+  // Test 'getWithIncrement' method
+  EXPECT_EQ(Univariate3D(42, 0).getWithIncrement(1), Univariate3D(43, 0));
+  EXPECT_EQ(Univariate3D(42, 1).getWithIncrement(2), Univariate3D(44, 1));
+  EXPECT_EQ(Univariate3D(42, 2).getWithIncrement(3), Univariate3D(45, 2));
 }
 
 TEST(UnivariateLinearPolyBase, Univariate3D_Sub) {
@@ -148,6 +158,11 @@ TEST(UnivariateLinearPolyBase, Univariate3D_Sub) {
   Univariate3D X(84, 0);
   X -= Univariate3D(42, 0);
   EXPECT_EQ(X, Univariate3D(42, 0));
+
+  // Test 'getWithDecrement' method
+  EXPECT_EQ(Univariate3D(43, 0).getWithDecrement(1), Univariate3D(42, 0));
+  EXPECT_EQ(Univariate3D(44, 1).getWithDecrement(2), Univariate3D(42, 1));
+  EXPECT_EQ(Univariate3D(45, 2).getWithDecrement(3), Univariate3D(42, 2));
 }
 
 TEST(UnivariateLinearPolyBase, Univariate3D_Scale) {

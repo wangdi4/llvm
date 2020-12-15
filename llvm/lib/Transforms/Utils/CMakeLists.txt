@@ -62,7 +62,6 @@ add_llvm_component_library(LLVMTransformUtils
   MatrixUtils.cpp
   Mem2Reg.cpp
   MetaRenamer.cpp
-  MisExpect.cpp
   ModuleUtils.cpp
   NameAnonGlobals.cpp
   PredicateInfo.cpp
@@ -95,4 +94,12 @@ add_llvm_component_library(LLVMTransformUtils
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+# INTEL_CUSTOMIZATION
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
+  Support
   )

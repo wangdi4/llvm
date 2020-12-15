@@ -70,6 +70,19 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   directives_gen
 # end INTEL_CUSTOMIZATION
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+  Support
+  TransformUtils
+# INTEL_CUSTOMIZATION
+  Intel_LoopAnalysis
+  Intel_LoopTransforms
+  Intel_OptReport
+  VPOAnalysis
+  VPOTransforms
+# end INTEL_CUSTOMIZATION
   )
 
 # INTEL_CUSTOMIZATION

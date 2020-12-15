@@ -158,7 +158,7 @@ static bool hasNonStructNonSingleValueType(StructType *STy) {
 // nested ArrayTypes or VectorTypes, for compatibility with what was done
 // in ifort.
 //
-static bool IsGoodStructMemcpy(MemIntrinsic *MI, uint64_t Size) {
+static bool IsGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size) {
   Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
   Value *StrippedDst = MI->getArgOperand(0)->stripPointerCasts();
   // The following code gets the structure type for the source operand
@@ -213,10 +213,11 @@ static bool IsGoodStructMemcpy(MemIntrinsic *MI, uint64_t Size) {
 // through the (possibly nested) structure in a linear fashion. The number
 // of load/store pairs generated up this point is returned.
 //
-unsigned int
-InstCombinerImpl::GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
-                                     Value *StrippedSrc, Value *StrippedDest,
-                                     unsigned int Index) {
+unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
+                                                  StructType *STy,
+                                                  Value *StrippedSrc,
+                                                  Value *StrippedDest,
+                                                  unsigned int Index) {
   MDNode *CopyMD = nullptr;
   Value *GEPSrc, *GEPDest;
   LoadInst *LDSrc;
@@ -239,7 +240,13 @@ InstCombinerImpl::GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
       continue;
     }
     LDSrc = Builder.CreateLoad(GEPSrc);
-    LDSrc->setAlignment(DL.getABITypeAlign(ElemTy));
+    // Take into account an alignment specified for the pointer in the mem
+    // intrinsic which can decrease the default alignment. For example, in the
+    // case when packed structure is processed.
+    MaybeAlign CopySrcAlign = MI->getSourceAlign();
+    assert(CopySrcAlign &&
+           "Expected that alignment is specified for the source");
+    LDSrc->setAlignment(std::min(*CopySrcAlign, DL.getABITypeAlign(ElemTy)));
     if (M) {
       CopyMD = cast<MDNode>(M->getOperand(2 + Index * 3));
       Index++;
@@ -248,7 +255,13 @@ InstCombinerImpl::GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
     STDest = Builder.CreateStore(LDSrc, GEPDest);
     if (M)
       STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
-    STDest->setAlignment(DL.getABITypeAlign(ElemTy));
+    // Take into account an alignment specified for the pointer in the mem
+    // intrinsic which can decrease the default alignment. For example, in the
+    // case when packed structure is processed.
+    MaybeAlign CopyDstAlign = MI->getDestAlign();
+    assert(CopyDstAlign &&
+           "Expected that alignment is specified for the destination");
+    STDest->setAlignment(std::min(*CopyDstAlign, DL.getABITypeAlign(ElemTy)));
     // Propagate alias.scope and noalias metadata to load and store.
     for (Instruction *I : {static_cast<Instruction *>(LDSrc),
                            static_cast<Instruction *>(STDest)}) {
@@ -262,7 +275,7 @@ InstCombinerImpl::GenFieldsForStruct(MemIntrinsic *MI, StructType *STy,
 }
 
 // It expands the memcpy of a structure into the copies of structure members.
-void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
+void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI) {
   // The following code gets structure pointer for the source operand
   // and destination operand in the memcpy.
   LLVM_DEBUG(dbgs() << "Generating fields for memcpy " << *MI << "\n");
@@ -314,12 +327,11 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
 #if INTEL_CUSTOMIZATION
   // Translate the memcpy into structure members copies in certain
   // cases.
-  if (auto *MemIntrin = dyn_cast<MemIntrinsic>(MI))
-    if (IsGoodStructMemcpy(MemIntrin, Size)) {
-      GenStructFieldsCopyFromMemcpy(MemIntrin);
-      MI->setArgOperand(2, Constant::getNullValue(MemOpLength->getType()));
-      return MI;
-    }
+  if (IsGoodStructMemcpy(MI, Size)) {
+    GenStructFieldsCopyFromMemcpy(MI);
+    MI->setArgOperand(2, Constant::getNullValue(MemOpLength->getType()));
+    return MI;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (Size > 8 || (Size&(Size-1)))

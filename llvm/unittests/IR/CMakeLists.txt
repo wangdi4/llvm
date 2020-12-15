@@ -4,7 +4,11 @@ set(LLVM_LINK_COMPONENTS
   Core
   Support
   Passes
+# INTEL_CUSTOMIZATION
+  ScalarOpts
+# end INTEL_CUSTOMIZATION
   TransformUtils
+  ScalarOpts
   )
 
 add_llvm_unittest(IRTests

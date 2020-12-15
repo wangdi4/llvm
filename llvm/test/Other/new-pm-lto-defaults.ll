@@ -24,6 +24,7 @@
 ; RUN:     --check-prefix=CHECK-O3 --check-prefix=CHECK-EP-Peephole
 
 ; CHECK-O: Starting llvm::Module pass manager run.
+; CHECK-O-NEXT: Running pass: Annotation2Metadata
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass   ;INTEL
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit  ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis  ;INTEL
@@ -149,6 +150,7 @@
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O2-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
+; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-O2-NEXT: Running pass: InlineReportEmitterPass          ;INTEL
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 

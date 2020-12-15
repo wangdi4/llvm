@@ -1451,8 +1451,9 @@ void TCParser::printODS(llvm::raw_ostream &os, StringRef cppOpName,
                         StringRef linalgOpName,
                         ComprehensionParsingState &state) {
   const char *header = R"FMT(  def {0} : LinalgStructuredBase_Op<"{1}", [
-    NamedStructuredOpTrait,
     AttrSizedOperandSegments,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    NamedStructuredOpTrait,
     SingleBlockImplicitTerminator<"YieldOp">]> {
       let arguments = (ins Variadic<AnyShaped>:$inputs,
                            Variadic<AnyMemRef>:$output_buffers,
@@ -1521,6 +1522,7 @@ void TCParser::printODS(llvm::raw_ostream &os, StringRef cppOpName,
         ArrayAttr iterator_types();
         ArrayAttr indexing_maps();
         static void regionBuilder(Block &block);
+        static std::function<void(Block &)> getRegionBuilder() {{ return regionBuilder; }
 
         // Generic methods.
         static unsigned getNumRegionArgs() {{ return {4}; }
@@ -1589,6 +1591,11 @@ void TCParser::printCanonicalizersAndFolders(llvm::raw_ostream &os,
     LogicalResult {0}::fold(ArrayRef<Attribute>,
                             SmallVectorImpl<OpFoldResult> &) {{
       return foldMemRefCast(*this);
+    }
+    void {0}::getEffects(SmallVectorImpl<
+        SideEffects::EffectInstance<MemoryEffects::Effect> >&effects) {{
+      getGenericEffectsImpl(effects,
+        getOperation()->getResults(), getInputBuffers(), getOutputBuffers());
     })FMT";
   os << llvm::formatv(canonicalizersAndFoldersFmt, cppOpName);
 }

@@ -34,12 +34,16 @@ void foo() {
     #pragma distribute_point
     //CHECK: [[TOK:%[0-9]+]] = call token {{.*}}region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
     //CHECK: region.exit(token [[TOK]]) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
+    //CHECK: br label %{{.*}}, !llvm.loop !{{.+}}
     a[i] += 4;
     s += b[i];
   }
   for (i = 0; i < n; ++i) {
-    // CHECK-NOT: br label %{{.*}}, !llvm.loop !{{.+}}
+    // CHECK: br label %{{.*}}, !llvm.loop ![[NO_DISTPT:.+]]
     a[i] += 4;
     s += b[i];
   }
 }
+
+// CHECK: ![[MD_DISTPT:[0-9]+]] = !{!"llvm.loop.distribute.enable"
+// CHECK-NOT: ![[NO_DISTPT]] = {{.*}}![[MD_DISTPT]]

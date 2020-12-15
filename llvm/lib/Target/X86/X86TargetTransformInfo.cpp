@@ -2726,12 +2726,12 @@ int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
     { ISD::USUBSAT,    MVT::v16i16,  4 }, // 2 x 128-bit Op + extract/insert
     { ISD::USUBSAT,    MVT::v32i8,   4 }, // 2 x 128-bit Op + extract/insert
     { ISD::USUBSAT,    MVT::v8i32,   6 }, // 2 x 128-bit Op + extract/insert
-    { ISD::FMAXNUM,    MVT::f32,     3 }, // MAXPS + CMPUNORDPS + BLENDVPS
-    { ISD::FMAXNUM,    MVT::v4f32,   3 },
-    { ISD::FMAXNUM,    MVT::v8f32,   5 },
-    { ISD::FMAXNUM,    MVT::f64,     3 }, // MAXPD + CMPUNORDPD + BLENDVPD
-    { ISD::FMAXNUM,    MVT::v2f64,   3 },
-    { ISD::FMAXNUM,    MVT::v4f64,   5 },
+    { ISD::FMAXNUM,    MVT::f32,     3 }, // MAXSS + CMPUNORDSS + BLENDVPS
+    { ISD::FMAXNUM,    MVT::v4f32,   3 }, // MAXPS + CMPUNORDPS + BLENDVPS
+    { ISD::FMAXNUM,    MVT::v8f32,   5 }, // MAXPS + CMPUNORDPS + BLENDVPS + ?
+    { ISD::FMAXNUM,    MVT::f64,     3 }, // MAXSD + CMPUNORDSD + BLENDVPD
+    { ISD::FMAXNUM,    MVT::v2f64,   3 }, // MAXPD + CMPUNORDPD + BLENDVPD
+    { ISD::FMAXNUM,    MVT::v4f64,   5 }, // MAXPD + CMPUNORDPD + BLENDVPD + ?
     { ISD::FSQRT,      MVT::f32,    14 }, // SNB from http://www.agner.org/
     { ISD::FSQRT,      MVT::v4f32,  14 }, // SNB from http://www.agner.org/
     { ISD::FSQRT,      MVT::v8f32,  28 }, // SNB from http://www.agner.org/
@@ -2981,6 +2981,22 @@ int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
     MVT MTy = LT.second;
 
     // Attempt to lookup cost.
+    if (ISD == ISD::BITREVERSE && ST->hasGFNI() && ST->hasSSSE3() &&
+        MTy.isVector()) {
+      // With PSHUFB the code is very similar for all types. If we have integer
+      // byte operations, we just need a GF2P8AFFINEQB for vXi8. For other types
+      // we also need a PSHUFB.
+      unsigned Cost = MTy.getVectorElementType() == MVT::i8 ? 1 : 2;
+
+      // Without byte operations, we need twice as many GF2P8AFFINEQB and PSHUFB
+      // instructions. We also need an extract and an insert.
+      if (!(MTy.is128BitVector() || (ST->hasAVX2() && MTy.is256BitVector()) ||
+            (ST->hasBWI() && MTy.is512BitVector())))
+        Cost = Cost * 2 + 2;
+
+      return LT.first * Cost;
+    }
+
     if (ST->useGLMDivSqrtCosts())
       if (const auto *Entry = CostTableLookup(GLMCostTbl, ISD, MTy))
         return LT.first * Entry->Cost;

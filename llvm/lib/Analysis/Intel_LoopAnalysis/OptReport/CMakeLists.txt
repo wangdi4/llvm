@@ -16,4 +16,9 @@ add_llvm_component_library(LLVMIntel_LoopOptReportSupport
 
   DEPENDS
   intrinsics_gen
+
+  LINK_COMPONENTS
+  Core
+  Support
+  Intel_OptReport
   )

@@ -1,5 +1,6 @@
 add_llvm_component_library(LLVMipo
   AlwaysInliner.cpp
+  Annotation2Metadata.cpp
   ArgumentPromotion.cpp
   Attributor.cpp
   AttributorAttributes.cpp
@@ -67,6 +68,33 @@ add_llvm_component_library(LLVMipo
 # end INTEL_COLLAB
   omp_gen
 
+  COMPONENT_NAME
+  IPO
+
+  LINK_COMPONENTS
+  AggressiveInstCombine
+  Analysis
+  BitReader
+  BitWriter
+  Core
+  FrontendOpenMP
+  InstCombine
+  IRReader
+  Linker
+  Object
+  ProfileData
+  Scalar
+  Support
+  TransformUtils
+  Vectorize
+  Instrumentation
+# INTEL_CUSTOMIZATION
+  Intel_LoopTransforms
+  Intel_MapIntrinToIml
+  VPOTransforms
+  Intel_OptReport
+  Intel_DPCPPKernelTransforms
+# end INTEL_CUSTOMIZATION
   )
 
 # INTEL_CUSTOMIZATION

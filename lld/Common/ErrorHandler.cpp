@@ -246,8 +246,9 @@ void ErrorHandler::error(const Twine &msg, ErrorTag tag,
   case ErrorTag::LibNotFound:
     scriptArgs.push_back("missing-lib");
     break;
-  default:
-    llvm_unreachable("unsupported ErrorTag");
+  case ErrorTag::SymbolNotFound:
+    scriptArgs.push_back("undefined-symbol");
+    break;
   }
   scriptArgs.insert(scriptArgs.end(), args.begin(), args.end());
   int res = llvm::sys::ExecuteAndWait(errorHandlingScript, scriptArgs);

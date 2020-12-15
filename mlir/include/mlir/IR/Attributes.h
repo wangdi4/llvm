@@ -292,6 +292,12 @@ public:
   /// Requires: uniquely named attributes.
   static bool sortInPlace(SmallVectorImpl<NamedAttribute> &array);
 
+  /// Returns an entry with a duplicate name in `array`, if it exists, else
+  /// returns llvm::None. If `isSorted` is true, the array is assumed to be
+  /// sorted else it will be sorted in place before finding the duplicate entry.
+  static Optional<NamedAttribute>
+  findDuplicate(SmallVectorImpl<NamedAttribute> &array, bool isSorted);
+
 private:
   /// Return empty dictionary.
   static DictionaryAttr getEmpty(MLIRContext *context);
@@ -669,6 +675,20 @@ class DenseElementsAttr : public ElementsAttr {
 public:
   using ElementsAttr::ElementsAttr;
 
+  /// Type trait used to check if the given type T is a potentially valid C++
+  /// floating point type that can be used to access the underlying element
+  /// types of a DenseElementsAttr.
+  // TODO: Use std::disjunction when C++17 is supported.
+  template <typename T> struct is_valid_cpp_fp_type {
+    /// The type is a valid floating point type if it is a builtin floating
+    /// point type, or is a potentially user defined floating point type. The
+    /// latter allows for supporting users that have custom types defined for
+    /// bfloat16/half/etc.
+    static constexpr bool value = llvm::is_one_of<T, float, double>::value ||
+                                  (std::numeric_limits<T>::is_specialized &&
+                                   !std::numeric_limits<T>::is_integer);
+  };
+
   /// Method for support type inquiry through isa, cast and dyn_cast.
   static bool classof(Attribute attr);
 
@@ -684,7 +704,7 @@ public:
   /// static shape.
   template <typename T, typename = typename std::enable_if<
                             std::numeric_limits<T>::is_integer ||
-                            llvm::is_one_of<T, float, double>::value>::type>
+                            is_valid_cpp_fp_type<T>::value>::type>
   static DenseElementsAttr get(const ShapedType &type, ArrayRef<T> values) {
     const char *data = reinterpret_cast<const char *>(values.data());
     return getRawIntOrFloat(
@@ -695,7 +715,7 @@ public:
   /// Constructs a dense integer elements attribute from a single element.
   template <typename T, typename = typename std::enable_if<
                             std::numeric_limits<T>::is_integer ||
-                            llvm::is_one_of<T, float, double>::value ||
+                            is_valid_cpp_fp_type<T>::value ||
                             detail::is_complex_t<T>::value>::type>
   static DenseElementsAttr get(const ShapedType &type, T value) {
     return get(type, llvm::makeArrayRef(value));
@@ -708,7 +728,7 @@ public:
             typename = typename std::enable_if<
                 detail::is_complex_t<T>::value &&
                 (std::numeric_limits<ElementT>::is_integer ||
-                 llvm::is_one_of<ElementT, float, double>::value)>::type>
+                 is_valid_cpp_fp_type<ElementT>::value)>::type>
   static DenseElementsAttr get(const ShapedType &type, ArrayRef<T> values) {
     const char *data = reinterpret_cast<const char *>(values.data());
     return getRawComplex(type, ArrayRef<char>(data, values.size() * sizeof(T)),
@@ -938,7 +958,7 @@ public:
   template <typename T, typename = typename std::enable_if<
                             (!std::is_same<T, bool>::value &&
                              std::numeric_limits<T>::is_integer) ||
-                            llvm::is_one_of<T, float, double>::value>::type>
+                            is_valid_cpp_fp_type<T>::value>::type>
   llvm::iterator_range<ElementIterator<T>> getValues() const {
     assert(isValidIntOrFloat(sizeof(T), std::numeric_limits<T>::is_integer,
                              std::numeric_limits<T>::is_signed));
@@ -953,7 +973,7 @@ public:
             typename = typename std::enable_if<
                 detail::is_complex_t<T>::value &&
                 (std::numeric_limits<ElementT>::is_integer ||
-                 llvm::is_one_of<ElementT, float, double>::value)>::type>
+                 is_valid_cpp_fp_type<ElementT>::value)>::type>
   llvm::iterator_range<ElementIterator<T>> getValues() const {
     assert(isValidComplex(sizeof(T), std::numeric_limits<ElementT>::is_integer,
                           std::numeric_limits<ElementT>::is_signed));
@@ -1405,7 +1425,8 @@ private:
   template <typename T>
   typename std::enable_if<
       std::numeric_limits<T>::is_integer ||
-          llvm::is_one_of<T, float, double, StringRef>::value ||
+          DenseElementsAttr::is_valid_cpp_fp_type<T>::value ||
+          std::is_same<T, StringRef>::value ||
           (detail::is_complex_t<T>::value &&
            !llvm::is_one_of<T, std::complex<APInt>,
                             std::complex<APFloat>>::value),
@@ -1693,7 +1714,8 @@ template <> struct PointerLikeTypeTraits<mlir::Attribute> {
   static inline mlir::Attribute getFromVoidPointer(void *ptr) {
     return mlir::Attribute::getFromOpaquePointer(ptr);
   }
-  static constexpr int NumLowBitsAvailable = 3;
+  static constexpr int NumLowBitsAvailable = llvm::PointerLikeTypeTraits<
+      mlir::AttributeStorage *>::NumLowBitsAvailable;
 };
 
 template <>

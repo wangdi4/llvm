@@ -1,7 +1,5 @@
 // RUN: %clang_cc1 -fsycl -fsycl-is-device -sycl-std=2020 -DCHECK_ERROR -verify %s
 
-// INTEL_CUSTOMIZATION comments should be removed once patch is upstreamed to intel/llvm.
-
 #include "Inputs/sycl.hpp"
 
 namespace std {
@@ -10,16 +8,14 @@ typedef long int ptrdiff_t;
 typedef decltype(nullptr) nullptr_t;
 class T;
 class U;
-class Foo; // INTEL
+class Foo;
 } // namespace std
 
 template <typename T>
 struct Templated_kernel_name;
 
-// INTEL_CUSTOMIZATION
 template <typename T>
 struct Templated_kernel_name2;
-// end INTEL_CUSTOMIZATION
 
 template <typename T, typename... Args> class TemplParamPack;
 
@@ -28,48 +24,39 @@ queue q;
 
 int main() {
 #ifdef CHECK_ERROR
-  // INTEL_CUSTOMIZATION
-  // expected-error@Inputs/sycl.hpp:220 6 {{kernel name cannot be or contain a type in the "std" namespace}}
-  // END INTEL_CUSTOMIZATION
   q.submit([&](handler &h) {
-    // INTEL_CUSTOMIZATION
-    // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'nullptr_t'}}
-    // END INTEL_CUSTOMIZATION
+    // expected-error@Inputs/sycl.hpp:220 {{'nullptr_t' is an invalid kernel name type}}
+    // expected-note@Inputs/sycl.hpp:220 {{type 'nullptr_t' cannot be in the "std" namespace}}
     // expected-note@+1{{in instantiation of function template specialization}}
     h.single_task<std::nullptr_t>([=] {});
   });
   q.submit([&](handler &h) {
-    // INTEL_CUSTOMIZATION
-    // expected-note@Inputs/sycl.hpp:220{{Invalid kernel name is 'std::T'}}
-    // END INTEL_CUSTOMIZATION
+    // expected-error@Inputs/sycl.hpp:220 {{'std::T' is an invalid kernel name type}}
+    // expected-note@Inputs/sycl.hpp:220 {{type 'std::T' cannot be in the "std" namespace}}
     // expected-note@+1{{in instantiation of function template specialization}}
     h.single_task<std::T>([=] {});
   });
   q.submit([&](handler &h) {
-    // INTEL_CUSTOMIZATION
-    // expected-note@Inputs/sycl.hpp:220{{Invalid kernel name is 'Templated_kernel_name<nullptr_t>'}}
-    // END INTEL_CUSTOMIZATION
+    // expected-error@Inputs/sycl.hpp:220 {{'Templated_kernel_name<nullptr_t>' is an invalid kernel name type}}
+    // expected-note@Inputs/sycl.hpp:220 {{type 'nullptr_t' cannot be in the "std" namespace}}
     // expected-note@+1{{in instantiation of function template specialization}}
     h.single_task<Templated_kernel_name<std::nullptr_t>>([=] {});
   });
   q.submit([&](handler &h) {
-    // INTEL_CUSTOMIZATION
-    // expected-note@Inputs/sycl.hpp:220{{Invalid kernel name is 'Templated_kernel_name<std::U>'}}
-    // END INTEL_CUSTOMIZATION
+    // expected-error@Inputs/sycl.hpp:220 {{'Templated_kernel_name<std::U>' is an invalid kernel name type}}
+    // expected-note@Inputs/sycl.hpp:220 {{type 'std::U' cannot be in the "std" namespace}}
     // expected-note@+1{{in instantiation of function template specialization}}
     h.single_task<Templated_kernel_name<std::U>>([=] {});
   });
-  // INTEL_CUSTOMIZATION
   q.submit([&](handler &cgh) {
-    // expected-note@Inputs/sycl.hpp:220{{Invalid kernel name is 'Templated_kernel_name2<Templated_kernel_name<std::Foo>>'}}
+    // expected-error@Inputs/sycl.hpp:220 {{'Templated_kernel_name2<Templated_kernel_name<std::Foo>>' is an invalid kernel name type}}
+    // expected-note@Inputs/sycl.hpp:220{{type 'std::Foo' cannot be in the "std" namespace}}
     // expected-note@+1{{in instantiation of function template specialization}}
     cgh.single_task<Templated_kernel_name2<Templated_kernel_name<std::Foo>>>([]() {});
   });
-  // END INTEL_CUSTOMIZATION
   q.submit([&](handler &cgh) {
-    // INTEL_CUSTOMIZATION
-    // expected-note@Inputs/sycl.hpp:220{{Invalid kernel name is 'TemplParamPack<int, float, nullptr_t, double>'}}
-    // END INTEL_CUSTOMIZATION
+    // expected-error@Inputs/sycl.hpp:220 {{'TemplParamPack<int, float, nullptr_t, double>' is an invalid kernel name type}}
+    // expected-note@Inputs/sycl.hpp:220 {{type 'nullptr_t' cannot be in the "std" namespace}}
     // expected-note@+1{{in instantiation of function template specialization}}
     cgh.single_task<TemplParamPack<int, float, std::nullptr_t, double>>([]() {});
   });

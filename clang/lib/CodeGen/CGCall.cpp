@@ -2224,6 +2224,28 @@ void CodeGenModule::ConstructAttributeList(
         llvm::AttributeSet::get(getLLVMContext(), Attrs);
   }
 
+  // Apply `nonnull` and `dereferencable(N)` to the `this` argument.
+  if (FI.isInstanceMethod() && !IRFunctionArgs.hasInallocaArg() &&
+      !FI.arg_begin()->type->isVoidPointerType()) {
+    auto IRArgs = IRFunctionArgs.getIRArgs(0);
+
+    assert(IRArgs.second == 1 && "Expected only a single `this` pointer.");
+
+    llvm::AttrBuilder Attrs;
+
+    if (!CodeGenOpts.NullPointerIsValid &&
+        getContext().getTargetAddressSpace(FI.arg_begin()->type) == 0) {
+      Attrs.addAttribute(llvm::Attribute::NonNull);
+    }
+
+    Attrs.addDereferenceableAttr(
+        getMinimumObjectSize(
+            FI.arg_begin()->type.castAs<PointerType>()->getPointeeType())
+            .getQuantity());
+
+    ArgAttrs[IRArgs.first] = llvm::AttributeSet::get(getLLVMContext(), Attrs);
+  }
+
 #if INTEL_CUSTOMIZATION
   // Support for X87 precision control.
   if (CodeGenOpts.X87Precision)

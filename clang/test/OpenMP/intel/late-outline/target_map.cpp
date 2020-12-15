@@ -39,7 +39,7 @@ void foo(S1 *ps1)
   // CHECK-NEXT: [[L2:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
   // CHECK-NEXT: [[N2:%[y.*]]] = getelementptr inbounds %struct.S1, %struct.S1* [[L2]], i32 0, i32 0
   // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.S1* [[L1]], i32* [[N2]], i64 4, i64 281474976710659)
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.S1* [[L1]], i32* [[N2]], i64 4, i64 35)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(%struct.S1** [[PS1_MAP]])
   // CHECK: store %struct.S1* [[L1]], %struct.S1** [[PS1_MAP]], align 8
   // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET"() ]
@@ -56,11 +56,12 @@ void foo(S1 *ps1)
   // CHECK: [[N2:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L7]], i32 0, i32 2
   // CHECK: [[L8:%[0-9]+]] = load %struct.S1*, %struct.S1** [[N2]],
   // CHECK: [[Y3:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L8]], i32 0, i32 0
+  // CHECK: [[L17:%.+]] = sdiv
   // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.S1* [[L6]], %struct.S1** %next, i64 %24, i64 32)
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.S1* [[L6]], %struct.S1** %next, i64 [[L17]], i64 32)
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.S1** %next, i32* %y3, i64 4, i64 281474976710675)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(%struct.S1** [[PS1_MAP4]])
-  // CHECK: store %struct.S1* %14, %struct.S1** [[PS1_MAP4]]
+  // CHECK: store %struct.S1* [[L6]], %struct.S1** [[PS1_MAP4]]
   #pragma omp target map(ps1->next->y)
   {
     ps1->next->y = 4;

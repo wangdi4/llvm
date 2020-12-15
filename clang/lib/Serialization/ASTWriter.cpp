@@ -198,8 +198,8 @@ void TypeLocWriter::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
   Record.AddSourceLocation(TL.getBuiltinLoc());
   if (TL.needsExtraLocalData()) {
     Record.push_back(TL.getWrittenTypeSpec());
-    Record.push_back(TL.getWrittenSignSpec());
-    Record.push_back(TL.getWrittenWidthSpec());
+    Record.push_back(static_cast<uint64_t>(TL.getWrittenSignSpec()));
+    Record.push_back(static_cast<uint64_t>(TL.getWrittenWidthSpec()));
     Record.push_back(TL.hasModeAttr());
   }
 }
@@ -1338,6 +1338,7 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, ASTContext &Context,
   Record.push_back(HSOpts.DisableModuleHash);
   Record.push_back(HSOpts.ImplicitModuleMaps);
   Record.push_back(HSOpts.ModuleMapFileHomeIsCwd);
+  Record.push_back(HSOpts.EnablePrebuiltImplicitModules);
   Record.push_back(HSOpts.UseBuiltinIncludes);
   Record.push_back(HSOpts.UseStandardSystemIncludes);
   Record.push_back(HSOpts.UseStandardCXXIncludes);
@@ -1639,7 +1640,7 @@ namespace {
     ASTWriter &Writer;
 
     // Keep track of the framework names we've used during serialization.
-    SmallVector<char, 128> FrameworkStringData;
+    SmallString<128> FrameworkStringData;
     llvm::StringMap<unsigned> FrameworkNameOffset;
 
   public:
@@ -1726,8 +1727,7 @@ namespace {
           = FrameworkNameOffset.find(Data.HFI.Framework);
         if (Pos == FrameworkNameOffset.end()) {
           Offset = FrameworkStringData.size() + 1;
-          FrameworkStringData.append(Data.HFI.Framework.begin(),
-                                     Data.HFI.Framework.end());
+          FrameworkStringData.append(Data.HFI.Framework);
           FrameworkStringData.push_back(0);
 
           FrameworkNameOffset[Data.HFI.Framework] = Offset;
@@ -6745,6 +6745,7 @@ void OMPClauseWriter::VisitOMPToClause(OMPToClause *C) {
     Record.push_back(N);
   for (auto &M : C->all_components()) {
     Record.AddStmt(M.getAssociatedExpression());
+    Record.writeBool(M.isNonContiguous());
     Record.AddDeclRef(M.getAssociatedDeclaration());
   }
 }
@@ -6774,6 +6775,7 @@ void OMPClauseWriter::VisitOMPFromClause(OMPFromClause *C) {
     Record.push_back(N);
   for (auto &M : C->all_components()) {
     Record.AddStmt(M.getAssociatedExpression());
+    Record.writeBool(M.isNonContiguous());
     Record.AddDeclRef(M.getAssociatedDeclaration());
   }
 }

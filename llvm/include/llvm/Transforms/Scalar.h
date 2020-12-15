@@ -33,6 +33,12 @@ FunctionPass *createAlignmentFromAssumptionsPass();
 
 //===----------------------------------------------------------------------===//
 //
+// AnnotationRemarks - Emit remarks for !annotation metadata.
+//
+FunctionPass *createAnnotationRemarksLegacyPass();
+
+//===----------------------------------------------------------------------===//
+//
 // SCCP - Sparse conditional constant propagation.
 //
 FunctionPass *createSCCPPass();
@@ -159,7 +165,7 @@ Pass *createLoopInterchangePass();
 //
 // LoopFlatten - This pass flattens nested loops into a single loop.
 //
-Pass *createLoopFlattenPass();
+FunctionPass *createLoopFlattenPass();
 
 //===----------------------------------------------------------------------===//
 //

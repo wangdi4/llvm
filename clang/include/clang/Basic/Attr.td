@@ -759,6 +759,16 @@ def Annotate : InheritableParamAttr {
   let Args = [StringArgument<"Annotation">, VariadicExprArgument<"Args">];
   // Ensure that the annotate attribute can be used with
   // '#pragma clang attribute' even though it has no subject list.
+  let AdditionalMembers = [{
+  static AnnotateAttr *Create(ASTContext &Ctx, llvm::StringRef Annotation, \
+              const AttributeCommonInfo &CommonInfo) {
+    return AnnotateAttr::Create(Ctx, Annotation, nullptr, 0, CommonInfo);
+  }
+  static AnnotateAttr *CreateImplicit(ASTContext &Ctx, llvm::StringRef Annotation, \
+              const AttributeCommonInfo &CommonInfo = {SourceRange{}}) {
+    return AnnotateAttr::CreateImplicit(Ctx, Annotation, nullptr, 0, CommonInfo);
+  }
+  }];
   let PragmaAttributeSupport = 1;
   let Documentation = [Undocumented];
 }
@@ -1179,6 +1189,16 @@ def SYCLRegisterNum : InheritableAttr {
   let PragmaAttributeSupport = 0;
 }
 
+// Used to mark ESIMD kernel pointer parameters originating from accessors.
+def SYCLSimdAccessorPtr : InheritableAttr {
+  // No spelling, as this attribute can't be created in the source code.
+  let Spellings = [];
+  let Subjects = SubjectList<[ParmVar]>;
+  let LangOpts = [SYCLExplicitSIMD];
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
+}
+
 def SYCLScope : Attr {
   // No spelling, as this attribute can't be created in the source code.
   let Spellings = [];
@@ -1240,6 +1260,19 @@ def SYCLIntelNumSimdWorkItems : InheritableAttr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNumSimdWorkItemsAttrDocs];
+  let PragmaAttributeSupport = 0;
+}
+
+def SYCLIntelUseStallEnableClusters : InheritableAttr {
+  let Spellings = [CXX11<"intel","use_stall_enable_clusters">];
+  let LangOpts = [SYCLIsHost, SYCLIsDevice];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "stall_enable";
+    }
+  }];
+  let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
   let PragmaAttributeSupport = 0;
 }
 
@@ -1907,6 +1940,18 @@ def SYCLIntelFPGASpeculatedIterations : Attr {
     // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGASpeculatedIterationsAttrDocs];
+}
+
+def SYCLIntelFPGANofusion : Attr {
+  let Spellings = [CXX11<"intel","nofusion">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "nofusion";
+    }
+  }];
+  let Documentation = [SYCLIntelFPGANofusionAttrDocs];
 }
 
 def IntelFPGALocalNonConstVar : SubsetSubject<Var,

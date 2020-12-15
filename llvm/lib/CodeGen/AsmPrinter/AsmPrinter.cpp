@@ -137,6 +137,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
 
+// FIXME: this option currently only applies to DWARF, and not CodeView, tables
+static cl::opt<bool>
+    DisableDebugInfoPrinting("disable-debug-info-print", cl::Hidden,
+                             cl::desc("Disable debug info printing"));
+
 static const char *const DWARFGroupName = "dwarf";
 static const char *const DWARFGroupDescription = "DWARF Emission";
 static const char *const DbgTimerName = "emit";
@@ -211,7 +216,8 @@ AsmPrinter::AsmPrinter(TargetMachine &tm, std::unique_ptr<MCStreamer> Streamer)
 }
 
 AsmPrinter::~AsmPrinter() {
-  assert(!DD && Handlers.empty() && "Debug/EH info didn't get finalized");
+  assert(!DD && Handlers.size() == NumUserHandlers &&
+         "Debug/EH info didn't get finalized");
 
   if (GCMetadataPrinters) {
     gcp_map_type &GCMap = getGCMap(GCMetadataPrinters);
@@ -254,9 +260,11 @@ void AsmPrinter::EmitToStreamer(MCStreamer &S, const MCInst &Inst) {
 }
 
 void AsmPrinter::emitInitialRawDwarfLocDirective(const MachineFunction &MF) {
-  assert(DD && "Dwarf debug file is not defined.");
-  assert(OutStreamer->hasRawTextSupport() && "Expected assembly output mode.");
-  (void)DD->emitInitialLocDirective(MF, /*CUID=*/0);
+  if (DD) {
+    assert(OutStreamer->hasRawTextSupport() &&
+           "Expected assembly output mode.");
+    (void)DD->emitInitialLocDirective(MF, /*CUID=*/0);
+  }
 }
 
 /// getCurrentSection() - Return the current section we are emitting to.
@@ -294,6 +302,9 @@ bool AsmPrinter::doInitialization(Module &M) {
       .getModuleMetadata(M);
 
   OutStreamer->InitSections(false);
+
+  if (DisableDebugInfoPrinting)
+    MMI->setDebugInfoAvailability(false);
 
   // Emit the version-min deployment target directive if needed.
   //
@@ -374,11 +385,12 @@ bool AsmPrinter::doInitialization(Module &M) {
     }
 
     if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
-      DD = new DwarfDebug(this, &M);
-      DD->beginModule();
-      Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
-                            DbgTimerDescription, DWARFGroupName,
-                            DWARFGroupDescription);
+      if (!DisableDebugInfoPrinting) {
+        DD = new DwarfDebug(this);
+        Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
+                              DbgTimerDescription, DWARFGroupName,
+                              DWARFGroupDescription);
+      }
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -441,6 +453,13 @@ bool AsmPrinter::doInitialization(Module &M) {
     Handlers.emplace_back(std::make_unique<WinCFGuard>(this), CFGuardName,
                           CFGuardDescription, DWARFGroupName,
                           DWARFGroupDescription);
+
+  for (const HandlerInfo &HI : Handlers) {
+    NamedRegionTimer T(HI.TimerName, HI.TimerDescription, HI.TimerGroupName,
+                       HI.TimerGroupDescription, TimePassesIsEnabled);
+    HI.Handler->beginModule(&M);
+  }
+
   return false;
 }
 
@@ -939,7 +958,7 @@ static bool emitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
 
   // The second operand is only an offset if it's an immediate.
   bool MemLoc = MI->isIndirectDebugValue();
-  int64_t Offset = MemLoc ? MI->getOperand(1).getImm() : 0;
+  auto Offset = StackOffset::getFixed(MemLoc ? MI->getOperand(1).getImm() : 0);
   const DIExpression *Expr = MI->getDebugExpression();
   if (Expr->getNumElements()) {
     OS << '[';
@@ -1003,7 +1022,7 @@ static bool emitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
   }
 
   if (MemLoc)
-    OS << '+' << Offset << ']';
+    OS << '+' << Offset.getFixed() << ']';
 
   // NOTE: Want this comment at start of line, don't emit with AddComment.
   AP.OutStreamer->emitRawComment(OS.str());
@@ -1287,8 +1306,6 @@ void AsmPrinter::emitFunctionBody() {
   // Emit target-specific gunk before the function body.
   emitFunctionBodyStart();
 
-  bool ShouldPrintDebugScopes = MMI->hasDebugInfo();
-
   if (isVerbose() || needsBinaryOptReport()) { // INTEL
     // Get MachineDominatorTree or compute it on the fly if it's unavailable
     MDT = getAnalysisIfAvailable<MachineDominatorTree>();
@@ -1312,11 +1329,10 @@ void AsmPrinter::emitFunctionBody() {
   int NumInstsInFunction = 0;
 
   bool CanDoExtraAnalysis = ORE->allowExtraAnalysis(DEBUG_TYPE);
-  const TargetInstrInfo *TII = MF->getSubtarget().getInstrInfo();
   for (auto &MBB : *MF) {
     // Print a label for the basic block.
     emitBasicBlockStart(MBB);
-    DenseMap<unsigned, unsigned> OpcodeCounts;
+    DenseMap<StringRef, unsigned> MnemonicCounts;
     for (auto &MI : MBB) {
       // Print the assembly for the instruction.
       if (!MI.isPosition() && !MI.isImplicitDef() && !MI.isKill() &&
@@ -1329,13 +1345,10 @@ void AsmPrinter::emitFunctionBody() {
       if (MCSymbol *S = MI.getPreInstrSymbol())
         OutStreamer->emitLabel(S);
 
-      if (ShouldPrintDebugScopes) {
-        for (const HandlerInfo &HI : Handlers) {
-          NamedRegionTimer T(HI.TimerName, HI.TimerDescription,
-                             HI.TimerGroupName, HI.TimerGroupDescription,
-                             TimePassesIsEnabled);
-          HI.Handler->beginInstruction(&MI);
-        }
+      for (const HandlerInfo &HI : Handlers) {
+        NamedRegionTimer T(HI.TimerName, HI.TimerDescription, HI.TimerGroupName,
+                           HI.TimerGroupDescription, TimePassesIsEnabled);
+        HI.Handler->beginInstruction(&MI);
       }
 
       if (isVerbose())
@@ -1389,7 +1402,10 @@ void AsmPrinter::emitFunctionBody() {
       default:
         emitInstruction(&MI);
         if (CanDoExtraAnalysis) {
-          auto I = OpcodeCounts.insert({MI.getOpcode(), 0u});
+          MCInst MCI;
+          MCI.setOpcode(MI.getOpcode());
+          auto Name = OutStreamer->getMnemonic(MCI);
+          auto I = MnemonicCounts.insert({Name, 0u});
           I.first->second++;
         }
         break;
@@ -1399,13 +1415,10 @@ void AsmPrinter::emitFunctionBody() {
       if (MCSymbol *S = MI.getPostInstrSymbol())
         OutStreamer->emitLabel(S);
 
-      if (ShouldPrintDebugScopes) {
-        for (const HandlerInfo &HI : Handlers) {
-          NamedRegionTimer T(HI.TimerName, HI.TimerDescription,
-                             HI.TimerGroupName, HI.TimerGroupDescription,
-                             TimePassesIsEnabled);
-          HI.Handler->endInstruction();
-        }
+      for (const HandlerInfo &HI : Handlers) {
+        NamedRegionTimer T(HI.TimerName, HI.TimerDescription, HI.TimerGroupName,
+                           HI.TimerGroupDescription, TimePassesIsEnabled);
+        HI.Handler->endInstruction();
       }
     }
 
@@ -1444,24 +1457,25 @@ void AsmPrinter::emitFunctionBody() {
       MachineOptimizationRemarkAnalysis R(DEBUG_TYPE, "InstructionMix",
                                           MBB.begin()->getDebugLoc(), &MBB);
 
-      // Generate instruction mix remark. First, convert opcodes to string
-      // names, then sort them in descending order by count and name.
-      SmallVector<std::pair<std::string, unsigned>, 128> OpcodeCountsVec;
-      for (auto &KV : OpcodeCounts) {
-        auto Name = (Twine("INST_") + TII->getName(KV.first)).str();
-        OpcodeCountsVec.emplace_back(Name, KV.second);
-      }
-      sort(OpcodeCountsVec, [](const std::pair<std::string, unsigned> &A,
-                               const std::pair<std::string, unsigned> &B) {
+      // Generate instruction mix remark. First, sort counts in descending order
+      // by count and name.
+      SmallVector<std::pair<StringRef, unsigned>, 128> MnemonicVec;
+      for (auto &KV : MnemonicCounts)
+        MnemonicVec.emplace_back(KV.first, KV.second);
+
+      sort(MnemonicVec, [](const std::pair<StringRef, unsigned> &A,
+                           const std::pair<StringRef, unsigned> &B) {
         if (A.second > B.second)
           return true;
         if (A.second == B.second)
-          return A.first < B.first;
+          return StringRef(A.first) < StringRef(B.first);
         return false;
       });
       R << "BasicBlock: " << ore::NV("BasicBlock", MBB.getName()) << "\n";
-      for (auto &KV : OpcodeCountsVec)
-        R << KV.first << ": " << ore::NV(KV.first, KV.second) << "\n";
+      for (auto &KV : MnemonicVec) {
+        auto Name = (Twine("INST_") + KV.first.trim()).str();
+        R << KV.first << ": " << ore::NV(Name, KV.second) << "\n";
+      }
       ORE->emit(R);
     }
   }
@@ -1856,7 +1870,11 @@ bool AsmPrinter::doFinalization(Module &M) {
                        HI.TimerGroupDescription, TimePassesIsEnabled);
     HI.Handler->endModule();
   }
-  Handlers.clear();
+
+  // This deletes all the ephemeral handlers that AsmPrinter added, while
+  // keeping all the user-added handlers alive until the AsmPrinter is
+  // destroyed.
+  Handlers.erase(Handlers.begin() + NumUserHandlers, Handlers.end());
   DD = nullptr;
 
   // If the target wants to know about weak references, print them all.

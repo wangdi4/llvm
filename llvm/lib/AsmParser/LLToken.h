@@ -180,6 +180,7 @@ enum Kind {
   kw_amdgpu_ps,
   kw_amdgpu_cs,
   kw_amdgpu_kernel,
+  kw_amdgpu_gfx,
   kw_tailcc,
 
   // Attributes:
@@ -235,7 +236,6 @@ enum Kind {
   kw_returns_twice,
   kw_signext,
   kw_speculatable,
-  kw_nossp,
   kw_ssp,
   kw_sspreq,
   kw_sspstrong,

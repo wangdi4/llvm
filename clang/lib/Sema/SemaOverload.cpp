@@ -1646,11 +1646,12 @@ static bool IsVectorConversion(Sema &S, QualType FromType,
     }
   }
 
-  if ((ToType->isSizelessBuiltinType() || FromType->isSizelessBuiltinType()) &&
-      S.Context.areCompatibleSveTypes(FromType, ToType)) {
-    ICK = ICK_SVE_Vector_Conversion;
-    return true;
-  }
+  if (ToType->isSizelessBuiltinType() || FromType->isSizelessBuiltinType())
+    if (S.Context.areCompatibleSveTypes(FromType, ToType) ||
+        S.Context.areLaxCompatibleSveTypes(FromType, ToType)) {
+      ICK = ICK_SVE_Vector_Conversion;
+      return true;
+    }
 
   // We can perform the conversion between vector types in the following cases:
   // 1)vector types are equivalent AltiVec and GCC vector types
@@ -4872,8 +4873,11 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
   //     -- Otherwise, the reference shall be an lvalue reference to a
   //        non-volatile const type (i.e., cv1 shall be const), or the reference
   //        shall be an rvalue reference.
-  if (!isRValRef && (!T1.isConstQualified() || T1.isVolatileQualified()))
+  if (!isRValRef && (!T1.isConstQualified() || T1.isVolatileQualified())) {
+    if (InitCategory.isRValue() && RefRelationship != Sema::Ref_Incompatible)
+      ICS.setBad(BadConversionSequence::lvalue_ref_to_rvalue, Init, DeclType);
     return ICS;
+  }
 
   //       -- If the initializer expression
   //
@@ -4963,9 +4967,11 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
 
   // If T1 is reference-related to T2 and the reference is an rvalue
   // reference, the initializer expression shall not be an lvalue.
-  if (RefRelationship >= Sema::Ref_Related &&
-      isRValRef && Init->Classify(S.Context).isLValue())
+  if (RefRelationship >= Sema::Ref_Related && isRValRef &&
+      Init->Classify(S.Context).isLValue()) {
+    ICS.setBad(BadConversionSequence::rvalue_ref_to_lvalue, Init, DeclType);
     return ICS;
+  }
 
   // C++ [over.ics.ref]p2:
   //   When a parameter of reference type is not bound directly to
@@ -5003,11 +5009,8 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
     //   binding an rvalue reference to an lvalue other than a function
     //   lvalue.
     // Note that the function case is not possible here.
-    if (DeclType->isRValueReferenceType() && LValRefType) {
-      // FIXME: This is the wrong BadConversionSequence. The problem is binding
-      // an rvalue reference to a (non-function) lvalue, not binding an lvalue
-      // reference to an rvalue!
-      ICS.setBad(BadConversionSequence::lvalue_ref_to_rvalue, Init, DeclType);
+    if (isRValRef && LValRefType) {
+      ICS.setBad(BadConversionSequence::no_conversion, Init, DeclType);
       return ICS;
     }
 
@@ -10534,7 +10537,7 @@ static void DiagnoseBadConversion(Sema &S, OverloadCandidate *Cand,
     }
 
     unsigned CVR = FromQs.getCVRQualifiers() & ~ToQs.getCVRQualifiers();
-    assert(CVR && "unexpected qualifiers mismatch");
+    assert(CVR && "expected qualifiers mismatch");
 
     if (isObjectArgument) {
       S.Diag(Fn->getLocation(), diag::note_ovl_candidate_bad_cvr_this)
@@ -10547,6 +10550,17 @@ static void DiagnoseBadConversion(Sema &S, OverloadCandidate *Cand,
           << (FromExpr ? FromExpr->getSourceRange() : SourceRange()) << FromTy
           << (CVR - 1) << I + 1;
     }
+    MaybeEmitInheritedConstructorNote(S, Cand->FoundDecl);
+    return;
+  }
+
+  if (Conv.Bad.Kind == BadConversionSequence::lvalue_ref_to_rvalue ||
+      Conv.Bad.Kind == BadConversionSequence::rvalue_ref_to_lvalue) {
+    S.Diag(Fn->getLocation(), diag::note_ovl_candidate_bad_value_category)
+        << (unsigned)FnKindPair.first << (unsigned)FnKindPair.second << FnDesc
+        << (unsigned)isObjectArgument << I + 1
+        << (Conv.Bad.Kind == BadConversionSequence::rvalue_ref_to_lvalue)
+        << (FromExpr ? FromExpr->getSourceRange() : SourceRange());
     MaybeEmitInheritedConstructorNote(S, Cand->FoundDecl);
     return;
   }
@@ -10608,15 +10622,6 @@ static void DiagnoseBadConversion(Sema &S, OverloadCandidate *Cand,
         !ToRefTy->getPointeeType()->isIncompleteType() &&
         S.IsDerivedFrom(SourceLocation(), ToRefTy->getPointeeType(), FromTy)) {
       BaseToDerivedConversion = 3;
-    } else if (ToTy->isLValueReferenceType() && !FromExpr->isLValue() &&
-               ToTy.getNonReferenceType().getCanonicalType() ==
-               FromTy.getNonReferenceType().getCanonicalType()) {
-      S.Diag(Fn->getLocation(), diag::note_ovl_candidate_bad_lvalue)
-          << (unsigned)FnKindPair.first << (unsigned)FnKindPair.second << FnDesc
-          << (unsigned)isObjectArgument << I + 1
-          << (FromExpr ? FromExpr->getSourceRange() : SourceRange());
-      MaybeEmitInheritedConstructorNote(S, Cand->FoundDecl);
-      return;
     }
   }
 

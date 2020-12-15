@@ -1779,12 +1779,14 @@ static const EnumEntry<unsigned> ElfHeaderAMDGPUFlags[] = {
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX906),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX908),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX909),
+  LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX90C),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1010),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1011),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1012),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1030),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1031),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1032),
+  LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1033),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_XNACK),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_SRAM_ECC)
 };
@@ -1995,6 +1997,9 @@ ELFDumper<ELFT>::ELFDumper(const object::ELFObjectFile<ELFT> &O,
     ELFDumperStyle.reset(new GNUStyle<ELFT>(Writer, *this));
   else
     ELFDumperStyle.reset(new LLVMStyle<ELFT>(Writer, *this));
+
+  if (!O.IsContentValid())
+    return;
 
   typename ELFT::ShdrRange Sections = cantFail(Obj.sections());
   for (const Elf_Shdr &Sec : Sections) {
@@ -3445,10 +3450,17 @@ static std::string getSectionHeadersNumString(const ELFFile<ELFT> &Obj,
   if (ElfHeader.e_shnum != 0)
     return to_string(ElfHeader.e_shnum);
 
-  ArrayRef<typename ELFT::Shdr> Arr = cantFail(Obj.sections());
-  if (Arr.empty())
+  Expected<ArrayRef<typename ELFT::Shdr>> ArrOrErr = Obj.sections();
+  if (!ArrOrErr) {
+    // In this case we can ignore an error, because we have already reported a
+    // warning about the broken section header table earlier.
+    consumeError(ArrOrErr.takeError());
+    return "<?>";
+  }
+
+  if (ArrOrErr->empty())
     return "0";
-  return "0 (" + to_string(Arr[0].sh_size) + ")";
+  return "0 (" + to_string((*ArrOrErr)[0].sh_size) + ")";
 }
 
 template <class ELFT>
@@ -3458,11 +3470,18 @@ static std::string getSectionHeaderTableIndexString(const ELFFile<ELFT> &Obj,
   if (ElfHeader.e_shstrndx != SHN_XINDEX)
     return to_string(ElfHeader.e_shstrndx);
 
-  ArrayRef<typename ELFT::Shdr> Arr = cantFail(Obj.sections());
-  if (Arr.empty())
+  Expected<ArrayRef<typename ELFT::Shdr>> ArrOrErr = Obj.sections();
+  if (!ArrOrErr) {
+    // In this case we can ignore an error, because we have already reported a
+    // warning about the broken section header table earlier.
+    consumeError(ArrOrErr.takeError());
+    return "<?>";
+  }
+
+  if (ArrOrErr->empty())
     return "65535 (corrupt: out of range)";
-  return to_string(ElfHeader.e_shstrndx) + " (" + to_string(Arr[0].sh_link) +
-         ")";
+  return to_string(ElfHeader.e_shstrndx) + " (" +
+         to_string((*ArrOrErr)[0].sh_link) + ")";
 }
 
 template <class ELFT> void GNUStyle<ELFT>::printFileHeaders() {

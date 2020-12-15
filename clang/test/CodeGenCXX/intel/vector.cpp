@@ -36,18 +36,18 @@ void bar_vector() {
   i = 0;
   #pragma vector
   while (i < n) {
-    // CHECK-NOT: br label {{.*}}, !llvm.loop ![[LOOP_12:[0-9]+]]
+    // CHECK: br label {{.*}}, !llvm.loop ![[LOOP_12:[0-9]+]]
     a[i] += 3;
   }
   i = 0;
   #pragma vector
   do {
-    // CHECK-NOT: br i1 %{{.*}}, !llvm.loop ![[LOOP_14:[0-9]+]]
+    // CHECK: br i1 %{{.*}}, !llvm.loop ![[LOOP_14:[0-9]+]]
     a[i] += 4;
   } while (i < n);
   #pragma vector
   for (i = 0; i < n; ++i) {
-    // CHECK-NOT: br label %{{.*}}, !llvm.loop ![[LOOP_15:[0-9]+]]
+    // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_15:[0-9]+]]
     a[i] += 5;
   }
   #pragma vector
@@ -155,23 +155,26 @@ void foo4() {
   }
 }
 
-// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[NOVECTOR:[0-9]+]]}
+// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[LOOP_MUSTPROGRESS:[0-9]+]], ![[NOVECTOR:[0-9]+]]}
 // CHECK: ![[NOVECTOR]] = !{!"llvm.loop.vectorize.width", i32 1}
-// CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[NOVECTOR]]}
-// CHECK: ![[LOOP_5]] = distinct !{![[LOOP_5]], ![[NOVECTOR]]}
+// CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[LOOP_MUSTPROGRESS]], ![[NOVECTOR]]}
+// CHECK: ![[LOOP_5]] = distinct !{![[LOOP_5]], ![[LOOP_MUSTPROGRESS]], ![[NOVECTOR]]}
 // CHECK: ![[LOOP_6]] = distinct !{![[LOOP_6]], ![[NOVECTOR]]}
-// CHECK: ![[LOOP_22]] = distinct !{![[LOOP_22]], ![[VALWAYS:[0-9]+]], ![[VENABLE:[0-9]+]]}
+// CHECK-NOT: ![[LOOP_12]] = {{.*}}![[NOVECTOR]]
+// CHECK-NOT: ![[LOOP_14]] = {{.*}}![[NOVECTOR]]
+// CHECK-NOT: ![[LOOP_15]] = {{.*}}![[NOVECTOR]]
+// CHECK: ![[LOOP_22]] = distinct !{![[LOOP_22]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS:[0-9]+]], ![[VENABLE:[0-9]+]]}
 // CHECK: ![[VALWAYS]] = !{!"llvm.loop.vectorize.ignore_profitability"}
 // CHECK: ![[VENABLE]] = !{!"llvm.loop.vectorize.enable", i1 true}
-// CHECK: ![[LOOP_24]] = distinct !{![[LOOP_24]], ![[VALWAYS]], ![[VENABLE]]}
-// CHECK: ![[LOOP_25]] = distinct !{![[LOOP_25]], ![[VALWAYS]], ![[VENABLE]]}
+// CHECK: ![[LOOP_24]] = distinct !{![[LOOP_24]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]]}
+// CHECK: ![[LOOP_25]] = distinct !{![[LOOP_25]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]]}
 // CHECK: ![[LOOP_26]] = distinct !{![[LOOP_26]], ![[VALWAYS]], ![[VENABLE]]}
-// CHECK: ![[LOOP_27]] = distinct !{![[LOOP_27]], ![[VALIGNED:[0-9]+]]}
+// CHECK: ![[LOOP_27]] = distinct !{![[LOOP_27]], ![[LOOP_MUSTPROGRESS]], ![[VALIGNED:[0-9]+]]}
 // CHECK: ![[VALIGNED]] = !{!"llvm.loop.intel.vector.aligned"}
-// CHECK: ![[LOOP_28]] = distinct !{![[LOOP_28]], ![[VALIGNED]]}
-// CHECK: ![[LOOP_29]] = distinct !{![[LOOP_29]], ![[VALIGNED]]}
+// CHECK: ![[LOOP_28]] = distinct !{![[LOOP_28]], ![[LOOP_MUSTPROGRESS]], ![[VALIGNED]]}
+// CHECK: ![[LOOP_29]] = distinct !{![[LOOP_29]], ![[LOOP_MUSTPROGRESS]], ![[VALIGNED]]}
 // CHECK: ![[LOOP_30]] = distinct !{![[LOOP_30]], ![[VALIGNED]]}
-// CHECK: ![[LOOP_7]] = distinct !{![[LOOP_7]], ![[NOVECTOR]]}
-// CHECK: ![[LOOP_8]] = distinct !{![[LOOP_8]], ![[NOVECTOR]]}
-// CHECK: ![[LOOP_31]] = distinct !{![[LOOP_31]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]]}
-// CHECK: ![[LOOP_32]] = distinct !{![[LOOP_32]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]]}
+// CHECK: ![[LOOP_7]] = distinct !{![[LOOP_7]], ![[LOOP_MUSTPROGRESS]], ![[NOVECTOR]]}
+// CHECK: ![[LOOP_8]] = distinct !{![[LOOP_8]], ![[LOOP_MUSTPROGRESS]], ![[NOVECTOR]]}
+// CHECK: ![[LOOP_31]] = distinct !{![[LOOP_31]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]]}
+// CHECK: ![[LOOP_32]] = distinct !{![[LOOP_32]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]]}

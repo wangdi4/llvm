@@ -770,6 +770,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createCFGSimplificationPass());
     addInstructionCombiningPass(MPM);  // INTEL
     // We resume loop passes creating a second loop pipeline here.
+    if (EnableLoopFlatten) {
+      MPM.add(createLoopFlattenPass()); // Flatten loops
+      MPM.add(createLoopSimplifyCFGPass());
+    }
     // TODO: this pass hurts performance due to promotions of induction variables
     // from 32-bit value to 64-bit values. I assume it's because SPIR is a virtual
     // target with unlimited # of registers and pass doesn't take into account
@@ -781,10 +785,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
     if (EnableLoopInterchange)
       MPM.add(createLoopInterchangePass()); // Interchange loops
-    if (EnableLoopFlatten) {
-      MPM.add(createLoopFlattenPass()); // Flatten loops
-      MPM.add(createLoopSimplifyCFGPass());
-    }
 
     // Unroll small loops
     // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
@@ -871,6 +871,8 @@ void PassManagerBuilder::populateModulePassManager(
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
+  MPM.add(createAnnotation2MetadataLegacyPass());
+
   if (!PGOSampleUse.empty()) {
     MPM.add(createPruneEHPass());
     // In ThinLTO mode, when flattened profile is used, all the available
@@ -1434,6 +1436,11 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createSROAPass());
   }
 #endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
+  MPM.add(createAnnotationRemarksLegacyPass());
+
+#if INTEL_CUSTOMIZATION
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
                                         PrepareForLTO || PrepareForThinLTO));
 #endif // INTEL_CUSTOMIZATION
@@ -1829,12 +1836,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
 
   // More loops are countable; try to optimize them.
+  if (EnableLoopFlatten)
+    PM.add(createLoopFlattenPass());
   PM.add(createIndVarSimplifyPass());
   PM.add(createLoopDeletionPass());
   if (EnableLoopInterchange)
     PM.add(createLoopInterchangePass());
-  if (EnableLoopFlatten)
-    PM.add(createLoopFlattenPass());
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
@@ -1843,10 +1850,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
                                     DisableUnrollLoops, // Unroll small loops
                                     ForgetAllSCEVInLoopUnroll));
   addLoopOptAndAssociatedVPOPasses(PM, true);
+#endif  // INTEL_CUSTOMIZATION
+  PM.add(createLoopDistributePass());
+#if INTEL_CUSTOMIZATION
   if (EnableLV)
     PM.add(createLoopVectorizePass(true, !LoopVectorize));
 #endif  // INTEL_CUSTOMIZATION
-
   // The vectorizer may have significantly shortened a loop body; unroll again.
   PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops,
                               ForgetAllSCEVInLoopUnroll));
@@ -2390,6 +2399,8 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
     addLateLTOOptimizationPasses(PM);
 
   addExtensionsToPM(EP_FullLinkTimeOptimizationLast, PM);
+
+  PM.add(createAnnotationRemarksLegacyPass());
 
   if (VerifyOutput)
     PM.add(createVerifierPass());

@@ -148,6 +148,7 @@ void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
       R = SoftenFloatRes_VECREDUCE(N);
       break;
     case ISD::VECREDUCE_SEQ_FADD:
+    case ISD::VECREDUCE_SEQ_FMUL:
       R = SoftenFloatRes_VECREDUCE_SEQ(N);
       break;
   }
@@ -1372,7 +1373,7 @@ void DAGTypeLegalizer::ExpandFloatRes_FABS(SDNode *N, SDValue &Lo,
 
 void DAGTypeLegalizer::ExpandFloatRes_FMINNUM(SDNode *N, SDValue &Lo,
                                               SDValue &Hi) {
-  ExpandFloatRes_Unary(N, GetFPLibCall(N->getValueType(0),
+  ExpandFloatRes_Binary(N, GetFPLibCall(N->getValueType(0),
                                        RTLIB::FMIN_F32, RTLIB::FMIN_F64,
                                        RTLIB::FMIN_F80, RTLIB::FMIN_F128,
                                        RTLIB::FMIN_PPCF128), Lo, Hi);
@@ -2377,6 +2378,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
       R = PromoteFloatRes_VECREDUCE(N);
       break;
     case ISD::VECREDUCE_SEQ_FADD:
+    case ISD::VECREDUCE_SEQ_FMUL:
       R = PromoteFloatRes_VECREDUCE_SEQ(N);
       break;
   }
@@ -2739,6 +2741,7 @@ void DAGTypeLegalizer::SoftPromoteHalfResult(SDNode *N, unsigned ResNo) {
     R = SoftPromoteHalfRes_VECREDUCE(N);
     break;
   case ISD::VECREDUCE_SEQ_FADD:
+  case ISD::VECREDUCE_SEQ_FMUL:
     R = SoftPromoteHalfRes_VECREDUCE_SEQ(N);
     break;
   }

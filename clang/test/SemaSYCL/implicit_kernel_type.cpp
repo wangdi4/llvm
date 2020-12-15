@@ -1,8 +1,6 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -fsycl-int-header=%t.h -fsyntax-only -sycl-std=2020 -verify %s -Werror=sycl-strict -DERROR
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -fsycl-int-header=%t.h -fsyntax-only -sycl-std=2020 -verify %s  -Wsycl-strict -DWARN
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -fsycl-int-header=%t.h -fsycl-unnamed-lambda -fsyntax-only -sycl-std=2020 -verify %s  -Werror=sycl-strict
-
-// INTEL_CUSTOMIZATION comments should be removed once patch is upstreamed to intel/llvm.
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -fsyntax-only -sycl-std=2020 -verify %s -Werror=sycl-strict -DERROR
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -fsyntax-only -sycl-std=2020 -verify %s  -Wsycl-strict -DWARN
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -fsycl-unnamed-lambda -fsyntax-only -sycl-std=2020 -verify %s  -Werror=sycl-strict
 
 #include "sycl.hpp"
 
@@ -27,18 +25,12 @@ int main() {
   queue q;
 
 #if defined(WARN)
-  // expected-error@Inputs/sycl.hpp:220 {{kernel needs to have a globally-visible name}}
-  // INTEL_CUSTOMIZATION
-  // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'InvalidKernelName1'}}
-  // expected-note@+11 {{InvalidKernelName1 declared here}}
-  // expected-note@+12 {{in instantiation of function template specialization}}
-  // end INTEL_CUSTOMIZATION
+  // expected-error@Inputs/sycl.hpp:220 {{'InvalidKernelName1' is an invalid kernel name type}}
+  // expected-note@Inputs/sycl.hpp:220 {{'InvalidKernelName1' should be globally-visible}}
+  // expected-note@+8 {{in instantiation of function template specialization}}
 #elif defined(ERROR)
-  // expected-error@Inputs/sycl.hpp:220 {{kernel needs to have a globally-visible name}}
-  // INTEL_CUSTOMIZATION
-  // expected-note@Inputs/sycl.hpp:220 {{Invalid kernel name is 'InvalidKernelName1'}}
-  // end INTEL_CUSTOMIZATION
-  // expected-note@+3 {{InvalidKernelName1 declared here}}
+  // expected-error@Inputs/sycl.hpp:220 {{'InvalidKernelName1' is an invalid kernel name type}}
+  // expected-note@Inputs/sycl.hpp:220 {{'InvalidKernelName1' should be globally-visible}}
   // expected-note@+4 {{in instantiation of function template specialization}}
 #endif
   class InvalidKernelName1 {};

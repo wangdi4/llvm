@@ -18,10 +18,6 @@ set(LLVM_LINK_COMPONENTS
   VPOTransforms
 # end INTEL_CUSTOMIZATION
   TransformUtils
-# INTEL_CUSTOMIZATION
-  GenXIntrinsics
-  VPOTransforms
-# end INTEL_CUSTOMIZATION
   )
 
 add_llvm_tool(sycl-post-link
@@ -35,6 +31,7 @@ add_llvm_tool(sycl-post-link
   ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include
 
   LINK_LIBS
+  LLVMVPOTransforms
   LLVMGenXIntrinsics
   LLVMVPOTransforms
 # end INTEL_CUSTOMIZATION

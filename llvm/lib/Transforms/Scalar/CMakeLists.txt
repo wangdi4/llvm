@@ -1,6 +1,7 @@
 add_llvm_component_library(LLVMScalarOpts
   ADCE.cpp
   AlignmentFromAssumptions.cpp
+  AnnotationRemarks.cpp
   BDCE.cpp
   CallSiteSplitting.cpp
   ConstantHoisting.cpp
@@ -104,6 +105,20 @@ add_llvm_component_library(LLVMScalarOpts
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
+
+  COMPONENT_NAME
+  Scalar
+
+  LINK_COMPONENTS
+  AggressiveInstCombine
+  Analysis
+  Core
+  InstCombine
+# INTEL_CUSTOMIZATION
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
+  Support
+  TransformUtils
   )
 
 # INTEL_CUSTOMIZATION

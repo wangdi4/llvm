@@ -7,4 +7,8 @@ add_llvm_component_library(LLVMIntel_OpenCLTransforms
 
   DEPENDS
   intrinsics_gen
+
+  LINK_COMPONENTS
+  Core
+  Support
 )

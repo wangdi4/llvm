@@ -5733,6 +5733,31 @@ SDValue DAGCombiner::visitAND(SDNode *N) {
     if (SDValue V = combineShiftAnd1ToBitTest(N, DAG))
       return V;
 
+  // Recognize the following pattern:
+  //
+  // AndVT = (and (sign_extend NarrowVT to AndVT) #bitmask)
+  //
+  // where bitmask is a mask that clears the upper bits of AndVT. The
+  // number of bits in bitmask must be a power of two.
+  auto IsAndZeroExtMask = [](SDValue LHS, SDValue RHS) {
+    if (LHS->getOpcode() != ISD::SIGN_EXTEND)
+      return false;
+
+    auto *C = dyn_cast<ConstantSDNode>(RHS);
+    if (!C)
+      return false;
+
+    if (!C->getAPIntValue().isMask(
+            LHS.getOperand(0).getValueType().getFixedSizeInBits()))
+      return false;
+
+    return true;
+  };
+
+  // Replace (and (sign_extend ...) #bitmask) with (zero_extend ...).
+  if (IsAndZeroExtMask(N0, N1))
+    return DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N), VT, N0.getOperand(0));
+
   return SDValue();
 }
 
@@ -9379,15 +9404,78 @@ static SDValue ConvertSelectToConcatVector(SDNode *N, SelectionDAG &DAG) {
       TopHalf->isNullValue() ? RHS->getOperand(1) : LHS->getOperand(1));
 }
 
+bool refineUniformBase(SDValue &BasePtr, SDValue &Index, SelectionDAG &DAG) {
+  if (!isNullConstant(BasePtr) || Index.getOpcode() != ISD::ADD)
+    return false;
+
+  // For now we check only the LHS of the add.
+  SDValue LHS = Index.getOperand(0);
+  SDValue SplatVal = DAG.getSplatValue(LHS);
+  if (!SplatVal)
+    return false;
+
+  BasePtr = SplatVal;
+  Index = Index.getOperand(1);
+  return true;
+}
+
+// Fold sext/zext of index into index type.
+bool refineIndexType(MaskedScatterSDNode *MSC, SDValue &Index, bool Scaled,
+                     SelectionDAG &DAG) {
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+
+  if (Index.getOpcode() == ISD::ZERO_EXTEND) {
+#if INTEL_CUSTOMIZATION
+    SDValue Op = Index.getOperand(0);
+#endif // INTEL_CUSTOMIZATION
+    MSC->setIndexType(Scaled ? ISD::UNSIGNED_SCALED : ISD::UNSIGNED_UNSCALED);
+    if (TLI.shouldRemoveExtendFromGSIndex(Op.getValueType())) {
+      Index = Op;
+      return true;
+    }
+  }
+
+  if (Index.getOpcode() == ISD::SIGN_EXTEND) {
+#if INTEL_CUSTOMIZATION
+    SDValue Op = Index.getOperand(0);
+#endif // INTEL_CUSTOMIZATION
+    MSC->setIndexType(Scaled ? ISD::SIGNED_SCALED : ISD::SIGNED_UNSCALED);
+    if (TLI.shouldRemoveExtendFromGSIndex(Op.getValueType())) {
+      Index = Op;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 SDValue DAGCombiner::visitMSCATTER(SDNode *N) {
   MaskedScatterSDNode *MSC = cast<MaskedScatterSDNode>(N);
   SDValue Mask = MSC->getMask();
   SDValue Chain = MSC->getChain();
+  SDValue Index = MSC->getIndex();
+  SDValue Scale = MSC->getScale();
+  SDValue StoreVal = MSC->getValue();
+  SDValue BasePtr = MSC->getBasePtr();
   SDLoc DL(N);
 
   // Zap scatters with a zero mask.
   if (ISD::isBuildVectorAllZeros(Mask.getNode()))
     return Chain;
+
+  if (refineUniformBase(BasePtr, Index, DAG)) {
+    SDValue Ops[] = {Chain, StoreVal, Mask, BasePtr, Index, Scale};
+    return DAG.getMaskedScatter(
+        DAG.getVTList(MVT::Other), StoreVal.getValueType(), DL, Ops,
+        MSC->getMemOperand(), MSC->getIndexType(), MSC->isTruncatingStore());
+  }
+
+  if (refineIndexType(MSC, Index, MSC->isIndexScaled(), DAG)) {
+    SDValue Ops[] = {Chain, StoreVal, Mask, BasePtr, Index, Scale};
+    return DAG.getMaskedScatter(
+        DAG.getVTList(MVT::Other), StoreVal.getValueType(), DL, Ops,
+        MSC->getMemOperand(), MSC->getIndexType(), MSC->isTruncatingStore());
+  }
 
   return SDValue();
 }
@@ -17851,6 +17939,13 @@ SDValue DAGCombiner::scalarizeExtractedVectorLoad(SDNode *EVE, EVT InVecVT,
 
   EVT ResultVT = EVE->getValueType(0);
   EVT VecEltVT = InVecVT.getVectorElementType();
+
+  // If the vector element type is not a multiple of a byte then we are unable
+  // to correctly compute an address to load only the extracted element as a
+  // scalar.
+  if (!VecEltVT.isByteSized())
+    return SDValue();
+
   Align Alignment = OriginalLoad->getAlign();
   Align NewAlign = DAG.getDataLayout().getABITypeAlign(
       VecEltVT.getTypeForEVT(*DAG.getContext()));
@@ -20928,7 +21023,7 @@ SDValue DAGCombiner::visitVECREDUCE(SDNode *N) {
   unsigned Opcode = N->getOpcode();
 
   // VECREDUCE over 1-element vector is just an extract.
-  if (VT.getVectorNumElements() == 1) {
+  if (VT.getVectorElementCount().isScalar()) {
     SDLoc dl(N);
     SDValue Res =
         DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT.getVectorElementType(), N0,

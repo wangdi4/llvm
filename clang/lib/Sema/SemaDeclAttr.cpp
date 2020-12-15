@@ -2067,7 +2067,8 @@ bool Sema::CheckAttrTarget(const ParsedAttr &AL) {
   if (!(AL.existsInTarget(Context.getTargetInfo()) ||
         (Context.getLangOpts().SYCLIsDevice &&
          Aux && AL.existsInTarget(*Aux)))) {
-    Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
+    Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored)
+        << AL << AL.getRange();
     AL.setInvalid();
     return true;
   }
@@ -3912,6 +3913,21 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
                                                                      E);
 }
 
+// Handles use_stall_enable_clusters
+static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  unsigned NumArgs = Attr.getNumArgs();
+  if (NumArgs > 0) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_too_many_arguments) << Attr << 0;
+    return;
+  }
+
+  handleSimpleAttribute<SYCLIntelUseStallEnableClustersAttr>(S, D, Attr);
+}
+
 // Add scheduler_target_fmax_mhz
 void Sema::addSYCLIntelSchedulerTargetFmaxMhzAttr(
     Decl *D, const AttributeCommonInfo &Attr, Expr *E) {
@@ -4742,7 +4758,7 @@ void Sema::AddAnnotationAttr(Decl *D, const AttributeCommonInfo &CI,
                              StringRef Str, MutableArrayRef<Expr *> Args) {
   auto *Attr = AnnotateAttr::Create(Context, Str, Args.data(), Args.size(), CI);
   llvm::SmallVector<PartialDiagnosticAt, 8> Notes;
-  for (unsigned Idx = 1; Idx < Attr->args_size(); Idx++) {
+  for (unsigned Idx = 0; Idx < Attr->args_size(); Idx++) {
     Expr *&E = Attr->args_begin()[Idx];
     assert(E && "error are handled before");
     if (E->isValueDependent() || E->isTypeDependent())
@@ -4774,7 +4790,7 @@ void Sema::AddAnnotationAttr(Decl *D, const AttributeCommonInfo &CI,
     /// current language mode.
     if (!Result || !Notes.empty()) {
       Diag(E->getBeginLoc(), diag::err_attribute_argument_n_type)
-          << CI << Idx << AANT_ArgumentConstantExpr;
+          << CI << (Idx + 1) << AANT_ArgumentConstantExpr;
       for (auto &Note : Notes)
         Diag(Note.first, Note.second);
       return;
@@ -4793,8 +4809,8 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
 
   llvm::SmallVector<Expr *, 4> Args;
-  Args.reserve(AL.getNumArgs());
-  for (unsigned Idx = 0; Idx < AL.getNumArgs(); Idx++) {
+  Args.reserve(AL.getNumArgs() - 1);
+  for (unsigned Idx = 1; Idx < AL.getNumArgs(); Idx++) {
     assert(!AL.isArgIdent(Idx));
     Args.push_back(AL.getArgAsExpr(Idx));
   }
@@ -5467,15 +5483,6 @@ static void handleSYCLDeviceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here) << AL;
     return;
   }
-  if (FD->getReturnType()->isPointerType()) {
-    S.Diag(AL.getLoc(), diag::warn_sycl_attibute_function_raw_ptr)
-        << AL << 0 /* function with a raw pointer return type */;
-  }
-  for (const ParmVarDecl *Param : FD->parameters())
-    if (Param->getType()->isPointerType()) {
-      S.Diag(AL.getLoc(), diag::warn_sycl_attibute_function_raw_ptr)
-          << AL << 1 /* function with a raw pointer parameter type */;
-    }
 
   handleSimpleAttribute<SYCLDeviceAttr>(S, D, AL);
 }
@@ -5512,8 +5519,8 @@ static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL))
     return;
   const auto *VD = cast<VarDecl>(D);
-  if (!VD->hasGlobalStorage()) {
-    S.Diag(AL.getLoc(), diag::err_cuda_nonglobal_constant);
+  if (VD->hasLocalStorage()) {
+    S.Diag(AL.getLoc(), diag::err_cuda_nonstatic_constdev);
     return;
   }
   D->addAttr(::new (S.Context) CUDAConstantAttr(S.Context, AL));
@@ -5572,6 +5579,20 @@ static void handleGlobalAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // debug info for the stub function to avoid confusing the debugger.
   if (S.LangOpts.HIP && !S.LangOpts.CUDAIsDevice)
     D->addAttr(NoDebugAttr::CreateImplicit(S.Context));
+}
+
+static void handleDeviceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (checkAttrMutualExclusion<CUDAGlobalAttr>(S, D, AL)) {
+    return;
+  }
+
+  if (const auto *VD = dyn_cast<VarDecl>(D)) {
+    if (VD->hasLocalStorage()) {
+      S.Diag(AL.getLoc(), diag::err_cuda_nonstatic_constdev);
+      return;
+    }
+  }
+  D->addAttr(::new (S.Context) CUDADeviceAttr(S.Context, AL));
 }
 
 static void handleGNUInlineAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -7088,7 +7109,8 @@ static void handleNSErrorDomain(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  if (!isNSStringType(VD->getType(), S.Context)) {
+  if (!isNSStringType(VD->getType(), S.Context) &&
+      !isCFStringType(VD->getType(), S.Context)) {
     S.Diag(Loc, diag::err_nserrordomain_wrong_type) << VD;
     return;
   }
@@ -9025,7 +9047,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
            AL.isDeclspecAttribute()
                ? (unsigned)diag::warn_unhandled_ms_attribute_ignored
                : (unsigned)diag::warn_unknown_attribute_ignored)
-        << AL;
+        << AL << AL.getRange();
     return;
   }
 
@@ -9149,19 +9171,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handlePassObjectSizeAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Constructor:
-    if (S.Context.getTargetInfo().getTriple().isOSAIX())
-      llvm::report_fatal_error(
-          "'constructor' attribute is not yet supported on AIX");
-    else
       handleConstructorAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Deprecated:
     handleDeprecatedAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Destructor:
-    if (S.Context.getTargetInfo().getTriple().isOSAIX())
-      llvm::report_fatal_error("'destructor' attribute is not yet supported on AIX");
-    else
       handleDestructorAttr(S, D, AL);
     break;
   case ParsedAttr::AT_EnableIf:
@@ -9232,8 +9247,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleGlobalAttr(S, D, AL);
     break;
   case ParsedAttr::AT_CUDADevice:
-    handleSimpleAttributeWithExclusions<CUDADeviceAttr, CUDAGlobalAttr>(S, D,
-                                                                        AL);
+    handleDeviceAttr(S, D, AL);
     break;
   case ParsedAttr::AT_CUDAHost:
     handleSimpleAttributeWithExclusions<CUDAHostAttr, CUDAGlobalAttr>(S, D, AL);
@@ -9397,6 +9411,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_SYCLIntelNoGlobalWorkOffset:
     handleNoGlobalWorkOffsetAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLIntelUseStallEnableClusters:
+    handleUseStallEnableClustersAttr(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
@@ -10100,8 +10117,8 @@ NamedDecl * Sema::DeclClonePragmaWeak(NamedDecl *ND, IdentifierInfo *II,
     NewFD = FunctionDecl::Create(
         FD->getASTContext(), FD->getDeclContext(), Loc, Loc,
         DeclarationName(II), FD->getType(), FD->getTypeSourceInfo(), SC_None,
-        false /*isInlineSpecified*/, FD->hasPrototype(), CSK_unspecified,
-        FD->getTrailingRequiresClause());
+        false /*isInlineSpecified*/, FD->hasPrototype(),
+        ConstexprSpecKind::Unspecified, FD->getTrailingRequiresClause());
     NewD = NewFD;
 
     if (FD->getQualifier())

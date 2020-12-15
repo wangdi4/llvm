@@ -5,6 +5,13 @@ add_llvm_component_library(LLVMIntel_OptReport
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+  Support
+  ProfileData
+  Object
   )
 
 add_dependencies(LLVMIntel_OptReport intrinsics_gen directives_gen)

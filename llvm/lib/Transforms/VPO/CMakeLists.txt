@@ -79,6 +79,19 @@ add_llvm_component_library(LLVMVPOTransforms
   LINK_LIBS
   LLVMDemangle
   LLVMGenXIntrinsics
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+# INTEL_CUSTOMIZATION
+  Intel_LoopAnalysis
+  Intel_LoopTransforms
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
+  Scalar
+  Support
+  TransformUtils
+  VPOAnalysis
 )
 
 add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMDemangle LLVMGenXIntrinsics)

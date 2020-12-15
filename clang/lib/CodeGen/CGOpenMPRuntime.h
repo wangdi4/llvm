@@ -620,7 +620,8 @@ private:
     /// Return true if a target region entry with the provided information
     /// exists.
     bool hasTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-                                  StringRef ParentName, unsigned LineNum) const;
+                                  StringRef ParentName, unsigned LineNum,
+                                  bool IgnoreAddressId = false) const;
     /// brief Applies action \a Action on all registered entries.
     typedef llvm::function_ref<void(unsigned, unsigned, StringRef, unsigned,
                                     const OffloadEntryInfoTargetRegion &)>
@@ -1692,6 +1693,9 @@ public:
     llvm::Value *MapTypesArrayEnd = nullptr;
     /// The array of user-defined mappers passed to the runtime library.
     llvm::Value *MappersArray = nullptr;
+    /// The array of original declaration names of mapped pointers sent to the
+    /// runtime library for debugging
+    llvm::Value *MapNamesArray = nullptr;
     /// Indicate whether any user-defined mapper exists.
     bool HasMapper = false;
     /// The total number of pointers passed to the runtime library.
@@ -1712,6 +1716,7 @@ public:
       SizesArray = nullptr;
       MapTypesArray = nullptr;
       MapTypesArrayEnd = nullptr;
+      MapNamesArray = nullptr;
       MappersArray = nullptr;
       HasMapper = false;
       NumberOfPtrs = 0u;

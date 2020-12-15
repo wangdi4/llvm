@@ -17,7 +17,7 @@ include "llvm/CodeGen/SDNodeProperties.td"
 //  Properties we keep track of for intrinsics.
 //===----------------------------------------------------------------------===//
 
-class IntrinsicProperty<bit is_default = 0> {
+class IntrinsicProperty<bit is_default = false> {
   bit IsDefault = is_default;
 }
 
@@ -161,7 +161,7 @@ def IntrHasSideEffects : IntrinsicProperty;
 
 class LLVMType<ValueType vt> {
   ValueType VT = vt;
-  int isAny = 0;
+  int isAny = false;
 }
 
 class LLVMQualPointerType<LLVMType elty, int addrspace>
@@ -177,7 +177,7 @@ class LLVMAnyPointerType<LLVMType elty>
   : LLVMType<iPTRAny>{
   LLVMType ElTy = elty;
 
-  let isAny = 1;
+  let isAny = true;
 }
 
 // Match the type of another intrinsic parameter.  Number is an index into the
@@ -226,7 +226,7 @@ class LLVMSubdivide4VectorType<int num> : LLVMMatchType<num>;
 class LLVMVectorOfBitcastsToInt<int num> : LLVMMatchType<num>;
 
 def llvm_void_ty       : LLVMType<isVoid>;
-let isAny = 1 in {
+let isAny = true in {
   def llvm_any_ty        : LLVMType<Any>;
   def llvm_anyint_ty     : LLVMType<iAny>;
   def llvm_anyfloat_ty   : LLVMType<fAny>;
@@ -348,7 +348,7 @@ class Intrinsic<list<LLVMType> ret_types,
                 list<IntrinsicProperty> intr_properties = [],
                 string name = "",
                 list<SDNodeProperty> sd_properties = [],
-                bit disable_default_attributes = 1> : SDPatternOperator {
+                bit disable_default_attributes = true> : SDPatternOperator {
   string LLVMName = name;
   string TargetPrefix = "";   // Set to a prefix for target-specific intrinsics.
   list<LLVMType> RetTypes = ret_types;
@@ -360,10 +360,10 @@ class Intrinsic<list<LLVMType> ret_types,
   // IntrinsicProperty<1>
   bit DisableDefaultAttributes = disable_default_attributes;
 
-  bit isTarget = 0;
+  bit isTarget = false;
 }
 
-// Intrinisc with default attributes (disable_default_attributes = 0).
+// Intrinisc with default attributes (disable_default_attributes = false).
 class DefaultAttrsIntrinsic<list<LLVMType> ret_types,
                 list<LLVMType> param_types = [],
                 list<IntrinsicProperty> intr_properties = [],
@@ -1240,6 +1240,23 @@ def int_coro_id_retcon_once : Intrinsic<[llvm_token_ty],
      llvm_ptr_ty, llvm_ptr_ty, llvm_ptr_ty],
     []>;
 def int_coro_alloc : Intrinsic<[llvm_i1_ty], [llvm_token_ty], []>;
+def int_coro_id_async : Intrinsic<[llvm_token_ty],
+  [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_ptr_ty],
+  []>;
+def int_coro_async_context_alloc : Intrinsic<[llvm_ptr_ty],
+    [llvm_ptr_ty, llvm_ptr_ty],
+    []>;
+def int_coro_async_context_dealloc : Intrinsic<[],
+    [llvm_ptr_ty],
+    []>;
+def int_coro_async_resume : Intrinsic<[llvm_ptr_ty],
+    [],
+    []>;
+def int_coro_suspend_async : Intrinsic<[llvm_ptr_ty, llvm_ptr_ty, llvm_ptr_ty],
+    [llvm_ptr_ty, llvm_ptr_ty, llvm_vararg_ty],
+    []>;
+def int_coro_prepare_async : Intrinsic<[llvm_ptr_ty], [llvm_ptr_ty],
+                                       [IntrNoMem]>;
 def int_coro_begin : Intrinsic<[llvm_ptr_ty], [llvm_token_ty, llvm_ptr_ty],
                                [WriteOnly<ArgIndex<1>>]>;
 
@@ -1335,8 +1352,8 @@ def int_ptrmask: DefaultAttrsIntrinsic<[llvm_anyptr_ty], [LLVMMatchType<0>, llvm
 
 //===---------------- Vector Predication Intrinsics --------------===//
 
-// Binary operators
-let IntrProperties = [IntrNoMem, IntrNoSync, IntrWillReturn] in {
+// Speculatable Binary operators
+let IntrProperties = [IntrSpeculatable, IntrNoMem, IntrNoSync, IntrWillReturn] in {
   def int_vp_add : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
                              [ LLVMMatchType<0>,
                                LLVMMatchType<0>,
@@ -1348,26 +1365,6 @@ let IntrProperties = [IntrNoMem, IntrNoSync, IntrWillReturn] in {
                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                llvm_i32_ty]>;
   def int_vp_mul  : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
-                              [ LLVMMatchType<0>,
-                                LLVMMatchType<0>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty]>;
-  def int_vp_sdiv : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
-                              [ LLVMMatchType<0>,
-                                LLVMMatchType<0>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty]>;
-  def int_vp_udiv : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
-                              [ LLVMMatchType<0>,
-                                LLVMMatchType<0>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty]>;
-  def int_vp_srem : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
-                              [ LLVMMatchType<0>,
-                                LLVMMatchType<0>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty]>;
-  def int_vp_urem : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
                               [ LLVMMatchType<0>,
                                 LLVMMatchType<0>,
                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
@@ -1402,7 +1399,30 @@ let IntrProperties = [IntrNoMem, IntrNoSync, IntrWillReturn] in {
                                LLVMMatchType<0>,
                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                llvm_i32_ty]>;
+}
 
+// Non-speculatable binary operators.
+let IntrProperties = [IntrNoMem, IntrNoSync, IntrWillReturn] in {
+  def int_vp_sdiv : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
+                              [ LLVMMatchType<0>,
+                                LLVMMatchType<0>,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_udiv : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
+                              [ LLVMMatchType<0>,
+                                LLVMMatchType<0>,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_srem : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
+                              [ LLVMMatchType<0>,
+                                LLVMMatchType<0>,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_urem : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
+                              [ LLVMMatchType<0>,
+                                LLVMMatchType<0>,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
 }
 
 def int_get_active_lane_mask:
@@ -1612,6 +1632,11 @@ def int_matrix_column_major_store
 def int_set_loop_iterations :
   DefaultAttrsIntrinsic<[], [llvm_anyint_ty], [IntrNoDuplicate]>;
 
+// Same as the above, but produces a value (the same as the input operand) to
+// be fed into the loop.
+def int_start_loop_iterations :
+  DefaultAttrsIntrinsic<[llvm_anyint_ty], [LLVMMatchType<0>], [IntrNoDuplicate]>;
+
 // Specify that the value given is the number of iterations that the next loop
 // will execute. Also test that the given count is not zero, allowing it to
 // control entry to a 'while' loop.
@@ -1735,4 +1760,5 @@ include "llvm/IR/Intel_IntrinsicsCSA.td"
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 include "llvm/IR/IntrinsicsRISCV.td"
+include "llvm/IR/IntrinsicsVE.td"
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL

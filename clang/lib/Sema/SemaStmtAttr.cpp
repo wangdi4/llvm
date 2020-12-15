@@ -398,6 +398,19 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+static Attr *handleIntelFPGANofusionAttr(Sema &S, const ParsedAttr &A) {
+  if (S.LangOpts.SYCLIsHost)
+    return nullptr;
+
+  unsigned NumArgs = A.getNumArgs();
+  if (NumArgs > 0) {
+    S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 0;
+    return nullptr;
+  }
+
+  return new (S.Context) SYCLIntelFPGANofusionAttr(S.Context, A);
+}
+
 static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                 SourceRange) {
   IdentifierLoc *PragmaNameLoc = A.getArgAsIdent(0);
@@ -1368,6 +1381,8 @@ static void CheckForIncompatibleSYCLLoopAttributes(
       S, Attrs, Range);
 
   CheckRedundantSYCLIntelFPGAIVDepAttrs(S, Attrs);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGANofusionAttr>(S, Attrs,
+                                                                  Range);
 }
 
 void CheckForIncompatibleUnrollHintAttributes(
@@ -1525,7 +1540,7 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     S.Diag(A.getLoc(), A.isDeclspecAttribute()
                            ? (unsigned)diag::warn_unhandled_ms_attribute_ignored
                            : (unsigned)diag::warn_unknown_attribute_ignored)
-        << A;
+        << A << A.getRange();
     return nullptr;
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_IntelInline:
@@ -1567,6 +1582,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleLikely(S, St, A, Range);
   case ParsedAttr::AT_Unlikely:
     return handleUnlikely(S, St, A, Range);
+  case ParsedAttr::AT_SYCLIntelFPGANofusion:
+    return handleIntelFPGANofusionAttr(S, A);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute

@@ -45,6 +45,15 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis/Intel_LoopAnalysis
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+  Intel_OptReport
+  Support
+  ProfileData
+  Object
+  TransformUtils
   )
 
 add_dependencies(LLVMIntel_LoopAnalysis intrinsics_gen directives_gen)

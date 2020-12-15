@@ -320,8 +320,7 @@ Parser::ParseOpenMPDeclareReductionDirective(AccessSpecifier AS) {
   do {
     ColonProtectionRAIIObject ColonRAII(*this);
     SourceRange Range;
-    TypeResult TR =
-        ParseTypeName(&Range, DeclaratorContext::PrototypeContext, AS);
+    TypeResult TR = ParseTypeName(&Range, DeclaratorContext::Prototype, AS);
     if (TR.isUsable()) {
       QualType ReductionType =
           Actions.ActOnOpenMPDeclareReductionType(Range.getBegin(), TR);
@@ -647,7 +646,7 @@ TypeResult Parser::parseOpenMPDeclareMapperVarDecl(SourceRange &Range,
   ParseSpecifierQualifierList(DS, AS, DSC);
 
   // Parse the declarator.
-  DeclaratorContext Context = DeclaratorContext::PrototypeContext;
+  DeclaratorContext Context = DeclaratorContext::Prototype;
   Declarator DeclaratorInfo(DS, Context);
   ParseDeclarator(DeclaratorInfo);
   Range = DeclaratorInfo.getSourceRange();

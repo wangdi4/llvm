@@ -439,7 +439,7 @@ void CodeGenModule::checkAliases() {
   for (const GlobalDecl &GD : Aliases) {
     StringRef MangledName = getMangledName(GD);
     llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
-    auto *Alias = dyn_cast<llvm::GlobalIndirectSymbol>(Entry);
+    auto *Alias = cast<llvm::GlobalIndirectSymbol>(Entry);
     Alias->replaceAllUsesWith(llvm::UndefValue::get(Alias->getType()));
     Alias->eraseFromParent();
   }
@@ -485,7 +485,7 @@ static void setVisibilityFromDLLStorageClass(const clang::LangOptions &LO,
 
   for (llvm::GlobalValue &GV : M.global_values()) {
     if (GV.hasAppendingLinkage() || GV.hasLocalLinkage())
-      return;
+      continue;
 
     if (GV.isDeclarationForLinker()) {
       GV.setVisibility(GV.getDLLStorageClass() ==
@@ -862,7 +862,7 @@ void CodeGenModule::Release() {
 
   EmitBackendOptionsMetadata(getCodeGenOpts());
 
-  // Set visibility from DLL export class
+  // Set visibility from DLL storage class
   // We do this at the end of LLVM IR generation; after any operation
   // that might affect the DLL storage class or the visibility, and
   // before anything that might act on these.
@@ -1419,11 +1419,10 @@ void CodeGenModule::AddGlobalCtor(llvm::Function *Ctor, int Priority,
 
 /// AddGlobalDtor - Add a function to the list that will be called
 /// when the module is unloaded.
-void CodeGenModule::AddGlobalDtor(llvm::Function *Dtor, int Priority) {
-  if (CodeGenOpts.RegisterGlobalDtorsWithAtExit) {
-    if (getCXXABI().useSinitAndSterm())
-      llvm::report_fatal_error(
-          "register global dtors with atexit() is not supported yet");
+void CodeGenModule::AddGlobalDtor(llvm::Function *Dtor, int Priority,
+                                  bool IsDtorAttrFunc) {
+  if (CodeGenOpts.RegisterGlobalDtorsWithAtExit &&
+      (!getContext().getTargetInfo().getTriple().isOSAIX() || IsDtorAttrFunc)) {
     DtorsUsingAtExit[Priority].push_back(Dtor);
     return;
   }
@@ -1598,6 +1597,10 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
   // MDNode for the intel_buffer_location attribute.
   SmallVector<llvm::Metadata *, 8> argSYCLBufferLocationAttr;
 
+  // MDNode for listing ESIMD kernel pointer arguments originating from
+  // accessors
+  SmallVector<llvm::Metadata *, 8> argESIMDAccPtrs;
+
   if (FD && CGF)
     for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
       const ParmVarDecl *parm = FD->getParamDecl(i);
@@ -1757,6 +1760,10 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
               ? llvm::ConstantAsMetadata::get(CGF->Builder.getInt32(
                     SYCLBufferLocationAttr->getLocationID()))
               : llvm::ConstantAsMetadata::get(CGF->Builder.getInt32(-1)));
+
+      if (FD->hasAttr<SYCLSimdAttr>())
+        argESIMDAccPtrs.push_back(llvm::ConstantAsMetadata::get(
+            CGF->Builder.getInt1(parm->hasAttr<SYCLSimdAccessorPtrAttr>())));
     }
 
   if (LangOpts.SYCLIsDevice && !LangOpts.SYCLExplicitSIMD)
@@ -1773,6 +1780,9 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
                     llvm::MDNode::get(VMContext, argBaseTypeNames));
     Fn->setMetadata("kernel_arg_type_qual",
                     llvm::MDNode::get(VMContext, argTypeQuals));
+    if (FD && FD->hasAttr<SYCLSimdAttr>())
+      Fn->setMetadata("kernel_arg_accessor_ptr",
+                      llvm::MDNode::get(VMContext, argESIMDAccPtrs));
     if (getCodeGenOpts().EmitOpenCLArgMetadata)
       Fn->setMetadata("kernel_arg_name",
                       llvm::MDNode::get(VMContext, argNames));
@@ -1852,14 +1862,14 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
   if (!hasUnwindExceptions(LangOpts))
     B.addAttribute(llvm::Attribute::NoUnwind);
 
-  if (D && D->hasAttr<NoStackProtectorAttr>())
-    B.addAttribute(llvm::Attribute::NoStackProtect);
-  else if (LangOpts.getStackProtector() == LangOptions::SSPOn)
-    B.addAttribute(llvm::Attribute::StackProtect);
-  else if (LangOpts.getStackProtector() == LangOptions::SSPStrong)
-    B.addAttribute(llvm::Attribute::StackProtectStrong);
-  else if (LangOpts.getStackProtector() == LangOptions::SSPReq)
-    B.addAttribute(llvm::Attribute::StackProtectReq);
+  if (!D || !D->hasAttr<NoStackProtectorAttr>()) {
+    if (LangOpts.getStackProtector() == LangOptions::SSPOn)
+      B.addAttribute(llvm::Attribute::StackProtect);
+    else if (LangOpts.getStackProtector() == LangOptions::SSPStrong)
+      B.addAttribute(llvm::Attribute::StackProtectStrong);
+    else if (LangOpts.getStackProtector() == LangOptions::SSPReq)
+      B.addAttribute(llvm::Attribute::StackProtectReq);
+  }
 
   if (!D) {
     // If we don't have a declaration to control inlining, the function isn't
@@ -2793,7 +2803,6 @@ llvm::Constant *CodeGenModule::EmitAnnotationLineNo(SourceLocation L) {
 
 llvm::Constant *CodeGenModule::EmitAnnotationArgs(const AnnotateAttr *Attr) {
   ArrayRef<Expr *> Exprs = {Attr->args_begin(), Attr->args_size()};
-  Exprs = Exprs.drop_front();
   if (Exprs.empty())
     return llvm::ConstantPointerNull::get(Int8PtrTy);
 
@@ -3046,8 +3055,29 @@ ConstantAddress CodeGenModule::GetAddrOfMSGuidDecl(const MSGuidDecl *GD) {
 
 ConstantAddress CodeGenModule::GetAddrOfTemplateParamObject(
     const TemplateParamObjectDecl *TPO) {
-  ErrorUnsupported(TPO, "template parameter object");
-  return ConstantAddress::invalid();
+  StringRef Name = getMangledName(TPO);
+  CharUnits Alignment = getNaturalTypeAlignment(TPO->getType());
+
+  if (llvm::GlobalVariable *GV = getModule().getNamedGlobal(Name))
+    return ConstantAddress(GV, Alignment);
+
+  ConstantEmitter Emitter(*this);
+  llvm::Constant *Init = Emitter.emitForInitializer(
+        TPO->getValue(), TPO->getType().getAddressSpace(), TPO->getType());
+
+  if (!Init) {
+    ErrorUnsupported(TPO, "template parameter object");
+    return ConstantAddress::invalid();
+  }
+
+  auto *GV = new llvm::GlobalVariable(
+      getModule(), Init->getType(),
+      /*isConstant=*/true, llvm::GlobalValue::LinkOnceODRLinkage, Init, Name);
+  if (supportsCOMDAT())
+    GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
+  Emitter.finalize(GV);
+
+  return ConstantAddress(GV, Alignment);
 }
 
 ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
@@ -5403,13 +5433,16 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
   // and must all be equivalent. However, we are not allowed to
   // throw away these explicit instantiations.
   //
-  // We don't currently support CUDA device code spread out across multiple TUs,
+  // CUDA/HIP: For -fno-gpu-rdc case, device code is limited to one TU,
   // so say that CUDA templates are either external (for kernels) or internal.
-  // This lets llvm perform aggressive inter-procedural optimizations.
+  // This lets llvm perform aggressive inter-procedural optimizations. For
+  // -fgpu-rdc case, device function calls across multiple TU's are allowed,
+  // therefore we need to follow the normal linkage paradigm.
   if (Linkage == GVA_StrongODR) {
-    if (Context.getLangOpts().AppleKext)
+    if (getLangOpts().AppleKext)
       return llvm::Function::ExternalLinkage;
-    if (Context.getLangOpts().CUDA && Context.getLangOpts().CUDAIsDevice)
+    if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice &&
+        !getLangOpts().GPURelocatableDeviceCode)
       return D->hasAttr<CUDAGlobalAttr>() ? llvm::Function::ExternalLinkage
                                           : llvm::Function::InternalLinkage;
     return llvm::Function::WeakODRLinkage;
@@ -5613,7 +5646,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (const ConstructorAttr *CA = D->getAttr<ConstructorAttr>())
     AddGlobalCtor(Fn, CA->getPriority());
   if (const DestructorAttr *DA = D->getAttr<DestructorAttr>())
-    AddGlobalDtor(Fn, DA->getPriority());
+    AddGlobalDtor(Fn, DA->getPriority(), true);
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, Fn);
 
@@ -7183,16 +7216,17 @@ CharUnits CodeGenModule::getNaturalTypeAlignment(QualType T,
     *BaseInfo = LValueBaseInfo(AlignmentSource::Type);
 
   CharUnits Alignment;
-  // For C++ class pointees, we don't know whether we're pointing at a
-  // base or a complete object, so we generally need to use the
-  // non-virtual alignment.
   const CXXRecordDecl *RD;
-  if (forPointeeType && !AlignForArray && (RD = T->getAsCXXRecordDecl())) {
+  if (T.getQualifiers().hasUnaligned()) {
+    Alignment = CharUnits::One();
+  } else if (forPointeeType && !AlignForArray &&
+             (RD = T->getAsCXXRecordDecl())) {
+    // For C++ class pointees, we don't know whether we're pointing at a
+    // base or a complete object, so we generally need to use the
+    // non-virtual alignment.
     Alignment = getClassPointerAlignment(RD);
   } else {
     Alignment = getContext().getTypeAlignInChars(T);
-    if (T.getQualifiers().hasUnaligned())
-      Alignment = CharUnits::One();
   }
 
   // Cap to the global maximum type alignment unless the alignment

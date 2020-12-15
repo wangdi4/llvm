@@ -690,7 +690,7 @@ ReprocessLoop:
       LLVM_DEBUG(dbgs() << "LoopSimplify: Eliminating exiting block "
                         << ExitingBlock->getName() << "\n");
 
-      assert(pred_begin(ExitingBlock) == pred_end(ExitingBlock));
+      assert(pred_empty(ExitingBlock));
       Changed = true;
       LI->removeBlock(ExitingBlock);
 

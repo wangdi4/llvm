@@ -361,7 +361,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   std::string S16;
   raw_string_ostream OS16(S16);
   VPSE->toSCEV(P16->first.invariantBase())->print(OS16);
-  EXPECT_EQ(S16, "((128 * %x) + %buf)<nsw>");
+  EXPECT_EQ(S16, "((128 * %x) + %buf)");
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   EXPECT_EQ(P16->first.targetAlignment(), 64);
 }

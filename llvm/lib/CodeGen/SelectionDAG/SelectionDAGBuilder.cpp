@@ -4330,12 +4330,12 @@ void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
   if (!UniformBase) {
     Base = DAG.getConstant(0, sdl, TLI.getPointerTy(DAG.getDataLayout()));
     Index = getValue(Ptr);
-    IndexType = ISD::SIGNED_SCALED;
+    IndexType = ISD::SIGNED_UNSCALED;
     Scale = DAG.getTargetConstant(1, sdl, TLI.getPointerTy(DAG.getDataLayout()));
   }
   SDValue Ops[] = { getMemoryRoot(), Src0, Mask, Base, Index, Scale };
   SDValue Scatter = DAG.getMaskedScatter(DAG.getVTList(MVT::Other), VT, sdl,
-                                         Ops, MMO, IndexType);
+                                         Ops, MMO, IndexType, false);
   DAG.setRoot(Scatter);
   setValue(&I, Scatter);
 }
@@ -8231,10 +8231,9 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call) {
         OpInfo.CallOperand = getValue(OpInfo.CallOperandVal);
       }
 
-      OpInfo.ConstraintVT =
-          OpInfo
-              .getCallOperandValEVT(*DAG.getContext(), TLI, DAG.getDataLayout())
-              .getSimpleVT();
+      EVT VT = OpInfo.getCallOperandValEVT(*DAG.getContext(), TLI,
+                                           DAG.getDataLayout());
+      OpInfo.ConstraintVT = VT.isSimple() ? VT.getSimpleVT() : MVT::Other;
     } else if (OpInfo.Type == InlineAsm::isOutput && !OpInfo.isIndirect) {
       // The return value of the call is this value.  As such, there is no
       // corresponding argument.
