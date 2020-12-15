@@ -135,16 +135,26 @@ bool SGBuiltin::insertSGBarrierForSGCalls(Module &M) {
 }
 
 bool SGBuiltin::insertSGBarrierForWGBarriers(Module &M) {
-  BarrierUtils BarrierHelper;
-  BarrierHelper.init(&M);
+  BarrierUtils Utils;
+  Utils.init(&M);
   bool Changed = false;
-  auto &WGBarrierCalls = BarrierHelper.getAllSynchronizeInstructions();
+  auto &WGBarrierCalls = Utils.getAllSynchronizeInstructions();
   for (auto *WGBarrierCall : WGBarrierCalls) {
     auto *PF = WGBarrierCall->getFunction();
     // This call is in a vectorized function, skip it.
     if (!SizeAnalysis->hasEmuSize(PF))
       continue;
-    Helper.insertBarrierBefore(WGBarrierCall);
+    auto WGBarrierType = Utils.getSynchronizeType(WGBarrierCall);
+    switch (WGBarrierType) {
+    default:
+      llvm_unreachable("Unexpected WG sync type");
+    case SYNC_TYPE_BARRIER:
+      Helper.insertBarrierBefore(WGBarrierCall);
+      break;
+    case SYNC_TYPE_DUMMY_BARRIER:
+      Helper.insertDummyBarrierBefore(WGBarrierCall);
+      break;
+    }
     Helper.insertDummyBarrierAfter(WGBarrierCall);
     Changed = true;
   }
