@@ -1916,11 +1916,27 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
       VisitedPhiBBs.erase(PN->getParent());
   });
 
+#if INTEL_CUSTOMIZATION
+  // aliasGEP must be more conservative when called from aliasPHI, because
+  // it is not safe to compare GEPs from different iterations.
+  // If we call aliasGEP outside aliasPHI and cache the results, the cached
+  // results may not be correct inside aliasPHI. The community fix below
+  // will pass an empty cache to prevent this.
+  //
+  // This case is already covered by the fix for 24303 above.
+  // Setting PNSize to unknown, will prevent a cache hit, as the cache
+  // checks on both value and size.
+  // Therefore we can improve compile time for deep phi->gep->phi->gep cases by
+  // passing the real cache. (CMPLRLLVM-25048)
+  (void)BlockInserted;
+  AAQueryInfo *UseAAQI = &AAQI;
+#else
   // If we inserted a block into VisitedPhiBBs, alias analysis results that
   // have been cached earlier may no longer be valid. Perform recursive queries
   // with a new AAQueryInfo.
   AAQueryInfo NewAAQI;
   AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
+#endif // INTEL_CUSTOMIZATION
 
   AliasResult Alias = aliasCheck(V2, V2Size, V2AAInfo, V1Srcs[0], PNSize,
                                  PNAAInfo, *UseAAQI, UnderV2);
