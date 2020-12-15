@@ -82,6 +82,15 @@ enum AddressSpace {
   ADDRESS_SPACE_GENERIC = 4
 };
 
+/// Device architectures supported
+enum DeviceArch : uint64_t {
+  DeviceArch_None   = 0,
+  DeviceArch_Gen9   = 0x0001,
+  DeviceArch_XeLP   = 0x0002, // DG1
+  DeviceArch_XeHP   = 0x0004, // ATS
+  DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
+};
+
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 

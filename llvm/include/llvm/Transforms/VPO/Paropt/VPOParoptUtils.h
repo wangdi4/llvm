@@ -1366,6 +1366,15 @@ public:
   /// \code
   ///    bool __tgt_is_device_available(int device_num, void *device_type)
   /// \endcode
+  /// \p DeviceType is a void* argument that carries device type info. In the
+  /// current implementation only device architectures in enum DeviceArch are
+  /// supported, so we directly encode a bit vector representing the device
+  /// architectures selected in the \p DeviceType argument. In the future when
+  /// more device information needs to be represented, this argument may be a
+  /// pointer to some structure containing device info.
+  ///
+  /// If \p DeviceNum is available, the call returns true only if \p DeviceType
+  /// is null or if the device matches a device type specified in \p DeviceType.
   static CallInst *genTgtIsDeviceAvailable(Value *DeviceNum, Value *DeviceType,
                                            Instruction *InsertPt);
 
