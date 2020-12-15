@@ -274,9 +274,19 @@ namespace intel {
     return m_kernelFunctions;
   }
 
-  unsigned BarrierUtils::getKernelVectorizationWidth(const Function *F) const {
+  unsigned BarrierUtils::getFunctionVectorizationWidth(const Function *F) const {
     TFunctionToUnsigned::const_iterator I = m_kernelVectorizationWidths.find(F);
-    if (I == m_kernelVectorizationWidths.end()) return 1;
+    if (I == m_kernelVectorizationWidths.end()) {
+      if (F->hasFnAttribute("widened-size")) {
+        unsigned WidenedSize = 0;
+        bool Failed = F->getFnAttribute("widened-size").getValueAsString()
+                                                       .getAsInteger(10, WidenedSize);
+        (void)Failed;
+        assert(!Failed && "Unexpected widened-size attribute");
+        return WidenedSize;
+      }
+      return 1;
+    }
     return I->second;
   }
 

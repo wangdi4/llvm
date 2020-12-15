@@ -169,6 +169,10 @@ bool SGValueWiden::runOnModule(Module &M) {
 
   for (auto *I : InstsToBeRemoved)
     I->eraseFromParent();
+
+  for (Function *Fn : FunctionsToBeWidened)
+    Fn->removeFnAttr("vector-variants");
+
   return true;
 }
 
