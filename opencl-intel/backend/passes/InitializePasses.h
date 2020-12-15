@@ -130,6 +130,7 @@ void initializeRemoveAtExitPass(llvm::PassRegistry &);
 void initializeAddNTAttrPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionModulePassPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
+void initializeCreateSimdVariantPropagationPass(llvm::PassRegistry &);
 void initializeSGSizeCollectorPass(llvm::PassRegistry &);
 void initializeSGSizeCollectorIndirectPass(llvm::PassRegistry &);
 void initializeVectorVariantLoweringPass(llvm::PassRegistry &);

@@ -117,6 +117,7 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeAddNTAttrPass(Registry);
     intel::initializeChooseVectorizationDimensionModulePassPass(Registry);
     intel::initializeCoerceWin64TypesPass(Registry);
+    intel::initializeCreateSimdVariantPropagationPass(Registry);
     intel::initializeSGSizeCollectorPass(Registry);
     intel::initializeSGSizeCollectorIndirectPass(Registry);
     intel::initializeVectorVariantLoweringPass(Registry);
