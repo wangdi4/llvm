@@ -105,13 +105,7 @@ TEST_F(CloneVPlan, TestCloneVPlan) {
                          true);
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
-  auto *OrigVPLI = OrigVPlan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *OrigVPLI->begin();
-  OrigVPlan->computeDT();
-  OrigVPlan->computePDT();
-  OrigVPlan->getVPlanDA()->compute(OrigVPlan.get(), CandidateLoop, OrigVPLI,
-                                   *OrigVPlan->getDT(), *OrigVPlan->getPDT(),
-                                   true /*In LCSSA form*/);
+  OrigVPlan->computeDA();
   std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF, true);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
@@ -155,13 +149,7 @@ TEST_F(CloneVPlan, TestCloneLoop) {
                          true);
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
-  auto *OrigVPLI = OrigVPlan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *OrigVPLI->begin();
-  OrigVPlan->computeDT();
-  OrigVPlan->computePDT();
-  OrigVPlan->getVPlanDA()->compute(OrigVPlan.get(), CandidateLoop, OrigVPLI,
-                                   *OrigVPlan->getDT(), *OrigVPlan->getPDT(),
-                                   true /*In LCSSA form*/);
+  OrigVPlan->computeDA();
   std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF, true);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
@@ -207,6 +195,7 @@ TEST_F(CloneVPlan, TestCloneLoop) {
       CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(),
                                                OrigVPlan.get());
 
+  VPLoopInfo *OrigVPLI = OrigVPlan->getVPLoopInfo();
   VPLoopInfo *ClonedVPLI = ClonedVPlan->getVPLoopInfo();
   // Check if the loops have the same basic blocks.
   for (const auto &Pair : ClonedOrigVPBBsMap) {
@@ -268,13 +257,7 @@ TEST_F(CloneVPlan, TestCloneDA) {
                          true);
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
-  auto *OrigVPLI = OrigVPlan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *OrigVPLI->begin();
-  OrigVPlan->computeDT();
-  OrigVPlan->computePDT();
-  OrigVPlan->getVPlanDA()->compute(OrigVPlan.get(), CandidateLoop, OrigVPLI,
-                                   *OrigVPlan->getDT(), *OrigVPlan->getPDT(),
-                                   true /*In LCSSA form*/);
+  OrigVPlan->computeDA();
   std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF, false);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
@@ -307,16 +290,10 @@ TEST_F(CloneVPlan, TestCloneVPLiveOut) {
   ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
   VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), AC.get(), DL.get(),
                          true);
-  VPLoopInfo *OrigVPLI = OrigVPlan->getVPLoopInfo();
-  VPLoop *VectorizedLoop = *OrigVPLI->begin();
   // Compute DA.
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
-  OrigVPlan->computeDT();
-  OrigVPlan->computePDT();
-  OrigVPlan->getVPlanDA()->compute(OrigVPlan.get(), VectorizedLoop, OrigVPLI,
-                                   *OrigVPlan->getDT(), *OrigVPlan->getPDT(),
-                                   true /*In LCSSA form*/);
+  OrigVPlan->computeDA();
 
   std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF, false);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
