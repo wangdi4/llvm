@@ -1316,12 +1316,18 @@ static bool isParallelAccessMetadata(MDNode *Node) {
   return Str && Str->getString().equals("llvm.loop.parallel_accesses");
 }
 
+static bool isMustProgressMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+  return Str && Str->getString().equals("llvm.loop.mustprogress");
+}
+
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
-      isFusionMetadata(Node) || isParallelAccessMetadata(Node)) {
+      isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
+      isMustProgressMetadata(Node)) {
     return true;
   }
 
