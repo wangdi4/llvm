@@ -135,6 +135,7 @@ void CLWGLoopBoundaries::CollectBlockData(BasicBlock *BB) {
       // If the function is defined in the module then it is not uniform.
       // If the function is ID generator it is not uniform.
       if (!F || !F->isDeclaration() || m_variableTIDCalls.count(CI) ||
+          CompilationUtils::isWGDivergent(F->getName().str()) ||
           m_TIDs.count(CI)) {
         m_Uni[I] = false;
         continue;

@@ -1463,7 +1463,7 @@ std::string CompilationUtils::removeWorkGroupFinalizePrefix(const std::string& S
 
 bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
   return isWorkGroupUniform(S) ||
-         isWorkGroupScan(S);
+         isWorkGroupDivergent(S);
 }
 
 bool CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(const std::string& S, const Module* pModule) {
@@ -1506,9 +1506,28 @@ bool CompilationUtils::isSubGroupUniform(const std::string &S) {
          isSubGroupReduceMin(S) || isSubGroupReduceMax(S);
 }
 
+bool CompilationUtils::isSubGroupDivergent(const std::string &S) {
+  return isGetSubGroupLocalId(S) || isSubGroupScan(S);
+}
+
+bool CompilationUtils::isSubGroupScan(const std::string &S) {
+  return isSubGroupScanExclusiveAdd(S) || isSubGroupScanInclusiveAdd(S) ||
+         isSubGroupScanExclusiveMin(S) || isSubGroupScanInclusiveMin(S) ||
+         isSubGroupScanExclusiveMax(S) || isSubGroupScanInclusiveMax(S);
+}
+
+bool CompilationUtils::isSubGroupBuiltin(const std::string &S) {
+  return isSubGroupUniform(S) || isSubGroupDivergent(S);
+}
+
 bool CompilationUtils::isWGUniform(const std::string &S) {
   return isWorkGroupUniform(S) || isGetMaxSubGroupSize(S) ||
          isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S);
+}
+
+bool CompilationUtils::isWGDivergent(const std::string &S) {
+  return isWorkGroupDivergent(S) ||
+         (isSubGroupBuiltin(S) && !isWGUniform(S));
 }
 
 bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
@@ -1518,6 +1537,10 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupReduceAdd(S) ||
          isWorkGroupReduceMin(S) ||
          isWorkGroupReduceMax(S);
+}
+
+bool CompilationUtils::isWorkGroupDivergent(const std::string &S) {
+  return isWorkGroupScan(S);
 }
 
 bool CompilationUtils::isImagesUsed(const Module &M) {

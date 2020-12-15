@@ -324,9 +324,33 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupScan(const std::string&);
     static bool isWorkGroupMin(const std::string&);
     static bool isWorkGroupMax(const std::string&);
+
+    static bool isSubGroupBuiltin(const std::string&);
+    static bool isSubGroupScan(const std::string&);
+
+    /// Returns true if the given function is a workgroup built-in, and it's
+    /// uniform inside a workgroup.
     static bool isWorkGroupUniform(const std::string&);
+
+    /// Returns true if the given function is a workgroup built-in, and it's
+    /// non-uniform (divergent) inside a workgroup.
+    static bool isWorkGroupDivergent(const std::string&);
+
+    /// Returns true if the given function is a subgroup built-in, and it's
+    /// uniform inside a subgroup.
     static bool isSubGroupUniform(const std::string &);
+
+    /// Returns true if the given function is a subgroup built-in, and it's
+    /// non-uniform (divergent) inside a subgroup.
+    static bool isSubGroupDivergent(const std::string &);
+
+    /// Returns true if the given function is a workgroup or subgroup built-in,
+    /// and it's uniform inside a workgroup.
     static bool isWGUniform(const std::string &);
+
+    /// Returns true if the given function is a workgroup or subgroup built-in,
+    /// and it's non-uniform (divergent) inside a workgroup.
+    static bool isWGDivergent(const std::string &);
 
     static bool isAtomicBuiltin(const std::string&);
     static bool isWorkItemPipeBuiltin(const std::string&);
