@@ -22,62 +22,62 @@ entry:
 
   %call0 = tail call spir_func float @_Z4acosf(float %4) #0
   %call1 = tail call spir_func double @_Z4acosd(double %5) #0
-; CHECK: call <4 x float> @_Z4acosDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
-; CHECK: call <4 x double> @_Z4acosDv4_d(<4 x double> [[WIDE_LOAD_TRUNCf64]]
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z4acosDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
+; CHECK: call {{(spir_func )?}}<4 x double> @_Z4acosDv4_d(<4 x double> [[WIDE_LOAD_TRUNCf64]]
 
   %call2 = tail call spir_func float @_Z4fmaxff(float %4) #0
   %call3 = tail call spir_func double @_Z4fmaxdd(double %5) #0
-; CHECK: call <4 x float> @_Z4fmaxDv4_fS_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
-; CHECK: call <4 x double> @_Z4fmaxDv4_dS_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z4fmaxDv4_fS_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
+; CHECK: call {{(spir_func )?}}<4 x double> @_Z4fmaxDv4_dS_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
 
   %call4 = tail call spir_func float @_Z8half_cosf(float %4) #0
-; CHECK: call <4 x float> @_Z8half_cosDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z8half_cosDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
 
   %call6 = tail call spir_func float @_Z10native_cosf(float %4) #0
   %call7 = tail call spir_func double @_Z10native_cosd(double %5) #0
-; CHECK: call <4 x float> @_Z10native_cosDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
-; CHECK: call <4 x double> @_Z10native_cosDv4_d(<4 x double> [[WIDE_LOAD_TRUNCf64]]
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z10native_cosDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
+; CHECK: call {{(spir_func )?}}<4 x double> @_Z10native_cosDv4_d(<4 x double> [[WIDE_LOAD_TRUNCf64]]
 
   %call8 = tail call spir_func float @_Z11native_fmaxff(float %4) #0
   %call9 = tail call spir_func double @_Z11native_fmaxdd(double %5) #0
-; CHECK: call <4 x float> @_Z11native_fmaxDv4_fS_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
-; CHECK: call <4 x double> @_Z11native_fmaxDv4_dS_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z11native_fmaxDv4_fS_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
+; CHECK: call {{(spir_func )?}}<4 x double> @_Z11native_fmaxDv4_dS_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
 
   %call10 = tail call spir_func i64 @_Z3absl(i64 %3) #0
   %call11 = tail call spir_func i32 @_Z3absi(i32 %0) #0
   %call12 = tail call spir_func i16 @_Z3abss(i16 %1) #0
   %call13 = tail call spir_func i8 @_Z3absc(i8 %2) #0
-; CHECK: call <4 x i64> @_Z3absDv4_l(<4 x i64> [[WIDE_LOAD_TRUNCi64]])
-; CHECK: call <4 x i32> @_Z3absDv4_i(<4 x i32> %wide.load)
-; CHECK: call <4 x i16> @_Z3absDv4_s(<4 x i16> [[WIDE_LOAD_TRUNCi16]])
-; CHECK: call <4 x i8> @_Z3absDv4_c(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
+; CHECK: call {{(spir_func )?}}<4 x i64> @_Z3absDv4_l(<4 x i64> [[WIDE_LOAD_TRUNCi64]])
+; CHECK: call {{(spir_func )?}}<4 x i32> @_Z3absDv4_i(<4 x i32> %wide.load)
+; CHECK: call {{(spir_func )?}}<4 x i16> @_Z3absDv4_s(<4 x i16> [[WIDE_LOAD_TRUNCi16]])
+; CHECK: call {{(spir_func )?}}<4 x i8> @_Z3absDv4_c(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
 
   %call14 = tail call spir_func i8 @_Z8upsamplech(i8 %2) #0
-; CHECK: call <4 x i8> @_Z8upsampleDv4_cDv4_h(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
+; CHECK: call {{(spir_func )?}}<4 x i8> @_Z8upsampleDv4_cDv4_h(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
 
   %call15 = tail call spir_func i8 @_Z5clampccc(i8 %2) #0
-; CHECK: call <4 x i8> @_Z5clampDv4_cS_S_(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
+; CHECK: call {{(spir_func )?}}<4 x i8> @_Z5clampDv4_cS_S_(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
 
   %call16 = tail call spir_func float @_Z7degreesf(float %4) #0
   %call17 = tail call spir_func double @_Z7degreesd(double %5) #0
-; CHECK: call <4 x float> @_Z7degreesDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
-; CHECK: call <4 x double> @_Z7degreesDv4_d(<4 x double> [[WIDE_LOAD_TRUNCf64]]
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z7degreesDv4_f(<4 x float> [[WIDE_LOAD_TRUNCf32]]
+; CHECK: call {{(spir_func )?}}<4 x double> @_Z7degreesDv4_d(<4 x double> [[WIDE_LOAD_TRUNCf64]]
 
   %call18 = tail call spir_func float @_Z3mixfff(float %4) #0
   %call19 = tail call spir_func double @_Z3mixddd(double %5) #0
-; CHECK: call <4 x float> @_Z3mixDv4_fS_S_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
-; CHECK: call <4 x double> @_Z3mixDv4_dS_S_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z3mixDv4_fS_S_(<4 x float> [[WIDE_LOAD_TRUNCf32]]
+; CHECK: call {{(spir_func )?}}<4 x double> @_Z3mixDv4_dS_S_(<4 x double> [[WIDE_LOAD_TRUNCf64]]
 
   %call22 = tail call spir_func i8 @_Z9bitselectccc(i8 %2) #0
-; CHECK: call <4 x i8> @_Z9bitselectDv4_cS_S_(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
+; CHECK: call {{(spir_func )?}}<4 x i8> @_Z9bitselectDv4_cS_S_(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
 
   %call23 = tail call spir_func i8 @_Z6selectccc(i8 %2) #0
-; CHECK: call <4 x i8> @_Z6selectDv4_cS_S_(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
+; CHECK: call {{(spir_func )?}}<4 x i8> @_Z6selectDv4_cS_S_(<4 x i8> [[WIDE_LOAD_TRUNCi8]])
 
   %call24 = tail call spir_func i32 @_Z4idivii(i32 %0) #0
   %call25 = tail call spir_func float @_Z4udivjj(float %4) #0
-; CHECK: call <4 x i32> @_Z4idivDv4_iS_(<4 x i32> %wide.load)
-; CHECK: call <4 x float> @_Z4udivDv4_jS_(<4 x float> [[WIDE_LOAD_TRUNCf32]])
+; CHECK: call {{(spir_func )?}}<4 x i32> @_Z4idivDv4_iS_(<4 x i32> %wide.load)
+; CHECK: call {{(spir_func )?}}<4 x float> @_Z4udivDv4_jS_(<4 x float> [[WIDE_LOAD_TRUNCf32]])
 
   ret void
 }
