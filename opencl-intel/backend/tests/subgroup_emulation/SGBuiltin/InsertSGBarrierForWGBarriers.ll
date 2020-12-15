@@ -5,9 +5,8 @@ target triple = "x86_64-pc-linux"
 
 define void @test(i32 %a) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 entry:
-; CHECK: call void @_Z17sub_group_barrierj(i32 1)
   call void @dummybarrier.()
-; CHECK-NEXT: call void @dummybarrier.()
+; CHECK: call void @dummybarrier.()
 ; CHECK-NEXT: call void @dummy_sg_barrier()
 
 ; CHECK: call void @_Z17sub_group_barrierj(i32 1)
