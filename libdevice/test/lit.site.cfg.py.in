@@ -8,6 +8,12 @@ config.libdevice_binary_dir = path(r"@LIBDEVICE_BINARY_DIR@")
 config.libdevice_library_dir = path(r"@LIBDEVICE_LIBRARY_DIR@")
 config.libdevice_runtime_dir = path(r"@LIBDEVICE_RUNTIME_DIR@")
 config.has_libsycldevice = "@LLVM_HAS_LIBSYCLDEVICE@"
+# INTEL_CUSTOMIZATION
+# Temporary workaround until
+# https://reviews.llvm.org/rG0f1f13fcb17fbc8c93d505da989a04ab5cbd9ed3
+# is merged into xmain.
+config.lit_tools_dir = path(r"@LLVM_LIT_TOOLS_DIR@")
+# end INTEL_CUSTOMIZATION
 
 import sys
 
