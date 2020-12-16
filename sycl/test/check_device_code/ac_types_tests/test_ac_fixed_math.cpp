@@ -3,7 +3,7 @@
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 
 #include <CL/sycl.hpp>
-#include <CL/sycl/INTEL/ac_types/ac_fixed_math.h>
+#include <CL/sycl/INTEL/ac_types/ac_fixed_math.hpp>
 #include <CL/sycl/INTEL/fpga_extensions.hpp>
 
 #include <iostream>

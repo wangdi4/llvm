@@ -85,9 +85,9 @@
 #ifndef __HLS_AC_FIXED_MATH_H__
 #define __HLS_AC_FIXED_MATH_H__
 
-#include "ac_int.h"
-#include "ac_fixed.h"
-#include "ac_fixed_math_internal.h"
+#include "ac_int.hpp"
+#include "ac_fixed.hpp"
+#include "ac_fixed_math_internal.hpp"
 
 #if defined(HLS_X86) ||                                                        \
     ((defined(__SYCL_COMPILER_VERSION) && defined(FPGA_EMULATOR)))

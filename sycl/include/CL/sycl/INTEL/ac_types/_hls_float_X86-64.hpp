@@ -14,8 +14,8 @@
 #ifndef _INTEL_IHC_HLS_INTERNAL_HLS_FLOAT_X86_64
 #define _INTEL_IHC_HLS_INTERNAL_HLS_FLOAT_X86_64
 
-#include "_hls_float_common_inc.h"
-#include "_hls_float_interface.h"
+#include "_hls_float_common_inc.hpp"
+#include "_hls_float_interface.hpp"
 
 #include <cassert>
 #include <iostream>

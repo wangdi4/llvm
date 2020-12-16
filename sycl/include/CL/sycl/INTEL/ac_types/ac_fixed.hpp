@@ -47,7 +47,7 @@
 #ifndef __ALTR_AC_FIXED_H
 #define __ALTR_AC_FIXED_H
 
-#include "ac_int.h"
+#include "ac_int.hpp"
 
 #define __HLS_AC_FRAC_BITS_SINGLE 23
 #define __HLS_AC_EXP_BITS_SINGLE 8

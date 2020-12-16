@@ -33,7 +33,7 @@
 #ifndef __HLS_FLOAT__0H__
 #define __HLS_FLOAT__0H__
 
-#include "ac_int.h"
+#include "ac_int.hpp"
 
 #if (defined(E) || defined(M))
 #error Either E or M is already defined. Definition conflicts with their usage as template parameters.
@@ -48,9 +48,9 @@
 #endif
 
 #if !defined(__EMULATION_FLOW__)
-#include "_hls_float_FPGA.h"
+#include "_hls_float_FPGA.hpp"
 #else
-#include "_hls_float_X86-64.h"
+#include "_hls_float_X86-64.hpp"
 #endif
 
 // This internal flag skips the restriction on the discrete set of FP

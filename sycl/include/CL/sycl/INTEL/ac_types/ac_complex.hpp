@@ -59,7 +59,7 @@
 #define __SYNTHESIS__
 #endif
 
-#include "ac_fixed.h"
+#include "ac_fixed.hpp"
 // Currently we do not have ac_float support for HLS
 
 // Implements the ac_complex type

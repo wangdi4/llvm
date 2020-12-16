@@ -413,38 +413,89 @@ bool hasLoopBlockingPragma(HLLoop *InnermostLoop) {
 
 // Scan entire loopnest for blocking pragmas and return the Outermost loop
 // with such pragma. Save pragma levels and factors to LoopToPragma.
-// The reason we need this construct is because level is not required for
-// all pragmas, which cause level == -1. This implies that all loops nested
-// below the loop are blocked with the factor specified. We convey this
-// information by adding the equivalent pragmas for all nested loops.
+// Pragmas can be level specific, or apply to entire loopnest.
+// Pragmas are processed in order. no_block pragma has highest priority, while
+// valid pragmas honored on first come first serve basis.
+// Final pragma setup is stored in \p LoopToPragma
 HLLoop *getLoopBlockingPragma(HLLoop *InnermostLoop,
                               LoopPragmaMapTy &LoopToPragma) {
   HLLoop *OutermostPragmaLoop = nullptr;
+  bool NoBlockPragma = false;
 
+  // Find the OutermostPragmaLoop where pragma occurs
   for (HLLoop *Loop = InnermostLoop; Loop; Loop = Loop->getParentLoop()) {
     auto PragmaInfo = Loop->getBlockingPragmaLevelAndFactors();
     if (PragmaInfo.empty()) {
       continue;
     }
-
     OutermostPragmaLoop = Loop;
+  }
 
+  if (!OutermostPragmaLoop) {
+    return nullptr;
+  }
+
+  // Pragmas are processed in lexical order
+  for (HLLoop *Loop = OutermostPragmaLoop; Loop;
+       Loop = dyn_cast<HLLoop>(Loop->getFirstChild())) {
+    auto PragmaInfo = Loop->getBlockingPragmaLevelAndFactors();
+    if (PragmaInfo.empty()) {
+      continue;
+    }
     RegDDRef *NoLevelFactor = nullptr;
     for (auto &Info : PragmaInfo) {
       if (Info.first != -1) {
         LoopToPragma[Loop].push_back(std::make_pair(Info.first, Info.second));
       } else {
-        // Bailout if no_blockloop pragma is found
         int64_t IntFactor;
         if (Info.second->isIntConstant(&IntFactor) && IntFactor == 0) {
-          return nullptr;
+          NoBlockPragma = true;
+          break;
         }
         // Pragmalevel == -1 means no level was specified, and can only
-        // occur once per Loop
+        // occur once per Loop. Other pragmas will be ignored.
         assert(!NoLevelFactor &&
                "Multiple pragmas without levels not supported\n");
         NoLevelFactor = Info.second;
       }
+    }
+    // noblock pragma indicates no blocking for loopnest. Remove those, but
+    // retain already processed pragma info for parent loops.
+    // Consider the example:
+    // #pragma block_loop factor(16)
+    // for i = 0 ..
+    //   ...
+    //   #pragma noblock_loop
+    //   for j = 0
+    //     ...
+    //
+    // A blanket pragma would apply for entire loopnest but noblock pragma
+    // for the inner loopnest would remove those pragmas already processed
+    // for the outer loop.
+    if (NoBlockPragma) {
+      unsigned NoBlockLevel = Loop->getNestingLevel();
+      for (auto It = LoopToPragma.begin(); It != LoopToPragma.end();) {
+        unsigned PLoopLevel = It->first->getNestingLevel();
+        for (auto VIt = It->second.begin(); VIt != It->second.end();) {
+          unsigned LevelOffset = VIt->first;
+          // For each loop with pragma info, check if looplevel + offset is
+          // greater than the noblocklevel.
+          // OffsetLevel is actually +1, so gt. is used
+          if (PLoopLevel + LevelOffset > NoBlockLevel) {
+            VIt = It->second.erase(VIt);
+          } else {
+            ++VIt;
+          }
+        }
+        // Remove the LoopToPragma entry if it is empty after erasure
+        if (It->second.empty()) {
+          It = LoopToPragma.erase(It);
+        } else {
+          ++It;
+        }
+      }
+      // No more pragmas are handled after no_block
+      break;
     }
 
     if (!NoLevelFactor) {
@@ -456,6 +507,11 @@ HLLoop *getLoopBlockingPragma(HLLoop *InnermostLoop,
     for (int i = 0; i <= NumLevels; i++) {
       LoopToPragma[Loop].push_back(std::make_pair(i + 1, NoLevelFactor));
     }
+  }
+
+  // If no_block pragma results in no blocking, don't return outerloop
+  if (LoopToPragma.empty()) {
+    return nullptr;
   }
 
   return OutermostPragmaLoop;
@@ -1655,11 +1711,15 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     return nullptr;
   }
 
+// From pragma specification:The loop-carried dependence is ignored
+// during the processing of block_loop pragmas.
+#if 0
   if (!isLegalToInterchange(LoopMap, OutermostPragmaLoop, InnermostLoop, DDA,
                             SRA, false)) {
     printDiag(NO_INTERCHANGE, Func);
     return nullptr;
   }
+#endif
 
   LoopOptReportBuilder &LORBuilder =
       InnermostLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();

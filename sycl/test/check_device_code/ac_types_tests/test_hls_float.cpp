@@ -3,8 +3,8 @@
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 
 #include <CL/sycl.hpp>
-#include <CL/sycl/INTEL/ac_types/hls_float.h>
-#include <CL/sycl/INTEL/ac_types/hls_float_math.h>
+#include <CL/sycl/INTEL/ac_types/hls_float.hpp>
+#include <CL/sycl/INTEL/ac_types/hls_float_math.hpp>
 #include <CL/sycl/INTEL/fpga_extensions.hpp>
 
 using namespace cl::sycl;
