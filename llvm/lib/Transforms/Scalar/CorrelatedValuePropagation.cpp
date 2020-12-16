@@ -19,8 +19,10 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_FPValueRangeAnalysis.h" // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
+#include "llvm/Analysis/ValueTracking.h"    // INTEL
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -68,6 +70,9 @@ STATISTIC(NumUDivURemsNarrowed,
 STATISTIC(NumAShrs,     "Number of ashr converted to lshr");
 STATISTIC(NumSRems,     "Number of srem converted to urem");
 STATISTIC(NumSExt,      "Number of sext converted to zext");
+#if INTEL_CUSTOMIZATION
+STATISTIC(NumFRem,      "Number of frem converted to srem");
+#endif // INTEL_CUSTOMIZATION
 STATISTIC(NumAnd,       "Number of ands removed");
 STATISTIC(NumNW,        "Number of no-wrap deductions");
 STATISTIC(NumNSW,       "Number of no-signed-wrap deductions");
@@ -970,6 +975,52 @@ static bool processAnd(BinaryOperator *BinOp, LazyValueInfo *LVI) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// If we can prove both the dividend and divisor of an frem instruction are both
+// integral and within the range of 64-bit integer, use srem instruction to
+// replace the frem.
+static bool processFRem(BinaryOperator *BinOp, LazyValueInfo *LVI) {
+  Value *Dividend = BinOp->getOperand(0);
+  Value *Divisor = BinOp->getOperand(1);
+  Type *T = Dividend->getType();
+  if (T->isVectorTy())
+    return false;
+
+  assert(T->isFloatingPointTy() && "Expect FP value");
+  assert(T == Divisor->getType() &&
+         "Both operands of frem should have the same type");
+
+  // Value of both operands must be integer
+  if (!(isFPValueIntegral(Dividend) && isFPValueIntegral(Divisor)))
+    return false;
+
+  // Value of both operands must be in range of int64_t
+  FPValueRangeAnalysis RangeAnalysis(LVI);
+  FPValueRange DividendRange = RangeAnalysis.computeRange(Dividend),
+               DivisorRange = RangeAnalysis.computeRange(Divisor);
+  if (!DividendRange.isInBitRange(64).getValueOr(false) ||
+      !DivisorRange.isInBitRange(64).getValueOr(false))
+    return false;
+  // Divisor can't be zero
+  if (DivisorRange.getMaybeZero())
+    return false;
+
+  LLVMContext &C = Dividend->getContext();
+  Type *Int64Ty = Type::getInt64Ty(C);
+
+  IRBuilder<> Builder{BinOp};
+  Value *DividendInt = Builder.CreateFPToSI(Dividend, Int64Ty);
+  Value *DivisorInt = Builder.CreateFPToSI(Divisor, Int64Ty);
+  Value *RemInst = Builder.CreateSRem(DividendInt, DivisorInt);
+  Value *SIToFPInst = Builder.CreateSIToFP(RemInst, T);
+
+  BinOp->replaceAllUsesWith(SIToFPInst);
+  BinOp->eraseFromParent();
+
+  NumFRem++;
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 
 static Constant *getConstantAt(Value *V, Instruction *At, LazyValueInfo *LVI) {
   if (Constant *C = LVI->getConstant(V, At))
@@ -1048,6 +1099,11 @@ static bool runImpl(Function &F, LazyValueInfo *LVI, DominatorTree *DT,
       case Instruction::And:
         BBChanged |= processAnd(cast<BinaryOperator>(II), LVI);
         break;
+#if INTEL_CUSTOMIZATION
+      case Instruction::FRem:
+        BBChanged |= processFRem(cast<BinaryOperator>(II), LVI);
+        break;
+#endif // INTEL_CUSTOMIZATION
       }
     }
 
