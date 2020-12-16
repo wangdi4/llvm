@@ -1521,8 +1521,45 @@ public:
     ByStripLoops.resize(NumDims, 0x0);
 
     // Initialize the number of ByStripLoops.
-    NumByStripLoops =
-        count_if(StripmineSizes, [](unsigned Size) { return Size; });
+    NumByStripLoops = getNumByStripLoops(StripmineSizes);
+  }
+
+  static unsigned getNumByStripLoops(ArrayRef<unsigned> StripmineSizes) {
+    return count_if(StripmineSizes, [](unsigned Size) { return Size; });
+  }
+
+  // Make sure every dimension has a target loop.
+  static bool checkDimsToLoops(ArrayRef<unsigned> StripmineSizes,
+                               const LoopToDimInfoTy &InnermostLoopToDimInfos) {
+
+    unsigned GlobalNumDims = StripmineSizes.size();
+
+    for (unsigned DimNum = 1; DimNum <= GlobalNumDims; DimNum++) {
+      if (isNoBlockDim(DimNum, StripmineSizes))
+        continue;
+
+      bool FoundTargetLoop = false;
+      // Collect all Lower/AlignedUpperBounds from InnermostLoop
+      for (auto &E : InnermostLoopToDimInfos) {
+        const HLLoop *InnermostLoop = E.first;
+
+        const HLLoop *TargetLoop =
+            getLoopMatchingDimNum(DimNum, E.second, InnermostLoop);
+        if (TargetLoop) {
+          FoundTargetLoop = true;
+          break;
+        }
+      }
+
+      if (!FoundTargetLoop) {
+        // This dimension had no target loop.
+        // I.e. all refs have either constants or blobs in this dimension,
+        // and no IV.
+        return false;
+      }
+    }
+
+    return true;
   }
 
   bool rewrite() {
@@ -2243,10 +2280,14 @@ private:
     }
   }
 
+  static bool isNoBlockDim(unsigned DimNum, ArrayRef<unsigned> StripmineSizes) {
+    return StripmineSizes[DimNum - 1] == 0;
+  }
+
   // For a dimension, where blocking is not done for the corresponding loop,
   // stripmine size is set to zero.
   bool isNoBlockDim(unsigned DimNum) const {
-    return StripmineSizes[DimNum - 1] == 0;
+    return isNoBlockDim(DimNum, StripmineSizes);
   }
 
   static void removeDupCanonExprs(SmallVectorImpl<CanonExpr *> &CEs) {
@@ -2265,9 +2306,9 @@ private:
 
   // Return the loop matching DimNum.
   // InnermostLoop and DimInfos are data to consult with.
-  const HLLoop *getLoopMatchingDimNum(unsigned DimNum,
-                                      ArrayRef<DimInfoTy> DimInfos,
-                                      const HLLoop *InnermostLoop) const {
+  static const HLLoop *getLoopMatchingDimNum(unsigned DimNum,
+                                             ArrayRef<DimInfoTy> DimInfos,
+                                             const HLLoop *InnermostLoop) {
 
     // Subscript is either constant or blobs.
     if (!DimInfos[DimNum - 1].hasIV())
@@ -2570,7 +2611,6 @@ public:
   void visit(HLNode *Node) { CheckerVisitor::visit(Node); }
 
 private:
-
   bool analyzeLegality(HLLoop *Loop) {
 
     // Update DDG to be used for the legality checker.
@@ -2782,6 +2822,17 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
     PreSetStripmineSizes[0] = 0;
     PreSetStripmineSizes[1] = 1;
     PreSetStripmineSizes[2] = 8;
+  }
+
+  // This check is done after StripmineSizes are determined.
+  // If the check fails, transformation does not happen.
+  if ((Transformer::getNumByStripLoops(PreSetStripmineSizes) == 0) ||
+      !Transformer::checkDimsToLoops(PreSetStripmineSizes,
+                                     InnermostLoopToDimInfos)) {
+    LLVM_DEBUG_PROFIT_REPORT(
+        dbgs()
+        << "No transformation: Some dimensions have no matching loop level.\n");
+    return false;
   }
 
   Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
