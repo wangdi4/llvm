@@ -14,7 +14,7 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK:          + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <nounroll> <novectorize>
+; CHECK:          + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:     |   %and.vec = %uni1  &  127;
 ; CHECK-NEXT:     + END LOOP
 ; CHECK:          %and = extractelement %and.vec,  1;

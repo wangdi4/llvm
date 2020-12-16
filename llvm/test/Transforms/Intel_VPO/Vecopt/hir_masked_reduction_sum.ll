@@ -31,7 +31,7 @@
 ; CHECK-NEXT: {
 ; CHECK-NEXT:    %red.var = 0.000000e+00;
 
-; CHECK:         + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <nounroll> <novectorize>
+; CHECK:         + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   %.vec1 = undef;
 ; CHECK-NEXT:    |   %add.vec = undef
 ; CHECK-NEXT:    |   %.vec = (<4 x float>*)(@B)[0][i1];
@@ -51,7 +51,7 @@
 ; VPCHECK-NEXT: {
 ; VPCHECK-NEXT:  %red.var = 0.000000e+00;
 
-; VPCHECK-NEXT:  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <nounroll> <novectorize>
+; VPCHECK-NEXT:  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
 ; VPCHECK-NEXT:  |   %.vec2 = undef;
 ; VPCHECK-NEXT:  |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; VPCHECK-NEXT:  |   %.vec1 = %.vec > 0.000000e+00;

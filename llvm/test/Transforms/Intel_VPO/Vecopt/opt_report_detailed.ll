@@ -117,7 +117,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-LABEL: Function: test_sqrt
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
-; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:        |   %.vec = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; HIR-NEXT:        |   %llvm.sqrt.v4f64 = @llvm.sqrt.v4f64(%.vec);
 ; HIR-NEXT:        |   %_Z4sqrtDv4_d = @_Z4sqrtDv4_d(%.vec);
@@ -185,7 +185,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-LABEL: Function: test_nonvls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
-; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:        |   %.vec9 = undef;
 ; HIR-NEXT:        |   %.vec5 = undef;
 ; HIR-NEXT:        |   %.vec = i1 + <i64 0, i64 1, i64 2, i64 3>  *  i1 + <i64 0, i64 1, i64 2, i64 3>;
@@ -292,7 +292,7 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-LABEL: Function: test_vls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
-; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:        |   %.vec6 = undef;
 ; HIR-NEXT:        |   %.vec5 = undef;
 ; HIR-NEXT:        |   %.vec = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>];

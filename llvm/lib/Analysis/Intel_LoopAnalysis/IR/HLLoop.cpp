@@ -58,7 +58,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
+      VecTag(VecTagTy::NONE) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -86,7 +87,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
+      VecTag(VecTagTy::NONE) {
   initialize();
   setNumExits(NumEx);
 
@@ -117,7 +119,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate),
       IsBlocked(HLLoopObj.IsBlocked),
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
-      ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor) {
+      ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor),
+      VecTag(HLLoopObj.VecTag) {
 
   initialize();
 
@@ -155,6 +158,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   IsBlocked = Lp.IsBlocked;
   ForcedVectorWidth = Lp.ForcedVectorWidth;
   ForcedVectorUnrollFactor = Lp.ForcedVectorUnrollFactor;
+  VecTag = Lp.VecTag;
 
   // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
   // order of HLLoops which remains the same as before.
@@ -358,6 +362,18 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
 
   if (isAttached() && isSIMD()) {
     OS << " <simd>";
+  }
+
+  // Print the vectorization tag, if any.
+  switch (getVecTag()) {
+  case VecTagTy::AUTOVEC:
+    OS << " <auto-vectorized>";
+    break;
+  case VecTagTy::SIMD:
+    OS << " <simd-vectorized>";
+    break;
+  case VecTagTy::NONE:
+    break;
   }
 
   // Some of the pragma checks require trip count information,

@@ -22,7 +22,7 @@
 ; |   }
 ; + END LOOP
 
-; CHECK: |            + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2> <nounroll> <novectorize>
+; CHECK: |            + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK: |            |   %.unifload = (i32*)(@b)[0][1];
 ; CHECK: |            |   %.vec = 3 * %0  *  i2 + <i32 0, i32 1, i32 2, i32 3>;
 ; CHECK: |            |   %.vec2 = (3 + (3 * %0)) * i1 + 3 * i2 + 3 * %0 + 3 * <i32 0, i32 1, i32 2, i32 3> + %.vec + 3  *  -1;

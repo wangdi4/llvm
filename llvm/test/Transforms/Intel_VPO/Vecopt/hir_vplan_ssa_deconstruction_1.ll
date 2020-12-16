@@ -90,7 +90,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
 ; CHECK-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:  <28>               |   [[BB2]].28:
 ; CHECK-NEXT:  <29>               |   [[DOTVEC0:%.*]] = [[N10]] == 0
 ; CHECK-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[DOTVEC0]],  0
@@ -125,7 +125,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; MIXED-EMPTY:
 ; MIXED-NEXT:  <0>          BEGIN REGION { modified }
 ; MIXED-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; MIXED-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; MIXED-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; MIXED-NEXT:  <28>               |   [[BB0:BB[0-9]+]].28:
 ; MIXED-NEXT:  <29>               |   [[WIDE_CMP_0:%.*]] = [[N10:%.*]] == 0
 ; MIXED-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0

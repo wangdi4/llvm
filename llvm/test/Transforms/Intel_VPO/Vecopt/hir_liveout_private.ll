@@ -10,7 +10,7 @@
 define i64 @foo(i64* nocapture %larr) {
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK:                    BEGIN REGION { modified }
-; CHECK-NEXT:                     + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:                     + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                     |   [[DOTVEC0:%.*]] = (<4 x i64>*)([[LARR0:%.*]])[i1]
 ; CHECK-NEXT:                     |   (<4 x i64>*)([[LARR0]])[i1] = i1 + <i64 0, i64 1, i64 2, i64 3> + [[DOTVEC0]]
 ; CHECK-NEXT:                     + END LOOP

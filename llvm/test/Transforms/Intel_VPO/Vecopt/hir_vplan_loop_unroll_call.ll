@@ -49,7 +49,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           + DO i1 = 0, 79, 8   <DO_LOOP> <novectorize>
+; CHECK-NEXT:           + DO i1 = 0, 79, 8   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:           |   [[VEC:%.*]] = (<4 x float>*)(%a)[i1];
 ; CHECK-NEXT:           |   [[SVML_SINF4:%.*]] = @__svml_sinf4([[VEC]]);
 ; CHECK-NEXT:           |   (<4 x float>*)(%a)[i1] = [[SVML_SINF4]];

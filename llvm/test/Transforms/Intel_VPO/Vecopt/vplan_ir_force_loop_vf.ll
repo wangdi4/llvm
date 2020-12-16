@@ -23,19 +23,19 @@
 ; CHECK-NEXT: There is only VPlan with VF=8, selecting it.
 
 ; HIR:           BEGIN REGION { modified }
-; HIR-NEXT:            + DO i1 = 0, 79, 4   <DO_LOOP> <novectorize>
+; HIR-NEXT:            + DO i1 = 0, 79, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:            |   {{%.*}} = (<4 x float>*)(%ptr)[i1];
 ; HIR-NEXT:            + END LOOP
 ; HIR-NEXT:      END REGION
 ; HIR-EMPTY:
 ; HIR-NEXT:      BEGIN REGION { modified }
-; HIR-NEXT:            + DO i1 = 0, 79, 2   <DO_LOOP> <novectorize>
+; HIR-NEXT:            + DO i1 = 0, 79, 2   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:            |   {{%.*}} = (<2 x float>*)(%ptr)[i1];
 ; HIR-NEXT:            + END LOOP
 ; HIR-NEXT:      END REGION
 ; HIR-EMPTY:
 ; HIR-NEXT:      BEGIN REGION { modified }
-; HIR-NEXT:            + DO i1 = 0, 79, 8   <DO_LOOP> <novectorize>
+; HIR-NEXT:            + DO i1 = 0, 79, 8   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:            |   {{%.*}} = (<8 x float>*)(%ptr)[i1];
 ; HIR-NEXT:            + END LOOP
 ; HIR:           ret ;

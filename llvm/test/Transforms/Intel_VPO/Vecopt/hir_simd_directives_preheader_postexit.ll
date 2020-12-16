@@ -32,7 +32,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir < %s  2>&1 | FileCheck %s
 
 ; CHECK:                 %red.var = 0.000000e+00;
-; CHECK-NEXT:         + DO i2 = 0, 32 * %tgu + -1, 32   <DO_LOOP>  <MAX_TC_EST = 134217727> <nounroll> <novectorize>
+; CHECK-NEXT:         + DO i2 = 0, 32 * %tgu + -1, 32   <DO_LOOP>  <MAX_TC_EST = 134217727> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:         |   %.vec = (<32 x float>*)(%A)[i2];
 ; CHECK-NEXT:         |   %.vec3 = (<32 x float>*)(%B)[i2];
 ; CHECK-NEXT:         |   [[MUL:%.*]] = %.vec  *  %.vec3;

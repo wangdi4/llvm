@@ -5,7 +5,7 @@
 
 ; Before DSE
 
-; CHECK: + DO i1 = 0, 63, 4   <DO_LOOP> <novectorize>
+; CHECK: + DO i1 = 0, 63, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK: |   %.vec5 = undef;
 ; CHECK: |   %.vec4 = undef;
 ; CHECK: |   %.vec = i1 + <i32 0, i32 1, i32 2, i32 3> <u 10;

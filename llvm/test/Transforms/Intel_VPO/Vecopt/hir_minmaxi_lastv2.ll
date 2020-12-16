@@ -10,7 +10,7 @@
 ; CHECK-NEXT:              {
 ; CHECK-NEXT:                    %red.var = %max.018;
 ; CHECK-NEXT:                    %red.var1 = %indmax.017;
-; CHECK-NEXT:                 + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <nounroll> <novectorize>
+; CHECK-NEXT:                 + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:                 |   %.vec = (<4 x i64>*)(%x)[i1 + 1];
 ; CHECK-NEXT:                 |   %red.var1 = (%.vec > %red.var) ? i1 + <i64 0, i64 1, i64 2, i64 3> + 1 : %red.var1;
 ; CHECK-NEXT:                 |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;

@@ -7,7 +7,7 @@ define void @foo(i1 %cond, i1 %a, i64 *%p) {
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:       BEGIN REGION { modified }
-; CHECK-NEXT:             + DO i1 = 0, 41, 2   <DO_LOOP> <novectorize>
+; CHECK-NEXT:             + DO i1 = 0, 41, 2   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:             |   [[DOTVEC0:%.*]] = (<2 x i64>*)([[P0:%.*]])[i1]
 ; CHECK-NEXT:             |   [[DOTVEC20:%.*]] = [[DOTVEC0]] == 42
 ; CHECK-NEXT:             |   [[DOTVEC30:%.*]] = [[DOTVEC0]] == 47

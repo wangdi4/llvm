@@ -22,7 +22,7 @@
 
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %sum.022,  0;
-; CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       |   %.copy = %red.var;
 ; CHECK-NEXT:       |   %.vls.load = (<12 x i32>*)(@arr1)[0][3 * i1];
 ; CHECK-NEXT:       |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 1, i32 4, i32 7, i32 10>;

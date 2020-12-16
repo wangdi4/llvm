@@ -21,7 +21,7 @@
 
 ; Checks for generated HIR code
 ; CHECK-LABEL:         Function: test_sinf
-; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP> <novectorize>
+; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   [[RESULT:%.*]] = undef
 ; CHECK-NEXT:          |   [[SRC:%.*]] = (<[[VL]] x float>*)(%b)[i1];
 ; CHECK-NEXT:          |   [[WIDECMP:%.*]] = [[SRC]] > 3.000000e+00;
@@ -43,7 +43,7 @@
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK-LABEL:         Function: test_sin
-; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP> <novectorize>
+; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   [[RESULT:%.*]] = undef
 ; CHECK-NEXT:          |   [[SRC:%.*]] = (<[[VL]] x double>*)(%b)[i1];
 ; CHECK-NEXT:          |   [[WIDECMP:%.*]] = [[SRC]] > 3.000000e+00;

@@ -22,7 +22,7 @@
 ; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK:              %red.var = 0;
 ; CHECK-NEXT:         %red.var = insertelement %red.var,  %n.09,  0;
-; CHECK-NEXT:         DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:         DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:            %nsbgepcopy = &((<4 x i8*>)(%0)[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0.0.0.0);
 ; CHECK-NEXT:            %.vec = (<4 x i64>*)(%nsbgepcopy)[40];
 ; CHECK-NEXT:            %red.var = %red.var  +  %.vec;
