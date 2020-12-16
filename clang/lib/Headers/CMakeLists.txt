@@ -134,6 +134,19 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/amxcomplex/amxcomplexintrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_COMPLEX
+# INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_COMPLEX_EVEX
+  Intel_Headers/amxcomplexevex/amxcomplexevexintrin.h
+)
+# end INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+
+# INTEL_FEATURE_ISA_AMX_FP19
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP19
+  Intel_Headers/amxfp19/amxfp19intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_FP19
 
 # INTEL_FEATURE_ISA_FP16
 intel_add_file(INTEL_HEADERS

@@ -3715,6 +3715,11 @@ def mamx_complex : Flag<["-"], "mamx-complex">, Group<m_x86_Features_Group>;
 def mno_amx_complex : Flag<["-"], "mno-amx-complex">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+def mamx_complex_evex : Flag<["-"], "mamx-complex-evex">, Group<m_x86_Features_Group>;
+def mno_amx_complex_evex : Flag<["-"], "mno-amx-complex-evex">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
 def mamx_memadvise : Flag<["-"], "mamx-memadvise">, Group<m_x86_Features_Group>;
 def mno_amx_memadvise : Flag<["-"], "mno-amx-memadvise">, Group<m_x86_Features_Group>;
@@ -3745,6 +3750,11 @@ def mno_amx_avx512 : Flag<["-"], "mno-amx-avx512">, Group<m_x86_Features_Group>;
 def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
 def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_FP19
+def mamx_fp19 : Flag<["-"], "mamx-fp19">, Group<m_x86_Features_Group>;
+def mno_amx_fp19 : Flag<["-"], "mno-amx-fp19">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def mamx_memory2 : Flag<["-"], "mamx-memory2">, Group<m_x86_Features_Group>;

@@ -645,11 +645,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate) // above might be a register in 7:4
     break;
   case X86Local::MRMSrcReg4VOp3:
-    assert(numPhysicalOperands == 3 &&
+    assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 && // INTEL
            "Unexpected number of operands for MRMSrcReg4VOp3Frm");
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(rmRegister)
     HANDLE_OPERAND(vvvvRegister)
+    HANDLE_OPTIONAL(immediate) // INTEL
     break;
   case X86Local::MRMSrcRegOp4:
     assert(numPhysicalOperands >= 4 && numPhysicalOperands <= 5 &&

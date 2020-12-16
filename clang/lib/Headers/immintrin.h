@@ -941,6 +941,24 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_COMPLEX */
 
+/* INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX */
+#if defined(__AMXCOMPLEXEVEX_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXCOMPLEXEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <amxcomplexevex/amxcomplexevexintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX */
+
+/* INTEL_FEATURE_ISA_AMX_FP19 */
+#if defined(__AMXFP19_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXFP19__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <amxfp19/amxfp19intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_FP19 */
+
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__KL__) || defined(__WIDEKL__)
 #include <keylockerintrin.h>

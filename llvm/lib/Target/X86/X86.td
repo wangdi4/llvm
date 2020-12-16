@@ -449,6 +449,16 @@ def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
                                           "Support AMX-COMPLEX instructions",
                                           [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+def FeatureAMXCOMPLEXEVEX : SubtargetFeature<"amx-complex-evex", "HasAMXCOMPLEXEVEX", "true",
+                                             "Support AMX-COMPLEX-EVEX instructions",
+                                             [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+def FeatureAMXFP19 : SubtargetFeature<"amx-fp19", "HasAMXFP19", "true",
+                                      "Support AMX-FP19 instructions",
+                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
