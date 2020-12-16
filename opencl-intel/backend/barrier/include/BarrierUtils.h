@@ -152,7 +152,7 @@ namespace intel {
     /// @returns TFunctionVector container with found functions
     TFunctionVector& getAllKernelsWithBarrier();
 
-    unsigned getKernelVectorizationWidth(const Function *F) const;
+    unsigned getFunctionVectorizationWidth(const Function *F) const;
 
     Instruction *createGetLocalSize(unsigned dim, Instruction *pInsertBefore);
     Instruction *createGetBaseGlobalId(Value* dim, Instruction *pInsertBefore);

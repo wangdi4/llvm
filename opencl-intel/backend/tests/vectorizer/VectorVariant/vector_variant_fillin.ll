@@ -50,6 +50,6 @@ declare i32 (i32, float)* @__intel_create_simd_variant_p0f_i32i32f32f_p0f_i32i32
 
 declare i32 @__intel_indirect_call_i32_p0p0f_i32i32f32f(i32 (i32, float)**, ...)
 
-attributes #5 = { nounwind "vector-variant"="_ZGVbN8lu__Z3fooif" }
-attributes #6 = { nounwind "vector-variant"="_ZGVbM8vv__Z3fooif" }
+attributes #5 = { nounwind "vector-variants"="_ZGVbN8lu__Z3fooif" }
+attributes #6 = { nounwind "vector-variants"="_ZGVbM8vv__Z3fooif" }
 attributes #7 = { nounwind "vector-variants"="_ZGVbN8lu_XXX,_ZGVbM8vv_XXX" }

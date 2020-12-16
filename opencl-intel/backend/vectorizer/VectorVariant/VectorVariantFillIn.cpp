@@ -46,7 +46,7 @@ VectorVariantFillIn::VectorVariantFillIn() : ModulePass(ID) {
 //   entry:
 //     %0 = tail call i32 (i32, float)* @__intel_create_simd_variant_p0f_i32i32f32f_p0f_i32i32f32f(i32 (i32, float)* nonnull @_Z3fooif) #0
 //   }
-//   attributes #0 = { "vector-variant"="_ZGVbN8lu__Z3fooif" }
+//   attributes #0 = { "vector-variants"="_ZGVbN8lu__Z3fooif" }
 //
 // After the pass:
 //
@@ -142,12 +142,12 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
       Function *Callee = Call.getCalledFunction();
 
       if (!Callee ||
-          !Callee->getName().startswith("__intel_create_simd_variant_") ||
-          !Call.hasFnAttr("vector-variant"))
+          !Callee->getName().startswith("__intel_create_simd_variant") ||
+          !Call.hasFnAttr("vector-variants"))
         continue;
 
       // Replace the simd variant creation with an explicit function pointer.
-      Attribute Attr = Call.getFnAttr("vector-variant");
+      Attribute Attr = Call.getFnAttr("vector-variants");
       Function *Fn = M.getFunction(Attr.getValueAsString());
       assert(Fn && "Function expected to be exist");
 

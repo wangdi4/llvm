@@ -1131,7 +1131,7 @@ namespace intel {
     pBarrierKeyValues->m_pStructureSizeValue =
       ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, structureSize));
     pBarrierKeyValues->m_currVectorizedWidthValue =
-        ConstantInt::get(m_sizeTType, m_util.getKernelVectorizationWidth(pFunc));
+        ConstantInt::get(m_sizeTType, m_util.getFunctionVectorizationWidth(pFunc));
  }
 
   void Barrier::getBarrierKeyValues(Function* pFunc) {

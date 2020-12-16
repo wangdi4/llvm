@@ -354,15 +354,21 @@ void SGLoopConstruct::resolveSGLIdCalls(Module &M) {
 void SGLoopConstruct::updateMetadata(Module &M) {
   using namespace Intel::MetadataAPI;
   auto Kernels = KernelList(M).getList();
-  for (auto *Kernel : Kernels) {
-    if (!FuncToSGBarriers.count(Kernel))
-      continue;
-    auto KIMD = KernelInternalMetadataAPI(Kernel);
-    auto &EmuSizes = SizeAnalysis->getEmuSizes(Kernel);
-    // Only support one size at this moment.
-    KIMD.VectorizedWidth.set(*EmuSizes.begin());
-    KIMD.VectorizationDimension.set(0);
-    MDValueGlobalObjectStrategy::unset(Kernel, "sg_emu_size");
+  auto KernelRange = make_range(Kernels.begin(), Kernels.end());
+  for (auto &Pair : FuncToSGBarriers) {
+    Function *F = Pair.first;
+    auto &EmuSizes = SizeAnalysis->getEmuSizes(F);
+    if (find(KernelRange, F) != Kernels.end()) {
+      auto KIMD = KernelInternalMetadataAPI(F);
+      // Only support one size at this moment.
+      KIMD.VectorizedWidth.set(*EmuSizes.begin());
+      KIMD.VectorizationDimension.set(0);
+      MDValueGlobalObjectStrategy::unset(F, "sg_emu_size");
+    } else {
+      // After function vectorization enabled, we can also use this attribute
+      // to indicate vectorization width.
+      F->addFnAttr("widened-size", std::to_string(*EmuSizes.begin()));
+    }
   }
 }
 

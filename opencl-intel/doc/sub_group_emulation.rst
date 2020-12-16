@@ -85,7 +85,7 @@ metadata, visit all instructions and Do:
 2. Insert ``sub_group_barrier`` before and ``dummy_sg_barrier`` after sub-group
    calls.
 3. Insert ``sub_group_barrier`` before and ``dummy_sg_barrier`` after work-group
-   barrier calls.
+   barrier calls; Insert ``dummy_sg_barrier`` after dummybarrier calls.
 
 SGBarrierPropagate
 ------------------
@@ -150,7 +150,7 @@ should be transformed to:
    hoist them to its ancestor emulated function and pass the call result to its
    original calling function.
 4. Replace ``get_sub_group_local_id`` call with sub-group loop control variable.
-5. Set the **vectorization_width** as **sg_emu_size**. Then the kernel pretends
+5. Set the **vectorized_width** as **sg_emu_size**. Then the kernel pretends
    to be a vectorized kernel.
 
 BarrierPass
