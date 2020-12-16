@@ -494,6 +494,7 @@ private:
   unsigned VF;
   bool UnitStrideRefSeen;
   bool MemRefSeen;
+  bool VectorizableCallSeen;
   unsigned LoopLevel;
   VPOCodeGenHIR *CG;
 
@@ -507,7 +508,8 @@ public:
   HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF,
                VPOCodeGenHIR *CG)
       : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VF(VF),
-        UnitStrideRefSeen(false), MemRefSeen(false), CG(CG) {
+        UnitStrideRefSeen(false), MemRefSeen(false),
+        VectorizableCallSeen(false), CG(CG) {
     LoopLevel = OrigLoop->getNestingLevel();
   }
 
@@ -529,6 +531,7 @@ public:
   bool isHandled() { return IsHandled; }
   bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
   bool getMemRefSeen() { return MemRefSeen; }
+  bool getVectorizableCallSeen() { return VectorizableCallSeen; }
 };
 
 class HLInstCounter final : public HLNodeVisitorBase {
@@ -598,9 +601,16 @@ void HandledCheck::visit(HLDDNode *Node) {
       if (EnableVPValueCodegenHIR && !CG->isReductionRef(TLval, RedOpcode)) {
         LLVM_DEBUG(Inst->dump());
         LLVM_DEBUG(
-            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout "
-                      "induction/private not handled - forcing mixed CG\n");
+            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private not "
+                      "handled - forcing mixed CG\n");
         CG->setForceMixedCG(true);
+        if (getVectorizableCallSeen()) {
+          LLVM_DEBUG(dbgs()
+                     << "VPLAN_OPTREPORT: Loop not handled - call "
+                        "vectorization not supported in mixed CG mode\n");
+          IsHandled = false;
+          return;
+        }
       }
     }
 
@@ -619,6 +629,14 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     if (const CallInst *Call = Inst->getCallInst()) {
+      if (CG->getForceMixedCG() || !EnableVPValueCodegenHIR) {
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
+                             "vectorization not supported in mixed CG mode\n");
+        IsHandled = false;
+        return;
+      }
+
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
         LLVM_DEBUG(Inst->dump());
@@ -699,6 +717,8 @@ void HandledCheck::visit(HLDDNode *Node) {
           }
         }
       }
+
+      VectorizableCallSeen = true;
     }
   }
 
@@ -2673,36 +2693,51 @@ void VPOCodeGenHIR::generateStoreForSinCos(const HLInst *HInst,
                 "sincos.cos.store");
 }
 
-HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
-                                 SmallVectorImpl<RegDDRef *> &WideOps,
-                                 RegDDRef *Mask,
-                                 SmallVectorImpl<RegDDRef *> &CallArgs,
-                                 bool HasLvalArg) {
-  const CallInst *Call = INode->getCallInst();
-  assert(Call && "Unexpected null call");
-  Function *Fn = Call->getCalledFunction();
+HLInst *VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
+                                        RegDDRef *Mask) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+         "widenLibraryCall called for mismatched scenario.");
+  Function *CalledFunc = VPCall->getCalledFunction();
+  assert(CalledFunc && "Unexpected null called function.");
+
+  auto *WideCall = generateWideCall(
+      VPCall, Mask, Intrinsic::not_intrinsic /*No vector intrinsic*/);
+
+  assert(WideCall && WideCall->isCallInst() &&
+         "Widened call instruction expected.");
+  CallInst *WideLLVMCall = const_cast<CallInst *>(WideCall->getCallInst());
+  // Set calling conventions for SVML function calls
+  if (isSVMLFunction(TLI, CalledFunc->getName(),
+                     WideLLVMCall->getCalledFunction()->getName())) {
+    WideLLVMCall->setCallingConv(CallingConv::SVML);
+  }
+
+  return WideCall;
+}
+
+HLInst *VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic &&
+         "widenTrivialIntrinsic called for mismatched scenario.");
+  Intrinsic::ID VectorIntrinID = VPCall->getVectorIntrinsic();
+  assert(VectorIntrinID != Intrinsic::not_intrinsic &&
+         "Unexpected non-intrinsic call.");
+
+  // Trivial vector intrinsics are always unmasked.
+  auto *WideCall = generateWideCall(VPCall, nullptr /*Mask*/, VectorIntrinID);
+  return WideCall;
+}
+
+HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
+                                        RegDDRef *Mask,
+                                        Intrinsic::ID VectorIntrinID) {
+  auto *Call = VPCall->getUnderlyingCallInst();
+  Function *Fn = VPCall->getCalledFunction();
   assert(Fn && "Unexpected null called function");
   StringRef FnName = Fn->getName();
-  RegDDRef *WideLval = HasLvalArg ? WideOps[0] : nullptr;
 
-  // Default to svml. If svml is not available, try the intrinsic.
-  Intrinsic::ID ID = Intrinsic::not_intrinsic;
-  if (!TLI->isFunctionVectorizable(FnName, VF)) {
-    ID = getVectorIntrinsicIDForCall(Call, TLI);
-    // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
-    //        completely ignoring them.
-    if (ID && (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
-               ID == Intrinsic::lifetime_start)) {
-      return nullptr;
-    }
-  }
-
-  unsigned ArgOffset = 0;
-  // If WideOps contains the widened Lval, the actual call arguments start
-  // at position 1 in the WideOps vector.
-  if (HasLvalArg) {
-    ArgOffset = 1;
-  }
+  // Widen all arg operands of the call and adjust them based on masking.
   unsigned ArgIgnored = 0;
   // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
   // functions return the results directly in a struct. The pointers should be
@@ -2712,21 +2747,25 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
 
   AttributeList Attrs = Call->getAttributes();
 
+  SmallVector<RegDDRef *, 4> CallArgs;
   SmallVector<Type *, 1> ArgTys;
   SmallVector<AttributeSet, 1> ArgAttrs;
-  for (unsigned i = ArgOffset; i < WideOps.size() - ArgIgnored; i++) {
-    CallArgs.push_back(WideOps[i]);
-    ArgTys.push_back(WideOps[i]->getDestType());
-    ArgAttrs.push_back(Attrs.getParamAttributes(i - ArgOffset));
+  for (unsigned I = 0; I < VPCall->getNumArgOperands() - ArgIgnored; I++) {
+    // TODO: Consider integrating the check below for scalarizing intrinsic call
+    // args here.
+    auto *WideArg = widenRef(VPCall->getOperand(I), VF);
+    CallArgs.push_back(WideArg);
+    ArgTys.push_back(WideArg->getDestType());
+    ArgAttrs.push_back(Attrs.getParamAttributes(I));
   }
 
-  if (ID != Intrinsic::not_intrinsic) {
+  if (VectorIntrinID != Intrinsic::not_intrinsic) {
     // Scalarize argument operands of intrinsic calls, if needed.
     // TODO: For VPValue-based CG scalarization decision about operands should
     // be done in general earlier. We should not blindly widen all operands of
     // an instruction.
     for (unsigned I = 0; I < CallArgs.size(); ++I) {
-      if (hasVectorInstrinsicScalarOpd(ID, I)) {
+      if (hasVectorInstrinsicScalarOpd(VectorIntrinID, I)) {
         assert(CallArgs[I]->isTerminalRef() &&
                "Scalar operand of intrinsic is not terminal ref.");
         auto *OperandCE = CallArgs[I]->getSingleCanonExpr();
@@ -2740,11 +2779,13 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     }
   }
 
-  // Masked intrinsics will not have explicit mask parameter. They are handled
-  // like other BinOp HLInsts i.e. execute on all lanes and extract active lanes
-  // during HIR-CG.
-  bool Masked = Mask && ID == Intrinsic::not_intrinsic;
+  bool Masked = Mask != nullptr;
   if (Masked) {
+    // Masked intrinsics will not have explicit mask parameter. They are handled
+    // like other BinOp HLInsts i.e. execute on all lanes and extract active
+    // lanes during HIR-CG.
+    assert(VectorIntrinID == Intrinsic::not_intrinsic &&
+           "Vectorization of trivial intrinsics is not expected to be masked.");
     StringRef VecFuncName =
         TLI->getVectorizedFunction(Fn->getName(), VF, Masked);
     // Masks of SVML function calls need special treatment, it's different from
@@ -2760,29 +2801,21 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     }
   }
 
-  // TODO: Fix when vector-variants will become supported.
-  ++OptRptStats.VectorMathCalls;
   Function *VectorF = getOrInsertVectorFunction(
-      Fn, VF, ArgTys, TLI, ID, nullptr /* vector-variant */, Masked);
+      Fn, VF, ArgTys, TLI, VectorIntrinID, nullptr /*vector-variant*/, Masked);
   assert(VectorF && "Can't create vector function.");
 
   FastMathFlags FMF =
-      isa<FPMathOperator>(Call) ? Call->getFastMathFlags() : FastMathFlags();
+      VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags() : FastMathFlags();
   auto *WideInst = HLNodeUtilities.createCall(
-      VectorF, CallArgs, VectorF->getName(), WideLval, {} /*Bundle*/,
+      VectorF, CallArgs, VectorF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
       {} /*BundleOps*/, FMF);
-  CallInst *VecCall =
-      cast<CallInst>(const_cast<Instruction *>(WideInst->getLLVMInstruction()));
+  CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
 
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
   copyRequiredAttributes(Call, VecCall, ArgAttrs);
-
-  // Set calling conventions for SVML function calls
-  if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
-    VecCall->setCallingConv(CallingConv::SVML);
-  }
 
   return WideInst;
 }
@@ -2892,19 +2925,6 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     // lval.
     WideInst = HLNodeUtilities.createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
-  } else if (INode->isCallInst()) {
-    bool HasLvalArg = INode->hasLval();
-    WideInst = widenCall(INode, WideOps, Mask, CallArgs, HasLvalArg);
-    if (!WideInst)
-      return;
-    if (HasLvalArg) {
-      // If this is a void function, there will be no LVal DDRef for it, so
-      // don't try to insert it in the map. i.e., there are no users of an
-      // LVal for a void function.
-      InsertInMap = true;
-    } else {
-      InsertInMap = false;
-    }
   } else if (INode->isCopyInst()) {
     WideInst = HLNodeUtilities.createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
@@ -3739,8 +3759,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
          "Unxpected instruction for scalar constructs");
 
   HLInst *NewInst = nullptr;
-  SmallVector<RegDDRef *, 1> CallArgs;
-  const HLInst *CallInst = nullptr;
   const Twine InstName = ".vec";
 
   if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
@@ -3794,11 +3812,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   // using operands of the instruction corresponding to the select mask.
   bool SkipFirstSelectOp = VPInst->getOpcode() == Instruction::Select;
   SmallVector<RegDDRef *, 6> RefOps;
-  // For call instructions we need to widen only argument operands. Called
-  // value/function operand should not be included here for widening.
+  // Do not widen any operands for call instruction. They are explicitly handled
+  // during instruction widening.
   VPUser::const_operand_range OpRange =
       isa<VPCallInstruction>(VPInst)
-          ? cast<VPCallInstruction>(VPInst)->arg_operands()
+          ? make_range(VPInst->op_end(), VPInst->op_end())
           : VPInst->operands();
   for (const VPValue *Operand : OpRange) {
     if (SkipFirstSelectOp) {
@@ -4187,22 +4205,44 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::Call: {
+    assert(Widen && "Below code assumes that calls are always widened.");
+
     // Calls need to be masked with current mask value if Mask is null.
     if (!Mask)
       Mask = CurMaskValue;
 
-    // TODO - VPValue codegen for call instructions still accesses
-    // underlying node. This needs to be changed when we add all
-    // necessary information such as call properties to VPInstruction.
-    CallInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-    assert(CallInst && CallInst->isCallInst() &&
-           "Expected non-null underlying call instruction");
+    auto *VPCall = cast<VPCallInstruction>(VPInst);
 
-    // The Lval is not represented as an explicit operand in VPInstructions.
-    NewInst =
-        widenCall(CallInst, RefOps, Mask, CallArgs, false /* HasLvalArg */);
-    if (!NewInst)
-      return;
+    // For all calls vectorization scenario should be available for current VF.
+    assert(VPCall->getVFForScenario() == VF &&
+           "Cannot find call vectorization scenario for VF.");
+
+    switch (VPCall->getVectorizationScenario()) {
+    case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
+      NewInst = widenLibraryCall(VPCall, Mask);
+      ++OptRptStats.VectorMathCalls;
+      break;
+    }
+    case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic: {
+      NewInst = widenTrivialIntrinsic(VPCall);
+      ++OptRptStats.VectorMathCalls;
+      break;
+    }
+    default: {
+      Intrinsic::ID ID =
+          getVectorIntrinsicIDForCall(VPCall->getUnderlyingCallInst(), TLI);
+      // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
+      // completely ignoring them.
+      if (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
+          ID == Intrinsic::lifetime_start) {
+        return;
+      }
+
+      llvm_unreachable("VPCallInstruction does not have a valid decision for "
+                       "HIR vectorizer.");
+    }
+    }
+
     break;
   }
 
@@ -4265,9 +4305,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   const class CallInst *Call = NewInst->getCallInst();
   if (Call &&
       Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
-    assert(CallInst && "Expected non-null CallInst");
     addInst(NewInst, nullptr);
-    generateStoreForSinCos(CallInst, NewInst, Mask,
+    // TODO: sincos handling uses underlying HLInst since it's designed to work
+    // even for scalar remainder loop (replaceLibCallsInRemainderLoop).
+    auto *UnderlyingHLInst = cast<HLInst>(VPInst->HIR.getUnderlyingNode());
+    generateStoreForSinCos(UnderlyingHLInst, NewInst, Mask,
                            false /* IsRemainderLoop */);
     return;
   }

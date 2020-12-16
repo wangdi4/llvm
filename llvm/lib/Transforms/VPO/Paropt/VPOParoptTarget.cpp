@@ -2913,13 +2913,22 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 
 // Find and return the variant function name from the Declare Variant
 // information embedded in the "openmp-variant" string attribute of BaseCall.
-// The context to match is given by MatchConstruct and MatchArch.
+// The construct to match is given by MatchConstruct, and at least one of the
+// device architectures must be supported (ie, in enum DeviceArch).
+//
+// On a match, besides returning the variant function name, it also stores in
+// the output parameter 'DeviceArchs' a bit vector representing supported
+// device architectures that are listed in the string attribute.  If a match is
+// not found, it returns a null string and 'DeviceArchs' may be undefined.
 StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
-                         StringRef &MatchArch) {
+                         uint64_t &DeviceArchs) {
   assert(BaseCall && "BaseCall is null");
   Function *BaseFunc = BaseCall->getCalledFunction();
-  if (!BaseFunc)
+  if (!BaseFunc) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": BaseCall->getCalledFunction() returned null\n");
     return "";
+  }
 
   StringRef VariantAttributeString =
       BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
@@ -2945,20 +2954,44 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen"
   //
   // An example of VariantAttributeString with two <variant>s:
-  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen;;
+  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen9,XeHP;;
   //    name:foo_xxx;construct:parallel;arch:xxx"
   //
   // We want to find the <variant> whose "construt" field's <value> is
-  // MatchConstruct and "arch" field's <value> is MatchArch.
-  // If such a <variant> is found, return the string from its "name" field.
+  // MatchConstruct and whose "arch" field's <value> contains at least one
+  // architecture supported in enum DeviceArch.
+  // If such a <variant> is found, return the string from its "name" field
+  // and update the output parameter 'DeviceArchs'.
 
-  SmallVector<StringRef,1> Variants;   // holds <variant> substrings
-  SmallVector<StringRef,3> Fields;     // holds <field>:<value> substrings
-  SmallVector<StringRef,2> FV;         // FV[0]= <field>; FV[1]= <value>
+  SmallVector<StringRef, 1> Variants;  // holds <variant> substrings
+  SmallVector<StringRef, 3> Fields;    // holds <field>:<value> substrings
+  SmallVector<StringRef, 2> FV;        // FV[0]= <field>; FV[1]= <value>
   StringRef VariantName;               // string to return
   bool FoundConstruct = false;
   bool FoundArch = false;
   bool FoundName = false;
+
+  auto matchDeviceArch = [&DeviceArchs](StringRef &ArchList) {
+    // ArchList is of the form <arch>[,<arch>[,<arch>...]]
+    // Split it to extract each arch, and update DeviceArchs.
+    SmallVector<StringRef, 2> Arch;
+    ArchList.split(Arch, ",");
+    DeviceArchs = 0;
+    for (unsigned I = 0; I < Arch.size(); ++I) {
+      if (Arch[I] == "gen")
+        DeviceArchs |=
+            DeviceArch_Gen9 | DeviceArch_XeLP | DeviceArch_XeHP; // 0x7
+      else if (Arch[I] == "gen9")
+        DeviceArchs |= DeviceArch_Gen9;   // 0x1
+      else if (Arch[I] == "XeLP")
+        DeviceArchs |= DeviceArch_XeLP;   // 0x2
+      else if (Arch[I] == "XeHP")
+        DeviceArchs |= DeviceArch_XeHP;   // 0x4
+      else if (Arch[I] == "x86_64")
+        DeviceArchs |= DeviceArch_x86_64; // 0x100
+    }
+    return DeviceArchs;
+  };
 
   // Split VariantAttributeString so that each <variant> substring is
   // separately stored in the Variants vector
@@ -2988,7 +3021,7 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
              "Malformed <field>:<value> in openmp-variant attribute");
       if (FV[0] == "construct" && FV[1] == MatchConstruct)
         FoundConstruct = true;
-      else if (FV[0] == "arch" && FV[1] == MatchArch)
+      else if (FV[0] == "arch" && matchDeviceArch(FV[1]))
         FoundArch = true;
       else if (FV[0] == "name") {
         VariantName = FV[1];
@@ -3007,7 +3040,8 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
 
   if (FoundConstruct && FoundArch && FoundName) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function: "
-                      << VariantName << "\n");
+                      << VariantName << " and device bits "
+                      << llvm::format_hex(DeviceArchs, 6, true) << "\n");
   } else {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
   }
@@ -3261,16 +3295,17 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // All other instructions in the region are ignored.
 
   StringRef MatchConstruct("target_variant_dispatch");
-  StringRef MatchArch("gen");
   StringRef VariantName;
+  uint64_t DeviceArchs = 0u; // bit vector of device architectures
   CallInst *BaseCall = nullptr;
   for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
     for (Instruction &I : *BB) {
       if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
         BaseCall = TempCallInst;
-        VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
-        if (!VariantName.empty())
+        VariantName = getVariantName(BaseCall, MatchConstruct, DeviceArchs);
+        if (!VariantName.empty()) {
           break;
+        }
       }
     }
     if (!VariantName.empty())
@@ -3294,6 +3329,10 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
     emitRemark(" Could not find a matching variant function");
     return false;
   }
+
+  // getVariantName() cannot return a name without corresponding device bits
+  assert(DeviceArchs && "No device arch for variant function");
+
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function name: "
                     << VariantName << "\n");
 
@@ -3307,7 +3346,6 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   IntegerType *Int64Ty = Builder.getInt64Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
   ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
-  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
 
   Value *DeviceNum = W->getDevice();
   if (!DeviceNum)
@@ -3321,19 +3359,28 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   // Emit call to check for device availability:
   //
-  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)      (1)
-  //   %available  = icmp ne i32 %call, 0                                 (2)
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType) (1)
+  //   %available  = icmp ne i32 %call, 0                                  (2)
   //
-  // The second argument of __tgt_is_device_available() is a pointer
-  // that is currently unused. When we support device types in the
-  // future, it will point to a struct holding device-type information.
-  Value *DeviceType = NullPtr;
+  // The second argument of __tgt_is_device_available() is a void* that
+  // carries device type information. Currently it is a bit vector representing
+  // devices listed in enum DeviceArch.
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  const unsigned PtrSz = DL.getPointerSizeInBits();
+  Value *DeviceArchVal;
+  if (PtrSz >= 64) {
+    DeviceArchVal = Builder.getInt64(DeviceArchs);
+  } else { // PtrSz <= 63
+    assert(DeviceArchs < (1LLu << PtrSz) &&
+           "Bit vector size exceeds pointer size");
+    DeviceArchVal = Builder.getIntN(PtrSz, DeviceArchs);
+  }
+  Value *DeviceType = Builder.CreateIntToPtr(DeviceArchVal, Int8PtrTy);
   CallInst *IsDeviceAvailable =
       VPOParoptUtils::genTgtIsDeviceAvailable(DeviceNum, DeviceType, InsertPt);
-  IsDeviceAvailable->setName("call"); //                                    (1)
+  IsDeviceAvailable->setName("available"); //                               (1)
   Value *Available = // the dispatch condition
-      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "available"); //   (2)
-  Available->setName("dispatch");
+      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "dispatch"); //    (2)
 
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
 

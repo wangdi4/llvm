@@ -25,7 +25,9 @@
 #endif // __SYCL_COMPILER_VERSION
 
 #ifndef __MSVC_DECLSPEC__
-#ifdef _MSC_VER // Windows the export is set in the caller
+#ifdef _MSC_VER
+// The dllexport attribute is set in the library implementation. Here we specify
+// the dllimport attribute.
 #define __MSVC_DECLSPEC__ __declspec(dllimport)
 #else
 #define __MSVC_DECLSPEC__

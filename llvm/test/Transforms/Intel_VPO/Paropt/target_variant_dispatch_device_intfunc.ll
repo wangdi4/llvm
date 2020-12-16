@@ -6,7 +6,7 @@
 ; C source:
 ;
 ; int foo_gpu(int dnum) { return 456; }
-; #pragma omp declare variant(foo_gpu) match(construct={target variant dispatch}, device={arch(gen)})
+; #pragma omp declare variant(foo_gpu) match(construct={target variant dispatch}, device={arch(gen9,XeHP,x86_64)})
 ; int foo(int dnum) { return 123; }
 ; int dnum;
 ; int main() {
@@ -19,8 +19,8 @@
 ; }
 ;
 ; The dispatch code looks like this:
-;
-;   %available = call i32 @__tgt_is_device_available(i32 %0, i8* null)
+;   ; second parameter of the call is a bit vector for gen9 (0x1) | XeHP (0x4) | x86_64 (0x100) = 0x105 = 261
+;   %available = call i32 @__tgt_is_device_available(i64 %1, i8* inttoptr (i64 261 to i8*))
 ;   %dispatch = icmp ne i32 %available, 0
 ;   br label %dispatch.check
 ;
@@ -44,7 +44,7 @@
 ; }
 ;
 
-; CHECK: [[AVAIL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available
+; CHECK: [[AVAIL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i64 %{{[0-9]+}}, i8* inttoptr (i64 261 to i8*))
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne i32 [[AVAIL]], 0
 ; CHECK: br i1 [[DISPATCH]], label %[[IFTHEN:[a-zA-Z._0-9]+]], label %[[IFELSE:[a-zA-Z._0-9]+]]
 
@@ -120,7 +120,7 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen9,XeHP,x86_64" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { nounwind }
 

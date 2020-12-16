@@ -68,8 +68,15 @@
 #error DO NOT use defines before including third party header files.
 #endif
 
+// The macro defined in this block will be used to selectively enable code that
+// is meant for the following compile flows:
+//   1. Any flow that doesn't set __SYCL_DEVICE_ONLY__ , example: host code
+//      compilation when compiling the kernels for any offload device.
+//   2. FPGA emulation compile flow.
+//   3. Intel HLS Compiler's x86 compile flow.
 #if defined(HLS_X86) ||                                                        \
-    ((defined(__SYCL_COMPILER_VERSION) && defined(FPGA_EMULATOR)))
+    (defined(__SYCL_COMPILER_VERSION) &&                                       \
+     (!defined(__SYCL_DEVICE_ONLY__) || defined(FPGA_EMULATOR)))
 #define __EMULATION_FLOW__
 #endif
 
@@ -593,6 +600,10 @@ public:
 
   template <int N2, bool S2>
   constexpr iv(const iv<N2, S2> &b) : value(b.value) {}
+
+  // Construct from an _ExtInt
+  constexpr iv(const actype &b) : value(b) {}
+
   /* Note: char and short constructors are an extension to Calypto's
      implementation to address the i++ default behaviour of not promoting
      to integers. (these functions are not in Calypto's ac_int.h) */
@@ -893,15 +904,23 @@ public:
     return (value == zero);
   }
 
+// Save current diagnostic state
 #pragma clang diagnostic push
+// Disable the "shift-count-overflow" diagnostic message
 #pragma clang diagnostic ignored "-Wshift-count-overflow"
+  // This helper function will overwrite bits of current ac_int from index lsb
+  // to ( lsb + N2 - 1 ) with the bits in op2. N2 cannot be greater than N.
+  // All users of this helper function check for the validity of N2 with an
+  // AC_ASSERT which is only activated for certain debug compiles. This function
+  // contains a static_assert to check for the validity of N2 for other compile
+  // flows.
   template <int N2, bool S2>
   constexpr void set_slc(unsigned lsb, int WS, const iv<N2, S2> &op2) {
-#ifdef HLS_X86
-    AC_ASSERT(WS <= N, "Bad usage: WS greater than length of slice");
+#ifdef __EMULATION_FLOW__
+    AC_ASSERT(N2 <= N, "Bad usage: WS greater than length of slice");
 #else
-    static_assert(WS <= N, "Bad usage: WS greater than length of slice");
-#endif // HLS_X86
+    static_assert(N2 <= N, "Bad usage: WS greater than length of slice");
+#endif // __EMULATION_FLOW__
     if (N2 == N) {
       value = op2.value;
     } else if (N2 <= N) {
@@ -923,6 +942,7 @@ public:
       value = 0;
     }
   }
+// Restore saved diagnostic state
 #pragma clang diagnostic pop
 
   unsigned leading_bits(bool bit) const { return 0; }

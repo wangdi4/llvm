@@ -1038,13 +1038,20 @@ template <int E1, int M1, int E2, int M2, RD_t Rnd1, RD_t Rnd2,
           int RoundingAccuracy = 0, int EnableSubNormals = 0>
 hls_float<E1, M1> sincos_vpfp_impl(hls_float<E1, M1, Rnd1> const &x,
                                    hls_float<E2, M2, Rnd2> &cos_value) {
+  static_assert(E1 == E2,
+                "Exponent width of the cos value argument is different from "
+                "width of the input to the sincos function call.");
+  static_assert(M1 == M2,
+                "Mantissa width of the cos value argument is different from "
+                "width of the input to the sincos function call.");
+
   hls_float<E1, M1> ret;
-  const int FPWidth = E1 + M1 + 1;
+  constexpr int FPWidth = E1 + M1 + 1;
   // contains both values
   ac_int<FPWidth + FPWidth, false> temp;
 
   temp._set_value_internal(
-      __spirv_ArbitraryFloatSinCosINTEL<1 + E1 + M1, 2 * (1 + E2 + M2)>(
+      __spirv_ArbitraryFloatSinCosINTEL<1 + E1 + M1, 1 + E2 + M2>(
           x._get_bits_ap_uint(), M1, M2, EnableSubNormals, Rnd1,
           RoundingAccuracy));
   ret.set_bits(temp.template slc<FPWidth>(0));
@@ -1056,13 +1063,20 @@ template <int E1, int M1, int E2, int M2, RD_t Rnd1, RD_t Rnd2,
           int RoundingAccuracy = 0, int EnableSubNormals = 0>
 hls_float<E1, M1> sincospi_vpfp_impl(hls_float<E1, M1, Rnd1> const &x,
                                      hls_float<E2, M2, Rnd2> &cos_value) {
+  static_assert(E1 == E2,
+                "Exponent width of the cos value argument is different from "
+                "width of the input to the sincospi function call.");
+  static_assert(M1 == M2,
+                "Mantissa width of the cos value argument is different from "
+                "width of the input to the sincospi function call.");
+
   hls_float<E1, M1> ret;
-  const int FPWidth = E1 + M1 + 1;
+  constexpr int FPWidth = E1 + M1 + 1;
   // contains both values
   ac_int<FPWidth + FPWidth, false> temp;
 
   temp._set_value_internal(
-      __spirv_ArbitraryFloatSinCosPiINTEL<1 + E1 + M1, 2 * (1 + E2 + M2)>(
+      __spirv_ArbitraryFloatSinCosPiINTEL<1 + E1 + M1, 1 + E2 + M2>(
           x._get_bits_ap_uint(), M1, M2, EnableSubNormals, Rnd1,
           RoundingAccuracy));
   ret.set_bits(temp.template slc<FPWidth>(0));

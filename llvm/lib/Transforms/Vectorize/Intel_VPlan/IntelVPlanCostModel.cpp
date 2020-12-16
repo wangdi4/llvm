@@ -672,15 +672,6 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
 }
 
 unsigned VPlanCostModel::getCost() {
-  // CallVecDecisions analysis invocation.
-  VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
-  // Pass native TTI into CallVecDecisions analysis.
-  CallVecDecisions.run(VF, TLI, &VPTTI->getTTI());
-
-  // Compute SVA results for current VPlan in order to compute cost accurately
-  // in CM.
-  const_cast<VPlan *>(Plan)->runSVA(VF, TLI);
-
   unsigned Cost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to

@@ -22,9 +22,9 @@
 ; }
 ;
 ; The dispatch code looks like this:
-;   %call = tail call i32 @__tgt_is_device_available(i64 0, i8* null)
-;    %dispatch = icmp eq i32 %call, 0
-;   br label %dispatch.check
+;    %available = call i32 @__tgt_is_device_available(i64 0, i8* inttoptr (i64 7 to i8*))
+;    %dispatch = icmp ne i32 %available, 0
+;    br label %dispatch.check
 ;
 ; dispatch.check:
 ;    br i1 %dispatch, label %base.call, label %variant.call
@@ -47,7 +47,7 @@
 ;
 ;   DIR.OMP.END.TARGET.VARIANT.DISPATCH.4:
 
-; CHECK: [[AVAIL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available
+; CHECK: [[AVAIL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i64 0, i8* inttoptr (i64 7 to i8*))
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne i32 [[AVAIL]], 0
 ; CHECK: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 

@@ -40,13 +40,6 @@
 #error DO NOT use defines before including third party header files.
 #endif
 
-// This macro will be used to enable code that is meant for HLS compiler's
-// emulation flow and SYCL compiler's emulation flow
-#if defined(HLS_X86) ||                                                        \
-    ((defined(__SYCL_COMPILER_VERSION) && defined(FPGA_EMULATOR)))
-#define __EMULATION_FLOW__
-#endif
-
 #if !defined(__EMULATION_FLOW__)
 #include "_hls_float_FPGA.hpp"
 #else

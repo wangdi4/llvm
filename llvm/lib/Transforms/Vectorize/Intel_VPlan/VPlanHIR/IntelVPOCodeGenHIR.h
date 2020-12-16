@@ -186,14 +186,12 @@ public:
   void generateStoreForSinCos(const HLInst *HInst, HLInst *WideInst,
                               RegDDRef *Mask, bool IsRemainderLoop);
 
-  // Given the function being called and the widened operands, generate and
-  // return the widened call. The call arguments are returned in CallRegs
-  // if they need to be analyzed for stride information. The flag HasLvalArg
-  // is used to indicate if we have the widened operand corresponding to
-  // call return value in WideOps.
-  HLInst *widenCall(const HLInst *INode, SmallVectorImpl<RegDDRef *> &WideOps,
-                    RegDDRef *Mask, SmallVectorImpl<RegDDRef *> &CallRegs,
-                    bool HasLvalArg);
+  /// Widen call instruction \p VPCall using vector library function. \p Mask is
+  /// used to generate masked version of widened calls, if needed.
+  HLInst *widenLibraryCall(const VPCallInstruction *VPCall, RegDDRef *Mask);
+
+  /// Widen call instruction \p VPCall using vector intrinsic.
+  HLInst *widenTrivialIntrinsic(const VPCallInstruction *VPCall);
 
   // Return true if we want to interleave the memory access.
   bool interleaveAccess(const OVLSGroup *Group, const RegDDRef *Mask,
@@ -888,6 +886,16 @@ private:
   void generateMinMaxIndex(const VPReductionFinal *RedFinal,
                            RegDDRef *RednDescriptor, HLContainerTy &RedTail,
                            HLInst *&WInst);
+
+  // Helper utility to generate a widened Call HLInst for given VPCall
+  // instruction. Call arguments are widened in this utility (scalarized where
+  // applicable) and Mask is used to adjust the arguments accordingly. Currently
+  // this utility can handle call vectorization scenarios based on vector
+  // library or trivial vector intrinsics.
+  // TODO: Extend this utility to support call vectorization using
+  // vector-variants.
+  HLInst *generateWideCall(const VPCallInstruction *VPCall, RegDDRef *Mask,
+                           Intrinsic::ID VectorIntrinID);
 
   // Get scalar version of RegDDRef that represents the VPValue \p VPVal
   // which is either an external definition or a constant. We can build the

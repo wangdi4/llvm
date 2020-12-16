@@ -294,6 +294,9 @@ public:
     };
   };
 
+  // Construct from _ExtInt
+  constexpr ac_fixed(const BaseType &op) : Base(op) {}
+
   constexpr ac_fixed(const ac_fixed &op) : Base(op) {}
 
   template <int W2, int I2, bool S2, ac_q_mode Q2, ac_o_mode O2>

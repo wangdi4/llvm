@@ -17,7 +17,6 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-vp-value-codegen-hir=0 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-vp-value-codegen-hir -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
 
