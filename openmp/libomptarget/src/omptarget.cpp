@@ -264,6 +264,10 @@ int targetDataBegin(DeviceTy &Device, int32_t arg_num, void **args_base,
   for (int32_t i = 0; i < arg_num; ++i) {
     // Ignore private variables and arrays - there is no mapping for them.
     if ((arg_types[i] & OMP_TGT_MAPTYPE_LITERAL) ||
+#if INTEL_COLLAB
+        // No mapping for ND-range descriptor.
+        (arg_types[i] & OMP_TGT_MAPTYPE_ND_DESC) ||
+#endif // INTEL_COLLAB
         (arg_types[i] & OMP_TGT_MAPTYPE_PRIVATE))
       continue;
 
@@ -476,6 +480,10 @@ int targetDataEnd(DeviceTy &Device, int32_t ArgNum, void **ArgBases,
     // Ignore private variables and arrays - there is no mapping for them.
     // Also, ignore the use_device_ptr directive, it has no effect here.
     if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
+#if INTEL_COLLAB
+        // No mapping for ND-range descriptor.
+        (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC) ||
+#endif // INTEL_COLLAB
         (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE))
       continue;
 

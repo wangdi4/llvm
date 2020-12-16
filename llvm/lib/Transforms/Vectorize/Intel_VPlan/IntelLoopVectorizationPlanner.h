@@ -60,6 +60,8 @@ extern bool EnableSOAAnalysis;
 /// the replication of instructions that are to be scalarized, and interleave
 /// access groups.
 class LoopVectorizationPlanner {
+  friend class VPlanTestBase;
+
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,

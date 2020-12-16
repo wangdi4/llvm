@@ -73,13 +73,23 @@ public:
                          const bool AssertForNonCloned = false)
       : Value2ValueMap(ValueMap), AssertForNonCloned(AssertForNonCloned) {}
 
-  void remapInstruction(VPInstruction *Inst);
+  void remapInstruction(VPUser *User);
 
   // Updates the operands of cloned instructions and basic blocks by replacing
   // the original values with the cloned ones.
   void remapOperands(VPBasicBlock *OrigVPBB,
                      std::function<void(VPInstruction &)> UpdateFunc =
                          [](VPInstruction &VPInst) {});
+
+  // Link \p OrigVal and its clone \p ClonedVal. There is only one clone for
+  // each VPValue.
+  void registerClone(VPValue *OrigVal, VPValue *ClonedVal) {
+    auto It = Value2ValueMap.find(OrigVal);
+    assert(It == Value2ValueMap.end() &&
+           "Re-mapping of original value is not expected");
+    (void)It;
+    Value2ValueMap[OrigVal] = ClonedVal;
+  }
 };
 
 } // namespace vpo

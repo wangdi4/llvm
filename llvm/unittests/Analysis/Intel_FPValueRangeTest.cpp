@@ -140,40 +140,61 @@ TEST_F(FPValueRangeTest, Contains) {
   EXPECT_FALSE(PosConstant.contains(NegConstant));
 }
 
-TEST_F(FPValueRangeTest, Merge) {
-  // When merging two ranges, the result range must contain both sources
-  std::vector<std::vector<FPValueRange>> Ranges;
+void createTestRanges(std::vector<std::vector<FPValueRange>> &Ranges,
+                      const fltSemantics &Semantics) {
   Ranges.push_back(
-      std::vector<FPValueRange>{FPValueRange::createEmpty(DoubleSemantics)});
+      std::vector<FPValueRange>{FPValueRange::createEmpty(Semantics)});
 
   std::vector<FPValueRange> UnknownRanges;
-  for (bool HasNaN : { false, true })
-    for (bool HasInfinity : { false, true })
+  for (bool HasNaN : {false, true})
+    for (bool HasInfinity : {false, true})
       UnknownRanges.push_back(
-          FPValueRange::createUnknown(HasNaN, HasInfinity, DoubleSemantics));
+          FPValueRange::createUnknown(HasNaN, HasInfinity, Semantics));
   Ranges.push_back(UnknownRanges);
 
   std::vector<FPValueRange> UndefRanges;
-  for (bool HasNaN : { false, true })
-    for (bool HasInfinity : { false, true })
+  for (bool HasNaN : {false, true})
+    for (bool HasInfinity : {false, true})
       UndefRanges.push_back(
-          FPValueRange::createUndef(HasNaN, HasInfinity, DoubleSemantics));
+          FPValueRange::createUndef(HasNaN, HasInfinity, Semantics));
   Ranges.push_back(UndefRanges);
 
   std::vector<FPValueRange> ConstantRanges;
-  for (bool HasNaN : { false, true })
-    for (bool HasInfinity : { false, true })
+  for (bool HasNaN : {false, true})
+    for (bool HasInfinity : {false, true})
       ConstantRanges.push_back(
           FPValueRange::createConstant(APFloat(3.6), HasNaN, HasInfinity));
   Ranges.push_back(ConstantRanges);
 
   std::vector<FPValueRange> ConstantRangeRanges;
-  for (bool HasNaN : { false, true })
-    for (bool HasInfinity : { false, true })
+  for (bool HasNaN : {false, true})
+    for (bool HasInfinity : {false, true})
       ConstantRangeRanges.push_back(FPValueRange::createConstantOrConstantRange(
           APFloat(-2.2), APFloat(1.7), HasNaN, HasInfinity));
   Ranges.push_back(ConstantRangeRanges);
+}
 
+TEST_F(FPValueRangeTest, Equal) {
+  std::vector<std::vector<FPValueRange>> Ranges;
+  createTestRanges(Ranges, DoubleSemantics);
+
+  // When merging two ranges, the result range must contain both sources
+  for (unsigned I = 0; I < Ranges.size(); I++)
+    for (unsigned J = I; J < Ranges.size(); J++)
+      for (unsigned K = 0; K < Ranges[I].size(); K++)
+        for (unsigned L = 0; L < Ranges[J].size(); L++) {
+          FPValueRange LHS = Ranges[I][K], RHS = Ranges[J][L];
+          bool Equal = (I == J) && (K == L);
+          EXPECT_EQ(LHS == RHS, Equal);
+          EXPECT_EQ(LHS != RHS, !Equal);
+        }
+}
+
+TEST_F(FPValueRangeTest, Merge) {
+  std::vector<std::vector<FPValueRange>> Ranges;
+  createTestRanges(Ranges, DoubleSemantics);
+
+  // When merging two ranges, the result range must contain both sources
   for (unsigned I = 0; I < Ranges.size(); I++)
     for (unsigned J = I; J < Ranges.size(); J++)
       for (unsigned K = 0; K < Ranges[I].size(); K++)
@@ -186,6 +207,20 @@ TEST_F(FPValueRangeTest, Merge) {
           FPValueRange MergedOtherWay = FPValueRange::merge(RHS, LHS);
           EXPECT_TRUE(MergedOtherWay.contains(LHS));
           EXPECT_TRUE(MergedOtherWay.contains(RHS));
+
+          FPValueRange MergeSelf = FPValueRange::merge(LHS, LHS);
+          EXPECT_TRUE((MergeSelf == LHS) && !(MergeSelf != LHS));
+
+          if (!((I == J) && (K == L)) && !LHS.isUndef() && !RHS.isUndef()) {
+            if (!LHS.contains(RHS)) {
+              EXPECT_NE(LHS, Merged);
+              EXPECT_NE(LHS, MergedOtherWay);
+            }
+            if (!RHS.contains(LHS)) {
+              EXPECT_NE(RHS, Merged);
+              EXPECT_NE(RHS, MergedOtherWay);
+            }
+          }
         }
 }
 

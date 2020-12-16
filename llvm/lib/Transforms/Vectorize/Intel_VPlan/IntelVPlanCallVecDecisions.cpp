@@ -162,7 +162,10 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   for (unsigned I = 0; I < Variants.size(); ++I) {
 
     // Check if the called function name is contained in vector-variant string.
-    assert(Variants[I].contains(VPCall->getCalledFunction()->getName()));
+    // TODO: Do the check for all calls (not for indirect ones only) once
+    // front-end problems are removed.
+    assert(VPCall->isIntelIndirectCall() ||
+           Variants[I].contains(VPCall->getCalledFunction()->getName()));
 
     VectorVariant Variant(Variants[I]);
     VectorVariant::ISAClass VariantIsaClass = Variant.getISA();

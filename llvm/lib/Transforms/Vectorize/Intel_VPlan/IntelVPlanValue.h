@@ -871,6 +871,10 @@ public:
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  VPLiveOutValue *clone() const {
+    VPLiveOutValue *Cloned = new VPLiveOutValue(MergeId, getOperand(0));
+    return Cloned;
+  }
 
 private:
   unsigned MergeId;

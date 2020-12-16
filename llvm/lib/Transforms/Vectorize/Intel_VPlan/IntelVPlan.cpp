@@ -1190,6 +1190,14 @@ void VPlan::computeDA() {
   }
 }
 
+void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  for (auto OrigLO : OrigPlan.liveOutValues()) {
+    auto ClonedLO = OrigLO->clone();
+    addLiveOutValue(ClonedLO);
+    Mapper.registerClone(OrigLO, ClonedLO);
+  }
+}
+
 std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
                                     bool RecalculateDA) {
   // Create new VPlan
@@ -1199,11 +1207,16 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
   VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
                                  nullptr, "Cloned.", ClonedVPlan.get());
+  // Clone live out values.
+  VPValueMapper Mapper(OrigClonedValuesMap);
+  ClonedVPlan->cloneLiveOutValues(*this, Mapper);
 
   // Update cloned instructions' operands
-  VPValueMapper Mapper(OrigClonedValuesMap);
   for (VPBasicBlock &OrigVPBB : *this)
     Mapper.remapOperands(&OrigVPBB);
+
+  for (auto LO : ClonedVPlan->liveOutValues())
+    Mapper.remapInstruction(LO);
 
   // Update FullLinearizationForced
   if (isFullLinearizationForced())
@@ -1236,10 +1249,10 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
   ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
   LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
 
-  // Clone DA from the original VPlan to the new one. If RecalculateDA is true,
-  // then we compute DA from scratch. If we clone VPlan after the predicator
-  // (RecalculateDA=false), then we just have to clone instructions' vector
-  // shapes.
+  // Clone DA from the original VPlan to the new one. If RecalculateDA is
+  // true, then we compute DA from scratch. If we clone VPlan after the
+  // predicator (RecalculateDA=false), then we just have to clone
+  // instructions' vector shapes.
   if (RecalculateDA) {
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     ClonedVPlan->setVPlanDA(std::move(VPDA));

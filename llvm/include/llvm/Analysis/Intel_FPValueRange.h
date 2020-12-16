@@ -209,6 +209,24 @@ public:
   /// can't be determined.
   Optional<bool> isInBitRange(unsigned BitRange) const;
 
+  bool operator==(const FPValueRange &Other) const {
+    if (&getSemantics() != &Other.getSemantics())
+      return false;
+
+    // contains() may treat undef as anything, good for optimization but not
+    // helpful for comparison, therefore an explicit test for undef is required.
+    if (isUndef() || Other.isUndef())
+      return (isUndef() && Other.isUndef()) &&
+             (getMaybeNaN() == Other.getMaybeNaN()) &&
+             (getMaybeInfinity() == Other.getMaybeInfinity());
+
+    return Other.contains(*this) && this->contains(Other);
+  }
+
+  bool operator!=(const FPValueRange &Other) const {
+    return !(*this == Other);
+  }
+
   static FPValueRange createEmpty(const fltSemantics &semantics) {
     return FPValueRange(semantics);
   }

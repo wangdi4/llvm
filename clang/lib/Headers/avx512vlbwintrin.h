@@ -2927,11 +2927,11 @@ _mm_mask_reduce_min_epu16(__mmask16 __M, __m128i __V) {
   __v8hu __t1 = (__v8hu)_mm256_extracti128_si256(__W, 0); \
   __v8hu __t2 = (__v8hu)_mm256_extracti128_si256(__W, 1); \
   __v8hu __t3 = __t1 op __t2; \
-  __v8hu __t4 = __builtin_shufflevector(__t1, __t1, 4, 5, 6, 7, 4, 5, 6, 7); \
+  __v8hu __t4 = __builtin_shufflevector(__t3, __t3, 4, 5, 6, 7, 4, 5, 6, 7); \
   __v8hu __t5 = __t3 op __t4; \
-  __v8hu __t6 = __builtin_shufflevector(__t3, __t3, 2, 3, 2, 3, 4, 5, 6, 7); \
+  __v8hu __t6 = __builtin_shufflevector(__t5, __t5, 2, 3, 2, 3, 4, 5, 6, 7); \
   __v8hu __t7 = __t5 op __t6; \
-  __v8hu __t8 = __builtin_shufflevector(__t5, __t5, 1, 1, 2, 3, 4, 5, 6, 7); \
+  __v8hu __t8 = __builtin_shufflevector(__t7, __t7, 1, 1, 2, 3, 4, 5, 6, 7); \
   __v8hu __t9 = __t7 op __t8; \
   return __t9[0]
 
@@ -3045,7 +3045,7 @@ _mm256_mask_reduce_min_epu16(__mmask16 __M, __m256i __V) {
   __v16qu __t5 = __t3 op __t4; \
   __v16qu __t6 = __builtin_shufflevector(__t5, __t5, 2, 3, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
   __v16qu __t7 = __t5 op __t6; \
-  __v16qu __t8 = __builtin_shufflevector(__t5, __t5, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
+  __v16qu __t8 = __builtin_shufflevector(__t7, __t7, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15); \
   __v16qu __t9 = __t7 op __t8; \
   return __t9[0]
 
