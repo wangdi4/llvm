@@ -108,6 +108,7 @@ bool VectorKernelDiscard::runOnModule(Module &M) {
       continue;
     auto VKIMD = KernelInternalMetadataAPI(VecF);
     unsigned VF = VKIMD.VectorizedWidth.get();
+    assert(VF && "Vector factor cannot be 0 here.");
 
     LLVM_DEBUG(dbgs() << "Got vectorized kernel \"" << VecF->getName() << "\".\n");
 
