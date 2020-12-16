@@ -107,18 +107,11 @@ llvm_config.feature_config([('--build-mode', {'Debug': 'debug'})])
 # end INTEL_CUSTOMIZATION
 llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
 
-<<<<<<< HEAD
-# TODO: Change default to PI_LEVEL0
-backend=lit_config.params.get('SYCL_BE', "PI_OPENCL")
-lit_config.note("Backend (SYCL_BE): {}".format(backend))
-config.substitutions.append( ('%sycl_be', backend) )
-=======
 backend=lit_config.params.get('SYCL_PLUGIN', "opencl")
 lit_config.note("Backend: {}".format(backend))
 config.substitutions.append( ('%sycl_be', { 'opencl': 'PI_OPENCL',  'cuda': 'PI_CUDA', 'level_zero': 'PI_LEVEL_ZERO'}[backend]) )
 config.substitutions.append( ('%BE_RUN_PLACEHOLDER', "env SYCL_DEVICE_FILTER={SYCL_PLUGIN} ".format(SYCL_PLUGIN=backend)) )
 config.substitutions.append( ('%RUN_ON_HOST', "env SYCL_DEVICE_FILTER=host ") )
->>>>>>> d0b41720309bbcd961ce5718d652cb03e219a016
 
 get_device_count_by_type_path = os.path.join(config.llvm_tools_dir, "get_device_count_by_type")
 
