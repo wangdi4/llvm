@@ -1,7 +1,10 @@
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/.. )
 
 if(NOT DEFINED ITTAPI_GIT_REPOSITORY)
-    set(ITTAPI_GIT_REPOSITORY https://github.com/intel/ittapi.git)
+# INTEL_CUSTOMIZATION
+#   set(ITTAPI_GIT_REPOSITORY https://github.com/intel/ittapi.git)
+    set(ITTAPI_GIT_REPOSITORY ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-ittapi)
+# end INTEL_CUSTOMIZATION
 endif()
 
 if(NOT DEFINED ITTAPI_GIT_TAG)
@@ -13,7 +16,10 @@ if(NOT DEFINED ITTAPI_SOURCE_DIR)
 endif()
 
 if(NOT EXISTS ${ITTAPI_SOURCE_DIR}/ittapi)
-    execute_process(COMMAND ${GIT_EXECUTABLE} clone ${ITTAPI_GIT_REPOSITORY}
+# INTEL_CUSTOMIZATION
+#   execute_process(COMMAND ${GIT_EXECUTABLE} clone ${ITTAPI_GIT_REPOSITORY}
+    execute_process(COMMAND ${GIT_EXECUTABLE} clone ${ITTAPI_GIT_REPOSITORY} ittapi
+# end INTEL_CUSTOMIZATION
                     WORKING_DIRECTORY ${ITTAPI_SOURCE_DIR}
                     RESULT_VARIABLE GIT_CLONE_RESULT)
     if(NOT GIT_CLONE_RESULT EQUAL "0")
