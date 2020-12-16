@@ -30,15 +30,15 @@ bool shouldPrintAfterPass(StringRef PassID);
 bool shouldPrintBeforeAll();
 bool shouldPrintAfterAll();
 
-// The list of passes to print before/after, if we only want to print
-// before/after specific passes.
-std::vector<std::string> printBeforePasses();
-std::vector<std::string> printAfterPasses();
-
 // Returns true if we should always print the entire module.
 bool forcePrintModuleIR();
 
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+
+// The list of passes to print before/after, if we only want to print
+// before/after specific passes.
+std::vector<std::string> printBeforePasses();
+std::vector<std::string> printAfterPasses();
 
 // Returns true if we should print the function.
 bool isFunctionInPrintList(StringRef FunctionName);

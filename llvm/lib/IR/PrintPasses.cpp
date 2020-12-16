@@ -97,6 +97,16 @@ std::vector<std::string> llvm::printAfterPasses() {
 
 bool llvm::forcePrintModuleIR() { return PrintModuleScope; }
 
+#else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#if INTEL_CUSTOMIZATION
+std::vector<std::string> llvm::printBeforePasses() {
+  return std::vector<std::string>();
+}
+
+std::vector<std::string> llvm::printAfterPasses() {
+  return std::vector<std::string>();
+}
+#endif // INTEL_CUSTOMIZATION
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 bool llvm::isFunctionInPrintList(StringRef FunctionName) {

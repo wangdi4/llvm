@@ -575,21 +575,30 @@ void PrintIRInstrumentation::registerCallbacks(
         });
   }
 }
-#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-template <typename IRUnitT> ChangePrinter<IRUnitT>::~ChangePrinter<IRUnitT>() {}
-IRChangePrinter::IRChangePrinter() : Out(dbgs()) {}
-IRChangePrinter::~IRChangePrinter() {}
-void IRChangePrinter::registerCallbacks(PassInstrumentationCallbacks &) {}
-void IRChangePrinter::handleInitialIR(Any) {}
-void IRChangePrinter::generateIRRepresentation(Any, StringRef, std::string &) {}
-void IRChangePrinter::omitAfter(StringRef PassID, std::string &) {}
-void IRChangePrinter::handleAfter(StringRef PassID, std::string &,
+#else // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#if INTEL_CUSTOMIZATION
+template <typename IRUnitT>
+ChangeReporter<IRUnitT>::~ChangeReporter<IRUnitT>() {}
+template <typename IRUnitT>
+TextChangeReporter<IRUnitT>::TextChangeReporter()
+    : ChangeReporter<IRUnitT>(), Out(dbgs()) {}
+template <typename IRUnitT>
+void TextChangeReporter<IRUnitT>::handleInitialIR(Any) {}
+template <typename IRUnitT>
+void TextChangeReporter<IRUnitT>::omitAfter(StringRef PassID, std::string &) {}
+template <typename IRUnitT>
+void TextChangeReporter<IRUnitT>::handleInvalidated(StringRef) {}
+template <typename IRUnitT>
+void TextChangeReporter<IRUnitT>::handleFiltered(StringRef, std::string &) {}
+template <typename IRUnitT>
+void TextChangeReporter<IRUnitT>::handleIgnored(StringRef, std::string &) {}
+IRChangedPrinter::~IRChangedPrinter() {}
+void IRChangedPrinter::registerCallbacks(PassInstrumentationCallbacks &) {}
+void IRChangedPrinter::generateIRRepresentation(Any, StringRef, std::string &) {}
+void IRChangedPrinter::handleAfter(StringRef PassID, std::string &,
                                   const std::string &, const std::string &,
                                   Any) {}
-void IRChangePrinter::handleInvalidated(StringRef) {}
-void IRChangePrinter::handleFiltered(StringRef, std::string &) {}
-void IRChangePrinter::handleIgnored(StringRef, std::string &) {}
-bool IRChangePrinter::same(const std::string &, const std::string &) {
+bool IRChangedPrinter::same(const std::string &, const std::string &) {
   return true;
 }
 PrintIRInstrumentation::~PrintIRInstrumentation() {}
@@ -608,8 +617,8 @@ bool isIgnored(StringRef PassID) {
   return isSpecialPass(PassID,
                        {"PassManager", "PassAdaptor", "AnalysisManagerProxy"});
 }
-
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#endif // INTEL_CUSTOMIZATION
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 void OptNoneInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {

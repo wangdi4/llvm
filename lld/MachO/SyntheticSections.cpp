@@ -703,6 +703,7 @@ void SymtabSection::finalizeContents() {
   for (Symbol *sym : symtab->getSymbols()) {
     uint32_t strx = stringTableSection.addString(sym->getName());
     if (auto *defined = dyn_cast<Defined>(sym)) {
+      (void)defined; // INTEL
       assert(defined->isExternal());
       externalSymbols.push_back({sym, strx});
     } else if (sym->isInGot() || sym->isInStubs()) {
