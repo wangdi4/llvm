@@ -4,12 +4,10 @@
 ; RUN: opt < %s -S -whole-program-assume -dtrans-soatoaos                 \
 ; RUN:          -enable-dtrans-soatoaos                                   \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  \
-; RUN:          -dtrans-soatoaos-ignore-classinfo=true                    \
 ; RUN:  2>&1 | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -passes=dtrans-soatoaos          \
 ; RUN:          -enable-dtrans-soatoaos                                   \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  \
-; RUN:          -dtrans-soatoaos-ignore-classinfo=true                    \
 ; RUN:  2>&1 | FileCheck %s
 
 ; Checks that transformation happens.
@@ -136,7 +134,7 @@ define linkonce_odr dso_local void @_ZN3ArrIPiE6resizeEi(%struct.Arr* nocapture 
 entry:
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
   %i = load i32, i32* %size, align 8
-  %add = add i32 %i, %inc
+  %add = add i32 %i, 1
   %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
   %i1 = load i32, i32* %capacity, align 4
   %cmp = icmp ugt i32 %add, %i1
@@ -191,7 +189,7 @@ define linkonce_odr dso_local void @_ZN3ArrIPfE6resizeEi(%struct.Arr.0* nocaptur
 entry:
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
   %i = load i32, i32* %size, align 8
-  %add = add i32 %i, %inc
+  %add = add i32 %i, 1
   %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 1
   %i1 = load i32, i32* %capacity, align 4
   %cmp = icmp ugt i32 %add, %i1
@@ -244,7 +242,7 @@ define linkonce_odr dso_local void @_ZN3ArrIPsE6resizeEi(%struct.Arr.1* nocaptur
 entry:
   %size = getelementptr inbounds %struct.Arr.1, %struct.Arr.1* %this, i64 0, i32 2
   %i = load i32, i32* %size, align 8
-  %add = add i32 %i, %inc
+  %add = add i32 %i, 1
   %capacity = getelementptr inbounds %struct.Arr.1, %struct.Arr.1* %this, i64 0, i32 1
   %i1 = load i32, i32* %capacity, align 4
   %cmp = icmp ugt i32 %add, %i1
@@ -496,8 +494,8 @@ entry:
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
   %call = call noalias i8* @malloc(i64 %mul)
-  %i = bitcast i32**** %base to i8**
-  store i8* %call, i8** %i, align 8
+  %i = bitcast i8* %call to i32***
+  store i32*** %i, i32**** %base, align 8
   call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
   ret void
 }
@@ -517,8 +515,8 @@ entry:
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
   %call = call noalias i8* @malloc(i64 %mul)
-  %i = bitcast float**** %base to i8**
-  store i8* %call, i8** %i, align 8
+  %i = bitcast i8* %call to float***
+  store float*** %i, float**** %base, align 8
   call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
   ret void
 }
@@ -538,8 +536,8 @@ entry:
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
   %call = call noalias i8* @malloc(i64 %mul)
-  %i = bitcast i16**** %base to i8**
-  store i8* %call, i8** %i, align 8
+  %i = bitcast i8* %call to i16***
+  store i16*** %i, i16**** %base, align 8
   call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
   ret void
 }

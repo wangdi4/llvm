@@ -1565,6 +1565,7 @@ public:
   static bool isKnownPredicateRange(IterTy Begin, IterTy End,
                                     GetPredicateFuncTy GetPredOp,
                                     bool *IsTrue) {
+    bool UnknownPredicate = false;
     bool FinalResult = true;
 
     // Check every predicate if its value is known. Evaluate the result of the
@@ -1574,19 +1575,23 @@ public:
       auto *DDRefRhs = GetPredOp(I, false);
 
       if (!DDRefLhs->isTerminalRef() || !DDRefRhs->isTerminalRef()) {
-        return false;
+        UnknownPredicate = true;
+        continue;
       }
 
       bool Result;
       if (!HLNodeUtils::isKnownPredicate(DDRefLhs->getSingleCanonExpr(), *I,
                                          DDRefRhs->getSingleCanonExpr(),
                                          &Result)) {
-        return false;
+        UnknownPredicate = true;
+        continue;
       }
 
-      // TODO: we should return 'known false' if any predicate is known to be
-      // false since they are 'and'ed.
       FinalResult = FinalResult && Result;
+    }
+
+    if (FinalResult && UnknownPredicate) {
+      return false;
     }
 
     if (IsTrue) {

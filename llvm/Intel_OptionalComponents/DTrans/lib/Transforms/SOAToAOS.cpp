@@ -49,10 +49,6 @@ static cl::opt<bool> DTransSOAToAOSSizeHeuristic(
     "dtrans-soatoaos-size-heuristic", cl::init(true), cl::Hidden,
     cl::desc("Respect size heuristic in DTrans SOAToAOS"));
 
-static cl::opt<bool> DTransSOAToAOSIgnoreClassInfo(
-    "dtrans-soatoaos-ignore-classinfo", cl::init(false), cl::Hidden,
-    cl::desc("Ignore ClassInfo Analysis in DTrans SOAToAOS"));
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<std::string> DTransSOAToAOSType("dtrans-soatoaos-typename",
                                                cl::ReallyHidden);
@@ -113,8 +109,6 @@ private:
     // Verify that all member functions of vector field classes are
     // expected pattern.
     bool checkClassInfoAnalysis(SOAToAOSTransformImpl &Impl, Module &M) {
-      if (DTransSOAToAOSIgnoreClassInfo)
-        return true;
 
       std::unique_ptr<SOACandidateInfo> CandD(new SOACandidateInfo());
       if (!CandD->isCandidateType(Struct) || !CandD->collectMemberFunctions(M))
@@ -152,9 +146,6 @@ private:
           return true;
         return false;
       };
-
-      if (DTransSOAToAOSIgnoreClassInfo)
-        return false;
 
       auto *A1Ty = getStructTypeOfMethod(*F1);
       auto *A2Ty = getStructTypeOfMethod(*F2);

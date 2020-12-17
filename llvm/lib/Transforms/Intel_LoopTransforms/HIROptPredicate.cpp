@@ -146,6 +146,11 @@ public:
         IsUpdatedInThenBranch(Arg.IsUpdatedInThenBranch),
         IsUpdatedInElseBranch(Arg.IsUpdatedInElseBranch) {
     for (HLInst *Inst : Arg.Instructions) {
+      // Skip instructions that are already removed.
+      if (!Inst->getParent()) {
+        continue;
+      }
+
       HLInst *ClonedInst = Mapper.getMapped(Inst);
       assert(ClonedInst && "Nullptr instruction");
       Instructions.insert(ClonedInst);
@@ -1368,7 +1373,7 @@ void HIROptPredicate::transformIf(
       for (HLInst *RedundantInst : C.PUC.getInstructions()) {
         // Remove instruction if it's still attached. May be removed by
         // another candidate.
-        if (RedundantInst->isAttached()) {
+        if (RedundantInst->getParent()) {
           addLvalAsLivein(RedundantInst->getLvalDDRef(), TargetLoop);
           HLNodeUtils::remove(RedundantInst);
         }
@@ -1414,7 +1419,7 @@ void HIROptPredicate::transformIf(
         // Remove instruction if it's still attached. May be removed by
         // another candidate.
         HLInst *RedundantInstClone = CloneMapper.getMapped(RedundantInst);
-        if (RedundantInstClone && RedundantInstClone->isAttached()) {
+        if (RedundantInstClone && RedundantInstClone->getParent()) {
           addLvalAsLivein(RedundantInstClone->getLvalDDRef(), NewElseLoop);
           HLNodeUtils::remove(RedundantInstClone);
         }
@@ -1578,6 +1583,11 @@ void HIROptPredicate::removeOrHoistIf(HoistCandidate &Candidate,
 
     unsigned Level = TargetLoop->getNestingLevel();
     for (HLInst *DefInst : DefInstructions) {
+      // Skip instructions that may already be removed by other candidates.
+      if (!DefInst->getParent()) {
+        continue;
+      }
+
       HLInst *DefInstClone = DefInst->clone();
       HLNodeUtils::insertBefore(TargetLoop, DefInstClone);
 

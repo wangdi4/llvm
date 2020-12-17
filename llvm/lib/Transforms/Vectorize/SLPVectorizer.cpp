@@ -1908,7 +1908,7 @@ private:
   /// is the operand to follow, where 0 means left and 1 right operand.
   DenseMap<Value *, int> PreferredOperandMap;
 
-  bool VisitRightOperandFirst(const Value *V) const {
+  bool visitRightOperandFirst(const Value *V) const {
     if (!EnablePathSteering)
       return false;
     auto It = PreferredOperandMap.find(V);
@@ -5153,7 +5153,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
         // Path steering.
-        if (VisitRightOperandFirst(VL[0])) {
+        if (visitRightOperandFirst(VL[0])) {
           buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
           buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
         } else {
@@ -5414,7 +5414,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                                        OpDirRight, *this);
         TE->setOperand(0, Left);
         TE->setOperand(1, Right);
-        if (VisitRightOperandFirst(VL[0])) {
+        if (visitRightOperandFirst(VL[0])) {
           buildTree_rec(TE->getOperand(1), Depth + 1, {TE, 1, OpDirRight});
           buildTree_rec(TE->getOperand(0), Depth + 1, {TE, 0, OpDirLeft});
         } else {

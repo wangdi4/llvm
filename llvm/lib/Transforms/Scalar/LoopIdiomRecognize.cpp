@@ -59,6 +59,7 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -195,6 +196,10 @@ private:
     DontUse // Dummy retval never to be used. Allows catching errors in retval
             // handling.
   };
+
+#if INTEL_CUSTOMIZATION
+  bool isOmpSIMDLoop(Loop *L);
+#endif // INTEL_CUSTOMIZATION
 
   /// \name Countable Loop Idiom Handling
   /// @{
@@ -367,6 +372,32 @@ bool LoopIdiomRecognize::runOnLoop(Loop *L) {
   return runOnNoncountableLoop();
 }
 
+#if INTEL_CUSTOMIZATION
+/// Checks if loop's \p L preheader or any of its predecessors has at least one
+/// OMP SIMD loop region.
+bool LoopIdiomRecognize::isOmpSIMDLoop(Loop *L) {
+  BasicBlock *CurBB = L->getLoopPreheader();
+  // Starting from Loop PH check all of its predecessors for OMP SIMD loop
+  // regions. Paropt transforms ensure that SIMD clause BB and Loop PH BB are
+  // connected by straight line control flow. Any BB with more than one
+  // predecessor should mean Loop is not SIMD.
+  while (CurBB) {
+    for (auto &I : *CurBB) {
+      StringRef DirString = vpo::VPOAnalysisUtils::getRegionDirectiveString(&I);
+      if (!DirString.empty() && DirString.equals("DIR.OMP.SIMD")) {
+        LLVM_DEBUG(dbgs() << DEBUG_TYPE
+                   " Detected an OMP SIMD loop region in %"
+                          << L->getHeader()->getName() << "\n");
+        return true;
+      }
+    }
+
+    CurBB = CurBB->getSinglePredecessor();
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool LoopIdiomRecognize::runOnCountableLoop() {
   const SCEV *BECount = SE->getBackedgeTakenCount(CurLoop);
   assert(!isa<SCEVCouldNotCompute>(BECount) &&
@@ -505,6 +536,15 @@ LoopIdiomRecognize::isLegalStore(StoreInst *SI) {
   // but it can be turned into memset_pattern if the target supports it.
   Value *SplatValue = isBytewiseValue(StoredVal, *DL);
   Constant *PatternValue = nullptr;
+
+#if INTEL_CUSTOMIZATION
+  // If CurLoop is OMP SIMD loop no need to perform further checks.
+  // Note: In case new idioms would be added below early exit might need to be
+  // removed. Instead individual checks in along appropriate idioms would be
+  // required.
+  if (isOmpSIMDLoop(CurLoop))
+    return LegalStoreKind::None;
+#endif // INTEL_CUSTOMIZATION
 
   // Note: memset and memset_pattern on unordered-atomic is yet not supported
   bool UnorderedAtomic = SI->isUnordered() && !SI->isSimple();

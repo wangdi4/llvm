@@ -3349,7 +3349,8 @@ void VPOCodeGen::processPredicatedNonWidenedUniformCall(VPInstruction *VPInst) {
   return serializeInstruction(VPInst);
 }
 
-void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
+Value *VPOCodeGen::getMaskNotAllZero() {
+  assert(MaskValue && "Should only be called in masked context!");
   auto *MaskTy = dyn_cast<VectorType>(MaskValue->getType());
   assert(MaskTy && MaskTy->getNumElements() == VF && "Unexpected Mask Type");
   // Emit not of all-zero check for mask
@@ -3361,6 +3362,14 @@ void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
   // if atleast one of the i1 masks in <VF x i1> is true.
   auto *CmpInst =
       Builder.CreateICmpNE(MaskBitCast, Constant::getNullValue(IntTy));
+
+  return CmpInst;
+}
+
+void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
+  // Mask is needed before the predicated instruction, so generate the code for
+  // it.
+  auto *NotAllZero = getMaskNotAllZero();
 
   // Now create a scalar instruction, populating correct values for its operands.
   SmallVector<Value *, 4> ScalarOperands;
@@ -3374,7 +3383,7 @@ void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
   VPScalarMap[VPInst][0] = SerialInstruction;
 
   PredicatedInstructions.push_back(
-      std::make_pair(cast<Instruction>(SerialInstruction), CmpInst));
+      std::make_pair(cast<Instruction>(SerialInstruction), NotAllZero));
 }
 
 void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
