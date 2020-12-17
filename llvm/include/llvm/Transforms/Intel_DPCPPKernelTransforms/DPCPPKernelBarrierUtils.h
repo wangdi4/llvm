@@ -60,8 +60,8 @@ static std::string AppendWithDimension(std::string S, int Dimension) {
   return S;
 }
 
-static std::string AppendWithDimension(std::string S,
-                                       const llvm::Value *Dimension) {
+static std::string LLVM_ATTRIBUTE_UNUSED
+AppendWithDimension(std::string S, const llvm::Value *Dimension) {
   int D = -1;
   if (const llvm::ConstantInt *C = llvm::dyn_cast<llvm::ConstantInt>(Dimension))
     D = C->getZExtValue();
