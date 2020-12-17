@@ -5327,26 +5327,42 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
   }
 }
 
-/// We will treat ivdep back and ivdep the same way.
-/// ivdep loop is for auto-parallel and ivdep back is
-/// for auto-vectorization.  Strictly speaking,
-/// DV for ivdep should be =, and DV for ivdep back
-/// should be <=. But in icc, for simplicity, both
-/// were set as =. Will do the same here.
+/// Here we treat "ivdep back" somewhat conservatively, attempting to roughly
+/// break only "assumed" dependencies. However, "ivdep loop" is treated as a
+/// clear assertion that there are no loop-carried dependencies.
+///
+/// For "ivdep back", the adjustment is as follows:
 /// (1) If Base Exprs are different, set DV as =
 /// (2) For constant distance, do not override.
 ///     IVDEP means distance >= trip count
 ///     Vectorizer should choose VL <= Distance
 /// (3) Otherwise adjust DV
-
+///
+/// For "ivdep loop", the adjustment is a simple mask with DVKind::EQ.
 bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
 
   const HLLoop *Lp = LCALoop;
   bool IVDEPFound = false;
+  unsigned II = LCALoopLevel;
+
+  // TODO: Currently we only benefit from "ivdep loop" on the lowest common
+  // ancestor loop. (That is, the innermost common ancestor loop.)
+  // This is to avoid creating DVs such as (NONE, *), which is not really
+  // understood properly by the rest of DD; the "NONE" may be interpreted as
+  // meaning that there's complete independence.
+  if (Lp && Lp->hasVectorizeIVDepLoopPragma()) {
+    IVDEPFound = true;
+    Result.setDirection(II, DVKind::EQ & Result.getDirection(II));
+    // If we made an adjustment, skip this innermost loop when considering
+    // "ivdep" below. It will not improve the result.
+    --II;
+    Lp = Lp->getParentLoop();
+  }
+
   // Looping through parents allows IVDEP for more than 1 level
   // to be supported. But multiple levels vectorization is not
   // currently generated
-  for (unsigned II = LCALoopLevel; II >= 1; --II, Lp = Lp->getParentLoop()) {
+  for (; II >= 1; --II, Lp = Lp->getParentLoop()) {
     if (Lp->hasVectorizeIVDepPragma()) {
       IVDEPFound = true;
       if (!SameBase) {
