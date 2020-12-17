@@ -2309,17 +2309,16 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
         ClauseKind == OMPC_from)
       continue;
     switch (ClauseKind) {
-#define GEN_CLANG_CLAUSE_CLASS
-#define CLAUSE_CLASS(Enum, Str, Class)                                     \
+#define OMP_CLAUSE_CLASS(Enum, Str, Class)                                     \
   case llvm::omp::Clause::Enum:                                                \
     emit##Class(cast<Class>(C));                                               \
     break;
-#define CLAUSE_NO_CLASS(Enum, Str)                                         \
+#define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
   case llvm::omp::Clause::Enum:                                                \
     llvm_unreachable("Clause not allowed");
   default:
     break;
-#include "llvm/Frontend/OpenMP/OMP.cpp.inc"
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
   }
   if (!shouldSkipExplicitClause(OMPC_map) ||
