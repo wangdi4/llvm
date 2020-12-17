@@ -1209,7 +1209,7 @@ static inline bool nodeIsDirective(const HLNode *Node, int DirectiveID) {
 }
 
 static bool nodeHasDirective(const HLNode *Node, int DirectiveID) {
-  while (Node = Node->getPrevNode()) {
+  while ((Node = Node->getPrevNode())) {
     if (nodeIsDirective(Node, DirectiveID)) {
       return true;
     }

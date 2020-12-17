@@ -310,21 +310,6 @@ computeSectionsFromGroup(ArrayRef<const RegDDRef *> Group,
   return Info;
 }
 
-static void groupRefs(ArrayRef<const RegDDRef *> Refs,
-                      DDRefGrouping::RefGroupVecTy<const RegDDRef *> &Groups) {
-  DenseMap<unsigned, unsigned> GroupIndex;
-
-  for (auto *Ref : Refs) {
-    unsigned &GroupNo = GroupIndex[Ref->getBasePtrBlobIndex()];
-    if (GroupNo == 0) {
-      GroupNo = GroupIndex.size();
-      Groups.emplace_back();
-    }
-
-    Groups[GroupNo - 1].push_back(Ref);
-  }
-}
-
 static void replaceIVInSection(ArraySectionInfo &Info, const HLLoop *Loop) {
   unsigned LoopLevel = Loop->getNestingLevel();
 
