@@ -259,11 +259,12 @@ Optional<bool> FPValueRange::isInBitRange(unsigned BitRange) const {
     if (C.convertToInteger(CCeil, RoundingMode::TowardPositive, &IsExact) &
         APFloat::opInvalidOp)
       return false;
-    if (C.isInteger())
+    if (C.isInteger()) {
       if (CCeil.isMaxValue())
         return false;
       else
         ++CCeil;
+    }
     return IntRange.contains(ConstantRange(CFloor, CCeil));
   }
 
@@ -279,11 +280,12 @@ Optional<bool> FPValueRange::isInBitRange(unsigned BitRange) const {
                                     &IsExact) &
         APFloat::opInvalidOp)
       return false;
-    if (getUpper().isInteger())
+    if (getUpper().isInteger()) {
       if (Upper.isMaxValue())
         return false;
       else
         ++Upper;
+    }
     return IntRange.contains(ConstantRange(Lower, Upper));
   }
 
