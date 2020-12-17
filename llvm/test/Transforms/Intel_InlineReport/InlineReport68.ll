@@ -1,23 +1,23 @@
 ; Inline report
 ; RUN: opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=7 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
-; R;UN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=7 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=7 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
-; R;UN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0x86 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
-; R;UN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0x86 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0x86 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0x86 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that @perdida_m_mp_perdida_ and @perdida_m_mp_generalized_hookes_law_
 ; are not inlined because we are not compiling with an opt level of at least
 ; -O3.
 
-; CHECK-DAG-BEFORE: call{{.*}}@perdida_m_mp_perdida_
-; CHECK-DAG-BEFORE: call{{.*}}@perdida_m_mp_generalized_hookes_law_
-; CHECK-DAG-BEFORE: call{{.*}}@perdida_m_mp_generalized_hookes_law_
+; CHECK-BEFORE-DAG: call{{.*}}@perdida_m_mp_perdida_
+; CHECK-BEFORE-DAG: call{{.*}}@perdida_m_mp_generalized_hookes_law_
+; CHECK-BEFORE-DAG: call{{.*}}@perdida_m_mp_generalized_hookes_law_
 ; CHECK-NOT: INLINE: perdida_m_mp_perdida_{{.*}}Callee has single callsite and local linkage
 ; CHECK-NOT: INLINE: perdida_m_mp_generalized_hookes_law_{{.*}}Callee has single callsite and local linkage
 ; CHECK-NOT: INLINE: perdida_m_mp_generalized_hookes_law_{{.*}}Has inline budget for small application
-; CHECK-DAG-AFTER: call{{.*}}@perdida_m_mp_perdida_
-; CHECK-DAG-AFTER: call{{.*}}@perdida_m_mp_generalized_hookes_law_
-; CHECK-DAG-AFTER: call{{.*}}@perdida_m_mp_generalized_hookes_law_
+; CHECK-AFTER-DAG: call{{.*}}@perdida_m_mp_perdida_
+; CHECK-AFTER-DAG: call{{.*}}@perdida_m_mp_generalized_hookes_law_
+; CHECK-AFTER-DAG: call{{.*}}@perdida_m_mp_generalized_hookes_law_
 
 %"QNCA_a0$double*$rank3$" = type { double*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
 %"QNCA_a0$double*$rank1$" = type { double*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
