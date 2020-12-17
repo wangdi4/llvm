@@ -1506,3 +1506,65 @@ let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
   } // SchedRW = [WriteSystem]
 }
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+multiclass TCVTROWPS2PHIE_BASE {
+  let Predicates = [HasAMXCOMPLEXEVEX, In64BitMode] in {
+    let SchedRW = [WriteSystem] in {
+      let Constraints = "$src1 = $dst" in
+        def rre : I<0x6d, MRMSrcReg4VOp3, (outs VR512:$dst),
+                    (ins VR512:$src1, TILEX:$src2, GR32:$src3),
+                    "tcvtrowps2phie\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                    []>, T8PD, EVEX_4V, EVEX_V512;
+      def rri : Ii8<0x77, MRMSrcReg4VOp3, (outs VR512:$dst),
+                    (ins VR512:$src1, TILEX:$src2, i32u8imm:$src3),
+                    "tcvtrowps2phie\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                    []>, TAXD, EVEX_4V, EVEX_V512;
+
+    }
+  } // HasAMXCOMPLEXEVEX, In64BitMode
+}
+
+let Predicates = [HasAMXCOMPLEXEVEX, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    let usesCustomInserter = 1 in {
+      let Constraints = "$src1 = $dst" in
+        def PTCVTROWPS2PHIErre : PseudoI<(outs VR512:$dst), (ins VR512:$src1, u8imm:$src2, GR32:$src3),
+                                        [(set VR512:$dst, (int_x86_tcvtrowps2phiee VR512:$src1, timm:$src2,
+                                          GR32:$src3))]>;
+        def PTCVTROWPS2PHIErri : PseudoI<(outs VR512:$dst), (ins VR512:$src1, u8imm:$src2, i32u8imm:$src3),
+                                        [(set VR512:$dst, (int_x86_tcvtrowps2phiei VR512:$src1, timm:$src2,
+                                          timm:$src3))]>;
+    } // usesCustomInserter
+  } // WriteSystem
+} // HasAMXCOMPLEXEVEX, In64BitMode
+
+
+defm TCVTROWPS2PHIE : TCVTROWPS2PHIE_BASE;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_FP19
+let Predicates = [HasAMXFP19, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TMMULFP19PS : I<0x6d, MRMSrcReg, (outs TILE:$dst),
+                        (ins TILE:$src1, TILE:$src2),
+                        "tmmulfp19ps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                        []>, VEX_4V, T8PD;
+    def TTMMULFP19PS : I<0x6d, MRMSrcReg, (outs TILE:$dst),
+                         (ins TILE:$src1, TILE:$src2),
+                         "ttmmulfp19ps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                         []>, VEX_4V, T8XS;
+
+    let usesCustomInserter = 1 in {
+      def PTMMULFP19PS : PseudoI<(outs), (ins u8imm:$src1,
+                                 u8imm:$src2, u8imm:$src3),
+                                 [(int_x86_tmmulfp19ps timm:$src1,
+                                   timm:$src2, timm:$src3)]>;
+      def PTTMMULFP19PS : PseudoI<(outs), (ins u8imm:$src1,
+                                  u8imm:$src2, u8imm:$src3),
+                                  [(int_x86_ttmmulfp19ps timm:$src1,
+                                    timm:$src2, timm:$src3)]>;
+    }
+  } // SchedRW = [WriteSystem]
+}
+#endif // INTEL_FEATURE_ISA_AMX_FP19
