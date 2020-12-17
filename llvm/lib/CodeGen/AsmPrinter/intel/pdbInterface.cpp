@@ -293,12 +293,12 @@ static HMODULE dgil_open_dll(const char * filename)
 
     int i = 0;
     while (entry_point_names[i] != NULLP) {
-        void *p = GetProcAddress(handle, entry_point_names[i]);
+        FARPROC p = GetProcAddress(handle, entry_point_names[i]);
         if (p == NULLP) {
             CloseHandle(handle);
             return NULLP;
         }
-        *(entry_point[i]) = p;
+        *(entry_point[i]) = (void *) uintptr_t(p);
         i++;
     }
 
@@ -657,17 +657,6 @@ static void dump_record(unsigned char *buf)
         fprintf(stderr, "     name = %s\n", (char *)buf + i);
     }
 }
-
-static unsigned int get_field(const char *buff, int offset, int size)
-{
-    unsigned int val = 0;
-    while (size > 0) {
-        val = (val << 8) | (unsigned char)buff[offset + size - 1];
-        size --;
-    }
-    return val;
-}
-
 
 static dgi_bool pdb_write_type_or_id(TPI*  handle, const char * buf, unsigned long *assigned_index)
 {

@@ -142,7 +142,7 @@ public:
   bool isPIEDefault() const override { return false; }
   bool isPICDefaultForced() const override { return false; }
 
-  virtual codegenoptions::DebugInfoFormat getDefaultDebugFormat() const {
+  virtual codegenoptions::DebugInfoFormat getDefaultDebugFormat() const override {
     return HostTC.getDefaultDebugFormat();
   }
 
