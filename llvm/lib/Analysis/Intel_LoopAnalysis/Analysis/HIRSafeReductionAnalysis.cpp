@@ -213,10 +213,10 @@ bool isValidMixOfOpcodes(unsigned OpCode1, unsigned OpCode2) {
     return true;
   }
 
-  if (OpCode1 == Instruction::FAdd && OpCode2 == Instruction::FSub ||
-      OpCode1 == Instruction::FSub && OpCode2 == Instruction::FAdd ||
-      OpCode1 == Instruction::Add && OpCode2 == Instruction::Sub ||
-      OpCode1 == Instruction::Sub && OpCode2 == Instruction::Add) {
+  if ((OpCode1 == Instruction::FAdd && OpCode2 == Instruction::FSub) ||
+      (OpCode1 == Instruction::FSub && OpCode2 == Instruction::FAdd) ||
+      (OpCode1 == Instruction::Add && OpCode2 == Instruction::Sub) ||
+      (OpCode1 == Instruction::Sub && OpCode2 == Instruction::Add)) {
     return true;
   }
 
