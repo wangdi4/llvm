@@ -159,13 +159,13 @@ namespace {
 
 /// InferAddressSpaces
 class InferAddressSpacesLegacyPass : public FunctionPass {
-  unsigned FlatAS;
+
 public:
   static char ID;
 
   InferAddressSpacesLegacyPass()
-      : FunctionPass(ID), FlatAS(UninitializedAddressSpace) {}
-  InferAddressSpacesLegacyPass(unsigned AS) : FunctionPass(ID), FlatAS(AS) {}
+      : FunctionPass(ID) {}
+  InferAddressSpacesLegacyPass(unsigned AS) : FunctionPass(ID) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
