@@ -1,4 +1,4 @@
-;RUN: opt -VPlanDriver -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+;RUN: opt -VPlanDriver -S %s | FileCheck %s --check-prefixes=CHECK
 
 ; CHECK-LABEL: expl_reduction_add
 ; CHECK: vector.body
