@@ -1017,6 +1017,20 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
 #if INTEL_CUSTOMIZATION
   case LibFunc_msvc_std_bad_alloc_ctor:
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
+  case LibFunc_msvc_std_basic_filebuf_dtor:
+    return Changed;
+  case LibFunc_msvc_std_basic_filebuf_under_Endwrite:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_msvc_std_basic_streambuf_dtor:
+  case LibFunc_msvc_std_basic_streambuf_under_Lock:
+  case LibFunc_msvc_std_basic_streambuf_overflow:
+  case LibFunc_msvc_std_basic_streambuf_pbackfail:
+  case LibFunc_msvc_std_basic_streambuf_scalar_deleting_dtor:
+  case LibFunc_msvc_std_basic_streambuf_showmanyc:
+  case LibFunc_msvc_std_basic_streambuf_uflow:
+  case LibFunc_msvc_std_basic_streambuf_under_Unlock:
+  case LibFunc_msvc_std_basic_streambuf_underflow:
   case LibFunc_msvc_std_basic_string_append:
   case LibFunc_msvc_std_basic_string_append_size_value:
   case LibFunc_msvc_std_basic_string_assign_const_ptr:
@@ -1062,6 +1076,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_ctype_use_facet:
   case LibFunc_msvc_std_CxxThrowException:
   case LibFunc_msvc_std_error_category_equivalent_error_condition:
+  case LibFunc_msvc_std_error_code_make_error_code:
   case LibFunc_msvc_std_Execute_once:
   case LibFunc_msvc_std_exception_const_ptr_ctor:
   case LibFunc_msvc_std_exception_dtor:
