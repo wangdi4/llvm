@@ -307,6 +307,17 @@ _mm_maskz_max_ph(__mmask8 __U, __m128h __A, __m128h __B) {
 }
 
 static __inline__ __m256h __DEFAULT_FN_ATTRS256
+_mm256_abs_ph(__m256h __A) {
+  return (__m256h)_mm256_and_epi32(_mm256_set1_epi32(0x7FFF7FFF),(__m256i)__A);
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_abs_ph(__m128h __A)
+{
+  return (__m128h)_mm_and_epi32(_mm_set1_epi32(0x7FFF7FFF),(__m128i)__A);
+}
+
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
 _mm256_conj_pch(__m256h __A) {
   return (__m256h)_mm256_xor_ps((__m256)__A, _mm256_set1_ps(-0.0f));
 }

@@ -19,10 +19,14 @@
 /* Define the default attributes for the functions in this file. */
 typedef _Float16 __v32hf __attribute__((__vector_size__(64), __aligned__(64)));
 typedef _Float16 __m512h __attribute__((__vector_size__(64), __aligned__(64)));
+typedef _Float16 __m512h_u __attribute__((__vector_size__(64), __aligned__(1)));
 typedef _Float16 __v8hf __attribute__((__vector_size__(16), __aligned__(16)));
 typedef _Float16 __m128h __attribute__((__vector_size__(16), __aligned__(16)));
+typedef _Float16 __m128h_u __attribute__((__vector_size__(16), __aligned__(1)));
 typedef _Float16 __v16hf __attribute__((__vector_size__(32), __aligned__(32)));
 typedef _Float16 __m256h __attribute__((__vector_size__(32), __aligned__(32)));
+typedef _Float16 __m256h_u __attribute__((__vector_size__(32), __aligned__(1)));
+
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS512 \
@@ -572,6 +576,11 @@ _mm512_maskz_max_ph(__mmask32 __U, __m512h __A, __m512h __B) {
                                    (__v32hf)_mm512_setzero_ph());
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_abs_ph(__m512h __A) {
+  return (__m512h)_mm512_and_epi32(_mm512_set1_epi32(0x7FFF7FFF),(__m512i)__A);
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_conj_pch(__m512h __A) {
   return (__m512h)_mm512_xor_ps((__m512)__A, _mm512_set1_ps(-0.0f));
 }
@@ -890,6 +899,51 @@ _mm_maskz_load_sh (__mmask8 __U, const void* __A)
                                                   __U & 1);
 }
 
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_load_ph(void const *__p)
+{
+  return *(const __m512h*)__p;
+}
+
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
+_mm256_load_ph(void const *__p)
+{
+  return *(const __m256h *)__p;
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_load_ph(void const *__p)
+{
+  return *(const __m128h *)__p;
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_loadu_ph(void const *__p)
+{
+  struct __loadu_ph {
+    __m512h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  return ((const struct __loadu_ph*)__p)->__v;
+}
+
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
+_mm256_loadu_ph(void const *__p)
+{
+  struct __loadu_ph {
+    __m256h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  return ((const struct __loadu_ph*)__p)->__v;
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_loadu_ph(void const *__p)
+{
+  struct __loadu_ph {
+    __m128h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  return ((const struct __loadu_ph*)__p)->__v;
+}
+
 // stores with vmovsh:
 static __inline__ void __DEFAULT_FN_ATTRS128
 _mm_store_sh(void *__dp, __m128h __a)
@@ -904,6 +958,51 @@ static __inline__ void __DEFAULT_FN_ATTRS128
 _mm_mask_store_sh (void * __W, __mmask8 __U, __m128h __A)
 {
   __builtin_ia32_storesh128_mask ((__v8hf *)__W, __A, __U & 1);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS512
+_mm512_store_ph(void *__P, __m512h __A)
+{
+  *(__m512h*)__P = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS256
+_mm256_store_ph(void *__P, __m256h __A)
+{
+  *(__m256h*)__P = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS128
+_mm_store_ph(void *__P, __m128h __A)
+{
+  *(__m128h*)__P = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS512
+_mm512_storeu_ph(void *__P, __m512h __A)
+{
+  struct __storeu_ph {
+    __m512h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ph*)__P)->__v = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS256
+_mm256_storeu_ph(void *__P, __m256h __A)
+{
+  struct __storeu_ph {
+    __m256h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ph*)__P)->__v = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS128
+_mm_storeu_ph(void *__P, __m128h __A)
+{
+  struct __storeu_ph {
+    __m128h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ph*)__P)->__v = __A;
 }
 
 // moves with vmovsh:

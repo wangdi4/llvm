@@ -379,6 +379,18 @@ __m128h test_mm_maskz_max_ph(__mmask32 __U, __m128h __A, __m128h __B) {
   return _mm_maskz_max_ph(__U, __A, __B);
 }
 
+__m128h test_mm_abs_ph(__m128h a) {
+  // CHECK-LABEL: @test_mm_abs_ph
+  // CHECK: and <4 x i32>
+  return _mm_abs_ph(a);
+}
+
+__m256h test_mm256_abs_ph(__m256h a) {
+  // CHECK-LABEL: @test_mm256_abs_ph
+  // CHECK: and <8 x i32>
+  return _mm256_abs_ph(a);
+}
+
 __m256h test_mm256_conj_pch(__m256h __A) {
   // CHECK-LABEL: @test_mm256_conj_pch
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <8 x float>
