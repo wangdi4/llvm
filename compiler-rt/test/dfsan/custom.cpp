@@ -762,6 +762,15 @@ void test_sigaction() {
   ASSERT_READ_ZERO_LABEL(&oldact, sizeof(oldact));
 }
 
+void test_sigaltstack() {
+  stack_t old_altstack = {};
+  dfsan_set_label(j_label, &old_altstack, sizeof(old_altstack));
+  int ret = sigaltstack(NULL, &old_altstack);
+  assert(ret == 0);
+  ASSERT_ZERO_LABEL(ret);
+  ASSERT_READ_ZERO_LABEL(&old_altstack, sizeof(old_altstack));
+}
+
 void test_gettimeofday() {
   struct timeval tv;
   struct timezone tz;
@@ -798,6 +807,22 @@ int dl_iterate_phdr_test_cb(struct dl_phdr_info *info, size_t size,
 
 void test_dl_iterate_phdr() {
   dl_iterate_phdr(dl_iterate_phdr_test_cb, (void *)3);
+}
+
+// On glibc < 2.27, this symbol is not available.  Mark it weak so we can skip
+// testing in this case.
+__attribute__((weak)) extern "C" void _dl_get_tls_static_info(size_t *sizep,
+                                                              size_t *alignp);
+
+void test__dl_get_tls_static_info() {
+  if (!_dl_get_tls_static_info)
+    return;
+  size_t sizep = 0, alignp = 0;
+  dfsan_set_label(i_label, &sizep, sizeof(sizep));
+  dfsan_set_label(i_label, &alignp, sizeof(alignp));
+  _dl_get_tls_static_info(&sizep, &alignp);
+  ASSERT_ZERO_LABEL(sizep);
+  ASSERT_ZERO_LABEL(alignp);
 }
 
 void test_strrchr() {
@@ -1138,6 +1163,7 @@ int main(void) {
   assert(i_j_label != j_label);
   assert(i_j_label != k_label);
 
+  test__dl_get_tls_static_info();
   test_bcmp();
   test_calloc();
   test_clock_gettime();
@@ -1172,6 +1198,7 @@ int main(void) {
   test_sched_getaffinity();
   test_select();
   test_sigaction();
+  test_sigaltstack();
   test_sigemptyset();
   test_snprintf();
   test_socketpair();

@@ -461,6 +461,20 @@ SANITIZER_INTERFACE_ATTRIBUTE int __dfsw_dl_iterate_phdr(
   return dl_iterate_phdr(dl_iterate_phdr_cb, &dipi);
 }
 
+// This function is only available for glibc 2.27 or newer.  Mark it weak so
+// linking succeeds with older glibcs.
+SANITIZER_WEAK_ATTRIBUTE void _dl_get_tls_static_info(size_t *sizep,
+                                                      size_t *alignp);
+
+SANITIZER_INTERFACE_ATTRIBUTE void __dfsw__dl_get_tls_static_info(
+    size_t *sizep, size_t *alignp, dfsan_label sizep_label,
+    dfsan_label alignp_label) {
+  assert(_dl_get_tls_static_info);
+  _dl_get_tls_static_info(sizep, alignp);
+  dfsan_set_label(0, sizep, sizeof(*sizep));
+  dfsan_set_label(0, alignp, sizeof(*alignp));
+}
+
 SANITIZER_INTERFACE_ATTRIBUTE
 char *__dfsw_ctime_r(const time_t *timep, char *buf, dfsan_label timep_label,
                      dfsan_label buf_label, dfsan_label *ret_label) {
@@ -795,6 +809,16 @@ int __dfsw_sigaction(int signum, const struct sigaction *act,
   if (oldact) {
     dfsan_set_label(0, oldact, sizeof(struct sigaction));
   }
+  *ret_label = 0;
+  return ret;
+}
+
+SANITIZER_INTERFACE_ATTRIBUTE
+int __dfsw_sigaltstack(const stack_t *ss, stack_t *old_ss, dfsan_label ss_label,
+                       dfsan_label old_ss_label, dfsan_label *ret_label) {
+  int ret = sigaltstack(ss, old_ss);
+  if (ret != -1 && old_ss)
+    dfsan_set_label(0, old_ss, sizeof(*old_ss));
   *ret_label = 0;
   return ret;
 }

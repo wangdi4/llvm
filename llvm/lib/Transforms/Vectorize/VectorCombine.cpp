@@ -117,15 +117,16 @@ bool VectorCombine::vectorizeLoadInsert(Instruction &I) {
     return false;
 
   // TODO: Extend this to match GEP with constant offsets.
-  Value *PtrOp = Load->getPointerOperand()->stripPointerCasts();
-  assert(isa<PointerType>(PtrOp->getType()) && "Expected a pointer type");
-  unsigned AS = Load->getPointerAddressSpace();
+  const DataLayout &DL = I.getModule()->getDataLayout();
+  Value *SrcPtr = Load->getPointerOperand()->stripPointerCasts();
+  assert(isa<PointerType>(SrcPtr->getType()) && "Expected a pointer type");
 
   // If original AS != Load's AS, we can't bitcast the original pointer and have
   // to use Load's operand instead. Ideally we would want to strip pointer casts
   // without changing AS, but there's no API to do that ATM.
-  if (AS != PtrOp->getType()->getPointerAddressSpace())
-    PtrOp = Load->getPointerOperand();
+  unsigned AS = Load->getPointerAddressSpace();
+  if (AS != SrcPtr->getType()->getPointerAddressSpace())
+    SrcPtr = Load->getPointerOperand();
 
   Type *ScalarTy = Scalar->getType();
   uint64_t ScalarSize = ScalarTy->getPrimitiveSizeInBits();
@@ -137,10 +138,8 @@ bool VectorCombine::vectorizeLoadInsert(Instruction &I) {
   unsigned MinVecNumElts = MinVectorSize / ScalarSize;
   auto *MinVecTy = VectorType::get(ScalarTy, MinVecNumElts, false);
   Align Alignment = Load->getAlign();
-  const DataLayout &DL = I.getModule()->getDataLayout();
-  if (!isSafeToLoadUnconditionally(PtrOp, MinVecTy, Alignment, DL, Load, &DT))
+  if (!isSafeToLoadUnconditionally(SrcPtr, MinVecTy, Alignment, DL, Load, &DT))
     return false;
-
 
   // Original pattern: insertelt undef, load [free casts of] PtrOp, 0
   Type *LoadTy = Load->getType();
@@ -160,7 +159,7 @@ bool VectorCombine::vectorizeLoadInsert(Instruction &I) {
   // It is safe and potentially profitable to load a vector directly:
   // inselt undef, load Scalar, 0 --> load VecPtr
   IRBuilder<> Builder(Load);
-  Value *CastedPtr = Builder.CreateBitCast(PtrOp, MinVecTy->getPointerTo(AS));
+  Value *CastedPtr = Builder.CreateBitCast(SrcPtr, MinVecTy->getPointerTo(AS));
   Value *VecLd = Builder.CreateAlignedLoad(MinVecTy, CastedPtr, Alignment);
 
   // If the insert type does not match the target's minimum vector type,
