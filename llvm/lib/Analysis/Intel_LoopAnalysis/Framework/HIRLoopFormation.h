@@ -102,6 +102,18 @@ private:
   /// Sets the IV type for HLoop.
   void setIVType(HLLoop *HLoop, const SCEV *BECount) const;
 
+  /// Replaces \p ChildIf by its body if it has the same condition as \p
+  /// ParentIf, else returns false.
+  bool removedIdenticalChildIf(HLIf *ParentIf, HLIf *ChildIf,
+                               bool PredicateInversion) const;
+
+  /// Moves children of \p IfParent occuring after \p HLoop to loop's postexit
+  /// if they are valid, else returns false. Sets \p HasPostSiblingLoop to true
+  /// if there exists at least one sibling loop after this one.
+  bool populatedPostexitNodes(HLLoop *HLoop, HLIf *ParentIf,
+                              bool PredicateInversion,
+                              bool &HasPostSiblingLoop) const;
+
   /// Moves children of IfParent to loop's preheader/postexit if they are
   /// valid, else returns false.
   /// Sets \p HasPostSiblingLoop to true if there exists at least one sibling
