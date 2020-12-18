@@ -143,11 +143,12 @@ static bool isQsortCompare(Function &F) {
   // 'Val' to its value. If 'Val ' != UnknownIndex, return 'true' if 'V' is a
   // ConstantInt and has the value 'Val'.
   //
-  auto IsCIVal = [UnknownIndex](Value *V, uint64_t &Val) -> bool {
+  const auto& tmp = UnknownIndex;
+  auto IsCIVal = [tmp](Value *V, uint64_t &Val) -> bool {
     auto CI = dyn_cast<ConstantInt>(V);
     if (!CI)
       return false;
-    if (Val == UnknownIndex) {
+    if (Val == tmp) {
       Val = CI->getZExtValue();
       return true;
     }

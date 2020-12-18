@@ -329,13 +329,14 @@ void InlineReportCallSite::moveOutlinedChildren(
 void InlineReportFunction::moveOutlinedCallSites(InlineReportFunction *NewIRF,
     SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet) {
   for (InlineReportCallSite *IRCS : getCallSites()) {
-    if (OutFCBSet.count(IRCS))
+    if (OutFCBSet.count(IRCS)) {
       if (IRCS->getCall()) {
         IRCS->move(this, NewIRF);
       } else {
         InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
         NewIRF->addCallSite(NewIRCS);
         IRCS->moveOutlinedChildren(IRCS->getChildren(), OutFCBSet, NewIRCS);
+      }
     }
   }
 }
