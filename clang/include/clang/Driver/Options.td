@@ -1148,7 +1148,7 @@ def fPIC : Flag<["-"], "fPIC">, Group<f_Group>;
 def fno_PIC : Flag<["-"], "fno-PIC">, Group<f_Group>;
 def fPIE : Flag<["-"], "fPIE">, Group<f_Group>;
 def fno_PIE : Flag<["-"], "fno-PIE">, Group<f_Group>;
-defm access_control : OptOutFFlag<"no-access-control", "", "Disable C++ access control">;
+defm access_control : OptOutFFlag<"access-control", "", "Disable C++ access control">;
 #if INTEL_CUSTOMIZATION
 def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>,
   HelpText<"align the start of functions to an optimal machine-dependent value.">;
