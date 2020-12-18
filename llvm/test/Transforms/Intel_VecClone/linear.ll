@@ -12,6 +12,7 @@
 ; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: i32* %i.addr
+; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: i32* %x.addr
 ; CHECK-NEXT: br label %simd.loop
 
