@@ -31,6 +31,7 @@ add_llvm_unittest_with_input_files(AnalysisTests
   FunctionPropertiesAnalysisTest.cpp
 # INTEL_CUSTOMIZATION
   Intel_FPValueRangeTest.cpp
+  Intel_FPValueRangeAnalysisTest.cpp
   Intel_VectorVariantTest.cpp
 # end INTEL_CUSTOMIZATION
   IRSimilarityIdentifierTest.cpp
