@@ -84,20 +84,43 @@ OmptGlobalTy *OmptGlobal;
 #endif
 #endif // INTEL_CUSTOMIZATION
 
+#if OMPTARGET_PROFILE_ENABLED
+static char *ProfileTraceFile = nullptr;
+#endif
+
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   DP("Init target library!\n");
   PM = new PluginManager();
+
 #if INTEL_COLLAB
   OmptGlobal = new OmptGlobalTy();
 #endif // INTEL_COLLAB
+
+#ifdef OMPTARGET_PROFILE_ENABLED
+  ProfileTraceFile = getenv("LIBOMPTARGET_PROFILE");
+  // TODO: add a configuration option for time granularity
+  if (ProfileTraceFile)
+    llvm::timeTraceProfilerInitialize(500 /* us */, "libomptarget");
+#endif
 }
 
 __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
   DP("Deinit target library!\n");
   delete PM;
+
 #if INTEL_COLLAB
   delete OmptGlobal;
 #endif // INTEL_COLLAB
+
+#ifdef OMPTARGET_PROFILE_ENABLED
+  if (ProfileTraceFile) {
+    // TODO: add env var for file output
+    if (auto E = llvm::timeTraceProfilerWrite(ProfileTraceFile, "-"))
+      fprintf(stderr, "Error writing out the time trace\n");
+
+    llvm::timeTraceProfilerCleanup();
+  }
+#endif
 }
 
 #if INTEL_CUSTOMIZATION
