@@ -131,6 +131,7 @@ set (SUPPORT_SOURCES
   GraphWriter.cpp
   Hashing.cpp
   InitLLVM.cpp
+  InstructionCost.cpp
   IntEqClasses.cpp
 # INTEL_CUSTOMIZATION
   Intel_WP_utils.cpp
