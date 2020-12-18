@@ -144,12 +144,8 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
       VectorizerType VType =
         static_cast<VectorizerType>(pBackendOptions->GetIntValue(
             (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, DEFAULT_VECTORIZER));
-      if (VType == DEFAULT_VECTORIZER &&
-          m_LLVMOptions.find("-enable-default-kernel-vectorizer")
-          == std::string::npos)
-        m_LLVMOptions += " -enable-default-kernel-vectorizer";
-      else if (VPO_VECTORIZER == VType)
-        m_LLVMOptions += " -enable-vplan-kernel-vectorizer";
+      if (VType == VOLCANO_VECTORIZER)
+        m_LLVMOptions += " -enable-vplan-kernel-vectorizer=0";
     }
 
     bool EnableNativeSubgroups =

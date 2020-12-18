@@ -70,9 +70,9 @@ static cl::opt<bool> DisableVPlanVec("disable-vplan-loop-vectorizer",
 
 // This flag enables VPlan for OpenCL.
 static cl::opt<bool>
-    EnableVPlanVecForOpenCL("enable-vplan-kernel-vectorizer", cl::init(false),
-                            cl::Hidden,
-                            cl::desc("Enable VPlan Kernel Vectorizer"));
+    EnableVPlan("enable-vplan-kernel-vectorizer", cl::init(true),
+                cl::Hidden,
+                cl::desc("Enable VPlan Kernel Vectorizer"));
 
 // Enables kernel vectorizer identification message.
 static cl::opt<bool>
@@ -80,19 +80,6 @@ static cl::opt<bool>
                               cl::init(false),
                               cl::Hidden,
                               cl::desc("Emit which vectorizer is used "
-                                       "(Volcano or Vplan)"));
-
-// This flag indicates that a vectorizer type was not specified, and the
-// compiler is free to use any vectorizer (volcano or vpo).
-//
-// Compiler chooses default vectorizer based on spirv.Source metadata. If OpenCL
-// C++ is set (SYCL, DPC++), default vectorizer is vplan. Else, default
-// vectorizer is volcano.
-static cl::opt<bool>
-    EnableDefaultVecForOpenCL("enable-default-kernel-vectorizer",
-                              cl::init(false),
-                              cl::Hidden,
-                              cl::desc("Enable a default Kernel Vectorizer "
                                        "(Volcano or Vplan)"));
 
 // TODO: The switch is required until subgroup implementation passes
@@ -932,8 +919,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
   // as an intermediate. These two cases are not supported now.
   bool IsSYCL = CompilationUtils::generatedFromOCLCPP(*pModule);
-  bool UseVplan = EnableVPlanVecForOpenCL ||
-                      (EnableDefaultVecForOpenCL && IsSYCL);
+  bool UseVplan = EnableVPlan;
 
   bool IsOMP = CompilationUtils::generatedFromOMP(*pModule);
   // Add passes which will run unconditionally
