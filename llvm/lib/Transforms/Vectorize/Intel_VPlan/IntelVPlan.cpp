@@ -960,36 +960,50 @@ void VPlanPrinter::dumpEdges(const VPBasicBlock *BB) {
 }
 
 void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions) {
-  OS << Indent << getUID(BB) << " [label =\n";
+  std::string Br = "<BR ALIGN=\"left\"/>\n";
+  OS << Indent << getUID(BB) << " [label =<" << Br;
   bumpIndent(1);
-  OS << Indent << "\"" << DOT::EscapeString(BB->getName().str()) << ":\\n\"";
+  OS << Indent << DOT::EscapeString(BB->getName().str()) << ":" << Br;
   bumpIndent(1);
+  auto Print = [this, &Br](const VPValue &Val) {
+    std::string Str;
+    raw_string_ostream SS(Str);
+    Val.print(SS);
+    for (unsigned i = 0; i != Str.length(); ++i)
+      switch (Str[i]) {
+      case '<':
+        Str.replace(i, 1, "&lt;");
+        i += 3;
+        break;
+      case '>':
+        Str.replace(i, 1, "&gt;");
+        i += 3;
+        break;
+      }
+    OS << Indent <<  DOT::EscapeString(Str) << Br;
+  };
   if (!SkipInstructions)
-    for (const VPInstruction &Inst : *BB) {
-      OS << " +\n" << Indent << "\"EMIT ";
-      Inst.print(OS);
-      OS << "\\l\"";
-    }
+    for (const VPInstruction &Inst : *BB)
+      Print(Inst);
+
   const VPValue *CBV = BB->getCondBit();
   // Dump the CondBit
   if (CBV) {
     if (SkipInstructions) {
       // In order to have DA results.
-      OS << " +\n" << Indent << "\"EMIT ";
-      CBV->print(OS);
-      OS << "\\l\"";
+      Print(*CBV);
     }
-    OS << " +\n" << Indent << " \"CondBit: ";
+    OS << Indent << "CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {
       CBI->printAsOperand(OS);
-      OS << " (" << DOT::EscapeString(CBI->getParent()->getName().str()) << ")\\l\"";
+      OS << " (" << DOT::EscapeString(CBI->getParent()->getName().str()) << ")" << Br;
     } else {
       CBV->printAsOperand(OS);
       OS << '"';
     }
   }
   bumpIndent(-2);
-  OS << "\n" << Indent << "]\n";
+  OS << Indent << ">]\n";
   dumpEdges(BB);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

@@ -48,3 +48,11 @@ if sys.platform in ['win32']:
 else:
     config.substitutions.append(
         ('%libsycldevice_spv_dir', config.libdevice_library_dir))
+# INTEL_COLLAB
+if config.has_libompdevice:
+    config.available_features.add("libompdevice");
+config.substitutions.append(
+    ('%libompdevice_obj_dir', config.libdevice_library_dir))
+config.substitutions.append(
+    ('%libompdevice_spv_dir', config.libdevice_library_dir))
+# end INTEL_COLLAB
