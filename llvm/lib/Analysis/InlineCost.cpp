@@ -2553,6 +2553,11 @@ Optional<int> llvm::getInliningCostEstimate(
                                /*OptSizeThreshold*/ {},
                                /*OptMinSizeThreshold*/ {},
                                /*HotCallSiteThreshold*/ {},
+#if INTEL_CUSTOMIZATION
+                               /*PrepareForLTO*/ false,
+                               /*LinkForLTO*/ false,
+                               /*InlineOptLevel*/ {},
+#endif // INTEL_CUSTOMIZATION
                                /*LocallyHotCallSiteThreshold*/ {},
                                /*ColdCallSiteThreshold*/ {},
                                /*ComputeFullInlineCost*/ true,

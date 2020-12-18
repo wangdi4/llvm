@@ -165,6 +165,8 @@ typedef SmallVector<SafeRedInfo, 4> SafeRedInfoList;
 /// SafeRedInfo::HasUnsafeAlgebra, which indicates the absence of certain fast
 /// math flags required for certain types of optimizations.
 class HIRSafeReductionAnalysis : public HIRAnalysis {
+  using HIRAnalysisBase::print;
+
   HIRDDAnalysis &DDA;
 
   unsigned FirstRvalSB;

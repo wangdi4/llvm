@@ -2583,7 +2583,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // code with llvm.stacksave/llvm.stackrestore intrinsics.
 #if INTEL_COLLAB
   // SPIRV GPU targets might not have a stack (register allocation only)
-  if (InlinedFunctionInfo.ContainsDynamicAllocas && !isTargetSPIRV(Caller) ||
+  if ((InlinedFunctionInfo.ContainsDynamicAllocas && !isTargetSPIRV(Caller)) ||
       OpenMPNeedsStackSaveRestore) {
 #else
   if (InlinedFunctionInfo.ContainsDynamicAllocas) {
