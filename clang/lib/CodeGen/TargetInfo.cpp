@@ -10108,10 +10108,19 @@ void XCoreTargetCodeGenInfo::emitTargetMetadata(
 //===----------------------------------------------------------------------===//
 
 namespace {
+class SPIRABIInfo : public DefaultABIInfo {
+public:
+  SPIRABIInfo(CodeGenTypes &CGT) : DefaultABIInfo(CGT) { setCCs(); }
+
+private:
+  void setCCs();
+};
+} // end anonymous namespace
+namespace {
 class SPIRTargetCodeGenInfo : public TargetCodeGenInfo {
 public:
   SPIRTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT)
-      : TargetCodeGenInfo(std::make_unique<DefaultABIInfo>(CGT)) {}
+      : TargetCodeGenInfo(std::make_unique<SPIRABIInfo>(CGT)) {}
   unsigned getOpenCLKernelCallingConv() const override;
 
 #if INTEL_COLLAB
@@ -10129,6 +10138,10 @@ public:
 };
 
 } // End anonymous namespace.
+void SPIRABIInfo::setCCs() {
+  assert(getRuntimeCC() == llvm::CallingConv::C);
+  RuntimeCC = llvm::CallingConv::SPIR_FUNC;
+}
 
 namespace clang {
 namespace CodeGen {
@@ -11230,7 +11243,8 @@ TargetCodeGenInfo::createEnqueuedBlockKernel(CodeGenFunction &CGF,
   llvm::SmallVector<llvm::Value *, 2> Args;
   for (auto &A : F->args())
     Args.push_back(&A);
-  Builder.CreateCall(Invoke, Args);
+  llvm::CallInst *call = Builder.CreateCall(Invoke, Args);
+  call->setCallingConv(Invoke->getCallingConv());
   Builder.CreateRetVoid();
   Builder.restoreIP(IP);
   return F;
@@ -11294,7 +11308,8 @@ llvm::Function *AMDGPUTargetCodeGenInfo::createEnqueuedBlockKernel(
   Args.push_back(Cast);
   for (auto I = F->arg_begin() + 1, E = F->arg_end(); I != E; ++I)
     Args.push_back(I);
-  Builder.CreateCall(Invoke, Args);
+  llvm::CallInst *call = Builder.CreateCall(Invoke, Args);
+  call->setCallingConv(Invoke->getCallingConv());
   Builder.CreateRetVoid();
   Builder.restoreIP(IP);
 
