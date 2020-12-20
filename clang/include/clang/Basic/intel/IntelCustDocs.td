@@ -2871,6 +2871,14 @@ IR:
    !8 = !{!"readwritememory: READONLY}"}
 
    }];
+  let UserContent = [{
+The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+arguments. These are pointer arguments that already have the attribute
+"slave_memory_argument". The argument "type" is mandatory, and its values are
+"readonly", "writeonly", or "readwrite".
+It is illegal to apply the attribute readwrite_mode on pointer arguments that
+do not already have an attribute slave_memory_argument applied.
+  }];
 }
 
 def IntelFPGAForcePow2DepthDocs : Documentation {
@@ -2965,6 +2973,13 @@ IR:
      ret void
    }
    }];
+  let UserContent = [{
+The 'force_pow2_depth' attribute is applied to a variable in OpenCl, HLS and
+SYCL. It takes an integer argument between 0 and 1 that determines whether
+the memory implemented for the variable should have a power-of-2 depth or not.
+This attribute infers the 'memory' attribute, and it is illegal to apply it
+to the attribute 'register'.
+  }];
 }
 
 def HLSIIDocs : Documentation {
