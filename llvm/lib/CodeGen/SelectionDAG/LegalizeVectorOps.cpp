@@ -416,6 +416,9 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
   case ISD::FSQRT:
   case ISD::FSIN:
   case ISD::FCOS:
+#if INTEL_CUSTOMIZATION
+  case ISD::LDEXP:
+#endif // INTEL_CUSTOMIZATION
   case ISD::FPOWI:
   case ISD::FPOW:
   case ISD::FLOG:

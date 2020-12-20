@@ -740,6 +740,7 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::FTAN, VT, Expand);
     setOperationAction(ISD::FATAN, VT, Expand);
     setOperationAction(ISD::FATAN2, VT, Expand);
+    setOperationAction(ISD::LDEXP, VT, Expand);
 #endif  // INTEL_CUSTOMIZATION
 
     // These operations default to expand for vector types.
