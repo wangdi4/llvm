@@ -26,7 +26,7 @@
 
 ; Check generated vector code.
 ; CHECK:           %red.var = 0.000000e+00;
-; CHECK:           + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; CHECK:           + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:      |   %conv.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK-NEXT:      |   %mul.vec = (<4 x float>*)(@b)[0][i1]  *  %conv.vec;
 ; CHECK-NEXT:      |   %.vec = %add4  +  %red.var;

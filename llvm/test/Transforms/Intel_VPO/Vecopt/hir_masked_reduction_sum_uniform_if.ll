@@ -20,7 +20,7 @@
 
 ; Checks for generated HIR code
 ; CHECK:                     %red.var = 0.000000e+00;
-; CHECK-NEXT:                + DO i1 = 0, 999, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:                + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                |   BB3.27:
 ; CHECK-NEXT:                |   %wide.cmp. = %N2 > 0;
 ; CHECK-NEXT:                |   %phi.temp = %red.var;
@@ -45,7 +45,7 @@
 
 ; Checks for VPValue based code generation.
 ; VPCHECK:                   %red.var = 0.000000e+00;
-; VPCHECK-NEXT:              + DO i1 = 0, 999, 4   <DO_LOOP> <novectorize>
+; VPCHECK-NEXT:              + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPCHECK-NEXT:              |   BB3.27:
 ; VPCHECK-NEXT:              |   %.vec = %N2 > 0;
 ; VPCHECK-NEXT:              |   %phi.temp = %red.var;

@@ -30,7 +30,7 @@
 ; CHECK-LABEL: Function: unit_strided
 ; CHECK:      if (0 <u [[#VL]] * %tgu)
 ; CHECK-NEXT: {
-; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <nounroll> <novectorize>
+; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   [[SRC_UNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK-NEXT:    |   [[RET_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_UNIT]]);
 ; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_UNIT]], 0;
@@ -74,7 +74,7 @@
 ; CHECK-LABEL: Function: non_unit_strided
 ; CHECK:      if (0 <u [[#VL]] * %tgu)
 ; CHECK-NEXT: {
-; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <nounroll> <novectorize>
+; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   [[SRC_NONUNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK:         |   [[RET_NONUNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_NONUNIT]]);
 ; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_NONUNIT]], 0;

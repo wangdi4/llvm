@@ -40,7 +40,7 @@
 ; CHECK:       if (%valid.padding != 0)
 ; CHECK:       {
 ; CHECK:          %tgu = 2;
-; CHECK:          + DO i1 = 0, 7, 4   <DO_MULTI_EXIT_LOOP> <novectorize>
+; CHECK:          + DO i1 = 0, 7, 4   <DO_MULTI_EXIT_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:          |   %wide.cmp. = (<4 x i8>*)(%pv1)[i1] != (<4 x i8>*)(%pv1)[i1];
 ; CHECK:          |   %intmask = bitcast.<4 x i1>.i4(%wide.cmp.);
 ; CHECK:          |   if (%intmask != 0)

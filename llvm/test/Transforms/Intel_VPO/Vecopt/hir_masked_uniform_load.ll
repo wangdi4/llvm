@@ -15,7 +15,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output -tbaa < %s 2>&1 | FileCheck %s
 
 define void @foo(i64* nocapture readonly %lp, double* nocapture %darr, i64* nocapture readonly %arr) {
-; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       %.vec = (<4 x i64>*)(%arr)[i1];
 ; CHECK-NEXT:       %.vec1 = i1 + <i64 0, i64 1, i64 2, i64 3> > %.vec;
 ; CHECK-NEXT:       %.vec2 = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
@@ -67,7 +67,7 @@ for.end:                                          ; preds = %for.inc
 ;    END LOOP
 ;
 define void @foo_uniform_if(i64 %n, i64* nocapture readonly %lp, double* nocapture %darr, i64* nocapture readonly %arr) {
-; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       BB10.24:
 ; CHECK-NEXT:       %.vec = %n > 10;
 ; CHECK-NEXT:       %unifcond = extractelement %.vec,  0;

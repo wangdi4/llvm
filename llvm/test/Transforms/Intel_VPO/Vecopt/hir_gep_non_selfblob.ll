@@ -23,7 +23,7 @@
 ; new addressof ref.
 ;
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK:                     DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:                     DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                  %.vec = (<4 x i64>*)(%neighbor)[i1];
 ; CHECK-NEXT:                  %nsbgepcopy = &((<4 x i8*>)(%lattice)[%.vec]);
 ; CHECK-NEXT:                  (<4 x i8*>*)(%dest)[i1] = &((<4 x i8*>)(%nsbgepcopy)[%field]);

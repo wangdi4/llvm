@@ -128,7 +128,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
 ; CHECK-NEXT:  <37>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:  <38>               |   [[BB2]].38:
 ; CHECK-NEXT:  <39>               |   [[DOTVEC0:%.*]] = (<4 x float>*)([[ARR0]])[i1]
 ; CHECK-NEXT:  <40>               |   [[DOTCOPY0:%.*]] = [[DOTVEC0]]
@@ -176,7 +176,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; MIXED-EMPTY:
 ; MIXED-NEXT:  <0>          BEGIN REGION { modified }
 ; MIXED-NEXT:  <37>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; MIXED-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; MIXED-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; MIXED-NEXT:  <63>               |   [[DOTVEC90:%.*]] = undef
 ; MIXED-NEXT:  <59>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
 ; MIXED-NEXT:  <56>               |   [[DOTVEC70:%.*]] = undef

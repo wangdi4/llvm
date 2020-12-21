@@ -40,7 +40,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; CHECK-NEXT:          |   %.vec1 = (%.vec < 0) ? -1 * %.vec : %.vec;
 ; CHECK-NEXT:          |   (<4 x i64>*)(%larr)[i1] = %.vec1;

@@ -8,7 +8,7 @@
 ;     the last vector lane as the value being stored.
 ;
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; CHECK-NEXT:        |   %extract.3. = extractelement %.vec,  3;
 ; CHECK-NEXT:        |   (%unif_p_divval)[0] = %extract.3.;

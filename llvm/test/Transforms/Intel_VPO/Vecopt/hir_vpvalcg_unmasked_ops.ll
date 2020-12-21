@@ -34,7 +34,7 @@
 
 define void @foo(i64* nocapture readonly %unif, i64 %n2) local_unnamed_addr #0 {
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    %.unifload = (%unif)[0];
 ; CHECK-NEXT:    %.vec = (<4 x i64>*)(@larr)[0][i1];
 ; CHECK-NEXT:    %.vec2 = %.vec != 0;

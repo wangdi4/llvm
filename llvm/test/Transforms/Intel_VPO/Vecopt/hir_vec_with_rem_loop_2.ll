@@ -21,7 +21,7 @@
 
 ; After vectorization
 ; CHECK: %tgu = 
-; CHECK: DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25> <nounroll> <novectorize> <min_trip_count = 2> <avg_trip_count = 13> <max_trip_count = 25>
+; CHECK: DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25> <auto-vectorized> <nounroll> <novectorize> <min_trip_count = 2> <avg_trip_count = 13> <max_trip_count = 25>
 ; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
 ; CHECK: DO i1 = 4 * %tgu, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>

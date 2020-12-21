@@ -41,7 +41,7 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ; CHECK-NEXT:        |      %tgu = (%size.inner)/u4;
 ; CHECK-NEXT:        |      if (0 <u 4 * %tgu)
 ; CHECK-NEXT:        |      {
-; CHECK-NEXT:        |         + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <nounroll> <novectorize>
+; CHECK-NEXT:        |         + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:        |         |   (<4 x i64>*)(%ary)[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:        |         + END LOOP
 ; CHECK-NEXT:        |      }

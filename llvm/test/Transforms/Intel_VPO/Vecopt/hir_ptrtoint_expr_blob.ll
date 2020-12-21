@@ -38,7 +38,7 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <16>               + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:  <16>               + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:  <17>               |   [[DOTVEC0:%.*]] = (<4 x i64*>*)([[P10]])[i1]
 ; CHECK-NEXT:  <18>               |   [[DOTVEC10:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>([[DOTVEC0]])
 ; CHECK-NEXT:  <19>               |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  42
@@ -51,7 +51,7 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; MIXED-CG-NEXT:  Function: foo
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
-; MIXED-CG-NEXT:  <16>               + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; MIXED-CG-NEXT:  <16>               + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; MIXED-CG-NEXT:  <17>               |   [[LD_VEC0:%.*]] = (<4 x i64*>*)([[P10:%.*]])[i1]
 ; MIXED-CG-NEXT:  <18>               |   [[NBCONV0:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>([[LD_VEC0]])
 ; MIXED-CG-NEXT:  <19>               |   [[LAST0:%.*]] = extractelement 42 * [[NBCONV0]],  3

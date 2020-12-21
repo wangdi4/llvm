@@ -237,6 +237,7 @@ public:
   bool canHaveCollapse() const;
   bool canHaveNowait() const;
   bool canHaveAllocate() const;
+  bool canHaveOrderedTripCounts() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate

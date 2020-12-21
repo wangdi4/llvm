@@ -58,7 +58,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
 ; MIXED-CG-NEXT:  <50>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
 ; MIXED-CG-NEXT:  <51>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; MIXED-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; MIXED-CG-NEXT:  <56>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 2]
 ; MIXED-CG-NEXT:  <57>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
 ; MIXED-CG-NEXT:  <58>               |   |   |   [[ADD86_VEC0:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
@@ -74,7 +74,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
 ; VPVALUE-CG-NEXT:  <50>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
 ; VPVALUE-CG-NEXT:  <51>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; VPVALUE-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPVALUE-CG-NEXT:  <56>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2]
 ; VPVALUE-CG-NEXT:  <57>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
 ; VPVALUE-CG-NEXT:  <58>               |   |   |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
@@ -210,7 +210,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
 ; MIXED-CG-NEXT:  <63>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
 ; MIXED-CG-NEXT:  <64>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; MIXED-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; MIXED-CG-NEXT:  <69>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 1]
 ; MIXED-CG-NEXT:  <70>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
 ; MIXED-CG-NEXT:  <71>               |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
@@ -229,7 +229,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
 ; VPVALUE-CG-NEXT:  <63>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
 ; VPVALUE-CG-NEXT:  <64>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; VPVALUE-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPVALUE-CG-NEXT:  <69>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1]
 ; VPVALUE-CG-NEXT:  <70>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
 ; VPVALUE-CG-NEXT:  <71>               |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]

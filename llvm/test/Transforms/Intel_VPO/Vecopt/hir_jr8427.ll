@@ -9,7 +9,7 @@
 ;
 ; HIR Loop after vectorization:
 ;
-; DO i2 = 0, 7, 4   <DO_LOOP> <novectorize>
+; DO i2 = 0, 7, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ;   %and.vec = %limm  &&  i2 + <i32 0, i32 1, i32 2, i32 3>;
 ;   %.BlobMul = %and.vec  *  <i32 0, i32 1, i32 2, i32 3>;
 ;   %copy.vec = 2 * i1 + %and.vec * i2 + %.BlobMul + 2;

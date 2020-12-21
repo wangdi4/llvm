@@ -34,7 +34,7 @@
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %nz.039,  0;
 
-; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       |   %coef.0.in1.vec = undef
 ; CHECK-NEXT:       |   %.vec = (<4 x i16>*)(%dct)[i1];
 ; CHECK-NEXT:       |   %.vec2 = (<4 x i16>*)(%mf)[i1];
