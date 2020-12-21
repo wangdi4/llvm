@@ -8396,7 +8396,7 @@ multiclass avx512_cvt_fp_scalar_trunc<bits<8> opc, string OpcodeStr,
                                       X86FoldableSchedWrite sched,
                                       X86VectorVTInfo _src, X86VectorVTInfo _dst,
                                       Predicate prd = HasAVX512> {
-  let Predicates = [prd] in {
+  let Predicates = [HasAVX512], ExeDomain = SSEPackedSingle in {
     defm Z : avx512_cvt_fp_scalar<opc, OpcodeStr, _dst, _src, OpNode, sched>,
              avx512_cvt_fp_rc_scalar<opc, OpcodeStr, _dst, _src,
                                OpNodeRnd, sched>, EVEX_CD8<_src.EltSize, CD8VT1>;
@@ -8408,7 +8408,7 @@ multiclass avx512_cvt_fp_scalar_extend<bits<8> opc, string OpcodeStr,
                                        X86FoldableSchedWrite sched,
                                        X86VectorVTInfo _src, X86VectorVTInfo _dst,
                                        Predicate prd = HasAVX512> {
-  let Predicates = [prd] in {
+  let Predicates = [HasAVX512], ExeDomain = SSEPackedSingle in {
     defm Z : avx512_cvt_fp_scalar<opc, OpcodeStr, _dst, _src, OpNode, sched>,
              avx512_cvt_fp_sae_scalar<opc, OpcodeStr, _dst, _src, OpNodeSAE, sched>,
              EVEX_CD8<_src.EltSize, CD8VT1>;
