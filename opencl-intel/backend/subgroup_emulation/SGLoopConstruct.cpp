@@ -256,8 +256,11 @@ void SGLoopConstruct::hoistSGLIdCalls(Module &M) {
   for (User *U : SGLIdFunc->users()) {
     auto *CI = cast<CallInst>(U);
     auto *PF = CI->getFunction();
+    // If the parent function is emulated, we can resolve SGLId there and no
+    // need to patch it.
     if (FunctionsNeedEmulation.count(PF))
       continue;
+    // This function may also be called by a non-emulated kernel.
     if (!SizeAnalysis->hasEmuSize(PF))
       continue;
     SGLIdCallsToBeUpdated.insert(CI);
@@ -275,8 +278,12 @@ void SGLoopConstruct::hoistSGLIdCalls(Module &M) {
         continue;
       CallsToBePatched.insert(CI);
       auto *PF = CI->getFunction();
-      if (SizeAnalysis->hasEmuSize(PF) &&
-          Helper.getAllSyncFunctions().count(PF))
+      // If the parent function is emulated, we can resolve SGLId there and no
+      // need to patch it.
+      if (FunctionsNeedEmulation.count(PF))
+        continue;
+      // This function may also be called by a non-emulated kernel.
+      if (!SizeAnalysis->hasEmuSize(PF))
         continue;
       if (FuncsToBePatched.insert(PF))
         WorkList.push_back(PF);
@@ -311,8 +318,19 @@ void SGLoopConstruct::hoistSGLIdCalls(Module &M) {
     auto *CI = cast<CallInst>(I);
     Function *Caller = CI->getFunction();
     Function *Callee = CI->getCalledFunction();
-    Value *Arg = PatchedFuncs.count(Caller) ? &*(Caller->arg_end() - 1)
-                                            : Helper.createGetSubGroupLId(CI);
+    Value *Arg = nullptr;
+    if (PatchedFuncs.count(Caller)) {
+      Arg = &*(Caller->arg_end() - 1);
+    } else {
+      // If the parent function is emulated, we need to replace the arg with
+      // get_sub_group_local_id; If the parent function is not emulated, this
+      // indicates current kernel is a scalar kernel, we should replace the arg
+      // with 0.
+      if (FunctionsNeedEmulation.count(Caller))
+        Arg = Helper.createGetSubGroupLId(CI);
+      else
+        Arg = Helper.getZero();
+    }
     CompilationUtils::AddMoreArgsToCall(CI, Arg, FuncToPatchedFunc[Callee]);
   }
 }
