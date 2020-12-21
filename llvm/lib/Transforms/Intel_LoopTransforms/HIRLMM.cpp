@@ -151,7 +151,7 @@ static bool foundRegionDominatingLoadOrStore(DominatorTree &DT,
 
   // Traverse dominating nodes of region entry block to find an identical GEP.
   bool FoundDominatingLoadOrStore = false;
-  while (DomNode = DomNode->getIDom()) {
+  while ((DomNode = DomNode->getIDom())) {
     auto *DomBlock = DomNode->getBlock();
 
     for (auto &Inst : *DomBlock) {
