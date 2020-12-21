@@ -477,7 +477,7 @@ def OMP_TaskGroup : Directive<"taskgroup"> {
   ];
 }
 def OMP_Flush : Directive<"flush"> {
-  let allowedClauses = [
+  let allowedOnceClauses = [
     VersionedClause<OMPC_AcqRel, 50>,
     VersionedClause<OMPC_Acquire, 50>,
     VersionedClause<OMPC_Release, 50>,
@@ -499,6 +499,8 @@ def OMP_Atomic : Directive<"atomic"> {
     VersionedClause<OMPC_Write>,
     VersionedClause<OMPC_Update>,
     VersionedClause<OMPC_Capture>,
+  ];
+  let allowedOnceClauses = [
     VersionedClause<OMPC_SeqCst>,
     VersionedClause<OMPC_AcqRel, 50>,
     VersionedClause<OMPC_Acquire, 50>,
