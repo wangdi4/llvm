@@ -22,10 +22,11 @@ foreach(flag_var
 string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
 endforeach()
 
+add_compile_options("-Wno-error") # INTEL
+
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/lib/${CMAKE_BUILD_TYPE})
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-
 include_directories(${CMAKE_SOURCE_DIR}/include ${XPTI_DIR}/include)
 add_subdirectory(src)
 add_subdirectory(unit_test)
