@@ -132,8 +132,12 @@ VPValue *VPRecipeBase::toVPValue() {
     return V;
   if (auto *V = dyn_cast<VPReductionRecipe>(this))
     return V;
-  if (auto *V = dyn_cast<VPWidenMemoryInstructionRecipe>(this))
-    return V;
+  if (auto *V = dyn_cast<VPWidenMemoryInstructionRecipe>(this)) {
+    if (!V->isStore())
+      return V->getVPValue();
+    else
+      return nullptr;
+  }
   if (auto *V = dyn_cast<VPWidenCallRecipe>(this))
     return V;
   if (auto *V = dyn_cast<VPWidenSelectRecipe>(this))
@@ -152,8 +156,12 @@ const VPValue *VPRecipeBase::toVPValue() const {
     return V;
   if (auto *V = dyn_cast<VPReductionRecipe>(this))
     return V;
-  if (auto *V = dyn_cast<VPWidenMemoryInstructionRecipe>(this))
-    return V;
+  if (auto *V = dyn_cast<VPWidenMemoryInstructionRecipe>(this)) {
+    if (!V->isStore())
+      return V->getVPValue();
+    else
+      return nullptr;
+  }
   if (auto *V = dyn_cast<VPWidenCallRecipe>(this))
     return V;
   if (auto *V = dyn_cast<VPWidenSelectRecipe>(this))
@@ -1007,10 +1015,10 @@ void VPWidenMemoryInstructionRecipe::print(raw_ostream &O, const Twine &Indent,
   O << "\"WIDEN ";
 
   if (!isStore()) {
-    printAsOperand(O, SlotTracker);
+    getVPValue()->printAsOperand(O, SlotTracker);
     O << " = ";
   }
-  O << Instruction::getOpcodeName(getUnderlyingInstr()->getOpcode()) << " ";
+  O << Instruction::getOpcodeName(Ingredient.getOpcode()) << " ";
 
   printOperands(O, SlotTracker);
 }
