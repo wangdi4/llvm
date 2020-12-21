@@ -38207,8 +38207,8 @@ static SDValue combineX86ShufflesRecursively(
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-  assert(VT.getSizeInBits() == RootSizeInBits &&
-         "Can only combine shuffles of the same vector register size.");
+  assert((RootSizeInBits % VT.getSizeInBits()) == 0 &&
+         "Can only combine shuffles upto size of the root op.");
 
   // Extract target shuffle mask and resolve sentinels and inputs.
   // TODO - determine Op's demanded elts from RootMask.
@@ -38221,17 +38221,32 @@ static SDValue combineX86ShufflesRecursively(
                               OpZero, DAG, Depth, false))
     return SDValue();
 
-  // Shuffle inputs must be the same size as the result, bail on any larger
-  // inputs and widen any smaller inputs.
-  if (llvm::any_of(OpInputs, [RootSizeInBits](SDValue Op) {
-        return Op.getValueSizeInBits() > RootSizeInBits;
+  // Shuffle inputs must not be larger than the shuffle result.
+  // TODO: Relax this for single input faux shuffles (trunc/extract_subvector).
+  if (llvm::any_of(OpInputs, [VT](SDValue OpInput) {
+        return OpInput.getValueSizeInBits() > VT.getSizeInBits();
       }))
     return SDValue();
 
-  for (SDValue &Op : OpInputs)
-    if (Op.getValueSizeInBits() < RootSizeInBits)
-      Op = widenSubVector(peekThroughOneUseBitcasts(Op), false, Subtarget, DAG,
-                          SDLoc(Op), RootSizeInBits);
+  // If the shuffle result was smaller than the root, we need to adjust the
+  // mask indices and pad the mask with undefs.
+  if (RootSizeInBits > VT.getSizeInBits()) {
+    unsigned NumSubVecs = RootSizeInBits / VT.getSizeInBits();
+    unsigned OpMaskSize = OpMask.size();
+    if (OpInputs.size() > 1) {
+      unsigned PaddedMaskSize = NumSubVecs * OpMaskSize;
+      for (int &M : OpMask) {
+        if (M < 0)
+          continue;
+        int EltIdx = M % OpMaskSize;
+        int OpIdx = M / OpMaskSize;
+        M = (PaddedMaskSize * OpIdx) + EltIdx;
+      }
+    }
+    OpZero = OpZero.zext(NumSubVecs * OpMaskSize);
+    OpUndef = OpUndef.zext(NumSubVecs * OpMaskSize);
+    OpMask.append((NumSubVecs - 1) * OpMaskSize, SM_SentinelUndef);
+  }
 
   SmallVector<int, 64> Mask;
   SmallVector<SDValue, 16> Ops;
@@ -38407,6 +38422,18 @@ static SDValue combineX86ShufflesRecursively(
               HasVariableMask, AllowVar, DAG, Subtarget))
         return Res;
     }
+  }
+
+  // Widen any subvector shuffle inputs we've collected.
+  if (any_of(Ops, [RootSizeInBits](SDValue Op) {
+        return Op.getValueSizeInBits() < RootSizeInBits;
+      })) {
+    for (SDValue &Op : Ops)
+      if (Op.getValueSizeInBits() < RootSizeInBits)
+        Op = widenSubVector(Op, false, Subtarget, DAG, SDLoc(Op),
+                            RootSizeInBits);
+    // Reresolve - we might have repeated subvector sources.
+    resolveTargetShuffleInputsAndMask(Ops, Mask);
   }
 
   // Attempt to constant fold all of the constant source ops.
