@@ -18,10 +18,11 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "FrameworkTest.h"
+#include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
 #include <CL/cl.h>
 #include <gtest/gtest.h>
+#include <tbb/global_control.h>
 
 extern cl_device_type gDeviceType;
 
@@ -51,23 +52,21 @@ protected:
     EXPECT_OCL_SUCCESS(err, "clReleaseContext");
   }
 
-  void BuildKernel(const char *source[], int count, const char *kernelName,
-                   cl_program &program, cl_kernel &kernel) {
-    cl_int err;
-    program = clCreateProgramWithSource(m_context, count, source, NULL, &err);
-    ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
-    err = clBuildProgram(program, 1, &m_device, "", NULL, NULL);
-    ASSERT_OCL_SUCCESS(err, "clBuildProgram");
-    kernel = clCreateKernel(program, kernelName, &err);
-    ASSERT_OCL_SUCCESS(err, "clCreateKernel");
-  }
-
 protected:
   cl_platform_id m_platform;
   cl_device_id m_device;
   cl_context m_context;
   cl_command_queue m_queue;
 };
+
+static void BuildProgram(cl_context context, cl_device_id device,
+                         const char *source[], int count, cl_program &program) {
+  cl_int err;
+  program = clCreateProgramWithSource(context, count, source, NULL, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err = clBuildProgram(program, 1, &device, "", NULL, NULL);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+}
 
 TEST_F(USMTest, checkExtensions) {
   void *ptr = clGetExtensionFunctionAddressForPlatform(m_platform,
@@ -493,63 +492,130 @@ TEST_F(USMTest, enqueueAdviseMem) {
   EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
 }
 
-TEST_F(USMTest, setKernelArgMemPointer) {
+static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
+                                       cl_command_queue queue,
+                                       cl_program program) {
   cl_int err;
   // Allocate USM buffers.
-  size_t num = 1024;
-  size_t size = num * sizeof(int);
   cl_uint alignment = 0;
-  int *buffer = (int *)clSharedMemAllocINTEL(m_context, m_device, NULL, size,
+  int *buffer = (int *)clSharedMemAllocINTEL(context, device, NULL, sizeof(int),
                                              alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
-  int *result = (int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
-                                             sizeof(int), alignment, &err);
+  int *result = (int *)clSharedMemAllocINTEL(context, device, NULL, sizeof(int),
+                                             alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
-  for (int i = 0; i < num; i++) {
-    buffer[i] = i;
-  }
+  int value = 16;
+  buffer[0] = value;
 
-  // Build program and kernel.
+  // Create kernel.
+  cl_kernel kernel = clCreateKernel(program, "test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel");
+
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, buffer);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  err = clSetKernelArgMemPointerINTEL(kernel, 1, result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  err = clSetKernelArgMemPointerINTEL(kernel, 2, &value);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
+
+  err = clSetKernelArgMemPointerINTEL(kernel, 3, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
+
+  size_t gdim = 1;
+  size_t ldim = 1;
+  cl_event e;
+  err =
+      clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL, &e);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+  err = clWaitForEvents(1, &e);
+  ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
+
+  ASSERT_EQ(*result, 1);
+
+  err = clMemFreeINTEL(context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemFreeINTEL(context, result);
+  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+}
+
+TEST_F(USMTest, setKernelArgMemPointer) {
+  // Build program.
   const char *source[] = {"__kernel void test(const __global int *data,\n"
                           "  __global int *result, const __global int *val,\n"
                           "  __global void *foo) {\n"
                           "  *result = (int)(data[get_global_id(0)] == *val);\n"
                           "}\n"};
   cl_program program;
-  cl_kernel kernel;
-  ASSERT_NO_FATAL_FAILURE(BuildKernel(source, 1, "test", program, kernel));
-  err = clSetKernelArgMemPointerINTEL(kernel, 1, result);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-  for (cl_int i = 0; i < num; i++) {
-    err = clSetKernelArgMemPointerINTEL(kernel, 0, &buffer[i]);
-    ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(m_context, m_device, source, 1, program));
+  ASSERT_NO_FATAL_FAILURE(
+      testSetKernelArgMemPointer(m_context, m_device, m_queue, program));
+  cl_int err = clReleaseProgram(program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+}
 
-    err = clSetKernelArgMemPointerINTEL(kernel, 2, &i);
-    ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
+class SetKernelArgMemPointerThread : public SynchronizedThread {
+public:
+  SetKernelArgMemPointerThread(cl_context context, cl_device_id device,
+                               cl_command_queue queue, cl_program program)
+      : m_context(context), m_device(device), m_queue(queue),
+        m_program(program) {}
 
-    err = clSetKernelArgMemPointerINTEL(kernel, 3, nullptr);
-    ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
+  bool getResult() const { return m_result; }
 
-    size_t gdim = 1;
-    size_t ldim = 1;
-    err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0,
-                                 NULL, NULL);
-    ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
-    err = clFinish(m_queue);
-    ASSERT_OCL_SUCCESS(err, "clFinish");
-
-    ASSERT_EQ(*result, 1);
+protected:
+  virtual void ThreadRoutine() {
+    ASSERT_NO_FATAL_FAILURE(
+        testSetKernelArgMemPointer(m_context, m_device, m_queue, m_program));
+    m_result = true;
   }
 
-  err = clMemFreeINTEL(m_context, buffer);
-  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
-  err = clMemFreeINTEL(m_context, result);
-  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
-  err = clReleaseKernel(kernel);
-  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
-  err = clReleaseProgram(program);
+  cl_context m_context;
+  cl_device_id m_device;
+  cl_command_queue m_queue;
+  cl_program m_program;
+  bool m_result;
+};
+
+TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
+  // Build program.
+  const char *source[] = {"__kernel void test(const __global int *data,\n"
+                          "  __global int *result, const __global int *val,\n"
+                          "  __global void *foo) {\n"
+                          "  *result = (int)(data[get_global_id(0)] == *val);\n"
+                          "}\n"};
+  cl_program program;
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(m_context, m_device, source, 1, program));
+
+  int numThreads = tbb::global_control::active_value(
+      tbb::global_control::max_allowed_parallelism);
+
+  std::vector<SynchronizedThread *> threads(numThreads);
+  for (size_t i = 0; i < numThreads; ++i)
+    threads[i] =
+        new SetKernelArgMemPointerThread(m_context, m_device, m_queue, program);
+
+  SynchronizedThreadPool pool;
+  pool.Init(&threads[0], numThreads);
+  pool.StartAll();
+  pool.WaitAll();
+
+  for (size_t i = 0; i < numThreads; ++i) {
+    bool res =
+        static_cast<SetKernelArgMemPointerThread *>(threads[i])->getResult();
+    ASSERT_TRUE(res) << "SetKernelArgMemPointerThread " << i << " failed";
+  }
+
+  for (size_t i = 0; i < numThreads; ++i)
+    delete threads[i];
+  cl_int err = clReleaseProgram(program);
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
@@ -602,8 +668,10 @@ TEST_F(USMTest, setKernelExecInfo) {
       "    atomic_inc(result);\n"
       "}\n"};
   cl_program program;
-  cl_kernel kernel;
-  ASSERT_NO_FATAL_FAILURE(BuildKernel(source, 1, "test", program, kernel));
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(m_context, m_device, source, 1, program));
+  cl_kernel kernel = clCreateKernel(program, "test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
 
   err = clSetKernelArgMemPointerINTEL(kernel, 0, foo);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
