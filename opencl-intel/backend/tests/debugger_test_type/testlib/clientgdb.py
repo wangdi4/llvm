@@ -266,6 +266,17 @@ class ClientGDB(TestClient):
         logd("result of start command: " + output)
         self.started = True
 
+    def relocate_workitem(self, gid_x, gid_y, gid_z):
+        """ Reset gids and breakpoints, to break on different workitems """
+        self.gid_x = gid_x
+        self.gid_y = gid_y
+        self.gid_z = gid_z
+        # remove all breakpoints
+        for number, location in self.existing_breakpoints:
+            self._command("delete " + str(number))
+
+        self.existing_breakpoints = []
+
     def debug_run(self, breakpoints, timeout=900):
         """ Set the given breakpoints and issue a 'continue' command in GDB.
                 Returns the breakpoint that was hit - (file, line) pair.
