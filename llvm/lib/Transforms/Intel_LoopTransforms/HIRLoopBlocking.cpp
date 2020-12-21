@@ -549,7 +549,14 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 
     BlockedLevels.push_back(CurLoopInfo.second);
 
-    HIRTransformUtils::stripmine(CurLoop, CurLoop, LoopMap[CurLoop]);
+    // By this time, we have already done normalization checks from analysis
+    // However, special normalization may be required for stencil case, which
+    // is called if regular normalization might fail.
+    if (CurLoop->canStripmine(LoopMap[CurLoop])) {
+      HIRTransformUtils::stripmine(CurLoop, CurLoop, LoopMap[CurLoop]);
+    } else {
+      HIRTransformUtils::stripmine(CurLoop, CurLoop, LoopMap[CurLoop], true);
+    }
 
     HLLoop *ByStripLoop = CurLoop->getParentLoop();
 
@@ -1033,7 +1040,9 @@ private:
 
 // Arg is in-out.
 // Returns true if the argument has changed.
-bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap) {
+// \p RelaxNormalization will allow normalization util to relax CE typecheck
+bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap,
+                                           bool RelaxNormalization = false) {
   if (StripmineCandidateMap.empty()) {
     LLVM_DEBUG_DIAG_DETAIL(dbgs() << "LoopMap is empty.\n");
 
@@ -1049,7 +1058,7 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap) {
 
       It = StripmineCandidateMap.erase(It);
       IsUpdated = true;
-    } else if (!It->first->canStripmine(It->second)) {
+    } else if (!It->first->canStripmine(It->second, RelaxNormalization)) {
       LLVM_DEBUG_DIAG_DETAIL(dbgs() << "Stripmine can not be done\n");
 
       It = StripmineCandidateMap.erase(It);
@@ -1405,7 +1414,9 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
     LoopNest.setOutermostLoop(Lp);
     LoopNest.populateLoops();
     pull3DStencilSmallStripmineSizes(LoopNest, LoopMap);
-    updateLoopMapByStripmineApplicability(LoopMap);
+    // If we reach here, we want to always stripmine, so we add extra
+    // normalization flag, see normalize()
+    updateLoopMapByStripmineApplicability(LoopMap, true);
 
     if (LoopMap.empty()) {
       // Even with inner loop nest, it will be unlikely to
@@ -1805,16 +1816,39 @@ void hoistMinDefs(const LoopMapTy &LoopMap,
 
     unsigned DefMinLevel = DestLevel;
     unsigned UseMinLevel = FindUseMinLevel(OrigLevel);
-    // Update Def@level of Loop UB with min blob
-    CurLoopNests[getIndexForLoopVectors(UseMinLevel, OutermostLevel)]
-        ->getUpperDDRef()
-        ->getSingleCanonExpr()
-        ->setDefinedAtLevel(DefMinLevel);
+    const RegDDRef *MinDef = FirstInst->getLvalDDRef();
+
+    unsigned MinIndex = MinDef->getSelfBlobIndex();
+
+    // Update Def@level of Loop UB w.r.t min blob and lb blob if we added inst
+    // during normalization. The new UB needs to contain the correct level
+    // based on both blobs, otherwise the CE will be inconsistent. Example:
+    //   DO i2 = 0, 3, 1   <DO_LOOP>
+    //   %min = (-14 * i2 + 49 <= 13) ? -14 * i2 + 49 : 13;
+    //
+    //     %lb = 14 * i2;
+    //   DO i3 = 0, 14 * i2 + %min + -1 * %lb, 1   <DO_LOOP>  <MAX_TC_EST = 14>
+
+    RegDDRef *UB =
+        CurLoopNests[getIndexForLoopVectors(UseMinLevel, OutermostLevel)]
+            ->getUpperDDRef();
+
+    unsigned UBDefLevel = DefMinLevel;
+
+    for (const auto &BRef : make_range(UB->blob_begin(), UB->blob_end())) {
+      if (BRef->getBlobIndex() == MinIndex) {
+        BRef->setDefinedAtLevel(DefMinLevel);
+      }
+      if (BRef->getDefinedAtLevel() > UBDefLevel) {
+        UBDefLevel = BRef->getDefinedAtLevel();
+      }
+    }
+    UB->getSingleCanonExpr()->setDefinedAtLevel(UBDefLevel);
 
     // Update Live-in temp info.
     // From LpDest's child-loop to LpWithDef's child-loop,
     // "min" def is a live-in
-    unsigned MinSB = FirstInst->getLvalDDRef()->getSymbase();
+    unsigned MinSB = MinDef->getSymbase();
     LLVM_DEBUG(dbgs() << "MinSB: " << MinSB << " DefMinLevel: " << DefMinLevel
                       << " UseMinLevel: " << UseMinLevel << "\n");
     for (unsigned I = DefMinLevel + 1; I <= UseMinLevel; I++) {

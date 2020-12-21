@@ -451,11 +451,12 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // upper bound. This is because b*(x/d) != (b*x)/d.
       if ((UpperBoundCE->getDenominator() != 1 ||
            !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) &&
-          !UpperBoundCE->canConvertToStandAloneBlob()) {
+          !UpperBoundCE->canConvertToStandAloneBlobOrConstant()) {
         return UPPER_SUB_TYPE_MISMATCH;
       }
       assert((CanonExprUtils::mergeable(CE, LoopI->getLowerCanonExpr(), true) ||
-              LoopI->getLowerCanonExpr()->canConvertToStandAloneBlob()) &&
+              LoopI->getLowerCanonExpr()
+                  ->canConvertToStandAloneBlobOrConstant()) &&
              "Assuming that the Lower bound is also mergeable or can be "
              "represented as a blob if Upper is mergeable or can be represented"
              " as a blob");

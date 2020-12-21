@@ -596,7 +596,7 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   // Try to merge first
   bool Mergeable = mergeable(CE1, CE2, RelaxedMode);
   if (!Mergeable) {
-    if (!CE2->canConvertToStandAloneBlob()) {
+    if (!CE2->canConvertToStandAloneBlobOrConstant()) {
       // If can not be casted
       return false;
     }
@@ -607,7 +607,8 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   if (!Mergeable) {
     // Not meargeable but could be casted to a blob with a correspondent type.
     // This allows merging into vector type CE.
-    Term->castStandAloneBlob(CE1->getSrcType()->getScalarType(), IsSigned);
+    Term->convertToCastedStandAloneBlobOrConstant(
+        CE1->getSrcType()->getScalarType(), IsSigned);
   }
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.
