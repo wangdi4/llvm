@@ -1,6 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t.out
-// env SYCL_DEVICE_TYPE=HOST %t.out
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
+// RUN: %clangxx -fsycl -fsycl-device-only %s -o %t.out
 
 #include <CL/sycl.hpp>
 #include <CL/sycl/INTEL/ac_types/hls_float.hpp>
@@ -384,7 +382,7 @@ void test_pown2(queue &Queue, const ihc::hls_float<E, M> &a, const int &b,
     auto x = inp.template get_access<kSyclRead>(h);
     auto y = inp2.template get_access<kSyclRead>(h);
     auto res = result.template get_access<kSyclWrite>(h);
-    h.single_task<class pown>([=] { res[0] = ihc_pown(x[0], y[0]); });
+    h.single_task<class pown2>([=] { res[0] = ihc_pown(x[0], y[0]); });
   });
   Queue.wait();
 }
