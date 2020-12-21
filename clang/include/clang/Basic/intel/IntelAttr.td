@@ -1,6 +1,6 @@
 //===--- IntelAttr.td - Intel attribute definitions -----------------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -52,11 +52,6 @@ def BNDVarSize : InheritableAttr {
                              "ExpectedFieldOrGlobalVar">;
   let Documentation = [Undocumented];
   int Requires = 4;
-}
-
-def Leaf : IgnoredAttr {
-  let Spellings = [GNU<"leaf">];
-  let Subjects = SubjectList<[Function]>;
 }
 
 def IntelInline : Attr {
