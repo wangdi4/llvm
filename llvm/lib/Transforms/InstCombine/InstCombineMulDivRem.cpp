@@ -1562,35 +1562,6 @@ Instruction *InstCombinerImpl::visitSRem(BinaryOperator &I) {
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION
-Instruction *InstCombinerImpl::transformScalarFRemToSRem(Value *Dividend,
-                                                     Value *Divisor) {
-  auto *T = Dividend->getType();
-  assert(T->isFloatingPointTy() && "Expect FP value");
-  assert(T == Divisor->getType() &&
-         "Both operands of frem should have the same type");
-  // Value of both operands must be integer
-  if (!(isFPValueIntegral(Dividend) && isFPValueIntegral(Divisor)))
-    return nullptr;
-  // Value of both operands must be in range of int64_t
-  FPValueRangeAnalysis RangeAnalysis;
-  FPValueRange DividendRange = RangeAnalysis.computeRange(Dividend),
-               DivisorRange = RangeAnalysis.computeRange(Divisor);
-  if (!DividendRange.isInBitRange(64).getValueOr(false) ||
-      !DivisorRange.isInBitRange(64).getValueOr(false))
-    return nullptr;
-  // Divisor can't be zero
-  if (DivisorRange.getMaybeZero())
-    return nullptr;
-  LLVMContext &C = Dividend->getContext();
-  Type *Int64Ty = Type::getInt64Ty(C);
-  auto *DividendInt = Builder.CreateFPToSI(Dividend, Int64Ty);
-  auto *DivisorInt = Builder.CreateFPToSI(Divisor, Int64Ty);
-  auto *RemInst = Builder.CreateSRem(DividendInt, DivisorInt);
-  return new SIToFPInst(RemInst, T);
-}
-#endif // INTEL_CUSTOMIZATION
-
 Instruction *InstCombinerImpl::visitFRem(BinaryOperator &I) {
   if (Value *V = SimplifyFRemInst(I.getOperand(0), I.getOperand(1),
                                   I.getFastMathFlags(),
@@ -1599,13 +1570,6 @@ Instruction *InstCombinerImpl::visitFRem(BinaryOperator &I) {
 
   if (Instruction *X = foldVectorBinop(I))
     return X;
-
-#if INTEL_CUSTOMIZATION
-  if (!I.getType()->isVectorTy())
-    if (Instruction *X =
-            transformScalarFRemToSRem(I.getOperand(0), I.getOperand(1)))
-      return X;
-#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
