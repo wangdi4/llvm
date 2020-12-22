@@ -23,6 +23,13 @@ define dso_local spir_kernel void @test_slm_load(i32 %rem) {
   ret void
 }
 
+define dso_local spir_kernel void @test_slm_masked_store(<8 x i32>* nonnull %ptr) {
+  call void @llvm.masked.store.v8i32.p3v8i32(<8 x i32> <i32 undef, i32 1, i32 2, i32 3, i32 undef, i32 5, i32 6, i32 7>, <8 x i32> addrspace(3)* bitcast (float addrspace(3)* getelementptr inbounds ([16 x float], [16 x float] addrspace(3)* @b.ascast.priv.__local, i64 0, i64 8) to <8 x i32> addrspace(3)*), i32 4, <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>)
+; CHECK: [[ADD:%.*]] = add i32 0, 32
+; CHECK-NEXT: call void @llvm.genx.scatter.scaled.v8i1.v8i32.v8i32(<8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>, i32 2, i16 0, i32 254, i32 [[ADD]], <8 x i32> <i32 0, i32 4, i32 8, i32 12, i32 16, i32 20, i32 24, i32 28>, <8 x i32> <i32 undef, i32 1, i32 2, i32 3, i32 undef, i32 5, i32 6, i32 7>)
+  ret void
+}
+
 define dso_local spir_kernel void @test_masked_store(<8 x i32>* nonnull %ptr) {
 ; CHECK: [[LOAD:%.*]] = load <8 x i32>, <8 x i32>* %ptr, align 32
 ; CHECK-NEXT: [[SEL:%.*]] = select <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>, <8 x i32> <i32 undef, i32 1, i32 2, i32 3, i32 undef, i32 5, i32 6, i32 7>, <8 x i32> [[LOAD]]
@@ -58,3 +65,4 @@ define dso_local spir_kernel <8 x float>  @test_generic_as_infer(float addrspace
 
 
 declare void @llvm.masked.store.v8i32.p0v8i32(<8 x i32>, <8 x i32>*, i32 immarg, <8 x i1>) #1
+declare void @llvm.masked.store.v8i32.p3v8i32(<8 x i32>, <8 x i32> addrspace(3)*, i32 immarg, <8 x i1>) #1

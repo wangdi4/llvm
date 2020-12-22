@@ -644,6 +644,9 @@ private:
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
   bool TreatDistributeParLoopAsDistribute; // Used during transformation.
+  /// Values such as dist_schedule chunk size, which will be
+  /// used directly inside the outlined function created for the WRegion.
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
 public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -683,6 +686,13 @@ public:
   }
   bool getTreatDistributeParLoopAsDistribute() const {
     return TreatDistributeParLoopAsDistribute;
+  }
+
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) {
+    DirectlyUsedNonPointerValues.push_back(V);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

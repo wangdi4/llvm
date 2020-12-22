@@ -102,6 +102,9 @@ public:
   typedef LiveInSetTy::const_iterator const_live_in_iterator;
   typedef LiveOutSetTy::const_iterator const_live_out_iterator;
 
+  /// Scenarios that can be used to tag a given vectorized HLLoop.
+  enum class VecTagTy { NONE = 0, AUTOVEC = 1, SIMD = 2 };
+
 private:
   const Loop *OrigLoop;
   HLIf *Ztt;
@@ -168,6 +171,10 @@ private:
   unsigned ForcedVectorWidth;
   // Special field to force vector UF for a loop inside LoopOpt.
   unsigned ForcedVectorUnrollFactor;
+
+  // Tag to mark loop as being auto/simd-vectorized. Default is none of the
+  // scenarios.
+  VecTagTy VecTag;
 
   // Contains info specified in blocking pragma.
   std::unique_ptr<BlockingPragmaInfo> BlockingInfo;
@@ -1061,6 +1068,11 @@ public:
   void setForcedVectorUnrollFactor(unsigned UF) {
     ForcedVectorUnrollFactor = UF;
   }
+
+  /// Returns the vectorization tag attached to this loop.
+  VecTagTy getVecTag() const { return VecTag; }
+  /// Tags the loop with given vectorization scenario.
+  void setVecTag(VecTagTy VT) { VecTag = VT; }
 
   /// Returns true if minimum trip count of loop is specified using pragma and
   /// returns the value in \p MinTripCount.

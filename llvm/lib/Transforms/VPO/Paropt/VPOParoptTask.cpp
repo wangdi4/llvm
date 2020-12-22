@@ -1703,6 +1703,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   W->populateBBSet();
 
   resetValueInOmpClauseGeneric(W, W->getIf());
+  resetValueInOmpClauseGeneric(W, W->getFinal());
   resetValueInTaskDependClause(W);
   if (isa<WRNTaskloopNode>(W)) {
     resetValueInOmpClauseGeneric(W, W->getNumTasks());

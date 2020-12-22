@@ -336,9 +336,8 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
 // global variable. Convert the GEPs into multiple instructions that compute
 // the byte offset from the base represented by these GEP instructions.
 //
-// Returns true if the GEP was able to be expanded to multiple instructions.
-//
-// The final instruction of the expansion is returned in 'offset'
+// Returns the final offset value if the GEP was able to be expanded to
+// multiple instructions.
 //
 static Value *getSLMOffset(Value *V, Instruction *InsPos) {
   SmallVector<GEPOperator *, 4> GEPs;
@@ -795,6 +794,35 @@ static Value *translateLLVMInst(Instruction *Inst) {
             Builder.CreateSelect(CallOp->getArgOperand(2), VecDT,
                                  CallOp->getArgOperand(3), CallOp->getName());
         return RepI;
+      } else if (AS == SYCL_SLM_AS) {
+        auto DTy = CallOp->getType();
+        auto SLMOffset = getSLMOffset(PtrV, CallOp);
+        assert(SLMOffset);
+        auto CIntTy = Type::getInt32Ty(CTX);
+        auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
+        auto VL = cast<VectorType>(DTy)->getNumElements();
+        auto EltTy = cast<VectorType>(DTy)->getElementType();
+        std::string IntrName =
+          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "gather.scaled";
+        auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+        auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+        assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
+        int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+        // create constant for offset
+        auto VOffset = getConstVector(CIntTy, VL, EltBytes);
+        // create constant for predicate
+        auto PredV = CallOp->getArgOperand(2);
+        // crease constant for num-blocks
+        auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
+        auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
+        // create the intrinsic call
+        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+          CallOp->getModule(), ID, {DTy, PredV->getType(), VOffset->getType()});
+        auto RepI = IntrinsicInst::Create(NewFDecl,
+                                 {PredV, NumBlksC, ScaleC, BTI, SLMOffset,
+                                  VOffset, UndefValue::get(DTy)},
+                                 "slm.block.gather", CallOp);
+	return RepI;
       } else
         return CallOp;
     } break;
@@ -833,6 +861,31 @@ static Value *translateLLVMInst(Instruction *Inst) {
             NewFDecl->getReturnType()->isVoidTy() ? "" : "svm.block.st",
             CallOp);
         return RepI;
+      } else if (AS == SYCL_SLM_AS) {
+        auto DTy = DTV->getType();
+        auto SLMOffset = getSLMOffset(PtrV, CallOp);
+        assert(SLMOffset);
+        auto CIntTy = Type::getInt32Ty(CTX);
+        auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
+        std::string IntrName =
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "scatter.scaled";
+        auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+        auto VL = cast<VectorType>(DTy)->getNumElements();
+        auto EltTy = cast<VectorType>(DTy)->getElementType();
+        auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+        assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
+        int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+        auto VOffset = getConstVector(CIntTy, VL, EltBytes);
+        auto PredV = CallOp->getArgOperand(3);
+        // create constant for num-blocks
+        auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
+        auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
+        // create the intrinsic call
+        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+            CallOp->getModule(), ID, {PredV->getType(), VOffset->getType(), DTy});
+        auto RepI = Builder.CreateCall(
+            NewFDecl, {PredV, NumBlksC, ScaleC, BTI, SLMOffset, VOffset, DTV});
+	return RepI;
       } else
         return CallOp;
     } break;
@@ -845,6 +898,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      assert (AS != SYCL_SLM_AS && "yet to support masked SLM gather");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();
@@ -899,6 +953,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      assert (AS != SYCL_SLM_AS && "yet to support masked SLM scatter");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();

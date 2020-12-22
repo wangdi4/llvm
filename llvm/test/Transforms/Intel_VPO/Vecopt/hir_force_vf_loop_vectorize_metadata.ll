@@ -17,7 +17,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           + DO i1 = 0, 1023, 32   <DO_LOOP> <novectorize>
+; CHECK-NEXT:           + DO i1 = 0, 1023, 32   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:           |   (<32 x i32>*)(@arr)[0][i1] = 42;
 ; CHECK-NEXT:           + END LOOP
 

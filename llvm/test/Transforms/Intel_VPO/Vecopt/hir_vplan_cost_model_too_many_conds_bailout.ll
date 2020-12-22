@@ -7,7 +7,7 @@
 ; JIRA: CMPLRLLVM-9331
 
 ; CHECK-SCALAR: DO i1 = 0, 299, 1   <DO_LOOP>
-; CHECK-VECTOR: DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
+; CHECK-VECTOR: DO i1 = 0, 299, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 
 ; XFAIL: *
 ; TO-DO: The cost model acconts for serialization costs of masked loads/stores

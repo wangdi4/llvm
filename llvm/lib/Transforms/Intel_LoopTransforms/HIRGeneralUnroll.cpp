@@ -468,6 +468,15 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
 
   unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
   unsigned NumExits = HLoop->getNumExits();
+  unsigned NumLiveouts = HLoop->getNumLiveOutTemps();
+
+  // Liveouts tend to increase register pressure for multi-exit loops.
+  if (NumExits > 1 && NumLiveouts > 5) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll of multi-exit loop with "
+                      << NumLiveouts
+                      << " liveouts to not increase register pressure!\n");
+    return 0;
+  }
 
   bool IsInnerLoop =
       ((HLoop->getNestingLevel() > 1) || (HLoop->getLLVMLoopDepth() > 1));
@@ -476,7 +485,7 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   // Number of exits complicate the CFG by adding additional edges. If there are
   // values liveout these exits, it will make life difficult for register
   // allocation.
-  if (IsInnerLoop && HLoop->hasLiveOutTemps()) {
+  if (IsInnerLoop && NumLiveouts != 0) {
     // Normal exit is ignored for DO loops but accounted for unknown loops
     // because its explicit backedge is cloned.
     SelfCost += (HLoop->isUnknown()) ? NumExits : (NumExits - 1);

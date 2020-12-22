@@ -27,7 +27,7 @@
 ; VEC-HIR:      <0>          BEGIN REGION { modified }
 ; VEC-HIR-NEXT: <26:8>                  %red.init = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <27:8>                  %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
-; VEC-HIR-NEXT: <25:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; VEC-HIR-NEXT: <25:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VEC-HIR-NEXT: <28:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <29:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <30:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !30

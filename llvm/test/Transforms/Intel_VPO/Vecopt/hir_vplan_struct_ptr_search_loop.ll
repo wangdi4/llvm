@@ -45,7 +45,7 @@
 ; CG-CHECK-NEXT:              %tgu = (4 * %t10 + -1 * %peel.factor1)/u4;
 ; CG-CHECK-NEXT:              if (0 <u 4 * %tgu)
 ; CG-CHECK-NEXT:              {
-; CG-CHECK-NEXT:                 + DO i1 = 0, 4 * %tgu + -1, 4   <DO_MULTI_EXIT_LOOP> <nounroll> <novectorize>
+; CG-CHECK-NEXT:                 + DO i1 = 0, 4 * %tgu + -1, 4   <DO_MULTI_EXIT_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CG-CHECK-NEXT:                 |   %wide.cmp. = (<4 x %struct2*>*)(%t4)[i1 + %peel.factor1] == &((<4 x %struct2*>)(%t1)[0]);
 ; CG-CHECK-NEXT:                 |   %intmask = bitcast.<4 x i1>.i4(%wide.cmp.);
 ; CG-CHECK-NEXT:                 |   if (%intmask != 0)

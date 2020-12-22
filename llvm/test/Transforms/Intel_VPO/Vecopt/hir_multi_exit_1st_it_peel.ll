@@ -52,7 +52,7 @@
 ;<30>               + END LOOP
 ;<31>            }
 ;<19>
-;<19>            + DO i1 = 16 * %tgu, %len_limit + -2, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 15> <novectorize>
+;<19>            + DO i1 = 16 * %tgu, %len_limit + -2, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 15> <auto-vectorized> <novectorize>
 ;<9>             |   if ((%cur)[i1 + -1 * zext.i32.i64(%delta2) + 1] != (%cur)[i1 + 1])
 ;<9>             |   {
 ;<20>            |      %len_best.013.out = i1 + 1;

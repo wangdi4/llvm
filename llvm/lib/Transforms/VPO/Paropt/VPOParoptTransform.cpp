@@ -6992,8 +6992,12 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     return false;
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
-      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W))
+      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W) &&
+      !isa<WRNDistributeParLoopNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
+    //
+    // While this condition is here it should match with one in
+    // WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion.
     return false;
 
   const auto &DirectlyUsedNonPointerVals = W->getDirectlyUsedNonPointerValues();
@@ -8055,16 +8059,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     if (VPOParoptUtils::getDistLoopScheduleKind(W) ==
         WRNScheduleDistributeStatic) {
       DistChunkVal = W->getDistSchedule().getChunkExpr();
-#if 0
-      // FIXME: enable this back, when FE starts capturing dist_schedule
-      //        chunk size.
-      if (!isa<Constant>(DistChunkVal)) {
-        resetValueInOmpClauseGeneric(W, DistChunkVal);
-        DistChunkVal =
-            VPOParoptUtils::cloneInstructions(DistChunkVal, PHTerm);
-        PHBuilder.SetInsertPoint(PHTerm);
-      }
-#endif
       IsDistChunkedParLoop = IsDistParLoop;
     }
   }
@@ -8584,6 +8578,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   // Remove references from num_teams/thread_limit or num_threads
   // clauses so that they do not appear as live-ins for the code extractor.
   resetValueInNumTeamsAndThreadsClause(W);
+  if (!W->getIsTeams())
+    resetValueInOmpClauseGeneric(W, W->getIf());
 
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);

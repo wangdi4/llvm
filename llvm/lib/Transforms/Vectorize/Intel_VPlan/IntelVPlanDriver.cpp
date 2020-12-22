@@ -1168,9 +1168,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
             VPORBuilder, &VCodeGen);
         // Mark source and vectorized loops with isvectorized directive so that
         // WarnMissedTransforms pass will not complain that this loop is not
-        // vectorized
-        if (isOmpSIMDLoop)
+        // vectorized. We also tag the main vector loop based on
+        // simd/auto-vectorization scenarios. This tag will be reflected in
+        // downstream HIR dumps.
+        if (isOmpSIMDLoop) {
           setHLLoopMD(Lp, "llvm.loop.isvectorized", Fn.getContext());
+          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::SIMD);
+        } else {
+          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::AUTOVEC);
+        }
       }
     }
   }

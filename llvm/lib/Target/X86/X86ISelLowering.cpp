@@ -47922,29 +47922,45 @@ static SDValue combineFaddFsub(SDNode *N, SelectionDAG &DAG,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   //  Try to combine the following nodes
-  //  t21: v16f32 = X86ISD::VFMULC t7, t8
+  //  t21: v16f32 = X86ISD::VFMULC/VFCMULC t7, t8
   //  t15: v32f16 = bitcast t21
   //  t16: v32f16 = fadd nnan ninf nsz arcp contract afn reassoc t15, t2
-  //  into X86ISD::VFMADDC if possible:
+  //  into X86ISD::VFMADDC/VFCMADDC if possible:
   //  t22: v16f32 = bitcast t2
-  //  t23: v16f32 = fadd nnan ninf nsz arcp contract afn reassoc X86ISD::VFMADDC
-  //  t7, t8, t22
+  //  t23: v16f32 = nnan ninf nsz arcp contract afn reassoc
+  //                X86ISD::VFMADDC/VFCMADDC t7, t8, t22
   //  t24: v32f16 = bitcast t23
+  auto getMulId = [&]() {
+    if (LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse() &&
+        (LHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
+         LHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
+        LHS->getOperand(0).hasOneUse())
+      return 0;
+    if (RHS->getOpcode() == ISD::BITCAST && RHS.hasOneUse() &&
+        (RHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
+         RHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
+        RHS->getOperand(0).hasOneUse())
+      return 1;
+    return 2;
+  };
+  int MulId = getMulId();
   const TargetOptions &Options = DAG.getTarget().Options;
   if ((Options.AllowFPOpFusion == FPOpFusion::Fast || Options.UnsafeFPMath) &&
-      Subtarget.hasFP16() && N->getOpcode() == ISD::FADD &&
-      (VT == MVT::v32f16 || VT == MVT::v16f16 || VT == MVT::v8f16) &&
-      LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse()) {
-    SDValue FAddOp1 = N->getOperand(1);
-    SDValue MULC = LHS->getOperand(0);
+      MulId < 2 && Subtarget.hasFP16() && IsFadd &&
+      (VT == MVT::v32f16 || VT == MVT::v16f16 || VT == MVT::v8f16)) {
+    SDValue FAddOp1 = N->getOperand(1-MulId);
+    SDValue MULC = N->getOperand(MulId)->getOperand(0);
     MVT ComplexType = MVT::getVectorVT(MVT::f32, VT.getVectorNumElements() / 2);
-    if (MULC->getOpcode() == X86ISD::VFMULC && MULC.hasOneUse() &&
-        MULC->getValueType(0) == ComplexType) {
+    if ((MULC->getOpcode() == X86ISD::VFMULC ||
+         MULC->getOpcode() == X86ISD::VFCMULC) &&
+        MULC.hasOneUse() && MULC->getValueType(0) == ComplexType) {
       SelectionDAG::FlagInserter FlagsInserter(DAG, N);
       FAddOp1 = DAG.getBitcast(ComplexType, FAddOp1);
       SDValue FMAddC =
-          DAG.getNode(X86ISD::VFMADDC, SDLoc(N), ComplexType, FAddOp1,
-                      MULC.getOperand(0), MULC.getOperand(1));
+          DAG.getNode(MULC->getOpcode() == X86ISD::VFMULC ? X86ISD::VFMADDC
+                                                          : X86ISD::VFCMADDC,
+                      SDLoc(N), ComplexType, FAddOp1, MULC.getOperand(0),
+                      MULC.getOperand(1));
       SDValue Res = DAG.getBitcast(VT, FMAddC);
       return Res;
     }
@@ -48090,6 +48106,75 @@ static SDValue combineFMUL(SDNode *N, SelectionDAG &DAG,
   return NewR1AddSub;
 }
 #endif
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+//  Try to combine the following nodes
+//  t29: i64 = X86ISD::Wrapper TargetConstantPool:i64
+//    <i32 -2147483648[float -0.000000e+00]> 0
+//  t27: v16i32[v16f32],ch = X86ISD::VBROADCAST_LOAD
+//    <(load 4 from constant-pool)> t0, t29
+//  [t30: v16i32 = bitcast t27]
+//  t6: v16i32 = xor t7, t27[t30]
+//  t11: v16f32 = bitcast t6
+//  t21: v16f32 = X86ISD::VFMULC[X86ISD::VCFMULC] t11, t8
+//  into X86ISD::VFCMULC[X86ISD::VFMULC] if possible:
+//  t22: v16f32 = bitcast t7
+//  t23: v16f32 = X86ISD::VFCMULC[X86ISD::VFMULC]
+//  t8, t22
+//  t24: v32f16 = bitcast t23
+static SDValue combineFMulcFCMulc(SDNode *N, SelectionDAG &DAG,
+                           const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+  int CombineOpcode =
+      N->getOpcode() == X86ISD::VFCMULC ? X86ISD::VFMULC : X86ISD::VFCMULC;
+  auto isConjugationConstant = [](const Constant* c) {
+    if (const auto* CI = dyn_cast<ConstantInt>(c)) {
+      APInt ConjugationInt32 = APInt(32, 0x80000000, true);
+      APInt ConjugationInt64 = APInt(64, 0x800000008000000, true);
+      return CI->getBitWidth() != 16 && (CI->getBitWidth() == 32 &&
+                                         CI->getValue() == ConjugationInt32) ||
+             (CI->getBitWidth() == 64 && CI->getValue() == ConjugationInt64);
+    }
+    if (const auto* CF = dyn_cast<ConstantFP>(c))
+      return CF->isNegativeZeroValue();
+    return false;
+  };
+  auto combineConjugation = [&](SDValue& r) {
+    if (LHS->getOpcode() == ISD::BITCAST && RHS.hasOneUse()) {
+      SDValue XOR = LHS.getOperand(0);
+      if (XOR->getOpcode() == ISD::XOR && XOR.hasOneUse()) {
+        SDValue XORRHS = XOR.getOperand(1);
+        if (XORRHS.getOpcode() == ISD::BITCAST && XORRHS.hasOneUse())
+          XORRHS = XORRHS.getOperand(0);
+        if (XORRHS.getOpcode() == X86ISD::VBROADCAST_LOAD &&
+            XORRHS.getOperand(1).getNumOperands()) {
+          ConstantPoolSDNode *CP =
+              dyn_cast<ConstantPoolSDNode>(XORRHS.getOperand(1).getOperand(0));
+          if (CP && isConjugationConstant(CP->getConstVal())) {
+            SelectionDAG::FlagInserter FlagsInserter(DAG, N);
+            SDValue I2F = DAG.getBitcast(VT, LHS.getOperand(0).getOperand(0));
+            SDValue FCMulC = DAG.getNode(CombineOpcode, SDLoc(N), VT, RHS, I2F);
+            r = DAG.getBitcast(VT, FCMulC);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+  SDValue Res;
+  if (combineConjugation(Res))
+    return Res;
+  std::swap(LHS, RHS);
+  if (combineConjugation(Res))
+    return Res;
+  return Res;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 /// Attempt to pre-truncate inputs to arithmetic ops if it will simplify
 /// the codegen.
@@ -53239,6 +53324,12 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
     return combineUIntToFP(N, DAG, Subtarget);
   case ISD::FADD:
   case ISD::FSUB:           return combineFaddFsub(N, DAG, Subtarget);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86ISD::VFCMULC:
+  case X86ISD::VFMULC:     return combineFMulcFCMulc(N, DAG, Subtarget);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case ISD::FMUL:           return combineFMUL(N, DAG, Subtarget); // INTEL
   case ISD::FNEG:           return combineFneg(N, DAG, DCI, Subtarget);
   case ISD::TRUNCATE:       return combineTruncate(N, DAG, Subtarget);

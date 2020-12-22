@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_memadvise_evex
+// REQUIRES: intel_feature_isa_amx_complex_evex
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding < %s  | FileCheck %s
 
 // CHECK:      tcvtrowps2phie $123, %tmm4, %zmm23, %zmm22

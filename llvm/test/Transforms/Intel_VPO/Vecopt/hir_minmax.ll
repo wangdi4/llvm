@@ -46,7 +46,7 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:             %red.var = %max.012;
-; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; CHECK-NEXT:          |   %.vec1 = %.vec  *  3;
 ; CHECK-NEXT:          |   %red.var = (%red.var > %.vec1 + 2) ? %red.var : %.vec1 + 2;
@@ -117,7 +117,7 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:             %red.var = %min.012;
-; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; CHECK-NEXT:          |   %.vec1 = %.vec  *  3;
 ; CHECK-NEXT:          |   %red.var = (%red.var > %.vec1 + 2) ? %.vec1 + 2 : %red.var;

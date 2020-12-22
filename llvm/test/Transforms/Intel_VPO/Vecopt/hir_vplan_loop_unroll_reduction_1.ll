@@ -77,7 +77,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:  <27>               {
 ; CHECK-NEXT:  <29>                     [[RED_VAR0:%.*]] = 0
 ; CHECK-NEXT:  <30>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
-; CHECK-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
+; CHECK-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0]])[i1]
 ; CHECK-NEXT:  <32>                  |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <33>                  |   [[DOTVEC0]] = (<4 x i32>*)([[A0]])[i1 + 4]
@@ -104,7 +104,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:  <27>               {
 ; VPVALCG-NEXT:  <29>                     [[RED_VAR0:%.*]] = 0
 ; VPVALCG-NEXT:  <30>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
-; VPVALCG-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
+; VPVALCG-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; VPVALCG-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:  <32>                  |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; VPVALCG-NEXT:  <33>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]

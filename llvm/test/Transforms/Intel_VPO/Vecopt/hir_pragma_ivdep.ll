@@ -15,7 +15,7 @@
 ; CHECK: + DO i1 = 0, 1023, 1   <DO_LOOP> <ivdep>
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize> <ivdep>
+; CHECK: + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize> <ivdep>
 ; CHECK: + END LOOP
 
 ; Test fails pending on DD analysis changes to consume ivdep information.
