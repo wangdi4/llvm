@@ -17,7 +17,7 @@ define void @foo(i32* nocapture %arr) {
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[TMP3]], 100
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i32 [[TMP3]], 100
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
 ;
 entry:

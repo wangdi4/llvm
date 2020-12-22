@@ -22,7 +22,7 @@ define dso_local void @foo(<4 x float>* nocapture readonly %in, <4 x float>* noc
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP6]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[TMP6]], 1024
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP6]], 1024
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 omp.inner.for.body.lr.ph:

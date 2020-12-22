@@ -49,7 +49,7 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
@@ -139,7 +139,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( VL)] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->LV 1->LV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]

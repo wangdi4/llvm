@@ -27,7 +27,7 @@ define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_C_LOAD:%.*]] = load i32* [[VP_C]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]

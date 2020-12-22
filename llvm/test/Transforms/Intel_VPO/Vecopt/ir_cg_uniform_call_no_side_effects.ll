@@ -56,7 +56,7 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    [[TMP12]] = add nuw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP13]] = add nuw i64 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP14]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp ne i64 [[TMP14]], 2
+; CHECK-NEXT:    [[TMP15:%.*]] = icmp ult i64 [[TMP14]], 2
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]], !llvm.loop !0
 ;
 entry:

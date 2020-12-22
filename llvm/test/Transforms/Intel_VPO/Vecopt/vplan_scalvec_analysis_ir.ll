@@ -29,7 +29,7 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b) lo
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_DIVERGENT_MUL:%.*]] = mul i64 [[VP_ADD_SEXT]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -90,7 +90,7 @@ define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store i32 [[SRC20:%.*]] i32* [[DEST20:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -151,7 +151,7 @@ define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD]] i32* [[VP_B_GEP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -210,7 +210,7 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_REDUCTION_ADD]] = add i32 [[VP_REDUCTION_PHI]] i32 [[VP_UNIFORM_A]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -279,7 +279,7 @@ define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_USE_PHI_BLEND_BB3]] i64* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
@@ -345,7 +345,7 @@ define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) loca
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_CALL]] float* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -403,7 +403,7 @@ define dso_local void @serialCallRepeatArgs(float* nocapture %a) local_unnamed_a
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CALL:%.*]] = call float [[VP_ARG]] float [[VP_ARG]] i32 42 float (float, float, i32)* @bar [Serial] (SVAOpBits 0->V 1->V 2->V 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]

@@ -75,7 +75,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:  Basic Block: [[BB8]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB10]]

@@ -44,7 +44,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[TMP2]], [[N_VEC]]
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[TMP4:%.*]] = mul i64 1, [[N_VEC]]

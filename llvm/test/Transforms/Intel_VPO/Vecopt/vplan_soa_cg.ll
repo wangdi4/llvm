@@ -39,7 +39,7 @@
 ; CHECK-NEXT:     [DA: Div] store i32 30 i32* [[VP_RND_GEP1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -89,7 +89,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI10]], 2
 ; CHECK-NEXT:    [[TMP3]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp ne i64 [[TMP3]], 1024
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
 ;
 omp.inner.for.body.lr.ph:

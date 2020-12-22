@@ -20,7 +20,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 8
 ; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 8
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 1000
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], 1000
 ; CHECK-NEXT:    br i1 [[TMP6]], label %[[VPLANNEDBB:.*]], label [[VECTOR_BODY]]
 ; CHECK:       [[VPLANNEDBB]]:
 ; CHECK-NEXT:    [[TMP7:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED:%.*]], <8 x float> [[TMP1]])

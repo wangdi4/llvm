@@ -33,7 +33,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD6_1:%.*]] = add i32 [[VP1]] i32 [[VP_ACC_019]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
@@ -42,7 +42,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD6_2:%.*]] = add i32 [[VP2]] i32 [[VP_ADD6_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = add i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp eq i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp uge i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
@@ -51,7 +51,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD6]] = add i32 [[VP5]] i32 [[VP_ADD6_2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP0]] = add i64 [[VP3]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = icmp eq i64 [[VP0]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = icmp uge i64 [[VP0]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP6]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
@@ -97,7 +97,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], [[N_VEC0]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], [[N_VEC0]]
 ; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP30]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD40:%.*]] = load <4 x i32>, <4 x i32>* [[TMP6]], align 4
@@ -105,7 +105,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[TMP2]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[TMP3]], 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = add i64 [[TMP4]], 4
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[TMP10]], [[N_VEC0]]
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp uge i64 [[TMP10]], [[N_VEC0]]
 ; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP9]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD60:%.*]] = load <4 x i32>, <4 x i32>* [[TMP12]], align 4
@@ -113,7 +113,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[TMP14]] = add nuw nsw <4 x i64> [[TMP8]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP15]] = add nuw nsw i64 [[TMP9]], 4
 ; CHECK-NEXT:    [[TMP16]] = add i64 [[TMP10]], 4
-; CHECK-NEXT:    [[TMP17:%.*]] = icmp eq i64 [[TMP16]], [[N_VEC0]]
+; CHECK-NEXT:    [[TMP17:%.*]] = icmp uge i64 [[TMP16]], [[N_VEC0]]
 ; CHECK-NEXT:    br i1 [[TMP17]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
