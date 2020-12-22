@@ -4008,8 +4008,20 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   if (IsTargetSPIRV) {
     // __kmpc_[end_]critical calls must be convergent for SPIR-V targets.
     BeginCritical->getCalledFunction()->setConvergent();
+    BeginCritical->setConvergent();
+    // Disallow duplicating and merging calls to __kmpc_[end_]critical
+    // as well. Basically, we want to disallow any optimizations
+    // of these calls.
+    BeginCritical->getCalledFunction()->setCannotDuplicate();
+    BeginCritical->setCannotDuplicate();
+    BeginCritical->setCannotMerge();
     setFuncCallingConv(BeginCritical, M);
+
     EndCritical->getCalledFunction()->setConvergent();
+    EndCritical->setConvergent();
+    EndCritical->getCalledFunction()->setCannotDuplicate();
+    EndCritical->setCannotDuplicate();
+    EndCritical->setCannotMerge();
     setFuncCallingConv(EndCritical, M);
   }
 
