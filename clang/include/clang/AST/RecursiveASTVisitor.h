@@ -767,7 +767,6 @@ bool RecursiveASTVisitor<Derived>::TraverseTemplateArgument(
   case TemplateArgument::Declaration:
   case TemplateArgument::Integral:
   case TemplateArgument::NullPtr:
-  case TemplateArgument::UncommonValue:
     return true;
 
   case TemplateArgument::Type:
@@ -801,7 +800,6 @@ bool RecursiveASTVisitor<Derived>::TraverseTemplateArgumentLoc(
   case TemplateArgument::Declaration:
   case TemplateArgument::Integral:
   case TemplateArgument::NullPtr:
-  case TemplateArgument::UncommonValue:
     return true;
 
   case TemplateArgument::Type: {
