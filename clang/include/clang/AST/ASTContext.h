@@ -1030,7 +1030,7 @@ public:
   CanQualType SingletonId;
 #include "clang/Basic/AArch64SVEACLETypes.def"
   CanQualType VAArgPackTy; // INTEL
-#define PPC_MMA_VECTOR_TYPE(Name, Id, Size) \
+#define PPC_VECTOR_TYPE(Name, Id, Size) \
   CanQualType Id##Ty;
 #include "clang/Basic/PPCTypes.def"
 
