@@ -49,29 +49,63 @@ CallInst *IntrinsicUtils::createSimdDirectiveBegin(
 
   Function *DirIntrin =
       Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry);
-
   assert(
       DirIntrin &&
       "Cannot get declaration for the @llvm.directive.region.entry intrinsic");
 
+  // Create bundle for SIMD clause.
   SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
-
   SmallVector<llvm::Value *, 1> OpBundleVal;
   llvm::OperandBundleDef OpBundle(
       std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)),
       OpBundleVal);
   IntrinOpBundle.push_back(OpBundle);
 
+  // Create bundles for uniform, linear and private values:
+  // - All the uniform values are added in the same bundle:
+  //   "QUAL.OMP.UNIFORM"(i32* %uni1, i32* %uni2).
+  // - Each private value is added in a separate bundle:
+  //   "QUAL.OMP.PRIVATE"(i32* %priv1)
+  //   "QUAL.OMP.PRIVATE"(i32* %priv2)
+  // - Similarly, each linear value along with its step is added in a separate
+  //   bundle:
+  //   “QUAL.OMP.LINEAR”(i32* %lin1, i32 %step1)
+  //   “QUAL.OMP.LINEAR”(i32* %lin2, i32 %step2)
   for (SmallDenseMap<StringRef, SmallVector<Value *, 4>>::iterator
            I = DirectiveStrMap.begin(),
            E = DirectiveStrMap.end();
        I != E; ++I) {
-    llvm::OperandBundleDef OpBundle(std::string(I->first), I->second);
-    IntrinOpBundle.push_back(OpBundle);
+    if (std::string(I->first) == "QUAL.OMP.LINEAR") {
+      // The vector of linear values is a multiple of 2. In the vector, each
+      // linear value is followed by its step.
+      assert(I->second.size() % 2 == 0 &&
+             "The size of the vector of the linear values is a multiple of 2!");
+      for (unsigned LinearValI = 0; LinearValI < I->second.size();
+           LinearValI = LinearValI + 2) {
+        SmallVector<Value *, 4> LinearVals;
+        // First, push the linear value.
+        LinearVals.push_back(I->second[LinearValI]);
+        // Next, push the step.
+        LinearVals.push_back(I->second[LinearValI + 1]);
+        llvm::OperandBundleDef OpBundle(std::string(I->first), LinearVals);
+        IntrinOpBundle.push_back(OpBundle);
+      }
+    } else if (std::string(I->first) == "QUAL.OMP.PRIVATE") {
+      for (unsigned PrivateValI = 0; PrivateValI < I->second.size();
+           PrivateValI++) {
+        SmallVector<Value *, 4> PrivateVals;
+        PrivateVals.push_back(I->second[PrivateValI]);
+        llvm::OperandBundleDef OpBundle(std::string(I->first), PrivateVals);
+        IntrinOpBundle.push_back(OpBundle);
+      }
+    } else {
+      llvm::OperandBundleDef OpBundle(std::string(I->first), I->second);
+      IntrinOpBundle.push_back(OpBundle);
+    }
   }
 
+  // Create directive call.
   SmallVector<llvm::Value *, 1> Arg;
-
   CallInst *DirCall =
       CallInst::Create(DirIntrin, Arg, IntrinOpBundle, "entry.region");
   return DirCall;
