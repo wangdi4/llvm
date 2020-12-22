@@ -21,7 +21,7 @@ define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP2]] = add <2 x i32> [[VEC_PHI30]], <i32 6, i32 6>
 ; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI20]], 6
 ; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], [[N_VEC0:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], [[N_VEC0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:

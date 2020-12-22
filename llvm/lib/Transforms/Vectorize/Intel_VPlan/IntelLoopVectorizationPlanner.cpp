@@ -795,7 +795,7 @@ void LoopVectorizationPlanner::emitVectorLoopIV(VPlan *Plan, VPValue *TripCount,
   auto *IVUpdate = Builder.createAdd(IV, VF, "vector.loop.iv.next");
   IV->addIncoming(IVUpdate, Latch);
   auto *ExitCond = Builder.createCmpInst(
-      Latch->getSuccessor(0) == Header ? CmpInst::ICMP_NE : CmpInst::ICMP_EQ,
+      Latch->getSuccessor(0) == Header ? CmpInst::ICMP_ULT : CmpInst::ICMP_UGE,
       IVUpdate, TripCount, "vector.loop.exitcond");
 
   VPValue *OrigExitCond = Latch->getCondBit();

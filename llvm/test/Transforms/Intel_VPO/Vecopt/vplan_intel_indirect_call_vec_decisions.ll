@@ -37,7 +37,7 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 false, [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:     Condition(external): i1 false
 ; CHECK-EMPTY:
@@ -101,7 +101,7 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    [[TMP6]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP7]] = add nuw i32 [[UNI_PHI10]], 4
 ; CHECK-NEXT:    [[TMP8]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne i32 [[TMP8]], 4
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i32 [[TMP8]], 4
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:

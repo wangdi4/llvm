@@ -40,7 +40,7 @@ define void @foo(i32* nocapture readonly %iarr) {
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI3]], 2
 ; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 100
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], 100
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
 ;
 entry:
