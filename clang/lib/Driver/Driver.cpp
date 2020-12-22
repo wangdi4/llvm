@@ -3364,8 +3364,9 @@ class OffloadingActionBuilder final {
 
         // If the host input is not CUDA or HIP, we don't need to bother about
         // this input.
-        if (IA->getType() != types::TY_CUDA &&
-            IA->getType() != types::TY_HIP) {
+        if (!(IA->getType() == types::TY_CUDA ||
+              IA->getType() == types::TY_HIP ||
+              IA->getType() == types::TY_PP_HIP)) {
           // The builder will ignore this input.
           IsActive = false;
           return ABRT_Inactive;
@@ -3393,7 +3394,7 @@ class OffloadingActionBuilder final {
 
         // If -fgpu-rdc is disabled, should not unbundle since there is no
         // device code to link.
-        if (!Relocatable)
+        if (UA->getType() == types::TY_Object && !Relocatable)
           return ABRT_Inactive;
 
         CudaDeviceActions.clear();
@@ -5054,7 +5055,8 @@ public:
     if (CanUseBundler && isa<InputAction>(HostAction) &&
         InputArg->getOption().getKind() == llvm::opt::Option::InputClass &&
         !InputArg->getOption().hasFlag(options::LinkerInput) &&
-        !types::isSrcFile(HostAction->getType())) {
+        (!types::isSrcFile(HostAction->getType()) ||
+         HostAction->getType() == types::TY_PP_HIP)) {
       std::string InputName = InputArg->getAsString(Args);
       ActionList HostActionList;
       Action *A(HostAction);

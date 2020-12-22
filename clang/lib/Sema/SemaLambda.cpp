@@ -1002,10 +1002,6 @@ void Sema::ActOnStartOfLambdaDefinition(LambdaIntroducer &Intro,
   if (getLangOpts().CUDA)
     CUDASetLambdaAttrs(Method);
 
-  // OpenMP lambdas might get assumumption attributes.
-  if (LangOpts.OpenMP)
-    ActOnFinishedFunctionDefinitionInOpenMPAssumeScope(Method);
-
   // Number the lambda for linkage purposes if necessary.
   handleLambdaNumbering(Class, Method);
 
