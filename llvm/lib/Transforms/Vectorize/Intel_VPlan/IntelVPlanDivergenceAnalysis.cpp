@@ -1247,6 +1247,26 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCmpInst(
   const auto &VPBB = *I->getParent();
   VPValue *Op0 = I->getOperand(0);
   VPValue *Op1 = I->getOperand(1);
+
+  // If any of operands is VectorTripCountCalculation and condition is latch
+  // condition we consider it as uniform. Because even the induction which
+  // is compared with VectorTripCount is not uniform all its lanes contain
+  // values in {x+0:x+VF-1} range, and x is started from 0 and incremented by
+  // VF. So the condition will be true/false for all lanes simultaneously.
+  if (isa<VPVectorTripCountCalculation>(Op0) ||
+      isa<VPVectorTripCountCalculation>(Op1)) {
+    VPBasicBlock *Hdr = RegionLoop->getHeader();
+    VPBasicBlock *Latch = RegionLoop->getLoopLatch();
+    if (llvm::any_of(I->users(), [Hdr, Latch](const VPUser *U) {
+          return isa<VPBranchInst>(U) &&
+                 cast<VPInstruction>(U)->getParent() == Latch &&
+                 llvm::any_of(U->operands(), [Hdr](VPValue *V) {
+                   return V == Hdr;
+                 });
+        }))
+      return getUniformVectorShape();
+  }
+
   VPVectorShape Shape0 = getObservedShape(VPBB, *Op0);
   VPVectorShape Shape1 = getObservedShape(VPBB, *Op1);
 
