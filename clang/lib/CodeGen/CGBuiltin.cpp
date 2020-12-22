@@ -7535,7 +7535,7 @@ Value *CodeGenFunction::EmitGetComputeIDExpr(const CallExpr *E) {
   // Let's use the same name.
   const char *Name = "get_compute_id";
   CGOpenCLRuntime OpenCLRT(CGM);
-  return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name), {Arg});
+  return EmitRuntimeCall(CGM.CreateRuntimeFunction(FTy, Name), {Arg});
 }
 
 // Emit FPGA specific built-ins "read_pipe" and "write_pipe".
@@ -7574,7 +7574,7 @@ Value *CodeGenFunction::EmitRWPipeExpr(const CallExpr *E, bool IsSpir,
   llvm::Type *ArgTys[] = {Arg0->getType(), I8PTy, Int32Ty, Int32Ty};
   llvm::FunctionType *FTy = llvm::FunctionType::get(Int32Ty, ArgTys, false);
   Value *BCast = Builder.CreatePointerCast(Arg1, I8PTy);
-  return Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name),
+  return EmitRuntimeCall(CGM.CreateRuntimeFunction(FTy, Name),
                             {Arg0, BCast, PacketSize, PacketAlign});
 }
 
