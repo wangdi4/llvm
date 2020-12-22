@@ -605,7 +605,7 @@ namespace intel {
     SmallVector<BasicBlock *, 8> BasicBlocksToHandle;
     BasicBlocksToHandle.push_back(ValUsageBB);
 
-    while (!BasicBlocksToHandle.empty()) {
+    do {
       BasicBlock *BBToHandle = BasicBlocksToHandle.pop_back_val();
       Instruction *FirstInst = &*(BBToHandle->begin());
       if (SyncInstructions.count(FirstInst)) {
@@ -617,16 +617,15 @@ namespace intel {
           // Reached ValBB stop recursive at this direction!
           continue;
         }
-        if (Predecessors.count(Pred)) {
+
+        if (!Predecessors.insert(Pred)) {
           // Pred was already added to Predecessors
           continue;
         }
-        // This is a new predecessor add it to the Predecessors container
-        Predecessors.insert(Pred);
         // Also add it to the BasicBlocksToHandle to calculate its Predecessors
         BasicBlocksToHandle.push_back(Pred);
       }
-    }
+    } while (!BasicBlocksToHandle.empty());
     return false;
   }
 
