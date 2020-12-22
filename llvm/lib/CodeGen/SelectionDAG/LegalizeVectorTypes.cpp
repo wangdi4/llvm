@@ -3968,11 +3968,14 @@ SDValue DAGTypeLegalizer::WidenVecRes_MGATHER(MaskedGatherSDNode *N) {
   Index = ModifyToType(Index, WideIndexVT);
   SDValue Ops[] = { N->getChain(), PassThru, Mask, N->getBasePtr(), Index,
                     Scale };
+#if INTEL_CUSTOMIZATION
+  // Widen the MemoryType
+  EVT WideMemVT = EVT::getVectorVT(*DAG.getContext(),
+                                   N->getMemoryVT().getScalarType(), NumElts);
   SDValue Res = DAG.getMaskedGather(DAG.getVTList(WideVT, MVT::Other),
-                                    N->getMemoryVT(), dl, Ops,
-                                    N->getMemOperand(), N->getIndexType(),
-                                    N->getExtensionType());
-
+                                    WideMemVT, dl, Ops, N->getMemOperand(),
+                                    N->getIndexType(), N->getExtensionType());
+#endif // INTEL_CUSTOMIZATION
   // Legalize the chain result - switch anything that used the old chain to
   // use the new one.
   ReplaceValueWith(SDValue(N, 1), Res.getValue(1));
@@ -4778,6 +4781,9 @@ SDValue DAGTypeLegalizer::WidenVecOp_MSCATTER(SDNode *N, unsigned OpNo) {
   SDValue Mask = MSC->getMask();
   SDValue Index = MSC->getIndex();
   SDValue Scale = MSC->getScale();
+#if INTEL_CUSTOMIZATION
+  EVT WideMemVT = MSC->getMemoryVT();
+#endif // INTEL_CUSTOMIZATION
 
   if (OpNo == 1) {
     DataOp = GetWidenedVector(DataOp);
@@ -4794,6 +4800,12 @@ SDValue DAGTypeLegalizer::WidenVecOp_MSCATTER(SDNode *N, unsigned OpNo) {
     EVT WideMaskVT = EVT::getVectorVT(*DAG.getContext(),
                                       MaskVT.getVectorElementType(), NumElts);
     Mask = ModifyToType(Mask, WideMaskVT, true);
+
+#if INTEL_CUSTOMIZATION
+    // Widen the MemoryType
+    WideMemVT = EVT::getVectorVT(*DAG.getContext(),
+                                 MSC->getMemoryVT().getScalarType(), NumElts);
+#endif // INTEL_CUSTOMIZATION
   } else if (OpNo == 4) {
     // Just widen the index. It's allowed to have extra elements.
     Index = GetWidenedVector(Index);
@@ -4802,10 +4814,11 @@ SDValue DAGTypeLegalizer::WidenVecOp_MSCATTER(SDNode *N, unsigned OpNo) {
 
   SDValue Ops[] = {MSC->getChain(), DataOp, Mask, MSC->getBasePtr(), Index,
                    Scale};
-  return DAG.getMaskedScatter(DAG.getVTList(MVT::Other),
-                              MSC->getMemoryVT(), SDLoc(N), Ops,
-                              MSC->getMemOperand(), MSC->getIndexType(),
+#if INTEL_CUSTOMIZATION
+  return DAG.getMaskedScatter(DAG.getVTList(MVT::Other), WideMemVT, SDLoc(N),
+                              Ops, MSC->getMemOperand(), MSC->getIndexType(),
                               MSC->isTruncatingStore());
+#endif // INTEL_CUSTOMIZATION
 }
 
 SDValue DAGTypeLegalizer::WidenVecOp_SETCC(SDNode *N) {
