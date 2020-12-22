@@ -953,6 +953,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDPCPPKernelWGLoopCreatorPass());
     }
 #endif // INTEL_CUSTOMIZATION
+
+    MPM.add(createAnnotationRemarksLegacyPass());
     return;
   }
 
