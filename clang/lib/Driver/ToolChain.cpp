@@ -1492,6 +1492,18 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
   DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
   const OptTable &Opts = getDriver().getOpts();
   bool Modified = false;
+#if INTEL_CUSTOMIZATION
+  // FIXME: in IsCLMode() the host optlevel is specified with '/' prefix.
+  //        For some reason we use default GNU toolchain for spir triple,
+  //        so the optlevel translation does not happen
+  //        (see MSVCToolChain::TranslateArgs). Next, the AddOptLevel() lambda
+  //        in Clang.cpp does not handle /O options. With all this
+  //        there is currently no way to enable optimizations for spir offload
+  //        on Windows.
+  //        We should probably figure out how to translate '/' options
+  //        for spir offload on Windows.
+  bool ExplicitOptLevelForTarget = false;
+#endif // INTEL_CUSTOMIZATION
 
   // Handle -Xopenmp-target and -Xsycl-target-frontend flags
   for (auto *A : Args) {
@@ -1591,15 +1603,31 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
             AllocatedArgs.push_back(A4);
             DAL->append(A4);
           }
+          ExplicitOptLevelForTarget =
+              NewArgs.hasArg(options::OPT_O_Group, options::OPT__SLASH_O);
           Modified = true;
         } else
           DAL->append(A);
         continue;
-      } else if (getTriple().isSPIR() && getDriver().IsIntelMode() &&
+      } else if (ExplicitOptLevelForTarget &&
+                 getDriver().IsIntelMode() &&
                  (A->getOption().matches(options::OPT_O_Group) ||
                   A->getOption().matches(options::OPT__SLASH_O))) {
-        // Do not add any optimization option.  It is set either via arg
-        // to -fopenmp-targets or implied when adding args to -cc1
+        // Ignore the optimization option specified for "host" compilation.
+        //
+        // ExplicitOptLevelForTarget means that there is an explicit
+        // optimization level in -fopenmp-targets=<target>="...",
+        // so we should honor it.
+        //
+        // If we add the host optlevel (including the default -O2), we will
+        // fail to honor the explicit optlevel for the target.
+        //
+        // FIXME: I believe this behavior should be true for all
+        //        options, i.e. options passed via -fopenmp-targets
+        //        must override the host options. Right now, it depends
+        //        on the order of the options, and there is no way
+        //        to override options added by default for Intel mode
+        //        (e.g. O2).
         Modified = true;
         continue;
 #endif // INTEL_CUSTOMIZATION

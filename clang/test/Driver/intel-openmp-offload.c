@@ -61,10 +61,10 @@
 // RUN:   | FileCheck -check-prefix=CHK-TARGOPTS %s
 // CHK-TARGOPTS: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-emit-llvm-bc" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-O3" {{.*}} "-cc1dummy" "-mllvm" "-dummy-opt" {{.*}} "-fopenmp-targets=spir64"
 
-/// -O0 is the default when in Intel mode
+/// -O2 is the default when in Intel mode
 // RUN:   %clang -### --intel -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO" %s 2>&1 \
-// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-NOOPT %s
-// CHK-TARGOPTS-NOOPT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-emit-llvm-bc" {{.*}} "-D" "FOO" {{.*}} "-O0" {{.*}} "-fopenmp-targets=spir64"
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS-DEFOPT %s
+// CHK-TARGOPTS-DEFOPT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-emit-llvm-bc" {{.*}} "-D" "FOO" {{.*}} "-O2" {{.*}} "-fopenmp-targets=spir64"
 
 /// Check vectorizer not enabled
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-O3" -fno-openmp-device-lib=all %s 2>&1 \
@@ -131,10 +131,21 @@
 
 /// ###########################################################################
 
-/// Check that driver forces -O0 for device compilation with --intel
+/// Check that driver forces -O2 for device compilation with --intel
 // RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 --intel -c %s -o %t.o 2>&1 \
-// RUN:   | FileCheck -check-prefix=CHK-DEVICE-O0 %s
-// CHK-DEVICE-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
+// RUN:   | FileCheck -check-prefix=CHK-DEVICE-O2 %s
+// CHK-DEVICE-O2: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-O2" {{.*}} "-fopenmp-is-device"
+
+/// ###########################################################################
+
+/// Check that the device compilation optlevel overrides the host one with --intel
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64="-O0" -O3 --intel -c %s -o %t.o 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-DEVICE-O3-O0 %s
+// CHK-DEVICE-O3-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
+
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64="-O0" --intel -c %s -o %t.o 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-DEVICE-DEF-O0 %s
+// CHK-DEVICE-DEF-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
 
 /// ###########################################################################
 
