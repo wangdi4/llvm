@@ -107,11 +107,10 @@
 // RUN: %clang_cl -Qmkl:cluster -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-CLUSTER %s
 // CHECK-MKL-WIN-SYCL-NOT: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs=libmkl_sycl"
-// CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
-// CHECK-MKL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
-// CHECK-MKL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a"
-// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs=[[LISTLIN:.+\.txt]]" "-unbundle"
-// CHECK-MKL-LIN-SYCL: llvm-link{{.*}} "@[[LISTLIN]]"
+// CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-outputs=[[LISTWIN:.+\.a]]" "-unbundle"
+// CHECK-MKL-WIN-SYCL: llvm-link{{.*}} "[[LISTWIN]]"
+// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a" "-outputs=[[LISTA:.+\.a]]" "-unbundle"
+// CHECK-MKL-LIN-SYCL: llvm-link{{.*}} "[[LISTA]]"
 // CHECK-MKL-SYCL: llvm-spirv{{.*}}
 // CHECK-MKL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-MKL-SYCL: llc{{.*}}
@@ -181,11 +180,10 @@
 // CHECK-DAAL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_thread"
 // CHECK-DAAL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_sequential"
 // CHECK-DAAL: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include" "-internal-isystem" "{{.*}}daal{{/|\\\\}}include"
-// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
-// CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
-// CHECK-DAAL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a"
-// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs=[[LISTLIN:.+\.txt]]" "-unbundle"
-// CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "@[[LISTLIN]]"
+// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-outputs=[[LISTWIN:.+\.a]]" "-unbundle"
+// CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "[[LISTWIN]]"
+// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}daal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a" "-outputs=[[LISTA:.+\.a]]" "-unbundle"
+// CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "[[LISTA]]"
 // CHECK-DAAL-SYCL: llvm-spirv{{.*}}
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-DAAL-SYCL: llc{{.*}}

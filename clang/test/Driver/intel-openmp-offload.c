@@ -157,17 +157,8 @@
 // RUN: touch %t-3.o
 // RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_MULTI_O
-// FOFFLOAD_STATIC_LIB_MULTI_O: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUT:.+\-1.o]]" "[[INPUT:.+\-2.o]]" "[[INPUT:.+\-3.o]]" "[[INPUT:.+\.a]]"
-// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=oo"
-// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "@{{.*}}"
-
-/// Check for proper object usage for partial link.  llvm-link should not
-/// contain the input object (consumed in partial link)
-// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 %t-1.o %t.a -### 2>&1 \
-// RUN::  | FileCheck %s -check-prefix=PARTIAL_LINK_CHECK
-// PARTIAL_LINK_CHECK: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUTO:.+\.o]]" "[[INPUTA:.+\.a]]"
-// PARTIAL_LINK_CHECK-NOT: llvm-link{{.*}} "[[INPUTO]]"
-// PARTIAL_LINK_CHECK: ld{{.*}} "[[INPUTA]]"
+// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=a"
+// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}}
 
 /// ###########################################################################
 
@@ -187,28 +178,15 @@
 // FOFFLOAD_STATIC_LIB_SRC: 9: offload, "host-openmp (x86_64-unknown-linux-gnu)" {3}, "device-openmp (spir64)" {8}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 10: backend, {9}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 11: input, "[[INPUT1]]", archive
-// FOFFLOAD_STATIC_LIB_SRC: 12: partial-link, {5, 11}, object
-// FOFFLOAD_STATIC_LIB_SRC: 13: clang-offload-unbundler, {12}, object
-// FOFFLOAD_STATIC_LIB_SRC: 14: linker, {10, 13}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 15: sycl-post-link, {14}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 16: llvm-spirv, {15}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 17: offload, "device-openmp (spir64)" {16}, image
-// FOFFLOAD_STATIC_LIB_SRC: 18: clang-offload-wrapper, {17}, ir, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: backend, {18}, assembler, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 20: assembler, {19}, object, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 21: linker, {0, 5, 20}, image, (host-openmp)
-
-
-/// Check to be sure that the object from source fed into partial link
-/// is of the proper target
-// RUN: touch %t.a
-// RUN: %clang -target -x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %s 2>&1 \
-// RUN:  | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC_PLINK
-// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-emit-llvm-bc"
-// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-emit-llvm-bc" {{.*}} "-o" "[[OUTPUT_BC:.+\.bc]]"
-// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-S" {{.*}} "-o" "[[OUTPUT_S:.+\.s]]" {{.*}} "[[OUTPUT_BC]]"
-// FOFFLOAD_STATIC_LIB_SRC_PLINK: as{{.*}} "-o" "[[OUTPUT_O:.+\.o]]" "[[OUTPUT_S]]"
-// FOFFLOAD_STATIC_LIB_SRC_PLINK: ld{{.*}} "-r" {{.*}} "[[OUTPUT_O]]" "{{.*}}.a"
+// FOFFLOAD_STATIC_LIB_SRC: 12: clang-offload-unbundler, {11}, archive
+// FOFFLOAD_STATIC_LIB_SRC: 13: linker, {10, 12}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 14: sycl-post-link, {13}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 15: llvm-spirv, {14}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "device-openmp (spir64)" {15}, image
+// FOFFLOAD_STATIC_LIB_SRC: 17: clang-offload-wrapper, {16}, ir, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 18: backend, {17}, assembler, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 19: assembler, {18}, object, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 20: linker, {0, 5, 19}, image, (host-openmp)
 
 /// check diagnostic when -fiopenmp isn't used
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
