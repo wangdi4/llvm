@@ -92,6 +92,7 @@ set(TARGET_INCLUDE_FILES
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
   VectorKernelDiscard/VectorKernelDiscard.h
+  VectorVariant/CreateSimdVariantPropagation.h
   VectorVariant/SGSizeCollector.h
   VectorVariant/SGSizeCollectorIndirect.h
   VectorVariant/VectorVariantLowering.h
@@ -137,6 +138,7 @@ set(TARGET_SOURCE_FILES
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
   VectorKernelDiscard/VectorKernelDiscard.cpp
+  VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/SGSizeCollector.cpp
   VectorVariant/SGSizeCollectorIndirect.cpp
   VectorVariant/VectorVariantLowering.cpp

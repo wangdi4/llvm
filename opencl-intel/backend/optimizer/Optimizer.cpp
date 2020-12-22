@@ -106,6 +106,7 @@ llvm::Pass *createOCLVPOCheckVFPass(const intel::OptimizerConfig &Config,
 llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
+llvm::ModulePass* createCreateSimdVariantPropagationPass();
 llvm::ModulePass* createSGSizeCollectorPass(const Intel::CPUId &CPUId);
 llvm::ModulePass* createSGSizeCollectorIndirectPass(const Intel::CPUId &CPUId);
 llvm::ModulePass* createVectorVariantLoweringPass(const Intel::CPUId &CPUId);
@@ -581,9 +582,10 @@ static void populatePassesPostFailCheck(
         // Do all vectorization factor checks here.
         PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
 
+        PM.add(createVectorVariantLoweringPass(pConfig->GetCpuId()));
+        PM.add(createCreateSimdVariantPropagationPass());
         PM.add(createSGSizeCollectorPass(pConfig->GetCpuId()));
         PM.add(createSGSizeCollectorIndirectPass(pConfig->GetCpuId()));
-        PM.add(createVectorVariantLoweringPass(pConfig->GetCpuId()));
 
         // Prepare Function for VecClone and call VecClone
         // We won't automatically switch vectorization dimension for SYCL.
