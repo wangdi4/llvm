@@ -6,7 +6,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %struct.struct2 = type <{ i32 ,i32 ,i32 }>
 
 ; CHECK: @t1
-define void @t1(%struct.struct1* %arg1, %struct.struct2* %arg2, <4 x i32>* byval %arg3) !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
+define void @t1(%struct.struct1* %arg1, %struct.struct2* %arg2, <4 x i32>* byval(<4 x i32>) %arg3) !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 entry:
   ret void
 }

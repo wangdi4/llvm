@@ -103,7 +103,7 @@ entry:
   %frombool2 = zext i1 %call1 to i8
   store i8 %frombool2, i8 addrspace(1)* @g_valid, align 1, !tbaa !15
   %7 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 8, !tbaa !14
-  %call3 = call zeroext i1 @_Z22write_channel_nb_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %7, %struct.Foo* byval align 8 %st) #4
+  %call3 = call zeroext i1 @_Z22write_channel_nb_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %7, %struct.Foo* byval(%struct.Foo) align 8 %st) #4
   %frombool4 = zext i1 %call3 to i8
   store i8 %frombool4, i8* %p_valid, align 1, !tbaa !15
   %8 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([5 x %opencl.channel_t addrspace(1)*], [5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, i64 0, i64 3), align 4, !tbaa !14
@@ -134,7 +134,7 @@ declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channelii(%opencl.channel_t 
 declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channelcc(%opencl.channel_t addrspace(1)*, i8 signext) #2
 
 ; Function Attrs: convergent
-declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)*, %struct.Foo* byval align 8) #2
+declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)*, %struct.Foo* byval(%struct.Foo) align 8) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1

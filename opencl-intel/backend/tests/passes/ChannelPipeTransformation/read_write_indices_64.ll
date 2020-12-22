@@ -199,7 +199,7 @@ entry:
   %idxprom9 = sext i32 %17 to i64
   %arrayidx10 = getelementptr inbounds [3 x %opencl.channel_t addrspace(1)*], [3 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx8, i64 0, i64 %idxprom9
   %18 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx10, align 4, !tbaa !14
-  call void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t addrspace(1)* %18, %struct.st* byval align 4 %s)
+  call void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t addrspace(1)* %18, %struct.st* byval(%struct.st) align 4 %s)
   %19 = load i8, i8* %char_index, align 1, !tbaa !14
   %idxprom11 = sext i8 %19 to i64
   %arrayidx12 = getelementptr inbounds [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]], [6 x [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]]] addrspace(1)* @lar_arr, i64 0, i64 %idxprom11
@@ -239,7 +239,7 @@ entry:
   %idxprom29 = sext i32 %32 to i64
   %arrayidx30 = getelementptr inbounds [3 x %opencl.channel_t addrspace(1)*], [3 x %opencl.channel_t addrspace(1)*] addrspace(1)* %arrayidx28, i64 0, i64 %idxprom29
   %33 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* %arrayidx30, align 4, !tbaa !14
-  call void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret %tmp, %opencl.channel_t addrspace(1)* %33)
+  call void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret(%struct.st) %tmp, %opencl.channel_t addrspace(1)* %33)
   %34 = bitcast %struct.st* %s to i8*
   %35 = bitcast %struct.st* %tmp to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %34, i8* %35, i64 4, i32 4, i1 false), !tbaa.struct !25
@@ -285,7 +285,7 @@ declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace
 
 declare void @_Z19write_channel_intel11ocl_channelff(%opencl.channel_t addrspace(1)*, float) #2
 
-declare void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t addrspace(1)*, %struct.st* byval align 4) #2
+declare void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t addrspace(1)*, %struct.st* byval(%struct.st) align 4) #2
 
 declare void @_Z19write_channel_intel11ocl_channelll(%opencl.channel_t addrspace(1)*, i64) #2
 
@@ -293,7 +293,7 @@ declare i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)
 
 declare float @_Z18read_channel_intel11ocl_channelf(%opencl.channel_t addrspace(1)*) #2
 
-declare void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret, %opencl.channel_t addrspace(1)*) #2
+declare void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret(%struct.st), %opencl.channel_t addrspace(1)*) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #1

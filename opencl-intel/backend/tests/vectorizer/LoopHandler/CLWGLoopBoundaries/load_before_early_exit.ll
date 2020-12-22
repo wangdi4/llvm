@@ -29,7 +29,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.IdxStT = type { i32 }
 
 ; Function Attrs: convergent nounwind uwtable
-define dso_local void @load_before_early_exit(i32*, %struct.IdxStT* byval align 4) #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 {
+define dso_local void @load_before_early_exit(i32*, %struct.IdxStT* byval(%struct.IdxStT) align 4) #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 {
   %3 = getelementptr inbounds %struct.IdxStT, %struct.IdxStT* %1, i32 0, i32 0
   %4 = load i32, i32* %3, align 4, !tbaa !8
   %5 = zext i32 %4 to i64

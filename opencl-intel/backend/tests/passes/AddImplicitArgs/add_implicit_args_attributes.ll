@@ -9,13 +9,13 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 ; 3. new function linkage has attributes like old function linkage
 ; 4. old function became a declaration with no linkage
 
-define internal void @foo(<2 x i8>* byval align 8 %x) nounwind {
+define internal void @foo(<2 x i8>* byval(<2 x i8>) align 8 %x) nounwind {
 entry:
   ret void
 }
 
-; CHECK: declare {{.*}} void @__foo_before.AddImplicitArgs(<2 x i8>* byval align 8) #0
-; CHECK: define internal void @foo(<2 x i8>* byval align 8 %x,
+; CHECK: declare {{.*}} void @__foo_before.AddImplicitArgs(<2 x i8>* byval(<2 x i8>) align 8) #0
+; CHECK: define internal void @foo(<2 x i8>* byval(<2 x i8>) align 8 %x,
 ; CHECK:  #0 {
 
 ; CHECK:  #0 = { nounwind }

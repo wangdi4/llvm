@@ -157,7 +157,7 @@ entry:
   %13 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 8, !tbaa !14
   %14 = load i8 addrspace(1)*, i8 addrspace(1)** %p_to_g_valid, align 8, !tbaa !15
   %15 = addrspacecast i8 addrspace(1)* %14 to i8 addrspace(4)*
-  call void @_Z21read_channel_nb_intel11ocl_channel3FooPU3AS4b(%struct.Foo* sret %tmp, %opencl.channel_t addrspace(1)* %13, i8 addrspace(4)* %15) #4
+  call void @_Z21read_channel_nb_intel11ocl_channel3FooPU3AS4b(%struct.Foo* sret(%struct.Foo) %tmp, %opencl.channel_t addrspace(1)* %13, i8 addrspace(4)* %15) #4
   %16 = bitcast %struct.Foo* %st to i8*
   %17 = bitcast %struct.Foo* %tmp to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %16, i8* align 8 %17, i64 16, i1 false), !tbaa.struct !17
@@ -204,7 +204,7 @@ declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS4b(%opencl.channel_t ad
 declare signext i8 @_Z21read_channel_nb_intel11ocl_channelcPU3AS4b(%opencl.channel_t addrspace(1)*, i8 addrspace(4)*) #2
 
 ; Function Attrs: convergent
-declare void @_Z21read_channel_nb_intel11ocl_channel3FooPU3AS4b(%struct.Foo* sret, %opencl.channel_t addrspace(1)*, i8 addrspace(4)*) #2
+declare void @_Z21read_channel_nb_intel11ocl_channel3FooPU3AS4b(%struct.Foo* sret(%struct.Foo), %opencl.channel_t addrspace(1)*, i8 addrspace(4)*) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i1) #1

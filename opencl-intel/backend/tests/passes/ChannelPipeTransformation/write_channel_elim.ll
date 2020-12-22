@@ -101,7 +101,7 @@ entry:
   %6 = load i8, i8* %f, align 1, !tbaa !15
   call void @_Z19write_channel_intel11ocl_channelcc(%opencl.channel_t addrspace(1)* %5, i8 signext %6) #4
   %7 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 8, !tbaa !15
-  call void @_Z19write_channel_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %7, %struct.Foo* byval align 8 %st) #4
+  call void @_Z19write_channel_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %7, %struct.Foo* byval(%struct.Foo) align 8 %st) #4
   %8 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([5 x %opencl.channel_t addrspace(1)*], [5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, i64 0, i64 3), align 4, !tbaa !15
   %9 = load i32, i32* %i, align 4, !tbaa !11
   call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %8, i32 %9) #4
@@ -109,7 +109,7 @@ entry:
   %11 = load i8, i8* %f, align 1, !tbaa !15
   call void @_Z19write_channel_intel11ocl_channelcc(%opencl.channel_t addrspace(1)* %10, i8 signext %11) #4
   %12 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]], [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @star_arr, i64 0, i64 3, i64 2, i64 1), align 8, !tbaa !15
-  call void @_Z19write_channel_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %12, %struct.Foo* byval align 8 %st) #4
+  call void @_Z19write_channel_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %12, %struct.Foo* byval(%struct.Foo) align 8 %st) #4
   %13 = bitcast %struct.Foo* %st to i8*
   call void @llvm.lifetime.end.p0i8(i64 16, i8* %13) #3
   call void @llvm.lifetime.end.p0i8(i64 1, i8* %f) #3
@@ -131,7 +131,7 @@ declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace
 declare void @_Z19write_channel_intel11ocl_channelcc(%opencl.channel_t addrspace(1)*, i8 signext) #2
 
 ; Function Attrs: convergent
-declare void @_Z19write_channel_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)*, %struct.Foo* byval align 8) #2
+declare void @_Z19write_channel_intel11ocl_channel3FooS_(%opencl.channel_t addrspace(1)*, %struct.Foo* byval(%struct.Foo) align 8) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1

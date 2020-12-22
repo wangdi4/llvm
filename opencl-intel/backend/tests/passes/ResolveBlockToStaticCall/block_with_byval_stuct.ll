@@ -44,7 +44,7 @@ entry:
   %2 = load i8 addrspace(4)*, i8 addrspace(4)* addrspace(4)* getelementptr inbounds (%struct.__opencl_block_literal_generic, %struct.__opencl_block_literal_generic addrspace(4)* addrspacecast (%struct.__opencl_block_literal_generic addrspace(1)* bitcast ({ i32, i32, i8 addrspace(4)* } addrspace(1)* @__block_literal_global to %struct.__opencl_block_literal_generic addrspace(1)*) to %struct.__opencl_block_literal_generic addrspace(4)*), i32 0, i32 2), align 8
   %3 = addrspacecast i8 addrspace(4)* %2 to i32 (i8 addrspace(4)*, %struct.two_ints*)*
 ; CHECK: call i32 @__block_arg_struct_block_invoke
-  %call = call i32 %3(i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32, i8 addrspace(4)* } addrspace(1)* @__block_literal_global to i8 addrspace(1)*) to i8 addrspace(4)*), %struct.two_ints* byval align 8 %i) #4
+  %call = call i32 %3(i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i32, i32, i8 addrspace(4)* } addrspace(1)* @__block_literal_global to i8 addrspace(1)*) to i8 addrspace(4)*), %struct.two_ints* byval(%struct.two_ints) align 8 %i) #4
   %4 = bitcast %struct.two_ints* %i to i8*
   call void @llvm.lifetime.end.p0i8(i64 16, i8* %4) #3
   %5 = bitcast i32 (%struct.two_ints*) addrspace(4)** %kernelBlock to i8*
@@ -56,8 +56,8 @@ entry:
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 
 ; Function Attrs: convergent nounwind
-; CHECK: define internal i32 @__block_arg_struct_block_invoke{{.*}} %struct.two_ints* [[ATTRS:byval align 8]]
-define internal i32 @__block_arg_struct_block_invoke(i8 addrspace(4)* %.block_descriptor, %struct.two_ints* byval align 8 %ti) #2 {
+; CHECK: define internal i32 @__block_arg_struct_block_invoke{{.*}} %struct.two_ints* byval(%struct.two_ints) align 8
+define internal i32 @__block_arg_struct_block_invoke(i8 addrspace(4)* %.block_descriptor, %struct.two_ints* byval(%struct.two_ints) align 8 %ti) #2 {
 entry:
   %.block_descriptor.addr = alloca i8 addrspace(4)*, align 8
   store i8 addrspace(4)* %.block_descriptor, i8 addrspace(4)** %.block_descriptor.addr, align 8
