@@ -1969,54 +1969,33 @@ public:
 
     // Can not use system strlen here since it's not synthesizable in FPGA flow
     // use a customized version of strlen instead
-    const char *s = nullptr;
-    for (s = str; *s; ++s) {
+    const char *s = str;
+    for (; *s; ++s) {
     }
+
     int str_len = (s - str);
     ac_int<W, S> res = 0;
-    if (str_len >= 2 && str[0] == '0' && str[1] == 'x') {
+
+    int i = (str_len >= 2 && str[0] == '0' && str[1] == 'x') ? 2 : 0;
 #pragma unroll
-      // the first two digits can be prefix "0x"
-      for (int i = 2; i < str_len; i++) {
-        char c = str[i];
-        ac_int<4, false> h = 0;
-        if (c >= '0' && c <= '9')
-          h = c - '0';
-        else if (c >= 'A' && c <= 'F')
-          h = c - 'A' + 10;
-        else if (c >= 'a' && c <= 'f')
-          h = c - 'a' + 10;
-        else {
-          AC_ASSERT(!c, "Invalid hex digit");
-          break;
-        }
-        ac_int<4, false> s = 4;
-        res = res << s;
-        res |= h;
+    for (; i < str_len; i++) {
+      char c = str[i];
+      ac_int<4, false> h = 0;
+      if (c >= '0' && c <= '9')
+        h = c - '0';
+      else if (c >= 'A' && c <= 'F')
+        h = c - 'A' + 10;
+      else if (c >= 'a' && c <= 'f')
+        h = c - 'a' + 10;
+      else {
+        AC_ASSERT(!c, "Invalid hex digit");
+        break;
       }
-      *this = res;
-    } else {
-#pragma unroll
-      // the first two digits can be prefix "0x"
-      for (int i = 0; i < str_len; i++) {
-        char c = str[i];
-        ac_int<4, false> h = 0;
-        if (c >= '0' && c <= '9')
-          h = c - '0';
-        else if (c >= 'A' && c <= 'F')
-          h = c - 'A' + 10;
-        else if (c >= 'a' && c <= 'f')
-          h = c - 'a' + 10;
-        else {
-          AC_ASSERT(!c, "Invalid hex digit");
-          break;
-        }
-        ac_int<4, false> s = 4;
-        res = res << s;
-        res |= h;
-      }
-      *this = res;
+      ac_int<4, false> s = 4;
+      res = res << s;
+      res |= h;
     }
+    *this = res;
   }
 
   template <int Na>

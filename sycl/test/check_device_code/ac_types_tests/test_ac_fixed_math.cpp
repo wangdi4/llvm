@@ -1,6 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t.out
-// env SYCL_DEVICE_TYPE=HOST %t.out
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
+// RUN: %clangxx -fsycl -fsycl-device-only %s -o %t.out
 
 #include <CL/sycl.hpp>
 #include <CL/sycl/INTEL/ac_types/ac_fixed_math.hpp>

@@ -623,7 +623,6 @@ void test_bit_fill_hex(queue &Queue, ac_int<W, S> &a,
   Queue.submit([&](handler &h) {
     auto x = inp1.template get_access<kSyclReadWrite>(h);
     auto y = inp2.template get_access<kSyclRead>(h);
-    stream so(256, 256, h);
     h.single_task<class bit_fill_hex>([=] {
       char str[N + 1];
       int i;

@@ -295,7 +295,7 @@ void test_mult_equal(queue &Queue, const ac_complex<ac_int<W, S>> &a,
     auto x = inp1.template get_access<kSyclRead>(h);
     auto y = inp2.template get_access<kSyclRead>(h);
     auto res = result.template get_access<kSyclWrite>(h);
-    h.single_task<class div_equal>([=] {
+    h.single_task<class mult_equal>([=] {
       res[0] = x[0];
       res[0] *= y[0];
     });
