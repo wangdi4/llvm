@@ -127,16 +127,15 @@ scalar_kernel_entry:                              ; preds = %scalar_kernel_entry
   %arraydecay.i.i.i.i = getelementptr inbounds %"class._ZTSN2cl4sycl5intel18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedES7_S7_EEEE.cl::sycl::intel::function_ref_tuned", %"class._ZTSN2cl4sycl5intel18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedES7_S7_EEEE.cl::sycl::intel::function_ref_tuned" addrspace(1)* %ptridx.i16.i, i64 0, i32 0, i32 0, i64 0
   %34 = addrspacecast i32 (i32, i32)* addrspace(1)* %arraydecay.i.i.i.i to i32 (i32, i32)* addrspace(4)*
 ; CHECK: %35 = insertelement <4 x i32> undef, i32 %conv.i, i32 0
-; CHECK-NEXT: %36 = insertelement <4 x i32> undef, i32 %conv8.i, i32 0
-; CHECK-NEXT: %37 = insertelement <4 x i32> zeroinitializer, i32 1, i32 0
-; CHECK-NEXT: %38 = bitcast i32 (i32, i32)* addrspace(4)* %34 to <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)*
-; CHECK-NEXT: %39 = getelementptr <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* %38, i32 0
-; CHECK-NEXT: %40 = load <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, <4 x i32>, <4 x i32>) addrspace(4)* addrspace(4)* %39, align 8
-; CHECK-NEXT: %41 = call addrspace(4) <4 x i32> %40(<4 x i32> %35, <4 x i32> %36, <4 x i32> %37)
-; CHECK-NEXT: %42 = extractelement <4 x i32> %41, i32 0
+; CHECK-NEXT: %36 = insertelement <4 x i32> zeroinitializer, i32 1, i32 0
+; CHECK-NEXT: %37 = bitcast i32 (i32, i32)* addrspace(4)* %34 to <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)*
+; CHECK-NEXT: %38 = getelementptr <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)* %37, i32 0
+; CHECK-NEXT: %39 = load <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)* %38, align 8
+; CHECK-NEXT: %40 = call addrspace(4) <4 x i32> %39(<4 x i32> %35, i32 %conv8.i, <4 x i32> %36)
+; CHECK-NEXT: %41 = extractelement <4 x i32> %40, i32 0
   %35 = tail call i32 (i32 (i32, i32)* addrspace(4)*, i32, i32, ...) @__intel_indirect_call(i32 (i32, i32)* addrspace(4)* %34, i32 %conv.i, i32 %conv8.i) #16
 ; CHECK-NOT: call {{.*}} @__intel_indirect_call
-; CHECK-NEXT: %conv10.i = sext i32 %42 to i64
+; CHECK-NEXT: %conv10.i = sext i32 %41 to i64
   %conv10.i = sext i32 %35 to i64
   store i64 %conv10.i, i64 addrspace(1)* %ptridx.i24.i, align 8
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1

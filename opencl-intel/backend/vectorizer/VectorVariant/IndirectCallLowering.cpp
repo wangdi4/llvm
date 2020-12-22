@@ -79,7 +79,8 @@ bool IndirectCallLowering::runOnModule(Module &M) {
           break;
       assert(Index < Variants.size() && "Expected at least one masked variant");
 
-      unsigned VecLen = VectorVariant(Variants[Index]).getVlen();
+      VectorVariant Variant(Variants[Index]);
+      unsigned VecLen = Variant.getVlen();
       ConstantInt *Zero = ConstantInt::get(M.getContext(), APInt(32, 0, true));
       ConstantInt *One = ConstantInt::get(M.getContext(), APInt(32, 1, true));
       FunctionType *FTy = Call.getFunctionType();
@@ -89,13 +90,24 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       std::vector<Type *> VecArgTy;
       std::vector<Value *> VecArgs;
       for (unsigned I = 1; I < FTy->getNumParams(); I++) {
-        Type *Ty = FTy->getParamType(I);
-        VectorType *VecTy = VectorType::get(Ty, VecLen, false);
-        VecArgTy.push_back(VecTy);
 
-        Value *VecArg = InsertElementInst::Create(
-            UndefValue::get(VecTy), Call.getArgOperand(I), Zero, "", &Call);
-        VecArgs.push_back(VecArg);
+        Type *Ty = FTy->getParamType(I);
+        Value *Operand = Call.getArgOperand(I);
+
+        if (Variant.getParameters()[I - 1].isVector()) {
+
+          VectorType *VecTy = VectorType::get(Ty, VecLen, false);
+          VecArgTy.push_back(VecTy);
+
+          Value *VecArg = InsertElementInst::Create(UndefValue::get(VecTy),
+                                                    Operand, Zero, "", &Call);
+          VecArgs.push_back(VecArg);
+
+        } else {
+
+          VecArgTy.push_back(Ty);
+          VecArgs.push_back(Operand);
+        }
       }
 
       // Preparing the mask.
