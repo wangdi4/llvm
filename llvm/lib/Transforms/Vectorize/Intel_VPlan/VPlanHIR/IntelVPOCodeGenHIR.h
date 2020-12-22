@@ -526,6 +526,16 @@ public:
       return nullptr;
   }
 
+  // Return true if the call will be ignored by CG i.e. not emitted in outgoing
+  // code.
+  // TODO: This is a temporary workaround to handle deficiencies between
+  // VPValue-based CG and mixed CG. It should be removed when mixed CG is
+  // completely retired.
+  bool isIgnoredCall(const CallInst *Call) {
+    Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
+    return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end;
+  }
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;

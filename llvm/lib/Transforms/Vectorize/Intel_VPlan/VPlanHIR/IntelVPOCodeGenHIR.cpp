@@ -634,7 +634,8 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     if (const CallInst *Call = Inst->getCallInst()) {
-      if (CG->getForceMixedCG() || !EnableVPValueCodegenHIR) {
+      if (!CG->isIgnoredCall(Call) &&
+          (CG->getForceMixedCG() || !EnableVPValueCodegenHIR)) {
         LLVM_DEBUG(Inst->dump());
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
         DEBUG_WITH_TYPE(
@@ -728,7 +729,8 @@ void HandledCheck::visit(HLDDNode *Node) {
         }
       }
 
-      VectorizableCallSeen = true;
+      if (!CG->isIgnoredCall(Call))
+        VectorizableCallSeen = true;
     }
   }
 
@@ -2935,6 +2937,10 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     // lval.
     WideInst = HLNodeUtilities.createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
+  } else if (INode->isCallInst()) {
+    assert(isIgnoredCall(INode->getCallInst()) &&
+           "Only ignored calls are handled in mixed CG.");
+    return;
   } else if (INode->isCopyInst()) {
     WideInst = HLNodeUtilities.createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
@@ -4226,6 +4232,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // For all calls vectorization scenario should be available for current VF.
     assert(VPCall->getVFForScenario() == VF &&
            "Cannot find call vectorization scenario for VF.");
+
+    // Skip ignored calls (for example, lifetime intrinsics).
+    if (isIgnoredCall(VPCall->getUnderlyingCallInst()))
+      return;
 
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
