@@ -4361,7 +4361,8 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
         // attributes for new call.
         if (F->getSubprogram()) {
           DISubprogram *DIS = F->getSubprogram();
-          DebugLoc CBDbgLoc = DebugLoc::get(DIS->getScopeLine(), 0, DIS);
+          DebugLoc CBDbgLoc =
+              DILocation::get(CB->getContext(), DIS->getScopeLine(), 0, DIS);
           CB->setDebugLoc(CBDbgLoc);
         }
         CB->setCallingConv(F->getCallingConv());
