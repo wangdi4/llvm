@@ -303,7 +303,7 @@ static Optional<std::string> normalizeTriple(OptSpecifier Opt, int TableIndex,
 
 template <typename T, typename U>
 static T mergeForwardValue(T KeyPath, U Value) {
-  return Value;
+  return static_cast<T>(Value);
 }
 
 template <typename T, typename U> static T mergeMaskValue(T KeyPath, U Value) {
@@ -319,10 +319,12 @@ static T extractMaskValue(T KeyPath) {
   return KeyPath & Value;
 }
 
-static void FixupInvocation(CompilerInvocation &Invocation) {
+static void FixupInvocation(CompilerInvocation &Invocation,
+                            DiagnosticsEngine &Diags) {
   LangOptions &LangOpts = *Invocation.getLangOpts();
   DiagnosticOptions &DiagOpts = Invocation.getDiagnosticOpts();
   CodeGenOptions &CodeGenOpts = Invocation.getCodeGenOpts();
+  TargetOptions &TargetOpts = Invocation.getTargetOpts();
   FrontendOptions &FrontendOpts = Invocation.getFrontendOpts();
   CodeGenOpts.XRayInstrumentFunctions = LangOpts.XRayInstrument;
   CodeGenOpts.XRayAlwaysEmitCustomEvents = LangOpts.XRayAlwaysEmitCustomEvents;
@@ -330,6 +332,13 @@ static void FixupInvocation(CompilerInvocation &Invocation) {
   FrontendOpts.GenerateGlobalModuleIndex = FrontendOpts.UseGlobalModuleIndex;
 
   llvm::sys::Process::UseANSIEscapeCodes(DiagOpts.UseANSIEscapeCodes);
+
+  llvm::Triple T(TargetOpts.Triple);
+
+  if (LangOpts.getExceptionHandling() != llvm::ExceptionHandling::None &&
+      T.isWindowsMSVCEnvironment())
+    Diags.Report(diag::err_fe_invalid_exception_model)
+        << static_cast<unsigned>(LangOpts.getExceptionHandling()) << T.str();
 }
 
 //===----------------------------------------------------------------------===//
@@ -3194,27 +3203,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                    /*Default=*/false) &&
       Opts.FixedPoint;
 
-  // Handle exception personalities
-  Arg *A = Args.getLastArg(
-      options::OPT_fsjlj_exceptions, options::OPT_fseh_exceptions,
-      options::OPT_fdwarf_exceptions, options::OPT_fwasm_exceptions);
-  if (A) {
-    const Option &Opt = A->getOption();
-    llvm::Triple T(TargetOpts.Triple);
-    if (T.isWindowsMSVCEnvironment())
-      Diags.Report(diag::err_fe_invalid_exception_model)
-          << Opt.getName() << T.str();
-
-    if (Opt.matches(options::OPT_fsjlj_exceptions))
-      Opts.setExceptionHandling(llvm::ExceptionHandling::SjLj);
-    else if (Opt.matches(options::OPT_fseh_exceptions))
-      Opts.setExceptionHandling(llvm::ExceptionHandling::WinEH);
-    else if (Opt.matches(options::OPT_fdwarf_exceptions))
-      Opts.setExceptionHandling(llvm::ExceptionHandling::DwarfCFI);
-    else if (Opt.matches(options::OPT_fwasm_exceptions))
-      Opts.setExceptionHandling(llvm::ExceptionHandling::Wasm);
-  }
-
   Opts.ExternCNoUnwind = Args.hasArg(OPT_fexternc_nounwind);
   Opts.TraditionalCPP = Args.hasArg(OPT_traditional_cpp);
 
@@ -4156,7 +4144,6 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   }
 
   Success &= Res.parseSimpleArgs(Args, Diags);
-  FixupInvocation(Res);
 
   Success &= ParseAnalyzerArgs(*Res.getAnalyzerOpts(), Args, Diags);
   ParseDependencyOutputArgs(Res.getDependencyOutputOpts(), Args);
@@ -4255,6 +4242,8 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   // Store the command-line for using in the CodeView backend.
   Res.getCodeGenOpts().Argv0 = Argv0;
   Res.getCodeGenOpts().CommandLineArgs = CommandLineArgs;
+
+  FixupInvocation(Res, Diags);
 
   return Success;
 }
@@ -4383,8 +4372,10 @@ void CompilerInvocation::generateCC1CommandLine(
     TABLE_INDEX)                                                               \
   if ((FLAGS)&options::CC1Option) {                                            \
     [&](const auto &Extracted) {                                               \
-      if (ALWAYS_EMIT || (Extracted != ((IMPLIED_CHECK) ? (IMPLIED_VALUE)      \
-                                                        : (DEFAULT_VALUE))))   \
+      if (ALWAYS_EMIT ||                                                       \
+          (Extracted !=                                                        \
+           static_cast<decltype(this->KEYPATH)>(                               \
+               (IMPLIED_CHECK) ? (IMPLIED_VALUE) : (DEFAULT_VALUE))))          \
         DENORMALIZER(Args, SPELLING, SA, TABLE_INDEX, Extracted);              \
     }(EXTRACTOR(this->KEYPATH));                                               \
   }
