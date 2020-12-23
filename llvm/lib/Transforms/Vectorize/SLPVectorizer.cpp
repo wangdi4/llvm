@@ -682,11 +682,11 @@ public:
 
   /// \returns the cost incurred by unwanted spills and fills, caused by
   /// holding live values over call sites.
-  int getSpillCost() const;
+  InstructionCost getSpillCost() const;
 
   /// \returns the vectorization cost of the subtree that starts at \p VL.
   /// A negative number means that this is profitable.
-  int getTreeCost();
+  InstructionCost getTreeCost();
 
 #if INTEL_CUSTOMIZATION
   /// Cleanup Multi-Node state once vectorization has succeeded.
@@ -6136,13 +6136,13 @@ bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() const {
   return true;
 }
 
-int BoUpSLP::getSpillCost() const {
+InstructionCost BoUpSLP::getSpillCost() const {
   // Walk from the bottom of the tree to the top, tracking which values are
   // live. When we see a call instruction that is not part of our tree,
   // query TTI to see if there is a cost to keeping values live over it
   // (for example, if spills and fills are required).
   unsigned BundleWidth = VectorizableTree.front()->Scalars.size();
-  int Cost = 0;
+  InstructionCost Cost = 0;
 
   SmallPtrSet<Instruction*, 4> LiveValues;
   Instruction *PrevInst = nullptr;
@@ -6218,8 +6218,8 @@ int BoUpSLP::getSpillCost() const {
   return Cost;
 }
 
-int BoUpSLP::getTreeCost() {
-  int Cost = 0;
+InstructionCost BoUpSLP::getTreeCost() {
+  InstructionCost Cost = 0;
   LLVM_DEBUG(dbgs() << "SLP: Calculating cost for tree of size "
                     << VectorizableTree.size() << ".\n");
 
@@ -6249,9 +6249,9 @@ int BoUpSLP::getTreeCost() {
                     }))
       continue;
 
-    int C = getEntryCost(&TE);
+    InstructionCost C = getEntryCost(&TE);
 #if INTEL_CUSTOMIZATION
-    TE.Cost = C;
+    TE.Cost = C.getValue().getValue();
 #endif // INTEL_CUSTOMIZATION
     Cost += C;
     LLVM_DEBUG(dbgs() << "SLP: Adding cost " << C
@@ -6261,7 +6261,7 @@ int BoUpSLP::getTreeCost() {
   }
 
   SmallPtrSet<Value *, 16> ExtractCostCalculated;
-  int ExtractCost = 0;
+  InstructionCost ExtractCost = 0;
   for (ExternalUser &EU : ExternalUses) {
     // We only add extract cost once for the same scalar.
     if (!ExtractCostCalculated.insert(EU.Scalar).second)
@@ -6291,7 +6291,7 @@ int BoUpSLP::getTreeCost() {
     }
   }
 
-  int SpillCost = getSpillCost();
+  InstructionCost SpillCost = getSpillCost();
   Cost += SpillCost + ExtractCost;
 
 #ifndef NDEBUG
@@ -8534,10 +8534,10 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 
   R.computeMinimumValueSizes();
 
-  int Cost = R.getTreeCost();
+  InstructionCost Cost = R.getTreeCost();
 
   LLVM_DEBUG(dbgs() << "SLP: Found cost = " << Cost << " for VF =" << VF << "\n");
-  if (Cost < -SLPCostThreshold) {
+  if (Cost.isValid() && Cost < -SLPCostThreshold) {
     LLVM_DEBUG(dbgs() << "SLP: Decided to vectorize cost = " << Cost << "\n");
 
     using namespace ore;
@@ -8742,7 +8742,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 
   bool Changed = false;
   bool CandidateFound = false;
-  int MinCost = SLPCostThreshold;
+  InstructionCost MinCost = SLPCostThreshold.getValue();
 
 #if INTEL_CUSTOMIZATION
   // The following line was deleted in community, but we need it for
@@ -8808,7 +8808,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 #endif // !INTEL_CUSTOMIZATION
 
       R.computeMinimumValueSizes();
-      int Cost = R.getTreeCost();
+      InstructionCost Cost = R.getTreeCost();
 #if INTEL_CUSTOMIZATION
       // Fixes the remark for tiny trees (tested by remarks_not_all_parts.ll).
       CandidateFound = Cost < FORBIDEN_TINY_TREE;
@@ -8841,7 +8841,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
         // Switching to the TTI interface might help a bit.
         // Alternative solution could be pattern-match to detect a no-op or
         // shuffle.
-        unsigned UserCost = 0;
+        InstructionCost UserCost = 0;
         for (unsigned Lane = 0; Lane < OpsWidth; Lane++) {
           auto *IE = cast<InsertElementInst>(InsertUses[I + Lane]);
           if (auto *CI = dyn_cast<ConstantInt>(IE->getOperand(2)))
@@ -8853,9 +8853,9 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
         Cost -= UserCost;
       }
 
-      MinCost = std::min(MinCost, Cost);
+      MinCost = InstructionCost::min(MinCost, Cost);
 
-      if (Cost < -SLPCostThreshold) {
+      if (Cost.isValid() && Cost < -SLPCostThreshold) {
         LLVM_DEBUG(dbgs() << "SLP: Vectorizing list at cost:" << Cost << ".\n");
         R.getORE()->emit(OptimizationRemark(SV_NAME, "VectorizedList",
                                  cast<Instruction>(TrackValues[I])) // INTEL
@@ -9637,9 +9637,14 @@ public:
       V.computeMinimumValueSizes();
 
       // Estimate cost.
-      int TreeCost = V.getTreeCost();
-      int ReductionCost = getReductionCost(TTI, ReducedVals[i], ReduxWidth);
-      int Cost = TreeCost + ReductionCost;
+      InstructionCost TreeCost = V.getTreeCost();
+      InstructionCost ReductionCost =
+          getReductionCost(TTI, ReducedVals[i], ReduxWidth);
+      InstructionCost Cost = TreeCost + ReductionCost;
+      if (!Cost.isValid()) {
+        LLVM_DEBUG(dbgs() << "Encountered invalid baseline cost.\n");
+        return false;
+      }
       if (Cost >= -SLPCostThreshold) {
         V.getORE()->emit([&]() {
           return OptimizationRemarkMissed(SV_NAME, "HorSLPNotBeneficial",
