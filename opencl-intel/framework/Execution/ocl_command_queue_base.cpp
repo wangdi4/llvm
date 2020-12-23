@@ -243,7 +243,8 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>&
 
     OclEventState state = pEvent->GetEventState();
     
-    while ( CL_DEV_SUCCEEDED(ret) && (EVENT_STATE_DONE != state) )
+    while ((CL_DEV_SUCCEEDED(ret) || CL_DEV_BUSY == ret) &&
+           (EVENT_STATE_DONE != state))
     {
         clSleep(0);
         cmdToWait = pCmdDesc;

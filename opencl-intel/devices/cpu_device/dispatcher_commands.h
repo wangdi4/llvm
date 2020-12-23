@@ -19,20 +19,21 @@
 
 #pragma once
 
+#include "kernel_command.h"
 #include "memory_allocator.h"
 #include "program_service.h"
-#include "kernel_command.h"
 
-#include <cpu_dev_limits.h>
-#include <cl_device_api.h>
-#include <cl_synch_objects.h>
-#include <task_executor.h>
-#include <ocl_itt.h>
-#include <cl_thread.h>
+#include "cl_device_api.h"
+#include "cl_synch_objects.h"
+#include "cl_thread.h"
+#include "cpu_dev_limits.h"
+#include "ocl_itt.h"
+#include "task_executor.h"
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
-#include "tbb/scalable_allocator.h"
+#include <tbb/scalable_allocator.h>
 #endif
-#include <cl_sys_defines.h>
+#include "cl_sys_defines.h"
+#include <atomic>
 
 #define COLOR_TABLE_SIZE 64
 
@@ -86,30 +87,28 @@ template<class ITaskClass>
     class CommandBaseClass : public ITaskClass, public DispatcherCommand
 {
 public:
-    CommandBaseClass(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-      DispatcherCommand(pTD, pCmd)
-    {
-        m_aIsSyncPoint = FALSE;
-    }
+    CommandBaseClass(TaskDispatcher * pTD, cl_dev_cmd_desc * pCmd)
+        : DispatcherCommand(pTD, pCmd), m_isSyncPoint(false),
+          m_completedSync(false) {}
 
     ~CommandBaseClass()
     {
     }
 
     // ITaskBase
-    bool            SetAsSyncPoint();
-    bool            CompleteAndCheckSyncPoint();
-    bool            IsCompleted() const {return m_bCompleted;}
-    long            Release() { return 0; }
-    TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    bool            SetAsSyncPoint() override;
+    bool            CompleteAndCheckSyncPoint() override;
+    bool            IsCompleted() const override {return m_bCompleted;}
+    long            Release() override { return 0; }
+    TASK_PRIORITY   GetPriority() const override { return TASK_PRIORITY_MEDIUM;}
 
-    void    Cancel() { NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, cl_int(CL_DEV_COMMAND_CANCELLED)); }
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
+    void    Cancel() override { NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, cl_int(CL_DEV_COMMAND_CANCELLED)); }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() override { return nullptr; }
 
 protected:
 
-    Intel::OpenCL::Utils::AtomicCounter    m_aIsSyncPoint;
-
+    std::atomic<bool> m_isSyncPoint;
+    std::atomic<bool> m_completedSync;
 };
 
 // OCL Read/Write buffer execution
