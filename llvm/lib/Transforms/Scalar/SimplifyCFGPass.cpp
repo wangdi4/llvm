@@ -170,6 +170,7 @@ static bool mergeEmptyReturnBlocks(Function &F) {
 /// Call SimplifyCFG on all the blocks in the function,
 /// iterating until no more changes are made.
 static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
+                                   DomTreeUpdater *DTU,
                                    const SimplifyCFGOptions &Options) {
   bool Changed = false;
   bool LocalChange = true;
@@ -185,7 +186,7 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
 
     // Loop over all of the basic blocks and remove them if they are unneeded.
     for (Function::iterator BBIt = F.begin(); BBIt != F.end(); ) {
-      if (simplifyCFG(&*BBIt++, TTI, Options, &LoopHeaders)) {
+      if (simplifyCFG(&*BBIt++, TTI, DTU, Options, &LoopHeaders)) {
         LocalChange = true;
         ++NumSimpl;
       }
@@ -202,7 +203,7 @@ static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
 
   bool EverChanged = removeUnreachableBlocks(F, DT ? &DTU : nullptr);
   EverChanged |= mergeEmptyReturnBlocks(F);
-  EverChanged |= iterativelySimplifyCFG(F, TTI, Options);
+  EverChanged |= iterativelySimplifyCFG(F, TTI, DT ? &DTU : nullptr, Options);
 
   // If neither pass changed anything, we're done.
   if (!EverChanged) return false;
@@ -216,7 +217,7 @@ static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
     return true;
 
   do {
-    EverChanged = iterativelySimplifyCFG(F, TTI, Options);
+    EverChanged = iterativelySimplifyCFG(F, TTI, DT ? &DTU : nullptr, Options);
     EverChanged |= removeUnreachableBlocks(F, DT ? &DTU : nullptr);
   } while (EverChanged);
 
