@@ -467,8 +467,8 @@ bool SequenceChecker::isBlobsMathchedForReroll(const CanonExpr *CE1,
 
   const BlobUtils &BU = Loop->getBlobUtils();
   const LoopInvariantBlobTy &Invs = LoopInvariantBlobs;
-  auto TempCompare = [Loop, &BU, &Invs](const BlobCoeffAndIndexTy &P1,
-                                        const BlobCoeffAndIndexTy &P2) {
+  auto TempCompare = [&BU, &Invs](const BlobCoeffAndIndexTy &P1,
+                                  const BlobCoeffAndIndexTy &P2) {
     // Use loop invariance info roughly
     bool Inv1 = Invs.find(BU.getBlob(P1.second)) != Invs.end();
     bool Inv2 = Invs.find(BU.getBlob(P2.second)) != Invs.end();

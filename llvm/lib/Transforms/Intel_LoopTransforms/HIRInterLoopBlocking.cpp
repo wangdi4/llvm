@@ -193,7 +193,7 @@ public:
                  HIRDDAnalysis &DDA, StringRef FuncName)
       : SkipNode(nullptr), IsDone(false), HIRF(HIRF), HASA(HASA), DDA(DDA),
         Func(FuncName), FirstSpatialLoop(nullptr), LastSpatialLoop(nullptr),
-        PrevLCA(nullptr), HasIOCall(nullptr) {}
+        PrevLCA(nullptr), HasIOCall(false) {}
 
   bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
   bool isDone() const { return IsDone; }
@@ -605,8 +605,8 @@ protected:
     // "15" is MaintainedAsDef, while "13" is ConvertFromUseToDef.
     // We just bail out. In the future, more refinements can come.
     // How many are Converted vs. Maintained could be used as a criteria.
-    if (ConvertFromUseToDef && MaintainedAsDef ||
-        ConvertFromDefToUse && MaintainedAsUse) {
+    if ((ConvertFromUseToDef && MaintainedAsDef) ||
+        (ConvertFromDefToUse && MaintainedAsUse)) {
       LLVM_DEBUG_PROFIT_REPORT(
           dbgs() << "Not profitable due to sustained Defs or Uses.\n");
       return false;
@@ -635,7 +635,7 @@ protected:
     return true;
   }
 
-  void reset() {
+  void reset() override {
 
     CheckerVisitor::init();
 
@@ -1033,7 +1033,7 @@ private:
       return nullptr;
     };
 
-    auto compareRefs = [GetLoadRval, DDG, LCA](
+    auto compareRefs = [GetLoadRval, LCA](
                            const CanonExpr *CE1, const CanonExpr *CE2,
                            const RegDDRef *Ref1, const RegDDRef *Ref2) -> bool {
       // If one is a constant, both should be the same value.
@@ -1505,16 +1505,18 @@ HLNode *findTheLowestAncestor(HLLoop *InnermostLoop, const HLLoop *Limit) {
 
 class Transformer {
 public:
+  HIRDDAnalysis &DDA;
+
   // Entry value 0 denotes no-blocking.
   // Size of StripmineSizes should be the same as global NumDims
   Transformer(ArrayRef<unsigned> StripmineSizes,
               const LoopToDimInfoTy &InnermostLoopToDimInfos,
               const LoopToConstRefTy &InnermostLoopToRepRef,
               HLLoop *OutermostLoop, HIRDDAnalysis &DDA)
-      : StripmineSizes(StripmineSizes),
+      : DDA(DDA), StripmineSizes(StripmineSizes),
         InnermostLoopToDimInfos(InnermostLoopToDimInfos),
         InnermostLoopToRepRef(InnermostLoopToRepRef),
-        OutermostLoop(OutermostLoop), DDA(DDA), NumByStripLoops(0) {
+        OutermostLoop(OutermostLoop), NumByStripLoops(0) {
     unsigned NumDims = StripmineSizes.size();
     ByStripLoopLowerBlobs.resize(NumDims);
     ByStripLoopUpperBlobs.resize(NumDims);
@@ -1738,8 +1740,8 @@ private:
   static void incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
                                   unsigned LevelThreshold) {
 
-    auto IncreaseDefLevel = [Increase, LevelThreshold,
-                             Ref](unsigned PrevDefLevel, CanonExpr *CE) {
+    auto IncreaseDefLevel = [Increase, LevelThreshold]
+                             (unsigned PrevDefLevel, CanonExpr *CE) {
       if (PrevDefLevel < LevelThreshold)
         return;
 
@@ -2523,7 +2525,6 @@ private:
   // Loop enclosing all the spatial loopnests.
   // Inside OutermostLoop, by-strip loops are generated.
   HLLoop *OutermostLoop;
-  HIRDDAnalysis &DDA;
 
   SmallVector<std::pair<BlobTy, unsigned>, 4> ByStripLoopLowerBlobs;
   SmallVector<std::pair<BlobTy, unsigned>, 4> ByStripLoopUpperBlobs;
@@ -2636,7 +2637,7 @@ private:
                              BaseIndexToLowersAndStrides, Func);
 
     const RegDDRef *RepRef =
-        IA.couldBeAMember(DefinedBasePtr, ReadOnlyBasePtr, DDG, {LCA});
+        IA.couldBeAMember(DefinedBasePtr, ReadOnlyBasePtr, DDG, LCA);
 
     if (!RepRef) {
       printMarker("Fail: ", {Loop});
@@ -2681,7 +2682,7 @@ private:
     return true;
   }
 
-  void reset() {
+  void reset() override {
 
     ProfitabilityChecker::reset();
 

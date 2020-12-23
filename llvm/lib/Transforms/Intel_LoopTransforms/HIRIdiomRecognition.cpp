@@ -78,7 +78,6 @@ struct MemOpCandidate {
 
 class HIRIdiomRecognition {
   HIRFramework &HIRF;
-  HIRLoopStatistics &HLS;
   HIRDDAnalysis &DDA;
   TargetLibraryInfo &TLI;
 
@@ -130,7 +129,7 @@ class HIRIdiomRecognition {
 public:
   HIRIdiomRecognition(HIRFramework &HIRF, HIRLoopStatistics &HLS,
                       HIRDDAnalysis &DDA, TargetLibraryInfo &TLI)
-      : HIRF(HIRF), HLS(HLS), DDA(DDA), TLI(TLI), DL(HIRF.getDataLayout()),
+      : HIRF(HIRF), DDA(DDA), TLI(TLI), DL(HIRF.getDataLayout()),
         M(HIRF.getModule()) {}
 
   bool run();
