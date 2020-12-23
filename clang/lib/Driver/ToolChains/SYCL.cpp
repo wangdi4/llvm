@@ -335,8 +335,8 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
   // Add -Xsycl-target* options.
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
-  TC.TranslateBackendTargetArgs(Args, CmdArgs);
-  TC.TranslateLinkerTargetArgs(Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
   // Look for -reuse-exe=XX option
   if (Arg *A = Args.getLastArg(options::OPT_reuse_exe_EQ)) {
     Args.ClaimAllArgs(options::OPT_reuse_exe_EQ);
@@ -379,8 +379,8 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   // Add -Xsycl-target* options.
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
-  TC.TranslateBackendTargetArgs(Args, CmdArgs);
-  TC.TranslateLinkerTargetArgs(Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -413,8 +413,8 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(Compilation &C,
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 
-  TC.TranslateBackendTargetArgs(Args, CmdArgs);
-  TC.TranslateLinkerTargetArgs(Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "opencl-aot")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -477,9 +477,11 @@ static void parseTargetOpts(StringRef ArgString, const llvm::opt::ArgList &Args,
 
 // Expects a specific type of option (e.g. -Xsycl-target-backend) and will
 // extract the arguments.
-void SYCLToolChain::TranslateTargetOpt(const llvm::opt::ArgList &Args,
-    llvm::opt::ArgStringList &CmdArgs, OptSpecifier Opt,
-    OptSpecifier Opt_EQ) const {
+#if INTEL_CUSTOMIZATION
+void SYCLToolChain::TranslateTargetOpt(const JobAction &JA,
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
+    OptSpecifier Opt, OptSpecifier Opt_EQ) const {
+#endif // INTEL_CUSTOMIZATION
   for (auto *A : Args) {
     bool OptNoTriple;
     OptNoTriple = A->getOption().matches(Opt);
@@ -498,11 +500,21 @@ void SYCLToolChain::TranslateTargetOpt(const llvm::opt::ArgList &Args,
     if (OptNoTriple) {
       // With multiple -fsycl-targets, a triple is required so we know where
       // the options should go.
-      if (Args.getAllArgValues(options::OPT_fsycl_targets_EQ).size() != 1) {
-        getDriver().Diag(diag::err_drv_Xsycl_target_missing_triple)
-            << A->getSpelling();
-        continue;
+#if INTEL_CUSTOMIZATION
+      if (JA.isOffloading(Action::OFK_SYCL)) {
+        if (Args.getAllArgValues(options::OPT_fsycl_targets_EQ).size() != 1) {
+          getDriver().Diag(diag::err_drv_Xsycl_target_missing_triple)
+              << A->getSpelling();
+          continue;
+        }
+      } else {
+        if (Args.getAllArgValues(options::OPT_fopenmp_targets_EQ).size() != 1) {
+          getDriver().Diag(diag::err_drv_Xopenmp_target_missing_triple)
+              << A->getSpelling();
+          continue;
+        }
       }
+#endif // INTEL_CUSTOMIZATION
       // No triple, so just add the argument.
       ArgString = A->getValue();
     } else
@@ -528,7 +540,16 @@ static void addImpliedArgs(const llvm::Triple &Triple,
   if (Arg *A = Args.getLastArg(options::OPT_g_Group, options::OPT__SLASH_Z7))
     if (!A->getOption().matches(options::OPT_g0))
       BeArgs.push_back("-g");
-  if (Args.getLastArg(options::OPT_O0))
+#if INTEL_CUSTOMIZATION
+  // FIXME: /Od is not translating to -O0 for OpenMP
+  bool IsMSVCOd = false;
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_O)) {
+    StringRef OptStr = A->getValue();
+    if (OptStr == "d")
+      IsMSVCOd = true;
+  }
+  if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
+#endif // INTEL_CUSTOMIZATION
     BeArgs.push_back("-cl-opt-disable");
   if (BeArgs.empty())
     return;
@@ -551,8 +572,10 @@ static void addImpliedArgs(const llvm::Triple &Triple,
   CmdArgs.push_back(Args.MakeArgString(BeOpt));
 }
 
-void SYCLToolChain::TranslateBackendTargetArgs(const llvm::opt::ArgList &Args,
-    llvm::opt::ArgStringList &CmdArgs) const {
+#if INTEL_CUSTOMIZATION
+void SYCLToolChain::TranslateBackendTargetArgs(const JobAction &JA,
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+#endif // INTEL_CUSTOMIZATION
   // Add any implied arguments before user defined arguments.
   addImpliedArgs(getTriple(), getDriver(), Args, CmdArgs); // INTEL
 
@@ -578,17 +601,31 @@ void SYCLToolChain::TranslateBackendTargetArgs(const llvm::opt::ArgList &Args,
       continue;
     }
   }
-  // Handle -Xsycl-target-backend.
-  TranslateTargetOpt(Args, CmdArgs, options::OPT_Xsycl_backend,
-      options::OPT_Xsycl_backend_EQ);
+#if INTEL_CUSTOMIZATION
+  if (JA.isOffloading(Action::OFK_OpenMP))
+    // Handle -Xopenmp-target-backend.
+    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xopenmp_backend,
+        options::OPT_Xopenmp_backend_EQ);
+  else
+    // Handle -Xsycl-target-backend.
+    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xsycl_backend,
+        options::OPT_Xsycl_backend_EQ);
+#endif // INTEL_CUSTOMIZATION
 }
 
-void SYCLToolChain::TranslateLinkerTargetArgs(const llvm::opt::ArgList &Args,
-    llvm::opt::ArgStringList &CmdArgs) const {
-  // Handle -Xsycl-target-linker.
-  TranslateTargetOpt(Args, CmdArgs, options::OPT_Xsycl_linker,
-      options::OPT_Xsycl_linker_EQ);
+#if INTEL_CUSTOMIZATION
+void SYCLToolChain::TranslateLinkerTargetArgs(const JobAction &JA,
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+  if (JA.isOffloading(Action::OFK_OpenMP))
+    // Handle -Xopenmp-target-linker.
+    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xopenmp_linker,
+        options::OPT_Xopenmp_linker_EQ);
+  else
+    // Handle -Xsycl-target-linker.
+    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xsycl_linker,
+        options::OPT_Xsycl_linker_EQ);
 }
+#endif // INTEL_CUSTOMIZATION
 
 Tool *SYCLToolChain::buildBackendCompiler() const {
   if (getTriple().getSubArch() == llvm::Triple::SPIRSubArch_fpga)

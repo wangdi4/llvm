@@ -81,9 +81,9 @@
 // RUN:   | FileCheck %s -check-prefix=STATIC_LIB_NOSRC -DINPUTLIB=%t.lo
 // STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu" "-inputs=[[INPUTLIB]]" "-check-section"
 // STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64" "-inputs=[[INPUTLIB]]" "-outputs=[[LIBLIST:.+\.txt]]" "-unbundle"
-// STATIC_LIB_NOSRC: llvm-link{{.*}} "@[[LIBLIST]]" "-o" "[[OUTFILE:.+\.out]]"
+// STATIC_LIB_NOSRC: llvm-link{{.*}} "@[[LIBLIST]]" "-o" "[[OUTFILE:.+\.bc]]"
 // STATIC_LIB_NOSRC: sycl-post-link{{.*}} "-o" "[[BCFILE:.+\.bc]]" "[[OUTFILE]]"
-// STATIC_LIB_NOSRC: llvm-spirv{{.*}} "-o" "[[OUTFILE2:.+\.out]]" {{.*}} "[[BCFILE]]"
+// STATIC_LIB_NOSRC: llvm-spirv{{.*}} "-o" "[[OUTFILE2:.+\.spv]]" {{.*}} "[[BCFILE]]"
 // STATIC_LIB_NOSRC: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[BCFILE2:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OUTFILE2]]"
 // STATIC_LIB_NOSRC: clang{{.*}} "-o" "[[FINALOBJ:.+\.o]]" {{.*}} "[[BCFILE2]]"
 // STATIC_LIB_NOSRC: ld{{.*}} "-L/dummy/dir" {{.*}} "[[INPUTLIB]]" "[[FINALOBJ]]"

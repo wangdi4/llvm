@@ -338,6 +338,7 @@ protected:
   Tool *getTool(Action::ActionClass AC) const override;
   Tool *buildAssembler() const override;
   Tool *buildLinker() const override;
+  Tool *buildBackendCompiler() const override; // INTEL
 
   virtual std::string getMultiarchTriple(const Driver &D,
                                          const llvm::Triple &TargetTriple,
