@@ -1,4 +1,4 @@
-; RUN: opt < %s -simplifycfg -S | FileCheck %s
+; RUN: opt < %s -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
 
