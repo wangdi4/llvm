@@ -31,7 +31,7 @@ OCL_INITIALIZE_PASS_END(SGBarrierSimplify, DEBUG_TYPE,
 char SGBarrierSimplify::ID = 0;
 
 bool SGBarrierSimplify::removeRedundantBarriers(Function *F) {
-  LLVM_DEBUG(dbgs() << "Removing redundant barriers for function"
+  LLVM_DEBUG(dbgs() << "Removing redundant barriers for function "
                     << F->getName() << "\n");
 
   bool Changed = true;
@@ -62,7 +62,8 @@ bool SGBarrierSimplify::removeRedundantBarriers(Function *F) {
       auto *I = cast<Instruction>(DummyBarrier->getNextNode());
       if (Barriers.count(I))
         BarriersToBeRemoved.push_back(I);
-      else if (DummyBarriers.count(I))
+      else if (DummyBarriers.count(I) || Utils.isDummyBarrierCall(I) ||
+               Utils.isBarrierCall(I))
         DummyBarriersToBeRemoved.push_back(DummyBarrier);
     }
 
@@ -77,21 +78,44 @@ bool SGBarrierSimplify::removeRedundantBarriers(Function *F) {
     }
   }
 
-  // Remove leading dummy_sg_barrier.
-  auto *FirstI = &*inst_begin(F);
-  assert(Helper.isDummyBarrier(FirstI) &&
-         "First instruction should be dummy_sg_barrier");
-  auto *SecondI = FirstI->getNextNode();
-  if (Utils.isDummyBarrierCall(SecondI)) {
-    LLVM_DEBUG(dbgs() << "Removing leading dummy_sg_barrier\n");
-    Helper.removeDummyBarriers(FirstI);
-    ModuleChanged = true;
-  }
-
   // Don't remove the ending dummy_sg_barrier here, since the return value
   // may be widened later, and then we may need to restore the dummy/barrier
   // pair to fill the widened return value. Example: return sub_group_all(x).
   return ModuleChanged;
+}
+
+// For the barrier - dummybarrier pair, there shouldn't be any SG barrier or
+// dummy_sg_barrier between them. So we can search such pair from every call of
+// WG sync function and remove all encountered sub_group_barrier(s) /
+// dummy_sg_barrier(s).
+bool SGBarrierSimplify::simplifyCallRegion(Function *F) {
+  if (!Utils.getAllFunctionsWithSynchronization().count(F))
+    return false;
+  InstVec Barriers, DummyBarriers;
+  for (User *U : F->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      LLVM_DEBUG(dbgs() << "Simplify call region for" << *CI << "\n");
+      Instruction *Prev = CI->getPrevNode();
+      Instruction *Next = CI->getNextNode();
+      while (!Utils.isBarrierCall(Prev)) {
+        if (Helper.isDummyBarrier(Prev))
+          DummyBarriers.push_back(Prev);
+        if (Helper.isBarrier(Prev))
+          Barriers.push_back(Prev);
+        Prev = Prev->getPrevNode();
+      }
+      while (!Utils.isDummyBarrierCall(Next)) {
+        if (Helper.isDummyBarrier(Next))
+          DummyBarriers.push_back(Next);
+        if (Helper.isBarrier(Next))
+          Barriers.push_back(Next);
+        Next = Next->getNextNode();
+      }
+    }
+  }
+  Helper.removeDummyBarriers(DummyBarriers);
+  Helper.removeBarriers(Barriers);
+  return !Barriers.empty() || !DummyBarriers.empty();
 }
 
 bool SGBarrierSimplify::simplifyDummyRegion(Function *F) {
@@ -152,10 +176,12 @@ bool SGBarrierSimplify::runOnModule(Module &M) {
   SizeAnalysis = &getAnalysis<SGSizeAnalysis>();
 
   for (auto *F : FunctionsToHandle) {
+    Changed |= simplifyCallRegion(F);
     Changed |= removeRedundantBarriers(F);
     Changed |= simplifyDummyRegion(F);
-    Changed |= splitBarrierBB(F);
   }
+  for (auto *F : FunctionsToHandle)
+    Changed |= splitBarrierBB(F);
   return Changed;
 }
 

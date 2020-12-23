@@ -50,6 +50,9 @@ private:
 
   /// Remove calls in the dummy region.
   bool simplifyDummyRegion(Function *F);
+
+  /// Remove calls in call regions.
+  bool simplifyCallRegion(Function *F);
 };
 } // namespace intel
 #endif // BACKEND_SUBGROUP_EMULATION_BARRIER_SIMPLIFY_H

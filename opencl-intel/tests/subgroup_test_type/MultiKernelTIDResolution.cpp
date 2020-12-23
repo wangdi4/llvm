@@ -19,11 +19,11 @@ TEST_F(SGEmulationTest, MultiKernelTIDResolution) {
   const char *kernel = "size_t foo() {"
                        "  return get_local_id(0);"
                        "}"
-                       "__kernel void basic(__global size_t* local_id) {"
+                       "__kernel void basic(__global unsigned long* local_id) {"
                        "  size_t lid = foo();"
                        "  local_id[lid] = lid;"
                        "}"
-                       "__kernel void basic1(__global size_t* local_id) {"
+                       "__kernel void basic1(__global unsigned long* local_id) {"
                        "  size_t lid = foo();"
                        "  sub_group_barrier(CLK_LOCAL_MEM_FENCE);"
                        "  local_id[lid] = lid;"
@@ -57,7 +57,7 @@ TEST_F(SGEmulationTest, MultiKernelTIDResolution) {
       sizeof(lsize), &lsize, sizeof(max_sg_size), &max_sg_size, nullptr);
   ASSERT_OCL_SUCCESS(iRet, " clGetKernelSubGroupInfoKHR");
 
-  cl_ulong lid[lsize];
+  cl_ulong lid[lsize] = {0};
   cl_mem mem_obj_lid = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
                                       sizeof(cl_ulong) * lsize, lid, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
@@ -65,7 +65,7 @@ TEST_F(SGEmulationTest, MultiKernelTIDResolution) {
   iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), &mem_obj_lid);
   ASSERT_OCL_SUCCESS(iRet, " clSetKernelArg");
 
-  cl_ulong lid1[lsize];
+  cl_ulong lid1[lsize] = {0};
   cl_mem mem_obj_lid1 = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
                                        sizeof(cl_ulong) * lsize, lid1, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");

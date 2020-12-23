@@ -30,7 +30,6 @@ entry:
 
 ; this is not a dummy region
 ; CHECK: call void @_Z17sub_group_barrierj(i32 1)
-; CHECK: call void @dummy_sg_barrier()
   call void @_Z17sub_group_barrierj(i32 1)
   call void @dummy_sg_barrier()
 
@@ -39,7 +38,6 @@ entry:
 
 ; this is not a dummy region
 ; CHECK: call void @_Z17sub_group_barrierj(i32 1)
-; CHECK: call void @dummy_sg_barrier()
   call void @_Z17sub_group_barrierj(i32 1)
   call void @dummy_sg_barrier()
 

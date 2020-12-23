@@ -165,6 +165,9 @@ bool SGValueWiden::runOnModule(Module &M) {
   }
   KernelList(&M).set(Kernels);
 
+  // Re-initialize barrier utils.
+  Utils.init(&M);
+
   widenCalls();
 
   for (auto *I : InstsToBeRemoved)
@@ -565,6 +568,22 @@ void SGValueWiden::widenCalls() {
            "wide call doesn't have vector-variants attribute");
     Function *WideFunc = FuncMap[CI->getCalledFunction()];
 
+    // If this function is not WG sync function, we can insert the new
+    // widened call and load parameters / store return value before
+    // the old call, otherwise, we need to load parameters before barrier call
+    // and store return value after dummybarrier call.
+    Instruction *ParamIP = CI, *RetValIP = CI;
+    if (Utils.getAllFunctionsWithSynchronization().count(WideFunc)) {
+      Instruction *PrevInst = CI->getPrevNode();
+      Instruction *NextInst = CI->getNextNode();
+      assert(Utils.isBarrierCall(PrevInst) &&
+             "there shoud be a barrier before widened call");
+      assert(Utils.isDummyBarrierCall(NextInst) &&
+             "there shoud be a dummybarrier after widened call");
+      ParamIP = PrevInst;
+      RetValIP = NextInst->getNextNode();
+    }
+
     IRBuilder<> Builder(CI);
     // Get vector-variants attribute
     StringRef VecVariantStringValue =
@@ -584,10 +603,10 @@ void SGValueWiden::widenCalls() {
       VectorKind Param = Params[Pair.index()];
       Value *Arg = Pair.value(), *NewArg = nullptr;
       if (Param.isUniform()) {
-        NewArg = getScalarValue(Arg, CI);
+        NewArg = getScalarValue(Arg, ParamIP);
       } else {
         assert(Param.isVector() && "Unsupported VectorKind");
-        NewArg = getVectorValue(Arg, Size, CI);
+        NewArg = getVectorValue(Arg, Size, ParamIP);
       }
       assert(NewArg && "Vector value is null!");
       NewArgs.push_back(NewArg);
@@ -597,8 +616,8 @@ void SGValueWiden::widenCalls() {
     // Add mask argument
     if (Variant.isMasked()) {
       // Currently all mask is <i32 x VF>.
-      auto *SGSize = Helper.createGetSubGroupSize(CI);
-      Value *Mask = LoopUtils::generateRemainderMask(Size, SGSize, CI);
+      auto *SGSize = Helper.createGetSubGroupSize(ParamIP);
+      Value *Mask = LoopUtils::generateRemainderMask(Size, SGSize, ParamIP);
       NewArgs.push_back(Mask);
       NewArgTypes.push_back(Mask->getType());
     }
@@ -608,7 +627,7 @@ void SGValueWiden::widenCalls() {
     LLVM_DEBUG(dbgs() << "  -> " << *NewReturnVal << "\n");
     if (UniValueMap.count(CI) || VecValueMap.count(CI)) {
       // Store the vectorized return value.
-      setVectorValue(NewReturnVal, CI, Size, CI);
+      setVectorValue(NewReturnVal, CI, Size, RetValIP);
     }
 
     CI->dropAllReferences();
