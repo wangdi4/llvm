@@ -304,7 +304,6 @@ using CaseNodeContainerMapTy = SmallDenseMap<int64_t, NodeContainerMapTy>;
 
 class HIROptPredicate {
 public:
-  static char ID;
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                   bool EnablePartialUnswitch, bool KeepLoopnestPerfect)
