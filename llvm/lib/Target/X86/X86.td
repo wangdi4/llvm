@@ -271,6 +271,11 @@ def FeatureAVX512MPSADBW  : SubtargetFeature<"avx512mpsadbw", "HasAVX512MPSADBW"
                             "Enable AVX512-MPSADBW",
                             [FeatureBWI]>;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+def FeatureAVXMOVGET : SubtargetFeature<"avxmovget", "HasAVXMOVGET", "true",
+                       "Support AVX-MOVGET instructions",
+                       [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",

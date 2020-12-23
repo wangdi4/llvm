@@ -3297,6 +3297,12 @@ X86
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX_MOVGET
+.. option:: -mavxmovget, -mno-avxmovget
+
+.. end INTEL_FEATURE_ISA_AVX_MOVGET
+.. end INTEL_CUSTOMIZATION
 .. option:: -mavx2, -mno-avx2
 
 .. option:: -mavx512bf16, -mno-avx512bf16
