@@ -194,6 +194,12 @@ namespace intel {
       return false;
     }
 
+    if (CompilationUtils::isWorkGroupReserveReadPipe(origWGFuncName) ||
+        CompilationUtils::isWorkGroupReserveWritePipe(origWGFuncName)) {
+      // WG reserve pipe built-ins are WI unrelated
+      return false;
+    }
+
     if (CompilationUtils::isAtomicBuiltin(origFuncName) ||
         CompilationUtils::isWorkItemPipeBuiltin(origFuncName)) {
       // Atomic and pipe built-ins are WI Id related
