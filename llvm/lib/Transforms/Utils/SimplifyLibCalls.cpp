@@ -1853,6 +1853,20 @@ Value *LibCallSimplifier::optimizeFMinFMax(CallInst *CI, IRBuilderBase &B) {
   return B.CreateCall(F, { CI->getArgOperand(0), CI->getArgOperand(1) });
 }
 
+#if INTEL_CUSTOMIZATION
+Value *LibCallSimplifier::optimizeFMod(CallInst *CI, IRBuilderBase &B) {
+  // Transform fmod function to frem instruction if it won't trigger division by
+  // zero, i.e.:
+  // * The divisor is a constant and is not zero.
+  // * Or "readnone" attribute is set.
+  const APFloat *F;
+  if ((match(CI->getArgOperand(1), m_APFloat(F)) && !F->isZero()) ||
+      CI->doesNotAccessMemory())
+    return B.CreateFRemFMF(CI->getArgOperand(0), CI->getArgOperand(1), CI);
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 Value *LibCallSimplifier::optimizeLog(CallInst *Log, IRBuilderBase &B) {
   Function *LogFn = Log->getCalledFunction();
   AttributeList Attrs; // Attributes are only meaningful on the original call
@@ -3014,6 +3028,12 @@ Value *LibCallSimplifier::optimizeFloatingPointLibCall(CallInst *CI,
   case LibFunc_cabsf:
   case LibFunc_cabsl:
     return optimizeCAbs(CI, Builder);
+#if INTEL_CUSTOMIZATION
+  case LibFunc_fmodf:
+  case LibFunc_fmod:
+  case LibFunc_fmodl:
+    return optimizeFMod(CI, Builder);
+#endif // INTEL_CUSTOMIZATION
   default:
     return nullptr;
   }

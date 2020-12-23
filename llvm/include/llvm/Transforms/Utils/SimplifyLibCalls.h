@@ -193,6 +193,9 @@ private:
   Value *replacePowWithSqrt(CallInst *Pow, IRBuilderBase &B);
   Value *optimizeExp2(CallInst *CI, IRBuilderBase &B);
   Value *optimizeFMinFMax(CallInst *CI, IRBuilderBase &B);
+#if INTEL_CUSTOMIZATION
+  Value *optimizeFMod(CallInst *CI, IRBuilderBase &B);
+#endif // INTEL_CUSTOMIZATION
   Value *optimizeLog(CallInst *CI, IRBuilderBase &B);
   Value *optimizeSqrt(CallInst *CI, IRBuilderBase &B);
   Value *optimizeSinCosPi(CallInst *CI, IRBuilderBase &B);
