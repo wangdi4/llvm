@@ -1,4 +1,4 @@
-//      Copyright  (C) 2009-2014 Intel Corporation.
+//      Copyright  (C) 2009-2021 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -21,19 +21,22 @@
 //  MODIFICATION HISTORY:
 //      26-Nov-2013, initial version. AK
 //      17-Apr-2014, Added __rcpf and __rcpd. SC
+//      21-Dec-2018, New fusa attribute introduced. AK
 
-    { "__cdivd",            "z" },
-    { "__cdivf",            "c" },
-    { "__divd",             "d" },
-    { "__divf",             "s" },
-    { "__divl",             "l" },
-    { "__rcpd",             "d" },
-    { "__rcpf",             "s" },
-    { "__svml_div8",        "d" },
-    { "__svml_div8_mask",   "d" },
-    { "__svml_divf16",      "s" },
-    { "__svml_divf16_mask", "s" },
-    { "__svml_rcp8",        "d" },
-    { "__svml_rcp8_mask",   "d" },
-    { "__svml_rcpf16",      "s" },
-    { "__svml_rcpf16_mask", "s" },
+    { "__cdivd",            "z", "false" },
+    { "__cdivf",            "c", "false" },
+    { "__divd",             "d", "false" },
+    { "__divf",             "s", "false" },
+    { "__divl",             "l", "false" },
+    { "__rcpd",             "d", "false" },
+    { "__rcpf",             "s", "false" },
+    { "__svml_div2",        "d", "false" },
+    { "__svml_div4",        "d", "false" },
+    { "__svml_div8",        "d", "false" },
+    { "__svml_div8_mask",   "d", "false" },
+    { "__svml_divf16",      "s", "false" },
+    { "__svml_divf16_mask", "s", "false" },
+    { "__svml_rcp8",        "d", "false" },
+    { "__svml_rcp8_mask",   "d", "false" },
+    { "__svml_rcpf16",      "s", "false" },
+    { "__svml_rcpf16_mask", "s", "false" },
