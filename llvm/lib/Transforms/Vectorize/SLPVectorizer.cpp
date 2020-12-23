@@ -137,6 +137,12 @@ static cl::opt<bool>
                           cl::desc("Reverse the order in which the operands "
                                    "are visited while building the tree"));
 
+// Enable use of llvm.masked.gather intrinsic.
+static cl::opt<bool>
+    EnableMaskedGatherLoad("slp-enable-gather-load", cl::init(true),
+                          cl::Hidden,
+                          cl::desc("Enable use of llvm.masked.gather"));
+
 // Split-loads is a simplified form of Variable-Width SLP.
 // It allows shorter vector-lengths loads which are then combined
 // into final (wider) vector that matches the rest of vectorizable tree.
@@ -4994,7 +5000,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           return;
         }
       }
-      if (CandidateForGatherLoad) {
+      if (EnableMaskedGatherLoad && CandidateForGatherLoad) {
           SmallVector<int, 4> OpDirection(VL.size(), 0);
 #endif // INTEL_CUSTOMIZATION
         // Vectorizing non-consecutive loads with `llvm.masked.gather`.
