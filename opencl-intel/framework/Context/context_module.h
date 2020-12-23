@@ -383,6 +383,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         std::map<void*, SharedPtr<Context> >    m_mapSVMBuffers;   // map list of all svm objects
         // map list of all unified shared memory objects
         std::map<void*, SharedPtr<Context> >    m_mapUSMBuffers;
+        // Mutex to guard access to m_mapSVMBuffers and m_mapSVMBuffers.
+        Intel::OpenCL::Utils::OclMutex          m_SvmUsmMutex;
         Intel::OpenCL::Utils::OclMutex          m_backendLibraryMutex;
 
         Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues; // set of all queues including invisible to user
