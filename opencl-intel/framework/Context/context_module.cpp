@@ -3108,8 +3108,10 @@ void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t
         return nullptr;
     }
     void* pSvmBuf = pContext->SVMAlloc(flags, size, uiAlignment);
-    if (pSvmBuf)
+    if (pSvmBuf) {
+        OclAutoMutex mu(&m_SvmUsmMutex);
         m_mapSVMBuffers[pSvmBuf] = pContext;
+    }
     return pSvmBuf;
 }
 
@@ -3127,7 +3129,10 @@ void ContextModule::SVMFree(cl_context context, void* pSvmPtr)
         return;
     }
     pContext->SVMFree(pSvmPtr);
-    m_mapSVMBuffers.erase(pSvmPtr);
+    {
+        OclAutoMutex mu(&m_SvmUsmMutex);
+        m_mapSVMBuffers.erase(pSvmPtr);
+    }
 }
 
 void*
@@ -3291,8 +3296,10 @@ void* ContextModule::USMHostAlloc(cl_context context,
 
     void* pUsmBuf = pContext->USMHostAlloc(properties, size, alignment,
                                            errcode_ret);
-    if (pUsmBuf)
+    if (pUsmBuf) {
+        OclAutoMutex mu(&m_SvmUsmMutex);
         m_mapUSMBuffers[pUsmBuf] = pContext;
+    }
     return pUsmBuf;
 }
 
@@ -3312,8 +3319,10 @@ void* ContextModule::USMDeviceAlloc(cl_context context, cl_device_id device,
 
     void* pUsmBuf = pContext->USMDeviceAlloc(device, properties, size,
                                              alignment, errcode_ret);
-    if (pUsmBuf)
+    if (pUsmBuf) {
+        OclAutoMutex mu(&m_SvmUsmMutex);
         m_mapUSMBuffers[pUsmBuf] = pContext;
+    }
     return pUsmBuf;
 }
 
@@ -3333,8 +3342,10 @@ void* ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
 
     void* pUsmBuf = pContext->USMSharedAlloc(device, properties, size,
                                              alignment, errcode_ret);
-    if (pUsmBuf)
+    if (pUsmBuf) {
+        OclAutoMutex mu(&m_SvmUsmMutex);
         m_mapUSMBuffers[pUsmBuf] = pContext;
+    }
     return pUsmBuf;
 }
 
@@ -3352,8 +3363,10 @@ cl_int ContextModule::USMFree(cl_context context, void* ptr)
         return CL_SUCCESS;
     }
     cl_err_code err = pContext->USMFree(ptr);
-    if (CL_SUCCESS == err)
+    if (CL_SUCCESS == err) {
+        OclAutoMutex mu(&m_SvmUsmMutex);
         m_mapUSMBuffers.erase(ptr);
+    }
     return err;
 }
 

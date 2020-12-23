@@ -18,13 +18,15 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "CL/cl.h"
-#include "CL/cl_platform.h"
+#include "FrameworkTestThreads.h"
 #include "test_utils.h"
+#include <CL/cl.h>
+#include <CL/cl_platform.h>
 #include <cstdlib>
 #include <cstring>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <tbb/global_control.h>
 
 #define BUF_SIZE 1024
 
@@ -162,11 +164,12 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device,
   CheckException("clSetKernelArgSVMPointer", CL_SUCCESS, iRet);
 
   const size_t szGlobalWorkOffset = 0, szWorkSize = 1;
+  cl_event e;
   iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset,
-                                &szWorkSize, NULL, 0, NULL, NULL);
+                                &szWorkSize, NULL, 0, NULL, &e);
   CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
-  iRet = clFinish(queue);
-  CheckException("clFinish", CL_SUCCESS, iRet);
+  iRet = clWaitForEvents(1, &e);
+  CheckException("clWaitForEvents", CL_SUCCESS, iRet);
 
   if (iExpected != *piResult) {
     throw exception();
@@ -181,6 +184,57 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device,
     clSVMFree(context, piArr);
     clSVMFree(context, piResult);
   }
+}
+
+class SetKernelArgSVMPointerThread : public SynchronizedThread {
+public:
+  SetKernelArgSVMPointerThread(cl_context context, cl_device_id device,
+                               cl_command_queue queue, cl_program prog)
+      : m_context(context), m_device(device), m_queue(queue), m_prog(prog) {}
+
+  bool getResult() const { return m_result; }
+
+protected:
+  void ThreadRoutine() override {
+    try {
+      TestSetKernelArgSVMPointer(m_context, m_device, m_queue, m_prog, false);
+      m_result = true;
+    } catch (const std::exception(&)) {
+      m_result = false;
+    }
+  }
+
+  cl_context m_context;
+  cl_device_id m_device;
+  cl_command_queue m_queue;
+  cl_program m_prog;
+  bool m_result;
+};
+
+void TestSetKernelArgSVMPointerMultiThreads(cl_context context,
+                                            cl_device_id device,
+                                            cl_command_queue queue,
+                                            cl_program prog) {
+  int numThreads = tbb::global_control::active_value(
+      tbb::global_control::max_allowed_parallelism);
+
+  std::vector<SynchronizedThread *> threads(numThreads);
+  for (size_t i = 0; i < numThreads; ++i)
+    threads[i] = new SetKernelArgSVMPointerThread(context, device, queue, prog);
+
+  SynchronizedThreadPool pool;
+  pool.Init(&threads[0], numThreads);
+  pool.StartAll();
+  pool.WaitAll();
+
+  for (size_t i = 0; i < numThreads; ++i) {
+    bool res =
+        static_cast<SetKernelArgSVMPointerThread *>(threads[i])->getResult();
+    CheckException("SetKernelArgSVMPointerThread", true, res);
+  }
+
+  for (size_t i = 0; i < numThreads; ++i)
+    delete threads[i];
 }
 
 typedef void(CL_CALLBACK *pfnFreeFunc)(cl_command_queue queue,
@@ -558,6 +612,7 @@ bool clSvmTest() {
     CheckException("clBuildProgram", CL_SUCCESS, iRet);
     TestSetKernelArgSVMPointer(context, device, queue, prog, false);
     TestSetKernelArgSVMPointer(context, device, queue, prog, true);
+    TestSetKernelArgSVMPointerMultiThreads(context, device, queue, prog);
     TestSetKernelExecInfo(context, device, queue, prog);
     TestMigrate(context, device, queue, prog);
 
