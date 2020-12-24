@@ -36,7 +36,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"           // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"      // INTEL
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -179,7 +179,7 @@ namespace {
       AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addPreserved<WholeProgramWrapperPass>();                       // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
-      AU.addRequired<TargetTransformInfoWrapperPass>();                 // INTEL
+      AU.addRequired<TargetTransformInfoWrapperPass>();
       AU.addRequired<PostDominatorTreeWrapperPass>();                   // INTEL
     }
 
@@ -344,11 +344,14 @@ static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
 bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
+  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  // Jump Threading has no sense for the targets with divergent CF
+  if (TTI->hasBranchDivergence())
+    return false;
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
 #if INTEL_CUSTOMIZATION
   // If we need structured CFGs, disable jump threading, since it generally
   // tends to destructure them.
-  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   if (TTI->needsStructuredCFG())
     return false;
   auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
