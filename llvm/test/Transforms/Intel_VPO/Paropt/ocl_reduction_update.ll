@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -switch-to-offload -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -switch-to-offload  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -switch-to-offload -S -vpo-paropt-enable-64bit-opencl-atomics=false | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -switch-to-offload  -S -vpo-paropt-enable-64bit-opencl-atomics=false | FileCheck %s
 
 ; Original code:
 ; void foo() {
@@ -11,13 +11,14 @@
 
 ; Check that __kmpc calls dominate the kernel's exit block,
 ; i.e. that they are not done under ZTT condition.
-; CHECK-DAG: declare spir_func void @__kmpc_critical([8 x i32] addrspace(4)*) #[[ATTR:[0-9]+]]
-; CHECK-DAG: declare spir_func void @__kmpc_end_critical([8 x i32] addrspace(4)*) #[[ATTR]]
-; CHECK-DAG: call spir_func void @__kmpc_critical
+; CHECK-DAG: declare spir_func void @__kmpc_critical([8 x i32] addrspace(4)*) #[[ATTR0:[0-9]+]]
+; CHECK-DAG: declare spir_func void @__kmpc_end_critical([8 x i32] addrspace(4)*) #[[ATTR0]]
+; CHECK-DAG: call spir_func void @__kmpc_critical{{.*}}#[[ATTR1:[0-9]+]]
 ; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_addd
-; CHECK-DAG: call spir_func void @__kmpc_end_critical
+; CHECK-DAG: call spir_func void @__kmpc_end_critical{{.*}}[[ATTR1]]
 ; CHECK-DAG-NEXT: ret void
-; CHECK-DAG: attributes #[[ATTR]] = {{{.*}}convergent{{.*}}}
+; CHECK-DAG: attributes #[[ATTR0]] = {{{.*}}convergent{{.*}}noduplicate{{.*}}}
+; CHECK-DAG: attributes #[[ATTR1]] = {{{.*}}convergent{{.*}}noduplicate{{.*}}nomerge{{.*}}}
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
