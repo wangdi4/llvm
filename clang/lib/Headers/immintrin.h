@@ -511,7 +511,14 @@
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_MPSADBW */
-
+/* INTEL_FEATURE_ISA_AVX_MOVGET */
+#if defined(__AVXMOVGET_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXMOVGET__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxmovget/avxmovgetintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_MOVGET */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */

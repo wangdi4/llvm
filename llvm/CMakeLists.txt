@@ -1082,6 +1082,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MPSADBW)
 # end INTEL_FEATURE_ISA_AVX_MPSADBW
+# INTEL_FEATURE_ISA_AVX_MOVGET
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MOVGET)
+# end INTEL_FEATURE_ISA_AVX_MOVGET
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

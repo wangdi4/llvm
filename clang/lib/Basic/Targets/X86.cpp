@@ -484,6 +484,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avx512mpsadbw") {
       HasAVX512MPSADBW = true;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+    } else if (Feature == "+avxmovget") {
+      HasAVXMOVGET = true;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
@@ -1094,6 +1098,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512MPSADBW__");
   Builder.defineMacro("__AVX512MPSADBW_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+  if (HasAVXMOVGET)
+    Builder.defineMacro("__AVXMOVGET__");
+  Builder.defineMacro("__AVXMOVGET_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1402,6 +1411,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
       .Case("avx512mpsadbw", true)
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+      .Case("avxmovget", true)
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
@@ -1528,6 +1540,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
       .Case("avx512mpsadbw", HasAVX512MPSADBW)
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+      .Case("avxmovget", HasAVXMOVGET)
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
