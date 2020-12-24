@@ -5906,7 +5906,7 @@ def fenable_sycl_dae : Flag<["-"], "fenable-sycl-dae">,
 def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
   HelpText<"Experimental flag enabling standard optimization in the front-end.">;
 
-} // let Flags = [CC1Option]
+} // let Flags = [CC1Option, NoDriverOption]
 
 //===----------------------------------------------------------------------===//
 // cc1as-only Options
