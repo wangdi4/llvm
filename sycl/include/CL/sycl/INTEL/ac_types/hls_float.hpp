@@ -41,9 +41,13 @@
 #endif
 
 #if !defined(__EMULATION_FLOW__)
-#include "_hls_float_FPGA.hpp"
+/* INTEL_CUSTOMIZATION */
+#include "internal/_hls_float_FPGA.hpp"
+/* end INTEL_CUSTOMIZATION */
 #else
-#include "_hls_float_X86-64.hpp"
+/* INTEL_CUSTOMIZATION */
+#include "internal/_hls_float_X86-64.hpp"
+/* end INTEL_CUSTOMIZATION */
 #endif
 
 // This internal flag skips the restriction on the discrete set of FP
