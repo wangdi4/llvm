@@ -27,7 +27,9 @@
 // CHECK: declare void @__kmpc_barrier_simple_spmd(%struct.ident_t*, i32) [[attr3:#[0-9]*]]
 // CHECK: declare i1 @__kmpc_kernel_parallel(i8**)
 // CHECK-NOT: #
-// CHECK: declare i32 @__kmpc_global_thread_num(%struct.ident_t* {{.*}}) [[attr4:#[0-9]*]] // INTEL
+// INTEL_CUSTOMIZATION
+// CHECK: declare i32 @__kmpc_global_thread_num(%struct.ident_t* {{.*}}) [[attr4:#[0-9]*]]
+// end INTEL_CUSTOMIZATION
 // CHECK: declare void @__kmpc_kernel_end_parallel()
 // CHECK-NOT: #
 // CHECK: define internal void @__omp_offloading_{{.*}}__Z17complex_reductionIdEvv_{{.*}}_worker() [[attr0]]
