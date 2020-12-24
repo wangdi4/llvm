@@ -109,6 +109,8 @@ def X86vextractst  : SDNode<"X86ISD::VEXTRACT_STORE", SDTStore,
                      [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 def X86VBroadcastld  : SDNode<"X86ISD::VBROADCAST_LOAD", SDTLoad,
                       [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86SubVBroadcastld : SDNode<"X86ISD::SUBV_BROADCAST_LOAD", SDTLoad,
+                         [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 
 #if INTEL_CUSTOMIZATION
 def SDTVmasked_VBroadcastld : SDTypeProfile<1, 2, [SDTCisVec<0>,
@@ -1158,6 +1160,17 @@ def fp16imm0 : PatLeaf<(f16 fpimm), [{
 }]>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+
+def X86SubVBroadcastld128 : PatFrag<(ops node:$src),
+                                    (X86SubVBroadcastld node:$src), [{
+  return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 16;
+}]>;
+
+def X86SubVBroadcastld256 : PatFrag<(ops node:$src),
+                                    (X86SubVBroadcastld node:$src), [{
+  return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 32;
+}]>;
+
 // Scalar SSE intrinsic fragments to match several different types of loads.
 // Used by scalar SSE intrinsic instructions which have 128 bit types, but
 // only load a single element.
