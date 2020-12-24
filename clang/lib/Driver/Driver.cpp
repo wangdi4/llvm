@@ -3897,10 +3897,18 @@ class OffloadingActionBuilder final {
       }
 
       // By default, we produce an action for each device arch.
-      for (Action *&A : OpenMPDeviceActions)
 #if INTEL_CUSTOMIZATION
+      auto TC = ToolChains.begin();
+      for (Action *&A : OpenMPDeviceActions) {
+        if ((*TC)->getTriple().isSPIR() && CurPhase == phases::Backend) {
+          A = C.MakeAction<BackendJobAction>(A, types::TY_LLVM_BC);
+          TC++;
+          continue;
+        }
         A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A,
                                                Action::OFK_OpenMP);
+        TC++;
+      }
 #endif // INTEL_CUSTOMIZATION
 
       return ABRT_Success;
@@ -4007,12 +4015,23 @@ class OffloadingActionBuilder final {
 #ifdef INTEL_CUSTOMIZATION
         OffloadAction::DeviceDependences DeviceLinkDeps;
         auto *DeviceLinkAction =
-            C.MakeAction<LinkJobAction>(LI, types::TY_Image);
-        if ((*TC)->getTriple().isSPIR()) {
+            C.MakeAction<LinkJobAction>(LI, types::TY_LLVM_BC);
+        llvm::Triple TT = (*TC)->getTriple();
+        if (TT.isSPIR()) {
           auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
               DeviceLinkAction, types::TY_LLVM_BC);
-          auto *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
-              PostLinkAction, types::TY_Image);
+          Action *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
+              PostLinkAction, types::TY_SPIRV);
+          // After the Link, wrap the files before the final host link
+          if (TT.getSubArch() == llvm::Triple::SPIRSubArch_gen ||
+              TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64) {
+            // Do the additional Ahead of Time compilation when the specific
+            // triple calls for it (provided a valid subarch).
+            ActionList BEInputs;
+            BEInputs.push_back(SPIRVTranslateAction);
+            SPIRVTranslateAction =
+                C.MakeAction<BackendCompileJobAction>(BEInputs, types::TY_Image);
+          }
           DeviceLinkDeps.add(*SPIRVTranslateAction, **TC, /*BoundArch=*/nullptr,
                              Action::OFK_OpenMP);
         } else
@@ -5846,12 +5865,6 @@ Action *Driver::ConstructPhaseAction(
           Args.hasArg(options::OPT_S) ? types::TY_LLVM_IR : types::TY_LLVM_BC;
       return C.MakeAction<BackendJobAction>(Input, Output);
     }
-#if INTEL_CUSTOMIZATION
-    // SPIR target arch during offload should generate bitcode.
-    if (TargetDeviceOffloadKind == Action::OFK_OpenMP &&
-        C.getSingleOffloadToolChain<Action::OFK_OpenMP>()->getTriple().isSPIR())
-      return C.MakeAction<BackendJobAction>(Input, types::TY_LLVM_BC);
-#endif // INTEL_CUSTOMIZATION
     return C.MakeAction<BackendJobAction>(Input, types::TY_PP_Asm);
   }
   case phases::Assemble:

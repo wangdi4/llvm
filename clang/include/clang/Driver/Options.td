@@ -893,6 +893,26 @@ def Xopenmp_target : Separate<["-"], "Xopenmp-target">,
 def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">,
   HelpText<"Pass <arg> to the target offloading toolchain identified by <triple>.">,
   MetaVarName<"<triple> <arg>">;
+#if INTEL_CUSTOMIZATION
+def Xopenmp_backend : Separate<["-"], "Xopenmp-target-backend">,
+  HelpText<"Pass <arg> to the OpenMP based target backend.">,
+  MetaVarName<"<arg>">, Flags<[CoreOption]>;
+def Xopenmp_backend_EQ : JoinedAndSeparate<["-"], "Xopenmp-target-backend=">,
+  HelpText<"Pass <arg> to the OpenMP based backend identified by <triple>.">,
+  MetaVarName<"<triple> <arg>">, Flags<[CoreOption]>;
+def Xopenmp_frontend : Separate<["-"], "Xopenmp-target-frontend">,
+  HelpText<"Pass <arg> to the OpenMP based target frontend.">,
+  Alias<Xopenmp_target>, Flags<[CoreOption]>;
+def Xopenmp_frontend_EQ : JoinedAndSeparate<["-"], "Xopenmp-target-frontend=">,
+  HelpText<"Pass <arg> to the OpenMPbased target frontend identified by "
+  "<triple>.">, Alias<Xopenmp_target_EQ>, Flags<[CoreOption]>;
+def Xopenmp_linker : Separate<["-"], "Xopenmp-target-linker">,
+  HelpText<"Pass <arg> to the SYCL based target linker.">,
+  MetaVarName<"<arg>">, Flags<[CoreOption]>;
+def Xopenmp_linker_EQ : JoinedAndSeparate<["-"], "Xopenmp-target-linker=">,
+  HelpText<"Pass <arg> to the SYCL based target linker identified by "
+  "<triple>.">, MetaVarName<"<triple> <arg>">, Flags<[CoreOption]>;
+#endif // INTEL_CUSTOMIZATION
 def Xsycl_backend : Separate<["-"], "Xsycl-target-backend">,
   HelpText<"Pass <arg> to the SYCL based target backend.">, MetaVarName<"<arg>">, Flags<[CoreOption]>;
 def Xsycl_backend_EQ : JoinedAndSeparate<["-"], "Xsycl-target-backend=">,
