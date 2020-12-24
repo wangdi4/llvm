@@ -6172,6 +6172,16 @@ let TargetPrefix = "x86" in {
                         [IntrArgMemOnly, ImmArg<ArgIndex<1>>]>;
 }
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+let TargetPrefix = "x86" in {
+  def int_x86_vmovget128 : GCCBuiltin<"__builtin_ia32_vmovget128">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_ptr_ty],
+        [IntrReadMem]>;
+def int_x86_vmovget256 : GCCBuiltin<"__builtin_ia32_vmovget256">,
+        Intrinsic<[llvm_v8i32_ty], [llvm_ptr_ty],
+        [IntrReadMem]>;
+}
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

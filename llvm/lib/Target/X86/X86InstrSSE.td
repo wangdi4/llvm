@@ -8623,4 +8623,21 @@ defm VPSHLD : avxcompress_3Op_imm8<0x71, 0x70, "vpshld", X86VShld,
 defm VPSHRD : avxcompress_3Op_imm8<0x73, 0x72, "vpshrd", X86VShrd,
                                    SchedWriteVecIMul>, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+multiclass VMOVGET_rm {
+  let Predicates = [HasAVXMOVGET] in {
+    def rm : I<0xc5, MRMSrcMem, (outs VR128:$dst), (ins i128mem:$src),
+               "vmovget\t{$src, $dst|$dst, $src}",
+               [(set VR128:$dst, (int_x86_vmovget128 addr:$src))]>,
+               Sched<[SchedWriteVecMoveLS.XMM.RM]>, VEX, T8XS;
+    def Yrm : I<0xc5, MRMSrcMem, (outs VR256:$dst), (ins i256mem:$src),
+                "vmovget\t{$src, $dst|$dst, $src}",
+                [(set VR256:$dst, (int_x86_vmovget256 addr:$src))]>,
+                Sched<[SchedWriteVecMoveLS.YMM.RM]>, VEX, VEX_L, T8XS;
+  }
+}
+
+defm VMOVGET : VMOVGET_rm;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION

@@ -4334,6 +4334,10 @@ def mno_avxdotprodint8 : Flag<["-"], "mno-avxdotprodint8">, Group<m_x86_Features
 def mavxdotprodphps : Flag<["-"], "mavxdotprodphps">, Group<m_x86_Features_Group>;
 def mno_avxdotprodphps : Flag<["-"], "mno-avxdotprodphps">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+def mavxmovget : Flag<["-"], "mavxmovget">, Group<m_x86_Features_Group>;
+def mno_avxmovget : Flag<["-"], "mno-avxmovget">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION
 def mavxvnni : Flag<["-"], "mavxvnni">, Group<m_x86_Features_Group>;
 def mno_avxvnni : Flag<["-"], "mno-avxvnni">, Group<m_x86_Features_Group>;

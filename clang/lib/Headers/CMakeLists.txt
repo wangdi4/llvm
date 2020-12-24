@@ -232,6 +232,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512mpsadbw/avx512mpsadbwintrin.h
   )
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+# INTEL_FEATURE_ISA_AVX_MOVGET
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MOVGET
+  Intel_Headers/avxmovget/avxmovgetintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_MOVGET
 # end INTEL_CUSTOMIZATION
 
 set(files
