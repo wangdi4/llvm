@@ -560,6 +560,8 @@ TEST_F(USMTest, setKernelArgMemPointer) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
+#ifndef _WIN32 // Flaky [CMPLRLLVM-25311]
+
 class SetKernelArgMemPointerThread : public SynchronizedThread {
 public:
   SetKernelArgMemPointerThread(cl_context context, cl_device_id device,
@@ -618,6 +620,8 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   cl_int err = clReleaseProgram(program);
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
+
+#endif // #ifndef _WIN32
 
 TEST_F(USMTest, setKernelExecInfo) {
   cl_int err;
