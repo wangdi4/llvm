@@ -41,7 +41,7 @@ using namespace llvm::vpo::intrinsics;
 #define DEBUG_TYPE "vpo-paropt-atomics"
 
 cl::opt<bool> Enable64BitOpenCLAtomics(
-  "vpo-paropt-enable-64bit-opencl-atomics", cl::Hidden, cl::init(false),
+  "vpo-paropt-enable-64bit-opencl-atomics", cl::Hidden, cl::init(true),
   cl::desc("Enables usage of 64-bit atomic OpenCL RTL API."));
 
 // Main driver for handling a WRNAtomicNode.
@@ -1202,9 +1202,14 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 
   unsigned OpCode = Operation.getOpcode();
 
-  if (IsTargetSPIRV && (!Enable64BitOpenCLAtomics &&
-                        (AtomicOpndType->getScalarSizeInBits() > 32 ||
-                         ValueOpndType->getScalarSizeInBits() > 32))) {
+  const Function *F = Operation.getFunction();
+
+  if (IsTargetSPIRV &&
+      ((!Enable64BitOpenCLAtomics ||
+        // Do not use 64-bit atomics, if optimizations are not enabled.
+        !F || F->hasFnAttribute(Attribute::OptimizeNone)) &&
+       (AtomicOpndType->getScalarSizeInBits() > 32 ||
+        ValueOpndType->getScalarSizeInBits() > 32))) {
     // If 64-bit OpenCL atomics are not supported,
     // then we have to use critical section.
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "
