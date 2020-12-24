@@ -1,4 +1,4 @@
-; RUN: opt < %s -gvn -simplifycfg -disable-output
+; RUN: opt < %s -gvn -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -disable-output
 ; INTEL
 ; RUN: opt < %s -S -convert-to-subscript | opt -gvn -simplifycfg -disable-output
 ; PR867
