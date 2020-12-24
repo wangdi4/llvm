@@ -700,6 +700,44 @@ class VPatBinaryMask<string intrinsic_name,
                    ToFPR32<op2_type, op2_kind, "rs2">.ret,
                    (mask_type V0), (NoX0 GPR:$vl), sew)>;
 
+multiclass VPatUSLoad<string intrinsic,
+                      string inst,
+                      LLVMType type,
+                      LLVMType mask_type,
+                      int sew,
+                      LMULInfo vlmul,
+                      VReg reg_class>
+{
+    defvar Intr = !cast<Intrinsic>(intrinsic);
+    defvar Pseudo = !cast<Instruction>(inst#"_V_"#vlmul.MX);
+    def : Pat<(type (Intr GPR:$rs1, GPR:$vl)),
+                    (Pseudo $rs1, (NoX0 GPR:$vl), sew)>;
+    defvar IntrMask = !cast<Intrinsic>(intrinsic # "_mask");
+    defvar PseudoMask = !cast<Instruction>(inst#"_V_"#vlmul.MX#"_MASK");
+    def : Pat<(type (IntrMask (type GetVRegNoV0<reg_class>.R:$merge),
+                               GPR:$rs1, (mask_type V0), GPR:$vl)),
+                    (PseudoMask $merge,
+                                $rs1, (mask_type V0), (NoX0 GPR:$vl), sew)>;
+}
+
+multiclass VPatUSStore<string intrinsic,
+                       string inst,
+                       LLVMType type,
+                       LLVMType mask_type,
+                       int sew,
+                       LMULInfo vlmul,
+                       VReg reg_class>
+{
+    defvar Intr = !cast<Intrinsic>(intrinsic);
+    defvar Pseudo = !cast<Instruction>(inst#"_V_"#vlmul.MX);
+    def : Pat<(Intr (type reg_class:$rs3), GPR:$rs1, GPR:$vl),
+                    (Pseudo $rs3, $rs1, (NoX0 GPR:$vl), sew)>;
+    defvar IntrMask = !cast<Intrinsic>(intrinsic # "_mask");
+    defvar PseudoMask = !cast<Instruction>(inst#"_V_"#vlmul.MX#"_MASK");
+    def : Pat<(IntrMask (type reg_class:$rs3), GPR:$rs1, (mask_type V0), GPR:$vl),
+              (PseudoMask $rs3, $rs1, (mask_type V0), (NoX0 GPR:$vl), sew)>;
+}
+
 multiclass VPatBinary<string intrinsic,
                       string inst,
                       string kind,
@@ -1033,6 +1071,10 @@ def PseudoVSETVLI : Pseudo<(outs GPR:$rd), (ins GPR:$rs1, VTypeIOp:$vtypei), []>
 // 7. Vector Loads and Stores
 //===----------------------------------------------------------------------===//
 
+//===----------------------------------------------------------------------===//
+// 7.4 Vector Unit-Stride Instructions
+//===----------------------------------------------------------------------===//
+
 // Pseudos Unit-Stride Loads and Stores
 foreach eew = EEWList in {
   defm PseudoVLE # eew : VPseudoUSLoad;
@@ -1098,6 +1140,29 @@ defm PseudoVMIN        : VPseudoBinaryV_VV_VX;
 defm PseudoVMAXU       : VPseudoBinaryV_VV_VX;
 defm PseudoVMAX        : VPseudoBinaryV_VV_VX;
 
+//===----------------------------------------------------------------------===//
+// 12.10. Vector Single-Width Integer Multiply Instructions
+//===----------------------------------------------------------------------===//
+defm PseudoVMUL        : VPseudoBinaryV_VV_VX;
+defm PseudoVMULH       : VPseudoBinaryV_VV_VX;
+defm PseudoVMULHU      : VPseudoBinaryV_VV_VX;
+defm PseudoVMULHSU     : VPseudoBinaryV_VV_VX;
+
+//===----------------------------------------------------------------------===//
+// 12.11. Vector Integer Divide Instructions
+//===----------------------------------------------------------------------===//
+defm PseudoVDIVU       : VPseudoBinaryV_VV_VX;
+defm PseudoVDIV        : VPseudoBinaryV_VV_VX;
+defm PseudoVREMU       : VPseudoBinaryV_VV_VX;
+defm PseudoVREM        : VPseudoBinaryV_VV_VX;
+
+//===----------------------------------------------------------------------===//
+// 12.12. Vector Widening Integer Multiply Instructions
+//===----------------------------------------------------------------------===//
+defm PseudoVWMUL       : VPseudoBinaryW_VV_VX;
+defm PseudoVWMULU      : VPseudoBinaryW_VV_VX;
+defm PseudoVWMULSU     : VPseudoBinaryW_VV_VX;
+
 } // Predicates = [HasStdExtV]
 
 let Predicates = [HasStdExtV, HasStdExtF] in {
@@ -1123,6 +1188,24 @@ defm "" : VPatUSLoadStoreSDNodes<AddrFI>;
 
 // 12.1. Vector Single-Width Integer Add and Subtract
 defm "" : VPatBinarySDNode<add, "PseudoVADD">;
+
+//===----------------------------------------------------------------------===//
+// 7. Vector Loads and Stores
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// 7.4 Vector Unit-Stride Instructions
+//===----------------------------------------------------------------------===//
+
+foreach vti = AllVectors in
+{
+  defm : VPatUSLoad<"int_riscv_vle",
+                    "PseudoVLE" # vti.SEW,
+                    vti.Vector, vti.Mask, vti.SEW, vti.LMul, vti.RegClass>;
+  defm : VPatUSStore<"int_riscv_vse",
+                     "PseudoVSE" # vti.SEW,
+                     vti.Vector, vti.Mask, vti.SEW, vti.LMul, vti.RegClass>;
+}
 
 //===----------------------------------------------------------------------===//
 // 12. Vector Integer Arithmetic Instructions
@@ -1181,6 +1264,29 @@ defm "" : VPatBinaryV_VV_VX<"int_riscv_vminu", "PseudoVMINU", AllIntegerVectors>
 defm "" : VPatBinaryV_VV_VX<"int_riscv_vmin", "PseudoVMIN", AllIntegerVectors>;
 defm "" : VPatBinaryV_VV_VX<"int_riscv_vmaxu", "PseudoVMAXU", AllIntegerVectors>;
 defm "" : VPatBinaryV_VV_VX<"int_riscv_vmax", "PseudoVMAX", AllIntegerVectors>;
+
+//===----------------------------------------------------------------------===//
+// 12.10. Vector Single-Width Integer Multiply Instructions
+//===----------------------------------------------------------------------===//
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vmul", "PseudoVMUL", AllIntegerVectors>;
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vmulh", "PseudoVMULH", AllIntegerVectors>;
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vmulhu", "PseudoVMULHU", AllIntegerVectors>;
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vmulhsu", "PseudoVMULHSU", AllIntegerVectors>;
+
+//===----------------------------------------------------------------------===//
+// 12.11. Vector Integer Divide Instructions
+//===----------------------------------------------------------------------===//
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vdivu", "PseudoVDIVU", AllIntegerVectors>;
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vdiv", "PseudoVDIV", AllIntegerVectors>;
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vremu", "PseudoVREMU", AllIntegerVectors>;
+defm "" : VPatBinaryV_VV_VX<"int_riscv_vrem", "PseudoVREM", AllIntegerVectors>;
+
+//===----------------------------------------------------------------------===//
+// 12.12. Vector Widening Integer Multiply Instructions
+//===----------------------------------------------------------------------===//
+defm "" : VPatBinaryW_VV_VX<"int_riscv_vwmul", "PseudoVWMUL">;
+defm "" : VPatBinaryW_VV_VX<"int_riscv_vwmulu", "PseudoVWMULU">;
+defm "" : VPatBinaryW_VV_VX<"int_riscv_vwmulsu", "PseudoVWMULSU">;
 
 } // Predicates = [HasStdExtV]
 
