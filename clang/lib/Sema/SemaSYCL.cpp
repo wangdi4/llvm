@@ -3245,9 +3245,12 @@ void Sema::MarkDevice(void) {
         case attr::Kind::ReqdWorkGroupSize: {
           auto *Attr = cast<ReqdWorkGroupSizeAttr>(A);
           if (auto *Existing = SYCLKernel->getAttr<ReqdWorkGroupSizeAttr>()) {
-            if (Existing->getXDim() != Attr->getXDim() ||
-                Existing->getYDim() != Attr->getYDim() ||
-                Existing->getZDim() != Attr->getZDim()) {
+            if ((getIntExprValue(Existing->getXDim(), getASTContext()) !=
+                 getIntExprValue(Attr->getXDim(), getASTContext())) ||
+                (getIntExprValue(Existing->getYDim(), getASTContext()) !=
+                 getIntExprValue(Attr->getYDim(), getASTContext())) ||
+                (getIntExprValue(Existing->getZDim(), getASTContext()) !=
+                 getIntExprValue(Attr->getZDim(), getASTContext()))) {
               Diag(SYCLKernel->getLocation(),
                    diag::err_conflicting_sycl_kernel_attributes);
               Diag(Existing->getLocation(), diag::note_conflicting_attribute);
@@ -3256,9 +3259,12 @@ void Sema::MarkDevice(void) {
             }
           } else if (auto *Existing =
                          SYCLKernel->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-            if (Existing->getXDim() < Attr->getXDim() ||
-                Existing->getYDim() < Attr->getYDim() ||
-                Existing->getZDim() < Attr->getZDim()) {
+            if ((getIntExprValue(Existing->getXDim(), getASTContext()) <
+                 getIntExprValue(Attr->getXDim(), getASTContext())) ||
+                (getIntExprValue(Existing->getYDim(), getASTContext()) <
+                 getIntExprValue(Attr->getYDim(), getASTContext())) ||
+                (getIntExprValue(Existing->getZDim(), getASTContext()) <
+                 getIntExprValue(Attr->getZDim(), getASTContext()))) {
               Diag(SYCLKernel->getLocation(),
                    diag::err_conflicting_sycl_kernel_attributes);
               Diag(Existing->getLocation(), diag::note_conflicting_attribute);
@@ -3275,9 +3281,12 @@ void Sema::MarkDevice(void) {
         case attr::Kind::SYCLIntelMaxWorkGroupSize: {
           auto *Attr = cast<SYCLIntelMaxWorkGroupSizeAttr>(A);
           if (auto *Existing = SYCLKernel->getAttr<ReqdWorkGroupSizeAttr>()) {
-            if (Existing->getXDim() > Attr->getXDim() ||
-                Existing->getYDim() > Attr->getYDim() ||
-                Existing->getZDim() > Attr->getZDim()) {
+            if ((getIntExprValue(Existing->getXDim(), getASTContext()) >
+                 getIntExprValue(Attr->getXDim(), getASTContext())) ||
+                (getIntExprValue(Existing->getYDim(), getASTContext()) >
+                 getIntExprValue(Attr->getYDim(), getASTContext())) ||
+                (getIntExprValue(Existing->getZDim(), getASTContext()) >
+                 getIntExprValue(Attr->getZDim(), getASTContext()))) {
               Diag(SYCLKernel->getLocation(),
                    diag::err_conflicting_sycl_kernel_attributes);
               Diag(Existing->getLocation(), diag::note_conflicting_attribute);
