@@ -14,10 +14,11 @@
 
 #include "BitCodeContainer.h"
 #include "CompilationUtils.h"
-#include "CompiledModule.h"
 #include "Compiler.h"
 #include "exceptions.h"
 #include "ImageCallbackLibrary.h"
+#include "LibraryProgramManager.h"
+#include "Program.h"
 #include "SystemInfo.h"
 #include "ServiceFactory.h"
 
@@ -132,7 +133,6 @@ const string FilterToPrefix(cl_filter_mode _filterMode)
 std::string ImageCallbackLibrary::getLibraryBasename()
 {
     char szModuleName[MAX_PATH];
-    std::string strErr;
 
     Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
 
@@ -142,10 +142,8 @@ std::string ImageCallbackLibrary::getLibraryBasename()
       throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error. NULL CPU prefix"));
 
 
-    std::string ret = std::string(szModuleName)
-                    + "clbltfn"
-                    + std::string(pCPUPrefix)
-                    + "_img_cbk";
+    std::string ret = std::string(szModuleName) + OCL_LIBRARY_TARGET_NAME +
+                      std::string(pCPUPrefix);
 
     assert(ret.length() <= MAX_PATH);
     return ret;
@@ -154,16 +152,6 @@ std::string ImageCallbackLibrary::getLibraryBasename()
 std::string ImageCallbackLibrary::getLibraryObjectName()
 {
   return getLibraryBasename() + OCL_PRECOMPILED_OUTPUT_EXTENSION;
-}
-
-std::string ImageCallbackLibrary::getLibraryRtlName()
-{
-  char ModuleName[MAX_PATH];
-  Utils::SystemInfo::GetModuleDirectory(ModuleName, MAX_PATH);
-  // Just use an arbitrary rtl (clkernel.rtl) which is only used to instantiate
-  // LLDJIT.
-  return std::string(ModuleName) + OCL_LIBRARY_KERNEL_TARGET_NAME +
-         OCL_OUTPUT_EXTENSION;
 }
 
 UndefCbkDesc::UndefCbkDesc(UndefCbkType _type, VecSize _vecSize):
@@ -265,52 +253,9 @@ std::string WriteCbkDesc::GetName() const
     return ss.str();
 }
 
-void ImageCallbackLibrary::Load()
-{
-    // Load built-ins module IR from an rtl file.
-    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferOrErr =
-        llvm::MemoryBuffer::getFile(getLibraryRtlName().c_str());
-    if( !rtlBufferOrErr )
-    {
-        throw Exceptions::DeviceBackendExceptionBase(
-          std::string("Failed to load the image callback rtl library"));
-    }
-
-    // read IR into a Module
-    m_pRtlBuffer.reset(rtlBufferOrErr.get().release());
-    std::unique_ptr<llvm::Module> M =
-        m_Compiler->ParseModuleIR(m_pRtlBuffer.get());
-
-    // initialize the object cache with the path to the pre-compiled image
-    // callback library object.
-    m_pLoader->addLocation(M.get(), getLibraryObjectName());
-
-    if (m_Compiler->useLLDJITForExecution(M.get())) {
-        // create an execution engine (which assumes ownership of M)
-        m_Compiler->CreateExecutionEngine(M.get());
-        std::unique_ptr<llvm::ExecutionEngine> EE(
-            static_cast<llvm::ExecutionEngine*>(
-                m_Compiler->GetExecutionEngine()));
-        EE->setObjectCache(m_pLoader.get());
-        // put the module and the execution engine in a container
-        m_pCompiledModule.reset(new CompiledModule(M.release(), std::move(EE)));
-    } else {
-        std::unique_ptr<llvm::orc::LLJIT> LLJIT =
-            m_Compiler->CreateLLJIT(M.get(), nullptr, nullptr);
-        if (auto Err = LLJIT->addObjectFile(
-                std::move(m_pLoader->getObject(M.get())))) {
-            llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
-            throw Exceptions::CompilerException("Failed to addObjectFile");
-        }
-        // put the module and JIT in a container (which assumes ownership of M)
-        m_pCompiledModule.reset(
-            new CompiledModule(M.release(), std::move(LLJIT)));
-    }
-}
-
 void ImageCallbackLibrary::Build()
 {
-    m_ImageFunctions = new ImageCallbackFunctions(m_pCompiledModule.get());
+    m_ImageFunctions = new ImageCallbackFunctions();
 }
 
 // For CPU this should be left empty
@@ -319,22 +264,35 @@ bool ImageCallbackLibrary::LoadExecutable()
     return true;
 }
 
-ImageCallbackFunctions::ImageCallbackFunctions(CompiledModule* pCompiledModule)
-    :m_pCompiledModule(pCompiledModule)
-{
+ImageCallbackFunctions::ImageCallbackFunctions(){
+    // Reuse LLJIT from library program because precompiled image callback
+    // objects and library objects are in the same .o file.
+    Program *P = LibraryProgramManager::getInstance().getProgram();
+    assert(P && "Invalid library program");
+    m_LLJIT = P->GetLLJIT();
+    assert(m_LLJIT && "Invalid LLJIT from library program");
 }
 
 void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
 {
     std::string name = _desc.GetName();
-    void* ptr = m_pCompiledModule->getPointerToFunction(name);
-    if(ptr == nullptr)
+
+    void *addr = nullptr;
+    auto sym = m_LLJIT->lookup(name);
+    if (llvm::Error err = sym.takeError()) {
+      llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+      addr = nullptr;
+    } else
+      addr = reinterpret_cast<void *>(static_cast<uintptr_t>(
+          sym->getAddress()));
+
+    if(addr == nullptr)
     {
         std::stringstream ss;
         ss << "Internal error. Failed to retreive pointer to function " << _desc.GetName();
         throw Exceptions::DeviceBackendExceptionBase(ss.str());
     }
-    return ptr;
+    return addr;
 }
 
 struct TrapDescriptor: public CbkDesc{
@@ -352,8 +310,6 @@ ImageCallbackLibrary::~ImageCallbackLibrary()
     if (m_ImageFunctions) 
         delete m_ImageFunctions;
 
-    // Module must be freed before compiler.
-    delete m_pCompiledModule.release();
     delete m_Compiler;
 }
 

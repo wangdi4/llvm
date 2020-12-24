@@ -163,7 +163,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
   set (TMP_LINKED_RTL_OUTPUT ${OUTPUT_DIR}/${TMP_LINKED_RTL}${OCL_OUTPUT_EXTENSION})
 
   set (OUTPUT_FILE ${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
-  set (PRECOMPILED_OUTPUT_FILE ${TARGET_NAME}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
+  set(LIBRARY_OUTPUT_FILE ${OCL_LIBRARY_TARGET_NAME}${OCL_OUTPUT_EXTENSION})
+  set(PRECOMPILED_OUTPUT_FILE ${OCL_LIBRARY_TARGET_NAME}${ARCH}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 
@@ -181,7 +182,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
 
   if(${USE_OPT})
     # link OpenCL image callback library (adding also intrinsic BI IR )
-    add_custom_command (OUTPUT ${OUTPUT_FILE}_noopt
+    add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt
       COMMENT "Linking ${OUTPUT_FILE}_noopt"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
@@ -201,11 +202,19 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
       )
     set (RTL_TO_LINK ${TMP_LINKED_RTL_OUTPUT})
 
-    add_custom_command(OUTPUT ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
+    add_custom_command(OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
       COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
-      DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
+      DEPENDS ${OPT_DEP} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
+      VERBATIM
+      )
+
+    # link with kernel rtl
+    add_custom_command (OUTPUT ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
+      COMMENT "Linking ${OUTPUT_FILE}_opt with ${KERNEL_RTL}"
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}_opt ${KERNEL_RTL}
+      DEPENDS ${LLVM_LINK} ${OUTPUT_DIR}/${OUTPUT_FILE}_opt ${KERNEL_RTL}
       VERBATIM
       )
   else()
@@ -224,8 +233,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
       COMMENT "Building static object ${PRECOMPILED_OUTPUT_FILE}"
       COMMAND ${LLC} ${LLC_PARAMS} -mcpu=${PROC} -o
               ${BUILTINS_OUTPUT_DIR}/${PRECOMPILED_OUTPUT_FILE} <
-              ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
-      DEPENDS ${LLC} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
+              ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
+      DEPENDS ${LLC} ${OUTPUT_DIR}/${LIBRARY_OUTPUT_FILE}
       VERBATIM
       )
   endif(${ENABLE_PRECOMPILE})
@@ -303,8 +312,9 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library( OUTPUT_OCL_LIB IGNORE "${CLANG_CL_COMMON_COMPILER_FLAGS}" ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} "${C_SOURCE_FILES}" ${OCL_20_SOURCE_FILES})
 
-  # build .o files out of OCL image callbacks (by clang) and copy to install directory
-  add_ocl_library(IGNORE OUTPUT_OCL_IMAGE_CALLBACK_OBJ "${CLANG_CL_CBK_COMPILER_FLAGS}" ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
+  # Build .o files out of OCL image callbacks rtl file and kernel rtl file.
+  # Copy to install directory
+  add_ocl_library(IGNORE OUTPUT_OCL_LIBRARY_OBJ "${CLANG_CL_CBK_COMPILER_FLAGS}" ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
   install_svml( ${ARCH} )
@@ -314,7 +324,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   # If prebuilt library is built, depend on it so it gets built.
   if( PREBUILD_IMAGE_LIBRARY )
-    set (TARGET_DEPENDENCIES ${TARGET_DEPENDENCIES} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+    set (TARGET_DEPENDENCIES ${TARGET_DEPENDENCIES} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIBRARY_OBJ}) 
   endif( PREBUILD_IMAGE_LIBRARY)
 
   # top-level target for OCL target
@@ -331,7 +341,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   set (INSTALL_LIST ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB})
   if (PREBUILD_IMAGE_LIBRARY)
-     set (INSTALL_LIST ${INSTALL_LIST} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
+    set (INSTALL_LIST ${INSTALL_LIST} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIBRARY_OBJ})
   endif (PREBUILD_IMAGE_LIBRARY)
 
   install_to (${INSTALL_LIST} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-builtins)
