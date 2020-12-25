@@ -90,6 +90,10 @@ namespace intel {
       barrierModulePM.add((ModulePass*)createRemoveDuplicationBarrierPass());
     }
 
+    if (m_debugType == Native) {
+      barrierModulePM.add((ModulePass*)createImplicitGIDPass());
+    }
+
     if (EnableSubGroupEmulation) {
       // Begin sub-group emulation
       barrierModulePM.add(createSubGroupBuiltinPass());
@@ -108,9 +112,7 @@ namespace intel {
         createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
 
     barrierModulePM.add((ModulePass*)createSplitBBonBarrierPass());
-    if (m_debugType == Native) {
-      barrierModulePM.add((ModulePass*)createImplicitGIDPass());
-    }
+
     Pass *pBarrierPass =
         (ModulePass *)createBarrierPass(m_debugType == Native, m_useTLSGlobals);
     barrierModulePM.add((ModulePass*)pBarrierPass);

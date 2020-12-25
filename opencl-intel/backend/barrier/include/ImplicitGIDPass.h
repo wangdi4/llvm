@@ -63,11 +63,11 @@ namespace intel {
     /// @returns True if function was modified
     virtual bool runOnFunction(Function &F);
 
-    /// @brief execute pass on given basic block
+    /// @brief Insert store instructions of implicit GID variables
     /// @param i global ID dimension
     /// @param pGIDAlloca pointer to allocation of GID variable
-    /// @param firstInstr Instruction to insert other instructions before
-    void runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, Instruction* insertBefore/*, DIVariable GlobalIdVar*/);
+    /// @param insertBefore Instruction to insert other instructions before
+    void insertGIDStore(unsigned i, Instruction *pGIDAlloca, Instruction* insertBefore);
 
     /// @brief Adds instructions to the beginning of the given function to compute the
     ///  global IDs for 3 dimensions. Fills in the FunctionContext.
