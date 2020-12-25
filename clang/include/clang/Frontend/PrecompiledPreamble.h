@@ -17,6 +17,7 @@
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/AlignOf.h" //INTEL
 #include "llvm/Support/MD5.h"
 #include <cstddef>
 #include <memory>
@@ -197,7 +198,9 @@ private:
 
   private:
     Kind StorageKind = Kind::Empty;
-    std::aligned_union_t<1, TempPCHFile, InMemoryPreamble> Storage = {};
+#if INTEL_CUSTOMIZATION
+    llvm::AlignedCharArrayUnion<TempPCHFile, InMemoryPreamble> Storage = {};
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// Data used to determine if a file used in the preamble has been changed.

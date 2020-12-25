@@ -89,7 +89,9 @@ public:
 /// Container for either a single DynTypedNode or for an ArrayRef to
 /// DynTypedNode. For use with ParentMap.
 class DynTypedNodeList {
-  std::aligned_union_t<1, DynTypedNode, ArrayRef<DynTypedNode>> Storage;
+#if INTEL_CUSTOMIZATION
+  llvm::AlignedCharArrayUnion<DynTypedNode, ArrayRef<DynTypedNode>> Storage;
+#endif // INTEL_CUSTOMIZATION
   bool IsSingleNode;
 
 public:

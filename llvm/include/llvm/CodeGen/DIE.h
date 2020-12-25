@@ -22,6 +22,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/DwarfStringPoolEntry.h"
+#include "llvm/Support/AlignOf.h" //INTEL
 #include "llvm/Support/Allocator.h"
 #include <cassert>
 #include <cstddef>
@@ -367,9 +368,11 @@ private:
   ///
   /// All values that aren't standard layout (or are larger than 8 bytes)
   /// should be stored by reference instead of by value.
-  using ValTy = std::aligned_union_t<1, DIEInteger, DIEString, DIEExpr,
-                                     DIELabel, DIEDelta *, DIEEntry, DIEBlock *,
-                                     DIELoc *, DIELocList, DIEBaseTypeRef *>;
+#if INTEL_CUSTOMIZATION
+  using ValTy = AlignedCharArrayUnion<DIEInteger, DIEString, DIEExpr, DIELabel,
+                                      DIEDelta *, DIEEntry, DIEBlock *,
+                                      DIELoc *, DIELocList, DIEBaseTypeRef *>;
+#endif // INTEL_CUSTOMIZATION
 
   static_assert(sizeof(ValTy) <= sizeof(uint64_t) ||
                     sizeof(ValTy) <= sizeof(void *),

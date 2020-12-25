@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/EpochTracker.h"
+#include "llvm/Support/AlignOf.h" //INTEL
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/MemAlloc.h"
@@ -900,7 +901,9 @@ class SmallDenseMap
 
   /// A "union" of an inline bucket array and the struct representing
   /// a large bucket. This union will be discriminated by the 'Small' bit.
-  std::aligned_union_t<1, BucketT[InlineBuckets], LargeRep> storage;
+#if INTEL_CUSTOMIZATION
+  AlignedCharArrayUnion<BucketT[InlineBuckets], LargeRep> storage;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   explicit SmallDenseMap(unsigned NumInitBuckets = 0) {
@@ -1040,7 +1043,9 @@ public:
 
     if (Small) {
       // First move the inline buckets into a temporary storage.
-      std::aligned_union_t<1, BucketT[InlineBuckets]> TmpStorage;
+#if INTEL_CUSTOMIZATION
+      AlignedCharArrayUnion<BucketT[InlineBuckets]> TmpStorage;
+#endif // INTEL_CUSTOMIZATION
       BucketT *TmpBegin = reinterpret_cast<BucketT *>(&TmpStorage);
       BucketT *TmpEnd = TmpBegin;
 

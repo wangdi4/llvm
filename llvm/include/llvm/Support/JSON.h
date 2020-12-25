@@ -479,8 +479,10 @@ private:
   };
   // All members mutable, see moveFrom().
   mutable ValueType Type;
-  mutable std::aligned_union_t<1, bool, double, int64_t, llvm::StringRef,
-                               std::string, json::Array, json::Object>
+#if INTEL_CUSTOMIZATION
+  mutable llvm::AlignedCharArrayUnion<bool, double, int64_t, llvm::StringRef,
+                                      std::string, json::Array, json::Object>
+#endif // INTEL_CUSTOMIZATION
       Union;
   friend bool operator==(const Value &, const Value &);
 };

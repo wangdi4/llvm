@@ -101,6 +101,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/bit.h"
+#include "llvm/Support/AlignOf.h" //INTEL
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/RecyclingAllocator.h"
 #include <algorithm>
@@ -108,7 +109,6 @@
 #include <cstdint>
 #include <iterator>
 #include <new>
-#include <type_traits>
 #include <utility>
 
 namespace llvm {
@@ -963,7 +963,9 @@ public:
 
 private:
   // The root data is either a RootLeaf or a RootBranchData instance.
-  std::aligned_union_t<1, RootLeaf, RootBranchData> data;
+#if INTEL_CUSTOMIZATION
+  AlignedCharArrayUnion<RootLeaf, RootBranchData> data;
+#endif // INTEL_CUSTOMIZATION
 
   // Tree height.
   // 0: Leaves in root.
