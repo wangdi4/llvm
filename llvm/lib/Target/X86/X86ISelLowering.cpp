@@ -20005,7 +20005,13 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
       std::swap(Op0, Op1);
 
     // With AVX512, but not VLX we need to widen to get a 512-bit result type.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    if (!Subtarget.hasVLX() && !VT.is512BitVector() && !Subtarget.hasAVXCOMPRESS()) {
+#else // INTEL_FEATURE_ISA_AVX_COMPRESS
     if (!Subtarget.hasVLX() && !VT.is512BitVector()) {
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
       Op0 = widenSubVector(Op0, false, Subtarget, DAG, DL, 512);
       Op1 = widenSubVector(Op1, false, Subtarget, DAG, DL, 512);
     }
@@ -20019,12 +20025,24 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
           DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, ResultVT, Op0,
                       Op1, DAG.getTargetConstant(ShiftAmt, DL, MVT::i8));
     } else {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+      if (!Subtarget.hasVLX() && !VT.is512BitVector() && !Subtarget.hasAVXCOMPRESS())
+#else // INTEL_FEATURE_ISA_AVX_COMPRESS
       if (!Subtarget.hasVLX() && !VT.is512BitVector())
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
         Amt = widenSubVector(Amt, false, Subtarget, DAG, DL, 512);
       Funnel = DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL,
                            ResultVT, Op0, Op1, Amt);
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    if (!Subtarget.hasVLX() && !VT.is512BitVector() && !Subtarget.hasAVXCOMPRESS())
+#else // INTEL_FEATURE_ISA_AVX_COMPRESS
     if (!Subtarget.hasVLX() && !VT.is512BitVector())
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
       Funnel = extractSubVector(Funnel, 0, DAG, DL, VT.getSizeInBits());
     return Funnel;
   }
