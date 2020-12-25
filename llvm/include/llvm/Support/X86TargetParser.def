@@ -286,6 +286,9 @@ X86_FEATURE       (AMX_FP19,         "amx-fp19")
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 X86_FEATURE       (AVXMOVGET,      "avxmovget")
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+X86_FEATURE       (AVX512MOVGET,  "avx512movget")
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
 X86_FEATURE       (AVXVNNI,         "avxvnni")
 // These features aren't really CPU features, but the frontend can set them.

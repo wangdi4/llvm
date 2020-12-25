@@ -8604,7 +8604,7 @@ defm VPSHRD : avxcompress_3Op_imm8<0x73, 0x72, "vpshrd", X86VShrd,
 
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 multiclass VMOVGET_rm {
-  let Predicates = [HasAVXMOVGET] in {
+  let Predicates = [HasAVXMOVGET, NoVLX_Or_NoMOVGET] in {
     def rm : I<0xc5, MRMSrcMem, (outs VR128:$dst), (ins i128mem:$src),
                "vmovget\t{$src, $dst|$dst, $src}",
                [(set VR128:$dst, (int_x86_vmovget128 addr:$src))]>,
