@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -o - | FileCheck %s
+// XFAIL: *
 
 template <typename T, int buffer, int ReadyLatency, int BitsPerSymbol,
           bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty,
