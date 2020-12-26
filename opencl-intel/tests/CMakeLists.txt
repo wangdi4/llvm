@@ -114,6 +114,7 @@ add_subdirectory( bi_test_type )
 add_subdirectory( backend_test_type )
 add_subdirectory( name_mangling_test_type )
 add_subdirectory( metadata_api_test_type )
+add_subdirectory( subgroup_test_type )
 
 if( USE_VALGRIND )
   add_subdirectory( valgrind )
@@ -137,6 +138,7 @@ list(APPEND RUNTIME_UNITTESTS
   backend_test_type
   name_mangling_test_type
   metadata_api_test_type
+  subgroup_test_type
 )
 if (NOT ${ADDR} STREQUAL "32")
   list(APPEND RUNTIME_UNITTESTS fpga_test_type )
