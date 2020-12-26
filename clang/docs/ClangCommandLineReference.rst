@@ -3333,6 +3333,12 @@ X86
 
 .. option:: -mavx512ifma, -mno-avx512ifma
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX512_MOVGET
+.. option:: -mavx512movget, -mno-avx512movget
+
+.. end INTEL_FEATURE_ISA_AVX512_MOVGET
+.. end INTEL_CUSTOMIZATION
 .. option:: -mavx512pf, -mno-avx512pf
 
 .. option:: -mavx512vbmi, -mno-avx512vbmi

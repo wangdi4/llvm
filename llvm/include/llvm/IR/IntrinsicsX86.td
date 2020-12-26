@@ -6182,6 +6182,13 @@ def int_x86_vmovget256 : GCCBuiltin<"__builtin_ia32_vmovget256">,
         [IntrReadMem]>;
 }
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+let TargetPrefix = "x86" in {
+  def int_x86_vmovget512 : GCCBuiltin<"__builtin_ia32_vmovget512">,
+    Intrinsic<[llvm_v16i32_ty], [llvm_ptr_ty],
+    [IntrReadMem]>;
+}
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

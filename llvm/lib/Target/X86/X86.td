@@ -276,6 +276,12 @@ def FeatureAVXMOVGET : SubtargetFeature<"avxmovget", "HasAVXMOVGET", "true",
                        "Support AVX-MOVGET instructions",
                        [FeatureAVX2]>;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+def FeatureAVX512MOVGET : SubtargetFeature<"avx512movget", "HasAVX512MOVGET", "true",
+                          "Support AVX512-MOVGET instructions",
+                          [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",

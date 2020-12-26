@@ -2386,10 +2386,11 @@ TARGET_BUILTIN(__builtin_ia32_vcvtneph2bf16_128, "V8sV8g", "ncV:128:", "avxconve
 TARGET_BUILTIN(__builtin_ia32_vcvtneph2bf16_256, "V16sV16g", "ncV:256:", "avxconvert")
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 
-#if INTEL_FEATURE_ISA_AVX_MOVGET
-TARGET_BUILTIN(__builtin_ia32_vmovget128, "V4UiV4UiC*", "nV:128:", "avxmovget")
-TARGET_BUILTIN(__builtin_ia32_vmovget256, "V8UiV8UiC*", "nV:256:", "avxmovget")
-#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+TARGET_BUILTIN(__builtin_ia32_vmovget128, "V4UiV4UiC*", "nV:128:", "avx512vl,avx512movget|avxmovget")
+TARGET_BUILTIN(__builtin_ia32_vmovget256, "V8UiV8UiC*", "nV:256:", "avx512vl,avx512movget|avxmovget")
+TARGET_BUILTIN(__builtin_ia32_vmovget512, "V16UiV16UiC*", "nV:512:", "avx512movget")
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
 TARGET_HEADER_BUILTIN(_InterlockedAnd64,         "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(_InterlockedDecrement64,   "WiWiD*",   "nh", "intrin.h", ALL_MS_LANGUAGES, "")

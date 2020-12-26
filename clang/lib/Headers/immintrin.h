@@ -519,6 +519,23 @@
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_MOVGET */
+
+/* INTEL_FEATURE_ISA_AVX512_MOVGET */
+#if defined(__AVX512MOVGET_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512MOVGET__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512movget/avx512movgetintrin.h>
+#endif
+#endif
+#if defined(__AVXMOVGET_SUPPORTED__) || defined(__AVX512MOVGET_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVXMOVGET__) ||                                                 \
+     (defined(__AVX512MOVGET__) && defined(__AVX512VL__))) ||                  \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512movget/avx512vlmovgetintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_MOVGET */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */

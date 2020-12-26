@@ -177,6 +177,11 @@ static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc,
   case X86::VMEMADVISEZ128mr:
     return ST->hasAVXMEMADVISE();
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  case X86::VMOVGETZ128rm:
+  case X86::VMOVGETZ256rm:
+    return ST->hasAVXMOVGET();
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
   case X86::VALIGNDZ128rri:
   case X86::VALIGNDZ128rmi:
