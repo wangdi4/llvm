@@ -225,6 +225,7 @@ void initializeHotColdSplittingLegacyPassPass(PassRegistry&);
 void initializeHWAddressSanitizerLegacyPassPass(PassRegistry &);
 void initializeIPSCCPLegacyPassPass(PassRegistry&);
 void initializeIRCELegacyPassPass(PassRegistry&);
+void initializeIROutlinerLegacyPassPass(PassRegistry&);
 void initializeIRSimilarityIdentifierWrapperPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
 void initializeIPArrayTransposeLegacyPassPass(PassRegistry &); // INTEL
