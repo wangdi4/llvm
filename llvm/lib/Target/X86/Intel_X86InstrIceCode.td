@@ -140,8 +140,23 @@ let Predicates = [InIceCodeMode] in {
   defm FSCP_XCHG: ce_xchg<0x21, MRM4r, "fscp_xchg">, OBXS;
   defm FSCP_READ: ce_read<0x09, MRM1r, "fscp_read">, OBXS;
 
-  defm CREG_XCHG_MT: ce_xchg<0x01, MRM0r, "creg_xchg_mt">, OBXD;
-  defm CREG_READ_MT: ce_read<0x29, MRM5r, "creg_read_mt">, OBXD;
+  let OpPrefix = XD, OpMap = OB in {
+    let Constraints = "$src1 = $dst" in {
+      def CREG_XCHG_MT32r : I<0x01, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src),
+                              "creg_xchg_mt{l}\t{$src, $dst|$dst, $src}",
+                              [(set GR32:$dst, (int_x86_icecode_creg_xchg_mt_32 GR32:$src, GR32:$src1))]>;
+      def CREG_XCHG_MT64r : RI<0x01, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR32:$src),
+                               "creg_xchg_mt{q}\t{$src, $dst|$dst, $src}",
+                               [(set GR64:$dst, (int_x86_icecode_creg_xchg_mt_64 GR32:$src, GR64:$src1))]>;
+    }
+
+    def CREG_READ_MT32r : I<0x29, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
+                            "creg_read_mt{l}\t{$src, $dst|$dst, $src}",
+                            [(set GR32:$dst, (int_x86_icecode_creg_read_mt_32 GR32:$src))]>;
+    def CREG_READ_MT64r : RI<0x29, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
+                             "creg_read_mt{q}\t{$src, $dst|$dst, $src}",
+                             [(set GR64:$dst, (int_x86_icecode_creg_read_mt_64 GR32:$src))]>;
+  }
 
   def SSERIALIZE : I<0x01, MRM_D4, (outs), (ins), "sserialize", []>, TB;
 
