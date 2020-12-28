@@ -58,9 +58,7 @@
 # CHECK-NEXT:     Value: 0x1{{[0-9a-f]*}}
 # CHECK-NEXT:   }
 # CHECK-NEXT:   Symbol {
-# INTEL_CUSTOMIZATION
-# CHECK-NEXT:     Name: dyld_stub_binder (31)
-# end INTEL_CUSTOMIZATION
+# CHECK-NEXT:     Name: dyld_stub_binder (15)
 # CHECK-NEXT:     Type: Undef (0x0)
 # CHECK-NEXT:     Section:  (0x0)
 # CHECK-NEXT:     RefType: UndefinedNonLazy (0x0)
