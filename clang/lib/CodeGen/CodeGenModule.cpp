@@ -3718,14 +3718,14 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   // always run on at least a 'pentium'). We do this by deleting the 'least
   // advanced' (read, lowest mangling letter).
 #if INTEL_CUSTOMIZATION
+  bool UseLibIrc =
+    (getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc));
   while (Options.size() > 1 &&
-             (getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc) &&
-              CodeGenFunction::GetCpuFeatureBitmap(
-                  (Options.end() - 2)->Conditions.Features) ==
-                  std::array<uint64_t, 2>{0, 0}) ||
-         (!getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc) &&
-          CodeGenFunction::GetX86CpuSupportsMask(
-              (Options.end() - 2)->Conditions.Features) == 0)) {
+         ((UseLibIrc && CodeGenFunction::GetCpuFeatureBitmap(
+                          (Options.end() - 2)->Conditions.Features) ==
+                          std::array<uint64_t, 2>{0, 0}) ||
+         (!UseLibIrc && CodeGenFunction::GetX86CpuSupportsMask(
+                            (Options.end() - 2)->Conditions.Features) == 0))) {
 #endif // INTEL_CUSTOMIZATION
     StringRef LHSName = (Options.end() - 2)->Function->getName();
     StringRef RHSName = (Options.end() - 1)->Function->getName();

@@ -531,7 +531,7 @@ public:
                                 const OMPExecutableDirective &D)
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
-        OldCSI(CSI), Outliner(O), D(D) {}
+        OldCSI(CSI), Outliner(O) {}
 
   /// Retrieve the value of the context parameter.
   llvm::Value *getContextValue() const override;
@@ -544,32 +544,36 @@ public:
 
   CodeGenFunction::CGCapturedStmtInfo *getOldCSI() const { return OldCSI; }
 
-  void recordVariableDefinition(const VarDecl *VD) {
+  void recordVariableDefinition(const VarDecl *VD) override {
     Outliner.addVariableDef(VD);
     Outliner.addVariableRef(VD);
   }
-  void recordVariableReference(const VarDecl *VD) {
+  void recordVariableReference(const VarDecl *VD) override {
     Outliner.addVariableRef(VD);
   }
-  void recordValueDefinition(llvm::Value *V) {
+  void recordValueDefinition(llvm::Value *V) override {
     Outliner.addValueDef(V);
     Outliner.addValueRef(V);
   }
-  void recordValueReference(llvm::Value *V) { Outliner.addValueRef(V); }
-  void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
+  void recordValueReference(llvm::Value *V) override {
+    Outliner.addValueRef(V);
+  }
+  void recordValueSuppression(llvm::Value *V) override {
+    Outliner.addValueSuppress(V);
+  }
 
-  bool inTargetVariantDispatchRegion() {
+  bool inTargetVariantDispatchRegion() override {
     return Outliner.getCurrentDirectiveKind() ==
            llvm::omp::OMPD_target_variant_dispatch;
   }
-  void enterTryStmt() { ++TryStmts; }
-  void exitTryStmt() {
+  void enterTryStmt() override { ++TryStmts; }
+  void exitTryStmt() override {
     assert(TryStmts > 0);
     --TryStmts;
   }
-  bool inTryStmt() { return TryStmts > 0; }
-  bool isLateOutlinedRegion() { return true; }
-  bool isImplicitLastPrivate(const VarDecl *VD) {
+  bool inTryStmt() override { return TryStmts > 0; }
+  bool isLateOutlinedRegion() override { return true; }
+  bool isImplicitLastPrivate(const VarDecl *VD) override {
     return Outliner.isImplicitLastPrivate(VD);
   }
 
@@ -577,7 +581,6 @@ private:
   /// CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
   OpenMPLateOutliner &Outliner;
-  const OMPExecutableDirective &D;
   /// Nesting of C++ 'try' statements in the OpenMP region.
   unsigned TryStmts = 0;
 };
