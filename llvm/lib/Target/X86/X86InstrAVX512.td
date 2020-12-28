@@ -14674,4 +14674,27 @@ defm VMPSADBW: avx512_mpsadbw_3Op_rm_imm8<0x42, X86Vmpsadbw, "vmpsadbw",
                                           avx512vl_i8_info, HasAVX512MPSADBW>,
                                           EVEX_CD8<8, CD8VF>;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+multiclass avx512_vmovget_all {
+  let Predicates = [HasAVX512MOVGET] in
+    def Zrm : I<0xc5, MRMSrcMem, (outs VR512:$dst), (ins i512mem:$src),
+               "vmovget\t{$src, $dst|$dst, $src}",
+               [(set VR512:$dst, (int_x86_vmovget512 addr:$src))]>,
+               Sched<[SchedWriteVecMoveLS.ZMM.RM]>, EVEX, EVEX_V512, T8XS;
+
+  let Predicates = [HasAVX512MOVGET, HasVLX] in {
+    def Z128rm : I<0xc5, MRMSrcMem, (outs VR128X:$dst), (ins i128mem:$src),
+                   "vmovget\t{$src, $dst|$dst, $src}",
+                   [(set VR128X:$dst, (int_x86_vmovget128 addr:$src))]>,
+                   Sched<[SchedWriteVecMoveLS.XMM.RM]>, EVEX, EVEX_V128, T8XS;
+    def Z256rm : I<0xc5, MRMSrcMem, (outs VR256X:$dst), (ins i256mem:$src),
+                   "vmovget\t{$src, $dst|$dst, $src}",
+                   [(set VR256X:$dst, (int_x86_vmovget256 addr:$src))]>,
+                   Sched<[SchedWriteVecMoveLS.YMM.RM]>, EVEX, EVEX_V256, T8XS;
+  }
+}
+
+defm VMOVGET : avx512_vmovget_all;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #endif // INTEL_CUSTOMIZATION

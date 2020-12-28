@@ -227,6 +227,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AVX_MOVGET
   bool HasAVXMOVGET = false;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  bool HasAVX512MOVGET = false;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker

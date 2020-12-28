@@ -519,6 +519,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_AVX_MOVGET
   bool HasAVXMOVGET = false;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  bool HasAVX512MOVGET = false;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
   /// Processor support key locker instructions
   bool HasKL = false;
@@ -1010,6 +1013,9 @@ public:
 #if INTEL_FEATURE_ISA_AVX_MOVGET
   bool hasAVXMOVGET() const { return HasAVXMOVGET; }
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  bool hasAVX512MOVGET() const { return HasAVX512MOVGET; }
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
   bool hasAVXVNNI() const { return HasAVXVNNI; }
   bool hasAMXTILE() const { return HasAMXTILE; }

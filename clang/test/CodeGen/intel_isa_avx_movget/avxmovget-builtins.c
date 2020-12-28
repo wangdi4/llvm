@@ -5,14 +5,26 @@
 #include <immintrin.h>
 #include <stddef.h>
 
-__m128i test_mm_vmovget128_epi32(const __m128i *__A) {
-  // CHECK-LABEL: @test_mm_vmovget128_epi32(
+__m128i test_mm_vmovget_epi32(const __m128i *__A) {
+  // CHECK-LABEL: @test_mm_vmovget_epi32(
   // CHECK: call <4 x i32> @llvm.x86.vmovget128(i8* %{{.*}})
-  return _mm_vmovget128_epi32(__A);
+  return _mm_vmovget_epi32(__A);
 }
 
-__m256i test_mm256_vmovget256_epi32(const __m256i *__A) {
-  // CHECK-LABEL: @test_mm256_vmovget256_epi32(
+__m256i test_mm256_vmovget_epi32(const __m256i *__A) {
+  // CHECK-LABEL: @test_mm256_vmovget_epi32(
   // CHECK: call <8 x i32> @llvm.x86.vmovget256(i8* %{{.*}})
-  return _mm256_vmovget256_epi32(__A);
+  return _mm256_vmovget_epi32(__A);
+}
+
+__m128i test_mm_vmovget_avx_epi32(const __m128i *__A) {
+  // CHECK-LABEL: @test_mm_vmovget_avx_epi32(
+  // CHECK: call <4 x i32> @llvm.x86.vmovget128(i8* %{{.*}})
+  return _mm_vmovget_avx_epi32(__A);
+}
+
+__m256i test_mm256_vmovget_avx_epi32(const __m256i *__A) {
+  // CHECK-LABEL: @test_mm256_vmovget_avx_epi32(
+  // CHECK: call <8 x i32> @llvm.x86.vmovget256(i8* %{{.*}})
+  return _mm256_vmovget_avx_epi32(__A);
 }
