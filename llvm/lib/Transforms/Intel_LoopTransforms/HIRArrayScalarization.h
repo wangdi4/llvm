@@ -156,14 +156,13 @@ public:
 };
 
 class HIRArrayScalarization {
-  HIRFramework &HIRF;
   HIRDDAnalysis &HDDA;
   HLNodeUtils &HNU;
   DDGraph DDG;
 
 public:
   HIRArrayScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA)
-      : HIRF(HIRF), HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
+      : HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
 
   // Conduct array scalarization cleanup on a given vector of RegDDRef*.
   bool doScalarization(HLLoop *InnermostLp,

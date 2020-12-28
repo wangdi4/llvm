@@ -260,12 +260,13 @@ class AllocFreeAnalyzer {
   typedef DenseMap<Function *, bool> FunctionVisitTy;
 
 public:
+  Function *MainF = nullptr;
   AllocFreeAnalyzer(
       Module &M, Function *MainF,
       function_ref<TargetLibraryInfo &(Function &)> GetTLI,
       function_ref<DominatorTree &(Function &)> LookupDomTree,
       function_ref<PostDominatorTree &(Function &)> LookupPostDomTree)
-      : M(M), MainF(MainF), GetTLI(GetTLI), LookupDomTree(LookupDomTree),
+      : MainF(MainF), M(M), GetTLI(GetTLI), LookupDomTree(LookupDomTree),
         LookupPostDomTree(LookupPostDomTree) {
     // Collect any malloc-like and/or free call.
     // If there is no malloc-like call or free call, there is no need for
@@ -323,7 +324,6 @@ private:
   ClosureMapperTy FreeClosureMapper;
 
   Module &M;
-  Function *MainF = nullptr;
   function_ref<TargetLibraryInfo &(Function &)> GetTLI;
   function_ref<DominatorTree &(Function &)> LookupDomTree;
   function_ref<PostDominatorTree &(Function &)> LookupPostDomTree;
