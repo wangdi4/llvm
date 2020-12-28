@@ -52,7 +52,7 @@ TEST_F(SGEmulationTest, DISABLED_MultiSGSize) {
   constexpr size_t gsize = 16;
   constexpr size_t lsize = 16;
 
-  cl_int scan[lsize];
+  cl_int scan[lsize] = {0};
   cl_mem mem_obj_scan = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
                                        sizeof(cl_int) * lsize, scan, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
@@ -60,7 +60,7 @@ TEST_F(SGEmulationTest, DISABLED_MultiSGSize) {
   iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), &mem_obj_scan);
   ASSERT_OCL_SUCCESS(iRet, " clSetKernelArg");
 
-  cl_int scan1[lsize];
+  cl_int scan1[lsize] = {0};
   cl_mem mem_obj_scan1 = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
                                         sizeof(cl_int) * lsize, scan1, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");

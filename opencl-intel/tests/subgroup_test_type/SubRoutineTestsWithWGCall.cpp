@@ -14,7 +14,7 @@
 
 #include "SGEmulationTest.h"
 
-TEST_F(SGEmulationTest, DISABLED_SubRoutineTestsWithWGCall) {
+TEST_F(SGEmulationTest, SubRoutineTestsWithWGCall) {
 
   const char *kernel = "int foo(int lid) {"
                        "  return work_group_reduce_add(lid);"
@@ -51,12 +51,12 @@ TEST_F(SGEmulationTest, DISABLED_SubRoutineTestsWithWGCall) {
       sizeof(lsize), &lsize, sizeof(max_sg_size), &max_sg_size, nullptr);
   ASSERT_OCL_SUCCESS(iRet, " clGetKernelSubGroupInfoKHR");
 
-  cl_int scan_add[lsize];
+  cl_int scan_add[lsize] = {0};
   cl_mem mem_obj_scan = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
                                        sizeof(cl_int) * lsize, scan_add, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
 
-  cl_int wg_reduce_add;
+  cl_int wg_reduce_add = 0;
   cl_mem mem_obj_reduce = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
                                          sizeof(cl_int), &wg_reduce_add, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");

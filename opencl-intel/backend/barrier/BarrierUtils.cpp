@@ -215,7 +215,7 @@ namespace intel {
 
     for ( TInstructionVector::iterator ii = m_syncInstructions.begin(),
       ie = m_syncInstructions.end(); ii != ie; ++ii ) {
-        m_syncFunctions.insert((*ii)->getParent()->getParent());
+        m_syncFunctions.insert((*ii)->getFunction());
     }
     return m_syncFunctions;
   }

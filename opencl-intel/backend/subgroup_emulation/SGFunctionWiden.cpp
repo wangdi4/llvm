@@ -10,6 +10,7 @@
 
 #include "SGFunctionWiden.h"
 
+#include "BarrierUtils.h"
 #include "MetadataAPI.h"
 
 #include "llvm/Analysis/VectorUtils.h"
@@ -418,6 +419,14 @@ void FunctionWidener::expandReturn(Function *Clone) {
       RI->setOperand(0, WideRet);
     }
   }
+
+  // If this function is a WG sync function, we need to restore the ending
+  // barrier before return instruction.
+  static BarrierUtils Utils;
+  Utils.init(Clone->getParent());
+  if (Utils.getAllFunctionsWithSynchronization().count(Clone))
+    for (auto *RI : RIs)
+      Utils.createBarrier(RI);
 }
 
 } // namespace intel
