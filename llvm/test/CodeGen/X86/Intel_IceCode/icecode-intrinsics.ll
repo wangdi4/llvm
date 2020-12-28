@@ -319,16 +319,11 @@ declare i64 @llvm.x86.icecode.creg.read.mt.64(i32)
 define i32 @creg_xchg_mt32(i32 %reg, i32 %v) {
 ; CHECK-LABEL: creg_xchg_mt32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    # kill: def $esi killed $esi def $rsi
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    creg_xchg_mtl %edi, %eax
-; CHECK-NEXT:    creg_xchg_mtl $4660, %esi # imm = 0x1234
-; CHECK-NEXT:    addl %esi, %eax
 ; CHECK-NEXT:    retq
   %res1 = call i32 @llvm.x86.icecode.creg.xchg.mt.32(i32 %reg, i32 %v)
-  %res2 = call i32 @llvm.x86.icecode.creg.xchg.mt.32(i32 4660, i32 %v)
-  %res = add i32 %res1, %res2
-  ret i32 %res
+  ret i32 %res1
 }
 
 define i64 @creg_xchg_mt64(i32 %reg, i64 %v) {
@@ -336,39 +331,27 @@ define i64 @creg_xchg_mt64(i32 %reg, i64 %v) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movq %rsi, %rax
 ; CHECK-NEXT:    creg_xchg_mtq %edi, %rax
-; CHECK-NEXT:    creg_xchg_mtq $4660, %rsi # imm = 0x1234
-; CHECK-NEXT:    addq %rsi, %rax
 ; CHECK-NEXT:    retq
   %res1 = call i64 @llvm.x86.icecode.creg.xchg.mt.64(i32 %reg, i64 %v)
-  %res2 = call i64 @llvm.x86.icecode.creg.xchg.mt.64(i32 4660, i64 %v)
-  %res = add i64 %res1, %res2
-  ret i64 %res
+  ret i64 %res1
 }
 
 define i32 @creg_read_mt32(i32 %reg) {
 ; CHECK-LABEL: creg_read_mt32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    creg_read_mtl %edi, %ecx
-; CHECK-NEXT:    creg_read_mtl $4660, %eax # imm = 0x1234
-; CHECK-NEXT:    addl %ecx, %eax
+; CHECK-NEXT:    creg_read_mtl %edi, %eax
 ; CHECK-NEXT:    retq
   %res1 = call i32 @llvm.x86.icecode.creg.read.mt.32(i32 %reg)
-  %res2 = call i32 @llvm.x86.icecode.creg.read.mt.32(i32 4660)
-  %res = add i32 %res1, %res2
-  ret i32 %res
+  ret i32 %res1
 }
 
 define i64 @creg_read_mt64(i32 %reg) {
 ; CHECK-LABEL: creg_read_mt64:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    creg_read_mtq %edi, %rcx
-; CHECK-NEXT:    creg_read_mtq $4660, %rax # imm = 0x1234
-; CHECK-NEXT:    addq %rcx, %rax
+; CHECK-NEXT:    creg_read_mtq %edi, %rax
 ; CHECK-NEXT:    retq
   %res1 = call i64 @llvm.x86.icecode.creg.read.mt.64(i32 %reg)
-  %res2 = call i64 @llvm.x86.icecode.creg.read.mt.64(i32 4660)
-  %res = add i64 %res1, %res2
-  ret i64 %res
+  ret i64 %res1
 }
 
 declare i8 @llvm.x86.icecode.portin.8(i64)
