@@ -742,7 +742,6 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
 StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
     StringRef ScalarFuncName, unsigned TargetVL, bool Masked, Instruction *I) {
 
-  StringRef DataType;
   std::string TargetVLString = std::to_string(TargetVL);
 
   // Use the generic parent function name emitted by the vectorizer to lookup
@@ -815,22 +814,6 @@ StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
 
   return ScalarFuncName;
-}
-
-// For a given Instruction with struct type, find an extractvalue
-// of that Instruction with the given index. It is an error if
-// there is no extractvalue found with that index.
-static Instruction *findExtract(Instruction *I, unsigned Idx) {
-#ifndef NDEBUG
-  auto *StrTy = dyn_cast<StructType>(I->getType());
-  assert(StrTy && StrTy->getNumElements() > Idx);
-#endif // NDEBUG
-  for (User *U : I->users())
-    if (auto *Extract = dyn_cast<ExtractValueInst>(U))
-      if (Extract->getIndices().front() == Idx)
-        return Extract;
-  llvm_unreachable("Can't find extract matching index");
-  return nullptr;
 }
 
 /// Build function name for SVML integer div/rem from opcode, scalar type and
