@@ -421,15 +421,16 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
             Modifier = ":WILOCAL";
         }
 
-        if (Modifier[0] != '\0')
+        if (Modifier[0] != '\0') {
           if (DataSharingOptNumCase >= 0 &&
-              NumOptimizedItems >= DataSharingOptNumCase)
+              NumOptimizedItems >= DataSharingOptNumCase) {
             Modifier = "";
-          else {
+          } else {
             ++NumOptimizedItems;
             ModifierAdded = true;
             Changed = true;
           }
+        }
       }
 
       OperandBundleDef B(ClauseString.str() + Modifier,

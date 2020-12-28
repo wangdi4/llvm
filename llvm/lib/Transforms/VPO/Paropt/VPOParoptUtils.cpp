@@ -100,8 +100,6 @@ static cl::opt<bool> SwitchToOffload(
     "switch-to-offload", cl::Hidden, cl::init(false),
     cl::desc("switch to offload mode (default = false)"));
 
-static const unsigned StackAdjustedAlignment = 16;
-
 // If module M has a StructType of name Name, and element types ElementTypes,
 // return it.
 StructType *VPOParoptUtils::getStructTypeWithNameAndElementsFromModule(
@@ -3324,7 +3322,8 @@ CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
 
     // Get a pointer to where DepVecValue should go.
     Value *PtrForLoopI = Builder.CreateInBoundsGEP(
-        DepVec->getAllocatedType(), DepVec, {Builder.getInt64(I)}); // (3) (6)
+        DepVec->getAllocatedType(), DepVec,
+        Builder.getInt64(I));                                      // (3) (6)
     Builder.CreateStore(DepVecValueCast, PtrForLoopI);             // (4) (7)
   }
 
