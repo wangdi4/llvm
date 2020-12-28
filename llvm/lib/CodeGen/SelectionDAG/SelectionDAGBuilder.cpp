@@ -6094,6 +6094,16 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     setValue(&I, ExpandPowI(sdl, getValue(I.getArgOperand(0)),
                             getValue(I.getArgOperand(1)), DAG));
     return;
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::ldexp:
+    setValue(&I, DAG.getNode(ISD::LDEXP,
+                             sdl,
+                             getValue(I.getOperand(0)).getValueType(),
+                             getValue(I.getOperand(0)),
+                             getValue(I.getOperand(1)), Flags));
+    return;
+
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::log:
     setValue(&I, expandLog(sdl, getValue(I.getArgOperand(0)), DAG, TLI, Flags));
     return;

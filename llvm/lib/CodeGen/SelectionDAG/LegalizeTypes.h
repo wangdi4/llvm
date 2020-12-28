@@ -763,6 +763,9 @@ private:
   SDValue ScalarizeVecRes_EXTRACT_SUBVECTOR(SDNode *N);
   SDValue ScalarizeVecRes_FP_ROUND(SDNode *N);
   SDValue ScalarizeVecRes_FPOWI(SDNode *N);
+#if INTEL_CUSTOMIZATION
+  SDValue ScalarizeVecRes_LDEXP(SDNode *N);
+#endif // INTEL_CUSTOMIZATION
   SDValue ScalarizeVecRes_INSERT_VECTOR_ELT(SDNode *N);
   SDValue ScalarizeVecRes_LOAD(LoadSDNode *N);
   SDValue ScalarizeVecRes_SCALAR_TO_VECTOR(SDNode *N);
@@ -831,6 +834,9 @@ private:
   void SplitVecRes_EXTRACT_SUBVECTOR(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_INSERT_SUBVECTOR(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_FPOWI(SDNode *N, SDValue &Lo, SDValue &Hi);
+#if INTEL_CUSTOMIZATION
+  void SplitVecRes_LDEXP(SDNode *N, SDValue &Lo, SDValue &Hi);
+#endif // INTEL_CUSTOMIZATION
   void SplitVecRes_FCOPYSIGN(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_INSERT_VECTOR_ELT(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_LOAD(LoadSDNode *LD, SDValue &Lo, SDValue &Hi);

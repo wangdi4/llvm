@@ -67,6 +67,9 @@ void DAGTypeLegalizer::ScalarizeVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::EXTRACT_SUBVECTOR: R = ScalarizeVecRes_EXTRACT_SUBVECTOR(N); break;
   case ISD::FP_ROUND:          R = ScalarizeVecRes_FP_ROUND(N); break;
   case ISD::FPOWI:             R = ScalarizeVecRes_FPOWI(N); break;
+#if INTEL_CUSTOMIZATION
+  case ISD::LDEXP:             R = ScalarizeVecRes_LDEXP(N); break;
+#endif // INTEL_CUSTOMIZATION
   case ISD::INSERT_VECTOR_ELT: R = ScalarizeVecRes_INSERT_VECTOR_ELT(N); break;
   case ISD::LOAD:           R = ScalarizeVecRes_LOAD(cast<LoadSDNode>(N));break;
   case ISD::SCALAR_TO_VECTOR:  R = ScalarizeVecRes_SCALAR_TO_VECTOR(N); break;
@@ -337,6 +340,14 @@ SDValue DAGTypeLegalizer::ScalarizeVecRes_FPOWI(SDNode *N) {
   return DAG.getNode(ISD::FPOWI, SDLoc(N),
                      Op.getValueType(), Op, N->getOperand(1));
 }
+
+#if INTEL_CUSTOMIZATION
+SDValue DAGTypeLegalizer::ScalarizeVecRes_LDEXP(SDNode *N) {
+  SDValue Op = GetScalarizedVector(N->getOperand(0));
+  return DAG.getNode(ISD::LDEXP, SDLoc(N),
+                     Op.getValueType(), Op, N->getOperand(1));
+}
+#endif // INTEL_CUSTOMIZATION
 
 SDValue DAGTypeLegalizer::ScalarizeVecRes_INSERT_VECTOR_ELT(SDNode *N) {
   // The value to insert may have a wider type than the vector element type,
@@ -902,6 +913,9 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::EXTRACT_SUBVECTOR: SplitVecRes_EXTRACT_SUBVECTOR(N, Lo, Hi); break;
   case ISD::INSERT_SUBVECTOR:  SplitVecRes_INSERT_SUBVECTOR(N, Lo, Hi); break;
   case ISD::FPOWI:             SplitVecRes_FPOWI(N, Lo, Hi); break;
+#if INTEL_CUSTOMIZATION
+  case ISD::LDEXP:             SplitVecRes_LDEXP(N, Lo, Hi); break;
+#endif // INTEL_CUSTOMIZATION
   case ISD::FCOPYSIGN:         SplitVecRes_FCOPYSIGN(N, Lo, Hi); break;
   case ISD::INSERT_VECTOR_ELT: SplitVecRes_INSERT_VECTOR_ELT(N, Lo, Hi); break;
   case ISD::SPLAT_VECTOR:
@@ -1297,6 +1311,16 @@ void DAGTypeLegalizer::SplitVecRes_FPOWI(SDNode *N, SDValue &Lo,
   Lo = DAG.getNode(ISD::FPOWI, dl, Lo.getValueType(), Lo, N->getOperand(1));
   Hi = DAG.getNode(ISD::FPOWI, dl, Hi.getValueType(), Hi, N->getOperand(1));
 }
+
+#if INTEL_CUSTOMIZATION
+void DAGTypeLegalizer::SplitVecRes_LDEXP(SDNode *N, SDValue &Lo,
+                                         SDValue &Hi) {
+  SDLoc dl(N);
+  GetSplitVector(N->getOperand(0), Lo, Hi);
+  Lo = DAG.getNode(ISD::LDEXP, dl, Lo.getValueType(), Lo, N->getOperand(1));
+  Hi = DAG.getNode(ISD::LDEXP, dl, Hi.getValueType(), Hi, N->getOperand(1));
+}
+#endif // INTEL_CUSTOMIZATION
 
 void DAGTypeLegalizer::SplitVecRes_FCOPYSIGN(SDNode *N, SDValue &Lo,
                                              SDValue &Hi) {
