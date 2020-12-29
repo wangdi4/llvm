@@ -6393,16 +6393,33 @@ multiclass avx512_fp_scalef_p<bits<8> opc, string OpcodeStr, SDNode OpNode,
 multiclass avx512_fp_scalef_scalar<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                    X86FoldableSchedWrite sched, X86VectorVTInfo _> {
   let ExeDomain = _.ExeDomain, Uses = [MXCSR], mayRaiseFPException = 1 in {
-  defm rr: AVX512_maskable_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst),
+  defm rr_Int: AVX512_maskable_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst), // INTEL
                   (ins _.RC:$src1, _.RC:$src2), OpcodeStr#_.Suffix,
                   "$src2, $src1", "$src1, $src2",
                   (_.VT (OpNode _.RC:$src1, _.RC:$src2))>,
                   Sched<[sched]>;
-  defm rm: AVX512_maskable_scalar<opc, MRMSrcMem, _, (outs _.RC:$dst),
+  defm rm_Int: AVX512_maskable_scalar<opc, MRMSrcMem, _, (outs _.RC:$dst), // INTEL
                   (ins _.RC:$src1, _.IntScalarMemOp:$src2), OpcodeStr#_.Suffix,
                   "$src2, $src1", "$src1, $src2",
                   (OpNode _.RC:$src1, (_.ScalarIntMemFrags addr:$src2))>,
                   Sched<[sched.Folded, sched.ReadAfterFold]>;
+#if INTEL_CUSTOMIZATION
+  let isCodeGenOnly = 1, Predicates = [HasAVX512] in {
+  def rr : I<opc, MRMSrcReg, (outs _.FRC:$dst),
+               (ins _.FRC:$src1, _.FRC:$src2),
+                !strconcat(OpcodeStr#_.Suffix,
+                "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+                [(set _.FRC:$dst, (OpNode _.FRC:$src1, _.FRC:$src2))]>,
+                  Sched<[sched]>;
+  def rm : I<opc, MRMSrcMem, (outs _.FRC:$dst),
+               (ins _.FRC:$src1, _.ScalarMemOp:$src2),
+               !strconcat(OpcodeStr#_.Suffix,
+               "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+               [(set _.FRC:$dst, (OpNode _.FRC:$src1,
+               (_.ScalarLdFrag addr:$src2)))]>,
+               Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

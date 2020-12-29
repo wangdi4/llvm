@@ -1766,6 +1766,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
                        Subtarget.hasVLX() ? Legal : Custom);
     setOperationAction(ISD::STRICT_UINT_TO_FP, MVT::v4i32,
                        Subtarget.hasVLX() ? Legal : Custom);
+    setOperationAction(ISD::LDEXP, MVT::f64, Custom); // INTEL
 
     if (Subtarget.hasDQI()) {
       // Fast v2f32 SINT_TO_FP( v2i64 ) custom conversion.
@@ -22281,6 +22282,24 @@ SDValue X86TargetLowering::lowerFaddFsub(SDValue Op, SelectionDAG &DAG) const {
   return lowerAddSubToHorizontalOp(Op, DAG, Subtarget);
 }
 
+#if INTEL_CUSTOMIZATION
+SDValue X86TargetLowering::lowerLdexp(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  SDValue Mul = Op.getOperand(0);
+  SDValue Exp = Op.getOperand(1);
+
+  if (!Subtarget.hasAVX512())
+    return SDValue();
+
+  if (Op.getValueType() == MVT::f64 && Exp.getValueType() == MVT::i32) {
+    SDValue fExp = DAG.getNode(ISD::SINT_TO_FP, DL, MVT::f64, Exp);
+    return DAG.getNode(X86ISD::SCALEFS, DL, MVT::f64, Mul, fExp);
+  }
+  //TODO: Enable optimization for vnf64[.vni32] to SCALEF if needed in fureture.
+  return SDValue();
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// ISD::FROUND is defined to round to nearest with ties rounding away from 0.
 /// This mode isn't supported in hardware on X86. But as long as we aren't
 /// compiling with trapping math, we can emulate this with
@@ -30724,6 +30743,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::STORE:              return LowerStore(Op, Subtarget, DAG);
   case ISD::FADD:
   case ISD::FSUB:               return lowerFaddFsub(Op, DAG);
+  case ISD::LDEXP:              return lowerLdexp(Op, DAG); // INTEL
   case ISD::FROUND:             return LowerFROUND(Op, DAG);
   case ISD::FABS:
   case ISD::FNEG:               return LowerFABSorFNEG(Op, DAG);
