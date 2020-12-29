@@ -3019,11 +3019,11 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
     }
 
     if (const ReqdWorkGroupSizeAttr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
-      if (!((getExprValue(Attr.getArgAsExpr(2), S.getASTContext()) >=
+      if (!((getExprValue(Attr.getArgAsExpr(0), S.getASTContext()) >=
              getExprValue(A->getXDim(), S.getASTContext())) &&
             (getExprValue(Attr.getArgAsExpr(1), S.getASTContext()) >=
              getExprValue(A->getYDim(), S.getASTContext())) &&
-            (getExprValue(Attr.getArgAsExpr(0), S.getASTContext()) >=
+            (getExprValue(Attr.getArgAsExpr(2), S.getASTContext()) >=
              getExprValue(A->getZDim(), S.getASTContext())))) {
         S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
             << Attr << A->getSpelling();
@@ -3876,19 +3876,19 @@ static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
         A->getValue()->getIntegerConstantExpr(S.Context)->getSExtValue();
     if (AttrValue == 0) {
       Result &=
-          checkZeroDim(A, getExprValue(AL.getArgAsExpr(2), S.getASTContext()),
+          checkZeroDim(A, getExprValue(AL.getArgAsExpr(0), S.getASTContext()),
                        getExprValue(AL.getArgAsExpr(1), S.getASTContext()),
-                       getExprValue(AL.getArgAsExpr(0), S.getASTContext()),
+                       getExprValue(AL.getArgAsExpr(2), S.getASTContext()),
                        /*ReverseAttrs=*/true);
     }
   }
 
   if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-    if (!((getExprValue(AL.getArgAsExpr(2), S.getASTContext()) <=
+    if (!((getExprValue(AL.getArgAsExpr(0), S.getASTContext()) <=
            getExprValue(A->getXDim(), S.getASTContext())) &&
           (getExprValue(AL.getArgAsExpr(1), S.getASTContext()) <=
            getExprValue(A->getYDim(), S.getASTContext())) &&
-          (getExprValue(AL.getArgAsExpr(0), S.getASTContext()) <=
+          (getExprValue(AL.getArgAsExpr(2), S.getASTContext()) <=
            getExprValue(A->getZDim(), S.getASTContext())))) {
       S.Diag(AL.getLoc(), diag::err_conflicting_sycl_function_attributes)
           << AL << A->getSpelling();
@@ -3897,11 +3897,11 @@ static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
   }
 
   if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
-    if (!((getExprValue(AL.getArgAsExpr(2), S.getASTContext()) >=
+    if (!((getExprValue(AL.getArgAsExpr(0), S.getASTContext()) >=
            getExprValue(A->getXDim(), S.getASTContext())) &&
           (getExprValue(AL.getArgAsExpr(1), S.getASTContext()) >=
            getExprValue(A->getYDim(), S.getASTContext())) &&
-          (getExprValue(AL.getArgAsExpr(0), S.getASTContext()) >=
+          (getExprValue(AL.getArgAsExpr(2), S.getASTContext()) >=
            getExprValue(A->getZDim(), S.getASTContext())))) {
       S.Diag(AL.getLoc(), diag::err_conflicting_sycl_function_attributes)
           << AL << A->getSpelling();
@@ -3966,10 +3966,6 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
     }
   }
 #endif // INTEL_CUSTOMIZATION
-
-  // For a SYCLDevice WorkGroupAttr arguments are reversed.
-  if (S.getLangOpts().SYCLIsDevice)
-    std::swap(XDimExpr, ZDimExpr);
 
   if (WorkGroupAttr *ExistingAttr = D->getAttr<WorkGroupAttr>()) {
     Optional<llvm::APSInt> XDimVal =

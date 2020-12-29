@@ -653,6 +653,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
         A->getYDim()->getIntegerConstantExpr(FD->getASTContext());
     Optional<llvm::APSInt> ZDimVal =
         A->getZDim()->getIntegerConstantExpr(FD->getASTContext());
+
+    // For a SYCLDevice ReqdWorkGroupSizeAttr arguments are reversed.
+    if (getLangOpts().SYCLIsDevice)
+      std::swap(XDimVal, ZDimVal);
+
     llvm::Metadata *AttrMDArgs[] = {
         llvm::ConstantAsMetadata::get(
             Builder.getInt32(XDimVal->getZExtValue())),
@@ -774,6 +779,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
         A->getYDim()->getIntegerConstantExpr(FD->getASTContext());
     Optional<llvm::APSInt> ZDimVal =
         A->getZDim()->getIntegerConstantExpr(FD->getASTContext());
+
+    // For a SYCLDevice SYCLIntelMaxWorkGroupSizeAttr arguments are reversed.
+    if (getLangOpts().SYCLIsDevice)
+      std::swap(XDimVal, ZDimVal);
+
     llvm::Metadata *AttrMDArgs[] = {
         llvm::ConstantAsMetadata::get(
             Builder.getInt32(XDimVal->getZExtValue())),
