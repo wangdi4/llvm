@@ -50,7 +50,7 @@ TEST_F(SGEmulationTest, SubRoutineTests) {
       sizeof(lsize), &lsize, sizeof(max_sg_size), &max_sg_size, nullptr);
   ASSERT_OCL_SUCCESS(iRet, " clGetKernelSubGroupInfoKHR");
 
-  cl_int scan_add[lsize];
+  cl_int scan_add[lsize] = {0};
   cl_mem mem_obj = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
                                   sizeof(cl_int) * lsize, scan_add, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
