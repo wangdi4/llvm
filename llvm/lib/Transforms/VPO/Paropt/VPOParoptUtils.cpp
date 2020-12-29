@@ -5298,10 +5298,41 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
         LLVM_DEBUG(dbgs() << "Found set block " << BB->getName()
                           << " with non-set pred " << PredBB->getName()
                           << "\n");
+        SeenOutOfSetPredecessors = true;
+
+        // If the predecessor is not part of the region, it does not
+        // necessarily means that BB is a block from "outside" of the region.
+        // PredBB may be an artifact of a noreturn call made inside
+        // the region, e.g.:
+        //   #pragma omp parallel private (p)
+        //   try {
+        //     foo();
+        //   } catch (int t) {
+        //     if ( t != p ) {
+        //   #pragma omp critical
+        //       exit(0);
+        //     }
+        //   if_end:
+        //   }
+        //
+        // The if_end BB will have two predecessors, one of which is
+        // unreachable from the entry due to the exit() call, and
+        // the second one which is dominated by an EH pad.
+        // Trying to break the EH path to if_end would be incorrect,
+        // so we have to avoid this.
+        //
+        // We'd better use the post-dominator tree to identify
+        // whether BB is "inside" or "outside" of the region,
+        // but we do not have it available right now.
+        //
+        // For the time being, just do not try to break the EH path,
+        // if PredBB is just an unreachable block.
+        if (!DT->isReachableFromEntry(DT->getNode(PredBB)))
+          continue;
+
         // Try to break the edge from the region to the block.
         if (EHFound)
           BreakEHToBlock(BB, BBSet, DeleteSet, DT);
-        SeenOutOfSetPredecessors = true;
       }
     }
 
