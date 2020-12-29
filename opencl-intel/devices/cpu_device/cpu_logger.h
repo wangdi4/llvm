@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,27 +19,35 @@
 
 #pragma once
 
-enum CpuELogLevel
-	{
-		CPU_LL_DEBUG     = 100,
-		CPU_LL_INFO      = 200,
-		CPU_LL_ERROR     = 300,
-		CPU_LL_CRITICAL  = 400,
-		CPU_LL_STATISTIC = 500,
-		CPU_LL_OFF       = 1000
-	};
+enum CpuELogLevel {
+  CPU_LL_DEBUG = 100,
+  CPU_LL_INFO = 200,
+  CPU_LL_ERROR = 300,
+  CPU_LL_CRITICAL = 400,
+  CPU_LL_STATISTIC = 500,
+  CPU_LL_OFF = 1000
+};
 
-
-#define CpuInfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_INFO),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
-#ifdef _DEBUG
-#define CpuDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_DEBUG),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+#ifndef INTEL_PRODUCT_RELEASE
+#define CpuInfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                          \
+  if (CLIENT && CLIENT_ID)                                                     \
+    CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_INFO), __FILE__,             \
+                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
+#define CpuDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                           \
+  if (CLIENT && CLIENT_ID)                                                     \
+    CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_DEBUG), __FILE__,            \
+                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
+#define CpuErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                           \
+  if (CLIENT && CLIENT_ID)                                                     \
+    CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_ERROR), __FILE__,            \
+                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
+#define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                        \
+  if (CLIENT && CLIENT_ID)                                                     \
+    CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_CRITICAL), __FILE__,         \
+                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
 #else
+#define CpuInfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
 #define CpuDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
+#define CpuErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
+#define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
 #endif
-
-#define CpuErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_ERROR),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
-#define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_CRITICAL),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);

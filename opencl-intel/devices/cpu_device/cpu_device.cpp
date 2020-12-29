@@ -351,6 +351,7 @@ cl_dev_err_code CPUDevice::Init()
     // check for forced memory sizes
     bool isGlobalMemSizeForced;
     cl_ulong forcedGlobalMemSize = GetGlobalMemorySize(m_CPUDeviceConfig, &isGlobalMemSizeForced);
+    (void)forcedGlobalMemSize;
     if (isGlobalMemSizeForced)
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("WARNING: using forced global memory size from cl configuration."));
@@ -358,6 +359,7 @@ cl_dev_err_code CPUDevice::Init()
     }
     bool isMaxMemAllocSizeForced;
     cl_ulong forcedMaxMemAllocSize = GetMaxMemAllocSize(m_CPUDeviceConfig, &isMaxMemAllocSizeForced);
+    (void)forcedMaxMemAllocSize;
     if (isMaxMemAllocSizeForced)
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("WARNING: using forced max memory allocation size from cl configuration."));
