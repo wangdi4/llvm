@@ -956,13 +956,6 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
   }
 }
 
-int InductionDescriptor::getConsecutiveDirection() const {
-  ConstantInt *ConstStep = getConstIntStepValue();
-  if (ConstStep && (ConstStep->isOne() || ConstStep->isMinusOne()))
-    return ConstStep->getSExtValue();
-  return 0;
-}
-
 ConstantInt *InductionDescriptor::getConstIntStepValue() const {
   if (isa<SCEVConstant>(Step))
     return dyn_cast<ConstantInt>(cast<SCEVConstant>(Step)->getValue());
