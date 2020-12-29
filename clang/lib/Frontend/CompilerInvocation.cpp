@@ -96,6 +96,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -285,10 +286,36 @@ static Optional<std::string> normalizeString(OptSpecifier Opt, int TableIndex,
 
 static void denormalizeString(SmallVectorImpl<const char *> &Args,
                               const char *Spelling,
-                              CompilerInvocation::StringAllocator SA,
-                              unsigned TableIndex, const std::string &Value) {
+                              CompilerInvocation::StringAllocator SA, unsigned,
+                              Twine Value) {
   Args.push_back(Spelling);
   Args.push_back(SA(Value));
+}
+
+template <typename T,
+          std::enable_if_t<!std::is_convertible<T, Twine>::value &&
+                               std::is_constructible<Twine, T>::value,
+                           bool> = false>
+static void denormalizeString(SmallVectorImpl<const char *> &Args,
+                              const char *Spelling,
+                              CompilerInvocation::StringAllocator SA,
+                              unsigned TableIndex, T Value) {
+  denormalizeString(Args, Spelling, SA, TableIndex, Twine(Value));
+}
+
+template <typename IntTy>
+static Optional<IntTy> normalizeStringIntegral(OptSpecifier Opt, int,
+                                               const ArgList &Args,
+                                               DiagnosticsEngine &Diags) {
+  auto *Arg = Args.getLastArg(Opt);
+  if (!Arg)
+    return None;
+  IntTy Res;
+  if (StringRef(Arg->getValue()).getAsInteger(0, Res)) {
+    Diags.Report(diag::err_drv_invalid_int_value)
+        << Arg->getAsString(Args) << Arg->getValue();
+  }
+  return Res;
 }
 
 static Optional<std::string> normalizeTriple(OptSpecifier Opt, int TableIndex,
@@ -525,14 +552,6 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
         .Case("true", true)
         .Case("false", false)
         .Default(false);
-
-  Opts.AnalyzeSpecificFunction =
-      std::string(Args.getLastArgValue(OPT_analyze_function));
-  Opts.maxBlockVisitOnPath =
-      getLastArgIntValue(Args, OPT_analyzer_max_loop, 4, Diags);
-  Opts.InlineMaxStackDepth =
-      getLastArgIntValue(Args, OPT_analyzer_inline_max_stack_depth,
-                         Opts.InlineMaxStackDepth, Diags);
 
   Opts.CheckersAndPackages.clear();
   for (const Arg *A :
@@ -2074,10 +2093,8 @@ std::string CompilerInvocation::GetResourcesPath(const char *Argv0,
 
 static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
                                   const std::string &WorkingDir) {
-  Opts.Sysroot = std::string(Args.getLastArgValue(OPT_isysroot, "/"));
   if (const Arg *A = Args.getLastArg(OPT_stdlib_EQ))
     Opts.UseLibcxx = (strcmp(A->getValue(), "libc++") == 0);
-  Opts.ResourceDir = std::string(Args.getLastArgValue(OPT_resource_dir));
 
   // Canonicalize -fmodules-cache-path before storing it.
   SmallString<128> P(Args.getLastArgValue(OPT_fmodules_cache_path));
@@ -2090,8 +2107,6 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
   llvm::sys::path::remove_dots(P);
   Opts.ModuleCachePath = std::string(P.str());
 
-  Opts.ModuleUserBuildPath =
-      std::string(Args.getLastArgValue(OPT_fmodules_user_build_path));
   // Only the -fmodule-file=<name>=<file> form.
   for (const auto *A : Args.filtered(OPT_fmodule_file)) {
     StringRef Val = A->getValue();
@@ -2103,14 +2118,6 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
   }
   for (const auto *A : Args.filtered(OPT_fprebuilt_module_path))
     Opts.AddPrebuiltModulePath(A->getValue());
-  Opts.ModuleCachePruneInterval =
-      getLastArgIntValue(Args, OPT_fmodules_prune_interval, 7 * 24 * 60 * 60);
-  Opts.ModuleCachePruneAfter =
-      getLastArgIntValue(Args, OPT_fmodules_prune_after, 31 * 24 * 60 * 60);
-  Opts.BuildSessionTimestamp =
-      getLastArgUInt64Value(Args, OPT_fbuild_session_timestamp, 0);
-  if (const Arg *A = Args.getLastArg(OPT_fmodule_format_EQ))
-    Opts.ModuleFormat = A->getValue();
 
   for (const auto *A : Args.filtered(OPT_fmodules_ignore_macro)) {
     StringRef MacroDef = A->getValue();
