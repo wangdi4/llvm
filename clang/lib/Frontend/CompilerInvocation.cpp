@@ -3437,17 +3437,13 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
 static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
                                   DiagnosticsEngine &Diags,
                                   frontend::ActionKind Action) {
-
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(OPT_fintel_ms_compatibility))
       Opts.OutputFile = Args.getLastArgValue(OPT_o);
 #endif // INTEL_CUSTOMIZATION
 
-  Opts.ImplicitPCHInclude = std::string(Args.getLastArgValue(OPT_include_pch));
   Opts.PCHWithHdrStop = Args.hasArg(OPT_pch_through_hdrstop_create) ||
                         Args.hasArg(OPT_pch_through_hdrstop_use);
-  Opts.PCHThroughHeader =
-      std::string(Args.getLastArgValue(OPT_pch_through_header_EQ));
   Opts.AllowPCHWithCompilerErrors =
       Args.hasArg(OPT_fallow_pch_with_errors, OPT_fallow_pcm_with_errors);
 
@@ -3513,19 +3509,6 @@ static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
     }
 
     Opts.addRemappedFile(Split.first, Split.second);
-  }
-
-  if (Arg *A = Args.getLastArg(OPT_fobjc_arc_cxxlib_EQ)) {
-    StringRef Name = A->getValue();
-    unsigned Library = llvm::StringSwitch<unsigned>(Name)
-      .Case("libc++", ARCXX_libcxx)
-      .Case("libstdc++", ARCXX_libstdcxx)
-      .Case("none", ARCXX_nolib)
-      .Default(~0U);
-    if (Library == ~0U)
-      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Name;
-    else
-      Opts.ObjCXXARCStandardLibrary = (ObjCXXARCStandardLibraryKind)Library;
   }
 
   // Always avoid lexing editor placeholders when we're just running the
