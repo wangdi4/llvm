@@ -4763,15 +4763,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   auto AddOptLevel = [&]() {
-    // Set -O0 for OpenMP device compilation for SPIRV target.
     if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR() &&
-        !Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O)) {
+        !Args.hasArg(options::OPT_O_Group)) {
       if (Args.hasArg(options::OPT_fopenmp_target_simd)) {
+        // Force at least -O2, if explicit SIMD support is requested.
         CmdArgs.push_back("-O2");
         return;
       }
-      CmdArgs.push_back("-O0");
-      return;
     }
 
     bool SkipO =
