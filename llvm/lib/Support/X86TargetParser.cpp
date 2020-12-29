@@ -723,6 +723,12 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX_EVEX = FeatureAMX_TILE
 #if INTEL_FEATURE_ISA_AMX_FP19
 static constexpr FeatureBitset ImpliedFeaturesAMX_FP19 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+static constexpr FeatureBitset ImpliedFeaturesGPRMOVGET = {};
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+static constexpr FeatureBitset ImpliedFeaturesMOVGET64B = FeatureAVX512F;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 // Key Locker Features
 constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;

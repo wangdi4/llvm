@@ -20,4 +20,15 @@
 #include <uintrintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_GPR_MOVGET */
+#if defined(__GPRMOVGET_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__GPRMOVGET__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <gprmovget/gprmovgetintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_GPR_MOVGET */
+/* end INTEL_CUSTOMIZATION */
+
 #endif /* __X86GPRINTRIN_H */

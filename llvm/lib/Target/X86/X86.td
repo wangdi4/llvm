@@ -470,6 +470,16 @@ def FeatureAMXFP19 : SubtargetFeature<"amx-fp19", "HasAMXFP19", "true",
                                       "Support AMX-FP19 instructions",
                                       [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+def FeatureGPRMOVGET : SubtargetFeature<"gprmovget", "HasGPRMOVGET", "true",
+                                        "Support GPR-MOVGET instructions",
+                                        []>;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+def FeatureMOVGET64B : SubtargetFeature<"movget64b", "HasMOVGET64B", "true",
+                                        "Support MOVGET64B instructions",
+                                        [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;

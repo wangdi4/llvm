@@ -492,6 +492,14 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avx512movget") {
       HasAVX512MOVGET = true;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+    } else if (Feature == "+gprmovget") {
+      HasGPRMOVGET = true;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+    } else if (Feature == "+movget64b") {
+      HasMOVGET64B = true;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
@@ -1112,6 +1120,16 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512MOVGET__");
   Builder.defineMacro("__AVX512MOVGET_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+  if (HasGPRMOVGET)
+    Builder.defineMacro("__GPRMOVGET__");
+  Builder.defineMacro("__GPRMOVGET_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+  if (HasMOVGET64B)
+    Builder.defineMacro("__MOVGET64B__");
+  Builder.defineMacro("__MOVGET64B_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1426,6 +1444,12 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
       .Case("avx512movget", true)
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+      .Case("gprmovget", true)
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+      .Case("movget64b", true)
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
@@ -1558,6 +1582,12 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
       .Case("avx512movget", HasAVX512MOVGET)
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+      .Case("gprmovget", HasGPRMOVGET)
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+      .Case("movget64b", HasMOVGET64B)
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)

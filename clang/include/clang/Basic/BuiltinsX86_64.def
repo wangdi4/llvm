@@ -414,6 +414,14 @@ TARGET_BUILTIN(__builtin_ia32_icecode_ucodecall, "vUi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_cmodemov, "ULLiULLiULLiIUi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_set_tracker, "vIUi", "n", "icecode-mode")
 #endif // INTEL_FEATURE_ICECODE
+
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+TARGET_BUILTIN(__builtin_ia32_movget64, "ULLiULLiC*", "n", "gprmovget")
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+
+#if INTEL_FEATURE_ISA_MOVGET64B
+TARGET_BUILTIN(__builtin_ia32_movget64b64, "ULLiV16UiC*", "nV:512:", "movget64b")
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

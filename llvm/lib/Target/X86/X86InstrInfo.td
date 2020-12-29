@@ -1174,6 +1174,12 @@ def HasAMXCOMPLEXEVEX : Predicate<"Subtarget->hasAMXCOMPLEXEVEX()">;
 #if INTEL_FEATURE_ISA_AMX_FP19
 def HasAMXFP19 : Predicate<"Subtarget->hasAMXFP19()">;
 #endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+def HasGPRMOVGET : Predicate<"Subtarget->hasGPRMOVGET()">;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+def HasMOVGET64B : Predicate<"Subtarget->hasMOVGET64B()">;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
@@ -3356,6 +3362,9 @@ include "X86InstrAMX.td"
 // FIXME merge with X86InstrAMX.td
 include "Intel_X86InstrAMX.td"
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+include "Intel_X86InstrMOVGET.td"
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.

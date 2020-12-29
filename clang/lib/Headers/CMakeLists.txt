@@ -245,6 +245,18 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512movget/avx512vlmovgetintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX512_MOVGET
+# INTEL_FEATURE_ISA_GPR_MOVGET
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_GPR_MOVGET
+  Intel_Headers/gprmovget/gprmovgetintrin.h
+  )
+# end INTEL_FEATURE_ISA_GPR_MOVGET
+# INTEL_FEATURE_ISA_MOVGET64B
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVGET64B
+  Intel_Headers/movget64b/movget64bintrin.h
+  )
+# end INTEL_FEATURE_ISA_MOVGET64B
 # end INTEL_CUSTOMIZATION
 
 set(files
