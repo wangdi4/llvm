@@ -4,7 +4,7 @@
 define float @f1(float %p, i32 %q)
 ; X64-LABEL: f1:
 ; X64:       # %bb.0:
-; X64-NEXT:    jmp ldexpf # TAILCALL
+; X64-NEXT:    jmp ldexpf@PLT # TAILCALL
 ;
 ; X86-LABEL: f1:
 ; X86:       # %bb.0:
@@ -26,7 +26,7 @@ define float @f1(float %p, i32 %q)
 define double @f2(double %p, i32 %q)
 ; X64-LABEL: f2:
 ; X64:       # %bb.0:
-; X64-NEXT:    jmp ldexp # TAILCALL
+; X64-NEXT:    jmp ldexp@PLT # TAILCALL
 ;
 ; X86-LABEL: f2:
 ; X86:       # %bb.0:
@@ -56,23 +56,23 @@ define <4 x float> @f3(<4 x float> %p, i32 %q)
 ; X64-NEXT:    movl %edi, %ebx
 ; X64-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    shufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
-; X64-NEXT:    callq ldexpf
+; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
 ; X64-NEXT:    movl %ebx, %edi
-; X64-NEXT:    callq ldexpf
+; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    unpcklps (%rsp), %xmm0 # 16-byte Folded Reload
 ; X64-NEXT:    # xmm0 = xmm0[0],mem[0],xmm0[1],mem[1]
 ; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    movl %ebx, %edi
-; X64-NEXT:    callq ldexpf
+; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    shufps {{.*#+}} xmm0 = xmm0[1,1,1,1]
 ; X64-NEXT:    movl %ebx, %edi
-; X64-NEXT:    callq ldexpf
+; X64-NEXT:    callq ldexpf@PLT
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
 ; X64-NEXT:    unpcklps {{.*#+}} xmm1 = xmm1[0],xmm0[0],xmm1[1],xmm0[1]
 ; X64-NEXT:    unpcklpd (%rsp), %xmm1 # 16-byte Folded Reload
@@ -152,23 +152,23 @@ define <4 x double> @f4(<4 x double> %p, i32 %q)
 ; X64-NEXT:    movl %edi, %ebx
 ; X64-NEXT:    movaps %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
-; X64-NEXT:    callq ldexp
+; X64-NEXT:    callq ldexp@PLT
 ; X64-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    movaps (%rsp), %xmm0 # 16-byte Reload
 ; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
 ; X64-NEXT:    movl %ebx, %edi
-; X64-NEXT:    callq ldexp
+; X64-NEXT:    callq ldexp@PLT
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
 ; X64-NEXT:    movlhps {{.*#+}} xmm1 = xmm1[0],xmm0[0]
 ; X64-NEXT:    movaps %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    movl %ebx, %edi
-; X64-NEXT:    callq ldexp
+; X64-NEXT:    callq ldexp@PLT
 ; X64-NEXT:    movaps %xmm0, (%rsp) # 16-byte Spill
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
 ; X64-NEXT:    movhlps {{.*#+}} xmm0 = xmm0[1,1]
 ; X64-NEXT:    movl %ebx, %edi
-; X64-NEXT:    callq ldexp
+; X64-NEXT:    callq ldexp@PLT
 ; X64-NEXT:    movaps (%rsp), %xmm1 # 16-byte Reload
 ; X64-NEXT:    movlhps {{.*#+}} xmm1 = xmm1[0],xmm0[0]
 ; X64-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 # 16-byte Reload
