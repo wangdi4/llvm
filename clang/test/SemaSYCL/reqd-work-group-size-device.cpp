@@ -1,10 +1,5 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -fsyntax-only -Wno-sycl-2017-compat -verify -DTRIGGER_ERROR %s
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -internal-isystem %S/Inputs -Wno-sycl-2017-compat -ast-dump %s | FileCheck %s
-
-#include "sycl.hpp"
-
-using namespace cl::sycl;
-queue q;
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsyntax-only -Wno-sycl-2017-compat -verify -DTRIGGER_ERROR %s
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -Wno-sycl-2017-compat -ast-dump %s | FileCheck %s
 
 [[cl::reqd_work_group_size(4, 1, 1)]] void f4x1x1() {} // expected-note {{conflicting attribute is here}}
 // expected-note@-1 {{conflicting attribute is here}}
@@ -24,8 +19,7 @@ public:
 #ifdef TRIGGER_ERROR
 class Functor32 {
 public:
-  // expected-note@+3{{conflicting attribute is here}}
-  // expected-warning@+2{{attribute 'reqd_work_group_size' is already applied with different parameters}}
+  //expected-warning@+2{{attribute 'reqd_work_group_size' is already applied with different parameters}}
   // expected-error@+1{{'reqd_work_group_size' attribute conflicts with 'reqd_work_group_size' attribute}}
   [[cl::reqd_work_group_size(32, 1, 1)]] [[cl::reqd_work_group_size(1, 1, 32)]] void operator()() const {}
 };
@@ -54,78 +48,65 @@ public:
   __attribute__((reqd_work_group_size(128, 128, 128))) void operator()() const {}
 };
 
-int main() {
-  q.submit([&](handler &h) {
-    Functor16 f16;
-    h.single_task<class kernel_name1>(f16);
+template <typename name, typename Func>
+__attribute__((sycl_kernel)) void kernel(const Func &kernelFunc) {
+  kernelFunc();
+}
 
-    Functor f;
-    h.single_task<class kernel_name2>(f);
+void bar() {
+  Functor16 f16;
+  kernel<class kernel_name1>(f16);
 
-    Functor16x16x16 f16x16x16;
-    h.single_task<class kernel_name3>(f16x16x16);
+  Functor f;
+  kernel<class kernel_name2>(f);
 
-    FunctorAttr fattr;
-    h.single_task<class kernel_name4>(fattr);
+  Functor16x16x16 f16x16x16;
+  kernel<class kernel_name3>(f16x16x16);
 
-    h.single_task<class kernel_name5>([]() [[cl::reqd_work_group_size(32, 32, 32), cl::reqd_work_group_size(32, 32, 32)]] {
-      f32x32x32();
-    });
+  FunctorAttr fattr;
+  kernel<class kernel_name4>(fattr);
+
+  kernel<class kernel_name5>([]() [[cl::reqd_work_group_size(32, 32, 32), cl::reqd_work_group_size(32, 32, 32)]] {
+    f32x32x32();
+  });
 
 #ifdef TRIGGER_ERROR
-    Functor8 f8;
-    h.single_task<class kernel_name6>(f8);
+  Functor8 f8;
+  kernel<class kernel_name6>(f8);
 
-    Functor32 f32;
-    h.single_task<class kernel_name1>(f32);
+  Functor32 f32;
+  kernel<class kernel_name1>(f32);
 
-    h.single_task<class kernel_name7>([]() { // expected-error {{conflicting attributes applied to a SYCL kernel}}
-      f4x1x1();
-      f32x1x1();
-    });
+  kernel<class kernel_name7>([]() { // expected-error {{conflicting attributes applied to a SYCL kernel}}
+    f4x1x1();
+    f32x1x1();
+  });
 
-    h.single_task<class kernel_name8>([]() { // expected-error {{conflicting attributes applied to a SYCL kernel}}
-      f16x1x1();
-      f16x16x1();
-    });
+  kernel<class kernel_name8>([]() { // expected-error {{conflicting attributes applied to a SYCL kernel}}
+    f16x1x1();
+    f16x16x1();
+  });
 
-    h.single_task<class kernel_name9>([]() { // expected-error {{conflicting attributes applied to a SYCL kernel}}
-      f32x32x32();
-      f32x32x1();
-    });
+  kernel<class kernel_name9>([]() { // expected-error {{conflicting attributes applied to a SYCL kernel}}
+    f32x32x32();
+    f32x32x1();
+  });
 
-    // expected-error@+1 {{expected variable name or 'this' in lambda capture list}}
-    h.single_task<class kernel_name10>([[cl::reqd_work_group_size(32, 32, 32)]][]() {
-      f32x32x32();
-    });
+  // expected-error@+1 {{expected variable name or 'this' in lambda capture list}}
+  kernel<class kernel_name10>([[cl::reqd_work_group_size(32, 32, 32)]][]() {
+    f32x32x32();
+  });
 
 #endif
-  });
-  return 0;
 }
 
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name1
-// CHECK: ReqdWorkGroupSizeAttr {{.*}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}1{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}1{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}16{{$}}
+// CHECK: ReqdWorkGroupSizeAttr {{.*}} 1 1 16
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name2
-// CHECK: ReqdWorkGroupSizeAttr {{.*}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}1{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}1{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}4{{$}}
+// CHECK: ReqdWorkGroupSizeAttr {{.*}} 1 1 4
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name3
-// CHECK: ReqdWorkGroupSizeAttr {{.*}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}16{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}16{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}16{{$}}
+// CHECK: ReqdWorkGroupSizeAttr {{.*}} 16 16 16
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name4
-// CHECK: ReqdWorkGroupSizeAttr {{.*}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}128{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}128{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}128{{$}}
+// CHECK: ReqdWorkGroupSizeAttr {{.*}} 128 128 128
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name5
-// CHECK: ReqdWorkGroupSizeAttr {{.*}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}32{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}32{{$}}
-// CHECK-NEXT:  IntegerLiteral{{.*}}32{{$}}
+// CHECK: ReqdWorkGroupSizeAttr {{.*}} 32 32 32
