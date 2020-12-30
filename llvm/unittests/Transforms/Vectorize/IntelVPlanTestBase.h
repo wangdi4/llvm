@@ -108,7 +108,7 @@ protected:
     auto Plan = buildHCFG(LoopHeader);
     auto VPOCG = std::make_unique<VPOCodeGen>(
         LI->getLoopFor(LoopHeader), *Ctx.get(), *PSE.get(), LI.get(), DT.get(),
-        TLI.get(), TTI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/,
+        TLI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/,
         Plan.get());
     return VPOCG;
   }

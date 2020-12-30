@@ -54,7 +54,7 @@ static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
 }
 
 // TODO: Consolidate and move this function to a IntelVPlanUtils.h
-static bool isScalarPointeeTy(const VPValue *Val) {
+static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
   assert(isa<PointerType>(Val->getType()) &&
          "Expect a pointer-type argument to isScalarPointeeTy function.");
   Type *PointeeTy = Val->getType()->getPointerElementType();
@@ -724,8 +724,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // For consecutive load/store we create a scalar GEP.
     // TODO: Extend support for private pointers and VLS-based unit-stride
     // optimization.
-    auto isVectorizableLoadStoreFrom = [this](const VPValue *V,
-                                              const VPValue *Ptr) -> bool {
+    auto isVectorizableLoadStoreFrom = [](const VPValue *V,
+                                          const VPValue *Ptr) -> bool {
       if (getLoadStorePointerOperand(V) != Ptr)
         return false;
 
@@ -821,7 +821,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     else
       llvm::transform(
           GEP->indices(), std::back_inserter(OpsV),
-          [this, GetVectorOp](VPValue *Op) { return GetVectorOp(Op); });
+          [GetVectorOp](VPValue *Op) { return GetVectorOp(Op); });
 
 
     StringRef GepName =
