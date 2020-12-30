@@ -749,6 +749,8 @@ public:
 
   unsigned getGISelRematGlobalCost() const { return 1; }
 
+  bool supportsScalableVectors() const { return false; }
+
   bool hasActiveVectorLength() const { return false; }
 
 protected:
