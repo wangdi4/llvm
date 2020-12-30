@@ -801,9 +801,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                             : nullptr) {}
 
     PipeTypesHelper(const Module &M)
-        : PipeTypesHelper(M.getTypeByName("opencl.pipe_rw_t"),
-                          M.getTypeByName("opencl.pipe_ro_t"),
-                          M.getTypeByName("opencl.pipe_wo_t")) {}
+        : PipeTypesHelper(
+              StructType::getTypeByName(M.getContext(), "opencl.pipe_rw_t"),
+              StructType::getTypeByName(M.getContext(), "opencl.pipe_ro_t"),
+              StructType::getTypeByName(M.getContext(), "opencl.pipe_wo_t")) {}
 
     bool hasPipeTypes() const {
       return PipeRWTy || PipeROTy || PipeWOTy;

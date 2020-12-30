@@ -124,7 +124,7 @@ public:
     auto RTLs = BLI.getBuiltinModules();
     llvm::Module *PipesModule = nullptr;
     for (auto *M : RTLs) {
-      if (M->getTypeByName("struct.__pipe_t")) {
+      if (StructType::getTypeByName(M->getContext(), "struct.__pipe_t")) {
         PipesModule = M;
         break;
       }

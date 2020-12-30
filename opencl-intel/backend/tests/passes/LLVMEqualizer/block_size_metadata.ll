@@ -72,7 +72,7 @@ entry:
   store i8 %c0, i8* %block.captured2, align 4, !tbaa !16
   %2 = bitcast <{ i32, i32, i32 addrspace(1)*, i32, i8 }>* %block to void ()*
   %3 = addrspacecast void ()* %2 to i8 addrspace(4)*
-  %call1 = call i32 @__enqueue_kernel_basic(%opencl.queue_t* %0, i32 %1, %struct.ndrange_t* byval %tmp, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__device_side_enqueue_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* %3)
+  %call1 = call i32 @__enqueue_kernel_basic(%opencl.queue_t* %0, i32 %1, %struct.ndrange_t* byval(%struct.ndrange_t) %tmp, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__device_side_enqueue_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* %3)
   %4 = alloca [1 x i64]
   %5 = getelementptr [1 x i64], [1 x i64]* %4, i32 0, i32 0
   store i64 256, i64* %5, align 8

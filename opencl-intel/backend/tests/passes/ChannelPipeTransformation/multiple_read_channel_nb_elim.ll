@@ -86,7 +86,7 @@ entry:
   %2 = bitcast %struct.Foo* %stst to i8*
   call void @llvm.lifetime.start.p0i8(i64 8, i8* %2) #3
   %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([3 x [2 x %opencl.channel_t addrspace(1)*]], [3 x [2 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @star_arr, i64 0, i64 2, i64 1), align 4, !tbaa !6
-  call void @_Z21read_channel_nb_intel11ocl_channel3FooPb(%struct.Foo* sret %stst, %opencl.channel_t addrspace(1)* %3, i8* %valid) #4
+  call void @_Z21read_channel_nb_intel11ocl_channel3FooPb(%struct.Foo* sret(%struct.Foo) %stst, %opencl.channel_t addrspace(1)* %3, i8* %valid) #4
   %4 = bitcast i32* %j to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %4) #3
   %5 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @bar, align 4, !tbaa !6
@@ -95,7 +95,7 @@ entry:
   %6 = bitcast %struct.Foo* %stst1 to i8*
   call void @llvm.lifetime.start.p0i8(i64 8, i8* %6) #3
   %7 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([3 x [2 x %opencl.channel_t addrspace(1)*]], [3 x [2 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @star_arr, i64 0, i64 2, i64 1), align 4, !tbaa !6
-  call void @_Z21read_channel_nb_intel11ocl_channel3FooPb(%struct.Foo* sret %stst1, %opencl.channel_t addrspace(1)* %7, i8* %valid) #4
+  call void @_Z21read_channel_nb_intel11ocl_channel3FooPb(%struct.Foo* sret(%struct.Foo) %stst1, %opencl.channel_t addrspace(1)* %7, i8* %valid) #4
   %8 = bitcast %struct.Foo* %stst1 to i8*
   call void @llvm.lifetime.end.p0i8(i64 8, i8* %8) #3
   %9 = bitcast i32* %j to i8*
@@ -115,7 +115,7 @@ declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 declare i32 @_Z21read_channel_nb_intel11ocl_channeliPb(%opencl.channel_t addrspace(1)*, i8*) #2
 
 ; Function Attrs: convergent
-declare void @_Z21read_channel_nb_intel11ocl_channel3FooPb(%struct.Foo* sret, %opencl.channel_t addrspace(1)*, i8*) #2
+declare void @_Z21read_channel_nb_intel11ocl_channel3FooPb(%struct.Foo* sret(%struct.Foo), %opencl.channel_t addrspace(1)*, i8*) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1

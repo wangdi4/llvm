@@ -841,7 +841,7 @@ bool ChannelPipeTransformation::runOnModule(Module &M) {
       PointerType::get(ChannelValueTy, Utils::OCLAddressSpace::Global);
 
   auto PipeTyName = "opencl.pipe_rw_t";
-  auto *PipeValueTy = M.getTypeByName(PipeTyName);
+  auto *PipeValueTy = StructType::getTypeByName(M.getContext(), PipeTyName);
   if (!PipeValueTy)
     PipeValueTy = StructType::create(M.getContext(), PipeTyName);
   auto *PipeTy = PointerType::get(PipeValueTy, Utils::OCLAddressSpace::Global);

@@ -265,7 +265,7 @@ static cl::opt<bool> PassRemarksWithHotness(
     cl::desc("With PGO, include profile count in optimization remarks"),
     cl::Hidden);
 
-static cl::opt<unsigned> PassRemarksHotnessThreshold(
+static cl::opt<Optional<uint64_t>> PassRemarksHotnessThreshold(
     "pass-remarks-hotness-threshold",
     cl::desc("Minimum profile count required for an optimization remark to be output"),
     cl::Hidden);
@@ -467,7 +467,7 @@ int main(int argc, char **argv) {
   // For codegen passes, only passes that do IR to IR transformation are
   // supported.
   initializeExpandMemCmpPassPass(Registry);
-  initializeScalarizeMaskedMemIntrinPass(Registry);
+  initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
   initializeCodeGenPreparePass(Registry);
   initializeAtomicExpandPass(Registry);
   initializeRewriteSymbolsLegacyPassPass(Registry);

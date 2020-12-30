@@ -1063,7 +1063,7 @@ void Optimizer::initializePasses() {
   // For codegen passes, only passes that do IR to IR transformation are
   // supported.
   initializeExpandMemCmpPassPass(Registry);
-  initializeScalarizeMaskedMemIntrinPass(Registry);
+  initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
   initializeCodeGenPreparePass(Registry);
   initializeAtomicExpandPass(Registry);
   initializeRewriteSymbolsLegacyPassPass(Registry);
