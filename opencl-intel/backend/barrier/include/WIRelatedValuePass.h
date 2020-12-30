@@ -81,6 +81,10 @@ namespace intel {
       return m_specialValues[pVal];
     }
 
+    void setWIRelated(Value *Val, bool WIRelated) {
+      m_specialValues[Val] = WIRelated;
+    }
+
   protected:
     /// @brief Update dependency relations between all values
     void updateDeps();

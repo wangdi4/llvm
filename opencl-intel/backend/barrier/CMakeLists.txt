@@ -8,6 +8,7 @@ include_directories(
     ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
+    ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/name_mangling
     ${BACKEND_ROOT_DIR}/subgroup_emulation
@@ -26,6 +27,7 @@ set(TARGET_SOURCE_FILES
   DuplicateCalledKernelsPass.cpp
   ImplicitGIDPass.cpp
   RedundantPhiNodePass.cpp
+  ReduceCrossBarrierValues.cpp
   RemoveDuplicationBarrierPass.cpp
   ReplaceScalarWithMaskPass.cpp
   SplitBBonBarrierPass.cpp
