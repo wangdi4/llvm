@@ -720,7 +720,7 @@ public:
     }
   }
 
-  void printAsOperand(raw_ostream &OS) const {
+  void printAsOperand(raw_ostream &OS) const override {
     getType()->print(OS);
     OS << " ext-use" << getMergeId() << "(";
     if (getNumOperands() > 0)
@@ -826,7 +826,7 @@ public:
     OS << "live-in" << getMergeId() << "\n";
   }
 
-  void printAsOperand(raw_ostream &OS) const {
+  void printAsOperand(raw_ostream &OS) const override {
     getType()->print(OS);
     OS << " live-in" << getMergeId();
   }
@@ -869,7 +869,7 @@ public:
     OS << ")\n";
   }
 
-  void printAsOperand(raw_ostream &OS) const {
+  void printAsOperand(raw_ostream &OS) const override {
     getType()->print(OS);
     OS << " live-out" << getMergeId();
   }
