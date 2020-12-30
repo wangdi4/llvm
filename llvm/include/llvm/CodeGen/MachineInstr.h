@@ -1282,6 +1282,7 @@ public:
     case TargetOpcode::DBG_LABEL:
     case TargetOpcode::LIFETIME_START:
     case TargetOpcode::LIFETIME_END:
+    case TargetOpcode::PSEUDO_PROBE:
       return true;
     }
   }

@@ -68,6 +68,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeX86SplitVectorValueTypePass(PR);  // INTEL
+  initializeX86LowerAMXTypeLegacyPassPass(PR);
   initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
   initializeFixupBWInstPassPass(PR);
@@ -78,6 +79,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CallFrameOptimizationPass(PR);
   initializeX86CmovConverterPassPass(PR);
   initializeX86CiscizationHelperPassPass(PR); // INTEL
+  initializeX86TileConfigPass(PR);
   initializeX86ExpandPseudoPass(PR);
   initializeX86ExecutionDomainFixPass(PR);
   initializeX86DomainReassignmentPass(PR);
@@ -90,6 +92,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86LoadValueInjectionRetHardeningPassPass(PR);
   initializeX86OptimizeLEAPassPass(PR);
   initializeX86PartialReductionPass(PR);
+  initializePseudoProbeInserterPass(PR);
 #if INTEL_CUSTOMIZATION
   initializeX86GlobalFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
@@ -391,6 +394,7 @@ public:
   void addAdvancedPatternMatchingOpts() override;  // INTEL
   void addPreEmitPass2() override;
   void addPreSched2() override;
+  bool addPreRewrite() override;
 
   std::unique_ptr<CSEConfigBase> getCSEConfig() const override;
 };
@@ -420,6 +424,7 @@ TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
+  // addPass(createX86LowerAMXTypePass()); // INTEL
 
   TargetPassConfig::addIRPasses();
 
@@ -533,7 +538,12 @@ void X86PassConfig::addPreRegAlloc() {
 #if INTEL_CUSTOMIZATION
   addPass(createX86PRAExpandPseudoPass());
 #endif // INTEL_CUSTOMIZATION
+
+  if (getOptLevel() != CodeGenOpt::None) {
+    addPass(createX86PreTileConfigPass());
+  }
 }
+
 void X86PassConfig::addMachineSSAOptimization() {
   addPass(createX86DomainReassignmentPass());
   TargetPassConfig::addMachineSSAOptimization();
@@ -604,6 +614,11 @@ void X86PassConfig::addPreEmitPass2() {
   if (TT.isOSWindows())
     addPass(createCFGuardLongjmpPass());
   addPass(createX86LoadValueInjectionRetHardeningPass());
+}
+
+bool X86PassConfig::addPreRewrite() {
+  addPass(createX86TileConfigPass());
+  return true;
 }
 
 std::unique_ptr<CSEConfigBase> X86PassConfig::getCSEConfig() const {

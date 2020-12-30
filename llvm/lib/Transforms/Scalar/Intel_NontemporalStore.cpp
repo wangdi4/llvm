@@ -152,7 +152,7 @@ void NontemporalStore::run() {
       ArrayType::get(Builder.getInt8Ty(), 0) // Source data pointer
   };
   StructType *StoreBufferType =
-    F.getParent()->getTypeByName("__nontemporal_buffer_data");
+    StructType::getTypeByName(F.getContext(), "__nontemporal_buffer_data");
   if (!StoreBufferType || StoreBufferType->elements() != ArrayRef<Type*>(Tys)) {
     StoreBufferType = StructType::create(Tys, "__nontemporal_buffer_data");
   }
@@ -376,7 +376,7 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
 
   // Get the location that we store. Adjust it for the range of the array that
   // we could be storing, as well as the size of the type we are storing.
-  LocationSize Size = LocationSize::unknown();
+  LocationSize Size = LocationSize::beforeOrAfterPointer();
   if (TripCount) {
     Size = LocationSize::precise(
         DL.getTypeStoreSize(SI.getValueOperand()->getType()) *
@@ -402,7 +402,7 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
       // range between the first and last store in the loop. Otherwise, just
       // check for aliasing in the entire object.
       auto ILoc = MemoryLocation::getOrNone(&Inst);
-      LocationSize QuerySize = LocationSize::unknown();
+      LocationSize QuerySize = LocationSize::beforeOrAfterPointer();
       if (ILoc && TripCount) {
         const SCEV *QuerySCEV = SE.getSCEV(const_cast<Value*>(ILoc->Ptr));
         if (auto AddRec = dyn_cast<SCEVAddRecExpr>(QuerySCEV)) {

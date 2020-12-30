@@ -1,6 +1,6 @@
 ; Inline report
-; RUN: opt -inline -inline-report=1 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK_INLREP
-; RUN: opt -passes='cgscc(inline)' -inline-report=1 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK_INLREP
+; RUN: opt -inline -inline-report=1 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -passes='cgscc(inline)' -inline-report=1 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=128 < %s -S | opt -inline -inline-report=128 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S | opt -inlinereportemitter -inline-report=128 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 ; RUN: opt -passes='inlinereportsetup' -inline-report=128 < %s -S | opt -passes='cgscc(inline)' -inline-report=128  -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S | opt -passes='inlinereportemitter' -inline-report=128 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP

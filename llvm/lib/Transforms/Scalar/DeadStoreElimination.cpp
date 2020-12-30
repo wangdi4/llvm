@@ -276,7 +276,7 @@ static MemoryLocation getLocForWrite(Instruction *Inst,
     default:
       return MemoryLocation(); // Unhandled intrinsic.
     case Intrinsic::init_trampoline:
-      return MemoryLocation(II->getArgOperand(0));
+      return MemoryLocation::getAfter(II->getArgOperand(0));
     case Intrinsic::masked_store:
       return MemoryLocation::getForArgument(II, 1, TLI);
     case Intrinsic::lifetime_end: {
@@ -288,7 +288,7 @@ static MemoryLocation getLocForWrite(Instruction *Inst,
   if (auto *CB = dyn_cast<CallBase>(Inst))
     // All the supported TLI functions so far happen to have dest as their
     // first argument.
-    return MemoryLocation(CB->getArgOperand(0));
+    return MemoryLocation::getAfter(CB->getArgOperand(0));
   return MemoryLocation();
 }
 
@@ -829,7 +829,7 @@ static bool handleFree(CallInst *F, AliasAnalysis *AA,
                        MapVector<Instruction *, bool> &ThrowableInst) {
   bool MadeChange = false;
 
-  MemoryLocation Loc = MemoryLocation(F->getOperand(0));
+  MemoryLocation Loc = MemoryLocation::getAfter(F->getOperand(0));
   SmallVector<BasicBlock *, 16> Blocks;
   Blocks.push_back(F->getParent());
 
@@ -1072,8 +1072,8 @@ static bool handleEndBlock(BasicBlock &BB, AliasAnalysis *AA,
 }
 
 static bool tryToShorten(Instruction *EarlierWrite, int64_t &EarlierOffset,
-                         int64_t &EarlierSize, int64_t LaterOffset,
-                         int64_t LaterSize, bool IsOverwriteEnd) {
+                         uint64_t &EarlierSize, int64_t LaterOffset,
+                         uint64_t LaterSize, bool IsOverwriteEnd) {
   // TODO: base this on the target vector size so that if the earlier
   // store was too small to get vector writes anyway then its likely
   // a good idea to shorten it
@@ -1128,16 +1128,23 @@ static bool tryToShorten(Instruction *EarlierWrite, int64_t &EarlierOffset,
 
 static bool tryToShortenEnd(Instruction *EarlierWrite,
                             OverlapIntervalsTy &IntervalMap,
-                            int64_t &EarlierStart, int64_t &EarlierSize) {
+                            int64_t &EarlierStart, uint64_t &EarlierSize) {
   if (IntervalMap.empty() || !isShortenableAtTheEnd(EarlierWrite))
     return false;
 
   OverlapIntervalsTy::iterator OII = --IntervalMap.end();
   int64_t LaterStart = OII->second;
-  int64_t LaterSize = OII->first - LaterStart;
+  uint64_t LaterSize = OII->first - LaterStart;
 
-  if (LaterStart > EarlierStart && LaterStart < EarlierStart + EarlierSize &&
-      LaterStart + LaterSize >= EarlierStart + EarlierSize) {
+  assert(OII->first - LaterStart >= 0 && "Size expected to be positive");
+
+  if (LaterStart > EarlierStart &&
+      // Note: "LaterStart - EarlierStart" is known to be positive due to
+      // preceding check.
+      (uint64_t)(LaterStart - EarlierStart) < EarlierSize &&
+      // Note: "EarlierSize - (uint64_t)(LaterStart - EarlierStart)" is known to
+      // be non negative due to preceding checks.
+      LaterSize >= EarlierSize - (uint64_t)(LaterStart - EarlierStart)) {
     if (tryToShorten(EarlierWrite, EarlierStart, EarlierSize, LaterStart,
                      LaterSize, true)) {
       IntervalMap.erase(OII);
@@ -1149,16 +1156,23 @@ static bool tryToShortenEnd(Instruction *EarlierWrite,
 
 static bool tryToShortenBegin(Instruction *EarlierWrite,
                               OverlapIntervalsTy &IntervalMap,
-                              int64_t &EarlierStart, int64_t &EarlierSize) {
+                              int64_t &EarlierStart, uint64_t &EarlierSize) {
   if (IntervalMap.empty() || !isShortenableAtTheBeginning(EarlierWrite))
     return false;
 
   OverlapIntervalsTy::iterator OII = IntervalMap.begin();
   int64_t LaterStart = OII->second;
-  int64_t LaterSize = OII->first - LaterStart;
+  uint64_t LaterSize = OII->first - LaterStart;
 
-  if (LaterStart <= EarlierStart && LaterStart + LaterSize > EarlierStart) {
-    assert(LaterStart + LaterSize < EarlierStart + EarlierSize &&
+  assert(OII->first - LaterStart >= 0 && "Size expected to be positive");
+
+  if (LaterStart <= EarlierStart &&
+      // Note: "EarlierStart - LaterStart" is known to be non negative due to
+      // preceding check.
+      LaterSize > (uint64_t)(EarlierStart - LaterStart)) {
+    // Note: "LaterSize - (uint64_t)(EarlierStart - LaterStart)" is known to be
+    // positive due to preceding checks.
+    assert(LaterSize - (uint64_t)(EarlierStart - LaterStart) < EarlierSize &&
            "Should have been handled as OW_Complete");
     if (tryToShorten(EarlierWrite, EarlierStart, EarlierSize, LaterStart,
                      LaterSize, false)) {
@@ -1180,7 +1194,7 @@ static bool removePartiallyOverlappedStores(const DataLayout &DL,
 
     const Value *Ptr = Loc.Ptr->stripPointerCasts();
     int64_t EarlierStart = 0;
-    int64_t EarlierSize = int64_t(Loc.Size.getValue());
+    uint64_t EarlierSize = Loc.Size.getValue();
     GetPointerBaseWithConstantOffset(Ptr, EarlierStart, DL);
     OverlapIntervalsTy &IntervalMap = OI.second;
     Changed |=
@@ -1429,8 +1443,8 @@ static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
                                                     "when partial-overwrite "
                                                     "tracking is enabled");
           // The overwrite result is known, so these must be known, too.
-          int64_t EarlierSize = DepLoc.Size.getValue();
-          int64_t LaterSize = Loc.Size.getValue();
+          uint64_t EarlierSize = DepLoc.Size.getValue();
+          uint64_t LaterSize = Loc.Size.getValue();
           bool IsOverwriteEnd = (OR == OW_End);
           MadeChange |= tryToShorten(DepWrite, DepWriteOffset, EarlierSize,
                                     InstWriteOffset, LaterSize, IsOverwriteEnd);
@@ -1726,14 +1740,14 @@ struct DSEState {
         case LibFunc_strncpy:
         case LibFunc_strcat:
         case LibFunc_strncat:
-          return {MemoryLocation(CB->getArgOperand(0))};
+          return {MemoryLocation::getAfter(CB->getArgOperand(0))};
         default:
           break;
         }
       }
       switch (CB->getIntrinsicID()) {
       case Intrinsic::init_trampoline:
-        return {MemoryLocation(CB->getArgOperand(0))};
+        return {MemoryLocation::getAfter(CB->getArgOperand(0))};
       case Intrinsic::masked_store:
         return {MemoryLocation::getForArgument(CB, 1, TLI)};
       default:
@@ -1828,7 +1842,8 @@ struct DSEState {
 
     if (auto *CB = dyn_cast<CallBase>(I)) {
       if (isFreeCall(I, &TLI))
-        return {std::make_pair(MemoryLocation(CB->getArgOperand(0)), true)};
+        return {std::make_pair(MemoryLocation::getAfter(CB->getArgOperand(0)),
+                               true)};
     }
 
     return None;
@@ -2505,7 +2520,7 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
       continue;
     Instruction *SI = KillingDef->getMemoryInst();
 
-    auto MaybeSILoc = State.getLocForWriteEx(SI);
+    Optional<MemoryLocation> MaybeSILoc;
     if (State.isMemTerminatorInst(SI))
       MaybeSILoc = State.getLocForTerminator(SI).map(
           [](const std::pair<MemoryLocation, bool> &P) { return P.first; });

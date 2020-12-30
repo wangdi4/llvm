@@ -85,7 +85,7 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: nounwind
-define void @"_ZGVdN8uuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval) {
+define void @"_ZGVdN8uuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range")) {
   %7 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 

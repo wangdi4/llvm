@@ -249,6 +249,10 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
+  bool getAIXExtendedAltivecABI() const {
+    return Options.EnableAIXExtendedAltivecABI;
+  }
+
   bool getUniqueSectionNames() const { return Options.UniqueSectionNames; }
 
   /// Return true if unique basic block section names must be generated.
@@ -268,11 +272,15 @@ public:
     return Options.FunctionSections;
   }
 
-  /// Return true if visibility attribute should not be emitted in xcoff,
+  /// Return true if visibility attribute should not be emitted in XCOFF,
   /// corresponding to -mignore-xcoff-visibility.
   bool getIgnoreXCOFFVisibility() const {
     return Options.IgnoreXCOFFVisibility;
   }
+
+  /// Return true if XCOFF traceback table should be emitted,
+  /// corresponding to -xcoff-traceback-table.
+  bool getXCOFFTracebackTable() const { return Options.XCOFFTracebackTable; }
 
   /// If basic blocks should be emitted into their own section,
   /// corresponding to -fbasic-block-sections.

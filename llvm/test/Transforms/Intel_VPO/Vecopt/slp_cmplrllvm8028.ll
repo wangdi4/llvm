@@ -244,7 +244,7 @@ entry:
   %5 = bitcast %class.QPlatformCursorImage** %mCursorImage to i8*
   call void @llvm.memset.p0i8.i64(i8* nonnull align 8 %5, i8 0, i64 24, i1 false)
   call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %4) #8
-  invoke void @_Z7qgetenvPKc(%class.QByteArray* nonnull sret %hideCursorVal, i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str, i64 0, i64 0))
+  invoke void @_Z7qgetenvPKc(%class.QByteArray* nonnull sret(%class.QByteArray) %hideCursorVal, i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str, i64 0, i64 0))
           to label %invoke.cont3 unwind label %lpad2
 
 invoke.cont3:                                     ; preds = %entry
@@ -365,7 +365,7 @@ call3.i.noexc:                                    ; preds = %invoke.cont23
   %34 = bitcast <2 x i64>* %signal.addr.i to i8**
   %35 = getelementptr inbounds %class.QInputDeviceManager, %class.QInputDeviceManager* %call24, i64 0, i32 0
   %36 = bitcast i8* %call3.i46 to %"class.QtPrivate::QSlotObjectBase"*
-  invoke void @_ZN7QObject11connectImplEPKS_PPvS1_S3_PN9QtPrivate15QSlotObjectBaseEN2Qt14ConnectionTypeEPKiPK11QMetaObject(%"class.QMetaObject::Connection"* nonnull sret %agg.tmp.ensured, %class.QObject* %35, i8** nonnull %34, %class.QObject* %33, i8** nonnull %32, %"class.QtPrivate::QSlotObjectBase"* nonnull %36, i32 0, i32* null, %struct.QMetaObject* nonnull @_ZN19QInputDeviceManager16staticMetaObjectE)
+  invoke void @_ZN7QObject11connectImplEPKS_PPvS1_S3_PN9QtPrivate15QSlotObjectBaseEN2Qt14ConnectionTypeEPKiPK11QMetaObject(%"class.QMetaObject::Connection"* nonnull sret(%"class.QMetaObject::Connection") %agg.tmp.ensured, %class.QObject* %35, i8** nonnull %34, %class.QObject* %33, i8** nonnull %32, %"class.QtPrivate::QSlotObjectBase"* nonnull %36, i32 0, i32* null, %struct.QMetaObject* nonnull @_ZN19QInputDeviceManager16staticMetaObjectE)
           to label %invoke.cont26 unwind label %lpad4
 
 invoke.cont26:                                    ; preds = %call3.i.noexc
@@ -453,7 +453,7 @@ declare dso_local i32 @__gxx_personality_v0(...)
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #2
 
-declare dso_local void @_Z7qgetenvPKc(%class.QByteArray* sret, i8*) local_unnamed_addr #1
+declare dso_local void @_Z7qgetenvPKc(%class.QByteArray* sret(%class.QByteArray), i8*) local_unnamed_addr #1
 
 declare dso_local i32 @_ZNK10QByteArray5toIntEPbi(%class.QByteArray*, i8*, i32) local_unnamed_addr #1
 
@@ -772,9 +772,9 @@ declare dso_local i32 @_ZNK7QCursor5shapeEv(%class.QCursor*) local_unnamed_addr 
 
 declare dso_local i64 @_ZNK7QCursor7hotSpotEv(%class.QCursor*) local_unnamed_addr #1
 
-declare dso_local void @_ZNK7QCursor6pixmapEv(%class.QPixmap* sret, %class.QCursor*) local_unnamed_addr #1
+declare dso_local void @_ZNK7QCursor6pixmapEv(%class.QPixmap* sret(%class.QPixmap), %class.QCursor*) local_unnamed_addr #1
 
-declare dso_local void @_ZNK7QPixmap7toImageEv(%class.QImage* sret, %class.QPixmap*) local_unnamed_addr #1
+declare dso_local void @_ZNK7QPixmap7toImageEv(%class.QImage* sret(%class.QImage), %class.QPixmap*) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
 declare dso_local void @_ZN6QImageD1Ev(%class.QImage*) unnamed_addr #5
@@ -823,7 +823,7 @@ declare dso_local i32 @_ZNK6QImage5widthEv(%class.QImage*) local_unnamed_addr #1
 
 declare dso_local i32 @_ZNK6QImage6heightEv(%class.QImage*) local_unnamed_addr #1
 
-declare dso_local void @_ZN7QObject11connectImplEPKS_PPvS1_S3_PN9QtPrivate15QSlotObjectBaseEN2Qt14ConnectionTypeEPKiPK11QMetaObject(%"class.QMetaObject::Connection"* sret, %class.QObject*, i8**, %class.QObject*, i8**, %"class.QtPrivate::QSlotObjectBase"*, i32, i32*, %struct.QMetaObject*) local_unnamed_addr #1
+declare dso_local void @_ZN7QObject11connectImplEPKS_PPvS1_S3_PN9QtPrivate15QSlotObjectBaseEN2Qt14ConnectionTypeEPKiPK11QMetaObject(%"class.QMetaObject::Connection"* sret(%"class.QMetaObject::Connection"), %class.QObject*, i8**, %class.QObject*, i8**, %"class.QtPrivate::QSlotObjectBase"*, i32, i32*, %struct.QMetaObject*) local_unnamed_addr #1
 
 ; Function Attrs: uwtable
 define linkonce_odr dso_local void @_ZN9QtPrivate11QSlotObjectIM23QFbCursorDeviceListenerFvN19QInputDeviceManager10DeviceTypeEENS_4ListIIS3_EEEvE4implEiPNS_15QSlotObjectBaseEP7QObjectPPvPb(i32 %which, %"class.QtPrivate::QSlotObjectBase"* %this_, %class.QObject* %r, i8** %a, i8* %ret) #0 comdat align 2 {

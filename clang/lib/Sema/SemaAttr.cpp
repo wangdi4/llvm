@@ -973,6 +973,8 @@ void Sema::ActOnPragmaFPContract(SourceLocation Loc,
     NewFPFeatures.setDisallowFPContract();
     Context.disableFPContract(); // INTEL
     break;
+  case LangOptions::FPM_FastHonorPragmas:
+    llvm_unreachable("Should not happen");
   }
   FpPragmaStack.Act(Loc, Sema::PSK_Set, StringRef(), NewFPFeatures);
   CurFPFeatures = NewFPFeatures.applyOverrides(getLangOpts());

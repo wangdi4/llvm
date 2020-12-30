@@ -328,7 +328,8 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
 
   // If the module has the corresponding structure, we will use it to check for
   // possible incorrect metadata information.
-  llvm::StructType *StTy = M.getTypeByName(DTStTy->getName());
+  llvm::StructType *StTy =
+      StructType::getTypeByName(M.getContext(), DTStTy->getName());
 
   unsigned FieldNum = 0;
   unsigned NumOps = MD->getNumOperands();

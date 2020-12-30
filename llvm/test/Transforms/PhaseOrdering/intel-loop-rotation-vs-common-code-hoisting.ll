@@ -2,17 +2,17 @@
 ; Clone of loop-rotation-vs-common-code-hoisting.ll that makes checks based on
 ; the xmain -O3 pipeline.
 
-; RUN: opt -O3 -rotation-max-header-size=0 -S < %s                    | FileCheck %s --check-prefixes=HOIST,THR0,FALLBACK0
-; RUN: opt -passes='default<O3>' -rotation-max-header-size=0 -S < %s  | FileCheck %s --check-prefixes=HOIST,THR0,FALLBACK1
+; RUN: opt -O3 -rotation-max-header-size=0 -S < %s                    | FileCheck %s --check-prefixes=HOIST
+; RUN: opt -passes='default<O3>' -rotation-max-header-size=0 -S < %s  | FileCheck %s --check-prefixes=HOIST
 
-; RUN: opt -O3 -rotation-max-header-size=1 -S < %s                    | FileCheck %s --check-prefixes=HOIST,THR1,FALLBACK2
-; RUN: opt -passes='default<O3>' -rotation-max-header-size=1 -S < %s  | FileCheck %s --check-prefixes=HOIST,THR1,FALLBACK3
+; RUN: opt -O3 -rotation-max-header-size=1 -S < %s                    | FileCheck %s --check-prefixes=HOIST
+; RUN: opt -passes='default<O3>' -rotation-max-header-size=1 -S < %s  | FileCheck %s --check-prefixes=HOIST
 
-; RUN: opt -O3 -rotation-max-header-size=2 -S < %s                    | FileCheck %s --check-prefixes=ROTATED_LATER,ROTATED_LATER_OLDPM,FALLBACK4
-; RUN: opt -passes='default<O3>' -rotation-max-header-size=2 -S < %s  | FileCheck %s --check-prefixes=ROTATED_LATER,ROTATED_LATER_NEWPM,FALLBACK5
+; RUN: opt -O3 -rotation-max-header-size=2 -S < %s                    | FileCheck %s --check-prefixes=ROTATED_LATER_OLDPM
+; RUN: opt -passes='default<O3>' -rotation-max-header-size=2 -S < %s  | FileCheck %s --check-prefixes=ROTATED_LATER_NEWPM
 
-; RUN: opt -O3 -rotation-max-header-size=3 -S < %s                    | FileCheck %s --check-prefixes=ROTATE,ROTATE_OLDPM,FALLBACK6
-; RUN: opt -passes='default<O3>' -rotation-max-header-size=3 -S < %s  | FileCheck %s --check-prefixes=ROTATE,ROTATE_NEWPM,FALLBACK7
+; RUN: opt -O3 -rotation-max-header-size=3 -S < %s                    | FileCheck %s --check-prefixes=ROTATE_OLDPM
+; RUN: opt -passes='default<O3>' -rotation-max-header-size=3 -S < %s  | FileCheck %s --check-prefixes=ROTATE_NEWPM
 
 ; This example is produced from a very basic C code:
 ;

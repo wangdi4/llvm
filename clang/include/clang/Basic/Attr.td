@@ -126,6 +126,9 @@ def FunctionTmpl
                                  FunctionDecl::TK_FunctionTemplate}],
                     "function templates">;
 
+def ClassTmpl : SubsetSubject<CXXRecord, [{S->getDescribedClassTemplate()}],
+                              "class templates">;
+
 // FIXME: this hack is needed because DeclNodes.td defines the base Decl node
 // type to be a class, not a definition. This makes it impossible to create an
 // attribute subject which accepts a Decl. Normally, this is not a problem,
@@ -397,6 +400,9 @@ def TargetELF : TargetSpec {
   let ObjectFormats = ["ELF"];
 }
 
+def TargetSupportsInitPriority : TargetSpec {
+  let CustomCode = [{ !Target.getTriple().isOSzOS() }];
+}
 // Attribute subject match rules that are used for #pragma clang attribute.
 //
 // A instance of AttrSubjectMatcherRule represents an individual match rule.
@@ -2460,6 +2466,11 @@ def TypeNullable : TypeAttr {
   let Documentation = [TypeNullableDocs];
 }
 
+def TypeNullableResult : TypeAttr {
+  let Spellings = [Keyword<"_Nullable_result">];
+  let Documentation = [TypeNullableResultDocs];
+}
+
 def TypeNullUnspecified : TypeAttr {
   let Spellings = [Keyword<"_Null_unspecified">];
   let Documentation = [TypeNullUnspecifiedDocs];
@@ -2807,6 +2818,19 @@ def Regparm : TypeAttr {
   let ASTNode = 0;
 }
 
+def SwiftAsyncName : InheritableAttr {
+  let Spellings = [GNU<"swift_async_name">];
+  let Args = [StringArgument<"Name">];
+  let Subjects = SubjectList<[ObjCMethod, Function], ErrorDiag>;
+  let Documentation = [SwiftAsyncNameDocs];
+}
+
+def SwiftAttr : InheritableAttr {
+  let Spellings = [GNU<"swift_attr">];
+  let Args = [StringArgument<"Attribute">];
+  let Documentation = [SwiftAttrDocs];
+}
+
 def SwiftBridge : InheritableAttr {
   let Spellings = [GNU<"swift_bridge">];
   let Args = [StringArgument<"SwiftType">];
@@ -2885,7 +2909,7 @@ def WorkGroupSizeHint :  InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def InitPriority : InheritableAttr {
+def InitPriority : InheritableAttr, TargetSpecificAttr<TargetSupportsInitPriority> {
   let Spellings = [GCC<"init_priority", /*AllowInC*/0>];
   let Args = [UnsignedArgument<"Priority">];
   let Subjects = SubjectList<[Var], ErrorDiag>;
@@ -2993,6 +3017,16 @@ def SwiftIndirectResult : ParameterABIAttr {
   let Documentation = [SwiftIndirectResultDocs];
 }
 
+def SwiftAsync : InheritableAttr {
+  let Spellings = [Clang<"swift_async">];
+  let Subjects = SubjectList<[Function, ObjCMethod]>;
+  let Args = [EnumArgument<"Kind", "Kind",
+                ["none", "swift_private", "not_swift_private"],
+                ["None", "SwiftPrivate", "NotSwiftPrivate"]>,
+              ParamIdxArgument<"CompletionHandlerIndex", /*opt=*/1>];
+  let Documentation = [SwiftAsyncDocs];
+}
+
 def Suppress : StmtAttr {
   let Spellings = [CXX11<"gsl", "suppress">];
   let Args = [VariadicStringArgument<"DiagnosticIdentifiers">];
@@ -3023,6 +3057,16 @@ def Pascal : DeclOrTypeAttr {
   let Spellings = [Clang<"pascal">, Keyword<"__pascal">, Keyword<"_pascal">];
 //  let Subjects = [Function, ObjCMethod];
   let Documentation = [Undocumented];
+}
+
+def PreferredName : InheritableAttr {
+  let Spellings = [Clang<"preferred_name", /*AllowInC*/0>];
+  let Subjects = SubjectList<[ClassTmpl]>;
+  let Args = [TypeArgument<"TypedefType">];
+  let Documentation = [PreferredNameDocs];
+  let InheritEvenIfAlreadyPresent = 1;
+  let MeaningfulToClassTemplateDefinition = 1;
+  let TemplateDependent = 1;
 }
 
 def PreserveMost : DeclOrTypeAttr {

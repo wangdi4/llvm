@@ -291,6 +291,9 @@ let SubRegIndices = [sub_ymm] in {
   }
 }
 
+// Tile config registers.
+def TMMCFG: X86Reg<"tmmcfg", 0>;
+
 // Tile "registers".
 def TMM0:  X86Reg<"tmm0",   0>;
 def TMM1:  X86Reg<"tmm1",   1>;
@@ -727,8 +730,8 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
-let isAllocatable = 0 in
-def TILE : RegisterClass<"X86", [untyped], 0,
+let CopyCost = -1 in // Don't allow copying of tile registers
+def TILE : RegisterClass<"X86", [v256i32], 8192,
                          (sequence "TMM%u", 0, 15)> {let Size = 8192;}
 
 // Tiles
@@ -757,8 +760,8 @@ let isAllocatable = 0 in
 def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
 #else // INTEL_FEATURE_ISA_AMX
 // Tiles
-let isAllocatable = 0 in
-def TILE : RegisterClass<"X86", [untyped], 0,
+let CopyCost = -1 in // Don't allow copying of tile registers
+def TILE : RegisterClass<"X86", [v256i32], 8192,
                          (sequence "TMM%u", 0, 7)> {let Size = 8192;}
 #endif // INTEL_FEATURE_ISA_AMX
 
@@ -779,3 +782,9 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
+
+def TILECFG : RegisterClass<"X86", [untyped], 512, (add TMMCFG)> {
+  let CopyCost = -1;  // Don't allow copying of tile config registers.
+  let isAllocatable = 1;
+  let Size = 512;
+}

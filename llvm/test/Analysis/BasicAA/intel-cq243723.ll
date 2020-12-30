@@ -50,7 +50,7 @@ target triple = "x86_64-unknown-linux-gnu"
 $_ZN6matrixmlERS_ = comdat any
 
 ; Function Attrs: noinline nounwind uwtable
-define weak_odr void @_ZN6matrixmlERS_(%struct.matrix* noalias nocapture sret %agg.result, %struct.matrix* nocapture readonly %this, %struct.matrix* nocapture readonly dereferenceable(16) %y) #0 comdat align 2 {
+define weak_odr void @_ZN6matrixmlERS_(%struct.matrix* noalias nocapture sret(%struct.matrix) %agg.result, %struct.matrix* nocapture readonly %this, %struct.matrix* nocapture readonly dereferenceable(16) %y) #0 comdat align 2 {
 entry:
   %row_size = getelementptr inbounds %struct.matrix, %struct.matrix* %y, i64 0, i32 1
   %0 = load i32, i32* %row_size, align 4, !tbaa !1

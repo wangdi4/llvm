@@ -3,7 +3,7 @@
 define fp128 @test_atanl_fp128(fp128 %conv)
 ; CHECK-LABEL: test_atanl_fp128:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    jmp atanl # TAILCALL
+; CHECK-NEXT:    jmp atanl@PLT # TAILCALL
 {
 entry:
   %0 = call fast fp128 @atanl(fp128 %conv) #0
@@ -14,7 +14,7 @@ declare fp128 @atanl(fp128) #0
 define fp128 @test_tanl_fp128(fp128 %conv)
 ; CHECK-LABEL: test_tanl_fp128:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    jmp tanl # TAILCALL
+; CHECK-NEXT:    jmp tanl@PLT # TAILCALL
 {
 entry:
   %0 = call fast fp128 @tanl(fp128 %conv) #0
@@ -25,7 +25,7 @@ declare fp128 @tanl(fp128) #0
 define fp128 @test_atan2l_fp128(fp128 %conv1, fp128 %conv2)
 ; CHECK-LABEL: test_atan2l_fp128:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    jmp atan2l # TAILCALL
+; CHECK-NEXT:    jmp atan2l@PLT # TAILCALL
 {
 entry:
   %0 = call fast fp128 @atan2l(fp128 %conv1, fp128 %conv2) #0

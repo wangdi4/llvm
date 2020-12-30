@@ -441,6 +441,11 @@ if("${CMAKE_SYSTEM_NAME}" STREQUAL "Fuchsia")
   list(APPEND SANITIZER_COMMON_LINK_LIBS zircon)
 endif()
 
+# INTEL_CUSTOMIZATION
+# Revert "[CMake] Avoid accidental C++ standard library dependency in sanitizers"
+# See https://jira.devtools.intel.com/browse/CMPLRLLVM-24531.
+# end INTEL_CUSTOMIZATION
+
 macro(append_libcxx_libs var)
   if (${var}_INTREE)
     if (SANITIZER_USE_STATIC_LLVM_UNWINDER AND (TARGET unwind_static OR HAVE_LIBUNWIND))

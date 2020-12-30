@@ -101,7 +101,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/bit.h"
-#include "llvm/Support/AlignOf.h"
+#include "llvm/Support/AlignOf.h" //INTEL
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/RecyclingAllocator.h"
 #include <algorithm>
@@ -963,8 +963,9 @@ public:
 
 private:
   // The root data is either a RootLeaf or a RootBranchData instance.
-  alignas(RootLeaf) alignas(RootBranchData)
-      AlignedCharArrayUnion<RootLeaf, RootBranchData> data;
+#if INTEL_CUSTOMIZATION
+  AlignedCharArrayUnion<RootLeaf, RootBranchData> data;
+#endif // INTEL_CUSTOMIZATION
 
   // Tree height.
   // 0: Leaves in root.
@@ -979,10 +980,7 @@ private:
   Allocator &allocator;
 
   /// Represent data as a node type without breaking aliasing rules.
-  template <typename T>
-  T &dataAs() const {
-    return *bit_cast<T *>(const_cast<char *>(data.buffer));
-  }
+  template <typename T> T &dataAs() const { return *bit_cast<T *>(&data); }
 
   const RootLeaf &rootLeaf() const {
     assert(!branched() && "Cannot acces leaf data in branched root");
@@ -1040,7 +1038,7 @@ private:
 
 public:
   explicit IntervalMap(Allocator &a) : height(0), rootSize(0), allocator(a) {
-    assert((uintptr_t(data.buffer) & (alignof(RootLeaf) - 1)) == 0 &&
+    assert((uintptr_t(&data) & (alignof(RootLeaf) - 1)) == 0 &&
            "Insufficient alignment");
     new(&rootLeaf()) RootLeaf();
   }

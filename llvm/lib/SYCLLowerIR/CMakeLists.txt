@@ -65,11 +65,10 @@ add_llvm_component_library(LLVMSYCLLowerIR
   LLVMGenXIntrinsics
   LLVMDemangle
   LLVMTransformUtils
-# INTEL_COLLAB
+
   LINK_COMPONENTS
   Core
   Support
-# end INTEL_COLLAB
   )
 
 target_include_directories(LLVMSYCLLowerIR

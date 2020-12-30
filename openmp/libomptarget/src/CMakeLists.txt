@@ -21,28 +21,39 @@ set(src_files
   omptarget.cpp
 )
 
-# Build libomptarget library with libdl dependency.
-add_library(omptarget SHARED ${src_files})
-
-if(INTEL_COLLAB)
- if(INTEL_CUSTOMIZATION)
-   include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
-   add_dependencies(omptarget libomptarget-libiomp-file)
-   target_link_libraries(omptarget ${LIBOMP_LIB_FILE})
- else(INTEL_CUSTOMIZATION)
-   # OpenMP runtime library must be linked in.
-   target_link_libraries(omptarget omp)
- endif(INTEL_CUSTOMIZATION)
- target_link_libraries(omptarget ${CMAKE_DL_LIBS})
- if (NOT WIN32)
-   target_link_libraries(omptarget
-    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
-  endif()
-else(INTEL_COLLAB)
-target_link_libraries(omptarget
-  ${CMAKE_DL_LIBS}
-  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
-endif(INTEL_COLLAB)
+# Build libomptarget library with libdl dependency. Add LLVMSupport
+# dependency if building in-tree with profiling enabled.
+if(OPENMP_STANDALONE_BUILD OR (NOT OPENMP_ENABLE_LIBOMPTARGET_PROFILING))
+  add_library(omptarget SHARED ${src_files})
+  if(INTEL_COLLAB)
+    if(INTEL_CUSTOMIZATION)
+      include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+      add_dependencies(omptarget libomptarget-libiomp-file)
+      target_link_libraries(omptarget ${LIBOMP_LIB_FILE})
+    else(INTEL_CUSTOMIZATION)
+      # OpenMP runtime library must be linked in.
+      target_link_libraries(omptarget omp)
+    endif(INTEL_CUSTOMIZATION)
+    target_link_libraries(omptarget ${CMAKE_DL_LIBS})
+    if (NOT WIN32)
+      target_link_libraries(omptarget
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+    endif()
+  else(INTEL_COLLAB)
+    target_link_libraries(omptarget
+      ${CMAKE_DL_LIBS}
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+  endif(INTEL_COLLAB)
+else()
+  set(LLVM_LINK_COMPONENTS
+    Support
+    )
+  add_llvm_library(omptarget SHARED ${src_files}
+      LINK_LIBS ${CMAKE_DL_LIBS}
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports"
+      )
+  target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
+endif()
 
 if(INTEL_CUSTOMIZATION)
   if(WIN32)

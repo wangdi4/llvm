@@ -58,7 +58,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
@@ -95,11 +94,6 @@ STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 static cl::opt<bool>
     DisableInlinedAllocaMerging("disable-inlined-alloca-merging",
                                 cl::init(false), cl::Hidden);
-
-/// Flag to disable adding AlwaysInlinerPass to ModuleInlinerWrapperPass.
-/// TODO: remove this once this has is baked in for long enough.
-static cl::opt<bool> DisableAlwaysInlinerInModuleWrapper(
-    "disable-always-inliner-in-module-wrapper", cl::init(false), cl::Hidden);
 
 namespace {
 
@@ -911,9 +905,10 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass() {
+InlinerPass::InlinerPass(bool IsAlwaysInlineV) {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
+  IsAlwaysInline = IsAlwaysInlineV;
 }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -923,7 +918,8 @@ InlinerPass::~InlinerPass() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-  getReport()->testAndPrint(this, /*IsAlwaysInline=*/false);
+  getReport()->testAndPrint(this, IsAlwaysInline,
+                            /*IsLegacyPassManager=*/ false);
 }
 
 InlineAdvisor &
@@ -992,7 +988,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   //
   // Note that this particular order of processing is actually critical to
   // avoid very bad behaviors. Consider *highly connected* call graphs where
-  // each function contains a small amonut of code and a couple of calls to
+  // each function contains a small amount of code and a couple of calls to
   // other functions. Because the LLVM inliner is fundamentally a bottom-up
   // inliner, it can handle gracefully the fact that these all appear to be
   // reasonable inlining candidates as it will flatten things until they become
@@ -1268,7 +1264,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           // Note that after this point, it is an error to do anything other
           // than use the callee's address or delete it.
           Callee.dropAllReferences();
-          assert(find(DeadFunctions, &Callee) == DeadFunctions.end() &&
+          assert(!is_contained(DeadFunctions, &Callee) &&
                  "Cannot put cause a function to become dead twice!");
           DeadFunctions.push_back(&Callee);
           InlineReportDeadFunctions.insert(&Callee); // INTEL
@@ -1403,11 +1399,12 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
   // because it makes profile annotation in the backend inaccurate.
 #if INTEL_CUSTOMIZATION
   if (InlP) {
+    InlP->setIsAlwaysInline(Mode == InliningAdvisorMode::MandatoryOnly);
     PM.addPass(std::move(*InlP));
     return;
   }
 #endif // INTEL_CUSTOMIZATION
-  PM.addPass(InlinerPass());
+  PM.addPass(InlinerPass(Mode == InliningAdvisorMode::MandatoryOnly));
 }
 
 PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
@@ -1420,8 +1417,6 @@ PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
     return PreservedAnalyses::all();
   }
 
-  if (!DisableAlwaysInlinerInModuleWrapper)
-    MPM.addPass(AlwaysInlinerPass());
   // We wrap the CGSCC pipeline in a devirtualization repeater. This will try
   // to detect when we devirtualize indirect calls and iterate the SCC passes
   // in that case to try and catch knock-on inlining or function attrs

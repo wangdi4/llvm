@@ -1713,7 +1713,7 @@ llvm::Type *dtrans::collectRelatedType(llvm::Type *InTy, Module &M) {
   //   %class.A.base.2 = type <{ i32 (...)**, i32, i8 }>
   //
   // This issue happens when templates are involved in the source code.
-  RelatedType = M.getTypeByName(StrRelatedName);
+  RelatedType = StructType::getTypeByName(M.getContext(), StrRelatedName);
   if (!RelatedType)
     return nullptr;
 
@@ -1797,7 +1797,8 @@ void dtrans::collectAllStructTypes(Module &M,
         if (TyName.size() == BaseName.size())
           return;
         // Add the base type now. This might be the only way it is found.
-        StructType *BaseTy = M.getTypeByName(BaseName);
+        StructType *BaseTy =
+            StructType::getTypeByName(M.getContext(), BaseName);
         if (!BaseTy || !SeenTypes.insert(BaseTy))
           return;
         findMissedNestedTypes(BaseTy);

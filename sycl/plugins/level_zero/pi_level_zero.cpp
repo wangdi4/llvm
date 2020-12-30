@@ -439,6 +439,20 @@ pi_result _pi_context::initialize() {
   return PI_SUCCESS;
 }
 
+pi_result _pi_context::finalize() {
+  // This function is called when pi_context is deallocated, piContextRelase.
+  // There could be some memory that may have not been deallocated.
+  // For example, zeEventPool could be still alive.
+  std::lock_guard<std::mutex> NumEventsLiveInEventPoolGuard(
+      NumEventsLiveInEventPoolMutex, std::adopt_lock);
+  if (ZeEventPool && NumEventsLiveInEventPool[ZeEventPool])
+    zeEventPoolDestroy(ZeEventPool);
+
+  // Destroy the command list used for initializations
+  ZE_CALL(zeCommandListDestroy(ZeCommandListInit));
+  return PI_SUCCESS;
+}
+
 pi_result
 _pi_queue::resetCommandListFenceEntry(ze_command_list_handle_t ZeCommandList,
                                       bool MakeAvailable) {
@@ -456,10 +470,8 @@ _pi_queue::resetCommandListFenceEntry(ze_command_list_handle_t ZeCommandList,
 }
 
 static const pi_uint32 ZeCommandListBatchSize = [] {
-  // Default value of 4. This has been seen as a good tradeoff between
-  // lower overhead of number of enqueue and fence calls, and getting
-  // commands seen as soon possible (i.e. lazy vs eager submission).
-  pi_uint32 BatchSizeVal = 4;
+  // Default value of 0. This specifies to use dynamic batch size adjustment.
+  pi_uint32 BatchSizeVal = 0;
   const auto BatchSizeStr = std::getenv("SYCL_PI_LEVEL_ZERO_BATCH_SIZE");
   if (BatchSizeStr) {
     pi_int32 BatchSizeStrVal = std::atoi(BatchSizeStr);
@@ -566,6 +578,49 @@ pi_result _pi_device::getAvailableCommandList(
   return pi_result;
 }
 
+void _pi_queue::adjustBatchSizeForFullBatch() {
+  // QueueBatchSize of 0 means never allow batching.
+  if (QueueBatchSize == 0 || !UseDynamicBatching)
+    return;
+
+  NumTimesClosedFull += 1;
+
+  // If the number of times the list has been closed early is low, and
+  // the number of times it has been closed full is high, then raise
+  // the batching size slowly. Don't raise it if it is already pretty
+  // high.
+  if (NumTimesClosedEarly <= 2 && NumTimesClosedFull > 10) {
+    if (QueueBatchSize < 16) {
+      QueueBatchSize = QueueBatchSize + 1;
+      zePrint("Raising QueueBatchSize to %d\n", QueueBatchSize);
+    }
+    NumTimesClosedEarly = 0;
+    NumTimesClosedFull = 0;
+  }
+}
+
+void _pi_queue::adjustBatchSizeForPartialBatch(pi_uint32 PartialBatchSize) {
+  // QueueBatchSize of 0 means never allow batching.
+  if (QueueBatchSize == 0 || !UseDynamicBatching)
+    return;
+
+  NumTimesClosedEarly += 1;
+
+  // If we are closing early more than about 3x the number of times
+  // it is closing full, lower the batch size to the value of the
+  // current open command list. This is trying to quickly get to a
+  // batch size that will be able to be closed full at least once
+  // in a while.
+  if (NumTimesClosedEarly > (NumTimesClosedFull + 1) * 3) {
+    QueueBatchSize = PartialBatchSize - 1;
+    if (QueueBatchSize < 1)
+      QueueBatchSize = 1;
+    zePrint("Lowering QueueBatchSize to %d\n", QueueBatchSize);
+    NumTimesClosedEarly = 0;
+    NumTimesClosedFull = 0;
+  }
+}
+
 pi_result _pi_queue::executeCommandList(ze_command_list_handle_t ZeCommandList,
                                         ze_fence_handle_t ZeFence,
                                         bool IsBlocking,
@@ -588,6 +643,8 @@ pi_result _pi_queue::executeCommandList(ze_command_list_handle_t ZeCommandList,
       return PI_SUCCESS;
     }
 
+    adjustBatchSizeForFullBatch();
+
     this->ZeOpenCommandList = nullptr;
     this->ZeOpenCommandListFence = nullptr;
     this->ZeOpenCommandListSize = 0;
@@ -608,7 +665,7 @@ pi_result _pi_queue::executeCommandList(ze_command_list_handle_t ZeCommandList,
 }
 
 bool _pi_queue::isBatchingAllowed() {
-  return (this->QueueBatchSize > 1 && ((ZeSerialize & ZeSerializeBlock) == 0));
+  return (this->QueueBatchSize > 0 && ((ZeSerialize & ZeSerializeBlock) == 0));
 }
 
 pi_result _pi_queue::executeOpenCommandList() {
@@ -617,6 +674,8 @@ pi_result _pi_queue::executeOpenCommandList() {
   auto OpenList = this->ZeOpenCommandList;
   if (OpenList) {
     auto OpenListFence = this->ZeOpenCommandListFence;
+
+    adjustBatchSizeForPartialBatch(this->ZeOpenCommandListSize);
 
     this->ZeOpenCommandList = nullptr;
     this->ZeOpenCommandListFence = nullptr;
@@ -1788,8 +1847,13 @@ pi_result piContextRelease(pi_context Context) {
   assert(Context);
   if (--(Context->RefCount) == 0) {
     auto ZeContext = Context->ZeContext;
-    // Destroy the command list used for initializations
-    ZE_CALL(zeCommandListDestroy(Context->ZeCommandListInit));
+
+    // Clean up any live memory associated with Context
+    pi_result Result = Context->finalize();
+
+    // We must delete Context first and then destroy zeContext because
+    // Context deallocation requires ZeContext in some member deallocation of
+    // pi_context.
     delete Context;
 
     // Destruction of some members of pi_context uses L0 context
@@ -1797,6 +1861,8 @@ pi_result piContextRelease(pi_context Context) {
     // Technically it should be placed to the destructor of pi_context
     // but this makes API error handling more complex.
     ZE_CALL(zeContextDestroy(ZeContext));
+
+    return Result;
   }
   return PI_SUCCESS;
 }
@@ -1904,6 +1970,9 @@ pi_result piQueueRelease(pi_queue Queue) {
     Queue->ZeCommandListFenceMap.clear();
     ZE_CALL(zeCommandQueueDestroy(Queue->ZeCommandQueue));
     Queue->ZeCommandQueue = nullptr;
+
+    zePrint("piQueueRelease NumTimesClosedFull %d, NumTimesClosedEarly %d\n",
+            Queue->NumTimesClosedFull, Queue->NumTimesClosedEarly);
   }
   return PI_SUCCESS;
 }
@@ -2948,7 +3017,7 @@ pi_result piKernelCreate(pi_program Program, const char *KernelName,
     return mapError(ZeResult);
 
   try {
-    *RetKernel = new _pi_kernel(ZeKernel, Program, KernelName);
+    *RetKernel = new _pi_kernel(ZeKernel, Program);
   } catch (const std::bad_alloc &) {
     return PI_OUT_OF_HOST_MEMORY;
   } catch (...) {
@@ -3027,16 +3096,19 @@ pi_result piKernelGetInfo(pi_kernel Kernel, pi_kernel_info ParamName,
   case PI_KERNEL_INFO_PROGRAM:
     return ReturnValue(pi_program{Kernel->Program});
   case PI_KERNEL_INFO_FUNCTION_NAME:
-    // TODO: Replace with the line in the comment once bug in the Level Zero
-    // driver will be fixed. Problem is that currently Level Zero driver
-    // truncates name of the returned kernel if it is longer than 256 symbols.
-#if INTEL_CUSTOMIZATION
-    // Details:
-    // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
-#endif // INTEL_CUSTOMIZATION
-    //
-    // return ReturnValue(ZeKernelProperties.name);
-    return ReturnValue(Kernel->KernelName.c_str());
+    try {
+      size_t Size = 0;
+      ZE_CALL(zeKernelGetName(Kernel->ZeKernel, &Size, nullptr));
+      char *KernelName = new char[Size];
+      ZE_CALL(zeKernelGetName(Kernel->ZeKernel, &Size, KernelName));
+      pi_result Res = ReturnValue(static_cast<const char *>(KernelName));
+      delete[] KernelName;
+      return Res;
+    } catch (const std::bad_alloc &) {
+      return PI_OUT_OF_HOST_MEMORY;
+    } catch (...) {
+      return PI_ERROR_UNKNOWN;
+    }
   case PI_KERNEL_INFO_NUM_ARGS:
     return ReturnValue(pi_uint32{ZeKernelProperties.numKernelArgs});
   case PI_KERNEL_INFO_REFERENCE_COUNT:
@@ -4129,16 +4201,16 @@ pi_result piEnqueueMemBufferFill(pi_queue Queue, pi_mem Buffer,
                               EventWaitList, Event);
 }
 
-pi_result
-piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer, pi_bool BlockingMap,
-                      cl_map_flags MapFlags, // TODO: untie from OpenCL
-                      size_t Offset, size_t Size, pi_uint32 NumEventsInWaitList,
-                      const pi_event *EventWaitList, pi_event *Event,
-                      void **RetMap) {
+pi_result piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer,
+                                pi_bool BlockingMap, pi_map_flags MapFlags,
+                                size_t Offset, size_t Size,
+                                pi_uint32 NumEventsInWaitList,
+                                const pi_event *EventWaitList, pi_event *Event,
+                                void **RetMap) {
 
   // TODO: we don't implement read-only or write-only, always read-write.
-  // assert((map_flags & CL_MAP_READ) != 0);
-  // assert((map_flags & CL_MAP_WRITE) != 0);
+  // assert((map_flags & PI_MAP_READ) != 0);
+  // assert((map_flags & PI_MAP_WRITE) != 0);
   assert(Buffer);
   assert(Queue);
 
@@ -4177,7 +4249,8 @@ piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer, pi_bool BlockingMap,
     piEventsWait(NumEventsInWaitList, EventWaitList);
     if (Buffer->MapHostPtr) {
       *RetMap = Buffer->MapHostPtr + Offset;
-      memcpy(*RetMap, pi_cast<char *>(Buffer->getZeHandle()) + Offset, Size);
+      if (!(MapFlags & PI_MAP_WRITE_INVALIDATE_REGION))
+        memcpy(*RetMap, pi_cast<char *>(Buffer->getZeHandle()) + Offset, Size);
     } else {
       *RetMap = pi_cast<char *>(Buffer->getZeHandle()) + Offset;
     }
@@ -4657,6 +4730,8 @@ pi_result piextUSMHostAlloc(void **ResultPtr, pi_context Context,
   ZE_CALL(
       zeMemAllocHost(Context->ZeContext, &ZeDesc, Size, Alignment, ResultPtr));
 
+  assert(Alignment == 0 ||
+         reinterpret_cast<std::uintptr_t>(*ResultPtr) % Alignment == 0);
   return PI_SUCCESS;
 }
 
@@ -4683,6 +4758,8 @@ pi_result USMDeviceAllocImpl(void **ResultPtr, pi_context Context,
   ZE_CALL(zeMemAllocDevice(Context->ZeContext, &ZeDesc, Size, Alignment,
                            Device->ZeDevice, ResultPtr));
 
+  assert(Alignment == 0 ||
+         reinterpret_cast<std::uintptr_t>(*ResultPtr) % Alignment == 0);
   return PI_SUCCESS;
 }
 
@@ -4704,6 +4781,8 @@ pi_result USMSharedAllocImpl(void **ResultPtr, pi_context Context,
   ZE_CALL(zeMemAllocShared(Context->ZeContext, &ZeDevDesc, &ZeHostDesc, Size,
                            Alignment, Device->ZeDevice, ResultPtr));
 
+  assert(Alignment == 0 ||
+         reinterpret_cast<std::uintptr_t>(*ResultPtr) % Alignment == 0);
   return PI_SUCCESS;
 }
 

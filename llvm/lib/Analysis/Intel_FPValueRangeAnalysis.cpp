@@ -26,6 +26,7 @@ FPValueRange FPValueRangeAnalysis::getOrInsertRange(Value *V) {
 
   auto Insert = ValueRangeMap.insert(std::make_pair(
       V, FPValueRange::createEmpty(V->getType()->getFltSemantics())));
+  (void)Insert; // INTEL
   assert(Insert.second);
   WidenCounter.insert(std::make_pair(V, 0));
   FPValueRange Ret = processEntry(V);

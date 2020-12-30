@@ -384,8 +384,8 @@ public:
          | (((uint32_t) space) << AddressSpaceShift);
   }
   void removeAddressSpace() { setAddressSpace(LangAS::Default); }
-  void addAddressSpace(LangAS space) {
-    assert(space != LangAS::Default);
+  void addAddressSpace(LangAS space, bool AllowDefaultAddrSpace = false) {
+    assert(space != LangAS::Default || AllowDefaultAddrSpace);
     setAddressSpace(space);
   }
 
@@ -4385,10 +4385,11 @@ public:
 class TypedefType : public Type {
   TypedefNameDecl *Decl;
 
-protected:
+private:
   friend class ASTContext; // ASTContext creates these.
 
-  TypedefType(TypeClass tc, const TypedefNameDecl *D, QualType can);
+  TypedefType(TypeClass tc, const TypedefNameDecl *D, QualType underlying,
+              QualType can);
 
 public:
   TypedefNameDecl *getDecl() const { return Decl; }
@@ -4738,6 +4739,9 @@ public:
 
     case NullabilityKind::Nullable:
       return attr::TypeNullable;
+
+    case NullabilityKind::NullableResult:
+      return attr::TypeNullableResult;
 
     case NullabilityKind::Unspecified:
       return attr::TypeNullUnspecified;

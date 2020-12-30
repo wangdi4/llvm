@@ -1,5 +1,5 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: env SYCL_DEVICE_TYPE=HOST %t.out | FileCheck %s
+// RUN: %BE_RUN_PLACEHOLDER env SYCL_DEVICE_TYPE=HOST %t.out | FileCheck %s // INTEL
 //==------------------- handler.cpp ----------------------------------------==//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.

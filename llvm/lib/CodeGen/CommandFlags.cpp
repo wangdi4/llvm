@@ -58,6 +58,7 @@ CGOPT(bool, EnableNoInfsFPMath)
 CGOPT(bool, EnableNoNaNsFPMath)
 CGOPT(bool, EnableNoSignedZerosFPMath)
 CGOPT(bool, EnableNoTrappingFPMath)
+CGOPT(bool, EnableAIXExtendedAltivecABI)
 CGOPT(DenormalMode::DenormalModeKind, DenormalFPMath)
 CGOPT(DenormalMode::DenormalModeKind, DenormalFP32Math)
 CGOPT(bool, EnableHonorSignDependentRoundingFPMath)
@@ -75,6 +76,7 @@ CGOPT(bool, RelaxELFRelocations)
 CGOPT_EXP(bool, DataSections)
 CGOPT_EXP(bool, FunctionSections)
 CGOPT(bool, IgnoreXCOFFVisibility)
+CGOPT(bool, XCOFFTracebackTable)
 CGOPT(std::string, BBSections)
 CGOPT(std::string, StackProtectorGuard)
 CGOPT(unsigned, StackProtectorGuardOffset)
@@ -94,6 +96,7 @@ CGOPT(int, X87Precision)
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableMachineFunctionSplitter)
 CGOPT(bool, EnableDebugEntryValues)
+CGOPT(bool, PseudoProbeForProfiling)
 CGOPT(bool, ValueTrackingVariableLocations)
 CGOPT(bool, ForceDwarfFrameSection)
 CGOPT(bool, XRayOmitFunctionIndex)
@@ -286,6 +289,11 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(DontPlaceZerosInBSS);
 
+  static cl::opt<bool> EnableAIXExtendedAltivecABI(
+      "vec-extabi", cl::desc("Enable the AIX Extended Altivec ABI."),
+      cl::init(false));
+  CGBINDOPT(EnableAIXExtendedAltivecABI);
+
   static cl::opt<bool> EnableGuaranteedTailCallOpt(
       "tailcallopt",
       cl::desc(
@@ -347,6 +355,11 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
                "all symbols 'unspecified' visibility in XCOFF object file"),
       cl::init(false));
   CGBINDOPT(IgnoreXCOFFVisibility);
+
+  static cl::opt<bool> XCOFFTracebackTable(
+      "xcoff-traceback-table", cl::desc("Emit the XCOFF traceback table"),
+      cl::init(true));
+  CGBINDOPT(XCOFFTracebackTable);
 
   static cl::opt<std::string> BBSections(
       "basic-block-sections",
@@ -448,6 +461,11 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(EnableDebugEntryValues);
 
+  static cl::opt<bool> PseudoProbeForProfiling(
+      "pseudo-probe-for-profiling", cl::desc("Emit pseudo probes for AutoFDO"),
+      cl::init(false));
+  CGBINDOPT(PseudoProbeForProfiling);
+
   static cl::opt<bool> ValueTrackingVariableLocations(
       "experimental-debug-variable-locations",
       cl::desc("Use experimental new value-tracking variable locations"),
@@ -536,6 +554,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
       getEnableHonorSignDependentRoundingFPMath();
   if (getFloatABIForCalls() != FloatABI::Default)
     Options.FloatABIType = getFloatABIForCalls();
+  Options.EnableAIXExtendedAltivecABI = getEnableAIXExtendedAltivecABI();
   Options.NoZerosInBSS = getDontPlaceZerosInBSS();
   Options.GuaranteedTailCallOpt = getEnableGuaranteedTailCallOpt();
   Options.StackAlignmentOverride = getOverrideStackAlignment();
@@ -546,6 +565,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
       getExplicitDataSections().getValueOr(TheTriple.hasDefaultDataSections());
   Options.FunctionSections = getFunctionSections();
   Options.IgnoreXCOFFVisibility = getIgnoreXCOFFVisibility();
+  Options.XCOFFTracebackTable = getXCOFFTracebackTable();
   Options.BBSections = getBBSectionsMode(Options);
   Options.UniqueSectionNames = getUniqueSectionNames();
   Options.UniqueBasicBlockSectionNames = getUniqueBasicBlockSectionNames();
@@ -565,6 +585,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
+  Options.PseudoProbeForProfiling = getPseudoProbeForProfiling();
   Options.ValueTrackingVariableLocations = getValueTrackingVariableLocations();
   Options.ForceDwarfFrameSection = getForceDwarfFrameSection();
   Options.XRayOmitFunctionIndex = getXRayOmitFunctionIndex();

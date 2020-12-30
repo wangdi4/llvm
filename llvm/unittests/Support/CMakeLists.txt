@@ -4,7 +4,9 @@ set(LLVM_LINK_COMPONENTS
 
 add_llvm_unittest(SupportTests
   AlignmentTest.cpp
+# INTEL_CUSTOMIZATION
   AlignOfTest.cpp
+# end INTEL_CUSTOMIZATION
   AllocatorTest.cpp
   AnnotationsTest.cpp
   ARMAttributeParser.cpp
@@ -41,6 +43,7 @@ add_llvm_unittest(SupportTests
   GlobPatternTest.cpp
   Host.cpp
   IndexedAccessorTest.cpp
+  InstructionCostTest.cpp
   ItaniumManglingCanonicalizerTest.cpp
   JSONTest.cpp
   KnownBitsTest.cpp

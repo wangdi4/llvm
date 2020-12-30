@@ -87,6 +87,10 @@ FunctionPass *createX86FlagsCopyLoweringPass();
 /// Return a pass that expands WinAlloca pseudo-instructions.
 FunctionPass *createX86WinAllocaExpander();
 
+FunctionPass *createX86TileConfigPass();
+
+FunctionPass *createX86PreTileConfigPass();
+
 /// Return a pass that inserts int3 at the end of the function if it ends with a
 /// CALL instruction. The pass does the same for each funclet as well. This
 /// ensures that the open interval of function start and end PCs contains all
@@ -192,6 +196,9 @@ void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
+void initializeX86PreTileConfigPass(PassRegistry &);
+void initializeX86TileConfigPass(PassRegistry &);
+void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
 
 namespace X86AS {
 enum : unsigned {

@@ -15,10 +15,11 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Support/AlignOf.h"
+#include "llvm/Support/AlignOf.h" //INTEL
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/SMLoc.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/YAMLParser.h"
@@ -638,6 +639,7 @@ inline bool isNull(StringRef S) {
 }
 
 inline bool isBool(StringRef S) {
+  // FIXME: using parseBool is causing multiple tests to fail.
   return S.equals("true") || S.equals("True") || S.equals("TRUE") ||
          S.equals("false") || S.equals("False") || S.equals("FALSE");
 }
@@ -1311,7 +1313,7 @@ struct MappingNormalization {
   TNorm* operator->() { return BufPtr; }
 
 private:
-  using Storage = AlignedCharArrayUnion<TNorm>;
+  using Storage = AlignedCharArrayUnion<TNorm>; //INTEL
 
   Storage       Buffer;
   IO           &io;
@@ -1348,7 +1350,7 @@ struct MappingNormalizationHeap {
   TNorm* operator->() { return BufPtr; }
 
 private:
-  using Storage = AlignedCharArrayUnion<TNorm>;
+  using Storage = AlignedCharArrayUnion<TNorm>; //INTEL
 
   Storage       Buffer;
   IO           &io;
@@ -1472,9 +1474,10 @@ private:
 
     static bool classof(const MapHNode *) { return true; }
 
-    using NameToNode = StringMap<std::unique_ptr<HNode>>;
+    using NameToNodeAndLoc =
+        StringMap<std::pair<std::unique_ptr<HNode>, SMRange>>;
 
-    NameToNode Mapping;
+    NameToNodeAndLoc Mapping;
     SmallVector<std::string, 6> ValidKeys;
   };
 
@@ -1496,9 +1499,11 @@ private:
   std::unique_ptr<Input::HNode> createHNodes(Node *node);
   void setError(HNode *hnode, const Twine &message);
   void setError(Node *node, const Twine &message);
+  void setError(const SMRange &Range, const Twine &message);
 
   void reportWarning(HNode *hnode, const Twine &message);
   void reportWarning(Node *hnode, const Twine &message);
+  void reportWarning(const SMRange &Range, const Twine &message);
 
 public:
   // These are only used by operator>>. They could be private

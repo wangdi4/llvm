@@ -1,3 +1,4 @@
+#if INTEL_CUSTOMIZATION
 //===--- AlignOf.h - Portable calculation of type alignment -----*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -13,31 +14,9 @@
 #ifndef LLVM_SUPPORT_ALIGNOF_H
 #define LLVM_SUPPORT_ALIGNOF_H
 
-#include "llvm/Support/Compiler.h"
-#include <cstddef>
+#include <type_traits>
 
 namespace llvm {
-
-namespace detail {
-
-template <typename T, typename... Ts> class AlignerImpl {
-  T t;
-  AlignerImpl<Ts...> rest;
-  AlignerImpl() = delete;
-};
-
-template <typename T> class AlignerImpl<T> {
-  T t;
-  AlignerImpl() = delete;
-};
-
-template <typename T, typename... Ts> union SizerImpl {
-  char arr[sizeof(T)];
-  SizerImpl<Ts...> rest;
-};
-
-template <typename T> union SizerImpl<T> { char arr[sizeof(T)]; };
-} // end namespace detail
 
 /// A suitably aligned and sized character array member which can hold elements
 /// of any type.
@@ -46,10 +25,11 @@ template <typename T> union SizerImpl<T> { char arr[sizeof(T)]; };
 /// `buffer` member which can be used as suitable storage for a placement new of
 /// any of these types.
 template <typename T, typename... Ts> struct AlignedCharArrayUnion {
-  alignas(::llvm::detail::AlignerImpl<T, Ts...>) char buffer[sizeof(
-      llvm::detail::SizerImpl<T, Ts...>)];
+  using AlignedUnion = std::aligned_union_t<1, T, Ts...>;
+  alignas(alignof(AlignedUnion)) char buffer[sizeof(AlignedUnion)];
 };
 
 } // end namespace llvm
 
 #endif // LLVM_SUPPORT_ALIGNOF_H
+#endif // INTEL_CUSTOMIZATION

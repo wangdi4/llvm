@@ -85,6 +85,7 @@ add_llvm_component_library(LLVMScalarOpts
   SROA.cpp
   Scalar.cpp
   Scalarizer.cpp
+  ScalarizeMaskedMemIntrin.cpp
   SeparateConstOffsetFromGEP.cpp
   SimpleLoopUnswitch.cpp
   SimplifyCFGPass.cpp

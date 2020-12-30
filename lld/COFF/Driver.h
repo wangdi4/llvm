@@ -96,9 +96,6 @@ public:
 private:
   std::unique_ptr<llvm::TarWriter> tar; // for /linkrepro
 
-  // Opens a file. Path has to be resolved already.
-  MemoryBufferRef openFile(StringRef path);
-
   // Searches a file from search paths.
   Optional<StringRef> findFile(StringRef filename);
   Optional<StringRef> findLib(StringRef filename);
@@ -220,9 +217,9 @@ void checkFailIfMismatch(StringRef arg, InputFile *source);
 MemoryBufferRef convertResToCOFF(ArrayRef<MemoryBufferRef> mbs,
                                  ArrayRef<ObjFile *> objs);
 
+#if INTEL_CUSTOMIZATION
 void runMSVCLinker(std::string rsp, ArrayRef<StringRef> objects);
 
-#if INTEL_CUSTOMIZATION
 // Return true if the quoting style is Windows style, else false
 // (GNU style).
 bool collectQuotingStyle(ArrayRef<const char *> argv);

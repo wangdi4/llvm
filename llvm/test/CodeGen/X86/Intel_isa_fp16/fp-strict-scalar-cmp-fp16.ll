@@ -690,7 +690,7 @@ define void @foo(half %0, half %1) #0 {
 ; CHECK-32-NEXT:    vucomish {{[0-9]+}}(%esp), %xmm0
 ; CHECK-32-NEXT:    jbe .LBB28_1
 ; CHECK-32-NEXT:  # %bb.2:
-; CHECK-32-NEXT:    jmp bar # TAILCALL
+; CHECK-32-NEXT:    jmp bar@PLT # TAILCALL
 ; CHECK-32-NEXT:  .LBB28_1:
 ; CHECK-32-NEXT:    retl
 ;
@@ -699,7 +699,7 @@ define void @foo(half %0, half %1) #0 {
 ; CHECK-64-NEXT:    vucomish %xmm1, %xmm0
 ; CHECK-64-NEXT:    jbe .LBB28_1
 ; CHECK-64-NEXT:  # %bb.2:
-; CHECK-64-NEXT:    jmp bar # TAILCALL
+; CHECK-64-NEXT:    jmp bar@PLT # TAILCALL
 ; CHECK-64-NEXT:  .LBB28_1:
 ; CHECK-64-NEXT:    retq
   %3 = call i1 @llvm.experimental.constrained.fcmp.f16( half %0, half %1, metadata !"ogt", metadata !"fpexcept.strict") #0

@@ -42,8 +42,6 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
@@ -59,6 +57,7 @@ class AnalysisUsage;
 class BasicAAResult;
 class BasicBlock;
 class DominatorTree;
+class Function;
 class IntrinsicInst;    // INTEL
 class Value;
 
@@ -427,7 +426,8 @@ public:
 
   /// A convenience wrapper around the primary \c alias interface.
   AliasResult alias(const Value *V1, const Value *V2) {
-    return alias(V1, LocationSize::unknown(), V2, LocationSize::unknown());
+    return alias(MemoryLocation::getBeforeOrAfter(V1),
+                 MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -457,8 +457,8 @@ public:
 
   /// A convenience wrapper around the \c loopCarriedAlias interface.
   AliasResult loopCarriedAlias(const Value *V1, const Value *V2) {
-    return loopCarriedAlias(V1, LocationSize::unknown(), V2,
-                            LocationSize::unknown());
+    return loopCarriedAlias(MemoryLocation::getBeforeOrAfter(V1),
+                            MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -477,7 +477,8 @@ public:
 
   /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
   bool isLoopCarriedNoAlias(const Value *V1, const Value *V2) {
-    return isLoopCarriedNoAlias(MemoryLocation(V1), MemoryLocation(V2));
+    return isLoopCarriedNoAlias(MemoryLocation::getBeforeOrAfter(V1),
+                                MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -503,7 +504,8 @@ public:
 
   /// A convenience wrapper around the \c isNoAlias helper interface.
   bool isNoAlias(const Value *V1, const Value *V2) {
-    return isNoAlias(MemoryLocation(V1), MemoryLocation(V2));
+    return isNoAlias(MemoryLocation::getBeforeOrAfter(V1),
+                     MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -528,7 +530,7 @@ public:
   /// A convenience wrapper around the primary \c pointsToConstantMemory
   /// interface.
   bool pointsToConstantMemory(const Value *P, bool OrLocal = false) {
-    return pointsToConstantMemory(MemoryLocation(P), OrLocal);
+    return pointsToConstantMemory(MemoryLocation::getBeforeOrAfter(P), OrLocal);
   }
 
   /// @}
@@ -621,7 +623,7 @@ public:
   /// write at most from objects pointed to by their pointer-typed arguments
   /// (with arbitrary offsets).
   static bool onlyAccessesArgPointees(FunctionModRefBehavior MRB) {
-    return !(MRB & FMRL_Anywhere & ~FMRL_ArgumentPointees);
+    return !((unsigned)MRB & FMRL_Anywhere & ~FMRL_ArgumentPointees);
   }
 
   /// Checks if functions with the specified behavior are known to potentially
@@ -629,26 +631,27 @@ public:
   /// (with arbitrary offsets).
   static bool doesAccessArgPointees(FunctionModRefBehavior MRB) {
     return isModOrRefSet(createModRefInfo(MRB)) &&
-           (MRB & FMRL_ArgumentPointees);
+           ((unsigned)MRB & FMRL_ArgumentPointees);
   }
 
   /// Checks if functions with the specified behavior are known to read and
   /// write at most from memory that is inaccessible from LLVM IR.
   static bool onlyAccessesInaccessibleMem(FunctionModRefBehavior MRB) {
-    return !(MRB & FMRL_Anywhere & ~FMRL_InaccessibleMem);
+    return !((unsigned)MRB & FMRL_Anywhere & ~FMRL_InaccessibleMem);
   }
 
   /// Checks if functions with the specified behavior are known to potentially
   /// read or write from memory that is inaccessible from LLVM IR.
   static bool doesAccessInaccessibleMem(FunctionModRefBehavior MRB) {
-    return isModOrRefSet(createModRefInfo(MRB)) && (MRB & FMRL_InaccessibleMem);
+    return isModOrRefSet(createModRefInfo(MRB)) &&
+             ((unsigned)MRB & FMRL_InaccessibleMem);
   }
 
   /// Checks if functions with the specified behavior are known to read and
   /// write at most from memory that is inaccessible from LLVM IR or objects
   /// pointed to by their pointer-typed arguments (with arbitrary offsets).
   static bool onlyAccessesInaccessibleOrArgMem(FunctionModRefBehavior MRB) {
-    return !(MRB & FMRL_Anywhere &
+    return !((unsigned)MRB & FMRL_Anywhere &
              ~(FMRL_InaccessibleMem | FMRL_ArgumentPointees));
   }
 
@@ -926,6 +929,9 @@ private:
   std::vector<std::unique_ptr<Concept>> AAs;
 
   std::vector<AnalysisKey *> AADeps;
+
+  /// Query depth used to distinguish recursive queries.
+  unsigned Depth = 0;
 
   friend class BatchAAResults;
 };
@@ -1387,12 +1393,7 @@ public:
     ResultGetters.push_back(&getModuleAAResultImpl<AnalysisT>);
   }
 
-  Result run(Function &F, FunctionAnalysisManager &AM) {
-    Result R(AM.getResult<TargetLibraryAnalysis>(F));
-    for (auto &Getter : ResultGetters)
-      (*Getter)(F, AM, R);
-    return R;
-  }
+  Result run(Function &F, FunctionAnalysisManager &AM);
 
 private:
   friend AnalysisInfoMixin<AAManager>;

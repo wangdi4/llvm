@@ -107,6 +107,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeRedundantDbgInstEliminationPass(Registry);
   initializeRegToMemLegacyPass(Registry);
   initializeRewriteStatepointsForGCLegacyPassPass(Registry);
+  initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
   initializeSCCPLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
   initializeSROALegacyCGSCCAdaptorPassPass(Registry); // INTEL

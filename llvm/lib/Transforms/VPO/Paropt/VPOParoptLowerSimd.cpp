@@ -96,8 +96,6 @@ static Instruction *addCastInstIfNeeded(Instruction *OldI, Instruction *NewI) {
   Type *NITy = NewI->getType();
   Type *OITy = OldI->getType();
   if (OITy != NITy) {
-    assert(CastInst::isCastable(OITy, NITy) &&
-           "Cannot add cast instruction while translating Simd intrinsic call");
     auto CastOpcode = CastInst::getCastOpcode(NewI, false, OITy, false);
     NewI = CastInst::Create(CastOpcode, NewI, OITy,
                             NewI->getName() + ".cast.ty", OldI);
@@ -362,6 +360,7 @@ static Value *getSLMOffset(Value *V, Instruction *InsPos) {
   auto Invalid = GV->getAttribute(GENX_SLM_OFFSET)
                      .getValueAsString()
                      .getAsInteger(0, Offset);
+  (void)Invalid; // INTEL
   assert(!Invalid);
 
   // initialize the PointerValue representing the offset

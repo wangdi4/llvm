@@ -674,11 +674,7 @@ public:
     std::string SectionName;
     bool Valid = false;
     SourceLocation PragmaLocation;
-
-    void Act(SourceLocation PragmaLocation,
-             PragmaClangSectionAction Action,
-             StringLiteral* Name);
-   };
+  };
 
    PragmaClangSection PragmaClangBSSSection;
    PragmaClangSection PragmaClangDataSection;
@@ -1289,10 +1285,6 @@ public:
   /// have been declared.
   bool GlobalNewDeleteDeclared;
 
-  /// A flag to indicate that we're in a context that permits abstract
-  /// references to fields.  This is really a
-  bool AllowAbstractFieldReference;
-
   /// Describes how the expressions currently being parsed are
   /// evaluated at run-time, if at all.
   enum class ExpressionEvaluationContext {
@@ -1350,9 +1342,6 @@ public:
 
     /// Whether the enclosing context needed a cleanup.
     CleanupInfo ParentCleanup;
-
-    /// Whether we are in a decltype expression.
-    bool IsDecltype;
 
     /// The number of active cleanup objects when we entered
     /// this expression evaluation context.
@@ -1857,7 +1846,6 @@ public:
     llvm::Optional<ImmediateDiagBuilder> ImmediateDiag;
     llvm::Optional<unsigned> PartialDiagId;
   };
-  using DiagBuilderT = SemaDiagnosticBuilder;
 
   /// Is the last error level diagnostic immediate. This is used to determined
   /// whether the next info diagnostic should be immediate.
@@ -2213,7 +2201,7 @@ public:
   ///
   /// \returns true if the name is a valid swift name for \p D, false otherwise.
   bool DiagnoseSwiftName(Decl *D, StringRef Name, SourceLocation Loc,
-                         const ParsedAttr &AL);
+                         const ParsedAttr &AL, bool IsAsync);
 
   /// A derivative of BoundTypeDiagnoser for which the diagnostic's type
   /// parameter is preceded by a 0/1 enum that is 1 if the type is sizeless.
@@ -2910,6 +2898,7 @@ public:
                                 SkipBodyInfo *SkipBody = nullptr);
   void ActOnStartTrailingRequiresClause(Scope *S, Declarator &D);
   ExprResult ActOnFinishTrailingRequiresClause(ExprResult ConstraintExpr);
+  ExprResult ActOnRequiresClause(ExprResult ConstraintExpr);
   void ActOnStartOfObjCMethodDef(Scope *S, Decl *D);
   bool isObjCMethodDecl(Decl *D) {
     return D && isa<ObjCMethodDecl>(D);
@@ -3048,12 +3037,6 @@ public:
   /// implicit instantiation. Check that any relevant explicit specializations
   /// and partial specializations are visible, and diagnose if not.
   void checkSpecializationVisibility(SourceLocation Loc, NamedDecl *Spec);
-
-  /// We've found a use of a template specialization that would select a
-  /// partial specialization. Check that the partial specialization is visible,
-  /// and diagnose if not.
-  void checkPartialSpecializationVisibility(SourceLocation Loc,
-                                            NamedDecl *Spec);
 
   /// Retrieve a suitable printing policy for diagnostics.
   PrintingPolicy getPrintingPolicy() const {
@@ -3917,6 +3900,9 @@ public:
                                    ArrayRef<Expr *> Args,
                                    OverloadCandidateSet &CandidateSet,
                                    bool PartialOverloading = false);
+  void AddOverloadedCallCandidates(
+      LookupResult &R, TemplateArgumentListInfo *ExplicitTemplateArgs,
+      ArrayRef<Expr *> Args, OverloadCandidateSet &CandidateSet);
 
   // An enum used to represent the different possible results of building a
   // range-based for loop.
@@ -3978,11 +3964,11 @@ public:
                                                 SourceLocation RLoc,
                                                 Expr *Base,Expr *Idx);
 
-  ExprResult
-  BuildCallToMemberFunction(Scope *S, Expr *MemExpr,
-                            SourceLocation LParenLoc,
-                            MultiExprArg Args,
-                            SourceLocation RParenLoc);
+  ExprResult BuildCallToMemberFunction(Scope *S, Expr *MemExpr,
+                                       SourceLocation LParenLoc,
+                                       MultiExprArg Args,
+                                       SourceLocation RParenLoc,
+                                       bool AllowRecovery = false);
   ExprResult
   BuildCallToObjectOfClassType(Scope *S, Expr *Object, SourceLocation LParenLoc,
                                MultiExprArg Args,
@@ -5246,6 +5232,8 @@ public:
                               DeclarationNameInfo &NameInfo,
                               const TemplateArgumentListInfo *&TemplateArgs);
 
+  bool DiagnoseDependentMemberLookup(LookupResult &R);
+
   bool
   DiagnoseEmptyLookup(Scope *S, CXXScopeSpec &SS, LookupResult &R,
                       CorrectionCandidateCallback &CCC,
@@ -5549,7 +5537,8 @@ public:
   ExprResult BuildCallExpr(Scope *S, Expr *Fn, SourceLocation LParenLoc,
                            MultiExprArg ArgExprs, SourceLocation RParenLoc,
                            Expr *ExecConfig = nullptr,
-                           bool IsExecConfig = false);
+                           bool IsExecConfig = false,
+                           bool AllowRecovery = false);
   enum class AtomicArgumentOrder { API, AST };
   ExprResult
   BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
@@ -6005,45 +5994,6 @@ public:
       return ESI;
     }
   };
-
-  /// Determine what sort of exception specification a defaulted
-  /// copy constructor of a class will have.
-  ImplicitExceptionSpecification
-  ComputeDefaultedDefaultCtorExceptionSpec(SourceLocation Loc,
-                                           CXXMethodDecl *MD);
-
-  /// Determine what sort of exception specification a defaulted
-  /// default constructor of a class will have, and whether the parameter
-  /// will be const.
-  ImplicitExceptionSpecification
-  ComputeDefaultedCopyCtorExceptionSpec(CXXMethodDecl *MD);
-
-  /// Determine what sort of exception specification a defaulted
-  /// copy assignment operator of a class will have, and whether the
-  /// parameter will be const.
-  ImplicitExceptionSpecification
-  ComputeDefaultedCopyAssignmentExceptionSpec(CXXMethodDecl *MD);
-
-  /// Determine what sort of exception specification a defaulted move
-  /// constructor of a class will have.
-  ImplicitExceptionSpecification
-  ComputeDefaultedMoveCtorExceptionSpec(CXXMethodDecl *MD);
-
-  /// Determine what sort of exception specification a defaulted move
-  /// assignment operator of a class will have.
-  ImplicitExceptionSpecification
-  ComputeDefaultedMoveAssignmentExceptionSpec(CXXMethodDecl *MD);
-
-  /// Determine what sort of exception specification a defaulted
-  /// destructor of a class will have.
-  ImplicitExceptionSpecification
-  ComputeDefaultedDtorExceptionSpec(CXXMethodDecl *MD);
-
-  /// Determine what sort of exception specification an inheriting
-  /// constructor of a class will have.
-  ImplicitExceptionSpecification
-  ComputeInheritingCtorExceptionSpec(SourceLocation Loc,
-                                     CXXConstructorDecl *CD);
 
   /// Evaluate the implicit exception specification for a defaulted
   /// special member function.
@@ -6844,7 +6794,8 @@ public:
   /// on a lambda (if it exists) in C++2a.
   void ActOnLambdaExplicitTemplateParameterList(SourceLocation LAngleLoc,
                                                 ArrayRef<NamedDecl *> TParams,
-                                                SourceLocation RAngleLoc);
+                                                SourceLocation RAngleLoc,
+                                                ExprResult RequiresClause);
 
   /// Introduce the lambda parameters into scope.
   void addLambdaParameters(
@@ -7041,14 +6992,6 @@ public:
   void
   DiagnoseUnsatisfiedConstraint(const ASTConstraintSatisfaction &Satisfaction,
                                 bool First = true);
-
-  /// \brief Emit diagnostics explaining why a constraint expression was deemed
-  /// unsatisfied because it was ill-formed.
-  void DiagnoseUnsatisfiedIllFormedConstraint(SourceLocation DiagnosticLocation,
-                                              StringRef Diagnostic);
-
-  void DiagnoseRedeclarationConstraintMismatch(SourceLocation Old,
-                                               SourceLocation New);
 
   // ParseObjCStringLiteral - Parse Objective-C string literals.
   ExprResult ParseObjCStringLiteral(SourceLocation *AtLocs,
@@ -7567,9 +7510,9 @@ public:
   ///        considered valid results.
   /// \param AllowDependent Whether unresolved using declarations (that might
   ///        name templates) should be considered valid results.
-  NamedDecl *getAsTemplateNameDecl(NamedDecl *D,
-                                   bool AllowFunctionTemplates = true,
-                                   bool AllowDependent = true);
+  static NamedDecl *getAsTemplateNameDecl(NamedDecl *D,
+                                          bool AllowFunctionTemplates = true,
+                                          bool AllowDependent = true);
 
   enum TemplateNameIsRequiredTag { TemplateNameIsRequired };
   /// Whether and why a template name is required in this lookup.
@@ -8221,6 +8164,9 @@ public:
 
     // A requirement in a requires-expression.
     UPPC_Requirement,
+
+    // A requires-clause.
+    UPPC_RequiresClause,
   };
 
   /// Diagnose unexpanded parameter packs.
@@ -10214,9 +10160,6 @@ public:
   /// AddMsStructLayoutForRecord - Adds ms_struct layout attribute to record.
   void AddMsStructLayoutForRecord(RecordDecl *RD);
 
-  /// FreePackedContext - Deallocate and null out PackContext.
-  void FreePackedContext();
-
   /// PushNamespaceVisibilityAttr - Note that we've entered a
   /// namespace with a visibility attribute.
   void PushNamespaceVisibilityAttr(const VisibilityAttr *Attr,
@@ -10357,11 +10300,6 @@ public:
   bool checkNSReturnsRetainedReturnType(SourceLocation loc, QualType type);
   bool checkAllowedSYCLInitializer(VarDecl *VD,
                                    bool CheckValueDependent = false);
-
-  // Adds a scheduler_target_fmax_mhz attribute to a particular declaration.
-  void addSYCLIntelSchedulerTargetFmaxMhzAttr(Decl *D,
-                                              const AttributeCommonInfo &CI,
-                                              Expr *E);
 
   //===--------------------------------------------------------------------===//
   // C++ Coroutines TS
@@ -12956,6 +12894,7 @@ private:
   /// Nullability type specifiers.
   IdentifierInfo *Ident__Nonnull = nullptr;
   IdentifierInfo *Ident__Nullable = nullptr;
+  IdentifierInfo *Ident__Nullable_result = nullptr;
   IdentifierInfo *Ident__Null_unspecified = nullptr;
 
   IdentifierInfo *Ident_NSError = nullptr;

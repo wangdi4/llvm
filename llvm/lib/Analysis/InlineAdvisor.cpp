@@ -53,8 +53,8 @@ static cl::opt<int>
 namespace {
 class DefaultInlineAdvice : public InlineAdvice {
 public:
-  DefaultInlineAdvice(DefaultInlineAdvisor *Advisor, CallBase &CB,
 #if INTEL_CUSTOMIZATION
+  DefaultInlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
                       InlineCost IC, OptimizationRemarkEmitter &ORE)
       : InlineAdvice(Advisor, CB, ORE, IC.getIsRecommended()), OriginalCB(&CB),
         IC(IC) {}
@@ -173,6 +173,9 @@ bool InlineAdvisorAnalysis::Result::tryCreate(InlineParams Params,
   switch (Mode) {
   case InliningAdvisorMode::Default:
     Advisor.reset(new DefaultInlineAdvisor(FAM, Params));
+    break;
+  case InliningAdvisorMode::MandatoryOnly:
+    Advisor.reset(new MandatoryInlineAdvisor(FAM));
     break;
   case InliningAdvisorMode::Development:
 #ifdef LLVM_HAVE_TF_API
@@ -479,4 +482,53 @@ void llvm::emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,
     addLocationToRemarks(Remark, DLoc);
     return Remark;
   });
+}
+
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+MandatoryInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                  WholeProgramInfo *WPI, InlineCost **IC) {
+#endif // INTEL_CUSTOMIZATION
+  auto &Caller = *CB.getCaller();
+  auto &Callee = *CB.getCalledFunction();
+  auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
+#if INTEL_CUSTOMIZATION
+  auto MIK = MandatoryInlineAdvisor::getMandatoryKind(CB, FAM, ORE);
+  bool Advice = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
+  bool IsAlways = Advice && (&Caller != &Callee);
+  InlineCost MIC = IsAlways ?
+      llvm::InlineCost::getAlways("always inline", InlrAlwaysInline) :
+      MandatoryInliningKind::Never == MIK ? 
+      llvm::InlineCost::getNever("never inline", NinlrNeverInline) :
+      llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
+  if (IsAlways)
+    MIC.setIsRecommended(true);
+  auto UP = std::make_unique<DefaultInlineAdvice>(nullptr, CB, MIC, ORE);
+  *IC = UP->getInlineCost();
+  return UP;
+#endif // INTEL_CUSTOMIZATION
+}
+
+MandatoryInlineAdvisor::MandatoryInliningKind
+MandatoryInlineAdvisor::getMandatoryKind(CallBase &CB,
+                                         FunctionAnalysisManager &FAM,
+                                         OptimizationRemarkEmitter &ORE) {
+  auto &Callee = *CB.getCalledFunction();
+
+  auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  auto &TIR = FAM.getResult<TargetIRAnalysis>(Callee);
+
+  auto TrivialDecision =
+      llvm::getAttributeBasedInliningDecision(CB, &Callee, TIR, GetTLI);
+
+  if (TrivialDecision.hasValue()) {
+    if (TrivialDecision->isSuccess())
+      return MandatoryInliningKind::Always;
+    else
+      return MandatoryInliningKind::Never;
+  }
+  return MandatoryInliningKind::NotMandatory;
 }

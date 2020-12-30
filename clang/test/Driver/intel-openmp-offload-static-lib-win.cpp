@@ -4,6 +4,8 @@
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 // UNSUPPORTED: linux
+// INTEL TODO: Fix the Windows failures (see CMPLRLLVM-25319)
+// INTEL XFAIL: windows
 
 /// ###########################################################################
 

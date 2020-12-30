@@ -93,6 +93,7 @@ Using Clang Tools
    ClangFormat
    ClangFormatStyleOptions
    ClangFormattedStatus
+   ClangOffloadBundler
 
 Design Documents
 ================
