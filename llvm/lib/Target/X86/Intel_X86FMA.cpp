@@ -679,13 +679,15 @@ private:
 
   /// The bits that are used to define various FMA heuristics in the
   /// internal switch FMAControl/"-x86-global-fma-control".
-  static const unsigned FMAControlHaswellFMAs = 0x1;
-  static const unsigned FMAControlBroadwellFMAs = 0x2;
-  static const unsigned FMAControlSkylakeFMAs = 0x4;
-  static const unsigned FMAControlTargetFMAsMask = 0xFF;
-  static const unsigned FMAControlForceFMAs = 0x100;
-  static const unsigned FMAControlTuneForLatency = 0x200;
-  static const unsigned FMAControlTuneForThroughput = 0x400;
+  enum FMAControls : const unsigned {
+    HaswellFMAs = 0x1,
+    BroadwellFMAs = 0x2,
+    SkylakeFMAs = 0x4,
+    TargetFMAsMask = 0xFF,
+    ForceFMAs = 0x100,
+    TuneForLatency = 0x200,
+    TuneForThroughput = 0x400
+  };
 
   /// Returns true iff all of the passed features \p F are enabled
   /// by the internal switch FMAControl/"-x86-global-fma-control".
@@ -1097,12 +1099,13 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // have correct latency values for SKL-client and Broadwell without
   // using FMA internal switches. The latency must be already set/written
   // properly to the opcode information, just need to extract/use it properly.
-  if ((ST->hasAVX512() && !checkAnyOfFMAFeatures(FMAControlTargetFMAsMask)) ||
-      checkAllFMAFeatures(FMAControlSkylakeFMAs)) {
+  if ((ST->hasAVX512() &&
+       !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
+      checkAllFMAFeatures(FMAControls::SkylakeFMAs)) {
     AddSubLatency = 4;
     MulLatency = 4;
     FMALatency = 4;
-  } else if (checkAllFMAFeatures(FMAControlBroadwellFMAs)) {
+  } else if (checkAllFMAFeatures(FMAControls::BroadwellFMAs)) {
     AddSubLatency = 3;
     MulLatency = 3;
     FMALatency = 5;
@@ -1113,9 +1116,10 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
     FMALatency = 5;
   }
 
-  Control.ForceFMAs = checkAllFMAFeatures(FMAControlForceFMAs);
-  Control.TuneForLatency = checkAllFMAFeatures(FMAControlTuneForLatency);
-  Control.TuneForThroughput = checkAllFMAFeatures(FMAControlTuneForThroughput);
+  Control.ForceFMAs = checkAllFMAFeatures(FMAControls::ForceFMAs);
+  Control.TuneForLatency = checkAllFMAFeatures(FMAControls::TuneForLatency);
+  Control.TuneForThroughput =
+      checkAllFMAFeatures(FMAControls::TuneForThroughput);
 
   // And finally do the transformation.
   return GlobalFMA::runOnMachineFunction(*MF);
