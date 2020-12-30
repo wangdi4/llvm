@@ -4712,7 +4712,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   if (!ValueAddrSpace)
     return V;
 
-  auto *CastTy = cast<PointerType>(V->getType())->getPointerElementType()->
+  auto *CastTy = V->getType()->getPointerElementType()->
       getPointerTo(ValueAddrSpace.getValue());
   auto *ASCI = dyn_cast<Instruction>(
       AddrSpaceCastValue(Builder, V, CastTy));
@@ -4761,8 +4761,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(
 
   auto *NormUBAlloca = cast<Instruction>(NormUB);
   assert(isa<PointerType>(NormUBAlloca->getType()) &&
-         cast<PointerType>(
-             NormUBAlloca->getType())->getElementType()->isIntegerTy() &&
+         NormUBAlloca->getType()->getPointerElementType()->isIntegerTy() &&
          "Normalized upper bound must have an integer type.");
 
   return Builder.CreateLoad(NormUBAlloca, ".norm.ub" + Name);
@@ -4993,7 +4992,7 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
 
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
-  Type *AIElemType = cast<PointerType>(AI->getType())->getElementType();
+  Type *AIElemType = AI->getType()->getPointerElementType();
   std::tie(AllocaTy, NumElements) =
       GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI, AIElemType);
   assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
@@ -5061,7 +5060,7 @@ Value *VPOParoptUtils::genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
   // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
   // specific AddressSpace. The API currently needs the Element Type as well.
   Value *RetVal = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      Ptr, PtType->getElementType()->getPointerTo(AddrSpace));
+      Ptr, PtType->getPointerElementType()->getPointerTo(AddrSpace));
 
   return RetVal;
 }

@@ -3032,7 +3032,7 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
     From = Builder.CreateLoad(From);
   assert(From->getType()->isPointerTy() && To->getType()->isPointerTy());
   Type *ObjType = AI ? AI->getAllocatedType()
-                     : cast<PointerType>(From->getType())->getElementType();
+                     : From->getType()->getPointerElementType();
   if (Cctor)
     genPrivatizationInitOrFini(I, Cctor, FK_CopyCtor, To, From, InsertPt, DT);
   else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
@@ -3644,8 +3644,7 @@ bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
   if (I->getIsArraySection())
     return true;
 
-  Type *ElementType =
-      cast<PointerType>(I->getOrig()->getType())->getElementType();
+  Type *ElementType = I->getOrig()->getType()->getPointerElementType();
   if (ElementType->isArrayTy())
     return true;
 
@@ -4117,7 +4116,7 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
   // approproiate logic.
   std::tie(AllocaTy, NumElements) =
       GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
-          Src, cast<PointerType>(Src->getType())->getElementType());
+          Src, Src->getType()->getPointerElementType());
   assert(AllocaTy && "genFastRedCopy: item type cannot be deduced.");
 
   IRBuilder<> Builder(InsertPt);
@@ -4751,11 +4750,11 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   IRBuilder<> Builder(InsertPt);
 
   Type *CITy = Orig->getType();
-  Type *ElemTy = cast<PointerType>(CITy)->getElementType();
+  Type *ElemTy = CITy->getPointerElementType();
 
   if (IsByRef)
     // Strip away one pointer for by-refs.
-    ElemTy = cast<PointerType>(ElemTy)->getElementType();
+    ElemTy = ElemTy->getPointerElementType();
 
   bool BaseIsPointer = false;
   if (isa<PointerType>(ElemTy)) {
@@ -4773,7 +4772,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
     // reach the base element type (i32 for yptr) or the array type ([10 x i32]
     // for yarrptr).
     BaseIsPointer = true;
-    ElemTy = cast<PointerType>(ElemTy)->getElementType();
+    ElemTy = ElemTy->getPointerElementType();
   }
 
   // At this point, ElemTy is the base element type for 1D array sections. For
@@ -4922,7 +4921,7 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
     //        we will probably have to deal with it sometime.
     Type *OrigArrayType =
         RedI.getIsByRef()
-            ? cast<PointerType>(Orig->getType())->getPointerElementType()
+            ? Orig->getType()->getPointerElementType()
             : Orig->getType();
     return Builder.CreateBitCast(NewMinusOffset, OrigArrayType,
                                  NewMinusOffset->getName());
@@ -5026,7 +5025,7 @@ VPOParoptTransform::getItemInfo(const Item *I) {
       assert(!NumElements &&
              "Unexpected number of elements for byref pointer.");
 
-      ElementType = cast<PointerType>(ElementType)->getPointerElementType();
+      ElementType = ElementType->getPointerElementType();
     }
   }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
@@ -5340,7 +5339,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
-        GEPI->mutateType(DstTy->getElementType()->getPointerTo(SrcAS));
+        GEPI->mutateType(DstTy->getPointerElementType()->getPointerTo(SrcAS));
         CollectUsers = true;
       }
       break;
@@ -5353,7 +5352,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
-        BCI->mutateType(DstTy->getElementType()->getPointerTo(SrcAS));
+        BCI->mutateType(DstTy->getPointerElementType()->getPointerTo(SrcAS));
         CollectUsers = true;
       }
       break;
@@ -5522,7 +5521,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     if (LinearI->getIsByRef())
       Orig = new LoadInst(NewVTy, Orig, "", NewLinearInsertPt);
 
-    NewVTy = cast<PointerType>(NewVTy)->getElementType();
+    NewVTy = NewVTy->getPointerElementType();
 
     // (B) Capture value of linear variable before entering the loop
     LoadInst *LoadOrig = CaptureBuilder.CreateLoad(NewVTy, Orig);       // (3)
@@ -5648,7 +5647,7 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
     if (LinearI->getIsByRef())
       Orig = InitBuilder.CreateLoad(NewVTy, Orig);
 
-    NewVTy = cast<PointerType>(NewVTy)->getElementType();
+    NewVTy = NewVTy->getPointerElementType();
     // For LINEAR:IV, the initialization using closed-form is inserted in each
     // iteration of the loop by the frontend, so we don't need to do the
     // "firstprivate copyin" to the privatized linear var.
@@ -7392,8 +7391,7 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
   // emit per-element function. Now frontend has the option to switch between
   // per-element and array functions.
   FunctionType *FnTy = Fn->getFunctionType();
-  Type *ElementTy =
-      cast<PointerType>(FnTy->getParamType(0))->getPointerElementType();
+  Type *ElementTy = FnTy->getParamType(0)->getPointerElementType();
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(I);
@@ -10271,9 +10269,9 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   Function *FnCopyPriv = genCopyPrivateFunc(W, KmpCopyPrivateTy);
   assert(isa<PointerType>(CopyPrivateBase->getType()) &&
            "genCopyPrivateCode: Expect non-empty pointer type");
-  PointerType *PtrTy = cast<PointerType>(CopyPrivateBase->getType());
   const DataLayout &DL = F->getParent()->getDataLayout();
-  uint64_t Size = DL.getTypeAllocSize(PtrTy->getElementType());
+  uint64_t Size =
+      DL.getTypeAllocSize(CopyPrivateBase->getType()->getPointerElementType());
   VPOParoptUtils::genKmpcCopyPrivate(
       W, IdentTy, TidPtrHolder, Size, CopyPrivateBase, FnCopyPriv,
       Builder.CreateLoad(IsSingleThread), InsertPt);

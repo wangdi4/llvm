@@ -1008,7 +1008,7 @@ static unsigned int assignSLMOffset(Module &M) {
   for (auto &&GV : M.getGlobalList()) {
     auto Ty = dyn_cast<PointerType>(GV.getType());
     if (Ty && Ty->getAddressSpace() == SYCL_SLM_AS) {
-      auto DTy = Ty->getPointerElementType();
+      auto DTy = GV.getValueType();
       auto BufferSize = static_cast<size_t>(DL->getTypeAllocSize(DTy));
       auto align = GV.getAlignment();
       SLMSize = ((SLMSize + align - 1) / align) * align;

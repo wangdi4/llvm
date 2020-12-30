@@ -798,10 +798,9 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
           TargetTriple.getArch() == Triple::ArchType::spir64) {
 
         // Address space Casting to ADDRESS_SPACE_GENERIC = 4 for GPU device
-        PointerType *PtType = cast<PointerType>(TmpUB->getType());
         IRBuilder<> Builder(InsertPt);
         Value *V = Builder.CreatePointerBitCastOrAddrSpaceCast(
-                     TmpUB, PtType->getElementType()->getPointerTo(4),
+                     TmpUB, TmpUB->getAllocatedType()->getPointerTo(4),
                      TmpUB->getName() + ".ascast");
         NormalizedUB = V;
       } else

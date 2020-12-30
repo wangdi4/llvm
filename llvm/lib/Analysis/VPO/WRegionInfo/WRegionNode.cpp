@@ -853,7 +853,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
     IsUseDeviceAddr = true;
     if (ClauseInfo.getIsArraySection())
       if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
-        if (isa<PointerType>(PtrTy->getElementType()))
+        if (isa<PointerType>(PtrTy->getPointerElementType()))
           IsPointerToPointer = true;
   }
   C.setClauseID(ClauseID);
@@ -1587,7 +1587,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = isa<PointerType>(V->getType())
-                      ? cast<PointerType>(V->getType())->getElementType()
+                      ? V->getType()->getPointerElementType()
                       : V->getType();
       getWRNLoopInfo().addNormIV(V, VTy);
     }
@@ -1602,7 +1602,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = isa<PointerType>(V->getType())
-                      ? cast<PointerType>(V->getType())->getElementType()
+                      ? V->getType()->getPointerElementType()
                       : V->getType();
       getWRNLoopInfo().addNormUB(V, VTy);
     }
