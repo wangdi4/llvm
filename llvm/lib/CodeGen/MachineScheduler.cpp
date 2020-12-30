@@ -2832,7 +2832,7 @@ bool tryLatency(GenericSchedulerBase::SchedCandidate &TryCand,
     // Prefer the candidate with the lesser height, but only if one of them has
     // height greater than the total latency scheduled so far, otherwise either
     // of them could be scheduled now with no stall.
-    if (std::max(TryCand.SU->getHeight(), Cand.SU->getHeight()) >
+    if (std::max(TryCand.SU->getHeight(), Cand.SU->getHeight()) >= //INTEL
         Zone.getScheduledLatency()) {
       if (tryLess(TryCand.SU->getHeight(), Cand.SU->getHeight(),
                   TryCand, Cand, GenericSchedulerBase::BotHeightReduce))
@@ -3267,12 +3267,18 @@ void GenericScheduler::tryCandidate(SchedCandidate &Cand,
                    TryCand, Cand, ResourceDemand))
       return;
 
+    unsigned RemLatency = 0; //INTEL
     // Avoid serializing long latency dependence chains.
     // For acyclic path limited loops, latency was already checked above.
-    if (!RegionPolicy.DisableLatencyHeuristic && TryCand.Policy.ReduceLatency &&
+#if INTEL_CUSTOMIZATION
+    //TODO: check if it is possible that setPolicy (which includes ReduceResIdx)
+    //      could be better than shouldReduceLatency
+    if (!RegionPolicy.DisableLatencyHeuristic &&
+        shouldReduceLatency(TryCand.Policy, *Zone, true, RemLatency) &&
+        DAG->MF.getFunction().hasFnAttribute(Attribute::NoFree) == true &&
+#endif // INTEL_CUSTOMIZATION
         !Rem.IsAcyclicLatencyLimited && tryLatency(TryCand, Cand, *Zone))
       return;
-
     // Fall through to original instruction order.
     if ((Zone->isTop() && TryCand.SU->NodeNum < Cand.SU->NodeNum)
         || (!Zone->isTop() && TryCand.SU->NodeNum > Cand.SU->NodeNum)) {
