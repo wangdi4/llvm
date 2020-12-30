@@ -950,8 +950,7 @@ bool BranchProbabilityInfo::calcLoopBranchHeuristics(const BasicBlock *BB,
   for (const_succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
     LoopBlock SuccLB(*I, LI, *SccI.get());
     LoopEdge Edge(LB, SuccLB);
-    bool IsUnlikelyEdge =
-        LB.getLoop() && (UnlikelyBlocks.find(*I) != UnlikelyBlocks.end());
+    bool IsUnlikelyEdge = LB.getLoop() && UnlikelyBlocks.contains(*I);
 #if INTEL_CUSTOMIZATION
     bool IsLikelyEdge =
         LB.getLoop() && (LikelyBlocks.find(*I) != LikelyBlocks.end());
