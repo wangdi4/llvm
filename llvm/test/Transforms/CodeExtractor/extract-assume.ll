@@ -1,4 +1,4 @@
-; RUN: opt -passes="function(slp-vectorizer),module(hotcoldsplit),function(slp-vectorizer,print<assumptions>)" -disable-output %s -intel-codeextractor-debug=false 2>&1 | FileCheck %s ;INTEL
+; RUN: opt -passes="function(slp-vectorizer),module(hotcoldsplit),function(slp-vectorizer,print<assumptions>)" -hotcoldsplit-threshold=-1 -disable-output %s -intel-codeextractor-debug=false 2>&1 | FileCheck %s ;INTEL
 ;
 ; Make sure this compiles. Check that function assumption cache is refreshed
 ; after extracting blocks with assume calls from the function.
