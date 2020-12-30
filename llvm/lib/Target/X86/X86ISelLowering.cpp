@@ -22107,6 +22107,8 @@ SDValue X86TargetLowering::LowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   // It's legal except when f128 is involved or we're converting f80->f16.
+  MVT VT = Op.getSimpleValueType();
+  MVT SVT = In.getSimpleValueType();
   if (SVT != MVT::f128 && !(VT == MVT::f16 && SVT == MVT::f80))
     return Op;
 #else // INTEL_FEATURE_ISA_FP16
