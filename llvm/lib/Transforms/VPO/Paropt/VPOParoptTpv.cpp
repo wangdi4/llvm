@@ -44,7 +44,7 @@ private:
 
   /// Map table between the theread-private globals and threadprivate local
   /// pointer dereference per function.
-  DenseMap<std::pair<Value *, Function*>, Value *> TpvAcc;
+  DenseMap<std::pair<Value *, Function*>, AllocaInst *> TpvAcc;
 
   /// Map table for global thread id per function
   DenseMap<Function*, Instruction *> TidTable;
@@ -60,8 +60,7 @@ private:
 
   /// Returns the threadprivate local pointer dereference given a thread
   /// private variable and the accessed function.
-  Value *getTpvRef(Value *V, Instruction *I,
-      const DataLayout &DL);
+  AllocaInst *getTpvRef(Value *V, Instruction *I, const DataLayout &DL);
 
   /// Returns the threadprivate local pointer given a threadprivate
   /// variable and the accessed function.
@@ -134,7 +133,8 @@ Instruction* VPOParoptTpvLegacy::getThreadNum(Value *V, Function *F) {
     if (F->getFnAttribute("mt-func").getValueAsString() == "true") {
       IRBuilder<> Builder(EntryBB);
       Builder.SetInsertPoint(EntryBB->getTerminator());
-      LoadInst *NewLoad = Builder.CreateLoad(&*(F->arg_begin()));
+      LoadInst *NewLoad =
+          Builder.CreateLoad(Builder.getInt32Ty(), &*(F->arg_begin()));
       TidTable[F] = NewLoad;
     }
     else {
@@ -291,11 +291,11 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
 
   IRBuilder<> BuilderElse(ElseBB);
   BuilderElse.SetInsertPoint(ElseBB->getTerminator());
-#else
+#else // !0
   BasicBlock *ElseBB = B;
   IRBuilder<> BuilderElse(B);
   BuilderElse.SetInsertPoint(LastI);
-#endif
+#endif // !0
 
   // Generates the call __kmpc_threadprivate_cached() if threadprivate local global pointer
   // is empty.
@@ -307,19 +307,17 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   LLVMContext &C = F->getContext();
   StructType *IdentTy = VPOParoptUtils::getIdentStructType(F);
 
-  PointerType *GVPtrType = cast<PointerType>(V->getType());
+  Type *TpvVarValueTy = cast<GlobalVariable>(V)->getValueType();
+#if !ENABLE_OPAQUEPOINTER
   if (V->getType() != Type::getInt8PtrTy(C))
     V = CastInst::CreatePointerCast(V, Type::getInt8PtrTy(C),
                                     Twine(""), ElseBB->getTerminator());
+#endif // !ENABLE_OPAQUEPOINTER
 
-  Value *SizeV;
-
-  if (DL.getIntPtrType(Int8PtrTy)->getIntegerBitWidth() == 64)
-    SizeV = BuilderElse.getInt64(
-                DL.getTypeAllocSize(GVPtrType->getPointerElementType()));
-  else
-     SizeV = BuilderElse.getInt32(
-                DL.getTypeAllocSize(GVPtrType->getPointerElementType()));
+  Type *SizeTTy = GeneralUtils::getSizeTTy(F);
+  unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
+  Value *SizeV =
+      BuilderElse.getIntN(SizeTBitWidth, DL.getTypeAllocSize(TpvVarValueTy));
 
   CallInst *TC = VPOParoptUtils::genKmpcThreadPrivateCachedCall(
       F, AI, IdentTy, TidV, V, SizeV, TpvGV);
@@ -330,8 +328,8 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
 }
 
 // Return the threadprivate local global pointer dereferece.
-Value *VPOParoptTpvLegacy::getTpvRef(Value *V, Instruction *I,
-               const DataLayout &DL) {
+AllocaInst *VPOParoptTpvLegacy::getTpvRef(Value *V, Instruction *I,
+                                          const DataLayout &DL) {
   Function *F = I->getParent()->getParent();
   Instruction *TidV = getThreadNum(V, F);
   if (TpvAcc.find(std::make_pair(V, F)) == TpvAcc.end()) {
@@ -372,7 +370,6 @@ void VPOParoptTpvLegacy::collectGlobalVarRecursively(
 //
 void VPOParoptTpvLegacy::processTpv(Value *V,
               const DataLayout &DL) {
-  Value *New;
   Instruction *LoadI, *CastI;
   SmallVector<Instruction*, 8> RewriteCons;
   SmallVector<Instruction*, 8> RewriteIns;
@@ -392,10 +389,10 @@ void VPOParoptTpvLegacy::processTpv(Value *V,
 
   while (!RewriteIns.empty()) {
     Instruction *User = RewriteIns.pop_back_val();
-    New = getTpvRef(V, User, DL);
+    AllocaInst *New = getTpvRef(V, User, DL);
     IRBuilder<> BuilderCE(User->getParent());
     BuilderCE.SetInsertPoint(User);
-    LoadI = BuilderCE.CreateLoad(New);
+    LoadI = BuilderCE.CreateLoad(New->getAllocatedType(), New);
     if (V->getType() != LoadI->getType())
       CastI = CastInst::CreatePointerCast(LoadI, V->getType(), Twine(""), User);
     else
