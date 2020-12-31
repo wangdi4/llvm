@@ -1227,8 +1227,9 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     if (!ValTy)
       continue;
 
-    if (isa<PointerType>(ValTy->getElementType()))
+    if (isa<PointerType>(ValTy->getPointerElementType()))
       // TODO: for now analyze only pointer to non-pointer globals.
+      // TODO: OPAQUEPOINTER: remove this check
       continue;
 
     if (ValTy->getAddressSpace() != FlatAddrSpace)
@@ -1319,7 +1320,9 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     }
 
     // The optimization is possible.
-    auto *NewValType = ValTy->getElementType()->getPointerTo(NewAS);
+    // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+    // specific AddressSpace. The API currently needs the Element Type as well.
+    auto *NewValType = ValTy->getPointerElementType()->getPointerTo(NewAS);
 
     // Create new global variable.
     Constant *Initializer = nullptr;
@@ -1348,7 +1351,11 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       // we used stripPointerCasts() above to find the initial
       // pointer).
       auto *NewStoreVal = Builder.CreateAddrSpaceCast(
-          StoreVal, StoreValTy->getElementType()->getPointerTo(NewAS));
+          StoreVal,
+          // TODO: OPAQUEPOINTER: Use the appropriate API for getting
+          // PointerType to a specific AddressSpace. The API currently
+          // needs the Element Type as well.
+          StoreValTy->getPointerElementType()->getPointerTo(NewAS));
       SI->replaceUsesOfWith(StoreVal, NewStoreVal);
       SI->replaceUsesOfWith(GV, NewGV);
     }
@@ -1360,7 +1367,11 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       // Clone the load instruction.
       auto *NewLI = LI->clone();
       NewLI->replaceUsesOfWith(GV, NewGV);
-      NewLI->mutateType(LoadValTy->getElementType()->getPointerTo(NewAS));
+      NewLI->mutateType(
+          // TODO: OPAQUEPOINTER: Use the appropriate API for getting
+          // PointerType to a specific AddressSpace. The API currently
+          // needs the Element Type as well.
+          LoadValTy->getPointerElementType()->getPointerTo(NewAS));
       NewLI->insertBefore(LI);
       // Cast the new load value to the original flat address space.
       // We could have called InferAddrSpaces() again to optimize

@@ -207,7 +207,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   }
 
 #endif // INTEL_CUSTOMIZATION
-  Type *ScalarTy = cast<PointerType>(Src->getType())->getElementType();
+  Type *ScalarTy = Src->getType()->getPointerElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
@@ -1108,7 +1108,7 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
           Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
 
       MaybeAlign Align(DL.getABITypeAlignment(
-          cast<PointerType>(OrigV->getType())->getElementType()));
+          OrigV->getType()->getPointerElementType()));
 
       Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
                            FprivI->getThunkBufferSize());
