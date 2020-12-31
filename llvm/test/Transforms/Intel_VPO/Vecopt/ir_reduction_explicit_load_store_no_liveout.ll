@@ -15,7 +15,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   (+) Start: float [[X_PROMOTED0:%.*]]
-; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP0:%.*]], float [[VP_X_RED_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP_STORE:%.*]], float [[VP_X_RED_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: float* [[X0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -44,8 +44,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
-; CHECK-NEXT:     float [[VP1:%.*]] = load float* [[VP_X]]
-; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP1]] float [[X_PROMOTED0]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_X]]
+; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP_LOAD]] float [[X_PROMOTED0]]
 ; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] float* [[X0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -68,6 +68,12 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.QUAL.LIST.END.2:
 ; CHECK-NEXT:    [[X_PROMOTED0]] = load float, float* [[X0]], align 4
+; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB1:
 ; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
@@ -76,23 +82,23 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI20:%.*]] = phi <8 x float> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[UNI_PHI10]]
+; CHECK-NEXT:    [[VEC_PHI40:%.*]] = phi <8 x float> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, float* [[A0]], i64 [[UNI_PHI30]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP0]] to <8 x float>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x float>, <8 x float>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP1]] = fadd <8 x float> [[VEC_PHI20]], [[WIDE_LOAD0]]
+; CHECK-NEXT:    [[TMP1]] = fadd <8 x float> [[VEC_PHI40]], [[WIDE_LOAD0]]
 ; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI10]], 8
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI30]], 8
 ; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI0]], 8
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], 1000
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB:
-; CHECK-NEXT:    [[WIDE_LOAD30:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
-; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD30]])
+; CHECK-NEXT:  VPlannedBB5:
+; CHECK-NEXT:    [[WIDE_LOAD60:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
+; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD60]])
 ; CHECK-NEXT:    store float [[TMP6]], float* [[X0]], align 1
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;

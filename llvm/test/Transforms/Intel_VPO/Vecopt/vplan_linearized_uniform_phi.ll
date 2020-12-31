@@ -77,28 +77,52 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ;
 ; CG:  define void @foo(i64* [[P0:%.*]], i1 [[UNIFORM0:%.*]]) #0 {
 ; CG:       vector.body:
-; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP10:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CG-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP9:%.*]], [[VECTOR_BODY0]] ]
-; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[VECTOR_BODY0]] ]
+; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP10:%.*]], [[VPLANNEDBB110:%.*]] ]
+; CG-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP9:%.*]], [[VPLANNEDBB110]] ]
+; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[VPLANNEDBB110]] ]
 ; CG-NEXT:    [[TMP1:%.*]] = icmp sgt <2 x i64> [[VEC_PHI0]], zeroinitializer
+; CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB4:
+; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB5:
 ; CG-NEXT:    [[TMP2:%.*]] = and <2 x i1> [[TMP1]], [[TMP0:%.*]]
 ; CG-NEXT:    [[TMP3:%.*]] = and <2 x i1> [[TMP1]], [[BROADCAST_SPLAT0:%.*]]
+; CG-NEXT:    br label [[VPLANNEDBB60:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB6:
+; CG-NEXT:    br label [[VPLANNEDBB70:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB7:
+; CG-NEXT:    br label [[VPLANNEDBB80:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB8:
 ; CG-NEXT:    [[PREDBLEND0:%.*]] = select <2 x i1> [[TMP3]], <2 x i64> <i64 1, i64 1>, <2 x i64> <i64 2, i64 2>
 ; CG-NEXT:    [[TMP4:%.*]] = bitcast <2 x i1> [[TMP1]] to i2
 ; CG-NEXT:    [[CTTZ0:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP4]], i1 false)
 ; CG-NEXT:    [[TMP5:%.*]] = extractelement <2 x i64> [[PREDBLEND0]], i2 [[CTTZ0]]
+; CG-NEXT:    br label [[VPLANNEDBB90:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB9:
 ; CG-NEXT:    [[TMP6:%.*]] = add i64 [[TMP5]], 1
-; CG-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
-; CG-NEXT:    [[BROADCAST_SPLAT30:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT20]], <2 x i64> poison, <2 x i32> zeroinitializer
-; CG-NEXT:    [[PREDBLEND40:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> [[BROADCAST_SPLAT30]], <2 x i64> <i64 -1, i64 -1>
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI10]]
+; CG-NEXT:    [[BROADCAST_SPLATINSERT120:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CG-NEXT:    [[BROADCAST_SPLAT130:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT120]], <2 x i64> poison, <2 x i32> zeroinitializer
+; CG-NEXT:    br label [[VPLANNEDBB100:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB10:
+; CG-NEXT:    br label [[VPLANNEDBB110]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB11:
+; CG-NEXT:    [[PREDBLEND140:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> [[BROADCAST_SPLAT130]], <2 x i64> <i64 -1, i64 -1>
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI30]]
 ; CG-NEXT:    [[TMP7:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
-; CG-NEXT:    store <2 x i64> [[PREDBLEND40]], <2 x i64>* [[TMP7]], align 4
+; CG-NEXT:    store <2 x i64> [[PREDBLEND140]], <2 x i64>* [[TMP7]], align 4
 ; CG-NEXT:    [[TMP8]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CG-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI10]], 2
+; CG-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI30]], 2
 ; CG-NEXT:    [[TMP10]] = add i64 [[UNI_PHI0]], 2
 ; CG-NEXT:    [[TMP11:%.*]] = icmp uge i64 [[TMP10]], 4
-; CG-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CG-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB150:%.*]], label [[VECTOR_BODY0:%.*]]
 ;
 ; HIR-CG-LABEL: BEGIN REGION { modified }
 ; HIR-CG-NEXT:        %.copy = -1;
@@ -243,20 +267,32 @@ define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; CG:  define void @uniform_with_undef(i64* [[P0:%.*]], i64 [[N0:%.*]]) #0 {
 ; CG-NEXT:  entry:
 ; CG:       vector.body:
-; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
-; CG-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
-; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
+; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP6:%.*]], [[VPLANNEDBB70:%.*]] ]
+; CG-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VPLANNEDBB70]] ]
+; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VPLANNEDBB70]] ]
 ; CG-NEXT:    [[TMP0:%.*]] = icmp sgt <2 x i64> [[VEC_PHI0]], zeroinitializer
 ; CG-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], [[BROADCAST_SPLAT0]]
 ; CG-NEXT:    [[TMP2:%.*]] = xor <2 x i1> [[TMP1]], <i1 true, i1 true>
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI10]]
+; CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB4:
+; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB5:
+; CG-NEXT:    br label [[VPLANNEDBB60:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB6:
+; CG-NEXT:    br label [[VPLANNEDBB70]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB7:
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI30]]
 ; CG-NEXT:    [[TMP3:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
 ; CG-NEXT:    store <2 x i64> <i64 1, i64 1>, <2 x i64>* [[TMP3]], align 4
 ; CG-NEXT:    [[TMP4]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CG-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI10]], 2
+; CG-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI30]], 2
 ; CG-NEXT:    [[TMP6]] = add i64 [[UNI_PHI0]], 2
 ; CG-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP6]], 4
-; CG-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CG-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
 ;
 
 entry:

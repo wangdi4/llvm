@@ -314,14 +314,14 @@ void VPOCodeGen::emitEndOfVectorLoop(Value *Count, Value *CountRoundDown) {
 }
 
 void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
-  Value *TC = getOrCreateVectorTripCount(L);
   BasicBlock *BB = L->getLoopPreheader();
   assert(BB && "Loop does not have preheader block.");
-  IRBuilder<> Builder(BB->getTerminator());
+  IRBuilder<> IBuilder(BB->getTerminator());
+  Value *TC = getOrCreateVectorTripCount(L, IBuilder);
 
   // Now, compare the new count to zero. If it is zero skip the vector loop and
   // jump to the scalar loop.
-  Value *Cmp = Builder.CreateICmpEQ(TC, Constant::getNullValue(TC->getType()),
+  Value *Cmp = IBuilder.CreateICmpEQ(TC, Constant::getNullValue(TC->getType()),
                                     "cmp.zero");
 
   // Generate code to check that the loop's trip count that we computed by
@@ -346,6 +346,16 @@ void VPOCodeGen::createEmptyLoop() {
   assert(LoopPreHeader && "Must have loop preheader");
   assert(LoopExitBlock && "Must have an exit block");
 
+  if (Plan->hasExplicitRemainder()) {
+    // There is an issue calling SCEV when we create TripCount instruction(s).
+    // The call to SCEV should be done before any new basic block is created
+    // otherwise it may create some additional instructions like lcssa phis
+    // in the unexpected places, reflecting that not all basic blocks are linked
+    // to their successors (at least the last one).
+    IRBuilder<> LBuilder(LoopPreHeader->getTerminator());
+    getOrCreateTripCount(OrigLoop, LBuilder);
+    return;
+  }
   // Create vector loop body.
   LoopVectorBody = LoopPreHeader->splitBasicBlock(
       LoopPreHeader->getTerminator(), "vector.body");
@@ -383,10 +393,11 @@ void VPOCodeGen::createEmptyLoop() {
   emitVectorLoopEnteredCheck(Lp, LoopScalarPreHeader);
 
   // Find the loop boundaries.
-  Value *Count = getOrCreateTripCount(Lp);
+  IRBuilder<> LBuilder(Lp->getLoopPreheader()->getTerminator());
+  Value *Count = getOrCreateTripCount(Lp, LBuilder);
   // CountRoundDown is a counter for the vectorized loop.
   // CountRoundDown = Count - Count % VF.
-  Value *CountRoundDown = getOrCreateVectorTripCount(Lp);
+  Value *CountRoundDown = getOrCreateVectorTripCount(Lp, LBuilder);
   // Add a check in the middle block to see if we have completed
   // all of the iterations in the first vector loop.
   // If (N - N%VF) == N, then we *don't* need to run the remainder.
@@ -403,18 +414,49 @@ void VPOCodeGen::createEmptyLoop() {
 }
 
 void VPOCodeGen::finalizeLoop() {
+  if (Plan->hasExplicitRemainder()) {
+    // Fix phis.
+    fixNonInductionVPPhis();
 
-  fixOutgoingValues();
+    // Attach the new loop to the original preheader
+    auto *Plan = const_cast<VPlan *>(this->Plan);
 
-  fixNonInductionVPPhis();
+    cast<BranchInst>(OrigPreHeader->getTerminator())
+        ->setOperand(0, getScalarValue(
+                            // FIXME: Better consts everywhere.
+                            Plan->getEntryBlock(), 0));
+    // Find last block in cfg.
+    auto LastVPBB = find_if(*Plan, [](const VPBasicBlock &BB) {
+      return BB.getNumSuccessors() == 0;
+    });
+    BasicBlock *LastBB = cast<BasicBlock>(getScalarValue(&*LastVPBB, 0));
 
-  updateAnalysis();
+    // Update external scalar uses.
+    for (auto *VPExtUse : Plan->getExternals().externalUses()) {
+      if (!VPExtUse->hasUnderlying())
+        continue; // fake external use, nothing to fixup
 
-  fixLCSSAPHIs();
+      auto *ExtUse = cast<PHINode>(VPExtUse->getUnderlyingValue());
+      assert(ExtUse->getNumOperands() == 1 && "Not in LCSSA form!");
+      ExtUse->removeIncomingValue(0u, false /* Don't remove empty phi */);
+      ExtUse->addIncoming(getScalarValue(VPExtUse->getOperand(0), 0), LastBB);
+    }
+    // Update instructins that should be genarated under predicates.
+    predicateInstructions();
 
-  predicateInstructions();
+    VPLoopInfo *VPLI = Plan->getVPLoopInfo();
+    VPBasicBlock *VHeader = (*VPLI->begin())->getHeader();
+    LoopVectorBody = cast<BasicBlock>(getScalarValue(VHeader, 0));
+    LoopVectorBody->setName("vector.body");
+  } else {
+    fixOutgoingValues();
+    fixNonInductionVPPhis();
+    updateAnalysis();
+    fixLCSSAPHIs();
+    predicateInstructions();
+  }
 
-  DT->recalculate(*LoopVectorPreHeader->getParent());
+  DT->recalculate(*LoopVectorBody->getParent());
   LI->releaseMemory();
   LI->analyze(*DT);
 
@@ -1311,16 +1353,16 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // TODO: Inline getOrCreateTripCount's implementation to here once we
     // complete transition to an explicit CFG representation in VPlan.
     VPScalarMap[VPInst][0] = getOrCreateTripCount(
-        cast<VPOrigTripCountCalculation>(VPInst)->getOrigLoop());
+        cast<VPOrigTripCountCalculation>(VPInst)->getOrigLoop(), Builder);
     return;
   }
   case VPInstruction::VectorTripCountCalculation: {
     auto *VTCCalc = cast<VPVectorTripCountCalculation>(VPInst);
     // TODO: Inline getOrCreateVectorTripCount's implementation to here once we
     // complete transition to an explicit CFG representation in VPlan.
-    VPScalarMap[VPInst][0] = getOrCreateVectorTripCount(
-        cast<VPOrigTripCountCalculation>(VTCCalc->getOperand(0))
-            ->getOrigLoop());
+    Loop *L =
+        cast<VPOrigTripCountCalculation>(VTCCalc->getOperand(0))->getOrigLoop();
+    VPScalarMap[VPInst][0] = getOrCreateVectorTripCount(L, Builder);
 
     // Meanwhile, assert that the UF implicitly used by the CG is the same as
     // represented explicitly.
@@ -1358,6 +1400,27 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   case Instruction::Br:
     // Do nothing.
     return;
+  case VPInstruction::ReuseLoop: {
+    auto *LoopReuse = cast<VPReuseLoop>(VPInst);
+    // Make the current block predecessor of the original loop header.
+    ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
+                        BranchInst::Create(LoopReuse->getLoop()->getHeader()));
+    // Replace operands (original incoming values) with the new ones from VPlan.
+    // This includes the exit block.
+    for (unsigned Idx = 0; Idx < LoopReuse->getNumOperands(); ++Idx) {
+      Use *OrigUse = LoopReuse->getOrigUse(Idx);
+      OrigUse->set(getScalarValue(LoopReuse->getOperand(Idx), 0));
+      if (auto *Phi = dyn_cast<PHINode>(OrigUse->getUser()))
+        Phi->setIncomingBlock(OrigUse->getOperandNo(),
+                              Builder.GetInsertBlock());
+    }
+    return;
+  }
+  case VPInstruction::OrigLiveOut: {
+    auto *LiveOut = cast<VPOrigLiveOut>(VPInst);
+    VPScalarMap[LiveOut][0] = const_cast<Value*>(LiveOut->getLiveOutVal());
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");
@@ -1365,13 +1428,12 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
 }
 
-Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
+Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
   if (VectorTripCount)
     return VectorTripCount;
 
   assert(L && "Unexpected null loop for trip count create");
-  Value *TC = getOrCreateTripCount(L);
-  IRBuilder<> Builder(L->getLoopPreheader()->getTerminator());
+  Value *TC = getOrCreateTripCount(L, IBuilder);
 
   // Now we need to generate the expression for the part of the loop that the
   // vectorized body will execute. This is equal to N - (N % Step) if scalar
@@ -1379,17 +1441,16 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
   // is equal to the vectorization factor (number of SIMD elements) times the
   // unroll factor (number of SIMD instructions).
   Constant *Step = ConstantInt::get(TC->getType(), VF * UF);
-  Value *R = Builder.CreateURem(TC, Step, "n.mod.vf");
+  Value *R = IBuilder.CreateURem(TC, Step, "n.mod.vf");
 
-  VectorTripCount = Builder.CreateSub(TC, R, "n.vec");
+  VectorTripCount = IBuilder.CreateSub(TC, R, "n.vec");
   return VectorTripCount;
 }
 
-Value *VPOCodeGen::getOrCreateTripCount(Loop *L) {
+Value *VPOCodeGen::getOrCreateTripCount(Loop *L, IRBuilder<> &IBuilder) {
   if (TripCount)
     return TripCount;
 
-  IRBuilder<> Builder(L->getLoopPreheader()->getTerminator());
   // Find the loop boundaries.
   PredicatedScalarEvolution &PSE = Legal->getPSE();
   const SCEV *BackedgeTakenCount = PSE.getBackedgeTakenCount();
@@ -1422,12 +1483,12 @@ Value *VPOCodeGen::getOrCreateTripCount(Loop *L) {
 
   // Count holds the overall loop count (N).
   TripCount = Exp.expandCodeFor(ExitCount, ExitCount->getType(),
-                                L->getLoopPreheader()->getTerminator());
+                                &*IBuilder.GetInsertPoint());
 
   if (TripCount->getType()->isPointerTy())
     TripCount =
         CastInst::CreatePointerCast(TripCount, IdxTy, "exitcount.ptrcnt.to.int",
-                                    L->getLoopPreheader()->getTerminator());
+                                    &*IBuilder.GetInsertPoint());
 
   return TripCount;
 }
@@ -2981,6 +3042,17 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   if (VPWidenMap.count(V))
     return VPWidenMap[V];
 
+  // TODO: Probable improvement is to "inline" liveouts after CFG merge. Then we
+  // don't need this code. Same for getScalarValue.
+  if (auto LiveOut = dyn_cast<VPLiveOutValue>(V))
+    return getVectorValue(LiveOut->getOperand(0));
+
+  auto getInsertPointPH = [this]() -> Instruction * {
+    auto LoopPH = State->CFG.FirstExecutableVPBB;
+    return State->CFG.VPBB2IRBB[const_cast<VPBasicBlock *>(LoopPH)]
+        ->getTerminator();
+  };
+
   // If the VPValue has not been vectorized, check if it has been scalarized
   // instead. If it has been scalarized, and we actually need the value in
   // vector form, we will construct the vector values on demand.
@@ -2995,8 +3067,11 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       // ScalarValue can be a constant, so insertion point setting is not needed
       // for that case.
       auto *ScalarInst = dyn_cast<Instruction>(ScalarValue);
-      if (!ScalarInst)
+      if (!ScalarInst) {
+        if (Plan->hasExplicitRemainder())
+          Builder.SetInsertPoint(getInsertPointPH());
         return;
+      }
       auto It = ++(ScalarInst->getIterator());
 
       while (isa<PHINode>(*It))
@@ -3056,7 +3131,10 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
 
   // Place the code for broadcasting invariant variables in the new preheader.
   IRBuilder<>::InsertPointGuard Guard(Builder);
-  Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
+  if (Plan->hasExplicitRemainder())
+    Builder.SetInsertPoint(getInsertPointPH());
+  else
+    Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
 
   // Broadcast V and save the value for future uses.
   Value *Widened;
@@ -3121,6 +3199,11 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   if (isa<VPExternalDef>(V) || isa<VPConstant>(V) || isa<VPMetadataAsValue>(V))
     return V->getUnderlyingValue();
 
+  if (auto LiveOut = dyn_cast<VPLiveOutValue>(V)) {
+    assert(Lane == 0 && "unexpected lane number to get scalar value");
+    return getScalarValue(LiveOut->getOperand(0), Lane);
+  }
+
   if (VPScalarMap.count(V)) {
     auto SV = VPScalarMap[V];
     if (isVPValueUniform(V, Plan))
@@ -3129,6 +3212,19 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
 
     if (SV.count(Lane))
       return SV[Lane];
+  }
+
+  if (isa<VPBasicBlock>(V)) {
+    BasicBlock *InsertBefore = State->CFG.InsertBefore;
+    StringRef Name = V->getName();
+    if (VPBasicBlock::isDefaultName(Name))
+      Name = "VPlannedBB";
+    BasicBlock *NewBB =
+        BasicBlock::Create(InsertBefore->getContext(), Name,
+                           InsertBefore->getParent(), InsertBefore);
+    LLVM_DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
+    VPScalarMap[V][0] = NewBB;
+    return NewBB;
   }
 
 #if 0
@@ -4015,7 +4111,16 @@ void VPOCodeGen::fixNonInductionVPPhis() {
         auto *VPBB = VPPhi->getIncomingBlock(I);
         Value *IncValue =
             IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
-        Phi->addIncoming(IncValue, State->CFG.VPBB2IREndBB[VPBB]);
+        if (Plan->hasExplicitRemainder()) {
+          BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
+          if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal))
+            BB = cast<VPReuseLoop>(LiveOut->getOperand(0))
+                     ->getLoop()
+                     ->getLoopLatch();
+          Phi->addIncoming(IncValue, BB);
+        } else {
+          Phi->addIncoming(IncValue, State->CFG.VPBB2IREndBB[VPBB]);
+        }
       }
     }
     return;

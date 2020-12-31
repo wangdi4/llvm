@@ -57,6 +57,7 @@ public:
         VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
         PreferredPeeling(Plan->getPreferredPeeling(VF)),
+        OrigPreHeader(OrigLoop->getLoopPreheader()),
         FatalErrorHandler(FatalErrorHandler) {}
 
   ~VPOCodeGen() {}
@@ -94,6 +95,7 @@ public:
   IRBuilder<> &getBuilder() { return Builder; }
 
   BasicBlock *getLoopVectorPH() { return LoopVectorPreHeader; }
+  BasicBlock *getOrigScalarExit() { return LoopExitBlock; }
 
   Loop *getMainLoop() const { return NewLoop; }
   Loop *getOrigLoop() const { return OrigLoop; }
@@ -197,10 +199,10 @@ private:
   Value *getTripCount() const { return TripCount; }
 
   /// Returns (and creates if needed) the original loop trip count.
-  Value *getOrCreateTripCount(Loop *L);
+  Value *getOrCreateTripCount(Loop *L, IRBuilder<> &Builder);
 
   /// Returns (and creates if needed) the trip count of the widened loop.
-  Value *getOrCreateVectorTripCount(Loop *L);
+  Value *getOrCreateVectorTripCount(Loop *L, IRBuilder<> &Builder);
 
   /// Helper function to generate and insert a scalar LLVM instruction from
   /// VPInstruction based on its opcode and scalar versions of its operands.
@@ -473,6 +475,9 @@ private:
   BasicBlock *LoopVectorBody = nullptr;
   /// The scalar loop body.
   BasicBlock *LoopScalarBody = nullptr;
+  /// Original preheader of the original loop. During CG, we can't use
+  /// OrigLoop->getPreheader as we insert some basic blocks.
+  BasicBlock *OrigPreHeader;
   /// Current mask value for instructions being generated
   Value *MaskValue = nullptr;
   /// A list of all bypass blocks. The first block is the entry of the loop.

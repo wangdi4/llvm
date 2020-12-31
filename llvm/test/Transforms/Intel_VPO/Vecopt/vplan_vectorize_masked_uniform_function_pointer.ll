@@ -18,10 +18,16 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br label [[PREHEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  preheader:
+; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB1:
 ; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i32 [[N0]], 4
 ; CHECK-NEXT:    [[N_VEC0:%.*]] = sub i32 [[N0]], [[N_MOD_VF0]]
-; CHECK-NEXT:    [[CMP_ZERO0:%.*]] = icmp eq i32 [[N_VEC0]], 0
-; CHECK-NEXT:    br i1 [[CMP_ZERO0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i32 0, [[N_VEC0]]
+; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[N0]], i32 0
@@ -29,69 +35,75 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP24:%.*]], [[PRED_LOAD_CONTINUE90:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i32 [ [[TMP23:%.*]], [[PRED_LOAD_CONTINUE90]] ], [ 0, [[VECTOR_PH0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ [[TMP22:%.*]], [[PRED_LOAD_CONTINUE90]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 2, i32 2, i32 2, i32 2>
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[TMP0]], [[BROADCAST_SPLAT0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i1> [[TMP1]] to i4
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i4 [[TMP2]], 0
-; CHECK-NEXT:    br i1 [[TMP3]], label [[PRED_LOAD_IF0:%.*]], label [[TMP5:%.*]]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP25:%.*]], [[VPLANNEDBB90:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i32 [ [[TMP24:%.*]], [[VPLANNEDBB90]] ], [ 0, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ [[TMP23:%.*]], [[VPLANNEDBB90]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 2, i32 2, i32 2, i32 2>
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <4 x i32> [[TMP1]], [[BROADCAST_SPLAT0]]
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i1> [[TMP2]] to i4
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp ne i4 [[TMP3]], 0
+; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_LOAD_IF0:%.*]], label [[TMP6:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.if:
-; CHECK-NEXT:    [[TMP4:%.*]] = load i32 (i32)*, i32 (i32)** [[FUNC0]], align 8
-; CHECK-NEXT:    br label [[TMP5]]
+; CHECK-NEXT:    [[TMP5:%.*]] = load i32 (i32)*, i32 (i32)** [[FUNC0]], align 8
+; CHECK-NEXT:    br label [[TMP6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  5:
-; CHECK-NEXT:    [[TMP6:%.*]] = phi i32 (i32)* [ undef, [[VECTOR_BODY0]] ], [ [[TMP4]], [[PRED_LOAD_IF0]] ]
+; CHECK-NEXT:  6:
+; CHECK-NEXT:    [[TMP7:%.*]] = phi i32 (i32)* [ undef, [[VPLANNEDBB40]] ], [ [[TMP5]], [[PRED_LOAD_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.continue:
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <4 x i1> [[TMP1]] to i4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp ne i4 [[TMP7]], 0
-; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_LOAD_IF60:%.*]], label [[TMP10:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <4 x i1> [[TMP2]] to i4
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne i4 [[TMP8]], 0
+; CHECK-NEXT:    br i1 [[TMP9]], label [[PRED_LOAD_IF160:%.*]], label [[TMP11:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.load.if6:
-; CHECK-NEXT:    [[TMP9:%.*]] = load i32, i32* [[C0]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <4 x i32> poison, i32 [[TMP9]], i32 0
-; CHECK-NEXT:    br label [[TMP10]]
+; CHECK-NEXT:  pred.load.if16:
+; CHECK-NEXT:    [[TMP10:%.*]] = load i32, i32* [[C0]], align 4
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <4 x i32> poison, i32 [[TMP10]], i32 0
+; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  10:
-; CHECK-NEXT:    [[TMP11:%.*]] = phi <4 x i32> [ poison, [[PRED_LOAD_CONTINUE0]] ], [ [[BROADCAST_SPLATINSERT20]], [[PRED_LOAD_IF60]] ]
-; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE70:%.*]]
+; CHECK-NEXT:  11:
+; CHECK-NEXT:    [[TMP12:%.*]] = phi <4 x i32> [ poison, [[PRED_LOAD_CONTINUE0]] ], [ [[BROADCAST_SPLATINSERT50]], [[PRED_LOAD_IF160]] ]
+; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE170:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.load.continue7:
-; CHECK-NEXT:    [[BROADCAST_SPLAT30:%.*]] = shufflevector <4 x i32> [[TMP11]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP1]] to <4 x i32>
-; CHECK-NEXT:    [[TMP12:%.*]] = bitcast i32 (i32)* [[TMP6]] to <4 x i32> (<4 x i32>, <4 x i32>)**
-; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP12]], i32 0
-; CHECK-NEXT:    [[TMP14:%.*]] = load <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP13]], align 8
-; CHECK-NEXT:    [[TMP15:%.*]] = call <4 x i32> [[TMP14]](<4 x i32> [[BROADCAST_SPLAT30]], <4 x i32> [[MASKEXT0]])
-; CHECK-NEXT:    [[TMP16:%.*]] = bitcast <4 x i1> [[TMP1]] to i4
-; CHECK-NEXT:    [[TMP17:%.*]] = icmp ne i4 [[TMP16]], 0
-; CHECK-NEXT:    br i1 [[TMP17]], label [[PRED_LOAD_IF80:%.*]], label [[TMP19:%.*]]
+; CHECK-NEXT:  pred.load.continue17:
+; CHECK-NEXT:    [[BROADCAST_SPLAT60:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP2]] to <4 x i32>
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32 (i32)* [[TMP7]] to <4 x i32> (<4 x i32>, <4 x i32>)**
+; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP13]], i32 0
+; CHECK-NEXT:    [[TMP15:%.*]] = load <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP14]], align 8
+; CHECK-NEXT:    [[TMP16:%.*]] = call <4 x i32> [[TMP15]](<4 x i32> [[BROADCAST_SPLAT60]], <4 x i32> [[MASKEXT0]])
+; CHECK-NEXT:    [[TMP17:%.*]] = bitcast <4 x i1> [[TMP2]] to i4
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp ne i4 [[TMP17]], 0
+; CHECK-NEXT:    br i1 [[TMP18]], label [[PRED_LOAD_IF180:%.*]], label [[TMP20:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.load.if8:
-; CHECK-NEXT:    [[TMP18:%.*]] = load i32, i32* [[A0]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT40:%.*]] = insertelement <4 x i32> poison, i32 [[TMP18]], i32 0
-; CHECK-NEXT:    br label [[TMP19]]
+; CHECK-NEXT:  pred.load.if18:
+; CHECK-NEXT:    [[TMP19:%.*]] = load i32, i32* [[A0]], align 4
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT70:%.*]] = insertelement <4 x i32> poison, i32 [[TMP19]], i32 0
+; CHECK-NEXT:    br label [[TMP20]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  19:
-; CHECK-NEXT:    [[TMP20:%.*]] = phi <4 x i32> [ poison, [[PRED_LOAD_CONTINUE70]] ], [ [[BROADCAST_SPLATINSERT40]], [[PRED_LOAD_IF80]] ]
-; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE90]]
+; CHECK-NEXT:  20:
+; CHECK-NEXT:    [[TMP21:%.*]] = phi <4 x i32> [ poison, [[PRED_LOAD_CONTINUE170]] ], [ [[BROADCAST_SPLATINSERT70]], [[PRED_LOAD_IF180]] ]
+; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE190:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.load.continue9:
-; CHECK-NEXT:    [[BROADCAST_SPLAT50:%.*]] = shufflevector <4 x i32> [[TMP20]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP21:%.*]] = add nsw <4 x i32> [[BROADCAST_SPLAT50]], [[TMP15]]
-; CHECK-NEXT:    [[TMP22]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP23]] = add nsw i32 [[UNI_PHI10]], 4
-; CHECK-NEXT:    [[TMP24]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP25:%.*]] = icmp uge i32 [[TMP24]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP25]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:  pred.load.continue19:
+; CHECK-NEXT:    [[BROADCAST_SPLAT80:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP22:%.*]] = add nsw <4 x i32> [[BROADCAST_SPLAT80]], [[TMP16]]
+; CHECK-NEXT:    br label [[VPLANNEDBB90]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB:
-; CHECK-NEXT:    [[TMP26:%.*]] = mul i32 1, [[N_VEC0]]
-; CHECK-NEXT:    [[TMP27:%.*]] = add i32 0, [[TMP26]]
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    [[TMP23]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP24]] = add nsw i32 [[UNI_PHI30]], 4
+; CHECK-NEXT:    [[TMP25]] = add i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP26:%.*]] = icmp uge i32 [[TMP25]], [[N_VEC0]]
+; CHECK-NEXT:    br i1 [[TMP26]], label [[VPLANNEDBB100:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB10:
+; CHECK-NEXT:    [[TMP27:%.*]] = mul i32 1, [[N_VEC0]]
+; CHECK-NEXT:    [[TMP28:%.*]] = add i32 0, [[TMP27]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:

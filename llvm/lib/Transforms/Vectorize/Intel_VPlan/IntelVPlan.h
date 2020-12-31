@@ -249,6 +249,11 @@ struct VPTransformState {
   struct CFGState {
     /// The previous VPBasicBlock visited. Initially set to null.
     VPBasicBlock *PrevVPBB = nullptr;
+    /// The first VPBasicBlock that will be executed on the vector loop path.
+    /// I.e. the first block that can contain vectorized code. The blocks before
+    /// it should not contain vector instructions that are used in the vector
+    /// loop.
+    VPBasicBlock *FirstExecutableVPBB = nullptr;
     /// The previous IR BasicBlock created or used. Initially set to the new
     /// header BasicBlock.
     BasicBlock *PrevBB = nullptr;

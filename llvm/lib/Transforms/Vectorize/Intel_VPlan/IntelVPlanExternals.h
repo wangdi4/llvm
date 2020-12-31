@@ -120,6 +120,9 @@ class VPExternalValues {
   // VPExternalUsesHIR container.
   friend class VPDecomposerHIR;
   friend class VPLiveInOutCreator;
+  // Codegen looks through the list of external uses and updates their original
+  // operands.
+  friend class VPOCodeGen;
 
   const DataLayout *DL = nullptr;
 

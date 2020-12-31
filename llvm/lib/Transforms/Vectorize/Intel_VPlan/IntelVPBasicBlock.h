@@ -159,6 +159,10 @@ public:
     return &VPBasicBlock::Instructions;
   }
 
+  static bool isDefaultName(StringRef &N) {
+    return N.find_lower("bb") != StringRef::npos;
+  }
+
   /// Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
   /// \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
   void replaceSuccessor(VPBasicBlock *OldSuccessor, VPBasicBlock *NewSuccessor);
