@@ -365,27 +365,4 @@ void SGHelper::insertPrintf(const Twine &Prefix, Instruction *IP,
   Builder.CreateCall(PrintFunc, Args, "PRINT.");
 }
 
-inst_range SGHelper::findDummyRegion(Function &F) {
-  BarrierUtils Utils;
-  Utils.init(F.getParent());
-  inst_iterator FirstIt;
-  for (inst_iterator It = inst_begin(F), End = inst_end(F); It != End; ++It) {
-    auto *Inst = &*It;
-    if (Utils.isBarrierCall(Inst))
-      return make_range(inst_iterator(), inst_iterator());
-    if (Utils.isDummyBarrierCall(Inst)) {
-      FirstIt = It;
-      for (inst_iterator It2 = ++It; It2 != End; ++It2) {
-        auto *Inst = &*It2;
-        if (Utils.isBarrierCall(Inst))
-          return make_range(inst_iterator(), inst_iterator());
-        if (Utils.isDummyBarrierCall(Inst)) {
-          return make_range(FirstIt, ++It2);
-        }
-      }
-    }
-  }
-  return make_range(inst_iterator(), inst_iterator());
-}
-
 } // namespace intel

@@ -148,9 +148,6 @@ public:
   static void insertPrintf(const llvm::Twine &Prefix, llvm::Instruction *IP,
                            llvm::ArrayRef<llvm::Value *> Inputs = llvm::None);
 
-  /// Find dummybarrier - dummybarrier region (short for dummy region)
-  static llvm::inst_range findDummyRegion(llvm::Function &F);
-
 private:
   void findBarriers();
 

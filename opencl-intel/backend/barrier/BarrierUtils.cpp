@@ -640,4 +640,26 @@ namespace intel {
     }
     return false;
   }
+
+  inst_range BarrierUtils::findDummyRegion(Function &F) {
+    // Dummy region would only exist at the beginning of a function,
+    // so we do greedy search from the first instruction.
+    inst_iterator FirstIt;
+    for (inst_iterator It = inst_begin(F), End = inst_end(F); It != End; ++It) {
+      auto *Inst = &*It;
+      if (isBarrierCall(Inst))
+        return make_range(inst_iterator(), inst_iterator());
+      if (isDummyBarrierCall(Inst)) {
+        FirstIt = It;
+        for (inst_iterator It2 = ++It; It2 != End; ++It2) {
+          Inst = &*It2;
+          if (isBarrierCall(Inst))
+            return make_range(inst_iterator(), inst_iterator());
+          if (isDummyBarrierCall(Inst))
+            return make_range(FirstIt, ++It2);
+        }
+      }
+    }
+    return make_range(inst_iterator(), inst_iterator());
+  }
 } // namespace intel

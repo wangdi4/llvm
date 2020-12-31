@@ -120,7 +120,9 @@ bool SGBarrierSimplify::simplifyCallRegion(Function *F) {
 
 bool SGBarrierSimplify::simplifyDummyRegion(Function *F) {
   InstVec Barriers, DummyBarriers;
-  auto DummyRegion = Helper.findDummyRegion(*F);
+  BarrierUtils Utils;
+  Utils.init(F->getParent());
+  auto DummyRegion = Utils.findDummyRegion(*F);
   for (auto &Inst : DummyRegion) {
     if (Helper.isDummyBarrier(&Inst))
       DummyBarriers.push_back(&Inst);
