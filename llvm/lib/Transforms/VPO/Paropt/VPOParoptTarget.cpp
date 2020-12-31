@@ -284,14 +284,14 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   // must be addrspacecasted to their original address spaces.
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
-    if (PointerType *ArgPtrTy = dyn_cast<PointerType>(*ArgTyI)) {
-      if (isa<FunctionType>(ArgPtrTy->getElementType())) {
+    if (isa<PointerType>(*ArgTyI)) {
+      if (isa<FunctionType>((*ArgTyI)->getPointerElementType())) {
         // Kernel arguments representing function pointers
         // must be declared as 64-bit integers.
         ParamsTy.push_back(Type::getInt64Ty(Fn->getContext()));
       } else {
         ParamsTy.push_back(
-            ArgPtrTy->getElementType()->getPointerTo(AddrSpaceGlobal));
+            (*ArgTyI)->getPointerElementType()->getPointerTo(AddrSpaceGlobal));
       }
     } else {
       // A non-pointer argument may appear as a result of scalar
@@ -323,7 +323,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     auto ArgV = &*NewArgI;
     Value *NewArgV = ArgV;
     if (PointerType *OldArgPtrTy = dyn_cast<PointerType>(I->getType())) {
-      if (isa<FunctionType>(OldArgPtrTy->getElementType())) {
+      if (isa<FunctionType>(I->getType()->getPointerElementType())) {
         // The new argument has 64-bit integer type.
         // We need to cast it to a function pointer type of the original
         // argument.
@@ -1780,7 +1780,7 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
     Value *MappedVal = UDP;
     if (UDPI->getIsPointerToPointer())
       MappedVal = LoadBuilder.CreateLoad(
-          cast<PointerType>(UDP->getType())->getPointerElementType(), UDP,
+          UDP->getType()->getPointerElementType(), UDP,
           UDP->getName() + ".load");
 #if INTEL_CUSTOMIZATION
     else if (UDPI->getIsF90DopeVector()) {
@@ -1790,7 +1790,7 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
       auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(UDP, {Zero, Zero},
                                                      UDP->getName() + ".addr0");
       MappedVal = LoadBuilder.CreateLoad(
-          cast<PointerType>(Addr0GEP->getType())->getPointerElementType(),
+          Addr0GEP->getType()->getPointerElementType(),
           Addr0GEP, Addr0GEP->getName() + ".load");
     } else if (UDPI->getIsCptr()) {
       // CPTR type is of form: "%cptr = type { i64 }". So, for "cptr*" operands,
@@ -1977,7 +1977,7 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
       continue;
 
     Changed |= addMapAndPrivateForIDP(
-        IDPI, cast<PointerType>(IDP->getType())->getPointerElementType(), IDP,
+        IDPI, IDP->getType()->getPointerElementType(), IDP,
         IDP);
   }
   return Changed;
