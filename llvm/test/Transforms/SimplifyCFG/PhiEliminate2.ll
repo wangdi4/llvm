@@ -1,4 +1,4 @@
-; RUN: opt < %s -simplifycfg -S | FileCheck %s
+; RUN: opt < %s -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
 
 ; INTEL CUSTOMIZATION: This test fails in xmain.  CQ 410005.
 ; XFAIL: *

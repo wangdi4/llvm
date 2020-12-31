@@ -2492,7 +2492,7 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
 /// FoldPHIEntries - Given a BB that starts with the specified PHI node,
 /// see if we can fold the phi node or some of its entries.
 static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
-                           const DataLayout &DL) {
+                           DomTreeUpdater *DTU, const DataLayout &DL) {
   BasicBlock *BB = PN->getParent();
 
   bool Changed = false;
@@ -2712,7 +2712,18 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     Instruction *OldTI = CondBlock->getTerminator();
     Builder.SetInsertPoint(OldTI);
     Builder.CreateBr(BB);
+
+    SmallVector<DominatorTree::UpdateType, 3> Updates;
+    if (DTU) {
+      for (auto *Successor : successors(CondBlock))
+        Updates.push_back({DominatorTree::Delete, CondBlock, Successor});
+      Updates.push_back({DominatorTree::Insert, CondBlock, BB});
+    }
+
     OldTI->eraseFromParent();
+    if (DTU)
+      DTU->applyUpdatesPermissive(Updates);
+
 
     Changed = true;
   }
@@ -7952,7 +7963,7 @@ bool SimplifyCFGOpt::simplifyOnceImpl(BasicBlock *BB) {
       // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
       // therefore, there might be conflicts during code merge. If resolving
       // conflicts becomes too cumbersome, we can try something different.
-      Changed |= FoldPHIEntries(PN, TTI, DL);
+      Changed |= FoldPHIEntries(PN, TTI, DTU, DL);
 #endif //INTEL_CUSTOMIZATION
   }
 
