@@ -18,6 +18,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
 
@@ -228,6 +229,10 @@ namespace intel {
     /// @param AI Alloca instruction.
     /// @return true if the instruction is implicit GID, false otherwise.
     bool isImplicitGID(AllocaInst *AI);
+
+    /// @brief Find dummybarrier - dummybarrier region.
+    /// @param F Function.
+    inst_range findDummyRegion(Function &F);
 
     Type *getInt32Ty() const { return m_I32Ty; }
 

@@ -80,7 +80,7 @@ bool ImplicitGlobalIdPass::runOnFunction(Function& F)
   return true;
 }
 
-void ImplicitGlobalIdPass::runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, Instruction *insertBefore)
+void ImplicitGlobalIdPass::insertGIDStore(unsigned i, Instruction *pGIDAlloca, Instruction *insertBefore)
 {
   IRBuilder<> B(insertBefore);
   // **********************************************************************
@@ -139,6 +139,7 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
       first_instr;
     assert( insert_before && "There is only one instruction in the current basic block!" );
 
+    auto DummyRegion = m_util.findDummyRegion(*pFunc);
     for (unsigned i = 0; i <= 2; ++i) {
       // Create implicit local variables to hold the gids
       //
@@ -160,18 +161,24 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
                                       loc,
                                       insert_before);
       if (!functionHasBarriers) {
-        runOnBasicBlock(i, gid_alloca, insert_before);
+        insertGIDStore(i, gid_alloca, insert_before);
       } else {
         for (TInstructionSet::iterator ii = m_pSyncInstSet->begin(),
                                        ie = m_pSyncInstSet->end();
              ii != ie; ++ii) {
           Instruction *CallBarrier = *ii;
           Instruction *pNextInst = insert_before;
-          if (CallBarrier->getParent() != gid_alloca->getParent()) {
-            // Insert right after the barrier()
+          // Should not insert get_global_id calls and store instructions in
+          // dummy region, as dummy region will not be constructed into loops
+          if (!DummyRegion.empty() && CallBarrier == &*DummyRegion.begin())
+            continue;
+
+          // Insert right after barrier() or dummybarrier(),
+          // except for the first instruction of this function,
+          // which is guaranteed to be a dummybarrier.
+          if (CallBarrier != first_instr)
             pNextInst = &*(++BasicBlock::iterator(*ii));
-          }
-          runOnBasicBlock(i, gid_alloca, pNextInst);
+          insertGIDStore(i, gid_alloca, pNextInst);
         }
       }
     }

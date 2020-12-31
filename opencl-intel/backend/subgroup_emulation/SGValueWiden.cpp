@@ -116,7 +116,7 @@ bool SGValueWiden::runOnModule(Module &M) {
     SGExcludeBBMap[EmulateFunc] = SGExcludeBB;
 
     if (Utils.isDummyBarrierCall(FirstI)) {
-      auto DummyRegion = Helper.findDummyRegion(*EmulateFunc);
+      auto DummyRegion = Utils.findDummyRegion(*EmulateFunc);
       if (!DummyRegion.empty()) {
         BasicBlock *WGExcludeBB = SGExcludeBB;
         std::string SGExcludeBBName = SGExcludeBB->getName().str();
