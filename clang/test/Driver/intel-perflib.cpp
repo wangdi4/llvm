@@ -1,4 +1,6 @@
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
+// INTEL TODO: Fix the Windows failures (see CMPLRLLVM-25319)
+// INTEL XFAIL: windows
 /// Covers the Intel performance library options for IPP, MKL, TBB, DAAL
 
 // IPP tests

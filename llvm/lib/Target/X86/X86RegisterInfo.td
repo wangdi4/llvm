@@ -730,8 +730,8 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
-let isAllocatable = 0 in
-def TILE : RegisterClass<"X86", [untyped], 0,
+let CopyCost = -1 in // Don't allow copying of tile registers
+def TILE : RegisterClass<"X86", [v256i32], 8192,
                          (sequence "TMM%u", 0, 15)> {let Size = 8192;}
 
 // Tiles

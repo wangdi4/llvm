@@ -360,6 +360,7 @@ static Value *getSLMOffset(Value *V, Instruction *InsPos) {
   auto Invalid = GV->getAttribute(GENX_SLM_OFFSET)
                      .getValueAsString()
                      .getAsInteger(0, Offset);
+  (void)Invalid; // INTEL
   assert(!Invalid);
 
   // initialize the PointerValue representing the offset

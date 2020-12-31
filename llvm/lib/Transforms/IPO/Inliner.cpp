@@ -904,10 +904,10 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass(bool IsAlwaysInline) {
+InlinerPass::InlinerPass(bool IsAlwaysInlineV) {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
-  IsAlwaysInline = IsAlwaysInline;
+  IsAlwaysInline = IsAlwaysInlineV;
 }
 #endif  // INTEL_CUSTOMIZATION
 

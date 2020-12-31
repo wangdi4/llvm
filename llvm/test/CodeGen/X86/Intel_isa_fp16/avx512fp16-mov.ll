@@ -544,7 +544,8 @@ define <32 x half> @loadu32f16maskz(<32 x half>* %a, i32 %c) {
 define void @store32f16(<32 x half> %a) {
 ; X64-LABEL: store32f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovaps %zmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g32f16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps %zmm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -560,7 +561,8 @@ define void @store32f16(<32 x half> %a) {
 define void @storeu32f16(<32 x half> %a) {
 ; X64-LABEL: storeu32f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovups %zmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g32f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovups %zmm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -805,7 +807,8 @@ define <16 x half> @loadu16f16maskz(<16 x half>* %a, i16 %c) {
 define void @store16f16(<16 x half> %a) {
 ; X64-LABEL: store16f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovaps %ymm0, {{.*}}(%rip)
+; X64-NEXT:    movq g16f16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps %ymm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -821,7 +824,8 @@ define void @store16f16(<16 x half> %a) {
 define void @storeu16f16(<16 x half> %a) {
 ; X64-LABEL: storeu16f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovups %ymm0, {{.*}}(%rip)
+; X64-NEXT:    movq g16f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovups %ymm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -1066,7 +1070,8 @@ define <8 x half> @loadu8f16maskz(<8 x half>* %a, i8 %c) {
 define void @store8f16(<8 x half> %a) {
 ; X64-LABEL: store8f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovaps %xmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g8f16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps %xmm0, (%rax)
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: store8f16:
@@ -1080,7 +1085,8 @@ define void @store8f16(<8 x half> %a) {
 define void @storeu8f16(<8 x half> %a) {
 ; X64-LABEL: storeu8f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovups %xmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g8f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovups %xmm0, (%rax)
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: storeu8f16:
