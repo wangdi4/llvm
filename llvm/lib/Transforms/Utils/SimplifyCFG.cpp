@@ -260,7 +260,7 @@ class SimplifyCFGOpt {
   bool SimplifyIndirectBrOnSelect(IndirectBrInst *IBI, SelectInst *SI);
   bool TurnSwitchRangeIntoICmp(SwitchInst *SI, IRBuilder<> &Builder);
 #if INTEL_CUSTOMIZATION
-  bool removeEmptyCleanup(CleanupReturnInst *RI);
+  bool removeEmptyCleanup(CleanupReturnInst *RI, DomTreeUpdater *DTU);
   bool isDedicatedLoopExit(BasicBlock *BB);
 #endif // INTEL_CUSTOMIZATION
 
@@ -5558,7 +5558,7 @@ bool SimplifyCFGOpt::isDedicatedLoopExit(BasicBlock *CleanupBB) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool SimplifyCFGOpt::removeEmptyCleanup(CleanupReturnInst *RI) {      // INTEL
+bool SimplifyCFGOpt::removeEmptyCleanup(CleanupReturnInst *RI, DomTreeUpdater *DTU) {      // INTEL
   // If this is a trivial cleanup pad that executes no instructions, it can be
   // eliminated.  If the cleanup pad continues to the caller, any predecessor
   // that is an EH pad will be updated to continue to the caller and any
@@ -5670,20 +5670,32 @@ bool SimplifyCFGOpt::removeEmptyCleanup(CleanupReturnInst *RI) {      // INTEL
     }
   }
 
+  std::vector<DominatorTree::UpdateType> Updates;
+
   for (pred_iterator PI = pred_begin(BB), PE = pred_end(BB); PI != PE;) {
     // The iterator must be updated here because we are removing this pred.
     BasicBlock *PredBB = *PI++;
     if (UnwindDest == nullptr) {
-      removeUnwindEdge(PredBB);
+      if (DTU)
+        DTU->applyUpdatesPermissive(Updates);
+      Updates.clear();
+      removeUnwindEdge(PredBB, DTU);
       ++NumInvokes;
     } else {
       Instruction *TI = PredBB->getTerminator();
       TI->replaceUsesOfWith(BB, UnwindDest);
+      Updates.push_back({DominatorTree::Delete, PredBB, BB});
+      Updates.push_back({DominatorTree::Insert, PredBB, UnwindDest});
     }
   }
 
-  // The cleanup pad is now unreachable.  Zap it.
-  BB->eraseFromParent();
+  if (DTU) {
+    DTU->applyUpdatesPermissive(Updates);
+    DTU->deleteBB(BB);
+  } else
+    // The cleanup pad is now unreachable.  Zap it.
+    BB->eraseFromParent();
+
   return true;
 }
 
@@ -5730,7 +5742,7 @@ bool SimplifyCFGOpt::simplifyCleanupReturn(CleanupReturnInst *RI) {
   if (mergeCleanupPad(RI))
     return true;
 
-  if (removeEmptyCleanup(RI))
+  if (removeEmptyCleanup(RI, DTU))
     return true;
 
   return false;
