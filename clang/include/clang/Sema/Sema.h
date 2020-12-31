@@ -13222,7 +13222,6 @@ void Sema::addIntelSYCLSingleArgFunctionAttr(Decl *D,
   D->addAttr(::new (Context) AttrType(Context, CI, E));
 }
 
-#if INTEL_CUSTOMIZATION
 template <typename AttrInfo>
 static bool handleMaxWorkSizeAttrExpr(Sema &S, const AttrInfo &AI,
                                       const Expr *Expr, unsigned &Val,
@@ -13296,7 +13295,6 @@ void Sema::addIntelSYCLTripleArgFunctionAttr(Decl *D,
   D->addAttr(::new (Context)
                  WorkGroupAttrType(Context, CI, XDimExpr, YDimExpr, ZDimExpr));
 }
-#endif // INTEL_CUSTOMIZATION
 
 template <typename AttrType>
 void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
