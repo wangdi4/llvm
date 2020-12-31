@@ -38,7 +38,7 @@ entry:
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
   %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @chan, align 4, !tbaa !7
 ; CHECK-NOT: store %struct.ST* %st, %struct.ST** %[[ADDITIONAL_ALLOCA]]
-  call void @_Z19write_channel_intel11ocl_channel2STS_(%opencl.channel_t addrspace(1)* %1, %struct.ST* byval align 4 %st)
+  call void @_Z19write_channel_intel11ocl_channel2STS_(%opencl.channel_t addrspace(1)* %1, %struct.ST* byval(%struct.ST) align 4 %st)
   %2 = bitcast %struct.ST* %st to i8*
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %2) #3
   ret void
@@ -47,7 +47,7 @@ entry:
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 
-declare void @_Z19write_channel_intel11ocl_channel2STS_(%opencl.channel_t addrspace(1)*, %struct.ST* byval align 4) #2
+declare void @_Z19write_channel_intel11ocl_channel2STS_(%opencl.channel_t addrspace(1)*, %struct.ST* byval(%struct.ST) align 4) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
