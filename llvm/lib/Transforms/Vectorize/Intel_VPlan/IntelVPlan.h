@@ -3159,11 +3159,17 @@ public:
   // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
   void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsns.emplace_back(I); }
 
+  // When we clone the plan, we can choose if we want to calculate DA from
+  // scratch or clone DA or none of them. If the plan is cloned after the
+  // predicator, then we just have to clone instructions' vector shapes.
+  enum class UpdateDA : uint8_t {
+    RecalculateDA, // Compute DA from scratch.
+    CloneDA,       // Clone DA of the original plan to the new plan.
+    DoNotUpdateDA  // Do not set DA.
+  };
   // Clones VPlan. VPAnalysesFactory has methods to create additional analyses
-  // required for cloned VPlan. RecalculateDA indicates whether DA will be
-  // calculated from scratch (true) or we will just copy instructions' vector
-  // shapes (false).
-  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, bool RecalculateDA);
+  // required for cloned VPlan.
+  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, UpdateDA UDA);
 
 private:
   void addLiveInValue(VPLiveInValue *V) {
