@@ -274,6 +274,25 @@ let TargetPrefix = "riscv" in {
                     [IntrNoMem, IntrHasSideEffects]>, RISCVVIntrinsic {
     let ExtendOperand = 3;
   }
+  // For Saturating binary operations.
+  // The destination vector type is NOT the same as first source vector.
+  // Input: (vector_in, vector_in/scalar_in, vl)
+  class RISCVSaturatingBinaryABXNoMask
+        : Intrinsic<[llvm_anyvector_ty],
+                    [llvm_anyvector_ty, llvm_any_ty, llvm_anyint_ty],
+                    [IntrNoMem, IntrHasSideEffects]>, RISCVVIntrinsic {
+    let ExtendOperand = 2;
+  }
+  // For Saturating binary operations with mask.
+  // The destination vector type is NOT the same as first source vector (with mask).
+  // Input: (maskedoff, vector_in, vector_in/scalar_in, mask, vl)
+  class RISCVSaturatingBinaryABXMask
+        : Intrinsic<[llvm_anyvector_ty],
+                    [LLVMMatchType<0>, llvm_anyvector_ty, llvm_any_ty,
+                     LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>, llvm_anyint_ty],
+                    [IntrNoMem, IntrHasSideEffects]>, RISCVVIntrinsic {
+    let ExtendOperand = 3;
+  }
 
   // For vmv.v.v, vmv.v.x, vmv.v.i
   // Input: (vector_in/scalar_in, vl)
@@ -282,6 +301,17 @@ let TargetPrefix = "riscv" in {
                                [IntrNoMem] >, RISCVVIntrinsic {
     let ExtendOperand = 1;
   }
+
+  class RISCVTernaryAAAXNoMask
+        : Intrinsic<[llvm_anyvector_ty],
+                    [LLVMMatchType<0>, LLVMMatchType<0>, llvm_anyint_ty,
+                     LLVMMatchType<1>],
+                    [IntrNoMem]>, RISCVVIntrinsic;
+  class RISCVTernaryAAAXMask
+        : Intrinsic<[llvm_anyvector_ty],
+                    [LLVMMatchType<0>, LLVMMatchType<0>, llvm_anyint_ty,
+                     LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>, LLVMMatchType<1>],
+                    [IntrNoMem]>, RISCVVIntrinsic;
 
   multiclass RISCVUSLoad {
     def "int_riscv_" # NAME : RISCVUSLoad;
@@ -327,6 +357,14 @@ let TargetPrefix = "riscv" in {
   multiclass RISCVSaturatingBinaryAAX {
     def "int_riscv_" # NAME : RISCVSaturatingBinaryAAXNoMask;
     def "int_riscv_" # NAME # "_mask" : RISCVSaturatingBinaryAAXMask;
+  }
+  multiclass RISCVSaturatingBinaryABX {
+    def "int_riscv_" # NAME : RISCVSaturatingBinaryABXNoMask;
+    def "int_riscv_" # NAME # "_mask" : RISCVSaturatingBinaryABXMask;
+  }
+  multiclass RISCVTernaryAAAX {
+    def "int_riscv_" # NAME : RISCVTernaryAAAXNoMask;
+    def "int_riscv_" # NAME # "_mask" : RISCVTernaryAAAXMask;
   }
 
   defm vle : RISCVUSLoad;
@@ -388,6 +426,11 @@ let TargetPrefix = "riscv" in {
   defm vfsub : RISCVBinaryAAX;
   defm vfrsub : RISCVBinaryAAX;
 
+  defm vfwadd : RISCVBinaryABX;
+  defm vfwsub : RISCVBinaryABX;
+  defm vfwadd_w : RISCVBinaryAAX;
+  defm vfwsub_w : RISCVBinaryAAX;
+
   defm vsaddu : RISCVSaturatingBinaryAAX;
   defm vsadd : RISCVSaturatingBinaryAAX;
   defm vssubu : RISCVSaturatingBinaryAAX;
@@ -413,4 +456,30 @@ let TargetPrefix = "riscv" in {
                                      [LLVMMatchType<0>, LLVMVectorElementType<0>,
                                       llvm_anyint_ty],
                                      [IntrNoMem]>, RISCVVIntrinsic;
+
+  defm vfmul : RISCVBinaryAAX;
+  defm vfdiv : RISCVBinaryAAX;
+  defm vfrdiv : RISCVBinaryAAX;
+
+  defm vfwmul : RISCVBinaryABX;
+
+  defm vfsgnj : RISCVBinaryAAX;
+  defm vfsgnjn : RISCVBinaryAAX;
+  defm vfsgnjx : RISCVBinaryAAX;
+
+  defm vslideup : RISCVTernaryAAAX;
+  defm vslidedown : RISCVTernaryAAAX;
+
+  defm vaaddu : RISCVSaturatingBinaryAAX;
+  defm vaadd : RISCVSaturatingBinaryAAX;
+  defm vasubu : RISCVSaturatingBinaryAAX;
+  defm vasub : RISCVSaturatingBinaryAAX;
+
+  defm vsmul : RISCVSaturatingBinaryAAX;
+
+  defm vssrl : RISCVSaturatingBinaryAAX;
+  defm vssra : RISCVSaturatingBinaryAAX;
+
+  defm vnclipu : RISCVSaturatingBinaryABX;
+  defm vnclip : RISCVSaturatingBinaryABX;
 } // TargetPrefix = "riscv"
