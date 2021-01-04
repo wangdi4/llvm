@@ -779,17 +779,18 @@ private:
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
-                           StructType *&KmpSharedTy, Value *&LBPtr,
-                           Value *&UBPtr, Value *&STPtr, Value *&LastIterGep,
-                           bool isLoop = true);
+                           StructType *&KmpSharedTy, AllocaInst *&LBPtr,
+                           AllocaInst *&UBPtr, AllocaInst *&STPtr,
+                           Value *&LastIterGep, bool isLoop = true);
   bool genTaskInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                        StructType *&KmpSharedTy, Value *&LastIterGep);
 
   /// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
   /// corresponding outlined function
   bool genTaskGenericCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
-                          StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
-                          Value *STPtr, bool isLoop = true);
+                          StructType *KmpSharedTy, AllocaInst *LBPtr,
+                          AllocaInst *UBPtr, AllocaInst *STPtr,
+                          bool isLoop = true);
 
   /// Generate the call __kmpc_omp_task_alloc, __kmpc_omp_task and the
   /// corresponding outlined function.
@@ -951,8 +952,8 @@ private:
 
   /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
-  void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
-                                  Value *&STPtr);
+  void genLoopInitCodeForTaskLoop(WRegionNode *W, AllocaInst *&LBPtr,
+                                  AllocaInst *&UBPtr, AllocaInst *&STPtr);
 
   /// Generate the outline function of reduction initialization
   Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);

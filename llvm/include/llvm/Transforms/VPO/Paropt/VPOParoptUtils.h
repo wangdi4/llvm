@@ -341,7 +341,8 @@ public:
   static CallInst *genKmpcStaticInit(
       WRegionNode *W, StructType *IdentTy, Value *Tid,
       Value *IsLastVal, Value *LB, Value *UB, Value *DistUB, Value *ST,
-      Value *Inc, Value *Chunk, bool IsUnsigned, Instruction *InsertPt);
+      Value *Inc, Value *Chunk, bool IsUnsigned, IntegerType *LoopIVTy,
+      Instruction *InsertPt);
 
   /// Generate a call to notify the runtime system that the static loop
   /// scheduling is done.
@@ -1093,7 +1094,8 @@ public:
   /// \endcode
   static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                    Value *TidPtr, Value *TaskAlloc, Value *Cmp,
-                                   Value *LBPtr, Value *UBPtr, Value *STPtr,
+                                   AllocaInst *LBPtr, AllocaInst *UBPtr,
+                                   AllocaInst *STPtr,
                                    StructType *KmpTaskTTWithPrivatesTy,
                                    Instruction *InsertPt, bool UseTbb,
                                    Function *FnTaskDup);

@@ -285,11 +285,17 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
     if (isa<PointerType>(*ArgTyI)) {
+      // TODO: OPAQUEPOINTER: this needs to be reimplemented,
+      // since we will not be able to detect function pointer
+      // arguments after outlining.
       if (isa<FunctionType>((*ArgTyI)->getPointerElementType())) {
         // Kernel arguments representing function pointers
         // must be declared as 64-bit integers.
         ParamsTy.push_back(Type::getInt64Ty(Fn->getContext()));
       } else {
+        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
+        // to a specific AddressSpace. The API currently needs the Element Type
+        // as well.
         ParamsTy.push_back(
             (*ArgTyI)->getPointerElementType()->getPointerTo(AddrSpaceGlobal));
       }
@@ -323,6 +329,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     auto ArgV = &*NewArgI;
     Value *NewArgV = ArgV;
     if (PointerType *OldArgPtrTy = dyn_cast<PointerType>(I->getType())) {
+      // TODO: OPAQUEPOINTER: this needs to be reimplemented,
+      // since we will not be able to detect function pointer
+      // arguments after outlining.
       if (isa<FunctionType>(I->getType()->getPointerElementType())) {
         // The new argument has 64-bit integer type.
         // We need to cast it to a function pointer type of the original
@@ -1200,7 +1209,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
       Builder.SetInsertPoint(NewCall);
       LLVMContext &C = F->getContext();
-      LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
+      LoadInst *LastLoad =
+          Builder.CreateLoad(OffloadError->getAllocatedType(), OffloadError);
       ConstantInt *ValueZero = ConstantInt::getSigned(Type::getInt32Ty(C), 0);
       Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
       Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
@@ -1554,7 +1564,9 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
     if (I < DistributeDim)
       CloneUB = Builder.getInt64(0);
     else
-      CloneUB = Builder.CreateLoad(UncollapsedNDRange[Idx]);
+      CloneUB = Builder.CreateLoad(
+          UncollapsedNDRange[Idx]->getType()->getPointerElementType(),
+          UncollapsedNDRange[Idx]);
 
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
@@ -1584,7 +1596,9 @@ void VPOParoptTransform::genMapChainsForMapArraySections(
     const ArraySectionInfo &ArrSecInfo = MapI->getArraySectionInfo();
     auto *BasePtr = MapI->getOrig();
     if (ArrSecInfo.getBaseIsPointer())
-      BasePtr = GepBuilder.CreateLoad(BasePtr, BasePtr->getName() + ".load");
+      BasePtr = GepBuilder.CreateLoad(
+          BasePtr->getType()->getPointerElementType(),
+          BasePtr, BasePtr->getName() + ".load");
 
     auto *ElementTy = ArrSecInfo.getElementType();
     auto *SectionPtr =
@@ -1778,19 +1792,20 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 
     Value *UDP = UDPI->getOrig();
     Value *MappedVal = UDP;
-    if (UDPI->getIsPointerToPointer())
+    if (UDPI->getIsPointerToPointer()) {
+      // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
       MappedVal = LoadBuilder.CreateLoad(
           UDP->getType()->getPointerElementType(), UDP,
           UDP->getName() + ".load");
 #if INTEL_CUSTOMIZATION
-    else if (UDPI->getIsF90DopeVector()) {
+    } else if (UDPI->getIsF90DopeVector()) {
       // For F90_DVs, the map needs to be added for the data pointer, i.e.
       // load i32*, i32** (getelementptr (%dv, 0, 0)).
       auto *Zero = LoadBuilder.getInt32(0);
       auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(UDP, {Zero, Zero},
                                                      UDP->getName() + ".addr0");
       MappedVal = LoadBuilder.CreateLoad(
-          Addr0GEP->getType()->getPointerElementType(),
+          cast<GEPOperator>(Addr0GEP)->getResultElementType(),
           Addr0GEP, Addr0GEP->getName() + ".load");
     } else if (UDPI->getIsCptr()) {
       // CPTR type is of form: "%cptr = type { i64 }". So, for "cptr*" operands,
@@ -1804,8 +1819,8 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 
       MappedVal = LoadBuilder.CreateLoad(Int8PtrTy, PtrPtrCast,
                                          UDP->getName() + ".val");
-    }
 #endif // INTEL_CUSTOMIZATION
+    }
     MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
     MapItem *MapI = new MapItem(MapAggr);
     MapI->setOrig(MappedVal);
@@ -1976,6 +1991,7 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
     if (!IDPI->getIsPointerToPointer()) // Already handled above
       continue;
 
+    // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
     Changed |= addMapAndPrivateForIDP(
         IDPI, IDP->getType()->getPointerElementType(), IDP,
         IDP);
@@ -2103,7 +2119,8 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
         BasePtrGEP->getName() + ".cast"); //                                (3)
 
     LoadInst *UpdatedUDPVal =
-        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); //  (4)
+        Builder.CreateLoad(MapI->getOrig()->getType(), GepCast,
+                           OrigV->getName() + ".updated.val"); //           (4)
     Value *NewV = UpdatedUDPVal;
     if (UDPI->getIsPointerToPointer()) {
       NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,

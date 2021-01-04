@@ -3967,12 +3967,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     if (!ReductionVPInsts.count(VPInst) &&
         CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
-        CE2->isLinearAtLevel(MainLoop->getNestingLevel()))
-      if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0)))
+        CE2->isLinearAtLevel(MainLoop->getNestingLevel())) {
+      if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0))))
         NonConstIndex = 1;
-      else if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1)))
+      else if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1))))
         NonConstIndex = 0;
-
+    }
     if (ConstOp) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
       // The constant value needs to fit in 64 bits which is what

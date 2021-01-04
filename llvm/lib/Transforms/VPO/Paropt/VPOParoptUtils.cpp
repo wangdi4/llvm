@@ -346,7 +346,7 @@ Value *VPOParoptUtils::getOrLoadClauseArgValueWithSext(
   assert(Ty && Ty->isIntegerTy() && "Expected integer type.");
 
   if (Arg->getType()->isPointerTy())
-    Arg = Builder.CreateLoad(Arg);
+    Arg = Builder.CreateLoad(Arg->getType()->getPointerElementType(), Arg);
   else
     assert(isa<Constant>(Arg) &&
            "The clause argument must be either pointer or Constant Value.");
@@ -480,7 +480,7 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
   LLVMContext &C = F->getContext();
 
   Value *RedGetNthDataArgs[] = {
-      Builder.CreateLoad(TidPtr),
+      Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
       ConstantPointerNull::get(Type::getInt8PtrTy(C)),
       Builder.CreateBitCast(SharedGep, Type::getInt8PtrTy(C))};
 
@@ -520,7 +520,7 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
   int Flags = KMP_IDENT_KMPC;
   Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
-  Value *TaskArgs[] = {Loc, Builder.CreateLoad(TidPtr)};
+  Value *TaskArgs[] = {Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr)};
   Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C)};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
@@ -1330,7 +1330,7 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
 
   std::vector<Value *> TaskArgs;
   TaskArgs.push_back(Loc);
-  TaskArgs.push_back(Builder.CreateLoad(TidPtr));
+  TaskArgs.push_back(Builder.CreateLoad(Builder.getInt32Ty(), TidPtr));
   if (TaskAlloc)
     TaskArgs.push_back(TaskAlloc);
   TaskArgs.push_back(Builder.getInt32(DepNum));
@@ -1378,7 +1378,8 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
   int Flags = KMP_IDENT_KMPC;
   Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
 
-  Value *TaskArgs[] = {Loc, Builder.CreateLoad(TidPtr), TaskAlloc};
+  Value *TaskArgs[] = {
+      Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr), TaskAlloc};
   Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
                         Type::getInt8PtrTy(C)};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
@@ -1428,8 +1429,8 @@ CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
 // and the stride is 1.
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Value *TidPtr, Value *TaskAlloc,
-                                          Value *Cmp, Value *LBPtr,
-                                          Value *UBPtr, Value *STPtr,
+                                          Value *Cmp, AllocaInst *LBPtr,
+                                          AllocaInst *UBPtr, AllocaInst *STPtr,
                                           StructType *KmpTaskTTWithPrivatesTy,
                                           Instruction *InsertPt, bool UseTbb,
                                           Function *FnTaskDup) {
@@ -1462,7 +1463,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 
   Value *LBGep = Builder.CreateInBoundsGEP(
       KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(5)}, ".lb.gep");
-  Value *LBVal = Builder.CreateLoad(LBPtr, ".lb");
+  Value *LBVal = Builder.CreateLoad(LBPtr->getAllocatedType(), LBPtr, ".lb");
   if (LBVal->getType() != KmpTaskTTy->getElementType(5))
     LBVal = Builder.CreateSExtOrTrunc(LBVal, KmpTaskTTy->getElementType(5),
                                       ".lb.cast");
@@ -1471,7 +1472,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 
   Value *UBGep = Builder.CreateInBoundsGEP(
       KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(6)}, ".ub.gep");
-  Value *UBVal = Builder.CreateLoad(UBPtr, ".ub");
+  Value *UBVal = Builder.CreateLoad(UBPtr->getAllocatedType(), UBPtr, ".ub");
   if (UBVal->getType() != KmpTaskTTy->getElementType(6))
     UBVal = Builder.CreateSExtOrTrunc(UBVal, KmpTaskTTy->getElementType(6),
                                       ".ub.cast");
@@ -1479,7 +1480,8 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 
   Value *STGep = Builder.CreateInBoundsGEP(
       KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(7)}, ".stride.gep");
-  Value *STVal = Builder.CreateLoad(STPtr, ".stride");
+  Value *STVal =
+      Builder.CreateLoad(STPtr->getAllocatedType(), STPtr, ".stride");
   if (STVal->getType() != KmpTaskTTy->getElementType(7))
     STVal = Builder.CreateSExtOrTrunc(STVal, KmpTaskTTy->getElementType(7),
                                       ".stride.cast");
@@ -1502,7 +1504,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 
   Value *TaskLoopArgs[] = {
       Loc,
-      Builder.CreateLoad(TidPtr),
+      Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
       TaskAlloc,
       Cmp == nullptr ? Builder.getInt32(1)
                      : Builder.CreateSExtOrTrunc(Cmp, Int32Ty),
@@ -1547,7 +1549,8 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
   LLVMContext &C = F->getContext();
   IRBuilder<> Builder(InsertPt);
   Value *TaskRedInitArgs[] = {
-      Builder.CreateLoad(TidPtr), Builder.getInt32(ParmNum),
+      Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
+      Builder.getInt32(ParmNum),
       Builder.CreatePointerCast(RedRecord, Builder.getInt8PtrTy())};
   Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt32Ty(C),
                         Type::getInt8PtrTy(C)};
@@ -1656,7 +1659,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   IRBuilder<> Builder(InsertPt);
   Type *Int32Ty = Builder.getInt32Ty();
 
-  Value *Tid = Builder.CreateLoad(TidPtr);
+  Value *Tid = Builder.CreateLoad(Int32Ty, TidPtr);
   Value *TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
 
   Value *VFinal = W->getFinal();
@@ -1721,7 +1724,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
                           TaskFlagsAlloca); // (5)
 
       Builder.SetInsertPoint(InsertPt);
-      TaskFlags = Builder.CreateLoad(TaskFlagsAlloca); // (6)
+      TaskFlags = Builder.CreateLoad(Int32Ty, TaskFlagsAlloca); // (6)
     }
   }
 
@@ -1925,7 +1928,8 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 CallInst *VPOParoptUtils::genKmpcStaticInit(
     WRegionNode *W, StructType *IdentTy, Value *Tid,
     Value *IsLastVal, Value *LB, Value *UB, Value *DistUB, Value *ST,
-    Value *Inc, Value *Chunk, bool IsUnsigned, Instruction *InsertPt) {
+    Value *Inc, Value *Chunk, bool IsUnsigned, IntegerType *LoopIVTy,
+    Instruction *InsertPt) {
 
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -1937,16 +1941,12 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  auto Size = LB->getType()->getPointerElementType()->getIntegerBitWidth();
+  auto Size = LoopIVTy->getIntegerBitWidth();
   assert((Size == 32 || Size == 64) &&
-         "Invalid plower parameter type in genKmpcStaticInit().");
+         "Invalid loop IV type in genKmpcStaticInit().");
 
-  // Verify type sizes of the other parameters.
-  assert(IsLastVal->getType()->getPointerElementType()->isIntegerTy(32) &&
-         UB->getType()->getPointerElementType()->isIntegerTy(Size) &&
-         DistUB->getType()->getPointerElementType()->isIntegerTy(Size) &&
-         ST->getType()->getPointerElementType()->isIntegerTy(Size) &&
-         Inc->getType()->isIntegerTy(Size) &&
+  // Verify type size of the increment parameter.
+  assert(Inc->getType()->isIntegerTy(Size) &&
          "Invalid parameter types in genKmpcStaticInit().");
 
   LLVMContext &C = F->getContext();
@@ -2699,31 +2699,6 @@ CallInst *VPOParoptUtils::genKernelFini(WRegionNode *W, Instruction *InsertPt,
   return Call;
 }
 
-// Return the list of shared variables
-// EXTERN void __kmpc_get_shared_variables(void ***shareds);
-CallInst *VPOParoptUtils::genGetSharingVariables(WRegionNode *W,
-                                                 Instruction *InsertPt,
-                                                 Value *Shareds) {
-  BasicBlock *B = InsertPt->getParent();
-  Function *F = B->getParent();
-  Module *M = F->getParent();
-  LLVMContext &C = F->getContext();
-  Type *RetTy = Type::getVoidTy(C);
-  Type *TypeParams[] = {Type::getInt8PtrTy(C)->getPointerTo()->getPointerTo()};
-  IRBuilder<> Builder(InsertPt);
-  Value *Args[] = {Builder.CreateLoad(Shareds)};
-  StringRef FnName = "__kmpc_get_shared_variables";
-  Function *Fn = M->getFunction(FnName);
-  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
-
-  if (!Fn)
-    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-
-  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  setFuncCallingConv(Call, M);
-  return Call;
-}
-
 // Finalize a parallel region -- called by workers
 // EXTERN void __kmpc_kernel_end_parallel(void);
 CallInst *VPOParoptUtils::genKernelEndParallel(Instruction *InsertPt) {
@@ -2736,38 +2711,6 @@ CallInst *VPOParoptUtils::genKernelEndParallel(Instruction *InsertPt) {
   StringRef FnName = "__kmpc_kernel_end_parallel";
 
   CallInst *Call = genEmptyCall(M, FnName, RetTy, InsertPt);
-  return Call;
-}
-
-// Prepare a parallel region -- called by master
-// EXTERN void __kmpc_kernel_prepare_parallel(void *work_fn,
-//                                           short is_rtl_initialized);
-// Initialize a parallel region -- called by workers
-// EXTERN bool __kmpc_kernel_parallel(void **work_fn, short
-// is_rtl_initialized);
-CallInst *VPOParoptUtils::genKernelParallel(WRegionNode *W,
-                                            Instruction *InsertPt,
-                                            Value *WorkFn,
-                                            Value *IsRtlInitialized,
-                                            bool Prepare) {
-  BasicBlock *B = InsertPt->getParent();
-  Function *F = B->getParent();
-  Module *M = F->getParent();
-  LLVMContext &C = F->getContext();
-  Type *RetTy = Type::getVoidTy(C);
-  Type *TypeParams[] = {Type::getVoidTy(C)->getPointerTo(), Type::getInt16Ty(C)};
-  IRBuilder<> Builder(InsertPt);
-  Value *Args[] = {Builder.CreateLoad(WorkFn), IsRtlInitialized};
-  StringRef FnName =
-      Prepare ? "__kmpc_kernel_prepare_parallel" : "__kmpc_kernel_parallel";
-  Function *Fn = M->getFunction(FnName);
-  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
-
-  if (!Fn)
-    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-
-  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -2787,33 +2730,6 @@ CallInst *VPOParoptUtils::genInitEndSharingVariables(Instruction *InsertPt,
       End ? "__kmpc_end_sharing_variables" : "__kmpc_init_sharing_variables";
 
   CallInst *Call = genEmptyCall(M, FnName, RetTy, InsertPt);
-  return Call;
-}
-
-// Begin sharing variables
-// EXTERN void __kmpc_begin_sharing_variables(void ***shareds, size_t num_shareds);
-CallInst *VPOParoptUtils::genBeginSharingVariables(WRegionNode *W,
-                                                   Instruction *InsertPt,
-                                                   Value *Shareds,
-                                                   Value *NumShareds) {
-  BasicBlock *B = InsertPt->getParent();
-  Function *F = B->getParent();
-  Module *M = F->getParent();
-  LLVMContext &C = F->getContext();
-  Type *RetTy = Type::getVoidTy(C);
-  Type *TypeParams[] = {Type::getInt8PtrTy(C)->getPointerTo()->getPointerTo(),
-                        GeneralUtils::getSizeTTy(F)};
-  IRBuilder<> Builder(InsertPt);
-  Value *Args[] = {Builder.CreateLoad(Shareds), NumShareds};
-  StringRef FnName = "__kmpc_begin_sharing_variables";
-  Function *Fn = M->getFunction(FnName);
-  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
-
-  if (!Fn)
-    Fn = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
-
-  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
-  setFuncCallingConv(Call, M);
   return Call;
 }
 
@@ -4713,6 +4629,8 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   if (!ValueAddrSpace)
     return V;
 
+  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+  // specific AddressSpace. The API currently needs the Element Type as well.
   auto *CastTy = V->getType()->getPointerElementType()->
       getPointerTo(ValueAddrSpace.getValue());
   auto *ASCI = dyn_cast<Instruction>(
@@ -4765,7 +4683,9 @@ Value *VPOParoptUtils::computeOmpUpperBound(
          NormUBAlloca->getType()->getPointerElementType()->isIntegerTy() &&
          "Normalized upper bound must have an integer type.");
 
-  return Builder.CreateLoad(NormUBAlloca, ".norm.ub" + Name);
+  return Builder.CreateLoad(
+      NormUBAlloca->getType()->getPointerElementType(), NormUBAlloca,
+      ".norm.ub" + Name);
 }
 
 // Returns the predicate which includes equal for the zero trip test.

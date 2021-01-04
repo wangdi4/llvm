@@ -226,7 +226,9 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP =
       Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, NamePrefix + ".addr0");
-  DestArrayBeginOut = Builder.CreateLoad(Addr0GEP, NamePrefix + ".data");
+  DestArrayBeginOut = Builder.CreateLoad(
+      Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
+      NamePrefix + ".data");
   DestElementTyOut = DestArrayBeginOut->getType()->getPointerElementType();
 
   Value *NumElementsFromI = I->getF90DVNumElements();
@@ -241,7 +243,8 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
   }
 
   Value *NumElementsLoadedFromGV =
-      Builder.CreateLoad(NumElementsGV, NumElementsGV->getName() + ".load");
+      Builder.CreateLoad(NumElementsGV->getValueType(),
+                         NumElementsGV, NumElementsGV->getName() + ".load");
   NumElementsOut = NumElementsLoadedFromGV;
 }
 
@@ -263,6 +266,8 @@ void VPOParoptUtils::genF90DVReductionSrcDstInfo(
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP =
       Builder.CreateInBoundsGEP(DestVal, {Zero, Zero}, NamePrefix + ".addr0");
-  DestArrayBeginOut = Builder.CreateLoad(Addr0GEP, NamePrefix + ".data");
+  DestArrayBeginOut = Builder.CreateLoad(
+      Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
+      NamePrefix + ".data");
 }
 #endif // INTEL_CUSTOMIZATION

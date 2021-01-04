@@ -224,6 +224,8 @@ struct PlatformInfoTy {
   };
   std::vector<void *> ExtensionFunctionPointers;
 
+  PlatformInfoTy() = default;
+
   PlatformInfoTy(cl_platform_id platform, cl_context context) {
     Platform = platform;
     Context = context;
@@ -394,10 +396,10 @@ public:
   cl_uint numDevices;
 
   // Contains context and extension API
-  std::vector<PlatformInfoTy> PlatformInfos;
+  std::map<cl_platform_id, PlatformInfoTy> PlatformInfos;
 
   // per device information
-  std::vector<PlatformInfoTy *> Platforms;
+  std::vector<cl_platform_id> Platforms;
   std::vector<cl_device_id> deviceIDs;
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
@@ -683,17 +685,20 @@ public:
 
   /// Return context for the given device ID
   cl_context getContext(int32_t DeviceId) {
-    return Platforms[DeviceId]->Context;
+    auto platformId = Platforms[DeviceId];
+    return PlatformInfos[platformId].Context;
   }
 
   /// Return the extension function pointer for the given ID
   void *getExtensionFunctionPtr(int32_t DeviceId, int32_t ExtensionId) {
-    return Platforms[DeviceId]->ExtensionFunctionPointers[ExtensionId];
+    auto platformId = Platforms[DeviceId];
+    return PlatformInfos[platformId].ExtensionFunctionPointers[ExtensionId];
   }
 
   /// Return the extension function name for the given ID
   const char *getExtensionFunctionName(int32_t DeviceId, int32_t ExtensionId) {
-    return Platforms[DeviceId]->ExtensionFunctionNames[ExtensionId];
+    auto platformId = Platforms[DeviceId];
+    return PlatformInfos[platformId].ExtensionFunctionNames[ExtensionId];
   }
 
   /// Check if extension function is available and enabled.
@@ -955,7 +960,7 @@ static void closeRTL() {
   }
 #ifndef _WIN32
   for (auto platformInfo : DeviceInfo->PlatformInfos)
-    CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.Context);
+    CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
 #endif
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->ProfileLocks;
@@ -1362,10 +1367,10 @@ int32_t __tgt_rtl_number_of_devices() {
     if (rc != CL_SUCCESS)
       continue;
 
-    DeviceInfo->PlatformInfos.emplace_back(PlatformInfoTy(id, context));
+    DeviceInfo->PlatformInfos.emplace(id, PlatformInfoTy(id, context));
     for (auto device : devices) {
       DeviceInfo->deviceIDs.push_back(device);
-      DeviceInfo->Platforms.push_back(&DeviceInfo->PlatformInfos.back());
+      DeviceInfo->Platforms.push_back(id);
     }
     DeviceInfo->numDevices += numDevices;
   }
