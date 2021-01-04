@@ -352,10 +352,6 @@ if (NOT WIN32)
       COMPONENT sycl-headers-extras)
 endif()
 
-if (SYCL_ENABLE_XPTI_TRACING)
-  set(XPTIFW_LIBS xptifw)
-endif()
-
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain
   DEPENDS ${SYCL_RT_LIBS}
@@ -376,7 +372,6 @@ add_custom_target( sycl-toolchain
 # INTEL_CUSTOMIZATION
           sycl-config-file
 # end INTEL_CUSTOMIZATION
-          ${XPTIFW_LIBS}
   COMMENT "Building SYCL compiler toolchain..."
 )
 
@@ -449,7 +444,6 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      # under the existing if(INTEL_CUSTOMIZATION)
      # guard below.
 # end INTEL_CUSTOMIZATION
-     ${XPTIFW_LIBS}
 )
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET ocl-icd)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-icd)
