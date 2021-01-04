@@ -2054,16 +2054,29 @@ void RegDDRef::shift(unsigned LoopLevel, int64_t Amount) {
   }
 }
 
-void RegDDRef::demoteIVs(unsigned StartLevel) {
-  unsigned Dim = getNumDimensions();
+template <bool Promote>
+static inline void demotePromoteIVs(RegDDRef *Ref, unsigned StartLevel) {
+  unsigned Dim = Ref->getNumDimensions();
 
   // Examine every Dimension
   for (unsigned I = 1; I <= Dim; ++I) {
-    CanonExpr *CE = getDimensionIndex(I);
+    CanonExpr *CE = Ref->getDimensionIndex(I);
 
     // Shift to create target CE
-    CE->demoteIVs(StartLevel);
+    if (Promote) {
+      CE->promoteIVs(StartLevel);
+    } else {
+      CE->demoteIVs(StartLevel);
+    }
   }
+}
+
+void RegDDRef::demoteIVs(unsigned StartLevel) {
+  demotePromoteIVs<false>(this, StartLevel);
+}
+
+void RegDDRef::promoteIVs(unsigned StartLevel) {
+  demotePromoteIVs<true>(this, StartLevel);
 }
 
 unsigned RegDDRef::getBasePtrBlobIndex() const {

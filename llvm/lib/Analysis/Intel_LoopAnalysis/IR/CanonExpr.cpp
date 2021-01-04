@@ -1080,6 +1080,23 @@ void CanonExpr::demoteIVs(unsigned StartLevel) {
   IVCoeffs[LastIV].Index = InvalidBlobIndex;
 }
 
+void CanonExpr::promoteIVs(unsigned StartLevel) {
+  assert(StartLevel < MaxLoopNestLevel &&
+         "It's invalid to promote MaxLoopNestLevel");
+  assert(isValidLoopLevel(StartLevel) && "Invalid StartLevel");
+
+  if (IVCoeffs.back().Coeff != 0) {
+    IVCoeffs.push_back(IVCoeffs.back());
+  }
+
+  for (int I = IVCoeffs.size() - 1, E = StartLevel - 1; I > E; --I) {
+    IVCoeffs[I] = IVCoeffs[I - 1];
+  }
+
+  IVCoeffs[StartLevel - 1].Coeff = 0;
+  IVCoeffs[StartLevel - 1].Index = InvalidBlobIndex;
+}
+
 void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
                                        bool MakeUnique,
                                        bool NeedTempBlobs) const {

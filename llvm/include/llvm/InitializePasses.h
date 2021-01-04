@@ -616,6 +616,7 @@ void initializeHIRSumWindowReuseLegacyPassPass(PassRegistry &);
 void initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRIdentityMatrixSubstitutionLegacyPassPass(PassRegistry&);
 void initializeHIRArrayScalarizationTestLauncherLegacyPassPass(PassRegistry &);
+void initializeHIRCrossLoopArrayContractionLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);

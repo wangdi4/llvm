@@ -1330,6 +1330,8 @@ public:
     }
     return {};
   }
+
+  void promoteNestingLevel(unsigned StartLevel);
 };
 
 /// Loop information related to its parallel characteristics, such as

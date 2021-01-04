@@ -64,6 +64,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRIdentityMatrixSubstitution.cpp
         HIRArrayScalarizationTestLauncher.cpp
         HIRArrayScalarization.cpp
+        HIRCrossLoopArrayContraction.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

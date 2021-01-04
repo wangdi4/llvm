@@ -214,6 +214,10 @@ FunctionPass *createHIRNontemporalMarkingPass();
 
 /// Create pass that performs HIR array-scalarization test launch.
 FunctionPass *createHIRArrayScalarizationTestLauncherPass();
+
+/// Create pass that does array contraction for multiple loops.
+FunctionPass *createHIRCrossLoopArrayContractionLegacyPass();
+
 } // namespace llvm
 
 #endif
