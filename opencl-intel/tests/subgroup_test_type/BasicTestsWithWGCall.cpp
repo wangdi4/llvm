@@ -19,8 +19,9 @@ TEST_F(SGEmulationTest, BasicTestsWithWGCall) {
   const char *kernel = "__kernel void basic(__global int* scan_add, __global "
                        "int* wg_reduce_add) {"
                        "  int lid = get_local_id(0);"
-                       "  *wg_reduce_add = work_group_reduce_add(lid);"
-                       "  scan_add[lid] = sub_group_scan_inclusive_add(lid);}";
+                       "  wg_reduce_add[lid] = work_group_reduce_add(lid);"
+                       "  scan_add[lid] = sub_group_scan_inclusive_add(lid);"
+                       "}";
   const size_t kernel_size = strlen(kernel);
   cl_int iRet = CL_SUCCESS;
 
@@ -53,9 +54,9 @@ TEST_F(SGEmulationTest, BasicTestsWithWGCall) {
                                        sizeof(cl_int) * lsize, scan_add, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
 
-  cl_int wg_reduce_add = 0;
+  cl_int wg_reduce_add[lsize] = {0};
   cl_mem mem_obj_reduce = clCreateBuffer(m_context, CL_MEM_USE_HOST_PTR,
-                                         sizeof(cl_int), &wg_reduce_add, &iRet);
+                                         sizeof(cl_int) * lsize, wg_reduce_add, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateBuffer");
 
   iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), &mem_obj_scan);
@@ -71,10 +72,18 @@ TEST_F(SGEmulationTest, BasicTestsWithWGCall) {
   iRet = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(iRet, " clFinish");
 
-  int scan_add_ref = 0;
   int reduce_add_ref = 0;
-  for (size_t i = 0; i < lsize; ++i) {
+  for (size_t i = 0; i < lsize; ++i)
     reduce_add_ref += i;
+
+  for (size_t i = 0; i < lsize; ++i) {
+    ASSERT_EQ(reduce_add_ref, wg_reduce_add[i])
+        << "Mismatch for WG reduce add at work-item: " << i
+        << " Expect: " << reduce_add_ref << " Result: " << wg_reduce_add[i];
+  }
+
+  int scan_add_ref = 0;
+  for (size_t i = 0; i < lsize; ++i) {
     if (i % max_sg_size == 0)
       scan_add_ref = 0;
     scan_add_ref += i;
@@ -82,9 +91,6 @@ TEST_F(SGEmulationTest, BasicTestsWithWGCall) {
         << "Mismatch at work-item: " << i << " Expect: " << scan_add_ref
         << " Result: " << scan_add[i];
   }
-  ASSERT_EQ(reduce_add_ref, wg_reduce_add)
-      << "Mismatch for WG reduce add: "
-      << " Expect: " << reduce_add_ref << " Result: " << wg_reduce_add;
 
   iRet = clReleaseProgram(program);
   ASSERT_OCL_SUCCESS(iRet, " clReleaseProgram");
