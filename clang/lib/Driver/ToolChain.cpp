@@ -1249,7 +1249,7 @@ static std::string getDAALBasePath(const std::string DriverDir) {
   if (DAALRoot)
     P.append(DAALRoot);
   else
-    P.append(getIntelBasePath(DriverDir) + "daal");
+    P.append(getIntelBasePath(DriverDir) + "dal");
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
