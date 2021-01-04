@@ -29,22 +29,43 @@ if(OPENMP_STANDALONE_BUILD OR (NOT OPENMP_ENABLE_LIBOMPTARGET_PROFILING))
     if(INTEL_CUSTOMIZATION)
       include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
       add_dependencies(omptarget libomptarget-libiomp-file)
-      target_link_libraries(omptarget ${LIBOMP_LIB_FILE})
+      target_link_libraries(omptarget PRIVATE ${LIBOMP_LIB_FILE})
     else(INTEL_CUSTOMIZATION)
       # OpenMP runtime library must be linked in.
-      target_link_libraries(omptarget omp)
+      target_link_libraries(omptarget PRIVATE omp)
     endif(INTEL_CUSTOMIZATION)
-    target_link_libraries(omptarget ${CMAKE_DL_LIBS})
+    target_link_libraries(omptarget PRIVATE ${CMAKE_DL_LIBS})
     if (NOT WIN32)
-      target_link_libraries(omptarget
+      target_link_libraries(omptarget PRIVATE
         "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
     endif()
   else(INTEL_COLLAB)
-    target_link_libraries(omptarget
-      ${CMAKE_DL_LIBS}
-      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+  target_link_libraries(omptarget
+    ${CMAKE_DL_LIBS}
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
   endif(INTEL_COLLAB)
 else()
+  if(INTEL_COLLAB)
+    set(LLVM_LINK_COMPONENTS
+      Support
+      )
+    add_llvm_library(omptarget SHARED ${src_files}
+        LINK_LIBS ${CMAKE_DL_LIBS}
+        )
+    if(INTEL_CUSTOMIZATION)
+      include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+      add_dependencies(omptarget libomptarget-libiomp-file)
+      target_link_libraries(omptarget PRIVATE ${LIBOMP_LIB_FILE})
+    else(INTEL_CUSTOMIZATION)
+      # OpenMP runtime library must be linked in.
+      target_link_libraries(omptarget PRIVATE omp)
+    endif(INTEL_CUSTOMIZATION)
+    if (NOT WIN32)
+      target_link_libraries(omptarget PRIVATE
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+    endif()
+    target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
+  else(INTEL_COLLAB)
   set(LLVM_LINK_COMPONENTS
     Support
     )
@@ -53,6 +74,7 @@ else()
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports"
       )
   target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
+  endif(INTEL_COLLAB)
 endif()
 
 if(INTEL_CUSTOMIZATION)

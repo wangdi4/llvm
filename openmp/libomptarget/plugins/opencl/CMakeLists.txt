@@ -50,20 +50,20 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
         if(INTEL_CUSTOMIZATION)
           add_dependencies(omptarget.rtl.opencl libomptarget-libiomp-file)
-          target_link_libraries(omptarget.rtl.opencl ${LIBOMP_LIB_FILE})
+          target_link_libraries(omptarget.rtl.opencl PRIVATE ${LIBOMP_LIB_FILE})
           if(WIN32)
             libomptarget_add_resource_file(omptarget.rtl.opencl)
           endif()
         else(INTEL_CUSTOMIZATION)
           # OpenMP runtime library must be linked in.
-          target_link_libraries(omptarget.rtl.opencl omp)
+          target_link_libraries(omptarget.rtl.opencl PRIVATE omp)
         endif(INTEL_CUSTOMIZATION)
 
-        target_link_libraries(omptarget.rtl.opencl
+        target_link_libraries(omptarget.rtl.opencl PRIVATE
           ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES})
 
         if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-          target_link_libraries(omptarget.rtl.opencl
+          target_link_libraries(omptarget.rtl.opencl PRIVATE
             dl
             "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
         elseif (NOT CMAKE_SYSTEM_NAME MATCHES "Windows")

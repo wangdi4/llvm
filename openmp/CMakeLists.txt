@@ -88,10 +88,6 @@ option(OPENMP_ENABLE_LIBOMPTARGET "Enable building libomptarget for offloading."
        ${ENABLE_LIBOMPTARGET})
 option(OPENMP_ENABLE_LIBOMPTARGET_PROFILING "Enable time profiling for libomptarget."
        ${ENABLE_LIBOMPTARGET})
-# INTEL_CUSTOMIZATION
-# TODO: re-enable profiling, when OPENMP_ENABLE_LIBOMPTARGET_PROFILING merges into xmain.
-set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
-# end INTEL_CUSTOMIZATION
 if (OPENMP_ENABLE_LIBOMPTARGET)
   # Check that the library can actually be built.
   if (APPLE OR WIN32)
