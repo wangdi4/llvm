@@ -5227,9 +5227,7 @@ public:
     return false;
   }
 
-#if INTEL_CUSTOMIZATION
   void makeHostLinkAction(ActionList &LinkerInputs) {
-#endif // INTEL_CUSTOMIZATION
     // Build a list of device linking actions.
     ActionList DeviceAL;
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
@@ -5239,16 +5237,14 @@ public:
     }
 
     if (DeviceAL.empty())
-      return;  // INTEL
+      return;
 
     // Let builders add host linking actions.
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
       if (!SB->isValid())
         continue;
-#if INTEL_CUSTOMIZATION
       if (Action *HA = SB->appendLinkHostActions(DeviceAL))
         LinkerInputs.push_back(HA);
-#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -5670,9 +5666,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
   // Add a link action if necessary.
   if (!LinkerInputs.empty()) {
-#if INTEL_CUSTOMIZATION
     OffloadBuilder.makeHostLinkAction(LinkerInputs);
-#endif // INTEL_CUSTOMIZATION
     types::ID LinkType(types::TY_Image);
     if (Args.hasArg(options::OPT_fsycl_link_EQ))
       LinkType = types::TY_Archive;
