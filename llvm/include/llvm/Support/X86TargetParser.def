@@ -291,6 +291,12 @@ X86_FEATURE       (AVXMOVGET,      "avxmovget")
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
 X86_FEATURE       (AVX512MOVGET,  "avx512movget")
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+X86_FEATURE       (GPRMOVGET,     "gprmovget")
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+X86_FEATURE       (MOVGET64B,     "movget64b")
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 X86_FEATURE       (AVXVNNI,         "avxvnni")
 // These features aren't really CPU features, but the frontend can set them.

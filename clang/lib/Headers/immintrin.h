@@ -536,6 +536,14 @@
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_MOVGET */
+/* INTEL_FEATURE_ISA_MOVGET64B */
+#if defined(__MOVGET64B_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__MOVGET64B__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <movget64b/movget64bintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_MOVGET64B */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */

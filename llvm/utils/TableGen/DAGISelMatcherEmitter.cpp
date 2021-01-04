@@ -463,11 +463,14 @@ EmitMatcher(const Matcher *N, const unsigned Indent, unsigned CurrentIdx,
 
   case Matcher::CheckPatternPredicate: {
     StringRef Pred =cast<CheckPatternPredicateMatcher>(N)->getPredicate();
-    OS << "OPC_CheckPatternPredicate, " << getPatternPredicate(Pred) << ',';
+#if INTEL_CUSTOMIZATION
+    OS << "OPC_CheckPatternPredicate, PREDICATE_VAL("
+          << getPatternPredicate(Pred) << "),";
+#endif // INTEL_CUSTOMIZATION
     if (!OmitComments)
       OS << " // " << Pred;
     OS << '\n';
-    return 2;
+    return 3; // INTEL
   }
   case Matcher::CheckPredicate: {
     TreePredicateFn Pred = cast<CheckPredicateMatcher>(N)->getPredicate();
@@ -1129,7 +1132,10 @@ void llvm::EmitMatcherTable(Matcher *TheMatcher,
   OS << "{\n";
   OS << "  // Some target values are emitted as 2 bytes, TARGET_VAL handles\n";
   OS << "  // this.\n";
+  OS << "  // X86 backend will emit 2 bytes predicate value, PREDICATE_VAL\n"; // INTEL
+  OS << "  // handles this.\n";                                                // INTEL
   OS << "  #define TARGET_VAL(X) X & 255, unsigned(X) >> 8\n";
+  OS << "  #define PREDICATE_VAL(X) X & 255, unsigned(X) >> 8\n"; // INTEL
   OS << "  static const unsigned char MatcherTable[] = {\n";
   TotalSize = MatcherEmitter.EmitMatcherList(TheMatcher, 1, 0, OS);
   OS << "    0\n  }; // Total Array size is " << (TotalSize+1) << " bytes\n\n";
@@ -1137,6 +1143,7 @@ void llvm::EmitMatcherTable(Matcher *TheMatcher,
   MatcherEmitter.EmitHistogram(TheMatcher, OS);
 
   OS << "  #undef TARGET_VAL\n";
+  OS << "  #undef PREDICATE_VAL\n"; // INTEL
   OS << "  SelectCodeCommon(N, MatcherTable,sizeof(MatcherTable));\n";
   OS << "}\n";
   EndEmitFunction(OS);

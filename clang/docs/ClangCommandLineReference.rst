@@ -3383,6 +3383,12 @@ X86
 
 .. option:: -mgfni, -mno-gfni
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_GPR_MOVGET
+.. option:: -mgprmovget, -mno-gprmovget
+.. end INTEL_FEATURE_ISA_GPR_MOVGET
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mhreset, -mno-hreset
 
 .. INTEL_CUSTOMIZATION
@@ -3406,6 +3412,12 @@ X86
 .. option:: -mmovdir64b, -mno-movdir64b
 
 .. option:: -mmovdiri, -mno-movdiri
+
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_MOVGET64B
+.. option:: -mmovget64b, -mno-movget64b
+.. end INTEL_FEATURE_ISA_MOVGET64B
+.. end INTEL_CUSTOMIZATION
 
 .. option:: -mmwaitx, -mno-mwaitx
 

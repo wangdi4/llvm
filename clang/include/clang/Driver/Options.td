@@ -4447,6 +4447,12 @@ def minvpcid : Flag<["-"], "minvpcid">, Group<m_x86_Features_Group>;
 def mno_invpcid : Flag<["-"], "mno-invpcid">, Group<m_x86_Features_Group>;
 def mgfni : Flag<["-"], "mgfni">, Group<m_x86_Features_Group>;
 def mno_gfni : Flag<["-"], "mno-gfni">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+def mgprmovget : Flag<["-"], "mgprmovget">, Group<m_x86_Features_Group>;
+def mno_gprmovget : Flag<["-"], "mno-gprmovget">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#endif // INTEL_CUSTOMIZATION
 def mhreset : Flag<["-"], "mhreset">, Group<m_x86_Features_Group>;
 def mno_hreset : Flag<["-"], "mno-hreset">, Group<m_x86_Features_Group>;
 def mkl : Flag<["-"], "mkl">, Group<m_x86_Features_Group>;
@@ -4463,6 +4469,12 @@ def mmovdiri : Flag<["-"], "mmovdiri">, Group<m_x86_Features_Group>;
 def mno_movdiri : Flag<["-"], "mno-movdiri">, Group<m_x86_Features_Group>;
 def mmovdir64b : Flag<["-"], "mmovdir64b">, Group<m_x86_Features_Group>;
 def mno_movdir64b : Flag<["-"], "mno-movdir64b">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_MOVGET64B
+def mmovget64b : Flag<["-"], "mmovget64b">, Group<m_x86_Features_Group>;
+def mno_movget64b : Flag<["-"], "mno-movget64b">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
+#endif // INTEL_CUSTOMIZATION
 def mmwaitx : Flag<["-"], "mmwaitx">, Group<m_x86_Features_Group>;
 def mno_mwaitx : Flag<["-"], "mno-mwaitx">, Group<m_x86_Features_Group>;
 def mpku : Flag<["-"], "mpku">, Group<m_x86_Features_Group>;

@@ -1077,6 +1077,15 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MOVGET)
 # end INTEL_FEATURE_ISA_AVX512_MOVGET
+
+# INTEL_FEATURE_ISA_GPR_MOVGET
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_GPR_MOVGET)
+# end INTEL_FEATURE_ISA_GPR_MOVGET
+# INTEL_FEATURE_ISA_MOVGET64B
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVGET64B)
+# end INTEL_FEATURE_ISA_MOVGET64B
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

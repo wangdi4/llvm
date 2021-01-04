@@ -6945,6 +6945,23 @@ let TargetPrefix = "x86" in {
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_FP19
+
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+let TargetPrefix = "x86" in {
+  def int_x86_movget32 : GCCBuiltin<"__builtin_ia32_movget32">,
+                Intrinsic<[llvm_i32_ty], [llvm_ptr_ty], [IntrReadMem]>;
+  def int_x86_movget64 : GCCBuiltin<"__builtin_ia32_movget64">,
+                Intrinsic<[llvm_i64_ty], [llvm_ptr_ty], [IntrReadMem]>;
+}
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+let TargetPrefix = "x86" in {
+  def int_x86_movget64b32 : GCCBuiltin<"__builtin_ia32_movget64b32">,
+                Intrinsic<[llvm_i32_ty], [llvm_ptr_ty], [IntrReadMem]>;
+  def int_x86_movget64b64 : GCCBuiltin<"__builtin_ia32_movget64b64">,
+                Intrinsic<[llvm_i64_ty], [llvm_ptr_ty], [IntrReadMem]>;
+}
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // UINTR - User Level Interrupt
