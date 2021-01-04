@@ -461,7 +461,7 @@ public:
   RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_SVMMAP) {
     char *env;
-    if (env = readEnvVar("LIBOMPTARGET_DEBUG")) {
+    if ((env = readEnvVar("LIBOMPTARGET_DEBUG"))) {
       DebugLevel = std::stoi(env);
     }
     // set misc. flags
@@ -487,7 +487,7 @@ public:
         numTeams : 0;
 
     // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
-    if (env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
+    if ((env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY"))) {
       std::string value(env);
       if (value.substr(0, 2) == "T,") {
         Flags.CollectDataTransferLatency = 1;
@@ -498,8 +498,8 @@ public:
 
     // Read LIBOMPTARGET_DATA_TRANSFER_METHOD
     // Read LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD",
-                         "LIBOMPTARGET_DATA_TRANSFER_METHOD")) {
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD",
+                          "LIBOMPTARGET_DATA_TRANSFER_METHOD"))) {
       std::string value(env);
       DataTransferMethod = DATA_TRANSFER_METHOD_INVALID;
       if (value.size() == 1 && std::isdigit(value.c_str()[0])) {
@@ -515,7 +515,7 @@ public:
     }
     // Read LIBOMPTARGET_DEVICETYPE
     DeviceType = CL_DEVICE_TYPE_GPU;
-    if (env = readEnvVar("LIBOMPTARGET_DEVICETYPE")) {
+    if ((env = readEnvVar("LIBOMPTARGET_DEVICETYPE"))) {
       std::string value(env);
       if (value == "GPU" || value == "gpu" || value == "")
         DeviceType = CL_DEVICE_TYPE_GPU;
@@ -536,17 +536,17 @@ public:
     }
 #endif  // INTEL_CUSTOMIZATION
 
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE"))) {
       int32_t value = std::stoi(env);
 
       // Set some reasonable limits.
-      if (value > 0 || value <= 0xFFFF)
+      if (value > 0 && value <= 0xFFFF)
         SubscriptionRate = value;
     }
 
     // Read LIBOMPTARGET_PROFILE
     ProfileResolution = 1000;
-    if (env = readEnvVar("LIBOMPTARGET_PROFILE")) {
+    if ((env = readEnvVar("LIBOMPTARGET_PROFILE"))) {
       std::istringstream value(env);
       std::string token;
       while (std::getline(value, token, ',')) {
@@ -557,7 +557,7 @@ public:
       }
     }
 
-    if (env = readEnvVar("LIBOMPTARGET_ENABLE_SIMD")) {
+    if ((env = readEnvVar("LIBOMPTARGET_ENABLE_SIMD"))) {
       std::string value(env);
       if (value == "T" || value == "1")
         Flags.EnableSimd = 1;
@@ -571,8 +571,8 @@ public:
     //    (default: shared out-of-order queue)
     // -- inorder_shared_sync: use the existing shared in-order queue for
     //    synchronous case (default: new in-order queue).
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_INTEROP_QUEUE",
-                         "LIBOMPTARGET_INTEROP_PIPE")) {
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_INTEROP_QUEUE",
+                          "LIBOMPTARGET_INTEROP_PIPE"))) {
       std::istringstream value(env);
       std::string token;
       while (std::getline(value, token, ',')) {
@@ -586,10 +586,10 @@ public:
       }
     }
 
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS"))) {
       UserCompilationOptions += env;
     }
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_LINKING_OPTIONS")) {
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_LINKING_OPTIONS"))) {
       UserLinkingOptions += env;
     }
 #if INTEL_CUSTOMIZATION
@@ -603,20 +603,20 @@ public:
       if (!(env = readEnvVar("LIBOMPTARGET_OPENCL_MATCH_SINCOSPI")) ||
           (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
         InternalLinkingOptions += " -cl-match-sincospi ";
-      if (env = readEnvVar("LIBOMPTARGET_OPENCL_USE_DRIVER_GROUP_SIZES"))
+      if ((env = readEnvVar("LIBOMPTARGET_OPENCL_USE_DRIVER_GROUP_SIZES")))
         if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseDriverGroupSizes = 1;
     }
 #endif  // INTEL_CUSTOMIZATION
 
     // Read LIBOMPTARGET_USM_HOST_MEM
-    if (env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM")) {
+    if ((env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM"))) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseHostMemForUSM = 1;
     }
 
     // Read LIBOMPTARGET_OPENCL_USE_SVM
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM")) {
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM"))) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         // This is current default. TODO: remove this comment after we switch
         // to Flags.UseSVM=0 by default.
@@ -627,10 +627,10 @@ public:
 
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
-    if (env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE")) {
+    if ((env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE"))) {
       parseGroupSizes("LIBOMPTARGET_LOCAL_WG_SIZE", env, ForcedLocalSizes);
     }
-    if (env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE")) {
+    if ((env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE"))) {
       parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
     }
 #endif // INTEL_INTERNAL_BUILD
