@@ -76,7 +76,7 @@ public:
   /// Return Loop Unroll Factor either forced by option or pragma
   /// or advised by optimizations.
   /// \p Forced indicates that Unroll Factor is forced.
-  virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr);
+  virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr) override;
 
   /// Return a pair of the <min, max> types' width used in the underlying loop.
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
