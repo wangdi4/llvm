@@ -15,7 +15,6 @@
 #pragma once
 
 #include "BuiltinModules.h"
-#include "CompiledModule.h"
 #include "CPUDetect.h"
 #include "CPUCompiler.h"
 #include "StaticObjectLoader.h"
@@ -174,12 +173,12 @@ const bool NO_CLAMP_CBK = !CLAMP_CBK;
 class ImageCallbackFunctions{
 public:
 
-    ImageCallbackFunctions(CompiledModule* pCompiledModule);
+    ImageCallbackFunctions();
 
 private:
 
-    // Used for function lookup. Not owned by this class
-    CompiledModule* m_pCompiledModule;
+    // Used for function lookup. Not owned by this class.
+    llvm::orc::LLJIT *m_LLJIT;
 
     void* GetCbkPtr(const CbkDesc& _desc);
 
@@ -228,14 +227,8 @@ public:
     *  ctor
     */
     ImageCallbackLibrary(Intel::CPUId cpuId, CPUCompiler* compiler):
-      m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler),
-      m_pRtlBuffer(nullptr), m_pLoader(new StaticObjectLoader)
+      m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler)
     { }
-
-    /**
-    *  Loads image module from platform-specific rtl file
-    */
-    void Load();
 
     /**
     *  Populates m_ImageFunctions. Should only be called after Load call
@@ -258,7 +251,6 @@ private:
 
     /// Get the path to the builtin library
     std::string getLibraryBasename();
-    std::string getLibraryRtlName();
     std::string getLibraryObjectName();
 
     Intel::CPUId m_CpuId;
@@ -266,15 +258,6 @@ private:
     ImageCallbackFunctions* m_ImageFunctions;
     // Pointer to Compiler. Owned by this class.
     CPUCompiler* m_Compiler;
-    // pointer to library Rtl Buffer. Owned by this class
-    std::unique_ptr<llvm::MemoryBuffer> m_pRtlBuffer;
-
-    // Pointer to OCL implementation of llvm::ObjectCache used to load from disk
-    // object files which have been statically compiled (i.e. by MCJIT or llc)
-    std::unique_ptr<StaticObjectLoader> m_pLoader;
-
-    // Pointer to CompiledModule instance (contains ExecutionEngine)
-    std::unique_ptr<CompiledModule> m_pCompiledModule;
 
 private:
     // Disable copy ctor and assignment operator

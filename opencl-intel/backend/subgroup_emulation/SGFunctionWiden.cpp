@@ -52,6 +52,9 @@ void FunctionWidener::RemoveByValAttr(Function &F) {
     if (!F.hasParamAttribute(Pair.index(), Attribute::ByVal))
       continue;
 
+    // Create a copy for this argument and update uses.
+    Type *PointeeType = F.getParamByValType(Pair.index());
+
     // Remove byval attribute.
     F.removeParamAttr(Pair.index(), Attribute::ByVal);
 
@@ -59,8 +62,6 @@ void FunctionWidener::RemoveByValAttr(Function &F) {
 
     if (Arg->user_empty())
       continue;
-    // Create a copy for this argument and update uses.
-    Type *PointeeType = F.getParamByValType(Pair.index());
 
     Instruction *IP = Helper.getFirstDummyBarrier(&F)->getNextNode();
     assert(IP && "Function doesn't have dummy_sg_barrier");

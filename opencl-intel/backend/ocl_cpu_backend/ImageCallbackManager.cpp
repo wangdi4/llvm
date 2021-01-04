@@ -85,7 +85,6 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu
 
   // ImageCallbackLibrary becomes the owner of compiler. So release compiler here
   std::unique_ptr<ImageCallbackLibrary> spLibrary(new ImageCallbackLibrary(cpuId, spCompiler.release()));
-  spLibrary->Load();
   spLibrary->Build();
 
   if (! spLibrary->LoadExecutable()){

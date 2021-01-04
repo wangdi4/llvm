@@ -581,8 +581,7 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 
     char ModuleName[MAX_PATH];
     Utils::SystemInfo::GetModuleDirectory(ModuleName, MAX_PATH);
-    std::string BaseName =
-        std::string(ModuleName) + OCL_LIBRARY_KERNEL_TARGET_NAME;
+    std::string BaseName = std::string(ModuleName) + OCL_LIBRARY_TARGET_NAME;
     std::string CPUPrefix = Cmplr->GetCpuId().GetCPUPrefix();
     std::string RtlFilePath = BaseName + OCL_OUTPUT_EXTENSION;
     std::string ObjectFilePath =

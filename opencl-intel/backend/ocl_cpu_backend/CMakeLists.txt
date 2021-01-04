@@ -88,7 +88,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ObjectCodeCache.h
     ObjectCodeContainer.h
     CompileService.h
-    CompiledModule.h
     Compiler.h
     CompilerConfig.h
     ExecutionService.h
@@ -355,7 +354,7 @@ set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 add_definitions( -DOclCpuBackEnd_EXPORTS )
 add_definitions(-DOCL_OUTPUT_EXTENSION="${OCL_OUTPUT_EXTENSION}")
 add_definitions(-DOCL_PRECOMPILED_OUTPUT_EXTENSION="${OCL_PRECOMPILED_OUTPUT_EXTENSION}")
-add_definitions(-DOCL_LIBRARY_KERNEL_TARGET_NAME="${OCL_LIBRARY_KERNEL_TARGET_NAME}")
+add_definitions(-DOCL_LIBRARY_TARGET_NAME="${OCL_LIBRARY_TARGET_NAME}")
 
 if (ENABLE_SDE)
     message(STATUS "-- Enabling SDE version ... ")
