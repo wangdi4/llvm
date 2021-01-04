@@ -219,14 +219,18 @@ class VPPrivate : public VPLoopEntity {
   friend class VPLoopEntityList;
 
 public:
+  // The assignment instruction.
+  // This is currently public to suppress an xmain self-build error.
+  VPInstruction *FinalInst;
+
   // Currently only used for VPPrivates. In future, this can be hoisted to
   // VPLoopEntity.
   using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
 
   VPPrivate(VPInstruction *FinalI, VPEntityAliasesTy &&InAliases,
             bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
-      : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
-        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI),
+      : VPLoopEntity(Private, IsMemOnly), FinalInst(FinalI),
+        IsConditional(Conditional), IsLast(Last), IsExplicit(Explicit),
         Aliases(std::move(InAliases)) {}
 
   bool isConditional() const { return IsConditional; }
@@ -258,9 +262,6 @@ private:
 
   // Is defined explicitly.
   bool IsExplicit;
-
-  // The assignment instruction.
-  VPInstruction *FinalInst;
 
   // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
   // instructions to existing loop-private, which are outside the loop-region.
