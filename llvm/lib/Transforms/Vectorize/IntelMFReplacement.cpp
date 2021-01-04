@@ -131,8 +131,9 @@ static AttributeList getPureAttr(LLVMContext &C) {
 // The above IR is OpenCL specific "float sincos(float,float*)".
 // If we generate libc sincos in the future, we need to convert to OCL sincos
 // in paropt.
-static bool combineSinCos(CallInst *Call, StringRef OCLSinCosName,
-                          DominatorTree &DT) {
+static bool LLVM_ATTRIBUTE_UNUSED combineSinCos(CallInst *Call,
+                                                StringRef OCLSinCosName,
+                                                DominatorTree &DT) {
   // Check if this call has already been converted/removed, before any other
   // code.
   if (!Call->hasNUsesOrMore(1))
