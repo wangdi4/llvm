@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -3339,7 +3339,7 @@ bool Splitter::canReloadFromGEPI(LoadInst *LI) {
     return true;
   Value *V = LI->getPointerOperand();
   BitCastInst *BC = nullptr;
-  if (BC = dyn_cast<BitCastInst>(V))
+  if ((BC = dyn_cast<BitCastInst>(V)))
     V = BC->getOperand(0);
   auto GEPI = dyn_cast<GetElementPtrInst>(V);
   if (!GEPI) {
@@ -3369,7 +3369,7 @@ bool Splitter::canReloadFromGEPI(LoadInst *LI) {
                       << "GetElementPtrInst arg #2 is not constant\n");
     return false;
   }
-  if (!GEPI->hasOneUse() || BC && !BC->hasOneUse()) {
+  if (!GEPI->hasOneUse() || (BC && !BC->hasOneUse())) {
     LLVM_DEBUG(dbgs() << "MRCS: EXIT: canReloadFromGEPI: "
                       << "Instruction feeding load does not have one use\n");
     return false;
