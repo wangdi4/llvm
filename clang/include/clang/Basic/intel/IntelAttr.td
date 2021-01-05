@@ -365,15 +365,6 @@ def HLSMaxInvocationDelay : InheritableAttr {
   }];
 }
 
-def StallEnable : InheritableAttr {
-  let Spellings = [Clang<"stall_enable">,
-                   Clang<"use_stall_enable_clusters">];
-  let LangOpts = [OpenCL, HLS];
-  let Subjects = SubjectList<[Function]>;
-  let PragmaAttributeSupport = 0;
-  let Documentation = [Undocumented];
-}
-
 def HLSLocalNonConstVar : SubsetSubject<Var,
                               [{S->hasLocalStorage() &&
                                 S->getKind() != Decl::ImplicitParam &&
@@ -515,23 +506,6 @@ def StallFree : InheritableAttr {
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
-}
-
-def SchedulerTargetFmaxMHz : InheritableAttr {
-  let Spellings = [GNU<"scheduler_target_fmax_mhz">];
-  let Args = [ExprArgument<"SchedulerTargetFmaxMHz">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-  let LangOpts = [OpenCL, HLS];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 0;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
 }
 
 // One string argument

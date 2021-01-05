@@ -173,18 +173,6 @@ static void instantiateDependentAlignValueAttr(
     S.AddAlignValueAttr(New, *Aligned, Result.getAs<Expr>());
 }
 #if INTEL_CUSTOMIZATION
-static void instantiateDependentSchedulerTargetFmaxMHzAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const SchedulerTargetFmaxMHzAttr *STFM, Decl *New) {
-  // The scheduler_target_fmax_mhz expression is a constant expression.
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result =
-      S.SubstExpr(STFM->getSchedulerTargetFmaxMHz(), TemplateArgs);
-  if (!Result.isInvalid())
-    S.AddSchedulerTargetFmaxMHzAttr(New, *STFM, Result.getAs<Expr>());
-}
-
 template <typename AttrType>
 static void instantiateDependentHLSOneConstantValueAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
@@ -825,11 +813,11 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, PCA, New);
       continue;
     }
-    const SchedulerTargetFmaxMHzAttr *STFM =
-        dyn_cast<SchedulerTargetFmaxMHzAttr>(TmplAttr);
+    const SYCLIntelSchedulerTargetFmaxMhzAttr *STFM =
+        dyn_cast<SYCLIntelSchedulerTargetFmaxMhzAttr>(TmplAttr);
     if (STFM) {
-      instantiateDependentSchedulerTargetFmaxMHzAttr(*this, TemplateArgs,
-                                                           STFM, New);
+      instantiateIntelSYCLFunctionAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>(
+          *this, TemplateArgs,STFM, New);
       continue;
     }
     const IntelFPGAMaxReplicatesAttr *MRA =

@@ -3221,31 +3221,6 @@ static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
                  ClusterAttr(S.Context, Attr, Str, Attr.isArgExpr(0)));
 }
 
-static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
-    return;
-  }
-
-  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
-    return;
-
-  if (Attr.getAttributeSpellingListIndex() ==
-      StallEnableAttr::GNU_stall_enable) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
-    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
-        << "'use_stall_enable_clusters'";
-  } else if (Attr.getAttributeSpellingListIndex() ==
-             StallEnableAttr::CXX11_clang_stall_enable) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated)
-        << "'" + Attr.getNormalizedFullName() + "'";
-    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
-        << "'clang::use_stall_enable_clusters'";
-  }
-
-  handleSimpleAttribute<StallEnableAttr>(S, D, Attr);
-}
-
 static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!S.getLangOpts().HLS &&
       !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
@@ -3281,37 +3256,6 @@ static void handleStallFreeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
 
   handleSimpleAttribute<StallFreeAttr>(S, D, Attr);
-}
-
-static void handleSchedulerTargetFmaxMHzAttr(Sema &S, Decl *D,
-                                                   const ParsedAttr &Attr) {
-  if (D->isInvalidDecl())
-    return;
-
-  if (!S.getLangOpts().HLS &&
-      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr;
-    return;
-  }
-
-  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
-    return;
-
-  S.AddSchedulerTargetFmaxMHzAttr(D, Attr, Attr.getArgAsExpr(0));
-}
-
-void Sema::AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
-                                         Expr *E) {
-  SchedulerTargetFmaxMHzAttr TmpAttr(Context, CI, E);
-  if (!E->isValueDependent()) {
-    ExprResult ICE;
-    if (checkRangedIntegralArgument<SchedulerTargetFmaxMHzAttr>(
-            E, &TmpAttr, ICE))
-      return;
-    E = ICE.get();
-  }
-  D->addAttr(::new (Context) SchedulerTargetFmaxMHzAttr(Context, CI, E));
 }
 
 static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
@@ -4111,11 +4055,31 @@ static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
   if (D->isInvalidDecl())
     return;
 
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   unsigned NumArgs = Attr.getNumArgs();
   if (NumArgs > 0) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_too_many_arguments) << Attr << 0;
     return;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Attr.getAttributeSpellingListIndex() ==
+    SYCLIntelUseStallEnableClustersAttr::GNU_stall_enable) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
+        << "'use_stall_enable_clusters'";
+  } else if (Attr.getAttributeSpellingListIndex() ==
+             SYCLIntelUseStallEnableClustersAttr::CXX11_clang_stall_enable) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated)
+        << "'" + Attr.getNormalizedFullName() + "'";
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
+        << "'clang::use_stall_enable_clusters'";
+  }
+#endif // INTEL_CUSTOMIZATION
 
   handleSimpleAttribute<SYCLIntelUseStallEnableClustersAttr>(S, D, Attr);
 }
@@ -4126,12 +4090,20 @@ static void handleSchedulerTargetFmaxMhzAttr(Sema &S, Decl *D,
   if (D->isInvalidDecl())
     return;
 
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, AL))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   Expr *E = AL.getArgAsExpr(0);
 
   if (D->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>())
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
 
-  if (checkDeprecatedSYCLAttributeSpelling(S, AL))
+#if INTEL_CUSTOMIZATION
+  if (AL.getSyntax() != AttributeCommonInfo::AS_GNU &&
+    checkDeprecatedSYCLAttributeSpelling(S, AL))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(AL.getLoc(), diag::note_spelling_suggestion)
         << "'intel::scheduler_target_fmax_mhz'";
 
@@ -10072,14 +10044,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_StallFree:
     handleStallFreeAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_SchedulerTargetFmaxMHz:
-    handleSchedulerTargetFmaxMHzAttr(S, D, AL);
-    break;
   case ParsedAttr::AT_Cluster:
     handleClusterAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_StallEnable:
-    handleStallEnableAttr(S, D, AL);
     break;
   case ParsedAttr::AT_StallLatency:
     handleStallLatencyAttr(S, D, AL);
@@ -10304,7 +10270,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
         Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
         D->setInvalidDecl();
       }
-    } else if (Attr *A = D->getAttr<SchedulerTargetFmaxMHzAttr>()) {
+    } else if (Attr *A = D->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>()) {
       if (!getLangOpts().HLS) {
         Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
         D->setInvalidDecl();

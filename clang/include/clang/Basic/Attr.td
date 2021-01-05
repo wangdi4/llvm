@@ -1270,8 +1270,10 @@ def SYCLIntelNumSimdWorkItems : InheritableAttr {
 }
 
 def SYCLIntelUseStallEnableClusters : InheritableAttr {
-  let Spellings = [CXX11<"intel","use_stall_enable_clusters">];
-  let LangOpts = [SYCLIsHost, SYCLIsDevice];
+  let Spellings = [CXX11<"intel","use_stall_enable_clusters">, //INTEL
+                   Clang<"stall_enable">, //INTEL
+                   Clang<"use_stall_enable_clusters">]; //INTEL
+  let LangOpts = [SYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let AdditionalMembers = [{
     static const char *getName() {
@@ -1284,9 +1286,10 @@ def SYCLIntelUseStallEnableClusters : InheritableAttr {
 
 def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","scheduler_target_fmax_mhz">,
+                   GNU<"scheduler_target_fmax_mhz">, //INTEL
                    CXX11<"intel","scheduler_target_fmax_mhz">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelSchedulerTargetFmaxMhzAttrDocs];
   let PragmaAttributeSupport = 0;

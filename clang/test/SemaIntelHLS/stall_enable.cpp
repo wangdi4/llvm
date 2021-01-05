@@ -4,18 +4,18 @@
 // expected-note@+1 {{did you mean to use 'use_stall_enable_clusters' instead?}}
 void __attribute__((stall_enable)) foo1() {}
 // CHECK: FunctionDecl{{.*}}foo1
-// CHECK: StallEnableAttr
+// CHECK: SYCLIntelUseStallEnableClustersAttr
 
 void __attribute__((use_stall_enable_clusters)) foo2() {}
 // CHECK: FunctionDecl{{.*}}foo2
-// CHECK: StallEnableAttr
+// CHECK: SYCLIntelUseStallEnableClustersAttr
 
 void foo3() {
   auto lambda = []() __attribute__((use_stall_enable_clusters)){};
   lambda();
   // CHECK: FunctionDecl{{.*}}foo3
   // CHECK: LambdaExpr
-  // CHECK: StallEnableAttr
+  // CHECK: SYCLIntelUseStallEnableClustersAttr
 }
 
 // expected-warning@+3 {{attribute 'stall_enable' is deprecated}}
@@ -25,7 +25,7 @@ void foo4() {
   lambda();
   // CHECK: FunctionDecl{{.*}}foo4
   // CHECK: LambdaExpr
-  // CHECK: StallEnableAttr
+  // CHECK: SYCLIntelUseStallEnableClustersAttr
 }
 
 //expected-error@+1{{'use_stall_enable_clusters' attribute takes no arguments}}
