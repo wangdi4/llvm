@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -752,20 +752,17 @@ void VPlanDriverImpl::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
 template <typename... Args>
 void VPlanOptReportBuilder::addRemark(HLLoop *Lp,
                                       OptReportVerbosity::Level Verbosity,
-                                      unsigned MsgID, Args &&... args) {
-  LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
-                            std::forward<Args>(args)...);
+                                      unsigned MsgID, Args &&...args) {
+  LORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 void VPlanOptReportBuilder::addRemark(Loop *Lp,
                                       OptReportVerbosity::Level Verbosity,
-                                      unsigned MsgID, Args &&... args) {
+                                      unsigned MsgID, Args &&...args) {
   // For LLVM-IR Loop, LORB needs a valid LoopInfo object
   assert(LI && "LoopInfo for opt-report builder is null.");
-  LORBuilder(*Lp, *LI).addRemark(Verbosity,
-                                 loopopt::OptReportDiag::getMsg(MsgID),
-                                 std::forward<Args>(args)...);
+  LORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
 INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",

@@ -39,9 +39,9 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/simple_ilist.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -85,7 +85,6 @@ public:
 namespace loopopt {
 class RegDDRef;
 class HLLoop;
-class OptReportDiag;
 } // namespace loopopt
 
 namespace vpo {
@@ -3496,13 +3495,13 @@ public:
   /// message is identified by \p MsgID.
   template <typename... Args>
   void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
-                 unsigned MsgID, Args &&... args);
+                 unsigned MsgID, Args &&...args);
 
   /// Add a vectorization related remark for the LLVM loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
   void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity, unsigned MsgID,
-                 Args &&... args);
+                 Args &&...args);
 };
 
 // Several inline functions to hide the #if machinery from the callers.

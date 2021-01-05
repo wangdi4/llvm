@@ -64,10 +64,10 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,hir-unroll-and-jam,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT:      LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loop has been unrolled and jammed by {{.*}}{{[[:space:]]}}
+; OPTREPORT-NEXT:     remark: Loop has been unrolled and jammed by {{.*}}{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: Load hoisted out of the loop
-; OPTREPORT-NEXT:         Remark: Store sinked out of the loop
+; OPTREPORT-NEXT:         remark: Load hoisted out of the loop
+; OPTREPORT-NEXT:         remark: Store sinked out of the loop
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 

@@ -31,16 +31,16 @@
 
 ; OPTREPORT: LOOP BEGIN at t.c (7, 3)
 ; OPTREPORT:     LOOP BEGIN at t.c (8, 5)
-; OPTREPORT:         Remark: Loops have been fused with (12,16,20)
+; OPTREPORT:         remark: Loops have been fused with (12,16,20)
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t.c (12, 5)
-; OPTREPORT:         Remark: Loop lost in Fusion
+; OPTREPORT:         remark: Loop lost in Fusion
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t.c (16, 5)
-; OPTREPORT:         Remark: Loop lost in Fusion
+; OPTREPORT:         remark: Loop lost in Fusion
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t.c (20, 5)
-; OPTREPORT:         Remark: Loop lost in Fusion
+; OPTREPORT:         remark: Loop lost in Fusion
 ; OPTREPORT:     LOOP END
 ; OPTREPORT: LOOP END
 

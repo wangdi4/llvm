@@ -1,4 +1,5 @@
 add_llvm_component_library(LLVMIntel_OptReport
+  Diag.cpp
   LoopOptReport.cpp
   LoopOptReportPrintUtils.cpp
   OptReportOptionsPass.cpp

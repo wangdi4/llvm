@@ -336,7 +336,7 @@ special convention. Here is its format:
   REMARKS_NODE := <!"intel.optreport.remarks">, <REMARK>, (REMARK), ..., (REMARK)
   FIRST_CHILD_NODE := <!"intel.optreport.first_child">, <PROXY_OPTREPORT_NODE>
   NEXT_SIBLING_NODE := <!"intel.optreport.next_sibling">, <PROXY_OPTREPORT_NODE>
-  REMARK := <!"intel.optreport.remark">, <formatted string>, (arg0), ..., (argN)
+  REMARK := <!"intel.optreport.remark">, <remark-id>, <formatted string>, (arg0), ..., (argN)
 
 
 * Mandatory fields are denoted in angle brackets '<', '>'.
@@ -364,7 +364,7 @@ special convention. Here is its format:
   !54 = distinct !{!"intel.loop.optreport", !55, !56} <== PROXY_OPT_REPORT_NODE
   !55 = !{!"intel.optreport.debug_location", !50}     <== DEBUG_LOC_NODE
   !56 = !{!"intel.optreport.remarks", !57}            <== REMARKS_NODE
-  !57 = !{!"intel.optreport.remark", !"*vectorized with vect. %d fact.", i32 4}
+  !57 = !{!"intel.optreport.remark", i32 XXXXX, !"*vectorized with vect. %d fact.", i32 4}
                                                       ^== REMARK_NODE
 
 ``LoopOptReportBuilder``

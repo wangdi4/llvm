@@ -1,6 +1,6 @@
 //===--- LoopOptReport.h ----------------------------------------*- C++ -*-===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -90,6 +90,15 @@ private:
   template <typename... Args>
   static void populateMDTupleOperands(SmallVectorImpl<Metadata *> &V,
                                       LLVMContext &C, int I, Args &&... args) {
+    ConstantInt *CI = ConstantInt::get(Type::getInt32Ty(C), I);
+    V.push_back(ConstantAsMetadata::get(CI));
+    populateMDTupleOperands(V, C, std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static void populateMDTupleOperands(SmallVectorImpl<Metadata *> &V,
+                                      LLVMContext &C, unsigned I,
+                                      Args &&...args) {
     ConstantInt *CI = ConstantInt::get(Type::getInt32Ty(C), I);
     V.push_back(ConstantAsMetadata::get(CI));
     populateMDTupleOperands(V, C, std::forward<Args>(args)...);

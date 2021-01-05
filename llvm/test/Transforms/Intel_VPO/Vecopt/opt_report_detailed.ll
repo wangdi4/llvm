@@ -13,13 +13,13 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-LABEL: Global loop optimization report for : test_serialized
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      Remark: LOOP WAS VECTORIZED
-; LLVM-NEXT:      Remark: vectorization support: vector length 4
-; LLVM:           Remark: --- begin vector loop cost summary ---
-; LLVM-NEXT:      Remark: vectorized math library calls: 0
-; LLVM-NEXT:      Remark: vector function calls: 0
-; LLVM-NEXT:      Remark: serialized function calls: 2
-; LLVM-NEXT:      Remark: --- end vector loop cost summary ---
+; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
+; LLVM:           remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
+; LLVM-NEXT:      remark #15484: vector function calls: 0
+; LLVM-NEXT:      remark #15485: serialized function calls: 2
+; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -30,7 +30,7 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_serialized
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      Remark: loop was not vectorized:
+; HIR-NEXT:      remark #15436: loop was not vectorized:
 ; HIR-NEXT:  LOOP END
 ; HIR-NEXT:  =================================================================
 
@@ -58,13 +58,13 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-LABEL: Global loop optimization report for : test_vector_variant
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      Remark: LOOP WAS VECTORIZED
-; LLVM-NEXT:      Remark: vectorization support: vector length 4
-; LLVM:           Remark: --- begin vector loop cost summary ---
-; LLVM-NEXT:      Remark: vectorized math library calls: 0
-; LLVM-NEXT:      Remark: vector function calls: 1
-; LLVM-NEXT:      Remark: serialized function calls: 0
-; LLVM-NEXT:      Remark: --- end vector loop cost summary ---
+; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
+; LLVM:           remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
+; LLVM-NEXT:      remark #15484: vector function calls: 1
+; LLVM-NEXT:      remark #15485: serialized function calls: 0
+; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -75,7 +75,7 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vector_variant
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      Remark: loop was not vectorized:
+; HIR-NEXT:      remark #15436: loop was not vectorized:
 ; HIR-NEXT:  LOOP END
 ; HIR-NEXT:  =================================================================
 entry:
@@ -101,13 +101,13 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-LABEL: Global loop optimization report for : test_sqrt
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      Remark: LOOP WAS VECTORIZED
-; LLVM-NEXT:      Remark: vectorization support: vector length 4
-; LLVM-NEXT:      Remark: --- begin vector loop cost summary ---
-; LLVM-NEXT:      Remark: vectorized math library calls: 3
-; LLVM-NEXT:      Remark: vector function calls: 0
-; LLVM-NEXT:      Remark: serialized function calls: 0
-; LLVM-NEXT:      Remark: --- end vector loop cost summary ---
+; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
+; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
+; LLVM-NEXT:      remark #15484: vector function calls: 0
+; LLVM-NEXT:      remark #15485: serialized function calls: 0
+; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -129,13 +129,13 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_sqrt
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      Remark: LOOP WAS VECTORIZED
-; HIR-NEXT:      Remark: vectorization support: vector length 4
-; HIR:           Remark: --- begin vector loop cost summary ---
-; HIR-NEXT:      Remark: vectorized math library calls: 3
-; HIR-NEXT:      Remark: vector function calls: 0
-; HIR-NEXT:      Remark: serialized function calls: 0
-; HIR-NEXT:      Remark: --- end vector loop cost summary ---
+; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15305: vectorization support: vector length 4
+; HIR:           remark #15475: --- begin vector loop cost summary ---
+; HIR-NEXT:      remark #15482: vectorized math library calls: 3
+; HIR-NEXT:      remark #15484: vector function calls: 0
+; HIR-NEXT:      remark #15485: serialized function calls: 0
+; HIR-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
 entry:
@@ -164,18 +164,18 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; LLVM-LABEL: Global loop optimization report for : test_nonvls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      Remark: LOOP WAS VECTORIZED
-; LLVM-NEXT:      Remark: vectorization support: vector length 4
-; LLVM:           Remark: --- begin vector loop memory reference summary ---
-; LLVM-NEXT:      Remark: unmasked unaligned unit stride loads: 1
-; LLVM-NEXT:      Remark: unmasked unaligned unit stride stores: 1
-; LLVM-NEXT:      Remark: masked unaligned unit stride loads: 1
-; LLVM-NEXT:      Remark: masked unaligned unit stride stores: 1
-; LLVM-NEXT:      Remark: masked indexed (or gather) loads: 1
-; LLVM-NEXT:      Remark: masked indexed (or scatter) stores: 1
-; LLVM-NEXT:      Remark: unmasked indexed (or gather) loads: 1
-; LLVM-NEXT:      Remark: unmasked indexed (or scatter) stores: 1
-; LLVM:           Remark: --- end vector loop memory reference summary ---
+; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
+; LLVM:           remark #15447: --- begin vector loop memory reference summary ---
+; LLVM-NEXT:      remark #15450: unmasked unaligned unit stride loads: 1
+; LLVM-NEXT:      remark #15451: unmasked unaligned unit stride stores: 1
+; LLVM-NEXT:      remark #15456: masked unaligned unit stride loads: 1
+; LLVM-NEXT:      remark #15457: masked unaligned unit stride stores: 1
+; LLVM-NEXT:      remark #15458: masked indexed (or gather) loads: 1
+; LLVM-NEXT:      remark #15459: masked indexed (or scatter) stores: 1
+; LLVM-NEXT:      remark #15462: unmasked indexed (or gather) loads: 1
+; LLVM-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 1
+; LLVM:           remark #15474: --- end vector loop memory reference summary ---
 ; LLVM:       LOOP END
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -209,18 +209,18 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_nonvls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      Remark: LOOP WAS VECTORIZED
-; HIR-NEXT:      Remark: vectorization support: vector length 4
-; HIR:           Remark: --- begin vector loop memory reference summary ---
-; HIR-NEXT:      Remark: unmasked unaligned unit stride loads: 1
-; HIR-NEXT:      Remark: unmasked unaligned unit stride stores: 1
-; HIR-NEXT:      Remark: masked unaligned unit stride loads: 1
-; HIR-NEXT:      Remark: masked unaligned unit stride stores: 1
-; HIR-NEXT:      Remark: masked indexed (or gather) loads: 1
-; HIR-NEXT:      Remark: masked indexed (or scatter) stores: 1
-; HIR-NEXT:      Remark: unmasked indexed (or gather) loads: 1
-; HIR-NEXT:      Remark: unmasked indexed (or scatter) stores: 1
-; HIR:           Remark: --- end vector loop memory reference summary ---
+; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15305: vectorization support: vector length 4
+; HIR:           remark #15447: --- begin vector loop memory reference summary ---
+; HIR-NEXT:      remark #15450: unmasked unaligned unit stride loads: 1
+; HIR-NEXT:      remark #15451: unmasked unaligned unit stride stores: 1
+; HIR-NEXT:      remark #15456: masked unaligned unit stride loads: 1
+; HIR-NEXT:      remark #15457: masked unaligned unit stride stores: 1
+; HIR-NEXT:      remark #15458: masked indexed (or gather) loads: 1
+; HIR-NEXT:      remark #15459: masked indexed (or scatter) stores: 1
+; HIR-NEXT:      remark #15462: unmasked indexed (or gather) loads: 1
+; HIR-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 1
+; HIR:           remark #15474: --- end vector loop memory reference summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
 entry:
@@ -266,23 +266,23 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; LLVM-LABEL: Global loop optimization report for : test_vls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:      Remark: LOOP WAS VECTORIZED
-; LLVM-NEXT:      Remark: vectorization support: vector length 4
-; LLVM:           Remark: --- begin vector loop memory reference summary ---
-; LLVM-NEXT:      Remark: unmasked unaligned unit stride loads: 0
-; LLVM-NEXT:      Remark: unmasked unaligned unit stride stores: 0
-; LLVM-NEXT:      Remark: masked unaligned unit stride loads: 0
-; LLVM-NEXT:      Remark: masked unaligned unit stride stores: 0
-; LLVM-NEXT:      Remark: masked indexed (or gather) loads: 0
-; LLVM-NEXT:      Remark: masked indexed (or scatter) stores: 0
+; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
+; LLVM:           remark #15447: --- begin vector loop memory reference summary ---
+; LLVM-NEXT:      remark #15450: unmasked unaligned unit stride loads: 0
+; LLVM-NEXT:      remark #15451: unmasked unaligned unit stride stores: 0
+; LLVM-NEXT:      remark #15456: masked unaligned unit stride loads: 0
+; LLVM-NEXT:      remark #15457: masked unaligned unit stride stores: 0
+; LLVM-NEXT:      remark #15458: masked indexed (or gather) loads: 0
+; LLVM-NEXT:      remark #15459: masked indexed (or scatter) stores: 0
 ; Gaps aren't supported by VLS yet.
-; LLVM-NEXT:      Remark: unmasked indexed (or gather) loads: 2
-; LLVM-NEXT:      Remark: unmasked indexed (or scatter) stores: 2
-; LLVM-NEXT:      Remark: Unmasked VLS-optimized loads (each part of the group counted separately): 2
-; LLVM-NEXT:      Remark: Masked VLS-optimized loads (each part of the group counted separately): 2
-; LLVM-NEXT:      Remark: Unmasked VLS-optimized stores (each part of the group counted separately): 2
-; LLVM-NEXT:      Remark: Masked VLS-optimized stores (each part of the group counted separately): 2
-; LLVM-NEXT:      Remark: --- end vector loop memory reference summary ---
+; LLVM-NEXT:      remark #15462: unmasked indexed (or gather) loads: 2
+; LLVM-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 2
+; LLVM-NEXT:      remark #15554: Unmasked VLS-optimized loads (each part of the group counted separately): 2
+; LLVM-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
+; LLVM-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
+; LLVM-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
+; LLVM-NEXT:      remark #15474: --- end vector loop memory reference summary ---
 ; LLVM:       LOOP END
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
@@ -317,22 +317,22 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
-; HIR-NEXT:      Remark: LOOP WAS VECTORIZED
-; HIR-NEXT:      Remark: vectorization support: vector length 4
-; HIR:           Remark: --- begin vector loop memory reference summary ---
-; HIR-NEXT:      Remark: unmasked unaligned unit stride loads: 0
-; HIR-NEXT:      Remark: unmasked unaligned unit stride stores: 0
-; HIR-NEXT:      Remark: masked unaligned unit stride loads: 0
-; HIR-NEXT:      Remark: masked unaligned unit stride stores: 0
-; HIR-NEXT:      Remark: masked indexed (or gather) loads: 2
-; HIR-NEXT:      Remark: masked indexed (or scatter) stores: 2
-; HIR-NEXT:      Remark: unmasked indexed (or gather) loads: 2
-; HIR-NEXT:      Remark: unmasked indexed (or scatter) stores: 2
-; HIR-NEXT:      Remark: Unmasked VLS-optimized loads (each part of the group counted separately): 2
-; HIR-NEXT:      Remark: Masked VLS-optimized loads (each part of the group counted separately): 0
-; HIR-NEXT:      Remark: Unmasked VLS-optimized stores (each part of the group counted separately): 2
-; HIR-NEXT:      Remark: Masked VLS-optimized stores (each part of the group counted separately): 0
-; HIR-NEXT:      Remark: --- end vector loop memory reference summary ---
+; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; HIR-NEXT:      remark #15305: vectorization support: vector length 4
+; HIR:           remark #15447: --- begin vector loop memory reference summary ---
+; HIR-NEXT:      remark #15450: unmasked unaligned unit stride loads: 0
+; HIR-NEXT:      remark #15451: unmasked unaligned unit stride stores: 0
+; HIR-NEXT:      remark #15456: masked unaligned unit stride loads: 0
+; HIR-NEXT:      remark #15457: masked unaligned unit stride stores: 0
+; HIR-NEXT:      remark #15458: masked indexed (or gather) loads: 2
+; HIR-NEXT:      remark #15459: masked indexed (or scatter) stores: 2
+; HIR-NEXT:      remark #15462: unmasked indexed (or gather) loads: 2
+; HIR-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 2
+; HIR-NEXT:      remark #15554: Unmasked VLS-optimized loads (each part of the group counted separately): 2
+; HIR-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 0
+; HIR-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
+; HIR-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 0
+; HIR-NEXT:      remark #15474: --- end vector loop memory reference summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
 entry:

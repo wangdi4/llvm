@@ -23,10 +23,10 @@
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: Loop completely unrolled
+; OPTREPORT-NEXT:         remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: Loop completely unrolled
+; OPTREPORT-NEXT:         remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -39,7 +39,7 @@
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]], [[M9:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
 ; CHECK: [[M9]] = !{!"intel.optreport.next_sibling", [[M10:!.*]]}
 ; CHECK: [[M10]] = distinct !{!"llvm.loop.optreport", [[M11:!.*]]}
 ; CHECK: [[M11]] = distinct !{!"intel.loop.optreport", [[M7]]}

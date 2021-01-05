@@ -15,12 +15,12 @@
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT:         Remark: vectorization support: vector length {{.*}}
+; OPTREPORT-NEXT:         remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:         remark #15305: vectorization support: vector length {{.*}}
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>
-; OPTREPORT-NEXT:         Remark: remainder loop was not vectorized:
+; OPTREPORT-NEXT:         remark #15441: remainder loop was not vectorized:
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -29,15 +29,15 @@
 ; CHECK: [[M1:!.*]] = distinct !{!"llvm.loop.optreport", [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"intel.loop.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = !{!"intel.optreport.remarks", [[M4:!.*]], [[M5:!.*]]}
-; CHECK: [[M4]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
+; CHECK: [[M4]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
+; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
 ; CHECK: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
 ; CHECK: [[M7]] = distinct !{!"llvm.loop.optreport", [[M8:!.*]]}
 ; CHECK: [[M8]] = distinct !{!"intel.loop.optreport", [[M10:!.*]], [[M12:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.origin", [[M11:!.*]]}
-; CHECK: [[M11]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
+; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
 ; CHECK: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
-; CHECK: [[M13]] = !{!"intel.optreport.remark", !"remainder loop was not vectorized: %s ", {{.*}}}
+; CHECK: [[M13]] = !{!"intel.optreport.remark", i32 15441, !"remainder loop was not vectorized: %s ", {{.*}}}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

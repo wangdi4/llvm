@@ -1,6 +1,6 @@
 //===- Diag.cpp - Implements the OptReportDiag strings --------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -13,11 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include <cassert>
 
 using namespace llvm;
-using namespace loopopt;
 
 OptReportDiag OptReportDiag::Diags[] = {
     {15300, "LOOP WAS VECTORIZED"},
@@ -455,12 +454,12 @@ OptReportDiag OptReportDiag::Diags[] = {
     {25531, "LOOP WITH USER VECTOR INTRINSICS"},
 };
 
-int OptReportDiag::DiagsMax =
+unsigned OptReportDiag::DiagsMax =
     sizeof(OptReportDiag::Diags) / sizeof(OptReportDiag);
 
-const char *OptReportDiag::getMsg(int Id) {
+const char *OptReportDiag::getMsg(unsigned Id) {
   OptReportDiag *Diag;
-  int LoopOffset = VecEnd - VecBegin;
+  unsigned LoopOffset = VecEnd - VecBegin;
 
   // Sanity check
   assert(((VecBegin <= Id && Id <= VecEnd) ||
