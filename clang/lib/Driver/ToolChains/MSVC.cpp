@@ -340,6 +340,11 @@ void visualstudio::Linker::constructMSVCLibCommand(Compilation &C,
   if (Args.hasArg(options::OPT_fsycl_link_EQ) &&
       Args.hasArg(options::OPT_fintelfpga))
     CmdArgs.push_back("/IGNORE:4221");
+#if INTEL_CUSTOMIZATION
+  // Suppress multiple section warning LNK4078
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
+    CmdArgs.push_back("/IGNORE:4078");
+#endif // INTEL_CUSTOMIZATION
   CmdArgs.push_back(
       C.getArgs().MakeArgString(Twine("-OUT:") + Output.getFilename()));
 
