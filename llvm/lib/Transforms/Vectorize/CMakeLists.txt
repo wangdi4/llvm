@@ -23,6 +23,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp
   Intel_VPlan/IntelVPlanAllZeroBypass.cpp
   Intel_VPlan/IntelVPlanCFGBuilder.cpp
+  Intel_VPlan/IntelVPlanCFGMerger.cpp
   Intel_VPlan/IntelVPlanCallVecDecisions.cpp
   Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp

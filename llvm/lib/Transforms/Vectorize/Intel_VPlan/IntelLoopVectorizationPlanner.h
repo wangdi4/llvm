@@ -95,6 +95,11 @@ public:
   /// Record CM's decision and dispose of all other VPlans.
   // void setBestPlan(unsigned VF, unsigned UF);
 
+  // Preprocess best VPlan before CG, creating the needed auxiliary loops
+  // (peel/remainder of different kinds) and merging them into flattened
+  // cfg.
+  void emitPeelRemainderVPLoops();
+
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
   void executeBestPlan(VPOCodeGen &LB);

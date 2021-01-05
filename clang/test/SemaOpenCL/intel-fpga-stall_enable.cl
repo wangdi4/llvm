@@ -4,11 +4,11 @@
 // expected-note@+1 {{did you mean to use 'use_stall_enable_clusters' instead?}}
 void __attribute__((stall_enable)) foo1() {}
 // CHECK: FunctionDecl{{.*}}foo1
-// CHECK: StallEnableAttr
+// CHECK: SYCLIntelUseStallEnableClustersAttr
 
 void __attribute__((use_stall_enable_clusters)) foo2() {}
 // CHECK: FunctionDecl{{.*}}foo2
-// CHECK: StallEnableAttr
+// CHECK: SYCLIntelUseStallEnableClustersAttr
 
 //expected-error@+1{{'use_stall_enable_clusters' attribute takes no arguments}}
 void __attribute__((use_stall_enable_clusters(1))) bar1() {}

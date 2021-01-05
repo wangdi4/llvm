@@ -2384,7 +2384,7 @@ AST:
 
   FunctionDecl 0x235b69b8d98 <t.c:1:1, col:43> col:36 foo 'void ()'
   |-CompoundStmt 0x235b69b8eb0 <col:42, col:43>
-  `-StallEnableAttr 0x235b69b8e30 <col:21>
+  `-SYCLIntelUseStallEnableClustersAttr 0x235b69b8e30 <col:21>
 
 IR:
 

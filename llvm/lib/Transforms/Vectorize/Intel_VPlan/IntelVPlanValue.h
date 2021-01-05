@@ -26,6 +26,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <climits>
 
 namespace llvm {
 namespace vpo {
@@ -634,6 +635,9 @@ private:
   const VPOperandHIR *getOperandHIR() const { return HIROperand.get(); };
 
 public:
+  static constexpr unsigned UndefMergeId =
+      std::numeric_limits<unsigned int>::max();
+
   VPExternalUse() = delete;
   VPExternalUse(const VPExternalUse &) = delete;
   VPExternalUse &operator=(const VPExternalUse &) = delete;
@@ -735,7 +739,7 @@ private:
 
   // Identifier of the live out value in VPlan. Is provided by VPlan and used
   // to keep track of live-outs during VPlan cloning.
-  unsigned MergeId = 0;
+  unsigned MergeId;
 };
 
 /// This class augments VPValue with Metadata that is used as operand of another

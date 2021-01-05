@@ -20,6 +20,7 @@
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanAllZeroBypass.h"
+#include "IntelVPlanCFGMerger.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanCostModel.h"
@@ -61,6 +62,9 @@ static cl::opt<unsigned> VPlanForceVF("vplan-force-vf", cl::init(0),
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
+static cl::opt<bool>
+    EnableCFGMerge("vplan-enable-cfg-merge", cl::init(false), cl::Hidden,
+                   cl::desc("Enable CFG merge before VPlan code gen."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
     "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
@@ -101,6 +105,9 @@ static LoopVPlanDumpControl
 static LoopVPlanDumpControl
     InitialTransformsDumpControl("initial-transforms",
                                  "initial VPlan transforms");
+
+static LoopVPlanDumpControl CfgMergeDumpControl("cfg-merge",
+                                                "CFG merge before CG");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
@@ -1045,3 +1052,16 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   ILV->finalizeLoop();
 }
+
+void LoopVectorizationPlanner::emitPeelRemainderVPLoops() {
+  if (!EnableCFGMerge)
+    return;
+  assert(BestVF > 1 && "Unexpected VF");
+  VPlan *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "No VPlan found for BestVF.");
+
+  VPlanCFGMerger CFGMerger(*Plan);
+  CFGMerger.createSimpleVectorRemainderChain(TheLoop);
+  VPLAN_DUMP(CfgMergeDumpControl, Plan);
+}
+

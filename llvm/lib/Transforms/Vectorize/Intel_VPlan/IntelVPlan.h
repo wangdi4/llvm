@@ -741,7 +741,9 @@ public:
       VectorTripCountCalculation,
       ActiveLane,
       ActiveLaneExtract,
-      ConstStepVector
+      ConstStepVector,
+      ReuseLoop,
+      OrigLiveOut,
   };
 
 private:
@@ -977,6 +979,18 @@ public:
   const VPBasicBlock *getParent() const { return Parent; }
   void setParent(VPBasicBlock *NewParent) { Parent = NewParent; }
 
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block that MovePos lives in, right before MovePos.
+  void moveBefore(VPInstruction *MovePos);
+
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block that MovePos lives in, right after MovePos.
+  void moveAfter(VPInstruction *MovePos);
+
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block BB, right before \p I.
+  void moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I);
+
   /// Generate the instruction.
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
@@ -1209,8 +1223,14 @@ protected:
 
 /// Concrete class for PHI instruction.
 class VPPHINode : public VPInstruction {
-private:
+  friend class VPlanCFGMerger;
+
   SmallVector<VPBasicBlock *, 2> VPBBUsers;
+  unsigned MergeId = VPExternalUse::UndefMergeId;
+
+  VPPHINode(unsigned Id, Type *BaseTy)
+      : VPInstruction(Instruction::PHI, BaseTy, ArrayRef<VPValue *>()),
+        MergeId(Id) {}
 
 public:
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
@@ -1353,6 +1373,8 @@ public:
     }
     return true;
   }
+
+  unsigned getMergeId() const { return MergeId; }
 
 protected:
   /// Create new PHINode and copy original incoming values to the newly created
@@ -2789,6 +2811,146 @@ protected:
   }
 };
 
+/// The VPReuseLoop represents scalar loop used for remainder loop.
+/// It has a list of incoming parameters which are linked with Values
+/// inside the loop. During CG, the incoming VPValues should replace the
+/// correspding values in scalar loop.
+/// The linking is done using the same indexes for incoming value in
+/// parameters list and for the use in the list of scalar uses.
+class VPReuseLoop : public VPInstruction {
+  Loop *Lp;
+  SmallVector<Use *, 4> OpLiveInMap;
+
+  // Make them private.
+  using VPInstruction::setOperand;
+  using VPInstruction::addOperand;
+  using VPInstruction::removeOperand;
+  using VPInstruction::removeAllOperands;
+
+public:
+  // TODO: Consider storing the loop as header/latch pair with an assert on some
+  // canonical form because \p Lp might become stale during CG stage.
+  VPReuseLoop(Loop *Lp)
+      : VPInstruction(VPInstruction::ReuseLoop,
+                      Type::getTokenTy(Lp->getHeader()->getContext()), {}),
+        Lp(Lp) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReuseLoop;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  void addLiveIn(VPValue *VPVal, Use *OrigLoopUse) {
+    assert(VPVal->getType()->isLabelTy() ||
+           (isa<PHINode>(OrigLoopUse->getUser()) &&
+            cast<PHINode>(OrigLoopUse->getUser())->getParent() ==
+                Lp->getHeader()) &&
+               "Live-ins can only be a header phi or a block!");
+    addOperand(VPVal);
+    OpLiveInMap.push_back(OrigLoopUse);
+  }
+
+  Use *getOrigUse(unsigned Idx) const { return OpLiveInMap[Idx]; }
+
+  Loop *getLoop() const { return Lp; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const {
+    O << " " << Lp->getName() << ", LiveInMap:";
+    assert(getNumOperands() == OpLiveInMap.size() &&
+           "Inconsistent live-ins data!");
+    for (unsigned I = 0; I < getNumOperands(); ++I) {
+      O << "\n       {";
+      OpLiveInMap[I]->get()->printAsOperand(O);
+      O << " in {" << *OpLiveInMap[I]->getUser() << "} -> ";
+      getOperand(I)->printAsOperand(O);
+      O << " }";
+    }
+  };
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+protected:
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+    return nullptr;
+  }
+};
+
+/// VPOrigLiveOut represents the outgoing value from the scalar
+/// loop described by VPReuseLoop, which is its operand. It links
+/// an outgoing scalar value from the loop with VPlan.
+/// Example.
+///
+/// The %vp3 describes outgoing value %add0 from the loop VP_REUSE_LOOP.
+/// The %vp4 describes outgoing value of induction %indvars.iv from the loop
+/// VP_REUSE_LOOP.
+///
+/// bb8:
+///   token %VP_REUSE_LOOP = re-use-loop for.body,
+///           # ... VPloopReuse operands/value_map
+///   i32 %vp3 = orig-live-out token %VP_REUSE_LOOP,
+///                     liveout: %add0 = add nsw i32 a.io, sum.070
+///   i64 %vp4 = orig-live-out token %VP_REUSE_LOOP,
+///                     liveout: %indvars.iv.next0 = add nuw nsw i64
+///                     %indvars.iv0, 1
+///   br label %bb7
+///
+/// bb7: # preds: bb8, bb6
+///   i32 [[VP5:%.*]] = phi-merge  [ i32 %vp3, %bb8 ],  [ i32 live-out0, %bb6 ]
+///   i64 [[VP6:%.*]] = phi-merge  [ i64 %vp4, %bb8 ],  [ i64 live-out1, %bb6 ]
+///   br label %bb9
+///
+class VPOrigLiveOut : public VPInstruction {
+  const Value *LiveOutVal;
+  unsigned MergeId;
+
+  // Make it private.
+  using VPInstruction::setOperand;
+  using VPInstruction::addOperand;
+  using VPInstruction::removeOperand;
+  using VPInstruction::removeAllOperands;
+
+public:
+  VPOrigLiveOut(VPReuseLoop *ReuseLoop, const Value *LiveOutVal, unsigned Id)
+      : VPInstruction(VPInstruction::OrigLiveOut, LiveOutVal->getType(),
+                      {ReuseLoop}),
+        LiveOutVal(LiveOutVal), MergeId(Id) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::OrigLiveOut;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const {
+    O << " ";
+    getOperand(0)->printAsOperand(O);
+    O << ", liveout: " << *LiveOutVal;
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Only CG needs this...
+  const Value *getLiveOutVal() const { return LiveOutVal; }
+
+  // Used during CFG merge.
+  unsigned getMergeId() const { return MergeId;}
+
+protected:
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+    return nullptr;
+  }
+};
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
@@ -2850,6 +3012,10 @@ private:
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
+
+  /// Flag showing that a new scheme of CG for loops and basic blocks
+  /// should be used.
+  bool ExplicitRemainderUsed = false;
 
   /// Map: VF -> PreferredPeeling.
   std::map<unsigned, std::unique_ptr<VPlanPeelingVariant>> PreferredPeelingMap;
@@ -2966,7 +3132,7 @@ public:
       return V.get();});
   }
 
-  const VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
+  VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
     return LiveOutValues[MergeId].get();
   }
 
@@ -2981,6 +3147,9 @@ public:
   }
 
   size_t getLiveOutValuesSize() const { return LiveOutValues.size(); }
+
+  bool hasExplicitRemainder() const { return ExplicitRemainderUsed; }
+  void setExplicitRemainderUsed() { ExplicitRemainderUsed = true; }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {

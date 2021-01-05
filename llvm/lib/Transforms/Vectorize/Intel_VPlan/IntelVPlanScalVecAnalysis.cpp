@@ -410,6 +410,22 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ReuseLoop: {
+    // Instruction itself is unconditionally always scalar.
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // All operands are always scalar too.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::OrigLiveOut: {
+    // Instruction itself is unconditionally always scalar.
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // All operands are always scalar too.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -703,6 +719,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::OrigTripCountCalculation:
   case VPInstruction::ActiveLane:
   case VPInstruction::ActiveLaneExtract:
+  case VPInstruction::ReuseLoop:
+  case VPInstruction::OrigLiveOut:
     return true;
   default:
     return false;

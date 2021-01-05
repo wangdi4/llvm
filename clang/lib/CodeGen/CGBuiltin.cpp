@@ -1940,16 +1940,16 @@ RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
   const Expr *PtrArg = E->getArg(0);
   const PointerType *PtrTy = cast<PointerType>(PtrArg->getType().getTypePtr());
   llvm::Type *PtrLLVMType = ConvertType(PtrArg->getType());
-  llvm::Type *OverloadTy = ConvertType(PtrTy->getPointeeType());
+  llvm::Type *PointeeTy = ConvertType(PtrTy->getPointeeType());
+  llvm::Type *OverloadTy = llvm::PointerType::getUnqual(PointeeTy);
 
   llvm::Function *Func =
       CGM.getIntrinsic(getHLSIntrinsic(BuiltinID), {OverloadTy});
 
   if (isHLSStreamWrite(BuiltinID)) {
-    llvm::Type *ArgTy = llvm::PointerType::getUnqual(OverloadTy);
     Value *PtrVal = EmitScalarExpr(PtrArg);
-    if (ArgTy != PtrVal->getType())
-      PtrVal = Builder.CreateBitCast(PtrVal, ArgTy);
+    if (OverloadTy != PtrVal->getType())
+      PtrVal = Builder.CreateBitCast(PtrVal, OverloadTy);
     Args.push_back(PtrVal);
   }
 
