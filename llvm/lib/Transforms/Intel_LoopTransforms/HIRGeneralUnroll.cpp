@@ -481,14 +481,26 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   bool IsInnerLoop =
       ((HLoop->getNestingLevel() > 1) || (HLoop->getLLVMLoopDepth() > 1));
 
-  // Add cost of loop exits for inner loops with liveouts.
-  // Number of exits complicate the CFG by adding additional edges. If there are
-  // values liveout these exits, it will make life difficult for register
-  // allocation.
+  // Add penalty for inner loops with liveouts to account for increase in
+  // register pressure.
   if (IsInnerLoop && NumLiveouts != 0) {
+    // Number of exits complicate the CFG by adding additional edges. If there are
+    // values liveout these exits, it will make life difficult for register
+    // allocation.
     // Normal exit is ignored for DO loops but accounted for unknown loops
     // because its explicit backedge is cloned.
-    SelfCost += (HLoop->isUnknown()) ? NumExits : (NumExits - 1);
+    unsigned ExitCost = (HLoop->isUnknown()) ? NumExits : (NumExits - 1);
+
+    // Account for number of liveouts in non-DO loops.
+    unsigned LiveoutCost = (HLoop->isDo()) ? 0 : NumLiveouts;
+
+    // Add penalty for inner loops with liveouts.
+    unsigned InnerLoopLiveoutPenalty = (ExitCost + LiveoutCost);
+
+    LLVM_DEBUG(dbgs() << "Computed penalty for inner loop liveouts: "
+                      << InnerLoopLiveoutPenalty << "\n");
+
+    SelfCost += InnerLoopLiveoutPenalty;
   }
 
   LLVM_DEBUG(dbgs() << "Computed loop body cost of unroll candidate to be: "
