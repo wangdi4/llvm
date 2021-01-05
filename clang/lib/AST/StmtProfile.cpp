@@ -2273,12 +2273,6 @@ void StmtProfiler::VisitTemplateArgument(const TemplateArgument &Arg) {
     Arg.getAsIntegral().Profile(ID);
     break;
 
-  case TemplateArgument::UncommonValue:
-    VisitType(Arg.getUncommonValueType());
-    // FIXME: Do we need to recursively decompose this ourselves?
-    Arg.getAsUncommonValue().Profile(ID);
-    break;
-
   case TemplateArgument::Expression:
     Visit(Arg.getAsExpr());
     break;
