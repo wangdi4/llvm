@@ -41,7 +41,7 @@ using namespace llvm::vpo::intrinsics;
 #define DEBUG_TYPE "vpo-paropt-atomics"
 
 cl::opt<bool> Enable64BitOpenCLAtomics(
-  "vpo-paropt-enable-64bit-opencl-atomics", cl::Hidden, cl::init(true),
+  "vpo-paropt-enable-64bit-opencl-atomics", cl::Hidden, cl::init(false),
   cl::desc("Enables usage of 64-bit atomic OpenCL RTL API."));
 
 // Main driver for handling a WRNAtomicNode.
