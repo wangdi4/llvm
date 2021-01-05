@@ -2963,8 +2963,7 @@ static bool checkForDuplicateAttribute(Sema &S, Decl *D,
 // reqd_work_group_size, work_group_size_hint, max_work_group_size,
 // max_global_work_dim
 static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
-                                     const ParsedAttr &Attr,
-                                     uint32_t WGSize[3]) {
+                                     const ParsedAttr &Attr) {
   /// Returns the usigned constant integer value represented by
   /// given expression.
   auto getExprValue = [](const Expr *E, ASTContext &Ctx) {
@@ -3143,8 +3142,7 @@ static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
     return;
   }
 
-  uint32_t WGSize[3] = {1, 1, 1};
-  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
+  if (!checkWorkGroupSizeValues(S, D, Attr))
     return;
 
   D->addAttr(::new (S.Context) MaxGlobalWorkDimAttr(
@@ -3769,8 +3767,7 @@ static bool IsSlaveMemory(Sema &S, Decl *D) {
 // ensure that if max_work_group_size and reqd_work_group_size attributes exist,
 // they hold equal values (1, 1, 1).
 static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
-                                         const ParsedAttr &AL,    // INTEL
-                                         uint32_t WGSize[3]) {    // INTEL
+                                         const ParsedAttr &AL) {  // INTEL
   bool Result = true;
   auto checkZeroDim = [&S, &AL](auto &A, size_t X, size_t Y, size_t Z,
                                 bool ReverseAttrs = false) -> bool {
@@ -3861,8 +3858,6 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (D->isInvalidDecl())
     return;
 
-  uint32_t WGSize[3];
-
   Expr *XDimExpr = AL.getArgAsExpr(0);
 
   // If no attribute argument is specified, set to default value '1'
@@ -3935,9 +3930,9 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
 #if INTEL_CUSTOMIZATION
-  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize))
+  if (!checkSYCLWorkGroupSizeValues(S, D, AL))
     return;
-  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
+  if (!checkWorkGroupSizeValues(S, D, AL))
     return;
 #endif // INTEL_CUSTOMIZATION
 
@@ -4009,7 +4004,7 @@ static void handleMaxWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
         Existing->getZDim() == WGSize[2]))
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
 
-  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
+  if (!checkWorkGroupSizeValues(S, D, AL))
     return;
 
   D->addAttr(::new (S.Context) MaxWorkGroupSizeAttr(S.Context, AL, WGSize[0],
@@ -4118,8 +4113,7 @@ static void handleSYCLMaxGlobalWorkDimAttr(Sema &S, Decl *D,         // INTEL
 
   Expr *E = Attr.getArgAsExpr(0);
 
-  uint32_t WGSize[3] = {1, 1, 1};
-  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize)) {
+  if (!checkWorkGroupSizeValues(S, D, Attr)) {
     D->setInvalidDecl();
     return;
   }
