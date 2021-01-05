@@ -184,6 +184,9 @@ if( DEFINED ICD_LOADER_SRC_DIR )
 # end INTEL_CUSTOMIZATION
                         -P <BINARY_DIR>/cmake_install.cmake
       STEP_TARGETS      install
+# INTEL_CUSTOMIZATION
+      BUILD_BYPRODUCTS  ${OpenCL_LIBRARIES}
+# end INTEL_CUSTOMIZATION
   )
 # INTEL_CUSTOMIZATION
   install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/$<CONFIG>/lib
