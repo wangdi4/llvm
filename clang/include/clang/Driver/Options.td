@@ -4497,6 +4497,12 @@ def mprfchw : Flag<["-"], "mprfchw">, Group<m_x86_Features_Group>;
 def mno_prfchw : Flag<["-"], "mno-prfchw">, Group<m_x86_Features_Group>;
 def mptwrite : Flag<["-"], "mptwrite">, Group<m_x86_Features_Group>;
 def mno_ptwrite : Flag<["-"], "mno-ptwrite">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_RAO_INT
+def mraoint : Flag<["-"], "mraoint">, Group<m_x86_Features_Group>;
+def mno_raoint : Flag<["-"], "mno-raoint">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_RAO_INT
+#endif // INTEL_CUSTOMIZATION
 def mrdpid : Flag<["-"], "mrdpid">, Group<m_x86_Features_Group>;
 def mno_rdpid : Flag<["-"], "mno-rdpid">, Group<m_x86_Features_Group>;
 def mrdrnd : Flag<["-"], "mrdrnd">, Group<m_x86_Features_Group>;

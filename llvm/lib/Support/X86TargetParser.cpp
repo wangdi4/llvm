@@ -729,6 +729,9 @@ static constexpr FeatureBitset ImpliedFeaturesGPRMOVGET = {};
 #if INTEL_FEATURE_ISA_MOVGET64B
 static constexpr FeatureBitset ImpliedFeaturesMOVGET64B = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+#if INTEL_FEATURE_ISA_RAO_INT
+static constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 // Key Locker Features
 constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;

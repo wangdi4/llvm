@@ -1498,6 +1498,11 @@ namespace llvm {
                                    SDValue Addr, SelectionDAG &DAG)
                                    const override;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_RAO_INT
+    bool shouldInsertFencesForAtomic(const Instruction *I) const override;
+#endif // INTEL_FEATURE_ISA_RAO_INT
+#endif // INTEL_CUSTOMIZATION
   protected:
     std::pair<const TargetRegisterClass *, uint8_t>
     findRepresentativeClass(const TargetRegisterInfo *TRI,

@@ -3435,6 +3435,12 @@ X86
 
 .. option:: -mptwrite, -mno-ptwrite
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_RAO_INT
+.. option:: -mraoint, -mno-raoint
+.. end INTEL_FEATURE_ISA_RAO_INT
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mrdpid, -mno-rdpid
 
 .. option:: -mrdrnd, -mno-rdrnd

@@ -528,6 +528,10 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_MOVGET64B
   bool HasMOVGET64B = false;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+
+#if INTEL_FEATURE_ISA_RAO_INT
+  bool HasRAOINT = false;
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
   /// Processor support key locker instructions
   bool HasKL = false;
@@ -1028,6 +1032,9 @@ public:
 #if INTEL_FEATURE_ISA_MOVGET64B
   bool hasMOVGET64B() const { return HasMOVGET64B; }
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+#if INTEL_FEATURE_ISA_RAO_INT
+  bool hasRAOINT() const { return HasRAOINT; }
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
   bool hasAVXVNNI() const { return HasAVXVNNI; }
   bool hasAMXTILE() const { return HasAMXTILE; }
