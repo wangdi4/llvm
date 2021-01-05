@@ -1764,7 +1764,7 @@ define void @splat4_v8f32_load_store(<8 x float>* %s, <32 x float>* %d) {
 ; AVX512-NEXT:    vpermilps {{.*#+}} ymm2 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
 ; AVX512-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,1] ;INTEL
 ; AVX512-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
-; AVX512-NEXT:    vbroadcastsd %xmm0, %ymm4 ;INTEL
+; AVX512-NEXT:    vmovddup %xmm0, %xmm4 # xmm4 = xmm0[0,0] ;INTEL
 ; AVX512-NEXT:    vpermilpd {{.*#+}} xmm5 = xmm0[1,1] ;INTEL
 ; AVX512-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4 ;INTEL
 ; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1 ;INTEL
