@@ -389,6 +389,9 @@ public:
     // Returns true if master thread can join execution
     virtual bool            CanMasterJoin() const = 0;
 
+    // Disable master join
+    virtual void DisableMasterJoin() = 0;
+
     // Returns whether profiling is enabled for this ITaskList
     virtual bool            IsProfilingEnabled() const = 0;
 

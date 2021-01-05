@@ -212,7 +212,10 @@ bool SGValueWiden::isWIRelated(Value *V) {
   if (CallInst *CI = dyn_cast<CallInst>(V)) {
     if (Function *F = CI->getCalledFunction()) {
       const std::string Name = F->getName().str();
-      if (CompilationUtils::isSubGroupUniform(Name))
+      // Once WIRelatedAnalysis is ported to SGEmulation, we can remove
+      // CompilationUtils::isWorkGroupUniform.
+      if (CompilationUtils::isSubGroupUniform(Name) ||
+          CompilationUtils::isWorkGroupUniform(Name))
         return false;
     }
   }
@@ -260,8 +263,21 @@ void SGValueWiden::runOnFunction(Function &F, const std::set<unsigned> &Sizes) {
     } else if (isCrossBarrier(I, SyncInsts)) {
       if (isWIRelated(I))
         widenValue(I, FirstI, Size);
-      else
-        hoistUniformValue(I, FirstI);
+      else {
+        Instruction *IP = FirstI;
+        // For WG uniform calls, we need to create an alloca instruction in
+        // WGExcludeBB to hold the result value.
+        if (CallInst *CI = dyn_cast<CallInst>(I)) {
+          if (Function *F = CI->getCalledFunction()) {
+            const std::string Name = F->getName().str();
+            if (CompilationUtils::isWorkGroupUniform(Name)) {
+              assert(WGExcludeBB && "WGExcludeBB doesn't exist");
+              IP = WGExcludeBB->getTerminator();
+            }
+          }
+        }
+        hoistUniformValue(I, IP);
+      }
     }
   }
 

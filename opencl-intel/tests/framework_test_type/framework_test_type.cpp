@@ -644,6 +644,13 @@ TEST(FrameworkTestType, DISABLED_Test_UniformWorkGroupTest)
     UniformWorkGroupTest();
 }
 
+#ifdef _WIN32
+TEST(FrameworkTestType, Test_clDisableMasterJoinTest)
+{
+    clDisableMasterJoinTest();
+}
+#endif
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line
