@@ -331,6 +331,12 @@ Tool *ToolChain::getOffloadWrapper() const {
   return OffloadWrapper.get();
 }
 
+Tool *ToolChain::getOffloadDeps() const {
+  if (!OffloadDeps)
+    OffloadDeps.reset(new tools::OffloadDeps(*this));
+  return OffloadDeps.get();
+}
+
 Tool *ToolChain::getSPIRVTranslator() const {
   if (!SPIRVTranslator)
     SPIRVTranslator.reset(new tools::SPIRVTranslator(*this));
@@ -405,6 +411,9 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::OffloadWrapperJobClass:
     return getOffloadWrapper();
+
+  case Action::OffloadDepsJobClass:
+    return getOffloadDeps();
 
   case Action::SPIRVTranslatorJobClass:
     return getSPIRVTranslator();
