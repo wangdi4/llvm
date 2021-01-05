@@ -1237,12 +1237,8 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
 }
 
 ModuleInlinerWrapperPass
-#if INTEL_CUSTOMIZATION
 PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
-                                  bool MandatoryOnly,
-                                  // Intel: Add InlP paramter.
-                                  InlinerPass *InlP) {
-#endif // INTEL_CUSTOMIZATION
+                                  bool MandatoryOnly) {
   InlineParams IP = getInlineParamsFromOptLevel(Level);
   if (Phase == PassBuilder::ThinLTOPhase::PreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -1254,7 +1250,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
   ModuleInlinerWrapperPass MIWP(
       IP, DebugLogging,
       (MandatoryOnly ? InliningAdvisorMode::MandatoryOnly : UseInlineAdvisor),
-      MaxDevirtIterations, InlP); // INTEL
+      MaxDevirtIterations);
 
   if (MandatoryOnly)
     return MIWP;
@@ -1472,13 +1468,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(InlineListsPass());
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
   if (PerformMandatoryInliningsFirst)
-    MPM.addPass(
-        buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/true, &InlPass));
-  MPM.addPass(
-      buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/false, &InlPass));
-#endif // INTEL_CUSTOMIZATION
+    MPM.addPass(buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/true));
+  MPM.addPass(buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/false));
 
   if (EnableMemProfiler && Phase != ThinLTOPhase::PreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
@@ -2168,20 +2160,14 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level),
                                        DebugLogging,
-                                       InliningAdvisorMode::MandatoryOnly,
-                                       0 /*MaxDevirtIterations*/,    // INTEL
-                                       &InlPass));                   // INTEL
+                                       InliningAdvisorMode::MandatoryOnly));
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
   MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level),
-                                       DebugLogging,                 // INTEL
-                                       InliningAdvisorMode::Default, // INTEL
-                                       0 /*MaxDevirtIterations*/,    // INTEL
-                                       &InlPass));                   // INTEL
-
+                                       DebugLogging));
 #if INTEL_INCLUDE_DTRANS
   // The global optimizer pass can convert function calls to use
   // the 'fastcc' calling convention. The following pass enables more

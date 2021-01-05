@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.cpp  --Inlining report vis metadata --------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -316,8 +316,13 @@ void llvm::setMDReasonNotInlined(CallBase *Call, InlineReason Reason) {
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
-  LLVMContext &Ctx = Call->getContext();
   std::string ReasonStr = "reason: ";
+  int64_t OldReason = 0;
+  getOpVal(CSIR->getOperand(CSMDIR_InlineReason), ReasonStr, &OldReason);
+  if (Reason == NinlrNotAlwaysInline &&
+      IsNotInlinedReason((InlineReason) OldReason))
+    return;
+  LLVMContext &Ctx = Call->getContext();
   ReasonStr.append(std::to_string(Reason));
   auto ReasonMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
   CSIR->replaceOperandWith(CSMDIR_InlineReason, ReasonMD);

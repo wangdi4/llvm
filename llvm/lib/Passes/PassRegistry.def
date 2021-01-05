@@ -161,12 +161,9 @@ MODULE_PASS("rewrite-statepoints-for-gc", RewriteStatepointsForGC())
 MODULE_PASS("rewrite-symbols", RewriteSymbolPass())
 MODULE_PASS("rpo-function-attrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
-#if INTEL_CUSTOMIZATION
 MODULE_PASS("scc-oz-module-inliner",
-  // INTEL: Add extra nullptr parameter.
-  buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None, 
-  /*MandatoryOnly=*/false, nullptr))
-#endif // INTEL_CUSTOMIZATION
+  buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None,
+  /*MandatoryOnly=*/false))
 MODULE_PASS("loop-extract-single", LoopExtractorPass(1))
 MODULE_PASS("oz-module-optimizer",
   buildModuleOptimizationPipeline(OptimizationLevel::Oz, /*LTOPreLink*/false))
