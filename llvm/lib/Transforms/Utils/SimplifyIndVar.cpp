@@ -1925,8 +1925,9 @@ bool NewIVCounter::foundAddRecWithSameStride(const Loop *Lp, int64_t Stride) {
   bool Found = false;
 
   for (auto &PN : Lp->getHeader()->phis()) {
-    auto *PhiSC = SE.getSCEV(const_cast<PHINode *>(&PN));
+    if (!SE.isSCEVable(PN.getType())) continue;
 
+    auto *PhiSC = SE.getSCEV(const_cast<PHINode *>(&PN));
     auto *PhiAddRec = dyn_cast<SCEVAddRecExpr>(PhiSC);
 
     if (!PhiAddRec || !PhiAddRec->isAffine())
