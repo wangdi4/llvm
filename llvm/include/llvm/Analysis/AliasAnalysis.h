@@ -1315,8 +1315,10 @@ public:
 /// Return true if this pointer is returned by a noalias function.
 bool isNoAliasCall(const Value *V);
 
+#if INTEL_CUSTOMIZATION
 /// Return true if this is an argument with the noalias attribute.
-bool isNoAliasArgument(const Value *V);
+bool isNoAliasOrByValArgument(const Value *V);
+#endif // INTEL_CUSTOMIZATION
 
 /// Return true if this pointer refers to a distinct and identifiable object.
 /// This returns true for:

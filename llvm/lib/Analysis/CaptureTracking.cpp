@@ -100,7 +100,7 @@ namespace {
         if (IgnoreNoAliasArgStCaptured) {
           Value *V2 = I->getOperand(1);
           V2 = V2->stripPointerCasts();
-          if (V2 && isNoAliasArgument(V2)) {
+          if (V2 && isNoAliasOrByValArgument(V2)) {
             return false;
           }
         }

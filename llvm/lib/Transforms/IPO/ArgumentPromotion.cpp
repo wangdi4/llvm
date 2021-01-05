@@ -869,7 +869,7 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
   // and the argument is marked with NoAlias, we don't need to prove that
   // the argument pointer is not modified before its uses. It is safe to
   // assume that the argument pointer is not modified in the current routine.
-  if (isNoAliasArgument(Arg))
+  if (isNoAliasOrByValArgument(Arg))
     return true;
 
 #endif // INTEL_CUSTOMIZATION

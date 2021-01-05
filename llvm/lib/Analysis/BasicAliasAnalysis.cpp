@@ -2086,8 +2086,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     const Value* ArgBasePtr1 = getArgumentBasePtr(O1, DL);
     const Value* ArgBasePtr2 = getArgumentBasePtr(O2, DL);
     if (ArgBasePtr1 && ArgBasePtr2 && ArgBasePtr1 != ArgBasePtr2 &&
-        ((isa<Argument>(ArgBasePtr1) && isNoAliasArgument(ArgBasePtr2)) ||
-        (isa<Argument>(ArgBasePtr2) && isNoAliasArgument(ArgBasePtr1)))) {
+        ((isa<Argument>(ArgBasePtr1) && isNoAliasOrByValArgument(ArgBasePtr2)) ||
+        (isa<Argument>(ArgBasePtr2) && isNoAliasOrByValArgument(ArgBasePtr1)))) {
       return NoAlias;
    }
 
