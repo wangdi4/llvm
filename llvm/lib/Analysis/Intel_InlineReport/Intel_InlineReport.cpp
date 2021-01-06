@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.cpp - Inline report ------- ---------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -422,24 +422,10 @@ InlineReportCallSite *InlineReport::addNewCallSite(CallBase *Call) {
   return addCallSite(Call);
 }
 
-void InlineReport::printIfNewInliner(void *Inliner,
-                                     bool IsAlwaysInline,
-                                     bool IsLegacyPassManager) {
-  if (Inliner != ActiveInliner) {
-    if (ActiveInliner)
-      testAndPrint(ActiveInliner, ActiveInlinerIsAlwaysInline,
-          IsLegacyPassManager);
-    ActiveInliner = Inliner;
-    ActiveInlinerIsAlwaysInline = IsAlwaysInline;
-    IsAlreadyPrinted = false;
-  }
-}
-
-void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner,
-                            bool IsAlwaysInline) {
+void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner) {
   if (!isClassicIREnabled())
     return;
-  printIfNewInliner(Inliner, IsAlwaysInline, true);
+  ActiveInliners.insert(Inliner);
   M = &SCC.getCallGraph().getModule();
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
@@ -449,11 +435,10 @@ void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner,
   }
 }
 
-void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner,
-                            bool IsAlwaysInline) {
+void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner) {
   if (!isClassicIREnabled())
     return;
-  printIfNewInliner(Inliner, IsAlwaysInline, false);
+  ActiveInliners.insert(Inliner);
   LazyCallGraph::Node &LCGN = *(SCC.begin());
   M = LCGN.getFunction().getParent();
   for (auto &Node : SCC) {
@@ -613,6 +598,8 @@ void InlineReport::setReasonNotInlined(CallBase *Call,
   if (MapIt == IRCallBaseCallSiteMap.end())
     return;
   InlineReportCallSite *IRCS = MapIt->second;
+  if (Reason == NinlrNotAlwaysInline && IsNotInlinedReason(IRCS->getReason()))
+    return;
   IRCS->setReason(Reason);
 }
 
@@ -627,6 +614,8 @@ void InlineReport::setReasonNotInlined(CallBase *Call,
   if (MapIt == IRCallBaseCallSiteMap.end())
     return;
   InlineReportCallSite *IRCS = MapIt->second;
+  if (Reason == NinlrNotAlwaysInline && IsNotInlinedReason(IRCS->getReason()))
+    return;
   IRCS->setReason(Reason);
   if (IC.isNever())
     return;
@@ -675,10 +664,8 @@ void InlineReportFunction::print(unsigned Level) const {
   printInlineReportCallSiteVector(CallSites, 1, Level);
 }
 
-void InlineReport::print(bool IsAlwaysInline) const {
+void InlineReport::print() const {
   if (!isClassicIREnabled())
-    return;
-  if (IsAlwaysInline && !(Level & InlineReportTypes::AlwaysInline))
     return;
   llvm::errs() << "---- Begin Inlining Report ----\n";
   printOptionValues();
@@ -716,14 +703,17 @@ void InlineReport::print(bool IsAlwaysInline) const {
   llvm::errs() << "---- End Inlining Report ------\n";
 }
 
-void InlineReport::testAndPrint(void *Inliner, bool IsAlwaysInline,
-                                bool IsLegacyPassManager) {
-  if (IsAlreadyPrinted)
+void InlineReport::testAndPrint(void *Inliner) {
+  if (!Inliner) {
+    print();
     return;
-  if (Inliner != ActiveInliner && !(IsAlwaysInline && !IsLegacyPassManager))
+  }
+  if (!ActiveInliners.count(Inliner))
     return;
-  print(IsAlwaysInline);
-  IsAlreadyPrinted = true;
+  ActiveInliners.erase(Inliner);
+  if (!ActiveInliners.empty())
+    return;
+  print();
 }
 
 void InlineReportCallSite::loadCallsToMap(std::map<CallBase *, bool> &LMap) {

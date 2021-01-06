@@ -156,14 +156,14 @@ public:
 
 #if INTEL_CUSTOMIZATION
   ~AlwaysInlinerLegacyPass() {
-    getReport()->testAndPrint(this, /*IsAlwaysInline=*/true);
+    getReport()->testAndPrint(this);
   }
 #endif // INTEL_CUSTOMIZATION
 
   /// Main run interface method.  We override here to avoid calling skipSCC().
 #if INTEL_CUSTOMIZATION
   bool runOnSCC(CallGraphSCC &SCC) override {
-    getInlineReport()->beginSCC(SCC, this, /*IsAlwaysInline=*/true);
+    getInlineReport()->beginSCC(SCC, this);
     getMDInlineReport()->beginSCC(SCC);
     bool RV = inlineCalls(SCC);
     getInlineReport()->endSCC();

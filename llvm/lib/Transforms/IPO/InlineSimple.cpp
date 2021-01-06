@@ -59,7 +59,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
   ~SimpleInliner() {
-    getReport()->testAndPrint(this, /*IsAlwaysInline=*/false);
+    getReport()->testAndPrint(this);
   }
 #endif // INTEL_CUSTOMIZATION
   static char ID; // Pass identification, replacement for typeid
@@ -147,7 +147,7 @@ bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
   TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
   TLIWP = &getAnalysis<TargetLibraryInfoWrapperPass>();
-  getInlineReport()->beginSCC(SCC, this, /*IsAlwaysInline=*/false);
+  getInlineReport()->beginSCC(SCC, this);
   getMDInlineReport()->beginSCC(SCC);
   bool RV = LegacyInlinerBase::runOnSCC(SCC);
   getInlineReport()->endSCC();
