@@ -6675,9 +6675,9 @@ static bool switchToSelect(SwitchInst *SI, IRBuilder<> &Builder,
 }
 
 #if INTEL_CUSTOMIZATION
-/// Try to remove cases that have same results as the default case in the 
+/// Try to remove cases that have same results as the default case in the
 /// PHI nodes at the common destination basic block.
-static bool EliminateRedundantCases(SwitchInst *SI) {
+static bool EliminateRedundantCases(SwitchInst *SI, DomTreeUpdater *DTU) {
   bool Modified = false;
 
   // Remove cases that have the same successor as the default case.
@@ -6759,6 +6759,7 @@ static bool EliminateRedundantCases(SwitchInst *SI) {
   }
 
   // Remove all redundant cases.
+  std::vector<DominatorTree::UpdateType> Updates;
   for (auto C = CasesToBeRemoved.rbegin(), E = CasesToBeRemoved.rend(); C != E;
        ++C) {
     if (ProfileUpdateNeeded) {
@@ -6766,10 +6767,16 @@ static bool EliminateRedundantCases(SwitchInst *SI) {
       DefaultExecWeight += Weight;
     }
 
-    (*C)->getCaseSuccessor()->removePredecessor(SI->getParent());
+    auto *SwitchBlock = SI->getParent();
+    auto *CaseBlock = (*C)->getCaseSuccessor();
+    CaseBlock->removePredecessor(SwitchBlock);
+    Updates.push_back({DominatorTree::Delete, SwitchBlock, CaseBlock});
     SI->removeCase(*C);
     Modified = true;
   }
+
+  if (DTU && Modified)
+    DTU->applyUpdatesPermissive(Updates);
 
   if (ProfileUpdateNeeded) {
     // Construct a new vector of profile counts for the cases that remain, in
@@ -7542,7 +7549,7 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
 #if INTEL_CUSTOMIZATION
   // Try to eliminate cases that have the same results as the default case
   // and no side effects.
-  if (EliminateRedundantCases(SI))
+  if (EliminateRedundantCases(SI, DTU))
     return simplifyCFG(BB, TTI, DTU, Options) | true;
 #endif // INTEL_CUSTOMIZATION
 
