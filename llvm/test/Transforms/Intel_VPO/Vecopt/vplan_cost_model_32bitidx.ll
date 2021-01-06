@@ -11,11 +11,10 @@
 @arr.i32.3 = external local_unnamed_addr global [1024 x i32], align 16
 
 define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
-; VPLAN-HIR-CM-VF8-LABEL:  HIR Cost Model for VPlan test_fit_32bitindex_gather.28 with VF = 8:
-; VPLAN-HIR-CM-VF8-NEXT:  Total VPlan Cost: 162000
-; VPLAN-HIR-CM-VF8-NEXT:  VPlan Base Cost before adjustments: 66000
-; VPLAN-HIR-CM-VF8-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 48000
-; VPLAN-HIR-CM-VF8-NEXT:  Total VPlan GS Cost is bumped: +96000
+; VPLAN-HIR-CM-VF8-LABEL:  Cost Model for VPlan HIR test_fit_32bitindex_gather.28 with VF = 8:
+; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 162000
+; VPLAN-HIR-CM-VF8-NEXT:  Base Cost: 66000
+; VPLAN-HIR-CM-VF8-NEXT:  Extra cost due to Gather/Scatter heuristic is 96000
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0

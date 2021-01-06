@@ -95,8 +95,14 @@ class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPDominatorTree;
 class VPPostDominatorTree;
-class VPlanCostModel; // INTEL: to be later declared as a friend
-class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
+#if INTEL_CUSTOMIZATION
+// To be later declared as a friend
+class VPlanCostModel;
+class VPlanCostModelProprietary;
+namespace VPlanCostModelHeuristics {
+class HeuristicSLP;
+} // namespace VPlanCostModelHeuristics
+#endif // INTEL_CUSTOMIZATION
 class VPlanDivergenceAnalysis;
 class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
@@ -341,6 +347,8 @@ class VPInstruction : public VPUser,
   friend class VPlanPredicator;
 
   friend class VPlanCostModelProprietary;
+  // TODO: Integrate SLP natively into VPlan instead.
+  friend class VPlanCostModelHeuristics::HeuristicSLP;
   friend class VPlanIdioms;
 
 #if INTEL_CUSTOMIZATION

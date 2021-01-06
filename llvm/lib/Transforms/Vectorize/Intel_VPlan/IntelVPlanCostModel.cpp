@@ -710,18 +710,19 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost() {
+unsigned VPlanCostModel::getTTICost() {
   unsigned Cost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
     // correctly scale the cost of the basic block.
     Cost += getCost(Block);
 
-  // Go though all instructions again to find obvious SLP patterns.
-  if (CheckForSLPExtraCost())
-    Cost += (VF - 1) * Cost;
-
   return Cost;
+}
+
+unsigned VPlanCostModel::getCost() {
+  unsigned TTICost = getTTICost();
+  return applyHeuristics(TTICost);
 }
 
 unsigned VPlanCostModel::getBlockRangeCost(const VPBasicBlock *Begin,
@@ -732,124 +733,43 @@ unsigned VPlanCostModel::getBlockRangeCost(const VPBasicBlock *Begin,
   return Cost;
 }
 
-#if INTEL_CUSTOMIZATION
-const RegDDRef* VPlanCostModel::getHIRMemref(
-  const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  if (Opcode != Instruction::Load && Opcode != Instruction::Store)
-    return nullptr;
+unsigned VPlanCostModel::applyHeuristics(unsigned Cost) {
+  assert(Cost != UnknownCost &&
+         "Heuristics do not expect UnknownCost on input.");
 
-  if (!VPInst->HIR.isMaster())
-    return nullptr;
-  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-
-  if (!HInst)
-    return nullptr;
-
-  return Opcode == Instruction::Load ? HInst->getOperandDDRef(1) :
-                                       HInst->getLvalDDRef();
-}
-
-bool VPlanCostModel::findSLPHIRPattern(
-  SmallVectorImpl<const RegDDRef*> &HIRMemrefs, unsigned PatternSize) {
-
-  if (HIRMemrefs.size() < PatternSize)
-    return false;
-
-  const RegDDRef* baseDDref = HIRMemrefs.back();
-  HIRMemrefs.pop_back();
-
-  unsigned elSize = baseDDref->getDestTypeSizeInBytes();
-  // maintain array of booleans each element of which is indicating
-  // presence of memref with following offsets:
-  // [ -3*elSize, -2*elSize, -1*elSize, 0, elSize, 2*elSize, 3*elSize ]
-  // The middle element is always true, which corresponds to baseDDref.
-  bool offsets[7] = {false, false, false, true, false, false, false};
-
-  for(auto HIRMemref : HIRMemrefs) {
-    int64_t distance = 0;
-    if (HIRMemref->getDestTypeSizeInBytes() == elSize &&
-        DDRefUtils::getConstByteDistance(baseDDref, HIRMemref, &distance) &&
-        (distance % elSize) == 0) {
-      int idx = distance / elSize + 3;
-      if (idx >= 0 && static_cast<unsigned>(idx) < sizeof(offsets))
-        offsets[idx] = true;
+  for (auto &H : heuristics()) {
+    Cost = H(Cost);
+    // Once any heuristics in the pipeline returns Unknown cost
+    // return it immediately.
+    if (Cost == UnknownCost) {
+      LLVM_DEBUG(
+        dbgs() << "Returning UnknownCost due to " << H.getName()
+               << "heuristic.\n");
+      return Cost;
     }
   }
-
-  // Check if any of PatternSize consecutive elements in offsets are true.
-  unsigned cntTrue = 0;
-  for (unsigned i = 0; i < sizeof(offsets); i++) {
-    if (offsets[i]) {
-      cntTrue++;
-      if (cntTrue >= PatternSize)
-        break;
-    }
-    else
-      cntTrue = 0;
-  }
-
-  if (cntTrue >= PatternSize)
-    return true;
-
-  // Analyze remaining memrefs.
-  return findSLPHIRPattern(HIRMemrefs, PatternSize);
+  return Cost;
 }
-
-bool VPlanCostModel::ProcessSLPHIRMemrefs(
-  SmallVectorImpl<const RegDDRef*> const &HIRMemrefs, unsigned PatternSize) {
-
-  unsigned WindowStartIndex = 0;
-  bool PatternFound = false;
-  do {
-    // Prepare vector of VPlanSLPSearchWindowSize or less for further
-    // processing.
-    SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRMemrefsTmp;
-    for (unsigned i = WindowStartIndex;
-         (i < (WindowStartIndex + VPlanSLPSearchWindowSize)) &&
-           (i < HIRMemrefs.size()); i++)
-      HIRMemrefsTmp.push_back(HIRMemrefs[i]);
-
-    // Break out early if a pattern is found.
-    if (findSLPHIRPattern(HIRMemrefsTmp, PatternSize)) {
-      PatternFound = true;
-      break;
-    }
-  } while ((VPlanSLPSearchWindowSize + WindowStartIndex++) <
-           HIRMemrefs.size());
-  return PatternFound;
-}
-
-bool VPlanCostModel::CheckForSLPExtraCost() const {
-  if (VF == 1)
-    return false;
-
-  SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
-  SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
-  // Gather all Store and Load Memrefs since SLP starts pattern search on
-  // stores and on our cases we have consequent loads as well.
-  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
-    for (const VPInstruction &VPInst : *Block)
-      if (auto DDRef = getHIRMemref(&VPInst)) {
-        if (VPInst.getOpcode() == Instruction::Store)
-          HIRStoreMemrefs.push_back(DDRef);
-        else if (VPInst.getOpcode() == Instruction::Load)
-          HIRLoadMemrefs.push_back(DDRef);
-      }
-
-  if (ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
-      ProcessSLPHIRMemrefs(HIRLoadMemrefs,  VPlanSLPLoadPatternSize))
-    return true;
-
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+std::string VPlanCostModel::getAttrString(const VPInstruction *VPInst) const {
+  auto HeuristicsRange = heuristics();
+  return std::accumulate(
+    HeuristicsRange.begin(), HeuristicsRange.end(), std::string(""),
+    [VPInst](const std::string &S, auto &H) {
+      std::string Attr = H.getAttrString(VPInst);
+      return Attr.empty() ? S : S + " " + Attr;
+    });
+}
+
 void VPlanCostModel::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
   VPInst->printWithoutAnalyses(OS);
+
+  std::string VPInstAttributes = getAttrString(VPInst);
+  if (!VPInstAttributes.empty())
+    OS << " (" << VPInstAttributes << " )";
   OS << '\n';
 }
 
@@ -857,15 +777,45 @@ void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
                                           const VPBasicBlock *VPBB) {
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
     getCostNumberString(getCost(VPBB)) << '\n';
+
+  for (auto &H : heuristics()) {
+    std::string InstAttr = H.getAttrString(VPBB);
+    if (InstAttr != "")
+      OS << InstAttr << '\n';
+  }
+
   for (const VPInstruction &VPInst : *VPBB)
     printForVPInstruction(OS, &VPInst);
 }
 
 void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
-  OS << "Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
-  OS << "Total Cost: " << getCost() << '\n';
-  if (CheckForSLPExtraCost())
-    OS << "SLP breaking penalty applied.\n";
+  unsigned Cost = getCost();
+  OS << "Cost Model for VPlan " << getHeaderPrefix() << Header << " with VF = "
+     << VF << ":\n";
+  OS << "Total Cost: " << Cost << '\n';
+
+  // TODO: we might want to merge 'print' routines with corresponding 'getCost'
+  // routines eventually.
+  unsigned TTICost = getTTICost();
+  if (TTICost != Cost) {
+    OS << "Base Cost: " << TTICost << '\n';
+    Cost = TTICost;
+    for (auto &H : heuristics()) {
+      unsigned HCost = H(Cost);
+      if (HCost > Cost)
+        OS << "Extra cost due to " << H.getName() << " heuristic is "
+           << HCost - Cost << '\n';
+      else if (Cost > HCost)
+        OS << "Cost decrease due to " << H.getName() << " heuristic is "
+           << Cost - HCost << '\n';
+
+      Cost = HCost;
+      if (Cost == UnknownCost) {
+        break;
+      }
+    }
+  }
+
   LLVM_DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".

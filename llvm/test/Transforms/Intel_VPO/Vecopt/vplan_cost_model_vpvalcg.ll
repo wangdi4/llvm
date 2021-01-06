@@ -198,10 +198,8 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan foo.63 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 223000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 223000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 36000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR foo.63 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 223000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -272,9 +270,8 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan foo.63 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 69000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 69000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR foo.63 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 69000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -677,9 +674,8 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_casts.54 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 126000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 126000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR test_casts.54 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 126000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -736,9 +732,8 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_casts.54 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 111000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 111000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR test_casts.54 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 111000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -1057,9 +1052,8 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_non_pow2_casts.29 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 18000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 18000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR test_non_pow2_casts.29 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 18000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -1091,9 +1085,8 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_non_pow2_casts.29 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 16000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 16000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR test_non_pow2_casts.29 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 16000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -1356,9 +1349,8 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_cmp.65 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 39000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 39000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR test_cmp.65 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 39000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -1426,9 +1418,8 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_cmp.65 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 39000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 39000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR test_cmp.65 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 39000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -1818,9 +1809,8 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_select.39 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 16000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 16000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR test_select.39 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 16000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -1861,9 +1851,8 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_select.39 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 16000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 16000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR test_select.39 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 16000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -2113,9 +2102,8 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_LD_I32_FALSE]] = load i32* [[VP_LD_I32_IDX_FALSE]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB3]]
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_total_cost_branch_probabilities.31 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 5000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 5000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR test_total_cost_branch_probabilities.31 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 5000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -2149,9 +2137,8 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP6]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB3]]
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_total_cost_branch_probabilities.31 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 5000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 5000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR test_total_cost_branch_probabilities.31 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 5000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -2323,9 +2310,8 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_revectorize.21 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 20000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 20000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR test_revectorize.21 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 20000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -2351,9 +2337,8 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_revectorize.21 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 6000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 6000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR test_revectorize.21 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 6000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -2499,12 +2484,11 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_revectorize_with_gathers_scatters.21 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 246000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 86000
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 68000
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan GS Cost is bumped: +136000
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan spill/fill cost: +24000
+; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan HIR test_revectorize_with_gathers_scatters.21 with VF = 4:
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 246000
+; VPLAN-HIR-CM-VF4-NEXT:  Base Cost: 86000
+; VPLAN-HIR-CM-VF4-NEXT:  Extra cost due to Gather/Scatter heuristic is 136000
+; VPLAN-HIR-CM-VF4-NEXT:  Extra cost due to Spill/Fill heuristic is 24000
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -2532,9 +2516,8 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_revectorize_with_gathers_scatters.21 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 6000
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 6000
+; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan HIR test_revectorize_with_gathers_scatters.21 with VF = 1:
+; VPLAN-HIR-CM-VF1-NEXT:  Total Cost: 6000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0

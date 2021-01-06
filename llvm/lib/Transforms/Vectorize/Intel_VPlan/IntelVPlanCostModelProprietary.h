@@ -29,23 +29,40 @@ public:
                                      VPlanVLSAnalysis *VLSA)
     : VPlanCostModel(Plan, VF, TTI, TLI, DL, VLSA) {
     VLSA->getOVLSMemrefs(Plan, VF);
+
+    // Clear out HeuristicsPipeline from Base Cost Model Heuristic and fill it
+    // up with Proprietary Cost Model heuristics set in the order they should
+    // be applied.
+    HeuristicsPipeline.clear();
+    HeuristicsPipeline.push_back(
+      std::make_unique<VPlanCostModelHeuristics::HeuristicSearchLoop>(this));
+    if (VF != 1) {
+      HeuristicsPipeline.push_back(
+        std::make_unique<VPlanCostModelHeuristics::HeuristicSLP>(this));
+      HeuristicsPipeline.push_back(
+        std::make_unique<VPlanCostModelHeuristics::HeuristicGatherScatter>(
+          this));
+    }
+    HeuristicsPipeline.push_back(
+      std::make_unique<VPlanCostModelHeuristics::HeuristicSpillFill>(this));
+    if (VF == 1)
+      // Don't apply bonus on VF != 1 plan as we exactly want to keep scalar
+      // VPlan in case psadbw pattern is found.
+      HeuristicsPipeline.push_back(
+        std::make_unique<VPlanCostModelHeuristics::HeuristicPsadbw>(this));
   }
 
-  unsigned getCost() final;
+  using VPlanCostModel::getCost;
   unsigned getLoadStoreCost(
     const VPInstruction *VPInst, Align Alignment, unsigned VF) final {
     return getLoadStoreCost(VPInst, Alignment, VF,
                             false /* Don't use VLS cost by default */);
   }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const std::string &Header);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   ~VPlanCostModelProprietary() {}
 
 private:
   unsigned getCost(const VPInstruction *VPInst) final;
-  unsigned getCost(const VPBasicBlock *VPBB) final;
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
                             Align Alignment, unsigned VF,
                             const bool UseVLSCost);
@@ -56,22 +73,14 @@ private:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printForVPInstruction(raw_ostream &OS, const VPInstruction *VPInst);
-  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock);
+  std::string getAttrString(const VPInstruction *VPInst) const final;
+  std::string getHeaderPrefix() const final {
+    // Proprietary Cost Model prepends the Header in dumps with "HIR " string
+    // to ease distinguishing HIR CM dumps VS Base CM dumps.  Please see
+    // VPlanCostModel::print() for details.
+    return "HIR ";
+  };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  // Implements basic register pressure calculation pass.
-  // Calculates the pressure of Vector Instructions only if VectorInsts is
-  // true. Calculates scalar instructions pressure otherwise.
-  // LiveValues map contains the liveness of the given instruction multiplied
-  // by its legalization factor.  The map contains LiveOut values for the block
-  // on input of getSpillFillCost(Block, LiveValues) and the map is updated
-  // by getSpillFillCost() and contains LiveIn values after the call.
-  unsigned getSpillFillCost(
-    const VPBasicBlock *VPBlock,
-    DenseMap<const VPInstruction*, int /* legalization factor */> &LiveValues,
-    bool VectorInsts);
-  unsigned getSpillFillCost(void);
 
   // Consolidates proprietary code that gets the cost of one operand or two
   // operands arithmetics instructions.
@@ -89,45 +98,6 @@ private:
   // holds 'true' for this group.  Otherwise 'false' is stored in the map.
   using OVLSGroupMap = DenseMap<const OVLSGroup *, bool>;
   OVLSGroupMap ProcessedOVLSGroups;
-
-  // PsadbwPatternInsts holds all instructions that are part of any PSADBW
-  // pattern.  Used by dumping facilities only.
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // PsadbwPatternInsts holds all instructions that are part of any PSADBW
-  // pattern.  Used by dumping facilities only.
-  SmallPtrSet<const VPInstruction*, 32> PsadbwPatternInsts;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  // Checks for PSADWB pattern starting SelInst and updates
-  // CurrPsadbwPatternInsts argument with instructions forming PSADWB pattern
-  // based on SelInst.
-  //
-  // Returns true if pattern is found, false otherwise.
-  bool checkPsadwbPattern(
-    const VPInstruction *SelInst,
-    SmallPtrSetImpl<const VPInstruction*> &CurrPsadbwPatternInsts);
-
-  // Return the sum of costs of all PSADWB patterns in VPlan.
-  // Also populates PsadbwPatternInsts with pattern instructions.
-  unsigned getPsadwbPatternCost();
-
-  // getGatherScatterCost() interfaces calculate the sum of TTI costs of
-  // load and store instructions that are not unit load or store (i.e.
-  // most likely are implemented with gather or scatter HW instructions
-  // or just serialized).
-  //
-  // Note that g/s cost is collected with a separate pass though VPlan, not
-  // inside getCost(VPInstruction) routine in a dedicated accumulator, because
-  // getCost(VPInstruction) can be called multiple times for the same
-  // VPInstruction from various heuristics and we don't want getCost() to have
-  // a side effect of updating acc.
-  //
-  // As a cost of such approach we need to keep details of walk through VPlan
-  // in sync with walk though VPlan in main getCost() routines.  Such, the same
-  // weights should be applied on blocks when block frequency info is deployed.
-  unsigned getGatherScatterCost(const VPInstruction *VPInst);
-  unsigned getGatherScatterCost(const VPBasicBlock *VPBlock);
-  unsigned getGatherScatterCost();
 };
 
 } // namespace vpo

@@ -21,6 +21,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 
 #include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
@@ -60,6 +61,12 @@ class VPlanCostModel {
   // To access getMemInstValueType.
   friend class VPlanVLSAnalysisHIR;
   friend class VPlanVLSCostModel;
+  // To access Plan, VF and others.
+  friend class VPlanCostModelHeuristics::HeuristicBase;
+  // To access VPTTI, getCost(), DL and others.
+  friend class VPlanCostModelHeuristics::HeuristicSpillFill;
+  friend class VPlanCostModelHeuristics::HeuristicGatherScatter;
+  friend class VPlanCostModelHeuristics::HeuristicPsadbw;
 #endif // INTEL_CUSTOMIZATION
 public:
 #if INTEL_CUSTOMIZATION
@@ -85,6 +92,12 @@ public:
     // Compute SVA results for current VPlan in order to compute cost accurately
     // in CM.
     const_cast<VPlan *>(Plan)->runSVA(VF, TLI);
+
+    // Fill up HeuristicsPipeline with heuristics in the order they should be
+    // applied.
+    if (VF != 1)
+      HeuristicsPipeline.push_back(
+        std::make_unique<VPlanCostModelHeuristics::HeuristicSLP>(this));
   }
 #else
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
@@ -95,7 +108,7 @@ public:
     VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
   }
 #endif // INTEL_CUSTOMIZATION
-  virtual unsigned getCost();
+  unsigned getCost();
   virtual unsigned getLoadStoreCost(
     const VPInstruction *LoadOrStore, Align Alignment, unsigned VF);
   virtual unsigned getBlockRangeCost(const VPBasicBlock *Begin,
@@ -113,6 +126,9 @@ protected:
   std::unique_ptr<VPlanTTIWrapper> VPTTI;
   const TargetLibraryInfo *TLI;
   const DataLayout *DL;
+  // Keeps Heuristics queue in order they are applied.
+  SmallVector<std::unique_ptr<VPlanCostModelHeuristics::HeuristicBase>, 8>
+    HeuristicsPipeline;
 #if INTEL_CUSTOMIZATION
   VPlanVLSAnalysis *VLSA;
   std::shared_ptr<VPlanVLSCostModel> VLSCM;
@@ -123,6 +139,13 @@ protected:
     if (Cost == UnknownCost)
       return std::string("Unknown");
     return std::to_string(Cost);
+  };
+  // Returns string of VPInst attributes for CM debug dump.
+  virtual std::string getAttrString(const VPInstruction *VPInst) const;
+  // Printed in debug dumps.  Helps to distiguish base Cost Model dumps vs
+  // inherited Cost Model dump.
+  virtual std::string getHeaderPrefix() const {
+    return "";
   };
   void printForVPInstruction(raw_ostream &OS, const VPInstruction *VPInst);
   void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock);
@@ -137,8 +160,10 @@ protected:
                                                 const Type *ScalarTy,
                                                 const unsigned VF);
   virtual unsigned getCost(const VPInstruction *VPInst);
-  virtual unsigned getCostForVF(const VPInstruction *VPInst, unsigned VF);
-  virtual unsigned getCost(const VPBasicBlock *VPBB);
+  unsigned getCostForVF(const VPInstruction *VPInst, unsigned VF);
+  unsigned getCost(const VPBasicBlock *VPBB);
+  // Return TTI contribution to the whole cost.
+  unsigned getTTICost();
   virtual unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF);
   // Calculates the sum of the cost of extracting VF elements of Ty type
   // or the cost of inserting VF elements of Ty type into a vector.
@@ -175,73 +200,16 @@ protected:
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
   unsigned getLoadStoreIndexSize(const VPInstruction *VPInst) const;
 
-  // TODO: Remove SLP framework.
-  // *SLP* and related utilities below is temporal solution to workaround
-  // the problem of blocking SLP vectorizer by VPlan vectorization.
-  // Eventually SLP is expected to become a part of VPlan and/or share
-  // implementation with VPlan.
-  //
-  // Since the static utilities are used in CM and it is undesirable to reuse
-  // them elsewhere they are placed in CM class.
-  //
-  // Returns RegDDRef of type Memref in case VPInst has it associated.
-  // Returns nullptr otherwise.
-  static const RegDDRef* getHIRMemref(const VPInstruction *VPInst);
-
-  // The set of constant controlling search of SLP pattern in VPlan.
-  // Current implementation searches stores and loads to/from adjacent memory.
-  // In particular there should be VPlanSLPLoadPatternSize loads AND
-  // VPlanSLPStorePatternSize stores into consequent memory cells.
-  //
-  // SPL doesn't neccesary need VPlanSLPLoadPatternSize consecutive in memory
-  // loads but we do this check instead of building data flow/dependency graph
-  // that SLP builds.
-  //
-  // Also to limit compile time impact during search we assume that all memrefs
-  // that make SLP pattern are in some relatively small window of indexes in
-  // the vector of all memrefs.  The window size is controlled by
-  // VPlanSLPSearchWindowSize.
-  //
-  static const unsigned VPlanSLPSearchWindowSize = 16;
-  static const unsigned VPlanSLPLoadPatternSize = 4;
-  static const unsigned VPlanSLPStorePatternSize = 2;
-  // Searches for part of SLP pattern in input vector of HIR memrefs. In
-  // particular the utility checks if there is PatternSize memrefs in
-  // HIRMemrefs that access memory consequently.  The utility does not
-  // distiguish loads or stores in input list.  It is caller responsibility to
-  // form the list properly.  Returns true if found or false otherwise.
-  static bool findSLPHIRPattern(
-    SmallVectorImpl<const RegDDRef*> &HIRMemrefs, unsigned PatternSize);
-  // Forms vector of VPlanSLPSearchWindowSize elements out of HIRMemrefs input
-  // vector and apply search on smaller vector with help of findSLPHIRPattern.
-  static bool ProcessSLPHIRMemrefs(
-    SmallVectorImpl<const RegDDRef*> const &HIRMemrefs, unsigned PatternSize);
-
-  // Returns true if there is an extra price for VPlan vectorization as it
-  // potentially blocks SLP vectorization.
-  //
-  // Here is the logic of detection of basic SLP candidates.
-  //
-  // CheckForSLPExtraCost() gathers all store and load memrefs for each basic
-  // block into separate vectors that are passes them individually to
-  // ProcessSLPHIRMemrefs() for certain size pattern detection.
-  //
-  // ProcessSLPHIRMemrefs() extracts VPlanSLPSearchWindowSize instructions from
-  // input vector starting at offset = 0 and ending at offset =
-  // sizeof(input vector) - VPlanSLPSearchWindowSize.  ProcessSLPHIRMemrefs
-  // forms a new vector out of extracted elements and pass it to
-  // findSLPHIRPattern for analysis.
-  //
-  // findSLPHIRPattern pops the top element of input vector and analyzes
-  // whether or not the rest of elements in input vector make sequential
-  // memory access around the top element (i.e. access elements sequentially
-  // before and/or after the memory that the top element accesses).
-  // If pattern of sequential is not found the top element is discarded and
-  // findSLPHIRPattern continues recursive search on reduced input vector until
-  // the pattern is found or the size of input vector becomes less than
-  // requested pattern size.
-  //
-  bool CheckForSLPExtraCost() const;
+  // The method returns range with all Heuristics applicable to the current
+  // VPlan.
+  decltype(auto) heuristics() const {
+    auto AsHeuristicBaseRef =
+      [](decltype(*HeuristicsPipeline.begin()) P) ->
+      const VPlanCostModelHeuristics::HeuristicBase & {
+        return *P;
+      };
+    return map_range(HeuristicsPipeline, AsHeuristicBaseRef);
+  }
 
 private:
   // Get intrinsic corresponding to provided call that is expected to be
@@ -252,6 +220,10 @@ private:
   // VFs, complete solution would be to introduce a general scheme in TTI to
   // provide costs for different SVML calls. Check JIRA : CMPLRLLVM-23527.
   Intrinsic::ID getIntrinsicForSVMLCall(const VPCallInstruction *VPCall) const;
+
+  // Apply all heuristics scheduled in the pipeline for the current VPlan
+  // and return modified input Cost.
+  unsigned applyHeuristics(unsigned Cost);
 };
 
 } // namespace vpo
