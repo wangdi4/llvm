@@ -431,6 +431,7 @@ findExtractedInputToOverallInputMapping(OutlinableRegion &Region,
     // mapping of the index to the value.
     unsigned Found = ArgInputs.count(Input);
     assert(Found && "Input cannot be found!");
+    (void) Found; // INTEL
 
     Region.ExtractedArgToAgg.insert(std::make_pair(OriginalIndex, TypeIndex));
     Region.AggArgToExtracted.insert(std::make_pair(TypeIndex, OriginalIndex));
