@@ -981,10 +981,7 @@ define half @f80_to_half(x86_fp80 %x) nounwind {
 define fp128 @half_to_f128(half %x) nounwind {
 ; X64-LABEL: half_to_f128:
 ; X64:       # %bb.0:
-; X64-NEXT:    pushq %rax
-; X64-NEXT:    callq __extendhftf2@PLT
-; X64-NEXT:    popq %rax
-; X64-NEXT:    retq
+; X64-NEXT:    jmp __extendhftf2@PLT # TAILCALL
 ;
 ; X86-LABEL: half_to_f128:
 ; X86:       # %bb.0:

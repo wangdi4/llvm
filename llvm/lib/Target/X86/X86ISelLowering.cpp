@@ -1944,6 +1944,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::SELECT,               MVT::f16, Custom);
     setOperationAction(ISD::FP_ROUND,             MVT::f16, Custom);
     setOperationAction(ISD::STRICT_FP_ROUND,      MVT::f16, Custom);
+    setOperationAction(ISD::STRICT_FP_EXTEND,     MVT::f32, Legal);
     if (isTypeLegal(MVT::f80)) {
       setOperationAction(ISD::FP_EXTEND,          MVT::f80, Custom);
       setOperationAction(ISD::STRICT_FP_EXTEND,   MVT::f80, Custom);
