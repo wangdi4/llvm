@@ -198,6 +198,41 @@ inline bool isVectorizableLoadStore(const VPValue *V) {
   return VPLoadStore->isSimple();
 }
 
+/// Helper function that returns true if the given type is irregular for unit
+/// stride accesses. The type is irregular if vector <VF x Ty> is not bitcast
+/// compatible with an array of Ty containing VF elements. This is typically
+/// the case when a type's allocated size and type's size do not match.
+/// Note: Community LV code has a similar function(hasIrregularType). However,
+/// it does not work with vector types, the check is VF specific and it also
+/// returns incorrect results for types such as i7
+inline bool hasIrregularTypeForUnitStride(Type *Ty, const DataLayout *DL) {
+  // We can't do unit-stride access optimization if Ty's allocated size(in
+  // bits) does not match its size since it implies implicit padding. Check
+  // https://godbolt.org/z/7e1r1j. For example -
+  // Type         SizeInBits  StoreSizeInBits  AllocSizeInBits
+  // ----         ----------  ---------------  ---------------
+  // <3 x i32>        96           96               128
+  //
+  // TODO: This bailout is too conservative since vectorizer codegen can
+  // generate optimal unit-stride accesses for types such as above where we
+  // have full padding bytes by masking out lanes that access such padding
+  // bytes. Check JIRA - CMPLRLLVM-22929.
+  //
+  // NOTE: We also have types such as i1/i2/i7 whose alloc size and store size
+  // are the same (1-byte) but whose type size is 1/2/7 bits respectively with
+  // padding bits 7/6/1. However, vectors of such types say <2 x i1> also
+  // have alloc/store size of 1-byte i.e. the vectors are written to memory
+  // without any padding bits in between the vector elements. We also need to
+  // treat such types as irregular. Type irregularity thus compares type size
+  // and type alloc size in bits.
+  //
+  // Type         SizeInBits  StoreSizeInBits  AllocSizeInBits
+  // ----         ----------  ---------------  ---------------
+  // i1               1            8                8
+
+  return DL->getTypeAllocSizeInBits(Ty) != DL->getTypeSizeInBits(Ty);
+}
+
 #if INTEL_CUSTOMIZATION
 // Obtain stride information using loopopt interfaces. HNode is expected to
 // specify the underlying node for a load/store VPInstruction. We return false

@@ -5087,11 +5087,11 @@ static void emitOMPAtomicWriteExpr(CodeGenFunction &CGF,
   }
 }
 
-#if INTEL_CUSTOMIZATION
-static bool hasBuiltinAtomic(CodeGenFunction &CGF, uint64_t AtomicSizeInBits,
-                             uint64_t AlignmentInBits) {
-  const auto &TI = CGF.getContext().getTargetInfo();
-  if (CGF.getLangOpts().OpenMPUseLLVMAtomic) {
+#if INTEL_COLLAB
+bool CodeGenFunction::hasBuiltinAtomic(uint64_t AtomicSizeInBits,
+                                       uint64_t AlignmentInBits) {
+  const auto &TI = getContext().getTargetInfo();
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPUseLLVMAtomic) {
     // Make a custom version of TargetInfo::hasBuiltinAtomic for testing.
     auto &Tr = TI.getTriple();
     if (Tr.getArch() == llvm::Triple::spir64 ||
@@ -5105,7 +5105,7 @@ static bool hasBuiltinAtomic(CodeGenFunction &CGF, uint64_t AtomicSizeInBits,
   }
   return TI.hasBuiltinAtomic(AtomicSizeInBits, AlignmentInBits);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 static std::pair<bool, RValue> emitOMPAtomicRMW(CodeGenFunction &CGF, LValue X,
                                                 RValue Update,
@@ -5122,8 +5122,13 @@ static std::pair<bool, RValue> emitOMPAtomicRMW(CodeGenFunction &CGF, LValue X,
        (Update.getScalarVal()->getType() !=
         X.getAddress(CGF).getElementType())) ||
       !X.getAddress(CGF).getElementType()->isIntegerTy() ||
-      !hasBuiltinAtomic(CGF, // INTEL
+#if INTEL_COLLAB
+      !CGF.hasBuiltinAtomic(Context.getTypeSize(X.getType()),
+                            Context.toBits(X.getAlignment())))
+#else // INTEL_COLLAB
+      !Context.getTargetInfo().hasBuiltinAtomic(
           Context.getTypeSize(X.getType()), Context.toBits(X.getAlignment())))
+#endif // INTEL_COLLAB
     return std::make_pair(false, RValue::get(nullptr));
 
   llvm::AtomicRMWInst::BinOp RMWOp;
