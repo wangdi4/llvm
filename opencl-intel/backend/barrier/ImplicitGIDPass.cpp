@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,9 +13,9 @@
 // License.
 
 #include "ImplicitGIDPass.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
+#include "OCLPassSupport.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -33,38 +33,41 @@ OCL_INITIALIZE_PASS_END(
     "Implicit Global Id Pass - Add parameters for native (gdb) debugging",
     false, false)
 
-ImplicitGlobalIdPass::ImplicitGlobalIdPass() :
-    ModulePass(ID), m_pDataPerBarrier(nullptr), m_pModule(nullptr),
-    m_pContext(nullptr), m_pSyncInstSet(nullptr)
-{
-    initializeImplicitGlobalIdPassPass(*llvm::PassRegistry::getPassRegistry());
+ImplicitGlobalIdPass::ImplicitGlobalIdPass()
+    : ModulePass(ID), m_pDataPerBarrier(nullptr), m_pModule(nullptr),
+      m_pContext(nullptr) {
+  initializeImplicitGlobalIdPassPass(*llvm::PassRegistry::getPassRegistry());
 }
 
-bool ImplicitGlobalIdPass::runOnModule(Module& M)
-{
-    m_pModule = &M;
-    m_pDIB = std::unique_ptr<DIBuilder>(new DIBuilder(M));
+bool ImplicitGlobalIdPass::runOnModule(Module &M) {
+  m_pModule = &M;
+  m_pDIB = std::unique_ptr<DIBuilder>(new DIBuilder(M));
 
-    m_pContext = &M.getContext();
+  m_pContext = &M.getContext();
 
-    m_pDataPerBarrier = &getAnalysis<DataPerBarrier>();
+  m_pDataPerBarrier = &getAnalysis<DataPerBarrier>();
 
-    m_util.init(&M);
+  m_util.init(&M);
+  m_SGHelper.initialize(M);
+  m_SGSyncFuncSet = m_SGHelper.getAllSyncFunctions();
 
-    // Prime a DebugInfoFinder that can be queried about various bits of
-    // debug information in the module.
-    m_DbgInfoFinder = DebugInfoFinder();
-    m_DbgInfoFinder.processModule(M);
+  // Prime a DebugInfoFinder that can be queried about various bits of
+  // debug information in the module.
+  m_DbgInfoFinder = DebugInfoFinder();
+  m_DbgInfoFinder.processModule(M);
 
-    for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi) {
-      runOnFunction(*fi);
-    }
+  // Create the unsigned long DebugInfo type for GID variables
+  m_pULongDIType = getOrCreateUlongDIType();
 
-    return true;
+  bool ModuleChanged = false;
+  for (Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi) {
+    ModuleChanged |= runOnFunction(*fi);
+  }
+
+  return ModuleChanged;
 }
 
-bool ImplicitGlobalIdPass::runOnFunction(Function& F)
-{
+bool ImplicitGlobalIdPass::runOnFunction(Function &F) {
   // Skip all functions without debug info (including built-ins, externals, etc)
   // We can't do anything for them
   if (!F.getSubprogram())
@@ -73,154 +76,128 @@ bool ImplicitGlobalIdPass::runOnFunction(Function& F)
   if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
     return false;
 
-  m_pSyncInstSet = 0;
-  if (m_pDataPerBarrier->hasSyncInstruction(&F))
-    m_pSyncInstSet = &m_pDataPerBarrier->getSyncInstructions(&F);
-  insertComputeGlobalIds(&F);
+  const bool HasSyncInst = m_pDataPerBarrier->hasSyncInstruction(&F);
+  const bool HasSGSyncInst = m_SGSyncFuncSet.count(&F);
+
+  // Insert alloca and llvm.dbg.declare at function entry,
+  // right after the leading dummy sync instruction, if any.
+  insertGIDAlloca(F, HasSyncInst, HasSGSyncInst);
+
+  // Insert store instructions after sync instructions.
+  insertGIDStore(F, HasSyncInst, HasSGSyncInst);
+
   return true;
 }
 
-void ImplicitGlobalIdPass::insertGIDStore(unsigned i, Instruction *pGIDAlloca, Instruction *insertBefore)
-{
-  IRBuilder<> B(insertBefore);
-  // **********************************************************************
+void ImplicitGlobalIdPass::insertGIDAlloca(Function &F, bool HasSyncInst,
+                                           bool HasSGSyncInst) {
+  // Take first instruction as insert point
+  Instruction *IP = &(F.getEntryBlock().front());
+  assert(IP && "Function has no instruction at all");
+
+  // If there's a leading dummy_barrier or dummy_sg_barrier,
+  // then we should insert right AFTER it instead.
+  if (HasSyncInst || HasSGSyncInst) {
+    IP = IP->getNextNode();
+    assert(IP && "Entry block has only one instruction");
+  }
+
+  // Save the insert point for insertGIDStore() to use.
+  // Any insert points come before IP would be invalid for GID stores,
+  // since lifetime of GID variables start from here.
+  m_pInsertPoint = IP;
+
+  DIBuilder *DIB = m_pDIB.get();
+  // Just use the subprogram as the scope of implicit GID variables
+  DISubprogram *SP = F.getSubprogram();
+  assert(SP && "Function has no debug info");
+  DebugLoc DIL = DILocation::get(*m_pContext, SP->getLine(), 0, SP);
+
+  for (unsigned i = 0; i < 3; ++i) {
+    AllocaInst *GIDAlloca = new AllocaInst(IntegerType::getInt64Ty(*m_pContext),
+                                           0, "__ocl_dbg_gid" + Twine(i), IP);
+
+    // Create debug info
+    DILocalVariable *DIV = DIB->createAutoVariable(
+        SP, GIDAlloca->getName(), nullptr, 1, m_pULongDIType,
+        /*AlwaysPreserve*/ true, DINode::FlagArtificial);
+    DIB->insertDeclare(GIDAlloca, DIV, DIB->createExpression(), DIL, IP);
+
+    m_pGIDAllocas[i] = GIDAlloca;
+  }
+}
+
+void ImplicitGlobalIdPass::insertGIDStore(Function &F, bool HasSyncInst,
+                                          bool HasSGSyncInst) {
+  assert(m_pInsertPoint->getParent() == &F.getEntryBlock() &&
+         "Insert point must lie in current function's entry block");
+
+  InstSet GenericSyncInsts;
+  if (HasSGSyncInst) {
+    // We don't have to consider HasSyncInst in this situation,
+    // since subgroup emulation loops are inside barrier loop,
+    // just tracking GIDs in the inner loop would be enough.
+
+    // Should insert stores after each dummy_sg_barrier and sg_barrier
+    GenericSyncInsts = m_SGHelper.getSyncInstsForFunction(&F);
+  } else if (HasSyncInst) {
+    // Should insert stores after each dummy_barrier and barrier
+    GenericSyncInsts = m_pDataPerBarrier->getSyncInstructions(&F);
+  }
+  // If the first instruction is a sync inst, it should be excluded from the
+  // set, since its corresponding insert point has already been recorded as
+  // m_pInsertPoint.
+  Instruction *FirstInst = &(F.getEntryBlock().front());
+  GenericSyncInsts.remove(FirstInst);
+
+  // Create get_global_id() and store instructions for each insert point
+  IRBuilder<> B(m_pInsertPoint);
+
+  // If we encounter a dummybarrier -> dummybarrier/dummy_sg_barrier region at
+  // the beginning of the function, we should not insert store instructions, as
+  // such region is outside the workgroup/subgroup loop.
+  const bool HasDummyBarrierRegion = !m_util.findDummyRegion(F).empty();
+  const bool HasDummyBarrierToDummySGBarrierRegion =
+      HasSyncInst && HasSGSyncInst;
+  if (!(HasDummyBarrierRegion || HasDummyBarrierToDummySGBarrierRegion))
+    insertGIDStore(B, m_pInsertPoint);
+
+  for (Instruction *I : GenericSyncInsts) {
+    Instruction *IP = I->getNextNode();
+    assert(IP && "Sync instruction should not be terminator");
+    insertGIDStore(B, IP);
+  }
+}
+
+void ImplicitGlobalIdPass::insertGIDStore(IRBuilder<> &B,
+                                          Instruction *InsertPoint) {
+  B.SetInsertPoint(InsertPoint);
+
   // DO NOT ADD DEBUG INFO TO THE CODE WHICH GENERATES GET_GLOBAL_ID AND THE
   // STORE, OR THE DEBUGGER WILL NOT BREAK AT A GIVEN GLOBAL_ID
   B.SetCurrentDebugLocation(DebugLoc());
-  // **********************************************************************
 
-  Value *gid_at_dim = m_util.createGetGlobalId(i, B);
-
-  // get_global_id returns size_t, but we want to always pass a 64-bit
-  // number. So we may need to extend the result to 64 bits.
-  //
-  const IntegerType *gid_type = dyn_cast<IntegerType>(gid_at_dim->getType());
-  if (gid_type && gid_type->getBitWidth() != 64) {
-    Value *zext_gid =
-        B.CreateZExt(gid_at_dim, IntegerType::getInt64Ty(*m_pContext),
-                     Twine("gid") + Twine(i) + Twine("_i64"));
-    gid_at_dim = zext_gid;
+  for (unsigned i = 0; i < 3; ++i) {
+    Value *GID = m_util.createGetGlobalId(i, B);
+    B.CreateZExtOrBitCast(GID, IntegerType::getInt64Ty(*m_pContext));
+    B.CreateStore(GID, m_pGIDAllocas[i], /*isVolatile*/ true);
   }
-  B.CreateStore(gid_at_dim, pGIDAlloca, /*isVolatile*/true);
 }
 
-void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
-{
-    const bool functionHasBarriers = m_pSyncInstSet != 0;
-    DIScope *scope = nullptr;
-    DebugLoc loc;
-
-    // Find the first basic block that has an instruction with debug
-    // metadata attached to it (usually a "call void @llvm.dbg.declare"
-    // or an LLVM instruction with a suffix like "!dbg !27").
-    //
-    auto func = [&](const BasicBlock& b) {
-      return getBBScope(b, &scope, loc);
-    };
-    auto I = std::find_if(pFunc->begin(), pFunc->end(), func);
-
-    if (I == pFunc->end()) {
-      DISubprogram *SP = pFunc->getSubprogram();
-      scope = SP;
-      loc = DILocation::get(*m_pContext, SP->getLine(), 0, SP);
+DIType *ImplicitGlobalIdPass::getOrCreateUlongDIType() const {
+  for (auto const &t : m_DbgInfoFinder.types()) {
+    if (t->getName() == "long unsigned int") {
+      return t;
     }
-
-    // Find the first and second instructions in the function
-    //
-    BasicBlock& entry_block = pFunc->getEntryBlock();
-    Instruction* first_instr = &(entry_block.front());
-
-    // Insert after first instruction in the case of barrier calls otherwise
-    // this breaks barrier pass (need to investigate why). In this case, expect
-    // basic block to have more then 1 IR instruction.
-    //
-    Instruction* insert_before = functionHasBarriers ?
-      dyn_cast<Instruction>(&*(++BasicBlock::iterator(first_instr))) :
-      first_instr;
-    assert( insert_before && "There is only one instruction in the current basic block!" );
-
-    auto DummyRegion = m_util.findDummyRegion(*pFunc);
-    for (unsigned i = 0; i <= 2; ++i) {
-      // Create implicit local variables to hold the gids
-      //
-      DIBuilder *diBuilder = m_pDIB.get();
-      Twine gid_name = Twine("__ocl_dbg_gid") + Twine(i);
-      AllocaInst *gid_alloca = new AllocaInst(
-          IntegerType::getInt64Ty(*m_pContext), 0, gid_name, insert_before);
-      auto File = diBuilder->createFile("", "");
-      DILocalVariable *div = diBuilder->createAutoVariable(
-          scope, StringRef(gid_name.str()),
-        File, 1, getOrCreateUlongDIType(), true, DINode::FlagArtificial);
-
-      // LLVM 3.6 UPGRADE: TODO: uncomment the line below if the new DIVariable
-      // does need dwarf::DW_OP_deref expression
-      (void) diBuilder->insertDeclare(gid_alloca,
-                                      div,
-                                      //diBuilder->createExpression(dwarf::DW_OP_deref),
-                                      diBuilder->createExpression(),
-                                      loc,
-                                      insert_before);
-      if (!functionHasBarriers) {
-        insertGIDStore(i, gid_alloca, insert_before);
-      } else {
-        for (TInstructionSet::iterator ii = m_pSyncInstSet->begin(),
-                                       ie = m_pSyncInstSet->end();
-             ii != ie; ++ii) {
-          Instruction *CallBarrier = *ii;
-          Instruction *pNextInst = insert_before;
-          // Should not insert get_global_id calls and store instructions in
-          // dummy region, as dummy region will not be constructed into loops
-          if (!DummyRegion.empty() && CallBarrier == &*DummyRegion.begin())
-            continue;
-
-          // Insert right after barrier() or dummybarrier(),
-          // except for the first instruction of this function,
-          // which is guaranteed to be a dummybarrier.
-          if (CallBarrier != first_instr)
-            pNextInst = &*(++BasicBlock::iterator(*ii));
-          insertGIDStore(i, gid_alloca, pNextInst);
-        }
-      }
-    }
+  }
+  // If the type wasn't found, create it now
+  DIBuilder *diBuilder = m_pDIB.get();
+  return diBuilder->createBasicType("long unsigned int", 64,
+                                    dwarf::DW_ATE_unsigned);
 }
 
-bool ImplicitGlobalIdPass::getBBScope(const BasicBlock& BB, DIScope** scope_out, DebugLoc& loc_out)
-{
-    for (BasicBlock::const_iterator BI = BB.begin(), BE = BB.end(); BI != BE; ++BI)
-    {
-        DebugLoc loc = BI->getDebugLoc();
-        if (!loc)
-            continue;
-        assert(dyn_cast<DIScope>(loc.getScope()) && "DIScope is expected");
-        DIScope *scope = dyn_cast<DIScope>(loc.getScope());
-        if (dyn_cast<DILexicalBlock>(scope) ||
-            dyn_cast<DILexicalBlockFile>(scope) ||
-            dyn_cast<DISubprogram>(scope)) {
-            *scope_out = scope;
-            loc_out = loc;
-            return true;
-        }
-    }
-    return false;
-}
-
-DIType * ImplicitGlobalIdPass::getOrCreateUlongDIType() const
-{
-    for ( auto const& t: m_DbgInfoFinder.types()) {
-        if (t->getName() == "long unsigned int") {
-            return t;
-        }
-    }
-    // If the type wasn't found, create it now
-    DIBuilder *diBuilder = m_pDIB.get();
-    return diBuilder->createBasicType("long unsigned int", 64, dwarf::DW_ATE_unsigned);
-}
-
-
-}
+} // namespace intel
 
 extern "C" {
-  void* createImplicitGIDPass() {
-    return new intel::ImplicitGlobalIdPass();
-  }
+void *createImplicitGIDPass() { return new intel::ImplicitGlobalIdPass(); }
 }

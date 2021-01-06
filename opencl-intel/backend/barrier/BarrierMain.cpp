@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -90,22 +90,27 @@ namespace intel {
       barrierModulePM.add((ModulePass*)createRemoveDuplicationBarrierPass());
     }
 
-    if (m_debugType == Native) {
-      barrierModulePM.add((ModulePass*)createImplicitGIDPass());
-    }
-
+    // Begin sub-group emulation
     if (EnableSubGroupEmulation) {
-      // Begin sub-group emulation
       barrierModulePM.add(createSubGroupBuiltinPass());
       barrierModulePM.add(createSGBarrierPropagatePass());
       barrierModulePM.add(createSGBarrierSimplifyPass());
+    }
+    // Insert ImplicitGIDPass in the middle of subgroup emulation
+    // to track GIDs in emulation loops
+    if (m_debugType == Native)
+      barrierModulePM.add((ModulePass*)createImplicitGIDPass());
+
+    // Resume sub-group emulation
+    if (EnableSubGroupEmulation) {
       barrierModulePM.add(createSGValueWidenPass(m_debugType == Native));
       barrierModulePM.add(createSGLoopConstructPass());
 #ifdef _DEBUG
       barrierModulePM.add(createVerifierPass());
 #endif
-      // End sub-group emulation
     }
+    // End sub-group emulation
+
     // Since previous passes didn't resolve sub-group barriers, we need to
     // resolve them here.
     barrierModulePM.add(
