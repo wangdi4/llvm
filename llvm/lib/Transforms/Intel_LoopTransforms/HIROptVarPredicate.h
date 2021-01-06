@@ -29,6 +29,8 @@ public:
                    SmallVectorImpl<HLLoop *> *OutLoops) = 0;
 
   virtual const SmallPtrSetImpl<HLNode *> &getNodesToInvalidate() const = 0;
+
+  virtual ~HIROptVarPredicateInterface() {}
 };
 
 }
