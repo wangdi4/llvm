@@ -839,16 +839,9 @@ void HIRLoopDistribution::distributeLoop(
   assert((!Loop->hasChildren() || Loop->hasDistributePoint()) &&
          "Loop Distribution failed to account for all Loop Children");
 
+  // Attach new loops into HIR.
   for (unsigned I = 0; I < LoopCount; ++I) {
-    // Distributed flag is used by Loop Fusion to skip loops that are
-    // distributed.  Need to set for Memory related distribution only.
-    // Distributed loops for enabling perfect loop nest, can still be fused
-    // after interchange is done
-    if (DistCostModel == DistHeuristics::BreakMemRec) {
-      NewLoops[I]->setDistributedForMemRec();
-    }
     HLNodeUtils::insertBefore(Loop, NewLoops[I]);
-    HLNodeUtils::removeEmptyNodes(NewLoops[I], false);
   }
 
   if (SCEX.isScalarExpansionRequired()) {
@@ -861,6 +854,17 @@ void HIRLoopDistribution::distributeLoop(
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
       fixTempArrayCoeff(NewLoops[0]->getParentLoop());
     }
+  }
+
+  for (unsigned I = 0; I < LoopCount; ++I) {
+    // Distributed flag is used by Loop Fusion to skip loops that are
+    // distributed.  Need to set for Memory related distribution only.
+    // Distributed loops for enabling perfect loop nest, can still be fused
+    // after interchange is done
+    if (DistCostModel == DistHeuristics::BreakMemRec) {
+      NewLoops[I]->setDistributedForMemRec();
+    }
+    HLNodeUtils::removeEmptyNodes(NewLoops[I], false);
   }
 
   HLNodeUtils::remove(Loop);
