@@ -246,6 +246,7 @@ static void moveFunctionBody(Function *OldF, Function *NewF,
       Type *NewArgT = NewArgI->getType();
       auto *OldArgPT = cast<PointerType>(OldArg.getType());
       Type *OldArgByvalType = OldArg.getParamByValType();
+      assert(OldArgByvalType != NULL && "The parameter must have 'byval' type");
       Value *Alloca = CreateAllocaInst(OldArgByvalType, NewF, Alignment,
                                        OldArgPT->getAddressSpace());
 
