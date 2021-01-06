@@ -299,7 +299,7 @@ static BasicBlock *moveFunctionData(Function &Old, Function &New) {
     CurrBB->removeFromParent();
     CurrBB->insertInto(&New);
     Instruction *I = CurrBB->getTerminator();
-    if (ReturnInst *RI = dyn_cast<ReturnInst>(I))
+    if (isa<ReturnInst>(I)) // INTEL
       NewEnd = &(*CurrBB);
   }
 

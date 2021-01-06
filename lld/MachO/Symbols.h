@@ -145,7 +145,7 @@ public:
 
   static bool classof(const Symbol *s) { return s->kind() == UndefinedKind; }
 
-  RefState refState : 2;
+  RefState refState; // INTEL
 };
 
 // On Unix, it is traditionally allowed to write variable definitions without
@@ -200,7 +200,7 @@ public:
   uint32_t stubsHelperIndex = UINT32_MAX;
   uint32_t lazyBindOffset = UINT32_MAX;
 
-  RefState refState : 2;
+  RefState refState; // INTEL
 
 private:
   const bool weakDef : 1;
