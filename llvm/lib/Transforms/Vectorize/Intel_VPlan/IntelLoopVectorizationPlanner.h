@@ -162,6 +162,10 @@ public:
     std::shared_ptr<VPlan> MaskedModeLoop;
   };
 
+  void appendVPlanPair(unsigned VF, const VPlanPair &PlanPair) {
+    VPlans[VF] = PlanPair;
+  }
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
