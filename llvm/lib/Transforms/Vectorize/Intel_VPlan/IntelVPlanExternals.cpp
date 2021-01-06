@@ -99,7 +99,7 @@ getInitFinal(EntityTy *E) {
     if (!Init)
       Init = dyn_cast<InitTy>(Val);
     if (!Final)
-      if (Final = dyn_cast<FinalTy>(Val))
+      if ((Final = dyn_cast<FinalTy>(Val)))
         FinalExternalUse = findExtUser(Final);
   }
   return std::make_tuple(Init, Final, FinalExternalUse);
