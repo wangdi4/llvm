@@ -630,7 +630,8 @@ void VPlanDivergenceAnalysis::computeImpl() {
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) ||
-      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V))
+      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V) ||
+      V.getType()->isLabelTy())
     return true;
 
   // TODO: We have a choice on how to handle functions such as get_global_id().
@@ -1518,7 +1519,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
     // FIXME: Compute divergence based on the operands.
     NewShape = getRandomVectorShape();
-  } else {
+  } else if (Opcode == VPInstruction::ReuseLoop)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::OrigLiveOut)
+    NewShape = getUniformVectorShape();
+  else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&

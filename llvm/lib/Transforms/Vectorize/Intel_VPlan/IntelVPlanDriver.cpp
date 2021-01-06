@@ -353,6 +353,11 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                  "single iteration optimization", Plan);
     }
 
+  // Do the preparation for CG: create auxiliary loops and merge them into one
+  // piece of CFG.
+  if (VF > 1)
+    LVP.emitPeelRemainderVPLoops();
+
   if (DisableCodeGen)
     return false;
 

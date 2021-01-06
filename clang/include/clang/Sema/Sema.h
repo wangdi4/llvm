@@ -10228,8 +10228,6 @@ public:
                                        Expr *E);
 
 #if INTEL_CUSTOMIZATION
-  void AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
-                                     Expr *E);
   template <typename AttrType>
   void HLSAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
                                   Expr *E);

@@ -173,12 +173,23 @@ public:
     return createVPSuccRange(successors(), F);
   }
 
-  auto getPredecessors() const { return map_range(users(), getVPUserParent); }
+  // See comment about workaround below.
+  static bool isBranchInst(const VPUser *U) { return isa<VPBranchInst>(U); }
 
-#if INTEL_CUSTOMIZATION
+  // Return iterator range of VPBasicBlock predecessors.
+  // In make_filter_range, the static function is used instead of a lambda to
+  // workaround a build error with Microsoft VS.
+  auto getPredecessors() const {
+    return map_range(make_filter_range(users(), isBranchInst), getVPUserParent);
+  }
+
+ #if INTEL_CUSTOMIZATION
   size_t getNumSuccessors() const;
 
-  size_t getNumPredecessors() const { return getNumUsers(); }
+  size_t getNumPredecessors() const {
+    return llvm::count_if(users(),
+                          [](const VPUser *U) { return isa<VPBranchInst>(U); });
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// \Return the successor of this VPBasicBlock if it has a single successor.
