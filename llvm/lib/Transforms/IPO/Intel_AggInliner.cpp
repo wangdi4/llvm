@@ -1,6 +1,6 @@
 //===--------------- Intel_AggInliner.cpp --------------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -91,11 +91,12 @@ InlineAggressiveInfo::~InlineAggressiveInfo() {}
 bool InlineAggressiveInfo::setAggInlInfoForCallSite(CallBase &CB,
                                                     bool Recursive) {
   Function *F = CB.getCalledFunction();
-  if (F && !F->isDeclaration() && !F->isIntrinsic())
+  if (F && !F->isDeclaration() && !F->isIntrinsic()) {
     if (AggInlCalls.insert(&CB))
       LLVM_DEBUG(dbgs() << "AggInl: Inserting: " << CB << "\n");
     else
       return true;
+  }
   if (!Recursive)
     return true;
   return setAggInlInfoForCallSites(*CB.getCaller());
@@ -886,7 +887,7 @@ public:
     return false;
   }
 
-  bool doFinalization(Module &M) {
+  bool doFinalization(Module &M) override {
     Result.reset();
     return false;
   }

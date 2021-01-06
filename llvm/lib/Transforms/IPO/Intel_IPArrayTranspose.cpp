@@ -1,6 +1,6 @@
 //===----  Intel_IPArrayTranspose.cpp - Intel IPO Array Transpose  --------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -942,7 +942,7 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
   };
 
   // Parse operands of "SC" SCEVAdd expression and propagate "ScaledV".
-  auto ParseScaledAddExpr = [&, this](const SCEV *SC, int64_t ScaledV) {
+  auto ParseScaledAddExpr = [&](const SCEV *SC, int64_t ScaledV) {
     auto A = dyn_cast<SCEVAddExpr>(SC);
     assert(A && "Expected SCEVAdd Expr");
     for (const SCEV *S1 : A->operands()) {
@@ -959,7 +959,7 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
   };
 
   // Parse operands of "SC" SCEVAddRec expression and propagate "ScaledV".
-  ParseScaledAddRecExpr = [&, this](const SCEV *SC, int64_t ScaledV) {
+  ParseScaledAddRecExpr = [&](const SCEV *SC, int64_t ScaledV) {
     const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(SC);
     assert(AR && "Expected SCEVAddRec Expr");
     if (!AR->isAffine())
@@ -1054,7 +1054,7 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
   };
 
   // Returns estimated trip count for "L" using "SE".
-  auto GetTripCount = [this](const Loop *L, ScalarEvolution &SE) {
+  auto GetTripCount = [](const Loop *L, ScalarEvolution &SE) {
     if (unsigned TC = SE.getSmallConstantTripCount(L))
       return TC;
     if (unsigned TC = SE.getSmallConstantMaxTripCount(L))
