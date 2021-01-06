@@ -92,7 +92,7 @@ unsigned int base_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<IT
 
 te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait)
 {
-	  if (!m_device->ShouldMasterJoinWork())
+    if (!m_device->ShouldMasterJoinWork())
     {
         return TE_WAIT_NOT_SUPPORTED;
     }
@@ -148,6 +148,11 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
 bool base_command_list::CanMasterJoin() const
 {
     return m_device->ShouldMasterJoinWork();
+}
+
+void base_command_list::DisableMasterJoin()
+{
+    m_device->DisableMasterJoin();
 }
 
 int base_command_list::GetDeviceConcurency() const

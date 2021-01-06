@@ -253,6 +253,9 @@ public:
      */
     bool ShouldMasterJoinWork() const { return (TE_ENABLE_MASTERS_JOIN == m_deviceDescriptor.mastersJoining); }
 
+    void DisableMasterJoin() {
+      m_deviceDescriptor.mastersJoining = TE_DISABLE_MASTERS_JOIN;
+    };
     /**
      * Get number of threads in top level arena
      */

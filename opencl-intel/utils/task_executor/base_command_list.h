@@ -110,6 +110,8 @@ public:
 
     bool CanMasterJoin() const;
 
+    void DisableMasterJoin();
+
     int  GetDeviceConcurency() const;
 
     bool Flush();

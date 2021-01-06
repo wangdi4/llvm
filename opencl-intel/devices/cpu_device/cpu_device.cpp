@@ -295,6 +295,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     m_iLogHandle (0),
     m_defaultCommandList(nullptr),
     m_pinMaster(false),
+    m_disableMasterJoin(false),
     m_numCores(0),
     m_pComputeUnitMap(nullptr)
 #ifdef __HARD_TRAPPING__
@@ -2724,6 +2725,9 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
         pTaskToWait = static_cast<ITaskBase*>(pTaskPtr);
     }
 
+    if (m_disableMasterJoin)
+      pList->pCmd_list->DisableMasterJoin();
+
     // No need in lock
     te_wait_result res = pList->pCmd_list->WaitForCompletion(pTaskToWait);
 
@@ -2841,6 +2845,14 @@ clDevBuildProgram
 cl_dev_err_code CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevBuildProgram Function enter"));
+#if defined (_WIN32)
+    if (options) {
+      std::string buildOptions(options);
+      if (!m_disableMasterJoin &&
+          buildOptions.find("-cl-opt-disable") != std::string::npos)
+        m_disableMasterJoin = true;
+    }
+#endif
     return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, buildStatus);
 }
 

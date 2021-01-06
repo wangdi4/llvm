@@ -78,6 +78,7 @@ public:
     virtual bool            IsMasterJoined() const { return true;}
     virtual bool            CanMasterJoin() const { return true;}
     virtual int             GetDeviceConcurency() const { return 1;}
+    virtual void            DisableMasterJoin() {}
 
     virtual SharedPtr<ITEDevice> GetDevice() { return nullptr; }
     virtual ConstSharedPtr<ITEDevice> GetDevice() const { return nullptr; }
