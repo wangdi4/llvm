@@ -2719,9 +2719,10 @@ HLInst *VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
   assert(WideCall && WideCall->isCallInst() &&
          "Widened call instruction expected.");
   CallInst *WideLLVMCall = const_cast<CallInst *>(WideCall->getCallInst());
+  Function *CalledLLVMFunc = WideLLVMCall->getCalledFunction();
+  assert(CalledLLVMFunc && "Called function expected for the call");
   // Set calling conventions for SVML function calls
-  if (isSVMLFunction(TLI, CalledFunc->getName(),
-                     WideLLVMCall->getCalledFunction()->getName())) {
+  if (isSVMLFunction(TLI, CalledFunc->getName(), CalledLLVMFunc->getName())) {
     WideLLVMCall->setCallingConv(CallingConv::SVML);
   }
 
@@ -2823,6 +2824,7 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
       VectorF, CallArgs, VectorF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
       {} /*BundleOps*/, FMF);
   CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
+  assert(VecCall && "Call instruction is expected to be exist");
 
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
