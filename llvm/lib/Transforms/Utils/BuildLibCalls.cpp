@@ -1017,20 +1017,29 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
 #if INTEL_CUSTOMIZATION
   case LibFunc_msvc_std_bad_alloc_ctor:
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
+  case LibFunc_msvc_std_basic_ios_scalar_deleting_dtor:
+  case LibFunc_msvc_std_basic_istream_vector_deleting_dtor:
   case LibFunc_msvc_std_basic_filebuf_dtor:
     return Changed;
   case LibFunc_msvc_std_basic_filebuf_under_Endwrite:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_msvc_std_basic_streambuf_dtor:
+  case LibFunc_msvc_std_basic_streambuf_imbue:
   case LibFunc_msvc_std_basic_streambuf_under_Lock:
   case LibFunc_msvc_std_basic_streambuf_overflow:
   case LibFunc_msvc_std_basic_streambuf_pbackfail:
   case LibFunc_msvc_std_basic_streambuf_scalar_deleting_dtor:
+  case LibFunc_msvc_std_basic_streambuf_setbuf:
   case LibFunc_msvc_std_basic_streambuf_showmanyc:
+  case LibFunc_msvc_std_basic_streambuf_std_fpos_seekoff:
+  case LibFunc_msvc_std_basic_streambuf_std_fpos_seekpos:
+  case LibFunc_msvc_std_basic_streambuf_sync:
   case LibFunc_msvc_std_basic_streambuf_uflow:
   case LibFunc_msvc_std_basic_streambuf_under_Unlock:
   case LibFunc_msvc_std_basic_streambuf_underflow:
+  case LibFunc_msvc_std_basic_streambuf_xsgetn:
+  case LibFunc_msvc_std_basic_streambuf_xsputn:
   case LibFunc_msvc_std_basic_string_append:
   case LibFunc_msvc_std_basic_string_append_size_value:
   case LibFunc_msvc_std_basic_string_assign_const_ptr:
@@ -1088,6 +1097,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_ios_base_failure:
   case LibFunc_msvc_std_ios_base_failure_const_ptr_ctor:
   case LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor:
+  case LibFunc_msvc_std_ios_base_scalar_deleting_dtor:
   case LibFunc_msvc_std_locale_facet_decref:
   case LibFunc_msvc_std_locale_facet_incref:
   case LibFunc_msvc_std_locale_under_Init:
