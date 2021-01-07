@@ -108,6 +108,11 @@
 // RUN: env MKLROOT=%t_dir/mkl \
 // RUN: %clang_cl -Qmkl:cluster -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-CLUSTER %s
+// CHECK-MKL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-PARALLEL-OMP: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-TBB: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_ilp64" "--dependent-lib=mkl_blacs_intelmpi_ilp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-SYCL-NOT: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs=libmkl_sycl"
 // CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-outputs=[[LISTWIN:.+\.a]]" "-unbundle"
 // CHECK-MKL-WIN-SYCL: llvm-link{{.*}} "[[LISTWIN]]"
@@ -118,11 +123,6 @@
 // CHECK-MKL-SYCL: llc{{.*}}
 // CHECK-MKL-LIN: ld{{.*}} "-L{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64"
 // CHECK-MKL-LIN-DPCPP: "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8"
-// CHECK-MKL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
-// CHECK-MKL-WIN-PARALLEL-OMP: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
-// CHECK-MKL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
-// CHECK-MKL-WIN-TBB: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
-// CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_ilp64" "--dependent-lib=mkl_blacs_intelmpi_ilp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-LIN-SYCL-DEFAULT: "--start-group" "-lmkl_sycl" "-lmkl_intel_ilp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-PARALLEL: "--start-group" "-lmkl_intel_ilp64" "-lmkl_core" "--end-group" {{.*}} "-liomp5"
 // CHECK-MKL-LIN-PARALLEL-OMP: "--start-group" "-lmkl_intel_ilp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
@@ -182,10 +182,10 @@
 // CHECK-DAAL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_thread"
 // CHECK-DAAL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_sequential"
 // CHECK-DAAL: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include" "-internal-isystem" "{{.*}}dal{{/|\\\\}}include"
-// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
-// CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
-// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=aoo" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a" "-outputs=[[LISTLIN:.+\.txt]]" "-unbundle"
-// CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "@[[LISTLIN]]"
+// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-outputs=[[WINLIB:.+\.a]]" "-unbundle"
+// CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "[[WINLIB]]"
+// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a" "-outputs=[[LINLIB:.+\.a]]" "-unbundle"
+// CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "[[LINLIB]]"
 // CHECK-DAAL-SYCL: llvm-spirv{{.*}}
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-DAAL-SYCL: llc{{.*}}
