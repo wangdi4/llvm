@@ -2,7 +2,7 @@
 // UNSUPPORTED: cuda
 // CUDA does not support the function pointer as kernel argument extension.
 
-// RUN: %clangxx -fsycl -fsycl-enable-function-pointers -fenable-variant-function-pointers %s -o %t.out
+// RUN: %clangxx -fsycl -fsycl-enable-function-pointers %s -o %t.out
 // FIXME: at the moment execution of the test is disabled, because not all
 // pieces of the whole implementation are ready.
 // RUNx: %CPU_RUN_PLACEHOLDER %t.out
