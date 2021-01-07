@@ -23,6 +23,7 @@
 #include <CL/cl.h>
 #include <gtest/gtest.h>
 #include <tbb/global_control.h>
+#include <tbb/parallel_for.h>
 
 extern cl_device_type gDeviceType;
 
@@ -560,31 +561,6 @@ TEST_F(USMTest, setKernelArgMemPointer) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
-#ifndef _WIN32 // Flaky [CMPLRLLVM-25311]
-
-class SetKernelArgMemPointerThread : public SynchronizedThread {
-public:
-  SetKernelArgMemPointerThread(cl_context context, cl_device_id device,
-                               cl_command_queue queue, cl_program program)
-      : m_context(context), m_device(device), m_queue(queue),
-        m_program(program) {}
-
-  bool getResult() const { return m_result; }
-
-protected:
-  virtual void ThreadRoutine() {
-    ASSERT_NO_FATAL_FAILURE(
-        testSetKernelArgMemPointer(m_context, m_device, m_queue, m_program));
-    m_result = true;
-  }
-
-  cl_context m_context;
-  cl_device_id m_device;
-  cl_command_queue m_queue;
-  cl_program m_program;
-  bool m_result;
-};
-
 TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   // Build program.
   const char *source[] = {"__kernel void test(const __global int *data,\n"
@@ -599,29 +575,17 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   int numThreads = tbb::global_control::active_value(
       tbb::global_control::max_allowed_parallelism);
 
-  std::vector<SynchronizedThread *> threads(numThreads);
-  for (size_t i = 0; i < numThreads; ++i)
-    threads[i] =
-        new SetKernelArgMemPointerThread(m_context, m_device, m_queue, program);
+  tbb::parallel_for(tbb::blocked_range<int>(0, numThreads * 10),
+                    [&](tbb::blocked_range<int>(range)) {
+                      for (int i = range.begin(); i < range.end(); ++i) {
+                        ASSERT_NO_FATAL_FAILURE(testSetKernelArgMemPointer(
+                            m_context, m_device, m_queue, program));
+                      }
+                    });
 
-  SynchronizedThreadPool pool;
-  pool.Init(&threads[0], numThreads);
-  pool.StartAll();
-  pool.WaitAll();
-
-  for (size_t i = 0; i < numThreads; ++i) {
-    bool res =
-        static_cast<SetKernelArgMemPointerThread *>(threads[i])->getResult();
-    ASSERT_TRUE(res) << "SetKernelArgMemPointerThread " << i << " failed";
-  }
-
-  for (size_t i = 0; i < numThreads; ++i)
-    delete threads[i];
   cl_int err = clReleaseProgram(program);
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
-
-#endif // #ifndef _WIN32
 
 TEST_F(USMTest, setKernelExecInfo) {
   cl_int err;
