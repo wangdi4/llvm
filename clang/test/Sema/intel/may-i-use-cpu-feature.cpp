@@ -29,9 +29,6 @@ void tests() {
   // expected-error-re@+1 {{cannot initialize a parameter of type 'unsigned {{.*}}long' with an lvalue of type 'const char [8]'}}
  _may_i_use_cpu_feature("FEATURE");
 
-  // check amx-tile:71, amx-int8:72, amx-bf16:73, should not throw error.
- _may_i_use_cpu_feature(71 | 72 | 73);
-
  _may_i_use_cpu_feature(1 | 8);
 
  check_feature<1 | 8>();
@@ -53,9 +50,6 @@ void tests2() {
   // expected-error@+1 {{argument value 2 is outside the valid range [0, 1]}}
   _may_i_use_cpu_feature_ext(FEAT_1 | FEAT_2, 2);
 
-  // check amx-tile:71, amx-int8:72, amx-bf16:73, should not throw error.
-  _may_i_use_cpu_feature_ext(71 | 72 | 73, 0);
-
   check_feature_ext<1 | 8, 1>();
   _may_i_use_cpu_feature_ext(FEAT_1 | FEAT_2, 0);
   _may_i_use_cpu_feature_ext(FEAT_1 | FEAT_2, 1);
@@ -74,4 +68,7 @@ void test3() {
 
   // check amx-tile, amx-int8, amx-bf16, should not throw error.
   _may_i_use_cpu_feature_str("amx-tile", "amx-bf16", "amx-int8");
+
+  // check avxvnni key-locker, wide-kl should not throw error.
+  _may_i_use_cpu_feature_str("avxvnni", "kl", "widekl");
 }

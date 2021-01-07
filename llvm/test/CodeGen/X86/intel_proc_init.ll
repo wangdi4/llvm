@@ -15,6 +15,9 @@
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+amx-tile -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AMX
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+amx-int8 -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AMX
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+amx-bf16 -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AMX
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avxvnni -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-AVXVNNI
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+kl -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-KL
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+widekl -enable-intel-advanced-opts -intel-libirc-allowed | FileCheck %s --check-prefix=CHECK-PINIT-WIDEKL
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -132,18 +135,58 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    popq %rcx
 ; CHECK-PINIT-MIX-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-PINIT-MIX-NEXT:    retq
-
+;
 ; CHECK-PINIT-AMX-LABEL: MAIN__:
 ; CHECK-PINIT-AMX:       # %bb.0:
-; CHECK-PINIT-AMX-NEXT:    pushq   %rax
+; CHECK-PINIT-AMX-NEXT:    pushq %rax
 ; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-PINIT-AMX-NEXT:    xorl    %edi, %edi
-; CHECK-PINIT-AMX-NEXT:    xorl    %esi, %esi
-; CHECK-PINIT-AMX-NEXT:    callq   __intel_new_feature_proc_init
-; CHECK-PINIT-AMX-NEXT:    xorl    %eax, %eax
-; CHECK-PINIT-AMX-NEXT:    popq    %rcx
+; CHECK-PINIT-AMX-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-AMX-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-AMX-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-AMX-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-AMX-NEXT:    popq %rcx
 ; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-PINIT-AMX-NEXT:    retq
+;
+; CHECK-PINIT-AVXVNNI-LABEL: MAIN__:
+; CHECK-PINIT-AVXVNNI:       # %bb.0:
+; CHECK-PINIT-AVXVNNI-NEXT:    pushq %rax
+; CHECK-PINIT-AVXVNNI-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-AVXVNNI-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-AVXVNNI-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-AVXVNNI-NEXT:    movl $64, %esi
+; CHECK-PINIT-AVXVNNI-NEXT:    movl $1, %edi
+; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init_n
+; CHECK-PINIT-AVXVNNI-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-AVXVNNI-NEXT:    popq %rcx
+; CHECK-PINIT-AVXVNNI-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-AVXVNNI-NEXT:    retq
+;
+; CHECK-PINIT-KL-LABEL: MAIN__:
+; CHECK-PINIT-KL:       # %bb.0:
+; CHECK-PINIT-KL-NEXT:    pushq %rax
+; CHECK-PINIT-KL-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-KL-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-KL-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-KL-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-KL-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-KL-NEXT:    popq %rcx
+; CHECK-PINIT-KL-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-KL-NEXT:    retq
+;
+; CHECK-PINIT-WIDEKL-LABEL: MAIN__:
+; CHECK-PINIT-WIDEKL:       # %bb.0:
+; CHECK-PINIT-WIDEKL-NEXT:    pushq %rax
+; CHECK-PINIT-WIDEKL-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-WIDEKL-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-WIDEKL-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-WIDEKL-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-WIDEKL-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-WIDEKL-NEXT:    popq %rcx
+; CHECK-PINIT-WIDEKL-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-WIDEKL-NEXT:    retq
+
 
   ret i32 0
 }
@@ -262,18 +305,58 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-MIX-NEXT:    popq %rcx
 ; CHECK-PINIT-MIX-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-PINIT-MIX-NEXT:    retq
-
+;
 ; CHECK-PINIT-AMX-LABEL: main:
 ; CHECK-PINIT-AMX:       # %bb.0:
-; CHECK-PINIT-AMX-NEXT:    pushq   %rax
+; CHECK-PINIT-AMX-NEXT:    pushq %rax
 ; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-PINIT-AMX-NEXT:    xorl    %edi, %edi
-; CHECK-PINIT-AMX-NEXT:    xorl    %esi, %esi
-; CHECK-PINIT-AMX-NEXT:    callq   __intel_new_feature_proc_init
-; CHECK-PINIT-AMX-NEXT:    xorl    %eax, %eax
-; CHECK-PINIT-AMX-NEXT:    popq    %rcx
+; CHECK-PINIT-AMX-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-AMX-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-AMX-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-AMX-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-AMX-NEXT:    popq %rcx
 ; CHECK-PINIT-AMX-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-PINIT-AMX-NEXT:    retq
+;
+; CHECK-PINIT-AVXVNNI-LABEL: main:
+; CHECK-PINIT-AVXVNNI:       # %bb.0:
+; CHECK-PINIT-AVXVNNI-NEXT:    pushq %rax
+; CHECK-PINIT-AVXVNNI-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-AVXVNNI-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-AVXVNNI-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-AVXVNNI-NEXT:    movl $64, %esi
+; CHECK-PINIT-AVXVNNI-NEXT:    movl $1, %edi
+; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init_n
+; CHECK-PINIT-AVXVNNI-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-AVXVNNI-NEXT:    popq %rcx
+; CHECK-PINIT-AVXVNNI-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-AVXVNNI-NEXT:    retq
+;
+; CHECK-PINIT-KL-LABEL: main:
+; CHECK-PINIT-KL:       # %bb.0:
+; CHECK-PINIT-KL-NEXT:    pushq %rax
+; CHECK-PINIT-KL-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-KL-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-KL-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-KL-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-KL-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-KL-NEXT:    popq %rcx
+; CHECK-PINIT-KL-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-KL-NEXT:    retq
+;
+; CHECK-PINIT-WIDEKL-LABEL: main:
+; CHECK-PINIT-WIDEKL:       # %bb.0:
+; CHECK-PINIT-WIDEKL-NEXT:    pushq %rax
+; CHECK-PINIT-WIDEKL-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-PINIT-WIDEKL-NEXT:    xorl %edi, %edi
+; CHECK-PINIT-WIDEKL-NEXT:    xorl %esi, %esi
+; CHECK-PINIT-WIDEKL-NEXT:    callq __intel_new_feature_proc_init
+; CHECK-PINIT-WIDEKL-NEXT:    xorl %eax, %eax
+; CHECK-PINIT-WIDEKL-NEXT:    popq %rcx
+; CHECK-PINIT-WIDEKL-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-PINIT-WIDEKL-NEXT:    retq
+
 
   ret i32 0
 }
