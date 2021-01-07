@@ -33,6 +33,7 @@ void GlobalCompilerConfig::LoadDefaults()
     m_disableStackDump = true;
     m_infoOutputFile = "";
     m_LLVMOptions = "";
+    m_targetDevice = CPU_DEVICE;
 }
 
 static bool parseBool(const char *val) {
@@ -171,6 +172,16 @@ void CompilerConfig::LoadDefaults()
     m_rtLoopUnrollFactor = 1;
     m_cpuFeatures = "";
     m_useVTune = true;
+    m_serializeWorkGroups = false;
+    m_loadBuiltins = true;
+    m_DumpIROptionAfter = NULL;
+    m_DumpIROptionBefore = NULL;
+    m_dumpHeuristicIR = false;
+    m_streamingAlways = false;
+    m_expensiveMemOpts = 0;
+    m_targetDevice = CPU_DEVICE;
+    m_forcedPrivateMemorySize = 0;
+    m_useAutoMemory = false;
 }
 
 void CompilerConfig::LoadConfig()
