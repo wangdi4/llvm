@@ -1,6 +1,6 @@
 //===----------- Intel_TileMVInlMarker.cpp --------------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
@@ -303,7 +304,8 @@ private:
 
   // Return the multiversioning condition between the high performance and
   // default version of the code. This condition will be placed in 'CondBB'.
-  Value *makeConditionFromGlobals(BasicBlock *CondBB);
+  // DebugLocs will be generated from the debug info in 'CI', if present.
+  Value *makeConditionFromGlobals(BasicBlock *CondBB, CallInst *CI);
 
   // Transform the call to the 'MainRoot' function by conditioning it on the
   // multiversioning test. A copy of 'MainRoot' is cloned, which is used for
@@ -1295,24 +1297,33 @@ bool TileMVInlMarker::validateGVM() {
   return true;
 }
 
-Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB) {
+Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB,
+                                                 CallInst *CI) {
   Value *TAnd = nullptr;
+  auto SP = CI->getFunction()->getSubprogram();
+  auto DIL = SP ? DILocation::get(SP->getContext(),
+      CI->getDebugLoc()->getLine(), CI->getDebugLoc()->getColumn(), SP)
+      : nullptr;
   for (auto &Pair : CM) {
     Value *V = Pair.first;
     bool Sense = Pair.second;
     auto LI = dyn_cast<LoadInst>(V);
     if (LI) {
       LoadInst *NewLI = cast<LoadInst>(LI->clone());
+      if (DIL)
+        NewLI->setDebugLoc(DIL);
       CondBB->getInstList().push_back(NewLI);
       Constant *CZ = ConstantInt::get(LI->getType(), 0);
       CmpInst *CI = ICmpInst::Create(
           Instruction::ICmp, Sense ? ICmpInst::ICMP_NE : ICmpInst::ICMP_EQ,
           NewLI, CZ, "clone.tile.cmp", CondBB);
-      CI->setDebugLoc(LI->getDebugLoc());
+      if (DIL)
+        CI->setDebugLoc(DIL);
       if (TAnd) {
         BinaryOperator *BO =
             BinaryOperator::CreateAnd(TAnd, CI, ".clone.tile.and", CondBB);
-        BO->setDebugLoc(LI->getDebugLoc());
+        if (DIL)
+          BO->setDebugLoc(DIL);
       } else {
         TAnd = cast<Value>(CI);
       }
@@ -1323,16 +1334,20 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB) {
       auto LLI = dyn_cast<LoadInst>(IC->getOperand(0));
       if (LLI) {
         LoadInst *NewLLI = cast<LoadInst>(LLI->clone());
+        if (DIL)
+          NewLLI->setDebugLoc(DIL);
         CondBB->getInstList().push_back(NewLLI);
         CmpInst *CI = ICmpInst::Create(
             Instruction::ICmp,
             Sense ? IC->getPredicate() : IC->getInversePredicate(), NewLLI,
             IC->getOperand(1), "clone.tile.cmp", CondBB);
-        CI->setDebugLoc(LLI->getDebugLoc());
+        if (DIL)
+          CI->setDebugLoc(DIL);
         if (TAnd) {
           BinaryOperator *BO =
               BinaryOperator::CreateAnd(TAnd, CI, ".clone.tile.and", CondBB);
-          BO->setDebugLoc(LLI->getDebugLoc());
+          if (DIL)
+            BO->setDebugLoc(DIL);
         } else {
           TAnd = cast<Value>(CI);
         }
@@ -1341,16 +1356,20 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB) {
       auto LRI = dyn_cast<LoadInst>(IC->getOperand(1));
       if (LRI) {
         LoadInst *NewLRI = cast<LoadInst>(LRI->clone());
+        if (DIL)
+          NewLRI->setDebugLoc(DIL);
         CondBB->getInstList().push_back(NewLRI);
         CmpInst *CI = ICmpInst::Create(
             Instruction::ICmp,
             Sense ? IC->getPredicate() : IC->getInversePredicate(),
             IC->getOperand(0), NewLRI, "clone.tile.cmp", CondBB);
-        CI->setDebugLoc(LRI->getDebugLoc());
+        if (DIL)
+          CI->setDebugLoc(DIL);
         if (TAnd) {
           BinaryOperator *BO =
               BinaryOperator::CreateAnd(TAnd, CI, ".clone.tile.and", CondBB);
-          BO->setDebugLoc(LRI->getDebugLoc());
+          if (DIL)
+            BO->setDebugLoc(DIL);
         } else {
           TAnd = cast<Value>(CI);
         }
@@ -1399,7 +1418,7 @@ void TileMVInlMarker::cloneCallToRoot() {
   // multiversioning test into it.
   BasicBlock *CondBB = BasicBlock::Create(CI->getContext(), ".clone.tile.cond",
                                           OrigBB->getParent(), TailBB);
-  Value *TAnd = makeConditionFromGlobals(CondBB);
+  Value *TAnd = makeConditionFromGlobals(CondBB, CI);
   assert(TAnd && "Expecting TAnd != nullptr, since CM.size() > 0");
   Constant *ConstantZero = ConstantInt::get(TAnd->getType(), 0);
   CmpInst *Cmp = CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, TAnd,
