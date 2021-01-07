@@ -370,12 +370,8 @@ public:
   /// Construct the module pipeline that performs inlining as well as
   /// the inlining-driven cleanups.
   ModuleInlinerWrapperPass buildInlinerPipeline(OptimizationLevel Level,
-#if INTEL_CUSTOMIZATION
-                                                // Intel: Add InlPass.
                                                 ThinLTOPhase Phase,
-                                                bool MandatoryOnly,
-                                                InlinerPass *InlPass);
-#endif // INTEL_CUSTOMIZATION
+                                                bool MandatoryOnly);
 
   /// Construct the core LLVM module optimization pipeline.
   ///

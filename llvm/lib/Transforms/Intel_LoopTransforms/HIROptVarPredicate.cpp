@@ -175,6 +175,7 @@ public:
     return NodesToInvalidate;
   }
 
+  virtual ~HIROptVarPredicate() {}
 private:
   static std::unique_ptr<CanonExpr>
   findIVSolution(Type *IVType, const RegDDRef *LHSDDref, PredicateTy Pred,

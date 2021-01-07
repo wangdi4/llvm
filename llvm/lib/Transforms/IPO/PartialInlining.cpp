@@ -1784,8 +1784,7 @@ bool PartialInlinerImpl::run(Module &M) {
   }
 #if INTEL_CUSTOMIZATION
   if (ForceInlineReportAfterPartialInline)
-    getInlineReport()->testAndPrint(/*Inliner=*/nullptr,
-                                    /*IsAlwaysInline=*/false);
+    getInlineReport()->testAndPrint(nullptr);
 #endif // INTEL_CUSTOMIZATION
   return Changed;
 }

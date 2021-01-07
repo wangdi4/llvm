@@ -111,14 +111,13 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
-  InlinerPass(bool IsAlwaysInline = false); // INTEL
+  InlinerPass(); // INTEL
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
-      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
-        Report(std::move(Arg.Report)),                                 // INTEL
-        MDReport(std::move(Arg.MDReport)),                             // INTEL
-        IsAlwaysInline(Arg.IsAlwaysInline)                             // INTEL
-  {}                                                                   // INTEL
+#if INTEL_CUSTOMIZATION
+      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)),
+        Report(std::move(Arg.Report)), MDReport(std::move(Arg.MDReport)) {}
+#endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
@@ -151,7 +150,7 @@ public:
   ModuleInlinerWrapperPass(
       InlineParams Params = getInlineParams(), bool Debugging = false,
       InliningAdvisorMode Mode = InliningAdvisorMode::Default,
-      unsigned MaxDevirtIterations = 0, InlinerPass *InlP = nullptr); // INTEL
+      unsigned MaxDevirtIterations = 0);
   ModuleInlinerWrapperPass(ModuleInlinerWrapperPass &&Arg) = default;
 
   PreservedAnalyses run(Module &, ModuleAnalysisManager &);

@@ -48,11 +48,11 @@ class VPOCodeGen {
 public:
   VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
-             TargetLibraryInfo *TLI, const TargetTransformInfo *TTI,
+             TargetLibraryInfo *TLI,
              unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlan *Plan)
-      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
+      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI),
         Legal(LVL), VLSA(VLSA),
         VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
@@ -378,8 +378,6 @@ private:
 
   /// Target Library Info.
   TargetLibraryInfo *TLI;
-  /// Target Transform Info.
-  const TargetTransformInfo *TTI;
 
   /// Vectorization Legality.
   VPOVectorizationLegality *Legal;

@@ -904,10 +904,9 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass(bool IsAlwaysInlineV) {
+InlinerPass::InlinerPass() {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
-  IsAlwaysInline = IsAlwaysInlineV;
 }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -917,8 +916,7 @@ InlinerPass::~InlinerPass() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-  getReport()->testAndPrint(this, IsAlwaysInline,
-                            /*IsLegacyPassManager=*/ false);
+  getReport()->testAndPrint(this); // INTEL
 }
 
 InlineAdvisor &
@@ -974,7 +972,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   }
 
 #if INTEL_CUSTOMIZATION
-  Report->beginSCC(InitialC, this, /*IsAlwaysInline=*/false);
+  Report->beginSCC(InitialC, this);
   MDReport->beginSCC(InitialC);
   InlineParams Params = getInlineParams();
   if (Params.PrepareForLTO.getValueOr(false))
@@ -1387,8 +1385,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
                                                    bool Debugging,
                                                    InliningAdvisorMode Mode,
-                                                   unsigned MaxDevirtIterations,
-                                                   InlinerPass *InlP) // INTEL
+                                                   unsigned MaxDevirtIterations)
     : Params(Params), Mode(Mode), MaxDevirtIterations(MaxDevirtIterations),
       PM(Debugging), MPM(Debugging) {
   // Run the inliner first. The theory is that we are walking bottom-up and so
@@ -1396,14 +1393,7 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
-#if INTEL_CUSTOMIZATION
-  if (InlP) {
-    InlP->setIsAlwaysInline(Mode == InliningAdvisorMode::MandatoryOnly);
-    PM.addPass(std::move(*InlP));
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-  PM.addPass(InlinerPass(Mode == InliningAdvisorMode::MandatoryOnly));
+  PM.addPass(InlinerPass());
 }
 
 PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,

@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -281,15 +281,13 @@ class InlineReport {
 public:
   explicit InlineReport(unsigned MyLevel)
       : Level(MyLevel), ActiveInlineCallBase(nullptr),
-        ActiveCallee(nullptr), ActiveIRCS(nullptr), ActiveInliner(nullptr),
-        ActiveInlinerIsAlwaysInline(false), IsAlreadyPrinted(false),
-        M(nullptr) {};
+        ActiveCallee(nullptr), ActiveIRCS(nullptr), M(nullptr) {};
   virtual ~InlineReport(void);
 
   // Indicate that we have begun inlining functions in the current
   // SCC of the CG.
-  void beginSCC(CallGraphSCC &SCC, void *Inliner, bool IsAlwaysInline);
-  void beginSCC(LazyCallGraph::SCC &SCC, void *Inliner, bool IsAlwaysInline);
+  void beginSCC(CallGraphSCC &SCC, void *Inliner);
+  void beginSCC(LazyCallGraph::SCC &SCC, void *Inliner);
 
   // Indicate that we are done inlining functions in the current SCC.
   void endSCC();
@@ -332,21 +330,12 @@ public:
   }
 
   /// Print the inlining report at the given level.
-  /// 'IsAlwaysInline' is 'true' if this is a report from the always inliner.
-  void print(bool IsAlwaysInline) const;
+  void print() const;
 
-  /// Test if the current inline report has been printed, and if not, print it.
-  /// If this is not the legacy pass manager, and it is the always inline pass,
-  /// defer printing until the normal inlining pass has been run.
-  void testAndPrint(void *Inliner, bool IsAlwaysInline,
-                    bool IsLegacyPassManager = true);
-
-  /// If a new 'Inliner' has been invoked, dump the inlining report for the
-  /// previous inliner and update 'IsAlwaysInline' for the new one.
-  /// NOTE: We make an exception if this is not the legacy pass manager.
-  /// See the comment for testAndPrint() above.
-  void printIfNewInliner(void *Inliner, bool IsAlwaysInline,
-                         bool IsLegacyPassManager = true);
+  /// Test if 'Inliner' represents an active inliner, and if it is the last
+  /// pending active inliner, print the inlining report. If 'Inliner' is
+  /// nullptr, print unconditionally.
+  void testAndPrint(void *Inliner);
 
   /// Check if report has data
   bool isEmpty() { return IRFunctionMap.empty(); }
@@ -469,14 +458,9 @@ private:
   // The InlineReportCallSite* of the CallSite currently being inlined
   InlineReportCallSite *ActiveIRCS;
 
-  // Pointer to the current inliner. Used to tell when it changes.
-  void *ActiveInliner;
-
-  // 'true' if the current inliner is AlwaysInline.
-  bool ActiveInlinerIsAlwaysInline;
-
-  // 'true' if the current inline report is already printed.
-  bool IsAlreadyPrinted;
+  // Set of active inliners. When this goes to empty, we can print the
+  // inlining report.
+  SmallPtrSet<void *, 4> ActiveInliners;
 
   /// InlineFunction() fills this in with callsites that were cloned from
   /// the callee.  This is used only for inline report.
