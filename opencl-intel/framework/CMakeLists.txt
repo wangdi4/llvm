@@ -52,13 +52,8 @@ set( TARGET_NAME_EMU ${TARGET_NAME}_${OUTPUT_EMU_SUFF} )
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
-set (CONFIG_FILES cl.cfg)
-
 if (WIN32)
     source_group( "API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp framework_proxy.h)
-
-    source_group( "Resource Files" FILES ${CONFIG_FILES} )
-    list( APPEND TARGET_SOURCES ${CONFIG_FILES} )
 
     list( APPEND LINK_LIBS PowrProf.lib )
 endif (WIN32)
@@ -117,17 +112,15 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
       ${OUTPUT_EMU_SUFF}
 )
 
-copy_to (${CONFIG_FILES} DESTINATION lib)
-install_to (${CONFIG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-config)
-install_to (${CONFIG_FILES} DESTINATION lib/${OUTPUT_EMU_SUFF} COMPONENT ocl-config)
+# Generate config file for FPGA emulator and cpu
+# For cpu
+set(CL_CONFIG_DEVICES cpu)
+configure_file(${OCL_SOURCE_DIR}/cmake/cl_config.in ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF}/cl.cfg)
+# For fpga-emu
+set(CL_CONFIG_DEVICES fpga-emu)
+configure_file(${OCL_SOURCE_DIR}/cmake/cl_config.in ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg)
 
-# Generate config file for FPGA emulator
-# The generation is done for chaging default device from CPU to FPGA
-# TODO: do we need to do the same for CPU RT?
-file (READ ${OCL_SOURCE_DIR}/cmake/cl_config.in cl_config)
-file (WRITE ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg ${cl_config})
-file (APPEND ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg "CL_CONFIG_DEVICES = fpga-emu")
-
+# For fpga-emu
 if (NOT (WIN32 AND "${OUTPUT_ARCH_SUFF}" STREQUAL "x86"))
     install (CODE
         "
@@ -135,6 +128,12 @@ if (NOT (WIN32 AND "${OUTPUT_ARCH_SUFF}" STREQUAL "x86"))
              DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_EMU_SUFF})
         " COMPONENT ocl-config)
 endif()
+# For CPU
+install (CODE
+    "
+        file(COPY ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF}/cl.cfg
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
+    " COMPONENT ocl-config)
 
 install (CODE
     "
