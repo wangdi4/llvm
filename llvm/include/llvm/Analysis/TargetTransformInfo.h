@@ -59,6 +59,7 @@ class TargetLibraryInfo;
 class Type;
 class User;
 class Value;
+class VectorVariant; // INTEL
 struct KnownBits;
 template <typename T> class Optional;
 
@@ -1293,6 +1294,15 @@ public:
 
   /// \return true if VLS is expected to be profitable in almost all cases.
   bool isAggressiveVLSProfitable() const;
+
+  /// Attempt to match the vector variant of the call \p ForCall with each
+  /// possible variant of "vector-variants" function attribute. Each variant
+  /// of the attribute is recorded in \p Variants. \returns The index of the
+  /// best match in \p Variants, or -1 of no match is found.
+  int getMatchingVectorVariant(
+      VectorVariant &ForCall,
+      SmallVectorImpl<VectorVariant> &Variants,
+      const Module *M) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -1696,6 +1706,10 @@ public:
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const = 0;
   virtual bool isVPlanVLSProfitable() const = 0;
   virtual bool isAggressiveVLSProfitable() const = 0;
+  virtual int getMatchingVectorVariant(
+      VectorVariant &ForCall,
+      SmallVectorImpl<VectorVariant> &Variants,
+      const Module *M) const = 0;
   virtual bool needsStructuredCFG() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
@@ -2246,6 +2260,13 @@ public:
 
   bool isAggressiveVLSProfitable() const override {
     return Impl.isAggressiveVLSProfitable();
+  }
+
+  int getMatchingVectorVariant(
+      VectorVariant &ForCall,
+      SmallVectorImpl<VectorVariant> &Variants,
+      const Module *M) const override {
+    return Impl.getMatchingVectorVariant(ForCall, Variants, M);
   }
 
   bool needsStructuredCFG() const override {

@@ -252,6 +252,10 @@ public:
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
   bool isVPlanVLSProfitable() const;
   bool isAggressiveVLSProfitable() const;
+  int getMatchingVectorVariant(
+      VectorVariant &ForCall,
+      SmallVectorImpl<VectorVariant> &Variants,
+      const Module *M) const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
@@ -279,6 +283,7 @@ private:
                       unsigned AddressSpace);
   int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                       Align Alignment, unsigned AddressSpace);
+  bool targetMatchesVariantISA(VectorVariant::ISAClass VariantISA) const;
 #endif // INTEL_CUSTOMIZATION
   int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                       Align Alignment, unsigned AddressSpace);

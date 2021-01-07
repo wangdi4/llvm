@@ -1031,6 +1031,13 @@ bool TargetTransformInfo::isVPlanVLSProfitable() const {
 bool TargetTransformInfo::isAggressiveVLSProfitable() const {
   return TTIImpl->isAggressiveVLSProfitable();
 }
+
+int TargetTransformInfo::getMatchingVectorVariant(
+    VectorVariant &ForCall,
+    SmallVectorImpl<VectorVariant> &Variants,
+    const Module *M) const {
+  return TTIImpl->getMatchingVectorVariant(ForCall, Variants, M);
+}
 #endif // INTEL_CUSTOMIZATION
 
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(
