@@ -22,7 +22,12 @@
 
 using namespace llvm;
 
-extern bool EnableVectorVariantPasses;
+bool EnableVectorVariantPasses = true;
+static cl::opt<bool, true> EnableVectorVariantPassesOpt(
+  "enable-vector-variant-passes", cl::location(EnableVectorVariantPasses),
+  cl::Hidden,
+  cl::desc(
+    "Enable vector-variant/vector_function_ptrs attributes processing."));
 
 namespace intel {
 

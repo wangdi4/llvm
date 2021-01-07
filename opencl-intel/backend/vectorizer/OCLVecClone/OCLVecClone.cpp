@@ -631,9 +631,13 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       std::make_pair(CompilationUtils::mangledGetLocalLinearId(),
                      FnAction::AssertIfEncountered)};
 
+  // TODO: this operation can be expensive.
+  auto Kernels = KernelList(F.getParent()).getList();
+  std::set<Function *> KernelsSet(Kernels.begin(), Kernels.end());
+
   unsigned VecDim;
   bool CanUniteWorkgroups;
-  if (DimChooser) {
+  if (DimChooser && KernelsSet.count(&F)) {
     VecDim = DimChooser->getVectorizationDim(&F);
     CanUniteWorkgroups = DimChooser->getCanUniteWorkgroups(&F);
   } else {

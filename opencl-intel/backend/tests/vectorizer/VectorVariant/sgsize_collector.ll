@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -sg-size-collector -S | FileCheck %s
+; RUN: %oclopt %s -enable-direct-function-call-vectorization -sg-size-collector -S | FileCheck %s
 
 define void @bar() #0 {
 ; CHECK: define void @bar() #[[ATTR0:[0-9]+]] {

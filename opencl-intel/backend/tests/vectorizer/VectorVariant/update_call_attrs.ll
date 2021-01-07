@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -update-call-attrs -S | FileCheck %s
+; RUN: %oclopt %s -update-call-attrs -S | FileCheck %s
 
 define void @bar() #0 {
 entry:
