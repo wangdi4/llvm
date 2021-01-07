@@ -285,6 +285,9 @@ EXTERN void __tgt_rtl_add_build_options(
 
 // Check if the specified device type is supported
 EXTERN bool __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
+
+// Deinit RTL
+EXTERN void __tgt_rtl_deinit(void);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
