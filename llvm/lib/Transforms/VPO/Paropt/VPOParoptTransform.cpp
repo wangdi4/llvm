@@ -11653,7 +11653,8 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
     APInt Max = Hi ? *Hi : APInt::getSignedMaxValue(Ty->getBitWidth());
     MDNode *RangeMD =
         MDBuilder(Call->getContext())
-            .createRange(ConstantInt::get(Ty, Lo), ConstantInt::get(Ty, Max));
+            .createRange(ConstantInt::get(Ty, Lo),
+                         ConstantInt::get(Ty, Max.getSExtValue()));
     Call->setMetadata(LLVMContext::MD_range, RangeMD);
   };
 
