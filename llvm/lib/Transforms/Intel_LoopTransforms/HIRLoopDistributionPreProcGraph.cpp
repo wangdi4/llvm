@@ -1,6 +1,6 @@
 //===--- HIRLoopDistributionGraph.cpp - Forms Distribution Graph  ---------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -309,13 +309,19 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     // Scalar temp Output Dep (*) has single edge
 
     DDRef *DDRefSrc = Edge->getSrc();
+    DDRef *DDRefSink = Edge->getSink();
+
     HLNode *SrcHIR = DDRefSrc->getHLDDNode();
+    HLNode *DstHIR = DDRefSink->getHLDDNode();
+
     RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSrc);
 
     if (Edge->isOutput()) {
       assert(RegRef && "RegDDRef expected");
       if (RegRef->isTerminalRef() &&
-          Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {
+          (Edge->getDVAtLevel(LoopLevel) == DVKind::ALL ||
+           !HLNodeUtils::postDominates(DstHIR, SrcHIR))) {
+        // Note: it's also possible to ignore the edge if temp is not live-out.
         return true;
       }
     }
@@ -340,9 +346,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       return false;
     }
 
-    DDRef *DDRefSink = Edge->getSink();
     if (Edge->getDVAtLevel(LoopLevel) == DVKind::LE) {
-      HLNode *DstHIR = DDRefSink->getHLDDNode();
       if (!HLNodeUtils::dominates(SrcHIR, DstHIR)) {
         return true;
       }
