@@ -4622,8 +4622,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     auto CanExtendMultiNode = [this, MultiNodeCompatibleInstructions,
                                OperandsInExistingMultiNode](
                                   ArrayRef<Value *> VL) {
-      auto WithinSameBB = [this](ArrayRef<Value *> VL,
-                                 const TreeEntry *RootTE) {
+      auto WithinSameBB = [](ArrayRef<Value *> VL,
+                             const TreeEntry *RootTE) {
         // At this point we do expect that (1) the MultiNode root node scalars
         // are all within same block and (2) those scalars currently being
         // evaluated are also all within same block. We do only need to check

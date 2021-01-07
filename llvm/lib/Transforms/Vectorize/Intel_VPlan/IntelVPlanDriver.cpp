@@ -24,6 +24,7 @@
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanMaskedModeLoop.h"
 #include "IntelVPlanScalarEvolution.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
@@ -287,7 +288,17 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   }
 #else
   LVP.buildInitialVPlans();
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
+
+  if (EnableMaskedVariant)
+    for (auto &Pair : LVP.getAllVPlans()) {
+      std::shared_ptr<VPlan> Plan = Pair.second.MainPlan;
+      if (!Pair.second.MaskedModeLoop) {
+        MaskedModeLoopCreator MML(Plan.get(), VPAF);
+        LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
+                                            Plan, MML.createMaskedModeLoop()});
+      }
+    }
 
   // VPlan Predicator
   LVP.predicate();

@@ -1865,6 +1865,7 @@ public:
     EmitIgnoredExpr(E);
     GenOMPIncrement = false;
   }
+  bool hasBuiltinAtomic(uint64_t AtomicSizeInBits, uint64_t AlignmentInBits);
 #endif  // INTEL_COLLAB
   /// Source location information about the default argument or member
   /// initializer expression we're evaluating, if any.

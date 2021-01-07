@@ -96,7 +96,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
       //        types with padding (e.g. <3 x i32> or x86_fp80). See
       //        CMPLRLLVM-23003 for more details.
       Type *MrfTy = getLoadStoreType(&VPInst);
-      if (DL.getTypeAllocSize(MrfTy) != DL.getTypeStoreSize(MrfTy))
+      if (hasIrregularTypeForUnitStride(MrfTy, &DL))
         continue;
 
       OVLSMemref *Memref = createVLSMemref(&VPInst, VF);

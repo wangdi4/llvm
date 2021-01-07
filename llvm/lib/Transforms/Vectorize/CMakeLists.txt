@@ -40,6 +40,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp
   Intel_VPlan/IntelVPlanLoopInfo.cpp
   Intel_VPlan/IntelVPlanLoopUnroller.cpp
+  Intel_VPlan/IntelVPlanMaskedModeLoop.cpp
   Intel_VPlan/IntelVPMemRefTransform.cpp
   Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp

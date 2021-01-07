@@ -81,10 +81,23 @@ void test_update() {
   #pragma omp simd
   for (int i0 = 0 ; i0 < 10 ; i0++ )
   {
-    //ALL-NOT: load atomic
-    //ALL-NOT: cmpxchg
+    //TARG-OLD-NOT: load atomic
+    //TARG-OLD-NOT: cmpxchg
+    //TARG: load atomic
+    //TARG: cmpxchg
     #pragma omp atomic update
     counter_N0 = counter_N0 +  1. ;
   }
   //ALL: "DIR.OMP.END.TARGET"()
+}
+
+//ALL-LABEL: test_write
+void test_write(float *x, float *v) {
+  #pragma omp target parallel for map(tofrom: x[0], v[0])
+  for (int i = 0; i < 100; i++) {
+    //TARG-OLD-NOT: store atomic
+    //TARG: store atomic
+    #pragma omp atomic write
+    *x = *v;
+  }
 }
