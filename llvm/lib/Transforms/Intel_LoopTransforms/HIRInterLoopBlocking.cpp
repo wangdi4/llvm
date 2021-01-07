@@ -1709,12 +1709,14 @@ public:
         SL->getLowerDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
         SL->getUpperDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
         SL->addLiveInTemp(LiveInsFromNormalization);
+
+        // MarkNotBlock to inhibit regular loop blocking pass coming later
+        SL->markDoNotBlock();
       }
     }
 
     LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating: \n";
                              OutermostLoop->dump());
-    printMarker("After updating inner Loops: ", {OutermostLoop}, false);
     printMarker("Detail: After updating inner Loops: ", {OutermostLoop}, true,
                 true);
 
