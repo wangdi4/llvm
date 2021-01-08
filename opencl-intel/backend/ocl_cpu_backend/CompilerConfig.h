@@ -59,18 +59,6 @@ private:
 class CompilerConfig: public virtual ICompilerConfig
 {
 public:
-    CompilerConfig():m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
-                     m_transposeSize(TRANSPOSE_SIZE_NOT_SET),
-                     m_rtLoopUnrollFactor(1),
-                     m_useVTune(false),
-                     m_serializeWorkGroups(false),
-                     m_loadBuiltins(true),
-                     m_DumpIROptionAfter(NULL),
-                     m_DumpIROptionBefore(NULL),
-                     m_dumpHeuristicIR(false),
-                     m_streamingAlways(false),
-                     m_expensiveMemOpts(0) {}
-
     // CompilerConfiguration methods
     void LoadDefaults();
     virtual void LoadConfig();
