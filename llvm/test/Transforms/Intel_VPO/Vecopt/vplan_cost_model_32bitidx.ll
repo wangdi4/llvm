@@ -5,10 +5,10 @@
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
 
-@arr.i32.0 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@arr.i32.3 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+@arr.i32.0 = external local_unnamed_addr global [1024 x i32], align 16
+@arr.i32.1 = external local_unnamed_addr global [1024 x i32], align 16
+@arr.i32.2 = external local_unnamed_addr global [1024 x i32], align 16
+@arr.i32.3 = external local_unnamed_addr global [1024 x i32], align 16
 
 define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-LABEL:  HIR Cost Model for VPlan test_fit_32bitindex_gather.28 with VF = 8:
