@@ -1926,9 +1926,11 @@ public:
   const CallInst *getUnderlyingCallInst() const {
     if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction()))
       return IRCall;
-    else if (auto *HIRCall = HIR.getUnderlyingNode())
-      return cast<loopopt::HLInst>(HIRCall)->getCallInst();
-    else
+    else if (auto *HIRCall = HIR.getUnderlyingNode()) {
+      auto *IRCall = cast<loopopt::HLInst>(HIRCall)->getCallInst();
+      assert (IRCall && "Underlying call instruction expected here.");
+      return IRCall;
+    } else
       llvm_unreachable(
           "VPlan created a new VPCallInstruction without underlying IR.");
   }
