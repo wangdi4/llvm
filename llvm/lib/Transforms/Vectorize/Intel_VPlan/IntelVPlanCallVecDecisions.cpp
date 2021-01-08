@@ -167,6 +167,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
     auto *Fn = VPCall->getCalledFunction();
     assert(VPCall->isIntelIndirectCall() ||
            (Fn && Variants[I].contains(Fn->getName())));
+    (void)Fn;
 
     VectorVariant Variant(Variants[I]);
     VectorVariant::ISAClass VariantIsaClass = Variant.getISA();
