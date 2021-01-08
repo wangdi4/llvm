@@ -1,126 +1,202 @@
+#include "FrameworkTestThreads.h"
+#include "TestsHelpClasses.h"
 #include <CL/cl.h>
-#include <stdio.h>
-#include "FrameworkTest.h"
+#include <cmath>
+#include <gtest/gtest.h>
+#include <tbb/global_control.h>
+#include <tbb/parallel_for.h>
 
 extern cl_device_type gDeviceType;
 
-struct arg_struct
-{
-	int* inp1;
-	int* inp2;
-	int val;
-	int* output;
+struct arg_struct {
+  int *inp1;
+  int *inp2;
+  int val;
+  int *output;
 };
 
-void CL_CALLBACK NativeFunc(void* args)
-{
-	if (!SilentCheck("args properly supplied", true, args != NULL))
-	{
-		return;
-	}
+static void CL_CALLBACK NativeFunc(void *args) {
+  if (!SilentCheck("args properly supplied", true, args != NULL)) {
+    return;
+  }
 
-	arg_struct* arguments = (arg_struct*)args;
-	*arguments->output = *arguments->inp1 + *arguments->inp2 + arguments->val;
+  arg_struct *arguments = (arg_struct *)args;
+  *arguments->output = *arguments->inp1 + *arguments->inp2 + arguments->val;
 }
 
-bool EnqueueNativeKernelTest()
-{
+class EnqueueNativeKernelTest : public ::testing::Test {
+protected:
+  virtual void SetUp() override {
+    cl_int err = clGetPlatformIDs(1, &m_platform, NULL);
+    ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
-	cl_device_id      deviceId;
-	cl_device_id*     devices = NULL;
-	cl_uint           numDevices = 0;
-	cl_context        context;
-	cl_command_queue  commandQueue;
-	cl_int            err = CL_SUCCESS;
+    err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, NULL);
+    ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
 
+    m_context = clCreateContext(NULL, 1, &m_device, NULL, NULL, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateContext");
 
-	cl_platform_id platform = 0;
-	bool bResult = true;
+    cl_command_queue_properties properties[] = {
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+    m_queue = clCreateCommandQueueWithProperties(m_context, m_device,
+                                                 properties, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+  }
 
-	err = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, err);
+  virtual void TearDown() override {
+    cl_int err = clReleaseCommandQueue(m_queue);
+    EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
+    err = clReleaseContext(m_context);
+    EXPECT_OCL_SUCCESS(err, "clReleaseContext");
+  }
 
-	if (!bResult)
-	{
-		return bResult;
-	}
+protected:
+  cl_platform_id m_platform;
+  cl_device_id m_device;
+  cl_context m_context;
+  cl_command_queue m_queue;
+};
 
-	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+TEST_F(EnqueueNativeKernelTest, basic) {
+  // Create memory objects for test
+  cl_int err;
+  int data1 = 0xABCD;
+  int data2 = 0x1234;
+  cl_mem mem1 = clCreateBuffer(m_context, CL_MEM_COPY_HOST_PTR, sizeof(int),
+                               &data1, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
+  cl_mem mem2 = clCreateBuffer(m_context, CL_MEM_COPY_HOST_PTR, sizeof(int),
+                               &data2, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
+  cl_mem res =
+      clCreateBuffer(m_context, CL_MEM_READ_WRITE, sizeof(int), NULL, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
 
-	/* Get the number of requested devices */
-	err |= clGetDeviceIDs(platform,  gDeviceType, 0, NULL, &numDevices );
-	devices = (cl_device_id *) malloc( numDevices * sizeof( cl_device_id ) );
-	err |= clGetDeviceIDs(platform,  gDeviceType, numDevices, devices, NULL );
-	deviceId = devices[0];
-	free(devices);
-	devices = NULL;
+  arg_struct args;
+  args.val = 1234;
 
-	if (err != CL_SUCCESS)
-	{
-		return false;
-	}
+  cl_mem memList[] = {mem1, mem2, res};
+  void *offsets[] = {&args.inp2, &args.inp1, &args.output};
+  cl_event e;
+  err = clEnqueueNativeKernel(m_queue, NativeFunc, &args, sizeof(arg_struct), 3,
+                              memList, (const void **)offsets, 0, NULL, &e);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNativeKernel");
+  int data3;
+  err = clEnqueueReadBuffer(m_queue, res, CL_TRUE, 0, sizeof(int), &data3, 1,
+                            &e, NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
 
-	context = clCreateContext(prop, 1, &deviceId, NULL, NULL, &err);
-	if (err != CL_SUCCESS)
-	{
-		return false;
-	}
+  ASSERT_EQ(data3, data1 + data2 + args.val) << " result mismatch";
 
-	commandQueue = clCreateCommandQueue(context, deviceId, 0, &err);
-	if (err != CL_SUCCESS)
-	{
-		clReleaseContext(context);
-		return false;
-	}
+  err = clReleaseMemObject(mem1);
+  ASSERT_OCL_SUCCESS(err, "clReleaseMemObject(mem1)");
+  err = clReleaseMemObject(mem2);
+  ASSERT_OCL_SUCCESS(err, "clReleaseMemObject(mem2)");
+  err = clReleaseMemObject(res);
+  ASSERT_OCL_SUCCESS(err, "clReleaseMemObject(res)");
+}
 
-	// Create memory objects for test
-	int data1 = 0xABCD;
-	int data2 = 0x1234;
-	cl_mem mem1 = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(int), &data1, &err);
-	if (err != CL_SUCCESS)
-	{
-		clReleaseCommandQueue(commandQueue);
-		clReleaseContext(context);
-		return false;
-	}
-	cl_mem mem2 = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(int), &data2, &err);
-	if (err != CL_SUCCESS)
-	{
-		clReleaseMemObject(mem1);
-		clReleaseCommandQueue(commandQueue);
-		clReleaseContext(context);
-		return false;
-	}
-	cl_mem res = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &err);
-	if (err != CL_SUCCESS)
-	{
-		clReleaseMemObject(mem1);
-		clReleaseMemObject(mem2);
-		clReleaseCommandQueue(commandQueue);
-		clReleaseContext(context);
-		return false;
-	}
+struct ArgIntensive {
+  float *r;
+  int n;
+};
 
-	arg_struct args;
-	args.val = 1234; 
+static void computeIntensiveFunc(void *arg) {
+  ArgIntensive *arguments = static_cast<ArgIntensive *>(arg);
+  float *r = arguments->r;
+  int n = arguments->n;
+  for (int i = 0; i < n; ++i) {
+    // computations to 'waste' some time
+    float f_i = (float)i;
+    float q = std::cos(f_i * 0.00342f) * 5.38f;
+    float p = std::exp(f_i * 0.0891f) * 0.007f;
+    if ((q * 84.22f - 3.045f * p) > (p * q - 2352.3)) {
+      r[i] = std::cos(p * 0.021) * 7542.4f + 52.54f * std::exp(q * -0.3463f);
+    } else {
+      r[i] = std::sin(p * 0.021) * 7542.4f + 52.54f * std::exp2(q * -0.3463f);
+    }
+  }
+}
 
-	cl_mem memList[] = {mem1,mem2,res};
-	void*  offsets[] = {&args.inp2,&args.inp1,&args.output};
-	err |= clEnqueueNativeKernel(commandQueue, NativeFunc, &args, sizeof(arg_struct), 3, memList, (const void**)offsets, 0, NULL, NULL);
-	int data3;
-	err |= clEnqueueReadBuffer(commandQueue, res, CL_TRUE, 0, sizeof(int), &data3, 0, NULL, NULL);
+class NativeKernelThread : public SynchronizedThread {
+public:
+  NativeKernelThread(cl_context context, cl_device_id device,
+                     cl_command_queue q, float *r, int size, int i)
+      : m_context(context), m_device(device), m_q(q), m_result(false), m_r(r),
+        m_size(size) {}
 
-	if ( CL_SUCCEEDED(err) )
-	{
-		bResult &= (data3 == (data1 + data2 + args.val));
-	}
+  bool getResult() const { return m_result; }
 
-	err |= clReleaseMemObject(mem1);
-	err |= clReleaseMemObject(mem2);
-	err |= clReleaseMemObject(res);
-	err |= clReleaseCommandQueue(commandQueue);
-	err |= clReleaseContext(context);
-	bResult &= SilentCheck("Releasing stuff", CL_SUCCESS, err);
+protected:
+  void ThreadRoutine() override {
+    ArgIntensive args = {m_r, m_size};
+    cl_event e;
+    cl_int err = clEnqueueNativeKernel(m_q, computeIntensiveFunc, &args,
+                                       sizeof(ArgIntensive), 0, nullptr,
+                                       nullptr, 0, nullptr, &e);
+    m_result = (CL_SUCCESS == err);
+    if (!m_result)
+      return;
+    err = clWaitForEvents(1, &e);
+    m_result = (CL_SUCCESS == err);
+  }
 
-	return bResult;
+  cl_context m_context;
+  cl_device_id m_device;
+  cl_command_queue m_q;
+  bool m_result;
+  float *m_r;
+  int m_size;
+};
+
+/// This test checks that host threads will not hang.
+TEST_F(EnqueueNativeKernelTest, multiThreadEnqueueWait) {
+  int numThreads = tbb::global_control::active_value(
+      tbb::global_control::max_allowed_parallelism);
+  int N = 1200000;
+  int blockSize = N / numThreads;
+  std::vector<float> r(N);
+
+  std::vector<SynchronizedThread *> threads(numThreads);
+
+  for (size_t i = 0; i < numThreads; ++i)
+    threads[i] = new NativeKernelThread(m_context, m_device, m_queue,
+                                        &r[blockSize * i], blockSize, i);
+
+  SynchronizedThreadPool pool;
+  pool.Init(&threads[0], numThreads);
+  pool.StartAll();
+  pool.WaitAll();
+
+  for (size_t i = 0; i < numThreads; ++i) {
+    bool res = static_cast<NativeKernelThread *>(threads[i])->getResult();
+    ASSERT_TRUE(res) << "NativeKernelThread " << i << " failed";
+  }
+
+  for (size_t i = 0; i < numThreads; ++i)
+    delete threads[i];
+}
+
+/// This test checks that TBB worker threads will not hang.
+TEST_F(EnqueueNativeKernelTest, multiTBBThreadEnqueueWait) {
+  int numThreads = tbb::global_control::active_value(
+      tbb::global_control::max_allowed_parallelism);
+  int N = 1200000;
+  int blockSize = N / numThreads;
+  std::vector<float> r(N);
+
+  tbb::parallel_for(tbb::blocked_range<int>(0, numThreads),
+                    [&](tbb::blocked_range<int>(range)) {
+                      for (int i = range.begin(); i < range.end(); ++i) {
+                        ArgIntensive args = {&r[blockSize * i], blockSize};
+                        cl_event e;
+                        cl_int err = clEnqueueNativeKernel(
+                            m_queue, computeIntensiveFunc, &args,
+                            sizeof(ArgIntensive), 0, nullptr, nullptr, 0,
+                            nullptr, &e);
+                        ASSERT_OCL_SUCCESS(err, "clEnqueueNativeKernel");
+                        err = clWaitForEvents(1, &e);
+                        ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
+                      }
+                    });
 }

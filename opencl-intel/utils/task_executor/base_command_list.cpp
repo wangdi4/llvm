@@ -99,11 +99,11 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
     // Request processing task to stop
     if ( 0 != pTaskToWait )
     {
-        bool completed = pTaskToWait->SetAsSyncPoint();
+        (void)pTaskToWait->SetAsSyncPoint();
         // If already completed no need to wait
-        if ( completed )
+        if (pTaskToWait->IsCompleted())
         {
-          return TE_WAIT_COMPLETED;
+            return TE_WAIT_COMPLETED;
         }
     }
 

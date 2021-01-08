@@ -2731,7 +2731,6 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     // No need in lock
     te_wait_result res = pList->pCmd_list->WaitForCompletion(pTaskToWait);
 
-    cl_dev_err_code retVal;
     if ( 0 != pTaskToWait )
     {
         // Try to wait for command
@@ -2740,18 +2739,11 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
             pList->pCmd_list->Flush();
             res = TE_WAIT_MASTER_THREAD_BLOCKING;
         }
-        pTaskToWait->Release();
-        // If the task is not completed at this stage we can't make further call to blocking wait
-        // Because we are not having the task pointer and we can't set it back because its not thread safe
-        retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS : CL_DEV_NOT_SUPPORTED;
-    }
-    else
-    {
-        retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS :
-                  (TE_WAIT_MASTER_THREAD_BLOCKING == res) ? CL_DEV_BUSY : CL_DEV_NOT_SUPPORTED;
     }
 
-    return retVal;
+    return (TE_WAIT_COMPLETED == res)                ? CL_DEV_SUCCESS
+           : (TE_WAIT_MASTER_THREAD_BLOCKING == res) ? CL_DEV_BUSY
+                                                     : CL_DEV_NOT_SUPPORTED;
 }
 
 /****************************************************************************************************************

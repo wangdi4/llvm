@@ -18,6 +18,10 @@
 
 ; CHECK-LABEL: simd.loop:
 
+; Checks the calls with variable argument are inside the simd loop.
+; CHECK: %lsize = tail call i64 @_Z14get_local_sizej(i32 %[[#]])
+; CHECK: %gid = tail call i64 @_Z12get_group_idj(i32 %[[#]])
+
 ; ModuleID = 'main'
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -42,6 +46,8 @@ if.then:                                          ; preds = %entry
   %1 = load i32, i32 addrspace(1)* %arrayidx7, align 4, !tbaa !16
   %add = add nsw i32 %1, %0
   %arrayidx9 = getelementptr inbounds [16384 x i32], [16384 x i32] addrspace(1)* %C, i64 %call3, i64 %call4
+  %lsize = tail call i64 @_Z14get_local_sizej(i32 %0) #2
+  %gid = tail call i64 @_Z12get_group_idj(i32 %1) #2
   br label %if.end24.sink.split
 
 if.else:                                          ; preds = %entry
