@@ -2108,6 +2108,60 @@ functions.
   }];
 }
 
+def LdexpCallDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-25133";
+  let Owner = "pmrao";
+  let Content = [{
+This change adds calls to the ldexp intrinsics when appropriate, instead
+of the calling the equivalent math library functions.
+
+For example:
+
+.. code-block:: c
+
+  #include <math.h>
+
+  void foo() {
+    (void)ldexp(2.0, -32);
+    (void)ldexpf(3.0f, -32);
+    (void)ldexpl(4.0l, -32);
+  }
+
+Compiled with:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility ldexp.c -emit-llvm -o -
+
+The compiler calls the appropriate lvm.ldexp.* instead:
+
+.. code-block:: llvm
+
+  entry:
+    %0 = call double @llvm.ldexp.f64(double 2.000000e+00, i32 -32)
+    %1 = call float @llvm.ldexp.f32(float 3.000000e+00, i32 -32)
+    %2 = call x86_fp80 @llvm.ldexp.f80(x86_fp80 0xK40018000000000000000, i32 -32)
+
+  ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+  declare double @llvm.ldexp.f64(double, i32) #1
+
+  ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+  declare float @llvm.ldexp.f32(float, i32) #1
+
+  ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+  declare x86_fp80 @llvm.ldexp.f80(x86_fp80, i32) #1
+
+  attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
+
+  }];
+  let UserContent = [{
+When ``-fmath-errno`` option is not used, this change enables calling the
+llvm.ldexp.* intrinsics instead of the equivalent math library routines.
+  }];
+}
+
 def PredeclareAlignValTDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
