@@ -2085,9 +2085,7 @@ public:
   /// \returns nullptr if doesn't have such group.
   InterleaveGroup<VPInstruction> *
   getInterleaveGroup(VPInstruction *Instr) const {
-    if (InterleaveGroupMap.count(Instr))
-      return InterleaveGroupMap.find(Instr)->second;
-    return nullptr;
+    return InterleaveGroupMap.lookup(Instr);
   }
 };
 
