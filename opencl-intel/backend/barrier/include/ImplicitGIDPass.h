@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,7 @@
 
 #include "BarrierUtils.h"
 #include "DataPerBarrierPass.h"
+#include "SGHelper.h"
 
 #include <llvm/Pass.h>
 #include <llvm/IR/Module.h>
@@ -63,28 +64,29 @@ namespace intel {
     /// @returns True if function was modified
     virtual bool runOnFunction(Function &F);
 
-    /// @brief Insert store instructions of implicit GID variables
-    /// @param i global ID dimension
-    /// @param pGIDAlloca pointer to allocation of GID variable
-    /// @param insertBefore Instruction to insert other instructions before
-    void insertGIDStore(unsigned i, Instruction *pGIDAlloca, Instruction* insertBefore);
+    /// @brief Insert alloca and llvm.dbg.declare instructions of implicit GID
+    /// variables
+    /// @param F Function to modify
+    /// @param HasSyncInst Function has dummy_barrier or barrier calls
+    /// @param HasSyncInst Function has dummy_sg_barrier or sg_barrier calls
+    void insertGIDAlloca(Function &F, bool HasSyncInst, bool HasSGSyncInst);
 
-    /// @brief Adds instructions to the beginning of the given function to compute the
-    ///  global IDs for 3 dimensions. Fills in the FunctionContext.
-    /// @param pFunc Function to modify
-    void insertComputeGlobalIds(Function* pFunc);
+    /// @brief Insert store instructions of implicit GID variables for given
+    /// function
+    /// @param F Function to modify
+    /// @param HasSyncInst Function has dummy_barrier or barrier calls
+    /// @param HasSyncInst Function has dummy_sg_barrier or sg_barrier calls
+    void insertGIDStore(Function &F, bool HasSyncInst, bool HasSGSyncInst);
+
+    /// @brief Insert store instructions of implicit GID variables at given
+    /// insert point
+    /// @param B IRBuilder reference
+    /// @param InsertPoint Instruction insert point
+    void insertGIDStore(IRBuilder<> &B, Instruction *InsertPoint);
 
     /// @brief Gets or create unsigned long debug info tyoe
     /// returns DIType unsigned long DIType
     DIType* getOrCreateUlongDIType() const;
-
-    /// @brief Iterates instructions in a basic block and tries to find the first
-    ///  instruction with scope and loc information and return these.
-    /// @param BB Basic block to get the scope and loc from
-    /// @param scope scope information
-    /// @param loc debug location
-    /// @returns bool True if a scope and loc were found
-    bool getBBScope(const BasicBlock& BB, DIScope** scope, DebugLoc& loc);
 
   private:
     /// This is barrier utility class
@@ -105,7 +107,19 @@ namespace intel {
     /// This holds debug information for a module which can be queried
     DebugInfoFinder m_DbgInfoFinder;
 
-    /// This holds the set of barrier sync instructions
-    TInstructionSet* m_pSyncInstSet;
+    /// This is subgroup emulation helper class
+    SGHelper m_SGHelper;
+
+    /// This holds the set of functions containing subgroup barrier
+    FuncSet m_SGSyncFuncSet;
+
+    /// This holds the insert point at entry block for the running function
+    Instruction *m_pInsertPoint;
+
+    /// This holds the GID allocas
+    Instruction *m_pGIDAllocas[3];
+
+    /// This holds the unsigned long DIType for GID variables
+    DIType *m_pULongDIType;
   };
 }
