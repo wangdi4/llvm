@@ -180,8 +180,8 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
 template <class ITaskClass>
     bool CommandBaseClass<ITaskClass>::SetAsSyncPoint()
 {
-    long prev = m_aIsSyncPoint.exchange(1);
-    return 1 == prev;
+    bool Expected = false;
+    return m_isSyncPoint.compare_exchange_strong(Expected, true);
 }
 
 template <class ITaskClass>
@@ -190,8 +190,10 @@ template <class ITaskClass>
     // The queue some how need to be signaled stop processing of the job list.
     // On other side RT should be aware that the command was done.
     // And it should be done by single instruction, otherwise there is a race
-    long prev = m_aIsSyncPoint.exchange(1);
-    return 1 == prev;
+    bool Expected = false;
+    (void)m_completedSync.compare_exchange_strong(Expected, true);
+
+    return m_isSyncPoint;
 }
 
 ///////////////////////////////////////////////////////////////////////////

@@ -335,13 +335,6 @@ TEST(FrameworkTestType, Test_clRelaxedFunctionTest)
     EXPECT_TRUE(clRelaxedFunctionTest());
 }
 
-
-TEST(FrameworkTestType, Test_EnqueueNativeKernelTest)
-{
-    EXPECT_TRUE(EnqueueNativeKernelTest());
-}
-
-
 TEST(FrameworkTestType, Test_TBB)
 {
     EXPECT_TRUE(TBBTest());

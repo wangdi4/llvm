@@ -266,8 +266,8 @@ public:
     // No more tasks will be executed in this case
     virtual bool    CompleteAndCheckSyncPoint() = 0;
     
-    // Set current command as syncronization point
-    // Returns true if command is already completed
+    // Set current command as syncronization point.
+    // Returns true if setting is successful.
     virtual bool    SetAsSyncPoint() = 0;
 
     // Returns true if command is already completed

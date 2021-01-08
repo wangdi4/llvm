@@ -87,7 +87,6 @@ bool MultithreadedReleaseObjects();
 bool MultithreadedHelloWorld();
 bool ConcurrentExecutionTest();
 bool MultithreadedOrderViolation();
-bool EnqueueNativeKernelTest();
 bool TBBTest();
 bool saturated_conversion_NaN_test();
 bool printf_test();
