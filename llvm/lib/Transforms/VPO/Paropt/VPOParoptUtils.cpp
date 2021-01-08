@@ -539,105 +539,68 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
   return TaskWaitCall;
 }
 
-/// \brief Build int32_t __tgt_target_data_begin(int64_t  device_id,
-///                                              int32_t  num_args,
-///                                              void**   args_base,
-///                                              void**   args,
-///                                              int64_t* args_size,
-///                                              int64_t* args_maptype)
-///
-CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
-                                                Value *ArgsBase, Value *Args,
-                                                Value *ArgsSize,
-                                                Value *ArgsMaptype,
-                                                Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genTgtTargetDataBegin(
+    WRegionNode *W, int NumArgs, Value *ArgsBase, Value *Args, Value *ArgsSize,
+    Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
+    Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetEnterDataNode>(W) ||
                                         isa<WRNTargetVariantNode>(W)) &&
          "Expected a WRNTargetDataNode or WRNTargetEnterDataNode"
                                         "or WRNTargetVariantNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_begin", W, DeviceID, NumArgs,
-                             ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
+  CallInst *Call =
+      genTgtCall("__tgt_target_data_begin", W, DeviceID, NumArgs, ArgsBase,
+                 Args, ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt);
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target_data_end(int64_t  device_id,
-///                                            int32_t  num_args,
-///                                            void**   args_base,
-///                                            void**   args,
-///                                            int64_t* args_size,
-///                                            int64_t* args_maptype)
-///
-CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
-                                              Value *ArgsBase, Value *Args,
-                                              Value *ArgsSize,
-                                              Value *ArgsMaptype,
-                                              Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genTgtTargetDataEnd(
+    WRegionNode *W, int NumArgs, Value *ArgsBase, Value *Args, Value *ArgsSize,
+    Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
+    Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
           isa<WRNTargetVariantNode>(W)) &&
          "Expected a WRNTargetDataNode or WRNTargetExitDataNode"
                                        "or WRNTargetVariantNode");
 
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_end", W, DeviceID, NumArgs,
-                             ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
+  CallInst *Call =
+      genTgtCall("__tgt_target_data_end", W, DeviceID, NumArgs, ArgsBase, Args,
+                 ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt);
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target_data_update(int64_t  device_id,
-///                                               int32_t  num_args,
-///                                               void**   args_base,
-///                                               void**   args,
-///                                               int64_t* args_size,
-///                                               int64_t* args_maptype)
-///
-CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
-                                                 Value *ArgsBase, Value *Args,
-                                                 Value *ArgsSize,
-                                                 Value *ArgsMaptype,
-                                                 Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genTgtTargetDataUpdate(
+    WRegionNode *W, int NumArgs, Value *ArgsBase, Value *Args, Value *ArgsSize,
+    Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
+    Instruction *InsertPt) {
   assert(isa<WRNTargetUpdateNode>(W) && "Expected a WRNTargetUpdateNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_update", W, DeviceID, NumArgs,
-                             ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
+  CallInst *Call =
+      genTgtCall("__tgt_target_data_update", W, DeviceID, NumArgs, ArgsBase,
+                 Args, ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt);
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target(int64_t  device_id,
-///                                   void*    host_addr,
-///                                   int32_t  num_args,
-///                                   void**   args_base,
-///                                   void**   args,
-///                                   int64_t* args_size,
-///                                   int64_t* args_maptype)
-///
 CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        int NumArgs, Value *ArgsBase,
                                        Value *Args, Value *ArgsSize,
-                                       Value *ArgsMaptype,
+                                       Value *ArgsMaptype, Value *ArgsNames,
+                                       Value *ArgsMappers,
                                        Instruction *InsertPt) {
   assert(isa<WRNTargetNode>(W) && "Expected a WRNTargetNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target", W, DeviceID, NumArgs, ArgsBase,
-                             Args, ArgsSize, ArgsMaptype, InsertPt, HostAddr);
+  CallInst *Call =
+      genTgtCall("__tgt_target", W, DeviceID, NumArgs, ArgsBase, Args, ArgsSize,
+                 ArgsMaptype, ArgsNames, ArgsMappers, InsertPt, HostAddr);
   return Call;
 }
 
-/// \brief Build int32_t __tgt_target_teams(int64_t  device_id,
-///                                         void*    host_addr,
-///                                         int32_t  num_args,
-///                                         void**   args_base,
-///                                         void**   args,
-///                                         int64_t* args_size,
-///                                         int64_t* args_maptype,
-///                                         int32_t  num_teams,
-///                                         int32_t  thread_limit)
-///
-CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
-                                            int NumArgs, Value *ArgsBase,
-                                            Value *Args, Value *ArgsSize,
-                                            Value *ArgsMaptype,
-                                            Instruction *InsertPt) {
+CallInst *
+VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr, int NumArgs,
+                                  Value *ArgsBase, Value *Args, Value *ArgsSize,
+                                  Value *ArgsMaptype, Value *ArgsNames,
+                                  Value *ArgsMappers, Instruction *InsertPt) {
   // This call supports the target teams construct.
   // Its WRN representation is a WRNTeamsNode enclosed in a WRNTargetNode.
 
@@ -658,10 +621,10 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
          "SPMD mode cannot be used with num_teams.");
 
   Value *ThreadLimitPtr = W->getThreadLimit();
-  CallInst *Call= genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs,
-                             ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt,
-                             HostAddr, NumTeamsPtr, ThreadLimitPtr,
-                             SubdeviceI);
+  CallInst *Call =
+      genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs, ArgsBase, Args,
+                 ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
+                 HostAddr, NumTeamsPtr, ThreadLimitPtr, SubdeviceI);
   return Call;
 }
 
@@ -781,32 +744,14 @@ Value *VPOParoptUtils::encodeSubdevice(WRegionNode *W, Instruction *InsertPt,
   return Encoding;
 }
 
-/// \brief Base routine to create one of these libomptarget calls:
-/// \code
-///   void    __tgt_target_data_begin( int64_t device_id, <common>)
-///   void    __tgt_target_data_end(   int64_t device_id, <common>)
-///   void    __tgt_target_data_update(int64_t device_id, <common>)
-///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
-///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
-///                              <common>, int32_t num_teams,
-///                              int32_t thread_limit)
-/// \endcode
-/// where <common> represents these 5 arguments:
-/// \code
-///   int32_t  num_args,    // number of pointers being mapped
-///   void**   args_base,   // array of base pointers being mapped
-///   void**   args,        // array of section pointers (base+offset)
-///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
-///   int64_t* args_maptype // array of map attributes for each mapping
-/// \endcode
-CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
-                                     Value *DeviceID,
-                                     int NumArgsCount, Value *ArgsBase,
-                                     Value *Args, Value *ArgsSize,
-                                     Value *ArgsMaptype, Instruction *InsertPt,
-                                     Value *HostAddr, Value *NumTeamsPtr,
-                                     Value *ThreadLimitPtr,
-                                     SubdeviceItem* SubdeviceI) {
+CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
+                                     Value *DeviceID, int NumArgsCount,
+                                     Value *ArgsBase, Value *Args,
+                                     Value *ArgsSize, Value *ArgsMaptype,
+                                     Value *ArgsNames, Value *ArgsMappers,
+                                     Instruction *InsertPt, Value *HostAddr,
+                                     Value *NumTeamsPtr, Value *ThreadLimitPtr,
+                                     SubdeviceItem *SubdeviceI) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
@@ -826,8 +771,21 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
 
   DeviceID = encodeSubdevice(W, InsertPt, DeviceID, SubdeviceI);
 
-  SmallVector<Value *, 9> FnArgs    = { DeviceID };
-  SmallVector<Type *, 9> FnArgTypes = {Int64Ty};
+  SmallVector<Value *, 12> FnArgs;
+  SmallVector<Type *, 12> FnArgTypes;
+
+  if (UseMapperAPI) {
+    StructType *IdentTy = VPOParoptUtils::getIdentStructType(F);
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *ExitBB = W->getExitBBlock();
+    int Flags = KMP_IDENT_KMPC;
+    Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, EntryBB, ExitBB);
+    FnArgs.push_back(Loc);
+    FnArgTypes.push_back(Loc->getType());
+  }
+
+  FnArgs.push_back(DeviceID);
+  FnArgTypes.push_back(Int64Ty);
 
   if (HostAddr) {
     // HostAddr!=null means FnName is __tgt_target or __tgt_target_teams
@@ -879,6 +837,13 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
   FnArgs.push_back(ArgsMaptype);
   FnArgTypes.push_back(ArgsMaptype->getType());
 
+  if (UseMapperAPI) {
+    FnArgs.push_back(ArgsNames);
+    FnArgTypes.push_back(ArgsNames->getType());
+    FnArgs.push_back(ArgsMappers);
+    FnArgTypes.push_back(ArgsMappers->getType());
+  }
+
   // Add the two parms for __tgt_target_teams
   if (NumTeams != nullptr) {
     FnArgs.push_back(NumTeams);
@@ -890,8 +855,10 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode* W,
 
   // LLVM_DEBUG(dbgs() << "FnArgs.size= "<< FnArgs.size());
   // LLVM_DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
-  CallInst *Call = genCall(FnName, ReturnTy, FnArgs, FnArgTypes,
-                           InsertPt);
+  auto Name = UseMapperAPI ? (FnName + "_mapper").str() : FnName.lower();
+  CallInst *Call = genCall(Name, ReturnTy, FnArgs, FnArgTypes, InsertPt);
+  // TODO: Disable this extra call for code-location once ident_t sent
+  // via the mapper APIs provides enough information, and is stable.
   CallInst *CallPushCodeLocation = genTgtPushCodeLocation(InsertPt, Call);
   LLVM_DEBUG(dbgs() << "\nGenerating: " << *CallPushCodeLocation << "\n");
   (void)CallPushCodeLocation;
