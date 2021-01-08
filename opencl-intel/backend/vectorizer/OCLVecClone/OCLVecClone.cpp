@@ -685,9 +685,11 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         InstsToRemove.push_back(CI);
         break;
       case FnAction::MoveOnly:
-        // All the other OpenCL function built-ins should just be moved at
+        // All the other OpenCL function built-ins, if they have constant
+        // arguments or don't have argument, then should just be moved at
         // the entry block.
-        CI->moveBefore(EntryBlock->getTerminator());
+        if (CI->arg_empty() || isa<Constant>(CI->getArgOperand(0)))
+          CI->moveBefore(EntryBlock->getTerminator());
         break;
       case FnAction::AssertIfEncountered:
         assert(
