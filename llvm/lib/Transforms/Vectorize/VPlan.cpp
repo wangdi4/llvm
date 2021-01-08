@@ -849,7 +849,13 @@ void VPWidenCallRecipe::print(raw_ostream &O, const Twine &Indent,
     O << " = ";
   }
 
+#if INTEL_CUSTOMIZATION
+  Function *F = CI->getCalledFunction();
+  assert(F && "Called fucntion is expected to be exist");
+  O << "call @" << F->getName() << "(";
+#else
   O << "call @" << CI->getCalledFunction()->getName() << "(";
+#endif // INTEL_CUSTOMIZATION
   printOperands(O, SlotTracker);
   O << ")";
 }

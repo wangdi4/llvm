@@ -27,10 +27,10 @@
 ; CHECK-VF16-AVX2-NOT: spill/fill cost
 ; CHECK-VF8-AVX2-NOT: spill/fill cost
 
-@arr.double.1 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
-@arr.double.2 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
-@arr.double.3 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
-@arr.double.4 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16
+@arr.double.1 = external local_unnamed_addr global [1024 x double], align 16
+@arr.double.2 = external local_unnamed_addr global [1024 x double], align 16
+@arr.double.3 = external local_unnamed_addr global [1024 x double], align 16
+@arr.double.4 = external local_unnamed_addr global [1024 x double], align 16
 
 define void @check_spill_1() local_unnamed_addr {
 entry:
