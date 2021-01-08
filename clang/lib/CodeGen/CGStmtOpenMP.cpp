@@ -6779,7 +6779,6 @@ namespace {
   class LoopBoundsExprChecker final :
     public ConstStmtVisitor<LoopBoundsExprChecker, void> {
     llvm::SmallDenseSet<const VarDecl *, 4> Vars;
-    CodeGenFunction &CGF;
     bool FoundNonAuto = false;
   public:
     void VisitDeclRefExpr(const DeclRefExpr *E) {
@@ -6795,8 +6794,7 @@ namespace {
         if (C)
           Visit(C);
     }
-    LoopBoundsExprChecker(CodeGenFunction &CGF, const OMPLoopDirective *LD)
-        : CGF(CGF) {
+    LoopBoundsExprChecker(CodeGenFunction &CGF, const OMPLoopDirective *LD) {
       OpenMPDirectiveKind Kind = LD->getDirectiveKind();
       if (const auto *PreInits = cast_or_null<DeclStmt>(LD->getPreInits()))
         Visit(PreInits);
