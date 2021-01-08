@@ -29,6 +29,7 @@
 #include "llvm/Bitcode/LLVMBitCodes.h"
 #include "llvm/Bitstream/BitCodes.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
+#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -4325,15 +4326,20 @@ static void writeIdentificationBlock(BitstreamWriter &Stream) {
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Char6));
   auto StringAbbrev = Stream.EmitAbbrev(std::move(Abbv));
+#if INTEL_CUSTOMIZATION
   writeStringRecord(Stream, bitc::IDENTIFICATION_CODE_STRING,
-                    "LLVM" LLVM_VERSION_STRING, StringAbbrev);
+                    DPCPP_BITCODE_PRODUCER_STR, StringAbbrev);
+#endif // INTEL_CUSTOMIZATION
 
   // Write the epoch version
   Abbv = std::make_shared<BitCodeAbbrev>();
   Abbv->Add(BitCodeAbbrevOp(bitc::IDENTIFICATION_CODE_EPOCH));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
   auto EpochAbbrev = Stream.EmitAbbrev(std::move(Abbv));
-  constexpr std::array<unsigned, 1> Vals = {{bitc::BITCODE_CURRENT_EPOCH}};
+#if INTEL_CUSTOMIZATION
+  constexpr std::array<unsigned, 1> Vals = {
+      {bitc::BITCODE_CURRENT_INTEL_EPOCH}};
+#endif // INTEL_CUSTOMIZATION
   Stream.EmitRecord(bitc::IDENTIFICATION_CODE_EPOCH, Vals, EpochAbbrev);
   Stream.ExitBlock();
 }

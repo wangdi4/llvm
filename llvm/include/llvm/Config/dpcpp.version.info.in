@@ -16,12 +16,13 @@
 #cmakedefine DPCPP_PRODUCT_VERSION "@DPCPP_PRODUCT_VERSION@"
 #cmakedefine DPCPP_PRODUCT_FULL_VERSION "@DPCPP_PRODUCT_FULL_VERSION@"
 #cmakedefine DPCPP_PRODUCT_NAME "@DPCPP_PRODUCT_NAME@"
+#cmakedefine DPCPP_BITCODE_PRODUCER_STR "@DPCPP_BITCODE_PRODUCER_STR@"
 #cmakedefine DPCPP_PRODUCT_TEMP_NAME "@DPCPP_PRODUCT_TEMP_NAME@"
 #cmakedefine DPCPP_SUFFIX "@DPCPP_SUFFIX@"
 #cmakedefine BIN_DIR "@BIN_DIR@"
 
-std::string getDPCPPVersionString() {
-  return "@DPCPP_PRODUCT_FULL_VERSION@";
-}
+// This used to be defined as a function, but that leads to multiple
+// definition errors if the header is included in multiple files.
+#define getDPCPPVersionString() (std::string("@DPCPP_PRODUCT_FULL_VERSION@"))
 
 #endif // INTEL_CUSTOMIZATION
