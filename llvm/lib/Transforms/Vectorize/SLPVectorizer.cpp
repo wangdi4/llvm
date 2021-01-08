@@ -3283,9 +3283,9 @@ template <> struct DOTGraphTraits<BoUpSLP *> : public DefaultDOTGraphTraits {
     }
     for (auto V : Entry->Scalars) {
       OS << *V;
-      if (std::any_of(
-              R->ExternalUses.begin(), R->ExternalUses.end(),
-              [&](const BoUpSLP::ExternalUser &EU) { return EU.Scalar == V; }))
+      if (llvm::any_of(R->ExternalUses, [&](const BoUpSLP::ExternalUser &EU) {
+            return EU.Scalar == V;
+          }))
         OS << " <extract>";
       OS << "\n";
     }
@@ -9028,15 +9028,20 @@ class HorizontalReduction {
 
     /// Checks if the reduction operation can be vectorized.
     bool isVectorizable() const {
-      // We currently only support add/mul/logical && min/max reductions.
-      return ((Kind == RK_Arithmetic &&
-               (Opcode == Instruction::Add || Opcode == Instruction::FAdd ||
-                Opcode == Instruction::Mul || Opcode == Instruction::FMul ||
-                Opcode == Instruction::And || Opcode == Instruction::Or ||
-                Opcode == Instruction::Xor)) ||
-              (Opcode == Instruction::ICmp &&
-               (Kind == RK_SMin || Kind == RK_SMax ||
-                Kind == RK_UMin || Kind == RK_UMax)));
+      switch (Kind) {
+      case RK_Arithmetic:
+        return Opcode == Instruction::Add || Opcode == Instruction::FAdd ||
+               Opcode == Instruction::Mul || Opcode == Instruction::FMul ||
+               Opcode == Instruction::And || Opcode == Instruction::Or ||
+               Opcode == Instruction::Xor;
+      case RK_SMin:
+      case RK_SMax:
+      case RK_UMin:
+      case RK_UMax:
+        return Opcode == Instruction::ICmp;
+      default:
+        return false;
+      }
     }
 
     /// Creates reduction operation with the current opcode.
