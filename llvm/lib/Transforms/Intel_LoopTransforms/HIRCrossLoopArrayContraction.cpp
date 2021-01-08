@@ -249,7 +249,7 @@ bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
 
   // Check if this is a last level to fuse or there is no inner loops in both
   // Use and Def loops.
-  if (Levels == 1 || NoDefInnerLoop && NoUseInnerLoop) {
+  if (Levels == 1 || (NoDefInnerLoop && NoUseInnerLoop)) {
     // Innermost loop case
     HLNodeUtils::moveAsFirstChildren(UseLoop, DefLoop->child_begin(),
                                      DefLoop->child_end());
