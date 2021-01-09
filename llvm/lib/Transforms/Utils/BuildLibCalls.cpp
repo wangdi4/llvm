@@ -1017,13 +1017,28 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
 #if INTEL_CUSTOMIZATION
   case LibFunc_msvc_std_bad_alloc_ctor:
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
-  case LibFunc_msvc_std_basic_ios_scalar_deleting_dtor:
-  case LibFunc_msvc_std_basic_istream_vector_deleting_dtor:
+  case LibFunc_msvc_std_basic_filebuf_scalar_deleting_dtor:
   case LibFunc_msvc_std_basic_filebuf_dtor:
+  case LibFunc_msvc_std_basic_filebuf_imbue:
+  case LibFunc_msvc_std_basic_filebuf_overflow:
+  case LibFunc_msvc_std_basic_filebuf_pbackfail:
+  case LibFunc_msvc_std_basic_filebuf_setbuf:
+  case LibFunc_msvc_std_basic_filebuf_std_fpos_seekoff:
+  case LibFunc_msvc_std_basic_filebuf_std_fpos_seekpos:
+  case LibFunc_msvc_std_basic_filebuf_sync:
+  case LibFunc_msvc_std_basic_filebuf_uflow:
     return Changed;
   case LibFunc_msvc_std_basic_filebuf_under_Endwrite:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_msvc_std_basic_filebuf_underflow:
+  case LibFunc_msvc_std_basic_filebuf_under_Lock:
+  case LibFunc_msvc_std_basic_filebuf_under_Unlock:
+  case LibFunc_msvc_std_basic_filebuf_xsgetn:
+  case LibFunc_msvc_std_basic_filebuf_xsputn:
+  case LibFunc_msvc_std_basic_ios_scalar_deleting_dtor:
+  case LibFunc_msvc_std_basic_istream_vector_deleting_dtor:
+  case LibFunc_msvc_std_basic_ostream_vector_deleting_dtor:
   case LibFunc_msvc_std_basic_streambuf_dtor:
   case LibFunc_msvc_std_basic_streambuf_imbue:
   case LibFunc_msvc_std_basic_streambuf_under_Lock:
