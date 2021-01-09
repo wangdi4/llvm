@@ -287,6 +287,15 @@ public:
                       const JobAction *JA,
                       bool IssueErrors = false) const;
 
+#if INTEL_CUSTOMIZATION
+  /// GenArgFiles - Generate an Args file for an actual command.
+  ///
+  /// \param FailingCommand - For non-zero results, this will be set to the
+  /// Command which failed, if any.
+  /// \return The result code of the subprocess.
+  int GenArgFiles(const Command &C, const Command *&FailingCommand) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// ExecuteCommand - Execute an actual command.
   ///
   /// \param FailingCommand - For non-zero results, this will be set to the

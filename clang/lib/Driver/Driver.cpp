@@ -2028,6 +2028,20 @@ void Driver::setUpResponseFiles(Compilation &C, Command &Cmd) {
 int Driver::ExecuteCompilation(
     Compilation &C,
     SmallVectorImpl<std::pair<int, const Command *>> &FailingCommands) {
+
+#if INTEL_CUSTOMIZATION
+  // Generate Arg files when -i_keep opt is specified
+  if (C.getArgs().hasArg(options::OPT_i_keep)) {
+    const JobList &Jobs = C.getJobs();
+    for (const auto &Job : Jobs) {
+      const Command *FailingCommand = nullptr;
+      if (int Res = C.GenArgFiles(Job, FailingCommand)) {
+        FailingCommands.push_back(std::make_pair(Res, FailingCommand));
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Just print if -### was present.
   if (C.getArgs().hasArg(options::OPT__HASH_HASH_HASH)) {
     C.getJobs().Print(llvm::errs(), "\n", true);
