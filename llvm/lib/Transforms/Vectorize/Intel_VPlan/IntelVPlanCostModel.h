@@ -105,7 +105,7 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   virtual ~VPlanCostModel() {}
 
-  static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
+  static constexpr unsigned UnknownCost = -1u;
 
 protected:
   const VPlan *Plan;
@@ -124,10 +124,8 @@ protected:
       return std::string("Unknown");
     return std::to_string(Cost);
   };
-  void printForVPInstruction(
-    raw_ostream &OS, const VPInstruction *VPInst);
-  void printForVPBasicBlock(
-    raw_ostream &OS, const VPBasicBlock *VPBlock);
+  void printForVPInstruction(raw_ostream &OS, const VPInstruction *VPInst);
+  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Consolidates the code that gets the cost of one operand or two operands
