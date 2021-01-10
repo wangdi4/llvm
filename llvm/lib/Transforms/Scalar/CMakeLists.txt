@@ -25,6 +25,7 @@ add_llvm_component_library(LLVMScalarOpts
 # INTEL_CUSTOMIZATION
   Intel_FunctionRecognizer.cpp
   Intel_GlobalOpt.cpp
+  Intel_HandlePragmaVectorAligned.cpp
   Intel_IndirectCallConv.cpp
   Intel_LoopOptMarker.cpp
   Intel_LoopOptReportEmitter.cpp

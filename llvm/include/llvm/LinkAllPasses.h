@@ -115,6 +115,7 @@ namespace {
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
       (void) llvm::createCleanupFakeLoadsPass();
+      (void) llvm::createHandlePragmaVectorAlignedPass();
       (void) llvm::createStdContainerOptPass();
       (void) llvm::createStdContainerAAWrapperPass();
       (void) llvm::createInlineListsPass();

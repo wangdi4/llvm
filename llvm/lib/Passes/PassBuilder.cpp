@@ -273,6 +273,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
 #include "llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h"
+#include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Scalar/Intel_NontemporalStore.h"

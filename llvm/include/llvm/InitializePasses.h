@@ -521,6 +521,8 @@ void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
 // Pass for function recognition
 void initializeFunctionRecognizerLegacyPassPass(PassRegistry &);
+// Pass for handling '#pragma vector aligned'.
+void initializeHandlePragmaVectorAlignedLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
 void initializeIndirectCallConvLegacyPassPass(PassRegistry &);
 // Pass for SnodeInfo analysis
