@@ -11,14 +11,14 @@
 
 ; Test that VPlan Cost Model drives the VF selection.
 
-@arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@arr.i32.3 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@arr.i32.4 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+@arr.i32.1 = external local_unnamed_addr global [1024 x i32], align 16
+@arr.i32.2 = external local_unnamed_addr global [1024 x i32], align 16
+@arr.i32.3 = external local_unnamed_addr global [1024 x i32], align 16
+@arr.i32.4 = external local_unnamed_addr global [1024 x i32], align 16
 
-@arr.float.1 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
-@arr.float.2 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
-@arr.float.3 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
+@arr.float.1 = external local_unnamed_addr global [1024 x float], align 16
+@arr.float.2 = external local_unnamed_addr global [1024 x float], align 16
+@arr.float.3 = external local_unnamed_addr global [1024 x float], align 16
 
 define void @test_do_not_vectorize() local_unnamed_addr #0 {
 ; CHECK-LLVM-LABEL: test_do_not_vectorize

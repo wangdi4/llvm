@@ -6,10 +6,10 @@
 
 ; CHECK: <{{[4|8]}} x float>
 
-@arr.float.1 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
-@arr.float.2 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
-@arr.float.3 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
-@arr.float.4 = common local_unnamed_addr global [1024 x float] zeroinitializer, align 16
+@arr.float.1 = external local_unnamed_addr global [1024 x float], align 16
+@arr.float.2 = external local_unnamed_addr global [1024 x float], align 16
+@arr.float.3 = external local_unnamed_addr global [1024 x float], align 16
+@arr.float.4 = external local_unnamed_addr global [1024 x float], align 16
 
 define void @check_spill_2() local_unnamed_addr {
 entry:
