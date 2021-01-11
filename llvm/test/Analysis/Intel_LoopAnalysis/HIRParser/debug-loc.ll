@@ -134,15 +134,15 @@
 ; IF + multiple predicates
 ; CHECK-CG:  %hir.cmp.22 = icmp sgt i32 {{.*}}, 0, !dbg ![[m47:.*]]
 ; CHECK-CG:  {{.*}} = load i32, i32* {{.*}}, !dbg ![[m45:.*]]
-; CHECK-CG:  %hir.cmp.225 = icmp ne i32 {{.*}}, 0, !dbg ![[m45]]
-; CHECK-CG:  {{.*}} = and i1 %hir.cmp.22, %hir.cmp.225, !dbg ![[m45]]
+; CHECK-CG:  %hir.cmp.224 = icmp ne i32 {{.*}}, 0, !dbg ![[m45]]
+; CHECK-CG:  {{.*}} = and i1 %hir.cmp.22, %hir.cmp.224, !dbg ![[m45]]
 ; CHECK-CG:  br i1 {{.*}}, label %then.22, label %ifmerge.22, !dbg ![[m45]]
 
 ; Load ref + CE
 ; CHECK-CG:  {{.*}} = load i32, i32* %i1.i32, align 4, !dbg ![[m26]]
 ; CHECK-CG:  {{.*}} = add i32 {{.*}}, 1, !dbg ![[m26]]
-; CHECK-CG:  %arrayIdx10 = getelementptr inbounds float, float* %a, i32 {{.*}}, !dbg ![[m26]]
-; CHECK-CG:  %gepload11 = load float, float* %arrayIdx10, align 4, !dbg ![[m26]]
+; CHECK-CG:  %[[ptr:.*]] = getelementptr inbounds float, float* %a, i32 {{.*}}, !dbg ![[m26]]
+; CHECK-CG:  load float, float* %[[ptr]], align 4, !dbg ![[m26]]
 
 ; Scalar store
 ; CHECK-CG:  store float {{.*}}, float* {{.*}}, align 4, !dbg ![[m26]]
@@ -152,9 +152,9 @@
 ; CHECK-CG:  {{.*}} = select i1 %hir.selcmp.37, float 1.000000e+01, float -1.000000e+01, !dbg ![[m25]]
 
 ; Store ref
-; CHECK-CG:  %arrayIdx13 = getelementptr inbounds float, float* %c, i32 {{.*}}, !dbg ![[m52:.*]]
+; CHECK-CG:  %[[ptr2:.*]] = getelementptr inbounds float, float* %c, i32 {{.*}}, !dbg ![[m52:.*]]
 ; CHECK-CG:  {{.*}} = load float, float* {{.*}}, !dbg ![[m52]]
-; CHECK-CG:  store float {{.*}}, float* %arrayIdx13, align 4, !dbg ![[m52]]
+; CHECK-CG:  store float {{.*}}, float* %[[ptr2]], align 4, !dbg ![[m52]]
 
 ; Switch
 ; CHECK-CG:  switch i32 {{.*}}, label %hir.sw.43.default [
