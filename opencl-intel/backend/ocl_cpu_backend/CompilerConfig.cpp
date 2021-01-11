@@ -62,15 +62,15 @@ void GlobalCompilerConfig::LoadConfig()
     {
         m_enableTiming = !strcmp(pEnv, "TRUE");
     }
-    if (const char *pEnv = getenv("CL_DISABLE_STACK_TRACE"))
-    {
-        m_disableStackDump = parseBool(pEnv);
-    }
     if (const char *pEnv = getenv("VOLCANO_INFO_OUTPUT_FILE"))
     {
         m_infoOutputFile = pEnv;
     }
 #endif // NDEBUG
+    if (const char *pEnv = getenv("CL_DISABLE_STACK_TRACE"))
+    {
+        m_disableStackDump = parseBool(pEnv);
+    }
 #ifndef INTEL_PRODUCT_RELEASE
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
@@ -116,7 +116,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     m_infoOutputFile = pBackendOptions->GetStringValue(
         (int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_infoOutputFile.c_str());
     m_enableTiming = !m_infoOutputFile.empty();
-    m_disableStackDump = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP, true);
 
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
