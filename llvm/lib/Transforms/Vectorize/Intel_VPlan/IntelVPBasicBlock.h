@@ -99,6 +99,9 @@ class VPBasicBlock
 public:
   using VPInstructionListTy =
       ilist<VPInstruction, ilist_sentinel_tracking<true>>;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  using VPValue::printAsOperand;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   /// The list of VPInstructions, held in order of instructions to generate.

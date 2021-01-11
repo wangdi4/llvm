@@ -91,4 +91,11 @@ add_llvm_component_library(LLVMVectorize
 if(INTEL_INCLUDE_DTRANS)
   target_link_libraries(LLVMVectorize PRIVATE LLVMIntel_DTransOpt)
 endif(INTEL_INCLUDE_DTRANS)
+if (HOST_WINNT)
+if (NOT MSVC)
+# This is to fix the error (unused private field) with xmain self build about
+# the PeelTC data member of class VPlanRemainderEvaluator.
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-private-field")
+endif()
+endif()
 # end INTEL_CUSTOMIZATION

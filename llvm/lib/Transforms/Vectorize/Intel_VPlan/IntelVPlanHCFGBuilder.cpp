@@ -63,27 +63,6 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
 
 VPlanHCFGBuilder::~VPlanHCFGBuilder() = default;
 
-#if INTEL_CUSTOMIZATION
-// Return the nearest common post dominator of all the VPBasicBlocks in \p
-// InputVPBlocks.
-static VPBasicBlock *getNearestCommonPostDom(
-    const VPPostDominatorTree &VPPostDomTree,
-    const SmallVectorImpl<VPBasicBlock *> &InputVPBlocks) {
-  assert(InputVPBlocks.size() > 0 && "Expected at least one input block!");
-  VPBasicBlock *NearestDom = *InputVPBlocks.begin();
-
-  if (InputVPBlocks.size() == 1)
-    return NearestDom;
-
-  for (auto *InputVPB : InputVPBlocks) {
-    NearestDom = VPPostDomTree.findNearestCommonDominator(InputVPB, NearestDom);
-    assert(NearestDom && "Nearest post dominator can't be null!");
-  }
-
-  return NearestDom;
-}
-#endif // INTEL_CUSTOMIZATION
-
 static TripCountInfo readIRLoopMetadata(Loop *Lp) {
   TripCountInfo TCInfo;
   MDNode *LoopID = Lp->getLoopID();
