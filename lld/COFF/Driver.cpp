@@ -1932,6 +1932,26 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     config->incremental = false;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Print a warning message for those flags that aren't supported by LLD
+  // but can be ignored due to MS-LINK
+
+  // NOTE: These changes are proposed to the community in
+  // https://reviews.llvm.org/D94610 . A new patch that removes the Intel marks
+  // will be uploaded once the changes land in the community.
+  for (auto *arg : args) {
+
+    auto argOption = arg->getOption();
+    if (!argOption.isValid())
+      continue;
+
+    auto argOptionGroup = argOption.getGroup();
+    if (argOptionGroup.isValid() &&
+        argOptionGroup.getID() == OPT_intelLLDWarnMessageGroup)
+      warn("ignoring unknown argument \'" + argOption.getPrefixedName() + "\'");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (errorCount())
     return;
 
