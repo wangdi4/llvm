@@ -173,6 +173,7 @@ Instruction *SGHelper::insertBarrierBefore(Instruction *IP) {
   CHECK_IF_INITIALIZED
   assert(IP != nullptr && IP->getModule() == M && "illegal insert point");
   auto *CI = createBarrierCall();
+  CI->setDebugLoc(IP->getDebugLoc());
   CI->insertBefore(IP);
   SGSyncFunctions.insert(CI->getFunction());
   FuncToBarriers[CI->getFunction()].insert(CI);
@@ -183,6 +184,7 @@ Instruction *SGHelper::insertBarrierAfter(Instruction *IP) {
   CHECK_IF_INITIALIZED
   assert(IP != nullptr && IP->getModule() == M && "illegal insert point");
   auto *CI = createBarrierCall();
+  CI->setDebugLoc(IP->getDebugLoc());
   CI->insertAfter(IP);
   SGSyncFunctions.insert(CI->getFunction());
   FuncToBarriers[CI->getFunction()].insert(CI);

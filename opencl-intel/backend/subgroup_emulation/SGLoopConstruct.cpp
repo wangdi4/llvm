@@ -172,6 +172,7 @@ void SGLoopConstruct::createSGLoop() {
       // Add unconditional branch to the single target OR add switch to
       // multiple targets.
       Builder.SetInsertPoint(LoopLatch);
+      Builder.SetCurrentDebugLocation(SyncInst->getDebugLoc());
       auto &JumpTargets = BarrierToJumpTargets[SyncInst];
       auto *FirstTarget = (*JumpTargets.begin())->getParent();
       FirstTarget->setName("sg.loop.header.");
