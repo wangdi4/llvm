@@ -15,7 +15,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Support/AlignOf.h" //INTEL
+#include "llvm/Support/AlignOf.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/Regex.h"
@@ -1313,7 +1313,7 @@ struct MappingNormalization {
   TNorm* operator->() { return BufPtr; }
 
 private:
-  using Storage = AlignedCharArrayUnion<TNorm>; //INTEL
+  using Storage = AlignedCharArrayUnion<TNorm>;
 
   Storage       Buffer;
   IO           &io;
@@ -1350,7 +1350,7 @@ struct MappingNormalizationHeap {
   TNorm* operator->() { return BufPtr; }
 
 private:
-  using Storage = AlignedCharArrayUnion<TNorm>; //INTEL
+  using Storage = AlignedCharArrayUnion<TNorm>;
 
   Storage       Buffer;
   IO           &io;

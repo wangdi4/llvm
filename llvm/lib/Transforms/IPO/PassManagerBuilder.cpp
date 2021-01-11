@@ -356,6 +356,9 @@ static cl::opt<bool>
 cl::opt<bool> EnableHotColdSplit("hot-cold-split", cl::init(false),
     cl::ZeroOrMore, cl::desc("Enable hot-cold splitting pass"));
 
+cl::opt<bool> EnableIROutliner("ir-outliner", cl::init(false), cl::Hidden,
+    cl::desc("Enable ir outliner pass"));
+
 static cl::opt<bool> UseLoopVersioningLICM(
     "enable-loop-versioning-licm", cl::init(false), cl::Hidden,
     cl::desc("Enable the experimental Loop Versioning LICM pass"));
@@ -953,6 +956,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDPCPPKernelWGLoopCreatorPass());
     }
 #endif // INTEL_CUSTOMIZATION
+
+    MPM.add(createAnnotationRemarksLegacyPass());
     return;
   }
 
@@ -1401,6 +1406,9 @@ void PassManagerBuilder::populateModulePassManager(
   // this stage (\ref buildModuleSimplificationPipeline).
   if (EnableHotColdSplit && !(PrepareForLTO || PrepareForThinLTO))
     MPM.add(createHotColdSplittingPass());
+
+  if (EnableIROutliner)
+    MPM.add(createIROutlinerPass());
 
   if (MergeFunctions)
     MPM.add(createMergeFunctionsPass());

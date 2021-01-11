@@ -31,6 +31,8 @@ void *loadOsLibrary(const std::string &PluginPath) {
 #endif // INTEL_CUSTOMIZATION
 }
 
+int unloadOsLibrary(void *Library) { return dlclose(Library); }
+
 void *getOsLibraryFuncAddress(void *Library, const std::string &FunctionName) {
   return dlsym(Library, FunctionName.c_str());
 }

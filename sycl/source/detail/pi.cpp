@@ -239,17 +239,16 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
           (Backend == backend::opencl || Backend == backend::all)) {
         PluginNames.emplace_back(__SYCL_OPENCL_PLUGIN_NAME, backend::opencl);
         OpenCLFound = true;
-      } else if (!LevelZeroFound &&
-                 (Backend == backend::level_zero || Backend == backend::all)) {
+      }
+      if (!LevelZeroFound &&
+          (Backend == backend::level_zero || Backend == backend::all)) {
         PluginNames.emplace_back(__SYCL_LEVEL_ZERO_PLUGIN_NAME,
                                  backend::level_zero);
         LevelZeroFound = true;
-#if INTEL_CUSTOMIZATION
-      } else if (!CudaFound &&
-                 (Backend == backend::cuda || Backend == backend::all)) {
+      }
+      if (!CudaFound && (Backend == backend::cuda || Backend == backend::all)) {
         PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
         CudaFound = true;
-#endif // INTEL_CUSTOMIZATION
       }
     }
   }
@@ -261,6 +260,10 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
 void *loadPlugin(const std::string &PluginPath) {
   return loadOsLibrary(PluginPath);
 }
+
+// Unload the given plugin by calling teh OS-specific library unloading call.
+// \param Library OS-specific library handle created when loading.
+int unloadPlugin(void *Library) { return unloadOsLibrary(Library); }
 
 // Binds all the PI Interface APIs to Plugin Library Function Addresses.
 // TODO: Remove the 'OclPtr' extension to PI_API.
@@ -344,22 +347,24 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
     if (InteropBE == backend::opencl &&
         PluginNames[I].first.find("opencl") != std::string::npos) {
       GlobalPlugin =
-          std::make_shared<plugin>(PluginInformation, backend::opencl);
+          std::make_shared<plugin>(PluginInformation, backend::opencl, Library);
 #if INTEL_CUSTOMIZATION
 #if 0
     } else if (InteropBE == backend::cuda &&
                PluginNames[I].first.find("cuda") != std::string::npos)
       // Use the CUDA plugin as the GlobalPlugin
-      GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
+      GlobalPlugin =
+          std::make_shared<plugin>(PluginInformation, backend::cuda, Library);
 #endif
 #endif // INTEL_CUSTOMIZATION
     } else if (InteropBE == backend::level_zero &&
                PluginNames[I].first.find("level_zero") != std::string::npos) {
       // Use the LEVEL_ZERO plugin as the GlobalPlugin
-      GlobalPlugin =
-          std::make_shared<plugin>(PluginInformation, backend::level_zero);
+      GlobalPlugin = std::make_shared<plugin>(PluginInformation,
+                                              backend::level_zero, Library);
     }
-    Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
+    Plugins->emplace_back(
+        plugin(PluginInformation, PluginNames[I].second, Library));
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[basic]: "
                 << "Plugin found and successfully loaded: "

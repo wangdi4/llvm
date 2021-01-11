@@ -265,11 +265,9 @@ static MemoryLocation getLocForWrite(Instruction *Inst,
   if (StoreInst *SI = dyn_cast<StoreInst>(Inst))
     return MemoryLocation::get(SI);
 
-  if (auto *MI = dyn_cast<AnyMemIntrinsic>(Inst)) {
-    // memcpy/memmove/memset.
-    MemoryLocation Loc = MemoryLocation::getForDest(MI);
-    return Loc;
-  }
+  // memcpy/memmove/memset.
+  if (auto *MI = dyn_cast<AnyMemIntrinsic>(Inst))
+    return MemoryLocation::getForDest(MI);
 
   if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(Inst)) {
     switch (II->getIntrinsicID()) {
@@ -1637,18 +1635,6 @@ struct DSEState {
   /// basic block.
   DenseMap<BasicBlock *, InstOverlapIntervalsTy> IOLs;
 
-  struct CheckCache {
-    SmallPtrSet<MemoryAccess *, 16> KnownNoReads;
-    SmallPtrSet<MemoryAccess *, 16> KnownReads;
-
-    bool isKnownNoRead(MemoryAccess *A) const {
-      return KnownNoReads.find(A) != KnownNoReads.end();
-    }
-    bool isKnownRead(MemoryAccess *A) const {
-      return KnownReads.find(A) != KnownReads.end();
-    }
-  };
-
   DSEState(Function &F, AliasAnalysis &AA, MemorySSA &MSSA, DominatorTree &DT,
            PostDominatorTree &PDT, const TargetLibraryInfo &TLI)
       : F(F), AA(AA), BatchAA(AA), MSSA(MSSA), DT(DT), PDT(PDT), TLI(TLI),
@@ -1761,7 +1747,7 @@ struct DSEState {
 
   /// Returns true if \p UseInst completely overwrites \p DefLoc
   /// (stored by \p DefInst).
-  bool isCompleteOverwrite(MemoryLocation DefLoc, Instruction *DefInst,
+  bool isCompleteOverwrite(const MemoryLocation &DefLoc, Instruction *DefInst,
                            Instruction *UseInst) {
     // UseInst has a MemoryDef associated in MemorySSA. It's possible for a
     // MemoryDef to not write to memory, e.g. a volatile load is modeled as a
@@ -1859,7 +1845,7 @@ struct DSEState {
 
   /// Returns true if \p MaybeTerm is a memory terminator for \p Loc from
   /// instruction \p AccessI.
-  bool isMemTerminator(MemoryLocation Loc, Instruction *AccessI,
+  bool isMemTerminator(const MemoryLocation &Loc, Instruction *AccessI,
                        Instruction *MaybeTerm) {
     Optional<std::pair<MemoryLocation, bool>> MaybeTermLoc =
         getLocForTerminator(MaybeTerm);
@@ -1885,7 +1871,7 @@ struct DSEState {
   }
 
   // Returns true if \p Use may read from \p DefLoc.
-  bool isReadClobber(MemoryLocation DefLoc, Instruction *UseInst) {
+  bool isReadClobber(const MemoryLocation &DefLoc, Instruction *UseInst) {
     if (isNoopIntrinsic(UseInst))
       return false;
 
@@ -1942,7 +1928,7 @@ struct DSEState {
   // MemoryUse (read).
   Optional<MemoryAccess *>
   getDomMemoryDef(MemoryDef *KillingDef, MemoryAccess *StartAccess,
-                  MemoryLocation DefLoc, const Value *DefUO, CheckCache &Cache,
+                  const MemoryLocation &DefLoc, const Value *DefUO,
                   unsigned &ScanLimit, unsigned &WalkerStepLimit,
                   bool IsMemTerm, unsigned &PartialLimit) {
     if (ScanLimit == 0 || WalkerStepLimit == 0) {
@@ -1956,6 +1942,7 @@ struct DSEState {
     LLVM_DEBUG(dbgs() << "  trying to get dominating access\n");
 
     // Find the next clobbering Mod access for DefLoc, starting at StartAccess.
+    Optional<MemoryLocation> CurrentLoc;
     do {
       StepAgain = false;
       LLVM_DEBUG({
@@ -2019,12 +2006,8 @@ struct DSEState {
       // clobber, bail out, as the path is not profitable. We skip this check
       // for intrinsic calls, because the code knows how to handle memcpy
       // intrinsics.
-      if (!isa<IntrinsicInst>(CurrentI) &&
-          (Cache.KnownReads.contains(Current) ||
-           isReadClobber(DefLoc, CurrentI))) {
-        Cache.KnownReads.insert(Current);
+      if (!isa<IntrinsicInst>(CurrentI) && isReadClobber(DefLoc, CurrentI))
         return None;
-      }
 
       // Quick check if there are direct uses that are read-clobbers.
       if (any_of(Current->uses(), [this, &DefLoc, StartAccess](Use &U) {
@@ -2033,7 +2016,6 @@ struct DSEState {
                      isReadClobber(DefLoc, UseOrDef->getMemoryInst());
             return false;
           })) {
-        Cache.KnownReads.insert(Current);
         LLVM_DEBUG(dbgs() << "   ...  found a read clobber\n");
         return None;
       }
@@ -2047,10 +2029,21 @@ struct DSEState {
       }
 
       // If Current does not have an analyzable write location, skip it
-      auto CurrentLoc = getLocForWriteEx(CurrentI);
+      CurrentLoc = getLocForWriteEx(CurrentI);
       if (!CurrentLoc) {
         StepAgain = true;
         Current = CurrentDef->getDefiningAccess();
+        continue;
+      }
+
+      // AliasAnalysis does not account for loops. Limit elimination to
+      // candidates for which we can guarantee they always store to the same
+      // memory location and not multiple locations in a loop.
+      if (Current->getBlock() != KillingDef->getBlock() &&
+          !IsGuaranteedLoopInvariant(const_cast<Value *>(CurrentLoc->Ptr))) {
+        StepAgain = true;
+        Current = CurrentDef->getDefiningAccess();
+        WalkerStepLimit -= 1;
         continue;
       }
 
@@ -2064,17 +2057,6 @@ struct DSEState {
         }
         continue;
       } else {
-        // AliasAnalysis does not account for loops. Limit elimination to
-        // candidates for which we can guarantee they always store to the same
-        // memory location and not multiple locations in a loop.
-        if (Current->getBlock() != KillingDef->getBlock() &&
-            !IsGuaranteedLoopInvariant(const_cast<Value *>(CurrentLoc->Ptr))) {
-          StepAgain = true;
-          Current = CurrentDef->getDefiningAccess();
-          WalkerStepLimit -= 1;
-          continue;
-        }
-
         int64_t InstWriteOffset, DepWriteOffset;
         auto OR = isOverwrite(KillingI, CurrentI, DefLoc, *CurrentLoc, DL, TLI,
                               DepWriteOffset, InstWriteOffset, BatchAA, &F);
@@ -2135,18 +2117,6 @@ struct DSEState {
       }
       --ScanLimit;
       NumDomMemDefChecks++;
-
-      // Check if we already visited this access.
-      if (Cache.isKnownNoRead(UseAccess)) {
-        LLVM_DEBUG(dbgs() << " ... skip, discovered that " << *UseAccess
-                          << " is safe earlier.\n");
-        continue;
-      }
-      if (Cache.isKnownRead(UseAccess)) {
-        LLVM_DEBUG(dbgs() << " ... bail out, discovered that " << *UseAccess
-                          << " has a read-clobber earlier.\n");
-        return None;
-      }
       KnownNoReads.insert(UseAccess);
 
       if (isa<MemoryPhi>(UseAccess)) {
@@ -2174,7 +2144,7 @@ struct DSEState {
 
       // A memory terminator kills all preceeding MemoryDefs and all succeeding
       // MemoryAccesses. We do not have to check it's users.
-      if (isMemTerminator(DefLoc, KillingI, UseInst)) {
+      if (isMemTerminator(*CurrentLoc, EarlierMemInst, UseInst)) {
         LLVM_DEBUG(
             dbgs()
             << " ... skipping, memterminator invalidates following accesses\n");
@@ -2189,19 +2159,13 @@ struct DSEState {
 
       if (UseInst->mayThrow() && !isInvisibleToCallerBeforeRet(DefUO)) {
         LLVM_DEBUG(dbgs() << "  ... found throwing instruction\n");
-        Cache.KnownReads.insert(UseAccess);
-        Cache.KnownReads.insert(StartAccess);
-        Cache.KnownReads.insert(EarlierAccess);
         return None;
       }
 
       // Uses which may read the original MemoryDef mean we cannot eliminate the
       // original MD. Stop walk.
-      if (isReadClobber(DefLoc, UseInst)) {
+      if (isReadClobber(*CurrentLoc, UseInst)) {
         LLVM_DEBUG(dbgs() << "    ... found read clobber\n");
-        Cache.KnownReads.insert(UseAccess);
-        Cache.KnownReads.insert(StartAccess);
-        Cache.KnownReads.insert(EarlierAccess);
         return None;
       }
 
@@ -2225,7 +2189,7 @@ struct DSEState {
       //   3 = Def(1)   ; <---- Current  (3, 2) = NoAlias, (3,1) = MayAlias,
       //                  stores [0,1]
       if (MemoryDef *UseDef = dyn_cast<MemoryDef>(UseAccess)) {
-        if (isCompleteOverwrite(DefLoc, KillingI, UseInst)) {
+        if (isCompleteOverwrite(*CurrentLoc, EarlierMemInst, UseInst)) {
           if (!isInvisibleToCallerAfterRet(DefUO) &&
               UseAccess != EarlierAccess) {
             BasicBlock *MaybeKillingBlock = UseInst->getParent();
@@ -2313,7 +2277,6 @@ struct DSEState {
 
     // No aliasing MemoryUses of EarlierAccess found, EarlierAccess is
     // potentially dead.
-    Cache.KnownNoReads.insert(KnownNoReads.begin(), KnownNoReads.end());
     return {EarlierAccess};
   }
 
@@ -2408,8 +2371,7 @@ struct DSEState {
         << "Trying to eliminate MemoryDefs at the end of the function\n");
     for (int I = MemDefs.size() - 1; I >= 0; I--) {
       MemoryDef *Def = MemDefs[I];
-      if (SkipStores.find(Def) != SkipStores.end() ||
-          !isRemovable(Def->getMemoryInst()))
+      if (SkipStores.contains(Def) || !isRemovable(Def->getMemoryInst()))
         continue;
 
       Instruction *DefI = Def->getMemoryInst();
@@ -2441,7 +2403,8 @@ struct DSEState {
 
   /// \returns true if \p Def is a no-op store, either because it
   /// directly stores back a loaded value or stores zero to a calloced object.
-  bool storeIsNoop(MemoryDef *Def, MemoryLocation DefLoc, const Value *DefUO) {
+  bool storeIsNoop(MemoryDef *Def, const MemoryLocation &DefLoc,
+                   const Value *DefUO) {
     StoreInst *Store = dyn_cast<StoreInst>(Def->getMemoryInst());
     if (!Store)
       return false;
@@ -2551,7 +2514,6 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
 
     bool Shortend = false;
     bool IsMemTerm = State.isMemTerminatorInst(SI);
-    DSEState::CheckCache Cache;
     // Check if MemoryAccesses in the worklist are killed by KillingDef.
     for (unsigned I = 0; I < ToCheck.size(); I++) {
       Current = ToCheck[I];
@@ -2559,8 +2521,8 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
         continue;
 
       Optional<MemoryAccess *> Next = State.getDomMemoryDef(
-          KillingDef, Current, SILoc, SILocUnd, Cache, ScanLimit,
-          WalkerStepLimit, IsMemTerm, PartialLimit);
+          KillingDef, Current, SILoc, SILocUnd, ScanLimit, WalkerStepLimit,
+          IsMemTerm, PartialLimit);
 
       if (!Next) {
         LLVM_DEBUG(dbgs() << "  finished walk\n");

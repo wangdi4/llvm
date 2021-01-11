@@ -63,7 +63,8 @@ if(LIBOMPTARGET_ENABLE_DEBUG)
   add_definitions(-DOMPTARGET_DEBUG)
 endif()
 
-include_directories(include)
+set(LIBOMPTARGET_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${LIBOMPTARGET_INCLUDE_DIR})
 
 if (INTEL_CUSTOMIZATION)
   if (OPENMP_STANDALONE_BUILD)
@@ -154,7 +155,8 @@ if (INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Build target agnostic offloading library.
-add_subdirectory(src)
+set(LIBOMPTARGET_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_subdirectory(${LIBOMPTARGET_SRC_DIR})
 
 # Retrieve the path to the resulting library so that it can be used for 
 # testing.

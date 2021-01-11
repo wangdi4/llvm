@@ -989,8 +989,7 @@ Instruction *InstCombinerImpl::FoldOpIntoSelect(Instruction &Op,
       return nullptr;
 
     // If vectors, verify that they have the same number of elements.
-    if (SrcTy && cast<FixedVectorType>(SrcTy)->getNumElements() !=
-                     cast<FixedVectorType>(DestTy)->getNumElements())
+    if (SrcTy && SrcTy->getElementCount() != DestTy->getElementCount())
       return nullptr;
   }
 
@@ -1672,8 +1671,7 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
 }
 
 Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
-  // FIXME: some of this is likely fine for scalable vectors
-  if (!isa<FixedVectorType>(Inst.getType()))
+  if (!isa<VectorType>(Inst.getType()))
     return nullptr;
 
   BinaryOperator::BinaryOps Opcode = Inst.getOpcode();
@@ -1762,13 +1760,16 @@ Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
   // intends to move shuffles closer to other shuffles and binops closer to
   // other binops, so they can be folded. It may also enable demanded elements
   // transforms.
-  unsigned NumElts = cast<FixedVectorType>(Inst.getType())->getNumElements();
   Constant *C;
-  if (match(&Inst,
+  auto *InstVTy = dyn_cast<FixedVectorType>(Inst.getType());
+  if (InstVTy &&
+      match(&Inst,
             m_c_BinOp(m_OneUse(m_Shuffle(m_Value(V1), m_Undef(), m_Mask(Mask))),
-                      m_Constant(C))) && !isa<ConstantExpr>(C) &&
-      cast<FixedVectorType>(V1->getType())->getNumElements() <= NumElts) {
-    assert(Inst.getType()->getScalarType() == V1->getType()->getScalarType() &&
+                      m_Constant(C))) &&
+      !isa<ConstantExpr>(C) &&
+      cast<FixedVectorType>(V1->getType())->getNumElements() <=
+          InstVTy->getNumElements()) {
+    assert(InstVTy->getScalarType() == V1->getType()->getScalarType() &&
            "Shuffle should not change scalar type");
 
     // Find constant NewC that has property:
@@ -1783,6 +1784,7 @@ Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
     UndefValue *UndefScalar = UndefValue::get(C->getType()->getScalarType());
     SmallVector<Constant *, 16> NewVecC(SrcVecNumElts, UndefScalar);
     bool MayChange = true;
+    unsigned NumElts = InstVTy->getNumElements();
     for (unsigned I = 0; I < NumElts; ++I) {
       Constant *CElt = C->getAggregateElement(I);
       if (ShMask[I] >= 0) {
@@ -2626,9 +2628,9 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
              DL.getTypeAllocSize(ArrTy) == DL.getTypeAllocSize(VecTy);
     };
     if (GEP.getNumOperands() == 3 &&
-        ((GEPEltType->isArrayTy() && SrcEltType->isVectorTy() &&
+        ((GEPEltType->isArrayTy() && isa<FixedVectorType>(SrcEltType) &&
           areMatchingArrayAndVecTypes(GEPEltType, SrcEltType, DL)) ||
-         (GEPEltType->isVectorTy() && SrcEltType->isArrayTy() &&
+         (isa<FixedVectorType>(GEPEltType) && SrcEltType->isArrayTy() &&
           areMatchingArrayAndVecTypes(SrcEltType, GEPEltType, DL)))) {
 
       // Create a new GEP here, as using `setOperand()` followed by
@@ -3946,7 +3948,8 @@ bool InstCombinerImpl::run() {
 
     // Now that we have an instruction, try combining it to simplify it.
     Builder.SetInsertPoint(I);
-    Builder.SetCurrentDebugLocation(I->getDebugLoc());
+    Builder.CollectMetadataToCopy(
+        I, {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
 
 #ifndef NDEBUG
     std::string OrigI;
@@ -3961,8 +3964,8 @@ bool InstCombinerImpl::run() {
         LLVM_DEBUG(dbgs() << "IC: Old = " << *I << '\n'
                           << "    New = " << *Result << '\n');
 
-        if (I->getDebugLoc())
-          Result->setDebugLoc(I->getDebugLoc());
+        Result->copyMetadata(*I,
+                             {LLVMContext::MD_dbg, LLVMContext::MD_annotation});
         // Everything uses the new instruction now.
         I->replaceAllUsesWith(Result);
 

@@ -1,4 +1,3 @@
-#if INTEL_CUSTOMIZATION
 //=== - llvm/unittest/Support/AlignOfTest.cpp - Alignment utility tests ---===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -236,4 +235,3 @@ TEST(AlignOfTest, BasicAlignedArray) {
 #endif
 }
 } // end anonymous namespace
-#endif // INTEL_CUSTOMIZATION

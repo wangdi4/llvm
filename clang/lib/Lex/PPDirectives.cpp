@@ -39,7 +39,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/AlignOf.h" //INTEL
+#include "llvm/Support/AlignOf.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Path.h"
 #include <algorithm>

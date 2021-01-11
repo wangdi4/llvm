@@ -168,7 +168,7 @@
 // RUN: touch %t-3.o
 // RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_MULTI_O
-// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=aoo"
+// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=a"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}}
 
 /// ###########################################################################
@@ -188,16 +188,18 @@
 // FOFFLOAD_STATIC_LIB_SRC: 8: compiler, {7}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 9: offload, "host-openmp (x86_64-unknown-linux-gnu)" {3}, "device-openmp (spir64)" {8}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 10: backend, {9}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 11: input, "[[INPUT1]]", archive
-// FOFFLOAD_STATIC_LIB_SRC: 12: clang-offload-unbundler, {11}, archive
-// FOFFLOAD_STATIC_LIB_SRC: 13: linker, {10, 12}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 14: sycl-post-link, {13}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 15: llvm-spirv, {14}, spirv, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "device-openmp (spir64)" {15}, ir
-// FOFFLOAD_STATIC_LIB_SRC: 17: clang-offload-wrapper, {16}, ir, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 18: backend, {17}, assembler, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: assembler, {18}, object, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 20: linker, {0, 5, 19}, image, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 11: linker, {0, 5}, image, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 12: clang-offload-deps, {11}, ir, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 13: input, "[[INPUT1]]", archive
+// FOFFLOAD_STATIC_LIB_SRC: 14: clang-offload-unbundler, {13}, archive
+// FOFFLOAD_STATIC_LIB_SRC: 15: linker, {10, 12, 14}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 16: sycl-post-link, {15}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 17: llvm-spirv, {16}, spirv, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 18: offload, "device-openmp (spir64)" {17}, ir
+// FOFFLOAD_STATIC_LIB_SRC: 19: clang-offload-wrapper, {18}, ir, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 20: backend, {19}, assembler, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 21: assembler, {20}, object, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 22: linker, {0, 5, 21}, image, (host-openmp)
 
 /// check diagnostic when -fiopenmp isn't used
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \

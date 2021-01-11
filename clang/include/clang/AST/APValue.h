@@ -20,7 +20,7 @@
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerUnion.h"
-#include "llvm/Support/AlignOf.h" //INTEL
+#include "llvm/Support/AlignOf.h"
 
 namespace clang {
   class AddrLabelExpr;
@@ -286,11 +286,9 @@ private:
   struct MemberPointerData;
 
   // We ensure elsewhere that Data is big enough for LV and MemberPointerData.
-#if INTEL_CUSTOMIZATION
   typedef llvm::AlignedCharArrayUnion<void *, APSInt, APFloat, ComplexAPSInt,
                                       ComplexAPFloat, Vec, Arr, StructData,
                                       UnionData, AddrLabelDiffData> DataType;
-#endif // INTEL_CUSTOMIZATION
   static const size_t DataSize = sizeof(DataType);
 
   DataType Data;

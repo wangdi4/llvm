@@ -5222,7 +5222,8 @@ static void genPrivatizationDebug(WRegionNode *W,
     // The variable is emitted into the scope tree according to the scope
     // associated with the llvm.dbg intrinsic and not the scope associated with
     // the variable. Create a new location in the region scope.
-    DebugLoc DL = DebugLoc::get(
+    DebugLoc DL = DILocation::get( // INTEL
+        M->getContext(),           // INTEL
         Location->getLine(),
         Location->getColumn(),
         RegionScope,

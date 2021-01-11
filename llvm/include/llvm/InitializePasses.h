@@ -147,6 +147,7 @@ void initializeCallGraphViewerPass(PassRegistry&);
 void initializeCallGraphWrapperPassPass(PassRegistry&);
 void initializeCallSiteSplittingLegacyPassPass(PassRegistry&);
 void initializeCalledValuePropagationLegacyPassPass(PassRegistry &);
+void initializeCheckDebugMachineModulePass(PassRegistry &);
 void initializeCodeGenPreparePass(PassRegistry&);
 void initializeConstantHoistingLegacyPassPass(PassRegistry&);
 void initializeConstantMergeLegacyPassPass(PassRegistry&);
@@ -224,6 +225,7 @@ void initializeHotColdSplittingLegacyPassPass(PassRegistry&);
 void initializeHWAddressSanitizerLegacyPassPass(PassRegistry &);
 void initializeIPSCCPLegacyPassPass(PassRegistry&);
 void initializeIRCELegacyPassPass(PassRegistry&);
+void initializeIROutlinerLegacyPassPass(PassRegistry&);
 void initializeIRSimilarityIdentifierWrapperPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
 void initializeIPArrayTransposeLegacyPassPass(PassRegistry &); // INTEL

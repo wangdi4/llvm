@@ -12,15 +12,18 @@
 /// \ingroup sycl_pi_level_zero
 
 #include "pi_level_zero.hpp"
+#include <CL/sycl/detail/spinlock.hpp>
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <utility>
 
+#include <level_zero/zes_api.h>
 #include <level_zero/zet_api.h>
 
 #include "usm_allocator.hpp"
@@ -169,6 +172,17 @@ private:
 };
 
 } // anonymous namespace
+
+// Global variables used in PI_Level_Zero
+// Note we only create a simple pointer variables such that C++ RT won't
+// deallocate them automatically at the end of the main program.
+// The heap memory allocated for these global variables reclaimed only when
+// Sycl RT calls piTearDown().
+static std::vector<pi_platform> *PiPlatformsCache =
+    new std::vector<pi_platform>;
+static sycl::detail::SpinLock *PiPlatformsCacheMutex =
+    new sycl::detail::SpinLock;
+static bool PiPlatformCachePopulated = false;
 
 // TODO:: In the following 4 methods we may want to distinguish read access vs.
 // write (as it is OK for multiple threads to read the map without locking it).
@@ -564,8 +578,10 @@ pi_result _pi_device::getAvailableCommandList(
 
     if (Queue->Device->ZeCommandListCache.size() > 0) {
       *ZeCommandList = Queue->Device->ZeCommandListCache.front();
-      *ZeFence = Queue->ZeCommandListFenceMap[*ZeCommandList];
-      if (*ZeFence == nullptr) {
+      auto it = Queue->ZeCommandListFenceMap.find(*ZeCommandList);
+      if (it != Queue->ZeCommandListFenceMap.end()) {
+        *ZeFence = it->second;
+      } else {
         // If there is a command list available on this device, but no
         // fence yet associated, then we must create a fence/list
         // reference for this Queue. This can happen if two Queues reuse
@@ -822,6 +838,12 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
     setEnvVar("ZE_ENABLE_PARAMETER_VALIDATION", "1");
   }
 
+  // Enable SYSMAN support for obtaining the PCI address
+  // and maximum memory bandwidth.
+  if (getenv("SYCL_ENABLE_PCI") != nullptr) {
+    setEnvVar("ZES_ENABLE_SYSMAN", "1");
+  }
+
   // TODO: We can still safely recover if something goes wrong during the init.
   // Implement handling segfault using sigaction.
 
@@ -847,16 +869,8 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
   // 1. sycl::platform equality issue; we always return the same pi_platform.
   // 2. performance; we can save time by immediately return from cache.
   //
-  // Note: The memory for "PiPlatformsCache" and "PiPlatformsCacheMutex" is
-  // intentionally leaked because the application may call into the SYCL
-  // runtime from a global destructor, and such a call could eventually
-  // access these variables. Therefore, there is no safe time when
-  // "PiPlatformsCache" and "PiPlatformsCacheMutex" could be deleted.
-  static auto PiPlatformsCache = new std::vector<pi_platform>;
-  static auto PiPlatformsCacheMutex = new std::mutex;
-  static bool PiPlatformCachePopulated = false;
 
-  std::lock_guard<std::mutex> Lock(*PiPlatformsCacheMutex);
+  const std::lock_guard<sycl::detail::SpinLock> Lock{*PiPlatformsCacheMutex};
   if (!PiPlatformCachePopulated) {
     const char *CommandListCacheSize =
         std::getenv("SYCL_PI_LEVEL_ZERO_MAX_COMMAND_LIST_CACHE");
@@ -1633,6 +1647,42 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     }
     return ReturnValue(Supported);
   }
+
+    // intel extensions for GPU information
+  case PI_DEVICE_INFO_PCI_ADDRESS: {
+    if (getenv("ZES_ENABLE_SYSMAN") == nullptr) {
+      zePrint("Set SYCL_ENABLE_PCI=1 to obtain PCI data.\n");
+      return PI_INVALID_VALUE;
+    }
+    zes_pci_properties_t ZeDevicePciProperties = {};
+    ZE_CALL(zesDevicePciGetProperties(ZeDevice, &ZeDevicePciProperties));
+    std::stringstream ss;
+    ss << ZeDevicePciProperties.address.domain << ":"
+       << ZeDevicePciProperties.address.bus << ":"
+       << ZeDevicePciProperties.address.device << "."
+       << ZeDevicePciProperties.address.function;
+    return ReturnValue(ss.str().c_str());
+  }
+  case PI_DEVICE_INFO_GPU_EU_COUNT: {
+    pi_uint32 count = Device->ZeDeviceProperties.numEUsPerSubslice *
+                      Device->ZeDeviceProperties.numSubslicesPerSlice *
+                      Device->ZeDeviceProperties.numSlices;
+    return ReturnValue(pi_uint32{count});
+  }
+  case PI_DEVICE_INFO_GPU_EU_SIMD_WIDTH:
+    return ReturnValue(
+        pi_uint32{Device->ZeDeviceProperties.physicalEUSimdWidth});
+  case PI_DEVICE_INFO_GPU_SLICES:
+    return ReturnValue(pi_uint32{Device->ZeDeviceProperties.numSlices});
+  case PI_DEVICE_INFO_GPU_SUBSLICES_PER_SLICE:
+    return ReturnValue(
+        pi_uint32{Device->ZeDeviceProperties.numSubslicesPerSlice});
+  case PI_DEVICE_INFO_GPU_EU_COUNT_PER_SUBSLICE:
+    return ReturnValue(pi_uint32{Device->ZeDeviceProperties.numEUsPerSubslice});
+  case PI_DEVICE_INFO_MAX_MEM_BANDWIDTH:
+    // currently not supported in level zero runtime
+    return PI_INVALID_VALUE;
+
   default:
     zePrint("Unsupported ParamName in piGetDeviceInfo\n");
     zePrint("ParamName=%d(0x%x)\n", ParamName, ParamName);
@@ -4570,9 +4620,9 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
     if (Result != PI_SUCCESS)
       return Result;
 
-    // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
-    // Check that SYCL RT did not want pitch larger than default.
+      // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
+      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
+      // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
     PI_ASSERT(SrcMem->isImage(), PI_INVALID_MEM_OBJECT);
 
@@ -4602,9 +4652,9 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
     if (Result != PI_SUCCESS)
       return Result;
 
-    // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
-    // Check that SYCL RT did not want pitch larger than default.
+      // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
+      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
+      // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
     PI_ASSERT(DstMem->isImage(), PI_INVALID_MEM_OBJECT);
 
@@ -5035,7 +5085,7 @@ pi_result piextUSMFree(pi_context Context, void *Ptr) {
     PI_ASSERT(Device, PI_INVALID_DEVICE);
 
     auto DeallocationHelper =
-        [Context, Device,
+        [Device,
          Ptr](std::unordered_map<pi_device, USMAllocContext> &AllocContextMap) {
           try {
             auto It = AllocContextMap.find(Device);
@@ -5357,6 +5407,20 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
 #define _PI_API(api)                                                           \
   (PluginInit->PiFunctionTable).api = (decltype(&::api))(&api);
 #include <CL/sycl/detail/pi.def>
+
+  return PI_SUCCESS;
+}
+
+// SYCL RT calls this api to notify the end of plugin lifetime.
+// It can include all the jobs to tear down resources before
+// the plugin is unloaded from memory.
+pi_result piTearDown(void *PluginParameter) {
+  // reclaim pi_platform objects here since we don't have piPlatformRelease.
+  for (pi_platform &Platform : *PiPlatformsCache) {
+    delete Platform;
+  }
+  delete PiPlatformsCache;
+  delete PiPlatformsCacheMutex;
 
   return PI_SUCCESS;
 }

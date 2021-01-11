@@ -1,4 +1,4 @@
-; RUN: opt -simplifycfg -S < %s | FileCheck %s
+; RUN: opt -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S < %s | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

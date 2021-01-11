@@ -126,7 +126,7 @@ public:
     IRBuilder<> IRB(FirstNonAlloca);
     DebugLoc Loc;
     if (auto *SP = F.getSubprogram())
-      Loc = DebugLoc::get(SP->getScopeLine(), 0, SP);
+      Loc = DILocation::get(F.getContext(), SP->getScopeLine(), 0, SP);
     IRB.SetCurrentDebugLocation(Loc);
 
     // %tmp = alloca i32, align 4
@@ -201,7 +201,7 @@ public:
     IRBuilder<> IRB(FirstNonAlloca);
     DebugLoc Loc;
     if (auto *SP = F.getSubprogram())
-      Loc = DebugLoc::get(SP->getScopeLine(), 0, SP);
+      Loc = DILocation::get(F.getContext(),SP->getScopeLine(), 0, SP);
     IRB.SetCurrentDebugLocation(Loc);
 
     // %1 = alloca i16, align 2
@@ -272,7 +272,7 @@ public:
     IRBuilder<> IRB(FirstNonAlloca);
     DebugLoc Loc;
     if (auto *SP = F.getSubprogram())
-      Loc = DebugLoc::get(SP->getScopeLine(), 0, SP);
+      Loc = DILocation::get(F.getContext(), SP->getScopeLine(), 0, SP);
     IRB.SetCurrentDebugLocation(Loc);
 
     uint32_t FtzDaz = getFtzDaz(F);

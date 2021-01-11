@@ -81,6 +81,7 @@ list(APPEND CLANG_TEST_DEPS
 # INTEL_COLLAB
   clang-offload-wrapper
 # end INTEL_COLLAB
+  clang-offload-deps
   clang-import-test
   clang-rename
   clang-refactor

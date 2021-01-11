@@ -173,15 +173,16 @@
 // RUN: touch %t-3.o
 // RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_MULTI_O
-// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-inputs=[[INPUTA:.+\.a]]" "-outputs=[[OMPLIST:.+\.txt]],[[SYCLLIST:.+\.txt]]" "-unbundle"
-// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "@[[SYCLLIST]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
+// FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=a" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-inputs=[[INPUTA:.+\.a]]" "-outputs=[[OMPLIB:.+\.a]],[[SYCLLIB:.+\.a]]" "-unbundle"
+// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "[[SYCLLIB]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: sycl-post-link{{.*}} "-symbols" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-foreach{{.*}} "--in-file-list=[[SYCLTABLEOUT]]" "--in-replace=[[SYCLTABLEOUT]]" "--out-ext=spv" "--out-file-list=[[SYCLLLVMFOROUT:.+\.txt]]" "--out-replace=[[SYCLLLVMFOROUT]]" "--" "{{.*}}llvm-spirv" "-o" "[[SYCLLLVMFOROUT]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-allow-extra-diexpressions" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[SYCLTABLEOUT]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[SYCLSPIRV:.+\.table]]" "[[SYCLTABLE]]" "[[SYCLLLVMFOROUT]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-unknown-linux-gnu" "-target=spir64" "-kind=sycl" "-batch" "[[SYCLSPIRV]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJ:.+\.o]]" "[[SYCLWRAPPERBC]]"
-// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "@[[OMPLIST]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[OMPLINKEDBC:.+\.bc]]"
+// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "{{.*}}libomptarget-opencl.bc" "-o" "[[LINKOUT1:.+\.bc]]" "--suppress-warnings"
+// FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "[[LINKOUT1]]" "[[OMPLIB]]" "-o" "[[OMPLINKEDBC:.+\.bc]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[OMPPOSTLINK:.+\.bc]]" "[[OMPLINKEDBC]]
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.spv]]" "-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location" "-spirv-allow-unknown-intrinsics" "[[OMPPOSTLINK]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRV]]"
@@ -210,21 +211,23 @@
 // FOFFLOAD_STATIC_LIB_SRC: 12: compiler, {11}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 13: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {7}, "device-openmp (spir64)" {12}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 14: backend, {13}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 15: input, "[[INPUT1]]", archive
-// FOFFLOAD_STATIC_LIB_SRC: 16: clang-offload-unbundler, {15}, archive
-// FOFFLOAD_STATIC_LIB_SRC: 17: linker, {14, 16}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 18: sycl-post-link, {17}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: llvm-spirv, {18}, spirv, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 20: offload, "device-openmp (spir64)" {19}, ir
-// FOFFLOAD_STATIC_LIB_SRC: 21: clang-offload-wrapper, {20}, ir, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 22: backend, {21}, assembler, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 23: assembler, {22}, object, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 24: linker, {0, 9, 23}, image, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 25: compiler, {4}, ir, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 26: linker, {25, 16}, ir, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 27: sycl-post-link, {26}, tempfiletable, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 28: file-table-tform, {27}, tempfilelist, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 29: llvm-spirv, {28}, tempfilelist, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 30: file-table-tform, {27, 29}, tempfiletable, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 31: clang-offload-wrapper, {30}, object, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 32: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {24}, "device-sycl (spir64-unknown-unknown-sycldevice)" {31}, image
+// FOFFLOAD_STATIC_LIB_SRC: 15: linker, {0, 9}, image, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 16: clang-offload-deps, {15}, ir, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 17: input, "[[INPUT1]]", archive
+// FOFFLOAD_STATIC_LIB_SRC: 18: clang-offload-unbundler, {17}, archive
+// FOFFLOAD_STATIC_LIB_SRC: 19: linker, {14, 16, 18}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 20: sycl-post-link, {19}, ir, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 21: llvm-spirv, {20}, spirv, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 22: offload, "device-openmp (spir64)" {21}, ir
+// FOFFLOAD_STATIC_LIB_SRC: 23: clang-offload-wrapper, {22}, ir, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 24: backend, {23}, assembler, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 25: assembler, {24}, object, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 26: linker, {0, 9, 25}, image, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 27: compiler, {4}, ir, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 28: linker, {27, 16, 18}, ir, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 29: sycl-post-link, {28}, tempfiletable, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 30: file-table-tform, {29}, tempfilelist, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 31: llvm-spirv, {30}, tempfilelist, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 32: file-table-tform, {29, 31}, tempfiletable, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 33: clang-offload-wrapper, {32}, object, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 34: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {26}, "device-sycl (spir64-unknown-unknown-sycldevice)" {33}, image

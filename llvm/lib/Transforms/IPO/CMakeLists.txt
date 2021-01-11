@@ -20,6 +20,7 @@ add_llvm_component_library(LLVMipo
   GlobalSplit.cpp
   HotColdSplitting.cpp
   IPO.cpp
+  IROutliner.cpp
   InferFunctionAttrs.cpp
   Intel_AdvancedFastCall.cpp   # INTEL
   Intel_AggInliner.cpp # INTEL

@@ -976,6 +976,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, SYCLIntelMaxGlobalWorkDim, New);
       continue;
     }
+    if (const auto *SYCLIntelLoopFuse =
+            dyn_cast<SYCLIntelLoopFuseAttr>(TmplAttr)) {
+      instantiateSYCLIntelLoopFuseAttr(*this, TemplateArgs, SYCLIntelLoopFuse,
+                                       New);
+      continue;
+    }
     if (const auto *SYCLIntelNoGlobalWorkOffset =
             dyn_cast<SYCLIntelNoGlobalWorkOffsetAttr>(TmplAttr)) {
       instantiateIntelSYCLFunctionAttr<SYCLIntelNoGlobalWorkOffsetAttr>(

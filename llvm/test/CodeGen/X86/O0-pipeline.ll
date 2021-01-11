@@ -20,6 +20,7 @@
 ; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
 ; CHECK-NEXT:       Expand fp128 instructions ;INTEL
+; C/HECK-NEXT:       Lower AMX type for load/store ;INTEL
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:       Lower Garbage Collection Instructions
 ; CHECK-NEXT:       Shadow Stack GC Lowering
