@@ -143,7 +143,8 @@
 // RUN: env TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qtbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-WIN %s
-// CHECK-TBB: clang{{.*}} "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include"
+// CHECK-TBB-LIN: "-DPSTL_USE_PARALLEL_POLICIES=0" "-D_GLIBCXX_USE_TBB_PAR_BACKEND=0"
+// CHECK-TBB: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include"
 // CHECK-TBB-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" {{.*}} "-ltbb"
 // CHECK-TBB-WIN: link{{.*}} "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14"
 

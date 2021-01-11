@@ -4956,6 +4956,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasArg(options::OPT_municode))
     CmdArgs.push_back("-DUNICODE");
+#if INTEL_CUSTOMIZATION
+  // When compiling with -qtbb, the oneDPL headers conflict with the system
+  // installed parallel STL headers.  Add needed predefine macros to get around
+  // this issue.
+  if (Args.hasArg(options::OPT_qtbb) && Triple.isOSLinux()) {
+    CmdArgs.push_back("-DPSTL_USE_PARALLEL_POLICIES=0");
+    CmdArgs.push_back("-D_GLIBCXX_USE_TBB_PAR_BACKEND=0");
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (isa<AnalyzeJobAction>(JA))
     RenderAnalyzerOptions(Args, CmdArgs, Triple, Input);
