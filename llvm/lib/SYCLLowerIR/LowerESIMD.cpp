@@ -327,6 +327,15 @@ public:
         {"raw_send_store",
          {"raw.send2.noresult",
           {a(0), a(1), ai1(2), a(3), a(4), a(5), a(6), a(7)}}},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+        {"wait", {"dummy.mov", {a(0)}}},
+        {"dpas", {"dpas", {a(0), a(1), a(2), a(3)}}},
+        {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
+        {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
+        {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
         {"satf", {"sat", {a(0)}}},
         {"fptoui_sat", {"fptoui.sat", {a(0)}}},
         {"fptosi_sat", {"fptosi.sat", {a(0)}}},
@@ -556,6 +565,16 @@ static std::string getESIMDIntrinSuffix(id::FunctionEncoding *FE,
     case 0x12:
       Suff = ".fcmpwr";
       break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+    case 0x13:
+      Suff = ".fadd";
+      break;
+    case 0x14:
+      Suff = ".fsub";
+      break;
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
     case 0xff:
       Suff = ".predec";
       break;
@@ -1196,7 +1215,14 @@ void SYCLLowerESIMDLegacyPass::generateKernelMetadata(Module &M) {
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // SLM size in bytes
         getMD(llvm::ConstantInt::getNullValue(I32Ty)), // arg offsets
         IOKinds,
-        ArgDescs};
+#if INTEL_CUSTOMIZATION
+        ArgDescs,
+#if INTEL_FEATURE_ESIMD_EMBARGO
+        getMD(llvm::ConstantInt::getNullValue(I32Ty)), // named barrier count
+        getMD(llvm::ConstantInt::getNullValue(I32Ty))  // regular barrier count
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+    };
+#endif // INTEL_CUSTOMIZATION
 
     // Add this kernel to the root.
     Kernels->addOperand(MDNode::get(Ctx, MDArgs));
