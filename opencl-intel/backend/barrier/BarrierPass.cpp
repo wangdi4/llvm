@@ -173,7 +173,8 @@ namespace intel {
     // fixAllocaValues may add new alloca.
     updateStructureStride(M, functionsWithSync);
 
-    fixSynclessTIDUsers(M, functionsWithSync);
+    if (!m_useTLSGlobals)
+      fixSynclessTIDUsers(M, functionsWithSync);
     // Fix get_local_id() and get_global_id() function calls
     fixGetWIIdFunctions(M);
 
@@ -280,67 +281,63 @@ namespace intel {
 
     typedef std::map<Function *, Function *> F2FMap;
     F2FMap OldF2PatchedF;
-    if (!m_useTLSGlobals) {
-      // Setup stuff needed for adding another argument to patched functions
-      SmallVector<Attribute, 1> NoAlias(
-          1, Attribute::get(M.getContext(), Attribute::NoAlias));
-      SmallVector<AttributeSet, 1> NewAttrs(
-          1, AttributeSet::get(*m_pContext, NoAlias));
-      // Patch the functions
-      for (std::set<Function *>::iterator I = FuncsToPatch.begin(),
-                                          E = FuncsToPatch.end();
-           I != E; ++I) {
-        Function *OldF = *I;
-        Function *PatchedF = CompilationUtils::AddMoreArgsToFunc(
-            OldF, m_LocalIdAllocTy, "pLocalIdValues", NewAttrs, "BarrierPass");
-        OldF2PatchedF[OldF] = PatchedF;
-        assert(!m_pBarrierKeyValuesPerFunction.count(OldF));
-        // So now the last arg of NewF is the base of the memory holding
-        // LocalId's
-        // Find the last arg
-        Function::arg_iterator AI = PatchedF->arg_begin();
-        for (unsigned I = 0; I < PatchedF->arg_size() - 1; ++I, ++AI) {
-          // Skip over the original args
-        }
-        m_pBarrierKeyValuesPerFunction[PatchedF].m_TheFunction = PatchedF;
-        m_pBarrierKeyValuesPerFunction[PatchedF].m_pLocalIdValues = &*AI;
+    // Setup stuff needed for adding another argument to patched functions
+    SmallVector<Attribute, 1> NoAlias(
+        1, Attribute::get(M.getContext(), Attribute::NoAlias));
+    SmallVector<AttributeSet, 1> NewAttrs(
+        1, AttributeSet::get(*m_pContext, NoAlias));
+    // Patch the functions
+    for (std::set<Function *>::iterator I = FuncsToPatch.begin(),
+                                        E = FuncsToPatch.end();
+         I != E; ++I) {
+      Function *OldF = *I;
+      Function *PatchedF = CompilationUtils::AddMoreArgsToFunc(
+          OldF, m_LocalIdAllocTy, "pLocalIdValues", NewAttrs, "BarrierPass");
+      OldF2PatchedF[OldF] = PatchedF;
+      assert(!m_pBarrierKeyValuesPerFunction.count(OldF));
+      // So now the last arg of NewF is the base of the memory holding
+      // LocalId's
+      // Find the last arg
+      Function::arg_iterator AI = PatchedF->arg_begin();
+      for (unsigned I = 0; I < PatchedF->arg_size() - 1; ++I, ++AI) {
+        // Skip over the original args
       }
-      // Patch the calls
-      for (std::set<CallInst *>::iterator I = CIsToPatch.begin(),
-                                          IE = CIsToPatch.end();
-           I != IE; ++I) {
-        CallInst *CI = *I;
-        Function *CallingF = CI->getParent()->getParent();
-        Function *CalledF = CI->getCalledFunction();
-        assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end());
-        Function *PatchedF = OldF2PatchedF[CalledF];
-        // Use calling functions's LocalIdValues as additional argument to
-        // called function
-        assert(m_pBarrierKeyValuesPerFunction.find(CallingF) !=
-               m_pBarrierKeyValuesPerFunction.end());
-        Value *NewArg = m_pBarrierKeyValuesPerFunction.find(CallingF)
-                            ->second.m_pLocalIdValues;
-        SmallVector<Value *, 1> NewArgs(1, NewArg);
-        CompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
-      }
+      m_pBarrierKeyValuesPerFunction[PatchedF].m_TheFunction = PatchedF;
+      m_pBarrierKeyValuesPerFunction[PatchedF].m_pLocalIdValues = &*AI;
+    }
+    // Patch the calls
+    for (std::set<CallInst *>::iterator I = CIsToPatch.begin(),
+                                        IE = CIsToPatch.end();
+         I != IE; ++I) {
+      CallInst *CI = *I;
+      Function *CallingF = CI->getParent()->getParent();
+      Function *CalledF = CI->getCalledFunction();
+      assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end());
+      Function *PatchedF = OldF2PatchedF[CalledF];
+      // Use calling functions's LocalIdValues as additional argument to
+      // called function
+      assert(m_pBarrierKeyValuesPerFunction.find(CallingF) !=
+             m_pBarrierKeyValuesPerFunction.end());
+      Value *NewArg = m_pBarrierKeyValuesPerFunction.find(CallingF)
+                          ->second.m_pLocalIdValues;
+      SmallVector<Value *, 1> NewArgs(1, NewArg);
+      CompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
     }
 
     // Patch the constant function ptr addr bitcasts. Used in OCL20. Extended execution
     for (std::map<ConstantExpr*, Function*>::iterator I = ConstBitcastsToPatch.begin(),
       E = ConstBitcastsToPatch.end();
       I != E; ++I) {
-        ConstantExpr *CE = I->first;
-        Function *F = I->second;
+      ConstantExpr *CE = I->first;
+      Function *F = I->second;
 
-        if (!m_useTLSGlobals) {
-          assert(OldF2PatchedF.find(F) != OldF2PatchedF.end() &&
-                 "expected to find patched function in map");
-          F = OldF2PatchedF[F];
-        }
+      assert(OldF2PatchedF.find(F) != OldF2PatchedF.end() &&
+             "expected to find patched function in map");
+      F = OldF2PatchedF[F];
 
-        // this case happens when global block variable is used
-        Constant *newCE = ConstantExpr::getPointerCast(F, CE->getType());
-        CE->replaceAllUsesWith(newCE);
+      // this case happens when global block variable is used
+      Constant *newCE = ConstantExpr::getPointerCast(F, CE->getType());
+      CE->replaceAllUsesWith(newCE);
     }
 }
 

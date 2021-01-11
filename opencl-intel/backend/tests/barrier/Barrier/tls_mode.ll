@@ -61,12 +61,17 @@ declare i64 @_Z13get_global_idj(i32) #1
 define void @test(i64 addrspace(1)* noalias %out) #2 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !13 !no_barrier_path !12 !kernel_execution_length !14 !kernel_has_barrier !12 !kernel_has_global_sync !12 {
 entry:
   call void @dummybarrier.()
+  %bar.addr = alloca i8 addrspace(4)*, align 8
+  store i8 addrspace(4)* addrspacecast (i8* bitcast (i64 ()* @bar to i8*) to i8 addrspace(4)*), i8 addrspace(4)** %bar.addr, align 8
   br label %for.cond
 
 ; CHECK: FirstBB:
 ; CHECK: store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
 ; CHECK: store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
 ; CHECK: store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
+
+; CHECK: SyncBB1:
+; CHECK: store i8 addrspace(4)* addrspacecast (i8* bitcast (i64 ()* @bar to i8*) to i8 addrspace(4)*)
 
 for.cond:                                         ; preds = %for.body, %entry
   %0 = phi i64 [ 0, %entry ], [ %add, %for.body ]
@@ -93,21 +98,21 @@ for.end:                                          ; preds = %for.cond
 
 ; CHECK: "Barrier BB":
 ; CHECK: %LocalId_0 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
-; CHECK: %2 = add nuw i64 %LocalId_0, 1
-; CHECK: store i64 %2, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
+; CHECK: %{{.*}} = add nuw i64 %LocalId_0, 1
+; CHECK: store i64 %{{.*}}, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
 
 
 ; CHECK: LoopEnd_0:
 ; CHECK:   store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0)
 ; CHECK:   %LocalId_1 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
-; CHECK:   %4 = add nuw i64 %LocalId_1, 1
-; CHECK:   store i64 %4, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
+; CHECK:   %{{.*}} = add nuw i64 %LocalId_1, 1
+; CHECK:   store i64 %{{.*}}, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
 
 ; CHECK: LoopEnd_1:
 ; CHECK:   store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 1)
 ; CHECK:   %LocalId_2 = load i64, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
-; CHECK:   %6 = add nuw i64 %LocalId_2, 1
-; CHECK:   store i64 %6, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
+; CHECK:   %{{.*}} = add nuw i64 %LocalId_2, 1
+; CHECK:   store i64 %{{.*}}, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
 
 ; CHECK: LoopEnd_2:
 ; CHECK:   store i64 0, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 2)
