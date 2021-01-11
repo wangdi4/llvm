@@ -77,7 +77,7 @@ BOOL LoadTaskExecutor()
         }
         tePath += ".dll";
 
-	if (!m_dlTaskExecutor->Load(tePath.c_str())) {
+	if (m_dlTaskExecutor->Load(tePath.c_str()) != 0) {
 		return FALSE;
 	}
 	return TRUE;

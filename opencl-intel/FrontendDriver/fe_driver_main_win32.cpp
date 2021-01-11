@@ -64,7 +64,7 @@ std::string GetDriverStorePath()
 bool LoadCommonClang()
 {
   std::string clangPath = GetDriverStorePath() + CCLANG_LIB_NAME;
-  if (!m_dlClangLib->Load(clangPath.c_str())) {
+  if (m_dlClangLib->Load(clangPath.c_str()) != 0) {
     // Failed to load library from Driver Store
     // Try to load from the location of current library
     clangPath = std::string(MAX_PATH, '\0');
@@ -73,7 +73,7 @@ bool LoadCommonClang()
     clangPath.resize(clangPath.find_first_of('\0'));
     clangPath += CCLANG_LIB_NAME;
 
-    if (!m_dlClangLib->Load(clangPath.c_str())) {
+    if (m_dlClangLib->Load(clangPath.c_str()) != 0) {
       LogErrorA("Faild to load common clang from %s", clangPath.c_str());
       return false;
     }

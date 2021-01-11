@@ -205,7 +205,7 @@ void immediate_executor_task::operator()() const
 }
 
 /////////////// TaskExecutor //////////////////////
-TBBTaskExecutor::TBBTaskExecutor() : m_tbbNumaEnabled(false)
+TBBTaskExecutor::TBBTaskExecutor() : m_tbbNumaEnabled(false), m_err(0)
 {
     // we deliberately don't delete m_pScheduler (see comment above its definition)
 }
@@ -492,8 +492,6 @@ ocl_gpa_data* TBBTaskExecutor::GetGPAData() const
 
 bool TBBTaskExecutor::LoadTBBLibrary()
 {
-    bool bLoadRes = true;
-
 #ifdef WIN32
     // The loading on tbb.dll was delayed,
     // Need to load manually before default dll is loaded
@@ -514,11 +512,11 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     modulePath.resize(modulePath.find_first_of('\0'));
     modulePath += tbbPath;
 
-    bLoadRes = m_dllTBBLib.Load(modulePath.c_str());
-    if (!bLoadRes) {
-        bLoadRes = m_dllTBBLib.Load(tbbPath.c_str());
+    m_err = m_dllTBBLib.Load(modulePath.c_str());
+    if (m_err != 0) {
+        m_err = m_dllTBBLib.Load(tbbPath.c_str());
 
-        if ( !bLoadRes )
+        if (m_err != 0)
         {
             LOG_ERROR(TEXT("Failed to load TBB from system path or relative path %s"),
                       modulePath.c_str());
@@ -526,7 +524,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     }
 #endif
 
-    return bLoadRes;
+    return m_err == 0;
 }
 
 ITaskExecutor::DeviceHandleStruct TBBTaskExecutor::GetCurrentDevice() const

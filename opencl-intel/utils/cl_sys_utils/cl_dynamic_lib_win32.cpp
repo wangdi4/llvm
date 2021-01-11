@@ -54,11 +54,11 @@ bool OclDynamicLib::IsExists(const char* pLibName)
 
 // ------------------------------------------------------------------------------
 // Loads a dynamically link library into process address space
-bool OclDynamicLib::Load(const char* pLibName)
+int OclDynamicLib::Load(const char* pLibName)
 {
     if ( nullptr != m_hLibrary )
     {
-        return false;
+        return -1;
     }
 
 	// Load library
@@ -66,7 +66,7 @@ bool OclDynamicLib::Load(const char* pLibName)
 
     if ( nullptr == m_hLibrary )
     {
-        return false;
+        return (int)GetLastError();
     }
 
     // Library was succefully loaded
@@ -87,7 +87,7 @@ bool OclDynamicLib::Load(const char* pLibName)
         AtExitFunc( m_atexit_fn );
     }
 
-    return true;
+    return 0;
 }
 
 // Loads a dynamically link library into process address space

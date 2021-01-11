@@ -45,9 +45,12 @@ namespace Intel { namespace OpenCL { namespace Utils
         // Input
         //        pLibName    - A pointer to null tirminated string that describes library file name
         // Returns
-        //        true - if succesully loaded
-        //        false - if file doesn't exists or other error has occured
-        bool    Load(const char* pLibName);
+        //        0  - if succesully loaded
+        //        -1 - if the library is already loaded.
+        //        1  - if dlopen fails on linux.
+        //        System Error Codes - if LoadLibraryEx fails on windows. Please
+        //                             refer to microsoft documentation.
+        int     Load(const char* pLibName);
 
         // Release all allocated resourses and unloads the library
         void    Close();

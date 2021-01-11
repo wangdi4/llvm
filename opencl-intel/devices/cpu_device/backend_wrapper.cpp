@@ -44,8 +44,8 @@ cl_dev_err_code OpenCLBackendWrapper::LoadDll()
     std::string dllName = std::string(szOclCpuBackendDllName) +
                           (m_targetDev == FPGA_EMU_DEVICE ? OUTPUT_EMU_SUFF : "");
 
-    if( !m_dll.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(OS_DLL_POST(dllName).c_str())) )
-    {
+    if (m_dll.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
+            OS_DLL_POST(dllName).c_str())) != 0) {
         return CL_DEV_ERROR_FAIL;
     }
 

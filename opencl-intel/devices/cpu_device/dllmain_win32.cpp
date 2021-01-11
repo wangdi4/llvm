@@ -80,7 +80,7 @@ BOOL LoadTaskExecutor()
     tePath.resize(tePath.find_first_of('\0'));
     tePath += TASK_EXECUTOR_LIB_NAME;
 
-    if (!m_dlTaskExecutor->Load(tePath.c_str())) {
+    if (m_dlTaskExecutor->Load(tePath.c_str()) != 0) {
         return FALSE;
     }
 #endif
