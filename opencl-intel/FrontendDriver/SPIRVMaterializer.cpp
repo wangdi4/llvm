@@ -12,9 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "frontend_api.h"
 #include "SPIRVMaterializer.h"
 
+#include "BuiltinKeeper.h"
+
+#include "LLVMSPIRVLib.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
@@ -39,6 +41,28 @@ static void removeNoInlineAttr(Function &F) {
   }
 }
 
+// Function functor, to be applied for every function in the module when it's
+// BIsRepresentation == SPIRVFriendlyIR.
+// User may define their own function of the same name as OpenCL builtins
+// in SYCL (but in different cpp namespace). User function and OpenCL BI has
+// different representation in SPIRV-Friendly-IR.
+// For example,
+// user function: _Z8isfinitef(float)
+// OpenCL BI in SPIRV-Friendly-IR: _Z16__spirv_IsFinitef(float)
+//
+// We need to translate _Z16__spirv_IsFinitef to _Z8isfinitef to get oclopt
+// work properly. So we rename those user define function with a prefix
+// "__userlib" to avoid name clashing problems.
+static void renameUserFunctionConflictingWithBI(Function &F) {
+  if (F.isDeclaration())
+    return;
+
+  StringRef Name = F.getName();
+  if (reflection::BuiltinKeeper::instance()->isBuiltin(Name.str())) {
+    F.setName("__userlib" + Name);
+  }
+}
+
 // Checks if the program was compiled with optimization.
 bool ClangFECompilerMaterializeSPIRVTask::ifOptEnable() {
   std::vector<std::string> BuildOptionsSeparated;
@@ -55,12 +79,37 @@ bool ClangFECompilerMaterializeSPIRVTask::ifOptEnable() {
   return true;
 }
 
-int ClangFECompilerMaterializeSPIRVTask::MaterializeSPIRV(llvm::Module &M) {
+bool ClangFECompilerMaterializeSPIRVTask::MaterializeSPIRV(llvm::Module *&pM) {
   if (ifOptEnable()) {
-    std::for_each(M.begin(), M.end(), removeNoInlineAttr);
+    std::for_each(pM->begin(), pM->end(), removeNoInlineAttr);
   }
 
-  return 0;
+  if (m_opts.getDesiredBIsRepresentation() ==
+      SPIRV::BIsRepresentation::SPIRVFriendlyIR) {
+    // Rename those user functions conflicting with OpenCL builtins
+    std::for_each(pM->begin(), pM->end(), renameUserFunctionConflictingWithBI);
+
+    // SPV-IR --> SPV
+    std::stringstream spv_ss;
+    std::string err;
+    bool success = writeSpirv(pM, spv_ss, err);
+    if (!success) {
+      errs() << "[MaterializeSPIRV] Error during SPV-IR --> SPV translation: "
+             << err << '\n';
+      return success;
+    }
+
+    // SPV --> CL20-IR
+    m_opts.setDesiredBIsRepresentation(SPIRV::BIsRepresentation::OpenCL20);
+    success &= readSpirv(pM->getContext(), m_opts, spv_ss, pM, err);
+    if (!success)
+      errs() << "[MaterializeSPIRV] Error during SPV --> CL20-IR translation: "
+             << err << '\n';
+
+    return success;
+  }
+
+  return true;
 }
 
 } // namespace ClangFE

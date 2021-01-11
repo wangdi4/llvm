@@ -339,7 +339,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     // translation. It also is not emitted if we do not use SPIR-V as an
     // intermediate. These two cases are not supported now.
     if (m_sourceLanguage == spv::SourceLanguageOpenCL_CPP) {
-      TargetRepr = SPIRV::BIsRepresentation::OpenCL20;
+      TargetRepr = SPIRV::BIsRepresentation::SPIRVFriendlyIR;
     }
 
     opts.setDesiredBIsRepresentation(TargetRepr);
@@ -352,9 +352,8 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     assert(!verifyModule(*pModule) &&
            "SPIR-V consumer returned a broken module!");
     // Adapts the output of SPIR-V consumer to backend-friendly format.
-    // It returns 0 on success.
-    success = !ClangFECompilerMaterializeSPIRVTask(m_pProgDesc)
-                   .MaterializeSPIRV(*pModule);
+    success = ClangFECompilerMaterializeSPIRVTask(m_pProgDesc, opts)
+                   .MaterializeSPIRV(pModule);
     assert(!verifyModule(*pModule) && "SPIRVMaterializer broke the module!");
     // serialize to LLVM bitcode
     llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());

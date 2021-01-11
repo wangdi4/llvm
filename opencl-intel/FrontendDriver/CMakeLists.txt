@@ -41,6 +41,7 @@ set( INCLUDE_DIRS
             ${CCLANG_DEV_INCLUDE_DIRS}
             ${CL_API_HEADERS}
             ${OCL_SOURCE_DIR}/backend/name_mangling
+            ${OCL_SOURCE_DIR}/backend/reflection_module
             ${OCL_SOURCE_DIR}/backend/plugin_manager
             ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${OCL_SOURCE_DIR}/backend/dynamic_lib
@@ -108,6 +109,7 @@ set(LINK_LIBS
     CacheBinaryHandler
     CLElfLib
     name_mangle
+    reflection_module
     dynamic_load
     cl_sys_utils
     # LLVM LIBS
