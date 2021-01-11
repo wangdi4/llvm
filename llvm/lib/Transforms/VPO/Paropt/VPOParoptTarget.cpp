@@ -79,7 +79,7 @@ static cl::opt<bool> EnableDeviceSimdCodeGen(
     cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
 
 cl::opt<bool> llvm::vpo::UseMapperAPI(
-    "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(false),
+    "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(true),
     cl::desc("Emit calls to mapper specific functions in tgt RTL."));
 
 #if INTEL_CUSTOMIZATION
