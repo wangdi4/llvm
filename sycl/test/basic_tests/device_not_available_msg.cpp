@@ -27,8 +27,8 @@ int main() {
   } catch (sycl::runtime_error &E) {
     const std::string ExpectedMessage(
         "No device of requested type available. Please check "
-        "https://software.intel.com/en-us/articles/"
-        "intel-oneapi-dpcpp-compiler-system-requirements-beta");
+        "https://software.intel.com/content/www/us/en/develop/articles/"
+        "intel-oneapi-dpcpp-system-requirements.html");
     const std::string GotMessage(E.what());
     const bool Success = std::string::npos != GotMessage.find(ExpectedMessage);
     return Success ? 0 : 1;
