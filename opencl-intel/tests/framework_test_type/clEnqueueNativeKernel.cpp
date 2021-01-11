@@ -101,7 +101,7 @@ struct ArgIntensive {
   int n;
 };
 
-static void computeIntensiveFunc(void *arg) {
+static void CL_CALLBACK computeIntensiveFunc(void *arg) {
   ArgIntensive *arguments = static_cast<ArgIntensive *>(arg);
   float *r = arguments->r;
   int n = arguments->n;
@@ -159,7 +159,7 @@ TEST_F(EnqueueNativeKernelTest, multiThreadEnqueueWait) {
 
   std::vector<SynchronizedThread *> threads(numThreads);
 
-  for (size_t i = 0; i < numThreads; ++i)
+  for (int i = 0; i < numThreads; ++i)
     threads[i] = new NativeKernelThread(m_context, m_device, m_queue,
                                         &r[blockSize * i], blockSize, i);
 
@@ -168,12 +168,12 @@ TEST_F(EnqueueNativeKernelTest, multiThreadEnqueueWait) {
   pool.StartAll();
   pool.WaitAll();
 
-  for (size_t i = 0; i < numThreads; ++i) {
+  for (int i = 0; i < numThreads; ++i) {
     bool res = static_cast<NativeKernelThread *>(threads[i])->getResult();
     ASSERT_TRUE(res) << "NativeKernelThread " << i << " failed";
   }
 
-  for (size_t i = 0; i < numThreads; ++i)
+  for (int i = 0; i < numThreads; ++i)
     delete threads[i];
 }
 

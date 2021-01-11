@@ -414,8 +414,9 @@ namespace intel{
     CallInst* call = builder.CreateCall(WrappedKernel, ArrayRef<Value*>(params));
     // inlinable function call in a function with debug info
     // must have a !dbg location
-    if(DISubprogram *SP = WrappedKernel->getSubprogram())
-        call->setDebugLoc(DebugLoc::get(SP->getScopeLine(), 0, SP));
+    if (DISubprogram *SP = WrappedKernel->getSubprogram())
+      call->setDebugLoc(
+          DILocation::get(*m_pLLVMContext, SP->getScopeLine(), 0, SP));
     call->setCallingConv(WrappedKernel->getCallingConv());
 
     // Preserve debug info for a kernel return instruction
