@@ -32,6 +32,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/CodeGen/MachineScheduler.h" //INTEL
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -350,3 +351,10 @@ void X86Subtarget::getPostRAMutations(
 bool X86Subtarget::isPositionIndependent() const {
   return TM.isPositionIndependent();
 }
+#if INTEL_CUSTOMIZATION
+void X86Subtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
+                                           unsigned NumRegionInstrs) const {
+  if(!hasAVX512())
+    Policy.DisableLatencyHeuristic = true;
+}
+#endif // INTEL_CUSTOMIZATION
