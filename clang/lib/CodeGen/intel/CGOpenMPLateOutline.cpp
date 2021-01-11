@@ -1733,6 +1733,10 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     OpenMPClauseKind CK = OMPC_map;
     if (CurrentDirectiveKind == OMPD_target_update)
       CK = I.MapType == OMPC_MAP_to ? OMPC_to : OMPC_from;
+    llvm::Value *MapperFn = nullptr;
+    if (I.Mapper)
+      MapperFn = CGF.CGM.getOpenMPRuntime().getOrCreateUserDefinedMapperFunc(
+          cast<OMPDeclareMapperDecl>(I.Mapper));
     if (!I.IsChain && I.Var) {
       QualType Ty = I.Var->getType();
       if (isImplicitTask(OMPD_task)) {
@@ -1764,10 +1768,12 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     if (I.IsChain)
       CSB.setChain();
     addArg(CSB.getString());
-    addArg(I.Base);
-    addArg(I.Pointer);
-    addArg(I.Size);
-    addArg(I.Type);
+    for (auto *V :
+         {I.Base, I.Pointer, I.Size, I.Type, I.OffloadName, MapperFn}) {
+      if (!V)
+        V =  llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+      addArg(V);
+    }
   }
 }
 

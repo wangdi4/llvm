@@ -919,6 +919,8 @@ public:
     OpenMPMapClauseKind MapType;
     const VarDecl *Var;
     bool IsChain;
+    llvm::Value *OffloadName;
+    const ValueDecl *Mapper;
   };
 
   static void getLOMapInfo(const OMPExecutableDirective &Dir,
