@@ -26,22 +26,21 @@ define void @test_uniform_edge_to_divergent_block(i32* %a, i32 %b) local_unnamed
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = or i1 [[VP_VARYING]] i1 true
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB1_VARYING_NOT:%.*]] = not i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_BB1_ADD:%.*]] = add i32 [[VP_LD]] i32 1
+; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LD]] i32 3
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB1_VARYING]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB1_VARYING_NOT]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = or i1 [[VP_BB0_UNIFORM_NOT]] i1 [[VP_BB1_VARYING_NOT_PHI_BB4]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP0]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]], [[BB4]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB1_VARYING_NOT]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = or i1 [[VP_BB0_UNIFORM_NOT]] i1 [[VP_BB1_VARYING_NOT_PHI_BB4]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LD]] i32 2
-; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB1_VARYING_PHI_BB4]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LD]] i32 3
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
