@@ -1069,7 +1069,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
   // Do opt-level based initialization for each AAResult.
-  void setupWithOptLevel(unsigned OptLevel) {
+  void setupWithOptLevel(unsigned OptLevel) override {
     Result.setupWithOptLevel(OptLevel);
   }
 
