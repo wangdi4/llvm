@@ -130,6 +130,7 @@
 ; CHECK-O3-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-O2-NEXT: Running pass: OpenMPOptPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptPass on (foo)
+; CHECK-EP-CGSCC-LATE-NEXT: Running pass: NoOpCGSCCPass
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O-NEXT: Running pass: TbaaMDPropagationPass  ;INTEL
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptReportOptionsAnalysis       ;INTEL
@@ -216,7 +217,6 @@
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O-NEXT: Finished llvm::Function pass manager run.
-; CHECK-EP-CGSCC-LATE-NEXT: Running pass: NoOpCGSCCPass
 ; CHECK-O-NEXT: Finished CGSCC pass manager run.
 ; CHECK-O-NEXT: Finished llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: GlobalOptPass

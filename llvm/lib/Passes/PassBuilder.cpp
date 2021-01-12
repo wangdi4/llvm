@@ -1295,13 +1295,13 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
   if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
     MainCGPipeline.addPass(OpenMPOptPass());
 
+  for (auto &C : CGSCCOptimizerLateEPCallbacks)
+    C(MainCGPipeline, Level);
+
   // Lastly, add the core function simplification pipeline nested inside the
   // CGSCC walk.
   MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
       buildFunctionSimplificationPipeline(Level, Phase)));
-
-  for (auto &C : CGSCCOptimizerLateEPCallbacks)
-    C(MainCGPipeline, Level);
 
   return MIWP;
 }
@@ -2380,6 +2380,13 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
     MPM.addPass(
         createModuleToFunctionPassAdaptor(LowerMatrixIntrinsicsPass(true)));
 
+  if (!CGSCCOptimizerLateEPCallbacks.empty()) {
+    CGSCCPassManager CGPM(DebugLogging);
+    for (auto &C : CGSCCOptimizerLateEPCallbacks)
+      C(CGPM, Level);
+    if (!CGPM.isEmpty())
+      MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
+  }
   if (!LateLoopOptimizationsEPCallbacks.empty()) {
     LoopPassManager LPM(DebugLogging);
     for (auto &C : LateLoopOptimizationsEPCallbacks)
@@ -2404,13 +2411,6 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
       C(FPM, Level);
     if (!FPM.isEmpty())
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-  }
-  if (!CGSCCOptimizerLateEPCallbacks.empty()) {
-    CGSCCPassManager CGPM(DebugLogging);
-    for (auto &C : CGSCCOptimizerLateEPCallbacks)
-      C(CGPM, Level);
-    if (!CGPM.isEmpty())
-      MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
   }
   if (!VectorizerStartEPCallbacks.empty()) {
     FunctionPassManager FPM(DebugLogging);
