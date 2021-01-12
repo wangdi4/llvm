@@ -1005,6 +1005,7 @@ typedef std::vector<STIDebugFixup*> STIDebugFixupTable;
 //===----------------------------------------------------------------------===//
 
 class STIDebugImpl : public STIDebug {
+using AsmPrinterHandler::beginModule;
 private:
   typedef DenseMap<const Function *, STISymbolProcedure *> FunctionMap;
   typedef DenseMap<const MDNode *, STIScope *> STIScopeMap;

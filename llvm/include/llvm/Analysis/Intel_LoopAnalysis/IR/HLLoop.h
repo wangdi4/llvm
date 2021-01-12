@@ -51,11 +51,11 @@ struct BlockingPragmaInfo {
 // Distance is -1 when omitted in the directive
 // Distance of 0 indicates prefetching is disabled
 struct PrefetchingPragmaInfo {
-  RegDDRef *Var;
+  const RegDDRef *Var;
   int Hint;
   int Dist;
 
-  PrefetchingPragmaInfo(RegDDRef *Var, int Hint, int Dist)
+  PrefetchingPragmaInfo(const RegDDRef *Var, int Hint, int Dist)
       : Var(Var), Hint(Hint), Dist(Dist) {}
 };
 
@@ -180,7 +180,7 @@ private:
   std::unique_ptr<BlockingPragmaInfo> BlockingInfo;
 
   // Contains info specified in prefetching pragma.
-  std::vector<PrefetchingPragmaInfo> PrefetchingInfoVec;
+  SmallVector<PrefetchingPragmaInfo, 0> PrefetchingInfoVec;
 
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
@@ -272,7 +272,7 @@ protected:
 
   /// Adds prefetch pragma info specified in the prefetching pragma vector for
   /// this loop.
-  void addPrefetchingPragmaInfo(RegDDRef *Var, int Hint, int Dist) {
+  void addPrefetchingPragmaInfo(const RegDDRef *Var, int Hint, int Dist) {
     PrefetchingInfoVec.emplace_back(Var, Hint, Dist);
   }
 
@@ -1332,6 +1332,11 @@ public:
   }
 
   void promoteNestingLevel(unsigned StartLevel);
+
+  /// Returns the prefetching pragma vector
+  ArrayRef<PrefetchingPragmaInfo> getPrefetchingPragmaInfo() const {
+    return PrefetchingInfoVec;
+  }
 };
 
 /// Loop information related to its parallel characteristics, such as
