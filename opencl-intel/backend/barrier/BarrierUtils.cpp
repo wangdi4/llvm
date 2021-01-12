@@ -629,17 +629,6 @@ namespace intel {
     return false;
   }
 
-  bool BarrierUtils::isImplicitGID(AllocaInst * AI) {
-    StringRef Name = AI->getName();
-    static std::vector<StringRef> ImplicitGIDs = {
-        "__ocl_dbg_gid0", "__ocl_dbg_gid1", "__ocl_dbg_gid2"};
-    for (auto &GID : ImplicitGIDs) {
-      if (Name.equals(GID))
-        return true;
-    }
-    return false;
-  }
-
   inst_range BarrierUtils::findDummyRegion(Function &F) {
     // Dummy region would only exist at the beginning of a function,
     // so we do greedy search from the first instruction.

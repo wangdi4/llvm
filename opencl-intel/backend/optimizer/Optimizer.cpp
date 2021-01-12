@@ -104,6 +104,7 @@ llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLVPOCheckVFPass(const intel::OptimizerConfig &Config,
                                     TStringToVFState &kernelVFStates);
 llvm::Pass *createOCLPostVectPass();
+llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
 llvm::ModulePass* createCreateSimdVariantPropagationPass();
@@ -206,7 +207,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             bool UnrollLoops,
                                             int rtLoopUnrollFactor,
                                             bool allowAllocaModificationOpt,
-                                            bool isDBG, bool UseVplan) {
+                                            bool UseVplan) {
   if (OptLevel == 0) {
     return;
   }
@@ -328,10 +329,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool EnableInferAS,
                                        bool isSPIRV,
                                        bool UseVplan) {
-  DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M,
-                              pConfig->GetUseNativeDebuggerFlag());
-
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
@@ -440,10 +437,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   bool allowAllocaModificationOpt = !HasGatherScatterPrefetch;
 
-  createStandardLLVMPasses(
-      &PM, OptLevel,
-      UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
-      debugType != intel::None, UseVplan);
+  createStandardLLVMPasses(&PM, OptLevel, UnitAtATime, UnrollLoops,
+                           rtLoopUnrollFactor, allowAllocaModificationOpt,
+                           UseVplan);
 
   // check there is no recursion, if there is fail compilation
   PM.add(createDetectRecursionPass());
@@ -523,7 +519,7 @@ static void populatePassesPostFailCheck(
 
   PM.add(createDuplicateCalledKernelsPass());
 
-  if (debugType == intel::None && OptLevel > 0) {
+  if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(createKernelAnalysisPass());
     PM.add(createCLWGLoopBoundariesPass());
@@ -700,16 +696,18 @@ static void populatePassesPostFailCheck(
   }
 
   // Adding WG loops
-  if (debugType == intel::None && OptLevel > 0) {
+  if (OptLevel > 0) {
     PM.add(createDeduceMaxWGDimPass());
     if (pConfig->GetStreamingAlways())
       PM.add(createAddNTAttrPass());
+    if (debugType == Native)
+      PM.add(createImplicitGIDPass(/*HandleBarrier*/ false));
     PM.add(createCLWGLoopCreatorPass());
   }
   PM.add(createIndirectCallLoweringPass());
 
   // Clean up scalar kernel after WGLoop for native subgroups.
-  if (debugType == intel::None && OptLevel > 0) {
+  if (OptLevel > 0) {
     PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
     PM.add(llvm::createCFGSimplificationPass());   // Simplify CFG
   }

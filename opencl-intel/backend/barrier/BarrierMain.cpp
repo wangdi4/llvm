@@ -33,7 +33,7 @@ extern "C" {
   void* createBarrierInFunctionPass();
   void* createRemoveDuplicationBarrierPass();
   void* createSplitBBonBarrierPass();
-  void* createImplicitGIDPass();
+  Pass *createImplicitGIDPass(bool HandleBarrier);
   //void* createDataPerBarrierPass();
   //void* createWIRelatedValuePass();
   //void* createDataPerValuePass();
@@ -99,7 +99,8 @@ namespace intel {
     // Insert ImplicitGIDPass in the middle of subgroup emulation
     // to track GIDs in emulation loops
     if (m_debugType == Native)
-      barrierModulePM.add((ModulePass*)createImplicitGIDPass());
+      barrierModulePM.add(
+          (ModulePass *)createImplicitGIDPass(/*HandleBarrier*/ true));
 
     // Resume sub-group emulation
     if (EnableSubGroupEmulation) {

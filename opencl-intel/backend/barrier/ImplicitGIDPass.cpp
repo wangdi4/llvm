@@ -15,7 +15,10 @@
 #include "ImplicitGIDPass.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
+#include "llvm/ADT/SmallSet.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -33,9 +36,10 @@ OCL_INITIALIZE_PASS_END(
     "Implicit Global Id Pass - Add parameters for native (gdb) debugging",
     false, false)
 
-ImplicitGlobalIdPass::ImplicitGlobalIdPass()
+ImplicitGlobalIdPass::ImplicitGlobalIdPass(bool HandleBarrier)
     : ModulePass(ID), m_pDataPerBarrier(nullptr), m_pModule(nullptr),
-      m_pContext(nullptr) {
+      m_pContext(nullptr), m_handleBarrier(HandleBarrier),
+      m_skipInsertDbgDeclare(false) {
   initializeImplicitGlobalIdPassPass(*llvm::PassRegistry::getPassRegistry());
 }
 
@@ -56,12 +60,42 @@ bool ImplicitGlobalIdPass::runOnModule(Module &M) {
   m_DbgInfoFinder = DebugInfoFinder();
   m_DbgInfoFinder.processModule(M);
 
-  // Create the unsigned long DebugInfo type for GID variables
-  m_pULongDIType = getOrCreateUlongDIType();
+  // Create the Ind DebugInfo type for GID variables.
+  m_IndDIType = getOrCreateIndDIType();
+
+  // Collect kernels.
+  SmallSet<Function *, 8> Kernels;
+  for (Function *F : Intel::MetadataAPI::KernelList(&M))
+    Kernels.insert(F);
 
   bool ModuleChanged = false;
-  for (Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi) {
-    ModuleChanged |= runOnFunction(*fi);
+
+  for (auto &F : M) {
+    auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
+    if (m_handleBarrier) {
+      if (!(kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()))
+        ModuleChanged |= runOnFunction(F);
+      continue;
+    }
+
+    if (!(Kernels.count(&F) && kimd.NoBarrierPath.hasValue() &&
+          kimd.NoBarrierPath.get()))
+      continue;
+
+    m_skipInsertDbgDeclare = false;
+    ModuleChanged |= runOnFunction(F);
+
+    m_skipInsertDbgDeclare = true;
+    if (kimd.VectorizedKernel.hasValue()) {
+      Function *VectorF = kimd.VectorizedKernel.get();
+      if (VectorF)
+        ModuleChanged |= runOnFunction(*VectorF);
+    }
+    if (kimd.VectorizedMaskedKernel.hasValue()) {
+      Function *MaskedF = kimd.VectorizedMaskedKernel.get();
+      if (MaskedF)
+        ModuleChanged |= runOnFunction(*MaskedF);
+    }
   }
 
   return ModuleChanged;
@@ -114,15 +148,16 @@ void ImplicitGlobalIdPass::insertGIDAlloca(Function &F, bool HasSyncInst,
   DebugLoc DIL = DILocation::get(*m_pContext, SP->getLine(), 0, SP);
 
   for (unsigned i = 0; i < 3; ++i) {
-    AllocaInst *GIDAlloca = new AllocaInst(IntegerType::getInt64Ty(*m_pContext),
-                                           0, "__ocl_dbg_gid" + Twine(i), IP);
+    AllocaInst *GIDAlloca = new AllocaInst(LoopUtils::getIndTy(m_pModule), 0,
+                                           "__ocl_dbg_gid" + Twine(i), IP);
 
-    // Create debug info
-    DILocalVariable *DIV = DIB->createAutoVariable(
-        SP, GIDAlloca->getName(), nullptr, 1, m_pULongDIType,
-        /*AlwaysPreserve*/ true, DINode::FlagArtificial);
-    DIB->insertDeclare(GIDAlloca, DIV, DIB->createExpression(), DIL, IP);
-
+    if (!m_skipInsertDbgDeclare) {
+      // Create debug info
+      DILocalVariable *DIV = DIB->createAutoVariable(
+          SP, GIDAlloca->getName(), nullptr, 1, m_IndDIType,
+          /*AlwaysPreserve*/ true, DINode::FlagArtificial);
+      DIB->insertDeclare(GIDAlloca, DIV, DIB->createExpression(), DIL, IP);
+    }
     m_pGIDAllocas[i] = GIDAlloca;
   }
 }
@@ -131,6 +166,17 @@ void ImplicitGlobalIdPass::insertGIDStore(Function &F, bool HasSyncInst,
                                           bool HasSGSyncInst) {
   assert(m_pInsertPoint->getParent() == &F.getEntryBlock() &&
          "Insert point must lie in current function's entry block");
+
+  // Create get_global_id() and store instructions for each insert point
+  IRBuilder<> B(m_pInsertPoint);
+
+  if (!m_handleBarrier) {
+    auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
+    if (!(kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()))
+      return;
+    insertGIDStore(B, m_pInsertPoint);
+    return;
+  }
 
   InstSet GenericSyncInsts;
   if (HasSGSyncInst) {
@@ -149,9 +195,6 @@ void ImplicitGlobalIdPass::insertGIDStore(Function &F, bool HasSyncInst,
   // m_pInsertPoint.
   Instruction *FirstInst = &(F.getEntryBlock().front());
   GenericSyncInsts.remove(FirstInst);
-
-  // Create get_global_id() and store instructions for each insert point
-  IRBuilder<> B(m_pInsertPoint);
 
   // If we encounter a dummybarrier -> dummybarrier/dummy_sg_barrier region at
   // the beginning of the function, we should not insert store instructions, as
@@ -179,25 +222,29 @@ void ImplicitGlobalIdPass::insertGIDStore(IRBuilder<> &B,
 
   for (unsigned i = 0; i < 3; ++i) {
     Value *GID = m_util.createGetGlobalId(i, B);
-    B.CreateZExtOrBitCast(GID, IntegerType::getInt64Ty(*m_pContext));
     B.CreateStore(GID, m_pGIDAllocas[i], /*isVolatile*/ true);
   }
 }
 
-DIType *ImplicitGlobalIdPass::getOrCreateUlongDIType() const {
+DIType *ImplicitGlobalIdPass::getOrCreateIndDIType() const {
   for (auto const &t : m_DbgInfoFinder.types()) {
-    if (t->getName() == "long unsigned int") {
+    if (t->getName() == "ind type") {
       return t;
     }
   }
   // If the type wasn't found, create it now
   DIBuilder *diBuilder = m_pDIB.get();
-  return diBuilder->createBasicType("long unsigned int", 64,
+  Type *indTy = LoopUtils::getIndTy(m_pModule);
+  uint64_t indTySize =
+      m_pModule->getDataLayout().getTypeSizeInBits(indTy).getFixedSize();
+  return diBuilder->createBasicType("ind type", indTySize,
                                     dwarf::DW_ATE_unsigned);
 }
 
 } // namespace intel
 
 extern "C" {
-void *createImplicitGIDPass() { return new intel::ImplicitGlobalIdPass(); }
+void *createImplicitGIDPass(bool HandleBarrier) {
+  return new intel::ImplicitGlobalIdPass(HandleBarrier);
+}
 }

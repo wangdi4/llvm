@@ -8,8 +8,8 @@
 ;   4. llvm.dbg.declare and llvm.dbg.value intrinsics should be retained.
 ;
 ; CHECK: define {{.*}}@test_kernel({{.*}}){{.*}}!dbg [[SP:![0-9]+]] {{.*}}{
-; CHECK:   call void @llvm.dbg.value(metadata i32 addrspace(1)* %0, metadata [[PARAM1:![0-9]+]], metadata !DIExpression()), !dbg [[L123:![0-9]+]]
-; CHECK:   call void @llvm.dbg.declare(metadata i32 addrspace(1)* %1, metadata [[PARAM2:![0-9]+]], metadata !DIExpression()), !dbg [[L123]]
+; CHECK:   call void @llvm.dbg.declare(metadata i32 addrspace(1)* %1, metadata [[PARAM2:![0-9]+]], metadata !DIExpression()), !dbg [[L123:![0-9]+]]
+; CHECK:   call void @llvm.dbg.value(metadata i32 addrspace(1)* %0, metadata [[PARAM1:![0-9]+]], metadata !DIExpression()), !dbg [[L123]]
 ; CHECK:   %11 = load i32, i32 addrspace(1)* %1, align 4, !dbg [[L124:![0-9]+]]
 ; CHECK:   %12 = load i32, i32 addrspace(1)* %2, align 4, !dbg [[L124]]
 ; CHECK:   %13 = add i32 %11, %12, !dbg [[L124]]
@@ -42,9 +42,9 @@
 ; CHECK: [[INTPTR]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: [[INT:![0-9]+]]{{.*}})
 ; CHECK: [[INT]] = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 ;
-; CHECK: [[PARAM1]] = !DILocalVariable(name: "param1", arg: 1, scope: !5, file: !2, type: !8)
-; CHECK: [[L123]] = !DILocation(line: 123, scope: !5)
 ; CHECK: [[PARAM2]] = !DILocalVariable(name: "param2", arg: 2, scope: !5, file: !2, type: !8)
+; CHECK: [[L123]] = !DILocation(line: 123, scope: !5)
+; CHECK: [[PARAM1]] = !DILocalVariable(name: "param1", arg: 1, scope: !5, file: !2, type: !8)
 ; CHECK: [[L124]] = !DILocation(line: 124, scope: !5)
 
 ; ModuleID = 'test.ll'
