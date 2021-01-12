@@ -77,6 +77,28 @@ enum IdentificationCodes {
 /// also accepts N-1.
 enum { BITCODE_CURRENT_EPOCH = 0 };
 
+#if INTEL_CUSTOMIZATION
+// We'd like Intel compilers to be able to read either standard LLVM IR from the
+// current epoch (BITCODE_CURRENT_EPOCH) or bitcode produced by Intel compilers
+// within a supported epoch. Currently there is only one epoch for Intel
+// compilers. When an incompatible change is introduced, we will update the
+// epoch and provide a mechanism (in the BitcodeReader) for reading and
+// upgrading IR from earlier epochs.
+//
+// We're using the high byte of the epoch to distinguish between IR produced by
+// Intel compilers and standard LLVM IR. There is no guaratee that other vendors
+// will not use this same approach, but the producer string will allow us to
+// diagnose problems that might arise if other vendors use the same epoch
+// numbering scheme.
+enum {
+  CURRENT_INTEL_SUBEPOCH = 0x01,
+  INTEL_EPOCH_OFFSET = 24,
+  INTEL_EPOCH_MASK = 0xFF << INTEL_EPOCH_OFFSET,
+  BITCODE_CURRENT_INTEL_EPOCH =
+      (CURRENT_INTEL_SUBEPOCH << INTEL_EPOCH_OFFSET) | BITCODE_CURRENT_EPOCH
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// MODULE blocks have a number of optional fields and subblocks.
 enum ModuleCodes {
   MODULE_CODE_VERSION = 1,     // VERSION:     [version#]

@@ -23,6 +23,7 @@ Xmain
    XmainGatekeeperDuties
    XmainCurrentLITFailures
    IRSuppression
+   IRVersionCompatibility
    LoopOptReport
    TraceBack
    InlineReportViaMetadata
@@ -107,6 +108,11 @@ process change requests to them.
 :doc:`IR Suppression in Product Executables <IRSuppression>`
    Describes the rationale behind suppressing IR output in released products
    and the implementation used to do so.
+
+:doc:`IR Version Compatibility <IRVersionCompatibility>`
+   Describes the design of Intel-specific versioning in bitcode files and
+   how backward compatibility will be handled if the bitcode changes in an
+   incompatible way.
 
 :doc:`Loop Optimization Reports <LoopOptReport>`
 
