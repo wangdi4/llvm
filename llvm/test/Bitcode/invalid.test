@@ -41,7 +41,8 @@ INTEL-UNKNOWN-EPOCH-NEXT: (Producer: 'FakeProducer' Reader: 'Intel.oneAPI.DPCPP.
 RUN: not llvm-dis -disable-output %p/Inputs/intel-invalid-producer.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=INTEL-INVALID-PRODUCER %s
 
-; intel-invalid-unknown-epoch.bc was artificially produced with an invalid epoch id.
+; intel-invalid-producer.bc was artificially produced with an Intel epoch and
+; "FakeProducer" as the producer string.
 ; The test checks that the bitcode reader reports the error.
 INTEL-INVALID-PRODUCER: The bitcode file uses an Intel epoch ID but was not produced by an Intel product.
 INTEL-INVALID-PRODUCER-NEXT: (Producer: 'FakeProducer' Reader: 'Intel.oneAPI.DPCPP.Compiler_2021.2.0')
