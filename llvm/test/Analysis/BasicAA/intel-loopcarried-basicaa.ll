@@ -29,12 +29,13 @@ define void @params(i32* noalias %par0, i32* noalias %par1) {
 ; "isGEPBaseAtNegativeOffset" in BasicAA for a better description.)
 ; Verify the AST-based analysis:
 ; AST-LABEL: function 'global':
-; AST-DAG: 1 alias sets for 3 pointer values
-; AST-DAG: alias, Mod Pointers: (i32* %p0, LocationSize::precise(4)), (i32* %p1, LocationSize::precise(4)), (i32* @gv, LocationSize::precise(4))
+; AST-DAG: 2 alias sets for 3 pointer values
+; AST-DAG: alias, Mod Pointers: (i32* %p0, LocationSize::precise(4)), (i32* @gv, LocationSize::precise(4))
+; AST-DAG: alias, Mod Pointers: (i32* %p1, LocationSize::precise(4))
 ; ...and also the pairwise analysis:
 ; CHECK-LABEL: Function: global:
 ; CHECK-DAG: MayAlias: i32* %p0, i32* @gv
-; CHECK-DAG: MayAlias: i32* %p0, i32* %p1
+; CHECK-DAG: NoAlias: i32* %p0, i32* %p1
 
 declare i32* @random.i32(i32* %ptr)
 @gv = global i32 1
