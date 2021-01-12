@@ -2512,9 +2512,11 @@ defm preserve_as_comments : BoolFOption<"preserve-as-comments",
   "CodeGenOpts.PreserveAsmComments", DefaultsToTrue,
   ChangedBy<NegFlag, [], "Do not preserve comments in inline assembly">,
   ResetBy<PosFlag>>;
+#if INTEL_CUSTOMIZATION
 defm profile_arcs : BoolFOption<"profile-arcs",
   "CodeGenOpts.EmitGcovArcs", DefaultsToFalse,
-  ChangedBy<PosFlag, [LinkOption]>, ResetBy<NegFlag>>;
+  ChangedBy<PosFlag, [LinkOption]>, ResetBy<NegFlag>, BothFlags<[CoreOption]>>;
+#endif // INTEL_CUSTOMIZATION
 def framework : Separate<["-"], "framework">, Flags<[LinkerInput]>;
 def frandom_seed_EQ : Joined<["-"], "frandom-seed=">, Group<clang_ignored_f_Group>;
 def freg_struct_return : Flag<["-"], "freg-struct-return">, Group<f_Group>, Flags<[CC1Option]>,
@@ -2694,9 +2696,11 @@ def foptimization_record_passes_EQ : Joined<["-"], "foptimization-record-passes=
   HelpText<"Only include passes which match a specified regular expression in the generated optimization record (by default, include all passes)">,
   MetaVarName<"<regex>">;
 
+#if INTEL_CUSTOMIZATION
 defm test_coverage : BoolFOption<"test-coverage",
   "CodeGenOpts.EmitGcovNotes", DefaultsToFalse,
-  ChangedBy<PosFlag>, ResetBy<NegFlag>>;
+  ChangedBy<PosFlag>, ResetBy<NegFlag>, BothFlags<[CoreOption]>>;
+#endif // INTEL_CUSTOMIZATION
 def fvectorize : Flag<["-"], "fvectorize">, Group<f_Group>,
   HelpText<"Enable the loop vectorization passes">;
 def fno_vectorize : Flag<["-"], "fno-vectorize">, Group<f_Group>;
