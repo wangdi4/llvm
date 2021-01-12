@@ -78,6 +78,10 @@ static cl::opt<bool> EnableDeviceSimdCodeGen(
     "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
     cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
 
+cl::opt<bool> llvm::vpo::UseMapperAPI(
+    "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(false),
+    cl::desc("Emit calls to mapper specific functions in tgt RTL."));
+
 #if INTEL_CUSTOMIZATION
 // Controls adding noalias attribute to outlined target function arguments.
 static cl::opt<bool>
@@ -1356,6 +1360,7 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
 void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
+    SmallVectorImpl<GlobalVariable *> &Names, SmallVectorImpl<Value *> &Mappers,
     bool &hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
@@ -1370,6 +1375,29 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
       isa<WRNTargetVariantNode>(W);
+
+  GlobalVariable *MapNameUnknown = nullptr;
+  auto getMapNameForVar = [&](Value *V) -> GlobalVariable * {
+    if (!UseMapperAPI)
+      return nullptr;
+
+    bool IsDebugCompilation = F->getParent()->getNamedMetadata("llvm.dbg.cu");
+    if (!IsDebugCompilation)
+      return nullptr;
+
+    IRBuilder<> Builder(W->getEntryBBlock());
+
+    // TODO: Create the map name string using debug information for V.
+#ifndef NDEBUG
+    if (V->hasName())
+      return Builder.CreateGlobalString(
+          (";" + V->getName() + ";unknown;0;0;;").str());
+#endif
+
+    if (!MapNameUnknown)
+      MapNameUnknown = Builder.CreateGlobalString(";unknown;unknown;0;0;;");
+    return MapNameUnknown;
+  };
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -1434,6 +1462,13 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         } else
           MapTypes.push_back(
               getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0));
+
+        // TODO: Use name from map-chain. It should look something like:
+        //  @0 = private unnamed_addr constant [40 x i8]
+        //       c";y[0][0:1];tgt_map_ptr_arrsec.cpp;7;7;;\00", align 1
+        Names.push_back(getMapNameForVar(Aggr->getBasePtr()));
+        // TODO: Use mappers from map-chains.
+        Mappers.push_back(nullptr);
       }
     } else {
       assert(!MapI->getIsArraySection() &&
@@ -1441,6 +1476,8 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
       MapTypes.push_back(getMapTypeFlag(MapI, true, true));
+      Names.push_back(getMapNameForVar(MapI->getOrig()));
+      Mappers.push_back(nullptr);
     }
   }
 
@@ -1452,6 +1489,9 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       if (FprivI->getInMap())
         continue;
       Type *ItemTy = V->getType();
+      Names.push_back(getMapNameForVar(V));
+      Mappers.push_back(nullptr);
+
       if (!isa<PointerType>(ItemTy)) {
         // Non-pointer firstprivate items must be mapped as literals
         // with size 0.
@@ -1476,6 +1516,8 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                           DL.getTypeAllocSize(T)));
     MapTypes.push_back(TGT_MAP_ND_DESC);
+    Names.push_back(getMapNameForVar(V));
+    Mappers.push_back(nullptr);
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTgtInformationForPtrs:"
@@ -1689,25 +1731,28 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     SmallVector<Constant *, 16> ConstSizes;
     SmallVector<uint64_t, 16> MapTypes;
+    SmallVector<GlobalVariable *, 16> Names;
+    SmallVector<Value *, 16> Mappers;
 
     if (ForceMapping)
-      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
                                hasRuntimeEvaluationCaptureSize);
     else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
-        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
+        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
                                  hasRuntimeEvaluationCaptureSize);
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, hasRuntimeEvaluationCaptureSize);
+                                 MapTypes, Names, Mappers,
+                                 hasRuntimeEvaluationCaptureSize);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
 
-    genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes,
-                         MapTypes, hasRuntimeEvaluationCaptureSize);
+    genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes, MapTypes, Names,
+                         Mappers, hasRuntimeEvaluationCaptureSize);
   }
 
   genOffloadArraysArgument(&Info, InsertPt);
@@ -1719,31 +1764,38 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
       WRNTeamsNode *TW = cast<WRNTeamsNode>(*IT);
       TgtCall = VPOParoptUtils::genTgtTargetTeams(
           TW, RegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
-          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes,
+          Info.ResNames, Info.ResMappers, InsertPt);
     } else
       TgtCall = VPOParoptUtils::genTgtTarget(
           W, RegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
-          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes,
+          Info.ResNames, Info.ResMappers, InsertPt);
   } else if (isa<WRNTargetDataNode>(W)) {
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
     genOffloadArraysArgument(&Info, InsertPt);
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   } else if (isa<WRNTargetUpdateNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataUpdate(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   else if (isa<WRNTargetEnterDataNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   else if (isa<WRNTargetExitDataNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   else
     llvm_unreachable("genTargetInitCode: Unexpected region node.");
 
@@ -2171,8 +2223,9 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
 // true.
 void VPOParoptTransform::genOffloadArraysInitUtil(
     IRBuilder<> &Builder, Value *BasePtr, Value *SectionPtr, Value *Size,
-    TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes, unsigned &Cnt,
-    bool hasRuntimeEvaluationCaptureSize, Instruction **BasePtrGEPOut) {
+    Value *Mapper, TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes,
+    unsigned &Cnt, bool hasRuntimeEvaluationCaptureSize,
+    Instruction **BasePtrGEPOut) {
 
   assert(BasePtr && "Unexpected: BasePtr is null");
   assert(SectionPtr && "Unexpected: SectionPtr is null");
@@ -2184,20 +2237,30 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
                     << hasRuntimeEvaluationCaptureSize << "\n");
 
   Value *NewBPVal, *BP, *P, *S, *SizeValue;
+  auto *I8PTy = Builder.getInt8PtrTy();
+  auto *I8PArrayTy = ArrayType::get(I8PTy, Info->NumberOfPtrs);
 
   NewBPVal = genCastforAddr(BasePtr, Builder);
-  BP = Builder.CreateConstInBoundsGEP2_32(
-      ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-      Info->BaseDataPtrs, 0, Cnt);
+  BP = Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->BaseDataPtrs, 0,
+                                          Cnt);
   Builder.CreateStore(NewBPVal, BP);
   if (BasePtrGEPOut)
     *BasePtrGEPOut = cast<Instruction>(BP);
 
-  P = Builder.CreateConstInBoundsGEP2_32(
-      ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-      Info->DataPtrs, 0, Cnt);
+  P = Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->DataPtrs, 0, Cnt);
   NewBPVal = genCastforAddr(SectionPtr, Builder);
   Builder.CreateStore(NewBPVal, P);
+
+  if (UseMapperAPI) {
+    Value *MapperGEP =
+        Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->Mappers, 0, Cnt);
+    if (!Mapper)
+      Mapper = ConstantPointerNull::get(I8PTy);
+    else
+      Info->FoundValidMapper = true;
+    Value *MapperCast = genCastforAddr(Mapper, Builder);
+    Builder.CreateStore(MapperCast, MapperGEP);
+  }
 
   if (hasRuntimeEvaluationCaptureSize) {
     LLVMContext &C = F->getContext();
@@ -2261,17 +2324,19 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
       MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
+        // TODO: Use mapper from map-chain
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
-            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize,
-            I == 0 ? &BasePtrGEP : nullptr);
+            /*Mapper=*/nullptr, Info, ConstSizes, Cnt,
+            hasRuntimeEvaluationCaptureSize, I == 0 ? &BasePtrGEP : nullptr);
       }
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
-                               Cnt, hasRuntimeEvaluationCaptureSize,
-                               &BasePtrGEP);
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal,
+                               /*Size=*/nullptr,
+                               /*Mapper=*/nullptr, Info, ConstSizes, Cnt,
+                               hasRuntimeEvaluationCaptureSize, &BasePtrGEP);
     }
     MapI->setBasePtrGEPForOrig(BasePtrGEP);
   }
@@ -2291,6 +2356,7 @@ void VPOParoptTransform::genOffloadArraysInit(
     WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
     SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
+    SmallVectorImpl<GlobalVariable *> &Names, SmallVectorImpl<Value *> &Mappers,
     bool hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInit:"
@@ -2304,6 +2370,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   bool Match = false;
   Value *SizesArray;
   LLVMContext &C = F->getContext();
+  Type *I8PTy = Builder.getInt8PtrTy();
 
   // Build the alloca defs of the target parms.
   // The allocas must be kept in the same region as their uses,
@@ -2326,12 +2393,10 @@ void VPOParoptTransform::genOffloadArraysInit(
   }
 
   AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
-        ".offload_baseptrs");
+      ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_baseptrs");
 
   AllocaInst *TgPointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
-        ".offload_ptrs");
+      ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_ptrs");
 
   Constant *MapTypesArrayInit =
         ConstantDataArray::get(Builder.getContext(), MapTypes);
@@ -2341,10 +2406,48 @@ void VPOParoptTransform::genOffloadArraysInit(
                          ".offload_maptypes", nullptr);
   MapTypesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
+  GlobalVariable *NamesArray = nullptr;
+  if (UseMapperAPI)
+    if (llvm::any_of(Names, [](GlobalVariable *C) { return C; })) {
+      SmallVector<Constant *, 16> NamesCasted;
+      // Create a global mapnames array from individual names:
+      // @0 = private unnamed_addr constant [13 x i8] c";y;t.c;4;7;;\00" // (1)
+      //
+      // @.offload_mapnames = private constant [1 x i8*] [               // (3)
+      //   i8* getelementptr inbounds ([13 x i8], [13 x i8]* @0,
+      //                               i32 0, i32 0)                     // (2)
+      //   ]
+      //
+      llvm::transform(
+          Names, std::back_inserter(NamesCasted),
+          [&C](GlobalVariable *N) { //                                      (1)
+            assert(N && "Name is null.");
+            Constant *Zero = ConstantInt::get(Type::getInt32Ty(C), 0);
+            Constant *Indices[] = {Zero, Zero};
+            return ConstantExpr::getInBoundsGetElementPtr(N->getValueType(), N,
+                                                          Indices); //      (2)
+          });
+
+      auto *NamesArrayInit = ConstantArray::get(
+          ArrayType::get(I8PTy, NamesCasted.size()), NamesCasted);
+      GlobalVariable *NamesArrayGbl =
+          new GlobalVariable(*(F->getParent()), NamesArrayInit->getType(), true,
+                             GlobalValue::PrivateLinkage, NamesArrayInit,
+                             ".offload_mapnames", nullptr); //              (3)
+      NamesArray = NamesArrayGbl;
+    }
+
+  AllocaInst *TgMappersArray = nullptr;
+  if (UseMapperAPI)
+    TgMappersArray = Builder.CreateAlloca(
+        ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_mappers");
+
   Info->BaseDataPtrs = TgBasePointersArray;
   Info->DataPtrs = TgPointersArray;
   Info->DataSizes = SizesArray;
   Info->DataMapTypes = MapTypesArrayGbl;
+  Info->Names = NamesArray;
+  Info->Mappers = TgMappersArray;
 
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
@@ -2375,12 +2478,15 @@ void VPOParoptTransform::genOffloadArraysInit(
                                   Builder, Cnt);
 
     if (!Match)
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
-                               Cnt, hasRuntimeEvaluationCaptureSize);
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal,
+                               /*Size=*/nullptr, /*Mapper=*/nullptr, Info,
+                               ConstSizes, Cnt,
+                               hasRuntimeEvaluationCaptureSize);
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
     genOffloadArraysInitUtil(Builder, W->getParLoopNdInfoAlloca(),
-                             W->getParLoopNdInfoAlloca(), nullptr, Info,
+                             W->getParLoopNdInfoAlloca(),
+                             /*Size=*/nullptr, /*Mapper=*/nullptr, Info,
                              ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
 
   LLVM_DEBUG(dbgs() << "\nExit2 VPOParoptTransform::genOffloadArraysInit:"
@@ -2398,28 +2504,43 @@ void VPOParoptTransform::genOffloadArraysArgument(
   LLVM_DEBUG(dbgs() << "\nVPOParoptTransform::genOffloadArraysArgument:"
                     << " Info->NumberOfPtrs=" << Info->NumberOfPtrs << "\n");
 
+  auto *I8PTy = Builder.getInt8PtrTy();
+  auto *I64Ty = Type::getInt64Ty(C);
+  auto *NullI8PP = ConstantPointerNull::get(PointerType::getUnqual(I8PTy));
+  auto *NullI64P = ConstantPointerNull::get(PointerType::getUnqual(I64Ty));
+
   if (Info->NumberOfPtrs) {
+    auto *I8PArrayTy = ArrayType::get(I8PTy, Info->NumberOfPtrs);
+    auto *I64ArrayTy = ArrayType::get(I64Ty, Info->NumberOfPtrs);
+
     Info->ResBaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->BaseDataPtrs, 0, 0);
-    Info->ResDataPtrs = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->DataPtrs, 0, 0);
-    Info->ResDataSizes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
-        Info->DataSizes, 0, 0);
-    Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
-        Info->DataMapTypes, 0, 0);
-  } else {
-    Info->ResBaseDataPtrs = ConstantPointerNull::get(
-        PointerType::getUnqual(Builder.getInt8PtrTy()));
-    Info->ResDataPtrs = ConstantPointerNull::get(
-        PointerType::getUnqual(Builder.getInt8PtrTy()));
+        I8PArrayTy, Info->BaseDataPtrs, 0, 0);
+    Info->ResDataPtrs =
+        Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->DataPtrs, 0, 0);
     Info->ResDataSizes =
-        ConstantPointerNull::get(PointerType::getUnqual(Type::getInt64Ty(C)));
-    Info->ResDataMapTypes =
-        ConstantPointerNull::get(PointerType::getUnqual(Type::getInt64Ty(C)));
+        Builder.CreateConstInBoundsGEP2_32(I64ArrayTy, Info->DataSizes, 0, 0);
+    Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
+        I64ArrayTy, Info->DataMapTypes, 0, 0);
+    if (UseMapperAPI) {
+      // If there are no non-null names/mappers, pass "i8** null" to RTL.
+      Info->ResNames = Info->Names ? Builder.CreateConstInBoundsGEP2_32(
+                                         I8PArrayTy, Info->Names, 0, 0)
+                                   : NullI8PP;
+
+      Info->ResMappers = Info->FoundValidMapper
+                             ? Builder.CreateConstInBoundsGEP2_32(
+                                   I8PArrayTy, Info->Mappers, 0, 0)
+                             : NullI8PP;
+    }
+  } else {
+    Info->ResBaseDataPtrs = NullI8PP;
+    Info->ResDataPtrs = NullI8PP;
+    if (UseMapperAPI) {
+      Info->ResNames = NullI8PP;
+      Info->ResMappers = NullI8PP;
+    }
+    Info->ResDataSizes = NullI64P;
+    Info->ResDataMapTypes = NullI64P;
   }
 }
 
@@ -3466,25 +3587,30 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   bool hasRuntimeEvaluationCaptureSize = false;
   SmallVector<Constant *, 16> ConstSizes;
   SmallVector<uint64_t, 16> MapTypes;
+  SmallVector<GlobalVariable *, 16> Names;
+  SmallVector<Value *, 16> Mappers;
 
   (void)addMapForUseDevicePtr(W, VariantWrapperCall);
 
-  genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+  genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
                            hasRuntimeEvaluationCaptureSize);
 
   CallInst *DummyCall = nullptr;
   genOffloadArraysInit(W, &Info, DummyCall, VariantWrapperCall, ConstSizes,
-                       MapTypes, hasRuntimeEvaluationCaptureSize);
+                       MapTypes, Names, Mappers,
+                       hasRuntimeEvaluationCaptureSize);
 
   genOffloadArraysArgument(&Info, VariantWrapperCall);
 
   (void)VPOParoptUtils::genTgtTargetDataBegin(
       W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-      Info.ResDataSizes, Info.ResDataMapTypes, VariantWrapperCall); //      (A)
+      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+      VariantWrapperCall); //                                               (A)
 
   CallInst *TgtDataEndCall = VPOParoptUtils::genTgtTargetDataEnd( //        (A)
       W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-      Info.ResDataSizes, Info.ResDataMapTypes, VariantWrapperCall);
+      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+      VariantWrapperCall);
   TgtDataEndCall->moveAfter(VariantWrapperCall);
 
   useUpdatedUseDevicePtrsInTgtDataRegion(W, VariantWrapperCall); //         (B)

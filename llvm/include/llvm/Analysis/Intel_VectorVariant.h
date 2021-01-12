@@ -25,6 +25,7 @@
 #include <vector>
 #include <sstream>
 #include <cctype>
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/StringRef.h"
@@ -130,7 +131,8 @@ class VectorVariant {
 public:
   // ISA classes defined in the vector function ABI.
   enum ISAClass {
-    XMM,  // (SSE2)
+    NOSSE,
+    XMM,  // (SSE)
     YMM1, // (AVX1)
     YMM2, // (AVX2)
     ZMM,  // (MIC)
@@ -167,12 +169,33 @@ private:
     UNIFORM_KIND = 'u',
     VECTOR_KIND = 'v'
   };
+
+  /// Describes the caller side argument to callee side parameter matching
+  /// score for simd functions. Scoring is based on the performance implications
+  /// of the matching. E.g., uniform pointer arg -> vector parameter would
+  /// result in gather/scatter, uniform -> vector would result in broadcast,
+  /// etc.
+  // Scalar2VectorScore represents either a uniform or linear match with
+  // vector.
+  static constexpr unsigned Scalar2VectorScore = 2;
+  static constexpr unsigned Uniform2UniformScore = 3;
+  static constexpr unsigned UniformPtr2UniformPtrScore = 4;
+  static constexpr unsigned Vector2VectorScore = 4;
+  static constexpr unsigned Linear2LinearScore = 4;
+
+  // Indicate that a match was not found for a particular variant when doing
+  // caller/callee variant matching.
+  static constexpr int NoMatch = -1;
+
   static std::string prefix() { return "_ZGV"; }
   static std::string encodeVectorKind(const VectorKind VK);
 
   /// \brief Determine the maximum vector register width based on the ISA classes
   /// defined in the vector function ABI.
   static unsigned int maximumSizeofISAClassVectorRegister(ISAClass I, Type *Ty);
+
+  /// Tries to match 'this' VectorVariant parameters with \p Other.
+  int matchParameters(VectorVariant &Other, int &MaxArg, const Module *M);
 
 public:
   VectorVariant(ISAClass I, bool M, unsigned int V,
@@ -421,6 +444,11 @@ public:
 
   /// \brief Calculate the vector length for the vector variant.
   static unsigned int calcVlen(ISAClass I, Type *Ty);
+
+  /// Returns the score of the vector variant matching between 'this' and \p
+  /// Other. Returns score of 0 if no proper match was found. Places the
+  /// position of the highest scoring arg in \p MaxArg.
+  int getMatchingScore(VectorVariant &Other, int &MaxArg, const Module *M);
 };
 
 } // namespace llvm

@@ -658,6 +658,11 @@ public:
 
   bool isAggressiveVLSProfitable() const { return false; }
 
+  int getMatchingVectorVariant(
+      VectorVariant &ForCall,
+      SmallVectorImpl<VectorVariant> &Variants,
+      const Module *M) const  { return -1; }
+
   bool needsStructuredCFG() const { return false; }
 
 #endif

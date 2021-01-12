@@ -73,6 +73,8 @@ namespace llvm {
 
 namespace vpo {
 
+extern cl::opt<bool> UseMapperAPI;
+
 /// opencl address space.
 enum AddressSpace {
   ADDRESS_SPACE_PRIVATE = 0,
@@ -289,6 +291,13 @@ private:
     /// The array of data map types passed to the runtime library.
     Value *DataMapTypes = nullptr;
     Value *ResDataMapTypes;
+    /// The array of mapper names passed to the runtime library.
+    Value *Names = nullptr;
+    Value *ResNames;
+    /// The array of mapper pointers passed to the runtime library.
+    Value *Mappers = nullptr;
+    Value *ResMappers;
+    bool FoundValidMapper = false;
     /// The number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;
     explicit TgDataInfo() {}
@@ -297,11 +306,13 @@ private:
       DataPtrs = nullptr;
       DataSizes = nullptr;
       DataMapTypes = nullptr;
+      Names = nullptr;
+      Mappers = nullptr;
       NumberOfPtrs = 0u;
     }
     bool isValid() {
       return BaseDataPtrs && DataPtrs && DataSizes && DataMapTypes &&
-             NumberOfPtrs;
+             (!UseMapperAPI || Mappers) && NumberOfPtrs;
     }
   };
 
@@ -1114,13 +1125,15 @@ private:
                             Instruction *InsertPt,
                             SmallVectorImpl<Constant *> &ConstSizes,
                             SmallVectorImpl<uint64_t> &MapTypes,
+                            SmallVectorImpl<GlobalVariable *> &Names,
+                            SmallVectorImpl<Value *> &Mappers,
                             bool hasRuntimeEvaluationCaptureSize);
 
   /// Utility to construct the assignment to the base pointers, section
   /// pointers (and size pointers if the flag hasRuntimeEvaluationCaptureSize is
   /// true). Sets \p BasePtrGEPOut to the GEP where \p BasePtr is stored.
   void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
-                                Value *SectionPtr, Value *Size,
+                                Value *SectionPtr, Value *Size, Value *Mapper,
                                 TgDataInfo *Info,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 unsigned &Cnt,
@@ -1150,11 +1163,15 @@ private:
   /// \param [in]     V               base pointer.
   /// \param [out]    ConstSizes      array of size information.
   /// \param [out]    MapTypes        array of map types.
+  /// \param [out]    Names           array of names.
+  /// \param [out]    Mappers         array of mappers.
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
   void genTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 SmallVectorImpl<uint64_t> &MapTypes,
+                                SmallVectorImpl<GlobalVariable *> &Names,
+                                SmallVectorImpl<Value *> &Mappers,
                                 bool &hasRuntimeEvaluationCaptureSize);
 
   /// Generate multithreaded for a given WRegion
