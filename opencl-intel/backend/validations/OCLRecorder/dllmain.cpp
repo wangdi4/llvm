@@ -16,6 +16,7 @@
 #if defined (_WIN32)
 
 #define WIN32_LEAN_AND_MEAN
+#include "cl_disable_sys_dialog.h"
 #include <windows.h>
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -26,6 +27,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
+#if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
+        Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
+#endif
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:
 	case DLL_PROCESS_DETACH:

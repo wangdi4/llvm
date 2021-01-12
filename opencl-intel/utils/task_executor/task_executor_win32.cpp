@@ -13,6 +13,7 @@
 // License.
 
 #include "task_executor.h"
+#include "cl_disable_sys_dialog.h"
 
 #if !defined(__THREAD_EXECUTOR__) && !defined(__TBB_EXECUTOR__)
 #define __THREAD_EXECUTOR__
@@ -151,6 +152,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
+#if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
+        Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
+#endif
 #ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
         InitSharedPtrs();
 #endif

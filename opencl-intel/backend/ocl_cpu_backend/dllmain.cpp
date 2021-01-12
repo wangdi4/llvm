@@ -26,6 +26,7 @@
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
+#include "cl_disable_sys_dialog.h"
 #include "cl_shutdown.h"
 #include "ocl_mutex.h"
 
@@ -66,6 +67,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         //        on Windows.  While it may work, the behavior would be
         //        inconsistent.
         // Compiler::Init();
+#if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
+        Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
+#endif
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:

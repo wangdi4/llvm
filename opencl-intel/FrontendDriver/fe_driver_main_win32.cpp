@@ -13,10 +13,11 @@
 // License.
 
 #include "fe_driver_main.h"
-#include <Logger.h>
-#include <cl_dynamic_lib.h>
-#include <cl_sys_info.h>
-#include <cl_sys_defines.h>
+#include "Logger.h"
+#include "cl_disable_sys_dialog.h"
+#include "cl_dynamic_lib.h"
+#include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include <Windows.h>
 #include <string>
 
@@ -90,6 +91,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
   {
     case DLL_PROCESS_ATTACH:
       INIT_LOGGER_CLIENT("FrontendDriver", LL_DEBUG);
+#if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
+      Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
+#endif
       m_dlClangLib = new OclDynamicLib;
       break;
     case DLL_THREAD_ATTACH:
