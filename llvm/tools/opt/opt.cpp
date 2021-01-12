@@ -511,7 +511,6 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
                                           "unreachableblockelim",
                                           "verify-safepoint-ir",
                                           "divergence",
-                                          "infer-address-spaces",
                                           "atomic-expand",
                                           "hardware-loops",
                                           "type-promotion",
