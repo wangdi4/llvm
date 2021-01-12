@@ -205,6 +205,23 @@ private:
     return OperandBits;
   }
 
+  /// Utility to get current SVA bits set for return value of given
+  /// VPInstruction in the tracking table. Returns None if instruction does not
+  /// have an entry in the table or is not processed i.e. no bits set.
+  Optional<SVABits> findSVABitsForReturnValue(const VPInstruction *Inst) const {
+    auto InstIt = VPlanSVAResults.find(Inst);
+    if (InstIt == VPlanSVAResults.end())
+      return None;
+
+    SVABits InstRetValBits = InstIt->second.RetValBits;
+    // Generic case where return value bits is empty, meaning it has same nature
+    // as instruction.
+    if (InstRetValBits.none())
+      return findSVABitsForInst(Inst);
+
+    return InstRetValBits;
+  }
+
   SVABits getSVABitsForInst(const VPInstruction *Inst) const {
     Optional<SVABits> InstBits = findSVABitsForInst(Inst);
     assert(InstBits && InstBits.getValue().any() &&

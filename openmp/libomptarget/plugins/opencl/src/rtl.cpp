@@ -753,7 +753,7 @@ public:
 #define __ATTRIBUTE__(X)  __attribute__((X))
 #endif // _WIN32
 
-static RTLDeviceInfoTy *DeviceInfo;
+static RTLDeviceInfoTy *DeviceInfo = nullptr;
 
 __ATTRIBUTE__(constructor(101)) void init() {
   IDP("Init OpenCL plugin!\n");
@@ -763,10 +763,10 @@ __ATTRIBUTE__(constructor(101)) void init() {
 __ATTRIBUTE__(destructor(101)) void deinit() {
   IDP("Deinit OpenCL plugin!\n");
   delete DeviceInfo;
+  DeviceInfo = nullptr;
 }
 
 #if _WIN32
-static void closeRTL();
 extern "C" BOOL WINAPI
 DllMain(HINSTANCE const instance, // handle to DLL module
         DWORD const reason,       // reason for calling function
@@ -789,9 +789,6 @@ DllMain(HINSTANCE const instance, // handle to DLL module
     break;
 
   case DLL_PROCESS_DETACH:
-    // Perform any necessary cleanup.
-    closeRTL();
-    deinit();
     break;
   }
   return TRUE; // Successful DLL_PROCESS_ATTACH.
@@ -938,9 +935,7 @@ static void closeRTL() {
         profile.second.printData(i, profile.first, DeviceInfo->Names[i].data(),
                                  DeviceInfo->ProfileResolution);
     }
-#ifndef _WIN32
     if (OMPT_ENABLED) {
-      // Disabled for Windows to alleviate dll finalization issue.
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
@@ -955,13 +950,11 @@ static void closeRTL() {
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
     if (DeviceInfo->QueuesInOrder[i])
       CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[i]);
-#endif // !defined(_WIN32)
     DeviceInfo->unloadOffloadTable(i);
   }
-#ifndef _WIN32
   for (auto platformInfo : DeviceInfo->PlatformInfos)
     CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
-#endif
+
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->ProfileLocks;
   IDP("Closed RTL successfully\n");
@@ -3124,6 +3117,16 @@ EXTERN bool __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   IDP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
       DeviceId, ret ? "" : " not", DPxPTR(DeviceType));
   return ret;
+}
+
+EXTERN void __tgt_rtl_deinit(void) {
+  // No-op on Linux
+#ifdef _WIN32
+  if (DeviceInfo) {
+    closeRTL();
+    deinit();
+  }
+#endif // _WIN32
 }
 
 #ifdef __cplusplus

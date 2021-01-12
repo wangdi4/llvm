@@ -140,8 +140,9 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
   if (!OrigLoop)
     // TODO: implement for HIR input
     return;
-  PHINode *Phi = cast<PHINode>(
-      VPLEntityList->getRecurrentVPHINode(*E)->getUnderlyingValue());
+  VPPHINode *VPPhi = VPLEntityList->getRecurrentVPHINode(*E);
+  assert(VPPhi && "Unexpected null recurrent VPPhi");
+  PHINode *Phi = cast<PHINode>(VPPhi->getUnderlyingValue());
   assert(Phi->getParent() == OrigLoop->getHeader() &&
          "Unexpected recurrent phi");
   int StartValOpNum = Phi->getBasicBlockIndex(OrigLoop->getLoopPreheader());

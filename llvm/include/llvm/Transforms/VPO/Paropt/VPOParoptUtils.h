@@ -1184,7 +1184,21 @@ public:
   static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
                                    Value *TidPtr, Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_data_begin`. Example:
+  /// Generate a call to `__tgt_target_data_begin[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_begin_mapper(ident_t *loc,
+  ///                                          int64_t  device_id,
+  ///                                          int32_t  num_args,
+  ///                                          void**   args_base,
+  ///                                          void**   args,
+  ///                                          int64_t* args_size,
+  ///                                          int64_t* args_maptype,
+  ///                                          void**   args_names,
+  ///                                          void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_data_begin(int64_t  device_id,
   ///                                   int32_t  num_args,
@@ -1196,9 +1210,24 @@ public:
   static CallInst *genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                          Value *ArgsBase, Value *Args,
                                          Value *ArgsSize, Value *ArgsMaptype,
+                                         Value *ArgsNames, Value *ArgsMappers,
                                          Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_data_end`. Example:
+  /// Generate a call to `__tgt_target_data_end[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_end_mapper(ident_t *loc,
+  ///                                        int64_t  device_id,
+  ///                                        int32_t  num_args,
+  ///                                        void**   args_base,
+  ///                                        void**   args,
+  ///                                        int64_t* args_size,
+  ///                                        int64_t* args_maptype,
+  ///                                        void**   args_names,
+  ///                                        void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_data_end(int64_t  device_id,
   ///                                 int32_t  num_args,
@@ -1210,9 +1239,24 @@ public:
   static CallInst *genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                        Value *ArgsBase, Value *Args,
                                        Value *ArgsSize, Value *ArgsMaptype,
+                                       Value *ArgsNames, Value *ArgsMappers,
                                        Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_data_update`. Example:
+  /// Generate a call to `__tgt_target_data_update[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_update_mapper(ident_t *loc,
+  ///                                           int64_t  device_id,
+  ///                                           int32_t  num_args,
+  ///                                           void**   args_base,
+  ///                                           void**   args,
+  ///                                           int64_t* args_size,
+  ///                                           int64_t* args_maptype,
+  ///                                           void**   args_names,
+  ///                                           void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_data_update(int64_t  device_id,
   ///                                    int32_t  num_args,
@@ -1224,9 +1268,25 @@ public:
   static CallInst *genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                           Value *ArgsBase, Value *Args,
                                           Value *ArgsSize, Value *ArgsMaptype,
+                                          Value *ArgsNames, Value *ArgsMappers,
                                           Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target`. Example:
+  /// Generate a call to `__tgt_target[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_mapper(ident_t *loc,
+  ///                               int64_t  device_id,
+  ///                               void*    host_addr,
+  ///                               int32_t  num_args,
+  ///                               void**   args_base,
+  ///                               void**   args,
+  ///                               int64_t* args_size,
+  ///                               int64_t* args_maptype,
+  ///                               void**   args_names,
+  ///                               void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target(int64_t  device_id,
   ///                        void*    host_addr,
@@ -1238,9 +1298,27 @@ public:
   /// \endcode
   static CallInst *genTgtTarget(WRegionNode *W, Value *HostAddr, int NumArgs,
                                 Value *ArgsBase, Value *Args, Value *ArgsSize,
-                                Value *ArgsMaptype, Instruction *InsertPt);
+                                Value *ArgsMaptype, Value *ArgsNames,
+                                Value *ArgsMappers, Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_teams`. Example:
+  /// Generate a call to `__tgt_target_teams[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_teams_mapper(ident_t *loc,
+  ///                               int64_t  device_id,
+  ///                               void*    host_addr,
+  ///                               int32_t  num_args,
+  ///                               void**   args_base,
+  ///                               void**   args,
+  ///                               int64_t* args_size,
+  ///                               int64_t* args_maptype,
+  ///                               void**   args_names,
+  ///                               void**   args_mappers,
+  ///                               int32_t  num_teams,
+  ///                               int32_t  thread_limit)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_teams(int64_t  device_id,
   ///                              void*    host_addr,
@@ -1255,6 +1333,7 @@ public:
   static CallInst *genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
                                      int NumArgs, Value *ArgsBase, Value *Args,
                                      Value *ArgsSize, Value *ArgsMaptype,
+                                     Value *ArgsNames, Value *ArgsMappers,
                                      Instruction *InsertPt);
 
   /// This utility encodes the constant parameters of subdevice in
@@ -1308,13 +1387,19 @@ public:
 
   /// Base routine to create `libomptarget` calls. Creates one of these calls:
   /// \code
-  ///   void    __tgt_target_data_begin( int64_t device_id, <common>)
-  ///   void    __tgt_target_data_end(   int64_t device_id, <common>)
-  ///   void    __tgt_target_data_update(int64_t device_id, <common>)
-  ///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
-  ///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
-  ///                              <common>, int32_t num_teams,
-  ///                              int32_t thread_limit)
+  ///   void    __tgt_target_data_begin[_mapper]([ident_t *loc,]
+  ///                                            int64_t device_id, <common>)
+  ///   void    __tgt_target_data_end[_mapper]([ident_t *loc,]
+  ///                                          int64_t device_id, <common>)
+  ///   void    __tgt_target_data_update[_mapper]([ident_t *loc,]
+  ///                                             int64_t device_id, <common>)
+  ///   int32_t __tgt_target[_mapper]([ident_t *loc,]
+  ///                                 int64_t device_id, void *host_addr,
+  ///                                 <common>)
+  ///   int32_t __tgt_target_teams[_mapper]([ident_t *loc,]
+  ///                                       int64_t device_id, void *host_addr,
+  ///                                       <common>, int32_t num_teams,
+  ///                                       int32_t thread_limit)
   /// \endcode
   /// where `<common>` represents these 5 arguments:
   /// \code
@@ -1322,16 +1407,19 @@ public:
   ///   void**   args_base,   // array of base pointers being mapped
   ///   void**   args,        // array of section pointers (base+offset)
   ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
-  ///   int32_t* args_maptype // array of map attributes for each mapping
+  ///   int64_t* args_maptype // array of map attributes for each mapping
+  ///   [void**  args_names   // array of names for each mapping]
+  ///   [void**  args_mappers // array of mappers for each mapping]
   /// \endcode
-  static CallInst *genTgtCall(StringRef FnName, WRegionNode *W,
-                              Value *DeviceIDPtr, int NumArgsCount,
-                              Value *ArgsBase, Value *Args, Value *ArgsSize,
-                              Value *ArgsMaptype, Instruction *InsertPt,
-                              Value *HostAddr = nullptr,
-                              Value *NumTeamsPtr = nullptr,
-                              Value *ThreadLimitPtr = nullptr,
-                              SubdeviceItem *SubdeviceI = nullptr);
+  /// The mapper versions of the APIs are emitted unless
+  /// -vpo-paropt-use-mapper-api=false is used.
+  static CallInst *
+  genTgtCall(StringRef FnName, WRegionNode *W, Value *DeviceIDPtr,
+             int NumArgsCount, Value *ArgsBase, Value *Args, Value *ArgsSize,
+             Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
+             Instruction *InsertPt, Value *HostAddr = nullptr,
+             Value *NumTeamsPtr = nullptr, Value *ThreadLimitPtr = nullptr,
+             SubdeviceItem *SubdeviceI = nullptr);
 
   /// Generate tgt_push_code_location call which pushes source code location
   /// and the pointer to the tgt_target*() function.

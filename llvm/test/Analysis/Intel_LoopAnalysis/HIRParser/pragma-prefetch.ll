@@ -72,7 +72,7 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.PREFETCH_LOOP"(), "DIR.PRAGMA.END.PREFETCH_LOOP"(), "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.PREFETCH_LOOP"()]
   ret i8* undef
 }
 

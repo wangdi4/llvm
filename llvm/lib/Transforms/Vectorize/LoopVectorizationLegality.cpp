@@ -590,7 +590,13 @@ bool LoopVectorizationLegality::setupOuterLoopInductions() {
 ///      {"llvm.phx.abs.i32", "", 4}
 ///    };
 static bool isTLIScalarize(const TargetLibraryInfo &TLI, const CallInst &CI) {
+#if INTEL_CUSTOMIZATION
+  Function *F = CI.getCalledFunction();
+  assert(F && "Called fucntion is expected to be exist");
+  const StringRef ScalarName = F->getName();
+#else
   const StringRef ScalarName = CI.getCalledFunction()->getName();
+#endif // INTEL_CUSTOMIZATION
   bool Scalarize = TLI.isFunctionVectorizable(ScalarName);
   // Check that all known VFs are not associated to a vector
   // function, i.e. the vector name is emty.

@@ -39,6 +39,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86TargetTransformInfo.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/CodeGen/CostTable.h"
@@ -1076,6 +1077,65 @@ bool X86TTIImpl::isAggressiveVLSProfitable() const {
 
   // Be conservative otherwise.
   return false;
+}
+
+bool X86TTIImpl::targetMatchesVariantISA(
+    VectorVariant::ISAClass VariantISAClass) const {
+  VectorVariant::ISAClass TargetISAClass = VectorVariant::ISAClass::NOSSE;
+  if (ST->hasAVX512())
+    TargetISAClass = VectorVariant::ISAClass::ZMM;
+  else if (ST->hasAVX2())
+    TargetISAClass = VectorVariant::ISAClass::YMM2;
+  else if (ST->hasAVX())
+    TargetISAClass = VectorVariant::ISAClass::YMM1;
+  else if (ST->hasSSE1())
+    // All SSE targets support XMM
+    TargetISAClass = VectorVariant::ISAClass::XMM;
+  if (VariantISAClass <= TargetISAClass)
+    return true;
+  return false;
+}
+
+int X86TTIImpl::getMatchingVectorVariant(
+    VectorVariant &ForCall,
+    SmallVectorImpl<VectorVariant> &Variants,
+    const Module *M) const {
+  // ForCall is a VectorVariant created for the call instruction.
+  int BestIndex = -1;
+  int CurrIndex = -1;
+  // Keep track of parameter position containing the largest score. Can be
+  // used as a tiebreaker when selecting the best variant.
+  int BestArg = -1;
+  int BestScore = 0;
+  VectorVariant::ISAClass BestISA = VectorVariant::ISAClass::NOSSE;
+  for (auto Variant : Variants) {
+    CurrIndex++;
+    if (!targetMatchesVariantISA(Variant.getISA()))
+      continue;
+    int MaxArg = 0;
+    auto Score = ForCall.getMatchingScore(Variant, MaxArg, M);
+    if (Score > BestScore) {
+      BestScore = Score;
+      BestIndex = CurrIndex;
+      BestISA = Variant.getISA();
+      BestArg = MaxArg;
+      continue;
+    } else if (Score == BestScore) {
+      if (Variant.getISA() > BestISA) {
+        BestIndex = CurrIndex;
+        BestISA = Variant.getISA();
+        BestArg = MaxArg;
+        continue;
+      } else if (Variant.getISA() == BestISA) {
+        // Check best parameter score
+        if (MaxArg > BestArg) {
+          BestIndex = CurrIndex;
+          BestArg = MaxArg;
+        }
+      }
+    }
+  }
+  return BestIndex;
 }
 #endif // INTEL_CUSTOMIZATION
 

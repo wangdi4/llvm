@@ -299,6 +299,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
     SET_OPTIONAL_INTERFACE_FN(add_build_options);
     SET_OPTIONAL_INTERFACE_FN(is_supported_device);
+    SET_OPTIONAL_INTERFACE_FN(deinit);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,
@@ -631,6 +632,12 @@ void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
   }
 
   PM->TblMapMtx.unlock();
+#if INTEL_COLLAB
+  // Force RTL deinit if applicable
+  for (auto *R : UsedRTLs)
+    if (R->deinit)
+      R->deinit();
+#endif // INTEL_COLLAB
 
   // TODO: Remove RTL and the devices it manages if it's not used anymore?
   // TODO: Write some RTL->unload_image(...) function?

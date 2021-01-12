@@ -1662,6 +1662,9 @@ void InterleavedAccessInfo::analyzeInterleaving(
 
       // The index of A is the index of B plus A's distance to B in multiples
       // of the size.
+#if INTEL_CUSTOMIZATION
+      assert(Group && "Group is expected to be non-null");
+#endif // INTEL_CUSTOMIZATION
       int IndexA =
           Group->getIndex(B) + DistanceToB / static_cast<int64_t>(DesB.Size);
 

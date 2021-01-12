@@ -1217,6 +1217,10 @@ public:
   }
 
   bool enableAdvancedRASplitCost() const override { return true; }
+#if INTEL_CUSTOMIZATION
+  void overrideSchedPolicy(MachineSchedPolicy &Policy,
+                           unsigned NumRegionInstrs) const override;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

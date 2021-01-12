@@ -1105,7 +1105,7 @@ typedef struct {
   TgtLoopDescTy Levels[3]; // Up to 3 loops
 } TgtNDRangeDescTy;
 
-static RTLDeviceInfoTy *DeviceInfo;
+static RTLDeviceInfoTy *DeviceInfo = nullptr;
 
 /// Init/deinit DeviceInfo
 #ifdef _WIN32
@@ -1122,10 +1122,10 @@ ATTRIBUTE(constructor(101)) void init() {
 ATTRIBUTE(destructor(101)) void deinit() {
   IDP("Deinit Level0 plugin!\n");
   delete DeviceInfo;
+  DeviceInfo = nullptr;
 }
 
 #ifdef _WIN32
-static void closeRTL();
 extern "C" BOOL WINAPI
 DllMain(HINSTANCE const instance, // handle to DLL module
         DWORD const reason,       // reason for calling function
@@ -1148,9 +1148,6 @@ DllMain(HINSTANCE const instance, // handle to DLL module
     break;
 
   case DLL_PROCESS_DETACH:
-    // Perform any necessary cleanup.
-    closeRTL();
-    deinit();
     break;
   }
   return TRUE; // Successful DLL_PROCESS_ATTACH.
@@ -1234,9 +1231,7 @@ static void closeRTL() {
         delete profile;
       }
     }
-#ifndef _WIN32
     if (OMPT_ENABLED) {
-      // Disabled for Windows to alleviate dll finalization issue.
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
@@ -1266,17 +1261,16 @@ static void closeRTL() {
     if (DeviceInfo->Flags.UseMemoryPool)
       DeviceInfo->PagePools[i].clear();
     DeviceInfo->Mutexes[i].unlock();
-#endif // !defined(_WIN32)
+
     if (DeviceInfo->Flags.EnableTargetGlobals)
       DeviceInfo->unloadOffloadTable(i);
     MEMSTAT_PRINT(i);
   }
-#ifndef _WIN32
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.deinit();
   if (DeviceInfo->Context)
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
-#endif // !defined(_WIN32)
+
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->DataMutexes;
   IDP("Closed RTL successfully\n");
@@ -3028,6 +3022,16 @@ EXTERN bool __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   IDP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
       DeviceId, ret ? "" : " not", DPxPTR(DeviceType));
   return ret;
+}
+
+EXTERN void __tgt_rtl_deinit(void) {
+  // No-op on Linux
+#ifdef _WIN32
+  if (DeviceInfo) {
+    closeRTL();
+    deinit();
+  }
+#endif // _WIN32
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(

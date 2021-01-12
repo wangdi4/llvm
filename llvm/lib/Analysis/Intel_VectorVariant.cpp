@@ -24,6 +24,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
 
+#define DEBUG_TYPE "VectorVariant"
+
 using namespace llvm;
 
 /// \brief Generate a vector variant by decoding the mangled string for the
@@ -219,4 +221,83 @@ unsigned int VectorVariant::maximumSizeofISAClassVectorRegister(ISAClass I,
 
   assert(VectorRegisterSize != 0 && "unsupported ISA/type combination");
   return VectorRegisterSize;
+}
+
+int VectorVariant::matchParameters(VectorVariant &Other, int &MaxArg,
+                                   const Module *M) {
+  int ParamScore = 0;
+  // 'this' refers to the variant for the call. Match parameters with Other,
+  // which represents some available variant.
+  std::vector<VectorKind> OtherParms = Other.getParameters();
+
+  // TODO: Remove after fixing CMPLRLLVM-25487
+  //assert(Parameters.size() == OtherParms.size() &&
+  //       "Number of parameters do not match");
+
+  Function *F = M->getFunction(BaseName);
+  assert(F && "Function not found in module");
+
+  LLVM_DEBUG(dbgs() << "Attempting parameter matching of " << encode()
+                    << " with " << Other.encode() << "\n");
+
+  std::vector<int> ArgScores;
+  unsigned ArgIdx = (F->getName().startswith("__intel_indirect_call")) ? 1 : 0;
+  for (unsigned I = 0; I < OtherParms.size(); ++I, ++ArgIdx) {
+    // Linear and uniform arguments can always safely be put into vectors, but
+    // reduce score in those cases because scalar is optimal.
+    int ArgScore;
+    if (OtherParms[I].isVector()) {
+      if (Parameters[I].isVector())
+        ArgScore = Vector2VectorScore;
+      else
+        ArgScore = Scalar2VectorScore; // uniform/linear -> vector
+      ArgScores.push_back(ArgScore);
+      ParamScore += ArgScore;
+      continue;
+    }
+
+    // linear->linear matches occur when both args are linear and have same
+    // stride.
+    if (OtherParms[I].isLinear() && Parameters[I].isLinear() &&
+        OtherParms[I].isConstantStrideLinear() &&
+        Parameters[I].isConstantStrideLinear() &&
+        OtherParms[I].getStride() == Parameters[I].getStride()) {
+      ArgScore = Linear2LinearScore;
+      ArgScores.push_back(ArgScore);
+      ParamScore += ArgScore;
+      continue;
+    }
+
+    if (OtherParms[I].isUniform() && Parameters[I].isUniform()) {
+      // Uniform ptr arguments are more beneficial for performance, so weight
+      // them accordingly.
+      if (isa<PointerType>(F->getArg(ArgIdx)->getType()))
+        ArgScore = UniformPtr2UniformPtrScore;
+      else
+        ArgScore = Uniform2UniformScore;
+      ArgScores.push_back(ArgScore);
+      ParamScore += ArgScore;
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "Arg did not match variant parameter!\n");
+    return NoMatch;
+  }
+
+  LLVM_DEBUG(dbgs() << "Args matched variant parameters\n");
+  // If two args have the same max score, the 1st is selected.
+  MaxArg =
+      std::max_element(ArgScores.begin(), ArgScores.end()) - ArgScores.begin();
+  LLVM_DEBUG(dbgs() << "MaxArg: " << MaxArg << "\n");
+  LLVM_DEBUG(dbgs() << "Score: " << ParamScore << "\n");
+  return ParamScore;
+}
+
+int VectorVariant::getMatchingScore(VectorVariant &Other, int &MaxArg,
+                                    const Module *M) {
+  if (getVlen() != Other.getVlen())
+    return NoMatch;
+  if (isMasked() != Other.isMasked())
+    return NoMatch;
+  return matchParameters(Other, MaxArg, M);
 }

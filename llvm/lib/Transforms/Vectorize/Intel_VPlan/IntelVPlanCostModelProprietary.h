@@ -20,6 +20,7 @@ namespace llvm {
 namespace vpo {
 
 class VPlanCostModelProprietary : public VPlanCostModel {
+  using VPlanCostModel::getLoadStoreCost;
 public:
   explicit VPlanCostModelProprietary(const VPlan *Plan, unsigned VF,
                                      const TargetTransformInfo *TTI,
