@@ -2390,12 +2390,17 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
   VPOParoptUtils::genConstructorCall(RedI->getConstructor(), ReductionValueLoc,
                                      Builder);
 
-  if (RedI->getInitializer() != nullptr) {
-    Function *Fn = RedI->getInitializer();
-    FunctionType *FnTy = Fn->getFunctionType();
-    Builder.CreateCall(FnTy, Fn, {ReductionValueLoc, ReductionVar}, "");
+  Function *Fn = RedI->getInitializer();
+  if (Fn != nullptr) {
+    CallInst *Call = VPOParoptUtils::genCall(
+        Fn->getParent(), Fn, {ReductionValueLoc, ReductionVar},
+        {ReductionValueLoc->getType(), ReductionVar->getType()}, nullptr);
+    Builder.Insert(Call);
+    BasicBlock::iterator InsertPt = Builder.GetInsertPoint();
+    if (Builder.GetInsertBlock()->end() != InsertPt)
+      Call->setDebugLoc((&*InsertPt)->getDebugLoc());
   } else {
-    // if intializer is null but constructor is not null, let constructor do
+    // if initializer is null but constructor is not null, let constructor do
     // default initialization. Otherwise, initialize the variable to 0.
     if (RedI->getConstructor() != nullptr)
       return;
@@ -2589,6 +2594,10 @@ bool VPOParoptTransform::genReductionUdrFini(ReductionItem *RedI,
       RedI->getCombiner(), {ReductionVar, ReductionValueLoc},
       {ReductionVar->getType(), ReductionValueLoc->getType()}, nullptr);
   Builder.Insert(Res);
+
+  BasicBlock::iterator InsertPt = Builder.GetInsertPoint();
+  if (Builder.GetInsertBlock()->end() != InsertPt)
+    Res->setDebugLoc((&*InsertPt)->getDebugLoc());
 
   return true;
 }
