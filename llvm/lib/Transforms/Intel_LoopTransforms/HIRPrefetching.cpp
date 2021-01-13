@@ -393,7 +393,7 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
   // corresponding lval with the rval in the pragma vars until it hits the prev
   // loop
   HLNode *Node = Lp;
-  while (Node = Node->getPrevNode()) {
+  while ((Node = Node->getPrevNode())) {
     if (isa<HLLoop>(Node)) {
       break;
     } else if (auto *Inst = dyn_cast<HLInst>(Node)) {
