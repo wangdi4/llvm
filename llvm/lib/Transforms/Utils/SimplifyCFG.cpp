@@ -1101,7 +1101,7 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(Instruction *TI,
       ++NumFoldValueComparisonIntoPredecessors;
   });
 
-  SmallVector<BasicBlock *, 16> Preds(pred_begin(BB), pred_end(BB));
+  SmallVector<BasicBlock *, 16> Preds(predecessors(BB));
   while (!Preds.empty()) {
     BasicBlock *Pred = Preds.pop_back_val();
 
@@ -4930,6 +4930,8 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
   LLVM_DEBUG(dbgs() << "FOLDING BRs:" << *PBI->getParent()
                     << "AND: " << *BI->getParent());
 
+  SmallVector<DominatorTree::UpdateType, 5> Updates;
+
   // If OtherDest *is* BB, then BB is a basic block with a single conditional
   // branch in it, where one edge (OtherDest) goes back to itself but the other
   // exits.  We don't *know* that the program avoids the infinite loop
@@ -4943,6 +4945,7 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
     BasicBlock *InfLoopBlock =
         BasicBlock::Create(BB->getContext(), "infloop", BB->getParent());
     BranchInst::Create(InfLoopBlock, InfLoopBlock);
+    Updates.push_back({DominatorTree::Insert, InfLoopBlock, InfLoopBlock});
     OtherDest = InfLoopBlock;
   }
 
@@ -4964,10 +4967,19 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
   // Merge the conditions.
   Value *Cond = Builder.CreateOr(PBICond, BICond, "brmerge");
 
+  for (auto *Successor : successors(PBI->getParent()))
+    Updates.push_back({DominatorTree::Delete, PBI->getParent(), Successor});
+
   // Modify PBI to branch on the new condition to the new dests.
   PBI->setCondition(Cond);
   PBI->setSuccessor(0, CommonDest);
   PBI->setSuccessor(1, OtherDest);
+
+  for (auto *Successor : successors(PBI->getParent()))
+    Updates.push_back({DominatorTree::Insert, PBI->getParent(), Successor});
+
+  if (DTU)
+    DTU->applyUpdatesPermissive(Updates);
 
   // Update branch weight for PBI.
   uint64_t PredTrueWeight, PredFalseWeight, SuccTrueWeight, SuccFalseWeight;
@@ -5055,6 +5067,8 @@ bool SimplifyCFGOpt::SimplifyTerminatorOnSelect(Instruction *OldTerm,
   BasicBlock *KeepEdge1 = TrueBB;
   BasicBlock *KeepEdge2 = TrueBB != FalseBB ? FalseBB : nullptr;
 
+  SmallVector<DominatorTree::UpdateType, 4> Updates;
+
   // Then remove the rest.
   for (BasicBlock *Succ : successors(OldTerm)) {
     // Make sure only to keep exactly one copy of each edge.
@@ -5062,9 +5076,11 @@ bool SimplifyCFGOpt::SimplifyTerminatorOnSelect(Instruction *OldTerm,
       KeepEdge1 = nullptr;
     else if (Succ == KeepEdge2)
       KeepEdge2 = nullptr;
-    else
+    else {
       Succ->removePredecessor(OldTerm->getParent(),
                               /*KeepOneInputPHIs=*/true);
+      Updates.push_back({DominatorTree::Delete, OldTerm->getParent(), Succ});
+    }
   }
 
   IRBuilder<> Builder(OldTerm);
@@ -5072,14 +5088,17 @@ bool SimplifyCFGOpt::SimplifyTerminatorOnSelect(Instruction *OldTerm,
 
   // Insert an appropriate new terminator.
   if (!KeepEdge1 && !KeepEdge2) {
-    if (TrueBB == FalseBB)
+    if (TrueBB == FalseBB) {
       // We were only looking for one successor, and it was present.
       // Create an unconditional branch to it.
       Builder.CreateBr(TrueBB);
-    else {
+      Updates.push_back({DominatorTree::Insert, OldTerm->getParent(), TrueBB});
+    } else {
       // We found both of the successors we were looking for.
       // Create a conditional branch sharing the condition of the select.
       BranchInst *NewBI = Builder.CreateCondBr(Cond, TrueBB, FalseBB);
+      Updates.push_back({DominatorTree::Insert, OldTerm->getParent(), TrueBB});
+      Updates.push_back({DominatorTree::Insert, OldTerm->getParent(), FalseBB});
       if (TrueWeight != FalseWeight)
         setBranchWeights(NewBI, TrueWeight, FalseWeight);
     }
@@ -5091,15 +5110,20 @@ bool SimplifyCFGOpt::SimplifyTerminatorOnSelect(Instruction *OldTerm,
     // One of the selected values was a successor, but the other wasn't.
     // Insert an unconditional branch to the one that was found;
     // the edge to the one that wasn't must be unreachable.
-    if (!KeepEdge1)
+    if (!KeepEdge1) {
       // Only TrueBB was found.
       Builder.CreateBr(TrueBB);
-    else
+      Updates.push_back({DominatorTree::Insert, OldTerm->getParent(), TrueBB});
+    } else {
       // Only FalseBB was found.
       Builder.CreateBr(FalseBB);
+      Updates.push_back({DominatorTree::Insert, OldTerm->getParent(), FalseBB});
+    }
   }
 
   EraseTerminatorAndDCECond(OldTerm);
+  if (DTU)
+    DTU->applyUpdatesPermissive(Updates);
   return true;
 }
 
@@ -5931,7 +5955,7 @@ bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
 
   std::vector<DominatorTree::UpdateType> Updates;
 
-  SmallVector<BasicBlock *, 8> Preds(pred_begin(BB), pred_end(BB));
+  SmallVector<BasicBlock *, 8> Preds(predecessors(BB));
   for (unsigned i = 0, e = Preds.size(); i != e; ++i) {
     auto *Predecessor = Preds[i];
     Instruction *TI = Predecessor->getTerminator();

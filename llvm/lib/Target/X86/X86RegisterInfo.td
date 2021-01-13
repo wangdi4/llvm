@@ -761,7 +761,7 @@ def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 3276
 #else // INTEL_FEATURE_ISA_AMX
 // Tiles
 let CopyCost = -1 in // Don't allow copying of tile registers
-def TILE : RegisterClass<"X86", [v256i32], 8192,
+def TILE : RegisterClass<"X86", [x86amx], 8192,
                          (sequence "TMM%u", 0, 7)> {let Size = 8192;}
 #endif // INTEL_FEATURE_ISA_AMX
 
