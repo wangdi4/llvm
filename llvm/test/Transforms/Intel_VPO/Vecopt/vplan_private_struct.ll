@@ -29,8 +29,8 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64> undef, i64 [[CALL_I_I0]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT0]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[CALL_I_I0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT0]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
@@ -40,14 +40,14 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext <2 x i32> [[VEC_PHI0]] to <2 x i64>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw <2 x i64> [[TMP1]], [[BROADCAST_SPLAT0]]
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 16
-; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <2 x i8 addrspace(4)*> undef, i8 addrspace(4)* [[MM_VECTORGEP0]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[DOTSPLATINSERT0]], <2 x i8 addrspace(4)*> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <2 x i8 addrspace(4)*> poison, i8 addrspace(4)* [[MM_VECTORGEP0]], i32 0
+; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[DOTSPLATINSERT0]], <2 x i8 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i8 addrspace(4)*> [[DOTSPLAT0]] to <2 x i32 addrspace(1)* addrspace(4)*>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x i32 addrspace(1)* addrspace(4)*> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32 addrspace(1)*, i32 addrspace(1)* addrspace(4)* [[DOTEXTRACT_0_0]], align 8
 ; CHECK-NEXT:    [[MM_VECTORGEP20:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 24
-; CHECK-NEXT:    [[DOTSPLATINSERT30:%.*]] = insertelement <2 x i8 addrspace(4)*> undef, i8 addrspace(4)* [[MM_VECTORGEP20]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT40:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[DOTSPLATINSERT30]], <2 x i8 addrspace(4)*> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[DOTSPLATINSERT30:%.*]] = insertelement <2 x i8 addrspace(4)*> poison, i8 addrspace(4)* [[MM_VECTORGEP20]], i32 0
+; CHECK-NEXT:    [[DOTSPLAT40:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[DOTSPLATINSERT30]], <2 x i8 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i8 addrspace(4)*> [[DOTSPLAT40]] to <2 x i32 addrspace(4)*>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_50:%.*]] = extractelement <2 x i32 addrspace(4)*> [[TMP5]], i32 0
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32 addrspace(4)* [[DOTEXTRACT_0_50]], align 8

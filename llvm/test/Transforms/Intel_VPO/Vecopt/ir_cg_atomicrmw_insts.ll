@@ -11,16 +11,16 @@ declare void @llvm.directive.region.exit(token) nounwind
 define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG-LABEL: @test1(
 ; LLVM-CG:       vector.ph:
-; LLVM-CG-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> undef, i64 addrspace(4)* [[ARR:%.*]], i32 0
-; LLVM-CG-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> undef, <2 x i32> zeroinitializer
+; LLVM-CG-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[ARR:%.*]], i32 0
+; LLVM-CG-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; LLVM-CG-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; LLVM-CG:       vector.body:
 ; LLVM-CG:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI:%.*]]
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP]], i32 1
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP]], i32 0
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP1:%.*]] = getelementptr inbounds i64, i64 addrspace(4)* [[ARR]], i64 42
-; LLVM-CG-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> undef, i64 addrspace(4)* [[MM_VECTORGEP1]], i32 0
-; LLVM-CG-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[DOTSPLATINSERT]], <2 x i64 addrspace(4)*> undef, <2 x i32> zeroinitializer
+; LLVM-CG-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[MM_VECTORGEP1]], i32 0
+; LLVM-CG-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[DOTSPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; LLVM-CG-NEXT:    [[DOTSPLAT_EXTRACT_0_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[DOTSPLAT]], i32 0
 ; LLVM-CG-NEXT:    [[TMP1:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 1 acquire
 ; LLVM-CG-NEXT:    [[TMP2:%.*]] = insertelement <2 x i64> undef, i64 [[TMP1]], i32 0

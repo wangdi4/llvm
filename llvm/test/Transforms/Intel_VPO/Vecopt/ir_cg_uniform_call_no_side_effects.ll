@@ -31,8 +31,8 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi i64 [ undef, [[VECTOR_BODY:%.*]] ], [ [[TMP4]], [[PRED_CALL_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
 ; CHECK:       pred.call.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT5:%.*]] = insertelement <2 x i64> undef, i64 [[TMP6]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT6:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT5]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT5:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT6:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT5]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP6]], [[GID:%.*]]
 ; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE]], true

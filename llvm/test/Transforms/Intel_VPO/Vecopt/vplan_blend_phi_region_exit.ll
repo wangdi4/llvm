@@ -47,15 +47,15 @@ inner.exit:
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[UNI_PHI2:%.*]] = phi i64 [ [[TMP2:%.*]], [[VPLANNEDBB]] ], [ 0, [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI2]], 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> undef, i64 [[TMP2]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[TMP2]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i64> [[BROADCAST_SPLAT]], <i64 72, i64 72>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i1> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = and <2 x i1> [[TMP1]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i1> [[TMP4]] to i2
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i2 [[TMP5]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <2 x i1> undef, i1 [[TMP6]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT3]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <2 x i1> poison, i1 [[TMP6]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT3]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLAT4_EXTRACT_0_:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT4]], i32 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[BROADCAST_SPLAT4_EXTRACT_0_]], [[DOTEXTRACT_0_]]
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB5:%.*]], label [[VPLANNEDBB]]

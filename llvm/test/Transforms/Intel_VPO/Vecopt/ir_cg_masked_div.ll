@@ -68,8 +68,8 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK:       vector.body:
 ; CHECK:         [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[VAL:%.*]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> undef, i1 [[TMP1]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> poison, i1 [[TMP1]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD]], <i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP3:%.*]] = or <2 x i1> [[BROADCAST_SPLAT]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[TMP3]], <i1 true, i1 true>
@@ -78,13 +78,13 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_SDIV_IF:%.*]], label [[TMP8:%.*]]
 ; CHECK:       pred.sdiv.if:
 ; CHECK-NEXT:    [[TMP7:%.*]] = sdiv i32 42, [[VAL]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT2:%.*]] = insertelement <2 x i32> undef, i32 [[TMP7]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT2:%.*]] = insertelement <2 x i32> poison, i32 [[TMP7]], i32 0
 ; CHECK-NEXT:    br label [[TMP8]]
 ; CHECK:       8:
-; CHECK-NEXT:    [[TMP9:%.*]] = phi <2 x i32> [ undef, [[VECTOR_BODY]] ], [ [[BROADCAST_SPLATINSERT2]], [[PRED_SDIV_IF]] ]
+; CHECK-NEXT:    [[TMP9:%.*]] = phi <2 x i32> [ poison, [[VECTOR_BODY]] ], [ [[BROADCAST_SPLATINSERT2]], [[PRED_SDIV_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE]]
 ; CHECK:       pred.sdiv.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLAT3:%.*]] = shufflevector <2 x i32> [[TMP9]], <2 x i32> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLAT3:%.*]] = shufflevector <2 x i32> [[TMP9]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[SCALAR_GEP]] to <2 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[BROADCAST_SPLAT3]], <2 x i32>* [[TMP10]], i32 4, <2 x i1> [[TMP4]])
 ;

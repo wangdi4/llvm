@@ -19,15 +19,15 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_
 ; CHECK:       for.body.lr.ph:
 ; CHECK:    [[TMP0:%.*]] = load float, float* @fp_inc, align 4
 ; CHECK:       vector.ph:
-; CHECK:    [[INITIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[INIT:%.*]], i32 0
-; CHECK:    [[INITIND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x float> [[INITIND_START_BCAST_SPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
-; CHECK:    [[IND_STEP_VEC_SPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[TMP0]], i32 0
-; CHECK:    [[IND_STEP_VEC_SPLAT:%.*]] = shufflevector <4 x float> [[IND_STEP_VEC_SPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
+; CHECK:    [[INITIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x float> poison, float [[INIT:%.*]], i32 0
+; CHECK:    [[INITIND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x float> [[INITIND_START_BCAST_SPLATINSERT]], <4 x float> poison, <4 x i32> zeroinitializer
+; CHECK:    [[IND_STEP_VEC_SPLATINSERT:%.*]] = insertelement <4 x float> poison, float [[TMP0]], i32 0
+; CHECK:    [[IND_STEP_VEC_SPLAT:%.*]] = shufflevector <4 x float> [[IND_STEP_VEC_SPLATINSERT]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK:    [[TMP1:%.*]] = fmul fast <4 x float> [[IND_STEP_VEC_SPLAT]], <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00>
 ; CHECK:    [[TMP2:%.*]] = fsub <4 x float> [[INITIND_START_BCAST_SPLAT]], [[TMP1]]
 ; CHECK:    [[TMP3:%.*]] = fmul float [[TMP0]], 4.000000e+00
-; CHECK:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[TMP3]], i32 0
-; CHECK:    [[IND_STEP_INIT_SPLAT:%.*]] = shufflevector <4 x float> [[IND_STEP_INIT_SPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
+; CHECK:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x float> poison, float [[TMP3]], i32 0
+; CHECK:    [[IND_STEP_INIT_SPLAT:%.*]] = shufflevector <4 x float> [[IND_STEP_INIT_SPLATINSERT]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK:       vector.body:
 ; CHECK:    [[VEC_PHI2:%.*]] = phi <4 x float> [ [[TMP2]], [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK:    [[TMP4]] = fsub fast <4 x float> [[VEC_PHI2]], [[IND_STEP_INIT_SPLAT]]

@@ -27,8 +27,8 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK:       vector.ph:
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x float*> [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR]] to <4 x i32*>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_3:%.*]] = extractelement <4 x i32*> [[TMP1]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x float*> undef, float* [[ACCUMULATED_GRID:%.*]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x float*> [[BROADCAST_SPLATINSERT]], <4 x float*> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x float*> poison, float* [[ACCUMULATED_GRID:%.*]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x float*> [[BROADCAST_SPLATINSERT]], <4 x float*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]

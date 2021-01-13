@@ -15,13 +15,13 @@
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
 ; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> undef, i64 [[LOAD]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
-; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ undef, %[[VPLANNEDBB]] ], [ [[BROADCAST_SPLATINSERT1]], %[[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, %[[VPLANNEDBB]] ], [ [[BROADCAST_SPLATINSERT1]], %[[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label %[[PRED_LOAD_CONTINUE:.*]]
 ; CHECK:       pred.load.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[USER:%.*]] = add <2 x i64> [[BROADCAST_SPLAT2]], [[VEC_IND]]
 
 ; Function Attrs: nounwind
@@ -85,13 +85,13 @@ exit:                                             ; preds = %for.end, %entry
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
 ; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[EXTRACT_GEP]], align 4
-; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> undef, i64 [[LOAD]], i32 0
+; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
-; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ undef, %VPlannedBB ], [ [[BCAST_INSERT]], %[[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, %VPlannedBB ], [ [[BCAST_INSERT]], %[[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label %[[PRED_LOAD_CONTINUE:.*]]
 ; CHECK:       [[PRED_LOAD_CONTINUE]]:
-; CHECK-NEXT:    [[BCAST_SHUF:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BCAST_SHUF:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[USER:%.*]] = add <2 x i64> [[BCAST_SHUF]], [[VEC_IND:%.*]]
 
 define void @test1_liveout(float* nocapture %ptr, i64 %n, i64* %arr, i64* %arr1) {

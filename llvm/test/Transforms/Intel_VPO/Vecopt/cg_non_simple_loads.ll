@@ -9,8 +9,8 @@ declare void @llvm.directive.region.exit(token) nounwind
 define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; CHECK-LABEL: @test1(
 ; CHECK:       vector.ph:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> undef, i64 addrspace(4)* [[ARR:%.*]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[ARR:%.*]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI:%.*]]
@@ -20,8 +20,8 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 
 ; TODO: SVA should make the computation scalar for the uniform GEP
 
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> undef, i64 addrspace(4)* [[MM_VECTORGEP1]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[DOTSPLATINSERT]], <2 x i64 addrspace(4)*> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[MM_VECTORGEP1]], i32 0
+; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[DOTSPLATINSERT]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[DOTSPLAT_EXTRACT_0_:%.*]] = extractelement <2 x i64 addrspace(4)*> [[DOTSPLAT]], i32 0
 
 ; Volatile loads - serialized for all the lanes
@@ -32,8 +32,8 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 
 ; Atomic load from uniform ptr - ok to perform single atomic load
 ; CHECK-NEXT:    [[TMP5:%.*]] = load atomic i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]] unordered, align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT2:%.*]] = insertelement <2 x i64> undef, i64 [[TMP5]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT3:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT2]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT2:%.*]] = insertelement <2 x i64> poison, i64 [[TMP5]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT3:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT2]], <2 x i64> poison, <2 x i32> zeroinitializer
 
 ; Atomic load from consecutive memory - serialize all, target might not have
 ; wide enough atomic load for the whole vector iteration.
