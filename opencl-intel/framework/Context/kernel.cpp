@@ -966,82 +966,68 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
 
     if ( clArg.IsBuffer() )
     {
-        // memory object
-        if ( NULL == pValue )
-        {
-            if (bIsUsmPtr)
-                clArg.SetValue(szSize, nullptr);
-            else
-            {
-                if (sizeof(cl_mem) != szSize)
-                {
-                    return CL_INVALID_ARG_SIZE;
-                }
-                clArg.SetValue(sizeof(cl_mem), nullptr);
-            }
-        } else
-        {
-            if (bIsSvmPtr)
-            {
-                const SharedPtr<SVMBuffer>& pSvmBuf = pContext->GetSVMBufferContainingAddr(const_cast<void*>(pValue));
-                // !!!!!!
-                // TODO: Why we need this wrapper, why just not put SVMBuffer inside or just vritual address
-                // !!!!!!
-                SharedPtr<SharedPointerArg> pSvmPtrArg;
-                if (nullptr != pSvmBuf.GetPtr())
-                    pSvmPtrArg = BufferPointerArg::Allocate(pSvmBuf.GetPtr(),
-                                                           pValue);
-                else
-                    pSvmPtrArg = SystemPointerArg::Allocate(pValue);
-                SharedPointerArg* argVal = pSvmPtrArg.GetPtr();
-                clArg.SetValue(sizeof(SharedPointerArg*), &argVal );
-                clArg.SetSvmObject( pSvmPtrArg );
-            }
-            else if (bIsUsmPtr)
-            {
-                const SharedPtr<USMBuffer>& usmBuf =
-                    pContext->GetUSMBufferContainingAddr(
-                    const_cast<void*>(pValue));
-                m_usmArgs[uiIndex] = usmBuf.GetPtr();
-                SharedPtr<SharedPointerArg> usmPtrArg;
-                if (nullptr != usmBuf.GetPtr())
-                    usmPtrArg = BufferPointerArg::Allocate(usmBuf.GetPtr(),
-                                                           pValue);
-                else
-                    usmPtrArg = SystemPointerArg::Allocate(pValue);
-                if (nullptr == usmPtrArg.GetPtr())
-                    return CL_OUT_OF_HOST_MEMORY;
-                SharedPointerArg* argVal = usmPtrArg.GetPtr();
-                clArg.SetValue(sizeof(SharedPointerArg*), &argVal);
-                clArg.SetUsmObject(usmPtrArg);
-            }
-            else
-            {
-                // value is not NULL - get memory object from context
-                if (sizeof(cl_mem) != szSize)
-                {
-                    return CL_INVALID_ARG_SIZE;
-                }
-                cl_mem clMemId = *((cl_mem*)(pValue));
-                LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%p)"), clMemId);
-                clArg.SetSvmObject( nullptr );
-                clArg.SetUsmObject(nullptr);
-                if (nullptr == clMemId)
-                {
-                    clArg.SetValue(sizeof(cl_mem), nullptr);
-                }
-                else
-                {
-                    MemoryObject* pMemObj = pContext->GetMemObjectPtr(clMemId);
-                    if (NULL == pMemObj)
-                    {
-                        return CL_INVALID_MEM_OBJECT;
-                    }
-                    // TODO: check Memory properties
-                    clArg.SetValue(sizeof(cl_mem), &clMemId); 
-                }
-            }            
+      if (bIsSvmPtr) {
+        if (NULL == pValue) {
+          clArg.SetValue(szSize, nullptr);
+          clArg.SetSvmObject(nullptr);
+        } else {
+          const SharedPtr<SVMBuffer> &pSvmBuf =
+              pContext->GetSVMBufferContainingAddr(const_cast<void *>(pValue));
+          // !!!!!!
+          // TODO: Why we need this wrapper, why just not put SVMBuffer
+          // inside or just vritual address
+          // !!!!!!
+          SharedPtr<SharedPointerArg> pSvmPtrArg;
+          if (nullptr != pSvmBuf.GetPtr())
+            pSvmPtrArg = BufferPointerArg::Allocate(pSvmBuf.GetPtr(), pValue);
+          else
+            pSvmPtrArg = SystemPointerArg::Allocate(pValue);
+          SharedPointerArg *argVal = pSvmPtrArg.GetPtr();
+          clArg.SetValue(sizeof(SharedPointerArg *), &argVal);
+          clArg.SetSvmObject(pSvmPtrArg);
         }
+      } else if (bIsUsmPtr) {
+        if (NULL == pValue) {
+          clArg.SetValue(szSize, nullptr);
+          clArg.SetUsmObject(nullptr);
+        } else {
+          const SharedPtr<USMBuffer> &usmBuf =
+              pContext->GetUSMBufferContainingAddr(const_cast<void *>(pValue));
+          m_usmArgs[uiIndex] = usmBuf.GetPtr();
+          SharedPtr<SharedPointerArg> usmPtrArg;
+          if (nullptr != usmBuf.GetPtr())
+            usmPtrArg = BufferPointerArg::Allocate(usmBuf.GetPtr(), pValue);
+          else
+            usmPtrArg = SystemPointerArg::Allocate(pValue);
+          if (nullptr == usmPtrArg.GetPtr())
+            return CL_OUT_OF_HOST_MEMORY;
+          SharedPointerArg *argVal = usmPtrArg.GetPtr();
+          clArg.SetValue(sizeof(SharedPointerArg *), &argVal);
+          clArg.SetUsmObject(usmPtrArg);
+        }
+      } else {
+        if (sizeof(cl_mem) != szSize) {
+          return CL_INVALID_ARG_SIZE;
+        }
+        if (NULL == pValue) {
+          clArg.SetValue(sizeof(cl_mem), nullptr);
+        } else {
+          cl_mem clMemId = *((cl_mem *)(pValue));
+          LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%p)"), clMemId);
+          clArg.SetSvmObject(nullptr);
+          clArg.SetUsmObject(nullptr);
+          if (nullptr == clMemId) {
+            clArg.SetValue(sizeof(cl_mem), nullptr);
+          } else {
+            MemoryObject *pMemObj = pContext->GetMemObjectPtr(clMemId);
+            if (NULL == pMemObj) {
+              return CL_INVALID_MEM_OBJECT;
+            }
+            // TODO: check Memory properties
+            clArg.SetValue(sizeof(cl_mem), &clMemId);
+          }
+        }
+      }
     } else
     // Images
     if (clArg.IsImage())

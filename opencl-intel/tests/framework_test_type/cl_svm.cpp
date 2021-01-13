@@ -52,7 +52,7 @@ static const char *sProg =
     "  }\n"
     "}\n"
     "\n"
-    "kernel void SumInts(global int* iArr, int szArrSize, global int* pSum)\n"
+    "kernel void SumInts(global int* iArr, int szArrSize, global int* pSum, global int* pNull)\n"
     "{\n"
     "  *pSum = 0;\n"
     "  for (size_t i = 0; i < szArrSize; i++)\n"
@@ -162,6 +162,8 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device,
   CheckException("clSetKernelArg", CL_SUCCESS, iRet);
   iRet = clSetKernelArgSVMPointer(kernel, 2, piResult);
   CheckException("clSetKernelArgSVMPointer", CL_SUCCESS, iRet);
+  iRet = clSetKernelArgSVMPointer(kernel, 3, piResult);
+  CheckException("clSetKernelArgSVMPointer", CL_SUCCESS, iRet);
 
   const size_t szGlobalWorkOffset = 0, szWorkSize = 1;
   cl_event e;
@@ -174,6 +176,16 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device,
   if (iExpected != *piResult) {
     throw exception();
   }
+  // Check the handling of null svm pointer won't be affected
+  // by the first enqueue
+  iRet = clSetKernelArgSVMPointer(kernel, 3, nullptr);
+  CheckException("clSetKernelArgSVMPointer", CL_SUCCESS, iRet);
+
+  iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset,
+                                &szWorkSize, NULL, 0, NULL, &e);
+  CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+  iRet = clWaitForEvents(1, &e);
+  CheckException("clWaitForEvents", CL_SUCCESS, iRet);
 
   iRet = clReleaseKernel(kernel);
   CheckException("clReleaseKernel", CL_SUCCESS, iRet);
