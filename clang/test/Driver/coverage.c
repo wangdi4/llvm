@@ -1,5 +1,9 @@
 // RUN: %clang -### -S -ftest-coverage %s 2>&1 | FileCheck --check-prefix=TEST-COVERAGE %s
 // RUN: %clang -### -S -ftest-coverage -fno-test-coverage %s 2>&1 | FileCheck --check-prefix=NO-TEST-COVERAGE %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cl -### -S -ftest-coverage %s 2>&1 | FileCheck --check-prefix=TEST-COVERAGE %s
+// RUN: %clang_cl -### -S -ftest-coverage -fno-test-coverage %s 2>&1 | FileCheck --check-prefix=NO-TEST-COVERAGE %s
+// end INTEL_CUSTOMIZATION
 
 // TEST-COVERAGE: "-ftest-coverage"
 // TEST-COVERAGE: "-coverage-notes-file" "{{.*}}{{/|\\\\}}coverage.gcno"
@@ -7,6 +11,10 @@
 
 // RUN: %clang -### -S -fprofile-arcs %s 2>&1 | FileCheck --check-prefix=PROFILE-ARCS %s
 // RUN: %clang -### -S -fprofile-arcs -fno-profile-arcs %s 2>&1 | FileCheck --check-prefix=NO-PROFILE-ARCS %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cl -### -S -fprofile-arcs %s 2>&1 | FileCheck --check-prefix=PROFILE-ARCS %s
+// RUN: %clang_cl -### -S -fprofile-arcs -fno-profile-arcs %s 2>&1 | FileCheck --check-prefix=NO-PROFILE-ARCS %s
+// end INTEL_CUSTOMIZATION
 
 // PROFILE-ARCS: "-fprofile-arcs"
 // PROFILE-ARCS: "-coverage-notes-file" "{{.*}}{{/|\\\\}}coverage.c"

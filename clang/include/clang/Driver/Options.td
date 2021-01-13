@@ -2438,8 +2438,10 @@ def fpass_plugin_EQ : Joined<["-"], "fpass-plugin=">,
   HelpText<"Load pass plugin from a dynamic shared object file (only with new pass manager).">;
 defm preserve_as_comments : OptOutFFlag<"preserve-as-comments", "",
   "Do not preserve comments in inline assembly">;
-def fprofile_arcs : Flag<["-"], "fprofile-arcs">, Group<f_Group>, Flags<[CC1Option,LinkOption]>;
-def fno_profile_arcs : Flag<["-"], "fno-profile-arcs">, Group<f_Group>;
+#if INTEL_CUSTOMIZATION
+def fprofile_arcs : Flag<["-"], "fprofile-arcs">, Group<f_Group>, Flags<[CC1Option,LinkOption,CoreOption]>;
+def fno_profile_arcs : Flag<["-"], "fno-profile-arcs">, Group<f_Group>, Flags<[CoreOption]>;
+#endif // INTEL_CUSTOMIZATION
 def framework : Separate<["-"], "framework">, Flags<[LinkerInput]>;
 def frandom_seed_EQ : Joined<["-"], "frandom-seed=">, Group<clang_ignored_f_Group>;
 def freg_struct_return : Flag<["-"], "freg-struct-return">, Group<f_Group>, Flags<[CC1Option]>,
@@ -2608,8 +2610,10 @@ def foptimization_record_passes_EQ : Joined<["-"], "foptimization-record-passes=
   HelpText<"Only include passes which match a specified regular expression in the generated optimization record (by default, include all passes)">,
   MetaVarName<"<regex>">;
 
-def ftest_coverage : Flag<["-"], "ftest-coverage">, Flags<[CC1Option]>, Group<f_Group>;
-def fno_test_coverage : Flag<["-"], "fno-test-coverage">, Group<f_Group>;
+#if INTEL_CUSTOMIZATION
+def ftest_coverage : Flag<["-"], "ftest-coverage">, Flags<[CC1Option,CoreOption]>, Group<f_Group>;
+def fno_test_coverage : Flag<["-"], "fno-test-coverage">, Group<f_Group>, Flags<[CoreOption]>;
+#endif // INTEL_CUSTOMIZATION
 def fvectorize : Flag<["-"], "fvectorize">, Group<f_Group>,
   HelpText<"Enable the loop vectorization passes">;
 def fno_vectorize : Flag<["-"], "fno-vectorize">, Group<f_Group>;
