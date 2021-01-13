@@ -6000,6 +6000,7 @@ bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
       (void)CRI;
       assert(CRI->hasUnwindDest() && CRI->getUnwindDest() == BB &&
              "Expected to always have an unwind to BB.");
+      (void) CRI; // INTEL
       Updates.push_back({DominatorTree::Delete, Predecessor, BB});
       new UnreachableInst(TI->getContext(), TI);
       TI->eraseFromParent();
