@@ -1323,8 +1323,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kmpc_for_static_fini:
     return Changed;
   case LibFunc_kmpc_for_static_init_4:
+  case LibFunc_kmpc_for_static_init_4u:
     return Changed;
   case LibFunc_kmpc_for_static_init_8:
+  case LibFunc_kmpc_for_static_init_8u:
     return Changed;
   case LibFunc_kmpc_fork_call:
     return Changed;
