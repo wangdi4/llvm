@@ -3459,6 +3459,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
+  // Check if -fopenmp is specified and set default version to 5.0.
+  Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 50 : 0;
+
 #if INTEL_CUSTOMIZATION
   Opts.OpenMPSimdOnly = false;
   Opts.OpenMPSimdDisabled = false;
@@ -3514,8 +3517,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   }
 #endif  // INTEL_COLLAB
 
-  // Check if -fopenmp is specified and set default version to 5.0.
-  Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 50 : 0;
   // Check if -fopenmp-simd is specified.
   bool IsSimdSpecified =
       Args.hasFlag(options::OPT_fopenmp_simd, options::OPT_fno_openmp_simd,
