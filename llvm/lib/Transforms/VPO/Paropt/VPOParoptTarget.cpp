@@ -1027,7 +1027,9 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
     if (CS.getIsArraySection()) {
       assert(MapIt != Map.end());
       RenameBase(*MapIt++, Args[0]);
-    } else if (CS.getIsMapAggrHead() || CS.getIsMapAggr() || Args.size() == 4) {
+    } else if (CS.getIsMapAggrHead() || CS.getIsMapAggr() ||
+               ((Args.size() == 4 || Args.size() == 6) &&
+                isa<ConstantInt>(Args[3]))) {
       bool AggrStartsNewStyleMapChain =
           (!CS.getIsMapChainLink() && !CS.getIsMapAggrHead() &&
            !CS.getIsMapAggr() && Args.size() == 4);
@@ -1463,12 +1465,15 @@ void VPOParoptTransform::genTgtInformationForPtrs(
           MapTypes.push_back(
               getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0));
 
-        // TODO: Use name from map-chain. It should look something like:
+        // MapName looks like:
         //  @0 = private unnamed_addr constant [40 x i8]
         //       c";y[0][0:1];tgt_map_ptr_arrsec.cpp;7;7;;\00", align 1
-        Names.push_back(getMapNameForVar(Aggr->getBasePtr()));
-        // TODO: Use mappers from map-chains.
-        Mappers.push_back(nullptr);
+        if (auto *AggrName = Aggr->getName())
+          Names.push_back(cast<GlobalVariable>(AggrName));
+        else
+          Names.push_back(getMapNameForVar(Aggr->getBasePtr()));
+
+        Mappers.push_back(Aggr->getMapper());
       }
     } else {
       assert(!MapI->getIsArraySection() &&
@@ -2232,9 +2237,15 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInitUtil:"
                     << " BasePtr=(" << *BasePtr << ") SectionPtr=("
-                    << *SectionPtr << ") Cnt=" << Cnt << " ConstSizes.size()="
-                    << ConstSizes.size() << " hasRuntimeEvaluationCaptureSize="
-                    << hasRuntimeEvaluationCaptureSize << "\n");
+                    << *SectionPtr << ")";
+             if (Mapper) {
+               dbgs() << " Mapper=(";
+               Mapper->printAsOperand(dbgs());
+               dbgs() << ")";
+             } dbgs()
+             << " Cnt=" << Cnt << " ConstSizes.size()=" << ConstSizes.size()
+             << " hasRuntimeEvaluationCaptureSize="
+             << hasRuntimeEvaluationCaptureSize << "\n");
 
   Value *NewBPVal, *BP, *P, *S, *SizeValue;
   auto *I8PTy = Builder.getInt8PtrTy();
@@ -2327,7 +2338,7 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
         // TODO: Use mapper from map-chain
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
-            /*Mapper=*/nullptr, Info, ConstSizes, Cnt,
+            Aggr->getMapper(), Info, ConstSizes, Cnt,
             hasRuntimeEvaluationCaptureSize, I == 0 ? &BasePtrGEP : nullptr);
       }
     } else {
