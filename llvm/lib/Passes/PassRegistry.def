@@ -529,6 +529,7 @@ FUNCTION_PASS("hir-identity-matrix-substitution", loopopt::HIRIdentityMatrixSubs
 FUNCTION_PASS("hir-arrayscalarization-test-launcher", loopopt::HIRArrayScalarizationTestLauncherPass())
 FUNCTION_PASS("vpo-paropt-shared-privatization", VPOParoptSharedPrivatizationPass())
 FUNCTION_PASS("hir-cross-loop-array-contraction", loopopt::HIRCrossLoopArrayContractionPass())
+FUNCTION_PASS("handle-pragma-vector-aligned", HandlePragmaVectorAlignedPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

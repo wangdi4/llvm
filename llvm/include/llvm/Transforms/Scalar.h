@@ -267,6 +267,13 @@ FunctionPass *createForcedCMOVGenerationPass();
 
 //===----------------------------------------------------------------------===//
 //
+// HandlePragmaVectorAligned - translate '#pragma vector aligned' into alignment
+// assumptions.
+//
+FunctionPass *createHandlePragmaVectorAlignedPass();
+
+//===----------------------------------------------------------------------===//
+//
 // TransformSinAndCosCalls - This pass transforms calls to sin and cos to
 // calls to sinpi, cospi, or sincospi.
 //

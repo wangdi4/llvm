@@ -139,6 +139,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeAddSubReassociateLegacyPassPass(Registry);
   initializeForcedCMOVGenerationLegacyPassPass(Registry);
   initializeTransformSinAndCosCallsLegacyPassPass(Registry);
+  initializeHandlePragmaVectorAlignedLegacyPassPass(Registry);
 #if INTEL_FEATURE_CSA
   initializeCSAScalarPasses(Registry);
 #endif // INTEL_FEATURE_CSA

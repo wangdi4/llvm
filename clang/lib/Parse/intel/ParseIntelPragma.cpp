@@ -461,7 +461,7 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
 }
 
 /// Handle the prefetch pragma
-///   #pragma prefetch arg1 [: integer1 [, integer2 ]] ...
+///   #pragma prefetch [ arg1 [: integer1 [, integer2 ]] ... ]
 ///
 ///   where argN is a valid memory reference,
 ///   integer1 is an optional "hint" specifying the type of prefetch
@@ -479,8 +479,14 @@ bool Parser::HandlePragmaPrefetch(ArgsVector *ArgExprs) {
     else
       ConsumeToken();  // The terminator eof.
     ExprResult ValExpr;
-    // We'll see the memory reference before hint/distance
-    if (Tok.isNot(tok::numeric_constant)) {
+    // If prefetch with no arguments
+    if (Tok.is(tok::eof))
+      break;
+    // If prefetch *
+    if (Tok.is(tok::star))
+      PP.Lex(Tok);
+    else if (Tok.isNot(tok::numeric_constant)) {
+      // We'll see the memory reference before hint/distance
       ValExpr = Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
       if (ValExpr.isUsable())
         ArgExprs->push_back(ValExpr.get());
@@ -572,16 +578,18 @@ static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
       (IsPrefetch ? "prefetch" : "noprefetch");
     return true;
   }
+  bool PrefetchHasArgs = Tok.isNot(tok::eod);
   // Use of '*' must be followed by ':' and an integer constant, and
   // then optionally, by another ':' and integer constant.
   if (IsStar) {
+    ValueList.push_back(Tok);
     PP.Lex(Tok);
     if (Tok.isNot(tok::colon)) {
       PP.Diag(Tok.getLocation(), diag::err_expected) << tok::colon
           << Tok.getKind();
       return true;
-    }
-    PP.Lex(Tok);
+    } else
+      PP.Lex(Tok);
     if (Tok.isNot(tok::numeric_constant)) {
       PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
           << PragmaName.getIdentifierInfo()->getName();
@@ -615,7 +623,7 @@ static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
       ValueList.push_back(Tok);
       PP.Lex(Tok);
     }
-    if (!ArgSeen) {
+    if (!ArgSeen && PrefetchHasArgs) {
       PP.Diag(Tok.getLocation(), diag::err_prefetch_invalid_argument)
           << (IsPrefetch ? "prefetch" : "noprefetch");
       return true;
@@ -678,10 +686,11 @@ void PragmaNoPrefetchHandler::HandlePragma(Preprocessor &PP,
   PP.Lex(Tok);
   PragmaPrefetchInfo *Info =
       new (PP.getPreprocessorAllocator()) PragmaPrefetchInfo;
-  while (Tok.isNot(tok::eod)) {
+  // Incoming eod (end of directive) token implies prefetch with no arguments.
+  do {
     if (ParseIntelPrefetchArgument(PP, Tok, PragmaName, Info))
       return;
-  }
+  } while (Tok.isNot(tok::eod));
   Info->PragmaName = PragmaName;
   Token PrefetchTok;
   PrefetchTok.startToken();
@@ -708,10 +717,11 @@ void PragmaPrefetchHandler::HandlePragma(Preprocessor &PP,
   PP.Lex(Tok);
   PragmaPrefetchInfo *Info =
       new (PP.getPreprocessorAllocator()) PragmaPrefetchInfo;
-  while (Tok.isNot(tok::eod)) {
+  // Incoming eod (end of directive) token implies prefetch with no arguments.
+  do {
     if (ParseIntelPrefetchArgument(PP, Tok, PragmaName, Info))
       return;
-  }
+  } while (Tok.isNot(tok::eod));
   Info->PragmaName = PragmaName;
   Token PrefetchTok;
   PrefetchTok.startToken();

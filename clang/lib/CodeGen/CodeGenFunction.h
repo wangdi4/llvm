@@ -500,7 +500,7 @@ public:
     ~IntelPrefetchExprHandler();
   private:
     CodeGenFunction &CGF;
-    SmallVector<llvm::CallInst *, 1> CallEntries;
+    llvm::CallInst *CallEntry = nullptr;
   };
 #endif // INTEL_CUSTOMIZATION
 

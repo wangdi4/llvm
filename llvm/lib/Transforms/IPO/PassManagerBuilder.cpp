@@ -318,6 +318,10 @@ static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
   cl::init(false), cl::Hidden,
   cl::desc("Enable Function Multi-versioning"));
 
+static cl::opt<bool> EnableHandlePragmaVectorAligned(
+    "enable-handle-pragma-vector-aligned", cl::init(true),
+    cl::desc("Enable Handle Pragma Vector Aligned pass"));
+
 #if INTEL_FEATURE_CSA
 // CSA graph splitter.
 static cl::opt<bool> RunCSAGraphSplitter("enable-csa-graph-splitter",
@@ -1023,6 +1027,12 @@ void PassManagerBuilder::populateModulePassManager(
   if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
     MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false)); // INTEL
   MPM.add(createCFGSimplificationPass()); // Clean up after IPCP & DAE
+
+#if INTEL_CUSTOMIZATION
+  // Handle '#pragma vector aligned'.
+  if (EnableHandlePragmaVectorAligned && OptLevel > 1)
+    MPM.add(createHandlePragmaVectorAlignedPass());
+#endif // INTEL_CUSTOMIZATION
 
   // For SamplePGO in ThinLTO compile phase, we do not want to do indirect
   // call promotion as it will change the CFG too much to make the 2nd
