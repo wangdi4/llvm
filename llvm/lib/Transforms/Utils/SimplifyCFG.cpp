@@ -5363,12 +5363,16 @@ bool SimplifyCFGOpt::SimplifyBranchOnICmpChain(BranchInst *BI,
                     << " cases into SWITCH.  BB is:\n"
                     << *BB);
 
+  SmallVector<DominatorTree::UpdateType, 2> Updates;
+
   // If there are any extra values that couldn't be folded into the switch
   // then we evaluate them with an explicit branch first. Split the block
   // right before the condbr to handle it.
   if (ExtraCase) {
     BasicBlock *NewBB =
-        BB->splitBasicBlock(BI->getIterator(), "switch.early.test");
+        SplitBlock(BB, BI, DTU ? &DTU->getDomTree() : nullptr, /*LI=*/nullptr,
+                   /*MSSAU=*/nullptr, "switch.early.test");
+
     // Remove the uncond branch added to the old block.
     Instruction *OldTI = BB->getTerminator();
     Builder.SetInsertPoint(OldTI);
@@ -5379,6 +5383,8 @@ bool SimplifyCFGOpt::SimplifyBranchOnICmpChain(BranchInst *BI,
       Builder.CreateCondBr(ExtraCase, NewBB, EdgeBB);
 
     OldTI->eraseFromParent();
+
+    Updates.push_back({DominatorTree::Insert, BB, EdgeBB});
 
     // If there are PHI nodes in EdgeBB, then we need to add a new entry to them
     // for the edge we just added.
@@ -5406,6 +5412,7 @@ bool SimplifyCFGOpt::SimplifyBranchOnICmpChain(BranchInst *BI,
   // We added edges from PI to the EdgeBB.  As such, if there were any
   // PHI nodes in EdgeBB, they need entries to be added corresponding to
   // the number of edges added.
+  Updates.push_back({DominatorTree::Insert, BB, EdgeBB});
   for (BasicBlock::iterator BBI = EdgeBB->begin(); isa<PHINode>(BBI); ++BBI) {
     PHINode *PN = cast<PHINode>(BBI);
     Value *InVal = PN->getIncomingValueForBlock(BB);
@@ -5415,6 +5422,8 @@ bool SimplifyCFGOpt::SimplifyBranchOnICmpChain(BranchInst *BI,
 
   // Erase the old branch instruction.
   EraseTerminatorAndDCECond(BI);
+  if (DTU)
+    DTU->applyUpdatesPermissive(Updates);
 
   LLVM_DEBUG(dbgs() << "  ** 'icmp' chain result is:\n" << *BB << '\n');
   return true;
@@ -6687,13 +6696,16 @@ static Value *ConvertTwoCaseSwitch(const SwitchCaseResultVectorTy &ResultVector,
 // a select, fixing up PHI nodes and basic blocks.
 static void RemoveSwitchAfterSelectConversion(SwitchInst *SI, PHINode *PHI,
                                               Value *SelectValue,
-                                              IRBuilder<> &Builder) {
+                                              IRBuilder<> &Builder,
+                                              DomTreeUpdater *DTU) {
   BasicBlock *SelectBB = SI->getParent();
   while (PHI->getBasicBlockIndex(SelectBB) >= 0)
     PHI->removeIncomingValue(SelectBB);
   PHI->addIncoming(SelectValue, SelectBB);
 
   Builder.CreateBr(PHI->getParent());
+
+  std::vector<DominatorTree::UpdateType> Updates;
 
   // Remove the switch.
   for (unsigned i = 0, e = SI->getNumSuccessors(); i < e; ++i) {
@@ -6702,15 +6714,18 @@ static void RemoveSwitchAfterSelectConversion(SwitchInst *SI, PHINode *PHI,
     if (Succ == PHI->getParent())
       continue;
     Succ->removePredecessor(SelectBB);
+    Updates.push_back({DominatorTree::Delete, SelectBB, Succ});
   }
   SI->eraseFromParent();
+  if (DTU)
+    DTU->applyUpdatesPermissive(Updates);
 }
 
 /// If the switch is only used to initialize one or more
 /// phi nodes in a common successor block with only two different
 /// constant values, replace the switch with select.
 static bool switchToSelect(SwitchInst *SI, IRBuilder<> &Builder,
-                           const DataLayout &DL,
+                           DomTreeUpdater *DTU, const DataLayout &DL,
                            const TargetTransformInfo &TTI) {
   Value *const Cond = SI->getCondition();
   PHINode *PHI = nullptr;
@@ -6730,7 +6745,7 @@ static bool switchToSelect(SwitchInst *SI, IRBuilder<> &Builder,
   Value *SelectValue =
       ConvertTwoCaseSwitch(UniqueResults, DefaultResult, Cond, Builder);
   if (SelectValue) {
-    RemoveSwitchAfterSelectConversion(SI, PHI, SelectValue, Builder);
+    RemoveSwitchAfterSelectConversion(SI, PHI, SelectValue, Builder, DTU);
     return true;
   }
   // The switch couldn't be converted into a select.
@@ -7246,7 +7261,7 @@ static void reuseTableCompare(
 /// successor block with different constant values, replace the switch with
 /// lookup tables.
 static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
-                                const DataLayout &DL,
+                                DomTreeUpdater *DTU, const DataLayout &DL,
                                 const TargetTransformInfo &TTI) {
   assert(SI->getNumCases() > 1 && "Degenerate switch?");
 
@@ -7344,6 +7359,8 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
   if (!ShouldBuildLookupTable(SI, TableSize, TTI, DL, ResultTypes))
     return false;
 
+  std::vector<DominatorTree::UpdateType> Updates;
+
   // Create the BB that does the lookups.
   Module &Mod = *CommonDest->getParent()->getParent();
   BasicBlock *LookupBB = BasicBlock::Create(
@@ -7376,6 +7393,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
 
   if (!DefaultIsReachable || GeneratingCoveredLookupTable) {
     Builder.CreateBr(LookupBB);
+    Updates.push_back({DominatorTree::Insert, SI->getParent(), LookupBB});
     // Note: We call removeProdecessor later since we need to be able to get the
     // PHI value for the default case in case we're using a bit mask.
   } else {
@@ -7383,6 +7401,9 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
         TableIndex, ConstantInt::get(MinCaseVal->getType(), TableSize));
     RangeCheckBranch =
         Builder.CreateCondBr(Cmp, LookupBB, SI->getDefaultDest());
+    Updates.push_back({DominatorTree::Insert, SI->getParent(), LookupBB});
+    Updates.push_back(
+        {DominatorTree::Insert, SI->getParent(), SI->getDefaultDest()});
   }
 
   // Populate the BB that does the lookups.
@@ -7420,7 +7441,8 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     Value *LoBit = Builder.CreateTrunc(
         Shifted, Type::getInt1Ty(Mod.getContext()), "switch.lobit");
     Builder.CreateCondBr(LoBit, LookupBB, SI->getDefaultDest());
-
+    Updates.push_back({DominatorTree::Insert, MaskBB, LookupBB});
+    Updates.push_back({DominatorTree::Insert, MaskBB, SI->getDefaultDest()});
     Builder.SetInsertPoint(LookupBB);
     AddPredecessorToBlock(SI->getDefaultDest(), MaskBB, SI->getParent());
   }
@@ -7430,6 +7452,8 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     // do not delete PHINodes here.
     SI->getDefaultDest()->removePredecessor(SI->getParent(),
                                             /*KeepOneInputPHIs=*/true);
+    Updates.push_back(
+        {DominatorTree::Delete, SI->getParent(), SI->getDefaultDest()});
   }
 
   bool ReturnedEarly = false;
@@ -7466,8 +7490,10 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     PHI->addIncoming(Result, LookupBB);
   }
 
-  if (!ReturnedEarly)
+  if (!ReturnedEarly) {
     Builder.CreateBr(CommonDest);
+    Updates.push_back({DominatorTree::Insert, LookupBB, CommonDest});
+  }
 
   // Remove the switch.
   for (unsigned i = 0, e = SI->getNumSuccessors(); i < e; ++i) {
@@ -7476,8 +7502,11 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     if (Succ == SI->getDefaultDest())
       continue;
     Succ->removePredecessor(SI->getParent());
+    Updates.push_back({DominatorTree::Delete, SI->getParent(), Succ});
   }
   SI->eraseFromParent();
+  if (DTU)
+    DTU->applyUpdatesPermissive(Updates);
 
   ++NumLookupTables;
   if (NeedMask)
@@ -7624,7 +7653,7 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   if (eliminateDeadSwitchCases(SI, Options.AC, DL))
     return requestResimplify();
 
-  if (switchToSelect(SI, Builder, DL, TTI))
+  if (switchToSelect(SI, Builder, DTU, DL, TTI))
     return requestResimplify();
 
   if (Options.ForwardSwitchCondToPhi && ForwardSwitchConditionToPHI(SI))
@@ -7636,7 +7665,7 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   // CVP. Therefore, only apply this transformation during late stages of the
   // optimisation pipeline.
   if (Options.ConvertSwitchToLookupTable &&
-      SwitchToLookupTable(SI, Builder, DL, TTI))
+      SwitchToLookupTable(SI, Builder, DTU, DL, TTI))
     return requestResimplify();
 
   if (ReduceSwitchRange(SI, Builder, DL, TTI))
