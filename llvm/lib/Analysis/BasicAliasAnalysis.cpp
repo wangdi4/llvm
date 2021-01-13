@@ -2149,21 +2149,6 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   if (!Pair.second)
     return Pair.first->second;
 
-#if INTEL_CUSTOMIZATION
-  if (AAQI.NeedLoopCarried) {
-    // For loopCarriedAlias we'll stop analysis here. Rather than return
-    // MayAlias, check if any other AA has a better response. Recurse back into
-    // the best AA results we have, potentially with refined memory locations.
-    // We have already ensured that BasicAA has a MayAlias cache result for
-    // these, so any recursion back into BasicAA won't loop.
-    AliasResult Result =
-        getBestAAResults().loopCarriedAlias(Locs.first, Locs.second, AAQI);
-    Pair = AAQI.AliasCache.try_emplace(Locs, Result);
-    assert(!Pair.second && "Entry must have existed");
-    return Pair.first->second = Result;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   if (const auto *GV1 = dyn_cast<AddressOperator>(V1)) {
     AliasResult Result =
         aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2, AAQI);
@@ -2187,6 +2172,21 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     if (Result != MayAlias)
       return AAQI.updateResult(Locs, Result);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (AAQI.NeedLoopCarried) {
+    // For loopCarriedAlias we'll stop analysis here. Rather than return
+    // MayAlias, check if any other AA has a better response. Recurse back into
+    // the best AA results we have, potentially with refined memory locations.
+    // We have already ensured that BasicAA has a MayAlias cache result for
+    // these, so any recursion back into BasicAA won't loop.
+    AliasResult Result =
+        getBestAAResults().loopCarriedAlias(Locs.first, Locs.second, AAQI);
+    Pair = AAQI.AliasCache.try_emplace(Locs, Result);
+    assert(!Pair.second && "Entry must have existed");
+    return Pair.first->second = Result;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (const SelectInst *S1 = dyn_cast<SelectInst>(V1)) {
     AliasResult Result =
