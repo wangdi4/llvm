@@ -66,6 +66,9 @@ if (INTEL_CUSTOMIZATION)
   endif()
   set(DPCPP_PRODUCT_FULL_VERSION ${FULL_VERSION})
   set(DPCPP_PRODUCT_NAME "Intel(R) oneAPI DPC++ Compiler")
+  # The bitcode producer string must be encoded using only alphanumeric
+  # characters plus '.' and '_'
+  set(DPCPP_BITCODE_PRODUCER_STR "Intel.oneAPI.DPCPP.Compiler_${DPCPP_PRODUCT_VERSION}")
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/include/llvm/Config/dpcpp.version.info.in
     ${CMAKE_CURRENT_BINARY_DIR}/include/llvm/Config/dpcpp.version.info.h
