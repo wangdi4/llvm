@@ -4370,6 +4370,7 @@ VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(Module *M,
   return {PushCall, PopCall};
 }
 
+// Emit Constructor Call and insert it via created IRBuilder
 void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
                                         IRBuilder<> &Builder) {
   if (Ctor == nullptr)
@@ -4380,7 +4381,13 @@ void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   Type *ValType = V->getType();
   if (ArgTy != ValType)
     V = Builder.CreateBitCast(V, ArgTy);
-  Builder.CreateCall(FnTy, Ctor, {V}, "");
+  CallInst *Call = genCall(Ctor->getParent(), Ctor, {V}, {ArgTy}, nullptr);
+  Builder.Insert(Call);
+
+  BasicBlock::iterator InsertPt = Builder.GetInsertPoint();
+  if (Builder.GetInsertBlock()->end() != InsertPt)
+    Call->setDebugLoc((&*InsertPt)->getDebugLoc());
+  LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
 }
 
 // Emit Constructor call and insert it after PrivAlloca

@@ -90,7 +90,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: noinline nounwind uwtable
-declare %class.C addrspace(4)* @_ZTS1C.omp.def_constr(%class.C addrspace(4)* %0) #3
+declare spir_func %class.C addrspace(4)* @_ZTS1C.omp.def_constr(%class.C addrspace(4)* %0) #3
 
 ; Function Attrs: noinline nounwind uwtable
 declare void @_ZTS1C.omp.destr(%class.C addrspace(4)* %0) #3

@@ -38,7 +38,7 @@
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 ; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_1:[^ ,]+]]
 ; CHECK: [[IF_MASTER_1]]:
-; CHECK:  %{{.*}} = call %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*))
+; CHECK:  %{{.*}} = call spir_func %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*))
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
@@ -278,7 +278,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind
-define internal %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* %0) #3 {
+define internal spir_func %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* %0) #3 {
 entry:
   %retval = alloca %"struct.std::complex" addrspace(4)*, align 8
   %retval.ascast = addrspacecast %"struct.std::complex" addrspace(4)** %retval to %"struct.std::complex" addrspace(4)* addrspace(4)*
@@ -291,7 +291,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind
-define internal void @_ZTSSt7complexIdE.omp.destr(%"struct.std::complex" addrspace(4)* %0) #3 {
+define internal spir_func void @_ZTSSt7complexIdE.omp.destr(%"struct.std::complex" addrspace(4)* %0) #3 {
 entry:
   %.addr = alloca %"struct.std::complex" addrspace(4)*, align 8
   %.addr.ascast = addrspacecast %"struct.std::complex" addrspace(4)** %.addr to %"struct.std::complex" addrspace(4)* addrspace(4)*
