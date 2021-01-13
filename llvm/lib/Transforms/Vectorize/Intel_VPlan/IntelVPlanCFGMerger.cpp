@@ -91,6 +91,7 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
   VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
   // Create new basic block before loop preheader.
   VPBasicBlock *VectorTopTestBB = Loop->getLoopPreheader();
+  assert(VectorTopTestBB && "Loop preheader is expected to exist.");
   VPBasicBlock *Preheader =
       VPBlockUtils::splitBlockBegin(VectorTopTestBB, Plan.getVPLoopInfo(),
                                     Plan.getDT(), Plan.getPDT());
@@ -232,6 +233,7 @@ void VPlanCFGMerger::updateExternalUsesOperands(VPBasicBlock *FinalBB) {
 void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
   VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
   VPBasicBlock *ExitBB = Loop->getUniqueExitBlock();
+  assert(ExitBB && "Expecting a unique exit block.");
   VPBasicBlock *PostExitBB = ExitBB->getSingleSuccessor();
 
   // Ensure that first merge point is created, adding incoming values from loop

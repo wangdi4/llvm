@@ -1358,6 +1358,8 @@ static void setRefAlignment(Type *ScalRefTy, RegDDRef *WideRef) {
 
 RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
                                   bool InterLeaveAccess) {
+  assert(Ref && "DDRef to be widened should not be null.");
+
   RegDDRef *WideRef;
   auto RefDestTy = Ref->getDestType();
   auto VecRefDestTy = FixedVectorType::get(RefDestTy, VF);
