@@ -1144,7 +1144,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
 // <15>  |
 // <16>  |   %__svml_sinf48 = @__svml_sinf4(%load);
 // <16>  |   <LVAL-REG> NON-LINEAR <4 x float> %__svml_sinf48 {sb:16}
-// <16>  |   <RVAL-REG> NON-LINEAR bitcast.float.<4 x float>(%load) {sb:15}
+// <16>  |   <RVAL-REG> NON-LINEAR <4 x float> %load {sb:15}
 // <16>  |      <BLOB> NON-LINEAR float %load {sb:15}
 // <16>  |
 // <17>  |   %call = extractelement %__svml_sinf48,  0;
@@ -1202,9 +1202,9 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
       // Create the scalar load of the call argument. This is done so that
       // we can clone the new LvalDDRef and change its type to force the
-      // broadcast. See %load in the example above. Essentially, the original
-      // scalar %load becomes bitcast.float.<4 x float>, which is how HIRCG
-      // knows to do the broadcast.
+      // broadcast. See %load in the example above. The cloned DDREF's source
+      // and dest types are set appropriately(<4 x float> in the example above)
+      // so that HIRCG knows to do the broadcast.
       if (Ref->isMemRef()) {
         // Ref is a memory reference: %t = sinf(a[i]);
         LoadInst = HLNodeUtilities.createLoad(Ref->clone(), "load");
@@ -1214,24 +1214,17 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         LoadInst = HLNodeUtilities.createCopyInst(Ref->clone(), "copy");
       }
 
-      // Construct the new RegDDRef for the call argument. Set the dest
-      // type to the vector type required to do a broadcast. So, for
-      // example, source type is float, and dest type becomes <4 x float>.
-      // This causes the RegDDRef to obtain a bitcast. Because of this,
-      // the ref is no longer a self blob and we must copy the BlobDDRef
-      // from the original reference to this one. This is what the call
-      // to makeConsistent() does.
-      //
-      // e.g., %load is a self blob, bitcast.float.<4 x float>(%load) is
-      // no longer a self blob due to the existence of the bitcast. So,
-      // copy BlobDDRef from %load to bitcast.float.<4 x float>(%load).
+      // Construct the new RegDDRef for the call argument. Set the source and
+      // dest types to the vector type required to do a broadcast. So, for
+      // example, if source type is float, source/dest types become <4 x float>.
+      // This causes HIRCG to do a broadcast when processing this RegDDRef.
       HLNodeUtils::insertBefore(HInst, LoadInst);
       WideRef = LoadInst->getLvalDDRef()->clone();
       auto CE = WideRef->getSingleCanonExpr();
-      CE->setDestType(VecDestTy);
-      const SmallVector<const RegDDRef *, 1> AuxRefs = {
-          LoadInst->getLvalDDRef()};
-      WideRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+
+      assert(CE->getSrcType() == CE->getDestType() &&
+             "Expected CE src/dest type match");
+      CE->setSrcAndDestType(VecDestTy);
 
       // Collect call arguments and types so that the function declaration
       // and call instruction can be generated.
@@ -3192,7 +3185,7 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
       CanonExprUtilities.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
   IndexCE->addConstant(Index, true /* IsMathAdd */);
   if (NumElements > 1)
-    IndexCE->setDestType(
+    IndexCE->setSrcAndDestType(
         FixedVectorType::get(IndexCE->getSrcType(), NumElements));
   MemRef->addDimension(IndexCE);
   return MemRef;
