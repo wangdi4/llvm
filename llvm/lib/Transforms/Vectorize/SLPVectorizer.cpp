@@ -122,6 +122,25 @@ static cl::opt<int>
                               "number "));
 
 #if INTEL_CUSTOMIZATION
+// Use of this knob is supposed to be limited with LIT tests only.
+// Thus it must remain in its default "false" state for normal compiler use.
+// The whole purpose of this knob is attempt to reduce customizations in LLVM
+// community "owned" LIT tests checks. Sometimes the community makes controversial
+// optimizations, sometimes problem concerns only specific IA CPU targets and
+// with community practice to put many (sometimes not quite uniform) tests
+// wrapped into single LIT test file may create a situation when it is very
+// difficult to avoid test checks customization. And these customizations grow
+// like a snow ball finally having their negative impact on pulldown process
+// productivity. Modifying only RUN line is seems the least invasive option when
+// we came to situation when we need to customize a test case. So use the knob
+// whenever it can help to reduce footprint of customizations in community
+// tests. Another area where we badly need similar knob is TTI as their cost
+// modeling is another thing having significant effect on SLP behavior.
+static cl::opt<bool> CompatibilitySLPMode(
+    "slp-compatibility-mode", cl::init(false), cl::Hidden,
+    cl::desc("Suppress some customizations in order to produce results like "
+             "unaltered LLVM community version."));
+
 // This is the Cost returned by getTreeCost() when the tree is tiny and
 // non-vectorizable.
 // FIXME: This is a hack because SLPCostThreshold is adjustable and if it gets a
@@ -4918,8 +4937,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           return;
         }
 #if INTEL_CUSTOMIZATION
-        // Issue gather load only if split load fails
-        CandidateForGatherLoad = true;
+        // We might want to issue gather load only if split load fails.
+        // Do not consider to issue gather for vectors less then 4 elements.
+        if (CompatibilitySLPMode ||
+            (VL.size() >= 4 &&
+             TTI->isLegalMaskedGather(FixedVectorType::get(ScalarTy, VL.size()),
+                                      DL->getABITypeAlign(ScalarTy))))
+          CandidateForGatherLoad = true;
 #endif // INTEL_CUSTOMIZATION
       }
 #if INTEL_CUSTOMIZATION
