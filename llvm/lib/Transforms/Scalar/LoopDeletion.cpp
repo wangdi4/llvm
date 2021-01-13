@@ -442,11 +442,10 @@ static bool isLoopNeverExecuted(Loop *L) {
 
 /// Remove a loop if it is dead.
 ///
-/// A loop is considered dead either if it does not impact the observable
-/// behavior of the program other than finite running time, or if it is
-/// required to make progress by an attribute such as 'mustprogress' or
-/// 'llvm.loop.mustprogress' and does not make any. This may remove
-/// infinite loops that have been required to make progress.
+/// A loop is considered dead if it does not impact the observable behavior of
+/// the program other than finite running time. This never removes a loop that
+/// might be infinite (unless it is never executed), as doing so could change
+/// the halting/non-halting nature of a program.
 ///
 /// This entire process relies pretty heavily on LoopSimplify form and LCSSA in
 /// order to make various safety checks work.
@@ -526,15 +525,14 @@ static LoopDeletionResult deleteLoopIfDead(Loop *L, DominatorTree &DT,
                    : LoopDeletionResult::Unmodified;
   }
 
-  // Don't remove loops for which we can't solve the trip count unless the loop
-  // was required to make progress but has been determined to be dead.
+  // Don't remove loops for which we can't solve the trip count.
+  // They could be infinite, in which case we'd be changing program behavior.
   const SCEV *S = SE.getConstantMaxBackedgeTakenCount(L);
+
 #if INTEL_CUSTOMIZATION
-  if (isa<SCEVCouldNotCompute>(S) && !NotInfinite &&
+  if (isa<SCEVCouldNotCompute>(S) && !NotInfinite) {
 #endif // INTEL_CUSTOMIZATION
-      !L->getHeader()->getParent()->mustProgress() && !hasMustProgress(L)) {
-    LLVM_DEBUG(dbgs() << "Could not compute SCEV MaxBackedgeTakenCount and was "
-                         "not required to make progress.\n");
+    LLVM_DEBUG(dbgs() << "Could not compute SCEV MaxBackedgeTakenCount.\n");
     return Changed ? LoopDeletionResult::Modified
                    : LoopDeletionResult::Unmodified;
   }
