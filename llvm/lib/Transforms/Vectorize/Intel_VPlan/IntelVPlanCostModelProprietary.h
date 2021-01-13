@@ -128,15 +128,6 @@ private:
   unsigned getGatherScatterCost(const VPInstruction *VPInst);
   unsigned getGatherScatterCost(const VPBasicBlock *VPBlock);
   unsigned getGatherScatterCost();
-
-  // FIXME: This is a temporary workaround until proper cost modeling is
-  // implemented.
-  //
-  // To bail out if too many i1 operations are inside the loop as that (most
-  // probably) represents complicated CFG and we need to use Basic Block
-  // Frequency info to correctly calculate the cost. Until it's done, just
-  // report high vector cost for loops with too many i1 instructions.
-  unsigned NumberOfBoolComputations = 0;
 };
 
 } // namespace vpo
