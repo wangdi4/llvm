@@ -925,7 +925,7 @@ public:
     }
 
     // Profile
-    if (char *env = readEnvVar("LIBOMPTARGET_PROFILE")) {
+    if (char *env = readEnvVar("LIBOMPTARGET_PLUGIN_PROFILE")) {
       if ((env[0] == 'T' || env[0] == '1') &&
           (env[1] == ',' || env[1] == '\0')) {
         Flags.EnableProfile = 1;

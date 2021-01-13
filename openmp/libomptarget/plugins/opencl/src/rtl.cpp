@@ -548,7 +548,7 @@ public:
 
     // Read LIBOMPTARGET_PROFILE
     ProfileResolution = 1000;
-    if ((env = readEnvVar("LIBOMPTARGET_PROFILE"))) {
+    if ((env = readEnvVar("LIBOMPTARGET_PLUGIN_PROFILE"))) {
       std::istringstream value(env);
       std::string token;
       while (std::getline(value, token, ',')) {
