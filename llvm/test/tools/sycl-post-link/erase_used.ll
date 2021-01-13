@@ -1,6 +1,11 @@
 ; This test checks that the post-link tool does not add "llvm.used" global to
 ; the output modules when splitting kernels.
 ;
+; INTEL_CUSTOMIZATION
+; # This is failing intermittently; see CMPLRLLVM-25577.
+; UNSUPPORTED: true
+; end INTEL_CUSTOMIZATION
+;
 ; RUN: sycl-post-link -split=kernel -S %s -o %T/files.table
 ; RUN: FileCheck %s -input-file=%T/files_0.ll
 ; RUN: FileCheck %s -input-file=%T/files_1.ll

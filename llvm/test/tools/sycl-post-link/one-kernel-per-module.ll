@@ -1,3 +1,8 @@
+; INTEL_CUSTOMIZATION
+; # This is failing intermittently; see CMPLRLLVM-25577.
+; UNSUPPORTED: true
+; end INTEL_CUSTOMIZATION
+;
 ; RUN: sycl-post-link -split=kernel -symbols -S %s -o %T/files.table
 ; RUN: FileCheck %s -input-file=%T/files_0.ll --check-prefixes CHECK-MODULE0,CHECK
 ; RUN: FileCheck %s -input-file=%T/files_1.ll --check-prefixes CHECK-MODULE1,CHECK
