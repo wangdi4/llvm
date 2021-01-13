@@ -925,6 +925,9 @@ private:
   Value *SectionPtr;
   Value *Size;
   uint64_t MapType;
+  GlobalVariable *Name = nullptr;
+  Value *Mapper = nullptr;
+
 public:
   MapAggrTy(Value *BP, Value *SP, Value *Sz)
       : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(0) {}
@@ -934,10 +937,14 @@ public:
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
   void setMapType(uint64_t MT) { MapType = MT;}
+  void setName(GlobalVariable *N) { Name = N; }
+  void setMapper(Value *M) { Mapper = M; }
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
   uint64_t getMapType() const { return MapType; }
+  GlobalVariable *getName() const { return Name; }
+  Value *getMapper() const { return Mapper; }
 };
 
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
@@ -1089,6 +1096,8 @@ public:
         Value *SectionPtr = Aggr->getSectionPtr();
         Value *Size = Aggr->getSize();
         uint64_t MapType = Aggr->getMapType();
+        GlobalVariable *Name = Aggr->getName();
+        Value *Mapper = Aggr->getMapper();
         OS << "<" ;
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
@@ -1097,7 +1106,17 @@ public:
         Size->printAsOperand(OS, PrintType);
         OS << ", ";
         OS << MapType;
-        OS <<  "> ";
+        OS << ", ";
+        if (Name)
+          Name->printAsOperand(OS, PrintType);
+        else
+          OS << "null";
+        OS << ", ";
+        if (Mapper)
+          Mapper->printAsOperand(OS, PrintType);
+        else
+          OS << "null";
+        OS << "> ";
       }
       OS << ") ";
     } else if (getIsArraySection()) {

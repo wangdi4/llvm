@@ -1,4 +1,3 @@
-; REQUIRES: asserts
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
 ;
@@ -11,9 +10,8 @@
 ; }
 
 ; Since the module has debug information, check that a map-name struct is
-; created for the map operand, %y.ir.
-; CHECK: [[Y_NAME:@[^ ]+]] = private unnamed_addr constant [{{[0-9]+}} x i8] c";y.ir{{[^ ;]*}};unknown;0;0;;\00", align 1
-; CHECK: @.offload_mapnames = private constant [1 x i8*] [i8* getelementptr inbounds ([{{[0-9]+}} x i8], [{{[0-9]+}} x i8]* [[Y_NAME]], i32 0, i32 0)]
+; created using @0, the map-name from the frontend for %y.ir.
+; CHECK: @.offload_mapnames = private constant [1 x i8*] [i8* getelementptr inbounds ([18 x i8], [18 x i8]* @0, i32 0, i32 0)]
 
 ; Check that tgt_mapper is called using the map-names struct.
 ; CHECK:  %{{[^ ]+}} = call i32 @__tgt_target_mapper(%struct.ident_t* @{{[^ ,]+}}, i64 %{{[^ ,]+}}, i8* @{{[^ ,]+}}, i32 1, i8** %{{[^ ,]}}, i8** %{{[^ ,]}}, i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_maptypes, i32 0, i32 0), i8** getelementptr inbounds ([1 x i8*], [1 x i8*]* @.offload_mapnames, i32 0, i32 0), i8** null)
@@ -22,6 +20,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64"
 target device_triples = "x86_64"
 
+@0 = private unnamed_addr constant [18 x i8] c";y;tgt_fp.c;2;9;;\00", align 1
+
 ; Function Attrs: noinline norecurse nounwind optnone uwtable mustprogress
 define hidden i32 @main() #0 !dbg !9 {
 entry:
@@ -29,7 +29,7 @@ entry:
   call void @llvm.dbg.declare(metadata i16* %y.ir, metadata !13, metadata !DIExpression()), !dbg !15
   store i16 111, i16* %y.ir, align 2, !dbg !15
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i16* %y.ir, i16* %y.ir, i64 2, i64 33) ], !dbg !16
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i16* %y.ir, i16* %y.ir, i64 2, i64 33, [18 x i8]* @0, i8* null) ], !dbg !16
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ], !dbg !16
 
   ret i32 0, !dbg !18
@@ -61,7 +61,7 @@ attributes #2 = { nounwind }
 !5 = !{i32 2, !"Debug Info Version", i32 3}
 !6 = !{i32 1, !"wchar_size", i32 4}
 !7 = !{i32 7, !"PIC Level", i32 2}
-!8 = !{!"clang 10.0.0"}
+!8 = !{!"clang version 10.0.0"}
 !9 = distinct !DISubprogram(name: "main", scope: !1, file: !1, line: 1, type: !10, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !2)
 !10 = !DISubroutineType(types: !11)
 !11 = !{!12}

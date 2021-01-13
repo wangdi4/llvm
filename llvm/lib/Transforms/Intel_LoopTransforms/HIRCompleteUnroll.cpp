@@ -561,7 +561,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// Adds the cost of the blob given its info and coefficient in the CE. \p
   /// UnrollableIVLevel stores the level of unrollable IV this blob is a
   /// coefficient of. Otherwise it is set to 0.
-  void addBlobCost(const BlobInfo &BInfo, int64_t Coeff,
+  void addBlobCost(const BlobInfo &BInfo, int64_t Coeff, const CanonExpr *CE,
                    unsigned UnrollableIVLevel, unsigned &NumNonLinearTerms,
                    bool *IsVisitedNonLinearTerm);
 
@@ -2323,7 +2323,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
         CanSimplifyIVs = false;
       }
 
-      addBlobCost(BInfo, Coeff, IsUnrollableLoopLevel ? Level : 0,
+      addBlobCost(BInfo, Coeff, CE, IsUnrollableLoopLevel ? Level : 0,
                   CEInfo.NumNonLinearTerms, nullptr);
 
       if (IsUnrollableLoopLevel) {
@@ -2378,7 +2378,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlobs(
       continue;
     }
 
-    addBlobCost(BInfo, Blob->Coeff, 0, NumNonLinearTerms,
+    addBlobCost(BInfo, Blob->Coeff, CE, 0, NumNonLinearTerms,
                 &HasVisitedNonLinearTerms);
   }
 
@@ -2495,15 +2495,16 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobInfo(unsigned Index,
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::addBlobCost(
-    const BlobInfo &BInfo, int64_t Coeff, unsigned UnrollableIVLevel,
-    unsigned &NumNonLinearTerms, bool *IsVisitedNonLinearTerm) {
+    const BlobInfo &BInfo, int64_t Coeff, const CanonExpr *CE,
+    unsigned UnrollableIVLevel, unsigned &NumNonLinearTerms,
+    bool *IsVisitedNonLinearTerm) {
 
   unsigned OuterTripCnt = 0;
 
   if (UnrollableIVLevel != 0) {
     // If IV belongs to outer loop, cost incurred should be based on outer
-    // loop trip count. For example, if the CanonExpr is (t * i1 + i2), number
-    // of unique combinations of (t * i1) depend only on the outer loop trip
+    // loop trip count. For example, if the CanonExpr is (t1 * i1 + t2), number
+    // of unique combinations of (t1 * i1) depend only on the outer loop trip
     // count.
     auto OuterLoop = CurLoop->getParentLoopAtLevel(UnrollableIVLevel);
     OuterTripCnt = HCU.AvgTripCount.find(OuterLoop)->second;
@@ -2558,19 +2559,38 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::addBlobCost(
     ++NumNonLinearTerms;
 
   } else if (UnrollableIVLevel != 0) {
+
     // Multiplication of invariant blob with unrolled IV leads to increase in
     // size as the blob is multiplied by a different constant in each iteration
     // except first, when the IV is zero.
 
-    ScaledCost += (OuterTripCnt - 1);
+    unsigned AccumulatedCost = (OuterTripCnt - 1);
 
     // The first iteration when IV is zero can still be simplified.
-    ++ScaledSavings;
+    unsigned AccumulatedSavings = 1;
 
     // Multiplication of unrolled IV and constant coefficient can be folded.
     if (Coeff != 1) {
-      ScaledSavings += OuterTripCnt;
+      AccumulatedSavings += OuterTripCnt;
     }
+
+    unsigned Level = CurLevel;
+
+    // Accumulate more cost/savings for each loop level at which CE is not
+    // invariant by multiplying by its trip count. For CEs like (t * i1 + i2)
+    // the number of unique combinations depend i2 loop trip count as well, not
+    // just i1 loop.
+    for (const HLLoop *Lp = CurLoop, *EndLp = OuterLoop->getParentLoop();
+         Lp != EndLp; Lp = Lp->getParentLoop(), --Level) {
+      if (Level != UnrollableIVLevel && !CE->isInvariantAtLevel(Level)) {
+        auto TripCnt = HCU.AvgTripCount.find(Lp)->second;
+        AccumulatedCost *= TripCnt;
+        AccumulatedSavings *= TripCnt;
+      }
+    }
+
+    ScaledCost += AccumulatedCost;
+    ScaledSavings += AccumulatedSavings;
   }
 }
 

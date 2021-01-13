@@ -1023,14 +1023,14 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
            "Unexpected number of args for array section operand.");
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr() ||
-             NumArgs == 4) { // Map-chains with (BasePtr, SectionPtr,
-                             // Size, MapType)
+  } else if ((NumArgs == 3 &&
+              (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr())) ||
+             ((NumArgs == 4 || NumArgs == 6) && isa<ConstantInt>(Args[3]))
+             // Map-chains with (BasePtr, SectionPtr, Size, MapType) or
+             // (BasePtr, SectionPtr, Size, MapType, MapName, Mapper)
+  ) {
     // TODO: Remove handling of AGGR/AGGRHEAD type map-chains when clang only
     // sends in the updated map-chains with 4 element links.
-    assert((NumArgs == 3 || NumArgs == 4) &&
-           "Malformed MAP:AGGR[HEAD]/CHAIN clause");
-
     assert(!(MapKind & MapItem::WRNMapUpdateTo ||
              MapKind & MapItem::WRNMapUpdateFrom) &&
            "Unexpected Map Chain in a TO/FROM clause");
@@ -1040,13 +1040,19 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     Value *SectionPtr = (Value *)Args[1];
     Value *Size = (Value *)Args[2];
     uint64_t MapType = 0;
-    bool AggrHasMapType = (NumArgs == 4);
+    bool AggrHasMapType = (NumArgs == 4 || NumArgs == 6);
     if (AggrHasMapType) {
-      assert(isa<ConstantInt>(Args[3]) && "IR is corrupt");
-      ConstantInt *CI = dyn_cast<ConstantInt>(Args[3]);
+      ConstantInt *CI = cast<ConstantInt>(Args[3]);
       MapType = CI->getZExtValue();
     }
     MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
+    if (NumArgs == 6) {
+      auto *Name = cast<Constant>(Args[4]);
+      Aggr->setName(!Name->isNullValue() ? cast<GlobalVariable>(Name)
+                                         : nullptr);
+      auto *Mapper = cast<Constant>(Args[5]);
+      Aggr->setMapper(!Mapper->isNullValue() ? Mapper : nullptr);
+    }
 
     MapItem *MI;
 
