@@ -1588,10 +1588,9 @@ void CanonExpr::verify(unsigned NestingLevel) const {
       CastOp = Instruction::SExt;
     } else if (isZExt()) {
       CastOp = Instruction::ZExt;
-    } else if (isTrunc()) {
-      CastOp = Instruction::Trunc;
     } else {
-      CastOp = Instruction::BitCast;
+      assert(isTrunc() && "Invalid canon expression conversion");
+      CastOp = Instruction::Trunc;
     }
 
     (void)CastOp;
