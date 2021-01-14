@@ -44,6 +44,13 @@ public:
   /// \brief Any incoming/outgoing edge into Loop?
   static bool anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop);
 
+  /// \brief Count each incoming/outgoing edge into Loop where 1 end of the
+  /// edge is given in Ref.
+  /// Return true if there is any edge to loop. Both Lval
+  /// count and Rval count will be returned implicitly.
+  static bool countEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop,
+                              unsigned &LvalCount, unsigned &RvalCount);
+
   ///  \brief Update the linearity of DDRef when it becomes part of the
   ///  innermost loop
   ///  (as a result of ld/st movement or complete unrolling)
@@ -109,13 +116,10 @@ public:
       const SpecialSymbasesTy *IgnorableSBs);
 
   static void computeDVsForPermuteWithSBs(
-                   SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
-                                          const HLLoop *OutermostLoop,
-                                          unsigned InnermostNestingLevel,
-                                          HIRDDAnalysis &DDA,
-                                          HIRSafeReductionAnalysis &SRA,
-                                          bool RefineDV,
-                                          const SpecialSymbasesTy *SpecialSBs);
+      SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
+      const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
+      HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
+      const SpecialSymbasesTy *SpecialSBs);
 
   /// Looks for a single dominating (load inst) definition of the base pointer
   /// of \p MemRef. Returns the rval load ref if found, nullptr otherwise. Ex-
@@ -126,6 +130,16 @@ public:
   /// \endcode
   static const RegDDRef *getSingleBasePtrLoadRef(const DDGraph &DDG,
                                                  const RegDDRef *MemRef);
+
+  // \p IsPreLoop indicates whether the sinked instruction appeared before or
+  // after the loop before sinking.
+  static void updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
+                                                 HLInst *SinkedInst,
+                                                 bool IsPreLoop);
+
+  static void gatherTempRegDDRefSymbases(
+      const SmallVectorImpl<HLInst *> &Insts,
+      InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases);
 };
 } // End namespace loopopt
 } // End namespace llvm

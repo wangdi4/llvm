@@ -1667,7 +1667,7 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
       case Instruction::FAdd:
         if (RHS->isZero()) {
           Result = LHS;
-        }else if (LHS->isZero()) {
+        } else if (LHS->isZero()) {
           Result = RHS;
         }
         break;
