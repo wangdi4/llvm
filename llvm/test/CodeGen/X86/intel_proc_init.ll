@@ -155,9 +155,6 @@ define dso_local i32 @MAIN__() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVXVNNI-NEXT:    xorl %edi, %edi
 ; CHECK-PINIT-AVXVNNI-NEXT:    xorl %esi, %esi
 ; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init
-; CHECK-PINIT-AVXVNNI-NEXT:    movl $64, %esi
-; CHECK-PINIT-AVXVNNI-NEXT:    movl $1, %edi
-; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init_n
 ; CHECK-PINIT-AVXVNNI-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVXVNNI-NEXT:    popq %rcx
 ; CHECK-PINIT-AVXVNNI-NEXT:    .cfi_def_cfa_offset 8
@@ -325,9 +322,6 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 ; CHECK-PINIT-AVXVNNI-NEXT:    xorl %edi, %edi
 ; CHECK-PINIT-AVXVNNI-NEXT:    xorl %esi, %esi
 ; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init
-; CHECK-PINIT-AVXVNNI-NEXT:    movl $64, %esi
-; CHECK-PINIT-AVXVNNI-NEXT:    movl $1, %edi
-; CHECK-PINIT-AVXVNNI-NEXT:    callq __intel_new_feature_proc_init_n
 ; CHECK-PINIT-AVXVNNI-NEXT:    xorl %eax, %eax
 ; CHECK-PINIT-AVXVNNI-NEXT:    popq %rcx
 ; CHECK-PINIT-AVXVNNI-NEXT:    .cfi_def_cfa_offset 8
