@@ -881,11 +881,38 @@ public:
 
     auto *DA = Block->getParent()->getVPlanDA();
     if (is_contained(IDFPHIBlocks, Block)) {
-      assert(
-          all_of(
-              Phis,
-              [DA](const VPPHINode *Phi) { return DA->isDivergent(*Phi); }) &&
-          "Unimplemented support for uniform PHI in linearized control flow!");
+      if (Block->getParent()->areActiveLaneInstructionsDisabled())
+        return;
+
+      VPActiveLane *ActiveLane = nullptr;
+      auto *BlockPredicate = Block->getBlockPredicate();
+      VPBuilder Builder;
+      if (BlockPredicate)
+        Builder.setInsertPoint(BlockPredicate);
+      else
+        Builder.setInsertPointFirstNonPhi(Block);
+
+      for (auto *Phi : Phis) {
+        if (DA->isDivergent(*Phi))
+          continue;
+
+        if (!ActiveLane) {
+          auto *Mask = Block->getPredicate();
+          if (!Mask)
+            Mask = Block->getParent()->getVPConstant(
+                ConstantInt::getTrue(*Block->getParent()->getLLVMContext()));
+          ActiveLane = Builder.create<VPActiveLane>("active.lane", Mask);
+          DA->markUniform(*ActiveLane);
+        }
+
+        auto *UniformVal = Builder.create<VPActiveLaneExtract>(
+            Phi->getName() + ".active", Phi, ActiveLane);
+        DA->markUniform(*UniformVal);
+        DA->markDivergent(*Phi);
+        Phi->replaceUsesWithIf(
+            UniformVal, [UniformVal](VPUser *U) { return U != UniformVal; });
+      }
+
       return;
     }
 

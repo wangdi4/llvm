@@ -1332,8 +1332,6 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::ActiveLaneExtract: {
-    assert(isa<VPBlendInst>(VPInst->getOperand(0)) &&
-           "ActiveLaneExtact only expects a blend 0-th operand so far.");
     VPScalarMap[VPInst][0] =
         Builder.CreateExtractElement(getVectorValue(VPInst->getOperand(0)),
                                      getScalarValue(VPInst->getOperand(1), 0));
