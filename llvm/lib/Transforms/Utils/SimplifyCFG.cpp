@@ -13,6 +13,7 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
@@ -959,13 +960,25 @@ bool SimplifyCFGOpt::SimplifyEqualityComparisonWithOnlyPredecessor(
     LLVM_DEBUG(dbgs() << "Threading pred instr: " << *Pred->getTerminator()
                       << "Through successor TI: " << *TI);
 
+    SmallMapVector<BasicBlock *, int, 8> NumPerSuccessorCases;
     for (SwitchInst::CaseIt i = SI->case_end(), e = SI->case_begin(); i != e;) {
       --i;
+      auto *Successor = i->getCaseSuccessor();
+      ++NumPerSuccessorCases[Successor];
       if (DeadCases.count(i->getCaseValue())) {
-        i->getCaseSuccessor()->removePredecessor(TI->getParent());
+        Successor->removePredecessor(PredDef);
         SI.removeCase(i);
+        --NumPerSuccessorCases[Successor];
       }
     }
+
+    std::vector<DominatorTree::UpdateType> Updates;
+    for (const std::pair<BasicBlock *, int> &I : NumPerSuccessorCases)
+      if (I.second == 0)
+        Updates.push_back({DominatorTree::Delete, PredDef, I.first});
+    if (DTU)
+      DTU->applyUpdatesPermissive(Updates);
+
     LLVM_DEBUG(dbgs() << "Leaving: " << *TI << "\n");
     return true;
   }
@@ -6254,7 +6267,8 @@ bool SimplifyCFGOpt::TurnSwitchRangeIntoICmp(SwitchInst *SI,
 
 /// Compute masked bits for the condition of a switch
 /// and use it to remove dead cases.
-static bool eliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
+static bool eliminateDeadSwitchCases(SwitchInst *SI, DomTreeUpdater *DTU,
+                                     AssumptionCache *AC,
                                      const DataLayout &DL) {
   Value *Cond = SI->getCondition();
   unsigned Bits = Cond->getType()->getIntegerBitWidth();
@@ -6269,12 +6283,16 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
   auto Range = computeConstantRange(Cond, true, AC); // INTEL
   // Gather dead cases.
   SmallVector<ConstantInt *, 8> DeadCases;
+  SmallMapVector<BasicBlock *, int, 8> NumPerSuccessorCases;
   for (auto &Case : SI->cases()) {
+    auto *Successor = Case.getCaseSuccessor();
+    ++NumPerSuccessorCases[Successor];
     const APInt &CaseVal = Case.getCaseValue()->getValue();
     if (Known.Zero.intersects(CaseVal) || !Known.One.isSubsetOf(CaseVal) ||
         (CaseVal.getMinSignedBits() > MaxSignificantBitsInCond) || // INTEL
         !Range.contains(CaseVal)) { // INTEL
       DeadCases.push_back(Case.getCaseValue());
+      --NumPerSuccessorCases[Successor];
       LLVM_DEBUG(dbgs() << "SimplifyCFG: switch case " << CaseVal
                         << " is dead.\n");
     }
@@ -6308,6 +6326,13 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
     CaseI->getCaseSuccessor()->removePredecessor(SI->getParent());
     SIW.removeCase(CaseI);
   }
+
+  std::vector<DominatorTree::UpdateType> Updates;
+  for (const std::pair<BasicBlock *, int> &I : NumPerSuccessorCases)
+    if (I.second == 0)
+      Updates.push_back({DominatorTree::Delete, SI->getParent(), I.first});
+  if (DTU)
+    DTU->applyUpdatesPermissive(Updates);
 
   return true;
 }
@@ -7671,7 +7696,7 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
     return requestResimplify();
 
   // Remove unreachable cases.
-  if (eliminateDeadSwitchCases(SI, Options.AC, DL))
+  if (eliminateDeadSwitchCases(SI, DTU, Options.AC, DL))
     return requestResimplify();
 
   if (switchToSelect(SI, Builder, DTU, DL, TTI))
