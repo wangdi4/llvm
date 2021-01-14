@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This pass implements IR expansion for reduction intrinsics, allowing targets
-// to enable the experimental intrinsics until just before codegen.
+// to enable the intrinsics until just before codegen.
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,27 +30,27 @@ namespace {
 
 unsigned getOpcode(Intrinsic::ID ID) {
   switch (ID) {
-  case Intrinsic::experimental_vector_reduce_v2_fadd:
+  case Intrinsic::vector_reduce_fadd:
     return Instruction::FAdd;
-  case Intrinsic::experimental_vector_reduce_v2_fmul:
+  case Intrinsic::vector_reduce_fmul:
     return Instruction::FMul;
-  case Intrinsic::experimental_vector_reduce_add:
+  case Intrinsic::vector_reduce_add:
     return Instruction::Add;
-  case Intrinsic::experimental_vector_reduce_mul:
+  case Intrinsic::vector_reduce_mul:
     return Instruction::Mul;
-  case Intrinsic::experimental_vector_reduce_and:
+  case Intrinsic::vector_reduce_and:
     return Instruction::And;
-  case Intrinsic::experimental_vector_reduce_or:
+  case Intrinsic::vector_reduce_or:
     return Instruction::Or;
-  case Intrinsic::experimental_vector_reduce_xor:
+  case Intrinsic::vector_reduce_xor:
     return Instruction::Xor;
-  case Intrinsic::experimental_vector_reduce_smax:
-  case Intrinsic::experimental_vector_reduce_smin:
-  case Intrinsic::experimental_vector_reduce_umax:
-  case Intrinsic::experimental_vector_reduce_umin:
+  case Intrinsic::vector_reduce_smax:
+  case Intrinsic::vector_reduce_smin:
+  case Intrinsic::vector_reduce_umax:
+  case Intrinsic::vector_reduce_umin:
     return Instruction::ICmp;
-  case Intrinsic::experimental_vector_reduce_fmax:
-  case Intrinsic::experimental_vector_reduce_fmin:
+  case Intrinsic::vector_reduce_fmax:
+  case Intrinsic::vector_reduce_fmin:
     return Instruction::FCmp;
   default:
     llvm_unreachable("Unexpected ID");
@@ -59,17 +59,17 @@ unsigned getOpcode(Intrinsic::ID ID) {
 
 RecurrenceDescriptor::MinMaxRecurrenceKind getMRK(Intrinsic::ID ID) {
   switch (ID) {
-  case Intrinsic::experimental_vector_reduce_smax:
+  case Intrinsic::vector_reduce_smax:
     return RecurrenceDescriptor::MRK_SIntMax;
-  case Intrinsic::experimental_vector_reduce_smin:
+  case Intrinsic::vector_reduce_smin:
     return RecurrenceDescriptor::MRK_SIntMin;
-  case Intrinsic::experimental_vector_reduce_umax:
+  case Intrinsic::vector_reduce_umax:
     return RecurrenceDescriptor::MRK_UIntMax;
-  case Intrinsic::experimental_vector_reduce_umin:
+  case Intrinsic::vector_reduce_umin:
     return RecurrenceDescriptor::MRK_UIntMin;
-  case Intrinsic::experimental_vector_reduce_fmax:
+  case Intrinsic::vector_reduce_fmax:
     return RecurrenceDescriptor::MRK_FloatMax;
-  case Intrinsic::experimental_vector_reduce_fmin:
+  case Intrinsic::vector_reduce_fmin:
     return RecurrenceDescriptor::MRK_FloatMin;
   default:
     return RecurrenceDescriptor::MRK_Invalid;
@@ -83,19 +83,19 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
     if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
       switch (II->getIntrinsicID()) {
       default: break;
-      case Intrinsic::experimental_vector_reduce_v2_fadd:
-      case Intrinsic::experimental_vector_reduce_v2_fmul:
-      case Intrinsic::experimental_vector_reduce_add:
-      case Intrinsic::experimental_vector_reduce_mul:
-      case Intrinsic::experimental_vector_reduce_and:
-      case Intrinsic::experimental_vector_reduce_or:
-      case Intrinsic::experimental_vector_reduce_xor:
-      case Intrinsic::experimental_vector_reduce_smax:
-      case Intrinsic::experimental_vector_reduce_smin:
-      case Intrinsic::experimental_vector_reduce_umax:
-      case Intrinsic::experimental_vector_reduce_umin:
-      case Intrinsic::experimental_vector_reduce_fmax:
-      case Intrinsic::experimental_vector_reduce_fmin:
+      case Intrinsic::vector_reduce_fadd:
+      case Intrinsic::vector_reduce_fmul:
+      case Intrinsic::vector_reduce_add:
+      case Intrinsic::vector_reduce_mul:
+      case Intrinsic::vector_reduce_and:
+      case Intrinsic::vector_reduce_or:
+      case Intrinsic::vector_reduce_xor:
+      case Intrinsic::vector_reduce_smax:
+      case Intrinsic::vector_reduce_smin:
+      case Intrinsic::vector_reduce_umax:
+      case Intrinsic::vector_reduce_umin:
+      case Intrinsic::vector_reduce_fmax:
+      case Intrinsic::vector_reduce_fmin:
         if (TTI->shouldExpandReduction(II))
           Worklist.push_back(II);
 
@@ -116,8 +116,8 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
     Builder.setFastMathFlags(FMF);
     switch (ID) {
     default: llvm_unreachable("Unexpected intrinsic!");
-    case Intrinsic::experimental_vector_reduce_v2_fadd:
-    case Intrinsic::experimental_vector_reduce_v2_fmul: {
+    case Intrinsic::vector_reduce_fadd:
+    case Intrinsic::vector_reduce_fmul: {
       // FMFs must be attached to the call, otherwise it's an ordered reduction
       // and it can't be handled by generating a shuffle sequence.
       Value *Acc = II->getArgOperand(0);
@@ -135,20 +135,68 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       }
       break;
     }
-    case Intrinsic::experimental_vector_reduce_add:
-    case Intrinsic::experimental_vector_reduce_mul:
-    case Intrinsic::experimental_vector_reduce_and:
-    case Intrinsic::experimental_vector_reduce_or:
-    case Intrinsic::experimental_vector_reduce_xor:
-    case Intrinsic::experimental_vector_reduce_smax:
-    case Intrinsic::experimental_vector_reduce_smin:
-    case Intrinsic::experimental_vector_reduce_umax:
-    case Intrinsic::experimental_vector_reduce_umin:
-    case Intrinsic::experimental_vector_reduce_fmax:
-    case Intrinsic::experimental_vector_reduce_fmin: {
+
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::vector_reduce_and:
+    case Intrinsic::vector_reduce_or: {
+      Value *Vec = II->getArgOperand(0);
+      // Transform reduce.or/reduce.and to bitcast+icmp when the scalar type
+      // is i1:
+      // %out = reduce.or/and(<vN x i1> %in)
+      // ==>
+      // %iN = bitcast <vN x i1> %in to iN
+      // %out = icmp.ne/eq %iN, 0/-1
+      if (TTI->isAdvancedOptEnabled(
+              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42)) {
+        auto VecTy = cast<FixedVectorType>(Vec->getType());
+        Type *ScalarTy = VecTy->getElementType();
+
+        if (ScalarTy->isIntegerTy() && ScalarTy->getIntegerBitWidth() == 1) {
+          unsigned BitWidth = VecTy->getNumElements();
+          Value *BitCast = Builder.CreateBitCast(
+              Vec, Type::getIntNTy(II->getContext(), BitWidth));
+
+          ICmpInst::Predicate Pred =
+              ID == Intrinsic::vector_reduce_or
+                  ? ICmpInst::ICMP_NE
+                  : ICmpInst::ICMP_EQ;
+
+          Value *CmpValue =
+              ID == Intrinsic::vector_reduce_or
+                  ? Constant::getNullValue(BitCast->getType())
+                  : Constant::getAllOnesValue(BitCast->getType());
+
+          Rdx = Builder.CreateICmp(Pred, BitCast, CmpValue);
+          break;
+        }
+      }
+    }
+    LLVM_FALLTHROUGH;
+#endif // INTEL_CUSTOMIZATION
+    case Intrinsic::vector_reduce_add:
+    case Intrinsic::vector_reduce_mul:
+    case Intrinsic::vector_reduce_xor:
+    case Intrinsic::vector_reduce_smax:
+    case Intrinsic::vector_reduce_smin:
+    case Intrinsic::vector_reduce_umax:
+    case Intrinsic::vector_reduce_umin: {
       Value *Vec = II->getArgOperand(0);
       if (!isPowerOf2_32(
               cast<FixedVectorType>(Vec->getType())->getNumElements()))
+        continue;
+
+      Rdx = getShuffleReduction(Builder, Vec, getOpcode(ID), MRK);
+      break;
+    }
+    case Intrinsic::vector_reduce_fmax:
+    case Intrinsic::vector_reduce_fmin: {
+      // FIXME: We only expand 'fast' reductions here because the underlying
+      //        code in createMinMaxOp() assumes that comparisons use 'fast'
+      //        semantics.
+      Value *Vec = II->getArgOperand(0);
+      if (!isPowerOf2_32(
+              cast<FixedVectorType>(Vec->getType())->getNumElements()) ||
+          !FMF.isFast())
         continue;
 
       Rdx = getShuffleReduction(Builder, Vec, getOpcode(ID), MRK);

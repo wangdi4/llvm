@@ -204,14 +204,6 @@ void *__tgt_rtl_data_alloc_user(int32_t ID, int64_t Size, void *HostPtr);
 EXTERN void *__tgt_rtl_data_alloc_explicit(
     int32_t ID, int64_t Size, int32_t Kind);
 
-// Create a device-specific buffer object from the given device pointer
-EXTERN
-void *__tgt_rtl_create_buffer(int32_t ID, void *TgtPtr);
-
-// Release a device-specific buffer
-EXTERN
-int32_t __tgt_rtl_release_buffer(void *TgtBuffer);
-
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
 // characters. Returns nullptr, if device name cannot be acquired, otherwise,
@@ -256,6 +248,7 @@ EXTERN
 int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
 
 // Creates an opaque handle to the platform handle.
+// TODO: remove this if it is not necessary.
 EXTERN
 void *__tgt_rtl_get_platform_handle(int32_t ID);
 
@@ -263,14 +256,15 @@ void *__tgt_rtl_get_platform_handle(int32_t ID);
 EXTERN
 void *__tgt_rtl_get_device_handle(int32_t ID);
 
+// Creates an opaque handle to the  context handle.
+EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
+
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
 
-// Delete a managed memory object.
-EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t ID, void *Ptr);
-
-// Check if the pointer belongs to a managed memory address range.
-EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t ID, void *Ptr);
+// Check if the pointer can be accessed by the device.
+// Include host, device and shared
+EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t ID, void *Ptr);
 
 // Initialize OMPT interface
 EXTERN void __tgt_rtl_init_ompt(void *OmptGlobal);
@@ -278,6 +272,22 @@ EXTERN void __tgt_rtl_init_ompt(void *OmptGlobal);
 // Get target memory allocation information
 EXTERN int32_t __tgt_rtl_get_data_alloc_info(
     int32_t ID, int32_t NumPtrs, void *Ptrs, void *Info);
+
+// Push subdevice encoding
+EXTERN int32_t __tgt_rtl_push_subdevice(int64_t ID);
+
+// Pop subdevice encoding
+EXTERN int32_t __tgt_rtl_pop_subdevice(void);
+
+// Add target code build options
+EXTERN void __tgt_rtl_add_build_options(
+    const char * CompileOptions, const char *LinkOptions);
+
+// Check if the specified device type is supported
+EXTERN bool __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
+
+// Deinit RTL
+EXTERN void __tgt_rtl_deinit(void);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

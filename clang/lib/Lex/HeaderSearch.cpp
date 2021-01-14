@@ -164,14 +164,39 @@ std::string HeaderSearch::getPrebuiltModuleFileName(StringRef ModuleName,
   return {};
 }
 
+std::string HeaderSearch::getPrebuiltImplicitModuleFileName(Module *Module) {
+  const FileEntry *ModuleMap =
+      getModuleMap().getModuleMapFileForUniquing(Module);
+  StringRef ModuleName = Module->Name;
+  StringRef ModuleMapPath = ModuleMap->getName();
+  StringRef ModuleCacheHash = HSOpts->DisableModuleHash ? "" : getModuleHash();
+  for (const std::string &Dir : HSOpts->PrebuiltModulePaths) {
+    SmallString<256> CachePath(Dir);
+    llvm::sys::fs::make_absolute(CachePath);
+    llvm::sys::path::append(CachePath, ModuleCacheHash);
+    std::string FileName =
+        getCachedModuleFileNameImpl(ModuleName, ModuleMapPath, CachePath);
+    if (!FileName.empty() && getFileMgr().getFile(FileName))
+      return FileName;
+  }
+  return {};
+}
+
 std::string HeaderSearch::getCachedModuleFileName(StringRef ModuleName,
                                                   StringRef ModuleMapPath) {
+  return getCachedModuleFileNameImpl(ModuleName, ModuleMapPath,
+                                     getModuleCachePath());
+}
+
+std::string HeaderSearch::getCachedModuleFileNameImpl(StringRef ModuleName,
+                                                      StringRef ModuleMapPath,
+                                                      StringRef CachePath) {
   // If we don't have a module cache path or aren't supposed to use one, we
   // can't do anything.
-  if (getModuleCachePath().empty())
+  if (CachePath.empty())
     return {};
 
-  SmallString<256> Result(getModuleCachePath());
+  SmallString<256> Result(CachePath);
   llvm::sys::fs::make_absolute(Result);
 
   if (HSOpts->DisableModuleHash) {
@@ -765,8 +790,7 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
 
   // This is the header that MSVC's header search would have found.
   ModuleMap::KnownHeader MSSuggestedModule;
-  const FileEntry *MSFE_FE = nullptr;
-  StringRef MSFE_Name;
+  Optional<FileEntryRef> MSFE;
 
 #if INTEL_CUSTOMIZATION
   // CQ#366531 - if the last processed include was quoted, reset CurDir.
@@ -848,8 +872,7 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
         if (Diags.isIgnored(diag::ext_pp_include_search_ms, IncludeLoc)) {
           return FE;
         } else {
-          MSFE_FE = &FE->getFileEntry();
-          MSFE_Name = FE->getName();
+          MSFE = FE;
           if (SuggestedModule) {
             MSSuggestedModule = *SuggestedModule;
             *SuggestedModule = ModuleMap::KnownHeader();
@@ -861,8 +884,6 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
     }
   }
 
-  Optional<FileEntryRef> MSFE(MSFE_FE ? FileEntryRef(MSFE_Name, *MSFE_FE)
-                                      : Optional<FileEntryRef>());
 #if !INTEL_CUSTOMIZATION
   // This code is disabled due to modifications introduced in
   // ec229b227e55012e78bef1605d73e9da4ab37a7f

@@ -1,5 +1,5 @@
-; RUN: opt < %s -dtrans-soatoaos -enable-dtrans-soatoaos -dtrans-soatoaos-ignore-classinfo=true -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -dtrans-soatoaos-ignore-classinfo=true -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; This test check essential layout requirements and simple CFG properties. See comments inlined.
@@ -58,7 +58,7 @@
 ; CHECK-NEXT:Fields's struct.Arr.0 methods:
 ; CHECK-NEXT:_ZN3ArrIPvEC2EiP3Mem, #uses = 1
 ; CHECK-NEXT:_ZN3ArrIPvE3getEi, #uses = 1
-; CHECK: Rejecting %class.F because some methods contains unknown side effect
+; CHECK: Rejecting %class.F because ClassInfo analysis failed.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

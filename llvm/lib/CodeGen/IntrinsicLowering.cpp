@@ -222,6 +222,28 @@ static void ReplaceFPIntrinsicWithCall(CallInst *CI, const char *Fname,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+static void LowerIntelHonorFCmp(IRBuilder<>& Builder,
+                                IntelHonorFCmpIntrinsic *FCmpIntrin) {
+  // Preserve the FMF settings in Builder but locally copy the FMF from the
+  // intrinsic we're lowering.
+  IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
+  Builder.setFastMathFlags(FCmpIntrin->getFastMathFlags());
+  assert(!FCmpIntrin->hasNoNaNs() && "intel.honor.fcmp should never have nnan");
+
+  // If the operands are constant, this might get folded.
+  Value *V = Builder.CreateFCmp(FCmpIntrin->getPredicate(),
+                                FCmpIntrin->getArgOperand(0),
+                                FCmpIntrin->getArgOperand(1));
+
+  // If it doesn't get folded, copy the metadata.
+  if (auto *FCmpI = dyn_cast<Instruction>(V))
+    FCmpI->copyMetadata(*FCmpIntrin);
+  V->takeName(FCmpIntrin);
+  FCmpIntrin->replaceAllUsesWith(V);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
   IRBuilder<> Builder(CI);
   LLVMContext &Context = CI->getContext();
@@ -335,6 +357,10 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
     break;
 
 #if INTEL_CUSTOMIZATION
+  case Intrinsic::intel_honor_fcmp:
+    LowerIntelHonorFCmp(Builder, cast<IntelHonorFCmpIntrinsic>(CI));
+    break;
+
   case Intrinsic::intel_subscript: {
     // Do not unlink intrinsic
     Value * Offset[] = {EmitSubsOffset(&Builder, DL, CI)};

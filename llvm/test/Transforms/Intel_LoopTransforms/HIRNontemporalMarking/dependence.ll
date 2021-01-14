@@ -3,8 +3,9 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that we will convert to nontemporal correctly in the case of various
-; dependences: we should not convert for FLOW or OUTPUT dependences, but an
-; ANTI dependence shouldn't prevent the conversion.
+; dependences: we should not convert for FLOW or OUTPUT dependences; though it
+; is legal to convert in the presence of an ANTI dependence, we don't because
+; there isn't expected to be a performance upside.
 
 ; Before:
 ; Function: read_after_write
@@ -86,7 +87,7 @@ exit:
 
 define void @write_after_write(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: write_after_write
-;      CHECK: BEGIN REGION { modified }
+;      CHECK: BEGIN REGION { }
 ; CHECK-NEXT:       + Ztt: No
 ; CHECK-NEXT:       + NumExits: 1
 ; CHECK-NEXT:       + Innermost: Yes
@@ -101,11 +102,11 @@ define void @write_after_write(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:       |   <RVAL-REG> LINEAR i64 i1 {sb:2}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |   (%dest)[i1 + -8] = 0;
-; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1 + -8] inbounds  !nontemporal
+; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1 + -8] inbounds
+; CHECK-NOT:               !nontemporal
 ; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:7}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       + END LOOP
-; CHECK-NEXT:          @llvm.x86.sse.sfence();
 ; CHECK-NEXT: END REGION
 
 entry:
@@ -128,7 +129,7 @@ exit:
 
 define void @write_after_read(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: write_after_read
-;      CHECK: BEGIN REGION { modified }
+;      CHECK: BEGIN REGION { }
 ; CHECK-NEXT:       + Ztt: No
 ; CHECK-NEXT:       + NumExits: 1
 ; CHECK-NEXT:       + Innermost: Yes
@@ -143,12 +144,12 @@ define void @write_after_read(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:7}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |   (%dest)[i1 + -8] = %val;
-; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1 + -8] inbounds  !nontemporal
+; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1 + -8] inbounds
+; CHECK-NOT:               !nontemporal
 ; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:7}
 ; CHECK-NEXT:       |   <RVAL-REG> NON-LINEAR i64 %val {sb:8}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       + END LOOP
-; CHECK-NEXT:          @llvm.x86.sse.sfence();
 ; CHECK-NEXT: END REGION
 
 entry:

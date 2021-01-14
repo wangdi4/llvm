@@ -115,6 +115,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   HasBuiltinMSVaList = false;
   IsRenderScriptTarget = false;
   HasAArch64SVETypes = false;
+  AllowAMDGPUUnsafeFPAtomics = false;
   ARMCDECoprocMask = 0;
 
   // Default to no types using fpret.
@@ -428,7 +429,8 @@ void TargetInfo::adjust(LangOptions &Opts) {
 
 #if INTEL_CUSTOMIZATION
   if ((Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128)
-    HasFloat128 = true;
+    if (!getTriple().isSPIR())
+       HasFloat128 = true;
 #endif // INTEL_CUSTOMIZATION
 
   if (Opts.NewAlignOverride)

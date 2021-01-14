@@ -16,8 +16,10 @@
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
 
+#if __cpp_lib_bit_cast
+#include <bit>
+#endif
 #include <memory>
-#include <numeric> // std::bit_cast
 #include <stdexcept>
 #include <type_traits>
 #include <vector>
@@ -76,6 +78,18 @@ getOrWaitEvents(std::vector<cl::sycl::event> DepEvents,
                 std::shared_ptr<cl::sycl::detail::context_impl> Context);
 
 __SYCL_EXPORT void waitEvents(std::vector<cl::sycl::event> DepEvents);
+
+template <typename T> T *declptr() { return static_cast<T *>(nullptr); }
+
+// Function to get of store id, item, nd_item, group for the host implementation
+// Pass nullptr to get stored object. Pass valid address to store object
+template <typename T> T get_or_store(const T *obj) {
+  static thread_local auto stored = *obj;
+  if (obj != nullptr) {
+    stored = *obj;
+  }
+  return stored;
+}
 
 class Builder {
 public:
@@ -196,9 +210,8 @@ public:
   }
 
   template <int Dims>
-  static auto getNDItem()
-      -> decltype(getElement(static_cast<nd_item<Dims> *>(nullptr))) {
-    return getElement(static_cast<nd_item<Dims> *>(nullptr));
+  static auto getNDItem() -> decltype(getElement(declptr<nd_item<Dims>>())) {
+    return getElement(declptr<nd_item<Dims>>());
   }
 
 #endif // __SYCL_DEVICE_ONLY__

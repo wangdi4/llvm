@@ -61,6 +61,7 @@ enum DumpModuleDTransValues {
   early,
   resolvetypes,
   transpose,
+  commutecond,
   soatoaosprepare,
   soatoaos,
   weakalign,
@@ -77,6 +78,7 @@ enum DumpModuleDTransValues {
 static const char *DumpModuleDTransNames[] = {"Early",
                                               "ResolveTypes",
                                               "Transpose",
+                                              "CommuteCond",
                                               "SOAToAOSPrepare",
                                               "SOAToAOS",
                                               "WeakAlign",
@@ -97,6 +99,8 @@ static cl::list<DumpModuleDTransValues> DumpModuleBeforeDTrans(
         clEnumVal(early, "Dump LLVM Module before early DTRANS passes"),
         clEnumVal(resolvetypes, "Dump LLVM Module before ResolveTypes pass"),
         clEnumVal(transpose, "Dump LLVM Module before Transpose pass"),
+        clEnumVal(commutecond,
+                  "Dump LLVM Module before CommuteCond pass"),
         clEnumVal(soatoaosprepare,
                   "Dump LLVM Module before SOA-to-AOS Prepare pass"),
         clEnumVal(soatoaos, "Dump LLVM Module before SOA-to-AOS pass"),
@@ -125,6 +129,8 @@ static cl::list<DumpModuleDTransValues> DumpModuleAfterDTrans(
         clEnumVal(early, "Dump LLVM Module after early DTRANS passes"),
         clEnumVal(resolvetypes, "Dump LLVM Module after ResolveTypes pass"),
         clEnumVal(transpose, "Dump LLVM Module after Transpose pass"),
+        clEnumVal(commutecond,
+                  "Dump LLVM Module after CommuteCond pass"),
         clEnumVal(soatoaosprepare,
                   "Dump LLVM Module after SOA-to-AOS Prepare pass"),
         clEnumVal(soatoaos, "Dump LLVM Module after SOA-to-AOS pass"),
@@ -186,6 +192,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransWeakAlignWrapperPass(PR);
   initializeDTransMemInitTrimDownWrapperPass(PR);
   initializeDTransTransposeWrapperPass(PR);
+  initializeDTransCommuteCondWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
@@ -223,6 +230,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
 
   if (EnableTranspose)
     addPass(MPM, transpose, dtrans::TransposePass());
+  addPass(MPM, commutecond, dtrans::CommuteCondPass());
   if (EnableMemInitTrimDown)
     addPass(MPM, meminittrimdown, dtrans::MemInitTrimDownPass());
   if (EnableSOAToAOSPrepare)
@@ -270,6 +278,7 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
 
   if (EnableTranspose)
     addPass(PM, transpose, createDTransTransposeWrapperPass());
+  addPass(PM, commutecond, createDTransCommuteCondWrapperPass());
   if (EnableMemInitTrimDown)
     addPass(PM, meminittrimdown, createDTransMemInitTrimDownWrapperPass());
   if (EnableSOAToAOSPrepare)
@@ -339,6 +348,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransWeakAlignWrapperPass();
   (void)llvm::createDTransMemInitTrimDownWrapperPass();
   (void)llvm::createDTransTransposeWrapperPass();
+  (void)llvm::createDTransCommuteCondWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();

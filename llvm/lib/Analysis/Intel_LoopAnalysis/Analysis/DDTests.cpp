@@ -71,6 +71,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -256,7 +257,7 @@ const CanonExpr *DDTest::getCoeff(const CanonExpr *CE, unsigned int IVNum,
       CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
   unsigned int IVFound = 0;
-  assert(CanonExprUtils::isValidLoopLevel(IVNum) && "IVnum not within range");
+  assert(CanonExpr::isValidLoopLevel(IVNum) && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
@@ -1134,8 +1135,8 @@ void DDTest::removeMatchingExtensions(Subscript *Pair) {
 	
   if ((isa<SCEVZeroExtendExpr>(Src) && isa<SCEVZeroExtendExpr>(Dst)) ||
       (isa<SCEVSignExtendExpr>(Src) && isa<SCEVSignExtendExpr>(Dst))) {
-    const SCEVCastExpr *SrcCast = cast<SCEVCastExpr>(Src);
-    const SCEVCastExpr *DstCast = cast<SCEVCastExpr>(Dst);
+    const SCEVIntegralCastExpr *SrcCast = cast<SCEVIntegralCastExpr>(Src);
+    const SCEVIntegralCastExpr *DstCast = cast<SCEVIntegralCastExpr>(Dst);
     const SCEV *SrcCastOp = SrcCast->getOperand();
     const SCEV *DstCastOp = DstCast->getOperand();
     if (SrcCastOp->getType() == DstCastOp->getType()) {
@@ -3088,7 +3089,7 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   for (auto CurIVPair = Src->iv_begin(), E = Src->iv_end(); CurIVPair != E;
        ++CurIVPair) {
     unsigned IVLevel = Src->getLevel(CurIVPair);
-    if (InputDV[IVLevel - 1] == DVKind::EQ) {
+    if (IVLevel <= InputDV.size() && InputDV[IVLevel - 1] == DVKind::EQ) {
       Src->getIVCoeff(CurIVPair, &BlobIndex1, &Coeff1);
       Dst->getIVCoeff(IVLevel, &BlobIndex2, &Coeff2);
       if (BlobIndex1 == BlobIndex2 && Coeff1 == Coeff2) {
@@ -3981,16 +3982,16 @@ bool DDTest::propagateDistance(const CanonExpr *&Src, const CanonExpr *&Dst,
 
   // a_k = 0
   NewSrc->removeIV(CurLoopLevel);
-  LLVM_DEBUG(dbgs() << "\t\tnew Src is "; Src->dump());
-  LLVM_DEBUG(dbgs() << "\n\tDst is "; Dst->dump());
 
+  LLVM_DEBUG(dbgs() << "\n\tDst is "; Dst->dump());
   // a_k' = a_k' - a_k
   NewDst->addIV(CurLoopLevel, Index, 0 - Coeff);
-  LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; Dst->dump());
 
   NewDst->getIVCoeff(CurLoopLevel, &Index, &Coeff);
   if (Coeff == 0)
     Consistent = false;
+  LLVM_DEBUG(dbgs() << "\t\tnew Src is "; NewSrc->dump());
+  LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; NewDst->dump());
   Src = NewSrc;
   Dst = NewDst;
   return true;
@@ -4001,11 +4002,13 @@ bool DDTest::propagateDistance(const CanonExpr *&Src, const CanonExpr *&Dst,
 // Return true if some simplification occurs.
 // If the simplification isn't exact (that is, if it is conservative
 // in terms f dependence), set consistent to false.
-bool DDTest::propagateLine(const CanonExpr *&Src, const CanonExpr *&Dst,
+bool DDTest::propagateLine(const CanonExpr *&OrigSrc, const CanonExpr *&OrigDst,
                            Constraint &CurConstraint, bool &Consistent) {
   const HLLoop *CurLoop = CurConstraint.getAssociatedLoop();
   if (!CurLoop)
     return false;
+  const CanonExpr *Src = OrigSrc;
+  const CanonExpr *Dst = OrigDst;
   unsigned CurLoopLevel = CurLoop->getNestingLevel();
   const CanonExpr *A = CurConstraint.getA();
   const CanonExpr *B = CurConstraint.getB();
@@ -4134,8 +4137,9 @@ bool DDTest::propagateLine(const CanonExpr *&Src, const CanonExpr *&Dst,
     if (Coeff != 0)
       Consistent = false;
   }
-  Src = NewSrc;
-  Dst = NewDst;
+  
+  OrigSrc = NewSrc;
+  OrigDst = NewDst;
   LLVM_DEBUG(dbgs() << "\n\tnew Src = "; Src->dump();
              dbgs() << "\n\tnew Dst = "; Dst->dump(););
   return true;
@@ -4144,11 +4148,14 @@ bool DDTest::propagateLine(const CanonExpr *&Src, const CanonExpr *&Dst,
 // Attempt to propagate a point
 // constraint into a subscript pair (Src and Dst).
 // Return true if some simplification occurs.
-bool DDTest::propagatePoint(const CanonExpr *&Src, const CanonExpr *&Dst,
+bool DDTest::propagatePoint(const CanonExpr *&OrigSrc,
+                            const CanonExpr *&OrigDst,
                             Constraint &CurConstraint) {
   const HLLoop *CurLoop = CurConstraint.getAssociatedLoop();
   if (!CurLoop)
     return false;
+  const CanonExpr *Src = OrigSrc;
+  const CanonExpr *Dst = OrigDst;
   unsigned CurLoopLevel = CurLoop->getNestingLevel();
   CanonExpr *NewDst = Dst->clone();
   push(NewDst);
@@ -4188,6 +4195,9 @@ bool DDTest::propagatePoint(const CanonExpr *&Src, const CanonExpr *&Dst,
   // a_k' = 0
   NewDst->removeIV(CurLoopLevel);
   LLVM_DEBUG(dbgs() << "\t\tnew Dst is "; NewDst->dump(););
+
+  OrigSrc = NewSrc;
+  OrigDst = NewDst;
   return true;
 }
 
@@ -4344,19 +4354,14 @@ DDTest::~DDTest() {
   WorkCE.clear();
 }
 
-bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
+bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
+                          unsigned LoopLevel) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
          "Both should be mem refs");
 
   if (SrcDDRef == DstDDRef) {
     return false;
   }
-
-  // Alias analysis only reasons about a pair of contemporary SSA values. In
-  // order to use its results to break dependencies across a loop, we must
-  // prove that the values are invariant for that loop.
-  bool InvariantBase = SrcDDRef->getBaseCE()->isProperLinear() &&
-                       DstDDRef->getBaseCE()->isProperLinear();
 
   // Note that we do not check that the indexing is also invariant because
   // RegDDRef::getMemoryLocation guarantees that a precise (i.e., known size)
@@ -4366,13 +4371,68 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
   MemoryLocation SrcLoc = SrcDDRef->getMemoryLocation();
   MemoryLocation DstLoc = DstDDRef->getMemoryLocation();
 
-  DEBUG_AA(dbgs() << "call queryAAIndep():\n");
+  // Alias analysis only reasons about a pair of contemporary SSA values. In
+  // order to use its results to break dependencies across a loop, (that is,
+  // involving non-contemporary pairs of values,) we must know additional
+  // properties about the two memory footprints. If we can't show that it is
+  // safe to use the normal "alias" semantics, then we must resort to
+  // "loopCarriedAlias" semantics, which will provide less precise results.
+  bool RequiresLoopCarriedAA = true;
+  if (SrcDDRef->isStructurallyInvariantAtLevel(LoopLevel, false) ||
+      DstDDRef->isStructurallyInvariantAtLevel(LoopLevel, false)) {
+    // If we can prove that either memory footprint is completely loop
+    // invariant, then "alias" semantics are sufficient. For example, consider
+    // the references to A and B below:
+    //
+    //     n = ...
+    //     do i1:
+    //       A = call()
+    //       A[f(i1)] = ... + B[n]
+    //
+    // Both the base pointer and indexing for the A reference vary. However,
+    // &B[n] is completely invariant w.r.t. the i1 loop. Because of this,
+    // we know that any possible dependence would imply aliasing (between
+    // contemporary SSA values) within one iteration of i1, meaning that
+    // "alias" semantics cannot yield "NoAlias". It follows that "isNoAlias"
+    // conclusively precludes any possible dependence.
+    RequiresLoopCarriedAA = false;
+  } else if (SrcDDRef->getBaseCE()->isLinearAtLevel(LoopLevel) ||
+             DstDDRef->getBaseCE()->isLinearAtLevel(LoopLevel)) {
+    // Alternatively, we can show that at least one base pointer is invariant
+    // and query alias analysis with "unknown" access size. Consider the
+    // example below, which borrows array slice notation from Fortran to depict
+    // that the size of the access is unknown:
+    //
+    //     do i1:
+    //       A = call()
+    //       A[i1:] = ... + B[i1+1:]
+    //
+    // Both the base pointer and indexing for the A reference vary again.
+    // However, because the base pointer B is not varying and we have unknown
+    // size footprints, any possible dependence would still imply aliasing
+    // within at least one i1 loop iteration. (Note that if the A footprint
+    // were single element, e.g., "A[i1]", then this would not be the case.)
+    RequiresLoopCarriedAA = false;
+
+    // We don't need to explicitly check that the locations are UnknownSize.
+    // This should always be the case since RegDDRef::getMemoryLocation only
+    // returns precise sizes for fully region-invariant pointers, and we have
+    // already checked that's not the case.
+    assert(!SrcLoc.Size.isPrecise() &&
+           "Unexpected precise size from getMemoryLocation()");
+    assert(!DstLoc.Size.isPrecise() &&
+           "Unexpected precise size from getMemoryLocation()");
+  }
+
+  DEBUG_AA(dbgs() << "call queryAAIndep() with respect to loop level "
+                  << LoopLevel << ":\n");
   DEBUG_AA(SrcDDRef->dump());
   DEBUG_AA(dbgs() << "\n");
   DEBUG_AA(DstDDRef->dump());
   DEBUG_AA(dbgs() << "\nR: ");
 
-  if (VaryingBaseHandling == VaryingBaseMode::QueryAlias || InvariantBase) {
+  if (VaryingBaseHandling == VaryingBaseMode::QueryAlias ||
+      !RequiresLoopCarriedAA) {
     if (AAR.isNoAlias(SrcLoc, DstLoc)) {
       DEBUG_AA(dbgs() << "No Alias\n\n");
       return true;
@@ -4386,6 +4446,60 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
   }
 
   DEBUG_AA(dbgs() << "May Alias\n\n");
+  return false;
+}
+
+// The function check if there could be a dependence between two mem refs
+// with same base and shape, but different destination type sizes.
+static bool mayIntersectDueToTypeCast(const RegDDRef *Ref1,
+                                      const RegDDRef *Ref2) {
+  assert(Ref1->isMemRef() && Ref2->isMemRef() && "Memref expected");
+
+  if (Ref1->isFake() || Ref2->isFake())
+    return false;
+
+  if (!Ref1->getBitCastDestType() && !Ref2->getBitCastDestType())
+    return false;
+
+  uint64_t Size1Dst = Ref1->getDestTypeSizeInBytes();
+  uint64_t Size1Src =
+      Ref1->getSrcType()->isSized() ? Ref1->getSrcTypeSizeInBytes() : 0;
+  uint64_t Size2Dst = Ref2->getDestTypeSizeInBytes();
+  uint64_t Size2Src =
+      Ref2->getSrcType()->isSized() ? Ref2->getSrcTypeSizeInBytes() : 0;
+
+  // Only proceed if casting changes type size
+  if ((Size1Src >= Size1Dst) && (Size2Src >= Size2Dst))
+    return false;
+
+  int64_t Distance;
+  if (!DDRefUtils::getConstByteDistance(Ref1, Ref2, &Distance)) {
+    // If distance is unknown go conservative.
+    // TODO: add more logic to recognize special cases like:
+    //     for(i=0;i<n;i++)
+    //       a[i] = ...;
+    //       ...  = (i32*a)[n+1];
+    return true;
+  } else {
+    if (Distance <= 0) {
+      // Handles this case-
+      //
+      // %A is i8* type
+      // SrcDDRef - (i16*)(%A)[0]
+      // DstDDRef - (%A)[1]
+      //
+      if ((uint64_t)(-Distance) < Size1Dst)
+        return true;
+    } else if ((uint64_t)Distance < Size2Dst) {
+      // Handles this case-
+      //
+      // %A is i8* type
+      // SrcDDRef - (%A)[1]
+      // DstDDRef - (i16*)(%A)[0]
+      //
+      return true;
+    }
+  }
   return false;
 }
 
@@ -4469,7 +4583,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
                     << SrcDDRef->getHLDDNode()->getNumber() << ":"
                     << DstDDRef->getHLDDNode()->getNumber());
 
-  LLVM_DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs(), MaxLoopNestLevel));
+  LLVM_DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs()));
 
   assert(SrcDDRef->getSymbase() == DstDDRef->getSymbase() &&
          "Asking DDA for distinct references is useless");
@@ -4478,6 +4592,9 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   const RegDDRef *SrcRegDDRef = dyn_cast<RegDDRef>(SrcDDRef);
   const RegDDRef *DstRegDDRef = dyn_cast<RegDDRef>(DstDDRef);
+
+  // Set loop nesting levels, NoCommonNest flag
+  establishNestingLevels(SrcDDRef, DstDDRef, ForFusion);
 
   // If both are memory refs
   bool TestingMemRefs = SrcRegDDRef && SrcRegDDRef->isMemRef();
@@ -4491,9 +4608,26 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       return nullptr;
     }
 
+    // If we're refining a result for an inner loop, determine the level of
+    // this inner loop. (Otherwise, we're effectively concerned with the
+    // outermost loop.) Conservatively, assume level 1 when running for fusion.
+    unsigned RefiningLevel = 1;
+    if (!ForDDGBuild) {
+      // Look for the outermost level that we're testing. For example, if the
+      // DV is (=, *, *), then we want to compute that we're refining level 2.
+      for (; RefiningLevel <= CommonLevels; ++RefiningLevel) {
+        auto Direction = InputDV[RefiningLevel - 1];
+        if (Direction != DVKind::EQ) {
+          break;
+        }
+      }
+      assert(InputDV.isTestingForInnermostLoop(RefiningLevel) &&
+             "Unexpected refinement level");
+    }
+
     // Inquire disam util to get INDEP based on type/scope based analysis.
     LLVM_DEBUG(dbgs() << "AA query: ");
-    if (queryAAIndep(SrcRegDDRef, DstRegDDRef)) {
+    if (queryAAIndep(SrcRegDDRef, DstRegDDRef, RefiningLevel)) {
       LLVM_DEBUG(dbgs() << "no alias\n");
       return nullptr;
     }
@@ -4503,9 +4637,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     EqualBaseAndShape =
         DDRefUtils::haveEqualBaseAndShape(SrcRegDDRef, DstRegDDRef, true);
   }
-
-  // Set loop nesting levels, NoCommonNest flag
-  establishNestingLevels(SrcDDRef, DstDDRef, ForFusion);
 
   LLVM_DEBUG(dbgs() << "\ncommon nesting levels = " << CommonLevels << "\n");
   LLVM_DEBUG(dbgs() << "\nmaximum nesting levels = " << MaxLevels << "\n");
@@ -4520,6 +4651,14 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   if (NoCommonNest && !ForFusion && (SrcLevels == 0 || DstLevels == 0)) {
     Result.setDirection(1, DVKind::EQ);
   }
+
+  // Earlier we tried to break the entire dependence using alias analysis, but
+  // were not able to say anything conclusive. However, alias analysis may be
+  // able to at least tell us that there's no dependence at some inner loop
+  // level. If this is the case, it will update the direction vector so that
+  // the inner level (and levels within) have "NONE" directions.
+  if (TestingMemRefs)
+    refineAAIndep(Result, SrcRegDDRef, DstRegDDRef);
 
   ++TotalArrayPairs;
   WorkCE.clear();
@@ -4536,6 +4675,11 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     // DV has been initialized as *
     return std::make_unique<Dependences>(Result);
   }
+
+  // Same base subscripts with different types could cause a dependency
+  if (TestingMemRefs && EqualBaseAndShape &&
+      mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
+    return std::make_unique<Dependences>(Result);
 
   unsigned Pairs = SrcRegDDRef->getNumDimensions();
 
@@ -4931,6 +5075,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   for (unsigned II = 1; II <= CommonLevels; ++II) {
     unsigned Level = II - 1;
+    assert(Level < InputDV.size() && "Incorrect InputDV size");
     Result.DV[Level].Direction &= InputDV[Level];
     if (Result.DV[Level].Direction == DVKind::NONE) {
       LLVM_DEBUG(dbgs() << "\n\t return INDEP-09\n");
@@ -5091,20 +5236,13 @@ void DDTest::splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
 static void printDirDistVectors(DirectionVector &ForwardDV,
                                 DirectionVector &BackwardDV,
                                 DistanceVector &ForwardDistV,
-                                DistanceVector &BackwardDistV,
-                                unsigned Levels) {
+                                DistanceVector &BackwardDistV) {
 
-  LLVM_DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
-  if (ForwardDV[0] != DVKind::NONE) {
-    LLVM_DEBUG(dbgs() << "\nforward DistV: ";
-               ForwardDistV.print(dbgs(), Levels));
-  }
+  LLVM_DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "\nforward DistV: "; ForwardDistV.print(dbgs()));
 
-  LLVM_DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
-  if (BackwardDV[0] != DVKind::NONE) {
-    LLVM_DEBUG(dbgs() << "\nbackward DistV: ";
-               BackwardDistV.print(dbgs(), Levels));
-  }
+  LLVM_DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs()));
+  LLVM_DEBUG(dbgs() << "\nbackward DistV: "; BackwardDistV.print(dbgs()));
 }
 
 DistTy DDTest::mapDVToDist(DVKind DV, unsigned Level,
@@ -5136,18 +5274,17 @@ void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
                                     const DirectionVector &BackwardDV,
                                     const Dependences &Result,
                                     DistanceVector &ForwardDistV,
-                                    DistanceVector &BackwardDistV,
-                                    unsigned Levels) {
+                                    DistanceVector &BackwardDistV) {
+  assert(ForwardDV.size() == BackwardDV.size() && "Mismatched DV sizes");
+  assert(ForwardDistV.size() == BackwardDistV.size() &&
+         "Mismatched DistV sizes");
+  assert(ForwardDV.size() == ForwardDistV.size() &&
+         "Mismatched DV/DistV sizes");
 
-  if (ForwardDV[0] != DVKind::NONE) {
-    for (unsigned II = 1; II <= Levels; ++II) {
-      ForwardDistV[II - 1] = mapDVToDist(ForwardDV[II - 1], II, Result);
-    }
-  }
-  if (BackwardDV[0] != DVKind::NONE) {
-    for (unsigned II = 1; II <= Levels; ++II) {
-      BackwardDistV[II - 1] = mapDVToDist(BackwardDV[II - 1], II, Result);
-    }
+  unsigned Levels = ForwardDV.size();
+  for (unsigned II = 1; II <= Levels; ++II) {
+    ForwardDistV[II - 1] = mapDVToDist(ForwardDV[II - 1], II, Result);
+    BackwardDistV[II - 1] = mapDVToDist(BackwardDV[II - 1], II, Result);
   }
 }
 
@@ -5249,6 +5386,29 @@ void DDTest::adjustForAllAssumedDeps(Dependences &Result) {
 
     if (Direction == DVKind::ALL) {
       Result.setDirection(II, DVKind::EQ);
+    }
+  }
+}
+
+void DDTest::refineAAIndep(Dependences &Result, const RegDDRef *SrcRegDDRef,
+                           const RegDDRef *DstRegDDRef) {
+  // As an optimization, don't attempt to refine in the common case where the
+  // bases are known to be the same. Refinement is not possible in this case.
+  if (SrcRegDDRef->getBaseValue() == DstRegDDRef->getBaseValue())
+    return;
+
+  bool BrokeDep = false;
+  // We don't re-examine the outermost level. If there was no aliasing there
+  // then depends() would have concluded no dependence already.
+  for (unsigned InnerLevel = 2, MaxLevel = Result.getLevels();
+       InnerLevel <= MaxLevel; ++InnerLevel) {
+    DVKind Direction = Result.getDirection(InnerLevel);
+    if (Direction != DVKind::NONE) {
+      // If we broke a dependence at an outer level, it applies to all inner
+      // levels.
+      BrokeDep = BrokeDep || queryAAIndep(SrcRegDDRef, DstRegDDRef, InnerLevel);
+      if (BrokeDep)
+        Result.setDirection(InnerLevel, DVKind::NONE);
     }
   }
 }
@@ -5366,12 +5526,6 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   //    t1 =
   //       = t1
 
-  ForwardDV.setZero();
-  BackwardDV.setZero();
-
-  ForwardDistV.setZero();
-  BackwardDistV.setZero();
-
   // the argument after InputDV indicates calling to rebuild DDG
   auto Result = depends(SrcDDRef, DstDDRef, InputDV, true, AssumeLoopFusion);
 
@@ -5385,6 +5539,14 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   unsigned Levels = Result->getLevels();
+
+  // DVs and DistVs must always be smaller than the constructed capacity, so
+  // this should not result in reallocations.
+  ForwardDV.resize(Levels);
+  BackwardDV.resize(Levels);
+
+  ForwardDistV.resize(Levels);
+  BackwardDistV.resize(Levels);
 
   ///  Bidirectional DV is needed when scanning from L to R, it encounters
   ///  a * before hitting <.
@@ -5584,27 +5746,15 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
 L1:
 
   populateDistanceVector(ForwardDV, BackwardDV, *Result, ForwardDistV,
-                         BackwardDistV, Levels);
-  printDirDistVectors(ForwardDV, BackwardDV, ForwardDistV, BackwardDistV,
-                      Levels);
+                         BackwardDistV);
+  printDirDistVectors(ForwardDV, BackwardDV, ForwardDistV, BackwardDistV);
   return true;
-}
-
-// Returns last level used  in DV
-// e.g  ( = = >)  return 3
-unsigned DirectionVector::getLastLevel() const {
-  for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
-    if ((*this)[II - 1] == DVKind::NONE) {
-      return II - 1;
-    }
-  }
-
-  return MaxLoopNestLevel;
 }
 
 void DirectionVector::setAsInput(const unsigned int StartLevel,
                                  const unsigned int EndLevel) {
   DirectionVector &InputDV = *this;
+  InputDV.resize(EndLevel);
 
   // setInputDV (&InputDV, 3,4)
   // will construct (= = * *)
@@ -5616,19 +5766,9 @@ void DirectionVector::setAsInput(const unsigned int StartLevel,
   for (unsigned II = StartLevel; II <= EndLevel; ++II) {
     InputDV[II - 1] = DVKind::ALL;
   }
-
-  for (unsigned II = EndLevel + 1; II <= MaxLoopNestLevel; ++II) {
-    InputDV[II - 1] = DVKind::NONE;
-  }
 }
 
-void DirectionVector::setZero() {
-  // Construct all  0 (NONE)
-  fill(DVKind::NONE);
-}
-
-void DirectionVector::print(raw_ostream &OS, unsigned Levels,
-                            bool ShowLevelDetail) const {
+void DirectionVector::print(raw_ostream &OS, bool ShowLevelDetail) const {
   const DirectionVector &DV = *this;
   if (DV[0] == DVKind::NONE) {
     OS << "nil\n";
@@ -5636,7 +5776,7 @@ void DirectionVector::print(raw_ostream &OS, unsigned Levels,
   }
 
   OS << "(";
-  for (unsigned II = 1; II <= Levels; ++II) {
+  for (unsigned II = 1, Levels = size(); II <= Levels; ++II) {
     if (ShowLevelDetail) {
       OS << II << ": ";
     }
@@ -5676,16 +5816,11 @@ void DirectionVector::print(raw_ostream &OS, unsigned Levels,
   OS << ") ";
 }
 
-void DistanceVector::setZero() {
-  // Construct all  0 (NONE)
-  fill(0);
-}
-
-void DistanceVector::print(raw_ostream &OS, unsigned Levels) const {
+void DistanceVector::print(raw_ostream &OS) const {
   const DistanceVector &DistV = *this;
 
   OS << "(";
-  for (unsigned II = 1; II <= Levels; ++II) {
+  for (unsigned II = 1, Levels = size(); II <= Levels; ++II) {
     DistTy Distance = DistV[II - 1];
     if (Distance == UnknownDistance) {
       OS << "?";
@@ -5699,22 +5834,10 @@ void DistanceVector::print(raw_ostream &OS, unsigned Levels) const {
   OS << ") ";
 }
 
-void DirectionVector::print(raw_ostream &OS, bool ShowLevelDetail) const {
-  print(OS, getLastLevel(), ShowLevelDetail);
-}
-
 /// Is  DV all ( = = = .. =)?
 bool DirectionVector::isEQ() const {
-  for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
-    auto Direction = (*this)[II - 1];
-    if (Direction == DVKind::NONE) {
-      break;
-    }
-    if (Direction != DVKind::EQ) {
-      return false;
-    }
-  }
-  return true;
+  return std::all_of(begin(), end(),
+                     [](DVKind Dir) { return Dir == DVKind::EQ; });
 }
 
 /// DV with leading = in leftmost:  (= = = *)
@@ -5737,7 +5860,17 @@ bool DirectionVector::isTestingForInnermostLoop(
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
 bool DirectionVector::isIndepFromLevel(unsigned Level) const {
 
-  assert(CanonExprUtils::isValidLoopLevel(Level) && "incorrect Level");
+  assert(CanonExpr::isValidLoopLevel(Level) && "incorrect Level");
+
+  // If the Level is beyond the DV's common levels return true.
+  if (Level > size())
+    return true;
+
+  // A DVKind::NONE at Level indicates no loop carried nor loop independent
+  // dependence.
+  unsigned LevelDir = (*this)[Level - 1];
+  if (LevelDir == DVKind::NONE)
+    return true;
 
   // DVKind::LT:  001
   // DVKind::GT : 100

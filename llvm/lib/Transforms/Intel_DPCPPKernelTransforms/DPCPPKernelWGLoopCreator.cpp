@@ -35,7 +35,7 @@ PreservedAnalyses DPCPPKernelWGLoopCreatorPass::run(Module &M,
 INITIALIZE_PASS_BEGIN(DPCPPKernelWGLoopCreatorLegacyPass,
                       "dpcpp-kernel-wgloop-creator",
                       "Create a loop over SYCL lambda", false, false)
-INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodes)
+INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodesLegacyPass)
 INITIALIZE_PASS_END(DPCPPKernelWGLoopCreatorLegacyPass,
                     "dpcpp-kernel-wgloop-creator",
                     "Create a loop over SYCL lambda", false, false)
@@ -58,7 +58,7 @@ bool DPCPPKernelWGLoopCreatorLegacyPass::runOnModule(Module &M) {
 
 void DPCPPKernelWGLoopCreatorLegacyPass::getAnalysisUsage(
     AnalysisUsage &AU) const {
-  AU.addRequired<UnifyFunctionExitNodes>();
+  AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
 }
 
 char DPCPPKernelWGLoopCreatorLegacyPass::ID = 0;
@@ -283,7 +283,8 @@ DPCPPKernelWGLoopCreatorLegacyPass::getFunctionData(Function *F,
   DPCPPKernelLoopUtils::collectTIDCallInst(LID.c_str(), Lids, F);
 
   BasicBlock *SingleRetBB =
-      getAnalysis<UnifyFunctionExitNodes>(*F).getReturnBlock();
+      getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F).getReturnBlock();
+  assert(SingleRetBB && "Expect a valid ret block");
   return cast<ReturnInst>(SingleRetBB->getTerminator());
 }
 

@@ -1,4 +1,3 @@
-// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -fsycl-int-header=%t.h %s -o %t.out
 // RUN: FileCheck -input-file=%t.h %s
 
@@ -6,7 +5,7 @@
 // integration header when the kernel name class is wrapped in an inline
 // namespace.
 
-#include "sycl.hpp"
+#include "Inputs/sycl.hpp"
 
 template <typename KernelName, typename KernelType>
 __attribute__((sycl_kernel)) void kernel_single_task(const KernelType &kernelFunc) {

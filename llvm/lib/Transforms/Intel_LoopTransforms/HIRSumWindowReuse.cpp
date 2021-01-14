@@ -92,6 +92,66 @@ static cl::opt<bool> DisablePass{"disable-" OPT_SWITCH, cl::init(false),
 
 namespace {
 
+/// Tracks compatible reduction instructions within a loop.
+///
+/// This pass can optimize around other uses of a sum temp within an intervening
+/// loop as long as they are also reduction instructions because doing so just
+/// reassociates the operations. However, it still needs to track these other
+/// uses so that it can update loop live ins/outs correctly once it's done.
+class CompatibleInstTracker {
+
+  /// The set of compatible reductions.
+  DenseSet<const HLInst *> CompatibleInsts;
+
+public:
+  /// Constructs an initial CompatibleInstTracker with a single inst.
+  CompatibleInstTracker(const HLInst *Inst) : CompatibleInsts{Inst} {}
+
+  /// Adds \p Inst to the tracker.
+  ///
+  /// Returns true if the instruction wasn't already present; false otherwise.
+  bool add(const HLInst *Inst) { return CompatibleInsts.insert(Inst).second; }
+
+  /// Removes \p Inst from the tracker.
+  void remove(const HLInst *Inst) { CompatibleInsts.erase(Inst); }
+
+  /// Determines if any remaining instructions are within \p Loop.
+  bool anyWithin(const HLLoop *Loop) const;
+};
+
+/// Collects and records the results of compatible/incompatible use queries
+/// indexed by (symbase, HLLoop*) pair.
+///
+/// This pass can do several possibly expensive checks to see what other
+/// operations are present within a loop that use a particular temp val; this
+/// class keeps track of the results of those queries so that they don't have to
+/// be repeated if there are multiple queries for the same temp within the same
+/// loop.
+class CompatibleInstCache {
+
+  /// The saved query results.
+  ///
+  /// The key is a (symbase, HLLoop*) pair for the temp and loop queried; the
+  /// value is the query result for that pair. This is nullptr if incompatible
+  /// uses were found; otherwise it will point to a
+  /// CompatibleInstTracker tracking compatible uses found.
+  DenseMap<std::pair<unsigned, const HLLoop *>,
+           std::unique_ptr<CompatibleInstTracker>>
+      CompatibleInstResults;
+
+public:
+  /// Queries for other compatible and non-compatible uses of \p Temp within \p
+  /// Loop according to \p HDDA.
+  ///
+  /// nullptr is returned if non-compatible uses were found. If only compatible
+  /// uses were found, a non-null pointer is returned with the relevant tracker.
+  /// This pointer is valid for the rest of the lifetime of this
+  /// CompatibleInstCache and the pointed to CompatibleInstTracker is expected
+  /// to be updated during the transform.
+  CompatibleInstTracker *checkUses(const RegDDRef *Temp, const HLLoop *Loop,
+                                   HIRDDAnalysis &HDDA);
+};
+
 /// A recognized sliding window sum within a loop.
 struct SlidingWindowSum {
 
@@ -101,23 +161,46 @@ struct SlidingWindowSum {
   /// The sum's opcode, which should either be FAdd or FSub for now.
   unsigned Opcode;
 
-  /// The load for the sum terms.
-  const RegDDRef *TermLoad;
+  /// The load for the sum terms. This may be an operand of \ref Inst or an
+  /// operand of a cast used by \ref Inst.
+  RegDDRef *TermLoad;
 
-  /// The operand index for the sum term load.
+  /// The operand index for the sum term within \ref Inst.
   unsigned TermLoadIdx;
 
+  /// The tracker for compatible uses of this instruction, to be updated and
+  /// used for updating the live in/out information at the end of the
+  /// transform. This is optional (and can be nullptr) if there aren't any
+  /// intervening loops.
+  CompatibleInstTracker *CompatibleTracker;
+
+  /// This flag is set when there is a cast (\ref TermLoad is not an operand of
+  /// \ref Inst) and that cast has no uses other than \ref Inst (so it can be
+  /// removed when \ref Inst is).
+  bool CanRemoveCastInst;
+
   /// Constructs a SlidingWindowSum given values for its fields.
-  SlidingWindowSum(HLInst *Inst, unsigned Opcode, const RegDDRef *TermLoad,
-                   unsigned TermLoadIdx)
-      : Inst{Inst}, Opcode{Opcode}, TermLoad{TermLoad}, TermLoadIdx{
-                                                          TermLoadIdx} {
+  SlidingWindowSum(HLInst *Inst, unsigned Opcode, RegDDRef *TermLoad,
+                   unsigned TermLoadIdx,
+                   CompatibleInstTracker *CompatibleTracker,
+                   bool CanRemoveCastInst)
+      : Inst{Inst}, Opcode{Opcode}, TermLoad{TermLoad},
+        TermLoadIdx{TermLoadIdx}, CompatibleTracker{CompatibleTracker},
+        CanRemoveCastInst{CanRemoveCastInst} {
     assert(Inst);
     assert(Opcode == Instruction::FAdd || Opcode == Instruction::FSub);
     assert(TermLoad);
     assert(Inst->getLLVMInstruction()->getOpcode() == Opcode);
-    assert(TermLoad->getHLDDNode() == Inst);
-    assert(Inst->getOperandDDRef(TermLoadIdx) == TermLoad);
+    assert(TermLoad->isMemRef());
+    if (TermLoad->getHLDDNode() == Inst) {
+      assert(Inst->getOperandDDRef(TermLoadIdx) == TermLoad);
+      assert(!CanRemoveCastInst);
+    } else {
+      assert(
+        cast<HLInst>(TermLoad->getHLDDNode())->getLLVMInstruction()->isCast());
+      assert(DDRefUtils::areEqual(TermLoad->getHLDDNode()->getLvalDDRef(),
+                                  Inst->getOperandDDRef(TermLoadIdx)));
+    }
   }
 };
 
@@ -156,11 +239,83 @@ struct LoopSlidingWindowSums {
 
 } // namespace
 
+/// Checks for a special case that shows up in an application of interest where
+/// the source of \p Edge is within \p OuterLoop but is only executed once
+/// within \p OuterLoop ahead of the sink and therefore still allows the value
+/// at the sink to be loop invariant. In practice, this case would look
+/// something like this:
+///
+/// \code
+///    %first = 1;
+/// + DO i1 = ... // <- OuterLoop
+/// |   if (%first != 0) // <- SingleFireIf
+/// |   {
+/// |      %case = ... // <- Edge->getSrc()
+/// |      %first = 0; // <- SingleFireCopy
+/// |   }
+/// |   ...
+/// |   switch (%case) { // <- Edge->getSink()
+/// |      ...
+/// |   }
+/// + END LOOP \endcode
+///
+/// Where `%case` is loop invariant for its use in the switch because of the
+/// first-iteration-only initialization guarded by `%first`.
+static bool isFirstIterationInitialization(const DDEdge *Edge,
+                                           const HLLoop *OuterLoop,
+                                           const DDGraph &DDG) {
+  assert(HLNodeUtils::contains(OuterLoop, Edge->getSrc()->getHLDDNode()));
+
+  // Look for an HLIf parent of the source with a final copy opposite to the
+  // condition.
+  const HLIf *SingleFireIf = nullptr;
+  const RegDDRef *ConditionRef = nullptr;
+  const HLInst *SingleFireCopy = nullptr;
+  for (const HLNode *Parent = Edge->getSrc()->getHLDDNode();
+       Parent != OuterLoop; Parent = Parent->getParent()) {
+    const auto *const If = dyn_cast<HLIf>(Parent);
+    if (!If)
+      continue;
+    const auto *const FinalCopy =
+        dyn_cast_or_null<HLInst>(If->getLastThenChild());
+    if (!FinalCopy)
+      continue;
+    if (!FinalCopy->isCopyInst())
+      continue;
+    for (auto PredIt = If->pred_begin(), PredE = If->pred_end();
+         PredIt != PredE; ++PredIt) {
+      if (*PredIt == PredicateTy::ICMP_NE &&
+          DDRefUtils::areEqual(If->getPredicateOperandDDRef(PredIt, true),
+                               FinalCopy->getLvalDDRef()) &&
+          DDRefUtils::areEqual(If->getPredicateOperandDDRef(PredIt, false),
+                               FinalCopy->getRvalDDRef())) {
+        SingleFireIf = If;
+        ConditionRef = If->getPredicateOperandDDRef(PredIt, true);
+        SingleFireCopy = FinalCopy;
+      }
+    }
+  }
+  if (!SingleFireIf)
+    return false;
+
+  // This HLIf parent must dominate the sink.
+  if (!HLNodeUtils::dominates(SingleFireIf, Edge->getSink()->getHLDDNode()))
+    return false;
+
+  // The condition ref must also not have any other incoming flow edges from
+  // within the outer loop besides the assignment at the end of that if.
+  for (const DDEdge *const Edge : DDG.incoming(ConditionRef))
+    if (Edge->isFlow() && Edge->getSrc()->getHLDDNode() != SingleFireCopy)
+      return false;
+
+  return true;
+}
+
 /// Determines whether \p InnerLoop, \p OuterLoop, and all intervening loops
 /// have the required structure for this transform. This check only needs to be
 /// done once per inner/outer loop pair.
-static bool isEligibleLoopNest(const HLLoop *InnerLoop,
-                               const HLLoop *OuterLoop) {
+static bool isEligibleLoopNest(const HLLoop *InnerLoop, const HLLoop *OuterLoop,
+                               HIRDDAnalysis &HDDA) {
 
   // For now, the outer loop should be normalized but does not have to be a DO
   // loop.
@@ -169,20 +324,58 @@ static bool isEligibleLoopNest(const HLLoop *InnerLoop,
     return false;
   }
 
-  // The bounds and ZTTs of the inner and intervening loops need to be loop
-  // invariant in the context of the outer loop.
+  // Check all of the intervening parents.
   const unsigned OuterLevel = OuterLoop->getNestingLevel();
-  for (const HLLoop *Loop = InnerLoop; Loop != OuterLoop;
-       Loop               = Loop->getParentLoop()) {
-    for (const RegDDRef *const Ref :
-         make_range(Loop->ddref_begin(), Loop->ddref_end())) {
-      if (!Ref->isStructurallyInvariantAtLevel(OuterLevel)) {
-        LLVM_DEBUG({
-          dbgs() << "Inner/intervening loop bound/ZTT ref ";
-          Ref->print(fdbgs());
-          dbgs() << " is not structurally invariant within the outer loop\n";
-        });
-        return false;
+  const DDGraph &DDG = HDDA.getGraph(OuterLoop);
+  for (const HLNode *Node = InnerLoop; Node != OuterLoop;
+       Node = Node->getParent()) {
+    if (const auto *const DDNode = dyn_cast<HLDDNode>(Node)) {
+
+      // All of the refs in this node should be structurally invariant in the
+      // outer loop.
+      for (const RegDDRef *const Ref :
+           make_range(DDNode->ddref_begin(), DDNode->ddref_end())) {
+        if (!Ref->isStructurallyInvariantAtLevel(OuterLevel, true)) {
+          LLVM_DEBUG({
+            dbgs() << "Inner/intervening parent ref ";
+            Ref->print(fdbgs());
+            dbgs() << " is not structurally invariant within the outer loop\n";
+          });
+          return false;
+        }
+      }
+
+      // Also check that any memrefs don't have incoming flow edges within the
+      // outer loop.
+      for (const RegDDRef *const Ref :
+           make_range(DDNode->ddref_begin(), DDNode->ddref_end())) {
+        if (Ref->isMemRef()) {
+          bool HasBadFlowEdges = false;
+          for (const DDEdge *const Edge : DDG.incoming(Ref)) {
+            if (Edge->isFlow() &&
+                !isFirstIterationInitialization(Edge, OuterLoop, DDG)) {
+              HasBadFlowEdges = true;
+              break;
+            }
+          }
+          if (HasBadFlowEdges) {
+            LLVM_DEBUG({
+              dbgs() << "Inner/intervening parent ref ";
+              Ref->print(fdbgs());
+              dbgs() << " has incoming flow edges within the outer loop:\n";
+              for (const DDEdge *const Edge : DDG.incoming(Ref)) {
+                if (Edge->isFlow() &&
+                    !isFirstIterationInitialization(Edge, OuterLoop, DDG)) {
+                  dbgs() << "  ";
+                  Edge->print(fdbgs());
+                  dbgs() << "\n";
+                }
+              }
+              dbgs() << "\n";
+            });
+            return false;
+          }
+        }
       }
     }
   }
@@ -195,6 +388,25 @@ static bool isEligibleLoopNest(const HLLoop *InnerLoop,
 static bool isIVCoeffOne(const CanonExpr *Expr, unsigned Level) {
   return Expr->getIVConstCoeff(Level) == 1 &&
          Expr->getIVBlobCoeff(Level) == InvalidBlobIndex;
+}
+
+/// Searches for a single incoming flow edge to \p Ref in \p DDG. The source of
+/// that edge is returned if found and if it is a RegDDRef; otherwise, if there
+/// are no incoming flow edges or multiple incoming flow edges, nullptr is
+/// returned.
+static const RegDDRef *getSingleDef(const RegDDRef *Ref, const DDGraph &DDG) {
+  const RegDDRef *SingleDef = nullptr;
+  for (const DDEdge *const Edge : DDG.incoming(Ref)) {
+    if (Edge->isFlow()) {
+      if (SingleDef)
+        return nullptr;
+
+      // This can be a cast as the sources of flow edges are always RegDDRefs.
+      SingleDef = cast<RegDDRef>(Edge->getSrc());
+    }
+  }
+
+  return SingleDef;
 }
 
 /// Determines whether \p TermLoad has an access pattern that is eligible for
@@ -243,7 +455,7 @@ static bool isEligibleTermLoad(const RegDDRef *TermLoad,
       LLVM_DEBUG(dbgs() << "  No eligible outer-level IVs found\n");
       return false;
     }
-    if (!isEligibleLoopNest(InnerLoop, OuterLoop))
+    if (!isEligibleLoopNest(InnerLoop, OuterLoop, HDDA))
       return false;
   }
 
@@ -291,11 +503,114 @@ static bool isEligibleTermLoad(const RegDDRef *TermLoad,
   return true;
 }
 
+bool CompatibleInstTracker::anyWithin(const HLLoop *Loop) const {
+  for (const HLInst *const Inst : CompatibleInsts)
+    if (HLNodeUtils::contains(Loop, Inst))
+      return true;
+  return false;
+}
+
+/// Determines whether a use \p UseRef is in a compatible reduction instruction.
+/// Unlike other types of uses within intervening loops, these are safe to
+/// optimize around because the transform will just reassociate the reduction,
+/// which doesn't affect the final outcome. UseRef is expected to be terminal
+/// because this pass does not optimize reductions through memory.
+static bool isCompatibleReductionUse(DDRef *const UseRef) {
+  assert(UseRef->isTerminalRef());
+
+  // Ref should be a RegDDRef operand of a reassociable fadd/fsub HLInst.
+  auto *const RegRef = dyn_cast<RegDDRef>(UseRef);
+  if (!RegRef)
+    return false;
+  const auto *const Inst = dyn_cast<HLInst>(RegRef->getHLDDNode());
+  if (!Inst)
+    return false;
+  const Instruction *const LLVMInst = Inst->getLLVMInstruction();
+  if (!LLVMInst->hasAllowReassoc())
+    return false;
+  const unsigned Opcode = Inst->getLLVMInstruction()->getOpcode();
+  if (Opcode != Instruction::FAdd && Opcode != Instruction::FSub)
+    return false;
+
+  // If Ref is an Rval, make sure that it isn't the second Rval of an FSub and
+  // that the Lval is equivalent.
+  if (RegRef->isRval()) {
+    if (Opcode == Instruction::FSub && Inst->getOperandNum(RegRef) == 2)
+      return false;
+    return DDRefUtils::areEqual(Inst->getLvalDDRef(), RegRef);
+  }
+
+  // If the Ref is an Lval, make sure one of the Rvals is equivalent, excluding
+  // the second Rval in the case of FSubs.
+  else {
+    return DDRefUtils::areEqual(Inst->getOperandDDRef(1), RegRef) ||
+           (Opcode != Instruction::FSub &&
+            DDRefUtils::areEqual(Inst->getOperandDDRef(2), RegRef));
+  }
+}
+
+/// Traverse \p DDG for uses of \p Temp, returning a new
+/// CompatibleInstTracker with compatible instructions or nullptr if any
+/// incompatible instructions are found.
+std::unique_ptr<CompatibleInstTracker> scanUses(const RegDDRef *Temp,
+                                                const DDGraph &DDG) {
+
+  // Start with just the input temp.
+  CompatibleInstTracker CompatibleInsts{cast<HLInst>(Temp->getHLDDNode())};
+  SmallVector<const RegDDRef *, 4> ToScan;
+  ToScan.push_back(Temp);
+
+  // Traverse the DDG until no unvisited insts remain.
+  while (!ToScan.empty()) {
+    const RegDDRef *const Ref = ToScan.pop_back_val();
+
+    // Check each outgoing flow edge of the current ref to make sure they are
+    // compatible.
+    for (const DDEdge *const Edge : DDG.outgoing(Ref)) {
+      if (!isCompatibleReductionUse(Edge->getSink())) {
+        LLVM_DEBUG({
+          dbgs() << "  Sum has use within intervening loops:\n";
+          Edge->getSink()->getHLDDNode()->print(fdbgs(), 0);
+          dbgs() << "\n";
+        });
+        return nullptr;
+      }
+
+      // If they are, mark them as visited and traverse them too.
+      const auto *const UseInst = cast<HLInst>(Edge->getSink()->getHLDDNode());
+      if (CompatibleInsts.add(UseInst))
+        ToScan.push_back(UseInst->getLvalDDRef());
+    }
+  }
+
+  // All of the temp uses within the loop are compatible; return the tracker.
+  return std::make_unique<CompatibleInstTracker>(std::move(CompatibleInsts));
+}
+
+CompatibleInstTracker *CompatibleInstCache::checkUses(const RegDDRef *Temp,
+                                                      const HLLoop *Loop,
+                                                      HIRDDAnalysis &HDDA) {
+
+  // Check if there's already an entry for this pair; if so, just use that.
+  const auto Found = CompatibleInstResults.find({Temp->getSymbase(), Loop});
+  if (Found != CompatibleInstResults.end())
+    return Found->second.get();
+
+  // Otherwise, traverse the DDG to get new query results.
+  std::unique_ptr<CompatibleInstTracker> Result =
+      scanUses(Temp, HDDA.getGraph(Loop));
+
+  // Store these in the map and return the stored pointer.
+  const std::pair<unsigned, const HLLoop *> Key{Temp->getSymbase(), Loop};
+  return CompatibleInstResults.insert(std::make_pair(Key, std::move(Result)))
+      .first->second.get();
+}
+
 /// Locates eligible sliding window sums within an innermost loop \p InnerLoop.
 /// Identified sliding window sums are appended to \p Sums.
 static void
 findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
-                      HIRSafeReductionAnalysis &HSR,
+                      HIRSafeReductionAnalysis &HSR, CompatibleInstCache &CIC,
                       SmallVectorImpl<LoopSlidingWindowSums> &LoopSums) {
 
   // The inner loop must be at least two levels deep.
@@ -342,21 +657,45 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
     }
 
     // The sum must not be conditional.
-    if (!HLNodeUtils::postDominates(SumInst, InnerLoop->getFirstChild())) {
+    if (Reduction.Conditional) {
       LLVM_DEBUG(dbgs() << "  Conditional reduction not supported\n\n");
       continue;
     }
 
-    // Check that the sum terms have the right access pattern.
+    // Locate the term load. If the sum inst doesn't involve a memref directly,
+    // look for a cast used in the sum inst.
     const unsigned TermLoadIdx =
-      SumInst->getOperandDDRef(1)->isTerminalRef() ? 2 : 1;
-    const RegDDRef *const TermLoad = SumInst->getOperandDDRef(TermLoadIdx);
+      DDRefUtils::areEqual(SumInst->getLvalDDRef(), SumInst->getOperandDDRef(1))
+        ? 2
+        : 1;
+    const RegDDRef *TermLoad = SumInst->getOperandDDRef(TermLoadIdx);
+    const DDGraph &InnerDDG  = HDDA.getGraph(InnerLoop);
+    if (TermLoad->isTerminalRef()) {
+      const RegDDRef *const TermDef = getSingleDef(TermLoad, InnerDDG);
+      if (!TermDef) {
+        LLVM_DEBUG(dbgs() << "  Sum terms don't have direct in-loop def\n\n");
+        continue;
+      }
+      const auto *const DefInst = dyn_cast<HLInst>(TermDef->getHLDDNode());
+      if (!DefInst) {
+        LLVM_DEBUG(dbgs() << "  Sum term def is not an HLInst?\n\n");
+        continue;
+      }
+      if (!DefInst->getLLVMInstruction()->isCast()) {
+        LLVM_DEBUG(dbgs() << "  Sum term def is not a cast\n\n");
+        continue;
+      }
+
+      TermLoad = DefInst->getRvalDDRef();
+    }
+
+    // Check that the sum terms have the right access pattern.
     HLLoop *OuterLoop              = NewSums ? NewSums->OuterLoop : nullptr;
     if (!isEligibleTermLoad(TermLoad, InnerLoop, HDDA, OuterLoop))
       continue;
 
-    // The sum must not have any other uses within the intervening sum loops
-    // because this optimization does not calculate the partial window sum
+    // The sum must not have any incompatible uses within the intervening sum
+    // loops because this optimization does not calculate the partial window sum
     // values that would appear there.
     //
     // Note that the way that HIR currently handles nested reductions with inner
@@ -366,31 +705,40 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
       NewSums
         ? NewSums->OutermostSumLoop
         : InnerLoop->getParentLoopAtLevel(OuterLoop->getNestingLevel() + 1);
+    CompatibleInstTracker *CompatibleTracker = nullptr;
     if (OutermostSumLoop != InnerLoop) {
-      const DDGraph DDG = HDDA.getGraph(OutermostSumLoop);
-      bool HasBadEdge   = false;
-      for (const DDEdge *const Edge : DDG.outgoing(SumInst->getLvalDDRef())) {
-        if (Edge->getSink()->getHLDDNode() != SumInst) {
-          LLVM_DEBUG({
-            dbgs() << "  Sum has use within intervening loops:\n";
-            Edge->getSink()->getHLDDNode()->print(fdbgs(), 0);
-            dbgs() << "\n";
-          });
-          HasBadEdge = true;
-          break;
-        }
-      }
-      if (HasBadEdge)
+      CompatibleTracker =
+          CIC.checkUses(SumInst->getLvalDDRef(), OutermostSumLoop, HDDA);
+      if (!CompatibleTracker) {
+        LLVM_DEBUG(dbgs() << "  Incompatible sum use found\n");
         continue;
+      }
     }
 
     LLVM_DEBUG(dbgs() << "  Sum is eligible for optimization\n\n");
+
+    // If there is a cast involved, check whether it can be safely deleted once
+    // the sum is transformed.
+    bool CanRemoveCastInst = false;
+    if (TermLoad->getHLDDNode() != SumInst) {
+      const RegDDRef *const CastTemp = TermLoad->getHLDDNode()->getLvalDDRef();
+      if (!InnerLoop->isLiveOut(CastTemp->getSymbase())) {
+        CanRemoveCastInst = true;
+        for (const DDEdge *const Edge : InnerDDG.outgoing(CastTemp)) {
+          if (Edge->isFlow() && Edge->getSink()->getHLDDNode() != SumInst) {
+            CanRemoveCastInst = false;
+            break;
+          }
+        }
+      }
+    }
 
     // Collect the sum.
     if (!NewSums)
       NewSums.emplace(InnerLoop, OuterLoop, OutermostSumLoop);
     NewSums->Sums.emplace_back(const_cast<HLInst *>(SumInst), SumOpcode,
-                               TermLoad, TermLoadIdx);
+                               const_cast<RegDDRef *>(TermLoad), TermLoadIdx,
+                               CompatibleTracker, CanRemoveCastInst);
   }
 
   // Add these new sums to the list if there are any.
@@ -421,8 +769,7 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   // |
   // |   (%B)[i1] = %sum.final;
   // + END LOOP
-  LoopSums.InnerLoop->extractZtt();
-  LoopSums.InnerLoop->extractPreheaderAndPostexit();
+  LoopSums.InnerLoop->extractZttPreheaderAndPostexit();
 
   // Create an HLIf after the inner loop that will determine whether it's the
   // first outer loop iteration or not:
@@ -517,7 +864,8 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
     HLInst *const WSumInit = HNU.createCopyInst(
-      DDRU.createNullDDRef(Sum.TermLoad->getDestType()), "swr.wsum");
+      DDRU.createNullDDRef(Sum.Inst->getLvalDDRef()->getDestType()),
+      "swr.wsum");
     HLNodeUtils::insertAsLastPreheaderNode(LoopSums.OuterLoop, WSumInit);
     const RegDDRef *const WSum = WSumInit->getLvalDDRef();
     LoopSums.OuterLoop->addLiveInTemp(WSum);
@@ -548,12 +896,28 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
+    HLInst *const TermCast = (Sum.TermLoad->getHLDDNode() == Sum.Inst)
+                               ? nullptr
+                               : cast<HLInst>(Sum.TermLoad->getHLDDNode());
+    const RegDDRef *FirstIterCastTemp = nullptr;
+    RegDDRef *FirstIterTermLoad;
+    if (TermCast) {
+      HLInst *const FirstIterCast = TermCast->clone();
+      HNU.createAndReplaceTemp(FirstIterCast->getLvalDDRef(), "swr.initcast");
+      FirstIterTermLoad = FirstIterCast->getRvalDDRef();
+      HLNodeUtils::insertAsLastChild(FirstIterLoop, FirstIterCast);
+      FirstIterCastTemp = FirstIterCast->getLvalDDRef();
+    }
     const unsigned PrevSumIdx  = (Sum.TermLoadIdx == 1) ? 2 : 1;
     HLInst *const FirstIterSum = Sum.Inst->clone();
     FirstIterSum->setOperandDDRef(WSum->clone(), 0);
     FirstIterSum->setOperandDDRef(WSum->clone(), PrevSumIdx);
-    FirstIterSum->getOperandDDRef(Sum.TermLoadIdx)
-      ->replaceIVByConstant(OuterLevel, 0);
+    if (FirstIterCastTemp)
+      FirstIterSum->setOperandDDRef(FirstIterCastTemp->clone(),
+                                    Sum.TermLoadIdx);
+    else
+      FirstIterTermLoad = FirstIterSum->getOperandDDRef(Sum.TermLoadIdx);
+    FirstIterTermLoad->replaceIVByConstant(OuterLevel, 0);
     HLNodeUtils::insertAsLastChild(FirstIterLoop, FirstIterSum);
     for (HLLoop *Loop = FirstIterLoop; Loop != LoopSums.OuterLoop;
          Loop         = Loop->getParentLoop()) {
@@ -592,16 +956,28 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
+    const RegDDRef *StartCastTemp = nullptr;
+    RegDDRef *PrevStart;
+    if (TermCast) {
+      HLInst *const StartCast = TermCast->clone();
+      HNU.createAndReplaceTemp(StartCast->getLvalDDRef(), "swr.startcast");
+      HLNodeUtils::insertAsLastElseChild(FirstIterIf, StartCast);
+      StartCastTemp = StartCast->getLvalDDRef();
+      PrevStart     = StartCast->getRvalDDRef();
+    } else {
+      PrevStart = Sum.TermLoad->clone();
+    }
     const unsigned InverseOpcode =
       (Sum.Opcode == Instruction::FAdd) ? Instruction::FSub : Instruction::FAdd;
-    RegDDRef *const PrevStart = Sum.TermLoad->clone();
     const unsigned InnerLevel = LoopSums.InnerLoop->getNestingLevel();
     PrevStart->replaceIVByConstant(InnerLevel, 0);
     PrevStart->shift(OuterLevel, -1);
     const auto *const SumInstBinOp =
       cast<BinaryOperator>(Sum.Inst->getLLVMInstruction());
-    HLInst *const RemoveStartInst = HNU.createBinaryHLInst(
-      InverseOpcode, WSum->clone(), PrevStart, "", WSum->clone(), SumInstBinOp);
+    HLInst *const RemoveStartInst =
+      HNU.createBinaryHLInst(InverseOpcode, WSum->clone(),
+                             StartCastTemp ? StartCastTemp->clone() : PrevStart,
+                             "", WSum->clone(), SumInstBinOp);
     HLNodeUtils::insertAsLastElseChild(FirstIterIf, RemoveStartInst);
 
     // Add the second update operation, which adds the end of the current
@@ -636,13 +1012,24 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
-    RegDDRef *const CurEnd = Sum.TermLoad->clone();
+    const RegDDRef *EndCastTemp = nullptr;
+    RegDDRef *CurEnd;
+    if (TermCast) {
+      HLInst *const EndCast = TermCast->clone();
+      HNU.createAndReplaceTemp(EndCast->getLvalDDRef(), "swr.endcast");
+      HLNodeUtils::insertAsLastElseChild(FirstIterIf, EndCast);
+      EndCastTemp = EndCast->getLvalDDRef();
+      CurEnd      = EndCast->getRvalDDRef();
+    } else {
+      CurEnd = Sum.TermLoad->clone();
+    }
     DDRefUtils::replaceIVByCanonExpr(
         CurEnd, InnerLevel,
         LoopSums.InnerLoop->getUpperDDRef()->getSingleCanonExpr(),
         LoopSums.InnerLoop->hasSignedIV());
     HLInst *const AddEndInst = HNU.createBinaryHLInst(
-      Sum.Opcode, WSum->clone(), CurEnd, "", WSum->clone(), SumInstBinOp);
+      Sum.Opcode, WSum->clone(), EndCastTemp ? EndCastTemp->clone() : CurEnd,
+      "", WSum->clone(), SumInstBinOp);
     HLNodeUtils::insertAsLastElseChild(FirstIterIf, AddEndInst);
     CurEnd->makeConsistent(LoopSums.InnerLoop->getUpperDDRef(), InnerLevel - 1);
 
@@ -720,12 +1107,25 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // |
     // |   (%B)[i1] = %sum.final;
     // + END LOOP
-    for (HLLoop *Loop = LoopSums.InnerLoop; Loop != LoopSums.OuterLoop;
-         Loop         = Loop->getParentLoop()) {
-      Loop->removeLiveInTemp(OrigSum->getSymbase());
-      Loop->removeLiveOutTemp(OrigSum->getSymbase());
+    LoopSums.InnerLoop->removeLiveInTemp(OrigSum->getSymbase());
+    LoopSums.InnerLoop->removeLiveOutTemp(OrigSum->getSymbase());
+    if (Sum.CompatibleTracker) {
+      Sum.CompatibleTracker->remove(Sum.Inst);
+      for (HLLoop *Loop = LoopSums.InnerLoop->getParentLoop();
+           Loop != LoopSums.OuterLoop; Loop = Loop->getParentLoop()) {
+        if (!Sum.CompatibleTracker->anyWithin(Loop)) {
+          Loop->removeLiveInTemp(OrigSum->getSymbase());
+          Loop->removeLiveOutTemp(OrigSum->getSymbase());
+        } else {
+          break;
+        }
+      }
     }
     HLNodeUtils::remove(Sum.Inst);
+    if (Sum.CanRemoveCastInst) {
+      assert(TermCast);
+      HLNodeUtils::remove(TermCast);
+    }
   }
 
 #if INTEL_INTERNAL_BUILD
@@ -801,8 +1201,9 @@ static bool runHIRSumWindowReuse(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
   SmallVector<LoopSlidingWindowSums, 8> LoopSums;
   SmallVector<HLLoop *, 16> InnerLoops;
   HIRF.getHLNodeUtils().gatherInnermostLoops(InnerLoops);
+  CompatibleInstCache CIC;
   for (HLLoop *InnerLoop : InnerLoops)
-    findSlidingWindowSums(InnerLoop, HDDA, HSR, LoopSums);
+    findSlidingWindowSums(InnerLoop, HDDA, HSR, CIC, LoopSums);
 
   // Stop here if no sums were identified.
   if (LoopSums.empty()) {

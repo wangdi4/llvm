@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.cpp  --Inlining report vis metadata --------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -22,6 +22,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace MDInliningReport;
@@ -315,8 +316,13 @@ void llvm::setMDReasonNotInlined(CallBase *Call, InlineReason Reason) {
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
-  LLVMContext &Ctx = Call->getContext();
   std::string ReasonStr = "reason: ";
+  int64_t OldReason = 0;
+  getOpVal(CSIR->getOperand(CSMDIR_InlineReason), ReasonStr, &OldReason);
+  if (Reason == NinlrNotAlwaysInline &&
+      IsNotInlinedReason((InlineReason) OldReason))
+    return;
+  LLVMContext &Ctx = Call->getContext();
   ReasonStr.append(std::to_string(Reason));
   auto ReasonMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
   CSIR->replaceOperandWith(CSMDIR_InlineReason, ReasonMD);
@@ -415,11 +421,11 @@ void InlineReportBuilder::beginFunction(Function *F) {
 
 // The main goal of beginSCC() and beginFunction() routines is to fill in the
 // list of callbacks which is stored in InlineReportBuilder object.
-void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
+void InlineReportBuilder::beginSCC(CallGraphSCC &SCC) {
   if (!isMDIREnabled())
     return;
-  Module &M = CG.getModule();
-  NamedMDNode *ModuleInlineReport = M.getNamedMetadata(ModuleTag);
+  Module *M = &SCC.getCallGraph().getModule();
+  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
   if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
     return;
   for (CallGraphNode *Node : SCC) {
@@ -430,15 +436,18 @@ void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
   }
 }
 
-void InlineReportBuilder::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
+void InlineReportBuilder::beginSCC(LazyCallGraph::SCC &SCC) {
   if (!isMDIREnabled())
     return;
-  Module &M = CG.getModule();
-  NamedMDNode *ModuleInlineReport = M.getNamedMetadata(ModuleTag);
+  LazyCallGraph::Node &LCGN = *(SCC.begin());
+  Module *M = LCGN.getFunction().getParent();
+  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
   if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
     return;
-  for (auto &Node : SCC)
-    beginFunction(&(Node.getFunction()));
+  for (auto &Node : SCC) {
+    Function *F = &Node.getFunction();
+    beginFunction(F);
+  }
 }
 
 // Function set dead
@@ -646,3 +655,12 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   addCallback(NewFunction, OldFIR);
 }
 
+extern cl::opt<unsigned> IntelInlineReportLevel;
+
+InlineReportBuilder *llvm::getMDInlineReport() {
+  static llvm::InlineReportBuilder *SavedInlineReportBuilder = nullptr;
+  if (!SavedInlineReportBuilder)
+    SavedInlineReportBuilder
+        = new llvm::InlineReportBuilder(IntelInlineReportLevel);
+  return SavedInlineReportBuilder;
+}

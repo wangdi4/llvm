@@ -9,9 +9,14 @@
 ; RUN: opt -thinlto-bc -o %t3.o %s
 ; RUN: opt -thinlto-bc -o %t4.o %p/Inputs/devirt_promote.ll
 
+; INTEL_CUSTOMIZATION
+; This customization is for turning off the multiversioning during
+; whole program devirtualization
+
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -wholeprogramdevirt-print-index-based \
+; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t3.o,test,px \
 ; RUN:   -r=%t4.o,_ZN1B1fEi,p \
@@ -23,6 +28,8 @@
 ; RUN: llvm-nm %t5.1 | FileCheck %s --check-prefix=NM-INDEX1
 ; RUN: llvm-nm %t5.2 | FileCheck %s --check-prefix=NM-INDEX2
 
+; END INTEL_CUSTOMIZATION
+
 ; NM-INDEX1: U _ZN1A1nEi.llvm.
 
 ; Make sure that not only did _ZN1A1nEi get promoted (due to the
@@ -32,6 +39,9 @@
 ; NM-INDEX2-NOT: U _ZN1A1nEi
 ; NM-INDEX2: T _ZN1A1nEi.llvm.
 ; NM-INDEX2-NOT: U _ZN1A1nEi
+
+; The thin link devirtualizes all calls to _ZN1A1nEi.
+; PRINT: Devirtualized call to {{.*}} (_ZN1A1nEi)
 
 ; We should devirt call to _ZN1A1nEi once in importing module and once
 ; in original (exporting) module.

@@ -15,7 +15,7 @@
 @i1 = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
 define void @foo() {
-; CHECK:    DO i64 i1 = 0, 79, 4   <DO_LOOP> <novectorize>
+; CHECK:    DO i64 i1 = 0, 79, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:      [[DOTVEC0:%.*]] = (<4 x i8>*)(@c1)[0][i1]
 ; CHECK:      [[DOTVEC10:%.*]] = (<4 x i8>*)(@c2)[0][i1]
 ; CHECK:      [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[DOTVEC10]]

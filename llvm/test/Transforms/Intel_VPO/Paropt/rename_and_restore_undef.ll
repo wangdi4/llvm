@@ -1,7 +1,7 @@
 ; RUN: opt -vpo-restore-operands -S < %s | FileCheck %s -check-prefix=RESTR
 ; RUN: opt < %s -passes='function(vpo-restore-operands)'  -S | FileCheck %s -check-prefix=RESTR
-; RUN: opt -vpo-restore-operands  -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
-; RUN: opt < %s -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s -check-prefix=TFORM
+; RUN: opt -vpo-restore-operands  -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S < %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt < %s -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S | FileCheck %s -check-prefix=TFORM
 
 ; Test src:
 
@@ -54,7 +54,7 @@ DIR.OMP.TARGET.3:                                 ; preds = %entry
 ; RESTR: %a = getelementptr inbounds %class.A, %class.A* undef, i64 0, i32 0
 
 ; Check that parop-transform doesn't comp-fail when compiling the output of restore-operands.
-; TFORM: call i32 @__tgt_target(i64 -1, i8* @__omp_offloading{{[^ ,]*}}foo{{[^ ,]*}}, i32 0, i8** null, i8** null, i64* null, i64* null)
+; TFORM: call i32 @__tgt_target(i64 %{{.*}}, i8* @__omp_offloading{{[^ ,]*}}foo{{[^ ,]*}}, i32 0, i8** null, i8** null, i64* null, i64* null)
 
   %1 = load volatile %class.A*, %class.A** %.addr, align 8
   store %class.A* %1, %class.A** %b.map.ptr.tmp1, align 8

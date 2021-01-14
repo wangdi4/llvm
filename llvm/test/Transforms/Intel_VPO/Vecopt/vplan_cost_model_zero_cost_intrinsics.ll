@@ -1,6 +1,6 @@
 ; Test to check VPlan cost-modelling of zero-cost intrinsics.
 
-; RUN: opt < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt -vplan-enable-soa=false < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -disable-output \
 ; RUN:     -vplan-cost-model-use-gettype -vector-library=SVML \
 ; RUN:     -vplan-force-vf=4 | FileCheck %s
@@ -43,13 +43,13 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %2 = trunc i64 %indvars.iv to i32
   store i32 %2, i32* %i.lpriv, align 4
   call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #3
-; CHECK:    Cost 0 for void [[VP1:%.*]] = call i64 4 i8* [[VP0:%vp.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
+; CHECK:    Cost 0 for call i64 4 i8* [[VP0:%vp.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
   store i32 0, i32* %b.priv, align 4
   %3 = load i32, i32* %b.priv, align 4
   %add11 = add nsw i32 %3, %2
   store i32 %add11, i32* %a, align 4
   call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1) #3
-; CHECK:    Cost 0 for void [[VP2:%.*]] = call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial]
+; CHECK:    Cost 0 for call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

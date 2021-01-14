@@ -1,5 +1,5 @@
 ; RUN: opt -O3 -inline-report=7 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='default<O3>' -inline-report=7 -disable-output < %s 2>&1 | FileCheck %s
+; Disabled for [CMPLRLLVM-25349]: opt -passes='default<O3>' -inline-report=7 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -O3 -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='default<O3>' -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -disable-output 2>&1 | FileCheck %s
 

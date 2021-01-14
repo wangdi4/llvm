@@ -155,6 +155,11 @@ static cl::opt<std::string> PrintDiagFunc(
     cl::desc("Print Diag why " OPT_DESC " did not happen for the function."));
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Never delinearize memrefs. Used for debugging.
+static cl::opt<bool> ForceStopDelinearization(
+    OPT_SWITCH "-no-delinear", cl::init(false), cl::Hidden,
+    cl::desc("Unconditionally disable delinearization in " OPT_DESC " pass"));
+
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
 static cl::opt<bool> EnableLoopBlockingNonConstTC(
@@ -205,7 +210,7 @@ static cl::opt<int>
 // 512 is the first power of 2 TC value showed performance gain
 // via loop blocking for two 512 by 512 square matrices multiplication.
 // 384 = (256 + 512) / 2 gained some performance through loop blocking.
-static cl::opt<int> LoopBlockingTCThreshold(
+static cl::opt<uint64_t> LoopBlockingTCThreshold(
     OPT_SWITCH "-tc-threshold", cl::init(384), cl::Hidden,
     cl::desc("Threshold of trip counts in " OPT_DESC " pass"));
 
@@ -322,6 +327,23 @@ inline void markAsToStripmine(const HLLoop *LoopToStripmine,
   LoopMap[LoopToStripmine] = STRIPMINE_CAND_VAL;
 }
 
+// Utility that gets child loop for Loop Blocking LoopNests. Most are perfect
+// loops, except By-strip loops might have loop boundary condition
+const HLLoop *getChildLoop(const HLLoop *Loop, const LoopMapTy &LoopMap) {
+  if (isNonByStripLoop(Loop, LoopMap)) {
+    Loop = dyn_cast<HLLoop>(Loop->getFirstChild());
+  } else {
+    if (Loop->getNumChildren() == 1) {
+      Loop = dyn_cast<HLLoop>(Loop->getFirstChild());
+    } else if (Loop->getNumChildren() == 2) {
+      Loop = dyn_cast<HLLoop>(Loop->getLastChild());
+    } else {
+      llvm_unreachable("Unexpected Loop with more than 2 children!");
+    }
+  }
+  return Loop;
+}
+
 // Based on experiments on skx performance machines with
 // -O3 -xCORE-AVX512 -Ofast -mfpmath=sse -march=core-avx512
 // In most cases, block size (i.e. stripmine size for stripmine() utility)
@@ -358,26 +380,21 @@ void adjustBlockSize(const LoopNestTCTy &LoopNestTC, LoopMapTy &LoopToBS) {
   }
 }
 
-// This util is used to calculate the correct loop permutation after
-// stripmine for interchange with pragma. All blocked loops have by-strip
-// loops as parents. We place the bystrip loops where the pragma is declared.
+// Return the by-strip loop for loopnest that has been stripmined using the
+// relative offset specified by pragma. Relative offset ignores other bystrip
+// loops. The found bystrip loop is placed where the pragma is declared.
 const HLLoop *getByStripLoopatOffsetLevel(const HLLoop *Loop,
                                           const LoopMapTy &LoopMap,
                                           unsigned Level) {
-  const HLLoop *TargetLp = Loop;
-  const HLLoop *ParentLp = TargetLp->getParentLoop();
-  unsigned Offset = 1;
-
-  while (Offset < Level) {
-    ParentLp = TargetLp;
-    TargetLp = cast<HLLoop>(TargetLp->getFirstChild());
-    if (isNonByStripLoop(TargetLp, LoopMap)) {
-      Offset++;
+  while (Level > 1) {
+    Loop = getChildLoop(Loop, LoopMap);
+    if (isNonByStripLoop(Loop, LoopMap)) {
+      Level--;
     }
   }
 
-  assert(isBlockedLoop(TargetLp, LoopMap) && "Expected loop to be blocked!\n");
-  return ParentLp;
+  assert(isBlockedLoop(Loop, LoopMap) && "Expected loop to be blocked!\n");
+  return Loop->getParentLoop();
 }
 
 // Check the entire loopnest starting from the innermost loop for pragmas
@@ -396,33 +413,89 @@ bool hasLoopBlockingPragma(HLLoop *InnermostLoop) {
 
 // Scan entire loopnest for blocking pragmas and return the Outermost loop
 // with such pragma. Save pragma levels and factors to LoopToPragma.
-// The reason we need this construct is because level is not required for
-// all pragmas, which cause level == -1. This implies that all loops nested
-// below the loop are blocked with the factor specified. We convey this
-// information by adding the equivalent pragmas for all nested loops.
+// Pragmas can be level specific, or apply to entire loopnest.
+// Pragmas are processed in order. no_block pragma has highest priority, while
+// valid pragmas honored on first come first serve basis.
+// Final pragma setup is stored in \p LoopToPragma
 HLLoop *getLoopBlockingPragma(HLLoop *InnermostLoop,
                               LoopPragmaMapTy &LoopToPragma) {
   HLLoop *OutermostPragmaLoop = nullptr;
+  bool NoBlockPragma = false;
 
+  // Find the OutermostPragmaLoop where pragma occurs
   for (HLLoop *Loop = InnermostLoop; Loop; Loop = Loop->getParentLoop()) {
     auto PragmaInfo = Loop->getBlockingPragmaLevelAndFactors();
     if (PragmaInfo.empty()) {
       continue;
     }
-
     OutermostPragmaLoop = Loop;
+  }
 
-    // Replace PragmaLevel == -1 with proper levels for all nested loops
+  if (!OutermostPragmaLoop) {
+    return nullptr;
+  }
+
+  // Pragmas are processed in lexical order
+  for (HLLoop *Loop = OutermostPragmaLoop; Loop;
+       Loop = dyn_cast<HLLoop>(Loop->getFirstChild())) {
+    auto PragmaInfo = Loop->getBlockingPragmaLevelAndFactors();
+    if (PragmaInfo.empty()) {
+      continue;
+    }
     RegDDRef *NoLevelFactor = nullptr;
-    for (auto &Info : make_range(PragmaInfo.begin(), PragmaInfo.end())) {
+    for (auto &Info : PragmaInfo) {
       if (Info.first != -1) {
         LoopToPragma[Loop].push_back(std::make_pair(Info.first, Info.second));
       } else {
-        // Assume Pragmalevel == -1 can only occur once per Loop
-        assert(NoLevelFactor == nullptr &&
+        int64_t IntFactor;
+        if (Info.second->isIntConstant(&IntFactor) && IntFactor == 0) {
+          NoBlockPragma = true;
+          break;
+        }
+        // Pragmalevel == -1 means no level was specified, and can only
+        // occur once per Loop. Other pragmas will be ignored.
+        assert(!NoLevelFactor &&
                "Multiple pragmas without levels not supported\n");
         NoLevelFactor = Info.second;
       }
+    }
+    // noblock pragma indicates no blocking for loopnest. Remove those, but
+    // retain already processed pragma info for parent loops.
+    // Consider the example:
+    // #pragma block_loop factor(16)
+    // for i = 0 ..
+    //   ...
+    //   #pragma noblock_loop
+    //   for j = 0
+    //     ...
+    //
+    // A blanket pragma would apply for entire loopnest but noblock pragma
+    // for the inner loopnest would remove those pragmas already processed
+    // for the outer loop.
+    if (NoBlockPragma) {
+      unsigned NoBlockLevel = Loop->getNestingLevel();
+      for (auto It = LoopToPragma.begin(); It != LoopToPragma.end();) {
+        unsigned PLoopLevel = It->first->getNestingLevel();
+        for (auto VIt = It->second.begin(); VIt != It->second.end();) {
+          unsigned LevelOffset = VIt->first;
+          // For each loop with pragma info, check if looplevel + offset is
+          // greater than the noblocklevel.
+          // OffsetLevel is actually +1, so gt. is used
+          if (PLoopLevel + LevelOffset > NoBlockLevel) {
+            VIt = It->second.erase(VIt);
+          } else {
+            ++VIt;
+          }
+        }
+        // Remove the LoopToPragma entry if it is empty after erasure
+        if (It->second.empty()) {
+          It = LoopToPragma.erase(It);
+        } else {
+          ++It;
+        }
+      }
+      // No more pragmas are handled after no_block
+      break;
     }
 
     if (!NoLevelFactor) {
@@ -434,6 +507,11 @@ HLLoop *getLoopBlockingPragma(HLLoop *InnermostLoop,
     for (int i = 0; i <= NumLevels; i++) {
       LoopToPragma[Loop].push_back(std::make_pair(i + 1, NoLevelFactor));
     }
+  }
+
+  // If no_block pragma results in no blocking, don't return outerloop
+  if (LoopToPragma.empty()) {
+    return nullptr;
   }
 
   return OutermostPragmaLoop;
@@ -464,7 +542,8 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   // Once it is hoisted, def@level has to be updated.
   for (auto CurLoopInfo : CurLoopNests) {
     HLLoop *CurLoop = CurLoopInfo.first;
-    if (!LoopMap.count(CurLoop)) {
+    auto It = LoopMap.find(CurLoop);
+    if (It == LoopMap.end() || It->second == 0) {
       continue;
     }
 
@@ -584,29 +663,27 @@ void populatePragmaPermutation(
   // Process Loop Pragmas from outermost to innermost. Pragmas are still
   // attached to blocked loops. When blocked loop is found, pull up all by-strip
   // loops from pragma, then set itself to get correct ordering
-  for (const HLLoop *Lp = Outermost; Lp;
-       Lp = dyn_cast<HLLoop>(Lp->getFirstChild())) {
+  for (const HLLoop *Lp = Outermost; Lp; Lp = getChildLoop(Lp, LoopMap)) {
     if (isNonByStripLoop(Lp, LoopMap)) {
       // Use pragma to assign permutations to all by-strip loops
       auto It = LoopToPragma.find(Lp);
       if (It != LoopToPragma.end()) {
         for (auto &Pair : It->second) {
+          int Offset = Pair.first;
           const HLLoop *ByStripLoop =
-              getByStripLoopatOffsetLevel(Lp, LoopMap, Pair.first);
+              getByStripLoopatOffsetLevel(Lp, LoopMap, Offset);
           LoopPermutation[Front++] = ByStripLoop;
         }
       }
-
       LoopPermutation[Front++] = Lp;
     }
   }
 
   LLVM_DEBUG(dbgs() << "\n";);
   LLVM_DEBUG(dbgs() << "LoopPermutation Res\n");
-  for (auto &P : LoopPermutation) {
-    LLVM_DEBUG(dbgs() << P->getNestingLevel() << " ";);
-    (void)P;
-  }
+  LLVM_DEBUG(
+      for (auto &P
+           : LoopPermutation) { dbgs() << P->getNestingLevel() << " "; });
   LLVM_DEBUG(dbgs() << "\n";);
 }
 
@@ -625,33 +702,22 @@ void populateTCs(LoopNestTCTy &LoopNestTC) {
   }
 }
 
-// From InnermostLoop to OutermostLoop, return the consecutive depth
-// where TC is at least a certain threshold.
-// NewOutermost will be updated if the given OutermostLoop's TC
-// is smaller then the threshold.
-unsigned calcConsecutiveDepthOverTCThreshold(const LoopNestTCTy &LoopToTC,
-                                             HLLoop *&NewOutermost) {
-
-  // Scan from Innermost outerward
-  // See if TC is constant and over a certain threshold
-  NewOutermost = const_cast<HLLoop *>(LoopToTC.Innermost);
-  unsigned ConsecutiveDepth = 0;
+HLLoop *getHighestAncestorWithTCThreshold(const LoopNestTCTy &LoopToTC) {
+  HLLoop *NewOutermost = const_cast<HLLoop *>(LoopToTC.Innermost);
   unsigned Level = LoopToTC.Innermost->getNestingLevel();
   for (const HLLoop *Lp = LoopToTC.Innermost,
-                    *ELp = LoopToTC.Outermost->getParentLoop();
-       Lp != ELp; Lp = Lp->getParentLoop(), Level--) {
+                  *ELp = LoopToTC.Outermost->getParentLoop();
+     Lp != ELp; Lp = Lp->getParentLoop(), Level--) {
     uint64_t TCAtLevel = LoopToTC[Level];
     // non-const TC has TCAtLevel zero
-    if (TCAtLevel < (uint64_t)LoopBlockingTCThreshold) {
+    if (TCAtLevel < LoopBlockingTCThreshold) {
       if (!EnableLoopBlockingNonConstTC || LoopNestTCTy::isConstTC(TCAtLevel)) {
         break;
       }
     }
-    ConsecutiveDepth++;
     NewOutermost = const_cast<HLLoop *>(Lp);
   }
-
-  return ConsecutiveDepth;
+  return NewOutermost;
 }
 
 // Authored by Pankaj
@@ -746,75 +812,72 @@ bool isLegalToInterchange(const LoopMapTy &StripmineCandidateMap,
   return true;
 }
 
-class RefAnalyzer {
-public:
-  enum RefAnalysisResult {
-    RESULT_START = 0,
-    OK, // de-linearized SIV form
-    NON_LINEAR,
-    NON_SIV,
-  };
-
-  static bool hasNonLinear(RefAnalysisResult Res) { return Res == NON_LINEAR; }
-  static bool isSIV(RefAnalysisResult Res) { return Res == OK; }
-
-  static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
-                                       bool ReplaceRefs = true) {
-    if (std::any_of(Refs.begin(), Refs.end(),
-                    [](const RegDDRef *Ref) { return Ref->isNonLinear(); })) {
-      return NON_LINEAR;
-    }
-
-    bool IsNonSIV = false;
-    for (auto *Ref : Refs) {
-      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-        if (CE->numIVs() > 1 || CE->numBlobs() > 0 || CE->hasIVBlobCoeffs()) {
-          IsNonSIV = true;
-          break;
-        }
-      }
-
-      if (IsNonSIV) {
-        break;
+static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
+                                     HLLoop *Loop, bool ReplaceRefs = true) {
+  bool HasNonLinear = false;
+  for (const auto Ref : Refs) {
+    unsigned SB = Ref->getSymbase();
+    if (Ref->isNonLinear()) {
+      HasNonLinear = true;
+      // Allow blocking for nonlinear rvals
+      // Later check if these refs match heuristics (i.e. bwavs %mod)
+      if (Loop->isLiveIn(SB) || Loop->isLiveOut(SB) || Ref->isLval()) {
+        LLVM_DEBUG(dbgs() << "Found Nonlinear refs:\n";);
+        return NON_LINEAR;
       }
     }
-
-    if (IsNonSIV) {
-      // Try the second chance with delinearization.
-
-      // Bail out if any ref has more than one dimension.
-      // TODO: fold this logic into the util.
-      if (std::any_of(Refs.begin(), Refs.end(), [](const RegDDRef *Ref) {
-            return !Ref->isSingleCanonExpr();
-          })) {
-        return NON_SIV;
-      }
-
-      SmallVector<RegDDRef *, 8> DelinearizedRefs;
-      SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
-      if (!DDRefUtils::delinearizeRefs(Refs, DelinearizedRefs, &GroupSizes)) {
-        return NON_SIV;
-      }
-
-      assert(DelinearizedRefs.size() == Refs.size());
-      LLVM_DEBUG_DELINEAR(dbgs() << "Delinearized refs:\n";
-                          for (auto Pair
-                               : zip(Refs, DelinearizedRefs)) {
-                            std::get<0>(Pair)->dump();
-                            dbgs() << " -> ";
-                            std::get<1>(Pair)->dump();
-                            dbgs() << "\n";
-                          });
-
-      if (ReplaceRefs) {
-        std::copy(DelinearizedRefs.begin(), DelinearizedRefs.end(),
-                  Refs.begin());
-      }
-    }
-
-    return OK;
   }
-};
+
+  if (HasNonLinear) {
+    return NON_LINEAR_READ_ONLY;
+  }
+
+  bool IsNonSIV = false;
+  for (auto *Ref : Refs) {
+    if (std::any_of(Ref->canon_begin(), Ref->canon_end(),
+                    [](const CanonExpr *CE) {
+                      return (CE->numIVs() > 1 || CE->numBlobs() > 0 ||
+                              CE->hasIVBlobCoeffs());
+                    })) {
+      IsNonSIV = true;
+      break;
+    }
+  }
+
+  if (IsNonSIV) {
+    // Try the second chance with delinearization.
+
+    // Bail out if any ref has more than one dimension.
+    // TODO: fold this logic into the util.
+    if (std::any_of(Refs.begin(), Refs.end(), [](const RegDDRef *Ref) {
+          return !Ref->isSingleDimension();
+        })) {
+      return NON_SIV;
+    }
+
+    SmallVector<RegDDRef *, 8> DelinearizedRefs;
+    SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
+    if (!DDRefUtils::delinearizeRefs(Refs, DelinearizedRefs, &GroupSizes)) {
+      return NON_SIV;
+    }
+
+    assert(DelinearizedRefs.size() == Refs.size());
+    LLVM_DEBUG_DELINEAR(dbgs() << "Delinearized refs:\n";
+                        for (auto Pair
+                             : zip(Refs, DelinearizedRefs)) {
+                          std::get<0>(Pair)->dump();
+                          dbgs() << " -> ";
+                          std::get<1>(Pair)->dump();
+                          dbgs() << "\n";
+                        });
+
+    if (ReplaceRefs) {
+      std::copy(DelinearizedRefs.begin(), DelinearizedRefs.end(), Refs.begin());
+    }
+  }
+
+  return SIV;
+}
 
 // Checks if the innermost loop body has a certain stencil pattern.
 // Checks
@@ -1010,10 +1073,10 @@ public:
     countProBlockingRefs(Refs);
   }
 
-  void check(unsigned LoopNestDepth, unsigned ConsecutiveDepth,
-             const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
+  void check(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
              LoopMapTy &StripmineCandidateMap) {
 
+    unsigned LoopNestDepth = InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
     assert(StripmineCandidateMap.empty());
 
     // Temporary comment-out for cactus
@@ -1034,14 +1097,6 @@ public:
         // No more innerloop nest.
         return;
       }
-    }
-
-    if (ConsecutiveDepth <= MaxDimension) {
-      LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < ConsecutiveDepth "
-                        << MaxDimension << "," << ConsecutiveDepth << "\n");
-      printDiag(NO_KANDR_DEPTH_TEST_2, Func, OutermostLoop, "No Blocking: ", 2);
-      // No more innerloop nest.
-      return;
     }
 
     determineProfitableStripmineLoop(InnermostLoop, OutermostLoop,
@@ -1158,7 +1213,8 @@ private:
     for (const HLLoop *Lp = InnermostLoop->getParentLoop(),
                       *ELp = OutermostLoop->getParentLoop(),
                       *InnerLp = InnermostLoop;
-         Lp != ELp; InnerLp = Lp, Lp = Lp->getParentLoop(), Level = Level - 1) {
+         Lp != ELp && NumTotalLoops < MaxLoopNestLevel;
+         InnerLp = Lp, Lp = Lp->getParentLoop(), Level = Level - 1) {
       // Reused carried across Level
       // OR
       // See if any refs deepest dimension has this Level IV with a small stride
@@ -1167,9 +1223,6 @@ private:
       LLVM_DEBUG(dbgs() << "NumRefsWithSmallStrides " << Level << ": "
                         << NumRefsWithSmallStrides[Level] << "\n");
 
-      if (NumTotalLoops >= MaxLoopNestLevel) {
-        break;
-      }
       if (NumRefsMissingAtLevel[Level] > 0 ||
           NumRefsWithSmallStrides[Level] > 0) {
 
@@ -1188,10 +1241,13 @@ private:
       }
     }
 
+    if (!IsCandFound)
+      return false;
+
     // Look into the innermost loop again for blocking when algo is MatMul.
     // Experiments in skx showed blocking all three levels of matrix
     // multiplication gives best performance.
-    if (LoopBlockingAlgorithm == MatMul &&
+    if (NumTotalLoops < MaxLoopNestLevel && LoopBlockingAlgorithm == MatMul &&
         (std::any_of(std::next(NumRefsMissingAtLevel.begin(), OuterLevel),
                      std::next(NumRefsMissingAtLevel.begin(), InnerLevel + 1),
                      [](int Num) { return Num > 0; }))) {
@@ -1201,8 +1257,6 @@ private:
                         << " will be stripmined\n");
 
       markAsToStripmine(InnermostLoop, StripmineCandidateMap);
-
-      IsCandFound = true;
     }
 
     LLVM_DEBUG(dbgs() << "determineProfitableStipmineLoop result: "
@@ -1249,14 +1303,10 @@ private:
 // To be used with memoryfootprint-based stripmine size explorer.
 template <typename T>
 HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
-                        unsigned ConsecutiveDepth,
                         KAndRChecker &KAndRProfitability,
                         T &StripmineSizeExplorer, HIRDDAnalysis &DDA,
                         HIRSafeReductionAnalysis &SRA, StringRef Func,
                         LoopMapTy &LoopMap) {
-
-  unsigned LoopNestDepth =
-      InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
 
   for (HLLoop *Lp = OutermostLoop; Lp != InnermostLoop;
        Lp = cast<HLLoop>(Lp->getFirstChild())) {
@@ -1269,11 +1319,8 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
     }
 
     LoopMap.clear();
-    KAndRProfitability.check(LoopNestDepth, ConsecutiveDepth, InnermostLoop, Lp,
+    KAndRProfitability.check(InnermostLoop, Lp,
                              LoopMap);
-    LoopNestDepth--;
-    ConsecutiveDepth--;
-
     // Try inner loopnest
     if (LoopMap.empty()) {
       printDiag(NO_MISSING_IVS_OR_SMALL_STRIDES, Func);
@@ -1382,7 +1429,7 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 
 HLLoop *tryKAndRWithFixedStripmineSizes(
     const MemRefGatherer::VectorTy &Refs, const LoopNestTCTy &LoopNestTC,
-    HLLoop *InnermostLoop, HLLoop *OutermostLoop, unsigned ConsecutiveDepth,
+    HLLoop *InnermostLoop, HLLoop *OutermostLoop,
     HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, StringRef Func,
     LoopMapTy &LoopMap) {
 
@@ -1394,13 +1441,38 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 
   StripmineSizeExplorerByDefault StripmineExplorer(StripmineSizes);
   HLLoop *ValidOutermost = exploreLoopNest(
-      InnermostLoop, OutermostLoop, ConsecutiveDepth, KAndRProfitability,
+      InnermostLoop, OutermostLoop, KAndRProfitability,
       StripmineExplorer, DDA, SRA, Func, LoopMap);
   if (ValidOutermost) {
     return ValidOutermost;
   }
 
   return nullptr;
+}
+
+// LoopDepth are at most 2.
+// Blocking inner loops doesn't help, because many mem refs are
+// already unit-strided.
+// Blocking outer loop only doesn't help, because it is
+// mere strip-mining.
+bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
+                          unsigned InnermostLevel, unsigned OutermostLevel) {
+  if (InnermostLevel - OutermostLevel > 1)
+    return false;
+
+  int Count = 0;
+  for (auto Ref : Refs) {
+    unsigned Index = InvalidBlobIndex;
+    int64_t Coeff = 0;
+
+    Ref->getDimensionIndex(1)->getIVCoeff(InnermostLevel, &Index, &Coeff);
+
+    if (Index == InvalidBlobIndex && Coeff == 1) {
+      Count++;
+    }
+  }
+
+  return Count / ((float)Refs.size()) >= 0.4;
 }
 
 // Returns the outermost loop where blocking will be applied
@@ -1467,11 +1539,14 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   // coremark-pro/core. BitWidth was either 16 or 32.
   // Quite a special casing, but without exact information about
   // tripcount, we need a hack.
-  RefAnalyzer::RefAnalysisResult RefKind =
-      RefAnalyzer::analyzeRefs(Refs, !Is32Bit || IsLikelySmall);
 
-  // If any Ref is a non-linear, give up here.
-  if (RefAnalyzer::hasNonLinear(RefKind)) {
+  bool DelinearizeRefs =
+      !ForceStopDelinearization && (!Is32Bit || IsLikelySmall);
+
+  RefAnalysisResult RefKind = analyzeRefs(Refs, InnermostLoop, DelinearizeRefs);
+
+  // If any lval Ref is a non-linear, give up here.
+  if (RefKind == RefAnalysisResult::NON_LINEAR) {
     printDiag(NON_LINEAR_REFS, Func);
     return nullptr;
   }
@@ -1479,36 +1554,36 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   LoopNestTCTy LoopNestTC(HighestAncestor, InnermostLoop);
   LoopNestTC.populateLoops();
   populateTCs(LoopNestTC);
-  HLLoop *AdjustedHighestAncestor = InnermostLoop;
+  HLLoop *AdjustedHighestAncestor = getHighestAncestorWithTCThreshold(LoopNestTC);
 
-  // TODO: This logic is not directly relavant to StencilChecker or
-  //       MemFootPrint-based stripmine-size explorer.
-  //       Move/adjust.
-  //       As this logic is moved/modified LoopNestTC can be moved.
-  unsigned ConsecutiveDepth =
-      calcConsecutiveDepthOverTCThreshold(LoopNestTC, AdjustedHighestAncestor);
-  LLVM_DEBUG(dbgs() << "ConsecutiveDepth: " << ConsecutiveDepth << "\n");
+  if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
+                           AdjustedHighestAncestor->getNestingLevel())) {
+    LLVM_DEBUG(dbgs() << "Trivial anti-pattern\n");
+    return nullptr;
+  }
+
+  // Default to use K&R + fixed stripmine sizes
+  // All linear refs and LoopTC above minimum threshold for blocked loops.
+  HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
+      Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
+      DDA, SRA, Func, LoopMap);
+
+  if (ValidOutermost) {
+    printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
+              "SUCCESS");
+    return ValidOutermost;
+  } else {
+    printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
+  }
 
   // Uniq refs for the purpose of memory footprint analysis.
   // For now, we won't do any memory footprint analysis.
-  if (!CommandLineBlockSize && RefAnalyzer::isSIV(RefKind) &&
+  if (!CommandLineBlockSize && (RefKind == RefAnalysisResult::SIV) &&
       (!OldVersion || Advanced)) {
 
-    // Try K&R as default.
-    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
-        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
-
-    if (ValidOutermost) {
-      printDiag(SUCCESS_BASIC_SIV, Func, AdjustedHighestAncestor, "SUCCESS");
-      return ValidOutermost;
-    } else {
-      printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
-    }
-
     // Grouping Refs for memory foot print and for stencil
-    RefGrouper::RefGroupVecTy Groups;
-    RefGrouper Grouping(Refs, Groups);
+    DDRefGrouping::RefGroupVecTy<RegDDRef *> Groups;
+    DDRefIndexGrouping(Groups, Refs);
 
     // Try stencil pattern + fixed stripmine sizes.
     StencilChecker StencilProfitability(Groups, InnermostLoop, Func);
@@ -1530,23 +1605,6 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
     printDiag(NO_STENCIL_LOOP, Func, AdjustedHighestAncestor,
               "Summary: No Blocking in this loop nest 2");
-
-  } else {
-    // NON-SIV case - blocking with default size
-
-    // Try K&R + fixed stripmine sizes
-    // Just use existing logic for now to avoid regression
-    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
-        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
-
-    if (ValidOutermost) {
-      printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
-                "SUCCESS");
-      return ValidOutermost;
-    } else {
-      printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
-    }
   }
 
   printDiag(NO_PROFITABLE_BLOCKING_FOUND, Func, InnermostLoop,
@@ -1595,7 +1653,7 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
       RegDDRef *Factor = LevelFactorPair.second;
 
       int64_t IntBlockSize;
-      if (!Factor->isIntConstant(&IntBlockSize) && IntBlockSize > 0) {
+      if (!Factor->isIntConstant(&IntBlockSize) || IntBlockSize <= 0) {
         // TODO : enable variable blocksizes
 
         LLVM_DEBUG(dbgs() << "Ignoring block_loop directive due to invalid "
@@ -1649,14 +1707,19 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
 
   // Bailout if blocking would result in more than max loop nest level
   if ((LoopMap.size() + InnermostLoop->getNestingLevel()) > MaxLoopNestLevel) {
+    LLVM_DEBUG(dbgs() << "No Blocking! MaxLevels exceeded!\n");
     return nullptr;
   }
 
+// From pragma specification:The loop-carried dependence is ignored
+// during the processing of block_loop pragmas.
+#if 0
   if (!isLegalToInterchange(LoopMap, OutermostPragmaLoop, InnermostLoop, DDA,
                             SRA, false)) {
     printDiag(NO_INTERCHANGE, Func);
     return nullptr;
   }
+#endif
 
   LoopOptReportBuilder &LORBuilder =
       InnermostLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();

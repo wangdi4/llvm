@@ -373,7 +373,7 @@ HLLoop *HIRMVForVariableStride::MVTransformer::calcOutermostLoopToMV(
       MaxDefAtLevel = DefAtLevel;
   }
 
-  assert(CanonExprUtils::isValidLoopLevel(MaxDefAtLevel + 1));
+  assert(CanonExpr::isValidLoopLevel(MaxDefAtLevel + 1));
 
   // Get the lowest level of the loop it can go
   HLLoop *OuterLoopToMV = LoopStructure.getValidLowestAncestor(InnermostLoop);
@@ -458,8 +458,7 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
 
   // Extract ztt explicitly to give the same order of checks regardless of the
   // existence of preheader/postexit
-  OuterLoopToMV->extractZtt();
-  OuterLoopToMV->extractPreheaderAndPostexit();
+  OuterLoopToMV->extractZttPreheaderAndPostexit();
 
   // Multiversioned loop is not the innermost loop
   if (OuterLoopToMV != InnermostLoop)

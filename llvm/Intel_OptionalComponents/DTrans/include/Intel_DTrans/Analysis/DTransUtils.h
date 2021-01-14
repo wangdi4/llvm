@@ -26,12 +26,16 @@
 namespace llvm {
 class raw_ostream;
 class CallBase;
+class DataLayout;
 class Function;
 class Type;
 class Value;
 class Instruction;
+class StructType;
 
 namespace dtrans {
+
+struct MemfuncRegion;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 extern cl::opt<bool> DTransPrintAnalyzedTypes;
@@ -97,6 +101,51 @@ bool isLoadedValueUnused(Value *V, Value *LoadAddr);
 
 // Return 'true' if "I" is either llvm.type_test or llvm.assume intrinsic.
 bool isTypeTestRelatedIntrinsic(const Instruction *I);
+
+// Trace back instruction sequence corresponding to the following code:
+//     foo (..., int n, ...) {
+//         struct s *s_ptr = malloc(c1 + c2 * n);
+//     }
+// Returns false if it cannot trace \p InVal back to constants and calculate
+// the size.
+bool traceNonConstantValue(Value *InVal, uint64_t ElementSize,
+                           bool EndsInZeroSizedArray);
+
+// Analysis to determine the set of fields of a structure that will be used by
+// a MemIntrinsic call to determine whether the call is supported by DTrans.
+//
+// For supported cases, return 'true' and populate the \p RegionDesc structure
+// with a description of the fields affected.
+//
+// Supported cases are cases where the MemIntrinsic will operate on a whole
+// number of fields, with possible pre/post field padding bytes due to field
+// alignment, of the input structure.
+//
+// \p DataLayout - The data layout.
+// \p StructTy - The structure type to analyze.
+// \p FieldNum - The number for the first field affected by the
+//               MemIntrinsic call.
+// \p PrePadBytes - If the actual pointer to the MemIntrinsic does not
+//                  correspond to the address the field starts at, number of
+//                  padding bytes prior to the field that is affected.
+// \p AccessSizeVal - Parameter for the size operand of the MemIntrinsic call.
+// \p [out] RegionDesc - Gets filled with description of the fields affected.
+bool analyzePartialStructUse(const DataLayout &DL, StructType *StructTy,
+                             size_t FieldNum, uint64_t PrePadBytes,
+                             const Value *AccessSizeVal,
+                             MemfuncRegion *RegionDesc);
+
+// This is a specialized form of the analyzePartialStructUse function that is
+// used to trigger the MemFuncNestedStructsPartialWrite safety bit when the
+// fields affected by the MemIntrinsic call end on a field boundary within an
+// inner structure, rather than on a boundary within the input structure type
+// itself.
+//
+// \p DataLayout - The data layout.
+// \p StructTy - The structure type to analyze.
+// \p SetSize - Parameter for the size operand of the MemIntrinsic call.
+bool analyzePartialAccessNestedStructures(const DataLayout &DL,
+                                          StructType *StructTy, Value *SetSize);
 
 } // namespace dtrans
 } // namespace llvm

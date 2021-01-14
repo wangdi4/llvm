@@ -50,6 +50,7 @@ public:
     FT_SymbolId,
     FT_CVInlineLines,
     FT_CVDefRange,
+    FT_PseudoProbe,
     FT_Dummy
   };
 
@@ -66,6 +67,10 @@ private:
 
   /// The layout order of this fragment.
   unsigned LayoutOrder;
+
+  /// The subsection this fragment belongs to. This is 0 if the fragment is not
+  // in any subsection.
+  unsigned SubsectionNumber = 0;
 
   FragmentType Kind;
 
@@ -105,6 +110,9 @@ public:
   bool hasInstructions() const { return HasInstructions; }
 
   void dump() const;
+
+  void setSubsectionNumber(unsigned Value) { SubsectionNumber = Value; }
+  unsigned getSubsectionNumber() const { return SubsectionNumber; }
 };
 
 class MCDummyFragment : public MCFragment {
@@ -146,6 +154,7 @@ public:
     case MCFragment::FT_Trace:
 #endif // INTEL_CUSTOMIZATION
     case MCFragment::FT_DwarfFrame:
+    case MCFragment::FT_PseudoProbe:
       return true;
     }
   }
@@ -612,6 +621,23 @@ public:
 
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_BoundaryAlign;
+  }
+};
+
+class MCPseudoProbeAddrFragment : public MCEncodedFragmentWithFixups<8, 1> {
+  /// The expression for the difference of the two symbols that
+  /// make up the address delta between two .pseudoprobe directives.
+  const MCExpr *AddrDelta;
+
+public:
+  MCPseudoProbeAddrFragment(const MCExpr *AddrDelta, MCSection *Sec = nullptr)
+      : MCEncodedFragmentWithFixups<8, 1>(FT_PseudoProbe, false, Sec),
+        AddrDelta(AddrDelta) {}
+
+  const MCExpr &getAddrDelta() const { return *AddrDelta; }
+
+  static bool classof(const MCFragment *F) {
+    return F->getKind() == MCFragment::FT_PseudoProbe;
   }
 };
 } // end namespace llvm

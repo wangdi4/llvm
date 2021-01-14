@@ -32,6 +32,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LegacyDivergenceAnalysis.h"
 #include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
@@ -227,6 +228,10 @@ namespace {
     /// loop preheaders be inserted into the CFG.
     ///
     void getAnalysisUsage(AnalysisUsage &AU) const override {
+      // Lazy BFI and BPI are marked as preserved here so Loop Unswitching
+      // can remain part of the same loop pass as LICM
+      AU.addPreserved<LazyBlockFrequencyInfoPass>();
+      AU.addPreserved<LazyBranchProbabilityInfoPass>();
       AU.addRequired<AssumptionCacheTracker>();
       AU.addRequired<TargetTransformInfoWrapperPass>();
       AU.addRequired<OptReportOptionsPass>(); // INTEL
@@ -909,7 +914,7 @@ static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
 
 #if INTEL_CUSTOMIZATION
 static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
-                                   TargetLibraryInfo *TLI) {
+                                   TargetLibraryInfo *TLI, bool RelaxChecks) {
 
   // Perfect loopnest is only meaningful for single exit loops.
   if (!Lp->getExitingBlock())
@@ -925,7 +930,7 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
   if (!LatchBr)
     return false;
 
-  bool IsOuterLoop = !Lp->empty();
+  bool IsOuterLoop = !Lp->isInnermost();
 
   // Outer loop may not be rotated yet so this cannot be checked.
   if (!IsOuterLoop) {
@@ -948,11 +953,26 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
 
     ++NumBlocks;
 
+    // Give up on loops with volatile/atomic accesses or inline asm as LoopOpt
+    // does not handle them.
+    //
     // Give up if loop has a user call. LoopOpt is not likely to optimize loops
     // with user calls, especially when it comes to textbook optimizations which
     // require perfect loopnest. Also, in LTO mode inlining of these calls may
     // result in LoopOpt skipping this loop.
     for (auto Inst = BB->begin(), E = BB->end(); Inst != E; ++Inst) {
+
+      if (Inst->isAtomic())
+        return false;
+
+      if (auto *Load = dyn_cast<LoadInst>(&*Inst))
+        if (Load->isVolatile())
+          return false;
+
+      if (auto *Store = dyn_cast<StoreInst>(&*Inst))
+        if (Store->isVolatile())
+          return false;
+
       auto *CInst = dyn_cast<CallInst>(&*Inst);
 
       if (!CInst)
@@ -960,6 +980,9 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
 
       if (isa<IntrinsicInst>(CInst))
         continue;
+
+      if (CInst->isInlineAsm())
+        return false;
 
       auto *Func = CInst->getCalledFunction();
 
@@ -969,7 +992,8 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
 
       // Allow library and vectorizable calls.
       LibFunc LF;
-      if ((TLI->getLibFunc(Func->getName(), LF) && TLI->has(LF)) ||
+      if (RelaxChecks ||
+          (TLI->getLibFunc(Func->getName(), LF) && TLI->has(LF)) ||
           TLI->isFunctionVectorizable(Func->getName()))
         continue;
 
@@ -980,7 +1004,7 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
   // We are unlikely to perform loop transformations if loop has too many
   // branches. The number of blocks is used as a simplistic heuristic for number
   // of branches allowed.
-  if (NumBlocks > 5)
+  if (NumBlocks > (RelaxChecks ? 20u : 5u))
     return false;
 
   return true;
@@ -998,20 +1022,31 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
     return false;
 
   auto *BB = Inst->getParent();
-  if (!BB->getParent()->isPreLoopOpt())
+  auto *Func = BB->getParent();
+  if (!Func->isPreLoopOpt())
     return false;
 
+  // This flag is used as a heuristic to predict whether the functon may be
+  // inlined. There are a couple of problems with accurate prediction- 1)
+  // Unswitching happens very early before inlining in the pass pipeline. 2)
+  // There are some conditions which are handled by this pass but not the
+  // LoopOpt predicate opt pass. For example- CMPLRLLVM-23157.
+  //
+  // The heuristics reflect the fact that we are trying to suppress this
+  // particularly for fortran benchmarks which have loopnest heavy code.
+  bool MayBeInlined = Func->hasExternalLinkage() && Func->isFortran();
+
   // Let unswitching happen for outermost loops.
-  if (!CurLoop->getParentLoop())
+  if (!MayBeInlined && !CurLoop->getParentLoop())
     return false;
 
   // We need to get the innermost loop for the block as the same bblock
   // may be traversed for outer loops as well.
-  Loop *CondLp = CurLoop->empty() ? CurLoop : LI->getLoopFor(BB);
+  Loop *CondLp = CurLoop->isInnermost() ? CurLoop : LI->getLoopFor(BB);
 
   // Check if this loopnest looks like a perfect loopnest.
 
-  if (!CondLp->empty()) {
+  if (!CondLp->isInnermost()) {
     // Check whether the condition being hoisted looks like inner loop's ztt.
     auto &SubLoops = CondLp->getSubLoops();
 
@@ -1029,19 +1064,19 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
         BrInst->getSuccessor(1) != SubLoopPreheader)
       return false;
 
-    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI))
+    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI, MayBeInlined))
       return false;
   }
 
   auto *ParentLp = CondLp->getParentLoop();
 
-  if (!ParentLp)
+  if (!MayBeInlined && !ParentLp)
     return false;
 
-  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI))
+  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI, MayBeInlined))
     return false;
 
-  if (!isLoopHandledByLoopOpt(ParentLp, LI, TLI))
+  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI, MayBeInlined))
     return false;
 
   return true;
@@ -1570,9 +1605,7 @@ void LoopUnswitch::unswitchNontrivialCondition(Value *LIC, Constant *Val,
 /// Remove all instances of I from the worklist vector specified.
 static void removeFromWorklist(Instruction *I,
                                std::vector<Instruction *> &Worklist) {
-
-  Worklist.erase(std::remove(Worklist.begin(), Worklist.end(), I),
-                 Worklist.end());
+  llvm::erase_value(Worklist, I);
 }
 
 /// When we find that I really equals V, remove I from the

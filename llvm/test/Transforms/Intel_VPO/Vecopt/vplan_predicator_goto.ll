@@ -8,24 +8,21 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i32* noalias nocapture readnone %a) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan IR for: foo
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp sgt i32 [[VP_LD]] i32 100
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB1_MUL:%.*]] = mul i32 [[VP_LD]] i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 entry:
 ;   entry

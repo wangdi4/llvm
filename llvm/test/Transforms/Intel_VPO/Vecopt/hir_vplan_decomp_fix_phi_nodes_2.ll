@@ -4,8 +4,8 @@
 ; necessarily defined in the predecessor VPBB, but the value rather flows in
 ; from another predecessor in the control flow.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>"  -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>"  -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <73>    + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -75,100 +75,85 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
-; CHECK-LABEL:  VPlan after importing plain CFG
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[T2_0690:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[T2_0690:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = hir-copy i32 [[VP0]] , OriginPhiId: -1
-; CHECK-NEXT:     i32* [[VP5:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
-; CHECK-NEXT:     i32 [[VP6:%.*]] = load i32* [[VP5]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP7]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP8]]), [[BB5:BB[0-9]+]](!i1 [[VP8]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP5]]
+; CHECK-NEXT:     br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       i64 [[VP9:%.*]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:       i32* [[VP10:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP9]]
-; CHECK-NEXT:       i32 [[VP11:%.*]] = load i32* [[VP10]]
-; CHECK-NEXT:       i32 [[VP12:%.*]] = hir-copy i32 [[VP11]] , OriginPhiId: -1
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
+; CHECK-NEXT:       i64 [[VP7:%.*]] = add i64 [[VP2]] i64 1
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP7]]
+; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       i32 [[VP8:%.*]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
+; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       i1 [[VP13:%.*]] = icmp sgt i32 [[VP6]] i32 1023
-; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP13]]), [[BB7:BB[0-9]+]](!i1 [[VP13]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       i1 [[VP9:%.*]] = icmp sgt i32 [[VP_LOAD]] i32 1023
+; CHECK-NEXT:       br i1 [[VP9]], [[BB6:BB[0-9]+]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB7]]:
-; CHECK-NEXT:         i64 [[VP14:%.*]] = add i64 [[VP2]] i64 134
-; CHECK-NEXT:         i32* [[VP15:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP14]]
-; CHECK-NEXT:         i32 [[VP16:%.*]] = load i32* [[VP15]]
-; CHECK-NEXT:         i32 [[VP17:%.*]] = hir-copy i32 [[VP16]] , OriginPhiId: -1
-; CHECK-NEXT:         i32 [[VP18:%.*]] = hir-copy i32 [[VP6]] , OriginPhiId: -1
-; CHECK-NEXT:        SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:        [[BB7]]: # preds: [[BB4]]
+; CHECK-NEXT:         i64 [[VP10:%.*]] = add i64 [[VP2]] i64 134
+; CHECK-NEXT:         i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP10]]
+; CHECK-NEXT:         i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:         i32 [[VP11:%.*]] = hir-copy i32 [[VP_LOAD_2]] , OriginPhiId: -1
+; CHECK-NEXT:         i32 [[VP12:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
+; CHECK-NEXT:         br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB6]]:
-; CHECK-NEXT:         i32 [[VP19:%.*]] = hir-copy i32 [[VP4]] , OriginPhiId: -1
-; CHECK-NEXT:         i32 [[VP20:%.*]] = mul i32 [[VP6]] i32 2
-; CHECK-NEXT:         i32 [[VP21:%.*]] = hir-copy i32 [[VP20]] , OriginPhiId: -1
-; CHECK-NEXT:        SUCCESSORS(1):[[BB8]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:        [[BB6]]: # preds: [[BB4]]
+; CHECK-NEXT:         i32 [[VP13:%.*]] = hir-copy i32 [[VP4]] , OriginPhiId: -1
+; CHECK-NEXT:         i32 [[VP14:%.*]] = mul i32 [[VP_LOAD]] i32 2
+; CHECK-NEXT:         i32 [[VP15:%.*]] = hir-copy i32 [[VP14]] , OriginPhiId: -1
+; CHECK-NEXT:         br [[BB8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
-; CHECK-NEXT:       i32 [[VP22:%.*]] = phi  [ i32 [[VP21]], [[BB6]] ],  [ i32 [[VP18]], [[BB7]] ]
-; CHECK-NEXT:       i32 [[VP23:%.*]] = phi  [ i32 [[VP19]], [[BB6]] ],  [ i32 [[VP17]], [[BB7]] ]
-; CHECK-NEXT:       i32 [[VP24:%.*]] = add i32 [[VP23]] i32 1024
-; CHECK-NEXT:       i32 [[VP25:%.*]] = hir-copy i32 [[VP24]] , OriginPhiId: -1
-; CHECK-NEXT:       i32 [[VP26:%.*]] = hir-copy i32 [[VP22]] , OriginPhiId: -1
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB7]]
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB6]], [[BB7]]
+; CHECK-NEXT:       i32 [[VP16:%.*]] = phi  [ i32 [[VP15]], [[BB6]] ],  [ i32 [[VP12]], [[BB7]] ]
+; CHECK-NEXT:       i32 [[VP17:%.*]] = phi  [ i32 [[VP13]], [[BB6]] ],  [ i32 [[VP11]], [[BB7]] ]
+; CHECK-NEXT:       i32 [[VP18:%.*]] = add i32 [[VP17]] i32 1024
+; CHECK-NEXT:       i32 [[VP19:%.*]] = hir-copy i32 [[VP18]] , OriginPhiId: -1
+; CHECK-NEXT:       i32 [[VP20:%.*]] = hir-copy i32 [[VP16]] , OriginPhiId: -1
+; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     i32 [[VP27:%.*]] = phi  [ i32 [[VP26]], [[BB8]] ],  [ i32 [[VP12]], [[BB5]] ]
-; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP25]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
-; CHECK-NEXT:     i32 [[VP28:%.*]] = hir-copy i32 [[VP1]] , OriginPhiId: -1
-; CHECK-NEXT:     i32* [[VP29:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP27]] i32* [[VP29]]
-; CHECK-NEXT:     i32 [[VP30:%.*]] = mul i32 [[N0:%.*]] i32 2
-; CHECK-NEXT:     i32 [[VP31:%.*]] = add i32 [[VP27]] i32 [[VP30]]
-; CHECK-NEXT:     i32* [[VP32:%.*]] = subscript inbounds [1024 x i32]* @c i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP31]] i32* [[VP32]]
-; CHECK-NEXT:     i32* [[VP33:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
-; CHECK-NEXT:     i32 [[VP34:%.*]] = load i32* [[VP33]]
-; CHECK-NEXT:     i32 [[VP35:%.*]] = mul i32 [[N0]] i32 2
-; CHECK-NEXT:     i32 [[VP36:%.*]] = add i32 [[VP27]] i32 [[VP35]]
-; CHECK-NEXT:     i32 [[VP37:%.*]] = add i32 [[VP36]] i32 [[VP34]]
-; CHECK-NEXT:     i64 [[VP38:%.*]] = sext i32 [[VP37]] to i64
-; CHECK-NEXT:     i1 [[VP39:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP38]]
-; CHECK-NEXT:     i32 [[VP40:%.*]] = select i1 [[VP39]] i32 [[VP27]] i32 [[VP34]]
-; CHECK-NEXT:     i32* [[VP41:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP40]] i32* [[VP41]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB8]], [[BB5]]
+; CHECK-NEXT:     i32 [[VP21:%.*]] = phi  [ i32 [[VP20]], [[BB8]] ],  [ i32 [[VP8]], [[BB5]] ]
+; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP19]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
+; CHECK-NEXT:     i32 [[VP22:%.*]] = hir-copy i32 [[VP1]] , OriginPhiId: -1
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     i32 [[VP23:%.*]] = mul i32 [[N0:%.*]] i32 2
+; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP21]] i32 [[VP23]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @c i64 0 i64 [[VP2]]
+; CHECK-NEXT:     store i32 [[VP24]] i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:     i32 [[VP25:%.*]] = mul i32 [[N0]] i32 2
+; CHECK-NEXT:     i32 [[VP26:%.*]] = add i32 [[VP21]] i32 [[VP25]]
+; CHECK-NEXT:     i32 [[VP27:%.*]] = add i32 [[VP26]] i32 [[VP_LOAD_3]]
+; CHECK-NEXT:     i64 [[VP28:%.*]] = sext i32 [[VP27]] to i64
+; CHECK-NEXT:     i1 [[VP29:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP28]]
+; CHECK-NEXT:     i32 [[VP30:%.*]] = select i1 [[VP29]] i32 [[VP21]] i32 [[VP_LOAD_3]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
+; CHECK-NEXT:     store i32 [[VP30]] i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP42:%.*]] = icmp sle i64 [[VP3]] i64 1023
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP42]]), [[BB9:BB[0-9]+]](!i1 [[VP42]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB5]]
+; CHECK-NEXT:     i1 [[VP31:%.*]] = icmp sle i64 [[VP3]] i64 1023
+; CHECK-NEXT:     br i1 [[VP31]], [[BB2]], [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]]
+; CHECK-NEXT:     br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
+; CHECK-NEXT:     br <External Block>
 ;
 ; Check that the loop is not vectorized.
 ; CHECK:  DO i1 = 0, 1023, 1   <DO_LOOP>

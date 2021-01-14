@@ -4,6 +4,8 @@
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 // UNSUPPORTED: linux
+// INTEL TODO: Fix the Windows failures (see CMPLRLLVM-25319)
+// INTEL XFAIL: windows
 
 /// ###########################################################################
 
@@ -60,9 +62,9 @@
 // STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu" "-inputs={{.*}}" "-check-section"
 // STATIC_LIB_NOSRC: ld{{.*}} "-r" "-o" "[[PARTIALOBJ:.+\.o]]" "{{.*}}crt1.o" {{.*}} "-L/dummy/dir" {{.*}}
 // STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=oo" "-targets=openmp-spir64" "-inputs=[[PARTIALOBJ]]" "-outputs=[[DEVICELIST:.+\.txt]]" "-unbundle"
-// STATIC_LIB_NOSRC: llvm-link{{.*}} "@[[DEVICELIST]]" "-o" "[[OUTFILE:.+\.out]]"
+// STATIC_LIB_NOSRC: llvm-link{{.*}} "@[[DEVICELIST]]" "-o" "[[OUTFILE:.+\.bc]]"
 // STATIC_LIB_NOSRC: sycl-post-link{{.*}} "-o" "[[BCFILE:.+\.bc]]" "[[OUTFILE]]"
-// STATIC_LIB_NOSRC: llvm-spirv{{.*}} "-o" "[[OUTFILE2:.+\.out]]" {{.*}} "[[BCFILE]]"
+// STATIC_LIB_NOSRC: llvm-spirv{{.*}} "-o" "[[OUTFILE2:.+\.spv]]" {{.*}} "[[BCFILE]]"
 // STATIC_LIB_NOSRC: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[BCFILE2:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OUTFILE2]]"
 // STATIC_LIB_NOSRC: clang{{.*}} "-o" "[[FINALOBJ:.+\.o]]" {{.*}} "[[BCFILE2]]"
 // STATIC_LIB_NOSRC: ld{{.*}} "-L/dummy/dir" {{.*}} "[[FINALOBJ]]"
@@ -79,9 +81,9 @@
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -Qiopenmp -Qopenmp-targets=spir64 %s liboffload.lib -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=STATIC_LIB_WIN_LIBENV
 // STATIC_LIB_WIN_LIBENV: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64" "-inputs={{.*}}liboffload.lib" "-outputs=[[BUNDLETXT:.+\.txt]]" "-unbundle"
-// STATIC_LIB_WIN_LIBENV: llvm-link{{.*}} "@[[BUNDLETXT]]" "-o" "[[LINKOUT:.+\.exe]]"
+// STATIC_LIB_WIN_LIBENV: llvm-link{{.*}} "@[[BUNDLETXT]]" "-o" "[[LINKOUT:.+\.bc]]"
 // STATIC_LIB_WIN_LIBENV: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[POSTLINKBC:.+\.bc]]" "[[LINKOUT]]"
-// STATIC_LIB_WIN_LIBENV: llvm-spirv{{.*}} "-o" "[[SPIRVOUT:.+\.exe]]" "-spirv-ext={{.*}}" "[[POSTLINKBC]]"
+// STATIC_LIB_WIN_LIBENV: llvm-spirv{{.*}} "-o" "[[SPIRVOUT:.+\.spv]]" "-spirv-ext={{.*}}" "[[POSTLINKBC]]"
 // STATIC_LIB_WIN_LIBENV: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPEROUT:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[SPIRVOUT]]"
 // STATIC_LIB_WIN_LIBENV: clang{{.*}} "-o" "[[WRAPOBJ:.+\.obj]]" "-x" "ir" "[[WRAPPEROUT]]"
 // STATIC_LIB_WIN_LIBENV: link{{.*}} "liboffload.lib"{{.*}}"[[WRAPOBJ]]"

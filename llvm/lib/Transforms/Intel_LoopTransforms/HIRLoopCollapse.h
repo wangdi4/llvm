@@ -407,7 +407,7 @@ private:
   }
 
   bool isSingleDimensionMemRef(RegDDRef *MemRef) const {
-    return (MemRef->getNumDimensions() == 1);
+    return MemRef->isSingleDimension();
   }
 
   // *** Pattern Matching Code ***

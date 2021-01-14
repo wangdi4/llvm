@@ -61,6 +61,10 @@ define internal void @test03(i8* %arg03) !dtrans_type !11 {
   ret void
 }
 define internal void @helper_test03(%struct.test03* %in) !dtrans_type !8 {
+  ; Need to use the value to establish the callsite parameter as getting used
+  ; as the type.
+  %field = getelementptr %struct.test03, %struct.test03* %in, i64 0, i32 1
+  store i32 0, i32* %field
   ret void
 }
 ; CHECK-LABEL:  Input Parameters: test03

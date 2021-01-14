@@ -15,7 +15,7 @@
 
 ; Basic orientation checks.
 ; CHECK:      Starting llvm::Module pass manager run.
-; CHECK-NEXT: Starting llvm::Module pass manager run.
+; CHECK-NEXT: Running pass: Annotation2MetadataPass
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -41,8 +41,9 @@
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
 ; CHECK-NOT: Running analysis: DTransAnalysis
 ; CHECK: Running pass: dtrans::TransposePass
-; CHECK: Running pass: dtrans::MemInitTrimDownPass
+; CHECK: Running pass: dtrans::CommuteCond
 ; CHECK: Running analysis: DTransAnalysis
+; CHECK: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK: Running pass: dtrans::SOAToAOSPreparePass
 ; CHECK: Running pass: dtrans::SOAToAOSPass
 ; The ordering of the analysis passes seems not to be deterministic so we

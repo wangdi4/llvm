@@ -410,6 +410,22 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ReuseLoop: {
+    // Instruction itself is unconditionally always scalar.
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // All operands are always scalar too.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::OrigLiveOut: {
+    // Instruction itself is unconditionally always scalar.
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // All operands are always scalar too.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -420,6 +436,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::Subscript:
   case VPInstruction::Blend:
   case VPInstruction::HIRCopy:
+  case VPInstruction::ConstStepVector:
   case VPInstruction::Abs: {
     // VPlan-specific instructions that don't need special processing in SVA.
     return false;
@@ -702,6 +719,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::OrigTripCountCalculation:
   case VPInstruction::ActiveLane:
   case VPInstruction::ActiveLaneExtract:
+  case VPInstruction::ReuseLoop:
+  case VPInstruction::OrigLiveOut:
     return true;
   default:
     return false;
@@ -732,8 +751,14 @@ void VPlanScalVecAnalysis::print(raw_ostream &OS) {
 
 void VPlanScalVecAnalysis::printSVAKindForInst(raw_ostream &OS,
                                                const VPInstruction *VPI) const {
-  SVABits InstBits = getSVABitsForInst(VPI);
-  SVABits RetValBits = getSVABitsForReturnValue(VPI);
+  // Default if inst doesn't have valid SVABits is 0.
+  SVABits InstBits(0);
+  if (auto InstBitsOption = findSVABitsForInst(VPI))
+    InstBits = InstBitsOption.getValue();
+  // Default if inst doesn't have valid return value SVABits is 0.
+  SVABits RetValBits(0);
+  if (auto RetValBitsOption = findSVABitsForReturnValue(VPI))
+    RetValBits = RetValBitsOption.getValue();
   if (InstBits != RetValBits) {
     OS << "RetVal:(";
     if (RetValBits.test(static_cast<unsigned>(SVAKind::FirstScalar)))
@@ -769,7 +794,10 @@ void VPlanScalVecAnalysis::printSVAKindForInst(raw_ostream &OS,
 void VPlanScalVecAnalysis::printSVAKindForOperand(raw_ostream &OS,
                                                   const VPInstruction *VPI,
                                                   unsigned OpIdx) const {
-  SVABits OpBits = getSVABitsForOperand(VPI, OpIdx);
+  // Default if operand doesn't have valid SVABits is 0.
+  SVABits OpBits(0);
+  if (auto OpBitsOption = findSVABitsForOperand(VPI, OpIdx))
+    OpBits = OpBitsOption.getValue();
   if (OpBits.test(static_cast<unsigned>(SVAKind::FirstScalar)))
     OS << "F";
   if (OpBits.test(static_cast<unsigned>(SVAKind::LastScalar)))

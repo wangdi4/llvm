@@ -23,12 +23,14 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp
   Intel_VPlan/IntelVPlanAllZeroBypass.cpp
   Intel_VPlan/IntelVPlanCFGBuilder.cpp
+  Intel_VPlan/IntelVPlanCFGMerger.cpp
   Intel_VPlan/IntelVPlanCallVecDecisions.cpp
   Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
   Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp
   Intel_VPlan/IntelVPlanDriver.cpp
+  Intel_VPlan/IntelVPlanEvaluator.cpp
   Intel_VPlan/IntelVPlanExternals.cpp
   Intel_VPlan/IntelVPlanFunctionVectorizer.cpp
   Intel_VPlan/IntelVPlanHCFGBuilder.cpp
@@ -38,6 +40,8 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp
   Intel_VPlan/IntelVPlanLoopInfo.cpp
   Intel_VPlan/IntelVPlanLoopUnroller.cpp
+  Intel_VPlan/IntelVPlanMaskedModeLoop.cpp
+  Intel_VPlan/IntelVPMemRefTransform.cpp
   Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanScalarEvolution.cpp
@@ -68,10 +72,30 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   directives_gen
 # end INTEL_CUSTOMIZATION
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+  Support
+  TransformUtils
+# INTEL_CUSTOMIZATION
+  Intel_LoopAnalysis
+  Intel_LoopTransforms
+  Intel_OptReport
+  VPOAnalysis
+  VPOTransforms
+# end INTEL_CUSTOMIZATION
   )
 
 # INTEL_CUSTOMIZATION
 if(INTEL_INCLUDE_DTRANS)
   target_link_libraries(LLVMVectorize PRIVATE LLVMIntel_DTransOpt)
 endif(INTEL_INCLUDE_DTRANS)
+if (HOST_WINNT)
+if (NOT MSVC)
+# This is to fix the error (unused private field) with xmain self build about
+# the PeelTC data member of class VPlanRemainderEvaluator.
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-private-field")
+endif()
+endif()
 # end INTEL_CUSTOMIZATION

@@ -6430,7 +6430,8 @@ public:
       AnnotatedWriter(LocalPointerAnalyzer &LPA) : LPA(LPA) {}
 
       // Output the types pointer parameters are used as within the function.
-      void emitFunctionAnnot(const Function *F, formatted_raw_ostream &OS) {
+      void emitFunctionAnnot(const Function *F,
+                             formatted_raw_ostream &OS) override {
         // We don't have LPA information for parameters of function
         // declarations.
         if (F->isDeclaration())
@@ -6446,7 +6447,8 @@ public:
       }
 
       // Output the LPA information about the value object
-      void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+      void printInfoComment(const Value &CV,
+                            formatted_raw_ostream &OS) override {
         Value *V = const_cast<Value *>(&CV);
         emitLPA(V, OS);
       }
@@ -8070,6 +8072,10 @@ private:
         }
 
         if (ParentTy->isStructTy()) {
+          // If the element pointee was added as a result of a bitcast from the
+          // structure type to the type of element zero, then the
+          // EleemntZeroAliasSet will be non-empty.
+          bool HasNonGEPAccess = !PtrInfo.getElementZeroAliasSet().empty();
           auto *ParentStInfo =
               cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
           assert((!PointeePair.first->isStructTy() ||
@@ -8080,6 +8086,8 @@ private:
           dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
           if (IsLoad) {
             FI.setRead(I);
+            if (HasNonGEPAccess)
+              FI.setNonGEPAccess();
             DTBCA.analyzeLoad(FI, I);
             if (!identifyUnusedValue(cast<LoadInst>(I)))
               FI.setValueUnused(false);
@@ -8137,6 +8145,8 @@ private:
               FI.setBottomAllocFunction();
             }
             FI.setWritten(I);
+            if (HasNonGEPAccess)
+              FI.setNonGEPAccess();
             accumulateFrequency(FI, I);
             Value *V = cast<StoreInst>(&I)->getValueOperand();
             Instruction *II = dyn_cast<Instruction>(V);
@@ -8437,9 +8447,14 @@ private:
     // If allocation size is not constant we can try tracing it back to the
     // constant
     uint64_t Res;
+    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty->getElementType());
+    bool EndsInZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
     if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
-        traceNonConstantValue(Ty, AllocSizeVal, ElementSize))
+        dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
+                                      EndsInZeroSizedArray)) {
+      setBaseTypeInfoSafetyData(Ty, dtrans::ComplexAllocSize);
       return;
+    }
 
     // Check if the allocation size is not constant, but we can prove that the
     // variable is a multiple of the type's size
@@ -8450,103 +8465,6 @@ private:
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad alloc size:\n"
                       << "  " << *Call << "\n");
     setBaseTypeInfoSafetyData(Ty, dtrans::BadAllocSizeArg);
-  }
-
-  // Trace back instruction sequence corresponding to the following code:
-  //     foo (..., int n, ...) {
-  //         struct s *s_ptr = malloc(c1 + c2 * n);
-  //     }
-  // Returns false if it cannot trace \p InVal back to constants and calculate
-  // the size.
-  bool traceNonConstantValue(llvm::PointerType *Ty, Value *InVal,
-                             uint64_t ElementSize) {
-    if (!InVal)
-      return false;
-
-    Value *AddOp, *ShlOp;
-    ConstantInt *AddC, *ShlC = nullptr, *MulC = nullptr;
-
-    // Match alloc size with the add with the constant operand.
-    if (!match(InVal, m_OneUse(m_Add(m_ConstantInt(AddC), m_Value(AddOp)))) &&
-        !match(InVal, m_OneUse(m_Add(m_Value(AddOp), m_ConstantInt(AddC)))))
-      return false;
-
-    // Second add operand with the shl or mul with the constant operand.
-    if (!match(AddOp, m_Shl(m_Value(ShlOp), m_ConstantInt(ShlC))) &&
-        !match(AddOp, m_Mul(m_Value(ShlOp), m_ConstantInt(MulC))) &&
-        !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(ShlOp))))
-      return false;
-
-    // Second operand of the shl or mul expected to be function argument.
-    Argument *FormalArg = dyn_cast<Argument>(ShlOp);
-    if (!FormalArg)
-      return false;
-
-    // Now we need to look into each call site and find all constant values
-    // for the corresponding argument. If not all actual arguments are constant,
-    // return false.
-    Function *Callee = FormalArg->getParent();
-    unsigned FormalArgNo = FormalArg->getArgNo();
-
-    SmallVector<ConstantInt *, 8> ActualArgs;
-    if (!findAllArgValues(Callee, Callee, FormalArgNo, ActualArgs))
-      return false;
-
-    // Check if the structure has zero-sized array in the last field. It means
-    // that allocation size could be greater or equal to the structure size.
-    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty->getElementType());
-    bool HasZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
-
-    // Now iterate through all constants to verify that the allocation size was
-    // correct.
-    bool Verified = true;
-    for (auto *Const : ActualArgs) {
-      uint64_t ArgConst = Const->getLimitedValue();
-      uint64_t Res = ShlC ? (ArgConst << ShlC->getLimitedValue())
-                          : (ArgConst * MulC->getLimitedValue());
-      Res += AddC->getLimitedValue();
-
-      if (!HasZeroSizedArray)
-        Verified &= ((Res % ElementSize) == 0);
-      else
-        Verified &= (Res > ElementSize);
-    }
-
-    return Verified;
-  }
-
-  // Trace call sites to collect all constant actual parameters corresponding to
-  // \p FormalArgNo.
-  bool findAllArgValues(Function *F, Value *V, unsigned FormalArgNo,
-                        SmallVector<ConstantInt *, 8> &ActualArgs) {
-    for (Use &U : V->uses()) {
-      Value *Inst = U.getUser();
-      // In case of function cast operator do one more step.
-      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Inst)) {
-        if (!findAllArgValues(F, BC, FormalArgNo, ActualArgs))
-          return false;
-        continue;
-      }
-
-      // Must be a direct call.
-      auto *Call = dyn_cast<CallBase>(Inst);
-      if (!Call || Call->isIndirectCall())
-        return false;
-
-      // A called function should be F.
-      if (!Call->isCallee(&U))
-        if (dtrans::getCalledFunction(*Call) != F)
-          return false;
-
-      ConstantInt *ArgC =
-          dyn_cast_or_null<ConstantInt>(Call->getArgOperand(FormalArgNo));
-      if (!ArgC)
-        return false;
-
-      ActualArgs.push_back(ArgC);
-    }
-
-    return true;
   }
 
   // Mark fields designated by \p Info pointer and the memory \p Size to have
@@ -8951,47 +8869,48 @@ private:
       markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
       // Do not set safety issue if the memfunc call affects only one field.
-      StructType *StructType;
+      StructType *OuterStructType;
       size_t FieldNum;
       uint64_t PrePadBytes;
       uint64_t AccessSize;
       bool IsConstantSize = dtrans::isValueConstant(SetSize, &AccessSize);
       bool IsSimple =
-          isSimpleStructureMember(DstPtrToMember ? DstLPI : SrcLPI, &StructType,
-                                  &FieldNum, &PrePadBytes);
+          isSimpleStructureMember(DstPtrToMember ? DstLPI : SrcLPI,
+                                  &OuterStructType, &FieldNum, &PrePadBytes);
 
       // Note: Currently, PrePadBytes should always be 0 if we get here, because
       // currently the local pointer info should only be capturing an access
       // betweeen fields for the memset case, but we will check it, just in
       // case.
-      if (IsConstantSize && IsSimple && PrePadBytes == 0 &&
-          (DL.getTypeStoreSize(StructType->getElementType(FieldNum)) ==
-           AccessSize)) {
-
-        // If write to a structure field.
-        dtrans::MemfuncRegion RegionDesc;
-        RegionDesc.IsCompleteAggregate = false;
-        RegionDesc.FirstField = FieldNum;
-        RegionDesc.LastField = FieldNum;
-
-        // Create memfunc info for a single field access.
-        createMemcpyOrMemmoveCallInfo(
-            I, (DstPtrToMember ? DestParentTy : SrcParentTy), Kind, RegionDesc,
-            RegionDesc);
-
-        auto *StructInfo =
-            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructType));
-        auto &FieldInfo = StructInfo->getField(FieldNum);
-
-        if (DstPtrToMember) {
-          FieldInfo.setWritten(I);
-        } else {
-          assert(SrcPtrToMember);
-          FieldInfo.setRead(I);
+      if (IsConstantSize && IsSimple && PrePadBytes == 0) {
+        llvm::Type *ElemTy = OuterStructType->getElementType(FieldNum);
+        if (DL.getTypeStoreSize(ElemTy) == AccessSize) {
+          // The read/write is a single field within the structure. If that
+          // element is an aggregate type, collect the info in a MemCallInfo
+          // object. The MemCallInfo object is used by the transformations to
+          // adjust the size parameter of the call for the type being copied.
+          // we need to track that a copy is being made of the inner structure
+          // type to be able to adjust the size if a field gets deleted from it.
+          //
+          // For example:
+          //   %struct.test01a = type { i32, i32, i32, i32, i32 }
+          //   %struct.test01b = type { i32, %struct.test01a }
+          //
+          // A pointer of type %struct.test01a may be copied to/from the field
+          // member of %struct.test01b. If we reach this point, we know that one
+          // of the pointers is the element pointee, and the other is an alias
+          // of %struct.test01a. Set up the MemCallInfo object to record that
+          // the type of the field is being completely copied.
+          dtrans::MemfuncRegion RegionDesc;
+          RegionDesc.IsCompleteAggregate = true;
+          createMemcpyOrMemmoveCallInfo(I, ElemTy, Kind, RegionDesc,
+                                        RegionDesc);
+          auto *ElemInfo = DTInfo.getOrCreateTypeInfo(ElemTy);
+          markAllFieldsWritten(ElemInfo, I);
+          return;
         }
-
-        return;
       }
+
 
       setValueTypeInfoSafetyData(DestArg, dtrans::BadMemFuncManipulation);
       setValueTypeInfoSafetyData(SrcArg, dtrans::BadMemFuncManipulation);
@@ -9360,8 +9279,8 @@ private:
     auto *ParentTI = DTInfo.getOrCreateTypeInfo(StructTy);
 
     // Try to determine if a set of fields in a structure is being written.
-    if (analyzePartialStructUse(StructTy, FieldNum, PrePadBytes, SetSize,
-                                &RegionDesc)) {
+    if (dtrans::analyzePartialStructUse(DL, StructTy, FieldNum, PrePadBytes,
+                                        SetSize, &RegionDesc)) {
       // If not all members of the structure were set, mark it as
       // a partial write.
       if (!RegionDesc.IsCompleteAggregate) {
@@ -9374,7 +9293,8 @@ private:
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
                               RegionDesc.LastField, I);
     } else if (FieldNum == 0 && PrePadBytes == 0 &&
-        analyzePartialAccessNestedStructures(StructTy, SetSize)) {
+               dtrans::analyzePartialAccessNestedStructures(DL, StructTy,
+                                                            SetSize)) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Memfunc partial write "
                         << "(nested structure) -- size covers a set of fields"
                         << " in the inner structures:\n  " << I << "\n");
@@ -9392,131 +9312,6 @@ private:
       return false;
     }
 
-    return true;
-  }
-
-  // Return true if the input size (SetSize) partially accesses the inner
-  // structures in StructTy. For example:
-  //
-  //   %class.outer = type { %"class.inner1" }
-  //   %class.inner1 = type { %"class.inner2", %"class.inner2" }
-  //   %class.inner2 = type { %class.TestClass, i64, i64 }
-  //   %class.TestClass = type { i64, i64, i64 }
-  //
-  //   %tmp1 = bitcast %class.outer* %VAR1 to i8*
-  //   %tmp2 = bitcast %class.outer* %VAR2 to i8*
-  //
-  //   call void @llvm.memcpy(i8* nonnull align 8 dereferenceable(32) %tmp1,
-  //                          i8* nonnull align 8 dereferenceable(32) %tmp2,
-  //                          i64 32, i1 false)
-  //
-  // In the example above, the memcpy is just copying the first 32 bytes from
-  // %tmp2 to %tmp1. This means that it is copying the fields 0 and 1 from the
-  // %class.inner2, which can be reached by traversing the 0 element from
-  // %class.outer. This memcpy can be considered as a partial access.
-  bool analyzePartialAccessNestedStructures(StructType *StructTy,
-                                            Value *SetSize) {
-    if (!StructTy || !SetSize)
-      return false;
-
-    uint64_t InputSize = 0;
-    if (auto *Const = dyn_cast<ConstantInt>(SetSize))
-      InputSize = Const->getZExtValue();
-    else
-      return false;
-
-    if (InputSize == 0)
-      return false;
-
-    StructType *CurrStruct = StructTy;
-    while (CurrStruct) {
-      dtrans::MemfuncRegion RegionDesc;
-
-      if (analyzeStructFieldAccess(CurrStruct, 0 /* FieldNum */,
-                                   0 /* PrePadBytes */, InputSize, &RegionDesc))
-        return RegionDesc.PostPadBytes == 0;
-
-      CurrStruct = dyn_cast<StructType>(CurrStruct->getElementType(0));
-    }
-
-    return false;
-  }
-
-  // Wrapper function for analyzing structure field access which prepares
-  // parameters for that function.
-  bool analyzePartialStructUse(StructType *StructTy, size_t FieldNum,
-                               uint64_t PrePadBytes, const Value *AccessSizeVal,
-                               dtrans::MemfuncRegion *RegionDesc) {
-    if (!StructTy)
-      return false;
-
-    if (!AccessSizeVal)
-      return false;
-
-    auto *AccessSizeCI = dyn_cast<ConstantInt>(AccessSizeVal);
-    if (!AccessSizeCI)
-      return false;
-
-    uint64_t AccessSize = AccessSizeCI->getLimitedValue();
-    assert(FieldNum < StructTy->getNumElements());
-
-    return analyzeStructFieldAccess(StructTy, FieldNum, PrePadBytes, AccessSize,
-                                    RegionDesc);
-  }
-
-  // Helper to analyze a pointer-to-member usage to determine if only a
-  // specific subset of the structure fields of \p StructTy, starting from \p
-  // FieldNum and extending by \p AccessSize bytes of the structure are
-  // touched.
-  //
-  // Return 'true' if it can be resolved to precisely match one or more
-  // adjacent fields starting with the field number identified in the 'LPI'.
-  // If so, also updated the RegionDesc to set the starting index into
-  // 'FirstField' and the ending index of affected fields into 'LastField'.
-  // Otherwise, return 'false'.
-  bool analyzeStructFieldAccess(StructType *StructTy, size_t FieldNum,
-                                uint64_t PrePadBytes, uint64_t AccessSize,
-                                dtrans::MemfuncRegion *RegionDesc) {
-    uint64_t TypeSize = DL.getTypeAllocSize(StructTy);
-
-    // If the size is larger than the base structure size, then the write
-    // exceeds the bounds of a single structure, and it's an unsupported
-    // use.
-    if (AccessSize > TypeSize)
-      return false;
-
-    // Try to identify the range of fields being accessed based on the
-    // layout of the structure.
-    auto FieldTypes = StructTy->elements();
-    auto *SL = DL.getStructLayout(StructTy);
-    uint64_t FieldOffset = SL->getElementOffset(FieldNum);
-    uint64_t AccessStart = FieldOffset - PrePadBytes;
-    uint64_t AccessEnd = AccessStart + AccessSize - 1;
-
-    // Check that the access stays within the memory region of the structure,
-    // and is not just padding bytes between the fields.
-    if (AccessEnd > TypeSize || AccessEnd < FieldOffset)
-      return false;
-
-    unsigned int LF = SL->getElementContainingOffset(AccessEnd);
-
-    // Check if the last field was completely covered. If not, we do not
-    // support it. It could be safe, but could complicate transforms that need
-    // to work with nested structures.
-    uint64_t LastFieldStart = SL->getElementOffset(LF);
-    uint64_t LastFieldSize = DL.getTypeStoreSize(FieldTypes[LF]);
-    if (AccessEnd < (LastFieldStart + LastFieldSize - 1))
-      return false;
-
-    uint64_t PostPadBytes = AccessEnd - (LastFieldStart + LastFieldSize - 1);
-    RegionDesc->PrePadBytes = PrePadBytes;
-    RegionDesc->FirstField = FieldNum;
-    RegionDesc->LastField = LF;
-    RegionDesc->PostPadBytes = PostPadBytes;
-    if (!(FieldNum == 0 && LF == (StructTy->getNumElements() - 1)))
-      RegionDesc->IsCompleteAggregate = false;
-    else
-      RegionDesc->IsCompleteAggregate = true;
     return true;
   }
 
@@ -10412,6 +10207,17 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   } else if (Ty->isArrayTy()) {
     dtrans::TypeInfo *ElementInfo =
         getOrCreateTypeInfo(Ty->getArrayElementType());
+
+    // Creating the ElementInfo may have created the needed type during a
+    // recursive call because the type was a field in a type referenced
+    // by the array, so check for the type again before creating a new object.
+    // For example:
+    //   Ty: [5 x %struct.foo*]
+    //       %struct.foo = type { [5 x %struct.foo*] }
+    auto TI = getTypeInfo(Ty);
+    if (TI)
+      return TI;
+
     DTransTy =
         new dtrans::ArrayInfo(Ty, ElementInfo, Ty->getArrayNumElements());
   } else if (Ty->isStructTy()) {
@@ -10422,6 +10228,16 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
       // Create a DTrans type for the field, in case it is an aggregate.
       (void)getOrCreateTypeInfo(FieldTy);
     }
+
+    // Creating the TypeInfo objects for the fields may have resulted
+    // in the StructInfo for this type being created because the type
+    // may be reachable from one of the fields, so check for the type again
+    // before creating a new object. For example:
+    //   Ty: %struct.foo = type { i32, %struct.foo* }
+    auto TI = getTypeInfo(Ty);
+    if (TI)
+      return TI;
+
     DTransTy = new dtrans::StructInfo(Ty, FieldTypes);
   } else {
     assert(!Ty->isAggregateType() &&

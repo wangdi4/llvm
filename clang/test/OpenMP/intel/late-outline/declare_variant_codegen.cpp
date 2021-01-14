@@ -41,6 +41,22 @@ void foo_targ(float *A, int dnum) { }
 void foo_base(float *A, int dnum) {
 }
 
+void bar_targ(float *A, int dnum) { }
+
+//HOST: define{{.*}}bar_base{{.*}}#[[BARBASE:[0-9]*]]
+#pragma omp declare variant(bar_targ) \
+    match(construct={target variant dispatch}, device={arch(gen9,XeHP)})
+void bar_base(float *A, int dnum) {
+}
+
+void baz_targ(float *A, int dnum) { }
+
+//HOST: define{{.*}}baz_base{{.*}}#[[BAZBASE:[0-9]*]]
+#pragma omp declare variant(baz_targ) \
+    match(construct={target variant dispatch}, device={arch(XeLP,x86_64)})
+void baz_base(float *A, int dnum) {
+}
+
 // ALL-LABEL: caller2
 void caller2(int n, float* x, int dnum)
 {
@@ -57,6 +73,32 @@ void caller2(int n, float* x, int dnum)
       #pragma omp target variant dispatch device(dnum)
       //ALL: call{{.*}}foo_base
       foo_base(x, dnum);  // <-- may call foo_base or foo_targ
+      //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
+    }
+    //ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+    //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET"()
+    #pragma omp target
+    {
+      //ALL: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
+      //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
+      //ALL-SAME: "QUAL.OMP.DEVICE"(i32 [[L]])
+      #pragma omp target variant dispatch device(dnum)
+      //ALL: call{{.*}}bar_base
+      bar_base(x, dnum);  // <-- may call bar_base or bar_targ
+      //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
+    }
+    //ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+    //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET"()
+    #pragma omp target
+    {
+      //ALL: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
+      //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
+      //ALL-SAME: "QUAL.OMP.DEVICE"(i32 [[L]])
+      #pragma omp target variant dispatch device(dnum)
+      //ALL: call{{.*}}baz_base
+      baz_base(x, dnum);  // <-- may call baz_base or baz_targ
       //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TARGET.VARIANT.DISPATCH"
     }
     //ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
@@ -91,8 +133,20 @@ void caller2(int n, float* x, int dnum)
 
 //TARG: define{{.*}}foo_targ
 //TARG: define{{.*}}foo_base{{.*}}#[[FOOBASE:[0-9]*]]
+//TARG: define{{.*}}bar_targ
+//TARG: define{{.*}}bar_base{{.*}}#[[BARBASE:[0-9]*]]
+//TARG: define{{.*}}baz_targ
+//TARG: define{{.*}}baz_base{{.*}}#[[BAZBASE:[0-9]*]]
 
 //ALL: attributes #[[FOOBASE]] = {{.*}}"openmp-variant"=
 //ALL-SAME:name:{{.*}}foo_targ
 //ALL-SAME:construct:target_variant_dispatch;arch:gen
+
+//ALL: attributes #[[BARBASE]] = {{.*}}"openmp-variant"=
+//ALL-SAME:name:{{.*}}bar_targ
+//ALL-SAME:construct:target_variant_dispatch;arch:gen9,XeHP
+
+//ALL: attributes #[[BAZBASE]] = {{.*}}"openmp-variant"=
+//ALL-SAME:name:{{.*}}baz_targ
+//ALL-SAME:construct:target_variant_dispatch;arch:XeLP,x86_64
 // end INTEL_COLLAB

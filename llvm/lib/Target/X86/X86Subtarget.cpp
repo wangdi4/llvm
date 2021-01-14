@@ -32,6 +32,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/CodeGen/MachineScheduler.h" //INTEL
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -166,6 +167,10 @@ unsigned char X86Subtarget::classifyGlobalReference(const GlobalValue *GV,
     return X86II::MO_DARWIN_NONLAZY_PIC_BASE;
   }
 
+  // 32-bit ELF references GlobalAddress directly in static relocation model.
+  // We cannot use MO_GOT because EBX may not be set up.
+  if (TM.getRelocationModel() == Reloc::Static)
+    return X86II::MO_NO_FLAG;
   return X86II::MO_GOT;
 }
 
@@ -202,6 +207,9 @@ X86Subtarget::classifyGlobalFunctionReference(const GlobalValue *GV,
          (!F && M.getRtLibUseGOT())) &&
         is64Bit())
        return X86II::MO_GOTPCREL;
+    // Reference ExternalSymbol directly in static relocation model.
+    if (!is64Bit() && !GV && TM.getRelocationModel() == Reloc::Static)
+      return X86II::MO_NO_FLAG;
     return X86II::MO_PLT;
   }
 
@@ -233,7 +241,7 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef TuneCPU,
     CPU = "generic";
 
   if (TuneCPU.empty())
-    TuneCPU = "generic";
+    TuneCPU = "i586"; // FIXME: "generic" is more modern than llc tests expect.
 
   std::string FullFS = X86_MC::ParseX86Triple(TargetTriple);
   assert(!FullFS.empty() && "Failed to parse X86 triple");
@@ -258,12 +266,13 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef TuneCPU,
     report_fatal_error("64-bit code requested on a subtarget that doesn't "
                        "support it!");
 
-  // Stack alignment is 16 bytes on Darwin, Linux, kFreeBSD and Solaris (both
-  // 32 and 64 bit) and for all 64-bit targets.
+  // Stack alignment is 16 bytes on Darwin, Linux, kFreeBSD and for all
+  // 64-bit targets.  On Solaris (32-bit), stack alignment is 4 bytes
+  // following the i386 psABI, while on Illumos it is always 16 bytes.
   if (StackAlignOverride)
     stackAlignment = *StackAlignOverride;
-  else if (isTargetDarwin() || isTargetLinux() || isTargetSolaris() ||
-           isTargetKFreeBSD() || In64BitMode)
+  else if (isTargetDarwin() || isTargetLinux() || isTargetKFreeBSD() ||
+           In64BitMode)
     stackAlignment = Align(16);
 
   // Consume the vector width attribute or apply any target specific limit.
@@ -342,3 +351,10 @@ void X86Subtarget::getPostRAMutations(
 bool X86Subtarget::isPositionIndependent() const {
   return TM.isPositionIndependent();
 }
+#if INTEL_CUSTOMIZATION
+void X86Subtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
+                                           unsigned NumRegionInstrs) const {
+  if(!hasAVX512())
+    Policy.DisableLatencyHeuristic = true;
+}
+#endif // INTEL_CUSTOMIZATION

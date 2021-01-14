@@ -85,6 +85,7 @@
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/InitializePasses.h"
@@ -726,7 +727,7 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
 
     // Bail out if any ref has more than one dimension.
     if (std::any_of(Group.begin(), Group.end(), [](const RegDDRef *Ref) {
-          return !Ref->isSingleCanonExpr();
+          return !Ref->isSingleDimension();
         })) {
 
       if (IsAlreadySorted(I)) {
@@ -838,7 +839,7 @@ static bool isStarEdge(const DDEdge &Edge) {
 
 RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
     const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
-    DenseMap<RegDDRef *, unsigned> &RefGroupIndex,
+    DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
     SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> &Tests)
     const {
   DDGraph DDG = DDA.getGraph(Loop);
@@ -974,10 +975,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
-  RefGrouper Grouping(Refs, Groups);
+  DDRefIndexGrouping Grouping(Groups, Refs);
 
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
-  Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getRefGroupIndex(), Tests);
+  Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getIndex(), Tests);
   if (Ret != OK) {
     return Ret;
   }
@@ -1453,8 +1454,7 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
                                    const TargetLibraryInfo &TLI) {
   (void)TLI;
 
-  Context.Loop->extractZtt();
-  Context.Loop->extractPreheaderAndPostexit();
+  Context.Loop->extractZttPreheaderAndPostexit();
 
   // The HIR structure will be the following:
   //
@@ -1594,7 +1594,7 @@ bool HIRRuntimeDD::run() {
 
   if (DisableLibraryCallSwitch ||
       !TTI.isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42) ||
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) ||
       !TLI.has(LibFunc_qsort)) {
     LLVM_DEBUG(dbgs() << "[RTDD] Libraries are not available. The Library Call "
                          "Method will be disabled.\n");

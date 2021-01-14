@@ -88,53 +88,44 @@ int NotifyEvent(iJIT_JVM_EVENT EventType, void *EventSpecificData) {
   return 0;
 }
 
-int IttNotifyInfo(IttEventType EventType, const char *Name, unsigned int Size)
-{
+int ittNotifyInfo(IttEventType EventType, const char *Name, unsigned int Size) {
   switch (EventType) {
-    case LoadBinaryModule: {
-      if (!Name) {
-        errs() <<
-          "Error: The IttNotify event listener did not provide a module name.";
-        return -1;
-      }
-      outs() << "Module loaded : Name = " << Name
-             << ", Size = " << Size << "\n";
+  case LoadBinaryModule: {
+    if (!Name) {
+      errs() << "Error: The IttNotify event listener did not provide a module "
+                "name.";
+      return -1;
     }
-    break;
-    case LoadBinarySection: {
-      if (!Name) {
-        errs() <<
-          "Error: The IttNotify event listener did not provide a section name.";
-        return -1;
-      }
-      outs() << "Loaded section : Name = " << Name
-             << ", Size = " << Size << "\n";
+    outs() << "Module loaded : Name = " << Name << ", Size = " << Size << "\n";
+  } break;
+  case LoadBinarySection: {
+    if (!Name) {
+      errs() << "Error: The IttNotify event listener did not provide a section "
+                "name.";
+      return -1;
     }
-    break;
-    case UnloadBinaryModule: {
-      if (!Name) {
-        errs() <<
-          "Error: The IttNotify event listener did not provide a module name.";
-        return -1;
-      }
-      outs() << "Module unloaded : Name = " << Name
-             << ", Size = " << Size << "\n";
+    outs() << "Loaded section : Name = " << Name << ", Size = " << Size << "\n";
+  } break;
+  case UnloadBinaryModule: {
+    if (!Name) {
+      errs() << "Error: The IttNotify event listener did not provide a module "
+                "name.";
+      return -1;
     }
-    break;
-    case UnloadBinarySection: {
-      if (!Name) {
-        errs() <<
-          "Error: The IttNotify event listener did not provide a section name.";
-        return -1;
-      }
-      outs() << "Unloaded section : Name = " << Name
-             << ", Size = " << Size << "\n";
+    outs() << "Module unloaded : Name = " << Name << ", Size = " << Size
+           << "\n";
+  } break;
+  case UnloadBinarySection: {
+    if (!Name) {
+      errs() << "Error: The IttNotify event listener did not provide a section "
+                "name.";
+      return -1;
     }
-    break;
-    default:
-      break;
+    outs() << "Unloaded section : Name = " << Name << ", Size = " << Size
+           << "\n";
+  } break;
   }
-    return 0;
+  return 0;
 }
 
 iJIT_IsProfilingActiveFlags IsProfilingActive(void) {
@@ -204,7 +195,7 @@ public:
 
     std::unique_ptr<llvm::JITEventListener> Listener(
         JITEventListener::createIntelJITEventListener(new IntelJITEventsWrapper(
-            NotifyEvent, IttNotifyInfo, 0, IsProfilingActive, 0, 0,
+            NotifyEvent, ittNotifyInfo, 0, IsProfilingActive, 0, 0,
             GetNewMethodID)));
 
     TheJIT->RegisterJITEventListener(Listener.get());

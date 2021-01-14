@@ -18,6 +18,7 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64* [[VP_OUTER_GEP:%.*]] = getelementptr inbounds i64* [[ARR0:%.*]] i64 42
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_OUTER_LOAD:%.*]] = load i64* [[VP_OUTER_GEP]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] float* [[VP_OUTER_GEP2:%.*]] = getelementptr inbounds float* [[ARR10:%.*]] i64 [[VP_OUTER_LOAD]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV2:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_IV_NEXT2:%.*]], [[BB1]] ]
@@ -28,16 +29,20 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_UNIT_STRIDE_LOAD:%.*]] = load float* [[VP_UNIT_STRIDE_GEP]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV_NEXT2]] = add i64 [[VP_IV2]] i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND2:%.*]] = icmp eq i64 [[VP_IV_NEXT2]] i64 [[N0:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND2]], [[BB2]], [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB5:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB5]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   %cmp = icmp sgt i64 %n, 0

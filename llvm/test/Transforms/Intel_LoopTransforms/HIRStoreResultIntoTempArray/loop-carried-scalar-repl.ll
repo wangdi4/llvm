@@ -1,57 +1,57 @@
 ; There are two insts including pow() functions, and they have the same express trees. We extract the code and restore
 ; the result into a temp array.
 ;
-; In this case, the MinRef is (%"jacobian_$Q")[i1 + 1][i2][i3][0] and the MaxRef is (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0].
-; We enlarge the array size of i1, because the offset i1 + 1 in MinRef
-; We enlarge the upper bound of i1 in the extracted loop, because the distance between (%"jacobian_$Q")[i1 + 1][i2][i3][0] and (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0] is 1 at this dimension.
+; In this case, the MinRef is (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0] and the MaxRef is (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0].
+; We enlarge the array size of i1, i2 and i3, because the offset i1 + 1, i2 + 1 and i3 + 1 in MinRef.
+; We enlarge the upper bound of i1 in the extracted loop, because the distance between (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0] and (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0] is 1 at this dimension.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -disable-hir-store-result-into-temp-array=false -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -disable-hir-store-result-into-temp-array=false 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
 ;
 ;<0>          BEGIN REGION { }
-;<12>                  %"jacobian_$M.0" = undef;
-;<137:36>           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
-;<138:35>           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
-;<31:17>            |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch";
-;<139:34>           |   |
-;<139:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
-;<43:19>            |   |   |   %mod26 = i3 + 2  %  %"jacobian_$NX_fetch";
-;<49:20>            |   |   |   %"jacobian_$Q[]52[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2][i3][0];
-;<50:20>            |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2][i3][1]  /  %"jacobian_$Q[]52[][][]_fetch";
-;<54:21>            |   |   |   %div86 = (%"jacobian_$Q")[i1 + 1][i2][i3][2]  /  %"jacobian_$Q[]52[][][]_fetch";
-;<56:22>            |   |   |   %mul98 = %div  *  %div;
-;<57:22>            |   |   |   %mul100 = %div86  *  %div86;
-;<58:22>            |   |   |   %add101 = %mul98  +  %mul100;
-;<59:22>            |   |   |   %mul102 = %add101  *  2.000000e+00;
-;<61:23>            |   |   |   %mul106 = %mul102  *  2.000000e+00;
-;<62:23>            |   |   |   %div105 = %mul106  /  %"jacobian_$Q[]52[][][]_fetch";
-;<64:24>            |   |   |   %func_result = @llvm.pow.f64(%div105,  2.500000e+00);
-;<71:27>            |   |   |   %"jacobian_$Q[]144[][][]_fetch" = (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0];
-;<72:27>            |   |   |   %div152 = (%"jacobian_$Q")[i1 + 2][%mod][%mod26][1]  /  %"jacobian_$Q[]144[][][]_fetch";
-;<76:28>            |   |   |   %div202 = (%"jacobian_$Q")[i1 + 2][%mod][%mod26][2]  /  %"jacobian_$Q[]144[][][]_fetch";
-;<78:29>            |   |   |   %mul214 = %div152  *  %div152;
-;<79:29>            |   |   |   %mul216 = %div202  *  %div202;
-;<80:29>            |   |   |   %add217 = %mul214  +  %mul216;
-;<81:29>            |   |   |   %mul218 = %add217  *  2.000000e+00;
-;<83:30>            |   |   |   %mul230 = %mul218  *  2.000000e+00;
-;<84:30>            |   |   |   %div229 = %mul230  /  %"jacobian_$Q[]144[][][]_fetch";
-;<86:31>            |   |   |   %func_result242 = @llvm.pow.f64(%div229,  2.500000e+00);
-;<88:33>            |   |   |   %add243 = %"jacobian_$M.0"  +  %func_result242;
-;<89:33>            |   |   |   %"jacobian_$M.0" = %func_result  +  %add243;
-;<139:34>           |   |   + END LOOP
-;<138:35>           |   + END LOOP
-;<137:36>           + END LOOP
-;<122:38>              (%addressof)[0][0] = 48;
-;<124:38>              (%addressof)[0][1] = 1;
-;<126:38>              (%addressof)[0][2] = 1;
-;<128:38>              (%addressof)[0][3] = 0;
-;<130:38>              (%ARGBLOCK_0)[0].0 = %"jacobian_$M.0";
-;<133:38>              %func_result280 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
-;<137:36>
-;<136:39>           ret ;
+;<13>                  %"jacobian_$M.0" = undef;
+;<138:36>           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
+;<139:35>           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
+;<32:17>            |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch";
+;<140:34>           |   |
+;<140:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
+;<44:19>            |   |   |   %mod26 = i3 + 2  %  %"jacobian_$NX_fetch";
+;<50:20>            |   |   |   %"jacobian_$Q[]52[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0];
+;<51:20>            |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][1]  /  %"jacobian_$Q[]52[][][]_fetch";
+;<55:21>            |   |   |   %div86 = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][2]  /  %"jacobian_$Q[]52[][][]_fetch";
+;<57:22>            |   |   |   %mul98 = %div  *  %div;
+;<58:22>            |   |   |   %mul100 = %div86  *  %div86;
+;<59:22>            |   |   |   %add101 = %mul98  +  %mul100;
+;<60:22>            |   |   |   %mul102 = %add101  *  2.000000e+00;
+;<62:23>            |   |   |   %mul106 = %mul102  *  2.000000e+00;
+;<63:23>            |   |   |   %div105 = %mul106  /  %"jacobian_$Q[]52[][][]_fetch";
+;<65:24>            |   |   |   %func_result = @llvm.pow.f64(%div105,  2.500000e+00);
+;<72:27>            |   |   |   %"jacobian_$Q[]144[][][]_fetch" = (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0];
+;<73:27>            |   |   |   %div152 = (%"jacobian_$Q")[i1 + 2][%mod][%mod26][1]  /  %"jacobian_$Q[]144[][][]_fetch";
+;<77:28>            |   |   |   %div202 = (%"jacobian_$Q")[i1 + 2][%mod][%mod26][2]  /  %"jacobian_$Q[]144[][][]_fetch";
+;<79:29>            |   |   |   %mul214 = %div152  *  %div152;
+;<80:29>            |   |   |   %mul216 = %div202  *  %div202;
+;<81:29>            |   |   |   %add217 = %mul214  +  %mul216;
+;<82:29>            |   |   |   %mul218 = %add217  *  2.000000e+00;
+;<84:30>            |   |   |   %mul230 = %mul218  *  2.000000e+00;
+;<85:30>            |   |   |   %div229 = %mul230  /  %"jacobian_$Q[]144[][][]_fetch";
+;<87:31>            |   |   |   %func_result242 = @llvm.pow.f64(%div229,  2.500000e+00);
+;<89:33>            |   |   |   %add243 = %"jacobian_$M.0"  +  %func_result242;
+;<90:33>            |   |   |   %"jacobian_$M.0" = %func_result  +  %add243;
+;<140:34>           |   |   + END LOOP
+;<139:35>           |   + END LOOP
+;<138:36>           + END LOOP
+;<123:38>              (%addressof)[0][0] = 48;
+;<125:38>              (%addressof)[0][1] = 1;
+;<127:38>              (%addressof)[0][2] = 1;
+;<129:38>              (%addressof)[0][3] = 0;
+;<131:38>              (%ARGBLOCK_0)[0].0 = %"jacobian_$M.0";
+;<134:38>              %func_result280 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
+;<138:36>
+;<137:39>           ret ;
 ;<0>          END REGION
 ;
 ;*** IR Dump After HIR Store Result Into Temp Array ***
@@ -59,16 +59,16 @@
 ;
 ; CHECK:    BEGIN REGION { modified }
 ; CHECK:           %call = @llvm.stacksave();
-; CHECK:           %array_size = sext.i32.i64(%"jacobian_$NY_fetch")  *  sext.i32.i64(%"jacobian_$NX_fetch");
+; CHECK:           %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 1  *  sext.i32.i64(%"jacobian_$NX_fetch") + 1;
 ; CHECK:           %array_size4 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
 ; CHECK:           %TempArray = alloca %array_size4;
 ;
 ; CHECK:           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1   <DO_LOOP>
-; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
-; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
-; CHECK:           |   |   |   %"jacobian_$Q[]52[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2][i3][0];
-; CHECK:           |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2][i3][1]  /  %"jacobian_$Q[]52[][][]_fetch";
-; CHECK:           |   |   |   %div86 = (%"jacobian_$Q")[i1 + 1][i2][i3][2]  /  %"jacobian_$Q[]52[][][]_fetch";
+; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch"), 1   <DO_LOOP>
+; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch"), 1   <DO_LOOP>
+; CHECK:           |   |   |   %"jacobian_$Q[]52[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0];
+; CHECK:           |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][1]  /  %"jacobian_$Q[]52[][][]_fetch";
+; CHECK:           |   |   |   %div86 = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][2]  /  %"jacobian_$Q[]52[][][]_fetch";
 ; CHECK:           |   |   |   %mul98 = %div  *  %div;
 ; CHECK:           |   |   |   %mul100 = %div86  *  %div86;
 ; CHECK:           |   |   |   %add101 = %mul98  +  %mul100;
@@ -89,7 +89,7 @@
 ; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mod26 = i3 + 2  %  %"jacobian_$NX_fetch";
 ; CHECK:           |   |   |   %func_result = (%TempArray)[i1][i2][i3];
-; CHECK:           |   |   |   %func_result242 = (%TempArray)[i1 + 1][%mod][%mod26];
+; CHECK:           |   |   |   %func_result242 = (%TempArray)[i1 + 1][zext.i32.i64(%mod) + -1][zext.i32.i64(%mod26) + -1];
 ; CHECK:           |   |   |   %add243 = %"jacobian_$M.0"  +  %func_result242;
 ; CHECK:           |   |   |   %"jacobian_$M.0" = %func_result  +  %add243;
 ; CHECK:           |   |   + END LOOP
@@ -102,7 +102,7 @@
 ; CHECK:              (%ARGBLOCK_0)[0].0 = %"jacobian_$M.0";
 ; CHECK:              %func_result280 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
 ;
-; CHECK:           @llvm.stackrestore(&((%call)[0]));
+; CHECK:            @llvm.stackrestore(&((%call)[0]));
 ; CHECK:           ret ;
 ; CHECK:     END REGION
 ;

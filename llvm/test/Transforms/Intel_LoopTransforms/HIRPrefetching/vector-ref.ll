@@ -25,7 +25,7 @@
 ; CHECK:             %tgu = (zext.i32.i64(%t))/u4;
 ; CHECK:             if (0 <u 4 * %tgu)
 ; CHECK:             {
-; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <nounroll> <novectorize>
+; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:                |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 256][0]),  0,  3,  1);
 ; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 257][0]),  0,  3,  1);

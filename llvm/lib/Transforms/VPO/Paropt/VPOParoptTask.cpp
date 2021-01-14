@@ -207,7 +207,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   }
 
 #endif // INTEL_CUSTOMIZATION
-  Type *ScalarTy = cast<PointerType>(Src->getType())->getElementType();
+  Type *ScalarTy = Src->getType()->getPointerElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
@@ -216,11 +216,14 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
     MaybeAlign Align(DL.getABITypeAlignment(ScalarTy));
     Builder.CreateMemCpy(Dst, Align, Src, Align,
                          LprivI->getNewThunkBufferSize());
-  } else if (!VPOUtils::canBeRegisterized(ScalarTy, DL))
-    VPOUtils::genMemcpy(Dst, Src, DL, DL.getABITypeAlignment(ScalarTy),
-                        InsertPt->getParent());
-  else {
-    LoadInst *Load = Builder.CreateLoad(Src);
+  } else if (!VPOUtils::canBeRegisterized(ScalarTy, DL)) {
+    uint64_t Size =
+        DL.getTypeAllocSize(Dst->getType()->getPointerElementType());
+    VPOUtils::genMemcpy(Dst, Src, Size, DL.getABITypeAlignment(ScalarTy),
+                        Builder);
+  } else {
+    LoadInst *Load =
+        Builder.CreateLoad(Src->getType()->getPointerElementType(), Src);
     Builder.CreateStore(Load, Dst);
   }
 }
@@ -537,7 +540,7 @@ bool VPOParoptTransform::genTaskInitCode(WRegionNode *W,
                                          StructType *&KmpSharedTy,
                                          Value *&LastIterGep) {
 
-  Value *LBPtr, *UBPtr, *STPtr;
+  AllocaInst *LBPtr, *UBPtr, *STPtr;
 
   return genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy, LBPtr,
                              UBPtr, STPtr, LastIterGep, false);
@@ -567,8 +570,9 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
   Value *NewVDataSizeGep = Builder.CreateInBoundsGEP(
       KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 1)},
       OrigName + ".data.size.gep");
-  Value *DataSize =
-      Builder.CreateLoad(NewVDataSizeGep, OrigName + ".data.size");
+  Value *DataSize = Builder.CreateLoad(
+      cast<GEPOperator>(NewVDataSizeGep)->getResultElementType(),
+      NewVDataSizeGep, OrigName + ".data.size");
 
   Value *ZeroSize =
       Builder.getIntN(DataSize->getType()->getIntegerBitWidth(), 0);
@@ -589,8 +593,9 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
   Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
       KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
       OrigName + ".data.offset.gep");
-  Value *NewVDataOffset =
-      Builder.CreateLoad(NewVDataOffsetGep, OrigName + ".data.offset");
+  Value *NewVDataOffset = Builder.CreateLoad(
+      cast<GEPOperator>(NewVDataOffsetGep)->getResultElementType(),
+      NewVDataOffsetGep, OrigName + ".data.offset");
 
   Type *Int8PtrTy = Builder.getInt8PtrTy();
   Value *TaskThunkBasePtr = Builder.CreateBitCast(TaskTWithPrivates, Int8PtrTy,
@@ -609,8 +614,8 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
 // the thunk field dereferences
 bool VPOParoptTransform::genTaskLoopInitCode(
     WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
-    StructType *&KmpSharedTy, Value *&LBPtr, Value *&UBPtr, Value *&STPtr,
-    Value *&LastIterGep, bool isLoop) {
+    StructType *&KmpSharedTy, AllocaInst *&LBPtr, AllocaInst *&UBPtr,
+    AllocaInst *&STPtr, Value *&LastIterGep, bool isLoop) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopInitCode\n");
 
@@ -653,7 +658,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 
   Value *SharedGep =
       Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, {Zero, Zero});
-  Value *SharedLoad = Builder.CreateLoad(SharedGep);
+  Value *SharedLoad = Builder.CreateLoad(
+      cast<GEPOperator>(SharedGep)->getResultElementType(), SharedGep);
   Value *SharedCast = Builder.CreateBitCast(
       SharedLoad, PointerType::getUnqual(KmpSharedTy), ".shareds");
 
@@ -663,11 +669,15 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 
   Value *LowerBoundGep = Builder.CreateInBoundsGEP(
       KmpTaskTTy, BaseTaskTGep, {Zero, Builder.getInt32(5)}, ".lb.gep");
-  Value *LowerBoundLd = Builder.CreateLoad(LowerBoundGep, ".lb");
+  Value *LowerBoundLd = Builder.CreateLoad(
+      cast<GEPOperator>(LowerBoundGep)->getResultElementType(),
+      LowerBoundGep, ".lb");
 
   Value *UpperBoundGep = Builder.CreateInBoundsGEP(
       KmpTaskTTy, BaseTaskTGep, {Zero, Builder.getInt32(6)}, ".ub.gep");
-  Value *UpperBoundLd = Builder.CreateLoad(UpperBoundGep, ".ub");
+  Value *UpperBoundLd = Builder.CreateLoad(
+      cast<GEPOperator>(UpperBoundGep)->getResultElementType(),
+      UpperBoundGep, ".ub");
 
   /*The stride does not need to change since the loop is normalized by the clang
   Value *StrideGep = Builder.CreateInBoundsGEP(
@@ -712,13 +722,15 @@ bool VPOParoptTransform::genTaskLoopInitCode(
       I->setNew(NewVGep);
       return;
     }
-    I->setNew(Builder.CreateLoad(NewVGep, OrigName));
+    I->setNew(Builder.CreateLoad(
+        cast<GEPOperator>(NewVGep)->getResultElementType(), NewVGep, OrigName));
 
     Value *NewVDataSizeGep = Builder.CreateInBoundsGEP(
         KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 1)},
         OrigName + ".data.size.gep");
-    I->setNewThunkBufferSize(
-        Builder.CreateLoad(NewVDataSizeGep, OrigName + ".data.size"));
+    I->setNewThunkBufferSize(Builder.CreateLoad(
+        cast<GEPOperator>(NewVDataSizeGep)->getResultElementType(),
+        NewVDataSizeGep, OrigName + ".data.size"));
   };
 
   for (PrivateItem *PrivI : W->getPriv().items()) {
@@ -749,8 +761,9 @@ bool VPOParoptTransform::genTaskLoopInitCode(
           KmpSharedTy, SharedCast,
           {Zero, Builder.getInt32(LprivI->getSharedThunkIdx())},
           OrigName + ".shr.gep");
-      Value *ThunkSharedVal =
-          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
+      Value *ThunkSharedVal = Builder.CreateLoad(
+          cast<GEPOperator>(ThunkSharedGep)->getResultElementType(),
+          ThunkSharedGep, OrigName + ".shr");
       // Parm is used to record the address of last private in the compiler
       // shared variables in the thunk.
       LprivI->setOrigGEP(ThunkSharedVal);
@@ -770,15 +783,17 @@ bool VPOParoptTransform::genTaskLoopInitCode(
             KmpSharedTy, SharedCast,
             {Zero, Builder.getInt32(RedI->getSharedThunkIdx())},
             OrigName + ".shr.gep");
-        Value *ThunkSharedVal =
-            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
+        Value *ThunkSharedVal = Builder.CreateLoad(
+            cast<GEPOperator>(ThunkSharedGep)->getResultElementType(),
+            ThunkSharedGep, OrigName + ".shr");
 
         // The __kmpc_task_reduction_get_th_data call needs the pointer to the
         // actual data being reduced, after any pointer dereferences or offset
         // additions.
         if (RedI->getIsByRef())
-          ThunkSharedVal =
-              Builder.CreateLoad(ThunkSharedVal, OrigName + ".shr.deref");
+          ThunkSharedVal = Builder.CreateLoad(
+              ThunkSharedVal->getType()->getPointerElementType(),
+              ThunkSharedVal, OrigName + ".shr.deref");
 
         if (RedI->getIsArraySection()) {
           const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
@@ -820,8 +835,9 @@ bool VPOParoptTransform::genTaskLoopInitCode(
           KmpSharedTy, SharedCast,
           {Zero, Builder.getInt32(ShaI->getSharedThunkIdx())},
           OrigName + ".shr.gep");
-      Value *ThunkSharedVal =
-          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
+      Value *ThunkSharedVal = Builder.CreateLoad(
+          cast<GEPOperator>(ThunkSharedGep)->getResultElementType(),
+          ThunkSharedGep, OrigName + ".shr");
       ShaI->setNew(ThunkSharedVal);
     }
   }
@@ -933,7 +949,9 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
     Value *SharedTyGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep,
                                                    {Zero, Zero}, ".sharedptr");
 
-    Value *LI = Builder.CreateLoad(SharedTyGep, ".shareds");
+    Value *LI = Builder.CreateLoad(
+        cast<GEPOperator>(SharedTyGep)->getResultElementType(), SharedTyGep,
+        ".shareds");
 
     LLVMContext &C = F->getContext();
     Value *SrcCast = Builder.CreateBitCast(Src, Type::getInt8PtrTy(C));
@@ -943,10 +961,10 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
     const DataLayout DL = F->getParent()->getDataLayout();
     if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
       Size = Builder.getInt64(
-          DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+          DL.getTypeAllocSize(Src->getAllocatedType()));
     else
       Size = Builder.getInt32(
-          DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+          DL.getTypeAllocSize(Src->getAllocatedType()));
 
     MaybeAlign Align(DL.getABITypeAlignment(Src->getAllocatedType()));
     Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
@@ -1108,7 +1126,7 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
           Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
 
       MaybeAlign Align(DL.getABITypeAlignment(
-          cast<PointerType>(OrigV->getType())->getElementType()));
+          OrigV->getType()->getPointerElementType()));
 
       Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
                            FprivI->getThunkBufferSize());
@@ -1142,9 +1160,9 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
 // Save the loop lower upper bound, upper bound and stride for the use
 // by the call __kmpc_taskloop
 void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
-                                                    Value *&LBPtr,
-                                                    Value *&UBPtr,
-                                                    Value *&STPtr) {
+                                                    AllocaInst *&LBPtr,
+                                                    AllocaInst *&UBPtr,
+                                                    AllocaInst *&STPtr) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
@@ -1546,7 +1564,9 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
     // for by-refs etc.)
     Value *RedIBase = RedI->getOrig();
     if (RedI->getIsByRef())
-      RedIBase = Builder.CreateLoad(RedIBase, NamePrefix + ".orig.deref");
+      RedIBase = Builder.CreateLoad(
+          RedIBase->getType()->getPointerElementType(), RedIBase,
+          NamePrefix + Twine(".orig.deref"));
 
     if (RedI->getIsArraySection()) {
       const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
@@ -1695,14 +1715,16 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
 bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
                                             StructType *KmpTaskTTWithPrivatesTy,
                                             StructType *KmpSharedTy,
-                                            Value *LBPtr, Value *UBPtr,
-                                            Value *STPtr, bool isLoop) {
+                                            AllocaInst *LBPtr,
+                                            AllocaInst *UBPtr,
+                                            AllocaInst *STPtr, bool isLoop) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskGenericCode\n");
 
   W->populateBBSet();
 
   resetValueInOmpClauseGeneric(W, W->getIf());
+  resetValueInOmpClauseGeneric(W, W->getFinal());
   resetValueInTaskDependClause(W);
   if (isa<WRNTaskloopNode>(W)) {
     resetValueInOmpClauseGeneric(W, W->getNumTasks());
@@ -1829,7 +1851,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder,
                                           TaskAllocCI, ElseTerm);
       MTFnArgs.clear();
-      MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
+      MTFnArgs.push_back(ElseBuilder.CreateLoad(Int32Ty, TidPtrHolder));
       if (isTargetSPIRV())
         MTFnArgs.push_back(ElseBuilder.CreateAddrSpaceCast(
             TaskAllocCI, PointerType::get(KmpTaskTTWithPrivatesTy,

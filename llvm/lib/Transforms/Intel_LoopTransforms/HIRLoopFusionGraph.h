@@ -224,8 +224,9 @@ private:
 
   // Update path info for a subtree of nodes.
   void updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
-                   NodeSetTy &NewPathSources, NodeSetTy &NewPathSinks,
-                   NodeMapTy &Preds);
+                   const NodeMapTy &LocalPathTo,
+                   const NodeSetTy &NewPathSources,
+                   const NodeSetTy &NewPathSinks);
 
   // Update both PathFrom and PathTo sets. Should be called twice to good and
   // bad path sets.

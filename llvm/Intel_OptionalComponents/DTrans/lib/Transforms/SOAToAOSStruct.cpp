@@ -58,7 +58,7 @@ static std::pair<SmallVector<StructType *, 3>, SmallVector<unsigned, 3>>
 getArrayTypesForSOAToAOSStructMethodsCheckDebug(Function &F) {
   SmallVector<StructType *, 3> ArrayTypes;
   for (auto &Name : DTransSOAToAOSArrays) {
-    auto *ArrType = F.getParent()->getTypeByName(Name);
+    auto *ArrType = StructType::getTypeByName(F.getContext(), Name);
     if (!ArrType)
       report_fatal_error(Twine("Cannot find struct/class type ") + Name + ".");
     ArrayTypes.push_back(ArrType);

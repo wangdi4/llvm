@@ -63,6 +63,7 @@ FunctionPass *createX86GlobalFMAPass();
 FunctionPass *createFeatureInitPass();
 FunctionPass *createIVSplitLegacyPass();
 FunctionPass *createX86SplitVectorValueTypePass();
+FunctionPass *createX86PRAExpandPseudoPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -85,6 +86,10 @@ FunctionPass *createX86FlagsCopyLoweringPass();
 
 /// Return a pass that expands WinAlloca pseudo-instructions.
 FunctionPass *createX86WinAllocaExpander();
+
+FunctionPass *createX86TileConfigPass();
+
+FunctionPass *createX86PreTileConfigPass();
 
 /// Return a pass that inserts int3 at the end of the function if it ends with a
 /// CALL instruction. The pass does the same for each funclet as well. This
@@ -138,6 +143,10 @@ FunctionPass *createX86InsertPrefetchPass();
 /// Return a pass that generate LEA instructions for removing redundant address
 /// recalculations by Optimize LEA optimization.
 FunctionPass *createX86GenerateLEAs();
+
+/// Return a pass that generate load + permute for gather instruciton.
+FunctionPass *createX86Gather2LoadPermutePass();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -162,6 +171,7 @@ void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
 void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
+void initializeX86PRAExpandPseudoPassPass(PassRegistry &); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
@@ -184,13 +194,31 @@ void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
 void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
+void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
+void initializeX86PreTileConfigPass(PassRegistry &);
+void initializeX86TileConfigPass(PassRegistry &);
+void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
 
 namespace X86AS {
 enum : unsigned {
   GS = 256,
   FS = 257,
   SS = 258,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  ES = 259,
+  CS = 260,
+  DS = 261,
+  PHYSEG_SUPOVR = 262,
+  LINSEG_SUPOVR = 263,
+  LINSEG_NOSUPOVR = 264,
+  IDTR = 265,
+  GDTR = 266,
+  LDTR = 267,
+  TR = 268,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   PTR32_SPTR = 270,
   PTR32_UPTR = 271,
   PTR64 = 272

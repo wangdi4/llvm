@@ -525,8 +525,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
 ///  Check if the best locality loop can stay or move as innermost
 bool HIRLoopInterchange::isBestLocalityInInnermost(
     const HLLoop *Loop, const HLLoop *BestLocalityLoop) {
-  unsigned SrcLevel =
-      BestLocalityLoop->getNestingLevel() - OutmostNestingLevel + 1;
+  unsigned SrcLevel = BestLocalityLoop->getNestingLevel();
   if (InnermostNestingLevel == BestLocalityLoop->getNestingLevel() ||
       DDUtils::isLegalForPermutation(InnermostNestingLevel, SrcLevel,
                                      OutmostNestingLevel, DVs)) {
@@ -635,7 +634,8 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
         SrcLevel++;
       }
       assert(SrcLevel != 0 && "Loop not found");
-      if (DDUtils::isLegalForPermutation(DstLevel, SrcLevel,
+      if (DDUtils::isLegalForPermutation(DstLevel + OutmostNestingLevel - 1,
+                                         SrcLevel + OutmostNestingLevel - 1,
                                          OutmostNestingLevel, DVs)) {
         permuteNearBy(DstLevel, SrcLevel);
         LoopPermutation.erase(&I);

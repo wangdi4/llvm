@@ -38,12 +38,7 @@
 
 ;*** IR Dump After HIR Dead Store Elimination ***
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, sext.i32.i64(%"sub_$N_fetch") + -1, 1   <DO_LOOP>
-; CHECK:           |   %"sub_$A[]_fetch" = (%"sub_$A")[i1];
-; CHECK:           |   %"sub_$B[]_fetch" = (%"sub_$B")[i1];
-; CHECK:           |   %add = %"sub_$A[]_fetch"  +  %"sub_$B[]_fetch";
-; CHECK:           |   %add8 = %add  +  1.000000e+00;
-; CHECK:           + END LOOP
+; CHECK-NOT:       + DO i1 = 0
 ;
 ; CHECK:           (%addressof)[0][0] = 26;
 ; CHECK:           (%addressof)[0][1] = 5;

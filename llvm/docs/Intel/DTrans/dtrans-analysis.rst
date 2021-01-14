@@ -437,6 +437,20 @@ This safety data is used when a memory handling function (e.g. memcpy)
 modifies part of the nested structures, but it won't fully cover the
 field zero in the outer most structure.
 
+ComplexAllocSize
+~~~~~~~~~~~~~~~~
+
+This safety data is used for a memory allocation that has been analyzed
+as safe, but is not an exact multiple of the size of the structure.
+Information that is collected about the structure fields is available.
+An example of an allocation that would set this is: malloc(c1 + c2 * n),
+where c1 and c2 are constants, and n is the size of the structure.
+
+Transformations that need to modify the size of an allocation when changing
+a structure definition may not be able to simply adjust the allocation size
+with the following formula when this flag is set.
+  byte_count = old_byte_count * new_struct_size / old_struct_size
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we

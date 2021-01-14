@@ -7,9 +7,14 @@
 ; RUN: opt -thinlto-bc -o %t3.o %s
 ; RUN: opt -thinlto-bc -o %t4.o %p/Inputs/devirt_external_comdat_same_guid.ll
 
+; INTEL_CUSTOMIZATION
+; This customization is for turning off the multiversioning during
+; whole program devirtualization
+
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -wholeprogramdevirt-print-index-based \
+; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t3.o,use_B,px \
 ; RUN:   -r=%t3.o,test,px \
@@ -23,6 +28,8 @@
 ; RUN:   2>&1 | FileCheck %s --check-prefix=REMARK --check-prefix=PRINT
 ; RUN: llvm-dis %t5.1.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR1
 ; RUN: llvm-dis %t5.2.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR2
+
+; END INTEL_CUSTOMIZATION
 
 ; PRINT-DAG: Devirtualized call to {{.*}} (_ZN1A1nEi)
 

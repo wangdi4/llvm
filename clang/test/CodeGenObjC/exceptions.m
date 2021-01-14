@@ -26,11 +26,11 @@ void f1() {
     // CHECK-NEXT: br i1
     @try {
     // INTEL  this CHECK line moved down verbatim
+    // CHECK:      call void asm sideeffect "", "=*m"   ;INTEL
     // CHECK:      call void asm sideeffect "", "*m"
     // CHECK-NEXT: call void @foo()
       foo();
     // CHECK:      call void @objc_exception_try_exit
-    // CHECK:      call void asm sideeffect "", "=*m"   ;INTEL
 
     } @finally {
       break;
@@ -54,22 +54,19 @@ int f2() {
   // CHECK-NEXT:   [[CAUGHT:%.*]] = icmp eq i32 [[SETJMP]], 0
   // CHECK-NEXT:   br i1 [[CAUGHT]]
   @try {
-    // CHECK: store i32 6, i32* [[X]]                                      ;INTEL
-    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]] ;INTEL
-    // CHECK-NEXT: call void @foo()                                        ;INTEL
-    // CHECK-NEXT: call void @objc_exception_try_exit                      ;INTEL
-    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]                        ;INTEL
-
     // Landing pad.  Note that we elide the re-enter.
     // CHECK:      call void asm sideeffect "", "=*m,=*m"(i32* nonnull [[X]]
     // CHECK-NEXT: call i8* @objc_exception_extract
     // CHECK-NEXT: [[T1:%.*]] = load i32, i32* [[X]]
     // CHECK-NEXT: [[T2:%.*]] = add nsw i32 [[T1]], -1
 
-    // This store is dead.
-    // CHECK-NEXT: store i32 [[T2]], i32* [[X]]
+    // CHECK: store i32 6, i32* [[X]]
 
-    // COM: CHECK: store i32 6, i32* [[X]] ;INTEL this line moved up verbatim
+    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]] ;INTEL
+    // CHECK-NEXT: call void @foo()                                        ;INTEL
+    // CHECK-NEXT: call void @objc_exception_try_exit                      ;INTEL
+    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]                        ;INTEL
+
     x++;
     // ;INTEL  4 lines from here moved up verbatim
     foo();
@@ -155,6 +152,11 @@ void f4() {
   // code is the same. There is no simple way to make this test tolerant of the
   // ordering difference, so the test was changed to expect the new ordering.
   // The 5 lines marked with INTEL below were moved verbatim from here.
+  // finally.no-call-exit:  Predecessor is when the catch throws. ;INTEL
+  // CHECK:      call i8* @objc_exception_extract([[EXNDATA_T]]* nonnull [[EXNDATA]]) ;INTEL
+  // CHECK-NEXT: call void @f4_help(i32 2) ;INTEL
+  // CHECK-NEXT: br label ;INTEL
+  //   -> rethrow ;INTEL
 
   // finally.call-exit:  Predecessors are the @try and @catch fallthroughs
   // as well as the no-match case in the catch mechanism.  The i1 is whether
@@ -182,11 +184,6 @@ void f4() {
   // CHECK-NEXT: br label
   //   -> finally.call-exit
     f4_help(1);
-  // finally.no-call-exit:  Predecessor is when the catch throws. ;INTEL
-  // CHECK:      call i8* @objc_exception_extract([[EXNDATA_T]]* nonnull [[EXNDATA]]) ;INTEL
-  // CHECK-NEXT: call void @f4_help(i32 2) ;INTEL
-  // CHECK-NEXT: br label ;INTEL
-  //   -> rethrow ;INTEL
   } @finally {
     f4_help(2);
   }

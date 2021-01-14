@@ -9,7 +9,7 @@
 ;       |   %t62 = (@reg_class_contents)[0][-1 * i1 + 126];
 ;       |   %t63 = %t62  &&  %t58;
 ;       |   (@ira_class_hard_reg_index)[0][-1 * i1 + 126][0] = -1;
-;       |   %t67 = 0;
+;       |   %t67 = %t58;
 ;       |   %t68 = 0;
 ;       |
 ;       |   + DO i2 = 0, 1, 1   <DO_LOOP>
@@ -45,7 +45,7 @@
 ;       |   %t62 = (@reg_class_contents)[0][-1 * i1 + 126];
 ;       |   %t63 = %t62  &&  %t58;
 ;       |   (@ira_class_hard_reg_index)[0][-1 * i1 + 126][0] = -1;
-;       |   %t67 = 0;
+;       |   %t67 = %t58;
 ;       |   %t68 = 0;
 ;       |   %t68.out2 = %t68;
 ;       |   %t70 = (@reg_alloc_order)[0][0];
@@ -103,7 +103,7 @@ t59:
 
 t65:                                     ; preds = %t90, %t59
   %t66 = phi i64 [ 0, %t59 ], [ %t93, %t90 ]
-  %t67 = phi i64 [ 0, %t59 ], [ %t92, %t90 ]
+  %t67 = phi i64 [ %t58, %t59 ], [ %t92, %t90 ]
   %t68 = phi i32 [ 0, %t59 ], [ %t91, %t90 ]
   %t69 = getelementptr inbounds [53 x i32], [53 x i32]* @reg_alloc_order, i64 0, i64 %t66
   %t70 = load i32, i32* %t69, align 4, !tbaa !24

@@ -295,29 +295,90 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   HLoop->setHasSignedIV(IsSigned);
 }
 
-bool HIRLoopFormation::populatedPreheaderPostexitNodes(
-    HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion) {
-
-  auto PreBegIt =
-      !PredicateInversion ? IfParent->then_begin() : IfParent->else_begin();
-  auto PreEndIt = HLoop->getIterator();
-
-  auto PostBegIt = std::next(HLoop->getIterator());
-  auto PostEndIt =
-      !PredicateInversion ? IfParent->then_end() : IfParent->else_end();
-
-  bool HasPreheader = (PreBegIt != PreEndIt);
-  bool HasPostexit = (PostBegIt != PostEndIt);
-
-  if ((HasPreheader &&
-       !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) ||
-      (HasPostexit &&
-       !HLNodeUtils::validPreheaderPostexitNodes(PostBegIt, PostEndIt))) {
+// This function is trying to remove a child if has the same condition as the
+// parent if. Ideally speaking, this should be cleaned up by ScalarOpt before
+// LoopOpt. Passes like InstCombine and SimplifyCFG do have some logic to do
+// this but it is not full-proof. In addition to limited capabilities of these
+// passes, the other problem is that sometimes the CFG is not simplified enough
+// when these passes are run in the pipeline to be able to trigger the
+// optimization. Adding InstCombine pass right before loopopt causes performance
+// degradations. Performing this optimizaiton in the framework is a workaround
+// of last resort.
+bool HIRLoopFormation::removedIdenticalChildIf(HLIf *ParentIf, HLIf *ChildIf,
+                                               bool PredicateInversion) const {
+  // Refs are null if we haven't performed parsing yet. We don't want to do this
+  // in the later HIRFramework phase as parsing could have changed the if
+  // structure by then.
+  if ((*ParentIf->ddref_begin()) != nullptr) {
     return false;
   }
 
-  if (HasPreheader) {
-    HLNodeUtils::moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
+  auto *ParentSrcBB = HIRCr.getSrcBBlock(ParentIf);
+  auto *ParentCond =
+      cast<BranchInst>(ParentSrcBB->getTerminator())->getCondition();
+
+  // Bail out if the condition is true, false or undef.
+  if (isa<ConstantData>(ParentCond)) {
+    return false;
+  }
+
+  auto *ChildSrcBB = HIRCr.getSrcBBlock(ChildIf);
+  auto *ChildCond =
+      cast<BranchInst>(ChildSrcBB->getTerminator())->getCondition();
+
+  // We are only handling the case of identical values which is the cheapest
+  // implementation.
+  if (ParentCond != ChildCond) {
+    return false;
+  }
+
+  HLNodeUtils::replaceNodeWithBody(ChildIf, !PredicateInversion);
+  return true;
+}
+
+bool HIRLoopFormation::populatedPostexitNodes(HLLoop *HLoop, HLIf *ParentIf,
+                                              bool PredicateInversion,
+                                              bool &HasPostSiblingLoop) const {
+  auto PostBegIt = std::next(HLoop->getIterator());
+  auto PostEndIt =
+      !PredicateInversion ? ParentIf->then_end() : ParentIf->else_end();
+
+  bool HasPostexit = (PostBegIt != PostEndIt);
+  for (auto It = PostBegIt; It != PostEndIt; ++It) {
+    auto *Node = &*It;
+
+    if (!isa<HLInst>(Node)) {
+      // Loop may not be formed for the sibling so look for loop header label
+      // instead.
+      if (auto *Label = dyn_cast<HLLabel>(Node)) {
+        if (LI.isLoopHeader(Label->getSrcBBlock())) {
+          HasPostSiblingLoop = true;
+          // Use the postexit nodes as next loop's preheader because
+          // instructions are more likely to have been hoisted than sinked in
+          // the incoming IR.
+          HasPostexit = false;
+          break;
+        }
+      }
+
+      // This could happen for deferred ZTT candidates.
+      if (isa<HLLoop>(Node)) {
+        HasPostSiblingLoop = true;
+        HasPostexit = false;
+        break;
+      }
+
+      if (auto *ChildIf = dyn_cast<HLIf>(Node)) {
+        // If this is an identical nested if, replace it with its body and rerun
+        // analysis. We don't allow non loop header labels between the two ifs
+        // so it should be safe to do this based on control-flow.
+        if (removedIdenticalChildIf(ParentIf, ChildIf, PredicateInversion)) {
+          return populatedPostexitNodes(HLoop, ParentIf, PredicateInversion,
+                                     HasPostSiblingLoop);
+        }
+      }
+      return false;
+    }
   }
 
   if (HasPostexit) {
@@ -327,22 +388,63 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(
   return true;
 }
 
+bool HIRLoopFormation::populatedPreheaderPostexitNodes(
+    HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion,
+    bool &HasPostSiblingLoop) {
+
+  auto PreBegIt =
+      !PredicateInversion ? IfParent->then_begin() : IfParent->else_begin();
+  auto PreEndIt = HLoop->getIterator();
+
+  bool HasPreheader = (PreBegIt != PreEndIt);
+
+  if (HasPreheader &&
+      !HLNodeUtils::validPreheaderPostexitNodes(PreBegIt, PreEndIt)) {
+    return false;
+  }
+
+  if (!populatedPostexitNodes(HLoop, IfParent, PredicateInversion,
+                           HasPostSiblingLoop)) {
+    return false;
+  }
+
+  if (HasPreheader) {
+    HLNodeUtils::moveAsFirstPreheaderNodes(HLoop, PreBegIt, PreEndIt);
+  }
+
+  return true;
+}
+
 bool HIRLoopFormation::setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent,
                                         bool PredicateInversion) {
+  bool HasPostSiblingLoop = false;
+
   // This function returns false if the condition is acting like a ztt but
   // cannot be set as one due to presence of non-HLInst nodes so we need to
   // bail out.
-  if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion)) {
+  if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion,
+                                       HasPostSiblingLoop)) {
     return false;
   }
 
   // IfParent should only contain the loop now.
-  assert(((!PredicateInversion && (IfParent->getNumThenChildren() == 1)) ||
+  assert(HasPostSiblingLoop ||
+         ((!PredicateInversion && (IfParent->getNumThenChildren() == 1)) ||
           (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
-         "Something went wrong during ztt recognition!");
+             "Something went wrong during ztt recognition!");
 
   HLNodeUtils::moveBefore(IfParent, HLoop);
-  HLNodeUtils::remove(IfParent);
+
+  if (HasPostSiblingLoop) {
+    // If we have a sibling loop, use the cloned if as the Ztt.
+    auto *IfParentClone = IfParent->cloneEmpty();
+    // Set src block for the new if so parser can use it.
+    HIRCr.setSrcBBlock(IfParentClone, HIRCr.getSrcBBlock(IfParent));
+    IfParent = IfParentClone;
+
+  } else {
+    HLNodeUtils::remove(IfParent);
+  }
 
   HLoop->setZtt(IfParent);
 

@@ -114,7 +114,7 @@ cl_device_id device = 0;
 } // namespace
 
 #define STR_INTEL_PLATFORM_FAST_EMU                                            \
-  "Intel(R) FPGA Emulation Platform for OpenCL(TM) software"
+  "Intel(R) FPGA Emulation Platform"
 
 static int getFPGAPlatform() {
   cl_uint numPlatforms = 0;
@@ -140,7 +140,7 @@ static int getFPGAPlatform() {
     err = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME,
                             sizeof(platformName), &platformName[0], nullptr);
     if (err == CL_SUCCESS && strncmp(STR_INTEL_PLATFORM_FAST_EMU, platformName,
-                                     sizeof(platformName)) >= 0) {
+                                     sizeof(STR_INTEL_PLATFORM_FAST_EMU) - 1) == 0) {
       platform = platforms[i];
       std::cout << "Platform name: " << platformName << '\n';
       return 0;

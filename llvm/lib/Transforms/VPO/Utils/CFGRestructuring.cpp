@@ -38,9 +38,14 @@ using namespace llvm::vpo;
 /// \brief Auxiliary routine to split a BB at SplitPoint
 static void splitBB(Instruction *SplitPoint, DominatorTree *DT, LoopInfo *LI,
                     StringRef &NewName, unsigned &Counter) {
+  Instruction *PrevI = SplitPoint->getPrevNode();
   BasicBlock *OrigBB = SplitPoint->getParent();
   BasicBlock *NewBB = SplitBlock(OrigBB, SplitPoint, DT, LI);
   NewBB->setName(NewName + "." + Twine(++Counter));
+  if (PrevI) {
+    Instruction *BranchI = OrigBB->getTerminator();
+    BranchI->setDebugLoc(PrevI->getDebugLoc());
+  }
 }
 
 /// Directives are represented with @llvm.directive.region.entry/exit

@@ -906,11 +906,6 @@ bool isLegalToShiftLoop(unsigned DstLevel, unsigned SrcLevel,
   //     not hit <
   //
 
-  //  Adjust DstLevel based on OutmostNestingLevel
-  //  because DV are based on actual loop level, input Dst/Src level
-  //  are relative to 1
-  DstLevel += OutmostNestingLevel - 1;
-  SrcLevel += OutmostNestingLevel - 1;
   SmallerLevel = std::min(SrcLevel, DstLevel);
 
   for (auto &II : DVs) {
@@ -1115,7 +1110,7 @@ void CollectDDInfoForPermute<
     }
   }
 
-  DVs.push_back(make_pair(DV, BasePtrBlobIndex));
+  DVs.push_back(std::make_pair(DV, BasePtrBlobIndex));
 }
 } // namespace
 

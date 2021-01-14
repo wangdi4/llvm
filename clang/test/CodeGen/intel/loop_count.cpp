@@ -38,15 +38,15 @@ void foo()
 }
 
 
-// CHECK: [[LOOP_1]] = distinct !{[[LOOP_1]], [[ATTR_1:!.+]]}
+// CHECK: [[LOOP_1]] = distinct !{[[LOOP_1]], ![[LOOP_MUSTPROGRESS:[0-9]+]], [[ATTR_1:!.+]]}
 // CHECK: [[ATTR_1]] = !{!"llvm.loop.intel.loopcount", i32 1, i32 2}
-// CHECK: [[LOOP_2]] = distinct !{[[LOOP_2]], [[ATTR_11:!.+]]}
+// CHECK: [[LOOP_2]] = distinct !{[[LOOP_2]], ![[LOOP_MUSTPROGRESS]], [[ATTR_11:!.+]]}
 // CHECK: [[ATTR_11]] = !{!"llvm.loop.intel.loopcount", i32 3, i32 4}
-// CHECK: [[LOOP_4]] = distinct !{[[LOOP_4]], [[ATTR_1:!.+]], [[ATTR_42:!.+]], [[ATTR_43:!.+]], [[ATTR_44:!.+]]}
+// CHECK: [[LOOP_4]] = distinct !{[[LOOP_4]], ![[LOOP_MUSTPROGRESS]], [[ATTR_1:!.+]], [[ATTR_42:!.+]], [[ATTR_43:!.+]], [[ATTR_44:!.+]]}
 // CHECK: [[ATTR_42]] = !{!"llvm.loop.intel.loopcount_minimum", i32 4}
 // CHECK: [[ATTR_43]] = !{!"llvm.loop.intel.loopcount_maximum", i32 10}
 // CHECK: [[ATTR_44]] = !{!"llvm.loop.intel.loopcount_average", i32 2}
-// CHECK: [[LOOP_5]] = distinct !{[[LOOP_5]], [[ATTR_51:!.+]], [[ATTR_52:!.+]], [[ATTR_43:!.+]], [[ATTR_54:!.+]]}
+// CHECK: [[LOOP_5]] = distinct !{[[LOOP_5]], ![[LOOP_MUSTPROGRESS]], [[ATTR_51:!.+]], [[ATTR_52:!.+]], [[ATTR_43:!.+]], [[ATTR_54:!.+]]}
 // CHECK: [[ATTR_51]] = !{!"llvm.loop.intel.loopcount", i32 1, i32 2, i32 3}
 // CHECK: [[ATTR_52]] = !{!"llvm.loop.intel.loopcount_minimum", i32 1}
 // CHECK: [[ATTR_54]] = !{!"llvm.loop.intel.loopcount_average", i32 3}

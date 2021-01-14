@@ -20,6 +20,7 @@ namespace llvm {
 namespace vpo {
 
 class VPlanCostModelProprietary : public VPlanCostModel {
+  using VPlanCostModel::getLoadStoreCost;
 public:
   explicit VPlanCostModelProprietary(const VPlan *Plan, unsigned VF,
                                      const TargetTransformInfo *TTI,
@@ -36,8 +37,6 @@ public:
     return getLoadStoreCost(VPInst, Alignment, VF,
                             false /* Don't use VLS cost by default */);
   }
-  unsigned getBlockRangeCost(const VPBasicBlock *Begin,
-                             const VPBasicBlock *End);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -83,73 +82,6 @@ private:
                                                 const VPValue *Op2,
                                                 const Type *ScalarTy,
                                                 const unsigned VF) final;
-
-  // *SLP* and related utilities below is temporal solution to workaround
-  // the problem of blocking SLP vectorizer by VPlan vectorization.
-  // Eventually SLP is expected to become a part of VPlan and/or share
-  // implementation with VPlan.
-  //
-  // Since the static utilities are used in CM and it is undesirable to reuse
-  // them elsewhere they are placed in CM class.
-  //
-  // Returns RegDDRef of type Memref in case VPInst has it associated.
-  // Returns nullptr otherwise.
-  static const RegDDRef* getHIRMemref(const VPInstruction *VPInst);
-
-  // The set of constant controlling search of SLP pattern in VPlan.
-  // Current implementation searches stores and loads to/from adjacent memory.
-  // In particular there should be VPlanSLPLoadPatternSize loads AND
-  // VPlanSLPStorePatternSize stores into consequent memory cells.
-  //
-  // SPL doesn't neccesary need VPlanSLPLoadPatternSize consecutive in memory
-  // loads but we do this check instead of building data flow/dependency graph
-  // that SLP builds.
-  //
-  // Also to limit compile time impact during search we assume that all memrefs
-  // that make SLP pattern are in some relatively small window of indexes in
-  // the vector of all memrefs.  The window size is controlled by
-  // VPlanSLPSearchWindowSize.
-  //
-  static const unsigned VPlanSLPSearchWindowSize = 16;
-  static const unsigned VPlanSLPLoadPatternSize = 4;
-  static const unsigned VPlanSLPStorePatternSize = 2;
-  // Searches for part of SLP pattern in input vector of HIR memrefs. In
-  // particular the utility checks if there is PatternSize memrefs in
-  // HIRMemrefs that access memory consequently.  The utility does not
-  // distiguish loads or stores in input list.  It is caller responsibility to
-  // form the list properly.  Returns true if found or false otherwise.
-  static bool findSLPHIRPattern(
-    SmallVectorImpl<const RegDDRef*> &HIRMemrefs, unsigned PatternSize);
-  // Forms vector of VPlanSLPSearchWindowSize elements out of HIRMemrefs input
-  // vector and apply search on smaller vector with help of findSLPHIRPattern.
-  static bool ProcessSLPHIRMemrefs(
-    SmallVectorImpl<const RegDDRef*> const &HIRMemrefs, unsigned PatternSize);
-
-  // Returns true if there is an extra price for VPlan vectorization as it
-  // potentially blocks SLP vectorization.
-  //
-  // Here is the logic of detection of basic SLP candidates.
-  //
-  // CheckForSLPExtraCost() gathers all store and load memrefs for each basic
-  // block into separate vectors that are passes them individually to
-  // ProcessSLPHIRMemrefs() for certain size pattern detection.
-  //
-  // ProcessSLPHIRMemrefs() extracts VPlanSLPSearchWindowSize instructions from
-  // input vector starting at offset = 0 and ending at offset =
-  // sizeof(input vector) - VPlanSLPSearchWindowSize.  ProcessSLPHIRMemrefs
-  // forms a new vector out of extracted elements and pass it to
-  // findSLPHIRPattern for analysis.
-  //
-  // findSLPHIRPattern pops the top element of input vector and analyzes
-  // whether or not the rest of elements in input vector make sequential
-  // memory access around the top element (i.e. access elements sequentially
-  // before and/or after the memory that the top element accesses).
-  // If pattern of sequential is not found the top element is discarded and
-  // findSLPHIRPattern continues recursive search on reduced input vector until
-  // the pattern is found or the size of input vector becomes less than
-  // requested pattern size.
-  //
-  bool CheckForSLPExtraCost() const;
 
   // ProcessedOVLSGroups holds the groups which Cost has already been taken into
   // account while traversing through VPlan during getCost().  This way we avoid

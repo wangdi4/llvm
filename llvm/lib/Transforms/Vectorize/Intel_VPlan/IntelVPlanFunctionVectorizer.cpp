@@ -32,36 +32,26 @@
 
 #define DEBUG_TYPE "vplan-function-vectorizer"
 
-static cl::opt<bool> DumpAfterPlainCFG(
-    "print-after-vplan-func-vec-cfg-import",
-    cl::desc("Print after CFG import for VPlan Function vectorization "),
-    cl::init(false), cl::Hidden);
+static FuncVecVPlanDumpControl
+    CFGImportDumpControl("cfg-import",
+                         "CFG import for VPlan Function vectorization");
 
-static cl::opt<bool> DumpAfterLoopExitsCanonicalization(
-    "print-after-vplan-func-vec-loop-exit-canon",
-    cl::desc("Print after Loop Exits Canonicalizaiton for VPlan Function "
-             "vectorization "),
-    cl::init(false), cl::Hidden);
+static FuncVecVPlanDumpControl LoopExitsCanonicalizationDumpControl(
+    "loop-exit-canon",
+    "Lopo Exits Canonicalizaiton for VPlan Function vectorization");
 
-static cl::opt<bool> DumpAfterDA(
-    "print-after-vplan-func-vec-da",
-    cl::desc("Print after DA analysis for VPlan Function vectorization "),
-    cl::init(false), cl::Hidden);
+static FuncVecVPlanDumpControl
+DADumpControl("da", "DA analysis for VPlan Function vectorization");
 
-static cl::opt<bool> DumpAfterLCSSA(
-    "print-after-vplan-func-vec-lcssa",
-    cl::desc("Print after LCSSA for VPlan Function vectorization "),
-    cl::init(false), cl::Hidden);
+static FuncVecVPlanDumpControl
+    LCSSADumpControl("lcssa", "LCSSA for VPlan Function vectorization");
 
-static cl::opt<bool> DumpAfterLoopCFU(
-    "print-after-vplan-func-vec-loop-cfu",
-    cl::desc("Print after LoopCFU for VPlan Function vectorization "),
-    cl::init(false), cl::Hidden);
+static FuncVecVPlanDumpControl
+    LoopCFUDumpControl("loop-cfu", "LoopCFU for VPlan Function vectorization");
 
-static cl::opt<bool> DumpAfterPredicator(
-    "print-after-vplan-func-vec-predicator",
-    cl::desc("Print after Predication for VPlan Function vectorization "),
-    cl::init(false), cl::Hidden);
+static FuncVecVPlanDumpControl
+    PredicatorDumpControl("predicator",
+                          "Predication for VPlan Function vectorization");
 
 // FIXME: temporarily add switch to control all-zero bypass insertion
 // due to failing vplan_preserveSSA_after_while_loop_canonicalization.ll.
@@ -79,16 +69,10 @@ static cl::opt<bool> EnableFuncVecAllZeroBypassLoops(
              "loops "),
     cl::init(false), cl::Hidden);
 
-static cl::opt<bool> DumpAfterAllZeroBypass(
-    "print-after-vplan-func-vec-all-zero-bypass",
-    cl::desc("Print after all-zero bypass for VPlan Function vectorization "),
-    cl::init(false), cl::Hidden);
-
-static cl::opt<bool> DotAfterAllZeroBypass(
-    "dot-after-vplan-func-vec-all-zero-bypass",
-    cl::desc("Print VPlan digraph after all zero bypass for VPlan Function "
-             "vectorization "),
-    cl::init(false), cl::Hidden);
+static FuncVecVPlanDumpControl
+    AllZeroBypassDumpControl("all-zero-bypass",
+                             "all-zero bypass for VPlan Function vectorization",
+                             true);
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -107,7 +91,7 @@ public:
     Builder.buildCFG();
     Plan->setName(F.getName());
 
-    VPLAN_DUMP(DumpAfterPlainCFG, *Plan);
+    VPLAN_DUMP(CFGImportDumpControl, *Plan);
 
     Plan->computeDT();
     Plan->computePDT();
@@ -121,7 +105,7 @@ public:
         mergeLoopExits(VPL);
       }
 
-    VPLAN_DUMP(DumpAfterLoopExitsCanonicalization, *Plan);
+    VPLAN_DUMP(LoopExitsCanonicalizationDumpControl, *Plan);
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
@@ -129,20 +113,18 @@ public:
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
 
-    VPLAN_DUMP(DumpAfterDA, *Plan);
+    VPLAN_DUMP(DADumpControl, *Plan);
 
     formLCSSA(*Plan);
-    VPLAN_DUMP(DumpAfterLCSSA, *Plan);
+    VPLAN_DUMP(LCSSADumpControl, *Plan);
 
     VPlanLoopCFU LoopCFU(*Plan);
     LoopCFU.run();
-
-    VPLAN_DUMP(DumpAfterLoopCFU, *Plan);
+    VPLAN_DUMP(LoopCFUDumpControl, *Plan);
 
     VPlanPredicator Predicator(*Plan.get());
     Predicator.predicate();
-
-    VPLAN_DUMP(DumpAfterPredicator, *Plan);
+    VPLAN_DUMP(PredicatorDumpControl, *Plan);
 
     // Holds the pair of blocks representing the begin/end of an all-zero
     // bypass region. The block-predicate at the begin block is used to
@@ -162,8 +144,7 @@ public:
       AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
                                              RegionsCollected);
     AZB.insertAllZeroBypasses(AllZeroBypassRegions);
-    VPLAN_DUMP(DumpAfterAllZeroBypass, "all zero bypass", *Plan);
-    VPLAN_DOT(DotAfterAllZeroBypass, *Plan);
+    VPLAN_DUMP(AllZeroBypassDumpControl, *Plan);
 
     return false;
   }

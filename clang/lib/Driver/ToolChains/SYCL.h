@@ -130,17 +130,19 @@ public:
   void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
                          llvm::opt::ArgStringList &CC1Args,
                          Action::OffloadKind DeviceOffloadKind) const override;
-  void TranslateBackendTargetArgs(const llvm::opt::ArgList &Args,
-      llvm::opt::ArgStringList &CmdArgs) const;
-  void TranslateLinkerTargetArgs(const llvm::opt::ArgList &Args,
-      llvm::opt::ArgStringList &CmdArgs) const;
+#if INTEL_CUSTOMIZATION
+  void TranslateBackendTargetArgs(const JobAction &JA,
+      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
+  void TranslateLinkerTargetArgs(const JobAction &JA,
+      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
+#endif // INTEL_CUSTOMIZATION
 
   bool useIntegratedAs() const override { return true; }
   bool isPICDefault() const override { return false; }
   bool isPIEDefault() const override { return false; }
   bool isPICDefaultForced() const override { return false; }
 
-  virtual codegenoptions::DebugInfoFormat getDefaultDebugFormat() const {
+  virtual codegenoptions::DebugInfoFormat getDefaultDebugFormat() const override {
     return HostTC.getDefaultDebugFormat();
   }
 
@@ -163,9 +165,11 @@ protected:
   Tool *buildLinker() const override;
 
 private:
-  void TranslateTargetOpt(const llvm::opt::ArgList &Args,
+#if INTEL_CUSTOMIZATION
+  void TranslateTargetOpt(const JobAction &JA, const llvm::opt::ArgList &Args,
       llvm::opt::ArgStringList &CmdArgs, llvm::opt::OptSpecifier Opt,
       llvm::opt::OptSpecifier Opt_EQ) const;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace toolchains

@@ -45,7 +45,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
-#include "llvm/Analysis/Intel_CallGraphReport.h"  // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -306,13 +305,6 @@ public:
 
     /// Internal helper to remove the edge to the given function.
     bool removeEdgeInternal(Node &ChildN);
-
-    /// Internal helper to replace an edge key with a new one.
-    ///
-    /// This should be used when the function for a particular node in the
-    /// graph gets replaced and we are updating all of the edges to that node
-    /// to use the new function as the key.
-    void replaceEdgeKey(Function &OldTarget, Function &NewTarget);
   };
 
   /// A node in the call graph.
@@ -1010,6 +1002,10 @@ public:
   /// remain active and reachable.
   bool isLibFunction(Function &F) const { return LibFunctions.count(&F); }
 
+  /// Helper to initialize a new node created outside of creating SCCs and add
+  /// it to the NodeMap. e.g. when a function is outlined.
+  Node &initNode(Node &N, LazyCallGraph::SCC &C);
+
   ///@{
   /// \name Pre-SCC Mutation API
   ///
@@ -1058,13 +1054,6 @@ public:
   /// DFS in order to call this safely. Typically, the function will have been
   /// fully visited by the DFS prior to calling this routine.
   void removeDeadFunction(Function &F);
-
-  /// Introduce a node for the function \p NewF in the SCC \p C.
-  void addNewFunctionIntoSCC(Function &NewF, SCC &C);
-
-  /// Introduce a node for the function \p NewF, as a single node in a
-  /// new SCC, in the RefSCC \p RC.
-  void addNewFunctionIntoRefSCC(Function &NewF, RefSCC &RC);
 
   ///@}
 
@@ -1126,47 +1115,12 @@ public:
 
   ///@}
 
-#if INTEL_CUSTOMIZATION
-  /// \brief Returns the module the call graph corresponds to.
-  Module &getModule() const { return M; }
-
-
-  /// \brief Add 'Report' to the list of reports which describe how the
-  /// call graph is being transformed.  These reports will need to be
-  /// updated when major changes are made to the call graph (e.g. adding
-  /// or deleting a function).
-  void registerCGReport(CallGraphReport *Report) {
-    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) {
-      if (CGReports[I] == Report) {
-        return;
-      }
-    }
-    CGReports.push_back(Report);
-  }
-
-  /// \brief For all registered CG reports, indicate that 'OldFunction'
-  /// has been replaced by 'NewFunction'.
-  void replaceFunctionWithFunctionInCGReports(Function *OldFunction,
-                                              Function *NewFunction) {
-    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) {
-      CGReports[I]->replaceFunctionWithFunction(OldFunction, NewFunction);
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
 private:
   using node_stack_iterator = SmallVectorImpl<Node *>::reverse_iterator;
   using node_stack_range = iterator_range<node_stack_iterator>;
 
-  /// INTEL Module the call graph corresponds to
-  Module &M; // INTEL
-
   /// Allocator that holds all the call graph nodes.
   SpecificBumpPtrAllocator<Node> BPA;
-
-  /// INTEL A list of CGReports (e.g. the InlineReport) which can be manipulated
-  /// INTEL in a minimal way outside their local context
-  SmallVector<CallGraphReport*, 16> CGReports; // INTEL
 
   /// Maps function->node for fast lookup.
   DenseMap<const Function *, Node *> NodeMap;
@@ -1206,13 +1160,6 @@ private:
 
   /// Helper to update pointers back to the graph object during moves.
   void updateGraphPtrs();
-
-  /// Helper to insert a new function, add it to the NodeMap, and populate its
-  /// node.
-  Node &createNode(Function &F);
-
-  /// Helper to add the given Node \p N to the SCCMap, mapped to the SCC \p C.
-  void addNodeToSCC(SCC &C, Node &N);
 
   /// Allocates an SCC and constructs it using the graph allocator.
   ///

@@ -235,8 +235,11 @@ StringRef ToolChain::getDefaultUniversalArchName() const {
   // the same as the ones that appear in the triple. Roughly speaking, this is
   // an inverse of the darwin::getArchTypeForDarwinArchName() function.
   switch (Triple.getArch()) {
-  case llvm::Triple::aarch64:
+  case llvm::Triple::aarch64: {
+    if (getTriple().isArm64e())
+      return "arm64e";
     return "arm64";
+  }
   case llvm::Triple::aarch64_32:
     return "arm64_32";
   case llvm::Triple::ppc:
@@ -328,6 +331,12 @@ Tool *ToolChain::getOffloadWrapper() const {
   return OffloadWrapper.get();
 }
 
+Tool *ToolChain::getOffloadDeps() const {
+  if (!OffloadDeps)
+    OffloadDeps.reset(new tools::OffloadDeps(*this));
+  return OffloadDeps.get();
+}
+
 Tool *ToolChain::getSPIRVTranslator() const {
   if (!SPIRVTranslator)
     SPIRVTranslator.reset(new tools::SPIRVTranslator(*this));
@@ -403,6 +412,9 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::OffloadWrapperJobClass:
     return getOffloadWrapper();
 
+  case Action::OffloadDepsJobClass:
+    return getOffloadDeps();
+
   case Action::SPIRVTranslatorJobClass:
     return getSPIRVTranslator();
 
@@ -452,6 +464,8 @@ StringRef ToolChain::getOSLibName() const {
     return "openbsd";
   case llvm::Triple::Solaris:
     return "sunos";
+  case llvm::Triple::AIX:
+    return "aix";
   default:
     return getOS();
   }
@@ -607,7 +621,13 @@ std::string ToolChain::GetProgramPath(const char *Name) const {
   return D.GetProgramPath(Name, *this);
 }
 
-std::string ToolChain::GetLinkerPath() const {
+std::string ToolChain::GetLinkerPath(bool *LinkerIsLLD,
+                                     bool *LinkerIsLLDDarwinNew) const {
+  if (LinkerIsLLD)
+    *LinkerIsLLD = false;
+  if (LinkerIsLLDDarwinNew)
+    *LinkerIsLLDDarwinNew = false;
+
   // Get -fuse-ld= first to prevent -Wunused-command-line-argument. -fuse-ld= is
   // considered as the linker flavor, e.g. "bfd", "gold", or "lld".
   const Arg* A = Args.getLastArg(options::OPT_fuse_ld_EQ);
@@ -642,7 +662,7 @@ std::string ToolChain::GetLinkerPath() const {
   // to a relative path is surprising. This is more complex due to priorities
   // among -B, COMPILER_PATH and PATH. --ld-path= should be used instead.
   if (UseLinker.find('/') != StringRef::npos)
-    getDriver().Diag(diag::warn_drv_use_ld_non_word);
+    getDriver().Diag(diag::warn_drv_fuse_ld_path);
 
   if (llvm::sys::path::is_absolute(UseLinker)) {
     // If we're passed what looks like an absolute path, don't attempt to
@@ -658,8 +678,14 @@ std::string ToolChain::GetLinkerPath() const {
     LinkerName.append(UseLinker);
 
     std::string LinkerPath(GetProgramPath(LinkerName.c_str()));
-    if (llvm::sys::fs::can_execute(LinkerPath))
+    if (llvm::sys::fs::can_execute(LinkerPath)) {
+      // FIXME: Remove lld.darwinnew here once it's the only MachO lld.
+      if (LinkerIsLLD)
+        *LinkerIsLLD = UseLinker == "lld" || UseLinker == "lld.darwinnew";
+      if (LinkerIsLLDDarwinNew)
+        *LinkerIsLLDDarwinNew = UseLinker == "lld.darwinnew";
       return LinkerPath;
+    }
   }
 
   if (A)
@@ -751,6 +777,9 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
   case llvm::Triple::aarch64: {
     llvm::Triple Triple = getTriple();
     if (!Triple.isOSBinFormatMachO())
+      return getTripleString();
+
+    if (Triple.isArm64e())
       return getTripleString();
 
     // FIXME: older versions of ld64 expect the "arm64" component in the actual
@@ -845,6 +874,37 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
         ArchName = "thumb";
     }
     Triple.setArchName(ArchName + Suffix.str());
+
+    bool isHardFloat =
+        (arm::getARMFloatABI(getDriver(), Triple, Args) == arm::FloatABI::Hard);
+    switch (Triple.getEnvironment()) {
+    case Triple::GNUEABI:
+    case Triple::GNUEABIHF:
+      Triple.setEnvironment(isHardFloat ? Triple::GNUEABIHF : Triple::GNUEABI);
+      break;
+    case Triple::EABI:
+    case Triple::EABIHF:
+      Triple.setEnvironment(isHardFloat ? Triple::EABIHF : Triple::EABI);
+      break;
+    case Triple::MuslEABI:
+    case Triple::MuslEABIHF:
+      Triple.setEnvironment(isHardFloat ? Triple::MuslEABIHF
+                                        : Triple::MuslEABI);
+      break;
+    default: {
+      arm::FloatABI DefaultABI = arm::getDefaultFloatABI(Triple);
+      if (DefaultABI != arm::FloatABI::Invalid &&
+          isHardFloat != (DefaultABI == arm::FloatABI::Hard)) {
+        Arg *ABIArg =
+            Args.getLastArg(options::OPT_msoft_float, options::OPT_mhard_float,
+                            options::OPT_mfloat_abi_EQ);
+        assert(ABIArg && "Non-default float abi expected to be from arg");
+        D.Diag(diag::err_drv_unsupported_opt_for_target)
+            << ABIArg->getAsString(Args) << Triple.getTriple();
+      }
+      break;
+    }
+    }
 
     return Triple.getTriple();
   }
@@ -1062,7 +1122,7 @@ static std::string getIPPBasePath(const ArgList &Args,
                                   const std::string DriverDir) {
   const char * IPPRoot = getenv("IPPROOT");
   bool IsCrypto = false;
-  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ)) {
     if (A->getValue() == StringRef("crypto") ||
         A->getValue() == StringRef("nonpic_crypto")) {
       IsCrypto = true;
@@ -1095,7 +1155,7 @@ std::string ToolChain::GetIPPIncludePath(const ArgList &Args) const {
 void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Opt) const {
   bool IsNonPIC = false;
-  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ))
+  if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ))
     if (A->getValue() == StringRef("nonpic_crypto") ||
         A->getValue() == StringRef("nonpic"))
       IsNonPIC = true;
@@ -1105,7 +1165,7 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
-  const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ);
+  const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ);
   if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
     llvm::sys::path::append(P, "nonpic");
   CmdArgs.push_back(Args.MakeArgString(P));
@@ -1198,7 +1258,7 @@ static std::string getDAALBasePath(const std::string DriverDir) {
   if (DAALRoot)
     P.append(DAALRoot);
   else
-    P.append(getIntelBasePath(DriverDir) + "daal");
+    P.append(getIntelBasePath(DriverDir) + "dal");
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
@@ -1229,7 +1289,7 @@ void ToolChain::AddDAALLibPath(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_ipp_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ)) {
     SmallVector<StringRef, 8> IPPLibs;
     if (A->getValue() == StringRef("crypto") ||
         A->getValue() == StringRef("nonpic_crypto"))
@@ -1256,7 +1316,7 @@ void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
     if (Args.hasArg(options::OPT__dpcpp) &&
@@ -1277,7 +1337,7 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_tbb, options::OPT__dpcpp))
+      if (Args.hasArg(options::OPT_qtbb, options::OPT__dpcpp))
         // Use TBB when -tbb or DPC++
         MKLLibs.push_back("mkl_tbb_thread");
       else
@@ -1313,7 +1373,7 @@ void ToolChain::AddTBBLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 
 void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
-  if (const Arg *A = Args.getLastArg(options::OPT_daal_EQ)) {
+  if (const Arg *A = Args.getLastArg(options::OPT_qdaal_EQ)) {
     SmallVector<StringRef, 4> DAALLibs;
     DAALLibs.push_back("onedal_core");
     if (A->getValue() == StringRef("parallel"))
@@ -1365,22 +1425,23 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
   // Return sanitizers which don't require runtime support and are not
   // platform dependent.
 
-  SanitizerMask Res = (SanitizerKind::Undefined & ~SanitizerKind::Vptr &
-                       ~SanitizerKind::Function) |
-                      (SanitizerKind::CFI & ~SanitizerKind::CFIICall) |
-                      SanitizerKind::CFICastStrict |
-                      SanitizerKind::FloatDivideByZero |
-                      SanitizerKind::UnsignedIntegerOverflow |
-                      SanitizerKind::ImplicitConversion |
-                      SanitizerKind::Nullability | SanitizerKind::LocalBounds;
+  SanitizerMask Res =
+      (SanitizerKind::Undefined & ~SanitizerKind::Vptr &
+       ~SanitizerKind::Function) |
+      (SanitizerKind::CFI & ~SanitizerKind::CFIICall) |
+      SanitizerKind::CFICastStrict | SanitizerKind::FloatDivideByZero |
+      SanitizerKind::UnsignedIntegerOverflow |
+      SanitizerKind::UnsignedShiftBase | SanitizerKind::ImplicitConversion |
+      SanitizerKind::Nullability | SanitizerKind::LocalBounds;
   if (getTriple().getArch() == llvm::Triple::x86 ||
       getTriple().getArch() == llvm::Triple::x86_64 ||
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
       getTriple().isAArch64())
     Res |= SanitizerKind::CFIICall;
-  if (getTriple().getArch() == llvm::Triple::x86_64 || getTriple().isAArch64())
+  if (getTriple().getArch() == llvm::Triple::x86_64 ||
+      getTriple().isAArch64(64) || getTriple().isRISCV())
     Res |= SanitizerKind::ShadowCallStack;
-  if (getTriple().isAArch64())
+  if (getTriple().isAArch64(64))
     Res |= SanitizerKind::MemTag;
   return Res;
 }
@@ -1458,6 +1519,18 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
   DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
   const OptTable &Opts = getDriver().getOpts();
   bool Modified = false;
+#if INTEL_CUSTOMIZATION
+  // FIXME: in IsCLMode() the host optlevel is specified with '/' prefix.
+  //        For some reason we use default GNU toolchain for spir triple,
+  //        so the optlevel translation does not happen
+  //        (see MSVCToolChain::TranslateArgs). Next, the AddOptLevel() lambda
+  //        in Clang.cpp does not handle /O options. With all this
+  //        there is currently no way to enable optimizations for spir offload
+  //        on Windows.
+  //        We should probably figure out how to translate '/' options
+  //        for spir offload on Windows.
+  bool ExplicitOptLevelForTarget = false;
+#endif // INTEL_CUSTOMIZATION
 
   // Handle -Xopenmp-target and -Xsycl-target-frontend flags
   for (auto *A : Args) {
@@ -1484,7 +1557,7 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       continue;
     }
 
-    unsigned Index;
+    unsigned Index = 0;
     unsigned Prev;
     bool XOffloadTargetNoTriple;
 
@@ -1557,15 +1630,31 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
             AllocatedArgs.push_back(A4);
             DAL->append(A4);
           }
+          ExplicitOptLevelForTarget =
+              NewArgs.hasArg(options::OPT_O_Group, options::OPT__SLASH_O);
           Modified = true;
         } else
           DAL->append(A);
         continue;
-      } else if (getTriple().isSPIR() && getDriver().IsIntelMode() &&
+      } else if (ExplicitOptLevelForTarget &&
+                 getDriver().IsIntelMode() &&
                  (A->getOption().matches(options::OPT_O_Group) ||
                   A->getOption().matches(options::OPT__SLASH_O))) {
-        // Do not add any optimization option.  It is set either via arg
-        // to -fopenmp-targets or implied when adding args to -cc1
+        // Ignore the optimization option specified for "host" compilation.
+        //
+        // ExplicitOptLevelForTarget means that there is an explicit
+        // optimization level in -fopenmp-targets=<target>="...",
+        // so we should honor it.
+        //
+        // If we add the host optlevel (including the default -O2), we will
+        // fail to honor the explicit optlevel for the target.
+        //
+        // FIXME: I believe this behavior should be true for all
+        //        options, i.e. options passed via -fopenmp-targets
+        //        must override the host options. Right now, it depends
+        //        on the order of the options, and there is no way
+        //        to override options added by default for Intel mode
+        //        (e.g. O2).
         Modified = true;
         continue;
 #endif // INTEL_CUSTOMIZATION
@@ -1621,6 +1710,10 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
         continue;
       }
     }
+
+    if (!XOffloadTargetArg)
+      continue;
+
     XOffloadTargetArg->setBaseArg(A);
     A = XOffloadTargetArg.release();
     AllocatedArgs.push_back(A);
@@ -1658,15 +1751,18 @@ void ToolChain::TranslateXarchArgs(
   //
   // We also want to disallow any options which would alter the
   // driver behavior; that isn't going to work in our model. We
-  // use isDriverOption() as an approximation, although things
-  // like -O4 are going to slip through.
+  // use options::NoXarchOption to control this.
   if (!XarchArg || Index > Prev + 1) {
     getDriver().Diag(diag::err_drv_invalid_Xarch_argument_with_args)
         << A->getAsString(Args);
     return;
-  } else if (XarchArg->getOption().hasFlag(options::DriverOption)) {
-    getDriver().Diag(diag::err_drv_invalid_Xarch_argument_isdriver)
-        << A->getAsString(Args);
+  } else if (XarchArg->getOption().hasFlag(options::NoXarchOption)) {
+    auto &Diags = getDriver().getDiags();
+    unsigned DiagID =
+        Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                              "invalid Xarch argument: '%0', not all driver "
+                              "options can be forwared via Xarch argument");
+    Diags.Report(DiagID) << A->getAsString(Args);
     return;
   }
   XarchArg->setBaseArg(A);

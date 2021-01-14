@@ -7,6 +7,14 @@
 
 ; Checks for old pass manager with old inline report
 
+; CHECK-OLD: define void @bar_
+; CHECK-OLD: define void @foo_
+; CHECK-OLD: call void @baz_
+; CHECK-OLD-NOT: call void @bar_
+; CHECK-OLD: define void @MAIN__
+; CHECK-OLD: call void @foo_
+; CHECK-OLD: define void @baz_
+
 ; CHECK-OLD: COMPILE FUNC: bar_
 ; CHECK-OLD: COMPILE FUNC: baz_
 ; CHECK-OLD: COMPILE FUNC: foo_
@@ -16,14 +24,6 @@
 ; CHECK-OLD: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-OLD: COMPILE FUNC: MAIN__
 ; CHECK-OLD: foo_{{.*}}Inlining is not profitable
-
-; CHECK-OLD: define void @bar_
-; CHECK-OLD: define void @foo_
-; CHECK-OLD: call void @baz_
-; CHECK-OLD-NOT: call void @bar_
-; CHECK-OLD: define void @MAIN__
-; CHECK-OLD: call void @foo_
-; CHECK-OLD: define void @baz_
 
 ; Checks for new pass manager with old inline report
 
@@ -35,8 +35,8 @@
 ; CHECK-NEW: call void @foo_
 ; CHECK-NEW: define void @baz_
 
-; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: bar_
+; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: foo_
 ; CHECK-NEW: baz{{.*}}Inlining is not profitable
 ; CHECK-NEW: INLINE: bar_{{.*}}Callee has multiple callsites with loops that could be fused

@@ -23,8 +23,6 @@
 #include "IntelVPlanDominatorTree.h"
 #include "llvm/ADT/SmallVector.h"
 
-extern bool LoopMassagingEnabled;
-
 namespace llvm {
 class ScalarEvolution;
 class Loop;
@@ -63,6 +61,8 @@ protected:
   /// The legality analysis.
   VPOVectorizationLegality *Legal;
 
+  ScalarEvolution *SE;
+
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent
   // an optimization opportunity for sinking their scalarized operands thus
@@ -84,37 +84,16 @@ protected:
 
   virtual void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts);
 
-  void doLoopMassaging();
-
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                    const WRNVecLoopNode *WRL, VPlan *Plan,
-                   VPOVectorizationLegality *Legal);
+                   VPOVectorizationLegality *Legal,
+                   ScalarEvolution *SE = nullptr);
 
   virtual ~VPlanHCFGBuilder();
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();
-
-  // So far only emits explict uniform Vector loop iv, but is expected to be
-  // extended to include all the peeling/main vector/remainder CFG/phis.
-  virtual void emitVecSpecifics();
-
-  // Emit uniform IV for the vector loop and rewrite backedge condition to use
-  // it:
-  //
-  //   header:
-  //     %iv = phi [ 0, preheader ], [ iv.next, latch ]
-  //
-  //   latch:
-  //     %iv.next = %iv + VF
-  //     %cond = %iv.next `icmp` TripCount
-  //     br i1 %cond
-  //
-  // The order of latch's successors isn't changed which is ensured by selecting
-  // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
-  // are no remaining uses of it after the transformation above.
-  void emitVectorLoopIV(VPValue *TripCount, VPValue *VF);
 };
 
 } // namespace vpo

@@ -66,36 +66,23 @@ pi_result getEventInfoFunc(pi_event Event, pi_event_info PName, size_t PVSize,
 
 TEST_F(SchedulerTest, CommandsWaitForEvents) {
   default_selector Selector{};
-#if INTEL_CUSTOMIZATION
-  try {
-    if (Selector.select_device().is_host()) {
-      std::cerr << "Not run due to host-only environment\n";
-      return;
-    }
-  } catch (const runtime_error &E) {
-    if (E.get_cl_code() == PI_DEVICE_NOT_FOUND) {
-      std::cerr << "Not run due to no device";
-      return;
-    }
-
-    throw E;
+  if (Selector.select_device().is_host()) {
+    std::cerr << "Not run due to host-only environment\n";
+    return;
   }
-#endif // INTEL_CUSTOMIZATION
-  queue Q1;
-  queue Q2;
 
-  unittest::PiMock Mock1(Q1);
-  unittest::PiMock Mock2(Q2);
+  platform Plt{Selector};
+  unittest::PiMock Mock{Plt};
 
-  Mock1.redefine<detail::PiApiKind::piEventsWait>(waitFunc);
-  Mock1.redefine<detail::PiApiKind::piEventRetain>(retainReleaseFunc);
-  Mock1.redefine<detail::PiApiKind::piEventRelease>(retainReleaseFunc);
-  Mock1.redefine<detail::PiApiKind::piEventGetInfo>(getEventInfoFunc);
+  Mock.redefine<detail::PiApiKind::piEventsWait>(waitFunc);
+  Mock.redefine<detail::PiApiKind::piEventRetain>(retainReleaseFunc);
+  Mock.redefine<detail::PiApiKind::piEventRelease>(retainReleaseFunc);
+  Mock.redefine<detail::PiApiKind::piEventGetInfo>(getEventInfoFunc);
 
-  Mock2.redefine<detail::PiApiKind::piEventsWait>(waitFunc);
-  Mock2.redefine<detail::PiApiKind::piEventRetain>(retainReleaseFunc);
-  Mock2.redefine<detail::PiApiKind::piEventRelease>(retainReleaseFunc);
-  Mock2.redefine<detail::PiApiKind::piEventGetInfo>(getEventInfoFunc);
+  context Ctx1{Plt};
+  queue Q1{Ctx1, Selector};
+  context Ctx2{Plt};
+  queue Q2{Ctx2, Selector};
 
   TestContext.reset(new TestCtx(Q1, Q2));
 

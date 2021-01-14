@@ -86,11 +86,6 @@ enum CPUKind {
   CK_Goldmont,
   CK_GoldmontPlus,
   CK_Tremont,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  CK_Alderlake,
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
   CK_Nehalem,
   CK_Westmere,
   CK_SandyBridge,
@@ -109,15 +104,12 @@ enum CPUKind {
   CK_IcelakeServer,
   CK_Tigerlake,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-  CK_SapphireRapids,
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
   CK_Rocketlake,
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+  CK_SapphireRapids,
+  CK_Alderlake,
   CK_KNL,
   CK_KNM,
   CK_Lakemont,
@@ -137,17 +129,25 @@ enum CPUKind {
   CK_BDVER4,
   CK_ZNVER1,
   CK_ZNVER2,
+  CK_ZNVER3,
   CK_x86_64,
+  CK_x86_64_v2,
+  CK_x86_64_v3,
+  CK_x86_64_v4,
   CK_Geode,
 };
 
 /// Parse \p CPU string into a CPUKind. Will only accept 64-bit capable CPUs if
 /// \p Only64Bit is true.
 CPUKind parseArchX86(StringRef CPU, bool Only64Bit = false);
+CPUKind parseTuneCPU(StringRef CPU, bool Only64Bit = false);
 
 /// Provide a list of valid CPU names. If \p Only64Bit is true, the list will
 /// only contain 64-bit capable CPUs.
 void fillValidCPUArchList(SmallVectorImpl<StringRef> &Values,
+                          bool Only64Bit = false);
+/// Provide a list of valid -mtune names.
+void fillValidTuneCPUList(SmallVectorImpl<StringRef> &Values,
                           bool Only64Bit = false);
 
 /// Get the key feature prioritizing target multiversioning.

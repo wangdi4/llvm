@@ -15,174 +15,143 @@ declare void @llvm.directive.region.exit(token) #2
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after all zero bypass insertion:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP127:%.*]] = icmp slt i32 [[VP0]] i32 256
-; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin27
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin27
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.begin27:
+; CHECK-NEXT:    all.zero.bypass.begin27: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_CMP127]]
-; CHECK-NEXT:    SUCCESSORS(2):all.zero.bypass.end29(i1 [[VP_ALL_ZERO_CHECK]]), [[BB4:BB[0-9]+]](!i1 [[VP_ALL_ZERO_CHECK]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end29, [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:      [[BB4]]: # preds: all.zero.bypass.begin27
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP127]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_DIV:%.*]] = sdiv i32 [[X0:%.*]] i32 [[Y0:%.*]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin27
+; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE:%.*]], [[BB6:BB[0-9]+]] ]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB6:BB[0-9]+]], [[BB4]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_STOREMERGE28:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP_INC:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP127]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP127]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB4]]
+; CHECK-NEXT:       [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
+; CHECK-NEXT:      [[BB7]]: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_CMP127]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB9:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:       [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]]:
+; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_PIVOT:%.*]] = icmp slt i32 [[VP2]] i32 24
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_PIVOT_NOT:%.*]] = not i1 [[VP_PIVOT]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB10:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
+; CHECK-NEXT:       [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB10]]:
+; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_PIVOT_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_PIVOT_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_PIVOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_PIVOT]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB11:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
+; CHECK-NEXT:       [DA: Uni] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB11]]:
+; CHECK-NEXT:      [[BB11]]: # preds: [[BB10]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB6_BR_VP_PIVOT_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF31:%.*]] = icmp eq i32 [[VP2]] i32 24
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF31_NOT:%.*]] = not i1 [[VP_SWITCHLEAF31]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB12:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB10]]
+; CHECK-NEXT:       [DA: Uni] br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB12]]:
+; CHECK-NEXT:      [[BB12]]: # preds: [[BB11]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB13:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB11]]
+; CHECK-NEXT:       [DA: Uni] br [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB13]]:
+; CHECK-NEXT:      [[BB13]]: # preds: [[BB12]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB6_BR_VP_PIVOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF:%.*]] = icmp eq i32 [[VP2]] i32 3
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SWITCHLEAF_NOT:%.*]] = not i1 [[VP_SWITCHLEAF]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB14:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB12]]
+; CHECK-NEXT:       [DA: Uni] br [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB14]]:
+; CHECK-NEXT:      [[BB14]]: # preds: [[BB13]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB15:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB13]]
+; CHECK-NEXT:       [DA: Uni] br [[BB15:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB15]]:
+; CHECK-NEXT:      [[BB15]]: # preds: [[BB14]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP8:%.*]] = or i1 [[VP_BB8_BR_VP_SWITCHLEAF31_NOT]] i1 [[VP_BB7_BR_VP_SWITCHLEAF_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP8]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB16:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB14]]
+; CHECK-NEXT:       [DA: Uni] br [[BB16:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB16]]:
+; CHECK-NEXT:      [[BB16]]: # preds: [[BB15]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP10:%.*]] = or i1 [[VP_BB8_BR_VP_SWITCHLEAF31]] i1 [[VP_BB7_BR_VP_SWITCHLEAF]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP11:%.*]] = block-predicate i1 [[VP10]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[SUB0:%.*]] i32* [[VP_ARRAYIDX9]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB17:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB15]]
+; CHECK-NEXT:       [DA: Uni] br [[BB17:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB17]]:
+; CHECK-NEXT:      [[BB17]]: # preds: [[BB16]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP12:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[VP_DIV]] i32* [[VP_ARRAYIDX11]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_INC]] = add i32 [[VP_STOREMERGE28]] i32 1
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_INC]] i32 256
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB18:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB16]]
+; CHECK-NEXT:       [DA: Uni] br [[BB18:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB18]]:
+; CHECK-NEXT:      [[BB18]]: # preds: [[BB17]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB11_BR_VP_EXITCOND_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB19:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB17]]
+; CHECK-NEXT:       [DA: Uni] br [[BB19:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB19]]:
+; CHECK-NEXT:      [[BB19]]: # preds: [[BB18]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP_BB11_BR_VP_EXITCOND_NOT]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB18]]
+; CHECK-NEXT:       [DA: Uni] br [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[NEW_LOOP_LATCH0]]:
+; CHECK-NEXT:      [[NEW_LOOP_LATCH0]]: # preds: [[BB19]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKEBACKEDGECOND_BLEND_BB13:%.*]] = blend [ i1 false, i1 [[VP_BB5_BR_VP_LOOP_MASK]] ], [ i1 true, i1 [[VP_BB11_BR_VP_EXITCOND_NOT]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP14:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB19]]
+; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]:
+; CHECK-NEXT:      [[BB6]]: # preds: [[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP15:%.*]] = block-predicate i1 [[VP_CMP127]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND_BLEND_BB13]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP16:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB20:BB[0-9]+]](i1 [[VP16]]), [[BB5]](!i1 [[VP16]])
-; CHECK-NEXT:      PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP16]], [[BB20:BB[0-9]+]], [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB20]]:
+; CHECK-NEXT:      [[BB20]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP_CMP127]]
-; CHECK-NEXT:      SUCCESSORS(1):all.zero.bypass.end29
-; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end29
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.end29:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB20]] all.zero.bypass.begin27
+; CHECK-NEXT:    all.zero.bypass.end29: # preds: [[BB20]], all.zero.bypass.begin27
+; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end29
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB21:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end29
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB21:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB21]]:
+; CHECK-NEXT:    [[BB21]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB22:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB22:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB22]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB21]]
+; CHECK-NEXT:    [[BB22]]: # preds: [[BB21]]
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]

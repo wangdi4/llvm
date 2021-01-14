@@ -364,7 +364,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
 
   // For now, the ref is required to have a single CanonExpr.
   // Update the transformation to handle multi-dimensional refs if needed.
-  if (!Ref->isSingleCanonExpr()) {
+  if (!Ref->isSingleDimension()) {
     LLVM_DEBUG(dbgs() << "  Ref has multile CanonExprs\n");
     return {};
   }
@@ -601,6 +601,108 @@ static void replaceAllEquivalentRefsWithConstant(HLNode *Node,
 
   Visitor HV{OrigRef, NewConst, DDG};
   HLNodeUtils::visit(HV, Node);
+}
+
+// Replace following pattern:
+//
+//  %t = - (%B)[i1 + 32 * i3];
+//  %sum = %sum  +  %t;
+//
+//  with >>>
+//
+//  %sum = %sum - (%B)[i1 + 32 * i3];
+//
+// Removal %t iff no DDedges in loop and is not live in/out
+
+static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
+  DenseMap<unsigned, HLInst *> FNegCandidates;
+  SmallVector<std::pair<HLInst *, HLInst *>, 4> CandidatePairs;
+
+  for (auto Iter = Loop->child_begin(), End = Loop->child_end(); Iter != End;
+       ++Iter) {
+    HLInst *Inst = dyn_cast<HLInst>(Iter);
+    if (!Inst) {
+      continue;
+    }
+
+    const Instruction *LLVMInst = Inst->getLLVMInstruction();
+    const RegDDRef *LvalRef = Inst->getLvalDDRef();
+
+    // Find Fneg inst: t = - (%B)[i1];
+    if (LLVMInst->getOpcode() == Instruction::FNeg && LLVMInst->isFast()) {
+      unsigned SB = LvalRef->getSymbase();
+      bool OutsideUses = Loop->isLiveOut(SB) || Loop->isLiveIn(SB);
+
+      if (!OutsideUses && LvalRef->isSelfBlob()) {
+        FNegCandidates[LvalRef->getSelfBlobIndex()] = Inst;
+        continue;
+      }
+    }
+
+    // Find Fadd inst: %sum = %sum  +  %t;
+    if (LLVMInst->getOpcode() == Instruction::FAdd && LLVMInst->isFast() &&
+        !FNegCandidates.empty()) {
+      unsigned TempOpNum = 0;
+      if (DDRefUtils::areEqual(LvalRef, Inst->getOperandDDRef(1))) {
+        TempOpNum = 2;
+      } else if (DDRefUtils::areEqual(LvalRef, Inst->getOperandDDRef(2))) {
+        TempOpNum = 1;
+      } else {
+        continue;
+      }
+
+      auto *AddTemp = Inst->getOperandDDRef(TempOpNum);
+      if (!AddTemp->isSelfBlob()) {
+        continue;
+      }
+
+      unsigned TempIndex = AddTemp->getSelfBlobIndex();
+      auto It = FNegCandidates.find(TempIndex);
+      if (It == FNegCandidates.end()) {
+        continue;
+      }
+
+      auto *FNegInst = It->second;
+      CandidatePairs.push_back(std::make_pair(FNegInst, Inst));
+    }
+  }
+
+  if (CandidatePairs.empty()) {
+    return;
+  }
+
+  HIRInvalidationUtils::invalidateBody(Loop);
+  DDGraph DDG = DDA.getGraph(Loop);
+
+  // Check for DDEdge between Inst Pair and do replacement
+  for (auto Pair : CandidatePairs) {
+    HLInst *FNeg = Pair.first;
+    HLInst *FAdd = Pair.second;
+
+    const RegDDRef *FNegLval = FNeg->getLvalDDRef();
+    if (DDG.getNumOutgoingEdges(FNegLval) != 1) {
+      continue;
+    }
+
+    // Bailout if expected edge doesn't point to FAdd
+    DDEdge *Edge = *DDG.outgoing_edges_begin(FNegLval);
+    if (!Edge->isFlow() || Edge->getSink()->getHLDDNode() != FAdd) {
+      continue;
+    }
+
+    auto *NegRef = FNeg->removeRvalDDRef();
+    unsigned OpNum =
+        DDRefUtils::areEqual(FAdd->getLvalDDRef(), FAdd->getOperandDDRef(1))
+            ? 1
+            : 2;
+
+    HLInst *const NewFSub = FAdd->getHLNodeUtils().createFPMathBinOp(
+        Instruction::FSub, FAdd->removeOperandDDRef(OpNum), NegRef,
+        FastMathFlags::getFast(), "", FAdd->removeLvalDDRef());
+
+    HLNodeUtils::replace(FAdd, NewFSub);
+    HLNodeUtils::remove(FNeg);
+  }
 }
 
 /// Performs the multiversioning transform on \p Lp for the multiversioning
@@ -1174,6 +1276,11 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     // Replace all uses of the loaded value within the loop with the constant.
     replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd],
                                          HDDA.getGraph(MVLoop));
+
+    if (HIRTransformUtils::doConstantPropagation(MVLoop)) {
+      applyPeepHole(MVLoop, HDDA);
+      HLNodeUtils::removeRedundantNodes(MVLoop);
+    }
   }
 
 #if INTEL_INTERNAL_BUILD

@@ -101,6 +101,14 @@ static cl::opt<unsigned> LoopTripThreshold(
     cl::desc("Don't unroll if trip count of any loop is bigger than this "
              "threshold. 0 means default threshold."));
 
+// Keep trip count threshold for multi-exit loops relatively low because
+// unrolling increases CFG complexity especially when loop has liveouts.
+static cl::opt<unsigned> MultiExitLoopTripThreshold(
+    "hir-complete-unroll-multi-exit-loop-trip-threshold", cl::init(16),
+    cl::Hidden,
+    cl::desc("Don't unroll if multi-exit loop trip count is bigger than this "
+             "threshold."));
+
 const unsigned O2LoopnestTripThreshold = 100;
 const unsigned O3LoopnestTripThreshold = 100;
 
@@ -171,6 +179,11 @@ static cl::opt<bool>
                          cl::desc("Cost model will assume DD independence for "
                                   "all memrefs in the unroll loopnest"));
 
+static cl::opt<bool> ForceConstantPropagation(
+    "hir-complete-unroll-force-constprop", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Force Constant Propagation in HIR Complete Unroll for all loops"));
+
 // External interface
 namespace llvm {
 namespace loopopt {
@@ -201,6 +214,8 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
   if (OptLevel == 0) {
     OptLevel = CommandLineOptLevel;
   }
+
+  Limits.MultiExitLoopTripThreshold = MultiExitLoopTripThreshold;
 
   if (OptLevel <= 2) {
     Limits.LoopTripThreshold =
@@ -546,7 +561,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// Adds the cost of the blob given its info and coefficient in the CE. \p
   /// UnrollableIVLevel stores the level of unrollable IV this blob is a
   /// coefficient of. Otherwise it is set to 0.
-  void addBlobCost(const BlobInfo &BInfo, int64_t Coeff,
+  void addBlobCost(const BlobInfo &BInfo, int64_t Coeff, const CanonExpr *CE,
                    unsigned UnrollableIVLevel, unsigned &NumNonLinearTerms,
                    bool *IsVisitedNonLinearTerm);
 
@@ -561,10 +576,6 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
   /// Returns percentage savings achieved by unrolling the loopnest.
   float getSavingsInPercentage() const;
-
-  /// Returns true if this loop should be unrolled before vectorizer. This is a
-  /// temporary workaround.
-  bool isPreVectorProfitableLoop(const HLLoop *CurLoop) const;
 
   /// Returns true if we find a simplified alloca store with base ptr blob index
   /// \p BaseIndex which dominates \p AllocaLoadRef in a previous loopnest.
@@ -785,48 +796,6 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
 
 ///// ProfitabilityAnalyzer Visitor Start
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::isPreVectorProfitableLoop(
-    const HLLoop *CurLoop) const {
-
-  if (!HCU.IsPreVec || !CurLoop->isInnermost()) {
-    return false;
-  }
-
-  auto Upper = CurLoop->getUpperCanonExpr();
-  int64_t UpperVal;
-
-  if (!Upper->isIntConstant(&UpperVal) || (UpperVal != 3)) {
-    return false;
-  }
-
-  unsigned NumIfs = 0;
-  unsigned NumSelects = 0;
-  unsigned NumRems = 0;
-  unsigned NumXORs = 0;
-
-  for (auto NodeIt = CurLoop->child_begin(), E = CurLoop->child_end();
-       NodeIt != E; ++NodeIt) {
-    auto Node = &*NodeIt;
-
-    if (isa<HLIf>(Node)) {
-      ++NumIfs;
-
-    } else if (auto HInst = dyn_cast<HLInst>(Node)) {
-      unsigned OpCode = HInst->getLLVMInstruction()->getOpcode();
-
-      if (OpCode == Instruction::URem || OpCode == Instruction::SRem) {
-        ++NumRems;
-      } else if (OpCode == Instruction::Select) {
-        ++NumSelects;
-      } else if (OpCode == Instruction::Xor) {
-        ++NumXORs;
-      }
-    }
-  }
-
-  return (NumIfs == 4) && (NumRems == 2) && (NumSelects == 1) && (NumXORs == 3);
-}
-
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
 
   if (HCU.IsPreVec && CurLoop->isInnermost() && CurLoop->isDo()) {
@@ -846,18 +815,11 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   auto Iter = HCU.AvgTripCount.find(CurLoop);
   assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
 
-  bool IsPreVecProfitableLoop = isPreVectorProfitableLoop(CurLoop);
-
   // Check if the loop is small enough to assign some extra profitability to it
   // (for eliminating loop control) and give it higher chance of unrolling.
-  if (isSmallLoop(Iter->second) || IsPreVecProfitableLoop) {
+  if (isSmallLoop(Iter->second)) {
     Savings +=
         std::min(HCU.Limits.SmallLoopAdditionalSavingsThreshold, Iter->second);
-  }
-
-  // Workaround to make loop profitable till vectorizer fixes its cost model.
-  if (IsPreVecProfitableLoop) {
-    Savings *= 3;
   }
 
   scale(Iter->second);
@@ -2036,7 +1998,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
       // This ref can be hoisted outside the unrolled loop so we add extra
       // savings.
       if (GEPInfo.DDIndependentInUnrolledLoop) {
-        GEPSavings += (UniqueOccurences * BaseCost);
+        // Ideally, the savings should be outer loop trip count multiplied by
+        // unique occurences but that skews the cost model too much so we only
+        // double the saving.
+        GEPSavings += (2 * UniqueOccurences * BaseCost);
       }
 
       if (IsMemRef) {
@@ -2358,7 +2323,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
         CanSimplifyIVs = false;
       }
 
-      addBlobCost(BInfo, Coeff, IsUnrollableLoopLevel ? Level : 0,
+      addBlobCost(BInfo, Coeff, CE, IsUnrollableLoopLevel ? Level : 0,
                   CEInfo.NumNonLinearTerms, nullptr);
 
       if (IsUnrollableLoopLevel) {
@@ -2413,7 +2378,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlobs(
       continue;
     }
 
-    addBlobCost(BInfo, Blob->Coeff, 0, NumNonLinearTerms,
+    addBlobCost(BInfo, Blob->Coeff, CE, 0, NumNonLinearTerms,
                 &HasVisitedNonLinearTerms);
   }
 
@@ -2530,15 +2495,16 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::getBlobInfo(unsigned Index,
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::addBlobCost(
-    const BlobInfo &BInfo, int64_t Coeff, unsigned UnrollableIVLevel,
-    unsigned &NumNonLinearTerms, bool *IsVisitedNonLinearTerm) {
+    const BlobInfo &BInfo, int64_t Coeff, const CanonExpr *CE,
+    unsigned UnrollableIVLevel, unsigned &NumNonLinearTerms,
+    bool *IsVisitedNonLinearTerm) {
 
   unsigned OuterTripCnt = 0;
 
   if (UnrollableIVLevel != 0) {
     // If IV belongs to outer loop, cost incurred should be based on outer
-    // loop trip count. For example, if the CanonExpr is (t * i1 + i2), number
-    // of unique combinations of (t * i1) depend only on the outer loop trip
+    // loop trip count. For example, if the CanonExpr is (t1 * i1 + t2), number
+    // of unique combinations of (t1 * i1) depend only on the outer loop trip
     // count.
     auto OuterLoop = CurLoop->getParentLoopAtLevel(UnrollableIVLevel);
     OuterTripCnt = HCU.AvgTripCount.find(OuterLoop)->second;
@@ -2593,19 +2559,38 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::addBlobCost(
     ++NumNonLinearTerms;
 
   } else if (UnrollableIVLevel != 0) {
+
     // Multiplication of invariant blob with unrolled IV leads to increase in
     // size as the blob is multiplied by a different constant in each iteration
     // except first, when the IV is zero.
 
-    ScaledCost += (OuterTripCnt - 1);
+    unsigned AccumulatedCost = (OuterTripCnt - 1);
 
     // The first iteration when IV is zero can still be simplified.
-    ++ScaledSavings;
+    unsigned AccumulatedSavings = 1;
 
     // Multiplication of unrolled IV and constant coefficient can be folded.
     if (Coeff != 1) {
-      ScaledSavings += OuterTripCnt;
+      AccumulatedSavings += OuterTripCnt;
     }
+
+    unsigned Level = CurLevel;
+
+    // Accumulate more cost/savings for each loop level at which CE is not
+    // invariant by multiplying by its trip count. For CEs like (t * i1 + i2)
+    // the number of unique combinations depend i2 loop trip count as well, not
+    // just i1 loop.
+    for (const HLLoop *Lp = CurLoop, *EndLp = OuterLoop->getParentLoop();
+         Lp != EndLp; Lp = Lp->getParentLoop(), --Level) {
+      if (Level != UnrollableIVLevel && !CE->isInvariantAtLevel(Level)) {
+        auto TripCnt = HCU.AvgTripCount.find(Lp)->second;
+        AccumulatedCost *= TripCnt;
+        AccumulatedSavings *= TripCnt;
+      }
+    }
+
+    ScaledCost += AccumulatedCost;
+    ScaledSavings += AccumulatedSavings;
   }
 }
 
@@ -2680,8 +2665,8 @@ void HIRCompleteUnroll::refineCandidates() {
 bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
 
   // Throttle multi-exit/unknown loops.
-  if (!Loop->isDo()) {
-    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-DO loop!\n");
+  if (Loop->isUnknown()) {
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-countable loop!\n");
     return false;
   }
 
@@ -2770,9 +2755,12 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   int64_t UpperVal = 0;
 
+  bool IsMultiExit = Loop->getNumExits() > 1;
+
   if (UpperCE->isIntConstant(&UpperVal)) {
     int64_t TC = UpperVal + 1;
-    if (TC > Limits.LoopTripThreshold) {
+    if (TC > (IsMultiExit ? Limits.MultiExitLoopTripThreshold
+                          : Limits.LoopTripThreshold)) {
       TC = -1;
     }
 
@@ -2856,7 +2844,8 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
     AvgTripCnt = ((MinUpper + MaxUpper) / 2) + 1;
   }
 
-  if (AvgTripCnt > Limits.LoopTripThreshold) {
+  if (AvgTripCnt > (IsMultiExit ? Limits.MultiExitLoopTripThreshold
+                                : Limits.LoopTripThreshold)) {
     AvgTripCnt = -1;
   }
 
@@ -3039,9 +3028,10 @@ void HIRCompleteUnroll::transformLoops() {
 
     doUnroll(Loop);
 
-    if (IsPreVec && HasParentLoop) {
-      HIRTransformUtils::substituteConstGlobals(ParentNode);
+    if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
+      HIRTransformUtils::doConstantPropagation(ParentNode);
     }
+
     HLNodeUtils::removeRedundantNodes(ParentNode);
   }
 }
@@ -3108,10 +3098,6 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   int64_t UB = computeUB(Loop, CEUpdater.TopLoopLevel, IVValues);
   int64_t Step = Loop->getStrideCanonExpr()->getConstant();
 
-  // This may be different than UB when Step is not 1.
-  int64_t LastIVVal = LB + (((UB - LB) / Step) * Step);
-  bool ZttHasBlob = false;
-
   // At this point loop preheader has been visited already but postexit is
   // not, so we need to handle postexit explicitly.
 
@@ -3122,20 +3108,24 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
     return;
   }
 
-  // Check if ZTT has blob. If so, we have to hoist it.
-  for (auto DDIt = Loop->ztt_ddref_begin(), E = Loop->ztt_ddref_end();
-       DDIt != E; ++DDIt) {
-    if ((*DDIt)->hasBlobDDRefs() || (*DDIt)->isSelfBlob()) {
-      ZttHasBlob = true;
-      break;
-    }
-  }
+  // Always preserve Ztt during unroll because it may be more restrictive
+  // than what the loop upper implies. For example-
+  //
+  // for (i = 30; i > 1; --i){
+  //   // This condition acts as the ztt and prevents the loop from executing
+  //   // when (8 <= i <= 13).
+  //   if (i <= 7){
+  //     for (j = i; j < 14; j++){
+  //       m[j]++;
+  //     }
+  //   }
+  // }
+  //
+  // removeRedundantNodes() utility should be able to eliminate most Ztts
+  // after unrolling.
 
-  if (ZttHasBlob) {
-    HLNodeUtils::visit<false>(CEUpdater,
-                              Loop->extractZtt(CEUpdater.TopLoopLevel));
-  } else {
-    Loop->removeZtt();
+  if (auto *Ztt = Loop->extractZtt(CEUpdater.TopLoopLevel)) {
+    HLNodeUtils::visit<false>(CEUpdater, Ztt);
   }
 
   HLNode *Marker = nullptr;
@@ -3160,6 +3150,9 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
 
   // Container for cloning body.
   HLContainerTy LoopBody;
+
+  // This may be different than UB when Step is not 1.
+  int64_t LastIVVal = LB + (((UB - LB) / Step) * Step);
 
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.

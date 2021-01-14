@@ -27,7 +27,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -266,10 +265,13 @@ public:
                                                   Value *Tid, Value *GV,
                                                   Value *GVSize, Value *TpvGV);
 
-  /// Generate source location information from Instruction \p AI's `DebugLoc`.
-  static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
-                                                StructType *IdentTy, int Flags,
-                                                BasicBlock *BS, BasicBlock *BE);
+  /// Generate source location information from the debug locations
+  /// (Instruction::getDebugLoc()) of the first instructions in the given
+  /// \p BS and \p BE. The returned value is a pointer to an aggregate
+  /// variable of type \p IdentTy that is initialized with the
+  /// source locations and the given \p Flags.
+  static Constant *genKmpcLocfromDebugLoc(StructType *IdentTy, int Flags,
+                                          BasicBlock *BS, BasicBlock *BE);
 
   /// Generate source location String from debug location \p Loc1 and \p Loc2.
   static GlobalVariable *genLocStrfromDebugLoc(Function *F, DILocation *Loc1,
@@ -339,7 +341,8 @@ public:
   static CallInst *genKmpcStaticInit(
       WRegionNode *W, StructType *IdentTy, Value *Tid,
       Value *IsLastVal, Value *LB, Value *UB, Value *DistUB, Value *ST,
-      Value *Inc, Value *Chunk, bool IsUnsigned, Instruction *InsertPt);
+      Value *Inc, Value *Chunk, bool IsUnsigned, IntegerType *LoopIVTy,
+      Instruction *InsertPt);
 
   /// Generate a call to notify the runtime system that the static loop
   /// scheduling is done.
@@ -450,16 +453,18 @@ public:
                                      bool Prepare);
 
 
-  /// Generate source location information for \b explicit barrier.
-  static GlobalVariable *genKmpcLocforExplicitBarrier(Instruction *InsertPt,
-                                                      StructType *IdentTy,
-                                                      BasicBlock *BB);
+  /// Generate source location information of type \p IdentTy
+  /// for an explicit barrier. The source location information
+  /// is taken from \p BB.
+  static Constant *genKmpcLocforExplicitBarrier(StructType *IdentTy,
+                                                BasicBlock *BB);
 
-  /// Generate source location information for \b implicit barrier.
-  static GlobalVariable *genKmpcLocforImplicitBarrier(WRegionNode *W,
-                                                      Instruction *InsertPt,
-                                                      StructType *IdentTy,
-                                                      BasicBlock *BB);
+  /// Generate source location information of type \p IdentTy
+  /// for an implicit barrier implied by \p W.
+  /// The source location information is taken from \p BB.
+  static Constant *genKmpcLocforImplicitBarrier(WRegionNode *W,
+                                                StructType *IdentTy,
+                                                BasicBlock *BB);
 
   /// Insert `kmpc_[cancel]_barrier` call (based on whether parent WRegion has
   /// a cancel construct) before \p InsertPt and return it.
@@ -1068,7 +1073,6 @@ public:
   static CallInst *genKmpcTaskAllocForAsyncObj(WRegionNode *W,
                                                StructType *IdentTy,
                                                int AsyncObjTySize,
-                                               int UseDevicePtrsTySize,
                                                Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_taskloop`. Example:
@@ -1090,7 +1094,8 @@ public:
   /// \endcode
   static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                    Value *TidPtr, Value *TaskAlloc, Value *Cmp,
-                                   Value *LBPtr, Value *UBPtr, Value *STPtr,
+                                   AllocaInst *LBPtr, AllocaInst *UBPtr,
+                                   AllocaInst *STPtr,
                                    StructType *KmpTaskTTWithPrivatesTy,
                                    Instruction *InsertPt, bool UseTbb,
                                    Function *FnTaskDup);
@@ -1179,7 +1184,21 @@ public:
   static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
                                    Value *TidPtr, Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_data_begin`. Example:
+  /// Generate a call to `__tgt_target_data_begin[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_begin_mapper(ident_t *loc,
+  ///                                          int64_t  device_id,
+  ///                                          int32_t  num_args,
+  ///                                          void**   args_base,
+  ///                                          void**   args,
+  ///                                          int64_t* args_size,
+  ///                                          int64_t* args_maptype,
+  ///                                          void**   args_names,
+  ///                                          void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_data_begin(int64_t  device_id,
   ///                                   int32_t  num_args,
@@ -1191,9 +1210,24 @@ public:
   static CallInst *genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                          Value *ArgsBase, Value *Args,
                                          Value *ArgsSize, Value *ArgsMaptype,
+                                         Value *ArgsNames, Value *ArgsMappers,
                                          Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_data_end`. Example:
+  /// Generate a call to `__tgt_target_data_end[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_end_mapper(ident_t *loc,
+  ///                                        int64_t  device_id,
+  ///                                        int32_t  num_args,
+  ///                                        void**   args_base,
+  ///                                        void**   args,
+  ///                                        int64_t* args_size,
+  ///                                        int64_t* args_maptype,
+  ///                                        void**   args_names,
+  ///                                        void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_data_end(int64_t  device_id,
   ///                                 int32_t  num_args,
@@ -1205,9 +1239,24 @@ public:
   static CallInst *genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                        Value *ArgsBase, Value *Args,
                                        Value *ArgsSize, Value *ArgsMaptype,
+                                       Value *ArgsNames, Value *ArgsMappers,
                                        Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_data_update`. Example:
+  /// Generate a call to `__tgt_target_data_update[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_data_update_mapper(ident_t *loc,
+  ///                                           int64_t  device_id,
+  ///                                           int32_t  num_args,
+  ///                                           void**   args_base,
+  ///                                           void**   args,
+  ///                                           int64_t* args_size,
+  ///                                           int64_t* args_maptype,
+  ///                                           void**   args_names,
+  ///                                           void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_data_update(int64_t  device_id,
   ///                                    int32_t  num_args,
@@ -1219,9 +1268,25 @@ public:
   static CallInst *genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                           Value *ArgsBase, Value *Args,
                                           Value *ArgsSize, Value *ArgsMaptype,
+                                          Value *ArgsNames, Value *ArgsMappers,
                                           Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target`. Example:
+  /// Generate a call to `__tgt_target[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_mapper(ident_t *loc,
+  ///                               int64_t  device_id,
+  ///                               void*    host_addr,
+  ///                               int32_t  num_args,
+  ///                               void**   args_base,
+  ///                               void**   args,
+  ///                               int64_t* args_size,
+  ///                               int64_t* args_maptype,
+  ///                               void**   args_names,
+  ///                               void**   args_mappers)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target(int64_t  device_id,
   ///                        void*    host_addr,
@@ -1233,9 +1298,27 @@ public:
   /// \endcode
   static CallInst *genTgtTarget(WRegionNode *W, Value *HostAddr, int NumArgs,
                                 Value *ArgsBase, Value *Args, Value *ArgsSize,
-                                Value *ArgsMaptype, Instruction *InsertPt);
+                                Value *ArgsMaptype, Value *ArgsNames,
+                                Value *ArgsMappers, Instruction *InsertPt);
 
-  /// Generate a call to `__tgt_target_teams`. Example:
+  /// Generate a call to `__tgt_target_teams[_mapper]`. Example:
+  /// \code
+  ///   int32_t __tgt_target_teams_mapper(ident_t *loc,
+  ///                               int64_t  device_id,
+  ///                               void*    host_addr,
+  ///                               int32_t  num_args,
+  ///                               void**   args_base,
+  ///                               void**   args,
+  ///                               int64_t* args_size,
+  ///                               int64_t* args_maptype,
+  ///                               void**   args_names,
+  ///                               void**   args_mappers,
+  ///                               int32_t  num_teams,
+  ///                               int32_t  thread_limit)
+  /// \endcode
+  ///
+  /// or, if -vpo-paropt-use-mapper-api=false is used:
+  ///
   /// \code
   ///   int32_t __tgt_target_teams(int64_t  device_id,
   ///                              void*    host_addr,
@@ -1250,17 +1333,73 @@ public:
   static CallInst *genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
                                      int NumArgs, Value *ArgsBase, Value *Args,
                                      Value *ArgsSize, Value *ArgsMaptype,
+                                     Value *ArgsNames, Value *ArgsMappers,
                                      Instruction *InsertPt);
+
+  /// This utility encodes the constant parameters of subdevice in
+  /// \p ConstantDeviceID. \p ConstantDeviceID is both an input and an output,
+  /// it encodes a new \p Param everytime this function is called.
+  /// Encoding Steps:
+  /// 1) Create \p Mask based on \p MaskSize:
+  ///      \p Mask = (~(~(0ull) << \p MaskSize))
+  /// 2) AND \p Mask and \p Param : \p Param &= \p Mask;
+  /// 3) Shift the constant \p Param : \p Param <<= \p Shift;
+  /// 4) encode \p param to \p ConstantDeviceID:
+  ///       \p ConstantDeviceID |= \p Param;
+  static void encodeSubdeviceConstants(const ConstantInt* Param,
+                                      uint64_t& ConstantDeviceID,
+                                      int Shift, uint64_t MaskSize);
+
+  /// This utility inserts into the IR the code needed to encode the
+  /// non-constant subdevice parameters.
+  /// Generated IR :
+  /// 1) % 20 = zext i32 %1 to i64 // Zero extend \p Param
+  /// 2) % 21 = and i64 % 20, 255  // And Zero extended \p Param with \p Mask
+  /// 3) % 22 = shl i64 % 21, 32   // Shift left Masked \p Param
+  ///
+  /// This utility returns the manipulated \p Param, needed for extra IR
+  /// generation at the Caller.
+  static Value* genEncodingSubdeviceNonConstants(Instruction* InsertPt,
+                                                        Value* Param,
+                                                        int Shift,
+                                                        uint64_t Mask);
+
+  /// if Subdevice clause exists, this routine encodes Subdevice info into
+  /// DeviceID else, it returns DeviceID (cast to i64) without Subdevice
+  /// encoding.
+  /// The encoding is as follows:
+  /// Device encoding (MSB=63, LSB=0)
+  /// 63..63: Has subdevice
+  /// 62..58: Reserved
+  /// 57..56: Subdevice level
+  /// 55..48: Subdevice ID start
+  /// 47..40: Subdevice ID count
+  /// 39..32: Subdevice ID stride
+  /// 31..00: Device ID
+  ///
+  /// If \p W is TEAMS then subdevice clause is obtained from its parent TARGET
+  /// and passed in to this function as \p SubdeviceI. For all other cases of
+  /// \p W, \p SubdeviceI is null and the subdevice clause is obtained directly
+  /// from \p W.
+  static Value *encodeSubdevice (WRegionNode* W, Instruction* InsertPt,
+                                 Value* DeviceID,
+                                 SubdeviceItem* SubdeviceI = nullptr);
 
   /// Base routine to create `libomptarget` calls. Creates one of these calls:
   /// \code
-  ///   void    __tgt_target_data_begin( int64_t device_id, <common>)
-  ///   void    __tgt_target_data_end(   int64_t device_id, <common>)
-  ///   void    __tgt_target_data_update(int64_t device_id, <common>)
-  ///   int32_t __tgt_target(int64_t device_id, void *host_addr, <common>)
-  ///   int32_t __tgt_target_teams(int64_t device_id, void *host_addr,
-  ///                              <common>, int32_t num_teams,
-  ///                              int32_t thread_limit)
+  ///   void    __tgt_target_data_begin[_mapper]([ident_t *loc,]
+  ///                                            int64_t device_id, <common>)
+  ///   void    __tgt_target_data_end[_mapper]([ident_t *loc,]
+  ///                                          int64_t device_id, <common>)
+  ///   void    __tgt_target_data_update[_mapper]([ident_t *loc,]
+  ///                                             int64_t device_id, <common>)
+  ///   int32_t __tgt_target[_mapper]([ident_t *loc,]
+  ///                                 int64_t device_id, void *host_addr,
+  ///                                 <common>)
+  ///   int32_t __tgt_target_teams[_mapper]([ident_t *loc,]
+  ///                                       int64_t device_id, void *host_addr,
+  ///                                       <common>, int32_t num_teams,
+  ///                                       int32_t thread_limit)
   /// \endcode
   /// where `<common>` represents these 5 arguments:
   /// \code
@@ -1268,14 +1407,19 @@ public:
   ///   void**   args_base,   // array of base pointers being mapped
   ///   void**   args,        // array of section pointers (base+offset)
   ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
-  ///   int32_t* args_maptype // array of map attributes for each mapping
+  ///   int64_t* args_maptype // array of map attributes for each mapping
+  ///   [void**  args_names   // array of names for each mapping]
+  ///   [void**  args_mappers // array of mappers for each mapping]
   /// \endcode
-  static CallInst *genTgtCall(StringRef FnName, Value *DeviceIDPtr,
-                              int NumArgsCount, Value *ArgsBase, Value *Args,
-                              Value *ArgsSize, Value *ArgsMaptype,
-                              Instruction *InsertPt, Value *HostAddr = nullptr,
-                              Value *NumTeamsPtr = nullptr,
-                              Value *ThreadLimitPtr = nullptr);
+  /// The mapper versions of the APIs are emitted unless
+  /// -vpo-paropt-use-mapper-api=false is used.
+  static CallInst *
+  genTgtCall(StringRef FnName, WRegionNode *W, Value *DeviceIDPtr,
+             int NumArgsCount, Value *ArgsBase, Value *Args, Value *ArgsSize,
+             Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
+             Instruction *InsertPt, Value *HostAddr = nullptr,
+             Value *NumTeamsPtr = nullptr, Value *ThreadLimitPtr = nullptr,
+             SubdeviceItem *SubdeviceI = nullptr);
 
   /// Generate tgt_push_code_location call which pushes source code location
   /// and the pointer to the tgt_target*() function.
@@ -1312,6 +1456,15 @@ public:
   /// \code
   ///    bool __tgt_is_device_available(int device_num, void *device_type)
   /// \endcode
+  /// \p DeviceType is a void* argument that carries device type info. In the
+  /// current implementation only device architectures in enum DeviceArch are
+  /// supported, so we directly encode a bit vector representing the device
+  /// architectures selected in the \p DeviceType argument. In the future when
+  /// more device information needs to be represented, this argument may be a
+  /// pointer to some structure containing device info.
+  ///
+  /// If \p DeviceNum is available, the call returns true only if \p DeviceType
+  /// is null or if the device matches a device type specified in \p DeviceType.
   static CallInst *genTgtIsDeviceAvailable(Value *DeviceNum, Value *DeviceType,
                                            Instruction *InsertPt);
 
@@ -1345,6 +1498,12 @@ public:
   /// \endcode
   static CallInst *genTgtReleaseInteropObj(Value *InteropObj,
                                            Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///   int omp_get_default_device()
+  /// \endcode
+  static CallInst *genOmpGetDefaultDevice(Instruction *InsertPt);
 
   /// Generate a call to
   /// \code
@@ -1433,9 +1592,12 @@ public:
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
+  /// Set the calling convention for \p CI.
   /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
-  /// do nothing.
-  static void setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV);
+  /// set C calling convention.
+  /// Since \p CI may not be inserted into any Module yet, \p M
+  /// specifies a Module that is used to identify the target.
+  static void setFuncCallingConv(CallInst *CI, Module *M);
 
   /// \name Helper methods for generating calls.
   /// @{
@@ -1459,9 +1621,10 @@ public:
 
   /// Generate a CallInst for the given FunctionCallee \p FnC and its argument
   /// list. \p FnC must have a non-null Callee.
-  static CallInst *genCall(FunctionCallee FnC, ArrayRef<Value *> FnArgs,
+  static CallInst *genCall(Module *M,
+                           FunctionCallee FnC, ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
-                           bool IsTail = false, bool IsVarArg = false);
+                           bool IsTail = false);
 
   /// Generate a call to the function \p FnName.
   /// If the function is not already declared in the module \p M, then it is
@@ -1508,9 +1671,7 @@ public:
   /// Given a call \p BaseCall, create another call with name \p VariantName
   /// using the same arguments from \p BaseCall. Both functions are expected
   /// to have identical signatures.
-  /// \p W is a TargetVariant WRN. If present, replace each call argument that
-  /// is a host pointer (listed in the use_device_ptr clause) with its
-  /// corresponding target buffer.
+  /// \p W is a TargetVariant WRN.
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
                                   Value *InteropObj, Instruction *InsertPt,
                                   WRegionNode *W = nullptr,
@@ -1522,10 +1683,14 @@ public:
                                 Instruction *InsertPt = nullptr,
                                 bool IsVarArg = false);
 
-  // Creates new Function and outlines \p W region into it.
-  // \p DT DominatorTree is updated accordingly.
-  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT,
-                                      AssumptionCache *AC);
+  /// Creates new Function and outlines \p W region into it.
+  /// \p DT DominatorTree is updated accordingly. If \p BBsToExtractIn is
+  /// provided, only the BasicBlocks it contains are outlined, instead of the
+  /// full body of \p W.
+  static Function *genOutlineFunction(
+      const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
+      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = llvm::None,
+      std::string Suffix = "");
 
   // If there is a SPIRV builtin performing horizontal reduction for the given
   // reduction operation, this method will insert code with a call
@@ -1663,21 +1828,78 @@ private:
                     Instruction *AtomicEndInst, GlobalVariable *LockVar,
                     DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV);
 
-  /// Generates lane-by-lane execution loop for code inside a critical
-  /// section (guarded with __kmpc_critical/__kmpc_end_critical calls).
-  /// \p BeginInst and \p EndInst identify a piece of code that needs
-  /// to be wrapped into the loop. \p BeginInst must dominate \p EndInst,
-  /// and \p EndInst must post-dominate \p BeginInst.
-  /// The generated loop looks like this:
+
+  /// Wrap lane-by-lane loop around \p BeginInst and \p EndInst:
   ///   for (int id = 0; id < get_sub_group_size(); ++id) {
   ///     if (id != get_sub_group_local_id())
   ///       continue;
   ///     <BeginInst>
   ///     ...
-  ///     <EndInst>
   ///   }
-  static bool genCriticalLoopForSPIR(Instruction *BeginInst,
-                                     Instruction *EndInst,
+  ///   <EndInst>
+  /// This is a helper method for generating the serialization loop
+  /// for OpenMP critical execution. \p DT and \p LI are updated
+  /// accordingly.
+  static bool genCriticalLoopForSPIRHelper(Instruction *BeginInst,
+                                           Instruction *EndInst,
+                                           DominatorTree *DT,
+                                           LoopInfo *LI);
+
+  /// Generates lane-by-lane execution loop for code inside a critical
+  /// section (guarded with __kmpc_critical/__kmpc_end_critical calls).
+  /// \p BeginCritical and \p EndCritical identify a piece of code that needs
+  /// to be wrapped into the loop. \p BeginCritical must dominate
+  /// \p EndCritical, and \p EndCritical must post-dominate \p BeginCritical.
+  /// \p DT and \p LI are updated accordingly.
+  /// Exit blocks of region \p W may be modified due to blocks splitting.
+  ///
+  /// The generated loop looks like this:
+  ///   <BeginCritical>
+  ///   for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///     if (id != get_sub_group_local_id())
+  ///       continue;
+  ///     <LoopBeginInst>
+  ///     ...
+  ///     <LoopEndInst>
+  ///   }
+  ///   <EndCritical>
+  ///
+  /// Legend:
+  ///   LoopBeginInst is the next instruction after \p BeginCritical.
+  ///   LoopEndInst is the previous instruction before \p EndCritical.
+  ///
+  /// Under some controls this method also generates two identical
+  /// branches for even and odd sub-groups:
+  ///   if (get_sub_group_id() & 1) {
+  ///     <BeginCritical>
+  ///     for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///       if (id != get_sub_group_local_id())
+  ///         continue;
+  ///       <LoopBeginInst>
+  ///       ...
+  ///       <LoopEndInst>
+  ///     }
+  ///     <EndCritical>
+  ///   } else {
+  ///     <BeginCritical>
+  ///     for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///       if (id != get_sub_group_local_id())
+  ///         continue;
+  ///       <LoopBeginInst>
+  ///       ...
+  ///       <LoopEndInst>
+  ///     }
+  ///     <EndCritical>
+  ///   }
+  ///
+  /// This helps resolve dead-lock in case two sub-groups are executed
+  /// in lock step mode, e.g. on devices with EU fusion.
+  /// __kmpc_critical lock setup will dead-lock on such devices, unless
+  /// we explicitly execute the lock-unlock sequence of blocks for each
+  /// fused sub-group separately.
+  static bool genCriticalLoopForSPIR(WRegionNode *W,
+                                     CallInst *BeginCritical,
+                                     CallInst *EndCritical,
                                      DominatorTree *DT,
                                      LoopInfo *LI);
 

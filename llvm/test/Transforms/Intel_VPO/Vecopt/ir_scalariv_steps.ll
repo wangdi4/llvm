@@ -32,7 +32,7 @@ define void @foo() {
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP3]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 1024
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 1024
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ; CHECK:       VPlannedBB:
 ;

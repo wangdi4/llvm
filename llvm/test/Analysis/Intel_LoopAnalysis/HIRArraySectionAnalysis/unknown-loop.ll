@@ -18,9 +18,9 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:    + UNKNOWN LOOP i1
-; CHECK:    %p: *
-; CHECK:    %q: *
-; CHECK:    %u: (DEF) [*:*]
+; CHECK-DAG: %p: *
+; CHECK-DAG: %q: *
+; CHECK-DAG: %u: (DEF) [i1:*:*]
 ; CHECK:    + END LOOP
 ; CHECK: END REGION
 

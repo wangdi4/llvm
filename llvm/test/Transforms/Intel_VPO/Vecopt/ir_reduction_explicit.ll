@@ -1,11 +1,11 @@
-;RUN: opt -VPlanDriver -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+;RUN: opt -VPlanDriver -S %s | FileCheck %s --check-prefixes=CHECK
 
 ; CHECK-LABEL: expl_reduction_add
 ; CHECK: vector.body
 ; CHECK: %[[VRES:.*]] = fadd <8 x float>
 
 ; CHECK: VPlannedBB
-; CHECK:  %[[RES:.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float %x.promoted, <8 x float> %[[VRES]])
+; CHECK:  %[[RES:.*]] = call float @llvm.vector.reduce.fadd.v8f32(float %x.promoted, <8 x float> %[[VRES]])
 
 ; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %[[RES]], %middle.block ]
 
@@ -57,7 +57,7 @@ DIR.QUAL.LIST.END.3:                              ; preds = %for.end
 ; CHECK: %[[VRES:.*]] = fsub <8 x float>
 
 ; CHECK: VPlannedBB
-; CHECK: %[[RES:.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float %x.promoted, <8 x float> %[[VRES]])
+; CHECK: %[[RES:.*]] = call float @llvm.vector.reduce.fadd.v8f32(float %x.promoted, <8 x float> %[[VRES]])
 
 ; CHECK: phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %[[RES]], %middle.block ]
 

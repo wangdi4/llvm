@@ -319,7 +319,7 @@ class HIRParser {
                       bool IsTop = true, bool UnderCast = false,
                       bool IndicateFailure = false);
 
-  /// Returns true if \p CI's SCEV contains a SCEVCastExpr whose operand is an
+  /// Returns true if \p CI's SCEV contains a SCEVIntegralCastExpr whose operand is an
   /// AddRec with the same type as \p CI's operand.
   bool containsCastedAddRec(const CastInst *CI, const SCEV *SC) const;
 
@@ -503,9 +503,11 @@ class HIRParser {
   void clearRegionData();
 
   /// Processes a block_loop begin directive by copying over information to the
-  /// relevant loop.
-  void processBlockLoopBeginDirective(HLInst *HInst);
+  /// relevant loop. Return true, if it is processed.
+  bool processBlockLoopBeginDirective(HLInst *HInst);
 
+  /// Processes prefetching directive.
+  void processPrefetchLoopBeginDirective(HLInst *HInst);
   // ---------------------------------------------------------------------
   // External interface follows. The following functions are called by the
   // framework utilities or other passes.
@@ -670,13 +672,17 @@ class HIRParser {
   }
 
   // Tries to trace back a pointer type instruction to the array type from which
-  // it was created. This can happen if the base originated from an alloca.
+  // it was created and returns the max array size encountered.
+  //
+  // This can happen if the base originated from an alloca.
   //
   // For example, if \p Ptr is %1 in the example below we will return [12 x i8].
   //
   // %1 = getelementptr inbounds [12 x i8], [12 x i8]* %tmpbuf.i, i32 0, i32 0
-  // Returns number of elements in outer dimension.
-  unsigned getPointerDimensionSize(const Value *Ptr) const;
+  // Returns number of elements in the last indexed dimension.
+  //
+  // Returns 0 if no information is found.
+  static uint64_t getPossibleMaxPointerDimensionSize(const Value *Ptr);
 
   /// Returns HLNodeUtils object.
   HLNodeUtils &getHLNodeUtils() { return HNU; }

@@ -1182,8 +1182,9 @@ namespace {
          << "Unevaluated(S, Sema::ExpressionEvaluationContext::Unevaluated);\n";
       OS << "        ExprResult " << "Result = S.SubstExpr("
          << "A->get" << getUpperName() << "(), TemplateArgs);\n";
-      OS << "        tempInst" << getUpperName() << " = "
-         << "Result.getAs<Expr>();\n";
+      OS << "        if (Result.isInvalid())\n";
+      OS << "          return nullptr;\n";
+      OS << "        tempInst" << getUpperName() << " = Result.get();\n";
       OS << "      }\n";
     }
 
@@ -1269,7 +1270,9 @@ namespace {
          << "_end();\n";
       OS << "        for (; I != E; ++I, ++TI) {\n";
       OS << "          ExprResult Result = S.SubstExpr(*I, TemplateArgs);\n";
-      OS << "          *TI = Result.getAs<Expr>();\n";
+      OS << "          if (Result.isInvalid())\n";
+      OS << "            return nullptr;\n";
+      OS << "          *TI = Result.get();\n";
       OS << "        }\n";
       OS << "      }\n";
     }
@@ -1340,8 +1343,16 @@ namespace {
       OS << "      return false;\n";
     }
 
+    void writeTemplateInstantiation(raw_ostream &OS) const override {
+      OS << "      " << getType() << " tempInst" << getUpperName() << " =\n";
+      OS << "        S.SubstType(A->get" << getUpperName() << "Loc(), "
+         << "TemplateArgs, A->getLoc(), A->getAttrName());\n";
+      OS << "      if (!tempInst" << getUpperName() << ")\n";
+      OS << "        return nullptr;\n";
+    }
+
     void writeTemplateInstantiationArgs(raw_ostream &OS) const override {
-      OS << "A->get" << getUpperName() << "Loc()";
+      OS << "tempInst" << getUpperName();
     }
 
     void writePCHWrite(raw_ostream &OS) const override {
@@ -2503,7 +2514,7 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
         ai->writeCtorParameters(OS);
       }
       OS << ", const AttributeCommonInfo &CommonInfo";
-      if (Header)
+      if (Header && Implicit)
         OS << " = {SourceRange{}}";
       OS << ")";
       if (Header) {
@@ -2822,6 +2833,7 @@ static const AttrClassDescriptor AttrClassDescriptors[] = {
   { "ATTR", "Attr" },
   { "TYPE_ATTR", "TypeAttr" },
   { "STMT_ATTR", "StmtAttr" },
+  { "DECL_OR_STMT_ATTR", "DeclOrStmtAttr" },
   { "INHERITABLE_ATTR", "InheritableAttr" },
   { "DECL_OR_TYPE_ATTR", "DeclOrTypeAttr" },
   { "INHERITABLE_PARAM_ATTR", "InheritableParamAttr" },
@@ -3497,12 +3509,13 @@ void EmitClangAttrTemplateInstantiateHelper(const std::vector<Record *> &Attrs,
     for (auto const &ai : Args)
       ai->writeTemplateInstantiation(OS);
 
-    OS << "        return new (C) " << R.getName() << "Attr(C, *A";
+    OS << "      return new (C) " << R.getName() << "Attr(C, *A";
     for (auto const &ai : Args) {
       OS << ", ";
       ai->writeTemplateInstantiationArgs(OS);
     }
-    OS << ");\n    }\n";
+    OS << ");\n"
+       << "    }\n";
   }
   OS << "  } // end switch\n"
      << "  llvm_unreachable(\"Unknown attribute!\");\n"
@@ -3963,7 +3976,8 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << (Attr.isSubClassOf("TypeAttr") ||
            Attr.isSubClassOf("DeclOrTypeAttr")) << ";\n";
     OS << "    IsStmt = ";
-    OS << Attr.isSubClassOf("StmtAttr") << ";\n";
+    OS << (Attr.isSubClassOf("StmtAttr") || Attr.isSubClassOf("DeclOrStmtAttr"))
+       << ";\n";
     OS << "    IsKnownToGCC = ";
     OS << IsKnownToGCC(Attr) << ";\n";
     OS << "    IsSupportedByPragmaAttribute = ";
@@ -4518,6 +4532,7 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     SmallString<2048> HelpItems;
     SmallString<2048> DefaultStateInits;
     SmallString<2048> UserDocs;
+    SmallString<2028> CompatOptNames;
     int Count = 0;
     for (const auto *Doc : I.second) {
       StringRef ItemName = Doc->getName();
@@ -4536,6 +4551,11 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
       SwitchCases += "\", ";
       SwitchCases += std::to_string(Count);
       SwitchCases += ")\n";
+      CompatOptNames += "  case ";
+      CompatOptNames += std::to_string(Count);
+      CompatOptNames += " : return \"";
+      CompatOptNames += ItemName;
+      CompatOptNames += "\";\n";
       HelpItems += "\n    \"  ";
       HelpItems += ItemName;
       HelpItems += "\\n\"";
@@ -4577,8 +4597,30 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "StringRef help" << OptionName << "() const {\n";
     OS << "  return \"Valid values for " << OptionName << ":\\n\"";
     OS << HelpItems << ";\n}\n";
+    // To convert from enum value to string value.
+    OS << "StringRef fromEnum" << EnumName << "(int C) const {\n";
+    OS << "  switch (C) {\n";
+    OS << CompatOptNames << "  default: return \"none\";\n";
+    OS << "  }\n";
+    OS << "}\n";
+    // isIntelCompat() function with single argument: feature
     OS << "bool is" << OptionName << "(int C) const {\n  return " << StateName
        << "[C];\n}\n";
+    // isIntelCompat() function with additional args: source line and diags
+    OS << "bool is" << OptionName << "(int C, SourceLocation Loc,";
+    OS << " DiagnosticsEngine *DE) const {\n";
+    OS << "  bool CustomEnabled = " << StateName << "[C];\n";
+    OS << "  StringRef CompatOptName = fromEnum" << EnumName << "(C);\n";
+
+    OS << "  if (CustomEnabled && ShowIntelCompatUsed) {\n";
+    OS << "    DE->Report(Loc, diag::warn_intel_compat_feature)";
+    OS << " << CompatOptName << false;\n";
+    OS << "  } else if (!CustomEnabled && ShowIntelCompatUnused) {\n";
+    OS << "    DE->Report(Loc, diag::warn_intel_compat_feature)";
+    OS << " << CompatOptName << true;\n";
+    OS << "  }\n";
+    OS << "  return CustomEnabled;\n";
+    OS << "}\n";
     OS << "int fromString" << EnumName << "(StringRef S) const {\n";
     OS << "  return llvm::StringSwitch<int>(S)\n";
     OS << SwitchCases << "    .Default(-1);\n";

@@ -7,7 +7,7 @@
 ; the same for all variants.
 
 ; CHECK-LABEL: vector.body:
-; CHECK: call <2 x i64> @_ZGVdN2uvv_3foolll
+; CHECK: call <2 x i64> @_ZGVdN2uvv__Z3foolll
 
 target triple = "x86_64-unknown-linux-gnu"
 

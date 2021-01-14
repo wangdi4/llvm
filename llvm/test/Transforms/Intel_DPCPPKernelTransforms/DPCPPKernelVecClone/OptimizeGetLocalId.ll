@@ -8,7 +8,7 @@
 
 ; RUN: opt --dpcpp-kernel-vec-clone < %s -S -o - | FileCheck %s --check-prefix=LT2GB
 
-; LT2GB-LABEL: @_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_
+; LT2GB-LABEL: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
 
 ; LT2GB-LABEL: entry:
 ; LT2GB: [[LID_CALL:%.*]] = tail call i64 @__builtin_get_local_id(i64 0)
@@ -26,7 +26,7 @@
 
 ; Check for non-default case i.e. max work group size > 2GB.
 ; RUN: opt --dpcpp-kernel-vec-clone --dpcpp-kernel-less-than-two-gig-max-work-group-size=false < %s -S -o - | FileCheck %s --check-prefix=GT2GB
-; GT2GB-LABEL: @_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_
+; GT2GB-LABEL: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
 
 ; GT2GB-LABEL: entry:
 ; GT2GB: [[LID_CALL:%.*]] = tail call i64 @__builtin_get_local_id(i64 0)
@@ -65,7 +65,7 @@ entry:
 ; CHECK-LABEL: _Z30ParallelForNDRangeImplKernel1DPiS_
 
 ;; Generated vector version
-; CHECK-LABEL: _ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_
+; CHECK-LABEL: _ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
 ; CHECK-NEXT: entry:
 
 ;; Checks that we do not hit a label from the WRN region.

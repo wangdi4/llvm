@@ -898,7 +898,7 @@ bool DTransModRefAnalyzer::checkStoredValueSafe(llvm::StructType *StTy,
         // Storing one of the alias values itself is not safe, unless the
         // memory location is also part of the alias set. i.e. it will only be
         // reachable when referencing the allocated memory.
-        if (AliasSet.count(AliasSI->getValueOperand()))
+        if (AliasSet.count(AliasSI->getValueOperand())) {
           if (!AliasSet.count(AliasSI->getPointerOperand())) {
             return false;
           } else {
@@ -913,6 +913,7 @@ bool DTransModRefAnalyzer::checkStoredValueSafe(llvm::StructType *StTy,
             if (!AliasSI->getPointerOperand()->hasOneUse())
               return false;
           }
+        }
         continue;
       }
 

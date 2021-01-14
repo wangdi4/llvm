@@ -5,7 +5,7 @@
 define signext i16 @test_mm_cvtsi128_si16(<2 x i64> %A) local_unnamed_addr #0 {
 ; CHECK-LABEL: test_mm_cvtsi128_si16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    vmovw %xmm0, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -112,6 +112,33 @@ define <2 x half> @sint_to_fp_2i32_to_2f16(<2 x i32> %x) {
   ret <2 x half> %res
 }
 
+define <4 x i32> @fp_to_sint_4f16_to_4i32(<4 x half> %x) {
+; CHECK-LABEL: fp_to_sint_4f16_to_4i32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2dq %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptosi <4 x half> %x to <4 x i32>
+  ret <4 x i32> %res
+}
+
+define <2 x i32> @fp_to_sint_2f16_to_2i32(<2 x half> %x) {
+; CHECK-LABEL: fp_to_sint_2f16_to_2i32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2dq %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptosi <2 x half> %x to <2 x i32>
+  ret <2 x i32> %res
+}
+
+define <2 x i16> @fp_to_sint_2f16_to_2i16(<2 x half> %x) {
+; CHECK-LABEL: fp_to_sint_2f16_to_2i16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2w %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptosi <2 x half> %x to <2 x i16>
+  ret <2 x i16> %res
+}
+
 define <8 x half> @test_int_x86_avx512_mask_cvt_udq2ph_256(<8 x i32> %x0, <8 x half> %x1, i8 %x2) {
 ; CHECK-LABEL: test_int_x86_avx512_mask_cvt_udq2ph_256:
 ; CHECK:       # %bb.0:
@@ -147,6 +174,15 @@ define <8 x half> @uint_to_fp_8i32_to_8f16(<8 x i32> %x) {
 ; CHECK-NEXT:    retq
   %res = uitofp <8 x i32> %x to <8 x half>
   ret <8 x half> %res
+}
+
+define <8 x i32> @fp_to_uint_8f16_to_8i32(<8 x half> %x) {
+; CHECK-LABEL: fp_to_uint_8f16_to_8i32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2udq %xmm0, %ymm0
+; CHECK-NEXT:    retq
+  %res = fptoui <8 x half> %x to <8 x i32>
+  ret <8 x i32> %res
 }
 
 declare <8 x half> @llvm.x86.avx512fp16.mask.vcvtudq2ph.128(<4 x i32>, <8 x half>, i8)
@@ -197,6 +233,33 @@ define <2 x half> @uint_to_fp_2i32_to_2f16(<2 x i32> %x) {
 ; CHECK-NEXT:    retq
   %res = uitofp <2 x i32> %x to <2 x half>
   ret <2 x half> %res
+}
+
+define <4 x i32> @fp_to_uint_4f16_to_4i32(<4 x half> %x) {
+; CHECK-LABEL: fp_to_uint_4f16_to_4i32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2udq %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptoui <4 x half> %x to <4 x i32>
+  ret <4 x i32> %res
+}
+
+define <2 x i32> @fp_to_uint_2f16_to_2i32(<2 x half> %x) {
+; CHECK-LABEL: fp_to_uint_2f16_to_2i32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2udq %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptoui <2 x half> %x to <2 x i32>
+  ret <2 x i32> %res
+}
+
+define <2 x i16> @fp_to_uint_2f16_to_2i16(<2 x half> %x) {
+; CHECK-LABEL: fp_to_uint_2f16_to_2i16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2uw %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptoui <2 x half> %x to <2 x i16>
+  ret <2 x i16> %res
 }
 
 declare <4 x i32> @llvm.x86.avx512fp16.mask.vcvtph2dq.128(<8 x half>, <4 x i32>, i8)
@@ -593,6 +656,15 @@ define <4 x half> @sint_to_fp_4i64_to_4f16(<4 x i64> %x) {
   ret <4 x half> %res
 }
 
+define <4 x i64> @fp_to_sint_4f16_to_4i64(<4 x half> %x) {
+; CHECK-LABEL: fp_to_sint_4f16_to_4i64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2qq %xmm0, %ymm0
+; CHECK-NEXT:    retq
+  %res = fptosi <4 x half> %x to <4 x i64>
+  ret <4 x i64> %res
+}
+
 declare <8 x half> @llvm.x86.avx512fp16.mask.vcvtqq2ph.128(<2 x i64>, <8 x half>, i8)
 
 define <8 x half> @test_int_x86_avx512_mask_cvt_qq2ph_128(<2 x i64> %x0, <8 x half> %x1, i8 %x2) {
@@ -632,6 +704,15 @@ define <2 x half> @sint_to_fp_2i64_to_2f16(<2 x i64> %x) {
 ; CHECK-NEXT:    retq
   %res = sitofp <2 x i64> %x to <2 x half>
   ret <2 x half> %res
+}
+
+define <2 x i64> @fp_to_sint_2f16_to_2i64(<2 x half> %x) {
+; CHECK-LABEL: fp_to_sint_2f16_to_2i64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2qq %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptosi <2 x half> %x to <2 x i64>
+  ret <2 x i64> %res
 }
 
 declare <8 x half> @llvm.x86.avx512fp16.mask.vcvtuqq2ph.256(<4 x i64>, <8 x half>, i8)
@@ -679,6 +760,15 @@ define <4 x half> @uint_to_fp_4i64_to_4f16(<4 x i64> %x) {
   ret <4 x half> %res
 }
 
+define <4 x i64> @fp_to_uint_4f16_to_4i64(<4 x half> %x) {
+; CHECK-LABEL: fp_to_uint_4f16_to_4i64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2uqq %xmm0, %ymm0
+; CHECK-NEXT:    retq
+  %res = fptoui <4 x half> %x to <4 x i64>
+  ret <4 x i64> %res
+}
+
 declare <8 x half> @llvm.x86.avx512fp16.mask.vcvtuqq2ph.128(<2 x i64>, <8 x half>, i8)
 
 define <8 x half> @test_int_x86_avx512_mask_cvt_uqq2ph_128(<2 x i64> %x0, <8 x half> %x1, i8 %x2) {
@@ -718,6 +808,15 @@ define <2 x half> @uint_to_fp_2i64_to_2f16(<2 x i64> %x) {
 ; CHECK-NEXT:    retq
   %res = uitofp <2 x i64> %x to <2 x half>
   ret <2 x half> %res
+}
+
+define <2 x i64> @fp_to_uint_2f16_to_2i64(<2 x half> %x) {
+; CHECK-LABEL: fp_to_uint_2f16_to_2i64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttph2uqq %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = fptoui <2 x half> %x to <2 x i64>
+  ret <2 x i64> %res
 }
 
 declare <2 x i64> @llvm.x86.avx512fp16.mask.vcvttph2qq.128(<8 x half>, <2 x i64>, i8)

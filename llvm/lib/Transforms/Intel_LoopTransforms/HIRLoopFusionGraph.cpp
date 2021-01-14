@@ -533,8 +533,9 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
 }
 
 void FuseGraph::updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
-                            NodeSetTy &NewPathSources, NodeSetTy &NewPathSinks,
-                            NodeMapTy &Preds) {
+                            const NodeMapTy &LocalPathTo,
+                            const NodeSetTy &NewPathSources,
+                            const NodeSetTy &NewPathSinks) {
   // - NodeX is the vertex being collapsed
   // - LocalPathFrom is the set that is being updated
   // - NewPathSources is the set of vertices that can reach NodeX
@@ -559,7 +560,12 @@ void FuseGraph::updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
     unsigned NodeW = Worklist.pop_back_val();
 
     // For each connected node.
-    for (unsigned NodeY : Preds[NodeW]) {
+    auto PredWI = LocalPathTo.find(NodeW);
+    if (PredWI == LocalPathTo.end()) {
+      continue;
+    }
+
+    for (unsigned NodeY : PredWI->second) {
       if (!NewPathSources.count(NodeY)) {
         continue;
       }
@@ -585,6 +591,9 @@ void FuseGraph::updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
 void FuseGraph::updateBothWays(unsigned NodeV, unsigned NodeX,
                                NodeMapTy &LocalPathFrom,
                                NodeMapTy &LocalPathTo) {
+  // Note (*) mark in this function below.
+  // updateSlice() is merely used to optimally update LocalPathFrom and
+  // LocalPathTo sets, however the marked lines does the same but in O(V^2).
   NodeSetTy NewPathSinks;
   NodeSetTy NewPathSources;
 
@@ -608,17 +617,20 @@ void FuseGraph::updateBothWays(unsigned NodeV, unsigned NodeX,
   LocalPathToNodeV.insert(NewPathSources.begin(), NewPathSources.end());
   for (unsigned Node : NewPathSources) {
     LocalPathFrom[Node].insert(NodeV);
+    // (*) LocalPathFrom[Node].insert(NewPathSinks.begin(), NewPathSinks.end());
   }
 
   // Add X as an origin for each node in NewPathSinks.
   LocalPathFromNodeX.insert(NewPathSinks.begin(), NewPathSinks.end());
   for (unsigned Node : NewPathSinks) {
     LocalPathTo[Node].insert(NodeX);
+    // (*) LocalPathTo[Node].insert(NewPathSources.begin(),
+    // NewPathSources.end());
   }
 
   // Update PathFrom and PathTo sets.
-  updateSlice(NodeX, LocalPathFrom, NewPathSources, NewPathSinks, Predecessors);
-  updateSlice(NodeV, LocalPathTo, NewPathSinks, NewPathSources, Successors);
+  updateSlice(NodeX, LocalPathFrom, LocalPathTo, NewPathSources, NewPathSinks);
+  updateSlice(NodeV, LocalPathTo, LocalPathFrom, NewPathSinks, NewPathSources);
 }
 
 void FuseGraph::updatePathInfo(unsigned NodeV, unsigned NodeX) {
@@ -789,12 +801,6 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
 
 void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
                          const CollapseRangeTy &CollapseRange) {
-  SmallVector<unsigned, 8> CollapseRangeVector(CollapseRange.begin(),
-                                               CollapseRange.end());
-
-  // Sort nodes from collapse range in the lexical order.
-  std::sort(CollapseRangeVector.begin(), CollapseRangeVector.end());
-
   FuseNode &FNodeV = Vertex[NodeV];
 
 #ifndef NDEBUG
@@ -802,7 +808,7 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
   LLVM_DEBUG(dbgs() << NodeV << ":");
   LLVM_DEBUG(FNodeV.print(dbgs()));
   LLVM_DEBUG(dbgs() << " <-- ");
-  for (unsigned NodeX : CollapseRangeVector) {
+  for (unsigned NodeX : CollapseRange) {
     if (NodeX == NodeV) {
       continue;
     }
@@ -814,7 +820,7 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
   LLVM_DEBUG(dbgs() << "\n");
 #endif
 
-  for (unsigned NodeX : CollapseRangeVector) {
+  for (unsigned NodeX : CollapseRange) {
     if (NodeX == NodeV) {
       continue;
     }
@@ -872,7 +878,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
   std::pair<unsigned, unsigned> MinMaxLevel =
       std::minmax(DstRef->getNodeLevel(), SrcRef->getNodeLevel());
 
-  assert(CanonExprUtils::isValidLoopLevel(CommonLevel));
+  assert(CanonExpr::isValidLoopLevel(CommonLevel));
 
   // Special handle case when SrcRef or DstRef is in preheader or postexit.
   if (CommonLevel > MinMaxLevel.first) {
@@ -922,7 +928,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
             (DstInst && DstInst->isInPostexit()));
   }
 
-  assert(CanonExprUtils::isValidLoopLevel(MinMaxLevel.second));
+  assert(CanonExpr::isValidLoopLevel(MinMaxLevel.second));
 
   auto RefinedDep =
       refineDependency(SrcRef, DstRef, CommonLevel, MinMaxLevel.second);
@@ -1191,43 +1197,37 @@ void FuseGraph::weightedFusion() {
       continue;
     }
 
-    SmallSetVector<unsigned, 8> Worklist;
-    SmallDenseSet<unsigned> WorklistEver;
-
     CollapseRangeTy CollapseRange;
 
-    for (unsigned NodeX : Successors[NodeV]) {
-      if (PathFrom[NodeX].count(NodeW)) {
-        Worklist.insert(NodeX);
-      }
-    }
+    BitVector Visited(Vertex.size());
 
-    if (Worklist.empty()) {
+    auto &PathFromNodeV = PathFrom[NodeV];
+    std::function<void(unsigned)> FindNodesFromVTo = [&](unsigned Node) {
+      Visited.set(Node);
+      // Note: predecessors may require lexical pre-sorting to make final
+      // collapsed node stable w.r.t. order between internal nodes.
+      for (unsigned NodeX : Predecessors[Node]) {
+        if (PathFromNodeV.count(NodeX) && !Visited.test(NodeX)) {
+          FindNodesFromVTo(NodeX);
+        }
+      }
+      CollapseRange.insert(Node);
+    };
+
+    FindNodesFromVTo(NodeW);
+
+    // Nothing to collapse. Heap edges between collapsed edges may be stale.
+    if (CollapseRange.size() == 1) {
+      // Or maybe it has one neighbor edge.
       if (!Neighbors[NodeV].count(NodeW)) {
         continue;
       }
 
-      Worklist.insert(NodeW); // (NodeV, NodeW) undirected
+      CollapseRange.clear();
+      CollapseRange.insert(NodeV);
+      CollapseRange.insert(NodeW); // (NodeV, NodeW) undirected
     }
 
-    WorklistEver.insert(Worklist.begin(), Worklist.end());
-
-    while (!Worklist.empty()) {
-      unsigned NodeX = Worklist.pop_back_val();
-
-      CollapseRange.insert(NodeX);
-
-      if (NodeX != NodeW) {
-        for (unsigned NodeY : Successors[NodeX]) {
-          if (PathFrom[NodeY].count(NodeW) && !WorklistEver.count(NodeY)) {
-            Worklist.insert(NodeY);
-            WorklistEver.insert(NodeY);
-          }
-        }
-      }
-    }
-
-    CollapseRange.insert(NodeV);
     collapse(Heap, NodeV, CollapseRange);
 
     DEBUG_FG(dbgs() << "Fuse graph debug:\n");

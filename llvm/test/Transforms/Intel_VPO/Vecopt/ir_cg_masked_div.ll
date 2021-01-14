@@ -133,7 +133,7 @@ define void @masked_safe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], [[N_VEC:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], [[N_VEC:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !6
 ;
 entry:
@@ -203,7 +203,7 @@ define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:    [[TMP14]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP15]] = add nuw nsw i64 [[UNI_PHI1]], 2
 ; CHECK-NEXT:    [[TMP16]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP17:%.*]] = icmp eq i64 [[TMP16]], [[N_VEC]]
+; CHECK-NEXT:    [[TMP17:%.*]] = icmp uge i64 [[TMP16]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP17]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !8
 ; CHECK:       VPlannedBB:
 ;

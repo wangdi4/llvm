@@ -14,13 +14,13 @@
 
 ; CHECK: Function
 
-; CHECK:  %scalarepl14 = (@dest)[0][%__index.addr.014][4 * %tgu];
+; CHECK:  %scalarepl13 = (@dest)[0][%__index.addr.014][4 * %tgu];
 ; CHECK:  + DO i1 = 4 * %tgu, zext.i32.i64(%indvars.iv16) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 3>
 ; CHECK:  |   %1 = (@sour)[0][i1 + 1];
-; CHECK:  |   %3 = %scalarepl14;
-; CHECK:  |   %scalarepl15 = %1 + %3;
-; CHECK:  |   (@dest)[0][%__index.addr.014][i1 + 1] = %scalarepl15;
-; CHECK:  |   %scalarepl14 = %scalarepl15;
+; CHECK:  |   %3 = %scalarepl13;
+; CHECK:  |   %scalarepl14 = %1 + %3;
+; CHECK:  |   (@dest)[0][%__index.addr.014][i1 + 1] = %scalarepl14;
+; CHECK:  |   %scalarepl13 = %scalarepl14;
 ; CHECK:  + END LOOP
 ;
 

@@ -338,10 +338,12 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
       VPPA->selectBestDynamicPeelingVariant(4);
   EXPECT_EQ(P4->second, 5);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string S4;
   raw_string_ostream OS4(S4);
   VPSE->toSCEV(P4->first.invariantBase())->print(OS4);
   EXPECT_EQ(S4, "(12 + (64 * %x) + %buf)");
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   EXPECT_EQ(P4->first.targetAlignment(), 16);
 
   // VF = 16.
@@ -355,10 +357,12 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
       VPPA->selectBestDynamicPeelingVariant(16);
   EXPECT_EQ(P16->second, 8);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string S16;
   raw_string_ostream OS16(S16);
   VPSE->toSCEV(P16->first.invariantBase())->print(OS16);
-  EXPECT_EQ(S16, "((128 * %x) + %buf)<nsw>");
+  EXPECT_EQ(S16, "((128 * %x) + %buf)");
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   EXPECT_EQ(P16->first.targetAlignment(), 64);
 }
 

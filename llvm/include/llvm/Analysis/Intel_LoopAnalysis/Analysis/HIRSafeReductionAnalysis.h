@@ -55,8 +55,8 @@ struct SafeRedInfo {
   /// %red = %red  +  (%A)[i1];
   /// %red = %red  -  (%A)[i1 + %offs]; \endcode
   ///
-  /// In this case, OpCode will reflect the first instruction in the chain (an
-  /// add in the above example).
+  /// In this case, OpCode will reflect the last instruction in the chain (a
+  /// sub in the above example).
   unsigned OpCode;
 
   /// Whether this reduction involves operations requiring strict floating point
@@ -69,14 +69,36 @@ struct SafeRedInfo {
   /// marked `fast`).
   bool HasUnsafeAlgebra;
 
+  /// Set to true when this reduction involves only operations that may not be
+  /// executed every loop iteration or false when this reduction involves only
+  /// operations that will be executed every loop iteration. Reductions
+  /// identified by this analysis will not have a mix of conditional and
+  /// unconditional operations.
+  bool Conditional;
+
   /// Constructs a SafeRedInfo with the given field values.
   SafeRedInfo(SafeRedChain &RedInsts, unsigned Symbase, unsigned RedOpCode,
-              bool HasUnsafeAlgebra)
+              bool HasUnsafeAlgebra, bool Conditional)
       : Chain(RedInsts), Symbase(Symbase), OpCode(RedOpCode),
-        HasUnsafeAlgebra(HasUnsafeAlgebra) {}
+        HasUnsafeAlgebra(HasUnsafeAlgebra), Conditional(Conditional) {}
 
   /// An accessor for \ref HasUnsafeAlgebra.
   bool hasUnsafeAlgebra(void) const { return HasUnsafeAlgebra; }
+
+  /// Prints markings for this SafeRedInfo.
+  ///
+  /// This will print the `<Safe Reduction>` marking followed (optionally) by
+  /// markings for each reduction flag if \p PrintFlags is set.
+  void printMarkings(formatted_raw_ostream &, bool PrintFlags) const;
+
+  /// Prints this SafeRedInfo indented to loop level \p Depth.
+  ///
+  /// This will print the full markings as a header followed by the reduction
+  /// chain.
+  void print(formatted_raw_ostream &, unsigned Depth) const;
+
+  /// Dumps this SafeRedInfo for debugging.
+  void dump() const;
 };
 
 typedef SmallVector<SafeRedInfo, 4> SafeRedInfoList;
@@ -143,6 +165,8 @@ typedef SmallVector<SafeRedInfo, 4> SafeRedInfoList;
 /// SafeRedInfo::HasUnsafeAlgebra, which indicates the absence of certain fast
 /// math flags required for certain types of optimizations.
 class HIRSafeReductionAnalysis : public HIRAnalysis {
+  using HIRAnalysisBase::print;
+
   HIRDDAnalysis &DDA;
 
   unsigned FirstRvalSB;

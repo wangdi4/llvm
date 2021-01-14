@@ -22,6 +22,16 @@ add_llvm_component_library(LLVMVPOAnalysis
   WRegionInfo/WRegionInfo.cpp
   WRegionInfo/WRegionUtils.cpp
   WRegionInfo/WRegionInfoAnalysis.cpp
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+# INTEL_CUSTOMIZATION
+  Intel_LoopAnalysis
+# end INTEL_CUSTOMIZATION
+  Scalar
+  Support
+  TransformUtils
 )
 
 add_dependencies(LLVMVPOAnalysis intrinsics_gen directives_gen)

@@ -17,7 +17,6 @@
 #define LLVM_ANALYSIS_VPO_WREGIONCOLLECTION_H
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Pass.h"
 #include <set>
@@ -89,18 +88,15 @@ class WRegionCollection {
 
 private:
   /// Vector of WRegionNodes.
-  WRContainerImpl *WRGraph;
+  WRContainerImpl *WRGraph = nullptr;
 
-  Function *Func;
-  DominatorTree *DT;
-  LoopInfo *LI;
-  ScalarEvolution *SE;
-  const TargetTransformInfo *TTI;
-  AssumptionCache *AC;
-  const TargetLibraryInfo *TLI;
-  AAResults *AA;
+  Function *Func = nullptr;
+  DominatorTree *DT = nullptr;
+  LoopInfo *LI = nullptr;
+  ScalarEvolution *SE = nullptr;
+  AAResults *AA = nullptr;
 #if INTEL_CUSTOMIZATION
-  loopopt::HIRFramework *HIRF;
+  loopopt::HIRFramework *HIRF = nullptr;
 #endif // INTEL_CUSTOMIZATION
 
   /// Delete WRGraph with all its WRegionNodes.
@@ -119,10 +115,11 @@ public:
   friend class WRegionNode;
 
   WRegionCollection(Function *F, DominatorTree *DT, LoopInfo *LI,
-                    ScalarEvolution *SE, const TargetTransformInfo *TTI,
-                    AssumptionCache *AC, const TargetLibraryInfo *TLI,
 #if INTEL_CUSTOMIZATION
-                    AAResults *AA, loopopt::HIRFramework *HIRF);
+                    ScalarEvolution *SE, AAResults *AA,
+                    loopopt::HIRFramework *HIRF);
+#else
+                    ScalarEvolution *SE, AAResults *AA);
 #endif // INTEL_CUSTOMIZATION
 
   ~WRegionCollection() { releaseMemory(); }
@@ -148,9 +145,6 @@ public:
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
   ScalarEvolution *getSE()    { return SE; }
-  const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
-  AssumptionCache *getAssumptionCache() { return AC; }
-  const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
   AAResults *getAliasAnalysis() { return AA; }
 
   /// Returns the size of the WRGraph container
@@ -222,6 +216,7 @@ public:
     AM.getResult<WRegionCollectionAnalysis>(F).print(OS);
     return PreservedAnalyses::all();
   }
+  static bool isRequired() { return true; }
 };
 
 } // End namespace llvm

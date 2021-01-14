@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target
@@ -40,7 +40,7 @@ entry:
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone uwtable
+; Function Attrs: noinline nounwind uwtable
 define linkonce_odr dso_local void @_ZN1CC2Ev(%class.C* %this) unnamed_addr #1 comdat align 2 {
 entry:
   %this.addr = alloca %class.C*, align 8
@@ -56,7 +56,7 @@ entry:
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone uwtable
+; Function Attrs: noinline nounwind uwtable
 define linkonce_odr dso_local void @_ZN1CD2Ev(%class.C* %this) unnamed_addr #1 comdat align 2 {
 entry:
   %this.addr = alloca %class.C*, align 8
@@ -66,7 +66,7 @@ entry:
 }
 
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !omp_offload.info = !{!0, !1, !2}
 !llvm.module.flags = !{!3}

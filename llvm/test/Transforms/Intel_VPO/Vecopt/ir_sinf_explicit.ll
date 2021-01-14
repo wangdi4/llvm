@@ -40,7 +40,7 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
 
 simd.loop.exit:                                   ; preds = %simd.loop
   %indvar = add nuw i32 %index, 1
-  %vl.cond = icmp ult i32 %indvar, 16
+  %vl.cond = icmp ult i32 %indvar, 32
   br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !20
 
 simd.end.region:                                  ; preds = %simd.loop.exit
@@ -75,7 +75,7 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
 
 simd.loop.exit:                                   ; preds = %simd.loop
   %indvar = add nuw i32 %index, 1
-  %vl.cond = icmp ult i32 %indvar, 16
+  %vl.cond = icmp ult i32 %indvar, 32
   br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !20
 
 simd.end.region:                                  ; preds = %simd.loop.exit

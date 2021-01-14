@@ -1,17 +1,15 @@
 ; There are two insts including pow() functions, and they have the same express trees. We extract the code and restore
 ; the result into a temp array.
 ;
-; In this case, MinRef is (%"jacobian_$Q")[i1 + 1][i2][i3][0], and MaxRef is (%"jacobian_$Q")[i1 + 2][%mod][%mod27 + 1][0].
-; We did not add 1 for the i2 upper bound although %mod = i2 + 3  %  %"jacobian_$NY_fetch" + 1. The reason is the third dim lower bound of (%"jacobian_$Q")[i1 + 2][%mod][%mod27 + 1][0] starts from 1([1:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)]).
-; We enlarge the array size by 1 for i3, because of %mod27 + 1.
-; We also set TempArray's dimenion by [i1][i2][i3], the use of it will be shifted accordingly to reduce the array size.
+; In this case, MinRef is (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][0], and MaxRef is (%"jacobian_$Q")[i1 + 2][%mod][%mod27][0].
+; We set TempArray's dimenion by [i1][i2][i3], the use of it will be shifted accordingly to reduce the array size.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-hir-store-result-into-temp-array=false -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -disable-hir-store-result-into-temp-array=false 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>"  2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-hir-store-result-into-temp-array=false -hir-store-result-into-temp-array -hir-details-dims -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s -check-prefix=CHECK-DETAIL
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -disable-hir-store-result-into-temp-array=false -hir-details-dims 2>&1 < %s | FileCheck %s -check-prefix=CHECK-DETAIL
-
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-store-result-into-temp-array -hir-details-dims -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s -check-prefix=CHECK-DETAIL
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-details-dims 2>&1 < %s | FileCheck %s -check-prefix=CHECK-DETAIL
+;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
 ;
@@ -22,9 +20,9 @@
 ;<126:34>           |   |
 ;<126:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ;<30:19>            |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
-;<36:20>            |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2][i3][0];
-;<37:20>            |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2][i3][1]  /  %"jacobian_$Q[]53[][][]_fetch";
-;<41:21>            |   |   |   %div87 = (%"jacobian_$Q")[i1 + 1][i2][i3][2]  /  %"jacobian_$Q[]53[][][]_fetch";
+;<36:20>            |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][0];
+;<37:20>            |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][1]  /  %"jacobian_$Q[]53[][][]_fetch";
+;<41:21>            |   |   |   %div87 = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][2]  /  %"jacobian_$Q[]53[][][]_fetch";
 ;<43:22>            |   |   |   %mul99 = %div  *  %div;
 ;<44:22>            |   |   |   %mul101 = %div87  *  %div87;
 ;<45:22>            |   |   |   %add102 = %mul99  +  %mul101;
@@ -49,21 +47,30 @@
 ;<124:36>           + END LOOP
 ;<0>          END REGION
 ;
+;<105>        BEGIN REGION { }
+;<111:38>           (%addressof)[0][0] = 48;
+;<113:38>           (%addressof)[0][1] = 1;
+;<115:38>           (%addressof)[0][2] = 1;
+;<117:38>           (%addressof)[0][3] = 0;
+;<119:38>           (%ARGBLOCK_0)[0].0 = %add252.lcssa.lcssa.lcssa;
+;<122:38>           %func_result288 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
+;<105>        END REGION
+;
 ;*** IR Dump After HIR Store Result Into Temp Array ***
 ;Function: jacobian_
 ;
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:           %call = @llvm.stacksave();
-; CHECK:           %array_size = sext.i32.i64(%"jacobian_$NY_fetch")  *  sext.i32.i64(%"jacobian_$NX_fetch");
+; CHECK:           %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 2  *  sext.i32.i64(%"jacobian_$NX_fetch");
 ; CHECK:           %array_size3 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
 ; CHECK:           %TempArray = alloca %array_size3;
 ;
 ; CHECK:           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1   <DO_LOOP>
-; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
+; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + 1, 1   <DO_LOOP>
 ; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
-; CHECK:           |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2][i3][0];
-; CHECK:           |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2][i3][1]  /  %"jacobian_$Q[]53[][][]_fetch";
-; CHECK:           |   |   |   %div87 = (%"jacobian_$Q")[i1 + 1][i2][i3][2]  /  %"jacobian_$Q[]53[][][]_fetch";
+; CHECK:           |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][0];
+; CHECK:           |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][1]  /  %"jacobian_$Q[]53[][][]_fetch";
+; CHECK:           |   |   |   %div87 = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][2]  /  %"jacobian_$Q[]53[][][]_fetch";
 ; CHECK:           |   |   |   %mul99 = %div  *  %div;
 ; CHECK:           |   |   |   %mul101 = %div87  *  %div87;
 ; CHECK:           |   |   |   %add102 = %mul99  +  %mul101;
@@ -76,7 +83,6 @@
 ; CHECK:           + END LOOP
 ;
 ;
-;
 ; CHECK:           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
 ; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch" + 1;
@@ -84,7 +90,7 @@
 ; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
 ; CHECK:           |   |   |   %func_result = (%TempArray)[i1][i2][i3];
-; CHECK:           |   |   |   %func_result250 = (%TempArray)[i1 + 1][%mod][zext.i32.i64(%mod27)];
+; CHECK:           |   |   |   %func_result250 = (%TempArray)[i1 + 1][zext.i32.i64(%mod) + -1][zext.i32.i64(%mod27)];
 ; CHECK:           |   |   |   %add251 = %"jacobian_$M.0"  +  %func_result250;
 ; CHECK:           |   |   |   %"jacobian_$M.0" = %func_result  +  %add251;
 ; CHECK:           |   |   + END LOOP
@@ -94,7 +100,16 @@
 ; CHECK:           @llvm.stackrestore(&((%call)[0]));
 ; CHECK:     END REGION
 ;
-;*** IR Dump Before HIR Store Result Into Temp Array ***
+; CHECK:     BEGIN REGION { }
+; CHECK:           (%addressof)[0][0] = 48;
+; CHECK:           (%addressof)[0][1] = 1;
+; CHECK:           (%addressof)[0][2] = 1;
+; CHECK:           (%addressof)[0][3] = 0;
+; CHECK:           (%ARGBLOCK_0)[0].0 = %add252.lcssa.lcssa.lcssa;
+; CHECK:           %func_result288 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
+; CHECK:     END REGION
+;
+; *** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
 ;
 ;<0>          BEGIN REGION { }
@@ -104,9 +119,9 @@
 ;<126:34>           |   |
 ;<126:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ;<30:19>            |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
-;<36:20>            |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][0:i2:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:0:8(double*:5)];
-;<37:20>            |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][0:i2:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:1:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
-;<41:21>            |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][0:i2:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:2:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+;<36:20>            |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:0:8(double*:5)];
+;<37:20>            |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:1:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+;<41:21>            |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:2:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
 ;<43:22>            |   |   |   %mul99 = %div  *  %div;
 ;<44:22>            |   |   |   %mul101 = %div87  *  %div87;
 ;<45:22>            |   |   |   %add102 = %mul99  +  %mul101;
@@ -131,28 +146,28 @@
 ;<124:36>           + END LOOP
 ;<0>          END REGION
 ;
-; *** IR Dump After HIR Store Result Into Temp Array ***
-; Function: jacobian_
+;*** IR Dump After HIR Store Result Into Temp Array ***
+;Function: jacobian_
 ;
 ; CHECK-DETAIL: BEGIN REGION { modified }
 ; CHECK-DETAIL:    %call = @llvm.stacksave();
-; CHECK-DETAIL:    %array_size = sext.i32.i64(%"jacobian_$NY_fetch")  *  sext.i32.i64(%"jacobian_$NX_fetch");
+; CHECK-DETAIL:    %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 2  *  sext.i32.i64(%"jacobian_$NX_fetch");
 ; CHECK-DETAIL:    %array_size3 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
 ; CHECK-DETAIL:    %TempArray = alloca %array_size3;
 ;
 ; CHECK-DETAIL:    + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1   <DO_LOOP>
-; CHECK-DETAIL:    |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
+; CHECK-DETAIL:    |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + 1, 1   <DO_LOOP>
 ; CHECK-DETAIL:    |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
-; CHECK-DETAIL:    |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][0:i2:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:0:8(double*:5)];
-; CHECK-DETAIL:    |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][0:i2:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:1:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
-; CHECK-DETAIL:    |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][0:i2:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:2:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+; CHECK-DETAIL:    |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:0:8(double*:5)];
+; CHECK-DETAIL:    |   |   |   %div = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:1:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
+; CHECK-DETAIL:    |   |   |   %div87 = (%"jacobian_$Q")[0:i1 + 1:40 * (sext.i32.i64(%"jacobian_$NY_fetch") * sext.i32.i64(%"jacobian_$NX_fetch"))(double*:0)][1:i2 + 1:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:40(double*:0)][0:2:8(double*:5)]  /  %"jacobian_$Q[]53[][][]_fetch";
 ; CHECK-DETAIL:    |   |   |   %mul99 = %div  *  %div;
 ; CHECK-DETAIL:    |   |   |   %mul101 = %div87  *  %div87;
 ; CHECK-DETAIL:    |   |   |   %add102 = %mul99  +  %mul101;
 ; CHECK-DETAIL:    |   |   |   %mul103 = %add102  *  2.000000e+00;
 ; CHECK-DETAIL:    |   |   |   %mul107 = %mul103  *  2.000000e+00;
 ; CHECK-DETAIL:    |   |   |   %div106 = %mul107  /  %"jacobian_$Q[]53[][][]_fetch";
-; CHECK-DETAIL:    |   |   |   (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * sext.i32.i64(%"jacobian_$NY_fetch"))(double*:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:8(double*:0)] = @llvm.pow.f64(%div106,  2.500000e+00);
+; CHECK-DETAIL:    |   |   |   (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:8(double*:0)] = @llvm.pow.f64(%div106,  2.500000e+00);
 ; CHECK-DETAIL:    |   |   + END LOOP
 ; CHECK-DETAIL:    |   + END LOOP
 ; CHECK-DETAIL:    + END LOOP
@@ -164,15 +179,15 @@
 ; CHECK-DETAIL:    |   |
 ; CHECK-DETAIL:    |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK-DETAIL:    |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
-; CHECK-DETAIL:    |   |   |   %func_result = (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * sext.i32.i64(%"jacobian_$NY_fetch"))(double*:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:8(double*:0)];
-; CHECK-DETAIL:    |   |   |   %func_result250 = (%TempArray)[0:i1 + 1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * sext.i32.i64(%"jacobian_$NY_fetch"))(double*:0)][1:%mod:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):8(double*:0)];
+; CHECK-DETAIL:    |   |   |   %func_result = (%TempArray)[0:i1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:i2:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:i3:8(double*:0)];
+; CHECK-DETAIL:    |   |   |   %func_result250 = (%TempArray)[0:i1 + 1:8 * (sext.i32.i64(%"jacobian_$NX_fetch") * (2 + sext.i32.i64(%"jacobian_$NY_fetch")))(double*:0)][0:zext.i32.i64(%mod) + -1:8 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)][0:zext.i32.i64(%mod27):8(double*:0)];
 ; CHECK-DETAIL:    |   |   |   %add251 = %"jacobian_$M.0"  +  %func_result250;
 ; CHECK-DETAIL:    |   |   |   %"jacobian_$M.0" = %func_result  +  %add251;
 ; CHECK-DETAIL:    |   |   + END LOOP
 ; CHECK-DETAIL:    |   + END LOOP
 ; CHECK-DETAIL:    + END LOOP
 ;
-; CHECK-DETAIL:   @llvm.stackrestore(&((%call)[0:0:1(i8*:0)]));
+; CHECK-DETAIL:    @llvm.stackrestore(&((%call)[0:0:1(i8*:0)]));
 ; CHECK-DETAIL: END REGION
 ;
 ;Module Before HIR

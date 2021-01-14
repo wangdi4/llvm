@@ -25,7 +25,7 @@ llvm_canonicalize_cmake_booleans(
   CLANG_ENABLE_STATIC_ANALYZER
   CLANG_SPAWN_CC1
   ENABLE_BACKTRACES
-  ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER
+  LLVM_ENABLE_NEW_PASS_MANAGER
 # INTEL_CUSTOMIZATION
   INTEL_LLVM_HAS_LIBOMPDEVICE
 # end INTEL_CUSTOMIZATION
@@ -71,6 +71,7 @@ if(CLANG_TEST_USE_VG)
 endif ()
 
 list(APPEND CLANG_TEST_DEPS
+  apinotes-test
   c-index-test
   clang
   clang-resource-headers
@@ -80,6 +81,7 @@ list(APPEND CLANG_TEST_DEPS
 # INTEL_COLLAB
   clang-offload-wrapper
 # end INTEL_COLLAB
+  clang-offload-deps
   clang-import-test
   clang-rename
   clang-refactor
@@ -107,6 +109,7 @@ if (CLANG_BUILD_EXAMPLES)
   list(APPEND CLANG_TEST_DEPS
     Attribute
     AnnotateFunctions
+    CallSuperAttr
     clang-interpreter
     PrintFunctionNames
     )
@@ -139,6 +142,8 @@ if( NOT CLANG_BUILT_STANDALONE )
     llvm-readobj
     llvm-symbolizer
     opt
+    split-file
+    yaml2obj
     )
 
   if(TARGET llvm-lto)

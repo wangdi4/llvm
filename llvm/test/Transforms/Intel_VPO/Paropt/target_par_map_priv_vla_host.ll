@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -vpo-paropt-opt-scalar-fp=false -S 2>&1 | FileCheck %s
 
 ; Test src:
 
@@ -45,7 +45,7 @@
 ; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL1]], align 16
 
 ; Check that the captured VLA size is used in the target region for allocation of the private VLA.
-; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(i32* %vla, i64* [[SIZE_ADDR2]], i64* %{{.*}})
+; CHECK: define internal void @__omp_offloading{{.*}}main{{.*}}(i32* noalias %vla, i64* noalias [[SIZE_ADDR2]], i64* %{{.*}})
 ; CHECK: [[SIZE_ADDR1]] = alloca i64, align 8
 ; CHECK: [[SIZE_VAL2:%[^ ]+]] = load i64, i64* [[SIZE_ADDR2]], align 8
 ; Check that the captured VLA size is passed in to the outlined function for the parallel region.

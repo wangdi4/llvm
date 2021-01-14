@@ -5,6 +5,11 @@ macro(add_sycl_executable ARG_TARGET_NAME)
     "OPTIONS;SOURCES;LIBRARIES;DEPENDANTS"
     ${ARGN})
 
+# INTEL_CUSTOMIZATION
+  get_filename_component(GCC_TOOLCHAIN_PATH "$ENV{ICS_GCCBIN}/.." ABSOLUTE)
+  list(APPEND DEVICE_EXTRA_OPTS --gcc-toolchain=${GCC_TOOLCHAIN_PATH})
+# end INTEL_CUSTOMIZATION
+
   set(CXX_COMPILER clang++)
   if(MSVC)
       set(CXX_COMPILER clang-cl.exe)
@@ -28,13 +33,15 @@ macro(add_sycl_executable ARG_TARGET_NAME)
   endif()
 
   add_custom_target(${ARG_TARGET_NAME}_exec ALL
-    COMMAND ${DEVICE_COMPILER_EXECUTABLE} -fsycl ${ARG_SOURCES}
+    # INTEL_CUSTOMIZATION
+    COMMAND ${DEVICE_COMPILER_EXECUTABLE} ${DEVICE_EXTRA_OPTS} -fsycl ${ARG_SOURCES}
+    # end INTEL_CUSTOMIZATION
       -o ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TARGET_NAME}
       ${LINKED_LIBS} ${ARG_OPTIONS} ${_SYCL_EXTRA_FLAGS}
     BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TARGET_NAME}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMAND_EXPAND_LISTS)
-  add_dependencies(${ARG_TARGET_NAME}_exec sycl clang)
+  add_dependencies(${ARG_TARGET_NAME}_exec sycl-toolchain)
   foreach(_lib in ${ARG_LIBRARIES})
     if (TARGET _lib)
       add_dependencies(${ARG_TARGET_NAME}_exec _lib)

@@ -8,7 +8,7 @@
 ;   }
 ; }
 
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-4,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
 ; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=8 %s | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
 ; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 ; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=32 %s | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s

@@ -458,7 +458,7 @@ bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
 
   bool IsMemRef = RegRef->isMemRef();
 
-  if (IsMemRef && HasDistributePoint && RegRef->getNumDimensions() == 1) {
+  if (IsMemRef && HasDistributePoint && RegRef->isSingleDimension()) {
     auto BaseCE = RegRef->getBaseCE();
     return !BaseCE->isNonLinear() && RegRef->getDimensionIndex(1)->isZero();
   }
@@ -500,7 +500,7 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
 bool ScalarExpansion::isSafeToRecompute(
     const RegDDRef *SrcRef, unsigned ChunkIdx,
     const SymbaseLoopSetTy &SymbaseLoopSet,
-    const SparseBitVector<> &ModifiedSymbases, const HLInst *&DepInst) {
+    const SparseBitVector<> &ModifiedBases, const HLInst *&DepInst) {
   assert(SrcRef->isLval() && "SrcRef is expected to be LVal");
 
   const HLInst *Inst = cast<HLInst>(SrcRef->getHLDDNode());
@@ -508,7 +508,7 @@ bool ScalarExpansion::isSafeToRecompute(
   auto CheckRVal = [&](const RegDDRef *RVal) -> bool {
     unsigned SB = RVal->getSymbase();
 
-    if (ModifiedSymbases.test(SB)) {
+    if (RVal->isMemRef() && ModifiedBases.test(RVal->getBasePtrBlobIndex())) {
       return false;
     }
 
@@ -523,7 +523,7 @@ bool ScalarExpansion::isSafeToRecompute(
       return Ret ||
              (findDepInst(RVal, DepInst) &&
               isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
-                                SymbaseLoopSet, ModifiedSymbases, DepInst));
+                                SymbaseLoopSet, ModifiedBases, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
@@ -585,7 +585,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   SmallVector<Gatherer::VectorTy, 8> RefGroups;
   RefGroups.reserve(Chunks.size());
 
-  SparseBitVector<> ModifiedSymbases;
+  SparseBitVector<> ModifiedBases;
 
   for (auto &HLNodeList : Chunks) {
     RefGroups.emplace_back();
@@ -597,7 +597,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
     std::for_each(CurGroup.begin(), CurGroup.end(), [&](const DDRef *Ref) {
       if (Ref->isLval() && !Ref->isTerminalRef()) {
-        ModifiedSymbases.set(Ref->getSymbase());
+        ModifiedBases.set(cast<RegDDRef>(Ref)->getBasePtrBlobIndex());
       }
     });
   }
@@ -648,7 +648,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
           const HLInst *DepInst = nullptr;
           Cand.SafeToRecompute &= isSafeToRecompute(
-              SrcRegRef, J, SymbaseLoopSet, ModifiedSymbases, DepInst);
+              SrcRegRef, J, SymbaseLoopSet, ModifiedBases, DepInst);
 
           if (Cand.SrcRefs.empty() || Cand.SrcRefs.back() != SrcRegRef) {
             Cand.SrcRefs.push_back(SrcRegRef);
@@ -839,16 +839,9 @@ void HIRLoopDistribution::distributeLoop(
   assert((!Loop->hasChildren() || Loop->hasDistributePoint()) &&
          "Loop Distribution failed to account for all Loop Children");
 
+  // Attach new loops into HIR.
   for (unsigned I = 0; I < LoopCount; ++I) {
-    // Distributed flag is used by Loop Fusion to skip loops that are
-    // distributed.  Need to set for Memory related distribution only.
-    // Distributed loops for enabling perfect loop nest, can still be fused
-    // after interchange is done
-    if (DistCostModel == DistHeuristics::BreakMemRec) {
-      NewLoops[I]->setDistributedForMemRec();
-    }
     HLNodeUtils::insertBefore(Loop, NewLoops[I]);
-    HLNodeUtils::removeEmptyNodes(NewLoops[I], false);
   }
 
   if (SCEX.isScalarExpansionRequired()) {
@@ -861,6 +854,17 @@ void HIRLoopDistribution::distributeLoop(
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
       fixTempArrayCoeff(NewLoops[0]->getParentLoop());
     }
+  }
+
+  for (unsigned I = 0; I < LoopCount; ++I) {
+    // Distributed flag is used by Loop Fusion to skip loops that are
+    // distributed.  Need to set for Memory related distribution only.
+    // Distributed loops for enabling perfect loop nest, can still be fused
+    // after interchange is done
+    if (DistCostModel == DistHeuristics::BreakMemRec) {
+      NewLoops[I]->setDistributedForMemRec();
+    }
+    HLNodeUtils::removeEmptyNodes(NewLoops[I], false);
   }
 
   HLNodeUtils::remove(Loop);

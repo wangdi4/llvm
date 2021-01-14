@@ -186,14 +186,12 @@ public:
   void generateStoreForSinCos(const HLInst *HInst, HLInst *WideInst,
                               RegDDRef *Mask, bool IsRemainderLoop);
 
-  // Given the function being called and the widened operands, generate and
-  // return the widened call. The call arguments are returned in CallRegs
-  // if they need to be analyzed for stride information. The flag HasLvalArg
-  // is used to indicate if we have the widened operand corresponding to
-  // call return value in WideOps.
-  HLInst *widenCall(const HLInst *INode, SmallVectorImpl<RegDDRef *> &WideOps,
-                    RegDDRef *Mask, SmallVectorImpl<RegDDRef *> &CallRegs,
-                    bool HasLvalArg);
+  /// Widen call instruction \p VPCall using vector library function. \p Mask is
+  /// used to generate masked version of widened calls, if needed.
+  HLInst *widenLibraryCall(const VPCallInstruction *VPCall, RegDDRef *Mask);
+
+  /// Widen call instruction \p VPCall using vector intrinsic.
+  HLInst *widenTrivialIntrinsic(const VPCallInstruction *VPCall);
 
   // Return true if we want to interleave the memory access.
   bool interleaveAccess(const OVLSGroup *Group, const RegDDRef *Mask,
@@ -329,6 +327,7 @@ public:
     if (It == VPValScalRefMap.end())
       return nullptr;
 
+    assert(Lane < getVF() && "Invalid lane ID.");
     auto SVMap = It->second;
     auto Itr = SVMap.find(Lane);
     if (Itr == SVMap.end())
@@ -461,6 +460,8 @@ public:
   // lane 0. This is used to handle uniform memory accesses. If the pointer
   // operand of the load/store instruction is unit strided(stride of 1/-1), the
   // ref returned is properly adjusted to enable wide load/store.
+  // TODO: Do we need this function to generate scalar memrefs for other lanes
+  // during serialization?
   RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
 
@@ -488,7 +489,7 @@ public:
 
   // Utility to check if target being compiled for has AVX512 Intel
   // optimizations.
-  bool targetHasAVX512() const;
+  bool targetHasIntelAVX512() const;
 
   void setUniformControlFlowSeen() {
     // Search loops do not go through predication currently and code generation
@@ -523,6 +524,16 @@ public:
       return Itr->second;
     else
       return nullptr;
+  }
+
+  // Return true if the call will be ignored by CG i.e. not emitted in outgoing
+  // code.
+  // TODO: This is a temporary workaround to handle deficiencies between
+  // VPValue-based CG and mixed CG. It should be removed when mixed CG is
+  // completely retired.
+  bool isIgnoredCall(const CallInst *Call) {
+    Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
+    return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end;
   }
 
 private:
@@ -775,25 +786,25 @@ private:
   // \p Widen.
   void makeConsistentAndAddToMap(RegDDRef *Ref, const VPInstruction *VPInst,
                                  SmallVectorImpl<const RegDDRef *> &AuxRefs,
-                                 bool Widen) {
+                                 bool Widen, unsigned ScalarLaneID) {
     // Use AuxRefs if it is not empty to make Ref consistent
     if (!AuxRefs.empty())
       Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
     if (Widen)
       addVPValueWideRefMapping(VPInst, Ref);
     else
-      addVPValueScalRefMapping(VPInst, Ref, 0);
+      addVPValueScalRefMapping(VPInst, Ref, ScalarLaneID);
   }
 
   // Implementation of generating needed HIR constructs for the given
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
   // the given VPInstruction. Widen parameter is used to specify if we are
   // generating VF wide constructs. If Widen is false, we generate scalar
-  // constructs for lane 0.
+  // constructs for lane given in ScalarLaneID.
   void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                    const OVLSGroup *Group, int64_t InterleaveFactor,
                    int64_t InterleaveIndex, const HLInst *GrpStartInst,
-                   bool Widen);
+                   bool Widen, unsigned ScalarLaneID = -1);
 
   // Wrapper used to call generateHIR appropriately based on nature of given
   // VPInstruction.
@@ -815,11 +826,18 @@ private:
                                   bool Equal);
 
   // Implementation of load where the pointer operand being loaded from is
-  // uniform. VPInst is the load instruction and Mask specifies the load Mask. A
+  // uniform. VPLoad is the load instruction and Mask specifies the load Mask. A
   // scalar load is done using the pointer operand and the value is
   // broadcast to generate the vector value. If Mask is non-null, the load
   // is done conditionally only if Mask is non-zero.
   void widenUniformLoadImpl(const VPLoadStoreInst *VPLoad, RegDDRef *Mask);
+
+  // Implementation of store where the pointer operand being stored to is
+  // uniform and the store is unmasked. VPStore is the store instruction. A
+  // scalar store is done using the pointer operand and the value to be stored
+  // is extracted from the last vector lane if the value is divergent.If the
+  // value being stored is uniform, we simply store the scalar uniform value.
+  void widenUnmaskedUniformStoreImpl(const VPLoadStoreInst *VPStore);
 
   // Implementation of load/store widening.
   void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask,
@@ -828,7 +846,8 @@ private:
 
   // Implementation of codegen for subscript instruction.
   void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
-                               RegDDRef *Mask, bool Widen);
+                               RegDDRef *Mask, bool Widen,
+                               unsigned ScalarLaneID);
 
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
@@ -878,22 +897,35 @@ private:
                            RegDDRef *RednDescriptor, HLContainerTy &RedTail,
                            HLInst *&WInst);
 
+  // Helper utility to generate a widened Call HLInst for given VPCall
+  // instruction. Call arguments are widened in this utility (scalarized where
+  // applicable) and Mask is used to adjust the arguments accordingly. Currently
+  // this utility can handle call vectorization scenarios based on vector
+  // library or trivial vector intrinsics.
+  // TODO: Extend this utility to support call vectorization using
+  // vector-variants.
+  HLInst *generateWideCall(const VPCallInstruction *VPCall, RegDDRef *Mask,
+                           Intrinsic::ID VectorIntrinID);
+
   // Get scalar version of RegDDRef that represents the VPValue \p VPVal
   // which is either an external definition or a constant. We can build the
   // scalar version from underlying HIR operand attached to VPValue.
   RegDDRef *getUniformScalarRef(const VPValue *VPVal);
 
   // Get scalar version of RegDDRef that represents the VPValue \p VPVal for
-  // lane 0 from VPValScalRefMap. If not found in the map,  we can obtain the
-  // scalar ref using getUniformScalarRef for external definitions and
-  // constants. For others, we create an extract element instruction for lane 0
-  // from the wide reference and return the result of the extract.
-  RegDDRef *getOrCreateScalarRef(const VPValue *VPVal);
+  // lane \p ScalarLaneID from VPValScalRefMap. If not found in the map,  we can
+  // obtain the scalar ref using getUniformScalarRef for external definitions
+  // and constants. For others, we create an extract element instruction for
+  // lane ScalarLaneID from the wide reference and return the result of the
+  // extract.
+  RegDDRef *getOrCreateScalarRef(const VPValue *VPVal, unsigned ScalarLaneID);
 
   // Wrapper utility method to obtain RegDDRef corresponding to given VPValue
   // based on the Widen boolean.
-  RegDDRef *getOrCreateRefForVPVal(const VPValue *VPVal, bool Widen) {
-    return Widen ? widenRef(VPVal, getVF()) : getOrCreateScalarRef(VPVal);
+  RegDDRef *getOrCreateRefForVPVal(const VPValue *VPVal, bool Widen,
+                                   unsigned ScalarLaneID) {
+    return Widen ? widenRef(VPVal, getVF())
+                 : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime

@@ -58,7 +58,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
+      VecTag(VecTagTy::NONE) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -72,6 +73,10 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
   // We also don't erase the opt report from LoopID. We only do that
   // at the HIRCodeGen stage, if needed.
   setOptReport(LoopOptReport::findOptReportInLoopID(LLVMLoop->getLoopID()));
+
+  // Drop any "llvm.loop.parallel_accesses" metadata. This metadata is not yet
+  // used or preserved by HIR transformations.
+  removeLoopMetadata("llvm.loop.parallel_accesses");
 }
 
 // IsInnermost flag is initialized to true, please refer to the header file.
@@ -82,7 +87,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
+      VecTag(VecTagTy::NONE) {
   initialize();
   setNumExits(NumEx);
 
@@ -113,7 +119,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate),
       IsBlocked(HLLoopObj.IsBlocked),
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
-      ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor) {
+      ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor),
+      VecTag(HLLoopObj.VecTag) {
 
   initialize();
 
@@ -151,6 +158,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   IsBlocked = Lp.IsBlocked;
   ForcedVectorWidth = Lp.ForcedVectorWidth;
   ForcedVectorUnrollFactor = Lp.ForcedVectorUnrollFactor;
+  VecTag = Lp.VecTag;
 
   // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
   // order of HLLoops which remains the same as before.
@@ -319,6 +327,31 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
     }
   }
 
+  if (!PrefetchingInfoVec.empty()) {
+    OS << "\n";
+    indent(OS, Depth);
+    OS << "+ Prefetching directives:";
+
+    First = true;
+    for (auto &Info : PrefetchingInfoVec) {
+      if (!First) {
+        OS << ", ";
+      }
+      OS << "{";
+      Info.Var->print(OS, false);
+
+      if (!Info.Dist) {
+        OS << ":"
+           << "disable"
+           << "}";
+      } else {
+        OS << ":" << Info.Hint << ":" << Info.Dist << "}";
+      }
+
+      First = false;
+    }
+  }
+
   OS << "\n";
 #endif // INTEL_PRODUCT_RELEASE
 }
@@ -329,6 +362,18 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
 
   if (isAttached() && isSIMD()) {
     OS << " <simd>";
+  }
+
+  // Print the vectorization tag, if any.
+  switch (getVecTag()) {
+  case VecTagTy::AUTOVEC:
+    OS << " <auto-vectorized>";
+    break;
+  case VecTagTy::SIMD:
+    OS << " <simd-vectorized>";
+    break;
+  case VecTagTy::NONE:
+    break;
   }
 
   // Some of the pragma checks require trip count information,
@@ -968,7 +1013,7 @@ HLIf *HLLoop::extractZtt(unsigned NewLevel) {
     NewLevel = getNestingLevel() - 1;
   }
 
-  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+  assert(CanonExpr::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
   std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
@@ -999,21 +1044,16 @@ void HLLoop::extractPostexit() {
   HLNodeUtils::moveAfter(this, post_begin(), post_end());
 }
 
-void HLLoop::extractPreheaderAndPostexit() {
-  extractPreheader();
-  extractPostexit();
-}
-
 void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
 void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 
-static void demoteBlobs(RegDDRef *Ref, unsigned Level) {
+static void promoteBlobs(RegDDRef *Ref, unsigned Level, int Increment) {
   if (Ref->isSelfBlob()) {
     unsigned DefLevel = Ref->getSingleCanonExpr()->getDefinedAtLevel();
 
     if (DefLevel != NonLinearLevel && DefLevel >= Level) {
-      Ref->getSingleCanonExpr()->setDefinedAtLevel(DefLevel - 1);
+      Ref->getSingleCanonExpr()->setDefinedAtLevel(DefLevel + Increment);
     }
 
   } else {
@@ -1021,7 +1061,7 @@ static void demoteBlobs(RegDDRef *Ref, unsigned Level) {
       auto BlobLevel = BRef->getDefinedAtLevel();
 
       if (BlobLevel != NonLinearLevel && BlobLevel >= Level) {
-        BRef->setDefinedAtLevel(BlobLevel - 1);
+        BRef->setDefinedAtLevel(BlobLevel + Increment);
       }
     }
   }
@@ -1057,7 +1097,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
     // When we replace outer loop by first iteration, the definition level
     // of blobs defined inside this loop reduces by 1.
     // The use of these blobs in inner loop refs need to be updated.
-    demoteBlobs(Ref, Level);
+    promoteBlobs(Ref, Level, -1);
 
     // When IV is substituted in inner loop, temps in merged ref need to be
     // marked as livein to that loop.
@@ -1175,28 +1215,42 @@ void HLLoop::verify() const {
          "Found an empty Loop, assumption that there should be no empty loops");
 }
 
+static inline bool nodeIsDirective(const HLNode *Node, int DirectiveID) {
+  const HLInst *I = dyn_cast<HLInst>(Node);
+  // Loop, IF, Switch, etc.
+  if (!I)
+    return false;
+
+  return I->isDirective(DirectiveID);
+}
+
 static bool nodeHasDirective(const HLNode *Node, int DirectiveID) {
-  while (Node = Node->getPrevNode()) {
-    const HLInst *I = dyn_cast<HLInst>(Node);
-    // Loop, IF, Switch, etc.
-    if (!I)
-      return false;
-    if (I->isDirective(DirectiveID))
+  while ((Node = Node->getPrevNode())) {
+    if (nodeIsDirective(Node, DirectiveID)) {
       return true;
+    }
   }
   return false;
 }
 
 bool HLLoop::hasDirective(int DirectiveID) const {
   // Allow SIMD loop detection if directive is inside loop's Preheader.
-  if (hasPreheader() && nodeHasDirective(getLastPreheaderNode(), DirectiveID))
+  if (hasPreheader() &&
+      (nodeIsDirective(getLastPreheaderNode(), DirectiveID) ||
+       nodeHasDirective(getLastPreheaderNode(), DirectiveID))) {
     return true;
+  }
+
   // Allow SIMD loop detection if directive is sibling node to HLLoop.
-  if (nodeHasDirective(this, DirectiveID))
+  if (nodeHasDirective(this, DirectiveID)) {
     return true;
+  }
+
   // Allow SIMD loop detection inside if conditions inside SIMD region
-  if (auto *Parent = dyn_cast<HLIf>(getParent()))
+  if (auto *Parent = dyn_cast<HLIf>(getParent())) {
     return nodeHasDirective(Parent, DirectiveID);
+  }
+
   return false;
 }
 
@@ -1363,6 +1417,25 @@ void HLLoop::markDoNotUnrollAndJam() {
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
   addLoopMetadata(MDNode::get(
       Context, MDString::get(Context, "llvm.loop.unroll_and_jam.disable")));
+}
+
+void HLLoop::markDoNotBlock() {
+  // Currently, the only user of this util is HIRInterLoopBlocking.
+  // Because inter loop blocking is avoided over loops with any loop blocking
+  // pragma, this assertion can be added.
+  // Without this assertion, careful checks might be needed to see if
+  // the existing pragma information is conflicting with noblock_loop.
+  // Also, BlockingInfo is a vector containing information for this loop and
+  // all its children loops. Exisiting pragma could be a vector of the size
+  // larger than one.
+  assert(!BlockingInfo);
+
+  // Set information strictly only for the loop, not for any children loops.
+  // Factor 0 indicates noblock.
+  BlockingInfo.reset(new BlockingPragmaInfo);
+  BlockingInfo->LevelsAndFactors.push_back(
+    std::make_pair(1 /* Level */, getDDRefUtils().createConstDDRef(
+        Type::getInt32Ty(getHLNodeUtils().getContext()), 0) /* Factor */));
 }
 
 bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
@@ -1809,8 +1882,7 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
 
   // Extract Ztt, preheader and postexit from this loop before cloning it so
   // that the peel loop doesn't include them.
-  extractZtt();
-  extractPreheaderAndPostexit();
+  extractZttPreheaderAndPostexit();
 
   HLLoop *PeelLoop = clone();
   HLNodeUtils::insertBefore(this, PeelLoop);
@@ -1998,8 +2070,7 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
 
   // Extract Ztt, preheader and postexit from this loop before cloning it so
   // that the peel loop doesn't include them.
-  extractZtt();
-  extractPreheaderAndPostexit();
+  extractZttPreheaderAndPostexit();
 
   undefInitializeUnconditionalLiveoutTemps();
 
@@ -2171,4 +2242,12 @@ void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
   if (getPragmaBasedAverageTripCount(TC)) {
     setPragmaBasedAverageTripCount(TC / Factor);
   }
+}
+
+void HLLoop::promoteNestingLevel(unsigned StartLevel) {
+  ForEach<RegDDRef>::visitRange(child_begin(), child_end(), [&](RegDDRef *Ref) {
+    Ref->promoteIVs(StartLevel);
+    promoteBlobs(Ref, StartLevel, 1);
+    Ref->makeConsistent({}, StartLevel + 1);
+  });
 }

@@ -1,0 +1,48 @@
+# INTEL_COLLAB
+UNSUPPORTED: system-windows
+REQUIRES: libompdevice
+
+Verify that the wrapper functions and the fallback functions are not marked
+with noinline attribute.
+
+We do not need to check the fallback object files, because the SPIR-V
+files are extracted from them, and it is enough to check the SPIR-V files:
+RUN: llvm-spirv -r %libompdevice_spv_dir/libomp-fallback-cassert.spv -o %t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: llvm-spirv -r %libompdevice_spv_dir/libomp-fallback-cmath.spv -o %t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: llvm-spirv -r %libompdevice_spv_dir/libomp-fallback-cmath-fp64.spv -o %t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: llvm-spirv -r %libompdevice_spv_dir/libomp-fallback-complex.spv -o %t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: llvm-spirv -r %libompdevice_spv_dir/libomp-fallback-complex-fp64.spv -o %t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
+RUN:     -inputs=%libompdevice_obj_dir/libomp-glibc.o -outputs=%t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
+RUN:     -inputs=%libompdevice_obj_dir/libomp-cmath.o -outputs=%t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
+RUN:     -inputs=%libompdevice_obj_dir/libomp-cmath-fp64.o -outputs=%t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
+RUN:     -inputs=%libompdevice_obj_dir/libomp-complex.o -outputs=%t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+RUN: clang-offload-bundler -type=o -unbundle -targets=openmp-spir64 \
+RUN:     -inputs=%libompdevice_obj_dir/libomp-complex-fp64.o -outputs=%t.bc
+RUN: llvm-dis %t.bc -o - | FileCheck %s
+
+CHECK: target triple ={{.*}}spir64
+CHECK-NOT: ; Function Attrs:{{.*}}noinline
+CHECK-NOT: attributes #{{[0-9]+}} ={{.*}}noinline
+# end INTEL_COLLAB

@@ -14,6 +14,7 @@
 #define RTL_TRACE_H
 
 #include <CL/cl.h>
+#include <CL/cl_ext_intel.h>
 #include <inttypes.h>
 #include <string>
 #include "omptarget.h"
@@ -23,7 +24,7 @@
 
 extern int DebugLevel;
 
-#define DPLEVEL(Level, ...)                                                    \
+#define IDPLEVEL(Level, ...)                                                   \
   do {                                                                         \
     if (DebugLevel > Level) {                                                  \
       fprintf(stderr, "Target OPENCL RTL --> ");                               \
@@ -31,8 +32,8 @@ extern int DebugLevel;
     }                                                                          \
   } while (0)
 
-#define DP(...) DPLEVEL(0, __VA_ARGS__)
-#define DP1(...) DPLEVEL(1, __VA_ARGS__)
+#define IDP(...) IDPLEVEL(0, __VA_ARGS__)
+#define IDP1(...) IDPLEVEL(1, __VA_ARGS__)
 
 #if INTEL_CUSTOMIZATION
 // DPI() is for printing sensitive information in the debug output.
@@ -40,13 +41,53 @@ extern int DebugLevel;
 // Note that DPI is not defined for non-INTEL_CUSTOMIZATION builds,
 // so that the INTEL_COLLAB build fails, if DPI used in there.
 #if INTEL_INTERNAL_BUILD
-#define DPI(...) DP(__VA_ARGS__)
+#define DPI(...) IDP(__VA_ARGS__)
 #else  // !INTEL_INTERNAL_BUILD
 #define DPI(...)
 #endif // !INTEL_INTERNAL_BUILD
-typedef cl_uint cl_mem_info_intel;
-typedef cl_bitfield cl_mem_properties_intel;
+
+typedef cl_int (CL_API_CALL *clGetDeviceGlobalVariablePointerINTEL_fn)(
+    cl_device_id,
+    cl_program,
+    const char *,
+    size_t *,
+    void **);
+typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTEL_fn)(
+    cl_command_queue,
+    cl_kernel,
+    cl_uint,
+    const size_t *,
+    const size_t *,
+    size_t *);
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#define FOR_EACH_EXTENSION_FN(M)                                               \
+  M(clGetMemAllocInfo)                                                         \
+  M(clHostMemAlloc)                                                            \
+  M(clDeviceMemAlloc)                                                          \
+  M(clSharedMemAlloc)                                                          \
+  M(clMemFree)                                                                 \
+  M(clSetKernelArgMemPointer)                                                  \
+  M(clEnqueueMemcpy)                                                           \
+  M(clGetDeviceGlobalVariablePointer)                                          \
+  M(clGetKernelSuggestedLocalWorkSize)
+#else // INTEL_CUSTOMIZATION
+#define FOR_EACH_EXTENSION_FN(M)                                               \
+  M(clGetMemAllocInfo)                                                         \
+  M(clHostMemAlloc)                                                            \
+  M(clDeviceMemAlloc)                                                          \
+  M(clSharedMemAlloc)                                                          \
+  M(clMemFree)                                                                 \
+  M(clSetKernelArgMemPointer)                                                  \
+  M(clEnqueueMemcpy)
+#endif // INTEL_CUSTOMIZATION
+
+enum ExtensionIdTy {
+#define EXTENSION_FN_ID(Fn) Fn##Id,
+  FOR_EACH_EXTENSION_FN(EXTENSION_FN_ID)
+  ExtensionIdLast
+};
 
 #define FOREACH_CL_ERROR_CODE(FN)                                              \
   FN(CL_SUCCESS)                                                               \
@@ -123,22 +164,22 @@ static const char *getCLErrorName(int error) {
 
 #define FATAL_ERROR(msg)                                                       \
   do {                                                                         \
-    DPLEVEL(-1, "Error: %s failed (%s) -- exiting...\n", __func__, msg);       \
+    IDPLEVEL(-1, "Error: %s failed (%s) -- exiting...\n", __func__, msg);      \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
-#define WARNING(...) DPLEVEL(-1, "Warning: " __VA_ARGS__)
+#define WARNING(...) IDPLEVEL(-1, "Warning: " __VA_ARGS__)
 
 #define TRACE_FN(Name) CLTR##Name
 #define TRACE_FN_ARG_BEGIN()                                                   \
   do {                                                                         \
     std::string fn(__func__);                                                  \
-    DP1("CL_CALLEE: %s (\n", fn.substr(4).c_str());                            \
+    IDP1("CL_CALLEE: %s (\n", fn.substr(4).c_str());                           \
   } while (0)
-#define TRACE_FN_ARG_END() DP1(")\n")
-#define TRACE_FN_ARG(Arg, Fmt) DP1("    %s = " Fmt "\n", TO_STRING(Arg), Arg)
+#define TRACE_FN_ARG_END() IDP1(")\n")
+#define TRACE_FN_ARG(Arg, Fmt) IDP1("    %s = " Fmt "\n", TO_STRING(Arg), Arg)
 #define TRACE_FN_ARG_PTR(Arg)                                                  \
-  DP1("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
+  IDP1("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
 #define TRACE_FN_ARG_INT(Arg) TRACE_FN_ARG(Arg, "%" PRId32)
 #define TRACE_FN_ARG_SIZE(Arg) TRACE_FN_ARG(Arg, "%zu")
 #define TRACE_FN_ARG_UINT(Arg) TRACE_FN_ARG(Arg, "%" PRIu32)
@@ -165,6 +206,26 @@ cl_int TRACE_FN(clCompileProgram)(
   TRACE_FN_ARG_UINT(num_input_headers);
   TRACE_FN_ARG_PTR(input_headers);
   TRACE_FN_ARG_PTR(header_include_names);
+  TRACE_FN_ARG_PTR(pfn_notify);
+  TRACE_FN_ARG_PTR(user_data);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+cl_int TRACE_FN(clBuildProgram)(
+    cl_program program,
+    cl_uint num_devices,
+    const cl_device_id *device_list,
+    const char *options,
+    void (CL_CALLBACK *pfn_notify)(cl_program, void *),
+    void *user_data) {
+  auto rc = clBuildProgram(program, num_devices, device_list, options,
+                           pfn_notify, user_data);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(program);
+  TRACE_FN_ARG_UINT(num_devices);
+  TRACE_FN_ARG_PTR(device_list);
+  TRACE_FN_ARG_PTR(options);
   TRACE_FN_ARG_PTR(pfn_notify);
   TRACE_FN_ARG_PTR(user_data);
   TRACE_FN_ARG_END();
@@ -359,6 +420,31 @@ cl_int TRACE_FN(clEnqueueSVMMemcpy)(
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_UINT(blocking_copy);
+  TRACE_FN_ARG_PTR(dst_ptr);
+  TRACE_FN_ARG_PTR(src_ptr);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_UINT(num_events_in_wait_list);
+  TRACE_FN_ARG_PTR(event_wait_list);
+  TRACE_FN_ARG_PTR(event);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+cl_int TRACE_FN(clEnqueueMemcpyINTEL)(
+    clEnqueueMemcpyINTEL_fn funcptr,
+    cl_command_queue command_queue,
+    cl_bool blocking,
+    void *dst_ptr,
+    const void *src_ptr,
+    size_t size,
+    cl_uint num_events_in_wait_list,
+    const cl_event *event_wait_list,
+    cl_event *event) {
+  auto rc = (*funcptr)(command_queue, blocking, dst_ptr, src_ptr, size,
+                       num_events_in_wait_list, event_wait_list, event);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(command_queue);
+  TRACE_FN_ARG_UINT(blocking);
   TRACE_FN_ARG_PTR(dst_ptr);
   TRACE_FN_ARG_PTR(src_ptr);
   TRACE_FN_ARG_SIZE(size);
@@ -576,10 +662,8 @@ cl_int TRACE_FN(clGetKernelWorkGroupInfo)(
   return rc;
 }
 
-#if INTEL_CUSTOMIZATION
 cl_int TRACE_FN(clGetMemAllocInfoINTEL)(
-    cl_int (CL_API_ENTRY *funcptr)(cl_context, const void *, cl_mem_info_intel,
-                                   size_t, void *, size_t *),
+    clGetMemAllocInfoINTEL_fn funcptr,
     cl_context context,
     const void *ptr,
     cl_mem_info_intel param_name,
@@ -598,7 +682,6 @@ cl_int TRACE_FN(clGetMemAllocInfoINTEL)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // INTEL_CUSTOMIZATION
 
 cl_int TRACE_FN(clGetPlatformIDs)(
     cl_uint num_entries,
@@ -651,12 +734,10 @@ cl_int TRACE_FN(clGetProgramBuildInfo)(
   return rc;
 }
 
-#if INTEL_CUSTOMIZATION
 void *TRACE_FN(clHostMemAllocINTEL)(
-    void *(CL_API_CALL *funcptr)(cl_context, cl_mem_properties_intel *, size_t,
-                                 cl_uint, cl_int *),
+    clHostMemAllocINTEL_fn funcptr,
     cl_context context,
-    cl_mem_properties_intel *properties,
+    const cl_mem_properties_intel *properties,
     size_t size,
     cl_uint alignment,
     cl_int *errcode_ret) {
@@ -670,7 +751,27 @@ void *TRACE_FN(clHostMemAllocINTEL)(
   TRACE_FN_ARG_END();
   return ret;
 }
-#endif // INTEL_CUSTOMIZATION
+
+void *TRACE_FN(clDeviceMemAllocINTEL)(
+    clDeviceMemAllocINTEL_fn funcptr,
+    cl_context context,
+    cl_device_id device,
+    const cl_mem_properties_intel *properties,
+    size_t size,
+    cl_uint alignment,
+    cl_int *errcode_ret) {
+  auto ret = (*funcptr)(context, device, properties, size, alignment,
+                        errcode_ret);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(context);
+  TRACE_FN_ARG_PTR(device);
+  TRACE_FN_ARG_PTR(properties);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_UINT(alignment);
+  TRACE_FN_ARG_PTR(errcode_ret);
+  TRACE_FN_ARG_END();
+  return ret;
+}
 
 cl_program TRACE_FN(clLinkProgram)(
     cl_context context,
@@ -697,11 +798,10 @@ cl_program TRACE_FN(clLinkProgram)(
   return ret;
 }
 
-#if INTEL_CUSTOMIZATION
 cl_int TRACE_FN(clMemFreeINTEL)(
-    cl_int (CL_API_CALL *funcptr)(cl_context, const void *),
+    clMemFreeINTEL_fn funcptr,
     cl_context context,
-    const void *ptr) {
+    void *ptr) {
   auto rc = (*funcptr)(context, ptr);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
@@ -709,7 +809,6 @@ cl_int TRACE_FN(clMemFreeINTEL)(
   TRACE_FN_ARG_END();
   return rc;
 }
-#endif // INTEL_CUSTOMIZATION
 
 cl_int TRACE_FN(clReleaseCommandQueue)(
     cl_command_queue command_queue) {
@@ -800,6 +899,20 @@ cl_int TRACE_FN(clSetKernelArgSVMPointer)(
   return rc;
 }
 
+cl_int TRACE_FN(clSetKernelArgMemPointerINTEL)(
+    clSetKernelArgMemPointerINTEL_fn funcptr,
+    cl_kernel kernel,
+    cl_uint arg_index,
+    const void *arg_value) {
+  auto rc = (*funcptr)(kernel, arg_index, arg_value);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(kernel);
+  TRACE_FN_ARG_UINT(arg_index);
+  TRACE_FN_ARG_PTR(arg_value);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 cl_int TRACE_FN(clSetKernelExecInfo)(
     cl_kernel kernel,
     cl_kernel_exec_info param_name,
@@ -816,10 +929,8 @@ cl_int TRACE_FN(clSetKernelExecInfo)(
   return rc;
 }
 
-#if INTEL_CUSTOMIZATION
 void *TRACE_FN(clSharedMemAllocINTEL)(
-    void *(CL_API_CALL *funcptr)(cl_context, cl_device_id,
-        const cl_mem_properties_intel *, size_t, cl_uint, cl_int *),
+    clSharedMemAllocINTEL_fn funcptr,
     cl_context context,
     cl_device_id device,
     const cl_mem_properties_intel *properties,
@@ -838,7 +949,6 @@ void *TRACE_FN(clSharedMemAllocINTEL)(
   TRACE_FN_ARG_END();
   return ret;
 }
-#endif // INTEL_CUSTOMIZATION
 
 void *TRACE_FN(clSVMAlloc)(
     cl_context context,
@@ -877,16 +987,8 @@ cl_int TRACE_FN(clWaitForEvents)(
 }
 
 #if INTEL_CUSTOMIZATION
-typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTELTy)(
-    cl_command_queue,
-    cl_kernel,
-    cl_uint,
-    const size_t *,
-    const size_t *,
-    size_t *);
-
 cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
-    clGetKernelSuggestedLocalWorkSizeINTELTy funcptr,
+    clGetKernelSuggestedLocalWorkSizeINTEL_fn funcptr,
     cl_command_queue command_queue,
     cl_kernel kernel,
     cl_uint work_dim,
@@ -911,7 +1013,7 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
 #define CALL_CL_SILENT(Rc, Fn, ...)                                            \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      DP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));    \
+      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
       Rc = TRACE_FN(Fn)(__VA_ARGS__);                                          \
     } else {                                                                   \
       Rc = Fn(__VA_ARGS__);                                                    \
@@ -923,7 +1025,7 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
   do {                                                                         \
     CALL_CL_SILENT(Rc, Fn, __VA_ARGS__);                                       \
     if (Rc != CL_SUCCESS) {                                                    \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,    \
+      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,   \
          getCLErrorName(Rc));                                                  \
     }                                                                          \
   } while (0)
@@ -933,7 +1035,7 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
   do {                                                                         \
     CALL_CL_SILENT(Rc, Fn, __VA_ARGS__);                                       \
     if (Rc != CL_SUCCESS) {                                                    \
-      DP("Warning: %s:%s returned %d, %s\n", __func__, #Fn, Rc,                \
+      IDP("Warning: %s:%s returned %d, %s\n", __func__, #Fn, Rc,               \
          getCLErrorName(Rc));                                                  \
     }                                                                          \
   } while (0)
@@ -972,13 +1074,13 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
 #define CALL_CL_RVRC(Rv, Fn, Rc, ...)                                          \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      DP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));    \
+      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
       Rv = TRACE_FN(Fn)(__VA_ARGS__, &Rc);                                     \
     } else {                                                                   \
       Rv = Fn(__VA_ARGS__, &Rc);                                               \
     }                                                                          \
     if (Rc != CL_SUCCESS) {                                                    \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,    \
+      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,   \
          getCLErrorName(Rc));                                                  \
     }                                                                          \
   } while (0)
@@ -987,7 +1089,7 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
 #define CALL_CL_RV(Rv, Fn, ...)                                                \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      DP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));    \
+      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
       Rv = TRACE_FN(Fn)(__VA_ARGS__);                                          \
     } else {                                                                   \
       Rv = Fn(__VA_ARGS__);                                                    \
@@ -998,57 +1100,81 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
 #define CALL_CL_VOID(Fn, ...)                                                  \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      DP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));    \
+      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
       TRACE_FN(Fn)(__VA_ARGS__);                                               \
     } else {                                                                   \
       Fn(__VA_ARGS__);                                                         \
     }                                                                          \
   } while (0)
 
-#if INTEL_CUSTOMIZATION
-/// Extension calls that only have return code
-#define CALL_CL_EXT(Rc, Name, Fn, ...)                                         \
+/// Call extension function, return nothing
+#define CALL_CL_EXT_VOID(DeviceId, Name, ...)                                  \
   do {                                                                         \
+    Name##INTEL_fn Fn = reinterpret_cast<Name##INTEL_fn>(                      \
+        DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
-      DP1("CL_CALLER: %s %s\n", TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));  \
-      Rc = TRACE_FN(Name)(Fn, __VA_ARGS__);                                    \
+      IDP1("CL_CALLER: %s %s\n",                                               \
+           TO_STRING(Name##INTEL), TO_STRING(( __VA_ARGS__ )));                \
+      TRACE_FN(Name##INTEL)(Fn, __VA_ARGS__);                                  \
+    } else {                                                                   \
+      (*Fn)(__VA_ARGS__);                                                      \
+    }                                                                          \
+  } while (0)
+
+/// Extension calls without error reporting
+#define CALL_CL_EXT_SILENT(DeviceId, Rc, Name, ...)                            \
+  do {                                                                         \
+    Name##INTEL_fn Fn = reinterpret_cast<Name##INTEL_fn>(                      \
+        DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
+    if (DebugLevel > 1) {                                                      \
+      IDP1("CL_CALLER: %s %s\n",                                               \
+           TO_STRING(Name##INTEL), TO_STRING(( __VA_ARGS__ )));                \
+      Rc = TRACE_FN(Name##INTEL)(Fn, __VA_ARGS__);                             \
     } else {                                                                   \
       Rc = (*Fn)(__VA_ARGS__);                                                 \
     }                                                                          \
+  } while (0)
+
+/// Extension calls that only have return code
+#define CALL_CL_EXT(DeviceId, Rc, Name, ...)                                   \
+  do {                                                                         \
+    CALL_CL_EXT_SILENT(DeviceId, Rc, Name, __VA_ARGS__);                       \
     if (Rc != CL_SUCCESS) {                                                    \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Name, Rc,  \
-         getCLErrorName(Rc));                                                  \
+      IDP("Error: %s:%s failed with error code %d, %s\n",                      \
+          __func__, TO_STRING(Name##INTEL), Rc, getCLErrorName(Rc));           \
     }                                                                          \
   } while (0)
 
 /// Extension calls that have return value and return code
-#define CALL_CL_EXT_RVRC(Rv, Name, Fn, Rc, ...)                                \
+#define CALL_CL_EXT_RVRC(DeviceId, Rv, Name, Rc, ...)                          \
   do {                                                                         \
+    Name##INTEL_fn Fn = reinterpret_cast<Name##INTEL_fn>(                      \
+        DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
-      DP1("CL_CALLER: %s %s\n", TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));  \
-      Rv = TRACE_FN(Name)(Fn, __VA_ARGS__, &Rc);                               \
+      IDP1("CL_CALLER: %s %s\n",                                               \
+           TO_STRING(Name##INTEL), TO_STRING(( __VA_ARGS__ )));                \
+      Rv = TRACE_FN(Name##INTEL)(Fn, __VA_ARGS__, &Rc);                        \
     } else {                                                                   \
       Rv = (*Fn)(__VA_ARGS__, &Rc);                                            \
     }                                                                          \
     if (Rc != CL_SUCCESS) {                                                    \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Name, Rc,  \
-         getCLErrorName(Rc));                                                  \
+      IDP("Error: %s:%s failed with error code %d, %s\n",                      \
+          __func__, TO_STRING(Name##INTEL), Rc, getCLErrorName(Rc));           \
     }                                                                          \
   } while (0)
 
-#define CALL_CL_EXT_RET(Ret, Name, Fn, ...)                                    \
+#define CALL_CL_EXT_RET(DeviceId, Ret, Name, ...)                              \
   do {                                                                         \
     cl_int rc;                                                                 \
-    CALL_CL_EXT(rc, Name, Fn, __VA_ARGS__);                                    \
+    CALL_CL_EXT(DeviceId, rc, Name, __VA_ARGS__);                              \
     if (rc != CL_SUCCESS)                                                      \
       return Ret;                                                              \
   } while (0)
 
-#define CALL_CL_EXT_RET_FAIL(Name, Fn, ...)                                    \
-  CALL_CL_EXT_RET(OFFLOAD_FAIL, Name, Fn, __VA_ARGS__)
-#define CALL_CL_EXT_RET_NULL(Name, Fn, ...)                                    \
-  CALL_CL_EXT_RET(nullptr, Name, Fn, __VA_ARGS__)
-#endif // INTEL_CUSTOMIZATION
+#define CALL_CL_EXT_RET_FAIL(DeviceId, Name, ...)                              \
+  CALL_CL_EXT_RET(DeviceId, OFFLOAD_FAIL, Name, __VA_ARGS__)
+#define CALL_CL_EXT_RET_NULL(DeviceId, Name, ...)                              \
+  CALL_CL_EXT_RET(DeviceId, nullptr, Name, __VA_ARGS__)
 
 #endif // !defined(RTL_TRACE_H)
 #endif // INTEL_COLLAB

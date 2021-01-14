@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.cpp - Inline report ------- ---------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,6 +15,7 @@
 
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
@@ -36,57 +37,55 @@ InlineReportCallSite::~InlineReportCallSite(void) {
   }
 }
 
-InlineReportCallSite *
-InlineReportCallSite::copyBase(const InlineReportCallSite &Base,
-                               Instruction *NI) {
-  InlineReportCallSite *NewCS = new InlineReportCallSite(
-      Base.IRCallee, Base.IsInlined, Base.Reason, Base.M, nullptr, NI);
-  NewCS->IsInlined = Base.IsInlined;
-  NewCS->InlineCost = Base.InlineCost;
-  NewCS->OuterInlineCost = Base.OuterInlineCost;
-  NewCS->InlineThreshold = Base.InlineThreshold;
-  NewCS->Line = Base.Line;
-  NewCS->Col = Base.Col;
+InlineReportCallSite *InlineReportCallSite::copyBase(CallBase *CB) {
+  InlineReportCallSite *NewCS = new InlineReportCallSite(IRCallee, IsInlined,
+      Reason, M, nullptr, CB);
+  NewCS->Reason = Reason;
+  NewCS->InlineCost = InlineCost;
+  NewCS->OuterInlineCost = OuterInlineCost;
+  NewCS->InlineThreshold = InlineThreshold;
+  NewCS->Line = Line;
+  NewCS->Col = Col;
   NewCS->Children.clear();
   return NewCS;
 }
 
 InlineReportCallSite *
 InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
-                                Instruction *ActiveInlineInstruction) {
+                                CallBase *ActiveInlineCallBase) {
   if (IsInlined) {
-    InlineReportCallSite *IRCSk = copyBase(*this, nullptr);
+    InlineReportCallSite *IRCSk = copyBase(nullptr);
     return IRCSk;
   }
   const Value *OldCall = this->getCall();
-  if (OldCall == nullptr)
+  if (!OldCall)
     return nullptr;
-  // If the OldCall was the ActiveInlineInstruction, we placed a nullptr
+  // If the OldCall was the ActiveInlineCallBase, we placed a nullptr
   // into the IIMap for it.
-  bool IsRecursiveCopy = OldCall == ActiveInlineInstruction;
+  bool IsRecursiveCopy = OldCall == ActiveInlineCallBase;
   if (IsRecursiveCopy)
     OldCall = nullptr;
-  ValueToValueMapTy::const_iterator VMI = IIMap.find(OldCall);
+  auto VMI = IIMap.find(OldCall);
   if (VMI == IIMap.end())
     return nullptr;
-  if (VMI->second == nullptr)
+  if (!VMI->second)
     return nullptr;
-  Instruction *NI = cast<Instruction>(VMI->second);
+  CallBase *CB = cast<CallBase>(VMI->second);
   InlineReportCallSite *IRCSk = nullptr;
   if (IsRecursiveCopy) {
     // Start with a clean copy, as this is a newly created callsite produced
     // by recursive inlining.
     IRCSk = new InlineReportCallSite(this->IRCallee, false, NinlrNoReason,
-                                     this->M, nullptr, NI);
+                                     this->M, nullptr, CB);
     IRCSk->Line = this->Line;
     IRCSk->Col = this->Col;
   } else
-    IRCSk = copyBase(*this, NI);
+    IRCSk = copyBase(CB);
   return IRCSk;
 }
 
 ///
-/// \brief Print a simple message
+/// Print a simple message.
 ///
 /// message: The message being printed
 /// indentCount: The number of indentations before printing the message
@@ -113,15 +112,14 @@ static void printSimpleMessage(const char *Message, unsigned IndentCount,
 }
 
 ///
-/// \brief Print the inlining cost and threshold values
+/// Print the inlining cost and threshold values
 ///
 void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
   llvm::errs() << " (" << getInlineCost();
-  if (getIsInlined()) {
+  if (getIsInlined())
     llvm::errs() << "<=";
-  } else {
+  else
     llvm::errs() << ">";
-  }
   llvm::errs() << getInlineThreshold();
   if (((Level & InlineReportOptions::RealCost) != 0) && isEarlyExit() &&
       !getIsInlined()) {
@@ -135,7 +133,7 @@ void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
 }
 
 ///
-/// \brief Print the outer inlining cost and threshold values
+/// Print the outer inlining cost and threshold values
 ///
 void InlineReportCallSite::printOuterCostAndThreshold(void) {
   llvm::errs() << " (" << getOuterInlineCost() << ">" << getInlineCost() << ">"
@@ -143,7 +141,7 @@ void InlineReportCallSite::printOuterCostAndThreshold(void) {
 }
 
 ///
-/// \brief Print the linkage info for a function 'F' as a single letter,
+/// Print the linkage info for a function 'F' as a single letter,
 /// if the 'Level' specifies InlineReportOptions::Linkage.
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
@@ -155,7 +153,7 @@ static void printFunctionLinkage(unsigned Level, InlineReportFunction *IRF) {
 }
 
 ///
-/// \brief Print the source language for a function 'F' as a single letter,
+/// Print the source language for a function 'F' as a single letter,
 /// if the 'Level' specifies InlineReportOptions::Language.
 /// For an explanation of the meaning of these letters,
 /// see Intel_InlineReport.h.
@@ -167,11 +165,11 @@ static void printFunctionLanguage(unsigned Level, InlineReportFunction *IRF) {
 }
 
 ///
-/// \brief Print optionally the callee linkage and language, and then the
+/// Print optionally the callee linkage and language, and then the
 /// callee name, and if non-zero, the line and column number of the call site
 ///
 void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) {
-  if (getIRCallee() != nullptr) {
+  if (getIRCallee()) {
     printFunctionLinkage(Level, getIRCallee());
     printFunctionLanguage(Level, getIRCallee());
     llvm::errs() << getIRCallee()->getName();
@@ -183,7 +181,7 @@ void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) {
 }
 
 ///
-/// \brief Print a representation of the inlining instance.
+/// Print a representation of the inlining instance.
 ///
 /// indentCount: The number of indentations to print
 /// level: The level N from '-inline-report=N'
@@ -194,9 +192,8 @@ void InlineReportCallSite::print(unsigned IndentCount, unsigned Level) {
   if (getIsInlined()) {
     llvm::errs() << "-> INLINE: ";
     printCalleeNameModuleLineCol(Level);
-    if (InlineReasonText[getReason()].Type == InlPrtCost) {
+    if (InlineReasonText[getReason()].Type == InlPrtCost)
       printCostAndThreshold(Level);
-    }
     printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
                        Level, true);
   } else {
@@ -231,9 +228,8 @@ void InlineReportCallSite::print(unsigned IndentCount, unsigned Level) {
     } else {
       llvm::errs() << "-> ";
       printCalleeNameModuleLineCol(Level);
-      if (InlineReasonText[getReason()].Type == InlPrtCost) {
+      if (InlineReasonText[getReason()].Type == InlPrtCost)
         printCostAndThreshold(Level);
-      }
       printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
                          Level, false);
     }
@@ -256,16 +252,17 @@ InlineReportFunction::~InlineReportFunction(void) {
 // Member functions for class InlineReport
 //
 
-InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
+InlineReportFunction *InlineReport::addFunction(Function *F,
+                                                bool MakeNewCurrent) {
   if (!isClassicIREnabled())
     return nullptr;
   if (!F)
     return nullptr;
 
-  InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
+  auto MapIt = IRFunctionMap.find(F);
   if (MapIt != IRFunctionMap.end()) {
     InlineReportFunction *IRF = MapIt->second;
-    makeCurrent(M, F);
+    makeCurrent(F);
     return IRF;
   }
 
@@ -283,14 +280,110 @@ InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
   IRF->setLinkageChar(F);
   IRF->setLanguageChar(F);
   addCallback(F);
+  if (MakeNewCurrent)
+    makeCurrent(F);
   return IRF;
 }
 
-InlineReportCallSite *InlineReport::addCallSite(Function *F, CallBase *Call,
-                                                Module *M) {
+static void addOutlinedIRCSes(InlineReportCallSiteVector &IRCSV,
+    SmallVectorImpl<InlineReportCallSite *> &EnclosingIRCSes,
+    SmallPtrSetImpl<CallBase *> &OutFCBSet,
+    SmallPtrSetImpl<InlineReportCallSite *> &OutFIRCSSet) {
+  for (InlineReportCallSite *IRCS : IRCSV) {
+    if (IRCS->getCall() && OutFCBSet.count(cast<CallBase>(IRCS->getCall()))) {
+      OutFIRCSSet.insert(IRCS);
+      for (InlineReportCallSite *IRCSX : EnclosingIRCSes)
+        OutFIRCSSet.insert(IRCSX);
+    }
+    EnclosingIRCSes.push_back(IRCS);
+    addOutlinedIRCSes(IRCS->getChildren(), EnclosingIRCSes, OutFCBSet,
+        OutFIRCSSet);
+    EnclosingIRCSes.pop_back();
+  }
+}
+
+void InlineReportFunction::findOutlinedIRCSes(
+    SmallPtrSetImpl<CallBase *> &OutFCBSet,
+    SmallPtrSetImpl<InlineReportCallSite *> &OutFIRCSSet) {
+  SmallVector<InlineReportCallSite *, 4> EnclosingIRCSes;
+  addOutlinedIRCSes(getCallSites(), EnclosingIRCSes, OutFCBSet, OutFIRCSSet);
+}
+
+void InlineReportCallSite::moveOutlinedChildren(
+    InlineReportCallSiteVector &IRCSV,
+    SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet,
+    InlineReportCallSite *NewIRCS) {
+  for (InlineReportCallSite *IRCS : IRCSV) {
+    if (OutFCBSet.count(IRCS)) {
+      if (IRCS->getCall()) {
+        IRCS->move(this, NewIRCS);
+      } else {
+        InlineReportCallSite *NewIRCSX = IRCS->copyBase(nullptr);
+        NewIRCS->addChild(NewIRCSX);
+        IRCS->moveOutlinedChildren(IRCS->getChildren(), OutFCBSet, NewIRCSX);
+      }
+    }
+  }
+}
+
+void InlineReportFunction::moveOutlinedCallSites(InlineReportFunction *NewIRF,
+    SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet) {
+  for (InlineReportCallSite *IRCS : getCallSites()) {
+    if (OutFCBSet.count(IRCS)) {
+      if (IRCS->getCall()) {
+        IRCS->move(this, NewIRF);
+      } else {
+        InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
+        NewIRF->addCallSite(NewIRCS);
+        IRCS->moveOutlinedChildren(IRCS->getChildren(), OutFCBSet, NewIRCS);
+      }
+    }
+  }
+}
+
+void InlineReportCallSite::moveCalls(InlineReportCallSiteVector &OldIRCSV,
+                                     InlineReportCallSiteVector &NewIRCSV) {
+  for (auto I = OldIRCSV.begin(), E = OldIRCSV.end(); I != E; ++I) {
+    if (*I == this) {
+      OldIRCSV.erase(I);
+      NewIRCSV.push_back(this);
+      return;
+    }
+  }
+}
+
+void InlineReportCallSite::move(InlineReportFunction *OldIRF,
+                                InlineReportFunction *NewIRF) {
+  moveCalls(OldIRF->getCallSites(), NewIRF->getCallSites());
+}
+
+void InlineReportCallSite::move(InlineReportCallSite *OldIRCS,
+                                InlineReportCallSite *NewIRCS) {
+  moveCalls(OldIRCS->getChildren(), NewIRCS->getChildren());
+}
+
+void InlineReport::doOutlining(Function *OldF, Function *OutF,
+                               CallBase *OutCB) {
   if (!isClassicIREnabled())
-    return nullptr;
-  if (!F)
+    return;
+  auto MapIt = IRFunctionMap.find(OldF);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *OldIRF = MapIt->second;
+  InlineReportFunction *OutIRF = addFunction(OutF);
+  SmallPtrSet<CallBase *, 4> OutFCBSet;
+  SmallPtrSet<InlineReportCallSite *, 4> OutFIRCSSet;
+  for (auto &I : instructions(OutF))
+    if (auto CB = dyn_cast<CallBase>(&I))
+      OutFCBSet.insert(CB);
+  OldIRF->findOutlinedIRCSes(OutFCBSet, OutFIRCSSet);
+  OldIRF->moveOutlinedCallSites(OutIRF, OutFIRCSSet);
+  addCallSite(OutCB);
+  setReasonNotInlined(OutCB, NinlrPreferPartialInline);
+  addCallback(OutCB);
+}
+
+InlineReportCallSite *InlineReport::addCallSite(CallBase *Call) {
+  if (!isClassicIREnabled())
     return nullptr;
 
   bool SuppressInlRpt = false;
@@ -300,49 +393,54 @@ InlineReportCallSite *InlineReport::addCallSite(Function *F, CallBase *Call,
   }
 
   DebugLoc DLoc = Call->getDebugLoc();
-  InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
+  Function *F = Call->getCaller();
+  auto MapIt = IRFunctionMap.find(F);
   assert(MapIt != IRFunctionMap.end());
   InlineReportFunction *IRF = MapIt->second;
   Function *Callee = Call->getCalledFunction();
   InlineReportFunction *IRFC = nullptr;
-  if (Callee != nullptr) {
-    InlineReportFunctionMap::const_iterator MapItC = IRFunctionMap.find(Callee);
+  if (Callee) {
+    auto MapItC = IRFunctionMap.find(Callee);
     IRFC =
-        MapItC == IRFunctionMap.end() ? addFunction(Callee, M) : MapItC->second;
+        MapItC == IRFunctionMap.end() ? addFunction(Callee) : MapItC->second;
   }
   InlineReportCallSite *IRCS =
       new InlineReportCallSite(IRFC, false, NinlrNoReason, M, &DLoc,
                                Call, SuppressInlRpt);
   IRF->addCallSite(IRCS);
-  IRInstructionCallSiteMap.insert(std::make_pair(Call, IRCS));
+  IRCallBaseCallSiteMap.insert(std::make_pair(Call, IRCS));
   addCallback(Call);
   return IRCS;
 }
 
-InlineReportCallSite *InlineReport::addNewCallSite(Function *F, CallBase *Call,
-                                                   Module *M) {
+InlineReportCallSite *InlineReport::addNewCallSite(CallBase *Call) {
   if (!isClassicIREnabled())
     return nullptr;
   InlineReportCallSite *IRCS = getCallSite(Call);
-  if (IRCS != nullptr)
+  if (IRCS)
     return IRCS;
-  return addCallSite(F, Call, M);
+  return addCallSite(Call);
 }
 
-void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
+void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner) {
   if (!isClassicIREnabled())
     return;
-  M = &CG.getModule();
+  ActiveInliners.insert(Inliner);
+  M = &SCC.getCallGraph().getModule();
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
+    if (!F)
+      continue;
     beginFunction(F);
   }
 }
 
-void InlineReport::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
+void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner) {
   if (!isClassicIREnabled())
     return;
-  M = &CG.getModule();
+  ActiveInliners.insert(Inliner);
+  LazyCallGraph::Node &LCGN = *(SCC.begin());
+  M = LCGN.getFunction().getParent();
   for (auto &Node : SCC) {
     Function &F = Node.getFunction();
     beginFunction(&F);
@@ -352,8 +450,8 @@ void InlineReport::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
 void InlineReport::beginFunction(Function *F) {
   if (!F || F->isDeclaration())
     return;
-  InlineReportFunction *IRF = addFunction(F, M);
-  assert(IRF != nullptr);
+  InlineReportFunction *IRF = addFunction(F);
+  assert(IRF);
   for (BasicBlock &BB : *F) {
     for (Instruction &I : BB) {
       CallBase *Call = dyn_cast<CallBase>(&I);
@@ -364,7 +462,7 @@ void InlineReport::beginFunction(Function *F) {
       if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
           shouldSkipIntrinsic(cast<IntrinsicInst>(&I)))
         continue;
-      addNewCallSite(F, Call, M);
+      addNewCallSite(Call);
       if (isa<IntrinsicInst>(I)) {
         setReasonNotInlined(Call, NinlrIntrinsic);
         continue;
@@ -389,7 +487,7 @@ void InlineReport::endSCC(void) {
 }
 
 void InlineReport::cloneChildren(
-    const InlineReportCallSiteVector &OldCallSiteVector,
+    InlineReportCallSiteVector &OldCallSiteVector,
     InlineReportCallSite *NewCallSite, ValueToValueMapTy &IIMap) {
   assert(NewCallSite->getChildren().empty());
   for (unsigned I = 0, E = OldCallSiteVector.size(); I < E; ++I) {
@@ -398,15 +496,15 @@ void InlineReport::cloneChildren(
     // Copy the old InlineReportCallSite and add it to the children of the
     // cloned InlineReportCallSite.
     InlineReportCallSite *IRCSk = IRCSj->cloneBase(IIMap,
-                                                   ActiveInlineInstruction);
-    if (IRCSk == nullptr)
+                                                   ActiveInlineCallBase);
+    if (!IRCSk)
       continue;
     NewCallSite->addChild(IRCSk);
     //
     // We keep track of the new calls that are added added to the inline
     // report in case they themselves will be inlined.
-    if (IRCSk->getCall() != nullptr) {
-      IRInstructionCallSiteMap.insert(std::make_pair(IRCSk->getCall(), IRCSk));
+    if (IRCSk->getCall()) {
+      IRCallBaseCallSiteMap.insert(std::make_pair(IRCSk->getCall(), IRCSk));
       addCallback(IRCSk->getCall());
     }
     //
@@ -422,11 +520,11 @@ void InlineReport::inlineCallSite() {
   //
   // Get the inline report for the routine being inlined.  We are going
   // to make a clone of it.
-  InlineReportFunction *INR = addFunction(ActiveCallee, M);
+  InlineReportFunction *INR = addFunction(ActiveCallee);
   //
   // Ensure that the report is up to date since the last call to
   // Inliner::runOnSCC
-  makeCurrent(M, ActiveCallee);
+  makeCurrent(ActiveCallee);
   //
   // Create InlineReportCallSites "new calls" which appear in the inlined
   // code.  Also, create a mapping from the "original calls" which appeared
@@ -437,11 +535,11 @@ void InlineReport::inlineCallSite() {
   ValueToValueMapTy IIMap;
   for (unsigned I = 0, E = ActiveOriginalCalls.size(); I < E; ++I) {
     // In the case of a directly recursive call, avoid putting the
-    // ActiveInlineInstruction into the IIMap, as it is an already
+    // ActiveInlineCallBase into the IIMap, as it is an already
     // deleted value. Putting it in the IIMAP could cause a ValueHandle
     // to be associated with it, which should not happen because it is
     // deleted.
-    Value *OC = ActiveOriginalCalls[I] == ActiveInlineInstruction ?
+    Value *OC = ActiveOriginalCalls[I] == ActiveInlineCallBase ?
                 nullptr : ActiveOriginalCalls[I];
     Value *NC = ActiveInlinedCalls[I];
     IIMap.insert(std::make_pair(OC, NC));
@@ -454,11 +552,10 @@ void InlineReport::inlineCallSite() {
   // Indicate that the call has been inlined in the inline report
   ActiveIRCS->setIsInlined(true);
   //
-  // Remove the inlined instruction from the IRInstructionCallSiteMap
-  InlineReportInstructionCallSiteMap::const_iterator MapIt;
-  MapIt = IRInstructionCallSiteMap.find(ActiveInlineInstruction);
-  assert(MapIt != IRInstructionCallSiteMap.end());
-  IRInstructionCallSiteMap.erase(MapIt);
+  // Remove the inlined instruction from the IRCallBaseCallSiteMap
+  auto MapIt = IRCallBaseCallSiteMap.find(ActiveInlineCallBase);
+  assert(MapIt != IRCallBaseCallSiteMap.end());
+  IRCallBaseCallSiteMap.erase(MapIt);
   ActiveIRCS->setCall(nullptr);
 }
 
@@ -466,10 +563,9 @@ void InlineReport::setReasonIsInlined(CallBase *Call, InlineReason Reason) {
   if (!isClassicIREnabled())
     return;
   assert(IsInlinedReason(Reason));
-  InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(Call);
+  auto MapIt = IRCallBaseCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
-  if (MapIt == IRInstructionCallSiteMap.end())
+  if (MapIt == IRCallBaseCallSiteMap.end())
     return;
   InlineReportCallSite *IRCS = MapIt->second;
   IRCS->setReason(Reason);
@@ -480,10 +576,9 @@ void InlineReport::setReasonIsInlined(CallBase *Call,
   if (!isClassicIREnabled())
     return;
   assert(IsInlinedReason(IC.getInlineReason()));
-  InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(Call);
+  auto MapIt = IRCallBaseCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
-  if (MapIt == IRInstructionCallSiteMap.end())
+  if (MapIt == IRCallBaseCallSiteMap.end())
     return;
   InlineReportCallSite *IRCS = MapIt->second;
   IRCS->setReason(IC.getInlineReason());
@@ -498,12 +593,13 @@ void InlineReport::setReasonNotInlined(CallBase *Call,
   if (!isClassicIREnabled())
     return;
   assert(IsNotInlinedReason(Reason));
-  InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(Call);
+  auto MapIt = IRCallBaseCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
-  if (MapIt == IRInstructionCallSiteMap.end())
+  if (MapIt == IRCallBaseCallSiteMap.end())
     return;
   InlineReportCallSite *IRCS = MapIt->second;
+  if (Reason == NinlrNotAlwaysInline && IsNotInlinedReason(IRCS->getReason()))
+    return;
   IRCS->setReason(Reason);
 }
 
@@ -513,12 +609,13 @@ void InlineReport::setReasonNotInlined(CallBase *Call,
     return;
   InlineReason Reason = IC.getInlineReason();
   assert(IsNotInlinedReason(Reason));
-  InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(Call);
+  auto MapIt = IRCallBaseCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
-  if (MapIt == IRInstructionCallSiteMap.end())
+  if (MapIt == IRCallBaseCallSiteMap.end())
     return;
   InlineReportCallSite *IRCS = MapIt->second;
+  if (Reason == NinlrNotAlwaysInline && IsNotInlinedReason(IRCS->getReason()))
+    return;
   IRCS->setReason(Reason);
   if (IC.isNever())
     return;
@@ -534,17 +631,16 @@ void InlineReport::setReasonNotInlined(CallBase *Call, const InlineCost &IC,
     return;
   assert(IC.getInlineReason() == NinlrOuterInlining);
   setReasonNotInlined(Call, IC);
-  InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(Call);
+  auto MapIt = IRCallBaseCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
-  if (MapIt == IRInstructionCallSiteMap.end())
+  if (MapIt == IRCallBaseCallSiteMap.end())
     return;
   InlineReportCallSite *IRCS = MapIt->second;
   IRCS->setOuterInlineCost(TotalSecondaryCost);
 }
 
 ///
-/// \brief Print the callsites in the 'Vector'
+/// Print the callsites in the 'Vector'.
 ///
 /// indentCount: The number of indentations to print
 /// level: The level N from '-inline-report=N'
@@ -568,10 +664,8 @@ void InlineReportFunction::print(unsigned Level) const {
   printInlineReportCallSiteVector(CallSites, 1, Level);
 }
 
-void InlineReport::print(bool IsAlwaysInline) const {
+void InlineReport::print() const {
   if (!isClassicIREnabled())
-    return;
-  if (IsAlwaysInline && !(Level & InlineReportTypes::AlwaysInline))
     return;
   llvm::errs() << "---- Begin Inlining Report ----\n";
   printOptionValues();
@@ -609,10 +703,23 @@ void InlineReport::print(bool IsAlwaysInline) const {
   llvm::errs() << "---- End Inlining Report ------\n";
 }
 
-void InlineReportCallSite::loadCallsToMap(std::map<Instruction *, bool> &LMap) {
-  Instruction *NI = getCall();
-  if (NI != nullptr)
-    LMap.insert(std::make_pair(NI, true));
+void InlineReport::testAndPrint(void *Inliner) {
+  if (!Inliner) {
+    print();
+    return;
+  }
+  if (!ActiveInliners.count(Inliner))
+    return;
+  ActiveInliners.erase(Inliner);
+  if (!ActiveInliners.empty())
+    return;
+  print();
+}
+
+void InlineReportCallSite::loadCallsToMap(std::map<CallBase *, bool> &LMap) {
+  CallBase *CB = getCall();
+  if (CB)
+    LMap.insert(std::make_pair(CB, true));
   for (unsigned I = 0, E = Children.size(); I < E; ++I)
     Children[I]->loadCallsToMap(LMap);
 }
@@ -621,13 +728,12 @@ void InlineReportCallSite::loadCallsToMap(std::map<Instruction *, bool> &LMap) {
 bool InlineReport::validateFunction(Function *F) {
   llvm::errs() << "Validating " << F->getName() << "\n";
   bool ReturnValue = true;
-  InlineReportFunctionMap::const_iterator MapIt;
-  MapIt = IRFunctionMap.find(F);
+  auto MapIt = IRFunctionMap.find(F);
   if (MapIt == IRFunctionMap.end())
     return false;
   InlineReportFunction *IRF = MapIt->second;
   IRF->print(Level);
-  std::map<Instruction *, bool> OriginalCalls;
+  std::map<CallBase *, bool> OriginalCalls;
   const InlineReportCallSiteVector &Vec = IRF->getCallSites();
   for (unsigned I = 0, E = Vec.size(); I < E; ++I)
     Vec[I]->loadCallsToMap(OriginalCalls);
@@ -636,13 +742,11 @@ bool InlineReport::validateFunction(Function *F) {
       auto *Call = dyn_cast<CallBase>(&*I);
       if (!Call)
         continue;
-      Instruction *NI = Call;
-      std::map<Instruction *, bool>::const_iterator MapIt;
-      MapIt = OriginalCalls.find(NI);
+      auto MapIt = OriginalCalls.find(Call);
       if (MapIt == OriginalCalls.end()) {
         ReturnValue = false;
-        llvm::errs() << "Cannot find " << NI << "\n";
-        NI->dump();
+        llvm::errs() << "Cannot find " << Call << "\n";
+        Call->dump();
       }
     }
   }
@@ -658,11 +762,10 @@ bool InlineReport::validate(void) {
     Function *F = MI->first;
     bool LocalRv = validateFunction(F);
     llvm::errs() << "Validated " << F->getName();
-    if (LocalRv) {
+    if (LocalRv)
       llvm::errs() << " passed\n";
-    } else {
+    else
       llvm::errs() << " failed\n";
-    }
     GlobalRv &= LocalRv;
   }
   llvm::errs() << "End Validation Pass\n";
@@ -670,8 +773,8 @@ bool InlineReport::validate(void) {
 }
 #endif // NDEBUG
 
-void InlineReport::makeCurrent(Module *M, Function *F) {
-  InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
+void InlineReport::makeCurrent(Function *F) {
+  auto MapIt = IRFunctionMap.find(F);
   assert(MapIt != IRFunctionMap.end());
   InlineReportFunction *IRF = MapIt->second;
   if (IRF->getCurrent())
@@ -683,19 +786,16 @@ void InlineReport::makeCurrent(Module *M, Function *F) {
   for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
       CallBase *Call = dyn_cast<CallBase>(I);
-      if (!Call) {
+      if (!Call)
         continue;
-      }
       if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
           shouldSkipIntrinsic(cast<IntrinsicInst>(I)))
         continue;
-      InlineReportInstructionCallSiteMap::const_iterator MapItICS;
-      MapItICS = IRInstructionCallSiteMap.find(Call);
-      if (MapItICS != IRInstructionCallSiteMap.end()) {
+      auto MapItICS = IRCallBaseCallSiteMap.find(Call);
+      if (MapItICS != IRCallBaseCallSiteMap.end())
         continue;
-      }
-      InlineReportCallSite *IRCS = addCallSite(F, Call, M);
-      assert(IRCS != nullptr);
+      InlineReportCallSite *IRCS = addCallSite(Call);
+      assert(IRCS);
       IRCS->setReason(NinlrNewlyCreated);
     }
   }
@@ -712,12 +812,41 @@ void InlineReport::makeAllNotCurrent(void) {
   }
 }
 
+void InlineReport::replaceAllUsesWith(Function *OldFunction,
+                                      Function *NewFunction) {
+  //
+  // NOTE: This should be called before replaceAllUsesWith() in Value.cpp,
+  // because it uses the 'users' list to find the users of 'OldFunction'.
+  //
+  if (!isClassicIREnabled())
+    return;
+  auto MapIt = IRFunctionMap.find(NewFunction);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *IRFNew = MapIt->second;
+  for (auto U : OldFunction->users()) {
+    if (auto CB = dyn_cast<CallBase>(U)) {
+      InlineReportCallSite *IRCS = getCallSite(CB);
+      IRCS->setIRCallee(IRFNew);
+    }
+  }
+}
+
+void InlineReport::initFunctionForPartialInlining(Function *F) {
+  if (!isClassicIREnabled())
+    return;
+  initFunction(F);
+  for (auto U : F->users())
+    if (auto CB = dyn_cast<CallBase>(U))
+      initFunction(CB->getCaller());
+}
+
 void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
                                                Function *NewFunction) {
-  InlineReportFunctionMap::const_iterator IrfIt;
+  if (!isClassicIREnabled())
+    return;
   if (OldFunction == NewFunction)
     return;
-  IrfIt = IRFunctionMap.find(OldFunction);
+  auto IrfIt = IRFunctionMap.find(OldFunction);
   if (IrfIt == IRFunctionMap.end())
     return;
   InlineReportFunction *IRF = IrfIt->second;
@@ -725,18 +854,58 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
   (void) count;
   assert(count == 1);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
+  replaceAllUsesWith(OldFunction, NewFunction);
   IRF->setLinkageChar(NewFunction);
   IRF->setLanguageChar(NewFunction);
   IRF->setName(std::string(NewFunction->getName()));
   addCallback(NewFunction);
 }
 
+InlineReportCallSite *InlineReport::copyAndSetup(InlineReportCallSite *IRCS,
+                                                 ValueToValueMapTy &VMap) {
+  InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
+  if (Instruction *I = IRCS->getCall()) {
+    if (CallBase *CB = dyn_cast_or_null<CallBase>(VMap[I])) {
+      NewIRCS->setCall(CB);
+      IRCallBaseCallSiteMap.insert(std::make_pair(CB, NewIRCS));
+      addCallback(CB);
+    }
+  }
+  return NewIRCS;
+}
+
+void InlineReport::cloneCallSites(InlineReportCallSiteVector &IRCSV,
+                                  ValueToValueMapTy &VMap,
+                                  InlineReportCallSite *OldIRCS,
+                                  InlineReportCallSite *NewIRCS) {
+  for (InlineReportCallSite *IRCS : IRCSV) {
+    InlineReportCallSite *ChildIRCS = copyAndSetup(IRCS, VMap);
+    NewIRCS->addChild(ChildIRCS);
+    cloneCallSites(ChildIRCS->getChildren(), VMap, IRCS, ChildIRCS);
+  }
+}
+
+void InlineReport::cloneFunction(Function *OldFunction,
+                                 Function *NewFunction,
+                                 ValueToValueMapTy &VMap) {
+  if (!isClassicIREnabled())
+    return;
+  auto MapIt = IRFunctionMap.find(OldFunction);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *OldIRF = MapIt->second;
+  InlineReportFunction *NewIRF = addFunction(NewFunction);
+  for (InlineReportCallSite *IRCS : OldIRF->getCallSites()) {
+    InlineReportCallSite *NewIRCS = copyAndSetup(IRCS, VMap);
+    NewIRF->addCallSite(NewIRCS);
+    cloneCallSites(IRCS->getChildren(), VMap, IRCS, NewIRCS);
+  }
+}
+
 InlineReportCallSite *InlineReport::getCallSite(CallBase *Call) {
   if (!isClassicIREnabled())
     return nullptr;
-  InlineReportInstructionCallSiteMap::const_iterator MapItC =
-      IRInstructionCallSiteMap.find(Call);
-  if (MapItC == IRInstructionCallSiteMap.end())
+  auto MapItC = IRCallBaseCallSiteMap.find(Call);
+  if (MapItC == IRCallBaseCallSiteMap.end())
     return nullptr;
   return MapItC->second;
 }
@@ -751,3 +920,14 @@ InlineReport::~InlineReport(void) {
   for (FI = IRFunctionMap.begin(), FE = IRFunctionMap.end(); FI != FE; ++FI)
     delete FI->second;
 }
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
+
+InlineReport *llvm::getInlineReport() {
+  static llvm::InlineReport *SavedInlineReport = nullptr;
+  if (!SavedInlineReport)
+    SavedInlineReport = new llvm::InlineReport(IntelInlineReportLevel);
+  return SavedInlineReport;
+}
+
+

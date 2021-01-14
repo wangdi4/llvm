@@ -150,6 +150,7 @@ private:
   bool IsNonPod:1;
 #if INTEL_CUSTOMIZATION
   bool IsF90DopeVector:1;
+  bool IsCptr:1;
   bool IsWILocal:1;
   bool IsAllocatable:1;
 #endif // INTEL_CUSTOMIZATION
@@ -231,6 +232,8 @@ public:
 #if INTEL_CUSTOMIZATION
   void setIsF90DopeVector(bool Flag = true) {IsF90DopeVector = Flag; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
+  void setIsCptr(bool Flag = true) { IsCptr = Flag; }
+  bool getIsCptr() const { return IsCptr; }
   void setIsWILocal() { IsWILocal = true; }
   bool getIsWILocal() const { return IsWILocal; }
   void setIsAllocatable() { IsAllocatable = true; }

@@ -67,7 +67,11 @@ public:
   /// This function assumes that all the required information like VPlan,
   /// Dominator/Post-Dominator tree, etc. are unchanged from the previous
   /// invocation of the \p compute method.
-  void recomputeShapes(SmallPtrSetImpl<VPInstruction *> &Seeds);
+  // The flags \p EnableFullDAVerificationAndPrint indicates
+  // whether verification and printing of DA information has to be done as
+  // part of invocation of this function.
+  void recomputeShapes(SmallPtrSetImpl<VPInstruction *> &Seeds,
+                       bool EnableFullDAVerificationAndPrint = false);
 
   /// Mark \p DivVal as a value that is always divergent.
   void markDivergent(const VPValue &DivVal);
@@ -102,11 +106,17 @@ public:
   /// \p IsNegOneStride is set to true if stride is -1 and false otherwise.
   bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const;
 
-  void updateDivergence(const VPValue &Val) {
+  /// Return true if the given variable has a SOA VectorShape.
+  bool isSOAShape(const VPValue *Val) const;
+
+  /// Return true if the given variable has SOA unit-stride.
+  bool isSOAUnitStride(const VPValue *Val) const;
+
+  void updateDivergence(VPValue &Val) {
     assert(isa<VPInstruction>(&Val) &&
            "Expected a VPInstruction as input argument.");
-    auto NewShape = computeVectorShape(cast<VPInstruction>(&Val));
-    updateVectorShape(&Val, NewShape);
+    SmallPtrSet<VPInstruction *, 1> Seeds({cast<VPInstruction>(&Val)});
+    recomputeShapes(Seeds);
   }
 
   // Clone instructions' vector shapes when we clone VPlan. This function is
@@ -298,9 +308,6 @@ private:
 
   /// Returns a strided vector shape with the given stride.
   VPVectorShape getStridedVectorShape(int64_t Stride);
-
-  /// Return true if the given variable has VectorShape.
-  bool isSOAShape(const VPValue *Val) const;
 
   /// Returns a SOASequential vector shape with the given stride.
   VPVectorShape getSOASequentialVectorShape(int64_t Stride);

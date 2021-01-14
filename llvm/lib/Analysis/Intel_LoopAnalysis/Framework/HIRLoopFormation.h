@@ -58,7 +58,6 @@ private:
 
   DominatorTree &DT;
   LoopInfo &LI;
-  HIRRegionIdentification &RI;
   ScopedScalarEvolution &ScopedSE;
   HIRCreation &HIRCr;
   HIRCleanup &HIRC;
@@ -103,10 +102,25 @@ private:
   /// Sets the IV type for HLoop.
   void setIVType(HLLoop *HLoop, const SCEV *BECount) const;
 
+  /// Replaces \p ChildIf by its body if it has the same condition as \p
+  /// ParentIf, else returns false.
+  bool removedIdenticalChildIf(HLIf *ParentIf, HLIf *ChildIf,
+                               bool PredicateInversion) const;
+
+  /// Moves children of \p IfParent occuring after \p HLoop to loop's postexit
+  /// if they are valid, else returns false. Sets \p HasPostSiblingLoop to true
+  /// if there exists at least one sibling loop after this one.
+  bool populatedPostexitNodes(HLLoop *HLoop, HLIf *ParentIf,
+                              bool PredicateInversion,
+                              bool &HasPostSiblingLoop) const;
+
   /// Moves children of IfParent to loop's preheader/postexit if they are
   /// valid, else returns false.
-  static bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent,
-                                              bool PredicateInversion);
+  /// Sets \p HasPostSiblingLoop to true if there exists at least one sibling
+  /// loop after this one.
+  bool populatedPreheaderPostexitNodes(HLLoop *HLoop, HLIf *IfParent,
+                                       bool PredicateInversion,
+                                       bool &HasPostSiblingLoop);
 
   /// Sets the parent if node of the loop as its ztt.
   void setZtt(HLLoop *HLoop);
@@ -122,7 +136,7 @@ private:
 public:
   HIRLoopFormation(DominatorTree &DT, LoopInfo &LI, HIRRegionIdentification &RI,
                    HIRCreation &HIRCr, HIRCleanup &HIRC, HLNodeUtils &HNU)
-      : DT(DT), LI(LI), RI(RI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr),
+      : DT(DT), LI(LI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr),
         HIRC(HIRC), HNU(HNU) {}
 
   void run();
@@ -143,8 +157,7 @@ public:
 
   /// Extracts \p IfParent which has been recognized as the legal Ztt of \p
   /// HLoop from the IR and sets it as the Ztt.
-  static bool setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent,
-                               bool PredicateInversion);
+  bool setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion);
 
   /// Reattaches loop label and bottom test back to this loop.
   void reattachLoopLabelAndBottomTest(HLLoop *Loop);

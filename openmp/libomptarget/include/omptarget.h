@@ -17,11 +17,12 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include <SourceInfo.h>
+
 #define OFFLOAD_SUCCESS (0)
 #define OFFLOAD_FAIL (~0)
 
 #define OFFLOAD_DEVICE_DEFAULT     -1
-#define HOST_DEVICE                -10
 
 /// Data attributes for each data reference used in an OpenMP target region.
 #if INTEL_COLLAB
@@ -58,6 +59,8 @@ enum tgt_map_type {
 #endif // INTEL_COLLAB
   // runtime error if not already allocated
   OMP_TGT_MAPTYPE_PRESENT         = 0x1000,
+  // descriptor for non-contiguous target-update
+  OMP_TGT_MAPTYPE_NON_CONTIG      = 0x100000000000,
   // member of struct, member given by [16 MSBs] - 1
   OMP_TGT_MAPTYPE_MEMBER_OF       = 0xffff000000000000
 };
@@ -90,7 +93,8 @@ enum OpenMPOffloadingRequiresDirFlags {
 enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEVICE = 0,
   TARGET_ALLOC_HOST,
-  TARGET_ALLOC_SHARED
+  TARGET_ALLOC_SHARED,
+  TARGET_ALLOC_DEFAULT
 };
 
 enum InteropPropertyTy : int32_t {
@@ -103,7 +107,8 @@ enum InteropPropertyTy : int32_t {
   INTEROP_CONTEXT =  INTEROP_PLATFORM_HANDLE,
   INTEROP_DRIVER_HANDLE =  INTEROP_PLATFORM_HANDLE,
   INTEROP_DEVICE_HANDLE,
-  INTEROP_PLUGIN_INTERFACE
+  INTEROP_PLUGIN_INTERFACE,
+  INTEROP_CONTEXT_HANDLE
 };
 
 enum InteropPluginInterfaceTy : int32_t {
@@ -122,6 +127,8 @@ struct __tgt_interop_obj {
                          //for level0  ze_driver_handle_t
   void *device_handle; // Opaque handle:  For level0 ze_device_handle_t.
                        // Not valid for opencl
+  void *context_handle; // Opaque handle:  For level0 ze_context_handle_t.
+                       // Not valid for opencl
   int32_t plugin_interface; // Plugin selector
 };
 
@@ -130,6 +137,10 @@ struct __tgt_memory_info {
   uintptr_t Offset; // Offset from base address
   size_t Size;      // Allocation Size from Base + Offset
 };
+
+// MSB=63, LSB=0
+#define EXTRACT_BITS(I64, HIGH, LOW)                                           \
+  (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
 #endif // INTEL_COLLAB
 
 /// This struct is a record of an entry point or global. For a function
@@ -194,6 +205,13 @@ struct __tgt_async_info {
   void *Queue = nullptr;
 };
 
+/// This struct is a record of non-contiguous information
+struct __tgt_target_non_contig {
+  uint64_t Offset;
+  uint64_t Count;
+  uint64_t Stride;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -248,6 +266,9 @@ void * omp_get_mapped_ptr(void *host_ptr, int device_num);
 EXTERN void *omp_target_alloc_device(size_t size, int device_num);
 EXTERN void *omp_target_alloc_host(size_t size, int device_num);
 EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
+
+/// Get target device context
+EXTERN void *omp_target_get_context(int device_num);
 #endif  // INTEL_COLLAB
 
 /// add the clauses of the requires directives in a given file
@@ -289,16 +310,19 @@ void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
-                                    void **args_base, void **args,
-                                    int64_t *arg_sizes, int64_t *arg_types,
+void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
+                                    int32_t arg_num, void **args_base,
+                                    void **args, int64_t *arg_sizes,
+                                    int64_t *arg_types,
+                                    map_var_info_t *arg_names,
                                     void **arg_mappers);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_target_data_begin_nowait_mapper(
-    int64_t device_id, int32_t arg_num, void **args_base, void **args,
-    int64_t *arg_sizes, int64_t *arg_types, void **arg_mappers, int32_t depNum,
+    ident_t *loc, int64_t device_id, int32_t arg_num, void **args_base,
+    void **args, int64_t *arg_sizes, int64_t *arg_types,
+    map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
     void *depList, int32_t noAliasDepNum, void *noAliasDepList);
 
 // passes data from the target, release target memory and destroys the
@@ -320,19 +344,19 @@ void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
-                                  void **args_base, void **args,
-                                  int64_t *arg_sizes, int64_t *arg_types,
+void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
+                                  int32_t arg_num, void **args_base,
+                                  void **args, int64_t *arg_sizes,
+                                  int64_t *arg_types, map_var_info_t *arg_names,
                                   void **arg_mappers);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_end_nowait_mapper(int64_t device_id, int32_t arg_num,
-                                         void **args_base, void **args,
-                                         int64_t *arg_sizes, int64_t *arg_types,
-                                         void **arg_mappers, int32_t depNum,
-                                         void *depList, int32_t noAliasDepNum,
-                                         void *noAliasDepList);
+void __tgt_target_data_end_nowait_mapper(
+    ident_t *loc, int64_t device_id, int32_t arg_num, void **args_base,
+    void **args, int64_t *arg_sizes, int64_t *arg_types,
+    map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
+    void *depList, int32_t noAliasDepNum, void *noAliasDepList);
 
 /// passes data to/from the target
 #if INTEL_COLLAB
@@ -353,16 +377,19 @@ void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
-                                     void **args_base, void **args,
-                                     int64_t *arg_sizes, int64_t *arg_types,
+void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
+                                     int32_t arg_num, void **args_base,
+                                     void **args, int64_t *arg_sizes,
+                                     int64_t *arg_types,
+                                     map_var_info_t *arg_names,
                                      void **arg_mappers);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_target_data_update_nowait_mapper(
-    int64_t device_id, int32_t arg_num, void **args_base, void **args,
-    int64_t *arg_sizes, int64_t *arg_types, void **arg_mappers, int32_t depNum,
+    ident_t *loc, int64_t device_id, int32_t arg_num, void **args_base,
+    void **args, int64_t *arg_sizes, int64_t *arg_types,
+    map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
     void *depList, int32_t noAliasDepNum, void *noAliasDepList);
 
 // Performs the same actions as data_begin in case arg_num is non-zero
@@ -387,18 +414,19 @@ int __tgt_target_nowait(int64_t device_id, void *host_ptr, int32_t arg_num,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int __tgt_target_mapper(int64_t device_id, void *host_ptr, int32_t arg_num,
-                        void **args_base, void **args, int64_t *arg_sizes,
-                        int64_t *arg_types, void **arg_mappers);
+int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
+                        int32_t arg_num, void **args_base, void **args,
+                        int64_t *arg_sizes, int64_t *arg_types,
+                        map_var_info_t *arg_names, void **arg_mappers);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int __tgt_target_nowait_mapper(int64_t device_id, void *host_ptr,
+int __tgt_target_nowait_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
                                int32_t arg_num, void **args_base, void **args,
                                int64_t *arg_sizes, int64_t *arg_types,
-                               void **arg_mappers, int32_t depNum,
-                               void *depList, int32_t noAliasDepNum,
-                               void *noAliasDepList);
+                               map_var_info_t *arg_names, void **arg_mappers,
+                               int32_t depNum, void *depList,
+                               int32_t noAliasDepNum, void *noAliasDepList);
 
 #if INTEL_COLLAB
 EXTERN
@@ -419,31 +447,30 @@ int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
+int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
                               int32_t arg_num, void **args_base, void **args,
                               int64_t *arg_sizes, int64_t *arg_types,
-                              void **arg_mappers, int32_t num_teams,
-                              int32_t thread_limit);
+                              map_var_info_t *arg_names, void **arg_mappers,
+                              int32_t num_teams, int32_t thread_limit);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 int __tgt_target_teams_nowait_mapper(
-    int64_t device_id, void *host_ptr, int32_t arg_num, void **args_base,
-    void **args, int64_t *arg_sizes, int64_t *arg_types, void **arg_mappers,
-    int32_t num_teams, int32_t thread_limit, int32_t depNum, void *depList,
-    int32_t noAliasDepNum, void *noAliasDepList);
+    ident_t *loc, int64_t device_id, void *host_ptr, int32_t arg_num,
+    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
+    map_var_info_t *arg_names, void **arg_mappers, int32_t num_teams,
+    int32_t thread_limit, int32_t depNum, void *depList, int32_t noAliasDepNum,
+    void *noAliasDepList);
 
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
+void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
+                                  uint64_t loop_tripcount);
+
 #if INTEL_COLLAB
 EXTERN
 bool __tgt_is_device_available(int64_t device_num, void *device_type);
-EXTERN
-void *__tgt_create_buffer(int64_t device_num, void *host_ptr);
-EXTERN
-int __tgt_release_buffer(int64_t device_num, void *tgt_buffer);
 
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
@@ -487,49 +514,17 @@ EXTERN int __tgt_get_num_devices(void);
 // Return target memory information
 EXTERN int __tgt_get_target_memory_info(
     void *interop_obj, int32_t num_ptrs, void *ptrs, void *ptr_info);
+
+// Pass target code build options to plugins.
+// This should be called after __tgt_register_lib().
+// TODO: remove this if we choose to modify device image description.
+EXTERN void __tgt_add_build_options(
+    const char *compile_options, const char *link_options);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
 #endif
 
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
-#endif
-
-#include <inttypes.h>
-#define DPxMOD "0x%0*" PRIxPTR
-#define DPxPTR(ptr) ((int)(2*sizeof(uintptr_t))), ((uintptr_t) (ptr))
-
-/*
- * To printf a pointer in hex with a fixed width of 16 digits and a leading 0x,
- * use printf("ptr=" DPxMOD "...\n", DPxPTR(ptr));
- *
- * DPxMOD expands to:
- *   "0x%0*" PRIxPTR
- * where PRIxPTR expands to an appropriate modifier for the type uintptr_t on a
- * specific platform, e.g. "lu" if uintptr_t is typedef'd as unsigned long:
- *   "0x%0*lu"
- *
- * Ultimately, the whole statement expands to:
- *   printf("ptr=0x%0*lu...\n",  // the 0* modifier expects an extra argument
- *                               // specifying the width of the output
- *   (int)(2*sizeof(uintptr_t)), // the extra argument specifying the width
- *                               // 8 digits for 32bit systems
- *                               // 16 digits for 64bit
- *   (uintptr_t) ptr);
- */
-
-#ifdef OMPTARGET_DEBUG
-#include <stdio.h>
-#define DEBUGP(prefix, ...)                                                    \
-  {                                                                            \
-    fprintf(stderr, "%s --> ", prefix);                                        \
-    fprintf(stderr, __VA_ARGS__);                                              \
-  }
-#else
-#define DEBUGP(prefix, ...)                                                    \
-  {}
-#endif
 
 #if INTEL_COLLAB
 #else  // INTEL_COLLAB

@@ -560,9 +560,7 @@ void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
   (void)PBlocks;
 }
 
-// Verify operand types of the \p GEP instruction. Also check that the
-// OperandIsStructOffset tracker is consistent with number of operands in \p
-// GEP.
+// Verify operand types of the \p GEP instruction.
 void VPlanVerifier::verifyGEPInstruction(const VPGEPInstruction *GEP) const {
   // Check base pointer VPValue type. The first operand of the GEP will be the
   // base pointer.
@@ -570,16 +568,6 @@ void VPlanVerifier::verifyGEPInstruction(const VPGEPInstruction *GEP) const {
   assert(isa<PointerType>(TargetTy) &&
          "GEP base pointer is not a vector or a vector of pointers.");
   (void)TargetTy;
-
-  // Consistency check between operands and OperandIsStructOffset
-  assert(GEP->OperandIsStructOffset.size() == GEP->getNumOperands() &&
-         "Number of operands and struct offset tracker sizes don't match.");
-
-  // Check that the base pointer and first index operand of GEP is not a struct
-  // offset
-  assert(
-      !GEP->OperandIsStructOffset[0] && !GEP->OperandIsStructOffset[1] &&
-      "Base pointer and first index operand of GEP cannot be a struct offset.");
 
   // Check that each index of GEP is integer or vector of integer type
   for (auto OpIt = GEP->op_begin() + 1; OpIt != GEP->op_end(); ++OpIt) {

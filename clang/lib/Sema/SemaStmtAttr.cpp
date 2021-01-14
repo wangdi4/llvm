@@ -398,6 +398,19 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+static Attr *handleIntelFPGANofusionAttr(Sema &S, const ParsedAttr &A) {
+  if (S.LangOpts.SYCLIsHost)
+    return nullptr;
+
+  unsigned NumArgs = A.getNumArgs();
+  if (NumArgs > 0) {
+    S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 0;
+    return nullptr;
+  }
+
+  return new (S.Context) SYCLIntelFPGANofusionAttr(S.Context, A);
+}
+
 static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                 SourceRange) {
   IdentifierLoc *PragmaNameLoc = A.getArgAsIdent(0);
@@ -552,6 +565,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     Option = llvm::StringSwitch<LoopHintAttr::OptionType>(
                  OptionLoc->Ident->getName())
                  .Case("always", LoopHintAttr::VectorizeAlways)
+                 .Case("aligned", LoopHintAttr::VectorizeAligned)
                  .Default(LoopHintAttr::Vectorize);
     SetHints(Option, LoopHintAttr::Enable);
   } else if (PragmaName == "loop_count") {
@@ -859,6 +873,108 @@ bool Sema::CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BL) {
   }
   return true;
 }
+
+static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
+                                     const ParsedAttr &AA,
+                                     const ParsedAttributesView &AttrList,
+                                     SourceRange) {
+  SmallString<24> PragmaName = AA.getArgAsIdent(0)->Ident->getName();
+  if (St->getStmtClass() != Stmt::DoStmtClass &&
+      St->getStmtClass() != Stmt::ForStmtClass &&
+      St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
+      St->getStmtClass() != Stmt::WhileStmtClass) {
+    SmallString<24> DiagStr("#pragma ");
+    DiagStr += PragmaName;
+    S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop)
+        << DiagStr;
+    return nullptr;
+  }
+  const unsigned MaxIntArgs = 2;
+  SmallVector<Expr *, 2> PrefetchExprs;
+
+  // Default value for missing hint or distance is negative one.
+  auto addDefaultIntValues = [&](unsigned NumArgsSeen) {
+    Expr *NegOne =
+        IntegerLiteral::Create(S.Context, llvm::APInt(32, -1),
+                               S.Context.IntTy, St->getBeginLoc());
+    for (unsigned Arg = NumArgsSeen; Arg < MaxIntArgs; ++Arg) {
+      PrefetchExprs.push_back(NegOne);
+    }
+    return;
+  };
+
+  // Default for a missing lvalue (#pragma prefetch) is a null pointer.
+  auto addDefaultLValue = [&] {
+    ExprResult NullPtr = S.ActOnCXXNullPtrLiteral(St->getBeginLoc());
+    PrefetchExprs.push_back(NullPtr.get());
+    return;
+  };
+
+  bool LValArgSeen = false;
+  unsigned IntArgsSeen = 0;
+  bool HasArgs = AA.getNumArgs() > 1;
+  bool IsStar = HasArgs && isa<IntegerLiteral>(AA.getArgAsExpr(1));
+  // Add arguments to prefetch pragma argument list. For a prefetch with no
+  // explicit lvalue argument, add a null pointer. For any missing integer
+  // values (hint/distance), add a negative one.
+  for (unsigned AI = 1, NumArgs = AA.getNumArgs(); AI < NumArgs; ++AI) {
+    Expr *Arg = AA.getArgAsExpr(AI);
+    // Error cases
+    bool InvalidArg = !Arg->isLValue() && !isa<IntegerLiteral>(Arg);
+    bool ExpectedLValue = !LValArgSeen &&
+        !Arg->isLValue() && IntArgsSeen == MaxIntArgs;
+    if (InvalidArg || ExpectedLValue) {
+      S.Diag(Arg->getExprLoc(), diag::err_prefetch_invalid_argument) <<
+        PragmaName;
+      return nullptr;
+    }
+    if (Arg->isLValue()) {
+      // If current lvalue argument immediately follows an lvalue, add required
+      // default integer values. Otherwise, add remaining defaults as needed.
+      if (LValArgSeen || IntArgsSeen)
+        addDefaultIntValues(IntArgsSeen);
+      LValArgSeen = true;
+      IntArgsSeen = 0;
+      PrefetchExprs.push_back(Arg);
+      continue;
+    }
+    assert(isa<IntegerLiteral>(Arg));
+    if (IntArgsSeen++ == 0) {
+      // hint
+      int32_t Hint = getConstInt(S, AI, AA);
+      if (Hint < 1 || Hint > 4) {
+        S.Diag(Arg->getExprLoc(),
+               diag::err_prefetch_hint_out_of_range) << Hint << 1 << 4;
+        return nullptr;
+      }
+      // For prefetch *, add default first argument.
+      if (IsStar) {
+        addDefaultLValue();
+      }
+      PrefetchExprs.push_back(Arg);
+    } else {
+      // distance
+      int32_t Distance = getConstInt(S, AI, AA);
+      // Unspecified distance is represented by a -1 value.
+      if (Distance == 0) {
+        S.Diag(Arg->getExprLoc(),
+               diag::err_prefetch_distance_greater_than_zero);
+        return nullptr;
+      }
+      PrefetchExprs.push_back(Arg);
+    }
+    LValArgSeen = false;
+  }
+  // A prefetch pragma with no arguments needs default first argument.
+  if (!HasArgs) {
+    addDefaultLValue();
+  }
+  // Add default integer values, if needed, after last prefetch argument.
+  addDefaultIntValues(IntArgsSeen);
+  const IntelPrefetchAttr *PA = IntelPrefetchAttr::CreateImplicit(
+      S.Context, PrefetchExprs.data(), PrefetchExprs.size(), AA);
+  return const_cast<IntelPrefetchAttr *>(PA);
+}
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -900,6 +1016,24 @@ static Attr *handleNoMergeAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) NoMergeAttr(S.Context, A);
 }
 
+static Attr *handleLikely(Sema &S, Stmt *St, const ParsedAttr &A,
+                          SourceRange Range) {
+
+  if (!S.getLangOpts().CPlusPlus20 && A.isCXX11Attribute() && !A.getScopeName())
+    S.Diag(A.getLoc(), diag::ext_cxx20_attr) << A << Range;
+
+  return ::new (S.Context) LikelyAttr(S.Context, A);
+}
+
+static Attr *handleUnlikely(Sema &S, Stmt *St, const ParsedAttr &A,
+                            SourceRange Range) {
+
+  if (!S.getLangOpts().CPlusPlus20 && A.isCXX11Attribute() && !A.getScopeName())
+    S.Diag(A.getLoc(), diag::ext_cxx20_attr) << A << Range;
+
+  return ::new (S.Context) UnlikelyAttr(S.Context, A);
+}
+
 static void
 CheckForIncompatibleAttributes(Sema &S,
                                const SmallVectorImpl<const Attr *> &Attrs) {
@@ -924,6 +1058,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // ForceHyperopt
                    {nullptr, nullptr}, // Fusion
                    {nullptr, nullptr}, // VectorAlways
+                   {nullptr, nullptr}, // VectorAligned
                    {nullptr, nullptr}, // LoopCount
                    {nullptr, nullptr}, // LoopCountMin
                    {nullptr, nullptr}, // LoopCountMax
@@ -954,6 +1089,7 @@ CheckForIncompatibleAttributes(Sema &S,
       ForceHyperopt,
       Fusion,
       VectorAlways,
+      VectorAligned,
       LoopCount,
       LoopCountMin,
       LoopCountMax,
@@ -992,6 +1128,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::VectorizeAlways:
       Category = VectorAlways;
+      break;
+    case LoopHintAttr::VectorizeAligned:
+      Category = VectorAligned;
       break;
     case LoopHintAttr::LoopCount:
       Category = LoopCount;
@@ -1093,6 +1232,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::IIAtLeast ||
                Option == LoopHintAttr::MinIIAtFmax ||
                Option == LoopHintAttr::VectorizeAlways ||
+               Option == LoopHintAttr::VectorizeAligned ||
                Option == LoopHintAttr::LoopCount ||
                Option == LoopHintAttr::LoopCountMin ||
                Option == LoopHintAttr::LoopCountMax ||
@@ -1166,6 +1306,32 @@ CheckForIncompatibleAttributes(Sema &S,
           << /*Duplicate=*/false
           << CategoryState.StateAttr->getDiagnosticName(Policy)
           << CategoryState.NumericAttr->getDiagnosticName(Policy);
+    }
+  }
+
+  // C++20 [dcl.attr.likelihood]p1 The attribute-token likely shall not appear
+  // in an attribute-specifier-seq that contains the attribute-token unlikely.
+  const LikelyAttr *Likely = nullptr;
+  const UnlikelyAttr *Unlikely = nullptr;
+  for (const auto *I : Attrs) {
+    if (const auto *Attr = dyn_cast<LikelyAttr>(I)) {
+      if (Unlikely) {
+        S.Diag(Attr->getLocation(), diag::err_attributes_are_not_compatible)
+            << Attr << Unlikely << Attr->getRange();
+        S.Diag(Unlikely->getLocation(), diag::note_conflicting_attribute)
+            << Unlikely->getRange();
+        return;
+      }
+      Likely = Attr;
+    } else if (const auto *Attr = dyn_cast<UnlikelyAttr>(I)) {
+      if (Likely) {
+        S.Diag(Attr->getLocation(), diag::err_attributes_are_not_compatible)
+            << Attr << Likely << Attr->getRange();
+        S.Diag(Likely->getLocation(), diag::note_conflicting_attribute)
+            << Likely->getRange();
+        return;
+      }
+      Unlikely = Attr;
     }
   }
 }
@@ -1249,6 +1415,8 @@ static void CheckForIncompatibleSYCLLoopAttributes(
       S, Attrs, Range);
 
   CheckRedundantSYCLIntelFPGAIVDepAttrs(S, Attrs);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGANofusionAttr>(S, Attrs,
+                                                                  Range);
 }
 
 void CheckForIncompatibleUnrollHintAttributes(
@@ -1406,7 +1574,7 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     S.Diag(A.getLoc(), A.isDeclspecAttribute()
                            ? (unsigned)diag::warn_unhandled_ms_attribute_ignored
                            : (unsigned)diag::warn_unknown_attribute_ignored)
-        << A;
+        << A << A.getRange();
     return nullptr;
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_IntelInline:
@@ -1415,6 +1583,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleIntelBlockLoopAttr(S, St, A, AL, Range);
   case ParsedAttr::AT_LoopFuse:
     return handleLoopFuseAttr(S, St, A, Range);
+  case ParsedAttr::AT_IntelPrefetch:
+    return handleIntelPrefetchAttr(S, St, A, AL, Range);
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);
@@ -1442,6 +1612,12 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleSuppressAttr(S, St, A, Range);
   case ParsedAttr::AT_NoMerge:
     return handleNoMergeAttr(S, St, A, Range);
+  case ParsedAttr::AT_Likely:
+    return handleLikely(S, St, A, Range);
+  case ParsedAttr::AT_Unlikely:
+    return handleUnlikely(S, St, A, Range);
+  case ParsedAttr::AT_SYCLIntelFPGANofusion:
+    return handleIntelFPGANofusionAttr(S, A);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute

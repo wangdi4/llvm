@@ -158,6 +158,6 @@ attributes #4 = { cold }
 !37 = !{!"branch_weights", i32 100, i32 1000}
 !38 = !{!"branch_weights", i32 10, i32 100}
 !39 = !{!"branch_weights", i32 1, i32 10}
-!40 = !{!41, !41, i64 0}
+!40 = !{!41, !41, i32 0}
 !41 = !{!"pointer@_ZTSP8_IO_FILE", !35, i64 0}
 !42 = !{!"intel_profx", i64 9}

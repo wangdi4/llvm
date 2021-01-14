@@ -3,12 +3,12 @@
 
 ; Verify that the countable inner loop is converted to unknown loop when parsing for the upper bound fails.
 
-
 ; CHECK: + DO i1 = 0, sext.i32.i64(%2) + -1 * sext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
 ; CHECK: |   %zz.040.out = &((%zz.040)[0]);
 ; CHECK: |   %umax = (&((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) >u &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)])) ? &((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) : &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)]);
 ; CHECK: |   %umax48 = bitcast.double*.i8*(&((%umax)[0]));
-; CHECK: |   %scevgep5051 = ptrtoint.i8*.i64(&((%umax48)[-8 * sext.i32.i64(%indvars.iv) + -1 * %R49 + -1]));
+; CHECK: |   %scevgep5051 = ptrtoint.i8*.i64(&((%umax48)[-8 * sext.i32.i64(%indvars.iv) + -1 * ptrtoint.double*.i64(%R) + -1]));
+; CHECK: |   %12 = %scevgep5051  >>  3;
 ; CHECK: |   %sub3 = %3  +  -1 * i1 + -1 * %1 + -1;
 ; CHECK: |   if (i1 + sext.i32.i64(%1) > 0)
 ; CHECK: |   {
@@ -24,11 +24,10 @@
 ; CHECK: |      |   }
 ; CHECK: |      + END LOOP
 ; CHECK: |
-; CHECK: |      %zz.040 = &((%zz.040.out)[(%scevgep5051 /u 8) + 1]);
+; CHECK: |      %zz.040 = &((%zz.040.out)[%12 + 1]);
 ; CHECK: |   }
 ; CHECK: |   %indvars.iv = -1 * i1 + -1 * %1 + %3 + -2;
 ; CHECK: + END LOOP
-
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

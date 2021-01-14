@@ -70,14 +70,7 @@ static const char *RTLNames[] = {
     /* AMDGPU target        */ "libomptarget.rtl.amdgpu.so",
 };
 
-RTLsTy *RTLs;
-std::mutex *RTLsMtx;
-
-HostEntriesBeginToTransTableTy *HostEntriesBeginToTransTable;
-std::mutex *TrlTblMtx;
-
-HostPtrToTableMapTy *HostPtrToTableMap;
-std::mutex *TblMapMtx;
+PluginManager *PM;
 
 #if INTEL_COLLAB
 OmptGlobalTy *OmptGlobal;
@@ -91,30 +84,43 @@ OmptGlobalTy *OmptGlobal;
 #endif
 #endif // INTEL_CUSTOMIZATION
 
+#if OMPTARGET_PROFILE_ENABLED
+static char *ProfileTraceFile = nullptr;
+#endif
+
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   DP("Init target library!\n");
-  RTLs = new RTLsTy();
-  RTLsMtx = new std::mutex();
-  HostEntriesBeginToTransTable = new HostEntriesBeginToTransTableTy();
-  TrlTblMtx = new std::mutex();
-  HostPtrToTableMap = new HostPtrToTableMapTy();
-  TblMapMtx = new std::mutex();
+  PM = new PluginManager();
+
 #if INTEL_COLLAB
   OmptGlobal = new OmptGlobalTy();
 #endif // INTEL_COLLAB
+
+#ifdef OMPTARGET_PROFILE_ENABLED
+  ProfileTraceFile = getenv("LIBOMPTARGET_PROFILE");
+  // TODO: add a configuration option for time granularity
+  if (ProfileTraceFile)
+    llvm::timeTraceProfilerInitialize(500 /* us */, "libomptarget");
+#endif
 }
 
 __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
   DP("Deinit target library!\n");
-  delete RTLs;
-  delete RTLsMtx;
-  delete HostEntriesBeginToTransTable;
-  delete TrlTblMtx;
-  delete HostPtrToTableMap;
-  delete TblMapMtx;
+  delete PM;
+
 #if INTEL_COLLAB
   delete OmptGlobal;
 #endif // INTEL_COLLAB
+
+#ifdef OMPTARGET_PROFILE_ENABLED
+  if (ProfileTraceFile) {
+    // TODO: add env var for file output
+    if (auto E = llvm::timeTraceProfilerWrite(ProfileTraceFile, "-"))
+      fprintf(stderr, "Error writing out the time trace\n");
+
+    llvm::timeTraceProfilerCleanup();
+  }
+#endif
 }
 
 #if INTEL_CUSTOMIZATION
@@ -151,18 +157,10 @@ DllMain(HINSTANCE const instance, // handle to DLL module
 #endif // INTEL_CUSTOMIZATION
 
 void RTLsTy::LoadRTLs() {
-#ifdef OMPTARGET_DEBUG
-  if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
-    DebugLevel = std::stoi(envStr);
-  }
-#endif // OMPTARGET_DEBUG
-
   // Parse environment variable OMP_TARGET_OFFLOAD (if set)
-  TargetOffloadPolicy = (kmp_target_offload_kind_t) __kmpc_get_target_offload();
-  DP("TargetOffloadPolicy = %s\n",
-      (TargetOffloadPolicy == tgt_default)? "DEFAULT" :
-      (TargetOffloadPolicy == tgt_disabled)? "DISABLED" : "MANDATORY");
-  if (TargetOffloadPolicy == tgt_disabled) {
+  PM->TargetOffloadPolicy =
+      (kmp_target_offload_kind_t)__kmpc_get_target_offload();
+  if (PM->TargetOffloadPolicy == tgt_disabled) {
     return;
   }
 #if INTEL_COLLAB
@@ -285,20 +283,23 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(data_alloc_user);
     SET_OPTIONAL_INTERFACE_FN(data_alloc_explicit);
     SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
-    SET_OPTIONAL_INTERFACE_FN(data_delete_managed);
     SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
     SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
-    SET_OPTIONAL_INTERFACE_FN(create_buffer);
-    SET_OPTIONAL_INTERFACE_FN(release_buffer);
     SET_OPTIONAL_INTERFACE_FN(create_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(release_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(get_device_name);
     SET_OPTIONAL_INTERFACE_FN(get_platform_handle);
     SET_OPTIONAL_INTERFACE_FN(get_device_handle);
+    SET_OPTIONAL_INTERFACE_FN(get_context_handle);
     SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
     SET_OPTIONAL_INTERFACE_FN(init_ompt);
-    SET_OPTIONAL_INTERFACE_FN(is_managed_ptr);
+    SET_OPTIONAL_INTERFACE_FN(is_device_accessible_ptr);
     SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
+    SET_OPTIONAL_INTERFACE_FN(push_subdevice);
+    SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
+    SET_OPTIONAL_INTERFACE_FN(add_build_options);
+    SET_OPTIONAL_INTERFACE_FN(is_supported_device);
+    SET_OPTIONAL_INTERFACE_FN(deinit);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,
@@ -387,7 +388,7 @@ static void RegisterGlobalCtorsDtorsForImage(__tgt_bin_desc *desc,
     __tgt_device_image *img, RTLInfoTy *RTL) {
 
   for (int32_t i = 0; i < RTL->NumberOfDevices; ++i) {
-    DeviceTy &Device = Devices[RTL->Idx + i];
+    DeviceTy &Device = PM->Devices[RTL->Idx + i];
     Device.PendingGlobalsMtx.lock();
     Device.HasPendingGlobals = true;
     for (__tgt_offload_entry *entry = img->EntriesBegin;
@@ -469,7 +470,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
   // Attempt to load all plugins available in the system.
   std::call_once(initFlag, &RTLsTy::LoadRTLs, this);
 
-  RTLsMtx->lock();
+  PM->RTLsMtx.lock();
   // Register the images with the RTLs that understand them, if any.
   for (int32_t i = 0; i < desc->NumDeviceImages; ++i) {
     // Obtain the image.
@@ -493,21 +494,21 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
       if (!R.isUsed) {
         // Initialize the device information for the RTL we are about to use.
         DeviceTy device(&R);
-        size_t start = Devices.size();
-        Devices.resize(start + R.NumberOfDevices, device);
+        size_t Start = PM->Devices.size();
+        PM->Devices.resize(Start + R.NumberOfDevices, device);
         for (int32_t device_id = 0; device_id < R.NumberOfDevices;
             device_id++) {
           // global device ID
-          Devices[start + device_id].DeviceID = start + device_id;
+          PM->Devices[Start + device_id].DeviceID = Start + device_id;
           // RTL local device ID
-          Devices[start + device_id].RTLDeviceID = device_id;
+          PM->Devices[Start + device_id].RTLDeviceID = device_id;
         }
 
         // Initialize the index of this RTL and save it in the used RTLs.
         R.Idx = (UsedRTLs.empty())
                     ? 0
                     : UsedRTLs.back()->Idx + UsedRTLs.back()->NumberOfDevices;
-        assert((size_t) R.Idx == start &&
+        assert((size_t) R.Idx == Start &&
             "RTL index should equal the number of devices used so far.");
         R.isUsed = true;
         UsedRTLs.push_back(&R);
@@ -516,22 +517,22 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
       }
 
       // Initialize (if necessary) translation table for this library.
-      TrlTblMtx->lock();
-      if(!HostEntriesBeginToTransTable->count(desc->HostEntriesBegin)){
-        TranslationTable &tt =
-            (*HostEntriesBeginToTransTable)[desc->HostEntriesBegin];
-        tt.HostTable.EntriesBegin = desc->HostEntriesBegin;
-        tt.HostTable.EntriesEnd = desc->HostEntriesEnd;
+      PM->TrlTblMtx.lock();
+      if (!PM->HostEntriesBeginToTransTable.count(desc->HostEntriesBegin)) {
+        TranslationTable &TransTable =
+            (PM->HostEntriesBeginToTransTable)[desc->HostEntriesBegin];
+        TransTable.HostTable.EntriesBegin = desc->HostEntriesBegin;
+        TransTable.HostTable.EntriesEnd = desc->HostEntriesEnd;
       }
 
       // Retrieve translation table for this library.
       TranslationTable &TransTable =
-          (*HostEntriesBeginToTransTable)[desc->HostEntriesBegin];
+          (PM->HostEntriesBeginToTransTable)[desc->HostEntriesBegin];
 
       DP("Registering image " DPxMOD " with RTL %s!\n",
           DPxPTR(img->ImageStart), R.RTLName.c_str());
       RegisterImageIntoTranslationTable(TransTable, R, img);
-      TrlTblMtx->unlock();
+      PM->TrlTblMtx.unlock();
       FoundRTL = &R;
 
       // Load ctors/dtors for static objects
@@ -545,8 +546,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
       DP("No RTL found for image " DPxMOD "!\n", DPxPTR(img->ImageStart));
     }
   }
-  RTLsMtx->unlock();
-
+  PM->RTLsMtx.unlock();
 
   DP("Done registering entries!\n");
 }
@@ -554,7 +554,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
 void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
   DP("Unloading target library!\n");
 
-  RTLsMtx->lock();
+  PM->RTLsMtx.lock();
   // Find which RTL understands each image, if any.
   for (int32_t i = 0; i < desc->NumDeviceImages; ++i) {
     // Obtain the image.
@@ -582,12 +582,12 @@ void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
       // Execute dtors for static objects if the device has been used, i.e.
       // if its PendingCtors list has been emptied.
       for (int32_t i = 0; i < FoundRTL->NumberOfDevices; ++i) {
-        DeviceTy &Device = Devices[FoundRTL->Idx + i];
+        DeviceTy &Device = PM->Devices[FoundRTL->Idx + i];
         Device.PendingGlobalsMtx.lock();
         if (Device.PendingCtorsDtors[desc].PendingCtors.empty()) {
           for (auto &dtor : Device.PendingCtorsDtors[desc].PendingDtors) {
-            int rc = target(Device.DeviceID, dtor, 0, NULL, NULL, NULL, NULL,
-                NULL, 1, 1, true /*team*/);
+            int rc = target(Device.DeviceID, dtor, 0, nullptr, nullptr, nullptr,
+                            nullptr, nullptr, nullptr, 1, 1, true /*team*/);
             if (rc != OFFLOAD_SUCCESS) {
               DP("Running destructor " DPxMOD " failed.\n", DPxPTR(dtor));
             }
@@ -610,28 +610,34 @@ void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
           DPxPTR(img->ImageStart));
     }
   }
-  RTLsMtx->unlock();
+  PM->RTLsMtx.unlock();
   DP("Done unregistering images!\n");
 
-  // Remove entries from HostPtrToTableMap
-  TblMapMtx->lock();
+  // Remove entries from PM->HostPtrToTableMap
+  PM->TblMapMtx.lock();
   for (__tgt_offload_entry *cur = desc->HostEntriesBegin;
       cur < desc->HostEntriesEnd; ++cur) {
-    HostPtrToTableMap->erase(cur->addr);
+    PM->HostPtrToTableMap.erase(cur->addr);
   }
 
   // Remove translation table for this descriptor.
-  auto tt = HostEntriesBeginToTransTable->find(desc->HostEntriesBegin);
-  if (tt != HostEntriesBeginToTransTable->end()) {
+  auto TransTable = PM->HostEntriesBeginToTransTable.find(desc->HostEntriesBegin);
+  if (TransTable != PM->HostEntriesBeginToTransTable.end()) {
     DP("Removing translation table for descriptor " DPxMOD "\n",
         DPxPTR(desc->HostEntriesBegin));
-    HostEntriesBeginToTransTable->erase(tt);
+    PM->HostEntriesBeginToTransTable.erase(TransTable);
   } else {
     DP("Translation table for descriptor " DPxMOD " cannot be found, probably "
         "it has been already removed.\n", DPxPTR(desc->HostEntriesBegin));
   }
 
-  TblMapMtx->unlock();
+  PM->TblMapMtx.unlock();
+#if INTEL_COLLAB
+  // Force RTL deinit if applicable
+  for (auto *R : UsedRTLs)
+    if (R->deinit)
+      R->deinit();
+#endif // INTEL_COLLAB
 
   // TODO: Remove RTL and the devices it manages if it's not used anymore?
   // TODO: Write some RTL->unload_image(...) function?

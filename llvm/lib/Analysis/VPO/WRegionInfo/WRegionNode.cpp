@@ -159,6 +159,12 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       if (UDPI->getIsF90DopeVector())
         continue;
 
+      // For use_device_ptr:cptr(cptr* %p), the map needs to be on a load like:
+      //   %p.val = load i8*, (bitcast cptr* %p to i8**)
+      // This map will be created in VPOParoptTransform::addMapForUseDevicePtr()
+      if (UDPI->getIsCptr())
+        continue;
+
 #endif // INTEL_CUSTOMIZATION
       Value *Orig = UDPI->getOrig();
       MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
@@ -841,13 +847,17 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                       ClauseTy &C) {
   bool IsUseDeviceAddr = false;
   int ClauseID = ClauseInfo.getId();
+  bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
+    if (ClauseInfo.getIsArraySection())
+      if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
+        if (isa<PointerType>(PtrTy->getPointerElementType()))
+          IsPointerToPointer = true;
   }
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
-  bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
@@ -855,18 +865,23 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       C.back()->setIsByRef(true);
     if (IsPointerToPointer)
       C.back()->setIsPointerToPointer(true);
-    if (IsUseDeviceAddr) {
-      UseDevicePtrItem *UDPI = cast<UseDevicePtrItem>(C.back());
-      UDPI->setIsUseDeviceAddr(true);
-    }
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
     if (ClauseInfo.getIsF90DopeVector())
       C.back()->setIsF90DopeVector(true);
+    C.back()->setIsCptr(ClauseInfo.getIsCptr());
     C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
+    if (IsUseDeviceAddr) {
+      UseDevicePtrItem *UDPI = cast<UseDevicePtrItem>(C.back());
+      UDPI->setIsUseDeviceAddr(true);
+      if (ClauseInfo.getIsArraySection())
+      // For array section operands to use_device_addr clause, only the
+      // base pointer operand is relevant, rest is ignored.
+        break;
+    }
   }
 }
 
@@ -1008,14 +1023,14 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
            "Unexpected number of args for array section operand.");
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr() ||
-             NumArgs == 4) { // Map-chains with (BasePtr, SectionPtr,
-                             // Size, MapType)
+  } else if ((NumArgs == 3 &&
+              (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr())) ||
+             ((NumArgs == 4 || NumArgs == 6) && isa<ConstantInt>(Args[3]))
+             // Map-chains with (BasePtr, SectionPtr, Size, MapType) or
+             // (BasePtr, SectionPtr, Size, MapType, MapName, Mapper)
+  ) {
     // TODO: Remove handling of AGGR/AGGRHEAD type map-chains when clang only
     // sends in the updated map-chains with 4 element links.
-    assert((NumArgs == 3 || NumArgs == 4) &&
-           "Malformed MAP:AGGR[HEAD]/CHAIN clause");
-
     assert(!(MapKind & MapItem::WRNMapUpdateTo ||
              MapKind & MapItem::WRNMapUpdateFrom) &&
            "Unexpected Map Chain in a TO/FROM clause");
@@ -1025,13 +1040,19 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     Value *SectionPtr = (Value *)Args[1];
     Value *Size = (Value *)Args[2];
     uint64_t MapType = 0;
-    bool AggrHasMapType = (NumArgs == 4);
+    bool AggrHasMapType = (NumArgs == 4 || NumArgs == 6);
     if (AggrHasMapType) {
-      assert(isa<ConstantInt>(Args[3]) && "IR is corrupt");
-      ConstantInt *CI = dyn_cast<ConstantInt>(Args[3]);
+      ConstantInt *CI = cast<ConstantInt>(Args[3]);
       MapType = CI->getZExtValue();
     }
     MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
+    if (NumArgs == 6) {
+      auto *Name = cast<Constant>(Args[4]);
+      Aggr->setName(!Name->isNullValue() ? cast<GlobalVariable>(Name)
+                                         : nullptr);
+      auto *Mapper = cast<Constant>(Args[5]);
+      Aggr->setMapper(!Mapper->isNullValue() ? Mapper : nullptr);
+    }
 
     MapItem *MI;
 
@@ -1360,8 +1381,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     uint64_t N = CI->getZExtValue();
     setOrdered(N);
 
-    if (N == 0)
+    if (N == 0) {
+      assert(NumArgs == 1 &&
+             "Unexpected tripcounts for ordered with no arguments.");
       break;
+    }
 
     // Reaching here means we're looking at doacross loops.
     assert(NumArgs == N + 1 && "Unexpected number of args for Orderd(N).");
@@ -1569,7 +1593,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = isa<PointerType>(V->getType())
-                      ? cast<PointerType>(V->getType())->getElementType()
+                      ? V->getType()->getPointerElementType()
                       : V->getType();
       getWRNLoopInfo().addNormIV(V, VTy);
     }
@@ -1584,7 +1608,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = isa<PointerType>(V->getType())
-                      ? cast<PointerType>(V->getType())->getElementType()
+                      ? V->getType()->getPointerElementType()
                       : V->getType();
       getWRNLoopInfo().addNormUB(V, VTy);
     }
@@ -1980,6 +2004,16 @@ bool WRegionNode::canHaveAllocate() const {
   return false;
 }
 
+bool WRegionNode::canHaveOrderedTripCounts() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNWksLoop:
+  case WRNParallelLoop:
+    return true;
+  }
+  return false;
+}
+
 // Return true if the construct needs to be outlined for OpenMP runtime.
 bool WRegionNode::needsOutlining() const {
   unsigned SubClassID = getWRegionKindID();
@@ -1994,6 +2028,9 @@ bool WRegionNode::needsOutlining() const {
   case WRNTeams:
   case WRNTarget:
   case WRNTargetData:
+  // NOTE: WRNTargetVariant was intentionally excluded from this list as
+  // it involves multi-versioning of the region, and only the part
+  // guarded by the (is_device_available()) is outlined.
     return true;
   }
   return false;

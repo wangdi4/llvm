@@ -23,12 +23,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-// Flag to enable SOA-analysis.
-static cl::opt<bool, true>
-    EnableSOAAnalysisOpt("vplan-enable-soa", cl::Hidden,
-                         cl::location(EnableSOAAnalysis),
-                         cl::desc("Enable VPlan SOAAnalysis."));
-
 // Flag to enable printing of SOA-analysis information.
 static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
     "vplan-dump-soa-info", cl::Hidden,
@@ -37,7 +31,6 @@ static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
 
 namespace llvm {
 namespace vpo {
-bool EnableSOAAnalysis = false;
 bool VPlanDisplaySOAAnalysisInformation = false;
 
 static bool checkInstructionInLoop(const VPValue *V, const VPLoop &Loop) {
@@ -50,7 +43,7 @@ static bool checkInstructionInLoop(const VPValue *V, const VPLoop &Loop) {
 // Public interface for SOA-analysis for all loop-privates. \p SOAVars is the
 // output argument that return the variables marked for SOA-layout.
 void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
-  if (!EnableSOAAnalysis)
+  if (!Plan.isSOAAnalysisEnabled())
     return;
   assert(Plan.getVPlanDA() && "Expect DA to be run and the DA object be set "
                               "before running of SOAAnalysis.");
@@ -123,16 +116,11 @@ bool VPSOAAnalysis::isSafePointerEscapeFunction(const VPInstruction *UseInst) {
   if (!VPCall)
     return false;
 
-  Function *CalleeFunc = VPCall->getCalledFunction();
-  // For indirect calls we will have a null CalledFunc.
-  if (!CalleeFunc)
-    return false;
-  if (CalleeFunc->isIntrinsic())
-    return (CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_start ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_end ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_start ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end);
-  return false;
+  // Only lifetime_start/end and invariant_start/end intrinsics are considered
+  // safe.
+  return VPCall->isIntrinsicFromList(
+      {Intrinsic::lifetime_start, Intrinsic::lifetime_end,
+       Intrinsic::invariant_start, Intrinsic::invariant_end});
 }
 
 // Returns true if the instruction has operands registered as potentially-unsafe

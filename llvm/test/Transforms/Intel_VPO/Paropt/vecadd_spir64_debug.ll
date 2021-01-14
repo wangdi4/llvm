@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S | FileCheck %s
 
 ; -- vecadd.cpp ---------------------------------------------------------------
 ; #include <stdio.h>
@@ -39,7 +39,7 @@
 ; }
 ; -- vecadd.cpp ---------------------------------------------------------------
 ;
-; CHECK: define {{.*}}void @__omp_offloading_{{.*}}vecaddv{{.*}}([100 x float] addrspace(1)* %v1.ascast, [100 x float] addrspace(1)* %v2.ascast, [100 x float] addrspace(1)* %v3.ascast, i32 addrspace(1)* %.omp.lb.ascast, i32 addrspace(1)* %.omp.ub.ascast, i32 addrspace(1)* %i.ascast) {{.*}} !dbg [[OFFLOAD:![0-9]+]] {
+; CHECK: define {{.*}}void @__omp_offloading_{{.*}}vecaddv{{.*}}([100 x float] addrspace(1)* %v1.ascast, [100 x float] addrspace(1)* %v2.ascast, [100 x float] addrspace(1)* noalias %v3.ascast, i32 addrspace(1)* %.omp.lb.ascast, i32 addrspace(1)* %.omp.ub.ascast, i32 addrspace(1)* %i.ascast) {{.*}} !dbg [[OFFLOAD:![0-9]+]] {
 ; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V1_STORAGE:%v1.ascast]], metadata [[V1_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C17:![0-9]+]]
 ; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V2_STORAGE:%v2.ascast]], metadata [[V2_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C24:![0-9]+]]
 ; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V3_STORAGE:%v3.ascast]], metadata [[V3_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C10:![0-9]+]]
@@ -50,7 +50,7 @@
 ; CHECK: [[UNIT:![0-9]+]] = {{.*}}!DICompileUnit({{.*}}file: [[FILE:![0-9]+]]
 ; CHECK: [[FILE]] = !DIFile(filename: "vecadd.cpp"{{.*}})
 ; CHECK: [[EMPTY:![0-9]+]] = !{}
-; CHECK: [[OFFLOAD]] = distinct !DISubprogram(name: "_Z6vecaddv.DIR.OMP.TARGET.2.split.split.split", scope: [[FILE]], file: [[FILE]], line: 40, type: [[OFFLOAD_TYPE:![0-9]+]], scopeLine: 40, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition, unit: [[UNIT]], retainedNodes: [[EMPTY]])
+; CHECK: [[OFFLOAD]] = distinct !DISubprogram(name: "_Z6vecaddv.DIR.OMP.TARGET.{{[0-9]+}}.split.split.split", scope: [[FILE]], file: [[FILE]], line: 40, type: [[OFFLOAD_TYPE:![0-9]+]], scopeLine: 40, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition, unit: [[UNIT]], retainedNodes: [[EMPTY]])
 ; CHECK-DAG: [[OFFLOAD_TYPE]] = !DISubroutineType(types: [[EMPTY]])
 ; CHECK-DAG: [[V1_DIVAR]] = !DILocalVariable(name: "v1", scope: [[OFFLOAD]]
 ; CHECK-DAG: [[L36C17]] = !DILocation(line: 36, column: 17, scope: [[OFFLOAD]]

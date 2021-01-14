@@ -226,7 +226,7 @@ entry:
   %call5 = call i32 @_ZNSt7__cxx114stoiERKNS_12basic_stringIcSt11char_traitsIcESaIcEEEPmi(%"class.std::__cxx11::basic_string"* dereferenceable(32) %c4, i64* null, i32 10)
   %add6 = add nsw i32 %call, %call5
   %conv = sext i32 %add6 to i64
-  call void @_ZNSt7__cxx119to_stringEx(%"class.std::__cxx11::basic_string"* sret %ref.tmp, i64 %conv)
+  call void @_ZNSt7__cxx119to_stringEx(%"class.std::__cxx11::basic_string"* sret(%"class.std::__cxx11::basic_string") %ref.tmp, i64 %conv)
   %10 = load %struct.my_struct*, %struct.my_struct** %lhs.addr, align 8
   %c7 = getelementptr inbounds %struct.my_struct, %struct.my_struct* %10, i32 0, i32 2
   %call8 = call dereferenceable(32) %"class.std::__cxx11::basic_string"* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEOS4_(%"class.std::__cxx11::basic_string"* %c7, %"class.std::__cxx11::basic_string"* dereferenceable(32) %ref.tmp) #5
@@ -235,7 +235,7 @@ entry:
 }
 
 ; Function Attrs: noinline optnone uwtable
-define linkonce_odr dso_local void @_ZNSt7__cxx119to_stringEx(%"class.std::__cxx11::basic_string"* noalias sret %agg.result, i64 %__val) #1 comdat {
+define linkonce_odr dso_local void @_ZNSt7__cxx119to_stringEx(%"class.std::__cxx11::basic_string"* noalias sret(%"class.std::__cxx11::basic_string") %agg.result, i64 %__val) #1 comdat {
 entry:
   %result.ptr = alloca i8*, align 8
   %__val.addr = alloca i64, align 8
@@ -243,7 +243,7 @@ entry:
   store i8* %0, i8** %result.ptr, align 8
   store i64 %__val, i64* %__val.addr, align 8
   %1 = load i64, i64* %__val.addr, align 8
-  call void (%"class.std::__cxx11::basic_string"*, i32 (i8*, i64, i8*, %struct.__va_list_tag*)*, i64, i8*, ...) @_ZN9__gnu_cxx12__to_xstringINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEcEET_PFiPT0_mPKS8_P13__va_list_tagEmSB_z(%"class.std::__cxx11::basic_string"* sret %agg.result, i32 (i8*, i64, i8*, %struct.__va_list_tag*)* @vsnprintf, i64 32, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.4, i64 0, i64 0), i64 %1)
+  call void (%"class.std::__cxx11::basic_string"*, i32 (i8*, i64, i8*, %struct.__va_list_tag*)*, i64, i8*, ...) @_ZN9__gnu_cxx12__to_xstringINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEcEET_PFiPT0_mPKS8_P13__va_list_tagEmSB_z(%"class.std::__cxx11::basic_string"* sret(%"class.std::__cxx11::basic_string") %agg.result, i32 (i8*, i64, i8*, %struct.__va_list_tag*)* @vsnprintf, i64 32, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.4, i64 0, i64 0), i64 %1)
   ret void
 }
 
@@ -614,7 +614,7 @@ for.body:                                         ; preds = %for.cond
   %8 = load i32, i32* %i, align 4
   %mul4 = mul nsw i32 %mul3, %8
   %conv = sext i32 %mul4 to i64
-  call void @_ZNSt7__cxx119to_stringEx(%"class.std::__cxx11::basic_string"* sret %ref.tmp, i64 %conv)
+  call void @_ZNSt7__cxx119to_stringEx(%"class.std::__cxx11::basic_string"* sret(%"class.std::__cxx11::basic_string") %ref.tmp, i64 %conv)
   %9 = load i32, i32* %i, align 4
   %idxprom5 = sext i32 %9 to i64
   %arrayidx6 = getelementptr inbounds [100 x %struct.my_struct], [100 x %struct.my_struct]* @_ZL1x_f21bb3074557ef306217f1b410704bbf, i64 0, i64 %idxprom5
@@ -650,7 +650,7 @@ for.end:                                          ; preds = %for.cond
 }
 
 ; Function Attrs: noinline optnone uwtable
-define linkonce_odr dso_local void @_ZN9__gnu_cxx12__to_xstringINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEcEET_PFiPT0_mPKS8_P13__va_list_tagEmSB_z(%"class.std::__cxx11::basic_string"* noalias sret %agg.result, i32 (i8*, i64, i8*, %struct.__va_list_tag*)* %__convf, i64 %__n, i8* %__fmt, ...) #1 comdat personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+define linkonce_odr dso_local void @_ZN9__gnu_cxx12__to_xstringINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEcEET_PFiPT0_mPKS8_P13__va_list_tagEmSB_z(%"class.std::__cxx11::basic_string"* noalias sret(%"class.std::__cxx11::basic_string") %agg.result, i32 (i8*, i64, i8*, %struct.__va_list_tag*)* %__convf, i64 %__n, i8* %__fmt, ...) #1 comdat personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   %result.ptr = alloca i8*, align 8
   %__convf.addr = alloca i32 (i8*, i64, i8*, %struct.__va_list_tag*)*, align 8

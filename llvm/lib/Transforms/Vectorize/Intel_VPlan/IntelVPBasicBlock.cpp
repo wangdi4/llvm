@@ -21,12 +21,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-// TODO: remove this flag after updating all tests.
-bool PrintTerminatorInst = false;
-static cl::opt<bool, true> PrintTerminatorInstOpt(
-    "vplan-print-terminator-inst", cl::location(PrintTerminatorInst),
-    cl::Hidden, cl::desc("Print terminator instructions in VPlan dumps."));
-
 // When a VPinstruction is added in a basic block list, the following method
 // updates the parent.
 void ilist_traits<VPInstruction>::addNodeToList(VPInstruction *VPInst) {
@@ -606,27 +600,20 @@ VPBasicBlock::getNonPredicateInstructions() const {
 void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
                          const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
-  OS << StrIndent << NamePrefix << getName() << ":";
-  if (PrintTerminatorInst) {
-    OS << " # preds: ";
-    auto Predecessors = getPredecessors();
-    for (auto It = Predecessors.begin(); It != Predecessors.end(); It++) {
-      if (It != Predecessors.begin())
-        OS << ", ";
-      OS << (*It)->getName();
-    }
+  OS << StrIndent << NamePrefix << getName() << ": # preds: ";
+  auto Predecessors = getPredecessors();
+  for (auto It = Predecessors.begin(); It != Predecessors.end(); It++) {
+    if (It != Predecessors.begin())
+      OS << ", ";
+    OS << (*It)->getName();
   }
   OS << "\n";
 
   // Print block body
-  if (empty() || (!PrintTerminatorInst && size() == 1 &&
-                  !cast<VPBranchInst>(front()).getHLGoto())) {
+  if (empty())
     OS << StrIndent << " <Empty Block>\n";
-  } else {
+  else {
     for (const VPInstruction &Inst : Instructions) {
-      if (!PrintTerminatorInst && isa<VPBranchInst>(Inst) &&
-          !cast<VPBranchInst>(Inst).getHLGoto())
-        continue;
       OS << StrIndent << " ";
       Inst.print(OS);
       OS << '\n';
@@ -652,39 +639,6 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
       CB->printAsOperand(OS);
       OS << "\n";
     }
-  }
-  if (!PrintTerminatorInst) {
-    if (getNumSuccessors() == 0)
-      OS << StrIndent << "no SUCCESSORS";
-    else {
-      OS << StrIndent << "SUCCESSORS(" << getNumSuccessors() << "):";
-      if (getNumSuccessors() == 1) {
-        OS << getSuccessor(0)->getName();
-      } else if (getNumSuccessors() == 2) {
-        if (CB) {
-          OS << getSuccessor(0)->getName() << "(";
-          CB->printAsOperand(OS);
-          OS << "), " << getSuccessor(1)->getName() << "(!";
-          CB->printAsOperand(OS);
-          OS << ")";
-        } else {
-          OS << getSuccessor(0)->getName() << "(<undef>), ";
-          OS << getSuccessor(1)->getName() << "(!<undef>)";
-        }
-      } else {
-        llvm_unreachable("More than 2 successors in basic block are not supported!");
-      }
-    }
-    OS << "\n";
-    auto Predecessors = getPredecessors();
-    if (Predecessors.empty()) {
-      OS << StrIndent << "no PREDECESSORS";
-    } else {
-      OS << StrIndent << "PREDECESSORS(" << getNumPredecessors() << "):";
-      for (auto BB : Predecessors)
-        OS << " " << BB->getName();
-    }
-    OS << "\n";
   }
   OS << "\n";
 }

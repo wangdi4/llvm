@@ -97,23 +97,21 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |         |   |   case 1:
 ; CHECK:       |         |   |         %sum.L3 = %sum.L2
 ; CHECK:       |         |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
-; CHECK:       |         |   |      |   %AikBkj = -1.000000e+00  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |         |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
+; CHECK:       |         |   |      |   %sum.L3 = %sum.L3  - (%B)[(%M * %K) * i1 + i2 + %M * i4];
 ; CHECK:       |         |   |      + END LOOP
 ; CHECK:       |         |   |         %sum.L2 = %sum.L3
 ; CHECK:       |         |   |      break;
 ; CHECK:       |         |   |   case 2:
+; CHECK:       |         |   |      if (%K > 0)
+; CHECK:       |         |   |      {
 ; CHECK:       |         |   |         %sum.L3 = %sum.L2
-; CHECK:       |         |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
-; CHECK:       |         |   |      |   %AikBkj = 0.000000e+00  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
-; CHECK:       |         |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
-; CHECK:       |         |   |      + END LOOP
 ; CHECK:       |         |   |         %sum.L2 = %sum.L3
+; CHECK:       |         |   |      }
 ; CHECK:       |         |   |      break;
 ; CHECK:       |         |   |   case 3:
 ; CHECK:       |         |   |         %sum.L3 = %sum.L2
 ; CHECK:       |         |   |      + DO i4 = 0, %K + -1, 1   <DO_LOOP>
-; CHECK:       |         |   |      |   %AikBkj = 1.000000e+00  *  (%B)[(%M * %K) * i1 + i2 + %M * i4];
+; CHECK:       |         |   |      |   %AikBkj = (%B)[(%M * %K) * i1 + i2 + %M * i4];
 ; CHECK:       |         |   |      |   %sum.L3 = %sum.L3  +  %AikBkj;
 ; CHECK:       |         |   |      + END LOOP
 ; CHECK:       |         |   |         %sum.L2 = %sum.L3
@@ -188,7 +186,7 @@ L3:
   %Bkjp = getelementptr inbounds double, double* %B, i64 %B_ind
   %Bkj = load double, double* %Bkjp
   %AikBkj = fmul fast double %Aik, %Bkj
-  %sum.next = fadd double %sum.L3, %AikBkj
+  %sum.next = fadd fast double %sum.L3, %AikBkj
   %k.next = add nuw nsw i64 %k, 1
   %L3.cond = icmp eq i64 %k.next, %K
   br i1 %L3.cond, label %L3.exit, label %L3

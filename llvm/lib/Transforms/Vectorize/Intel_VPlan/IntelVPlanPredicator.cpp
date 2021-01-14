@@ -29,9 +29,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static cl::opt<bool> DotBeforeBlends(
-    "vplan-dot-before-blends", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph before blends are processed."));
+static LoopVPlanDumpControl
+    PredicatesEmissionDumpControl("predicates-emission", "predicates emission");
 
 static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
@@ -740,9 +739,9 @@ public:
       Builder.setInsertPoint(BlendBB);
     }
 
-    VPBlendInst *Blend = Builder.createBlendInstruction(
-        Phis[Idx]->getType(),
-        Phis[Idx]->getName() + ".blend." + From->getName());
+    VPBlendInst *Blend = Builder.create<VPBlendInst>(
+        Phis[Idx]->getName() + ".blend." + From->getName(),
+        Phis[Idx]->getType());
 
     for (int ValNumber = 0; ValNumber < NumBlendVals; ++ValNumber) {
       VPValue *Predicate = BlendOps[NumBlendVals * 2 - ValNumber * 2 - 2];
@@ -890,11 +889,13 @@ public:
       Mask = Block->getParent()->getVPConstant(
           ConstantInt::getTrue(*Block->getParent()->getLLVMContext()));
     Builder.setInsertPoint(ActiveLaneExtractBB);
-    VPActiveLane *ActiveLane = Builder.createActiveLane(Mask);
+    VPActiveLane *ActiveLane =
+        Builder.create<VPActiveLane>(Mask->getName() + ".active", Mask);
     DA->markUniform(*ActiveLane);
 
     for (VPValue *Blend : UniformBlends) {
-      VPValue *UniformVal = Builder.createActiveLaneExtract(Blend, ActiveLane);
+      VPValue *UniformVal = Builder.create<VPActiveLaneExtract>(
+          Blend->getName() + ".active", Blend, ActiveLane);
       DA->markUniform(*UniformVal);
       Blend->replaceUsesWithIf(
           UniformVal, [UniformVal](VPUser *U) { return U != UniformVal; });
@@ -1074,7 +1075,7 @@ void VPlanPredicator::predicate() {
   // during emission.
   emitPredicates();
 
-  VPLAN_DOT(DotBeforeBlends, Plan);
+  VPLAN_DUMP(PredicatesEmissionDumpControl, Plan);
 
   transformPhisToBlends();
 

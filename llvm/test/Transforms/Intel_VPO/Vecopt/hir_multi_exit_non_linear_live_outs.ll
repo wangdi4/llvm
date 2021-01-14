@@ -51,7 +51,7 @@
 ;               %0 = extractelement %.vec,  1;
 ;            }
 ;
-;            + DO i1 = 2 * %tgu, %len_limit + -2, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 1> <novectorize>
+;            + DO i1 = 2 * %tgu, %len_limit + -2, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 1> <auto-vectorized> <novectorize>
 ;            |   %0 = (%pb)[i1 + 1];
 ;            |   if (%0 != (%cur)[i1 + 1])
 ;            |   {

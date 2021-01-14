@@ -38,14 +38,14 @@ define internal void @test01() {
   %annot_alloc = call i8* @llvm.ptr.annotation.p0i8(
      i8* %mem,
      i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0),
-     i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0)
+     i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0, i8* null)
 ; CHECK-NOT:call i8* @llvm.ptr.annotation.p0i8(i8* %mem, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc
 
    ; This is not a DTrans annotation, and should not be removed.
   %tmp_annot = call i8* @llvm.ptr.annotation.p0i8(
      i8* %mem,
      i8* getelementptr inbounds ([27 x i8], [27 x i8]* @__unknown_annot, i32 0, i32 0),
-     i8* getelementptr inbounds ([1 x i8], [1 x i8]* @1, i32 0, i32 0), i32 0)
+     i8* getelementptr inbounds ([1 x i8], [1 x i8]* @1, i32 0, i32 0), i32 0, i8* null)
 ; CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* %mem, i8* getelementptr inbounds ([27 x i8], [27 x i8]* @__unknown_annot
 
   %f1 = getelementptr i8, i8* %mem, i64 0, !dtrans-type !0, !unknown-md !3
@@ -68,7 +68,7 @@ define internal void @test02() {
   %alloc_idx = call i32* @llvm.ptr.annotation.p0i32(
      i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 0),
      i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0),
-     i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0)
+     i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0, i8* null)
 
   %ptr1_to_st01 = load i32, i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 0)
   %tmp = getelementptr %__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 0
@@ -80,7 +80,7 @@ define internal void @test02() {
   %alloc_idx1 = call i32* @llvm.ptr.annotation.p0i32(
       i32* %ptr1_to_st02,
       i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index.1, i32 0, i32 0),
-      i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0)
+      i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0, i8* null)
 
   %st02 = load i32, i32* %ptr1_to_st02
   %tmp3 = getelementptr %__SOA_struct.test02, %__SOA_struct.test02* @__soa_struct.test02, i64 0, i32 0
@@ -92,7 +92,7 @@ define internal void @test02() {
   %alloc_idx2 = call i32* @llvm.ptr.annotation.p0i32(
       i32* %ptr2_to_st01,
       i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0),
-      i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0)
+      i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0, i8* null)
 
   %st01 = load i32, i32* %ptr2_to_st01
   %ptr3_to_st01 = getelementptr %__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr, i64 0, i32 0
@@ -101,7 +101,7 @@ define internal void @test02() {
   %alloc_idx3 = call i32* @llvm.ptr.annotation.p0i32(
       i32* %ptr3_to_st01,
       i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0),
-      i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0)
+      i8* getelementptr inbounds ([1 x i8], [1 x i8]* @0, i32 0, i32 0), i32 0, i8* null)
   store i32 %st01, i32* %alloc_idx3
 
 ; All calls to llvm.ptr.annotation should have been removed.
@@ -114,8 +114,8 @@ define internal void @test02() {
 }
 
 declare i8* @malloc(i64)
-declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32)
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
+declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
+declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
 
 !0 = !{i32* null}
 !1 = !{%__SOADT_struct.test01dep** null}

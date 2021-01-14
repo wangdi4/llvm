@@ -1,7 +1,5 @@
-; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr=false  -vpo-paropt-use-interop=false < %s | FileCheck %s  -check-prefix=BUFFPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false | FileCheck %s  -check-prefix=BUFFPTR
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-interop=false -vpo-paropt-use-mapper-api=false -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-interop=false -vpo-paropt-use-mapper-api=false -S | FileCheck %s
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause
 ;
 ; This test is similar to target_variant_dispatch_usedeviceptr_intfunc.ll
@@ -23,26 +21,8 @@
 ;      rrr = foo(a_cpu, b_cpu, 77777);
 ;   return rrr;
 ; }
-;
-; When -vpo-paropt-use-raw-dev-ptr=false which is default
-; See comment in target_variant_dispatch_usedeviceptr_intfunc.ll for the
-; expected IR. The main differences here are the extra bitcast instructions
-; in the variant.call BasicBlock:
-;
-; variant.call:                                     ; preds = %end.if.device.available.create.buffers
-;   %buffer13 = load i8*, i8** %tgt.buffer
-;   %buffer.cast = bitcast i8* %buffer13 to float*
-;   %buffer14 = load i8*, i8** %tgt.buffer2
-;   %buffer.cast15 = bitcast i8* %buffer14 to float*
-;   %variant = call i32 @foo_gpu(float* %buffer.cast, float* %buffer.cast15, i32 77777)
-;   ...
 
-; BUFFPTR: variant.call:
-; BUFFPTR-DAG: [[CAST1:%[a-zA-Z._0-9]+]] = bitcast i8* %{{.*}} to float*
-; BUFFPTR-DAG: [[CAST2:%[a-zA-Z._0-9]+]] = bitcast i8* %{{.*}} to float*
-; BUFFPTR: call i32 @foo_gpu(float* [[CAST1]], float* [[CAST2]]
-;
-; When -vpo-paropt-use-raw-dev-ptr=true, tgt_target_data_begin/end are used to obtain
+; Check that tgt_target_data_begin/end are used to obtain
 ; the device pointers for @a_cpu and %b_cpu, and the map-type for target data is
 ; TGT_PARAM | TGT_RETURN_PARAM (96):
 
@@ -52,23 +32,37 @@
 ;  %b_cpu.buffer.cast = load float*, float** %b_cpu.cast, align 8
 ;  %variant = call i32 @foo_gpu(float* %a_cpu.buffer.cast, float* %b_cpu.buffer.cast, i32 77777)
 
-; RAWPTR: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
-; RAWPTR: variant.call:
-; RAWPTR: [[A_LOAD:%[^ ]+]] = load float*, float** @a_cpu, align 8
-; RAWPTR: [[B_LOAD:%[^ ]+]] = load float*, float** %b_cpu, align 8
-; RAWPTR: [[A_LOAD_CAST:%[^ ]+]] = bitcast float* [[A_LOAD]] to i8*
-; RAWPTR: [[A_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
-; RAWPTR: store i8* [[A_LOAD_CAST]], i8** [[A_GEP]], align 8
-; RAWPTR: [[B_LOAD_CAST:%[^ ]+]] = bitcast float* [[B_LOAD]] to i8*
-; RAWPTR: [[B_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 1
-; RAWPTR: store i8* [[B_LOAD_CAST]], i8** [[B_GEP]], align 8
-; RAWPTR: call void @__tgt_target_data_begin({{.*}})
-; RAWPTR: [[A_GEP_CAST:%[^ ]+]] = bitcast i8** [[A_GEP]] to float**
-; RAWPTR: [[B_GEP_CAST:%[^ ]+]] = bitcast i8** [[B_GEP]] to float**
-; RAWPTR: [[A_UPDATED:%[^ ]+]] = load float*, float** [[A_GEP_CAST]], align 8
-; RAWPTR: [[B_UPDATED:%[^ ]+]] = load float*, float** [[B_GEP_CAST]], align 8
-; RAWPTR: call i32 @foo_gpu(float* [[A_UPDATED]], float* [[B_UPDATED]], i32 77777)
-; RAWPTR: call void @__tgt_target_data_end({{.*}})
+; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
+
+; Check that the maps are created on loads of use_device_ptr operands.
+; CHECK: [[A_CAST:%[^ ]+]] = bitcast i8* bitcast (float** @a_cpu to i8*) to float**
+; CHECK: [[A_LOAD:%[^ ]+]] = load float*, float** [[A_CAST]], align 8
+; CHECK: [[B_LOAD:%[^ ]+]] = load float*, float** %b_cpu, align 8
+; CHECK: [[A_LOAD_CAST:%[^ ]+]] = bitcast float* [[A_LOAD]] to i8*
+; CHECK: [[A_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
+; CHECK: store i8* [[A_LOAD_CAST]], i8** [[A_GEP]], align 8
+; CHECK: [[B_LOAD_CAST:%[^ ]+]] = bitcast float* [[B_LOAD]] to i8*
+; CHECK: [[B_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 1
+; CHECK: store i8* [[B_LOAD_CAST]], i8** [[B_GEP]], align 8
+; CHECK: call void @__tgt_target_data_begin({{.*}})
+
+; Check that updated values for a and b are passed to the outlined region
+; created around the variant function
+; CHECK: [[A_GEP_CAST:%[^ ]+]] = bitcast i8** [[A_GEP]] to float**
+; CHECK: [[A_UPDATED:%[^ ]+]] = load float*, float** [[A_GEP_CAST]], align 8
+; CHECK: store float* [[A_UPDATED]], float** [[A_NEW:%[^ ,]+]], align 8
+; CHECK: [[B_GEP_CAST:%[^ ]+]] = bitcast i8** [[B_GEP]] to float**
+; CHECK: [[B_UPDATED:%[^ ]+]] = load float*, float** [[B_GEP_CAST]], align 8
+; CHECK: store float* [[B_UPDATED]], float** [[B_NEW:%[^ ,]+]], align 8
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*foo_gpu.wrapper[^ (]*]](float** [[A_NEW]], float** [[B_NEW]], i32* %rrr)
+; CHECK: call void @__tgt_target_data_end({{.*}})
+
+; Check that variant function is called in the variant wrapper.
+; CHECK-DAG: define internal void @[[VARIANT_WRAPPER]](float** [[A1:%a_cpu[^, ]*]], float** [[B1:%b_cpu[^ ,]*]], i32* %rrr)
+; CHECK: [[A_VAL:%[^ ]+]] = load float*, float** [[A1]], align 8
+; CHECK: [[B_VAL:%[^ ]+]] = load float*, float** [[B1]], align 8
+; CHECK: [[RET_VAL:%[^ ]+]] = call i32 @foo_gpu(float* [[A_VAL]], float* [[B_VAL]], i32 77777)
+; CHECK: store i32 [[RET_VAL]], i32* %rrr
 
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc_floatStar.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

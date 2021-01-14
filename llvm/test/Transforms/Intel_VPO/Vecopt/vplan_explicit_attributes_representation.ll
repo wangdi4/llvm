@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -VPlanDriver -vplan-print-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -90,7 +90,7 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:      end of details
 
   call void @bar(float %mul3) #1, !dbg !41
-; CHECK:          void [[VP2:%.*]] = call float [[VP_MUL3]] void (float)* @bar
+; CHECK:          call float [[VP_MUL3]] void (float)* @bar
 ; CHECK-NEXT:      DbgLoc: lit_test.c:11:5
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

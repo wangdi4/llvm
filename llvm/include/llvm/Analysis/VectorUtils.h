@@ -116,7 +116,7 @@ struct VFShape {
       Parameters.push_back(
           VFParameter({CI.arg_size(), VFParamKind::GlobalPredicate}));
 
-    return {EC.Min, EC.Scalable, Parameters};
+    return {EC.getKnownMinValue(), EC.isScalable(), Parameters};
   }
   /// Sanity check on the Parameters in the VFShape.
   bool hasValidParameterList() const;
@@ -303,13 +303,17 @@ namespace Intrinsic {
 typedef unsigned ID;
 }
 
-/// A helper function for converting Scalar types to vector types.
-/// If the incoming type is void, we return void. If the VF is 1, we return
-/// the scalar type.
-inline Type *ToVectorTy(Type *Scalar, unsigned VF, bool isScalable = false) {
-  if (Scalar->isVoidTy() || VF == 1)
+/// A helper function for converting Scalar types to vector types. If
+/// the incoming type is void, we return void. If the EC represents a
+/// scalar, we return the scalar type.
+inline Type *ToVectorTy(Type *Scalar, ElementCount EC) {
+  if (Scalar->isVoidTy() || EC.isScalar())
     return Scalar;
-  return VectorType::get(Scalar, ElementCount::get(VF, isScalable));
+  return VectorType::get(Scalar, EC);
+}
+
+inline Type *ToVectorTy(Type *Scalar, unsigned VF) {
+  return ToVectorTy(Scalar, ElementCount::getFixed(VF));
 }
 
 /// Identify if the intrinsic is trivially vectorizable.
@@ -357,12 +361,7 @@ int getSplatIndex(ArrayRef<int> Mask);
 /// Get splat value if the input is a splat vector or return nullptr.
 /// The value may be extracted from a splat constants vector or from
 /// a sequence of instructions that broadcast a single value into a vector.
-const Value *getSplatValue(const Value *V);
-#if INTEL_CUSTOMIZATION
-inline Value *getSplatValue(Value *V) {
-  return const_cast<Value *>(getSplatValue(static_cast<const Value *>(V)));
-}
-#endif // INTEL_CUSTOMIZATION
+Value *getSplatValue(const Value *V);
 
 /// Return true if each element of the vector value \p V is poisoned or equal to
 /// every other non-poisoned element. If an index element is specified, either
@@ -517,7 +516,7 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
 /// Helper function that returns widened type of given type \p Ty.
 inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
   unsigned NumElts =
-      Ty->isVectorTy() ? cast<VectorType>(Ty)->getNumElements() * VF : VF;
+      Ty->isVectorTy() ? cast<FixedVectorType>(Ty)->getNumElements() * VF : VF;
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
 
@@ -769,20 +768,20 @@ createSequentialMask(unsigned Start, unsigned NumInts, unsigned NumUndefs);
 /// elements, it will be padded with undefs.
 Value *concatenateVectors(IRBuilderBase &Builder, ArrayRef<Value *> Vecs);
 
-/// Given a mask vector of the form <Y x i1>, Return true if all of the
-/// elements of this predicate mask are false or undef.  That is, return true
-/// if all lanes can be assumed inactive. 
+/// Given a mask vector of i1, Return true if all of the elements of this
+/// predicate mask are known to be false or undef.  That is, return true if all
+/// lanes can be assumed inactive.
 bool maskIsAllZeroOrUndef(Value *Mask);
 
-/// Given a mask vector of the form <Y x i1>, Return true if all of the
-/// elements of this predicate mask are true or undef.  That is, return true
-/// if all lanes can be assumed active. 
+/// Given a mask vector of i1, Return true if all of the elements of this
+/// predicate mask are known to be true or undef.  That is, return true if all
+/// lanes can be assumed active.
 bool maskIsAllOneOrUndef(Value *Mask);
 
 /// Given a mask vector of the form <Y x i1>, return an APInt (of bitwidth Y)
 /// for each lane which may be active.
 APInt possiblyDemandedEltsInMask(Value *Mask);
-  
+
 /// The group of interleaved loads/stores sharing the same stride and
 /// close to each other.
 ///

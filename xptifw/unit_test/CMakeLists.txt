@@ -1,7 +1,9 @@
-if (NOT EXISTS ${XPTI_SOURCE_DIR})
-  message (FATAL_ERROR "Undefined XPTI_SOURCE_DIR variable: Must be set for tests to work!")
+# INTEL_CUSTOMIZATION
+if (NOT EXISTS ${LLVM_EXTERNAL_XPTI_SOURCE_DIR})
+  message (FATAL_ERROR "Undefined LLVM_EXTERNAL_XPTI_SOURCE_DIR variable: Must be set for tests to work!")
 endif()
-include_directories(${XPTI_SOURCE_DIR}/include)
+include_directories(${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
+#end INTEL_CUSTOMIZATION
 
 # Download and unpack googletest at configure time
 configure_file(../CMakeLists.txt.in googletest-download/CMakeLists.txt)
@@ -38,5 +40,6 @@ endif()
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(xpti_tests xpti_api_tests.cpp xpti_correctness_tests.cpp)
 target_link_libraries(xpti_tests gtest)
+target_link_libraries(xpti_tests LLVMSupport) # INTEL
 target_link_libraries(xpti_tests gtest_main xptifw)
 add_test(NAME example_test COMMAND xpti_tests)

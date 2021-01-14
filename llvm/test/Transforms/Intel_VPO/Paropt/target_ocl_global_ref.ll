@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -simplifycfg  -sroa -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-opt-scalar-fp=false -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-opt-scalar-fp=false -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -sroa -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-opt-scalar-fp=false -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,loop-simplify,sroa,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-opt-scalar-fp=false -S | FileCheck %s
 
 ; Verify that the reference to '@a' is seen during the outlining
 ; of the target region, when device_triples contain SPIRV,

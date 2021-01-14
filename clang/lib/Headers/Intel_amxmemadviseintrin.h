@@ -19,6 +19,10 @@
 
 #define _tile_movadvise_load __builtin_ia32_tmovadvise_load
 #define _tile_movadvise_store __builtin_ia32_tmovadvise_store
+#define _tile_t2rpntlvwz0advise(tdst, base, stride, Imm)                       \
+  __builtin_ia32_t2rpntlvwz0advise(tdst, base, stride, Imm)
+#define _tile_t2rpntlvwz1advise(tdst, base, stride, Imm)                       \
+  __builtin_ia32_t2rpntlvwz1advise(tdst, base, stride, Imm)
 
 #endif /* __x86_64__ */
 #endif /* __AMXMEMADVISEINTRIN_H */

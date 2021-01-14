@@ -557,9 +557,9 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
           //= = * for 3rd level inermost loops
           InputDV.setAsInput();
 
-          DT.findDependencies(Ref1, Ref2, InputDV, OutputDVForward,
-                              OutputDVBackward, OutputDistVForward,
-                              OutputDistVBackward, &IsLoopIndepDepTemp);
+          bool Dependent = DT.findDependencies(
+              Ref1, Ref2, InputDV, OutputDVForward, OutputDVBackward,
+              OutputDistVForward, OutputDistVBackward, &IsLoopIndepDepTemp);
 
           //  Sample code to check output:
           //  first check IsDependent
@@ -583,7 +583,7 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
           //  for checking distance -2, otherwise something is invalid
           //  flow (< > >) (2 -2 -1)
 
-          if (OutputDVForward[0] != DVKind::NONE &&
+          if (Dependent && OutputDVForward[0] != DVKind::NONE &&
               (NeededEdgeType & ConstructDDEdgeType::Forward)) {
             DDEdge Edge = DDEdge(Ref1, Ref2, OutputDVForward,
                                  OutputDistVForward, IsLoopIndepDepTemp);
@@ -592,7 +592,7 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
             DDG.addEdge(std::move(Edge));
           }
 
-          if (OutputDVBackward[0] != DVKind::NONE &&
+          if (Dependent && OutputDVBackward[0] != DVKind::NONE &&
               (NeededEdgeType & ConstructDDEdgeType::Backward)) {
             DDEdge Edge =
                 DDEdge(Ref2, Ref1, OutputDVBackward, OutputDistVBackward);
@@ -658,7 +658,7 @@ RefinedDependence HIRDDAnalysis::refineDV(const DDRef *SrcDDRef,
 
     DirectionVector &InputDV = Dep.getDV();
     //  For Start = 3, Deepest = 3, when testing for innermost loop dep,
-    //  DV constructed: (= = *)
+    //  DV constructed: (= = * ...)
     InputDV.setAsInput(StartNestingLevel, DeepestNestingLevel);
 
     auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV, false, ForFusion);
@@ -669,7 +669,9 @@ RefinedDependence HIRDDAnalysis::refineDV(const DDRef *SrcDDRef,
       DirectionVector &RefinedDV = Dep.getDV();
       DistanceVector &RefinedDistV = Dep.getDist();
 
-      for (unsigned I = 1; I <= Result->getLevels(); ++I) {
+      RefinedDV.resize(Result->getLevels());
+      RefinedDistV.resize(Result->getLevels());
+      for (unsigned I = 1, E = Result->getLevels(); I <= E; ++I) {
         RefinedDV[I - 1] = Result->getDirection(I);
         RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
       }
@@ -737,5 +739,5 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
 bool HIRDDAnalysis::doRefsAlias(const RegDDRef *SrcRef,
                                 const RegDDRef *DstRef) const {
   DDTest DT(*AAR, SrcRef->getHLDDNode()->getHLNodeUtils());
-  return !DT.queryAAIndep(SrcRef, DstRef);
+  return !DT.queryAAIndep(SrcRef, DstRef, 1);
 }

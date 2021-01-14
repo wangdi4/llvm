@@ -18,7 +18,7 @@
 ;   }
 ; }
 ;
-; RUN: opt -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -VPlanDriver -S %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -31,14 +31,13 @@ define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
 ; CHECK-NEXT:    [[VAL_VEC:%.*]] = alloca <4 x i64>, align 32
 ; CHECK-NEXT:    [[VAL_VEC_BC:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i64*
 ; CHECK-NEXT:    [[VAL_VEC_BASE_ADDR:%.*]] = getelementptr i64, i64* [[VAL_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK:       vector.ph:
+; CHECK-NEXT:    [[WIDE_VEC_BC:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i8*
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP9:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP8:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP7:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull [[DOTEXTRACT_0_:%.*]])
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull [[DOTEXTRACT_1_:%.*]])
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull [[DOTEXTRACT_2_:%.*]])
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull [[DOTEXTRACT_3_:%.*]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull [[WIDE_VEC_BC]])
 ; CHECK-NEXT:    store <4 x i64> [[VEC_PHI]], <4 x i64>* [[VAL_VEC]], align 8
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[IP:%.*]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*

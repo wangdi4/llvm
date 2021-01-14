@@ -1,4 +1,4 @@
-# UNSUPPORTED: i686-pc-windows
+# INTEL UNSUPPORTED: i686-pc-windows
 # RUN: ld64.lld -arch x86_64 -dylib %p/Inputs/bar.yaml \
 # RUN:     -install_name /usr/lib/libbar.dylib %p/Inputs/x86_64/libSystem.yaml -o %t1.dylib
 # RUN: ld64.lld -arch x86_64 -dylib %s -all_load %t1.dylib \

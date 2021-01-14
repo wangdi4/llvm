@@ -73,6 +73,8 @@ namespace llvm {
 
 namespace vpo {
 
+extern cl::opt<bool> UseMapperAPI;
+
 /// opencl address space.
 enum AddressSpace {
   ADDRESS_SPACE_PRIVATE = 0,
@@ -80,6 +82,15 @@ enum AddressSpace {
   ADDRESS_SPACE_CONSTANT = 2,
   ADDRESS_SPACE_LOCAL = 3,
   ADDRESS_SPACE_GENERIC = 4
+};
+
+/// Device architectures supported
+enum DeviceArch : uint64_t {
+  DeviceArch_None   = 0,
+  DeviceArch_Gen9   = 0x0001,
+  DeviceArch_XeLP   = 0x0002, // DG1
+  DeviceArch_XeHP   = 0x0004, // ATS
+  DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
@@ -148,7 +159,8 @@ public:
   ///
   /// This branch is added at the end of paropt-prepare pass, and later removed
   /// before the vpo-paropt transformation.
-  void addBranchToEndDirective(WRegionNode *W);
+  /// \returns \b true if a branch was added, \b false otherwise.
+  bool addBranchToEndDirective(WRegionNode *W);
 
   /// Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -167,6 +179,8 @@ public:
   /// Create a map between the BasicBlocks and the corresponding
   /// innermost WRegionNodes owning the blocks.
   void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
+  /// Privatize shared items in the work region.
+  bool privatizeSharedItems();
 #endif  // INTEL_CUSTOMIZATION
 
 private:
@@ -277,6 +291,13 @@ private:
     /// The array of data map types passed to the runtime library.
     Value *DataMapTypes = nullptr;
     Value *ResDataMapTypes;
+    /// The array of mapper names passed to the runtime library.
+    Value *Names = nullptr;
+    Value *ResNames;
+    /// The array of mapper pointers passed to the runtime library.
+    Value *Mappers = nullptr;
+    Value *ResMappers;
+    bool FoundValidMapper = false;
     /// The number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;
     explicit TgDataInfo() {}
@@ -285,11 +306,13 @@ private:
       DataPtrs = nullptr;
       DataSizes = nullptr;
       DataMapTypes = nullptr;
+      Names = nullptr;
+      Mappers = nullptr;
       NumberOfPtrs = 0u;
     }
     bool isValid() {
       return BaseDataPtrs && DataPtrs && DataSizes && DataMapTypes &&
-             NumberOfPtrs;
+             (!UseMapperAPI || Mappers) && NumberOfPtrs;
     }
   };
 
@@ -767,17 +790,18 @@ private:
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
-                           StructType *&KmpSharedTy, Value *&LBPtr,
-                           Value *&UBPtr, Value *&STPtr, Value *&LastIterGep,
-                           bool isLoop = true);
+                           StructType *&KmpSharedTy, AllocaInst *&LBPtr,
+                           AllocaInst *&UBPtr, AllocaInst *&STPtr,
+                           Value *&LastIterGep, bool isLoop = true);
   bool genTaskInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                        StructType *&KmpSharedTy, Value *&LastIterGep);
 
   /// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
   /// corresponding outlined function
   bool genTaskGenericCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
-                          StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
-                          Value *STPtr, bool isLoop = true);
+                          StructType *KmpSharedTy, AllocaInst *LBPtr,
+                          AllocaInst *UBPtr, AllocaInst *STPtr,
+                          bool isLoop = true);
 
   /// Generate the call __kmpc_omp_task_alloc, __kmpc_omp_task and the
   /// corresponding outlined function.
@@ -939,8 +963,8 @@ private:
 
   /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
-  void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
-                                  Value *&STPtr);
+  void genLoopInitCodeForTaskLoop(WRegionNode *W, AllocaInst *&LBPtr,
+                                  AllocaInst *&UBPtr, AllocaInst *&STPtr);
 
   /// Generate the outline function of reduction initialization
   Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
@@ -1015,6 +1039,9 @@ private:
 
   /// Reset the expression value in private clause to be empty.
   void resetValueInPrivateClause(WRegionNode *W);
+
+  /// Reset the expression value in Subdevice clause to be empty.
+  void resetValueInSubdeviceClause(WRegionNode* W);
 
   /// Reset the expression value in IsDevicePtr clause to be empty.
   void resetValueInIsDevicePtrClause(WRegionNode *W);
@@ -1098,13 +1125,15 @@ private:
                             Instruction *InsertPt,
                             SmallVectorImpl<Constant *> &ConstSizes,
                             SmallVectorImpl<uint64_t> &MapTypes,
+                            SmallVectorImpl<GlobalVariable *> &Names,
+                            SmallVectorImpl<Value *> &Mappers,
                             bool hasRuntimeEvaluationCaptureSize);
 
   /// Utility to construct the assignment to the base pointers, section
   /// pointers (and size pointers if the flag hasRuntimeEvaluationCaptureSize is
   /// true). Sets \p BasePtrGEPOut to the GEP where \p BasePtr is stored.
   void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
-                                Value *SectionPtr, Value *Size,
+                                Value *SectionPtr, Value *Size, Value *Mapper,
                                 TgDataInfo *Info,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 unsigned &Cnt,
@@ -1134,11 +1163,15 @@ private:
   /// \param [in]     V               base pointer.
   /// \param [out]    ConstSizes      array of size information.
   /// \param [out]    MapTypes        array of map types.
+  /// \param [out]    Names           array of names.
+  /// \param [out]    Mappers         array of mappers.
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
   void genTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 SmallVectorImpl<uint64_t> &MapTypes,
+                                SmallVectorImpl<GlobalVariable *> &Names,
+                                SmallVectorImpl<Value *> &Mappers,
                                 bool &hasRuntimeEvaluationCaptureSize);
 
   /// Generate multithreaded for a given WRegion
@@ -1704,6 +1737,10 @@ private:
   /// we have to be able to update the region's entry/exit blocks.
   bool sinkSIMDDirectives(WRegionNode *W);
 
+  /// Add parallel access metadata to memory r/w instructions in the given
+  /// OpenMP loop region \p W.
+  bool genParallelAccessMetadata(WRegionNode *W);
+
   /// Transform the given OMP loop into the loop as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)
@@ -2111,6 +2148,11 @@ private:
   /// ND-range dimensions for OpenMP loop regions. It also sets
   /// NDRangeDistributeDim for target regions, when needed.
   void assignParallelDimensions() const;
+
+  /// Add range metadata to OpenMP API calls inside the current function for
+  /// which result's range is known - omp_get_num_threads, omp_get_thread_num,
+  /// omp_get_num_teams, omp_get_team_num.
+  bool addRangeMetadataToOmpCalls() const;
 };
 
 } /// namespace vpo

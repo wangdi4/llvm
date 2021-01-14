@@ -5,7 +5,7 @@
 ; RUN: opt -S -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-force-vf=2 %s | FileCheck %s
 
 define dso_local i32 @foo(i64 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:          i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i32 [[VP_OTHER_IV_IND_FINAL:%.*]] = induction-final{add} i32 42 i32 3, LastValPreInc = 1
 ;
@@ -21,7 +21,7 @@ define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP2]] = add <2 x i32> [[VEC_PHI30]], <i32 6, i32 6>
 ; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI20]], 6
 ; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], [[N_VEC0:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], [[N_VEC0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:

@@ -1,0 +1,27 @@
+// REQUIRES: intel_feature_isa_avx512_movget
+// RUN: llvm-mc -triple=x86_64-unknown-unknown --show-encoding < %s  | FileCheck %s
+
+// CHECK:      vmovget  268435456(%rbp,%r14,8), %zmm22
+// CHECK: encoding: [0x62,0xa2,0x7e,0x48,0xc5,0xb4,0xf5,0x00,0x00,0x00,0x10]
+               vmovget  268435456(%rbp,%r14,8), %zmm22
+
+// CHECK:      vmovget  291(%r8,%rax,4), %zmm22
+// CHECK: encoding: [0x62,0xc2,0x7e,0x48,0xc5,0xb4,0x80,0x23,0x01,0x00,0x00]
+               vmovget  291(%r8,%rax,4), %zmm22
+
+// CHECK:      vmovget  (%rip), %zmm22
+// CHECK: encoding: [0x62,0xe2,0x7e,0x48,0xc5,0x35,0x00,0x00,0x00,0x00]
+               vmovget  (%rip), %zmm22
+
+// CHECK:      vmovget  -2048(,%rbp,2), %zmm22
+// CHECK: encoding: [0x62,0xe2,0x7e,0x48,0xc5,0x34,0x6d,0x00,0xf8,0xff,0xff]
+               vmovget  -2048(,%rbp,2), %zmm22
+
+// CHECK:      vmovget  8128(%rcx), %zmm22
+// CHECK: encoding: [0x62,0xe2,0x7e,0x48,0xc5,0x71,0x7f]
+               vmovget  8128(%rcx), %zmm22
+
+// CHECK:      vmovget  -8192(%rdx), %zmm22
+// CHECK: encoding: [0x62,0xe2,0x7e,0x48,0xc5,0x72,0x80]
+               vmovget  -8192(%rdx), %zmm22
+

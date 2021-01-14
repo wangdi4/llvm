@@ -83,7 +83,7 @@ static constexpr const int CallSiteMDSize = CSMDIR_Last;
 // This class is needed to store Callback vector for functions and instructions
 // of the current SCC during succeeding optimizations to keep inlining report
 // consistent.
-class InlineReportBuilder : public CallGraphReport {
+class InlineReportBuilder {
   // InlineFunction() fills this in with callsites which we are cloning from
   // the callee.  This is used only for inline report.
   SmallVector<Value *, 20> ActiveOriginalCalls;
@@ -111,8 +111,8 @@ public:
   void beginFunction(Function *F);
   // Walk over inlining reports for functions in current SCC to add them to the
   // callback vector.
-  void beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC);
-  void beginSCC(CallGraph &CG, CallGraphSCC &SCC);
+  void beginSCC(LazyCallGraph::SCC &SCC);
+  void beginSCC(CallGraphSCC &SCC);
 
   // Mark function as dead in its inlining report.
   void setDead(Function *F);
@@ -171,8 +171,11 @@ public:
   // The level of the inline report
   void setLevel(unsigned L) { Level = L; }
 
+  // Replace 'OldFunction' with 'NewFunction'.
+  void replaceFunctionWithFunction(Function *OldFunction,
+                                   Function *NewFunction);
 private:
-  /// \brief The Level is specified by the option -inline-report=N.
+  /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
   unsigned Level;
   // Call instruction which is considered on the current inlining step.
@@ -183,14 +186,14 @@ private:
   Function *CurrentCallee;
 
   ///
-  /// \brief CallbackVM for Instructions and Functions in the InlineReport
+  /// CallbackVM for Instructions and Functions in the InlineReport
   ///
   class InliningReportCallback : public CallbackVH {
     InlineReportBuilder *IRB;
     MDNode *MDIR;
     void deleted() override {
       if (isa<Instruction>(getValPtr())) {
-        /// \brief Indicate in the inline report that the call site
+        /// Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
         Instruction *I = cast<Instruction>(getValPtr());
         if (IRB) {
@@ -214,7 +217,7 @@ private:
             }
         }
       } else if (isa<Function>(getValPtr())) {
-        /// \brief Indicate in the inline report that the function
+        /// Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
         if (MDIR) {
           if (auto *FIR = dyn_cast<MDTuple>(MDIR)) {
@@ -238,8 +241,6 @@ private:
 
   SmallVector<InliningReportCallback *, 16> IRCallbackVector;
 
-  void replaceFunctionWithFunction(Function *OldFunction,
-                                   Function *NewFunction) override;
 public:
   // Add callback for function or instruction.
   void addCallback(Value *V, MDNode *MDIR) {
@@ -266,7 +267,7 @@ public:
     return llvm::getOpStr(Report->getOperand(1), "name: ");
   }
 
-  /// brief Get and set SuppressPrint
+  /// Get and set SuppressPrint
   bool getSuppressPrint(void) const { return SuppressPrint; }
   void setSuppressPrint(bool V) { SuppressPrint = V; }
 };
@@ -371,6 +372,9 @@ void setMDReasonNotInlined(CallBase *Call, const InlineCost &IC,
 // Set of functions which set inlined reason to call site
 void setMDReasonIsInlined(CallBase *Call, InlineReason Reason);
 void setMDReasonIsInlined(CallBase *Call, const InlineCost &IC);
-} // namespace llvm
 
+/// Get the single, active metadata-based inlining report.
+InlineReportBuilder *getMDInlineReport();
+
+} // namespace llvm
 #endif // LLVM_TRANSFORMS_IPO_INTEL_MDINLINEREPORT_H

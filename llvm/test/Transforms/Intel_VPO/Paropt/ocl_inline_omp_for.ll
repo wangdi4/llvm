@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -inline -simplifycfg -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare),cgscc(inline),function(simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -inline -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare),cgscc(inline),function(loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
 
 ; Original code:
 ; inline void Evaluate_v_ptr() {

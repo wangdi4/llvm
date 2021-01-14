@@ -22,8 +22,10 @@ using namespace llvm;
 
 void LocationSize::print(raw_ostream &OS) const {
   OS << "LocationSize::";
-  if (*this == unknown())
-    OS << "unknown";
+  if (*this == beforeOrAfterPointer())
+    OS << "beforeOrAfterPointer";
+  else if (*this == afterPointer())
+    OS << "afterPointer";
   else if (*this == mapEmpty())
     OS << "mapEmpty";
   else if (*this == mapTombstone())
@@ -59,8 +61,8 @@ MemoryLocation MemoryLocation::get(const VAArgInst *VI) {
   AAMDNodes AATags;
   VI->getAAMetadata(AATags);
 
-  return MemoryLocation(VI->getPointerOperand(), LocationSize::unknown(),
-                        AATags);
+  return MemoryLocation(VI->getPointerOperand(),
+                        LocationSize::afterPointer(), AATags);
 }
 
 MemoryLocation MemoryLocation::get(const AtomicCmpXchgInst *CXI) {
@@ -111,7 +113,7 @@ MemoryLocation MemoryLocation::getForSource(const AtomicMemTransferInst *MTI) {
 }
 
 MemoryLocation MemoryLocation::getForSource(const AnyMemTransferInst *MTI) {
-  auto Size = LocationSize::unknown();
+  auto Size = LocationSize::afterPointer();
   if (ConstantInt *C = dyn_cast<ConstantInt>(MTI->getLength()))
     Size = LocationSize::precise(C->getValue().getZExtValue());
 
@@ -132,7 +134,7 @@ MemoryLocation MemoryLocation::getForDest(const AtomicMemIntrinsic *MI) {
 }
 
 MemoryLocation MemoryLocation::getForDest(const AnyMemIntrinsic *MI) {
-  auto Size = LocationSize::unknown();
+  auto Size = LocationSize::afterPointer();
   if (ConstantInt *C = dyn_cast<ConstantInt>(MI->getLength()))
     Size = LocationSize::precise(C->getValue().getZExtValue());
 
@@ -160,13 +162,14 @@ MemoryLocation MemoryLocation::getForArgument(const CallBase *Call,
       break;
     case Intrinsic::memset:
     case Intrinsic::memcpy:
+    case Intrinsic::memcpy_inline:
     case Intrinsic::memmove:
       assert((ArgIdx == 0 || ArgIdx == 1) &&
              "Invalid argument index for memory intrinsic");
       if (ConstantInt *LenCI = dyn_cast<ConstantInt>(II->getArgOperand(2)))
         return MemoryLocation(Arg, LocationSize::precise(LenCI->getZExtValue()),
                               AATags);
-      break;
+      return MemoryLocation::getAfter(Arg, AATags);
 
     case Intrinsic::lifetime_start:
     case Intrinsic::lifetime_end:
@@ -176,6 +179,21 @@ MemoryLocation MemoryLocation::getForArgument(const CallBase *Call,
           Arg,
           LocationSize::precise(
               cast<ConstantInt>(II->getArgOperand(0))->getZExtValue()),
+          AATags);
+
+    case Intrinsic::masked_load:
+      assert(ArgIdx == 0 && "Invalid argument index");
+      return MemoryLocation(
+          Arg,
+          LocationSize::upperBound(DL.getTypeStoreSize(II->getType())),
+          AATags);
+
+    case Intrinsic::masked_store:
+      assert(ArgIdx == 1 && "Invalid argument index");
+      return MemoryLocation(
+          Arg,
+          LocationSize::upperBound(
+              DL.getTypeStoreSize(II->getArgOperand(0)->getType())),
           AATags);
 
     case Intrinsic::invariant_end:
@@ -212,22 +230,50 @@ MemoryLocation MemoryLocation::getForArgument(const CallBase *Call,
   // LoopIdiomRecognizer likes to turn loops into calls to memset_pattern16
   // whenever possible.
   LibFunc F;
-  if (TLI && Call->getCalledFunction() &&
-      TLI->getLibFunc(*Call->getCalledFunction(), F) &&
-      F == LibFunc_memset_pattern16 && TLI->has(F)) {
-    assert((ArgIdx == 0 || ArgIdx == 1) &&
-           "Invalid argument index for memset_pattern16");
-    if (ArgIdx == 1)
-      return MemoryLocation(Arg, LocationSize::precise(16), AATags);
-    if (const ConstantInt *LenCI =
-            dyn_cast<ConstantInt>(Call->getArgOperand(2)))
-      return MemoryLocation(Arg, LocationSize::precise(LenCI->getZExtValue()),
-                            AATags);
+  if (TLI && TLI->getLibFunc(*Call, F) && TLI->has(F)) {
+    switch (F) {
+    case LibFunc_memset_pattern16:
+      assert((ArgIdx == 0 || ArgIdx == 1) &&
+             "Invalid argument index for memset_pattern16");
+      if (ArgIdx == 1)
+        return MemoryLocation(Arg, LocationSize::precise(16), AATags);
+      if (const ConstantInt *LenCI =
+              dyn_cast<ConstantInt>(Call->getArgOperand(2)))
+        return MemoryLocation(Arg, LocationSize::precise(LenCI->getZExtValue()),
+                              AATags);
+      return MemoryLocation::getAfter(Arg, AATags);
+    case LibFunc_bcmp:
+    case LibFunc_memcmp:
+      assert((ArgIdx == 0 || ArgIdx == 1) &&
+             "Invalid argument index for memcmp/bcmp");
+      if (const ConstantInt *LenCI =
+              dyn_cast<ConstantInt>(Call->getArgOperand(2)))
+        return MemoryLocation(Arg, LocationSize::precise(LenCI->getZExtValue()),
+                              AATags);
+      return MemoryLocation::getAfter(Arg, AATags);
+    case LibFunc_memchr:
+      assert((ArgIdx == 0) && "Invalid argument index for memchr");
+      if (const ConstantInt *LenCI =
+              dyn_cast<ConstantInt>(Call->getArgOperand(2)))
+        return MemoryLocation(Arg, LocationSize::precise(LenCI->getZExtValue()),
+                              AATags);
+      return MemoryLocation::getAfter(Arg, AATags);
+    case LibFunc_memccpy:
+      assert((ArgIdx == 0 || ArgIdx == 1) &&
+             "Invalid argument index for memccpy");
+      // We only know an upper bound on the number of bytes read/written.
+      if (const ConstantInt *LenCI =
+              dyn_cast<ConstantInt>(Call->getArgOperand(3)))
+        return MemoryLocation(
+            Arg, LocationSize::upperBound(LenCI->getZExtValue()), AATags);
+      return MemoryLocation::getAfter(Arg, AATags);
+    default:
+      break;
+    };
   }
   // FIXME: Handle memset_pattern4 and memset_pattern8 also.
 
-  return MemoryLocation(Call->getArgOperand(ArgIdx), LocationSize::unknown(),
-                        AATags);
+  return MemoryLocation::getBeforeOrAfter(Call->getArgOperand(ArgIdx), AATags);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -285,7 +331,7 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
       Constant *Elt = CV->getAggregateElement(i);
       if(!Elt)
         return;
-      Results[i] = MemoryLocation(Elt);
+      Results[i] = MemoryLocation(Elt, LocationSize::beforeOrAfterPointer());
     }
     Resolved = true;
     return;
@@ -308,7 +354,7 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
     if (BasePtr->getType()->isVectorTy())
       getMemLocsForPtrVec(BasePtr, Results, Resolved, Depth - 1);
     else
-      Results.assign(NumElts, MemoryLocation(BasePtr));
+      Results.assign(NumElts, MemoryLocation(BasePtr, LocationSize::afterPointer()));
     }
     break;
   case Instruction::InsertElement:
@@ -321,7 +367,7 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
     if (auto *IndexOp = dyn_cast<ConstantInt>(Op->getOperand(2))) {
       int64_t Idx = IndexOp->getSExtValue();
       if (Idx >= 0 && Idx < NumElts && !isMemLocResolved(Results[Idx]))
-        Results[Idx] = MemoryLocation(Op->getOperand(1));
+        Results[Idx] = MemoryLocation(Op->getOperand(1), LocationSize::afterPointer());
     } else {
       Results.assign(NumElts, MemoryLocation());
       Resolved = true;

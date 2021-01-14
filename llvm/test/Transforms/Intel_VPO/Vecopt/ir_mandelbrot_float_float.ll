@@ -1,10 +1,10 @@
 ; Test that we can vectorize float, float version of mandelbrot kernel.
-; RUN: opt -S %s -VPlanDriver -vector-library=SVML 2>&1 | FileCheck %s
-; RUN: opt -S %s -passes="vplan-driver" -vector-library=SVML 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -VPlanDriver -vector-library=SVML 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-driver" -vector-library=SVML 2>&1 | FileCheck %s
 ;
 ; The run lines below used to crash before CMPLRLLVM-22366 was fixed.
-; RUN: opt -S %s -VPlanDriver -vector-library=SVML -vplan-enable-all-zero-bypass-loops=0 -disable-output
-; RUN: opt -S %s -passes="vplan-driver" -vector-library=SVML -vplan-enable-all-zero-bypass-loops=0 -disable-output
+; RUN: opt -vplan-enable-soa=false -S %s -VPlanDriver -vector-library=SVML -vplan-enable-all-zero-bypass-loops=0 -disable-output
+; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-driver" -vector-library=SVML -vplan-enable-all-zero-bypass-loops=0 -disable-output
 ;
 ; CHECK: call svml_cc <16 x float> @__svml_sqrtf16(
 

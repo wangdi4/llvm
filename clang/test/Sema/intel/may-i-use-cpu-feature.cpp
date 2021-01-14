@@ -65,4 +65,10 @@ void test3() {
   _may_i_use_cpu_feature_str("bad", "avx2", "bmi"); // expected-error{{invalid cpu feature string for builtin}}
   _may_i_use_cpu_feature_str("avx2", "bad", "bmi"); // expected-error{{invalid cpu feature string for builtin}}
   _may_i_use_cpu_feature_str("avx2", "bmi", "bad"); // expected-error{{invalid cpu feature string for builtin}}
+
+  // check amx-tile, amx-int8, amx-bf16, should not throw error.
+  _may_i_use_cpu_feature_str("amx-tile", "amx-bf16", "amx-int8");
+
+  // check avxvnni key-locker, wide-kl should not throw error.
+  _may_i_use_cpu_feature_str("avxvnni", "kl", "widekl");
 }

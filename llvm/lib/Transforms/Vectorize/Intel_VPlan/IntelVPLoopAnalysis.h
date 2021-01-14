@@ -49,6 +49,7 @@ class VPPHINode;
 class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
+class VPReductionFinal;
 
 /// Base class for loop entities
 class VPLoopEntity {
@@ -218,14 +219,18 @@ class VPPrivate : public VPLoopEntity {
   friend class VPLoopEntityList;
 
 public:
+  // The assignment instruction.
+  // This is currently public to suppress an xmain self-build error.
+  VPInstruction *FinalInst;
+
   // Currently only used for VPPrivates. In future, this can be hoisted to
   // VPLoopEntity.
   using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
 
   VPPrivate(VPInstruction *FinalI, VPEntityAliasesTy &&InAliases,
             bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
-      : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
-        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI),
+      : VPLoopEntity(Private, IsMemOnly), FinalInst(FinalI),
+        IsConditional(Conditional), IsLast(Last), IsExplicit(Explicit),
         Aliases(std::move(InAliases)) {}
 
   bool isConditional() const { return IsConditional; }
@@ -257,9 +262,6 @@ private:
 
   // Is defined explicitly.
   bool IsExplicit;
-
-  // The assignment instruction.
-  VPInstruction *FinalInst;
 
   // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
   // instructions to existing loop-private, which are outside the loop-region.
@@ -435,7 +437,7 @@ public:
                      getRawPointer<VPInduction>);
   }
 
-  VPIndexReduction *getMinMaxIndex(const VPReduction *Red) {
+  VPIndexReduction *getMinMaxIndex(const VPReduction *Red) const {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
     if (It != MinMaxIndexes.end())
       return It->second;
@@ -632,6 +634,13 @@ private:
 
   // Insert VPInstructions related to VPPrivates.
   void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader);
+
+  // Insert VPInstructions related to one VPReduction
+  void insertOneReductionVPInstructions(
+    VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
+    VPBasicBlock *Preheader,
+    DenseMap<const VPReduction *,
+             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap);
 
   // Mapping function that returns the underlying raw pointer.
   template <typename EntityType>

@@ -49,10 +49,6 @@ static cl::opt<bool> DTransSOAToAOSSizeHeuristic(
     "dtrans-soatoaos-size-heuristic", cl::init(true), cl::Hidden,
     cl::desc("Respect size heuristic in DTrans SOAToAOS"));
 
-static cl::opt<bool> DTransSOAToAOSIgnoreClassInfo(
-    "dtrans-soatoaos-ignore-classinfo", cl::init(false), cl::Hidden,
-    cl::desc("Ignore ClassInfo Analysis in DTrans SOAToAOS"));
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<std::string> DTransSOAToAOSType("dtrans-soatoaos-typename",
                                                cl::ReallyHidden);
@@ -113,8 +109,6 @@ private:
     // Verify that all member functions of vector field classes are
     // expected pattern.
     bool checkClassInfoAnalysis(SOAToAOSTransformImpl &Impl, Module &M) {
-      if (DTransSOAToAOSIgnoreClassInfo)
-        return true;
 
       std::unique_ptr<SOACandidateInfo> CandD(new SOACandidateInfo());
       if (!CandD->isCandidateType(Struct) || !CandD->collectMemberFunctions(M))
@@ -152,9 +146,6 @@ private:
           return true;
         return false;
       };
-
-      if (DTransSOAToAOSIgnoreClassInfo)
-        return false;
 
       auto *A1Ty = getStructTypeOfMethod(*F1);
       auto *A2Ty = getStructTypeOfMethod(*F2);
@@ -366,6 +357,20 @@ private:
       AMT.updateBasePointerInsts(CopyElemInsts, getNumArrays(),
                                  NewElement->getPointerTo(0));
 
+      // Generate Store instructions early for each element except the CurrElem
+      // only when member functions need to be combined (i.e CopyElemInsts is
+      // true). The original StoreInst is used for the CurrElem.
+      ArrayMethodTransformation::ClonedElemStoreMapTy ClonedElemStoreMap;
+      if (CopyElemInsts) {
+        unsigned Off = -1U;
+        for (auto *Elem : elements()) {
+          ++Off;
+          if (Elem == CurrElem)
+            continue;
+          AMT.earlyCloneElemStoreInst(Off, ClonedElemStoreMap);
+        }
+      }
+
       bool UpdateUnique = true;
       unsigned Off = -1U;
       unsigned CurrOff = 0U;
@@ -383,7 +388,8 @@ private:
               OrigToCopy, UpdateUnique, getNumArrays(),
               Elem /*Type related to copies*/,
               AppendMethodElemParamOffset +
-                  Off /* Offset in argument list of new element*/);
+                  Off /* Offset in argument list of new element*/,
+              ClonedElemStoreMap, Off);
           AMT.gepRAUW(true /*Do copy*/, OrigToCopy,
                       Off /*Elem's offset in NewElement*/,
                       NewElement->getPointerTo(0));

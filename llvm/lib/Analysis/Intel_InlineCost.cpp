@@ -1181,7 +1181,7 @@ preferNotToInlineForSwitchComputations(CallBase &CB,
     // by the switch statements targets.
     unsigned Count = 0;
     auto DT = ILIC.getDT(Caller);
-    for (auto &DTN : DT->getNode(EntryBlock)->children()) {
+    for (auto &&DTN : DT->getNode(EntryBlock)->children()) {
       auto BB = DTN->getBlock();
       if (BB->getUniquePredecessor() == EntryBlock)
         continue;
@@ -1834,7 +1834,7 @@ static bool boundConstArg(Function *F, Loop *L) {
 // have trip counts that will be constant after F is inlined.
 //
 static bool hasConstTripCountArg(Function *F, Loop *L) {
-  if (L->empty() && L->getParentLoop() && boundConstArg(F, L) &&
+  if (L->isInnermost() && !L->isOutermost() && boundConstArg(F, L) &&
       boundConstArg(F, L->getParentLoop()))
     return true;
   for (auto LB = L->begin(), LE = L->end(); LB != LE; ++LB)
@@ -2058,7 +2058,7 @@ static int handleLoopForFusion(Loop *LL, int ArgCnt) {
         PtrOp = GEPI->getPointerOperand();
       } else if (SubscriptInst *SI = dyn_cast<SubscriptInst>(&I)) {
         PtrOp = SI->getPointerOperand();
-        while (SI = dyn_cast<SubscriptInst>(PtrOp))
+        while ((SI = dyn_cast<SubscriptInst>(PtrOp)))
           PtrOp = SI->getPointerOperand();
       }
       if (PtrOp) {

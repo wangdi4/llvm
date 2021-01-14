@@ -1,4 +1,4 @@
-# UNSUPPORTED: i686-pc-windows
+# INTEL UNSUPPORTED: i686-pc-windows
 # RUN: ld64.lld -arch i386 %s %p/Inputs/hello-world-x86.yaml -o %t
 # RUN: llvm-objdump --macho --exports-trie %t | FileCheck %s
 #

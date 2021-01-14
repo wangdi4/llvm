@@ -65,19 +65,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   {
 ; CHECK:       |   case 1:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2]  *  -1.000000e+00;
-; CHECK:       |      |   %sum = %sum  +  %Aijbj;
+; CHECK:       |      |   %sum = %sum  - (%A)[128 * i1 + i2];
 ; CHECK:       |      + END LOOP
 ; CHECK:       |      break;
 ; CHECK:       |   case 2:
-; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2]  *  0.000000e+00;
-; CHECK:       |      |   %sum = %sum  +  %Aijbj;
-; CHECK:       |      + END LOOP
-; CHECK:       |      break;
+; CHECK-NEXT:  |      break;
 ; CHECK:       |   case 3:
 ; CHECK:       |      + DO i2 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2]  *  1.000000e+00;
+; CHECK:       |      |   %Aijbj = (%A)[128 * i1 + i2];
 ; CHECK:       |      |   %sum = %sum  +  %Aijbj;
 ; CHECK:       |      + END LOOP
 ; CHECK:       |      break;
@@ -105,11 +100,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; OPTREPORT:     LOOP END
 
 ; OPTREPORT:     LOOP BEGIN
-; OPTREPORT:     <Row-wise multiversioned loop for value 0.000000e+00>
+; OPTREPORT:     <Row-wise multiversioned loop for value -1.000000e+00>
 ; OPTREPORT:     LOOP END
 
 ; OPTREPORT:     LOOP BEGIN
-; OPTREPORT:     <Row-wise multiversioned loop for value -1.000000e+00>
+; OPTREPORT:     <Row-wise multiversioned loop for value 0.000000e+00>
 ; OPTREPORT:     LOOP END
 
 ; OPTREPORT:     LOOP BEGIN
@@ -136,7 +131,7 @@ L2:
   %bjp = getelementptr inbounds double, double* %b, i32 %j
   %bj = load double, double* %bjp
   %Aijbj = fmul fast double %Aij, %bj
-  %sum.next = fadd double %sum.L2, %Aijbj
+  %sum.next = fadd fast double %sum.L2, %Aijbj
   %j.next = add nuw nsw i32 %j, 1
   %L2.cond = icmp eq i32 %j.next, 128
   br i1 %L2.cond, label %L2.exit, label %L2

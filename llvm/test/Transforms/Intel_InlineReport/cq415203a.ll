@@ -7,21 +7,19 @@
 source_filename = "cq415203a.cpp"
 
 ; Inline report
-; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-OLD-PM,CHECK
-; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NEW-PM,CHECK
+; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-CL,CHECK
+; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-CL,CHECK
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=128 < %s -S | opt -inline -inline-report=128 -S | opt -inlinereportemitter -inline-report=128 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 ; RUN: opt -passes='inlinereportsetup' -inline-report=128 < %s -S | opt -passes='cgscc(inline)' -inline-report=128 -S | opt -passes='inlinereportemitter' -inline-report=128 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 
 ; CHECK-MD: -> INLINE: {{.*}}bar{{.*}}
 ; CHECK-MD: DEAD STATIC FUNC: {{.*}}bar{{.*}}
-; CHECK-OLD-PM: DEAD STATIC FUNC: {{.*}}bar{{.*}}
-; CHECK-OLD-PM: -> INLINE: {{.*}}bar{{.*}}
 ; CHECK: define i32 @main()
 ; CHECK-NOT: @llvm.va_arg_pack_len
 ; CHECK: ret i32 4
-; CHECK-NEW-PM: DEAD STATIC FUNC: {{.*}}bar{{.*}}
-; CHECK-NEW-PM: -> INLINE: {{.*}}bar{{.*}}
+; CHECK-CL: DEAD STATIC FUNC: {{.*}}bar{{.*}}
+; CHECK-CL: -> INLINE: {{.*}}bar{{.*}}
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

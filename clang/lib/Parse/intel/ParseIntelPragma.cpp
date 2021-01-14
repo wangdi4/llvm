@@ -151,6 +151,14 @@ struct PragmaBlockLoopInfo {
 };
 } // end anonymous namespace
 
+namespace {
+struct PragmaPrefetchInfo {
+  Token PragmaName;
+  ArrayRef<Token> LastToks;
+  SmallVector<ArrayRef<Token>, 2> PrefetchTokens;
+};
+} // end anonymous namespace
+
 bool Parser::HandlePragmaBlockLoop(ArgsVector *ArgExprs) {
   assert(Tok.is(tok::annot_pragma_blockloop));
   PragmaBlockLoopInfo *Info =
@@ -452,8 +460,285 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
 }
 
+/// Handle the prefetch pragma
+///   #pragma prefetch [ arg1 [: integer1 [, integer2 ]] ... ]
+///
+///   where argN is a valid memory reference,
+///   integer1 is an optional "hint" specifying the type of prefetch
+///   integer2 is an optional "distance" indicating number of loop iterations
+///   ahead to prefetch.
+bool Parser::HandlePragmaPrefetch(ArgsVector *ArgExprs) {
+  assert(Tok.is(tok::annot_pragma_prefetch));
+  PragmaPrefetchInfo *Info =
+      static_cast<PragmaPrefetchInfo *>(Tok.getAnnotationValue());
+  for (auto &P : Info->PrefetchTokens) {
+    PP.EnterTokenStream(P, /*DisableMacroExpansion=*/false,
+      /*IsReinject*/false);
+    if (Tok.is(tok::annot_pragma_prefetch))
+      ConsumeAnnotationToken();
+    else
+      ConsumeToken();  // The terminator eof.
+    ExprResult ValExpr;
+    // If prefetch with no arguments
+    if (Tok.is(tok::eof))
+      break;
+    // If prefetch *
+    if (Tok.is(tok::star))
+      PP.Lex(Tok);
+    else if (Tok.isNot(tok::numeric_constant)) {
+      // We'll see the memory reference before hint/distance
+      ValExpr = Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
+      if (ValExpr.isUsable())
+        ArgExprs->push_back(ValExpr.get());
+      else
+        return false;
+    }
+    // Hint and distance, if they are present
+    while (Tok.is(tok::numeric_constant)) {
+      ValExpr = ParseConstantExpression();
+      if (ValExpr.isInvalid()) {
+        ConsumeToken();  // The terminator eof.
+        return false;
+      }
+      ArgExprs->push_back(ValExpr.get());
+    }
+  }
+  if (Info->LastToks.empty()) {
+    ConsumeAnnotationToken();
+  } else {
+    ConsumeToken();  // The terminator eof.
+  }
+  return true;
+}
+
+StmtResult Parser::ParsePragmaPrefetch(StmtVector &Stmts,
+                                       ParsedStmtContext StmtCtx,
+                                       SourceLocation *TrailingElseLoc,
+                                       ParsedAttributesWithRange &Attrs) {
+  // Create temporary attribute list.
+  ParsedAttributesWithRange TempAttrs(AttrFactory);
+
+  // Get prefetch arguments and consume annotated token.
+  assert(Tok.is(tok::annot_pragma_prefetch));
+
+  while (Tok.is(tok::annot_pragma_prefetch)) {
+    PragmaPrefetchInfo *Info =
+        static_cast<PragmaPrefetchInfo *>(Tok.getAnnotationValue());
+    IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
+    IdentifierLoc *PragmaNameLoc = IdentifierLoc::create(
+        Actions.Context, Info->PragmaName.getLocation(), PragmaNameInfo);
+    ArgsVector ArgExprs;
+    ArgExprs.push_back(PragmaNameLoc);
+    if (!HandlePragmaPrefetch(&ArgExprs))
+      continue;
+    SourceRange Range = SourceRange(Info->PragmaName.getLocation(),
+                                    Info->LastToks.empty()
+                                        ? Info->PragmaName.getLocation()
+                                        : Info->LastToks.back().getLocation());
+    TempAttrs.addNew(PragmaNameLoc->Ident, Range, nullptr, PragmaNameLoc->Loc,
+                     ArgExprs.data(), ArgExprs.size(), ParsedAttr::AS_Pragma);
+  }
+  // Get the next statement.
+  MaybeParseCXX11Attributes(Attrs);
+
+  StmtResult S = ParseStatementOrDeclarationAfterAttributes(
+      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  Attrs.takeAllFrom(TempAttrs);
+  return S;
+}
+
+/// Handle prefetch pragma arguments, which can take the following forms
+/// dependent upon the form of prefetch seen:
+///   #pragma prefetch [v1 [: h1 [: d1]] [, v2 [: h2 [: d2]]]...]
+///
+/// v1 ... vN represent some form of memory reference
+/// h1 ... hN are optional constant values representing hints that specify
+///           the type of prefetch and must be between one and four.
+/// d1 ... dN are optional constant values specifying number of loops ahead of
+///           which a prefetch is issued and must be greater than zero. Can
+///           only follow a hint value if specified.
+///
+///   #pragma prefetch *:hint[ :distance ]
+/// where "hint" and "distance" are as described above, with the additional
+/// requirement that the hint must be present.
+///
+///    #pragma noprefetch [var1 [, var2] ...
+static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
+                                    Token PragmaName,
+                                    PragmaPrefetchInfo *Info) {
+  bool IsPrefetch = PragmaName.getIdentifierInfo()->getName() == "prefetch";
+  SmallVector<Token, 1> ValueList;
+  bool IsStar = Tok.is(tok::star);
+  bool StarAfterNoprefetch = (IsStar && !IsPrefetch);
+  bool StarAfterFirstArg = (IsStar && Info->PrefetchTokens.size() > 0);
+  bool IntIsFirstArg = (Tok.is(tok::numeric_constant));
+  if (StarAfterNoprefetch || StarAfterFirstArg || IntIsFirstArg) {
+    PP.Diag(Tok.getLocation(), diag::err_prefetch_invalid_argument) <<
+      (IsPrefetch ? "prefetch" : "noprefetch");
+    return true;
+  }
+  bool PrefetchHasArgs = Tok.isNot(tok::eod);
+  // Use of '*' must be followed by ':' and an integer constant, and
+  // then optionally, by another ':' and integer constant.
+  if (IsStar) {
+    ValueList.push_back(Tok);
+    PP.Lex(Tok);
+    if (Tok.isNot(tok::colon)) {
+      PP.Diag(Tok.getLocation(), diag::err_expected) << tok::colon
+          << Tok.getKind();
+      return true;
+    } else
+      PP.Lex(Tok);
+    if (Tok.isNot(tok::numeric_constant)) {
+      PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+          << PragmaName.getIdentifierInfo()->getName();
+      return true;
+    }
+    ValueList.push_back(Tok); // hint associated with prefetch
+    PP.Lex(Tok);
+    if (Tok.is(tok::colon)) {
+      PP.Lex(Tok);
+      if (Tok.isNot(tok::numeric_constant)) {
+        PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+            << PragmaName.getIdentifierInfo()->getName();
+        return true;
+      }
+      ValueList.push_back(Tok); // distance associated with prefetch
+      PP.Lex(Tok);
+    } else if (Tok.isNot(tok::eod)) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+          << PragmaName.getIdentifierInfo()->getName();
+      return true;
+    }
+  } else {
+    // Tokens for pragma argument
+    bool ArgSeen = false;
+    while (Tok.isNot(tok::eod) && Tok.isNot(tok::colon) &&
+           Tok.isNot(tok::comma)) {
+      // Valid argument must contain some reference to a variable. It may,
+      // however, still end up invalid, but that will be caught later.
+      if (Tok.is(tok::identifier))
+        ArgSeen = true;
+      ValueList.push_back(Tok);
+      PP.Lex(Tok);
+    }
+    if (!ArgSeen && PrefetchHasArgs) {
+      PP.Diag(Tok.getLocation(), diag::err_prefetch_invalid_argument)
+          << (IsPrefetch ? "prefetch" : "noprefetch");
+      return true;
+    }
+    if (!IsPrefetch && Tok.isNot(tok::comma) && Tok.isNot(tok::eod)) {
+      PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+          << PragmaName.getIdentifierInfo()->getName();
+      return true;
+    }
+    // Argument has been seen, might be followed by a hint and distance.
+    if (IsPrefetch && Tok.is(tok::colon)) {
+      PP.Lex(Tok);
+      if (Tok.isNot(tok::numeric_constant)) {
+        PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+            << PragmaName.getIdentifierInfo()->getName();
+        return true;
+      }
+      ValueList.push_back(Tok);
+      PP.Lex(Tok);
+      if (Tok.is(tok::colon)) {
+        PP.Lex(Tok);
+        if (Tok.isNot(tok::numeric_constant)) {
+          PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+              << PragmaName.getIdentifierInfo()->getName();
+          return true;
+        }
+        ValueList.push_back(Tok);
+        PP.Lex(Tok);
+      }
+    }
+  }
+  // Set up for next memory reference, if present. Additional arguments
+  // can't follow a '*'
+  if (Tok.is(tok::comma) && !IsStar) {
+    PP.Lex(Tok);
+  } else if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << PragmaName.getIdentifierInfo()->getName();
+    return true;
+  }
+  Token EOFTok;
+  EOFTok.startToken();
+  EOFTok.setKind(tok::eof);
+  EOFTok.setLocation(Tok.getLocation());
+  ValueList.push_back(EOFTok); // Terminates expression for parsing.
+  Info->LastToks =
+      llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
+  Info->PrefetchTokens.push_back(Info->LastToks);
+  return false;
+}
+
+/// Parse noprefetch pragma and its arguments.
+void PragmaNoPrefetchHandler::HandlePragma(Preprocessor &PP,
+                                           PragmaIntroducer Introducer,
+                                           Token &Tok) {
+  // Incoming token is "noprefetch"
+  Token PragmaName = Tok;
+  SmallVector<Token, 4> TokenList;
+  // Skip past pragma name
+  PP.Lex(Tok);
+  PragmaPrefetchInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaPrefetchInfo;
+  // Incoming eod (end of directive) token implies prefetch with no arguments.
+  do {
+    if (ParseIntelPrefetchArgument(PP, Tok, PragmaName, Info))
+      return;
+  } while (Tok.isNot(tok::eod));
+  Info->PragmaName = PragmaName;
+  Token PrefetchTok;
+  PrefetchTok.startToken();
+  PrefetchTok.setKind(tok::annot_pragma_prefetch);
+  PrefetchTok.setLocation(PragmaName.getLocation());
+  PrefetchTok.setAnnotationEndLoc(PragmaName.getLocation());
+  PrefetchTok.setAnnotationValue(static_cast<void *>(Info));
+  TokenList.push_back(PrefetchTok);
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
+  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+
+  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
+                      /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
+}
+
+/// Parse prefetch pragma and its arguments.
+void PragmaPrefetchHandler::HandlePragma(Preprocessor &PP,
+                                         PragmaIntroducer Introducer,
+                                         Token &Tok) {
+  // Incoming token is "prefetch"
+  Token PragmaName = Tok;
+  SmallVector<Token, 4> TokenList;
+  // Skip past pragma name
+  PP.Lex(Tok);
+  PragmaPrefetchInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaPrefetchInfo;
+  // Incoming eod (end of directive) token implies prefetch with no arguments.
+  do {
+    if (ParseIntelPrefetchArgument(PP, Tok, PragmaName, Info))
+      return;
+  } while (Tok.isNot(tok::eod));
+  Info->PragmaName = PragmaName;
+  Token PrefetchTok;
+  PrefetchTok.startToken();
+  PrefetchTok.setKind(tok::annot_pragma_prefetch);
+  PrefetchTok.setLocation(PragmaName.getLocation());
+  PrefetchTok.setAnnotationEndLoc(PragmaName.getLocation());
+  PrefetchTok.setAnnotationValue(static_cast<void *>(Info));
+  TokenList.push_back(PrefetchTok);
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
+  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+
+  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
+                      /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
+}
+
 void Parser::initializeIntelPragmaHandlers() {
-  if (getLangOpts().IntelCompat) {
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaInline)) {
     // #pragma inline
     InlineHandler.reset(new PragmaInlineHandler("inline"));
     PP.AddPragmaHandler(InlineHandler.get());
@@ -472,11 +757,20 @@ void Parser::initializeIntelPragmaHandlers() {
     NoBlockLoopHandler.reset(new PragmaNoBlockLoopHandler("noblock_loop"));
     PP.AddPragmaHandler(NoBlockLoopHandler.get());
   }
+  // #pragma prefetch
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaPrefetch) &&
+      getLangOpts().IntelPragmaPrefetch) {
+    PrefetchHandler.reset(new PragmaPrefetchHandler("prefetch"));
+    PP.AddPragmaHandler(PrefetchHandler.get());
+    // #pragma noprefetch
+    NoPrefetchHandler.reset(new PragmaNoPrefetchHandler("noprefetch"));
+    PP.AddPragmaHandler(NoPrefetchHandler.get());
+  }
 }
 
 void Parser::resetIntelPragmaHandlers() {
   // Remove the pragma handlers we installed.
-  if (getLangOpts().IntelCompat) {
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaInline)) {
     // #pragma inline
     PP.RemovePragmaHandler(InlineHandler.get());
     InlineHandler.reset();
@@ -494,5 +788,14 @@ void Parser::resetIntelPragmaHandlers() {
     // #pragma noblock_loop
     PP.RemovePragmaHandler(NoBlockLoopHandler.get());
     NoBlockLoopHandler.reset();
+  }
+  // #pragma prefetch
+  if (getLangOpts().isIntelCompat(LangOptions::PragmaPrefetch) &&
+      getLangOpts().IntelPragmaPrefetch) {
+    PP.RemovePragmaHandler(PrefetchHandler.get());
+    PrefetchHandler.reset();
+    // #pragma noprefetch
+    PP.RemovePragmaHandler(NoPrefetchHandler.get());
+    NoPrefetchHandler.reset();
   }
 }

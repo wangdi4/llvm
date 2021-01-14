@@ -1,5 +1,5 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 ;
 ; Test Src:
 ;
@@ -59,7 +59,7 @@ entry:
 ; CHECK: call void [[OUTLINE_FUNCTION:@__omp_offloading.+foo.+]](double** {{.+}}, i64* [[SIZE_ADDR]], double* %vla)
 ; Check that inside the outlined function, the captured size is loaded
 ; and used in allocating a local VLA for %vla
-; CHECK: define internal void [[OUTLINE_FUNCTION]](double** {{.*}}, i64* [[SIZE_ADDR_ARG:[^ ]+]], double* {{.+}})
+; CHECK: define internal void [[OUTLINE_FUNCTION]](double** {{.*}}, i64* noalias [[SIZE_ADDR_ARG:[^ ]+]], double* {{.+}})
 ; CHECK: [[VLA_SIZE_VAL:[^ ]+]] = load i64, i64* [[SIZE_ADDR_ARG]]
 ; CHECK: {{.+}} = alloca double, i64 [[VLA_SIZE_VAL]]
 

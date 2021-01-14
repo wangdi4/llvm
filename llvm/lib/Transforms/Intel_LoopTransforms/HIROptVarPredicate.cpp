@@ -89,6 +89,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
+#include "HIROptVarPredicate.h"
+
 #define OPT_SWITCH "hir-opt-var-predicate"
 #define OPT_DESC "HIR Var OptPredicate"
 #define DEBUG_TYPE OPT_SWITCH
@@ -154,7 +156,7 @@ struct EqualCandidates : public SmallSetVector<HLIf *, 8> {
 #endif
 };
 
-class HIROptVarPredicate {
+class HIROptVarPredicate : public HIROptVarPredicateInterface {
   HIRFramework &HIRF;
   BlobUtils &BU;
 
@@ -166,6 +168,14 @@ public:
 
   bool run();
 
+  bool processLoop(HLLoop *Loop, bool SetRegionModified,
+                   SmallVectorImpl<HLLoop *> *OutLoops) override;
+
+  const SmallPtrSetImpl<HLNode *> &getNodesToInvalidate() const override {
+    return NodesToInvalidate;
+  }
+
+  virtual ~HIROptVarPredicate() {}
 private:
   static std::unique_ptr<CanonExpr>
   findIVSolution(Type *IVType, const RegDDRef *LHSDDref, PredicateTy Pred,
@@ -175,11 +185,8 @@ private:
   void splitLoop(HLLoop *Loop, const EqualCandidates &Candidates,
                  const RegDDRef *LHS, PredicateTy Pred, const RegDDRef *RHS,
                  const CanonExpr *LowerCE, const CanonExpr *UpperCE,
-                 const CanonExpr *SplitPoint, bool ShouldInvertCondition);
-
-  bool processLoop(HLLoop *Loop);
-
-  void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob, unsigned BlobIndex);
+                 const CanonExpr *SplitPoint, bool ShouldInvertCondition,
+                 SmallVectorImpl<HLLoop *> *OutLoops);
 
   BlobTy castBlob(BlobTy Blob, Type *DesiredType, bool IsSigned);
 
@@ -403,7 +410,7 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
 
   // 1*IV < RHS + Shift
 
-  return std::move(Result);
+  return Result;
 }
 
 bool HIROptVarPredicate::run() {
@@ -433,8 +440,9 @@ bool HIROptVarPredicate::run() {
   LLVM_DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
                     << HIRF.getFunction().getName() << "\n");
 
-  ForPostEach<HLLoop>::visitRange(HIRF.hir_begin(), HIRF.hir_end(),
-                                  [this](HLLoop *Loop) { processLoop(Loop); });
+  ForPostEach<HLLoop>::visitRange(
+      HIRF.hir_begin(), HIRF.hir_end(),
+      [this](HLLoop *Loop) { processLoop(Loop, true, nullptr); });
 
   for (HLNode *Node : NodesToInvalidate) {
     if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
@@ -467,26 +475,6 @@ BlobTy HIROptVarPredicate::castBlob(BlobTy Blob, Type *DesiredType,
                            !isa<SCEVConstant>(Blob));
 }
 
-void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
-                                          unsigned BlobIndex) {
-  CanonExpr *CE = Ref->getSingleCanonExpr();
-  CE->clear();
-
-  int64_t Value;
-  if (BlobUtils::isConstantIntBlob(Blob, &Value)) {
-    CE->setConstant(Value);
-    Ref->setSymbase(ConstantSymbase);
-  } else {
-    CE->setBlobCoeff(BlobIndex, 1);
-
-    if (BlobUtils::isTempBlob(Blob)) {
-      Ref->setSymbase(BU.findTempBlobSymbase(Blob));
-    } else {
-      Ref->setSymbase(GenericRvalSymbase);
-    }
-  }
-}
-
 void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
                                               BlobTy SplitPointBlob,
                                               bool IsSigned) {
@@ -506,7 +494,7 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
                                 &MinBlobIndex);
   }
 
-  setSelfBlobDDRef(Loop->getUpperDDRef(), MinBlob, MinBlobIndex);
+  HIRTransformUtils::setSelfBlobDDRef(Loop->getUpperDDRef(), MinBlob, MinBlobIndex);
 }
 
 void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
@@ -528,7 +516,7 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
                                 &MaxBlobIndex);
   }
 
-  setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
+  HIRTransformUtils::setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
 }
 
 static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
@@ -585,7 +573,7 @@ void HIROptVarPredicate::splitLoop(
     HLLoop *Loop, const EqualCandidates &Candidates, const RegDDRef *LHS,
     PredicateTy Pred, const RegDDRef *RHS, const CanonExpr *LowerCE,
     const CanonExpr *UpperCE, const CanonExpr *SplitPoint,
-    bool ShouldInvertCondition) {
+    bool ShouldInvertCondition, SmallVectorImpl<HLLoop *> *OutLoops) {
 
   assert((LowerCE->isIntConstant() || LowerCE->isStandAloneBlob(false)) &&
          "LowerCE should be a constant or stand-alone blob");
@@ -602,10 +590,9 @@ void HIROptVarPredicate::splitLoop(
 
   // Invalidate the loop before it would be split.
   HIRInvalidationUtils::invalidateBounds(Loop);
-  HIRInvalidationUtils::invalidateBody(Loop);
+  NodesToInvalidate.erase(Loop);
 
-  Loop->extractZtt();
-  Loop->extractPreheaderAndPostexit();
+  Loop->extractZttPreheaderAndPostexit();
 
   // Process HLIfs inside the loops.
 
@@ -615,6 +602,11 @@ void HIROptVarPredicate::splitLoop(
   ElseContainers.resize(Candidates.size());
 
   for (auto CI : enumerate(Candidates)) {
+    // Invalidate If's container before moving nodes around.
+    HLLoop *ParentLoop = CI.value()->getParentLoop();
+    HIRInvalidationUtils::invalidateBody(ParentLoop);
+    NodesToInvalidate.erase(ParentLoop);
+
     auto &ThenContainer = ThenContainers[CI.index()];
     auto &ElseContainer = ElseContainers[CI.index()];
 
@@ -764,11 +756,19 @@ void HIROptVarPredicate::splitLoop(
   unsigned VNum = 1;
 
   if (FirstLoopNeeded) {
+    if (OutLoops) {
+      OutLoops->push_back(Loop);
+    }
+
     OptReportLoop = Loop;
     LORBuilder(*Loop).addOrigin("Predicate Optimized v%d", VNum++);
   }
 
   if (SecondLoopNeeded && SecondLoop) {
+    if (OutLoops) {
+      OutLoops->push_back(SecondLoop);
+    }
+
     if (!OptReportLoop) {
       OptReportLoop = SecondLoop;
     }
@@ -776,6 +776,10 @@ void HIROptVarPredicate::splitLoop(
   }
 
   if (ThirdLoopNeeded) {
+    if (OutLoops) {
+      OutLoops->push_back(ThirdLoop);
+    }
+
     if (!OptReportLoop) {
       OptReportLoop = ThirdLoop;
     }
@@ -787,7 +791,8 @@ void HIROptVarPredicate::splitLoop(
   }
 }
 
-bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
+bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
+                                     SmallVectorImpl<HLLoop *> *OutLoops) {
   LLVM_DEBUG(dbgs() << "Processing loop <" << Loop->getNumber() << ">\n");
 
   if (!Loop->isDo()) {
@@ -822,8 +827,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   IfLookup Lookup(Candidates, Level);
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
-  for (const EqualCandidates &Candidate :
-       llvm::make_range(Candidates.begin(), Candidates.end())) {
+  for (const EqualCandidates &Candidate : Candidates) {
     LLVM_DEBUG(dbgs() << "Processing Ifs:\n");
     LLVM_DEBUG(Candidate.dump());
     LLVM_DEBUG(dbgs() << "\n");
@@ -886,9 +890,9 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     HLRegion *Region = Loop->getParentRegion();
 
     splitLoop(Loop, Candidate, LHS, Pred, RHS, LowerCE.get(), UpperCE.get(),
-              SplitPoint.get(), ShouldInvertCondition);
+              SplitPoint.get(), ShouldInvertCondition, OutLoops);
 
-    if (Candidate.shouldGenCode(Loop)) {
+    if (SetRegionModified && Candidate.shouldGenCode(Loop)) {
       Region->setGenCode();
     }
 
@@ -948,4 +952,9 @@ INITIALIZE_PASS_END(HIROptVarPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
 
 FunctionPass *llvm::createHIROptVarPredicatePass() {
   return new HIROptVarPredicateLegacyPass();
+}
+
+std::unique_ptr<HIROptVarPredicateInterface>
+HIROptVarPredicateInterface::create(HIRFramework &HIRF) {
+  return std::make_unique<HIROptVarPredicate>(HIRF);
 }

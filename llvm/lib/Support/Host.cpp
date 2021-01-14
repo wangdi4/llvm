@@ -208,6 +208,7 @@ StringRef sys::detail::getHostCPUNameForARM(StringRef ProcCpuinfoContent) {
             .Case("0xd41", "cortex-a78")
             .Case("0xd44", "cortex-x1")
             .Case("0xd0c", "neoverse-n1")
+            .Case("0xd49", "neoverse-n2")
             .Default("generic");
   }
 
@@ -323,7 +324,7 @@ StringRef sys::detail::getHostCPUNameForS390x(StringRef ProcCpuinfoContent) {
   SmallVector<StringRef, 32> CPUFeatures;
   for (unsigned I = 0, E = Lines.size(); I != E; ++I)
     if (Lines[I].startswith("features")) {
-      size_t Pos = Lines[I].find(":");
+      size_t Pos = Lines[I].find(':');
       if (Pos != StringRef::npos) {
         Lines[I].drop_front(Pos + 1).split(CPUFeatures, ' ');
         break;
@@ -740,14 +741,12 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ICELAKE_SERVER;
       break;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
     // Sapphire Rapids:
     case 0x8f:
       CPU = "sapphirerapids";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_SAPPHIRERAPIDS;
       break;
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
 
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft
@@ -779,6 +778,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = X86::INTEL_GOLDMONT_PLUS;
       break;
     case 0x86:
+      CPU = "tremont";
       *Type = X86::INTEL_TREMONT;
       break;
 #if INTEL_CUSTOMIZATION
@@ -790,11 +790,11 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
 
+    // Xeon Phi (Knights Landing + Knights Mill):
     case 0x57:
-      CPU = "tremont";
+      CPU = "knl";
       *Type = X86::INTEL_KNL;
       break;
-
     case 0x85:
       CPU = "knm";
       *Type = X86::INTEL_KNM;
@@ -980,6 +980,14 @@ getAMDProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     if (Model <= 0x0f) {
       *Subtype = X86::AMDFAM17H_ZNVER1;
       break; // 00h-0Fh: Zen1
+    }
+    break;
+  case 25:
+    CPU = "znver3";
+    *Type = X86::AMDFAM19H;
+    if (Model <= 0x0f) {
+      *Subtype = X86::AMDFAM19H_ZNVER3;
+      break; // 00h-0Fh: Zen3
     }
     break;
   default:
@@ -1489,22 +1497,13 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["avx512bitalg"]    = HasLeaf7 && ((ECX >> 12) & 1) && HasAVX512Save;
   Features["avx512vpopcntdq"] = HasLeaf7 && ((ECX >> 14) & 1) && HasAVX512Save;
   Features["rdpid"]           = HasLeaf7 && ((ECX >> 22) & 1);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  Features["keylocker"]       = HasLeaf7 && ((ECX >> 23) & 1);
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+  Features["kl"]              = HasLeaf7 && ((ECX >> 23) & 1); // key locker
   Features["cldemote"]        = HasLeaf7 && ((ECX >> 25) & 1);
   Features["movdiri"]         = HasLeaf7 && ((ECX >> 27) & 1);
   Features["movdir64b"]       = HasLeaf7 && ((ECX >> 28) & 1);
   Features["enqcmd"]          = HasLeaf7 && ((ECX >> 29) & 1);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  Features["uli"]             = HasLeaf7 && ((EDX >> 5) & 1);
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
-
+  Features["uintr"]           = HasLeaf7 && ((EDX >> 5) & 1);
   Features["avx512vp2intersect"] =
       HasLeaf7 && ((EDX >> 8) & 1) && HasAVX512Save;
   Features["serialize"]       = HasLeaf7 && ((EDX >> 14) & 1);
@@ -1531,10 +1530,9 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["amx-int8"]   = HasLeaf7 && ((EDX >> 25) & 1) && HasAMXSave;
   bool HasLeaf7Subleaf1 =
       MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
+  Features["avxvnni"]    = HasLeaf7Subleaf1 && ((EAX >> 4) & 1) && HasAVXSave;
   Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1) && HasAVX512Save;
-#if INTEL_FEATURE_ISA_HRESET
   Features["hreset"]     = HasLeaf7Subleaf1 && ((EAX >> 22) & 1);
-#endif // INTEL_FEATURE_ISA_HRESET
 
   bool HasLeafD = MaxLevel >= 0xd &&
                   !getX86CpuIDAndInfoEx(0xd, 0x1, &EAX, &EBX, &ECX, &EDX);
@@ -1548,6 +1546,10 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
                   !getX86CpuIDAndInfoEx(0x14, 0x0, &EAX, &EBX, &ECX, &EDX);
 
   Features["ptwrite"] = HasLeaf14 && ((EBX >> 4) & 1);
+
+  bool HasLeaf19 =
+      MaxLevel >= 0x19 && !getX86CpuIDAndInfo(0x19, &EAX, &EBX, &ECX, &EDX);
+  Features["widekl"] = HasLeaf7 && HasLeaf19 && ((EBX >> 2) & 1);
 
   return true;
 }

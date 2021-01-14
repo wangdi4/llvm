@@ -1,10 +1,10 @@
-// RUN: %clang_cc1                                 -verify=host                                                              -Rpass=openmp -fopenmp -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm-bc %s -o %t-ppc-host.bc
-// RUN: %clang_cc1                                 -verify=all,safe                                                          -Rpass=openmp -fopenmp -O2 -x c++ -triple nvptx64-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o %t.out
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -verify=all,safe                                                          -Rpass=openmp -fopenmp -O2 -x c++ -triple nvptx64-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o %t.out
+// RUN: %clang_cc1                                 -verify=host                                                              -Rpass=openmp -fopenmp -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm-bc -mllvm -mandatory-inlining-first=0 %s -o %t-ppc-host.bc
+// RUN: %clang_cc1                                 -verify=all,safe                                                          -Rpass=openmp -fopenmp -O2 -x c++ -triple nvptx64-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm -mllvm -mandatory-inlining-first=0 %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o %t.out
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -verify=all,safe                                                          -Rpass=openmp -fopenmp -O2 -x c++ -triple nvptx64-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm -mllvm -mandatory-inlining-first=0 %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o %t.out
 
 // host-no-diagnostics
 
-void bar1(void) {
+void bar1(void) {    // all-remark {{[OMP100] Potentially unknown OpenMP target region caller}}
 #pragma omp parallel // #0
                      // all-remark@#0 {{Found a parallel region that is called in a target region but not part of a combined target construct nor nesed inside a target construct without intermediate code. This can lead to excessive register usage for unrelated target regions in the same translation unit due to spurious call edges assumed by ptxas.}}
                      // safe-remark@#0 {{Parallel region is not known to be called from a unique single target region, maybe the surrounding function has external linkage?; will not attempt to rewrite the state machine use.}}
@@ -13,7 +13,7 @@ void bar1(void) {
   {
   }
 }
-void bar2(void) {
+void bar2(void) {    // all-remark {{[OMP100] Potentially unknown OpenMP target region caller}}
 #pragma omp parallel // #1
                      // all-remark@#1 {{Found a parallel region that is called in a target region but not part of a combined target construct nor nesed inside a target construct without intermediate code. This can lead to excessive register usage for unrelated target regions in the same translation unit due to spurious call edges assumed by ptxas.}}
                      // safe-remark@#1 {{Parallel region is not known to be called from a unique single target region, maybe the surrounding function has external linkage?; will not attempt to rewrite the state machine use.}}

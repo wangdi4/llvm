@@ -119,7 +119,7 @@ attributes #3 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 
 !0 = !{i32 0, i32 64771, i32 536872841, !"_Z7Compute5cmplx", i32 11, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"Intel(R) oneAPI DPC++ Compiler Pro 2021.1 (YYYY.x.0.MMDD)"}
+!2 = !{!"clang version 10.0.0"}
 !3 = !{!4, !4, i64 0}
 !4 = !{!"int", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}

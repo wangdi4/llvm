@@ -73,6 +73,10 @@ void test_icecode() {
 // CHECK: call i64 @llvm.x86.icecode.creg.read.64(i32 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.fscp.read.32(i32 %{{.*}})
 // CHECK: call i64 @llvm.x86.icecode.fscp.read.64(i32 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.creg.xchg.mt.32(i32 %{{.*}}, i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.creg.xchg.mt.64(i32 %{{.*}}, i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.creg.read.mt.32(i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.creg.read.mt.64(i32 %{{.*}})
 // CHECK: call i8 @llvm.x86.icecode.portin.8(i64 %{{.*}})
 // CHECK: call i16 @llvm.x86.icecode.portin.16(i64 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.portin.32(i64 %{{.*}})
@@ -97,6 +101,8 @@ void test_icecode() {
 // CHECK: call void @llvm.x86.icecode.set.tracker(i32 0)
 // CHECK: call i32 asm sideeffect "portin24", "={ax},{dx},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
 // CHECK: call void asm sideeffect "portout24", "{ax},{dx},~{dirflag},~{fpsr},~{flags}"(i32 %{{.*}}, i64 %{{.*}})
+// CHECK: call void asm sideeffect "load_tickle_gpa", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
+// CHECK: call void asm sideeffect "store_tickle_gpa", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
   _ce_creg_xchg32(reg, data32);
   _ce_creg_xchg64(reg, data64);
   _ce_fscp_xchg32(reg, data32);
@@ -105,6 +111,10 @@ void test_icecode() {
   _ce_creg_read64(reg);
   _ce_fscp_read32(reg);
   _ce_fscp_read64(reg);
+  _ce_creg_xchg_mt32(reg, data32);
+  _ce_creg_xchg_mt64(reg, data64);
+  _ce_creg_read_mt32(reg);
+  _ce_creg_read_mt64(reg);
   _ce_portin8(data64);
   _ce_portin16(data64);
   _ce_portin32(data64);
@@ -129,6 +139,8 @@ void test_icecode() {
   _ce_set_tracker(0);
   _ce_portin24(data64);
   _ce_portout24(data64, data32);
+  _ce_load_tickle_gpa(data64);
+  _ce_store_tickle_gpa(data64);
 }
 
 void test_ce_iceret(unsigned reg) {

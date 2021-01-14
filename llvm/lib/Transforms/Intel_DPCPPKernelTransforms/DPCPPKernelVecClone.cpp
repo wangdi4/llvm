@@ -50,13 +50,96 @@ enum class FnAction {
   AssertIfEncountered, // Assert false.
 };
 
+static ConstantInt *createVFConstant(LLVMContext &C, const DataLayout &DL,
+                                     size_t VF) {
+  assert(((DL.getPointerSizeInBits() == 64) ||
+          (DL.getPointerSizeInBits() == 32)) &&
+         "Unexpected ptr size!");
+  return ConstantInt::get(Type::getIntNTy(C, DL.getPointerSizeInBits()), VF);
+}
+
+// TODO: this built-in should be processed in ported ResolveSubGroupWICall pass
+// TODO: scalar remainder processing is incorrect (VectorLength==1) due to the
+// unported masking
+static bool ReplaceMaxSGSizeCall(Module &M) {
+  if (Function *F = M.getFunction("__builtin_get_max_sub_group_size")) {
+    std::vector<std::pair<Instruction *, Value *>> InstToReplace;
+    // Collecting all __builtin_get_max_sub_group_size calls to replace them by
+    // a constant VectorLength
+    for (User *U : F->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        unsigned VectorLength = 1;
+        assert(CI->getFunction()->hasFnAttribute("vectorized_width") &&
+               "Calling __builtin_get_max_sub_group_size function doesn't have "
+               "a vectorized_width attribute. Try to inline it!");
+        bool err = to_integer(CI->getFunction()
+                                  ->getFnAttribute("vectorized_width")
+                                  .getValueAsString(),
+                              VectorLength);
+        // Silence the warning to avoid querying attribute twice.
+        (void)err;
+        assert(err && "Can't read vectorized_width data!");
+        Value *ConstVF = CastInst::CreateTruncOrBitCast(
+            createVFConstant(M.getContext(), M.getDataLayout(), VectorLength),
+            IntegerType::get(M.getContext(), 32), "max.sg.size", CI);
+        InstToReplace.emplace_back(CI, ConstVF);
+      }
+    }
+
+    // Replacing __builtin_get_max_sub_group_size calls
+    for (const auto &pair : InstToReplace) {
+      Instruction *from = pair.first;
+      Value *to = pair.second;
+      from->replaceAllUsesWith(to);
+      from->eraseFromParent();
+    }
+    return true;
+  }
+  return false;
+}
+
+// TODO: replacing of this built-in by 0 after VecClone should be processed in
+// ported ResolveSubGroupWICall pass
+// TODO: scalar remainder processing is incorrect (sub_group.get_local_id()[0]
+// == 0) due to the unported masking
+static bool ReplaceSGLocalId(Module &M) {
+  if (Function *F = M.getFunction("__builtin_get_sub_group_local_id")) {
+    std::vector<std::pair<Instruction *, Value *>> InstToReplace;
+    Value *ConstInt =
+        ConstantInt::get(IntegerType::get(M.getContext(), 32), 0);
+    // Collecting all __builtin_get_sub_group_local_id calls to replace them by
+    // a constant integer == 0
+    for (User *U : F->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        InstToReplace.emplace_back(CI, ConstInt);
+      }
+    }
+
+    // Replacing __builtin_get_sub_group_local_id calls
+    for (const auto &pair : InstToReplace) {
+      Instruction *from = pair.first;
+      Value *to = pair.second;
+      from->replaceAllUsesWith(to);
+      from->eraseFromParent();
+    }
+    return true;
+  }
+  return false;
+}
+
+
 DPCPPKernelVecClone::DPCPPKernelVecClone() : ModulePass(ID), Impl() {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
 
 bool DPCPPKernelVecClone::runOnModule(Module &M) {
   Impl.TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
-  return Impl.runImpl(M);
+  auto Res = Impl.runImpl(M);
+  // Handling get_sub_group_local_id after updateAndMoveTID
+  Res |= ReplaceSGLocalId(M);
+  // Handling get_max_sub_group_size
+  Res |= ReplaceMaxSGSizeCall(M);
+  return (Res);
 }
 
 DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl() : VecCloneImpl() {}
@@ -231,7 +314,8 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   // The FunctionsAndActions array has only the Kernel function built-ins that
   // are uniform.
   std::pair<std::string, FnAction> FunctionsAndActions[] = {
-      {"__builtin_get_local_id", FnAction::MoveAndUpdateUsesForDim}};
+      {"__builtin_get_local_id", FnAction::MoveAndUpdateUsesForDim},
+      {"__builtin_get_sub_group_local_id", FnAction::MoveAndUpdateUses}};
 
   // Collect all Kernel function built-ins.
   for (const auto &Pair : FunctionsAndActions) {

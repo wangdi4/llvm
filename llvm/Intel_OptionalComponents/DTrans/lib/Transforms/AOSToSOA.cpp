@@ -2699,12 +2699,14 @@ bool AOSToSOAPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
 
     // No arrays of the structure type were found, now check the structure
     // field types to verify all members are supported for the transformation.
-    // Reject any that contain arrays or vectors. We don't need to check for
-    // structures because those were rejected by the safety checks.
+    // Reject any that contain arrays or vectors. Also, reject the structure if
+    // a field is accessed in a load/Store instruction that did not involve a
+    // GEP to get the field address. We don't need to check for structures
+    // because those were rejected by the safety checks.
     bool Supported = true;
     for (auto &FI : Candidate->getFields()) {
       Type *Ty = FI.getLLVMType();
-      if (Ty->isArrayTy() || Ty->isVectorTy()) {
+      if (Ty->isArrayTy() || Ty->isVectorTy() || FI.hasNonGEPAccess()) {
         Supported = false;
         break;
       }
@@ -2969,7 +2971,7 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
   if (!DTransAOSToSOAHeurOverride.empty()) {
     SplitString(DTransAOSToSOAHeurOverride, SubStrings, ",");
     for (auto &Name : SubStrings) {
-      Type *Ty = M.getTypeByName(Name);
+      Type *Ty = StructType::getTypeByName(M.getContext(), Name);
       if (auto *StructTy = dyn_cast_or_null<StructType>(Ty)) {
         LLVM_DEBUG(
             dbgs()

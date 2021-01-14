@@ -15,23 +15,18 @@ define void @foo(i32* nocapture %ary) {
 ;    ary[i + 1] = t1;
 ;  }
 ; SVA-IR-LABEL:  VPlan after ScalVec analysis:
-; SVA-IR-NEXT:  Live-in values:
-; SVA-IR-NEXT:  ID: 0 Value: i64 0
-; SVA-IR-NEXT:    [[BB0:BB[0-9]+]]:
-; SVA-IR-NEXT:     <Empty Block>
-; SVA-IR-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; SVA-IR-NEXT:    no PREDECESSORS
+; SVA-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:
-; SVA-IR-NEXT:    [[BB1]]:
+; SVA-IR-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 2 (SVAOpBits 0->F 1->F )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 2 (SVAOpBits 0->F )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body (SVAOpBits )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
-; SVA-IR-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; SVA-IR-NEXT:    PREDECESSORS(1): [[BB0]]
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:
-; SVA-IR-NEXT:    [[BB2]]:
+; SVA-IR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->V 1->V )
@@ -45,19 +40,15 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD11]] i32* [[VP_ARRAYIDX4]] (SVAOpBits 0->V 1->V )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB3:BB[0-9]+]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; SVA-IR-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-IR-EMPTY:
-; SVA-IR-NEXT:    [[BB3]]:
+; SVA-IR-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 2 (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; SVA-IR-NEXT:    PREDECESSORS(1): [[BB2]]
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:
-; SVA-IR-NEXT:    [[BB4]]:
-; SVA-IR-NEXT:     <Empty Block>
-; SVA-IR-NEXT:    no SUCCESSORS
-; SVA-IR-NEXT:    PREDECESSORS(1): [[BB3]]
+; SVA-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; SVA-IR-EMPTY:
 ; SVA-IR-NEXT:  External Uses:
 ; SVA-IR-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
@@ -67,51 +58,42 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:  External Defs Start:
 ; SVA-HIR-DAG:     [[VP0:%.*]] = {%ary}
 ; SVA-HIR-NEXT:  External Defs End:
-; SVA-HIR-NEXT:  Live-in values:
-; SVA-HIR-NEXT:  ID: 0 Value: i64 0
-; SVA-HIR-NEXT:    [[BB0:BB[0-9]+]]:
-; SVA-HIR-NEXT:     <Empty Block>
-; SVA-HIR-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; SVA-HIR-NEXT:    no PREDECESSORS
+; SVA-HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
-; SVA-HIR-NEXT:    [[BB1]]:
+; SVA-HIR-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; SVA-HIR-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; SVA-HIR-NEXT:    PREDECESSORS(1): [[BB0]]
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
-; SVA-HIR-NEXT:    [[BB2]]:
+; SVA-HIR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP3:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[ARY0:%.*]] i64 [[VP3]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = load i32* [[VP_SUBSCRIPT]] (SVAOpBits 0->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP5:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP6:%.*]] = add i64 [[VP5]] i64 1 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP6]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP7:%.*]] = load i32* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP8:%.*]] = add i32 [[VP4]] i32 7 (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] (SVAOpBits 0->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP4:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1 (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP5]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 7 (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP7:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP7]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP6]] i32* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP8:%.*]] = add i32 [[VP_LOAD_1]] i32 11 (SVAOpBits 0->V 1->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP9:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP9]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP8]] i32* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP10:%.*]] = add i32 [[VP7]] i32 11 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP11:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP12:%.*]] = add i64 [[VP11]] i64 1 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP12]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP10]] i32* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP10:%.*]] = add i64 [[VP9]] i64 1 (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP10]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP8]] i32* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->V 1->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP13:%.*]] = icmp sle i64 [[VP2]] i64 1023 (SVAOpBits 0->F 1->F )
-; SVA-HIR-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
-; SVA-HIR-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP11:%.*]] = icmp sle i64 [[VP2]] i64 1023 (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-HIR-EMPTY:
-; SVA-HIR-NEXT:    [[BB3]]:
+; SVA-HIR-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; SVA-HIR-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; SVA-HIR-NEXT:    PREDECESSORS(1): [[BB2]]
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
-; SVA-HIR-NEXT:    [[BB4]]:
-; SVA-HIR-NEXT:     <Empty Block>
-; SVA-HIR-NEXT:    no SUCCESSORS
-; SVA-HIR-NEXT:    PREDECESSORS(1): [[BB3]]
+; SVA-HIR-NEXT:    [[BB4]]: # preds: [[BB3]]
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:  External Uses:
 ; SVA-HIR-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]

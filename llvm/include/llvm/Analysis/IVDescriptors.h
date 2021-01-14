@@ -85,11 +85,16 @@ public:
   bool isSigned() const { return IsSigned; }
 
   /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurrenceKind K, Type *Tp);
+  static Constant *getRecurrenceIdentity(RecurrenceKind K,
+                                         MinMaxRecurrenceKind MK, Type *Tp);
 
   /// Returns the opcode of binary operation corresponding to the
   /// RecurrenceKind.
   static unsigned getRecurrenceBinOp(RecurrenceKind Kind);
+
+  unsigned getRecurrenceBinOp() const {
+    return getRecurrenceBinOp(getRecurrenceKind());
+  }
 
   /// Returns true if the recurrence kind is an integer kind.
   static bool isIntegerRecurrenceKind(RecurrenceKind Kind);
@@ -230,7 +235,8 @@ public:
 
 #if !INTEL_CUSTOMIZATION
   /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurrenceKind K, Type *Tp);
+  static Constant *getRecurrenceIdentity(RecurrenceKind K,
+                                         MinMaxRecurrenceKind MK, Type *Tp);
 
   /// Returns the opcode of binary operation corresponding to the
   /// RecurrenceKind.
@@ -270,23 +276,27 @@ public:
                          DominatorTree *DT);
 
 #if !INTEL_CUSTOMIZATION
-  RecurrenceKind getRecurrenceKind() { return Kind; }
+  RecurrenceKind getRecurrenceKind() const { return Kind; }
 
-  MinMaxRecurrenceKind getMinMaxRecurrenceKind() { return MinMaxKind; }
+  unsigned getRecurrenceBinOp() const {
+    return getRecurrenceBinOp(getRecurrenceKind());
+  }
 
-  FastMathFlags getFastMathFlags() { return FMF; }
+  MinMaxRecurrenceKind getMinMaxRecurrenceKind() const { return MinMaxKind; }
 
-  TrackingVH<Value> getRecurrenceStartValue() { return StartValue; }
+  FastMathFlags getFastMathFlags() const { return FMF; }
 
-  Instruction *getLoopExitInstr() { return LoopExitInstr; }
+  TrackingVH<Value> getRecurrenceStartValue() const { return StartValue; }
+
+  Instruction *getLoopExitInstr() const { return LoopExitInstr; }
 
 #endif
   /// Returns true if the recurrence has unsafe algebra which requires a relaxed
   /// floating-point model.
-  bool hasUnsafeAlgebra() { return UnsafeAlgebraInst != nullptr; }
+  bool hasUnsafeAlgebra() const { return UnsafeAlgebraInst != nullptr; }
 
   /// Returns first unsafe algebra instruction in the PHI node's use-chain.
-  Instruction *getUnsafeAlgebraInst() { return UnsafeAlgebraInst; }
+  Instruction *getUnsafeAlgebraInst() const { return UnsafeAlgebraInst; }
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if the recurrence kind is an integer kind.
@@ -300,16 +310,16 @@ public:
 
   /// Returns the type of the recurrence. This type can be narrower than the
   /// actual type of the Phi if the recurrence has been type-promoted.
-  Type *getRecurrenceType() { return RecurrenceType; }
+  Type *getRecurrenceType() const { return RecurrenceType; }
 
 #endif
   /// Returns a reference to the instructions used for type-promoting the
   /// recurrence.
-  SmallPtrSet<Instruction *, 8> &getCastInsts() { return CastInsts; }
+  const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if all source operands of the recurrence are SExtInsts.
-  bool isSigned() { return IsSigned; }
+  bool isSigned() const { return IsSigned; }
 #endif
 
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
@@ -413,12 +423,6 @@ class InductionDescriptor
 public:
   /// Default constructor - creates an invalid induction.
   InductionDescriptor() = default;
-
-  /// Get the consecutive direction. Returns:
-  ///   0 - unknown or non-consecutive.
-  ///   1 - consecutive and increasing.
-  ///  -1 - consecutive and decreasing.
-  int getConsecutiveDirection() const;
 
 #if !INTEL_CUSTOMIZATION
   Value *getStartValue() const { return StartValue; }

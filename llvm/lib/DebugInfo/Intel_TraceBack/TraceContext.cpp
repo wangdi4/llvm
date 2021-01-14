@@ -64,7 +64,20 @@ void TraceContext::dump(raw_ostream &OS) {
   auto TraceSection = TraceSectionOrNone.getValue();
 
   // Check the alignment.
-  if (TraceSection.getAlignment() != PointerSize)
+  auto *Object = TraceSection.getObject();
+  assert(Object && "Unexpected control flow!");
+  bool NotAlign = [=]() {
+    if (!Object->isRelocatableObject() && Object->isCOFF()) {
+      // For COFF, the section alignment information is removed after link.
+      // So we check if the start address can mod pointer size.
+      uint64_t Addr = TraceSection.getAddress();
+      return Addr % PointerSize != 0;
+    }
+
+    return TraceSection.getAlignment() != PointerSize;
+  }();
+
+  if (NotAlign)
     OS << format("Expect %u-byte align for section ", PointerSize) << TraceName
        << "!\n";
 

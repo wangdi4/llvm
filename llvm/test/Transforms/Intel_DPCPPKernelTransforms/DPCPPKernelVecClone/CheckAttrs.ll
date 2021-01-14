@@ -15,12 +15,12 @@ entry:
 }
 
 ; CHECK: @_Z30ParallelForNDRangeImplKernel1DPiS_{{.*}}#0
-; CHECK: @_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_{{.*}}#1
+; CHECK: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_{{.*}}#1
 
 ; CHECK:        attributes #0 = {
 ; CHECK-SAME:         "dpcpp_kernel_recommended_vector_length"="16"
 ; CHECK-SAME:         "scalar_kernel"
-; CHECK-SAME:         "vectorized_kernel"="_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_"
+; CHECK-SAME:         "vectorized_kernel"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_"
 ; CHECK-SAME:         "vectorized_width"="1"
 
 ; CHECK:        attributes #1 = {

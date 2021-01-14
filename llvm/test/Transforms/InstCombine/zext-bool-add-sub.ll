@@ -294,7 +294,8 @@ define <2 x i8> @sext_sub_vec(<2 x i8> %x, <2 x i1> %y) {
 define <2 x i8> @sext_sub_vec_nsw(<2 x i8> %x, <2 x i1> %y) {
 ; CHECK-LABEL: @sext_sub_vec_nsw(
 ; CHECK-NEXT:    [[SEXT_NEG:%.*]] = zext <2 x i1> [[Y:%.*]] to <2 x i8>
-; CHECK-NEXT:    [[SUB:%.*]] = add <2 x i8> [[SEXT_NEG]], [[X:%.*]]
+; INTEL - recovered NSW flag
+; CHECK-NEXT:    [[SUB:%.*]] = add nsw <2 x i8> [[SEXT_NEG]], [[X:%.*]]
 ; CHECK-NEXT:    ret <2 x i8> [[SUB]]
 ;
   %sext = sext <2 x i1> %y to <2 x i8>

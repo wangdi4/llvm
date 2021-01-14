@@ -10,7 +10,7 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:    + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:    %p: (USEDEF) [0:299]
+; CHECK:    %p: (USEDEF) [i1,i1 + 200:0:299]
 ; CHECK:    + END LOOP
 ; CHECK: END REGION
 

@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_PTRYPEANALYZER_H
 
 #include "llvm//ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include <functional>
 #include <memory>
 #include <set>
@@ -87,18 +88,38 @@ public:
     LPIS_CompletelyAnalyzed // Type has been resolved.
   };
 
-  // Used to describe the field or byte offset into an array or structure. When
-  // the element pointee address starts on a field boundary, PLK_Field will be
-  // used. For the rare cases where an byte offset does not start on a field
-  // boundary (when address is passed into a memory intrinsic call), PLK_Offset
-  // will be used.
+  // Used to describe the field or byte offset into an array or structure.
   struct PointeeLoc {
-    enum PointeeLocKind { PLK_Field, PLK_Offset };
+    enum PointeeLocKind {
+      PLK_Field,      // Element pointee starts on a known field number or array
+                      // element.
+      PLK_ByteOffset, // Element pointee starts on a known byte offset into the
+                      // element that is not a field or array element boundary.
+                      // This is only used for the case where the GEP is used as
+                      // in input the MemIntrinsic.
+      PLK_UnknownOffset // Element pointee offset that is not known, such as a
+                        // runtime dependent value.
+    };
     PointeeLocKind Kind;
     union {
       size_t ElementNum;
       size_t ByteOffset;
     } Loc;
+
+    // For tracking GEPs used to access nested elements, we need to track
+    // additional information to identify the parent type of the element being
+    // accessed. This information provides a chain of types that lead to this
+    // element pointee. Currently, this is only done when the final index
+    // element of the GEP is an array element. This information is needed for
+    // the safety analyzer to handle cases where an array nested within a
+    // structure results in a safety flag that could impact the safety of the
+    // structure type. Examples are when the element index is runtime dependent,
+    // and therefore could be out of bounds; or when the array element has the
+    // same address as the structure field member containing the array.
+    using PointeePairType = std::pair<DTransType *, size_t>;
+    using ElementOfType = SmallVector<PointeePairType, 1>;
+    using ElementOfTypeImpl = SmallVectorImpl<PointeePairType>;
+    ElementOfType ElementOf;
 
     PointeeLoc(PointeeLocKind Kind, size_t Val) : Kind(Kind) {
       if (Kind == PLK_Field)
@@ -106,9 +127,25 @@ public:
       else
         Loc.ByteOffset = Val;
     }
+
+    // Constructor that also populates the ElementOf vector.
+    PointeeLoc(PointeeLocKind Kind, size_t Val,
+               ElementOfTypeImpl &ElementOfTypes)
+        : Kind(Kind), ElementOf(ElementOfTypes.begin(), ElementOfTypes.end()) {
+      if (Kind == PLK_Field)
+        Loc.ElementNum = Val;
+      else
+        Loc.ByteOffset = Val;
+    }
+
     PointeeLocKind getKind() const { return Kind; }
+    bool isField() const { return Kind == PLK_Field; }
+    bool isByteOffset() const { return Kind == PLK_ByteOffset; }
+    bool isUnknownOffset() const { return Kind == PLK_UnknownOffset; }
+
     size_t getElementNum() const { return Loc.ElementNum; }
     size_t getByteOffset() const { return Loc.ByteOffset; }
+    const ElementOfTypeImpl &getElementOf() const { return ElementOf; }
   };
 
   // Track the aggregate type, and the offset into the type.
@@ -152,8 +189,12 @@ public:
   bool addElementPointee(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
                          size_t ElemIdx);
 
-  // This function is used to capture that a value is the address on some
-  // location that does not being a field boundary within an aggregate type.
+  bool addElementPointee(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+                         size_t ElemIdx,
+                         PointeeLoc::ElementOfTypeImpl &ElementOf);
+
+  // This function is used to capture that a value is the address of some
+  // location that does not begin on a field boundary within an aggregate type.
   //
   // @param Kind        - Indicates whether this modification is for the
   //                      'declared' type set or the 'usage' type set. An item
@@ -166,6 +207,35 @@ public:
   //                      addition. Otherwise false.
   bool addElementPointeeByOffset(ValueAnalysisType Kind,
                                  dtrans::DTransType *BaseTy, size_t ByteOffset);
+
+  bool addElementPointeeByOffset(ValueAnalysisType Kind,
+                                 dtrans::DTransType *BaseTy, size_t ByteOffset,
+                                 PointeeLoc::ElementOfTypeImpl &ElementOfTypes);
+
+  // This function is used to capture that a value is the address of some
+  // field within an aggregate type, but the offset cannot be resolved as a
+  // known compile time constant. This should only apply to accesses into arrays
+  // or byte flattened GEPs.
+  //
+  // @param Kind        - Indicates whether this modification is for the
+  //                      'declared' type set or the 'usage' type set. An item
+  //                      added as a 'declared' type will also be inserted into
+  //                      the 'usage' type set, but an object added as a 'usage'
+  //                      type will only go to the 'usage' type set.
+  // @param BaseTy      - Aggregate type that an address is being obtained for.
+  // @return            - 'true' if the sets changed as a result of the
+  //                      addition. Otherwise false.
+  bool addElementPointeeUnknownOffset(ValueAnalysisType Kind,
+                                      dtrans::DTransType *BaseTy);
+
+  bool
+  addElementPointeeUnknownOffset(ValueAnalysisType Kind,
+                                 dtrans::DTransType *BaseTy,
+                                 PointeeLoc::ElementOfTypeImpl &ElementOfTypes);
+
+  // Copy an existing element pointee pair to this object.
+  bool addElementPointee(ValueAnalysisType Kind,
+                         const TypeAndPointeeLocPair &Pointee);
 
   // Retrieve the (declared or usage type) alias set for iterating.
   PointerTypeAliasSetRef getPointerTypeAliasSet(ValueAnalysisType Kind) {
@@ -223,6 +293,9 @@ public:
   void setUnknownByteFlattenedGEP();
   bool getUnknownByteFlattenedGEP() const { return UnknownByteFlattenedGEP; }
 
+  void setIsPartialPointerUse();
+  bool getIsPartialPointerUse() const { return IsPartialPointerUse; }
+
   // These control the state machine that tracks the progress of analyzing the
   // value.
   void setPartiallyAnalyzed();
@@ -255,7 +328,7 @@ public:
 private:
   // Internal implementation for updating the ElementPointees set.
   bool addElementPointeeImpl(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
-                             PointeeLoc &Loc);
+                             const PointeeLoc &Loc);
 
   // The value object this type information is for.
   Value *V = nullptr;
@@ -288,17 +361,17 @@ private:
   // to mark the types with a safety flag.
   bool UnknownByteFlattenedGEP = false;
 
+  // Indicates this value matched the partial pointer use idiom. This is a
+  // specific pattern that is checked for where a pointer object is copied from
+  // one memory location to another using two or more instructions that
+  // load/store a portion of the pointer value. See the implementation that sets
+  // the value for the specific pattern that is being matched.
+  bool IsPartialPointerUse = false;
+
   // Used for handling cyclic dependencies that require multiple rounds of the
   // analysis routine.
   LPIState AnalysisState = LPIS_NotAnalyzed;
 };
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static raw_ostream &operator<<(raw_ostream &OS, const ValueTypeInfo &Info) {
-  Info.print(OS);
-  return OS;
-}
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Comparator for ValueTypeInfo::PointeeLoc to enable using type within
 // std::set.
@@ -389,10 +462,6 @@ public:
 
   // Returns 'true' if the dominant type is a pointer-to-pointer type.
   bool isPtrToPtr(ValueTypeInfo &Info) const;
-
-  // Check whether the Value should have had pointer type information collected
-  // for it.
-  bool isPossiblePtrValue(Value *V) const;
 
   // This function is called to determine if 'DestTy' could be used to access
   // element 0 of 'SrcTy'. If 'DestTy' is a pointer type whose element type is

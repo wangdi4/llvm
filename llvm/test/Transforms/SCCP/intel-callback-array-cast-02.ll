@@ -41,4 +41,3 @@ declare !callback !0 void @broker(i32, void (i8*, ...)*, ...)
 
 ; Check that the parameter in the call site for @callback wasn't updated
 ; CHECK: call void (i32, void (i8*, ...)*, ...) @broker(i32 3, void (i8*, ...)* bitcast (void (i8*, [1000 x %TestStruct.1]*)* @callback to void (i8*, ...)*), %TestStruct.1* %Arr)
-

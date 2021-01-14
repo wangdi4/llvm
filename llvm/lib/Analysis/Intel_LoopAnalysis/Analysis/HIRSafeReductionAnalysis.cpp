@@ -116,6 +116,31 @@ void printSafeRedChain(formatted_raw_ostream &OS, unsigned Indented,
 
 } // namespace
 
+void SafeRedInfo::printMarkings(formatted_raw_ostream &OS,
+                                bool PrintFlags) const {
+  OS << "<Safe Reduction>";
+  if (PrintFlags) {
+    OS << " Red Op: " << Instruction::getOpcodeName(OpCode);
+    StringRef UnsafeMsg = HasUnsafeAlgebra ? " Yes" : " No";
+    OS << " <Has Unsafe Algebra-" << UnsafeMsg << ">";
+    StringRef ConditionalMsg = Conditional ? " Yes" : " No";
+    OS << " <Conditional-" << ConditionalMsg << ">";
+  }
+}
+
+void SafeRedInfo::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  if (!Chain.empty())
+    Chain.front()->indent(OS, Depth);
+  printMarkings(OS, true);
+  OS << "\n";
+
+  printSafeRedChain(OS, Depth, Chain);
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void SafeRedInfo::dump() const { print(fdbgs(), 0); }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 //  Identify Safe Reduction chain for a loop.
 //  "Safe" implies Reduction recurrence can be ignored for both
 //  parallelization and vectorization.
@@ -188,10 +213,10 @@ bool isValidMixOfOpcodes(unsigned OpCode1, unsigned OpCode2) {
     return true;
   }
 
-  if (OpCode1 == Instruction::FAdd && OpCode2 == Instruction::FSub ||
-      OpCode1 == Instruction::FSub && OpCode2 == Instruction::FAdd ||
-      OpCode1 == Instruction::Add && OpCode2 == Instruction::Sub ||
-      OpCode1 == Instruction::Sub && OpCode2 == Instruction::Add) {
+  if ((OpCode1 == Instruction::FAdd && OpCode2 == Instruction::FSub) ||
+      (OpCode1 == Instruction::FSub && OpCode2 == Instruction::FAdd) ||
+      (OpCode1 == Instruction::Add && OpCode2 == Instruction::Sub) ||
+      (OpCode1 == Instruction::Sub && OpCode2 == Instruction::Add)) {
     return true;
   }
 
@@ -311,17 +336,17 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       // a safe reduction depends on the client's interpretation.
       return false;
     }
-    bool IsMinMax = (ReductionOpCode == Instruction::Select);
-    // In case of min/max reduction, make sure both uses belong to the same
-    // 'select' operation
-    if (IsMinMax) {
+    bool IsSelectMinMax = isa<SelectInst>((*SinkInst)->getLLVMInstruction());
+    // In case of select min/max reduction, make sure both uses belong to the
+    // same 'select' operation
+    if (IsSelectMinMax) {
       if (!UseNode) {
         UseNode = SinkNode;
       } else {
         return (UseNode == SinkNode);
       }
     }
-    if (!DDUtils::maxUsesInLoop(LRef, Loop, DDG, IsMinMax ? 2 : 1)) {
+    if (!DDUtils::maxUsesInLoop(LRef, Loop, DDG, IsSelectMinMax ? 2 : 1)) {
       return false;
     }
   }
@@ -503,8 +528,9 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
         if (Inst == SrcInst) {
           const RegDDRef *LRef = Inst->getLvalDDRef();
-          if (DDUtils::maxUsesInLoop(LRef, Loop, DDG,
-                                     Inst->isMinOrMax() ? 2 : 1)) {
+          if (DDUtils::maxUsesInLoop(
+                  LRef, Loop, DDG,
+                  isa<SelectInst>(Inst->getLLVMInstruction()) ? 2 : 1)) {
             *SingleStmtReduction = true;
             *FirstRvalSB = DDRefSrc->getSymbase();
             return POTENTIAL_REDUCTION;
@@ -549,46 +575,54 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
   return false;
 }
 
-static bool hasUnsafeAlgebraInChain(SafeRedChain &RedInsts, const HLLoop *Lp) {
+/// Determines whether SafeRedInfo::Conditional and
+/// SafeRedInfo::HasUnsafeAlgebra should be set for the reduction chain \p
+/// RedInsts in loop \p Lp. The values of the flags are returned as a pair with
+/// SafeRedInfo::Conditional first and SafeRedInfo::HasUnsafeAlgebra second.
+static std::pair<bool, bool>
+getConditionalAndUnsafeAlgebraInfo(SafeRedChain &RedInsts, const HLLoop *Lp) {
   assert(Lp && "Expect a valid HLLoop * Lp");
-  bool IsFP = RedInsts[0]->getLvalDDRef()->getDestType()->isFPOrFPVectorTy();
-  if (!IsFP) {
-    return false;
-  }
+  assert(!RedInsts.empty() && "Expected non-empty reduction chain");
 
+  // Check whether this is a conditional reduction. As reduction chains are
+  // required to have either all conditional or all unconditional operations, it
+  // is sufficient to just check the first operation in the chain.
   const HLNode *FirstChild = Lp->getFirstChild();
+  const bool Conditional =
+    !HLNodeUtils::postDominates(RedInsts.front(), FirstChild);
 
-  for (auto *Inst : RedInsts) {
-    auto *FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
+  // Examine every operation in the chain.
+  bool HasUnsafeAlgebra = false;
+  for (const auto *Inst : RedInsts) {
+    assert(!HLNodeUtils::postDominates(Inst, FirstChild) == Conditional &&
+           "Expected reduction chain to have all conditional or all "
+           "unconditional operations");
 
-    // FPInst can be NULL for a copy instruction.
+    // Check whether it is safe/unsafe to vectorize if we are dealing with a
+    // Floating point reduction.
+    //
+    // For any SafeRedInst on partial path, Fast is enforced. Otherwise, can
+    // relax it to reassoc only.
+    const auto *FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
     if (!FPInst) {
       continue;
     }
-
-    bool IsOnDomPath = HLNodeUtils::postDominates(Inst, FirstChild);
-
-    // Return whether it is safe/unsafe to vectorize if we are dealing with a
-    // Floating point reduction.
-
-    // For any SafeRedInst on partial path, Fast is enforced. Otherwise, can
-    // relax it to reassoc only.
-    if (!IsOnDomPath) {
+    if (Conditional) {
       if (!FPInst->isFast()) {
         LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
                              "(FP reduction with fast flag off)\n");
-        return true;
+        HasUnsafeAlgebra = true;
       }
     } else {
       if (!FPInst->hasAllowReassoc()) {
         LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
                              "(FP reduction with reassoc flag off)\n");
-        return true;
+        HasUnsafeAlgebra = true;
       }
     }
   }
 
-  return false;
+  return {Conditional, HasUnsafeAlgebra};
 }
 
 void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
@@ -597,8 +631,11 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
                                                    unsigned RedOpCode) {
 
   SafeRedInfoList &SRCL = SafeReductionMap[Loop];
-  SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode,
-                    hasUnsafeAlgebraInChain(RedInsts, Loop));
+  bool Conditional, HasUnsafeAlgebra;
+  std::tie(Conditional, HasUnsafeAlgebra) =
+    getConditionalAndUnsafeAlgebraInfo(RedInsts, Loop);
+  SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode, HasUnsafeAlgebra,
+                    Conditional);
   unsigned SRIIndex = SRCL.size() - 1;
 
   // We should use []operator instead of insert() to overwrite the previous
@@ -650,7 +687,7 @@ void HIRSafeReductionAnalysis::printAnalysis(raw_ostream &OS) const {
       FOS << "No Safe Reduction\n";
     } else {
       for (auto &SRI : SRCL) {
-        printSafeRedChain(FOS, Depth, SRI.Chain);
+        SRI.print(FOS, Depth);
       }
     }
 
@@ -671,7 +708,7 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 
   for (auto &SRI : *SRCL) {
     Loop->indent(OS, Depth);
-    printSafeRedChain(OS, Depth, SRI.Chain);
+    SRI.print(OS, Depth);
   }
 }
 

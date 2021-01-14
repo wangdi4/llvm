@@ -33,7 +33,7 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP9]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[TMP9]], [[N_VEC:%.*]]
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], [[N_VEC:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB8:%.*]], label [[VECTOR_BODY]]
 ;
 entry:

@@ -489,14 +489,13 @@ bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
 
   auto Blob = getBlob(BlobIndex);
 
-  Value *ReplaceByValue = ConstantBlob ? ConstantBlob->getValue()
-                                       : cast<SCEVUnknown>(ByBlob)->getValue();
+  auto ReplaceByValue = ConstantBlob ? ConstantBlob : ByBlob;
 
-  ValueToValueMap Map;
+  ValueToSCEVMapTy Map;
   Map.insert(
       std::make_pair(cast<SCEVUnknown>(TempBlob)->getValue(), ReplaceByValue));
 
-  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, ScopedSE, Map, true);
+  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, ScopedSE, Map);
 
   if (Blob == NewBlob) {
     NewBlobIndex = BlobIndex;
@@ -1403,8 +1402,10 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       OS << "sext.";
     } else if (isa<SCEVTruncateExpr>(CastSCEV)) {
       OS << "trunc.";
+    } else if (isa<SCEVPtrToIntExpr>(CastSCEV)) {
+      OS << "ptrtoint.";
     } else {
-      llvm_unreachable("Unexptected casting operation!");
+      llvm_unreachable("Unexpected casting operation!");
     }
 
     OS << *SrcType << "." << *DstType << "(";
@@ -1517,7 +1518,7 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
   // If the CE is already non-linear, DefinedAtLevel cannot be refined any
   // further.
   if (!CE->isNonLinear()) {
-    if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NestingLevel)) {
+    if (CanonExpr::hasNonLinearSemantics(DefLevel, NestingLevel)) {
       // Make non-linear instead.
       CE->setNonLinear();
     } else if (DefLevel > CE->getDefinedAtLevel()) {
@@ -1529,10 +1530,9 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
 void HIRParser::cacheTempBlobLevel(unsigned Index, unsigned NestingLevel,
                                    unsigned DefLevel) {
   // -1 indicates non-linear blob
-  unsigned Level =
-      getCanonExprUtils().hasNonLinearSemantics(DefLevel, NestingLevel)
-          ? NonLinearLevel
-          : DefLevel;
+  unsigned Level = CanonExpr::hasNonLinearSemantics(DefLevel, NestingLevel)
+                       ? NonLinearLevel
+                       : DefLevel;
   CurTempBlobLevelMap.insert(std::make_pair(Index, Level));
 }
 
@@ -2179,7 +2179,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     parseBlob(SC, CE, Level);
     return true;
 
-  } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
+  } else if (auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(SC)) {
 
     bool IsTrunc = isa<SCEVTruncateExpr>(CastSCEV);
     auto *OpTy = CastSCEV->getOperand()->getType();
@@ -2236,7 +2236,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
     return parseAddRec(RecSCEV, CE, Level, IndicateFailure);
 
-  } else if (isa<SCEVMinMaxExpr>(SC)) {
+  } else if (isa<SCEVMinMaxExpr>(SC) || isa<SCEVPtrToIntExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
     return parseBlob(SC, CE, Level, 0, IndicateFailure);
   }
@@ -2273,7 +2273,7 @@ public:
 
   bool follow(const SCEV *SC) {
 
-    auto CastSC = dyn_cast<SCEVCastExpr>(SC);
+    auto CastSC = dyn_cast<SCEVIntegralCastExpr>(SC);
 
     if (!CastSC) {
       return true;
@@ -2339,7 +2339,7 @@ bool HIRParser::isCastedFromLoopIVType(const CastInst *CI,
   // We should ignore casts on constants like trunc.i64.i8(256) which get
   // simplified to constants like 'i8 0'. Casts on constants are not expected in
   // HIR.
-  if (isa<SCEVCastExpr>(SC) || isa<SCEVConstant>(SC)) {
+  if (isa<SCEVIntegralCastExpr>(SC) || isa<SCEVConstant>(SC)) {
     return false;
   }
 
@@ -2641,6 +2641,15 @@ void HIRParser::parse(HLLoop *HLoop) {
     }
   }
 
+  unsigned MaxTC;
+  if (HLoop->getPragmaBasedMaximumTripCount(MaxTC)) {
+    auto CurMaxTC = HLoop->getMaxTripCountEstimate();
+
+    if (!CurMaxTC || (MaxTC < CurMaxTC)) {
+      HLoop->setMaxTripCountEstimate(MaxTC);
+    }
+  }
+
   if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.
     auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);
@@ -2661,9 +2670,7 @@ void HIRParser::parse(HLLoop *HLoop) {
   }
 }
 
-void HIRParser::postParse(HLLoop *HLoop) {
-  --CurLevel;
-}
+void HIRParser::postParse(HLLoop *HLoop) { --CurLevel; }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
                              SmallVectorImpl<HLPredicate> &Preds,
@@ -2760,7 +2767,6 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   setCurNode(If);
 
   auto SrcBB = HIRC.getSrcBBlock(If);
-  assert(SrcBB && "Could not find If's src basic block!");
 
   auto BeginPredIter = If->pred_begin();
   auto LoopTerm = cast<BranchInst>(SrcBB->getTerminator());
@@ -2860,7 +2866,6 @@ void HIRParser::parse(HLSwitch *Switch) {
   setCurNode(Switch);
 
   auto SrcBB = HIRC.getSrcBBlock(Switch);
-  assert(SrcBB && "Could not find If's src basic block!");
 
   // For some reason switch case values cannot be accessed using the const
   // object.
@@ -3204,9 +3209,7 @@ public:
     return Dimensions[Idx];
   }
 
-  void pop_back() {
-    Dimensions.pop_back();
-  }
+  void pop_back() { Dimensions.pop_back(); }
 
   const DimInfo &getDim(unsigned Idx) const {
     assert(Idx >= getMinRank() && Idx <= getMaxRank() && "Invalid rank");
@@ -3315,9 +3318,8 @@ public:
 
 HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
                               const GEPOrSubsOperator *GEPOp) {
-  OffsetTy = Type::getIntNTy(
-      Parser.getContext(),
-      Parser.getDataLayout().getTypeSizeInBits(GEPOp->getType()));
+  OffsetTy =
+      cast<IntegerType>(Parser.getDataLayout().getIndexType(GEPOp->getType()));
 
   extend(Parser, GEPOp);
   setBase(GEPOp);
@@ -3339,7 +3341,7 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
     if ((!Subs && !NextSubs) ||
         (Subs && NextSubs && Subs->getRank() == NextSubs->getRank())) {
       auto *HighestIndex = Parser.ScopedSE.getSCEV(GEPOp->getIndex(0));
-      auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
+      auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(HighestIndex);
       if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
         break;
       }
@@ -3362,7 +3364,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
 
-  return { Arr };
+  return {Arr};
 }
 
 /// This function returns restructured one-past-the-end GEPOperator if
@@ -3424,7 +3426,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
                                                      const GEPOperator *GEPOp) {
   assert(GEPOp->getNumIndices() > 0 && "Corrupted GEP operator");
 
-  std::list<ArrayInfo> Output = { ArrayInfo() };
+  std::list<ArrayInfo> Output = {ArrayInfo()};
 
   GEPOperator *RestructuredGep = restructureOnePastTheEndGEP(GEPOp);
   if (RestructuredGep) {
@@ -3781,15 +3783,6 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
         StructOffsets = Arr.offsets();
       }
 
-      // If lower can be merged into index, do it. This will make HIR generated
-      // for Fortran and C/C++ test cases similar and make it easier to perform
-      // idiom recognition.
-      if (!LowerCE->isZero() && LowerCE->isIntConstant() &&
-          CanonExprUtils::canSubtract(IndexCE, LowerCE)) {
-        CanonExprUtils::subtract(IndexCE, LowerCE);
-        LowerCE->clear();
-      }
-
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
                                Dim.getType());
     }
@@ -3895,8 +3888,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   // is then translated into a normalized index of i. The final mapped expr
   // looks like this: (%p)[i]
 
-  auto OffsetTy = Type::getIntNTy(
-      getContext(), getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
+  auto OffsetTy = getDataLayout().getIndexType(CurBasePhi->getType());
 
   // A phi can be initialized using another phi so we should trace back.
   do {
@@ -3964,8 +3956,7 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
   auto Ref = getDDRefUtils().createRegDDRef(0);
   auto GEPTy = GEPVal->getType();
-  auto OffsetTy =
-      Type::getIntNTy(getContext(), getDataLayout().getTypeSizeInBits(GEPTy));
+  auto OffsetTy = getDataLayout().getIndexType(GEPTy);
 
   // TODO: This can be improved by first checking if the original SCEV can be
   // handled.
@@ -4081,13 +4072,9 @@ static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
          RefIt != E; ++RefIt) {
       auto *Ref = *RefIt;
 
-      // Call insts with 'returned' attribute can have AddressOf Refs.
-      // Ideally, we should only check the ref for parameter with 'returned'
-      // attribute but it is not straightforward to get its operand number so we
-      // check all the refs.
-      assert((isa<CallInst>(HInst->getLLVMInstruction()) ||
-              Ref->isTerminalRef()) &&
-             "unexpected rval ref for non self blob lval!");
+      // Call insts with 'returned' attribute and ptrtoint inst can have
+      // AddressOf Refs.
+      assert(!Ref->isMemRef() && "unexpected rval ref for non self blob lval!");
 
       if (Ref->usesTempBlob(BlobIndex)) {
         FoundBlob = true;
@@ -4369,6 +4356,30 @@ static bool isBlockLoopEndDirective(const IntrinsicInst *Intrin) {
   return TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP");
 }
 
+static bool isPrefetchLoopBeginDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.PREFETCH_LOOP");
+}
+
+static bool isPrefetchLoopEndDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP");
+}
+
 bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
 
@@ -4383,7 +4394,7 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
 
   bool IsBegin;
 
-  if (isBlockLoopEndDirective(Intrin)) {
+  if (isBlockLoopEndDirective(Intrin) || isPrefetchLoopEndDirective(Intrin)) {
     IsBegin = false;
 
   } else if (!isDistributePoint(Intrin, IsBegin)) {
@@ -4412,11 +4423,11 @@ static HLLoop *getNextLexicalLoop(HLNode *Node) {
   return cast_or_null<HLLoop>(NextNode);
 }
 
-void HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
+bool HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
   auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
 
   if (!Intrin || !isBlockLoopBeginDirective(Intrin)) {
-    return;
+    return false;
   }
 
   // We ignore pragma if loop is not found. This can happen when ztt is not
@@ -4441,6 +4452,50 @@ void HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
         PragmaLp->addBlockingPragmaLevelAndFactor(
             (int)Level, *HInst->bundle_op_ddref_begin(I));
         LevelFound = false;
+      }
+    }
+  }
+
+  // Remove refs' link to the instruction now that they are stored inside loop.
+  for (unsigned I = 0, E = HInst->getNumOperands(); I < E; ++I) {
+    HInst->removeOperandDDRef(I);
+  }
+
+  // Do not need explicit block_loop intrinsic in HIR.
+  HLNodeUtils::erase(HInst);
+  return true;
+}
+
+void HIRParser::processPrefetchLoopBeginDirective(HLInst *HInst) {
+  auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
+
+  if (!Intrin || !isPrefetchLoopBeginDirective(Intrin)) {
+    return;
+  }
+
+  // We ignore pragma if loop is not found. This can happen when ztt is not
+  // recognized.
+  if (auto *PragmaLp = getNextLexicalLoop(HInst)) {
+    int64_t Enable = 0;
+    RegDDRef *Var = nullptr;
+    int64_t Hint = 0;
+    int64_t Dist = 0;
+
+    for (unsigned I = 0, E = HInst->getNumOperandBundles(); I < E; ++I) {
+      StringRef TagName = HInst->getOperandBundleAt(I).getTagName();
+
+      if (TagName.equals("QUAL.PRAGMA.ENABLE")) {
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Enable);
+      } else if (TagName.equals("QUAL.PRAGMA.VAR")) {
+        Var = *HInst->bundle_op_ddref_begin(I);
+      } else if (TagName.equals("QUAL.PRAGMA.HINT")) {
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Hint);
+      } else if (TagName.equals("QUAL.PRAGMA.DISTANCE")) {
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Dist);
+        if (!Enable) {
+          Dist = 0;
+        }
+        PragmaLp->addPrefetchingPragmaInfo(Var, Hint, Dist);
       }
     }
   }
@@ -4538,7 +4593,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
         {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
   }
 
-  processBlockLoopBeginDirective(HInst);
+  bool IsBlockingDirective = processBlockLoopBeginDirective(HInst);
+
+  if (!IsBlockingDirective) {
+    processPrefetchLoopBeginDirective(HInst);
+  }
 }
 
 void HIRParser::phase1Parse(HLNode *Node) {
@@ -4593,7 +4652,6 @@ void HIRParser::phase2Parse() {
       HLNodeUtils::erase(InstIt->first);
     }
   }
-
 
   for (auto *Call : DistributePoints) {
     auto *NextNode = Call->getNextNode();
@@ -4672,39 +4730,50 @@ void HIRParser::parseMetadata(const Instruction *Inst, CanonExpr *CE) {
   CE->setDebugLoc(Inst->getDebugLoc());
 }
 
-unsigned HIRParser::getPointerDimensionSize(const Value *Ptr) const {
-  if (!Ptr->getType()->isPointerTy()) {
-    return 0;
-  }
+uint64_t HIRParser::getPossibleMaxPointerDimensionSize(const Value *Ptr) {
+  assert(Ptr->getType()->isPointerTy() && "Pointer type expected!");
 
-  // Trace back as far as possible, until we hit a GEP whose result type is an
-  // array type.
-  while (Ptr) {
-    if (auto Phi = dyn_cast<PHINode>(Ptr)) {
-      if (Phi->getNumIncomingValues() == 1) {
-        Ptr = Phi->getIncomingValue(0);
+  uint64_t MaxSize = 0;
+  SmallVector<const Value *, 16> Worklist;
+  SmallPtrSet<const Value *, 24> VisitedInsts;
 
-      } else if (RI.isHeaderPhi(Phi)) {
-        Ptr = RI.getHeaderPhiInitVal(Phi);
+  Worklist.push_back(Ptr);
 
-      } else {
-        // Give up on merge phis.
-        return 0;
+  // Trace back as far as possible to reach GEPs whose result type is an
+  // array type and take the max possible size.
+  while (!Worklist.empty()) {
+    auto *Val = Worklist.pop_back_val();
+
+    if (!VisitedInsts.insert(Val).second) {
+      continue;
+    }
+
+    if (auto Phi = dyn_cast<PHINode>(Val)) {
+      for (auto &Op : Phi->operands()) {
+        Worklist.push_back(Op);
       }
-    } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
+
+    } else if (auto GEPOp = dyn_cast<GEPOperator>(Val)) {
+
       if (GEPOp->getNumOperands() == 2) {
-        Ptr = GEPOp->getPointerOperand();
+        Worklist.push_back(GEPOp->getPointerOperand());
+
       } else {
-        auto *ArrTy = dyn_cast<ArrayType>(GEPOp->getSourceElementType());
-        return ArrTy ? ArrTy->getArrayNumElements() : 0;
+        // Skip the last index to get the innermost array type being indexed.
+        SmallVector<Value *, 4> Indices(GEPOp->idx_begin(),
+                                        GEPOp->idx_end() - 1);
+
+        auto *IndexedTy = GetElementPtrInst::getIndexedType(
+            GEPOp->getSourceElementType(), Indices);
+
+        if (auto *ArrTy = dyn_cast<ArrayType>(IndexedTy)) {
+          MaxSize = std::max(MaxSize, ArrTy->getNumElements());
+        }
       }
-    } else {
-      // Give up on other value types.
-      return 0;
     }
   }
 
-  return 0;
+  return MaxSize;
 }
 
 Optional<HIRParser::DelinearizedCoeffBlobIndex>
@@ -4725,7 +4794,7 @@ HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
 
   unsigned LastDim = DimSizes.size();
   assert(Subscripts.size() <= LastDim &&
-      "Subscripts size do not match generated ref");
+         "Subscripts size do not match generated ref");
 
   for (unsigned DimI = 0, DimE = Subscripts.size(); DimI < DimE; ++DimI) {
     int64_t NewCoeff = 0;
@@ -4801,7 +4870,7 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
   // Handle IV part
   unsigned IVLevel = 0;
   for (auto &IV :
-      make_range(LinearIndexCE->iv_begin(), LinearIndexCE->iv_end())) {
+       make_range(LinearIndexCE->iv_begin(), LinearIndexCE->iv_end())) {
     ++IVLevel;
     if (IV.Coeff == 0) {
       continue;
@@ -4823,7 +4892,7 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
   // Handle blob part
   for (auto &BlobCoeff :
-      make_range(LinearIndexCE->blob_begin(), LinearIndexCE->blob_end())) {
+       make_range(LinearIndexCE->blob_begin(), LinearIndexCE->blob_end())) {
 
     auto NewIndex = delinearizeBlobIndex(IndexType, BlobCoeff.Index, DimSizes);
     if (!NewIndex) {
@@ -4864,7 +4933,7 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   // Collect all IV strides from refs.
   for (auto &Ref : GepRefs) {
     assert(!Ref->isTerminalRef() && "Expected non-terminal refs only");
-    assert(Ref->getNumDimensions() == 1 && "Expected single dimension refs");
+    assert(Ref->isSingleDimension() && "Expected single dimension refs");
 
     Type *DimType = Ref->getBaseCE()->getDestType();
     if (DimType->getPointerElementType()->isAggregateType() ||
@@ -4931,7 +5000,8 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   }
 
   LLVM_DEBUG(dbgs() << "Delinearized refs:\n");
-  LLVM_DEBUG(for (auto Pair : zip(GepRefs, NewRefs)) {
+  LLVM_DEBUG(for (auto Pair
+                  : zip(GepRefs, NewRefs)) {
     std::get<0>(Pair)->dump();
     dbgs() << " -> ";
     std::get<1>(Pair)->dump();

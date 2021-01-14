@@ -1,0 +1,27 @@
+// REQUIRES: intel_feature_isa_gpr_movget
+// RUN: llvm-mc -triple i686-unknown-unknown --show-encoding %s | FileCheck %s
+
+// CHECK:      movgetl  268435456(%esp,%esi,8), %eax
+// CHECK: encoding: [0xf3,0x0f,0x38,0xfa,0x84,0xf4,0x00,0x00,0x00,0x10]
+               movgetl  268435456(%esp,%esi,8), %eax
+
+// CHECK:      movgetl  291(%edi,%eax,4), %ebx
+// CHECK: encoding: [0xf3,0x0f,0x38,0xfa,0x9c,0x87,0x23,0x01,0x00,0x00]
+               movgetl  291(%edi,%eax,4), %ebx
+
+// CHECK:      movgetl  (%eax), %ecx
+// CHECK: encoding: [0xf3,0x0f,0x38,0xfa,0x08]
+               movgetl  (%eax), %ecx
+
+// CHECK:      movgetl  -512(,%ebp,2), %eax
+// CHECK: encoding: [0xf3,0x0f,0x38,0xfa,0x04,0x6d,0x00,0xfe,0xff,0xff]
+               movgetl  -512(,%ebp,2), %eax
+
+// CHECK:      movgetl  2032(%ecx), %eax
+// CHECK: encoding: [0xf3,0x0f,0x38,0xfa,0x81,0xf0,0x07,0x00,0x00]
+               movgetl  2032(%ecx), %eax
+
+// CHECK:      movgetl  -2048(%edx), %eax
+// CHECK: encoding: [0xf3,0x0f,0x38,0xfa,0x82,0x00,0xf8,0xff,0xff]
+               movgetl  -2048(%edx), %eax
+

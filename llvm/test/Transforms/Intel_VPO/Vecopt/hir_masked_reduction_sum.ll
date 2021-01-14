@@ -17,8 +17,8 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-hcfg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,CHECK
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-hcfg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,CHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
 
 ; Check that reduction is imported as VPEntity.
 ; ENTITY-LABEL: Reduction list
@@ -31,7 +31,7 @@
 ; CHECK-NEXT: {
 ; CHECK-NEXT:    %red.var = 0.000000e+00;
 
-; CHECK:         + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <nounroll> <novectorize>
+; CHECK:         + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   %.vec1 = undef;
 ; CHECK-NEXT:    |   %add.vec = undef
 ; CHECK-NEXT:    |   %.vec = (<4 x float>*)(@B)[0][i1];
@@ -42,7 +42,7 @@
 ; CHECK-NEXT:    |   %red.var = %select;
 ; CHECK-NEXT:    + END LOOP
 
-; CHECK:         %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; CHECK:         %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 ; CHECK-NEXT: }
 
 ; VPValue based CG checks for HIR
@@ -51,7 +51,7 @@
 ; VPCHECK-NEXT: {
 ; VPCHECK-NEXT:  %red.var = 0.000000e+00;
 
-; VPCHECK-NEXT:  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <nounroll> <novectorize>
+; VPCHECK-NEXT:  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
 ; VPCHECK-NEXT:  |   %.vec2 = undef;
 ; VPCHECK-NEXT:  |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; VPCHECK-NEXT:  |   %.vec1 = %.vec > 0.000000e+00;
@@ -62,7 +62,7 @@
 ; VPCHECK-NEXT:  |   %red.var = %select;
 ; VPCHECK-NEXT:  + END LOOP
 
-; VPCHECK-NEXT:  %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; VPCHECK-NEXT:  %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 ; VPCHECK-NEXT: }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

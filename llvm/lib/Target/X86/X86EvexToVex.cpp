@@ -85,10 +85,7 @@ public:
 private:
   /// Machine instruction info used throughout the class.
   const X86InstrInfo *TII = nullptr;
-
-#if INTEL_CUSTOMIZATION
   const X86Subtarget *ST = nullptr;
-#endif // INTEL_CUSTOMIZATION
 };
 
 } // end anonymous namespace
@@ -98,11 +95,9 @@ char EvexToVexInstPass::ID = 0;
 bool EvexToVexInstPass::runOnMachineFunction(MachineFunction &MF) {
   TII = MF.getSubtarget<X86Subtarget>().getInstrInfo();
 
-#if INTEL_CUSTOMIZATION
   ST = &MF.getSubtarget<X86Subtarget>();
   if (!ST->hasAVX512())
     return false;
-#endif // INTEL_CUSTOMIZATION
 
   bool Changed = false;
 
@@ -150,13 +145,14 @@ static bool usesExtendedRegister(const MachineInstr &MI) {
 }
 
 // Do any custom cleanup needed to finalize the conversion.
-static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc, // INTEL
-                                     const X86Subtarget *ST) { // INTEL
+static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc,
+                                     const X86Subtarget *ST) {
   (void)NewOpc;
   unsigned Opc = MI.getOpcode();
   switch (Opc) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
+    // FIXME: Adding other AVX512 instructions here to prevent EVEX to VEX.
+#endif // INTEL_CUSTOMIZATION
   case X86::VPDPBUSDSZ256m:
   case X86::VPDPBUSDSZ256r:
   case X86::VPDPBUSDSZ128m:
@@ -175,7 +171,17 @@ static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc, // INTEL
   case X86::VPDPWSSDZ128r:
     // These can only VEX convert if AVXVNNI is enabled.
     return ST->hasAVXVNNI();
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+  case X86::VMEMADVISEZ256mr:
+  case X86::VMEMADVISEZ128mr:
+    return ST->hasAVXMEMADVISE();
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  case X86::VMOVGETZ128rm:
+  case X86::VMOVGETZ256rm:
+    return ST->hasAVXMOVGET();
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
   case X86::VALIGNDZ128rri:
   case X86::VALIGNDZ128rmi:
@@ -279,7 +285,7 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
     (Desc.TSFlags & X86II::VEX_L) ? makeArrayRef(X86EvexToVex256CompressTable)
                                   : makeArrayRef(X86EvexToVex128CompressTable);
 
-  auto I = llvm::lower_bound(Table, MI.getOpcode());
+  const auto *I = llvm::lower_bound(Table, MI.getOpcode());
   if (I == Table.end() || I->EvexOpcode != MI.getOpcode())
     return false;
 

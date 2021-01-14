@@ -51,6 +51,8 @@ class VPlanCostModel;
 
 extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
+extern bool LoopMassagingEnabled;
+extern bool EnableSOAAnalysis;
 
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
@@ -58,6 +60,8 @@ extern bool PrintAfterCallVecDecisions;
 /// the replication of instructions that are to be scalarized, and interleave
 /// access groups.
 class LoopVectorizationPlanner {
+  friend class VPlanTestBase;
+
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
@@ -74,7 +78,8 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL);
+  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
+                              ScalarEvolution *SE = nullptr);
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
@@ -89,6 +94,11 @@ public:
 
   /// Record CM's decision and dispose of all other VPlans.
   // void setBestPlan(unsigned VF, unsigned UF);
+
+  // Preprocess best VPlan before CG, creating the needed auxiliary loops
+  // (peel/remainder of different kinds) and merging them into flattened
+  // cfg.
+  void emitPeelRemainderVPLoops();
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
@@ -117,9 +127,14 @@ public:
   /// Insert all-zero bypasses for \p Plan.
   void insertAllZeroBypasses(VPlan *Plan, unsigned VF);
 
+  /// Return Loop Unroll Factor either forced by option or pragma
+  /// or advised by optimizations.
+  /// \p Forced indicates that Unroll Factor is forced.
+  virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr);
+
   /// Perform VPlan loop unrolling if needed
   void
-  unroll(VPlan &Plan, unsigned UF,
+  unroll(VPlan &Plan,
          VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
   template <typename CostModelTy = VPlanCostModel>
@@ -147,6 +162,10 @@ public:
     std::shared_ptr<VPlan> MaskedModeLoop;
   };
 
+  void appendVPlanPair(unsigned VF, const VPlanPair &PlanPair) {
+    VPlans[VF] = PlanPair;
+  }
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -157,7 +176,11 @@ protected:
   // class.
   virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                    unsigned &EndRangeVF,
-                                                   VPExternalValues &Ext);
+                                                   VPExternalValues &Ext,
+                                                   ScalarEvolution *SE = nullptr);
+
+  /// Transform to emit explict uniform Vector loop iv.
+  virtual void emitVecSpecifics(VPlan *Plan);
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.
@@ -215,6 +238,36 @@ private:
   /// Iteratively sink the scalarized operands of a predicated instruction into
   /// the block that was created for it.
   // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
+
+  void runInitialVecSpecificTransforms(VPlan *Plan);
+
+  /// Main function that canonicalizes the CFG and applyies loop massaging
+  /// transformations like mergeLoopExits transform.
+  void doLoopMassaging(VPlan *Plan);
+
+  /// Use results from VPEntity analysis to emit explicit VPInstruction-based
+  /// representation. The analysis results can be invalidated/stale after this
+  /// transform.
+  void emitVPEntityInstrs(VPlan *Plan);
+
+  /// Emit uniform IV for the vector loop and rewrite backedge condition to use
+  /// it.
+  //
+  //   header:
+  //     %iv = phi [ 0, preheader ], [ iv.next, latch ]
+  //
+  //   latch:
+  //     %iv.next = %iv + VF
+  //     %cond = %iv.next `icmp` TripCount
+  //     br i1 %cond
+  //
+  // The order of latch's successors isn't changed which is ensured by selecting
+  // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
+  // are no remaining uses of it after the transformation above.
+  void emitVectorLoopIV(VPlan *Plan, VPValue *TripCount, VPValue *VF);
+
+  /// Utility to dump and verify VPlan details after initial set of transforms.
+  void printAndVerifyAfterInitialTransforms(VPlan *Plan);
 
   /// The loop that we evaluate.
   Loop *TheLoop;

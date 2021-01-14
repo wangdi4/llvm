@@ -52,7 +52,7 @@ entry:
   tail call void @foo(%struct.test2* %1, %struct.test2* %0)
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
   %2 = bitcast i8* %call1 to %struct.test1*
-  %i = bitcast %struct.test1* %2 to i32*
+  %i = getelementptr %struct.test1, %struct.test1* %2, i64 0, i32 0
   store i32 10, i32* %i, align 8
   ret i32 0
 }

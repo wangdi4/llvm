@@ -30,7 +30,7 @@ define void @foo1()  {
 ; CHECK-NEXT:    store <8 x i32> [[TMP12]], <8 x i32>* [[TMP13]], align 4
 ; CHECK:         [[TMP15]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK:         [[TMP17]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[TMP17]], 48
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], 48
 ; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 entry:

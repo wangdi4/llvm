@@ -31,17 +31,17 @@ define internal void @test01callee(%struct.type01b* byval(%struct.type01b) %in) 
 define internal void @test02caller() {
   %alloc = alloca %struct.type01b*
   %p = load %struct.type01b*, %struct.type01b** %alloc
-  call void @test02callee(%struct.type01b* byval %p)
+  call void @test02callee(%struct.type01b* byval(%struct.type01b) %p)
   ret void
 }
 ; CHECK-LABEL: define internal void @test02caller
-; CHECK: call void @test02callee.2(%__DDT_struct.type01b* byval %p)
+; CHECK: call void @test02callee.2(%__DDT_struct.type01b* byval(%__DDT_struct.type01b) %p)
 
-define internal void @test02callee(%struct.type01b* byval %in) {
+define internal void @test02callee(%struct.type01b* byval(%struct.type01b) %in) {
   ret void
 }
 
 ; Cloned functions are printed last.
 
 ; CHECK: define internal void @test01callee.1(%__DDT_struct.type01b* byval(%__DDT_struct.type01b) %in)
-; CHECK: define internal void @test02callee.2(%__DDT_struct.type01b* byval %in)
+; CHECK: define internal void @test02callee.2(%__DDT_struct.type01b* byval(%__DDT_struct.type01b) %in)

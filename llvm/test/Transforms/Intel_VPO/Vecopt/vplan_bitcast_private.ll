@@ -1,15 +1,10 @@
 ; This test checks that bitcast instruction is correctly widened for pointers to private aggregate type.
 
-; RUN: opt -S -VPlanDriver -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S -VPlanDriver -vplan-force-vf=2 %s | FileCheck %s
 
-; CHECK:      [[VEC1:%.*]] = alloca [2 x [624 x i32]], align 4
-; CHECK:      [[PRIV:%.*]] = bitcast [2 x [624 x i32]]* [[VEC1]] to [624 x i32]*
-; CHECK:      [[GEP:%.*]] = getelementptr [624 x i32], [624 x i32]* [[PRIV]], <2 x i32> <i32 0, i32 1>
-; CHECK:      [[BC:%.*]] = bitcast <2 x [624 x i32]*>  [[GEP]] to <2 x i8*>
-; CHECK:      [[E2:%.*]] = extractelement <2 x i8*> [[BC]], i32 1
-; CHECK:      [[E1:%.*]] = extractelement <2 x i8*> [[BC]], i32 0
-; CHECK:      call void @llvm.lifetime.start.p0i8(i64 2496, i8* nonnull [[E1]])
-; CHECK-NEXT: call void @llvm.lifetime.start.p0i8(i64 2496, i8* nonnull [[E2]])
+; CHECK:  [[VEC1:%.*]] = alloca [2 x [624 x i32]], align 4
+; CHECK:  [[BC:%.*]] = bitcast [2 x [624 x i32]]*  [[VEC1]] to i8*
+; CHECK:  call void @llvm.lifetime.start.p0i8(i64 4992, i8* nonnull [[BC]])
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

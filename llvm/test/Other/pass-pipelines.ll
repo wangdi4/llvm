@@ -30,8 +30,9 @@
 ; RUN:     -pgo-kind=pgo-instr-use-pipeline -profile-file='%t.profdata' \
 ; RUN:     -hot-cold-split \
 ; INTEL CUSTOMIZATION
-; RUN:     -enable-andersen=false -loopopt=0 -O2 -enable-lv %s 2>&1 \
+; RUN:     -enable-andersen=false -loopopt=0 -enable-lv \
 ; END INTEL CUSTOMIZATION
+; RUN:     -O2 %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2 --check-prefix=PGOUSE --check-prefix=SPLIT
 ;
 ; In the first pipeline there should just be a function pass manager, no other

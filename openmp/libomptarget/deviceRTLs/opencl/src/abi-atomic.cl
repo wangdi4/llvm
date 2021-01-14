@@ -459,10 +459,18 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, andl, OP_AND)
 
 EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
   if (size == sizeof(uint)) {
-    KMP_ATOMIC_LOAD_EXPLICIT(uint, ptr, ret, order);
+    if (to_global(ptr) || to_local(ptr)) {
+      KMP_ATOMIC_LOAD_EXPLICIT(uint, ptr, ret, order);
+    } else {
+      *((uint *)ret) = *((uint *)ptr);
+    }
 #if KMP_ATOMIC_FIXED8_SUPPORTED
   } else if (size == sizeof(ulong)) {
-    KMP_ATOMIC_LOAD_EXPLICIT(ulong, ptr, ret, order);
+    if (to_global(ptr) || to_local(ptr)) {
+      KMP_ATOMIC_LOAD_EXPLICIT(ulong, ptr, ret, order);
+    } else {
+      *((ulong *)ret) = *((ulong *)ptr);
+    }
 #endif
   } else {
     printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
@@ -496,10 +504,18 @@ EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
 
 EXTERN void __kmpc_atomic_store(size_t size, void *ptr, void *val, int order) {
   if (size == sizeof(uint)) {
-    KMP_ATOMIC_STORE_EXPLICIT(uint, ptr, val, order);
+    if (to_global(ptr) || to_local(ptr)) {
+      KMP_ATOMIC_STORE_EXPLICIT(uint, ptr, val, order);
+    } else {
+      *((uint *)ptr) = *((uint *)val);
+    }
 #if KMP_ATOMIC_FIXED8_SUPPORTED
   } else if (size == sizeof(ulong)) {
-    KMP_ATOMIC_STORE_EXPLICIT(ulong, ptr, val, order);
+    if (to_global(ptr) || to_local(ptr)) {
+      KMP_ATOMIC_STORE_EXPLICIT(ulong, ptr, val, order);
+    } else {
+      *((ulong *)ptr) = *((ulong *)val);
+    }
 #endif
   } else {
     printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
@@ -544,12 +560,32 @@ EXTERN bool __kmpc_atomic_compare_exchange(size_t size, void *ptr,
                                            int failure_order) {
   bool ret = true; // avoid common-case hanging
   if (size == sizeof(uint)) {
-    KMP_ATOMIC_COMPXCHG_EXPLICIT(uint, ret, ptr, expected, desired,
-                                 success_order, failure_order);
+    if (to_global(ptr) || to_local(ptr)) {
+      KMP_ATOMIC_COMPXCHG_EXPLICIT(uint, ret, ptr, expected, desired,
+                                   success_order, failure_order);
+    } else {
+      if ((*(uint *)ptr) == (*(uint *)expected)) {
+        *((uint *)ptr) = *((uint *)desired);
+        ret = true;
+      } else {
+        *((uint *)expected) = *((uint *)ptr);
+        ret = false;
+      }
+    }
 #if KMP_ATOMIC_FIXED8_SUPPORTED
   } else if (size == sizeof(ulong)) {
-    KMP_ATOMIC_COMPXCHG_EXPLICIT(ulong, ret, ptr, expected, desired,
-                                 success_order, failure_order);
+    if (to_global(ptr) || to_local(ptr)) {
+      KMP_ATOMIC_COMPXCHG_EXPLICIT(ulong, ret, ptr, expected, desired,
+                                   success_order, failure_order);
+    } else {
+      if ((*(ulong *)ptr) == (*(ulong *)expected)) {
+        *((ulong *)ptr) = *((ulong *)desired);
+        ret = true;
+      } else {
+        *((ulong *)expected) = *((ulong *)ptr);
+        ret = false;
+      }
+    }
 #endif
   } else {
     printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);

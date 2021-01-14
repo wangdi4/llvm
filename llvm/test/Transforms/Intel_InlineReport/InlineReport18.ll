@@ -28,10 +28,10 @@ define i32 @test_null-pointer-is-valid1(i32 %i) {
 }
 
 ; Old pass manager checks
-; CHECK-OLD: -> null-pointer-is-valid_callee0 {{\[\[}}Caller/callee null pointer mismatch{{\]\]}}
-; CHECK-OLD: -> INLINE: null-pointer-is-valid_callee1 <<Callee is always inline>>
+; CHECK-OLD-DAG: -> null-pointer-is-valid_callee0 {{\[\[}}Caller/callee null pointer mismatch{{\]\]}}
+; CHECK-OLD-DAG: -> INLINE: null-pointer-is-valid_callee1 <<Callee is always inline>>
 
 ; New pass manager checks
-; CHECK-NEW: -> INLINE: null-pointer-is-valid_callee1 <<Callee is always inline>>
-; CHECK-NEW: -> null-pointer-is-valid_callee0 {{\[\[}}Caller/callee null pointer mismatch{{\]\]}}
+; CHECK-NEW-DAG: -> INLINE: null-pointer-is-valid_callee1 <<Callee is always inline>>
+; CHECK-NEW-DAG: -> null-pointer-is-valid_callee0 {{\[\[}}Caller/callee null pointer mismatch{{\]\]}}
 

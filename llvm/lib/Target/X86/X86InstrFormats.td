@@ -28,6 +28,7 @@ def RawFrmImm8    : Format<7>;
 def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
+def MRMDestMemImm8      : Format<16>; //INTEL
 def MRMDestReg4VOp3     : Format<17>; //INTEL
 def MRMDestMem4VOp3     : Format<18>; //INTEL
 def MRMDestMem4VOp2FSIB : Format<19>; //INTEL
@@ -236,6 +237,7 @@ class T_MAP6PS : T_MAP6 { Prefix OpPrefix = PS; }
 class T_MAP6PD : T_MAP6 { Prefix OpPrefix = PD; }
 class T_MAP6XS : T_MAP6 { Prefix OpPrefix = XS; }
 class T_MAP6XD : T_MAP6 { Prefix OpPrefix = XD; }
+class OBXD   { Prefix OpPrefix = XD; }
 #endif // INTEL_CUSTOMIZATION
 class OBXS   { Prefix OpPrefix = XS; }
 class PS   : TB { Prefix OpPrefix = PS; }
@@ -249,9 +251,7 @@ class T8XS : T8 { Prefix OpPrefix = XS; }
 class TAPS : TA { Prefix OpPrefix = PS; }
 class TAPD : TA { Prefix OpPrefix = PD; }
 class TAXD : TA { Prefix OpPrefix = XD; }
-#if INTEL_CUSTOMIZATION
 class TAXS : TA { Prefix OpPrefix = XS; }
-#endif // INTEL_CUSTOMIZATION
 class VEX    { Encoding OpEnc = EncVEX; }
 class VEX_W    { bit HasVEX_W = 1; }
 class VEX_WIG  { bit IgnoresVEX_W = 1; }
@@ -299,10 +299,10 @@ class NotMemoryFoldable { bit isMemoryFoldable = 0; }
 // Prevent EVEX->VEX conversion from considering this instruction.
 class NotEVEX2VEXConvertible { bit notEVEX2VEXConvertible = 1; }
 
-#if INTEL_CUSTOMIZATION
 // Force the instruction to use VEX encoding.
 class ExplicitVEXPrefix { bit ExplicitVEXPrefix = 1; }
 
+#if INTEL_CUSTOMIZATION
 // Force the instruction to use EVEX encoding.
 class ExplicitEVEXPrefix { bit ExplicitEVEXPrefix = 1; }
 #endif // INTEL_CUSTOMIZATION
@@ -393,7 +393,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 
   bit isMemoryFoldable = 1;     // Is it allowed to memory fold/unfold this instruction?
   bit notEVEX2VEXConvertible = 0; // Prevent EVEX->VEX conversion.
-  bit ExplicitVEXPrefix = 0; // Force the instruction to use VEX encoding.   // INTEL
+  bit ExplicitVEXPrefix = 0; // Force the instruction to use VEX encoding.
   bit ExplicitEVEXPrefix = 0; // Force the instruction to use EVEX encoding. // INTEL
 
   // TSFlags layout should be kept in sync with X86BaseInfo.h.
@@ -425,8 +425,8 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{53}    = hasEVEX_RC;
   let TSFlags{54}    = hasNoTrackPrefix;
   // Force the instruction to use VEX encoding.
-  let TSFlags{55}    = ExplicitVEXPrefix;  // INTEL
-  let TSFlags{56}    = ExplicitEVEXPrefix; // INTEL
+  let TSFlags{55}    = ExplicitVEXPrefix;
+  let TSFlags{56}    = ExplicitEVEXPrefix;
 #endif // INTEL_CUSTOMIZATION
 }
 

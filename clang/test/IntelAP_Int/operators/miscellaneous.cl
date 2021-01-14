@@ -1,4 +1,4 @@
-// UNSUPPORTED: intel_opencl && i686-pc-windows
+// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang -cc1 -O3 -disable-llvm-passes %s -emit-llvm -o %t
 // RUN: FileCheck %s < %t
 // CHECK: store i43 8, i43* %x43_u, align 8

@@ -11,6 +11,7 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 
 #include "Intel_DTrans/Analysis/DTrans.h"
+#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -54,16 +55,25 @@ static bool isPtrToPtr(const DTransType *Ty) {
   return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
 }
 
+// Type used for callback function for reporting additional details in the debug
+// trace messages when setting safety flags.
+using SafetyInfoReportCB = std::function<void()>;
+
 // This class is responsible for analyzing the LLVM IR using information
 // collected by the PtrTypeAnalyzer class to mark the DTrans safety bits on the
 // TypeInfo objects managed by the DTransSafetyInfo class. This will also
 // collect the field usage information for structure fields.
 class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
 public:
+  // TODO: Making this public temporarly for upcoming code development.
+  DTransAllocAnalyzer &DTAA;
   DTransSafetyInstVisitor(LLVMContext &Ctx, const DataLayout &DL,
+                          DTransSafetyInfo::GetTLIFnType GetTLI,
                           DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
-                          DTransTypeManager &TM)
-      : DL(DL), DTInfo(DTInfo), PTA(PTA), TM(TM) {
+                          DTransTypeManager &TM, TypeMetadataReader &MDReader,
+                          DTransAllocAnalyzer &DTAA)
+      :  DTAA(DTAA), DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA),
+         MDReader(MDReader), TM(TM) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -224,6 +234,14 @@ public:
       return;
     }
 
+    // The local linkage check should guarantee a unique and definitive
+    // initializer.
+    assert((GV.hasUniqueInitializer() && GV.hasDefinitiveInitializer()) &&
+           "Expected initializer");
+    Constant *Initializer = GV.getInitializer();
+    bool HasInitializer = !isa<ConstantAggregateZero>(Initializer) &&
+                          !isa<UndefValue>(Initializer);
+
     // Look at the information set by the PtrTypeAnalyzer for the variable.
     // There generally should only be a single declared type. We need to rely on
     // the PtrTypeAnalyzer rather than looking at the type returned by
@@ -251,28 +269,37 @@ public:
         // TODO: The following is similar to the handling of "alloca"
         // instructions, so it may be good to unify the code in the future.
         DTransType *UnitTy = getArrayUnitType(ArTy);
-        if (UnitTy->isPointerTy())
+        if (UnitTy->isPointerTy()) {
           setBaseTypeInfoSafetyData(UnitTy, dtrans::GlobalPtr,
                                     "Global array of pointers to type defined",
                                     &GV);
-        else if (UnitTy->isVectorTy())
+        } else if (UnitTy->isVectorTy()) {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
                                     "Global array of vector type defined", &GV);
-        else
+        } else {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                     "Global array of type defined", &GV);
+          if (HasInitializer)
+            setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
+                                      "dtrans-safety: Has initializer list",
+                                      &GV);
+        }
         continue;
       }
 
-      if (ElemTy->isPointerTy())
+      if (ElemTy->isPointerTy()) {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalPtr,
                                   "Pointer allocated", &GV);
-      else if (ElemTy->isVectorTy())
+      } else if (ElemTy->isVectorTy()) {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
                                   "Vector allocated", &GV);
-      else
+      } else {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                   "Instance allocated", &GV);
+        if (HasInitializer)
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
+                                    "dtrans-safety: Has initializer list", &GV);
+      }
     }
 
     // TODO: Analyze the initializer values for constant values or incompatible
@@ -447,13 +474,13 @@ public:
     if (GEPInfo->pointsToSomeElement()) {
       // Check the uses of this GEP element. If it is used by anything other
       // than casts, loads, and stores.
-      std::function<bool(Value *)> hasNonCastLoadStoreUses =
-          [&hasNonCastLoadStoreUses](Value *V) {
+      std::function<bool(Value *)> HasNonCastLoadStoreUses =
+          [&HasNonCastLoadStoreUses](Value *V) {
             for (auto *U : V->users()) {
               if (isa<LoadInst>(U) || isa<StoreInst>(U))
                 continue;
               if (isa<CastInst>(U)) {
-                if (hasNonCastLoadStoreUses(U))
+                if (HasNonCastLoadStoreUses(U))
                   return true;
                 continue;
               }
@@ -475,26 +502,29 @@ public:
             Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).begin(),
             Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).end(),
             [](const ValueTypeInfo::TypeAndPointeeLocPair &PointeePair) {
-              return PointeePair.second.getKind() ==
-                     ValueTypeInfo::PointeeLoc::PLK_Offset;
+              return !PointeePair.second.isField();
             });
       };
 
+      auto &Pointees = GEPInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
       if (HasNonFieldAddress(GEPInfo)) {
-        // The pointer type analyzer should only have set a non-field offset
-        // for the case of a GEP that is passed to a memset and the offset
-        // does not correspond to a field boundary.
-        assert(valueOnlyUsedForMemset(GEP) &&
-               "Non-field accesses expected to only occur for memset operand");
-      } else if (hasNonCastLoadStoreUses(GEP)) {
-        auto &Pointees = GEPInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+#if !defined(NDEBUG)
+        for (auto &PointeePair : Pointees) {
+          // The pointer type analyzer should only have set a non-field byte
+          // offset for the case of a GEP that is passed to a memset and the
+          // offset does not correspond to a field boundary.
+          if (PointeePair.second.isByteOffset())
+            assert(
+                valueOnlyUsedForMemset(GEP) &&
+                "Non-field accesses expected to only occur for memset operand");
+        }
+#endif // !defined(NDEBUG)
+      } else if (HasNonCastLoadStoreUses(GEP)) {
+        // Set GEPs for fields of structures that are used for something other
+        // than a Load/Store as ComplexUse.
         for (auto &PointeePair : Pointees) {
           DTransType *ParentTy = PointeePair.first;
-          if (ParentTy->isStructTy()) {
-            assert(PointeePair.second.getKind() !=
-                       ValueTypeInfo::PointeeLoc::PLK_Offset &&
-                   "Unexpected use of invalid element");
-
+          if (ParentTy->isStructTy() && PointeePair.second.isField()) {
             auto *ParentStInfo =
                 cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
             dtrans::FieldInfo &FI =
@@ -503,6 +533,23 @@ public:
           }
         }
       }
+
+      // A runtime dependent index of an array cannot be guaranteed to be within
+      // the bounds. When DTransOutOfBoundsOK is not set, we are explicitly
+      // asserting that the access cannot go out of bounds.
+      if (DTransOutOfBoundsOK)
+        for (auto &PointeePair : Pointees) {
+          if (PointeePair.second.getKind() ==
+              ValueTypeInfo::PointeeLoc::PLK_UnknownOffset) {
+            setBaseTypeInfoSafetyData(PointeePair.first,
+                                      dtrans::BadPtrManipulation,
+                                      "Runtime dependent offset", GEP);
+            for (auto &ElementOfPair : PointeePair.second.getElementOf())
+              setBaseTypeInfoSafetyData(ElementOfPair.first,
+                                        dtrans::BadPtrManipulation,
+                                        "Runtime dependent offset", GEP);
+          }
+        }
     }
   }
 
@@ -570,7 +617,7 @@ public:
         if (!SrcInfo || !SrcInfo->canAliasToAggregatePointer()) {
           setAllAliasedTypeSafetyData(
               Info, dtrans::UnsafePtrMerge,
-            "Merge of conflicting types during integer merge", I);
+              "Merge of conflicting types during integer merge", I);
           return;
         }
       }
@@ -717,13 +764,15 @@ public:
       if (!PtrDomTy) {
         IsMismatched = true;
         BadcastReason = "Dominant type of pointer not resolved";
-      } else if (PtrDomTy->getPointerElementType() != ValTy ||
+      } else if ((PtrDomTy->getPointerElementType() != ValTy &&
+                  !PtrInfo->getIsPartialPointerUse()) ||
                  (PtrInfo->canAliasMultipleAggregatePointers() &&
                   hasIncompatibleAggregateDecl(PtrDomTy, PtrInfo))) {
         IsMismatched = true;
         BadcastReason =
             "Dominant types for value and pointer are not compatible";
-      } else if (!ValInfo || !ValInfo->canAliasToAggregatePointer()) {
+      } else if (!PtrInfo->getIsPartialPointerUse() &&
+                 (!ValInfo || !ValInfo->canAliasToAggregatePointer())) {
         // If we reach here, the pointer has multiple levels of indirection to
         // an aggregate type, but the value loaded did not involve an aggregate
         // type.
@@ -821,21 +870,25 @@ public:
       return;
     }
 
+    // Callback method for when a safety flag is set to report the ValueTypeInfo
+    // object for the value and store operands of the StoreInst.
+    auto DumpCallback = [ValInfo, PtrInfo]() {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      dbgs() << "  Value op info:\n";
+      if (ValInfo)
+        ValInfo->print(dbgs(), /*CombinedTypes=*/false, "    ");
+      dbgs() << "  Ptr op info:\n";
+      if (PtrInfo)
+        PtrInfo->print(dbgs(), /*CombinedTypes=*/false, "    ");
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    };
+
     // Check that the address of a structure field is not being stored to
     // memory. This is done up front, so that we can return as soon as
     // analyzing any element pointees of the pointer operand.
     if (ValInfo && ValInfo->pointsToSomeElement())
-      for (auto &PointeePair :
-           ValInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-        setBaseTypeInfoSafetyData(PointeePair.first, dtrans::FieldAddressTaken,
-                                  "Address of member stored to memory", &I);
-
-        dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
-          ParentStInfo->getField(PointeePair.second.getElementNum())
-              .setAddressTaken();
-      }
+      markFieldAddressTaken(ValInfo, "Address of member stored to memory", &I,
+                            DumpCallback);
 
     if (PtrInfo->pointsToSomeElement()) {
       analyzeElementLoadOrStore(I, *PtrInfo, ValInfo);
@@ -855,7 +908,7 @@ public:
            PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
         if (!isPtrToPtr(AliasTy))
           setBaseTypeInfoSafetyData(AliasTy, dtrans::VolatileData,
-                                    "volatile store", &I);
+                                    "volatile store", &I, DumpCallback);
 
     DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
     DTransType *ValTy = getLoadStoreValueType(*Val, ValInfo, /*IsLoad=*/false);
@@ -872,18 +925,21 @@ public:
       if ((ValInfo && ValInfo->canAliasToDirectAggregatePointer()) ||
           PtrInfo->canAliasToDirectAggregatePointer()) {
         setAllAliasedTypeSafetyData(PtrInfo, dtrans::UnsafePointerStore,
-                                    "Cannot resolve type of value stored", &I);
+                                    "Cannot resolve type of value stored", &I,
+                                    DumpCallback);
         if (ValInfo)
           setAllAliasedTypeSafetyData(ValInfo, dtrans::UnsafePointerStore,
-                                      "Cannot resolve type of value stored",
-                                      &I);
+                                      "Cannot resolve type of value stored", &I,
+                                      DumpCallback);
       }
 
       setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting,
-                                  "Cannot resolve type of value stored", &I);
+                                  "Cannot resolve type of value stored", &I,
+                                  DumpCallback);
       if (ValInfo)
         setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting,
-                                    "Cannot resolve type of value stored", &I);
+                                    "Cannot resolve type of value stored", &I,
+                                    DumpCallback);
       return;
     }
 
@@ -955,7 +1011,7 @@ public:
                  PtrDomTy->getPointerElementType()->getLLVMType() ==
                      ValOpType) {
         setBaseTypeInfoSafetyData(ValTy, dtrans::WholeStructureReference,
-                                  "store of structure type", &I);
+                                  "store of structure type", &I, DumpCallback);
         IsWholeStructureWrite = true;
       }
       // It's not a whole structure store, check for compatibility with element
@@ -979,24 +1035,17 @@ public:
       if (!PtrDomTy) {
         IsMismatched = true;
         BadcastReason = "Dominant type of pointer not resolved";
-      } else if (PtrDomTy->getPointerElementType() != ValTy ||
+      } else if ((PtrDomTy->getPointerElementType() != ValTy &&
+                  !PtrInfo->getIsPartialPointerUse()) ||
                  (PtrInfo->canAliasMultipleAggregatePointers() &&
                   hasIncompatibleAggregateDecl(PtrDomTy, PtrInfo))) {
         IsMismatched = true;
         BadcastReason =
             "Dominant types for value and pointer are not compatible";
-      } else if (!ValInfo) {
+      } else if (!ValInfo && !PtrInfo->getIsPartialPointerUse()) {
         IsMismatched = true;
         BadcastReason =
             "Dominant type of value pointer being stored not resolved";
-      } else {
-        DTransType *ValDomTy = PTA.getDominantAggregateUsageType(*ValInfo);
-        if (!ValDomTy->isPointerTy() &&
-            hasIncompatibleAggregateDecl(ValDomTy->getPointerElementType(),
-                                         ValInfo)) {
-          IsMismatched = true;
-          BadcastReason = "Incompatible type for ptr-to-ptr store";
-        }
       }
     }
 
@@ -1006,10 +1055,10 @@ public:
       // we may have an Unsafe Pointer Store.
       markUnsafePointerStore(nullptr, ValInfo, PtrInfo, &I);
       setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting, BadcastReason,
-                                  &I);
+                                  &I, DumpCallback);
       if (ValInfo)
         setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting, BadcastReason,
-                                    &I);
+                                    &I, DumpCallback);
       return;
     }
 
@@ -1058,8 +1107,7 @@ public:
         setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData,
                                   "Marked as volatile", &I);
 
-      if (PointeePair.second.getKind() !=
-          ValueTypeInfo::PointeeLoc::PLK_Field) {
+      if (PointeePair.second.isByteOffset()) {
         // A GEP that indexes a location that is not a field boundary should
         // only be allowed for access to the padding bytes for a memfunc
         // intrinsic, and not a load/store instruction.
@@ -1160,7 +1208,7 @@ public:
         // For example:
         //   %x = bitcast i64* %p to %struct*
         //   store %struct* %x, %struct** %y
-        if (ValTy && ValTy->isPointerTy())
+        if (ValTy && ValTy->isPointerTy()) {
           if (ValTy->getPointerElementType()->isAggregateType()) {
             if (hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
                                              ValInfo)) {
@@ -1173,8 +1221,8 @@ public:
             TypesCompatible = false;
             BadCasting = true;
           }
+        }
       }
-
       // With opaque pointers, we will not see explicit pointer bitcasts
       // occurring, but the effect here is the same as is a bitcast had
       // occurred, so we need to set the BadCasting safety bit for
@@ -1440,6 +1488,54 @@ public:
           "Incompatible type for field load/store", SI);
   }
 
+  // Process the ElementPointees of 'Info' to mark FieldAddressTaken on the
+  // StructInfo and FieldInfo objects. For ElementPointees that are an
+  // ArrayType, this also needs to consider the case that element zero of the
+  // structure may also be the address of a field within a structure when the
+  // array is a member of a structure.
+  // Note, when DTransOutOfBoundsOK is off, all runtime dependent indices of an
+  // array are considered to be element zero, rather than BadPtrManipulation.
+  void markFieldAddressTaken(ValueTypeInfo *Info, StringRef Reason, Value *V,
+                             SafetyInfoReportCB Callback = nullptr) {
+    auto MarkStructField = [this, &Reason, &V, &Callback](TypeInfo *TI,
+                                                          size_t FieldNum) {
+      assert(isa<dtrans::StructInfo>(TI) && "Expected struct type info*");
+
+      auto *ParentStInfo = cast<dtrans::StructInfo>(TI);
+      setBaseTypeInfoSafetyData(TI->getDTransType(), dtrans::FieldAddressTaken,
+                                Reason, V, Callback);
+      ParentStInfo->getField(FieldNum).setAddressTaken();
+    };
+
+    for (auto &PointeePair :
+         Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+      TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(PointeePair.first);
+      if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
+        MarkStructField(ParentStInfo, PointeePair.second.getElementNum());
+        continue;
+      }
+
+      // Handle array types. An array indexed by the zeroth element, requires
+      // marking a structure field as "Field address taken" when the array is an
+      // element of the structure.
+      auto &ElementOfTypes = PointeePair.second.getElementOf();
+      if ((PointeePair.second.isField() &&
+           PointeePair.second.getElementNum() == 0) ||
+          (!DTransOutOfBoundsOK && PointeePair.second.isUnknownOffset()))
+        for (auto &ElementOfPair : ElementOfTypes) {
+          dtrans::TypeInfo *ElementOfTI =
+              DTInfo.getOrCreateTypeInfo(ElementOfPair.first);
+          if (auto *ElementStInfo = dyn_cast<dtrans::StructInfo>(ElementOfTI)) {
+            MarkStructField(ElementStInfo, ElementOfPair.second);
+            // We only mark field address taken on the closest structure that
+            // contains the array, so stop walking the ElementOf list once one
+            // is found.
+            break;
+          }
+        }
+    }
+  }
+
   void collectReadInfo(Instruction &I, dtrans::StructInfo *StInfo,
                        size_t FieldNum, bool DescendIntoNested) {
     if (DescendIntoNested) {
@@ -1678,9 +1774,115 @@ public:
       }
     };
 
+    // Check that one operand is an instruction and the other is an integer
+    // constant.
+    auto HasInstAndConstOperand = [](Instruction *I) {
+      assert((isa<BinaryOperator>(I) || isa<ICmpInst>(I)) &&
+             "Expected BinaryOperator");
+      Value *Op0 = I->getOperand(0);
+      Value *Op1 = I->getOperand(1);
+      return ((isa<Instruction>(Op0) && isa<ConstantInt>(Op1)) ||
+              (isa<Instruction>(Op1) && isa<ConstantInt>(Op0)));
+    };
+
+    // This function is checking that the only uses of the binary operation are
+    // one of the following:
+    // 1) another bitmask binary operator, which applies a constant
+    //    value for the mask
+    // 2) a comparison to a constant.
+    auto IsBitmaskAndCompareSequenceOnly =
+        [&HasInstAndConstOperand](BinaryOperator *I) {
+          SmallVector<Instruction *, 4> WorkList;
+          WorkList.push_back(I);
+
+          while (!WorkList.empty()) {
+            Instruction *NextI = WorkList.back();
+            WorkList.pop_back();
+            switch (NextI->getOpcode()) {
+            default:
+              return false;
+            case Instruction::Or:
+            case Instruction::And:
+            case Instruction::Xor:
+              if (!HasInstAndConstOperand(NextI))
+                return false;
+              for (auto *U : NextI->users()) {
+                // We don't need to check the users of the ICmp.
+                if (auto *Cmp = dyn_cast<ICmpInst>(U)) {
+                  if (!HasInstAndConstOperand(Cmp))
+                    return false;
+                  continue;
+                }
+                // We do need to check the users of binary operators.
+                if (isa<BinaryOperator>(U)) {
+                  WorkList.push_back(cast<Instruction>(U));
+                  continue;
+                }
+                // Anything else breaks the pattern.
+                return false;
+              }
+            }
+          }
+
+          return true;
+        };
+
+    // Check whether the bitmask instruction is supported. If not, mark the
+    // operands as UnhandledUse
+    //
+    // BitMask computations that appear to be used for checking the alignment of
+    // a pointer value that is being tracked are allowed. Other cases will be
+    // marked as Unhandled.
+    //
+    // Allow a case such as:
+    //   %5 = ptrtoint p0 %0 to i64
+    //   %6 = or i64 %5, 8
+    //   %7 = and i64 %6, 7
+    //   %8 = icmp eq i64 %7, 0
+    auto AnalyzeBitMask =
+        [this, &HasInstAndConstOperand, &SetBinaryOperatorUnhandledUse,
+         &IsBitmaskAndCompareSequenceOnly](BinaryOperator &BinOp) {
+          Value *LHS = BinOp.getOperand(0);
+          Value *RHS = BinOp.getOperand(1);
+          ValueTypeInfo *LHSInfo = PTA.getValueTypeInfo(LHS);
+          ValueTypeInfo *RHSInfo = PTA.getValueTypeInfo(RHS);
+
+          // The PointerTypeAnalyzer may create a ValueTypeInfo object for
+          // some values that do not represent pointer types, so we use
+          // this check to determine whether the instruction has some
+          // pointer type information associated with it.
+          if ((!LHSInfo || LHSInfo->empty()) && (!RHSInfo || RHSInfo->empty()))
+            return;
+
+          // Only support a binary operation with a constant integer
+          if (!HasInstAndConstOperand(&BinOp)) {
+            SetBinaryOperatorUnhandledUse(BinOp);
+            return;
+          }
+
+          // Do not allow alignment checks on the address of field members
+          ValueTypeInfo *InfoOfInterest =
+              (LHSInfo && !LHSInfo->empty()) ? LHSInfo : RHSInfo;
+          assert(InfoOfInterest && "Expected operand of interest");
+          if (InfoOfInterest->pointsToSomeElement()) {
+            SetBinaryOperatorUnhandledUse(BinOp);
+            return;
+          }
+
+          if (IsBitmaskAndCompareSequenceOnly(&BinOp))
+            return;
+
+          SetBinaryOperatorUnhandledUse(BinOp);
+        };
+
     switch (I.getOpcode()) {
     case Instruction::Sub:
       AnalyzeSubtraction(I);
+      break;
+    case Instruction::Or:
+    case Instruction::And:
+    case Instruction::Xor:
+      AnalyzeBitMask(I);
       break;
     default:
       SetBinaryOperatorUnhandledUse(I);
@@ -1689,8 +1891,506 @@ public:
   }
 
   void visitCallBase(CallBase &Call) {
-    // TODO: Check whether argument types are compatible with the expected type,
-    // and that no field member addresses are passed.
+    // If the called function is a known allocation function, we need to
+    // analyze the allocation to determine the type allocated, and whether
+    // the size allocated is appropriate.
+    SmallPtrSet<const Value *, 3> SpecialArguments;
+    const TargetLibraryInfo &TLI = GetTLI(*Call.getFunction());
+    auto AllocKind = dtrans::getAllocFnKind(&Call, TLI);
+
+    // TODO: Enable the following code to check for user allocation/free wrapper
+    // functions after the DTransAllocAnalyzer is updated to work with opaque
+    // pointers:
+    // if (AllocKind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(&Call))
+    //   AllocKind = dtrans::AK_UserMalloc;
+    if (AllocKind != dtrans::AK_NotAlloc) {
+      analyzeAllocationCall(&Call, AllocKind);
+      collectSpecialAllocArgs(AllocKind, &Call, SpecialArguments, TLI);
+    }
+
+    // If this is a call to the "free" lib function,  the call is safe, but
+    // we analyze the instruction for the purpose of capturing the argument
+    // TypeInfo, which will be needed by some of the transformations when
+    // rewriting allocations and frees.
+    auto FreeKind = dtrans::isFreeFn(&Call, TLI)
+                        ? (dtrans::isDeleteFn(&Call, TLI) ? dtrans::FK_Delete
+                                                          : dtrans::FK_Free)
+                        : dtrans::FK_NotFree;
+
+    // TODO: Enable the following code to check for user allocation/free wrapper
+    // functions after the DTransAllocAnalyzer is updated to work with opaque
+    // pointers:
+    // if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(&Call))
+    //   FreeKind = dtrans::FK_UserFree;
+
+    if (FreeKind != dtrans::FK_NotFree) {
+      analyzeFreeCall(&Call, FreeKind);
+      collectSpecialFreeArgs(FreeKind, &Call, SpecialArguments, TLI);
+    }
+
+    // If the call returns a type of interest, then we need to analyze the
+    // return value for safety bits that need to be set
+    Function *F = dtrans::getCalledFunction(Call);
+    bool IsFnLocal =
+        F ? (!F->isDeclaration() && !F->hasDLLExportStorageClass()) : false;
+    bool IsIndirect = Call.isIndirectCall();
+    LibFunc TheLibFunc = NotLibFunc;
+    bool IsLibFunc = false;
+    if (F && F->hasName())
+      IsLibFunc =
+          TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc);
+    bool IsInvoke = isa<InvokeInst>(&Call);
+    if (!Call.getType()->isVoidTy()) {
+      ValueTypeInfo *Info = PTA.getValueTypeInfo(&Call);
+      if (Info && Info->canAliasToAggregatePointer()) {
+        if (IsInvoke)
+          setAllAliasedTypeSafetyData(Info, dtrans::HasCppHandling,
+                                      "Type returned by invoke call", &Call);
+
+        // If the value was declared as returning an 'i8*', then check that it
+        // does not get used as an aggregate type. This is only done for i8*
+        // return values because that is a generic type that is generally
+        // allowed as a safe alias type when analyzing instructions that use the
+        // value. Other type mismatches should be detected when the value gets
+        // used.
+        if (PTA.getDominantType(*Info, ValueTypeInfo::VAT_Decl) ==
+                getDTransI8PtrType() &&
+            AllocKind == dtrans::AK_NotAlloc)
+          setAllAliasedTypeSafetyData(
+              Info, dtrans::BadCasting,
+              "i8* type returned by call used as aggregate pointer type",
+              &Call);
+
+        // Types returned by non-local functions should be treated as
+        // system objects since we cannot transform them.
+        if ((!IsFnLocal || IsLibFunc) && AllocKind == dtrans::AK_NotAlloc)
+          setAllAliasedTypeSafetyData(Info, dtrans::SystemObject,
+                                      "Type returned by non-local function",
+                                      &Call);
+      }
+    }
+
+    // Do not check and potentially set the mismatched arg safety condition on
+    // the 'this' pointer argument of a call created by devirtualization. The
+    // devirtualizer has already proven the argument type is the correct type
+    // for the member function.
+    if (Call.getMetadata("_Intel.Devirt.Call") && Call.arg_size() >= 1)
+      SpecialArguments.insert(Call.getArgOperand(0));
+
+    if (SpecialArguments.size() == Call.arg_size())
+      return;
+
+    DTransType *TargetType = nullptr;
+    if (F) {
+      if (TM.isSimpleType(F->getValueType()))
+        TargetType = TM.getOrCreateSimpleType(F->getValueType());
+      else
+        TargetType = MDReader.getDTransTypeFromMD(F);
+    } else {
+      // An indirect call should have metadata info to define the expected type
+      // of the call.
+      TargetType = MDReader.getDTransTypeFromMD(&Call);
+    }
+    DTransFunctionType *FuncExpectedDTransTy =
+        dyn_cast_or_null<DTransFunctionType>(TargetType);
+
+    size_t CallArgCnt = Call.arg_size();
+    for (unsigned ArgNum = 0; ArgNum < CallArgCnt; ++ArgNum) {
+      Value *Param = Call.getArgOperand(ArgNum);
+      if (SpecialArguments.count(Param))
+        continue;
+
+      // Callback method to report specific parameter that is triggering the
+      // safety flag. This callback will be invoked when a safety flag is being
+      // set, and debug trace filtering is enabled for the function being
+      // analyzed.
+      auto DumpCallback = [Param, ArgNum]() {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        dbgs() << "  Arg#" << ArgNum << ": " << *Param << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      };
+
+      // The pointer type analyzer should have collected value type info for all
+      // parameters that are types of interest. If there is no info, then it
+      // must not be a parameter of interest.
+      ValueTypeInfo *ParamInfo = PTA.getValueTypeInfo(Param);
+      if (!ParamInfo)
+        continue;
+
+      // Perform checks that are the same regardless of whether the function is
+      // locally defined or external.
+      if (isValueTypeInfoUnhandled(*ParamInfo)) {
+        DTInfo.setUnhandledPtrType(&Call);
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::UnhandledUse,
+                                    "PointerTypeAnalyzer could not resolve all "
+                                    "potential types for pointer",
+                                    &Call, DumpCallback);
+      }
+
+      if (ParamInfo->pointsToSomeElement())
+        markFieldAddressTaken(ParamInfo, "Address of member passed to function",
+                              &Call, DumpCallback);
+
+      // We need to know the signature of the called function in order the check
+      // for functions that take i8* parameter types.
+      if (!FuncExpectedDTransTy) {
+        setAllAliasedTypeSafetyData(
+            ParamInfo, dtrans::UnhandledUse,
+            "Unable to determine expected type for function", &Call,
+            DumpCallback);
+        continue;
+      }
+
+      // Try to get the expected argument type to determine whether the function
+      // takes that pointer as an i8*.
+      DTransType *ArgExpectedDTransTy = nullptr;
+      bool IsVarArgParam = ArgNum >= FuncExpectedDTransTy->getNumArgs();
+      if (!IsVarArgParam) {
+        ArgExpectedDTransTy = FuncExpectedDTransTy->getArgType(ArgNum);
+        if (!ArgExpectedDTransTy) {
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::UnhandledUse,
+              "Unable to determine expected type for function argument", &Call,
+              DumpCallback);
+          continue;
+        }
+      }
+
+      if (!ParamInfo->canAliasToAggregatePointer()) {
+        if (!IsVarArgParam && ArgExpectedDTransTy == getDTransI8PtrType()) {
+          // TODO: The caller did not see any aliased types, but the i8* could
+          // be passed to multiple functions and used as different types for
+          // each them. Add checks to detect an unsafe use, such as if the
+          // following, if the functions used %p as different structure types.
+          //   call void @use_test01a(i8* %p) ; uses %p as %struct.foo
+          //   call void @use_test01b(i8* %p) ; uses %p as %struct.bar
+          // For now we will not set any safety data here because the original
+          // LocalPointerAnalyzer did not mark these cases as unsafe.
+        }
+        continue;
+      }
+
+      // If we reach here, we know that some aggregate pointer type is
+      // involved in the parameter that needs to be checked for safety.
+
+      // Mark HasCppHandling on any aggregate pointer passed via InvokeInst.
+      if (IsInvoke)
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::HasCppHandling,
+                                    "Type passed to invoke call", &Call,
+                                    DumpCallback);
+
+      if (IsFnLocal && !IsLibFunc) {
+        if (IsVarArgParam) {
+          // TODO: Add checking of whether the argument is used in the called
+          // function with a type that is compatible with the passed value to
+          // make this less conservative.
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::UnhandledUse,
+              "Type passed in vararg parameter to function", &Call,
+              DumpCallback);
+          continue;
+        }
+
+        // Any argument in the VarArgs should have been processed above.
+        // Check whether the callee uses the argument, if it doesn't there is no
+        // need for the remaining safety flag checks.
+        assert(ArgNum < F->arg_size() && "Unexpected operand");
+        Argument *TargetArg = F->getArg(ArgNum);
+        if (TargetArg->user_empty()) {
+          DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
+                            dbgs()
+                                << "dtrans-safety: Ignoring unused argument #"
+                                << ArgNum << " in call: " << Call << "\n");
+          continue;
+        }
+
+        // If the argument is a pointer-sized int, then mark the element as
+        // AddressTaken because the analysis of the callee would have treated
+        // the argument as a scalar.
+        llvm::Type *ArgType = F->getArg(ArgNum)->getType();
+        if (ArgType == getLLVMPtrSizedIntType()) {
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::AddressTaken,
+              "Type passed to pointer-sized int argument of local function",
+              &Call, DumpCallback);
+          continue;
+        }
+
+        // Check whether the parameter type matches the expected argument type.
+        // The PtrTypeAnalyzer will have populated the ArgInfo with the type
+        // declared in the signature of the called function, so if we can
+        // resolve a unique usage type for the parameter, then the parameter
+        // matches the expected type.
+        DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
+        if (ArgExpectedDTransTy == getDTransI8PtrType()) {
+          Value *TargetArg = F->getArg(ArgNum);
+          ValueTypeInfo *ArgInfo = PTA.getValueTypeInfo(TargetArg);
+          assert(ArgInfo &&
+            "Expected pointer type analyzer to analyze pointer");
+
+          DTransType *TargDomTy =
+              PTA.getDominantType(*ArgInfo, ValueTypeInfo::VAT_Use);
+          if (DomTy && TargDomTy == DomTy)
+            continue;
+
+          // The dominant type the pointer is used as in the callee does not
+          // match the type of the parameter is used as elsewhere.
+          setAllAliasedTypeSafetyData(
+              ParamInfo, dtrans::MismatchedArgUse,
+              "Type passed to i8* argument of local function", &Call,
+              DumpCallback);
+
+          // The safety data also needs to be set on the type aliases within
+          // the callee, because the ValueTypeInfo for the parameter only knows
+          // about the type aliases used within the caller.
+          setAllAliasedTypeSafetyData(
+              ArgInfo, dtrans::MismatchedArgUse,
+              "Type passed to i8* argument of local function", &Call,
+              DumpCallback);
+          continue;
+        }
+
+        // If the Dominant type was identified, and the function didn't take an
+        // i8*, then it is safe because the dominant type is formed as a union
+        // of the type the parameter is used as within the calling function and
+        // the type that function is declared as taking.
+        if (DomTy)
+          continue;
+
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::BadCasting,
+                                    "Incorrect type passed to local function",
+                                    &Call, DumpCallback);
+
+        // End of processing of values passed to locally defined functions.
+        continue;
+      }
+
+      // Process indirect and external calls.
+      DTransType *DomTy = PTA.getDominantAggregateUsageType(*ParamInfo);
+      if (!DomTy) {
+        setAllAliasedTypeSafetyData(
+            ParamInfo, dtrans::BadCasting,
+            "Ambiguous type passed to indirect or non-local function", &Call,
+            DumpCallback);
+      }
+
+      if (IsIndirect) {
+        // TODO: Improve handling of parameters passed to indirect calls.
+        // "Address Taken" is only necessary when one of the following is met:
+        // - There is an address taken externally defined function that
+        //   matches the signature of the call.
+        // - There is another type that is structurally compatible with the
+        //   parameter type used for the call.
+        //   Example:
+        //      %struct.test01a = type { i32, i32 }
+        //      %struct.test01b = type { i32, i32 }
+        //    Passing a pointer to %struct.test01a
+        // For now, conservatively set AddressTaken for any indirect call.
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::AddressTaken,
+                                    "Type passed to indirect function call",
+                                    &Call, DumpCallback);
+        continue;
+      }
+
+      if (IsLibFunc) {
+        // Special handling is needed for i8* parameter types when the address
+        // is the first field of a structure, and the field type is an array of
+        // i8 elements. The address of 1st array element is also the address of
+        // the structure.
+        //   %struct.net = type { [200 x i8], i64, ... }
+        //
+        // A call made with the following parameter needs to be handled:
+        //   getelementptr %struct.net, %struct.net, i64 0, i32 0, i32 0
+        //
+        // The structure will have been marked as "Field address taken" above,
+        // we need to avoid also marking the structure type as "Address taken"
+        // when the call is just using the i8 array. We allow this when passing
+        // the pointer to LibFuncs that we know are using the parameters as a
+        // i8* type.
+
+        // Return 'true' if the LibFunc is safe to call with a parameter that
+        // aliases a structure type which starts with an array of i8 elements in
+        // a VarArg parameter. For non-VarArg parameters we should know the
+        // expected type for the parameter, but we would not know this for the
+        // VarArg parameters, so this function is used to treat some calls as
+        // safe.
+        auto IsSafeVarArgLibFunc = [](LibFunc TheLibFunc) {
+          switch (TheLibFunc) {
+          default:
+            break;
+          case LibFunc_dunder_isoc99_fscanf:
+          case LibFunc_dunder_isoc99_scanf:
+          case LibFunc_dunder_isoc99_sscanf:
+          case LibFunc_fprintf:
+          case LibFunc_fscanf:
+          case LibFunc_printf:
+          case LibFunc_scanf:
+          case LibFunc_snprintf:
+          case LibFunc_sscanf:
+          case LibFunc_sprintf:
+          case LibFunc_vfprintf:
+          case LibFunc_vprintf:
+            // NOTE: This is not a complete set of routines that may be safe.
+            // Rather, it is just a set of routines that are important at the
+            // moment.
+            return true;
+          }
+
+          return false;
+        };
+
+        if (((IsVarArgParam && IsSafeVarArgLibFunc(TheLibFunc)) ||
+             ArgExpectedDTransTy == getDTransI8PtrType()) &&
+            PTA.isElementZeroAccess(DomTy, getDTransI8PtrType())) {
+          DEBUG_WITH_TYPE_P(
+              FNFilter, SAFETY_VERBOSE,
+              dbgs()
+                  << "dtrans-safety: Allowing pointer passed to LibFunc: Arg# "
+                  << ArgNum << ": " << Call << "\n");
+          continue;
+        }
+      }
+
+      // There is no way to analyze the type a VarArg parameter may get used as
+      // when the function definition is not available. Mark it as AddressTaken.
+      if (IsVarArgParam) {
+        setAllAliasedTypeSafetyData(
+            ParamInfo, dtrans::AddressTaken,
+            "Type passed as VarArg parameter to non-local function", &Call,
+            DumpCallback);
+        continue;
+      }
+
+      // An aggregate type that escapes to the called function needs to be
+      // marked with a safety flag. If we know the function is a library
+      // function that expected a pointer to an aggregate type then we treat the
+      // type as being a "System object".
+      if (IsLibFunc && ArgExpectedDTransTy &&
+          isTypeOfInterest(ArgExpectedDTransTy))
+        setAllAliasedTypeSafetyData(ParamInfo, dtrans::SystemObject,
+                                    "Type passed to LibFunc", &Call,
+                                    DumpCallback);
+
+      setAllAliasedTypeSafetyData(ParamInfo, dtrans::AddressTaken,
+                                  "Type passed to non-local function", &Call,
+                                  DumpCallback);
+    }
+  }
+
+  // For an allocation call, we want to check that the value produced does not
+  // get used as multiple types. Also, collect information for use by the
+  // transformations that need to rewrite allocation and free calls. This is
+  // just a convenience for migrating legacy code, to avoid the transformations
+  // needing to look at the ValueTypeInfo object.
+  void analyzeAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
+    // This function supports allocation functions that use the return value to
+    // return the pointer to the memory allocated. If another type of allocation
+    // function is supported in the future that returns the memory address via a
+    // passed in pointer, this function will need to be changed. This assertion
+    // is to ensure that any new allocation types handled are also considered
+    // here.
+    assert((Kind == AK_Malloc || Kind == AK_Calloc || Kind == AK_Realloc ||
+            Kind == AK_UserMalloc || Kind == AK_UserMalloc0 ||
+            Kind == AK_New) &&
+           "Only functions that use return value of call for allocation "
+           "supported");
+
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(Call);
+    assert(Info && "PtrTypeAnalyzer failed to construct ValueTypeInfo for "
+                   "allocation call");
+    if (isValueTypeInfoUnhandled(*Info))
+      DTInfo.setUnhandledPtrType(Call);
+
+    // If the allocation wasn't cast to a type of interest, then nothing needs
+    // to be done.
+    if (!Info->canAliasToAggregatePointer())
+      return;
+
+    if (Kind == dtrans::AK_New) {
+      setAllAliasedTypeSafetyData(Info, dtrans::HasCppHandling,
+                                  "Allocation of using 'new'", Call);
+    }
+
+    DTransType *DomTy = PTA.getDominantAggregateUsageType(*Info);
+    if (!DomTy) {
+      setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                  "Allocation of ambiguous type", Call);
+      return;
+    }
+
+    if (!isValidAllocationSize(Call, Kind, DomTy))
+      setBaseTypeInfoSafetyData(
+          DomTy, dtrans::BadAllocSizeArg,
+          "Allocation size does not match expected type size", Call);
+
+    // TODO: Create AllocCallInfo object about the allocation
+  }
+
+  // Return 'true' if the allocation size is valid for the type being allocated.
+  bool isValidAllocationSize(CallBase *Call, dtrans::AllocKind Kind,
+                             DTransType *Ty) {
+    assert(Ty->isPointerTy() && "Expected pointer type");
+    DTransType *AllocType = Ty->getPointerElementType();
+
+    // No need to check pointer-to-pointer allocations, because DTrans is only
+    // concerned with modifying uses of an aggregate type.
+    if (AllocType->isPointerTy())
+      return true;
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    uint64_t ElementSize = DL.getTypeAllocSize(AllocType->getLLVMType());
+    unsigned AllocSizeInd = 0;
+    unsigned AllocCountInd = 0;
+    getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+    auto *AllocSizeVal = Call->getArgOperand(AllocSizeInd);
+    auto *AllocCountVal =
+        AllocCountInd != -1U ? Call->getArgOperand(AllocCountInd) : nullptr;
+
+    // If either AllocSizeVal or AllocCountVal can be proven to be a multiple
+    // of the element size, the size arguments are acceptable.
+    if (dtrans::isValueMultipleOfSize(AllocSizeVal, ElementSize) ||
+        dtrans::isValueMultipleOfSize(AllocCountVal, ElementSize))
+      return true;
+
+    // If the allocation is cast as a pointer to a fixed size array, and
+    // one argument is a multiple of the array's element size and the other
+    // is a multiple of the number of elements in the array, the size arguments
+    // are acceptable.
+    if (AllocType->isArrayTy() && (AllocCountVal != nullptr)) {
+      auto *ArrTy = cast<DTransArrayType>(AllocType);
+      uint64_t NumArrElements = ArrTy->getNumElements();
+      uint64_t ArrElementSize =
+          DL.getTypeAllocSize(ArrTy->getElementType()->getLLVMType());
+      if ((dtrans::isValueMultipleOfSize(AllocSizeVal, ArrElementSize) &&
+           dtrans::isValueMultipleOfSize(AllocCountVal, NumArrElements)) ||
+          (dtrans::isValueMultipleOfSize(AllocCountVal, ArrElementSize) &&
+           dtrans::isValueMultipleOfSize(AllocSizeVal, NumArrElements)))
+        return true;
+    }
+
+    // If allocation size is not constant we can try tracing it back to the
+    // constant
+    uint64_t Res;
+    dtrans::TypeInfo *TI = DTInfo.getTypeInfo(AllocType);
+    bool EndsInZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
+    if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
+        dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
+                                      EndsInZeroSizedArray)) {
+      setBaseTypeInfoSafetyData(AllocType, dtrans::ComplexAllocSize,
+                                "Allocation is not direct multiple of size",
+                                Call);
+      return true;
+    }
+
+    return false;
+  }
+
+  // For a "free" call, we just collect information for use by the
+  // transformations that need to rewrite allocation and free calls. This is
+  // just a convenience for migrating legacy code, since the transformation
+  // could directly obtain the information from the DTransSafetyInfo class.
+  void analyzeFreeCall(CallBase *Call, dtrans::FreeKind FK) {
+    // TODO: Create FreeCallInfo object about the deallocation
   }
 
   void visitIntrinsicInst(IntrinsicInst &I) {
@@ -1699,39 +2399,778 @@ public:
     default:
       break;
 
-      // The following intrinsics do not affect the safety checks of
-      // the DTrans analysis for any of their arguments.
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::lifetime_end:
     case Intrinsic::lifetime_start:
     case Intrinsic::ptr_annotation:
     case Intrinsic::var_annotation:
+      // These intrinsics do not affect the safety checks of
+      // the DTrans analysis for any of their arguments.
       return;
 
-      // TODO: Check memset/memcpy/memmove routines
+    case Intrinsic::memset:
+      analyzeMemset(*(cast<MemSetInst>(&I)));
+      return;
+
+    case Intrinsic::memcpy:
+    case Intrinsic::memmove:
+      analyzeMemcpyOrMemmove(*(cast<MemTransferInst>(&I)));
+      return;
     }
 
-    // TODO: mark all others with unhandled use on the arguments to the
-    // intrinsic call.
+    // Mark all other intrinsic calls with UnhandledUse for the arguments that
+    // are types of interest.
+    for (Value *Arg : I.arg_operands()) {
+      ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
+      if (!Info)
+        continue;
+      setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
+                                            "Value passed to intrinsic", &I);
+    }
   }
 
+  // Check the destination of a call to memset for safety.
+  //
+  // A safe call is one where it can be resolved that the operand to the
+  // memset meets the following conditions:
+  //   - The operand does not affect an aggregate data type.
+  //  or
+  //   - If the operand is not a pointer to a field within an aggregate, then
+  //     the size must be a multiple of the aggregate object's size, or if the
+  //     size is smaller than the aggregate type and a specific subset of fields
+  //     is set, the memfunc partial write safety bit will be set.
+  //   - If the operand is a pointer to a field within an aggregate, then
+  //     the size operand must cover the size of one or more fields, in which
+  //     case the memfunc partial write safety bit will be set on the containing
+  //     structure.
+  //  or
+  //  - The size operand is 0.
+  //
+  // A necessary precursor for most of these rules is that the operand type
+  // is able to be resolved to a unique dominant type for the pointer.
+  //
+  // For a safe call, the field information tracking of the aggregate type
+  // will be updated to indicate the field is written to.
+  void analyzeMemset(MemSetInst &I) {
+    DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
+                      dbgs()
+                          << "dtrans: Analyzing memset call: ["
+                          << I.getFunction()->getName() << "] " << I << "\n");
+    Value *DestArg = I.getRawDest();
+    Value *SetSize = I.getLength();
+
+    // A memset of 0 bytes will not affect the safety of any data structure.
+    if (dtrans::isValueEqualToSize(SetSize, 0))
+      return;
+
+    ValueTypeInfo *DstInfo = PTA.getValueTypeInfo(DestArg);
+    assert(DstInfo &&
+           "PointerTypeAnalyzer should have collected info for pointer");
+    if (!DstInfo->canAliasToAggregatePointer() &&
+        !DstInfo->pointsToSomeElement())
+      return;
+
+    if (DstInfo->pointsToSomeElement()) {
+      DTransStructType *StructTy = nullptr;
+      size_t FieldNum = 0;
+      uint64_t PrePadBytes = 0;
+
+      // Try to collect a structure type, field and any padding bytes being
+      // written for the ElementPointees of DstInfo.
+      if (isSimpleStructureMember(DstInfo, &StructTy, &FieldNum,
+                                  &PrePadBytes)) {
+
+        // Check the structure, and mark any safety flags needed.
+        dtrans::MemfuncRegion RegionDesc;
+        if (analyzeMemfuncStructureMemberParam(
+                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc))
+          createMemsetCallInfo(I, StructTy, RegionDesc);
+
+        return;
+      }
+
+      // The element pointee was not able to be analyzed.
+
+      // If the PointeePair is for an array element, propagate the safety data
+      // to any structures the array is a part of.
+      auto SetSafetyDataOnElementPointees = [this](ValueTypeInfo *PtrInfo,
+                                                   dtrans::SafetyData Data,
+                                                   StringRef Reason,
+                                                   Instruction *I) {
+        auto &ElementPointees =
+            PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+        for (auto PointeePair : ElementPointees)
+          if (isa<DTransArrayType>(PointeePair.first)) {
+            auto &ElementOfTypes = PointeePair.second.getElementOf();
+            for (auto &ElementOfPair : ElementOfTypes)
+              if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first))
+                setBaseTypeInfoSafetyData(StTy, Data, Reason, I);
+          }
+      };
+
+      SafetyData Data;
+      StringRef Reason;
+      auto &ElementPointees =
+          DstInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+      if (ElementPointees.size() != 1) {
+        Data = dtrans::AmbiguousPointerTarget;
+        Reason = "memset with multiple element pointees";
+      } else {
+        Data = dtrans::BadMemFuncSize;
+        Reason = "memset with array, invalid offset or size";
+      }
+      setAllElementPointeeSafetyData(DstInfo, Data, Reason, &I);
+      SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
+
+      return;
+    }
+
+    // No need to check types that do not involve aggregates or that are only
+    // for pointer-to-pointer types.
+    if (!DstInfo->canAliasToDirectAggregatePointer())
+      return;
+
+    auto DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
+    if (!DestParentTy || !DestParentTy->isPointerTy()) {
+      setAllAliasedTypeSafetyData(DstInfo, dtrans::AmbiguousPointerTarget,
+                                  "memset could not identify dominant type",
+                                  &I);
+      return;
+    }
+
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
+    if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
+      TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      markAllFieldsWritten(ParentTI, I);
+      dtrans::MemfuncRegion RegionDesc;
+      RegionDesc.IsCompleteAggregate = true;
+      createMemsetCallInfo(I, DestPointeeTy, RegionDesc);
+      return;
+    }
+
+    // Check for the case where a portion of a structure is being set, starting
+    // from field number zero.
+    if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
+      dtrans::MemfuncRegion RegionDesc;
+      if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
+                                             /*PrePadBytes=*/0, SetSize,
+                                             RegionDesc)) {
+
+        createMemsetCallInfo(I, StructTy, RegionDesc);
+        return;
+      }
+    }
+
+    setAllAliasedAndPointeeTypeSafetyData(
+        DstInfo, dtrans::BadMemFuncSize,
+        "memset could not match size to aggregate type", &I);
+  }
+
+  // Check the source and destination pointer parameters of a call to memcpy or
+  // memmove call for safety.
+  //
+  // A safe call is one where it can be resolved that the operands to the
+  // call meets one of the following conditions:
+  //   - Neither operand affects an aggregate data type.
+  //
+  //   - For pointers to fields within an aggregate type, a subset of fields may
+  //   be copied from the source to the destination, provided that both the
+  //   source and destination fields are members of same aggregate type, and
+  //   start on the same field number.
+  //
+  //   - For pointers that point to an aggregate type, both source and
+  //   destination must be of the same type, and the size parameter must be a
+  //   multiple of the aggregate size.
+  //
+  //   - For cases where one pointer is a field within aggregate type A and
+  //   the other is a pointer to aggregate type B, a copy will be permitted
+  //   when the field type is aggregate type B and the size parameter is the
+  //   exact size of the field.
+  //
+  void analyzeMemcpyOrMemmove(MemTransferInst &I) {
+    DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
+                      dbgs()
+                          << "dtrans: Analyzing memcpy/memmove call: ["
+                          << I.getFunction()->getName() << "] " << I << "\n");
+
+    Value *SetSize = I.getLength();
+    MemfuncCallInfo::MemfuncKind Kind = isa<MemCpyInst>(&I)
+                                            ? MemfuncCallInfo::MK_Memcpy
+                                            : MemfuncCallInfo::MK_Memmove;
+
+    auto *DestArg = I.getRawDest();
+    auto *SrcArg = I.getRawSource();
+    ValueTypeInfo *DstInfo = PTA.getValueTypeInfo(DestArg);
+    ValueTypeInfo *SrcInfo = PTA.getValueTypeInfo(SrcArg);
+    assert(DstInfo && SrcInfo &&
+           "PointerTypeAnalyzer should have collected info for pointers");
+
+    bool DstOfInterest =
+        DstInfo->canAliasToAggregatePointer() || DstInfo->pointsToSomeElement();
+    bool SrcOfInterest =
+        SrcInfo->canAliasToAggregatePointer() || SrcInfo->pointsToSomeElement();
+    if (!DstOfInterest && !SrcOfInterest)
+      return;
+
+    // Do not support copy between type that is tracked to an aggregate and one
+    // that isn't.
+    if (!DstOfInterest || !SrcOfInterest) {
+      setAllAliasedAndPointeeTypeSafetyData(
+          DstInfo, dtrans::BadMemFuncManipulation,
+          "memcpy/memmove - src and dest must both be of interest", &I);
+      setAllAliasedAndPointeeTypeSafetyData(
+          SrcInfo, dtrans::BadMemFuncManipulation,
+          "memcpy/memmove - src and dest must both be of interest", &I);
+      return;
+    }
+
+    bool DstPtrToMember = DstInfo->pointsToSomeElement();
+    bool SrcPtrToMember = SrcInfo->pointsToSomeElement();
+    if (DstPtrToMember || SrcPtrToMember) {
+
+      // Helper function for handling propagation when ValueTypeInfo has an
+      // element pointee type. If the PointeePair is an array element, this
+      // supports propagating the safety data to a structure which the array is
+      // an element of, when DTransOutOfBoundsOK is enabled. If
+      // DTransOutOfBouundsOK is not enabled, then it is assumed that any
+      // safety conditions on the array only affect the array, and not any
+      // structures it may be part of.
+      auto SetSafetyDataOnElementPointees = [this](ValueTypeInfo *PtrInfo,
+                                                   dtrans::SafetyData Data,
+                                                   StringRef Reason,
+                                                   Instruction *I) {
+        auto &ElementPointees =
+            PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+        for (auto PointeePair : ElementPointees) {
+          setBaseTypeInfoSafetyData(PointeePair.first, Data, Reason, I);
+          if (DTransOutOfBoundsOK && isa<DTransArrayType>(PointeePair.first)) {
+            auto &ElementOfTypes = PointeePair.second.getElementOf();
+            for (auto &ElementOfPair : ElementOfTypes)
+              if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first))
+                setBaseTypeInfoSafetyData(StTy, Data, Reason, I);
+          }
+        }
+      };
+
+      // It is possible that one of the pointers is not an element pointee.
+      //
+      // For example:
+      //   %struct.test01a = type { i32, i32, i32, i32, i32 }
+      //   %struct.test01b = type { i32, %struct.test01a }
+      //
+      // Copy field 1 of %struct.test01b, which is of type %struct.test01a to a
+      // pointer that points to a value of type %struct.test01a should be
+      // permitted.
+      //
+      if (!(DstPtrToMember && SrcPtrToMember)) {
+        // TODO: Add support for the case where one parameter is an element
+        // pointee that is a structure type, and the other is a pointer to a
+        // structure that is not an element pointee, as long as both pointers
+        // represent the same type. For now, mark it as BadMemFuncManipulation.
+        SafetyData Data = dtrans::BadMemFuncManipulation;
+        StringRef Reason =
+            "memcpy/memmove - Element pointee and non-Element pointee";
+        setAllAliasedAndPointeeTypeSafetyData(DstInfo, Data, Reason, &I);
+        setAllAliasedAndPointeeTypeSafetyData(SrcInfo, Data, Reason, &I);
+        SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
+        SetSafetyDataOnElementPointees(SrcInfo, Data, Reason, &I);
+        return;
+      }
+
+      // Handle the case where both pointers are element pointees.
+      // In this case, require that they are both members of the same type and
+      // point to the same field number.
+      size_t DstPointeeCount =
+          DstInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use).size();
+      size_t SrcPointeeCount =
+          SrcInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use).size();
+      if (DstPointeeCount != 1 || SrcPointeeCount != 1) {
+        StringRef AmbigMsg = "memcpy/memmove - multiple element pointees";
+        StringRef BadManipMsg = "memcpy/memmove - src/dest not supported";
+        if (DstPointeeCount != 1) {
+          SetSafetyDataOnElementPointees(
+              DstInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
+          SetSafetyDataOnElementPointees(
+              SrcInfo, dtrans::BadMemFuncManipulation, BadManipMsg, &I);
+        } else {
+          SetSafetyDataOnElementPointees(
+              SrcInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
+          SetSafetyDataOnElementPointees(
+              DstInfo, dtrans::BadMemFuncManipulation, BadManipMsg, &I);
+        }
+        return;
+      }
+
+      DTransStructType *DstStructTy = nullptr;
+      size_t DstFieldNum = 0;
+      uint64_t DstPrePadBytes = 0;
+      bool DstSimple = isSimpleStructureMember(DstInfo, &DstStructTy,
+                                               &DstFieldNum, &DstPrePadBytes);
+      if (!DstSimple) {
+        SetSafetyDataOnElementPointees(
+            DstInfo, dtrans::BadMemFuncSize,
+            "memcpy/memmove - array, invalid offset or size", &I);
+        SetSafetyDataOnElementPointees(
+            SrcInfo, dtrans::BadMemFuncManipulation,
+            "memcpy/memmove - dest was not supported", &I);
+        return;
+      }
+
+      DTransStructType *SrcStructTy = nullptr;
+      size_t SrcFieldNum = 0;
+      uint64_t SrcPrePadBytes = 0;
+      bool SrcSimple = isSimpleStructureMember(SrcInfo, &SrcStructTy,
+                                               &SrcFieldNum, &SrcPrePadBytes);
+      if (!SrcSimple) {
+        SetSafetyDataOnElementPointees(DstInfo, dtrans::BadMemFuncManipulation,
+                                       "memcpy/memmove - src was not supported",
+                                       &I);
+        SetSafetyDataOnElementPointees(
+            SrcInfo, dtrans::BadMemFuncSize,
+            "memcpy/memmove - array, invalid offset or size", &I);
+        return;
+      }
+
+      // Copying values from one structure type to another, or from one set of
+      // fields to a different set of fields is not supported because the
+      // complications this would cause for the transformations. Such as, if one
+      // structure had fields deleted because they were write-only, but the
+      // other structure didn't have the fields deleted.
+      if (!(DstStructTy == SrcStructTy && DstFieldNum == SrcFieldNum &&
+            DstPrePadBytes == SrcPrePadBytes)) {
+        SafetyData Data = dtrans::BadMemFuncManipulation;
+        StringRef Reason =
+            "memcpy/memmove - non-identical src and dest element pointees";
+        SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
+        SetSafetyDataOnElementPointees(SrcInfo, Data, Reason, &I);
+        return;
+      }
+
+      // Identify the set of fields affected.
+      dtrans::MemfuncRegion RegionDesc;
+      if (!analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
+                                              DstPrePadBytes, SetSize,
+                                              RegionDesc)) {
+        SetSafetyDataOnElementPointees(
+            DstInfo, dtrans::BadMemFuncSize,
+            "memcpy/memmove - unsupport array, or invalid offset/size", &I);
+        return;
+      }
+
+      // The call is safe for the ElementPointee.
+      createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind,
+                                    /*RegionDescDest=*/RegionDesc,
+                                    /*RegionDescSrc=*/RegionDesc);
+
+      // NOTE: For memcpy/memmove, we do not mark the "Read" property in the
+      // FieldInfo objects. This is to allow for field deletion to identify the
+      // field as potentially unneeded.
+
+      // TODO: For ModRef information of the field, we add the function to the
+      // "Readers" list in the FieldInfo to record that the field may be
+      // referenced.
+      return;
+    }
+
+    // Start of handling the case where both parameters are pointers to
+    // aggregate types.
+
+    // No need to check types that do not involve aggregates or that are only
+    // using pointer-to-pointer types.
+    if (!(DstInfo->canAliasToDirectAggregatePointer() ||
+          SrcInfo->canAliasToDirectAggregatePointer()))
+      return;
+
+    auto DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
+    auto SrcParentTy = PTA.getDominantAggregateUsageType(*SrcInfo);
+    if (!DestParentTy || !DestParentTy->isPointerTy() || !SrcParentTy ||
+        !SrcParentTy->isPointerTy()) {
+      SafetyData Data = dtrans::AmbiguousPointerTarget;
+      StringRef Reason = "memcpy/memmove - unidentified type for src or dest";
+      setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
+      setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
+      return;
+    }
+
+    if (DestParentTy != SrcParentTy) {
+      SafetyData Data = dtrans::BadMemFuncManipulation;
+      StringRef Reason = "memcpy/memmove - different types for src and dest";
+      setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
+      setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
+      return;
+    }
+
+    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
+    if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
+      TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      // The call is safe, and is using the entire structure
+      markAllFieldsWritten(ParentTI, I);
+      dtrans::MemfuncRegion RegionDesc;
+      RegionDesc.IsCompleteAggregate = true;
+      createMemcpyOrMemmoveCallInfo(I, DestPointeeTy, Kind,
+                                    /*RegionDescDest=*/RegionDesc,
+                                    /*RegionDescSrc=*/RegionDesc);
+      // TODO: For ModRef information of the field, we add the function to the
+      // "Readers" list in the FieldInfo to record that the field may be
+      // referenced.
+      return;
+    }
+
+    // Check for the case where a portion of a structure is being set, starting
+    // from field number zero.
+    if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
+      dtrans::MemfuncRegion RegionDesc;
+      if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
+                                             /*PrePadBytes=*/0, SetSize,
+                                             RegionDesc)) {
+        // The call is safe, and affects the region described in RegionDesc
+        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind,
+                                      /*RegionDescDest=*/RegionDesc,
+                                      /*RegionDescSrc=*/RegionDesc);
+
+        // TODO: For ModRef information of the field, we add the function to the
+        // "Readers" list in the FieldInfo to record that the field may be
+        // referenced.
+        return;
+      }
+    }
+
+    setAllAliasedAndPointeeTypeSafetyData(
+        DstInfo, dtrans::BadMemFuncSize,
+        "memcpy/memmove - could not match size to aggregate type", &I);
+    setAllAliasedAndPointeeTypeSafetyData(
+        SrcInfo, dtrans::BadMemFuncSize,
+        "memcpy/memmove - could not match size to aggregate type", &I);
+  }
+
+  // Helper function for retrieving information when the \p ValueTypeInfo
+  // argument refers to a pointer to some element within an aggregate type. This
+  // function checks that the pointer to member is a referencing a single member
+  // from a single structure. If so, it returns 'true'. Otherwise, return
+  // 'false'. When returning 'true', the following output parameters are set:
+  //
+  // \p StructTy    - The structure type in the \p StructTy.
+  // \p FieldNum    - Field number of the first complete field that may be
+  //                  accessed.
+  // \p PrePadBytes - Number of padding bytes prior to \p FieldNum
+  //                  accessed.
+  bool isSimpleStructureMember(ValueTypeInfo *Info, DTransStructType **StructTy,
+                               size_t *FieldNum, uint64_t *PrePadBytes) {
+    assert(Info->pointsToSomeElement() && "Expected pointer to an element");
+
+    auto &ElementPointees = Info->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+    if (ElementPointees.size() != 1)
+      return false;
+
+    auto &PointeePair = *(ElementPointees.begin());
+    if (PointeePair.second.isUnknownOffset())
+      return false;
+
+    // Check whether the address is to a location that is not the start of a
+    // field. In this case, we need to identify the first field that follows the
+    // offset, and the number of bytes to reach it.
+    DTransType *Ty = PointeePair.first;
+    if (PointeePair.second.isByteOffset()) {
+      if (auto *StTy = dyn_cast<DTransStructType>(Ty)) {
+        llvm::StructType *LLVMStTy =
+            cast<llvm::StructType>(StTy->getLLVMType());
+        const StructLayout *SL = DL.getStructLayout(LLVMStTy);
+        uint64_t AccessOffset = PointeePair.second.getByteOffset();
+        if (AccessOffset < SL->getSizeInBytes()) {
+          uint64_t Elem = SL->getElementContainingOffset(AccessOffset);
+          uint64_t FieldStart = SL->getElementOffset(Elem);
+
+          // getElementContainingOffset returns the field member prior to any
+          // pad bytes if the offset falls into a padding region.
+          if (AccessOffset > FieldStart) {
+            // Make sure the offset is beyond the end of the prior field member.
+            uint64_t FieldSize =
+                DL.getTypeStoreSize(LLVMStTy->getElementType(Elem));
+            if (AccessOffset < FieldStart + FieldSize)
+              return false;
+
+            // Advance to the next field, if possible.
+            ++Elem;
+            if (Elem == LLVMStTy->getNumElements())
+              return false;
+
+            FieldStart = SL->getElementOffset(Elem);
+          }
+          *StructTy = StTy;
+          *FieldNum = Elem;
+          *PrePadBytes = FieldStart - AccessOffset;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // If the element is an array type, it's possible that the address is for a
+    // structure field that is the first element of an aggregate structure. For
+    // example:
+    //
+    //   %struct.network = type { [200 x i8], [200 x i8], i64 }
+    //   call void @llvm.memset.p0i8.i64(i8* getelementptr(
+    //        %struct.network, %struct.network* @net, i64 0, i32 0, i64 0),
+    //       i8 0, i64 408, i1 false)
+    //
+    // The analysis will later use the size parameter for the call to determine
+    // whether this call is only writing to the array element, or to multiple
+    // elements of the structure.
+    if (isa<DTransArrayType>(Ty)) {
+      auto &ElementOfTypes = PointeePair.second.getElementOf();
+      if (ElementOfTypes.empty())
+        return false;
+
+      if (PointeePair.second.isField() &&
+          PointeePair.second.getElementNum() == 0)
+        for (auto &ElementOfPair : ElementOfTypes) {
+          if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first)) {
+            *StructTy = StTy;
+            *FieldNum = ElementOfPair.second;
+            *PrePadBytes = 0;
+            return true;
+          }
+        }
+
+      return false;
+    }
+
+    // It's not a special case. Just get the type and field number if it's a
+    // structure field.
+    if (auto *StTy = dyn_cast<DTransStructType>(PointeePair.first)) {
+      assert(PointeePair.second.isField() && "Expected structure field access");
+      *StructTy = StTy;
+      *FieldNum = PointeePair.second.getElementNum();
+      *PrePadBytes = 0;
+      return true;
+    }
+
+    return false;
+  }
+
+  // Analyze a structure pointer that is passed to memfunc call, possibly using
+  // a pointer to one of the fields within the structure to determine which
+  // fields are modified, and whether it is a safe usage. Return 'true' if safe
+  // usage, and populate the \p RegionDesc with the results.
+  bool analyzeMemfuncStructureMemberParam(Instruction &I,
+                                          DTransStructType *StructTy,
+                                          size_t FieldNum, uint64_t PrePadBytes,
+                                          Value *SetSize,
+                                          dtrans::MemfuncRegion &RegionDesc) {
+    auto *ParentTI = DTInfo.getTypeInfo(StructTy);
+    llvm::StructType *LLVMTy = cast<llvm::StructType>(StructTy->getLLVMType());
+
+    // Try to determine if a set of fields in a structure is being written.
+    if (analyzePartialStructUse(DL, LLVMTy, FieldNum, PrePadBytes, SetSize,
+                                &RegionDesc)) {
+      // If not all members of the structure were set, mark it as a partial
+      // write.
+      if (!RegionDesc.IsCompleteAggregate) {
+        setBaseTypeInfoSafetyData(
+            StructTy, dtrans::MemFuncPartialWrite,
+            "size covers subset of fields of the structures", &I);
+      }
+
+      markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
+                              RegionDesc.LastField, I);
+      return true;
+    }
+
+    // TODO: Add checks for cases that can be marked with
+    // MemFuncNestedStructsPartialWrite instead of BadMemFuncSize.
+
+    // The size could not be matched to the fields of the structure.
+    setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize,
+                              "size does not equal member field type(s) size",
+                              &I);
+    return false;
+  }
+
+  // For ReturnInst, we need to perform the following checks:
+  // - The address of structure is not being returned as a generic type, as this
+  // would allow the caller to use the object in a way that is not tracked by
+  // the analysis.
+  // - The address of a field is not returned, because this would allow
+  // reads/writes to the field to be performed without the analysis tracking the
+  // location as an element pointee
+  // - The type returned is unambiguous and matches the expected type for the
+  // function.
   void visitReturnInst(ReturnInst &I) {
-    // TODO: Check the return type matches the expected type, and that a field
-    // member address is not returned.
+    Value *RetVal = I.getReturnValue();
+    if (!RetVal)
+      return;
+
+    // No need to check type for constants like null or undef values being
+    // returned.
+    if (isa<ConstantData>(RetVal))
+      return;
+
+    // Identify the type that is expected to be returned.
+    llvm::Type *ExpectedRetTy = RetVal->getType();
+    DTransType *ExpectedRetDTransTy = nullptr;
+    if (TM.isSimpleType(ExpectedRetTy)) {
+      ExpectedRetDTransTy = TM.getOrCreateSimpleType(ExpectedRetTy);
+    } else {
+      DTransType *FnTy = MDReader.getDTransTypeFromMD(I.getFunction());
+      if (FnTy)
+        ExpectedRetDTransTy = cast<DTransFunctionType>(FnTy)->getReturnType();
+    }
+
+    // Check for a structure type being returned
+    if (ExpectedRetDTransTy) {
+      DTransType *BaseTy = ExpectedRetDTransTy;
+      while (BaseTy->isArrayTy())
+        BaseTy = BaseTy->getArrayElementType();
+
+      if (isa<DTransStructType>(BaseTy))
+        setBaseTypeInfoSafetyData(BaseTy, dtrans::WholeStructureReference,
+                                  "return of structure type", &I);
+    }
+
+    // If the value is not a type of interest, then it will not affect any
+    // safety data.
+    if (!isPossiblePtrValue(RetVal))
+      return;
+
+    // Now find the types collected by the PtrTypeAnalyzer for the value being
+    // returned, and start the checks for whether it is safe for the expected
+    // type to be returned.
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(RetVal);
+    if (!Info)
+      return;
+
+    if (isValueTypeInfoUnhandled(*Info)) {
+      DTInfo.setUnhandledPtrType(RetVal);
+      setAllAliasedAndPointeeTypeSafetyData(
+          Info, dtrans::UnhandledUse,
+          "PointerTypeAnalyzer could not analyze return instruction value", &I);
+      return;
+    }
+
+    // Nothing more necessary if there are no types associated with the return
+    // value.
+    if (Info->empty())
+      return;
+
+    if (!ExpectedRetDTransTy) {
+      setAllAliasedTypeSafetyData(Info, dtrans::UnhandledUse,
+                                  "Return of unknown type", &I);
+      return;
+    }
+
+    // Check whether the address of a field is being returned
+    if (Info->pointsToSomeElement()) {
+      bool MismatchedType = false;
+      for (auto PointeePair :
+           Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+        dtrans::TypeInfo *ParentTI =
+            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
+          assert(PointeePair.second.isField() &&
+                 "Unexpected use of non-field offset");
+          size_t Idx = PointeePair.second.getElementNum();
+          setBaseTypeInfoSafetyData(PointeePair.first,
+                                    dtrans::FieldAddressTaken,
+                                    "Field address returned", &I);
+          ParentStInfo->getField(Idx).setAddressTaken();
+
+          // Check that the field type matches the returned type
+          if (TM.getOrCreatePointerType(
+                  ParentStInfo->getField(Idx).getDTransType()) !=
+              ExpectedRetDTransTy)
+            MismatchedType = true;
+        }
+      }
+
+      if (MismatchedType) {
+        setAllAliasedAndPointeeTypeSafetyData(
+            Info, dtrans::BadCasting, "Return of field using mismatched type",
+            &I);
+        // We also need to set the expected type with the safety flag because it
+        // did not match the field type.
+        setBaseTypeInfoSafetyData(ExpectedRetDTransTy, dtrans::BadCasting,
+                                  "Return value type did not match this type",
+                                  &I);
+      }
+    }
+
+    if (Info->canAliasToAggregatePointer()) {
+      // Check that the type being returned matches the expected type for the
+      // function
+      DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*Info);
+      if (!PtrDomTy)
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                    "Return of ambiguous type", &I);
+
+      // If a pointer to an aggregate type is being returned as a generic type
+      // (i8* or pointer-sized-int), then the AddressTaken safety bit will be
+      // applied because the caller will treating the returned pointer as just a
+      // generic pointer, rather than the actual type.
+      if (ExpectedRetDTransTy == getDTransI8PtrType() ||
+          ExpectedRetDTransTy == getDTransPtrSizedIntType()) {
+        setAllAliasedTypeSafetyData(
+            Info, dtrans::AddressTaken,
+            "Return of aggregate pointer as a generic type", &I);
+      }
+      // If a pointer to an aggregate type is being returned as a type that is
+      // different than the expected type, we will treat it as BadCasting.
+      // TODO: There is the special case where a pointer to an aggregate is
+      // returned as the element zero type, which could be treated as
+      // FieldAddressTaken in the future, which may be less conservative,
+      // because of differences in how the safety conditions cascade and
+      // propagate.
+      else if (PtrDomTy != ExpectedRetDTransTy) {
+        setAllAliasedAndPointeeTypeSafetyData(
+            Info, dtrans::BadCasting,
+            "Return of aggregate type that does not match expected type", &I);
+        setBaseTypeInfoSafetyData(ExpectedRetDTransTy, dtrans::BadCasting,
+                                  "Return value type did not match this type",
+                                  &I);
+      }
+    }
   }
 
   void visitICmpInst(ICmpInst &I) {
-    // TODO: Check that types are the same, otherwise some bad casting has
-    // occurred. i.e. pointers are to same type if aggregate pointer types.
+    // Compare instructions are always safe because the comparison is not
+    // accessing any memory. It does not matter if the pointers represent
+    // different types. This visitor method is included here so that base
+    // visitInstruction does not mark operands as unhandled.
   }
 
-  // All instructions not handled by other visit functions.
+  void visitIntToPtrInst(IntToPtrInst &I) {
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+    assert(Info && "Expected pointer type analyzer to analyze pointer");
+
+    // TODO: There may be some cases where a pointer to integer conversion can
+    // be analyzed as safe if the integer can be traced back to a pointer of
+    // the same type as the type this instruction will be used as, but offset
+    // by a multiple of the size of the structure.
+    setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::BadCasting,
+                                          "Integer type cast to pointer", &I);
+  }
+
+  // Process any instruction not handled by other visit functions.
   void visitInstruction(Instruction &I) {
-    // TODO: If the pointer type analyzer collected types for the instruction
-    // and there were aggregate types involved, then the aliases and element
-    // pointees need to be marked as unhandled, if the instruction reaches this
-    // visit routine.
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+    assert((!hasPointerType(I.getType()) || Info) &&
+           "Expected pointer type analyzer to analyze pointer result");
+
+    if (Info && Info->canAliasToAggregatePointer()) {
+      setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
+                                            "Unhandled instruction", &I);
+    }
+
+    for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum) {
+      ValueTypeInfo *OpInfo = PTA.getValueTypeInfo(&I, OpNum);
+      if (OpInfo && OpInfo->canAliasToAggregatePointer())
+        setAllAliasedAndPointeeTypeSafetyData(
+            OpInfo, dtrans::UnhandledUse,
+            "Operand used in unhandled instruction", &I);
+    }
   }
 
 private:
@@ -1776,6 +3215,37 @@ private:
     for (auto *U : CE->users())
       if (auto *UCE = dyn_cast<ConstantExpr>(U))
         analyzeConstantExpr(UCE);
+  }
+
+  // Check whether the type for the Value object is something that needs to be
+  // analyzed for potential pointer types. This differs from just checking the
+  // Type of V with isTypeOfInterest, because this also needs to consider the
+  // case of a pointer converted into a pointer sized integer.
+  bool isPossiblePtrValue(Value *V) const {
+    llvm::Type *ValueTy = V->getType();
+
+    // If the value is a pointer or the result of a pointer-to-int cast
+    // it definitely is a pointer.
+    if (ValueTy->isPointerTy() || isa<PtrToIntOperator>(V))
+      return true;
+
+    // A vector of pointers should be analyzed to track the pointer type.
+    if (ValueTy->isVectorTy() &&
+        cast<VectorType>(ValueTy)->getElementType()->isPointerTy())
+      return true;
+
+    // If the value is not a pointer and is not a pointer-sized integer, it
+    // is definitely not a value we will track as a pointer.
+    if (ValueTy != getLLVMPtrSizedIntType())
+      return false;
+
+    // If it is a pointer-sized integer, we may need to analyze it if
+    // it is the result of a load, select or PHI node.
+    if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
+      return true;
+
+    // Otherwise, we don't need to analyze it as a pointer.
+    return false;
   }
 
   // Check whether any of the aliases that were collected for the declaration of
@@ -1895,6 +3365,7 @@ private:
     case dtrans::BadCastingConditional:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
     case dtrans::GlobalArray:
@@ -1928,14 +3399,16 @@ private:
   // the bounds of a structure. This is strictly not allowed in C/C++, but
   // is allowed under the definition of LLVM IR.
   bool isCascadingSafetyCondition(dtrans::SafetyData Data) {
-    if (dtrans::DTransOutOfBoundsOK)
-      return true;
 
     switch (Data) {
-      // We can add additional cases here to reduce the conservative behavior
-      // as needs dictate.
     case dtrans::FieldAddressTaken:
     case dtrans::HasZeroSizedArray:
+      // We can add additional cases here to reduce the conservative behavior
+      // as needs dictate. These cases should not cascade to nested elements,
+      // unless we are allowing that the address of one field can be used to
+      // access a disjoint field.
+      if (dtrans::DTransOutOfBoundsOK)
+        return true;
       return false;
 
     case dtrans::AddressTaken:
@@ -1948,6 +3421,7 @@ private:
     case dtrans::BadMemFuncManipulation:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
     case dtrans::GlobalArray:
@@ -1959,7 +3433,6 @@ private:
     case dtrans::HasVTable:
     case dtrans::LocalInstance:
     case dtrans::LocalPtr:
-    case dtrans::MemFuncPartialWrite:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
     case dtrans::NestedStruct:
@@ -1973,6 +3446,12 @@ private:
     case dtrans::UnsafePointerStorePending:
     case dtrans::VolatileData:
       return true;
+
+    case dtrans::MemFuncPartialWrite:
+      // A partial write to a one structure does not imply contained structures
+      // are also partially written. Those contained structures should be marked
+      // on a case by case basis.
+      return false;
     }
 
     llvm_unreachable("Fully covered switch isn't fully covered?");
@@ -1980,7 +3459,8 @@ private:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printSafetyDataDebugMessage(dtrans::SafetyData Data, StringRef Reason,
-                                   Value *V, ValueTypeInfo *Info) {
+                                   Value *V, ValueTypeInfo *Info,
+                                   SafetyInfoReportCB Callback) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
       if (!Reason.empty()) {
         dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
@@ -1995,6 +3475,8 @@ private:
             dbgs() << "  [" << F->getName() << "] ";
           dbgs() << *V << "\n";
         }
+        if (Callback)
+          Callback();
         if (Info)
           Info->print(dbgs(), /*Combined=*/false, "    ");
       }
@@ -2005,35 +3487,65 @@ private:
   // This function will identify the aggregate type corresponding to 'Ty',
   // allowing for levels of pointer indirection, and set the SafetyData on the
   // type. Nested and referenced types within the aggregate may also be set
-  // based on the pointer-carried and cascading safety data rules. 'Reason' and
-  // 'V' are optional parameters that provide for debug traces.
+  // based on the pointer-carried and cascading safety data rules.
+  // 'Reason' and 'V' are optional parameters (i.e. may be empty or nullptr)
+  // that provide information for the debug traces.
+  // 'Callback' is an optional callback function that can be used to report
+  // additional information about the safety check than just the reason and
+  // value. For example, a safety flag set on a parameter of a call may have a
+  // callback function to additionally report the argument and argument
+  // position. This function will only be called when the debug traces are
+  // enabled for the function being analyzed.
+  // TODO: Combine 'Reason', 'V' and 'Callback' into single class that can
+  // be passed around, and more easily customized for information dumped based
+  // on context.
   void setBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
-                                 StringRef Reason, Value *V) {
+                                 StringRef Reason, Value *V,
+                                 SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, nullptr);
+    printSafetyDataDebugMessage(Data, Reason, V, nullptr, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setBaseTypeInfoSafetyDataImpl(Ty, Data, isCascadingSafetyCondition(Data),
                                   isPointerCarriedSafetyCondition(Data));
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo'
-  // 'Reason' and 'V' are optional parameters that provide for debug traces.
+  // 'Reason' and 'V' are optional parameters (i.e. may be empty or nullptr)
+  // that provide information for the debug traces.
+  // 'Callback' is an optional callback function that can be used to report
+  // additional information about the safety check than just the reason and
+  // value. For example, a safety flag set on a parameter of a call, may have a
+  // callback function to additionally report the argument and argument
+  // position. This function will only be called when the debug traces are
+  // enabled for the function being analyzed.
   void setAllAliasedTypeSafetyData(ValueTypeInfo *PtrInfo,
                                    dtrans::SafetyData Data, StringRef Reason,
-                                   Value *V) {
+                                   Value *V,
+                                   SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
                                           /*Pointees=*/false);
   }
 
-  // 'Reason' and 'V' are optional parameters that provide for debug traces.
+  // Set the safety data for only the aggregate types referenced in the
+  // ElementPointees list of 'PtrInfo'.
+  //
+  // 'Reason' and 'V' are optional parameters (i.e. may be empty or nullptr)
+  // that provide information for the debug traces.
+  // 'Callback' is an optional callback function that can be used to report
+  // additional information about the safety check than just the reason and
+  // value. For example, a safety flag set on a parameter of a call, may have a
+  // callback function to additionally report the argument and argument
+  // position. This function will only be called when the debug traces are
+  // enabled for the function being analyzed.
   void setAllElementPointeeSafetyData(ValueTypeInfo *PtrInfo,
                                       dtrans::SafetyData Data, StringRef Reason,
-                                      Value *V) {
+                                      Value *V,
+                                      SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/false,
                                           /*Pointees=*/true);
@@ -2052,11 +3564,11 @@ private:
   //
   // This routine will set the safety information set on both %struct.B and
   // %struct.A
-  void setAllAliasedAndPointeeTypeSafetyData(ValueTypeInfo *PtrInfo,
-                                             dtrans::SafetyData Data,
-                                             const char *Reason, Value *V) {
+  void setAllAliasedAndPointeeTypeSafetyData(
+      ValueTypeInfo *PtrInfo, dtrans::SafetyData Data, StringRef Reason,
+      Value *V, SafetyInfoReportCB Callback = nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, nullptr);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
                                           /*Pointees=*/true);
@@ -2170,6 +3682,68 @@ private:
                                     IsCascading, IsPointerCarried);
   }
 
+  // Mark all the fields of the type, and fields of aggregates the type contains
+  // as written.
+  void markAllFieldsWritten(dtrans::TypeInfo *TI, Instruction &I) {
+    if (TI == nullptr)
+      return;
+
+    if (!TI->getLLVMType()->isAggregateType()) {
+      return;
+    }
+
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      for (auto &FI : StInfo->getFields()) {
+        FI.setWritten(I);
+        // TODO: Update frequency count for field info
+        auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
+        markAllFieldsWritten(ComponentTI, I);
+      }
+    } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
+      auto *ComponentTI = AInfo->getElementDTransInfo();
+      markAllFieldsWritten(ComponentTI, I);
+    }
+  }
+
+  // A specialized form of the MarkAllFieldsWritten that is used to mark a
+  // subset of fields of a structure type as written. Any contained aggregates
+  // within the subset are marked as completely written.
+  void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
+                               unsigned int LastField, Instruction &I) {
+    assert(TI && TI->getLLVMType()->isStructTy() &&
+           "markStructFieldsWritten requires Structure type");
+
+    auto *StInfo = cast<dtrans::StructInfo>(TI);
+    assert(LastField >= FirstField && LastField < StInfo->getNumFields() &&
+           "markStructFieldsWritten with invalid field index");
+
+    for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
+      auto &FI = StInfo->getField(Idx);
+      FI.setWritten(I);
+      // TODO: Update frequency count for field info
+      auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
+      markAllFieldsWritten(ComponentTI, I);
+    }
+  }
+
+  // Create a MemfuncCallInfo object that will store the details about a safe
+  // memset call.
+  void createMemsetCallInfo(Instruction &I, DTransType *ElemTy,
+                            dtrans::MemfuncRegion &RegionDesc) {
+    // TODO: create the MemfuncCallInfo when that class support DTransType
+    // objects.
+  }
+
+  // Create a MemfuncCallInfo object that will store the details about a safe
+  // memcpy/memmove call.
+  void createMemcpyOrMemmoveCallInfo(Instruction &I, DTransType *ElemTy,
+                                     dtrans::MemfuncCallInfo::MemfuncKind Kind,
+                                     dtrans::MemfuncRegion &RegionDescDest,
+                                     dtrans::MemfuncRegion &RegionDescSrc) {
+    // TODO: create the MemfuncCallInfo when that class support DTransType
+    // objects.
+  }
+
   // Return 'true' if the DTransType is something that may require safety data
   // to be set on it.
   bool isTypeOfInterest(DTransType *Ty) {
@@ -2194,8 +3768,10 @@ private:
 private:
   // private data members
   const DataLayout &DL;
+  DTransSafetyInfo::GetTLIFnType GetTLI;
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
+  TypeMetadataReader &MDReader;
   DTransTypeManager &TM;
 
   // Types that are frequently needed for comparing type aliases against
@@ -2225,9 +3801,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
 }
 
 void DTransSafetyInfo::analyzeModule(
-    Module &M,
-    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
-    WholeProgramInfo &WPInfo,
+    Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
 
   LLVM_DEBUG(dbgs() << "DTransSafetyInfo::analyzeModule running\n");
@@ -2251,7 +3825,15 @@ void DTransSafetyInfo::analyzeModule(
   PtrAnalyzer->run(M);
   LLVM_DEBUG(dbgs() << "DTransSafetyInfo: PtrTypeAnalyzer complete\n");
 
-  DTransSafetyInstVisitor Visitor(Ctx, DL, *this, *PtrAnalyzer, *TM);
+  dtrans::DTransAllocAnalyzer DTAA(GetTLI, M);
+
+  // TODO: Enable the following code to check for user allocation/free wrapper
+  // functions after the DTransAllocAnalyzer is updated to work with opaque
+  // pointers:
+  // DTAA.populateAllocDeallocTable(M);
+
+  DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, *this, *PtrAnalyzer, *TM,
+                                  *MDReader, DTAA);
   Visitor.visit(M);
 
   LLVM_DEBUG({

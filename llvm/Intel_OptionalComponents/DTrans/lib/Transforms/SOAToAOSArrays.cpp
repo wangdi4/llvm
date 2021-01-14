@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.cpp - Part of SOAToAOSPass -----------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -183,6 +183,12 @@ public:
                          InstsToTransform.MK == MK_Ctor ||
                          InstsToTransform.MK == MK_CCtor;
 
+    // Create StoreInst early for each field of newly created SOAToAOS array
+    // element.
+    ArrayMethodTransformation::ClonedElemStoreMapTy ClonedElemStoreMap;
+    if (CopyElemInsts)
+      AMT.earlyCloneElemStoreInst(1 /* Element Offset */, ClonedElemStoreMap);
+
     AMT.updateBasePointerInsts(CopyElemInsts, 2/*Number of arrays*/,
                                NewElement->getPointerTo(0));
     if (CopyElemInsts) {
@@ -191,7 +197,8 @@ public:
                            true /* Update unique instructions like memset*/,
                            2 /*Number of arrays*/, PFloat /*New element type*/,
                            AppendMethodElemParamOffset +
-                               1 /* Offset in argument list of new element*/);
+                               1 /* Offset in argument list of new element*/,
+                           ClonedElemStoreMap, 1 /* Element Offset */);
       AMT.gepRAUW(true /*Do copy*/, OrigToCopy,
                   0 /*PFloat's offset in NewElement*/,
                   NewElement->getPointerTo(0));

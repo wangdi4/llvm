@@ -347,11 +347,29 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
   }
 
   if (Info->isVectorMode() && DDA.isRefinableDepAtLevel(Edge, NestLevel)) {
+    DDRef *SinkRef = Edge->getSink();
+
+    // Compute the deepest common level.
+    unsigned DeepestLevel;
+    if (CandidateLoop->isInnermost()) {
+      // If CandidateLoop is innermost then we know that its level is also the
+      // deepest common level.
+      DeepestLevel = NestLevel;
+    } else {
+      // Otherwise, we may potentially need to reason about two loop nests.
+      HLLoop *SrcLoop = SrcRef->getHLDDNode()->getLexicalParentLoop();
+      HLLoop *DstLoop = SinkRef->getHLDDNode()->getLexicalParentLoop();
+      HLLoop *LCALoop =
+          HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, DstLoop);
+      assert(LCALoop && "Refinable deps are expected to share a common loop");
+      DeepestLevel = LCALoop->getNestingLevel();
+    }
+    assert(DeepestLevel && "Computed invalid DeepestLevel for refinement");
+
     // Input DV set to test for innermost loop vectorization
     // For outer loop vectorization, modification is neeeded here or elsewhere
-    DDRef *SinkRef = Edge->getSink();
     auto RefinedDep =
-        DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, NestLevel, false);
+        DDA.refineDV(SrcRef, SinkRef, NestLevel, DeepestLevel, false);
     if (RefinedDep.isIndependent()) {
       LLVM_DEBUG(dbgs() << "\tis safe to vectorize (indep)\n");
       return;

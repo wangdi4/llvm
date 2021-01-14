@@ -116,6 +116,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "HIRScalarReplArray.h"
 
@@ -124,11 +125,6 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::scalarreplarray;
-
-const std::string ScalarReplTempName = "scalarepl";
-const std::string ScalarReplCopyName = "copy";
-const std::string ScalarReplLoadName = "load";
-const std::string ScalarReplStoreName = "store";
 
 // Disable the HIR Scalar Replacement of Array Transformation:
 // (default is false)
@@ -656,7 +652,7 @@ void MemRefGroup::handleTemps(void) {
 
   // Create all TmpRef(s), and push them into TmpV
   for (unsigned Idx = 0; Idx < getNumTemps(); ++Idx) {
-    RegDDRef *TmpRef = HNU.createTemp(DestType, ScalarReplTempName);
+    RegDDRef *TmpRef = HNU.createTemp(DestType, "scalarepl");
     TmpV.push_back(TmpRef);
   }
 
@@ -694,8 +690,8 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
     // Generate a CopyInst: Tn = Tn1
     RegDDRef *LvalRef = TmpV[Idx];
     RegDDRef *RvalRef = TmpV[Idx + 1];
-    HLInst *CopyInst = HNU.createCopyInst(RvalRef->clone(), ScalarReplCopyName,
-                                          LvalRef->clone());
+    HLInst *CopyInst =
+        HNU.createCopyInst(RvalRef->clone(), "copy", LvalRef->clone());
 
     if (!InsertAfterNode) {
       HLNodeUtils::insertAsFirstThenChild(cast<HLIf>(Lp->getLastChild()),
@@ -767,7 +763,7 @@ void MemRefGroup::generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef,
 
   // Insert the load into the Lp's preheader
   HLNodeUtils &HNU = HSRA.HNU;
-  HLInst *LoadInst = HNU.createLoad(MemRef2, ScalarReplTempName, TmpRefClone);
+  HLInst *LoadInst = HNU.createLoad(MemRef2, "scalarepl", TmpRefClone);
   HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInst);
 
   // Mark TempRefClone as Lp's LiveIn
@@ -837,7 +833,7 @@ HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
   DDRefUtils::replaceIVByCanonExpr(MemRef, LoopLevel, UBCE, Lp->hasSignedIV());
 
   // Create a StoreInst
-  HLInst *StoreInst = HNU.createStore(TmpRef, ScalarReplStoreName, MemRef);
+  HLInst *StoreInst = HNU.createStore(TmpRef, "store", MemRef);
 
   if (InsertAfter) {
     HLNodeUtils::insertAfter(InsertAfter, StoreInst);
@@ -1008,9 +1004,8 @@ void MemRefGroup::printTmpVec(bool NewLine) {
 #endif
 
 HIRScalarReplArray::HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                                       HIRLoopLocality &HLA,
                                        HIRLoopStatistics &HLS)
-    : HIRF(HIRF), HDDA(HDDA), HLA(HLA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
+    : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
       DDRU(HIRF.getDDRefUtils()), CEU(HIRF.getCanonExprUtils()) {
 
   // TODO: set platform specific thresholds.
@@ -1334,8 +1329,7 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     RegDDRef *MemRefClone = MemRef->clone();
     RegDDRef *TmpRefClone = MaxLoadRefTuple->getTmpRef()->clone();
 
-    HLInst *LoadInst =
-        HNU.createLoad(MemRefClone, ScalarReplLoadName, TmpRefClone);
+    HLInst *LoadInst = HNU.createLoad(MemRefClone, "load", TmpRefClone);
     HLDDNode *DDNode = MemRef->getHLDDNode();
     HLNodeUtils::insertBefore(DDNode, LoadInst);
   }
@@ -1347,8 +1341,7 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     RegDDRef *MemRefClone = MemRef->clone();
     RegDDRef *TmpRefClone = MinStoreRefTuple->getTmpRef()->clone();
 
-    HLInst *StoreInst =
-        HNU.createStore(TmpRefClone, ScalarReplStoreName, MemRefClone);
+    HLInst *StoreInst = HNU.createStore(TmpRefClone, "store", MemRefClone);
     HLDDNode *DDNode = MemRef->getHLDDNode();
     HLNodeUtils::insertAfter(DDNode, StoreInst);
   }
@@ -1375,47 +1368,10 @@ void HIRScalarReplArray::clearWorkingSetMemory(void) { MRGVec.clear(); }
 
 void HIRScalarReplArray::replaceMemRefWithTmp(RegDDRef *MemRef,
                                               RegDDRef *TmpRef) {
-  HLDDNode *ParentNode = MemRef->getHLDDNode();
-  RegDDRef *TmpRefClone = TmpRef->clone();
-
   // Debug: Examine the DDNode's Parent BEFORE replacement
   // LLVM_DEBUG(ParentNode->getParent()->dump(););
 
-  HLInst *HInst = dyn_cast<HLInst>(ParentNode);
-  // Handle HLInst* special cases: LoadInst and StoreInst
-  if (HInst) {
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    HLInst *CopyInst = nullptr;
-    RegDDRef *OtherRef = nullptr;
-
-    // StoreInst: replace with a LoadInst or CopyInst depending on the rval.
-    if (isa<StoreInst>(LLVMInst) && MemRef->isLval()) {
-      OtherRef = HInst->removeOperandDDRef(1);
-      if (OtherRef->isMemRef()) {
-        auto LInst = HNU.createLoad(OtherRef, ScalarReplCopyName, TmpRefClone);
-        HLNodeUtils::replace(HInst, LInst);
-      } else {
-        CopyInst =
-            HNU.createCopyInst(OtherRef, ScalarReplCopyName, TmpRefClone);
-        HLNodeUtils::replace(HInst, CopyInst);
-      }
-    }
-    // LoadInst: replace with a CopyInst
-    else if (isa<LoadInst>(LLVMInst)) {
-      OtherRef = HInst->removeOperandDDRef(0);
-      CopyInst = HNU.createCopyInst(TmpRefClone, ScalarReplCopyName, OtherRef);
-      HLNodeUtils::replace(HInst, CopyInst);
-    }
-    // Neither a Load nor a Store: do regular replacement
-    else {
-      HInst->replaceOperandDDRef(MemRef, TmpRefClone);
-    }
-
-  }
-  // All other cases: do regular replacement
-  else {
-    ParentNode->replaceOperandDDRef(MemRef, TmpRefClone);
-  }
+  HIRTransformUtils::replaceOperand(MemRef, TmpRef->clone());
 
   // Debug: Examine the DDNode's Parent AFTER replacement
   // LLVM_DEBUG(ParentNode->getParent()->dump(););
@@ -1462,7 +1418,6 @@ HIRScalarReplArrayPass::run(llvm::Function &F,
                             llvm::FunctionAnalysisManager &AM) {
   HIRScalarReplArray(AM.getResult<HIRFrameworkAnalysis>(F),
                      AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopLocalityAnalysis>(F),
                      AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
 
@@ -1482,7 +1437,6 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -1494,7 +1448,6 @@ public:
     return HIRScalarReplArray(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
                getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
         .run();
   }
@@ -1506,7 +1459,6 @@ INITIALIZE_PASS_BEGIN(HIRScalarReplArrayLegacyPass, "hir-scalarrepl-array",
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_END(HIRScalarReplArrayLegacyPass, "hir-scalarrepl-array",
                     "HIR Scalar Replacement of Array ", false, false)
 

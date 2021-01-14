@@ -15,21 +15,26 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB3:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_FIRST_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_FIRST_INDUCTION_PHI_IND_INIT:%.*]], [[BB3]] ],  [ i64 [[VP_FIRST_INDUCTION:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 2] i64 [[VP_SECOND_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_SECOND_INDUCTION_PHI_IND_INIT:%.*]], [[BB3]] ],  [ i64 [[VP_SECOND_INDUCTION:%.*]], [[BB2]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP_SUB:%.*]] = sub i64 [[VP_FIRST_INDUCTION_PHI]] i64 [[VP_SECOND_INDUCTION_PHI]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_FIRST_INDUCTION]] = add i64 [[VP_FIRST_INDUCTION_PHI]] i64 [[VP_FIRST_INDUCTION_PHI_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 2] i64 [[VP_SECOND_INDUCTION]] = add i64 [[VP_SECOND_INDUCTION_PHI]] i64 [[VP_SECOND_INDUCTION_PHI_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_FIRST_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_SECOND_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB5:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB5]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

@@ -218,6 +218,7 @@ bool HIRArrayTranspose::run() {
     return false;
   }
 
+  LLVM_DEBUG(dbgs() << "HIR array transpose performed\n");
   performTranspose();
 
   Reg->setGenCode();
@@ -230,8 +231,19 @@ class HIRArrayTranspose::MallocAnalyzer : public HLNodeVisitorBase {
   bool HasValidMallocs;
 
 private:
+  // Helper to process AddressOf malloc refs.
+  // Returns true if a malloc ref was processed.
+  bool processMallocOffsetRef(RegDDRef *Ref);
+
   void processPtrToIntInst(HLInst *HInst);
-  void processIntToPtrInst(HLInst *HInst, const IntToPtrInst *ITPInst);
+
+  // Helper to process malloc ptr converted to array base or ptr base for
+  // freeing.
+  void processArrayBaseOrFreeBase(RegDDRef *ArrayBaseDef);
+
+  void processIntToPtrInst(HLInst *HInst);
+  void processBitCastInst(HLInst *HInst);
+
   void processCopy(HLInst *HInst);
   void processMalloc(HLInst *HInst);
   void processFree(HLInst *HInst);
@@ -275,6 +287,41 @@ public:
   }
 };
 
+bool HIRArrayTranspose::MallocAnalyzer::processMallocOffsetRef(RegDDRef *Ref) {
+  // Processes ref of the form-
+  // &((%tMalloc)[offset]
+
+  assert(Ref->isAddressOf() && "Unexpected ref!");
+
+  unsigned Symbase = Ref->getBasePtrSymbase();
+
+  // Does not belong to malloc.
+  if (!HAT.MallocPtrSymbases.count(Symbase)) {
+    return false;
+  }
+
+  auto CE = Ref->getDimensionIndex(1);
+  int64_t Offset;
+
+  if (!CE->isIntConstant(&Offset) || (Offset < 0)) {
+    // Cannot analyze malloc offset.
+    HasValidMallocs = false;
+    return false;
+  }
+
+  if (HAT.MallocPtrToIntSymbases.empty()) {
+    HAT.ArrayOffsetInBytes = Offset;
+
+  } else if (HAT.ArrayOffsetInBytes != Offset) {
+    HasValidMallocs = false;
+    return false;
+  }
+
+  HAT.MallocOffsetRefs.push_back(Ref);
+
+  return true;
+}
+
 void HIRArrayTranspose::MallocAnalyzer::processPtrToIntInst(HLInst *HInst) {
   // Looking for instruction of the form-
   // %t2 = ptrtoint.i8*.i64(&((%tMalloc)[offset]))
@@ -284,72 +331,48 @@ void HIRArrayTranspose::MallocAnalyzer::processPtrToIntInst(HLInst *HInst) {
     return;
   }
 
-  auto RvalRef = HInst->getRvalDDRef();
-  unsigned Symbase = RvalRef->getBasePtrSymbase();
-
-  // Does not belong to malloc.
-  if (!HAT.MallocPtrSymbases.count(Symbase)) {
-    return;
-  }
-
-  auto CE = RvalRef->getDimensionIndex(1);
-  int64_t Offset;
-
-  if (!CE->isIntConstant(&Offset) || (Offset < 0)) {
-    // Cannot analyze malloc offset.
-    HasValidMallocs = false;
-    return;
-  }
-
-  if (HAT.MallocPtrToIntSymbases.empty()) {
-    HAT.ArrayOffsetInBytes = Offset;
-
-  } else if (HAT.ArrayOffsetInBytes != Offset) {
-    HasValidMallocs = false;
+  if (!processMallocOffsetRef(HInst->getRvalDDRef())) {
     return;
   }
 
   HAT.MallocPtrToIntSymbases.insert(HInst->getLvalDDRef()->getSymbase());
-
-  HAT.MallocOffsetRefs.push_back(RvalRef);
 }
 
-void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
-    HLInst *HInst, const IntToPtrInst *ITPInst) {
-  // Looking for instruction of the form-
-  // %t3 = inttoptr.i64.[arrsize x elemTy]*(%tMallocPtrToInt);
+void HIRArrayTranspose::MallocAnalyzer::processArrayBaseOrFreeBase(
+    RegDDRef *ArrayBaseDef) {
+  // Looking for lval ref which is getting converted from int/ptr type to
+  // array/ptr type.
+  //
+  // Array type (for ld/st access)-
+  // 1) %base = inttoptr.i64.[arrsize x elemTy]*(%tMallocPtrToInt);
+  // Or
+  // 2) %base = bitcast.i8*.[arrsize x elemTy]*(&((%tMalloc)[offset]))
+  //
+  // Ptr type (for freeing)-
+  // 1) %base = inttoptr.i64.elemTy*(%tMallocPtrToInt);
+  // Or
+  // 2) %base = bitcast.[arrsize x elemTy]*.elemTy*(&((%arraybase)[0]))
+  //
 
-  // No malloc pointer to int temps have been encountered yet so we can ignore
-  // such instructions.
-  if (HAT.MallocPtrToIntSymbases.empty()) {
-    return;
-  }
+  assert(ArrayBaseDef->isLval() && "Unexpected ref!");
 
-  auto RvalRef = HInst->getRvalDDRef();
+  unsigned Symbase = ArrayBaseDef->getSymbase();
 
-  if (!RvalRef->isSelfBlob()) {
-    HasValidMallocs = false;
-    return;
-  }
-
-  unsigned Symbase = RvalRef->getSymbase();
-
-  // Rval is not related to malloc.
-  if (!HAT.MallocPtrToIntSymbases.count(Symbase)) {
-    return;
-  }
-
-  auto DestTy = ITPInst->getDestTy();
-  auto PElemTy = DestTy->getPointerElementType();
-  unsigned LvalSymbase = HInst->getLvalDDRef()->getSymbase();
+  auto *DestTy = ArrayBaseDef->getDestType();
+  auto *PElemTy = DestTy->getPointerElementType();
 
   if (HAT.MallocArrayBaseTy) {
     if (HAT.MallocArrayBaseTy == DestTy) {
-      HAT.MallocArrayBaseSymbases.insert(LvalSymbase);
+      HAT.MallocArrayBaseSymbases.insert(Symbase);
 
     } else {
       // We do not cast the destination type to an array for freeing it.
       // %tFree = inttoptr.i64.elemTy*(%tMallocPtrToInt);
+      // @free(&((i8*)(%tFree)[offset]));
+      //
+      // Or
+      //
+      // %tFree = bitcast.i64.elemTy*(&((%tMalloc)[offset]));
       // @free(&((i8*)(%tFree)[offset]));
       if (!PElemTy->isSized() || (PElemTy->getPrimitiveSizeInBits() !=
                                   uint64_t(HAT.ArrayElementSizeInBytes * 8))) {
@@ -357,12 +380,12 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
         HasValidMallocs = false;
         return;
       }
-      HAT.FreePtrSymbases.insert(LvalSymbase);
+      HAT.FreePtrSymbases.insert(Symbase);
     }
 
     return;
   } else {
-    HAT.MallocArrayBaseSymbases.insert(LvalSymbase);
+    HAT.MallocArrayBaseSymbases.insert(Symbase);
   }
 
   // Validate destination type.
@@ -384,7 +407,7 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
 
   HAT.MallocArrayBaseTy = DestTy;
   HAT.ArrayElementSizeInBytes =
-      HInst->getCanonExprUtils().getTypeSizeInBytes(ArrElemTy);
+      ArrayBaseDef->getCanonExprUtils().getTypeSizeInBytes(ArrElemTy);
 
   if ((HAT.MallocSizeInBytes % HAT.ArrayElementSizeInBytes) != 0) {
     // Cannot transpose if malloc size is not evenly divisible by array element
@@ -398,6 +421,57 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(
     // by element size.
     HasValidMallocs = false;
     return;
+  }
+}
+
+void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(HLInst *HInst) {
+  // Looking for instruction of the form-
+  // %base = inttoptr.i64.[arrsize x elemTy]*(%tMallocPtrToInt);
+
+  // No malloc pointer to int temps have been encountered yet so we can ignore
+  // such instructions.
+  if (HAT.MallocPtrToIntSymbases.empty()) {
+    return;
+  }
+
+  auto RvalRef = HInst->getRvalDDRef();
+
+  if (!RvalRef->isSelfBlob()) {
+    HasValidMallocs = false;
+    return;
+  }
+
+  unsigned Symbase = RvalRef->getSymbase();
+
+  // Rval is not related to malloc.
+  if (!HAT.MallocPtrToIntSymbases.count(Symbase)) {
+    return;
+  }
+
+  processArrayBaseOrFreeBase(HInst->getLvalDDRef());
+}
+
+void HIRArrayTranspose::MallocAnalyzer::processBitCastInst(HLInst *HInst) {
+  // Looking for instruction of the form-
+  // %base = bitcast.i8*.[arrsize x elemTy]*(&((%tMalloc)[offset]))
+  //
+  // Or
+  //
+  // %tFree = bitcast.[arrsize x elemTy]*.elemTy*(&((%arraybase)[0]))
+
+  // No mallocs have been encoutered yet so we can ignore such instructions.
+  if (HAT.MallocPtrSymbases.empty()) {
+    return;
+  }
+
+  auto *RvalRef = HInst->getRvalDDRef();
+
+  if ((RvalRef->isSelfAddressOf() &&
+       HAT.MallocArrayBaseSymbases.count(RvalRef->getBasePtrSymbase())) ||
+      processMallocOffsetRef(RvalRef)) {
+    processArrayBaseOrFreeBase(HInst->getLvalDDRef());
+  } else {
+    HasValidMallocs = false;
   }
 }
 
@@ -465,8 +539,15 @@ void HIRArrayTranspose::MallocAnalyzer::processCopy(HLInst *HInst) {
 
       HAT.MallocArrayBaseSymbases.insert(LvalSymbase);
 
-    } else if (HAT.MallocPtrSymbases.count(RvalSymbase) ||
-               HAT.FreePtrSymbases.count(RvalSymbase)) {
+    } else if (HAT.MallocPtrSymbases.count(RvalSymbase)) {
+
+      // Only allow copy of the form-
+      // %t1 = &((MallocArrayBaseTy)(%tMalloc)[offset])
+
+      processMallocOffsetRef(RvalRef);
+      processArrayBaseOrFreeBase(LvalRef);
+
+    } else if (HAT.FreePtrSymbases.count(RvalSymbase)) {
       // Do not allow any other kind of malloc temp to be copied.
       HasValidMallocs = false;
     } else if (HAT.MallocPtrSymbases.count(LvalSymbase) ||
@@ -795,8 +876,12 @@ void HIRArrayTranspose::MallocAnalyzer::visit(HLInst *HInst) {
     processPtrToIntInst(HInst);
     return;
 
-  } else if (auto ITPInst = dyn_cast<IntToPtrInst>(Inst)) {
-    processIntToPtrInst(HInst, ITPInst);
+  } else if (isa<IntToPtrInst>(Inst)) {
+    processIntToPtrInst(HInst);
+    return;
+
+  } else if (isa<BitCastInst>(Inst)) {
+    processBitCastInst(HInst);
     return;
 
   } else if (HInst->isCopyInst()) {

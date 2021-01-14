@@ -22,7 +22,7 @@
 
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %sum.022,  0;
-; CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       |   %.copy = %red.var;
 ; CHECK-NEXT:       |   %.vls.load = (<12 x i32>*)(@arr1)[0][3 * i1];
 ; CHECK-NEXT:       |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 1, i32 4, i32 7, i32 10>;
@@ -31,7 +31,7 @@
 ; CHECK-NEXT:       |   %.vec = %vls.shuf + %vls.shuf1  +  %.copy;
 ; CHECK-NEXT:       |   %red.var = %.vec  +  %vls.shuf2;
 ; CHECK-NEXT:       + END LOOP
-; CHECK:            %sum.022 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
+; CHECK:            %sum.022 = @llvm.vector.reduce.add.v4i32(%red.var);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

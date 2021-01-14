@@ -647,7 +647,7 @@ void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     TripCountTy TripCount;
     if (HLoop->isConstTripLoop(&TripCount)) {
       VPL->setKnownTripCount(TripCount);
-      return;
+      continue;
     }
 
     TripCountInfo TCInfo;
@@ -686,6 +686,9 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as Plan's Exit.
   ActiveVPBB = nullptr;
   updateActiveVPBB();
+
+  // Create empty PHIs for live-out temps in Plan's exit block.
+  Decomposer.createExitPhisForExternalUses(ActiveVPBB);
 
   // At this point, all the VPBasicBlocks have been built and all the
   // VPInstructions have been created for the loop nest. It's time to fix
@@ -987,12 +990,10 @@ private:
 
   void fillData() {
     if (LinkedCurrent != LinkedEnd) {
-      unsigned Opcode = 0;
-      (*LinkedCurrent)->isReductionOp(&Opcode);
-      // Only select is expected here.
-      assert(Opcode == Instruction::Select && "expected reduction");
+      assert(isa<SelectInst>((*LinkedCurrent)->getLLVMInstruction()) &&
+             "expected select instruction");
       Descriptor.fillReductionKinds(
-          (*LinkedCurrent)->getLvalDDRef()->getDestType(), Opcode,
+          (*LinkedCurrent)->getLvalDDRef()->getDestType(), Instruction::Select,
           (*LinkedCurrent)->getPredicate(), (*LinkedCurrent)->isMax());
       Descriptor.HLInst = *LinkedCurrent;
       if (Descriptor.HLInst != MainInst)

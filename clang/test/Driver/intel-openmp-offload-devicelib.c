@@ -14,6 +14,8 @@
 /// Check explicit linking under -device-math-lib:
 // RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fopenmp-device-lib=libm-fp32,libm-fp64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES %s
+// RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO" -fopenmp-device-lib=libm-fp32,libm-fp64 %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-PHASES %s
 
 // CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c, (host-openmp)
 // CHK-PHASES: 1: preprocessor, {0}, cpp-output, (host-openmp)
@@ -41,10 +43,10 @@
 // CHK-PHASES: 23: compiler, {22}, ir, (device-openmp)
 // CHK-PHASES: 24: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {23}, ir
 // CHK-PHASES: 25: backend, {24}, ir, (device-openmp)
-// CHK-PHASES: 26: linker, {25, 6, 8, 10, 12, 14, 16, 18, 20}, image, (device-openmp)
+// CHK-PHASES: 26: linker, {25, 6, 8, 10, 12, 14, 16, 18, 20}, ir, (device-openmp)
 // CHK-PHASES: 27: sycl-post-link, {26}, ir, (device-openmp)
-// CHK-PHASES: 28: llvm-spirv, {27}, image, (device-openmp)
-// CHK-PHASES: 29: offload, "device-openmp (spir64)" {28}, image
+// CHK-PHASES: 28: llvm-spirv, {27}, spirv, (device-openmp)
+// CHK-PHASES: 29: offload, "device-openmp (spir64)" {28}, ir
 // CHK-PHASES: 30: clang-offload-wrapper, {29}, ir, (host-openmp)
 // CHK-PHASES: 31: backend, {30}, assembler, (host-openmp)
 // CHK-PHASES: 32: assembler, {31}, object, (host-openmp)
@@ -80,10 +82,10 @@
 // CHK-PHASES-DEF: 23: compiler, {22}, ir, (device-openmp)
 // CHK-PHASES-DEF: 24: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {23}, ir
 // CHK-PHASES-DEF: 25: backend, {24}, ir, (device-openmp)
-// CHK-PHASES-DEF: 26: linker, {25, 6, 8, 10, 12, 14, 16, 18, 20}, image, (device-openmp)
+// CHK-PHASES-DEF: 26: linker, {25, 6, 8, 10, 12, 14, 16, 18, 20}, ir, (device-openmp)
 // CHK-PHASES-DEF: 27: sycl-post-link, {26}, ir, (device-openmp)
-// CHK-PHASES-DEF: 28: llvm-spirv, {27}, image, (device-openmp)
-// CHK-PHASES-DEF: 29: offload, "device-openmp (spir64)" {28}, image
+// CHK-PHASES-DEF: 28: llvm-spirv, {27}, spirv, (device-openmp)
+// CHK-PHASES-DEF: 29: offload, "device-openmp (spir64)" {28}, ir
 // CHK-PHASES-DEF: 30: clang-offload-wrapper, {29}, ir, (host-openmp)
 // CHK-PHASES-DEF: 31: backend, {30}, assembler, (host-openmp)
 // CHK-PHASES-DEF: 32: assembler, {31}, object, (host-openmp)
@@ -106,10 +108,10 @@
 // CHK-PHASES-LIBC: 11: compiler, {10}, ir, (device-openmp)
 // CHK-PHASES-LIBC: 12: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (spir64)" {11}, ir
 // CHK-PHASES-LIBC: 13: backend, {12}, ir, (device-openmp)
-// CHK-PHASES-LIBC: 14: linker, {13, 6, 8}, image, (device-openmp)
+// CHK-PHASES-LIBC: 14: linker, {13, 6, 8}, ir, (device-openmp)
 // CHK-PHASES-LIBC: 15: sycl-post-link, {14}, ir, (device-openmp)
-// CHK-PHASES-LIBC: 16: llvm-spirv, {15}, image, (device-openmp)
-// CHK-PHASES-LIBC: 17: offload, "device-openmp (spir64)" {16}, image
+// CHK-PHASES-LIBC: 16: llvm-spirv, {15}, spirv, (device-openmp)
+// CHK-PHASES-LIBC: 17: offload, "device-openmp (spir64)" {16}, ir
 // CHK-PHASES-LIBC: 18: clang-offload-wrapper, {17}, ir, (host-openmp)
 // CHK-PHASES-LIBC: 19: backend, {18}, assembler, (host-openmp)
 // CHK-PHASES-LIBC: 20: assembler, {19}, object, (host-openmp)

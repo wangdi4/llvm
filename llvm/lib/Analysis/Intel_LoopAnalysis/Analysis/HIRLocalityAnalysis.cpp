@@ -513,6 +513,7 @@ void HIRLoopLocality::initTripCountByLevel(
 
   for (auto Loop : Loops) {
     uint64_t TripCnt = 0;
+    unsigned PragmaTripCnt;
 
     if (Loop->isConstTripLoop(&TripCnt)) {
       // In some cases, the loop reports an absurdly high trip count that causes
@@ -521,6 +522,12 @@ void HIRLoopLocality::initTripCountByLevel(
       TripCnt = std::min(TripCnt, (uint64_t)1 << 32);
 
       TripCountByLevel[Loop->getNestingLevel() - 1] = TripCnt;
+    } else if (Loop->getPragmaBasedAverageTripCount(PragmaTripCnt) ||
+               Loop->getPragmaBasedMaximumTripCount(PragmaTripCnt)) {
+      // Prioritize a pragma-based average or max estimate, in that order. Note
+      // that PragmaTripCnt is uint32_t, so we effectively have the same
+      // headroom for avoiding overflow.
+      TripCountByLevel[Loop->getNestingLevel() - 1] = PragmaTripCnt;
     } else if ((TripCnt = Loop->getMaxTripCountEstimate())) {
       // Clamp max trip count to SymbolicConstTC if based on estimate.
       TripCountByLevel[Loop->getNestingLevel() - 1] =
@@ -718,7 +725,17 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
          ++RefIt) {
       auto *CurRef = *RefIt;
 
-      if (IgnoreConditionalRefs && !isa<HLLoop>(CurRef->getParent())) {
+      bool IsConditional = !isa<HLLoop>(CurRef->getParent());
+
+      // Consider reuse when only one of the refs is conditional-
+      // DO
+      //   = A[i+1]
+      //   if ()
+      //     A[i]
+      // END DO
+      //
+      // TODO: Consider load/store and top sort number relationship.
+      if (IgnoreConditionalRefs && IsPrevConditional && IsConditional) {
         continue;
       }
 
@@ -729,13 +746,12 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
 
       // Since we are not uniquing refs, we can encounter multiple identical
       // refs.
-      if (!IsPrevConditional && NeedReuse &&
-          !DDRefUtils::areEqual(PrevRef, CurRef) &&
+      if (NeedReuse && !DDRefUtils::areEqual(PrevRef, CurRef) &&
           isTemporalMatch(PrevRef, CurRef, Level, ReuseThreshold)) {
         ++NumTemporal;
       }
 
-      IsPrevConditional = false;
+      IsPrevConditional = IsConditional;
       PrevRef = CurRef;
     }
   }
@@ -748,7 +764,7 @@ void HIRLoopLocality::populateTemporalLocalityGroups(
     unsigned Level, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
     SmallSet<unsigned, 8> *UniqueGroupSymbases) {
   assert(((Level == 0 && ReuseThreshold == 0) ||
-          CanonExprUtils::isValidLoopLevel(Level)) &&
+          CanonExpr::isValidLoopLevel(Level)) &&
          " Invalid combination of loop level and reuse threhold!");
 
   typedef DDRefGatherer<const RegDDRef, MemRefs | FakeRefs> MemRefGatherer;

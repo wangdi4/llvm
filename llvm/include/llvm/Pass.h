@@ -28,6 +28,8 @@
 #ifndef LLVM_PASS_H
 #define LLVM_PASS_H
 
+#include "llvm/Config/llvm-config.h" // INTEL
+
 #include <string>
 
 namespace llvm {
@@ -317,6 +319,12 @@ protected:
 /// then the value of this boolean will be true, otherwise false.
 /// This is the storage for the -time-passes option.
 extern bool TimePassesIsEnabled;
+/// If TimePassesPerRun is true, there would be one line of report for
+/// each pass invocation.
+/// If TimePassesPerRun is false, there would be only one line of
+/// report for each pass (even there are more than one pass objects).
+/// (For new pass manager only)
+extern bool TimePassesPerRun;
 
 } // end namespace llvm
 

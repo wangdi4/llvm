@@ -35,6 +35,7 @@ add_llvm_component_library(LLVMMC
   MCObjectFileInfo.cpp
   MCObjectStreamer.cpp
   MCObjectWriter.cpp
+  MCPseudoProbe.cpp
   MCRegisterInfo.cpp
   MCSchedule.cpp
   MCSection.cpp
@@ -67,6 +68,11 @@ add_llvm_component_library(LLVMMC
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/MC
+
+  LINK_COMPONENTS
+  Support
+  BinaryFormat
+  DebugInfoCodeView
   )
 
 add_subdirectory(MCParser)

@@ -40,73 +40,33 @@ void VPlanCallVecDecisions::run(unsigned VF, const TargetLibraryInfo *TLI,
   }
 }
 
-bool VPlanCallVecDecisions::matchAndScoreVariantParameters(
+std::unique_ptr<VectorVariant>
+VPlanCallVecDecisions::getVectorVariantForCallParameters(
     const VPCallInstruction *VPCall,
-    VectorVariant &Variant,
-    int &Score,
-    int &MaxArg) {
-  LLVM_DEBUG(dbgs() << "\nAttempting to match variant parameters for: " <<
-             Variant.encode() << "\n");
-  // Ensure caller arguments and simd function parameters are compatible.
-  // Use DA to determine argument shapes from the caller side. This analysis
-  // is needed to do proper matching for both explicit and auto vectorization.
+    bool Masked,
+    int VF) {
   auto *DA = Plan.getVPlanDA();
-  std::vector<VectorKind> Parms;
-  Parms = Variant.getParameters();
-
-  std::vector<int> ArgScores;
-  for (unsigned I = VPCall->isIntelIndirectCall() ? 1 : 0, J = 0;
-       I < VPCall->getNumArgOperands(); ++I, ++J) {
-    int ArgScore;
+  std::vector<VectorKind> ParmKinds;
+  for (unsigned I = VPCall->isIntelIndirectCall() ? 1 : 0;
+       I < VPCall->getNumArgOperands(); ++I) {
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(CallArg);
-
-    LLVM_DEBUG(dbgs() << "Call Arg: "; CallArgShape.print(dbgs());
-               dbgs() << ' ' << *CallArg << "\n");
-
-    // Linear and uniform arguments can always safely be put into vectors, but
-    // reduce score in those cases because scalar is optimal.
-    if (Parms[J].isVector()) {
-      if (CallArgShape.isRandom())
-        ArgScore = Vector2VectorScore;
-      else
-        ArgScore = Scalar2VectorScore; // uniform/linear -> vector
-      ArgScores.push_back(ArgScore);
-      Score += ArgScore;
-      continue;
-    }
-
-    if (Parms[J].isLinear() && CallArgShape.isAnyStrided() &&
-        CallArgShape.hasKnownStride() &&
-        Parms[J].getStride() == CallArgShape.getStrideVal()) {
-      ArgScore = Linear2LinearScore;
-      ArgScores.push_back(ArgScore);
-      Score += ArgScore;
-      continue;
-    }
-
-    if (Parms[J].isUniform() && CallArgShape.isUniform()) {
-      // Uniform ptr arguments are more beneficial for performance, so weight
-      // them accordingly.
-      if (isa<PointerType>(CallArg->getType()))
-        ArgScore = UniformPtr2UniformPtrScore;
-      else
-        ArgScore = Uniform2UniformScore;
-      ArgScores.push_back(ArgScore);
-      Score += ArgScore;
-      continue;
-    }
-
-    LLVM_DEBUG(dbgs() << "Arg did not match variant parameter!\n");
-    return false;
+    if (CallArgShape.isRandom())
+      ParmKinds.push_back(VectorKind::vector());
+    else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride())
+      ParmKinds.push_back(VectorKind::linear(CallArgShape.getStrideVal()));
+    else if (CallArgShape.isAnyStrided() && !CallArgShape.hasKnownStride())
+      ParmKinds.push_back(VectorKind::variableStrided(I));
+    else if (CallArgShape.isUniform())
+      ParmKinds.push_back(VectorKind::uniform());
+    else
+      llvm_unreachable("Invalid parameter kind");
   }
 
-  LLVM_DEBUG(dbgs() << "Args matched variant parameters\n");
-  // If two args have the same max score, the 1st is selected.
-  MaxArg =
-      std::max_element(ArgScores.begin(), ArgScores.end()) - ArgScores.begin();
-  LLVM_DEBUG(dbgs() << "MaxArg: " << MaxArg << "\n");
-  return true;
+  return std::make_unique<VectorVariant>(
+             VectorVariant::ISAClass::OTHER, Masked, VF, ParmKinds,
+             VPCall->getCalledFunction()->getName().str(),
+             "" /* Alias not needed */);
 }
 
 llvm::Optional<std::pair<std::unique_ptr<VectorVariant>, unsigned>>
@@ -127,99 +87,34 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   LLVM_DEBUG(dbgs() << "Trying to find match for: " << VecVariantStringValue
                     << "\n");
   LLVM_DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
-  unsigned TargetMaxRegWidth = TTI->getRegisterBitWidth(true);
-  LLVM_DEBUG(dbgs() << "Target Max Register Width: " << TargetMaxRegWidth
-                    << "\n");
 
-  VectorVariant::ISAClass TargetIsaClass;
-  switch (TargetMaxRegWidth) {
-  case 128:
-    TargetIsaClass = VectorVariant::ISAClass::XMM;
-    break;
-  case 256:
-    // Important Note: there is no way to inspect CPU or FeatureBitset from
-    // the LLVM compiler middle end (i.e., lib/Analysis, lib/Transforms). This
-    // can only be done from the front-end or from lib/Target. Thus, we select
-    // avx2 by default for 256-bit vector register targets. Plus, I don't
-    // think we currently have anything baked in to TTI to differentiate avx
-    // vs. avx2. Namely, whether or not for 256-bit register targets there is
-    // 256-bit integer support. TODO: add has256BitIntegerSupport() to TTI.
-    TargetIsaClass = VectorVariant::ISAClass::YMM2;
-    break;
-  case 512:
-    TargetIsaClass = VectorVariant::ISAClass::ZMM;
-    break;
-  default:
-    llvm_unreachable("Invalid target vector register width");
-  }
-  LLVM_DEBUG(dbgs() << "Target ISA Class: "
-                    << VectorVariant::ISAClassToString(TargetIsaClass)
-                    << "\n\n");
+  SmallVector<StringRef, 4> VariantAttributes;
+  VecVariantStringValue.split(VariantAttributes, ",");
+  SmallVector<VectorVariant, 4> Variants;
 
-  SmallVector<StringRef, 4> Variants;
-  VecVariantStringValue.split(Variants, ",");
-  SmallVector<std::pair<VectorVariant, unsigned>, 4> CandidateFunctions;
-  for (unsigned I = 0; I < Variants.size(); ++I) {
-    VectorVariant Variant(Variants[I]);
-    VectorVariant::ISAClass VariantIsaClass = Variant.getISA();
-    LLVM_DEBUG(dbgs() << "Variant ISA Class: "
-                      << VectorVariant::ISAClassToString(VariantIsaClass)
-                      << "\n");
-    unsigned IsaClassMaxRegWidth =
-        VectorVariant::ISAClassMaxRegisterWidth(VariantIsaClass);
-    LLVM_DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
-                      << IsaClassMaxRegWidth << "\n");
-    (void)IsaClassMaxRegWidth;
-    unsigned FuncVF = Variant.getVlen();
-    LLVM_DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
-
-    // Filter candidate functions by VF, ISA, and mask. Candidates will then
-    // be scored by matching parameters and the highest scored function gets
-    // selected. Note: strict VF matching for now, but later we can account
-    // for multiple pumping scenarios in the scoring once codegen supports
-    // this.
-    if (FuncVF == VF && VariantIsaClass <= TargetIsaClass &&
-        Variant.isMasked() == Masked)
-      CandidateFunctions.push_back(std::make_pair(Variant, I));
+  for (unsigned I = 0; I < VariantAttributes.size(); ++I) {
+    // Check if the called function name is contained in vector-variant string.
+    // TODO: Do the check for all calls (not for indirect ones only) once
+    // front-end problems are removed.
+    auto *Fn = VPCall->getCalledFunction();
+    assert(VPCall->isIntelIndirectCall() ||
+           (Fn && VariantAttributes[I].contains(Fn->getName())));
+    (void)Fn;
+    Variants.push_back(VectorVariant(VariantAttributes[I]));
   }
 
-  int VariantIdx = -1;
-  int BestScore = -1;
-  // Keep track of parameter position containing the largest score. Can be
-  // used as a tiebreaker when selecting the best variant.
-  int BestArg = -1;
-  VectorVariant::ISAClass BestIsa = VectorVariant::ISAClass::XMM;
-  for (unsigned I = 0; I < CandidateFunctions.size(); ++I) {
-    VectorVariant CandidateVariant = CandidateFunctions[I].first;
-    int Score = 0;
-    int MaxArg = 0;
-    bool Match =
-        matchAndScoreVariantParameters(VPCall, CandidateVariant, Score, MaxArg);
-    if (Match) {
-      LLVM_DEBUG(dbgs() << "Matched function: " << CandidateVariant.encode()
-                        << "\n");
-      LLVM_DEBUG(dbgs() << "Score: " << Score << "\n");
-    }
-    // Matched function will be the one with the best score. For tiebreaker
-    // when scores match, pick highest ISA.
-    VectorVariant::ISAClass VariantIsa = CandidateVariant.getISA();
-    if (Match &&
-        ((Score > BestScore) || (Score == BestScore && VariantIsa > BestIsa) ||
-         (Score == BestScore && VariantIsa == BestIsa && MaxArg > BestArg))) {
-      BestScore = Score;
-      BestArg = MaxArg;
-      BestIsa = VariantIsa;
-      VariantIdx = I;
-    }
-  }
+  std::unique_ptr<VectorVariant> VariantForCall =
+      getVectorVariantForCallParameters(VPCall, Masked, VF);
+
+  int VariantIdx =
+      TTI->getMatchingVectorVariant(*VariantForCall, Variants,
+                                    Call->getModule());
 
   if (VariantIdx >= 0) {
-    LLVM_DEBUG(dbgs() << "\nMatched call to: "
-                      << CandidateFunctions[VariantIdx].first.encode()
+    LLVM_DEBUG(dbgs() << "\nMatched call to: " << Variants[VariantIdx].encode()
                       << "\n\n");
     return std::make_pair(
-        std::make_unique<VectorVariant>(CandidateFunctions[VariantIdx].first),
-        CandidateFunctions[VariantIdx].second);
+        std::make_unique<VectorVariant>(Variants[VariantIdx]), (unsigned)VariantIdx);
   }
 
   return {};

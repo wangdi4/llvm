@@ -44,30 +44,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/icecode/ceintrin.h
   )
 # end INTEL_FEATURE_ICECODE
-# INTEL_FEATURE_ISA_ENQCMD
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ENQCMD
-  Intel_Headers/enqcmdintrin.h
-  )
-# end INTEL_FEATURE_ISA_ENQCMD
-# INTEL_FEATURE_ISA_ULI
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI
-  Intel_Headers/uliintrin.h
-  )
-# end INTEL_FEATURE_ISA_ULI
-# INTEL_FEATURE_ISA_HRESET
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET
-  Intel_Headers/hresetintrin.h
-  )
-# end INTEL_FEATURE_ISA_HRESET
-# INTEL_FEATURE_ISA_AMX
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX
-  Intel_amxintrin.h
-  )
-# end INTEL_FEATURE_ISA_AMX
 # INTEL_FEATURE_ISA_AMX_BF8
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF8
@@ -80,6 +56,12 @@ intel_add_file(INTEL_HEADERS
   Intel_amxmemadviseintrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_MEMADVISE
+# INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMADVISE_EVEX
+  Intel_Headers/amxmemadviseevex/amxmemadviseevexintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 # INTEL_FEATURE_ISA_AMX_FUTURE
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FUTURE
@@ -146,13 +128,26 @@ intel_add_file(INTEL_HEADERS
   Intel_amxtile2intrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_TILE2
-
-# INTEL_FEATURE_ISA_KEYLOCKER
+# INTEL_FEATURE_ISA_AMX_COMPLEX
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER
-  Intel_Headers/keylockerintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_COMPLEX
+  Intel_Headers/amxcomplex/amxcomplexintrin.h
   )
-# end INTEL_FEATURE_ISA_KEYLOCKER
+# end INTEL_FEATURE_ISA_AMX_COMPLEX
+# INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_COMPLEX_EVEX
+  Intel_Headers/amxcomplexevex/amxcomplexevexintrin.h
+)
+# end INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+
+# INTEL_FEATURE_ISA_AMX_FP19
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP19
+  Intel_Headers/amxfp19/amxfp19intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_FP19
+
 # INTEL_FEATURE_ISA_FP16
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
@@ -163,12 +158,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512vlfp16intrin.h
   )
 # end INTEL_FEATURE_ISA_FP16
-# INTEL_FEATURE_ISA_AVX_VNNI
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI
-  Intel_Headers/avxvnni/avxvnniintrin.h
-  )
-# end INTEL_FEATURE_ISA_AVX_VNNI
 # INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8
@@ -234,6 +223,7 @@ intel_add_file(INTEL_HEADERS
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
   Intel_Headers/avxmemadvise/avx512memadviseintrin.h
+  Intel_Headers/avxmemadvise/avx512vlmemadviseintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_MEMADVISE
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
@@ -242,6 +232,31 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512mpsadbw/avx512mpsadbwintrin.h
   )
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+# INTEL_FEATURE_ISA_AVX_MOVGET
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MOVGET
+  Intel_Headers/avxmovget/avxmovgetintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_MOVGET
+# INTEL_FEATURE_ISA_AVX512_MOVGET
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MOVGET
+  Intel_Headers/avx512movget/avx512movgetintrin.h
+  Intel_Headers/avx512movget/avx512vlmovgetintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_MOVGET
+# INTEL_FEATURE_ISA_GPR_MOVGET
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_GPR_MOVGET
+  Intel_Headers/gprmovget/gprmovgetintrin.h
+  )
+# end INTEL_FEATURE_ISA_GPR_MOVGET
+# INTEL_FEATURE_ISA_MOVGET64B
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVGET64B
+  Intel_Headers/movget64b/movget64bintrin.h
+  )
+# end INTEL_FEATURE_ISA_MOVGET64B
 # end INTEL_CUSTOMIZATION
 
 set(files
@@ -281,6 +296,7 @@ set(files
   avx512vnniintrin.h
   avx512vlvnniintrin.h
   avxintrin.h
+  avxvnniintrin.h
   bmi2intrin.h
   bmiintrin.h
   __clang_cuda_builtin_vars.h
@@ -293,6 +309,7 @@ set(files
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
   __clang_hip_libdevice_declares.h
+  __clang_hip_cmath.h
   __clang_hip_math.h
   __clang_hip_runtime_wrapper.h
   cetintrin.h
@@ -310,6 +327,7 @@ set(files
   fmaintrin.h
   fxsrintrin.h
   gfniintrin.h
+  hresetintrin.h
   htmintrin.h
   htmxlintrin.h
   ia32intrin.h
@@ -318,6 +336,7 @@ set(files
   inttypes.h
   invpcidintrin.h
   iso646.h
+  keylockerintrin.h
   limits.h
   lwpintrin.h
   lzcntintrin.h
@@ -362,6 +381,7 @@ set(files
   tgmath.h
   tmmintrin.h
   tsxldtrkintrin.h
+  uintrintrin.h
   unwind.h
   vadefs.h
   vaesintrin.h
@@ -374,6 +394,7 @@ set(files
   wmmintrin.h
   __wmmintrin_aes.h
   __wmmintrin_pclmul.h
+  x86gprintrin.h
   x86intrin.h
   xmmintrin.h
   xopintrin.h
@@ -406,6 +427,7 @@ set(openmp_wrapper_files
   openmp_wrappers/complex.h
   openmp_wrappers/complex
   openmp_wrappers/__clang_openmp_device_functions.h
+  openmp_wrappers/complex_cmath.h
   openmp_wrappers/new
 )
 

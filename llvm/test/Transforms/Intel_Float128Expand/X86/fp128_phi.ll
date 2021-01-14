@@ -924,7 +924,7 @@ for.cond:                                         ; preds = %complex_mul_cont, %
   br i1 %or.cond, label %complex_mul_libcall, label %complex_mul_cont
 
 complex_mul_libcall:                              ; preds = %for.cond
-  call void @__multc3({ fp128, fp128 }* nonnull sret align 16 %tmp, fp128 %c.real, fp128 %c.imag, fp128 %b.real, fp128 %b.imag) #1
+  call void @__multc3({ fp128, fp128 }* nonnull sret({fp128, fp128}) align 16 %tmp, fp128 %c.real, fp128 %c.imag, fp128 %b.real, fp128 %b.imag) #1
   %tmp.real = load fp128, fp128* %tmp.realp, align 16
   %tmp.imag = load fp128, fp128* %tmp.imagp, align 16
   %d.real.pre = load fp128, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @d, i64 0, i32 0), align 16

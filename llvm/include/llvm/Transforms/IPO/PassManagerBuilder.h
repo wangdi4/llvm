@@ -177,6 +177,8 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
+  /// We are after SLP pass.
+  bool AfterSLPVectorizer;
 #endif // INTEL_CUSTOMIZATION
 
   /// Enable profile instrumentation pass.
@@ -241,9 +243,6 @@ private:
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
                                         bool IsLTO) const;
-
-public:
-  llvm::InlineReportBuilder *getMDInlineReport() const;
 #endif // INTEL_CUSTOMIZATION
 
 public:

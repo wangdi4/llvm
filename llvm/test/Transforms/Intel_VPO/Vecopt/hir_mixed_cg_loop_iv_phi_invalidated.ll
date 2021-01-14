@@ -21,14 +21,14 @@
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %a.010,  0;
 
-; CHECK:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <nounroll> <novectorize>
+; CHECK:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   %.copy = %red.var;
 ; CHECK-NEXT:       |   %.vec = (<4 x i32>*)(%A)[i1];
 ; CHECK-NEXT:       |   %.vec1 = %.copy  +  i1 + <i32 0, i32 1, i32 2, i32 3>;
 ; CHECK-NEXT:       |   %red.var = %.vec1  +  %.vec;
 ; CHECK-NEXT:       + END LOOP
 
-; CHECK:            %a.010 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
+; CHECK:            %a.010 = @llvm.vector.reduce.add.v4i32(%red.var);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

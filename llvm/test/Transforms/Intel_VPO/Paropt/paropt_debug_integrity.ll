@@ -1,7 +1,10 @@
-; RUN: opt -debugify -vpo-cfg-restructuring -S < %s | FileCheck %s --check-prefix=CFGRES --check-prefix=ALL
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring)' -S < %s | FileCheck %s --check-prefix=CFGRES --check-prefix=ALL
-; RUN: opt -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s --check-prefix=PREP --check-prefix=ALL
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring)',vpo-paropt-prepare -S < %s | FileCheck %s --check-prefix=PREP --check-prefix=ALL
+; REQUIRES: asserts
+; RUN: opt -debugify -vpo-cfg-restructuring -S < %s | FileCheck %s --check-prefix=CFGRES --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring)' -S < %s | FileCheck %s --check-prefix=CFGRES --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s --check-prefix=PREP --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring)',vpo-paropt-prepare -S < %s | FileCheck %s --check-prefix=PREP --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s --check-prefix=PAROPT --check-prefix=ALL
+; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s | FileCheck %s  --check-prefix=PAROPT --check-prefix=ALL
 ;
 ; Test src:
 ; int test_add()
@@ -42,12 +45,20 @@ entry:
   store i32 0, i32* %.omp.lb, align 4
   store i32 127, i32* %.omp.ub, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %r0), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
+; PAROPT: [[RESULT:%[a-zA-Z._0-9]+]] = load i32, i32* %r0, align 4, !dbg [[RESULTDBG:![0-9]+]]
+; PAROPT: call void @llvm.dbg.value(metadata i32 [[RESULT]], metadata !31, metadata !DIExpression()), !dbg [[RESULTDBG]]
+; PAROPT:  declare void @llvm.dbg.value(metadata, metadata, metadata) #2
+; PAROPT:  call void @llvm.dbg.value(metadata i32* [[R0]], metadata !{{.*}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{.*}}
+; PAROPT:  call void @llvm.dbg.value(metadata i32* [[UB]], metadata !{{.*}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{.*}}
+; PAROPT: call void @llvm.dbg.value(metadata token undef, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
 ; PREP:   [[ENTRY:%[a-zA-Z._0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %r0), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.OPERAND.ADDR"(i32* %i, i32** %i.addr), "QUAL.OMP.OPERAND.ADDR"(i32* %.omp.lb, i32** %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(i32* %r0, i32** %r0.addr), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ], !dbg [[ENTRYDBG:![0-9]+]]
 ; CFGRES: [[ENTRY:%[a-zA-Z._0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %r0), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ], !dbg [[ENTRYDBG:![0-9]+]]
-; checking the token in %0
-; ALL: call void @llvm.dbg.value(metadata token [[ENTRY]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[ENTRYDBG]]
-; ALL: [[LBLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.lb{{.*}}, align 4, !dbg [[LBLOADDBG:![0-9]+]]
+; CFGRES-PREP: call void @llvm.dbg.value(metadata token [[ENTRY]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[ENTRYDBG]]
+; CFGRES-PREP: [[LBLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.lb{{.*}}, align 4, !dbg [[LBLOADDBG:![0-9]+]]
+; PAROPT: [[LBLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.lb{{.*}}, align 4, !dbg [[LBLOADDBG:![0-9]+]], !{{.*}}
 ; ALL-NEXT:call void @llvm.dbg.value(metadata i32 [[LBLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[LBLOADDBG]]
+; PAROPT:call void @llvm.dbg.value(metadata i32 [[LBLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT: call void @llvm.dbg.value(metadata i32 %{{.*}}, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
@@ -56,11 +67,11 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, 
 ; checking the loaded value in %2
 ; CFGRES: [[IVLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.iv, align 4, !dbg [[IVLOADDBG:![0-9]+]]
 ; PREP: [[IVLOAD:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.iv, align 4, !dbg [[IVLOADDBG:![0-9]+]]
-; ALL-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOADDBG]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOADDBG]]
   %2 = load i32, i32* %.omp.iv, align 4
 ; CFGRES: [[UBLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.ub, align 4, !dbg [[UBLOADDBG:![0-9]+]]
 ; PREP:  [[UBLOAD:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.ub, align 4, !dbg [[UBLOADDBG:![0-9]+]]
-; ALL-NEXT:  call void @llvm.dbg.value(metadata i32 [[UBLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[UBLOADDBG]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[UBLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[UBLOADDBG]]
   %3 = load i32, i32* %.omp.ub, align 4
   %cmp = icmp sle i32 %2, %3
 ; ALL:  [[CMP:%[a-zA-Z._0-9]+]] = icmp sle i32 {{.*}}, {{.*}}, !dbg [[CMPDBG:![0-9]+]]
@@ -69,9 +80,12 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, 
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
 ; checking the loaded value in %4
+; PAROPT:  [[LOCALIV:%[a-zA-Z._0-9]+]] = phi i32 [ %add1, %omp.inner.for.inc ], [ %lb.new, %omp.inner.for.body.lr.ph ]
+; PAROPT:  call void @llvm.dbg.value(metadata i32 [[LOCALIV]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT-NEXT:  call void @llvm.dbg.value(metadata i32 [[LOCALIV]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
 ; CFGRES: [[IVLOAD2:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD2DBG:![0-9]+]]
 ; PREP: [[IVLOAD2:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD2DBG:![0-9]+]]
-; ALL-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD2]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOAD2DBG]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD2]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOAD2DBG]]
   %4 = load i32, i32* %.omp.iv, align 4
 ; checking the result of multiply in %mul
   %mul = mul nsw i32 %4, 1
@@ -91,12 +105,16 @@ omp.body.continue:                                ; preds = %omp.inner.for.body
 omp.inner.for.inc:                                ; preds = %omp.body.continue
 ; CFGRES: [[IVLOAD3:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD3DBG:![0-9]+]]
 ; PREP: [[IVLOAD3:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD3DBG:![0-9]+]]
-; ALL-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD3]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOAD3DBG]]
+; PAROPT:  call void @llvm.dbg.value(metadata i32 [[LOCALIV]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD3]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOAD3DBG]]
   %5 = load i32, i32* %.omp.iv, align 4
 ; checking the result of add in %add1
   %add1 = add nsw i32 %5, 1
 ; ALL:  [[ADD1:%[a-zA-Z._0-9]+]] = add nsw i32 {{.*}}, 1, !dbg [[ADD1DBG:![0-9]+]]
 ; ALL:  call void @llvm.dbg.value(metadata i32 [[ADD1]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[ADD1DBG]]
+; PAROPT:  call void @llvm.dbg.value(metadata i32 [[ADD1]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT:  call void @llvm.dbg.value(metadata i32 %{{.*}}, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT:  call void @llvm.dbg.value(metadata i1 %{{.*}}, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
   store i32 %add1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
@@ -106,13 +124,13 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 ; checking the loaded value in %6
-; ALL:  [[RESULT:%[a-zA-Z._0-9]+]] = load i32, i32* %r0, align 4, !dbg [[RESULTDBG:![0-9]+]]
-; ALL-NEXT:  call void @llvm.dbg.value(metadata i32 [[RESULT]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[RESULTDBG]]
+; CFGRES-PREP:  [[RESULT:%[a-zA-Z._0-9]+]] = load i32, i32* %r0, align 4, !dbg [[RESULTDBG:![0-9]+]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[RESULT]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[RESULTDBG]]
   %6 = load i32, i32* %r0, align 4
   ret i32 %6
 }
 
-; ALL:  declare void @llvm.dbg.value(metadata, metadata, metadata) #2
+; CFGRES-PREP:  declare void @llvm.dbg.value(metadata, metadata, metadata) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1

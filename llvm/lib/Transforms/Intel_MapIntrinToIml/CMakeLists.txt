@@ -8,6 +8,14 @@
 add_llvm_component_library(LLVMIntel_MapIntrinToIml
     MapIntrinToIml.cpp
     iml_accuracy_interface.cpp
-    search.cpp)
+    search.cpp
+
+    LINK_COMPONENTS
+    Analysis
+    Core
+    Scalar
+    Support
+    TransformUtils
+    )
 
 add_dependencies(LLVMIntel_MapIntrinToIml intrinsics_gen)

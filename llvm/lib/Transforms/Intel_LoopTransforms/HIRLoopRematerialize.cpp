@@ -293,8 +293,8 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
     return ConstSCEV1 == ConstSCEV2;
   }
 
-  if (auto CastSCEV1 = dyn_cast<SCEVCastExpr>(Blob1)) {
-    auto CastSCEV2 = cast<SCEVCastExpr>(Blob2);
+  if (auto CastSCEV1 = dyn_cast<SCEVIntegralCastExpr>(Blob1)) {
+    auto CastSCEV2 = cast<SCEVIntegralCastExpr>(Blob2);
     if (CastSCEV1->getOperand()->getType() !=
         CastSCEV2->getOperand()->getType()) {
       return false;
@@ -1289,6 +1289,7 @@ bool HIRLoopRematerialize::materializeALoop(
 
   // Finally, materialize a loop around NewLoopInsts after removing
   // insts in ToBeRemovedInsts
+  HIRInvalidationUtils::invalidateNonLoopRegion(Parent);
   HLLoop *NewLoop = replaceInstsWithLoop(
       RerollFactor, FirstNodeOfFirstLoopIter->getIterator(),
       std::next(LastNodeOfLastLoopIter->getIterator()), NewLoopInsts,

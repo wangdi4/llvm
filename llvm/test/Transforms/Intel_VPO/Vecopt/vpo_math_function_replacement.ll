@@ -96,7 +96,7 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: nounwind
-define void @"sycl_handler_add"(float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, i32, i32, i32, i32, i64, i64) {
+define void @"sycl_handler_add"(float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), i32, i32, i32, i32, i64, i64) {
   %19 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 

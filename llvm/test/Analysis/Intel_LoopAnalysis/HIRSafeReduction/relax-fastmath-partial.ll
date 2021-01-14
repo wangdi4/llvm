@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -analyze -hir-safe-reduction-analysis -hir-safe-reduction-analysis-print-unsafe-algebra  -S 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -hir-safe-reduction-analysis-print-unsafe-algebra  -S 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -analyze -hir-safe-reduction-analysis -S 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -S 2>&1 < %s | FileCheck %s
 
 ; [Note] the safe reduction is on on a partial path (without Unsafe Albegra)
 ;
@@ -23,7 +23,8 @@
 ; the function's SafeReduction chain dump:
 
 ; CHECK:        + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-; CHECK:        |      %tsum.015 = %tsum.015  +  %add; <Safe Reduction> <Has Unsafe Algebra- No>
+; CHECK:        |      <Safe Reduction> Red Op: fadd <Has Unsafe Algebra- No> <Conditional- Yes>
+; CHECK:        |      %tsum.015 = %tsum.015  +  %add; <Safe Reduction>
 ; CHECK:        + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

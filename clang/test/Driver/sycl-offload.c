@@ -2,6 +2,7 @@
 /// Perform several driver tests for SYCL offloading
 ///
 
+// [CMPLRLLVM-25333] INTEL UNSUPPORTED: i686-pc-windows
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 
@@ -168,17 +169,17 @@
 /// preprocessor and another one joining the device linking outputs to the host
 /// action.  The same graph should be generated when no -fsycl-targets is used
 /// The same phase graph will be used with -fsycl-use-bitcode
-// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64-unknown-unknown-sycldevice -fno-sycl-device-lib=all %s 2>&1 \
+// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -fsycl-targets=spir64-unknown-unknown-sycldevice -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-PHASES,CHK-PHASES-DEFAULT-MODE %s
-// RUN:   %clang_cl -ccc-print-phases -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64-unknown-unknown-sycldevice -fno-sycl-device-lib=all %s 2>&1 \
+// RUN:   %clang_cl -ccc-print-phases -fsycl -fsycl-targets=spir64-unknown-unknown-sycldevice -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-PHASES,CHK-PHASES-CL-MODE %s
-// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -fno-sycl-use-bitcode -fno-sycl-device-lib=all %s 2>&1 \
+// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-use-bitcode -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-PHASES,CHK-PHASES-DEFAULT-MODE %s
-// RUN:   %clang_cl -ccc-print-phases -fsycl -fno-sycl-device-lib=all -fno-sycl-use-bitcode %s -fno-sycl-device-lib=all 2>&1 \
+// RUN:   %clang_cl -ccc-print-phases -fsycl -fno-sycl-use-bitcode -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-PHASES,CHK-PHASES-CL-MODE %s
-// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -fsycl-use-bitcode -fno-sycl-device-lib=all %s 2>&1 \
+// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -fsycl-use-bitcode -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-PHASES,CHK-PHASES-DEFAULT-MODE %s
-// RUN:   %clang_cl -ccc-print-phases -fsycl -fno-sycl-device-lib=all -fsycl-use-bitcode -fno-sycl-device-lib=all %s 2>&1 \
+// RUN:   %clang_cl -ccc-print-phases -fsycl -fsycl-use-bitcode -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-PHASES,CHK-PHASES-CL-MODE %s
 // CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c++, (host-sycl)
 // CHK-PHASES: 1: preprocessor, {0}, c++-cpp-output, (host-sycl)
@@ -215,7 +216,7 @@
 
 /// Check the phases also add a library to make sure it is treated as input by
 /// the device.
-// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -lsomelib -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64-unknown-unknown-sycldevice %s 2>&1 \
+// RUN:   %clang -ccc-print-phases -target x86_64-unknown-linux-gnu -lsomelib -fsycl -fsycl-targets=spir64-unknown-unknown-sycldevice -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES-LIB %s
 // CHK-PHASES-LIB: 0: input, "somelib", object, (host-sycl)
 // CHK-PHASES-LIB: 1: input, "[[INPUT:.+\.c]]", c++, (host-sycl)
@@ -248,7 +249,7 @@
 
 /// Check the phases when using and multiple source files
 // RUN:   echo " " > %t.c
-// RUN:   %clang -ccc-print-phases -lsomelib -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64-unknown-unknown-sycldevice %s %t.c 2>&1 \
+// RUN:   %clang -ccc-print-phases -lsomelib -target x86_64-unknown-linux-gnu -fsycl -fsycl-targets=spir64-unknown-unknown-sycldevice -fno-sycl-device-lib=all %s %t.c 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES-FILES %s
 
 // CHK-PHASES-FILES: 0: input, "somelib", object, (host-sycl)
@@ -284,7 +285,7 @@
 /// ###########################################################################
 
 /// Check separate compilation with offloading - bundling actions
-// RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-device-lib=all -c -o %t.o -lsomelib -fsycl-targets=spir64-unknown-unknown-sycldevice %s 2>&1 \
+// RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -c -o %t.o -lsomelib -fsycl-targets=spir64-unknown-unknown-sycldevice %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-BUACTIONS %s
 // CHK-BUACTIONS: 0: input, "[[INPUT:.+\.c]]", c++, (device-sycl)
 // CHK-BUACTIONS: 1: preprocessor, {0}, c++-cpp-output, (device-sycl)
@@ -423,9 +424,9 @@
 
 /// Check -fsycl-link behaviors unbundle
 // RUN:   touch %t.o
-// RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -o %t.out -fsycl-link %t.o 2>&1 \
+// RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -o %t.out -fsycl-link -fno-sycl-device-lib=all %t.o 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-LINK-UB %s
-// RUN:   %clang_cl -### -ccc-print-phases -fsycl -o %t.out -fsycl-link %t.o 2>&1 \
+// RUN:   %clang_cl -### -ccc-print-phases -fsycl -o %t.out -fsycl-link -fno-sycl-device-lib=all %t.o 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-LINK-UB %s
 // CHK-LINK-UB: 0: input, "[[INPUT:.+\.o]]", object
 // CHK-LINK-UB: 1: clang-offload-unbundler, {0}, object
@@ -438,9 +439,9 @@
 /// ###########################################################################
 
 /// Check -fsycl-link behaviors from source
-// RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -o %t.out -fsycl-link %s 2>&1 \
+// RUN:   %clang -### -ccc-print-phases -target x86_64-unknown-linux-gnu -fsycl -o %t.out -fsycl-link -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-LINK %s
-// RUN:   %clang_cl -### -ccc-print-phases -fsycl -o %t.out -fsycl-link %s 2>&1 \
+// RUN:   %clang_cl -### -ccc-print-phases -fsycl -o %t.out -fsycl-link -fno-sycl-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-LINK %s
 // CHK-LINK: 0: input, "[[INPUT:.+\.c]]", c++, (device-sycl)
 // CHK-LINK: 1: preprocessor, {0}, c++-cpp-output, (device-sycl)
@@ -617,7 +618,7 @@
 /// ###########################################################################
 
 /// Ahead of Time compilation for fpga, gen, cpu
-// RUN:   %clang -target x86_64-unknown-linux-gnu -ccc-print-phases -fsycl  -fno-sycl-device-lib=all -fsycl-targets=spir64_fpga-unknown-unknown-sycldevice %s 2>&1 \
+// RUN:   %clang -target x86_64-unknown-linux-gnu -ccc-print-phases -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64_fpga-unknown-unknown-sycldevice %s 2>&1 \
 // RUN:    | FileCheck %s -check-prefixes=CHK-PHASES-AOT,CHK-PHASES-FPGA
 // RUN:   %clang -target x86_64-unknown-linux-gnu -ccc-print-phases -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64_gen-unknown-unknown-sycldevice %s 2>&1 \
 // RUN:    | FileCheck %s -check-prefixes=CHK-PHASES-AOT,CHK-PHASES-GEN
@@ -677,10 +678,10 @@
 // CHK-TOOLS-AOT: clang{{.*}} "-fsycl-is-device" {{.*}} "-o" "[[OUTPUT1:.+\.bc]]"
 // CHK-TOOLS-AOT: llvm-link{{.*}} "[[OUTPUT1]]" "-o" "[[OUTPUT2:.+\.bc]]"
 // CHK-TOOLS-AOT: sycl-post-link{{.*}} "-o" "[[OUTPUT2_1:.+\.bc]]" "[[OUTPUT2]]"
-// CHK-TOOLS-CPU: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2_1]]"
-// CHK-TOOLS-GEN: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2_1]]"
-// CHK-TOOLS-FPGA-USM-DISABLE: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2_1]]"
-// CHK-TOOLS-FPGA-USM-ENABLE: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-ext=+all" "[[OUTPUT2_1]]"
+// CHK-TOOLS-CPU: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-allow-extra-diexpressions" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2_1]]"
+// CHK-TOOLS-GEN: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-allow-extra-diexpressions" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2_1]]"
+// CHK-TOOLS-FPGA-USM-DISABLE: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-allow-extra-diexpressions" "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes" "[[OUTPUT2_1]]"
+// CHK-TOOLS-FPGA-USM-ENABLE: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-debug-info-version=legacy" "-spirv-allow-extra-diexpressions" "-spirv-ext=+all" "[[OUTPUT2_1]]"
 // CHK-TOOLS-FPGA: aoc{{.*}} "-o" "[[OUTPUT4:.+\.aocx]]" "[[OUTPUT3]]"
 // CHK-TOOLS-GEN: ocloc{{.*}} "-output" "[[OUTPUT4:.+\.out]]" {{.*}} "[[OUTPUT3]]"
 // CHK-TOOLS-CPU: opencl-aot{{.*}} "-o=[[OUTPUT4:.+\.out]]" {{.*}} "[[OUTPUT3]]"
@@ -852,7 +853,7 @@
 // CHK-FSYCL-SAVE-TEMPS-CONFL-NOT: "-o" "[[DEVICE_BASE_NAME]].txt" {{.*}}"[[DEVICE_BASE_NAME]].txt"
 // CHK-FSYCL-SAVE-TEMPS: file-table-tform{{.*}} "-o" "[[PRE_WRAPPER_TABLE:.*\.table]]" "[[DEVICE_BASE_NAME]].table" "[[SPIRV_FILE_LIST]]"
 // CHK-FSYCL-SAVE-TEMPS-CONFL-NOT: "-o" "[[DEVICE_BASE_NAME]].table"{{.*}} "[[DEVICE_BASE_NAME]].table"
-// CHK-FSYCL-SAVE-TEMPS: clang-offload-wrapper{{.*}} "-o=[[WRAPPER_TEMPFILE_NAME:[a-z0-9_/-]+]].bc"{{.*}} "-batch" "[[PRE_WRAPPER_TABLE]]"
+// CHK-FSYCL-SAVE-TEMPS: clang-offload-wrapper{{.*}} "-o=[[WRAPPER_TEMPFILE_NAME:.+]].bc"{{.*}} "-batch" "[[PRE_WRAPPER_TABLE]]"
 // CHK-FSYCL-SAVE-TEMPS: llc{{.*}} "-o" "[[DEVICE_OBJ_NAME:.*\.o]]"{{.*}} "[[WRAPPER_TEMPFILE_NAME]].bc"
 // CHK-FSYCL-SAVE-TEMPS: clang{{.*}} "-fsycl-is-device"{{.*}} "-fsycl-int-header=[[DEVICE_BASE_NAME]].h"{{.*}} "[[DEVICE_BASE_NAME]].ii"
 // CHK-FSYCL-SAVE-TEMPS: clang{{.*}} "-include" "[[DEVICE_BASE_NAME]].h"{{.*}} "-fsycl-is-host"{{.*}} "-o" "[[HOST_BASE_NAME:[a-z0-9_-]+]].ii"
@@ -910,6 +911,3 @@
 // CHECK-STD-OVR: clang{{.*}} "-fsyntax-only" {{.*}} "-std=c++14"
 // CHECK-STD-OVR: clang{{.*}} "-emit-obj" {{.*}} "-std=c++14"
 // CHECK-STD-OVR-NOT: clang{{.*}} "-std=c++17"
-
-// TODO: SYCL specific fail - analyze and enable
-// XFAIL: windows-msvc

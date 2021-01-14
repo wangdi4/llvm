@@ -4,10 +4,10 @@
 ; VF different allocas in this case to preserve original alignment which will be
 ; used for memory accesses inside vector loop.
 
-; RUN: opt -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s | FileCheck %s
 
 ; Check that original alloca's alignment is captured in VPlan.
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:     [3 x double]* [[VP_F1_PRIV:%.*]] = allocate-priv [3 x double]*, OrigAlign = 16
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -40,7 +40,7 @@ define void @foo(i32* nocapture readonly %iarr) {
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI3]], 2
 ; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 100
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], 100
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
 ;
 entry:

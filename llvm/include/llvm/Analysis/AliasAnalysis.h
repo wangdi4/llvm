@@ -42,10 +42,6 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include <cstdint>
@@ -56,10 +52,18 @@
 namespace llvm {
 
 class AnalysisUsage;
+class AtomicCmpXchgInst;
 class BasicAAResult;
 class BasicBlock;
+class CatchPadInst;
+class CatchReturnInst;
 class DominatorTree;
+class FenceInst;
+class Function;
 class IntrinsicInst;    // INTEL
+class InvokeInst;
+class PreservedAnalyses;
+class TargetLibraryInfo;
 class Value;
 
 /// The possible results of an alias query.
@@ -365,6 +369,12 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   AAQueryInfo() : AliasCache(), IsCapturedCache() {}
+
+  AliasResult updateResult(const LocPair &Locs, AliasResult Result) {
+    auto It = AliasCache.find(Locs);
+    assert(It != AliasCache.end() && "Entry must have existed");
+    return It->second = Result;
+  }
 };
 
 class BatchAAResults;
@@ -376,6 +386,10 @@ public:
   AAResults(const TargetLibraryInfo &TLI) : TLI(TLI) {}
   AAResults(AAResults &&Arg);
   ~AAResults();
+#if INTEL_CUSTOMIZATION
+  // Do opt-level based initialization for each AAResult.
+  void setupWithOptLevel(unsigned OptLevel);
+#endif // INTEL_CUSTOMIZATION
 
   /// Register a specific AA result.
   template <typename AAResultT> void addAAResult(AAResultT &AAResult) {
@@ -417,7 +431,8 @@ public:
 
   /// A convenience wrapper around the primary \c alias interface.
   AliasResult alias(const Value *V1, const Value *V2) {
-    return alias(V1, LocationSize::unknown(), V2, LocationSize::unknown());
+    return alias(MemoryLocation::getBeforeOrAfter(V1),
+                 MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -447,8 +462,8 @@ public:
 
   /// A convenience wrapper around the \c loopCarriedAlias interface.
   AliasResult loopCarriedAlias(const Value *V1, const Value *V2) {
-    return loopCarriedAlias(V1, LocationSize::unknown(), V2,
-                            LocationSize::unknown());
+    return loopCarriedAlias(MemoryLocation::getBeforeOrAfter(V1),
+                            MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -467,7 +482,8 @@ public:
 
   /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
   bool isLoopCarriedNoAlias(const Value *V1, const Value *V2) {
-    return isLoopCarriedNoAlias(MemoryLocation(V1), MemoryLocation(V2));
+    return isLoopCarriedNoAlias(MemoryLocation::getBeforeOrAfter(V1),
+                                MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -493,7 +509,8 @@ public:
 
   /// A convenience wrapper around the \c isNoAlias helper interface.
   bool isNoAlias(const Value *V1, const Value *V2) {
-    return isNoAlias(MemoryLocation(V1), MemoryLocation(V2));
+    return isNoAlias(MemoryLocation::getBeforeOrAfter(V1),
+                     MemoryLocation::getBeforeOrAfter(V2));
   }
 
   /// A trivial helper function to check to see if the specified pointers are
@@ -518,7 +535,7 @@ public:
   /// A convenience wrapper around the primary \c pointsToConstantMemory
   /// interface.
   bool pointsToConstantMemory(const Value *P, bool OrLocal = false) {
-    return pointsToConstantMemory(MemoryLocation(P), OrLocal);
+    return pointsToConstantMemory(MemoryLocation::getBeforeOrAfter(P), OrLocal);
   }
 
   /// @}
@@ -611,7 +628,7 @@ public:
   /// write at most from objects pointed to by their pointer-typed arguments
   /// (with arbitrary offsets).
   static bool onlyAccessesArgPointees(FunctionModRefBehavior MRB) {
-    return !(MRB & FMRL_Anywhere & ~FMRL_ArgumentPointees);
+    return !((unsigned)MRB & FMRL_Anywhere & ~FMRL_ArgumentPointees);
   }
 
   /// Checks if functions with the specified behavior are known to potentially
@@ -619,26 +636,27 @@ public:
   /// (with arbitrary offsets).
   static bool doesAccessArgPointees(FunctionModRefBehavior MRB) {
     return isModOrRefSet(createModRefInfo(MRB)) &&
-           (MRB & FMRL_ArgumentPointees);
+           ((unsigned)MRB & FMRL_ArgumentPointees);
   }
 
   /// Checks if functions with the specified behavior are known to read and
   /// write at most from memory that is inaccessible from LLVM IR.
   static bool onlyAccessesInaccessibleMem(FunctionModRefBehavior MRB) {
-    return !(MRB & FMRL_Anywhere & ~FMRL_InaccessibleMem);
+    return !((unsigned)MRB & FMRL_Anywhere & ~FMRL_InaccessibleMem);
   }
 
   /// Checks if functions with the specified behavior are known to potentially
   /// read or write from memory that is inaccessible from LLVM IR.
   static bool doesAccessInaccessibleMem(FunctionModRefBehavior MRB) {
-    return isModOrRefSet(createModRefInfo(MRB)) && (MRB & FMRL_InaccessibleMem);
+    return isModOrRefSet(createModRefInfo(MRB)) &&
+             ((unsigned)MRB & FMRL_InaccessibleMem);
   }
 
   /// Checks if functions with the specified behavior are known to read and
   /// write at most from memory that is inaccessible from LLVM IR or objects
   /// pointed to by their pointer-typed arguments (with arbitrary offsets).
   static bool onlyAccessesInaccessibleOrArgMem(FunctionModRefBehavior MRB) {
-    return !(MRB & FMRL_Anywhere &
+    return !((unsigned)MRB & FMRL_Anywhere &
              ~(FMRL_InaccessibleMem | FMRL_ArgumentPointees));
   }
 
@@ -870,40 +888,7 @@ private:
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc,
                            AAQueryInfo &AAQIP, // INTEL
-                           const Optional<LocationSize> &Size = {}) { // INTEL
-    if (OptLoc == None) {
-      if (const auto *Call = dyn_cast<CallBase>(I)) {
-        return createModRefInfo(getModRefBehavior(Call));
-      }
-    }
-
-    const MemoryLocation &Loc = OptLoc.getValueOr(MemoryLocation());
-
-    switch (I->getOpcode()) {
-    case Instruction::VAArg:
-      return getModRefInfo((const VAArgInst *)I, Loc, AAQIP, Size); // INTEL
-    case Instruction::Load:
-      return getModRefInfo((const LoadInst *)I, Loc, AAQIP, Size); // INTEL
-    case Instruction::Store:
-      return getModRefInfo((const StoreInst *)I, Loc, AAQIP, Size); // INTEL
-    case Instruction::Fence:
-      return getModRefInfo((const FenceInst *)I, Loc, AAQIP);
-    case Instruction::AtomicCmpXchg:
-      return getModRefInfo((const AtomicCmpXchgInst *)I, Loc, AAQIP, Size); // INTEL
-    case Instruction::AtomicRMW:
-      return getModRefInfo((const AtomicRMWInst *)I, Loc, AAQIP, Size); // INTEL
-    case Instruction::Call:
-      return getModRefInfo((const CallInst *)I, Loc, AAQIP);
-    case Instruction::Invoke:
-      return getModRefInfo((const InvokeInst *)I, Loc, AAQIP);
-    case Instruction::CatchPad:
-      return getModRefInfo((const CatchPadInst *)I, Loc, AAQIP);
-    case Instruction::CatchRet:
-      return getModRefInfo((const CatchReturnInst *)I, Loc, AAQIP);
-    default:
-      return ModRefInfo::NoModRef;
-    }
-  }
+                           const Optional<LocationSize> &Size = {}); // INTEL
 
   class Concept;
 
@@ -916,6 +901,9 @@ private:
   std::vector<std::unique_ptr<Concept>> AAs;
 
   std::vector<AnalysisKey *> AADeps;
+
+  /// Query depth used to distinguish recursive queries.
+  unsigned Depth = 0;
 
   friend class BatchAAResults;
 };
@@ -986,6 +974,10 @@ public:
   /// An update API used internally by the AAResults to provide
   /// a handle back to the top level aggregation.
   virtual void setAAResults(AAResults *NewAAR) = 0;
+#if INTEL_CUSTOMIZATION
+  /// Do opt-level based initialization for each AAResult.
+  virtual void setupWithOptLevel(unsigned OptLevel) = 0;
+#endif // INTEL_CUSTOMIZATION
 
   //===--------------------------------------------------------------------===//
   /// \name Alias Queries
@@ -1076,6 +1068,11 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  // Do opt-level based initialization for each AAResult.
+  void setupWithOptLevel(unsigned OptLevel) {
+    Result.setupWithOptLevel(OptLevel);
+  }
+
   // Returns true if the given value V is escaped.
   bool escapes(const Value *V) override { 
     return Result.escapes(V); 
@@ -1180,6 +1177,12 @@ protected:
                  : CurrentResult.pointsToConstantMemory(Loc, AAQI, OrLocal);
     }
 #if INTEL_CUSTOMIZATION
+    // Do opt-level based initialization for each AAResult.
+    void setupWithOptLevel(unsigned OptLevel) {
+      if (AAR)
+        AAR->setupWithOptLevel(OptLevel);
+    }
+
     // Returns true if the given value V is escaped.
     bool escapes(const Value *V) 
     {
@@ -1262,6 +1265,9 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  // Do opt-level based initialization for each AAResult.
+  void setupWithOptLevel(unsigned OptLevel) {}
+
   // Returns true if the given value V is escaped.
   bool escapes(const Value *V) {
     return true;
@@ -1359,12 +1365,7 @@ public:
     ResultGetters.push_back(&getModuleAAResultImpl<AnalysisT>);
   }
 
-  Result run(Function &F, FunctionAnalysisManager &AM) {
-    Result R(AM.getResult<TargetLibraryAnalysis>(F));
-    for (auto &Getter : ResultGetters)
-      (*Getter)(F, AM, R);
-    return R;
-  }
+  Result run(Function &F, FunctionAnalysisManager &AM);
 
 private:
   friend AnalysisInfoMixin<AAManager>;

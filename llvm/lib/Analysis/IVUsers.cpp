@@ -54,6 +54,26 @@ INITIALIZE_PASS_END(IVUsersWrapperPass, "iv-users", "Induction Variable Users",
 
 Pass *llvm::createIVUsersPass() { return new IVUsersWrapperPass(); }
 
+#if INTEL_CUSTOMIZATION
+// Returns the number of "terms" in this SCEV containing min or max
+// expressions.
+// Recursion limited to "maxDepth" levels.
+// Example: 4*(min(x)*2 + max(y)*3) => 2 terms
+//          4*(min(max(x))*2 + max(y)*3) => 2 terms
+static unsigned numMinMaxTerms(const SCEV *S, unsigned MaxDepth) {
+  if (MaxDepth == 0)
+    return 0;
+  unsigned Count = 0;
+  if (auto *SCop = dyn_cast<SCEVNAryExpr>(S)) {
+    if (isa<SCEVMinMaxExpr>(SCop))
+      return 1;
+    for (const auto *Op : SCop->operands())
+      Count += numMinMaxTerms(Op, MaxDepth - 1);
+  }
+  return Count;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// isInteresting - Test whether the given expression is "interesting" when
 /// used by the given expression, within the context of analyzing the
 /// given loop.
@@ -83,7 +103,22 @@ static bool isInteresting(const SCEV *S, const Instruction *I, const Loop *L,
           return false;
         AnyInterestingYet = true;
       }
-    return AnyInterestingYet;
+#if INTEL_CUSTOMIZATION
+    // "Interesting" means that this IR is an induction variable and LSR may
+    // replace the IR with its SCEV form.
+    // If the SCEV form has multiple min/maxes in separate terms (like
+    // max(x) + min(y)), it may cause branches,
+    // phis, and other undesirable IR to be generated later.
+    // For example, SCEV currently uses this for "ashr exact";
+    // (((-1 * undef) smax undef) /u 8) * (1 smin (-1 smax undef))
+    // Even generated outside the loop, this may cause performance issues.
+    // Nests such as max(min(x)) are OK.
+    // We don't make this decision in LSR because it is difficult for LSR
+    // to get back the original IR given the SCEV form.
+    // Returning "false" will still allow LSR to see the IR as a potential
+    // "use" of another IV, but not an IV itself.
+    return AnyInterestingYet && (numMinMaxTerms(S, 3) < 2);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Nothing else is interesting here.

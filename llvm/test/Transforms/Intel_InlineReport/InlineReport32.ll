@@ -1,6 +1,6 @@
 ; Inline report
-; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -S | opt -inlinereportemitter -inline-report=134 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 ; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -S | opt -passes='inlinereportemitter' -inline-report=134 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
@@ -31,29 +31,6 @@
 ; CHECK-MD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
 ; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
 
-; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
-; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
-; CHECK-OLD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: _ZN11cSimulation17selectNextModule1Ev
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst2Ev
-; CHECK-OLD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: _ZN11cSimulation17selectNextModule2Ev
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst3Ev
-; CHECK-OLD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: _ZN11cSimulation17selectNextModule3Ev
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev
-; CHECK-OLD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: _ZN11cSimulation17selectNextModule4Ev
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
-; CHECK-OLD: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
-
-; CHECK-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule1Ev
 ; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
 ; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
 ; CHECK-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule2Ev
@@ -74,27 +51,27 @@
 ; CHECK-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst4Ev
 ; CHECK: call{{.*}}_ZN12cMessageHeap7shiftupEi
 
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev
-; CHECK-NEW: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: _ZN11cSimulation17selectNextModule4Ev
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst3Ev
-; CHECK-NEW: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: _ZN11cSimulation17selectNextModule3Ev
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst2Ev
-; CHECK-NEW: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: _ZN11cSimulation17selectNextModule2Ev
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
-; CHECK-NEW: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: _ZN11cSimulation17selectNextModule1Ev
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
-; CHECK-NEW: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
+; CHECK-CL-DAG: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN11cSimulation17selectNextModule4Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN12cMessageHeap12removeFirst3Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN11cSimulation17selectNextModule3Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN12cMessageHeap12removeFirst2Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN11cSimulation17selectNextModule2Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: COMPILE FUNC: _ZN11cSimulation17selectNextModule1Ev
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
+; CHECK-CL-DAG: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
 
 %class.cNamedObject = type <{ %class.cObject, i8*, i16, i16, [4 x i8] }>
 %class.cMessageHeap = type { %class.cOwnedObject.base, %class.cMessage**, i32, i32, i64 }

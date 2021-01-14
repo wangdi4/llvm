@@ -158,10 +158,12 @@ public:
                   AssumptionCache *AC = nullptr,
                   bool AllowVarArgs = false, bool AllowAlloca = false,
 #if INTEL_COLLAB
+                  std::string Suffix = "",
                   bool AllowEHTypeID = false,
-                  const OrderedArgs *TgtClauseArgs = nullptr,
-#endif // INTEL_COLLAB
+                  const OrderedArgs *TgtClauseArgs = nullptr);
+#else // INTEL_COLLAB
                   std::string Suffix = "");
+#endif // INTEL_COLLAB
 
     /// Create a code extractor for a loop body.
     ///

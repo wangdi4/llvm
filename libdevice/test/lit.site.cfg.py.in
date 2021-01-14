@@ -1,0 +1,28 @@
+@LIT_SITE_CFG_IN_HEADER@
+@AUTO_GEN_COMMENT@
+
+config.llvm_tools_dir = path(r"@LLVM_TOOLS_DIR@")
+config.clang_tools_dir = path(r"@CLANG_TOOLS_DIR@")
+config.libdevice_src_dir = path(r"@LIBDEVICE_SOURCE_DIR@")
+config.libdevice_binary_dir = path(r"@LIBDEVICE_BINARY_DIR@")
+config.libdevice_library_dir = path(r"@LIBDEVICE_LIBRARY_DIR@")
+config.libdevice_runtime_dir = path(r"@LIBDEVICE_RUNTIME_DIR@")
+config.has_libsycldevice = "@LLVM_HAS_LIBSYCLDEVICE@"
+# INTEL_CUSTOMIZATION
+# Temporary workaround until
+# https://reviews.llvm.org/rG0f1f13fcb17fbc8c93d505da989a04ab5cbd9ed3
+# is merged into xmain.
+config.lit_tools_dir = path(r"@LLVM_LIT_TOOLS_DIR@")
+# end INTEL_CUSTOMIZATION
+# INTEL_COLLAB
+config.has_libompdevice = "@LLVM_HAS_LIBOMPDEVICE@"
+# end INTEL_COLLAB
+
+import sys
+
+import lit.llvm
+lit.llvm.initialize(lit_config, config)
+
+# Let the main config do the real work.
+lit_config.load_config(
+    config, os.path.join(path(r"@CMAKE_CURRENT_SOURCE_DIR@"), "lit.cfg.py"))

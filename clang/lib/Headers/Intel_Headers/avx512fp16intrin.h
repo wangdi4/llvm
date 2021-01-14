@@ -19,10 +19,14 @@
 /* Define the default attributes for the functions in this file. */
 typedef _Float16 __v32hf __attribute__((__vector_size__(64), __aligned__(64)));
 typedef _Float16 __m512h __attribute__((__vector_size__(64), __aligned__(64)));
+typedef _Float16 __m512h_u __attribute__((__vector_size__(64), __aligned__(1)));
 typedef _Float16 __v8hf __attribute__((__vector_size__(16), __aligned__(16)));
 typedef _Float16 __m128h __attribute__((__vector_size__(16), __aligned__(16)));
+typedef _Float16 __m128h_u __attribute__((__vector_size__(16), __aligned__(1)));
 typedef _Float16 __v16hf __attribute__((__vector_size__(32), __aligned__(32)));
 typedef _Float16 __m256h __attribute__((__vector_size__(32), __aligned__(32)));
+typedef _Float16 __m256h_u __attribute__((__vector_size__(32), __aligned__(1)));
+
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS512 \
@@ -571,6 +575,30 @@ _mm512_maskz_max_ph(__mmask32 __U, __m512h __A, __m512h __B) {
                                    (__v32hf)_mm512_max_round_ph((A), (B), (R)), \
                                    (__v32hf)_mm512_setzero_ph());
 
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_abs_ph(__m512h __A) {
+  return (__m512h)_mm512_and_epi32(_mm512_set1_epi32(0x7FFF7FFF),(__m512i)__A);
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_conj_pch(__m512h __A) {
+  return (__m512h)_mm512_xor_ps((__m512)__A, _mm512_set1_ps(-0.0f));
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_mask_conj_pch(__m512h __W, __mmask16 __U, __m512h __A) {
+  return (__m512h)__builtin_ia32_selectps_512((__mmask16)__U,
+                                             (__v16sf)_mm512_conj_pch(__A),
+                                             (__v16sf)__W);
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_maskz_conj_pch(__mmask16 __U, __m512h __A) {
+  return (__m512h)__builtin_ia32_selectps_512((__mmask16)__U,
+                                              (__v16sf)_mm512_conj_pch(__A),
+                                              (__v16sf)_mm512_setzero_ps());
+}
+
 static __inline__ __m128h __DEFAULT_FN_ATTRS128
 _mm_add_sh(__m128h __A, __m128h __B) {
   __A[0] += __B[0];
@@ -871,6 +899,51 @@ _mm_maskz_load_sh (__mmask8 __U, const void* __A)
                                                   __U & 1);
 }
 
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_load_ph(void const *__p)
+{
+  return *(const __m512h*)__p;
+}
+
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
+_mm256_load_ph(void const *__p)
+{
+  return *(const __m256h *)__p;
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_load_ph(void const *__p)
+{
+  return *(const __m128h *)__p;
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_loadu_ph(void const *__p)
+{
+  struct __loadu_ph {
+    __m512h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  return ((const struct __loadu_ph*)__p)->__v;
+}
+
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
+_mm256_loadu_ph(void const *__p)
+{
+  struct __loadu_ph {
+    __m256h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  return ((const struct __loadu_ph*)__p)->__v;
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_loadu_ph(void const *__p)
+{
+  struct __loadu_ph {
+    __m128h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  return ((const struct __loadu_ph*)__p)->__v;
+}
+
 // stores with vmovsh:
 static __inline__ void __DEFAULT_FN_ATTRS128
 _mm_store_sh(void *__dp, __m128h __a)
@@ -885,6 +958,51 @@ static __inline__ void __DEFAULT_FN_ATTRS128
 _mm_mask_store_sh (void * __W, __mmask8 __U, __m128h __A)
 {
   __builtin_ia32_storesh128_mask ((__v8hf *)__W, __A, __U & 1);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS512
+_mm512_store_ph(void *__P, __m512h __A)
+{
+  *(__m512h*)__P = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS256
+_mm256_store_ph(void *__P, __m256h __A)
+{
+  *(__m256h*)__P = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS128
+_mm_store_ph(void *__P, __m128h __A)
+{
+  *(__m128h*)__P = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS512
+_mm512_storeu_ph(void *__P, __m512h __A)
+{
+  struct __storeu_ph {
+    __m512h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ph*)__P)->__v = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS256
+_mm256_storeu_ph(void *__P, __m256h __A)
+{
+  struct __storeu_ph {
+    __m256h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ph*)__P)->__v = __A;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS128
+_mm_storeu_ph(void *__P, __m128h __A)
+{
+  struct __storeu_ph {
+    __m128h_u __v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ph*)__P)->__v = __A;
 }
 
 // moves with vmovsh:
@@ -3552,6 +3670,91 @@ _mm512_maskz_fmadd_pch(__mmask16 __U, __m512h __A, __m512h __B, __m512h __C)
                                             (__v16sf)(__m512h) (C), \
                                             (__mmask16) (U), \
                                             (int)(R))
+#define _mm512_mask_reduce_operator(op)                                        \
+  __m256h __t1 = (__m256h)_mm512_extractf64x4_pd((__m512d)__W, 0);             \
+  __m256h __t2 = (__m256h)_mm512_extractf64x4_pd((__m512d)__W, 1);             \
+  __m256h __t3 = __t1 op __t2;                                                 \
+  __m128h __t4 = (__m128h)_mm256_extractf128_pd((__m256d)__t3, 0);             \
+  __m128h __t5 = (__m128h)_mm256_extractf128_pd((__m256d)__t3, 1);             \
+  __m128h __t6 = __t4 op __t5;                                                 \
+  __m128h __t7 =                                                               \
+      (__m128h)__builtin_shufflevector((__m128d)__t6, (__m128d)__t6, 1, 0);    \
+  __m128h __t8 = __t6 op __t7;                                                 \
+  __m128h __t9 = (__m128h)__builtin_shufflevector((__m128)__t8, (__m128)__t8,  \
+                                                  1, 0, 2, 3);                 \
+  __m128h __t10 = __t8 op __t9;                                                \
+  __m128h __t11 = (__m128h)__builtin_shufflevector(                            \
+      (__m128h)__t10, (__m128h)__t10, 1, 0, 2, 3, 4, 5, 6, 7);                 \
+  __m128h __t12 = __t10 op __t11;                                              \
+  return __t12[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_add_ph(__m512h __W) {
+  _mm512_mask_reduce_operator(+);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_mul_ph(__m512h __W) {
+  _mm512_mask_reduce_operator(*);
+}
+
+#undef _mm512_mask_reduce_operator
+#define _mm512_mask_reduce_operator(op)                                        \
+  __m512h __t1 = (__m512h)__builtin_shufflevector((__m512d)__V, (__m512d)__V,  \
+                                                  4, 5, 6, 7, 0, 0, 0, 0);     \
+  __m512h __t2 = _mm512_##op(__t1, __V);                                       \
+  __m512h __t3 = (__m512h)__builtin_shufflevector(                             \
+      (__m512d)__t2, (__m512d)__t2, 2, 3, 0, 0, 0, 0, 0, 0);                   \
+  __m512h __t4 = _mm512_##op(__t2, __t3);                                      \
+  __m512h __t5 = (__m512h)__builtin_shufflevector(                             \
+      (__m512d)__t4, (__m512d)__t4, 1, 0, 0, 0, 0, 0, 0, 0);                   \
+  __m512h __t6 = _mm512_##op(__t4, __t5);                                      \
+  __m512h __t7 =                                                               \
+      (__m512h)__builtin_shufflevector((__m512)__t6, (__m512)__t6, 1, 0, 0, 0, \
+                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);    \
+  __m512h __t8 = _mm512_##op(__t6, __t7);                                      \
+  __m512h __t9 = (__m512h)__builtin_shufflevector(                             \
+      (__m512h)__t8, (__m512h)__t8, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  \
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);                   \
+  __m512h __t10 = _mm512_##op(__t8, __t9);                                     \
+  return __t10[0]
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_max_ph(__m512h __V) {
+  _mm512_mask_reduce_operator(max_ph);
+}
+
+// TODO: We will implement this intrinsic with llvm.reduction intrinsics.
+static __inline__ _Float16 __DEFAULT_FN_ATTRS512
+_mm512_reduce_min_ph(__m512h __V) {
+  _mm512_mask_reduce_operator(min_ph);
+}
+#undef _mm512_mask_reduce_operator
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_mask_blend_ph (__mmask32 __U, __m512h __A, __m512h __W)
+{
+  return (__m512h) __builtin_ia32_selectph_512 ((__mmask32) __U,
+              (__v32hf) __W,
+              (__v32hf) __A);
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_permutex2var_ph(__m512h __A, __m512i __I, __m512h __B)
+{
+  return (__m512h)__builtin_ia32_vpermi2varhi512((__v32hi)__A, (__v32hi)__I,
+                                                 (__v32hi)__B);
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_permutexvar_ph (__m512i __A, __m512h __B)
+{
+  return (__m512h)__builtin_ia32_permvarhi512((__v32hi)__B, (__v32hi)__A);
+}
+
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
 #undef __DEFAULT_FN_ATTRS512

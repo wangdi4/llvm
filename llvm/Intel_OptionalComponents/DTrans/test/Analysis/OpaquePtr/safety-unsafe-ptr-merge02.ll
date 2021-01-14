@@ -57,15 +57,15 @@ exit:
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a
-; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: Safety data: Bad casting | Unsafe pointer merge{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01b
-; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: Safety data: Bad casting | Unsafe pointer merge{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01c
-; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: Safety data: Bad casting | Unsafe pointer merge{{ *$}}
 
 
 ; This case is merging pointers to pointers of the aggregate types. This is
@@ -104,21 +104,17 @@ merge:
   store i64 0, i64* %addr
   ret void
 }
-; TODO: When store instructions are analyzed, the types for 'test02a',
-; 'test02b', and 'test02c' should also be marked with 'Unsafe pointer
-; store' because of the pointer operand used for the 'store' aliases
-; multiple types.
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02a
-; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: Safety data: Bad casting | Mismatched element access | Unsafe pointer store | Unsafe pointer merge{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02b
-; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: Safety data: Bad casting | Mismatched element access | Unsafe pointer store | Unsafe pointer merge{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02c
-; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: Safety data: Bad casting | Mismatched element access | Unsafe pointer store | Unsafe pointer merge{{ *$}}
 
 ; Even though 'test02d' is not directly involved in the PHINode, it also
 ; needs to be marked due to the pointer carried safety rules because it is

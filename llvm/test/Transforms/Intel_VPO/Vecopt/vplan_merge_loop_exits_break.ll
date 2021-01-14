@@ -10,38 +10,31 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @main() {
 ; CHECK-LABEL:  VPlan IR for: main
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
+; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     i1 [[VP_EARLY_EXIT_CONT_COND:%.*]] = icmp eq i32 [[VP_IV]] i32 [[VP_LANE]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_EARLY_EXIT_CONT_COND]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_EARLY_EXIT_CONT_COND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
+; CHECK-NEXT:     br i1 [[VP_EARLY_EXIT_CONT_COND]], [[BB2:BB[0-9]+]], [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[INTERMEDIATE_BB0]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:      [[INTERMEDIATE_BB0]]: # preds: [[BB1]]
+; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]:
+; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:       i1 [[VP_BOTTOM_TEST:%.*]] = icmp ne i32 [[VP_IV]] i32 128
-; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]:
+; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]: # preds: [[BB2]], [[INTERMEDIATE_BB0]]
 ; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB2]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_BOTTOM_TEST]], [[BB2]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB1]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[BB3:BB[0-9]+]](!i1 [[VP_TAKE_BACKEDGE_COND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[INTERMEDIATE_BB0]]
+; CHECK-NEXT:     br i1 [[VP_TAKE_BACKEDGE_COND]], [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[NEW_LOOP_LATCH0]]
+; CHECK-NEXT:     ret
+; CHECK-NEXT:     br <External Block>
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()

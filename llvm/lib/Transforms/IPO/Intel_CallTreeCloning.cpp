@@ -972,21 +972,16 @@ void print_node_set(const std::string &Msg,
 }
 
 // Print a SmallVector of DCGNode *
-void print_node_vector(const SmallVectorImpl<DCGNode *> &Nodes) {
+void LLVM_ATTRIBUTE_UNUSED
+print_node_vector(const SmallVectorImpl<DCGNode *> &Nodes) {
   for (const auto X : Nodes)
     dbgs() << X->toString() << " ";
   dbgs() << "\n";
 }
 
-void print_node_vector(const SmallVectorImpl<DCGNode *> *Nodes) {
-  for (const auto X : *Nodes)
-    dbgs() << X->toString() << " ";
-  dbgs() << "\n";
-}
-
 // Print a std::list of Value*
-void print_value_list(const std::string &Msg,
-                      std::list<const Value *> &ValueList) {
+void LLVM_ATTRIBUTE_UNUSED
+print_value_list(const std::string &Msg, std::list<const Value *> &ValueList) {
   dbgs() << Msg << "\n";
 
   for (const Value *V : ValueList) {
@@ -1161,7 +1156,7 @@ public:
 };
 
 #ifndef NDEBUG
-void printSeeds(
+void LLVM_ATTRIBUTE_UNUSED printSeeds(
     const std::string &Msg,
     std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds) {
 
@@ -1265,6 +1260,7 @@ public:
 class CTCCostModel {
 public:
   virtual SetOfParamIndSets assess(Function &F) = 0;
+  virtual ~CTCCostModel() {}
 };
 
 // Cost model used for debugging, engaged when the user specifies seeds from the
@@ -3691,7 +3687,7 @@ bool MultiVersionImpl::doCodeGenMV2VarClone(
     CommonBB = BasicBlock::Create(M.getContext(), "Common.BB", F);
   }
   assert(CommonBB && "Expect valid CommonBB\n");
-  CommonBB->setName("Common.BB." + Count);
+  CommonBB->setName(Twine("Common.BB.") + Twine(Count));
 
   Builder.SetInsertPoint(CommonBB);
   Value *Cmp0 = Builder.CreateICmpEQ(Arg0, C0);
@@ -3701,8 +3697,8 @@ bool MultiVersionImpl::doCodeGenMV2VarClone(
   // Create + organize BasicBlocks: ensure ThenBB appears earlier than MergeBB
   ThenBB = BasicBlock::Create(M.getContext(), "Then.BB", F);
   MergeBB = BasicBlock::Create(M.getContext(), "Merge.BB", F);
-  ThenBB->setName("Then.BB." + Count);
-  MergeBB->setName("Merge.BB." + Count);
+  ThenBB->setName(Twine("Then.BB.") + Twine(Count));
+  MergeBB->setName(Twine("Merge.BB.") + Twine(Count));
   ThenBB->moveBefore(MergeBB);
   ++Count;
 

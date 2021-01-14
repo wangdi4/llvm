@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S | FileCheck %s
 
 ; Original code:
 ; extern void modify_array_on_target();
@@ -24,7 +24,7 @@
 ; CHECK-DAG: %[[A_SPTR_CAST:.+]] = bitcast i32* %[[A_SEC_PTR]] to i8*
 ; CHECK-DAG: store i8* %[[A_SPTR_CAST]]
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_update
-; CHECK-DAG: call void @__tgt_target_data_update(i64 -1, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
+; CHECK-DAG: call void @__tgt_target_data_update(i64 %{{.*}}, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
 
 ; ModuleID = 'target_data_outlining.cpp'
 source_filename = "target_data_outlining.cpp"
@@ -34,7 +34,7 @@ target device_triples = "spir64"
 
 @a = dso_local target_declare global [100 x i32] zeroinitializer, align 16
 
-; Function Attrs: noinline optnone uwtable
+; Function Attrs: noinline uwtable
 define dso_local void @_Z6updatePi(i32* %a) #0 {
 entry:
   %a.addr = alloca i32*, align 8
@@ -65,7 +65,7 @@ declare token @llvm.directive.region.entry() #2
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #2
 
-attributes #0 = { noinline optnone uwtable "may-have-openmp-directive"="true" }
+attributes #0 = { noinline uwtable "may-have-openmp-directive"="true" }
 attributes #2 = { nounwind }
 
 !omp_offload.info = !{!0}

@@ -37,7 +37,6 @@ class AssumptionCache;
 class ProfileSummaryInfo;
 class TargetLibraryInfo;
 class TargetTransformInfo;
-struct KnownBits;
 
 /// The core instruction combiner logic.
 ///
@@ -56,7 +55,13 @@ public:
   using BuilderTy = IRBuilder<TargetFolder, IRBuilderCallbackInserter>;
   BuilderTy &Builder;
 
-  bool allowTypeLoweringOpts() { return TypeLoweringOpts; } // INTEL
+#if INTEL_CUSTOMIZATION
+  bool allowTypeLoweringOpts() const { return TypeLoweringOpts; }
+
+  bool preserveAddrCompute() const { return PreserveAddrCompute; }
+
+  bool enableFcmpMinMaxCombine() const { return EnableFcmpMinMaxCombine; }
+#endif // INTEL_CUSTOMIZATION
 
 protected:
   /// A worklist of the instructions that need to be simplified.
@@ -65,9 +70,22 @@ protected:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
 
-  /// INTEL Enable optimizations like GEP merging, zero element GEP removal
-  /// INTEL and pointer type bitcasts
-  const bool TypeLoweringOpts; // INTEL
+#if INTEL_CUSTOMIZATION
+  /// Enable optimizations like GEP merging, zero element GEP removal and
+  /// pointer type bitcasts
+  const bool TypeLoweringOpts;
+
+  /// Enable optimizations which recognize min/max semantics in (fcmp)&(fcmp)
+  /// and (fcmp)|(fcmp).
+  const bool EnableFcmpMinMaxCombine;
+
+  /// If true, avoid doing transformations that significantly change address
+  /// computation expressions for load and store instructions to preserve
+  /// memory references for downstream optimizations. This flag is set to true
+  /// in LTO phase 1 to preserve memrefs in IR for IP ArrayTranspose if this
+  /// pass is enabled.
+  const bool PreserveAddrCompute;
+#endif // INTEL_CUSTOMIZATION
 
   AAResults *AA;
 
@@ -89,17 +107,21 @@ protected:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, bool TypeLoweringOpts, AAResults *AA, // INTEL
-               AssumptionCache &AC, TargetLibraryInfo &TLI,             // INTEL
-               TargetTransformInfo &TTI, DominatorTree &DT,             // INTEL
-               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI, // INTEL
-               ProfileSummaryInfo *PSI, const DataLayout &DL,           // INTEL
-               LoopInfo *LI)                                            // INTEL
-      : TTI(TTI), Builder(Builder), Worklist(Worklist),                 // INTEL
-        MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts), // INTEL
-        AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),                       // INTEL
-        SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),              // INTEL
-        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}                         // INTEL
+#if INTEL_CUSTOMIZATION
+               bool MinimizeSize, bool TypeLoweringOpts,
+               bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
+               AAResults *AA, AssumptionCache &AC, TargetLibraryInfo &TLI,
+               TargetTransformInfo &TTI, DominatorTree &DT,
+               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
+               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
+      : TTI(TTI), Builder(Builder), Worklist(Worklist),
+        MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts),
+        EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
+        PreserveAddrCompute(PreserveAddrCompute), AA(AA), AC(AC), TLI(TLI),
+        DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),
+        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {
+  }
+#endif // INTEL_CUSTOMIZATION
 
   virtual ~InstCombiner() {}
 
@@ -298,8 +320,7 @@ public:
   static Constant *
   getSafeVectorConstantForBinop(BinaryOperator::BinaryOps Opcode, Constant *In,
                                 bool IsRHSConstant) {
-    auto *InVTy = dyn_cast<VectorType>(In->getType());
-    assert(InVTy && "Not expecting scalars here");
+    auto *InVTy = cast<FixedVectorType>(In->getType());
 
     Type *EltTy = InVTy->getElementType();
     auto *SafeC = ConstantExpr::getBinOpIdentity(Opcode, EltTy, IsRHSConstant);

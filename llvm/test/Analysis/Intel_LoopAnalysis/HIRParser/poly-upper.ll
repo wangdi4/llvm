@@ -10,8 +10,8 @@
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |   %indvars.iv.next24 = %indvars.iv23  +  i1 + 1;
-; CHECK: |   %k.020 = %add;
 ; CHECK: |   %indvars.iv23 = %indvars.iv.next24;
+; CHECK: |   %k.020 = %add;
 ; CHECK: + END LOOP
 
 

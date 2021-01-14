@@ -157,10 +157,11 @@ private:
   void printLocalityInfo(raw_ostream &OS, const HLLoop *L) const;
 
   /// Implements getTemporalLocality().
-  unsigned getTemporalLocalityImpl(const HLLoop *Lp, unsigned ReuseThreshold,
-                                   TemporalLocalityType LocalityType,
-                                   bool IgnoreConditionalRefs,
-                                   bool CheckPresence);
+  static unsigned getTemporalLocalityImpl(const HLLoop *Lp,
+                                          unsigned ReuseThreshold,
+                                          TemporalLocalityType LocalityType,
+                                          bool IgnoreConditionalRefs,
+                                          bool CheckPresence);
 
 public:
   HIRLoopLocality(HIRFramework &HIRF) : HIRAnalysis(HIRF) {}
@@ -185,8 +186,8 @@ public:
   /// \p ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
-  bool hasTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
-                           bool IgnoreConditionalRefs) {
+  static bool hasTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
+                                  bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, ReuseThreshold,
                                    TemporalLocalityType::Both,
                                    IgnoreConditionalRefs, true);
@@ -196,8 +197,8 @@ public:
   /// reuse) locality inside \p Lp using \p ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
-  unsigned getTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
-                               bool IgnoreConditionalRefs) {
+  static unsigned getTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
+                                      bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, ReuseThreshold,
                                    TemporalLocalityType::Both,
                                    IgnoreConditionalRefs, false);
@@ -206,8 +207,8 @@ public:
   /// Returns true if loop has any temporal invariant locality.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
-  bool hasTemporalInvariantLocality(const HLLoop *Lp,
-                                    bool IgnoreConditionalRefs) {
+  static bool hasTemporalInvariantLocality(const HLLoop *Lp,
+                                           bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, 0, TemporalLocalityType::Invariant,
                                    IgnoreConditionalRefs, true);
   }
@@ -216,8 +217,8 @@ public:
   /// locality in \p Lp.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
-  unsigned getTemporalInvariantLocality(const HLLoop *Lp,
-                                        bool IgnoreConditionalRefs) {
+  static unsigned getTemporalInvariantLocality(const HLLoop *Lp,
+                                               bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, 0, TemporalLocalityType::Invariant,
                                    IgnoreConditionalRefs, false);
   }
@@ -226,8 +227,9 @@ public:
   /// ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
-  bool hasTemporalReuseLocality(const HLLoop *Lp, unsigned ReuseThreshold,
-                                bool IgnoreConditionalRefs) {
+  static bool hasTemporalReuseLocality(const HLLoop *Lp,
+                                       unsigned ReuseThreshold,
+                                       bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, ReuseThreshold,
                                    TemporalLocalityType::Reuse,
                                    IgnoreConditionalRefs, true);
@@ -237,8 +239,9 @@ public:
   /// in \p Lp using \p ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
-  unsigned getTemporalReuseLocality(const HLLoop *Lp, unsigned ReuseThreshold,
-                                    bool IgnoreConditionalRefs) {
+  static unsigned getTemporalReuseLocality(const HLLoop *Lp,
+                                           unsigned ReuseThreshold,
+                                           bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, ReuseThreshold,
                                    TemporalLocalityType::Reuse,
                                    IgnoreConditionalRefs, false);

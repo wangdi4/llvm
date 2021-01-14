@@ -1,6 +1,6 @@
 //==--- versparm.h - Xmain-specific version information --------*- C++ -*---==//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,9 +10,18 @@
 #define VERSTR(x)  #x
 #define XSTR(x)    VERSTR(x)
 
-#define XMAIN_VERSION_NUMBER   "202110"
-#define XMAIN_VERSION_STRING   "10.0"
-#define XMAIN_VERSION_MINOR     10
+// From version 2021.2.0 onwards, xmain version is numerically encoded as
+// YYYYMMPP where:
+// YYYY - major version or year
+// MM   - minor version
+// PP   - patch version
+// E.g. 2021.2.0 is 20210200.
+// Only version 2021.1.0 was encoded using format YYYYMP or 202110
+// TODO: Auto-populate __INTEL_LLVM_COMPILER and __INTEL_CLANG_COMPILER
+//       macros using build settings and remove XMAIN_VERSION_NUMBER
+#define XMAIN_VERSION_NUMBER "20210200"
+#define XMAIN_VERSION_STRING   "1.0"
+#define XMAIN_VERSION_MINOR     1
 #define XMAIN_VERSION_UPDATE    0
 
 #ifndef BUILD_DATE_STAMP

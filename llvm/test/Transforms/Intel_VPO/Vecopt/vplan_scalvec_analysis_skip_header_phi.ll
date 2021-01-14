@@ -5,40 +5,33 @@
 ; the user PHI.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-print-terminator-inst=false -S < %s -VPlanDriver -vplan-force-vf=2 -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=2 -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s
 
 define void @test_uni_inner(i64 *%p) {
 ;
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_SIMD_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.header (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV:%.*]] = phi  [ i64 [[VP_SIMD_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_SIMD_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_SIMD_IV]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LANE:%.*]] = trunc i64 [[VP_SIMD_IV]] to i32 (SVAOpBits 0->V )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB5]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB5]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB4]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB5]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_PHI1:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_PHI2:%.*]], [[BB5]] ] (SVAOpBits 0->V 1->V )
@@ -47,30 +40,23 @@ define void @test_uni_inner(i64 *%p) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 1 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_EXIT_COND]]), [[BB5]](!i1 [[VP_EXIT_COND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_EXIT_COND]], [[BB6:BB[0-9]+]], [[BB5]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV_NEXT]] = add i64 [[VP_SIMD_IV]] i64 [[VP_SIMD_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]:
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_SIMD_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB8:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_SIMD_IV_IND_FINAL]]

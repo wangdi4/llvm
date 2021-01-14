@@ -197,32 +197,32 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; CHECK:       %0 = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*
 ; CHECK-NEXT:  %1 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
 ; CHECK-NEXT:  %2 = icmp eq i8* %0, %1
-; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
+; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi, label %ElseDevirt__ZN7Derived3fooEi
 
 ; If the address is the same, then call Derived::foo
-; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi:
 ; CHECK:        %3 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
-; CHECK-NEXT:   br label %MergeBB_0_0
+; CHECK-NEXT:   br label %MergeBB
 
 ; Now check if the address is the same as Derived2::foo
-; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi_0_0:
+; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi:
 ; CHECK:        %4 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
 ; CHECK-NEXT:   %5 = icmp eq i8* %0, %4
-; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
+; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi, label %DefaultBB
 
 ; If the address is the same as Derived2::foo, then call it
-; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi:
 ; CHECK:        %6 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
-; CHECK-NEXT:   br label %MergeBB_0_0
+; CHECK-NEXT:   br label %MergeBB
 
 ; This is the fail safe case. In case the address doesn't match any of the functions, then
-; CHECK-LABEL: DefaultBB_0_0:
+; CHECK-LABEL: DefaultBB:
 ; CHECK-NEXT:   %7 = tail call zeroext i1 %tmp2(%class.Base* %.4, i32 %argc)
-; CHECK-NEXT:   br label %MergeBB_0_0
+; CHECK-NEXT:   br label %MergeBB
 
 ; We need to collect back the result and generate the PhiNode
-; CHECK-LABEL: MergeBB_0_0:
-; CHECK-NEXT:   %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %7, %DefaultBB_0_0 ]
+; CHECK-LABEL: MergeBB:
+; CHECK-NEXT:   %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi ], [ %6, %BBDevirt__ZN8Derived23fooEi ], [ %7, %DefaultBB ]
 ; CHECK-NEXT:   br label %9
 
 ; Now check that the users were replaced correctly

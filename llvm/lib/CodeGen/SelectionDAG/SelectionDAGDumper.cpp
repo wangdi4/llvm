@@ -205,6 +205,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::FTAN:                       return "ftan";
   case ISD::FATAN:                      return "fatan";
   case ISD::FATAN2:                     return "fatan2";
+  case ISD::LDEXP:                      return "ldexp";
 #endif
   case ISD::FTRUNC:                     return "ftrunc";
   case ISD::STRICT_FTRUNC:              return "strict_ftrunc";
@@ -299,6 +300,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::ADDC:                       return "addc";
   case ISD::ADDE:                       return "adde";
   case ISD::ADDCARRY:                   return "addcarry";
+  case ISD::SADDO_CARRY:                return "saddo_carry";
   case ISD::SADDO:                      return "saddo";
   case ISD::UADDO:                      return "uaddo";
   case ISD::SSUBO:                      return "ssubo";
@@ -308,6 +310,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::SUBC:                       return "subc";
   case ISD::SUBE:                       return "sube";
   case ISD::SUBCARRY:                   return "subcarry";
+  case ISD::SSUBO_CARRY:                return "ssubo_carry";
   case ISD::SHL_PARTS:                  return "shl_parts";
   case ISD::SRA_PARTS:                  return "sra_parts";
   case ISD::SRL_PARTS:                  return "srl_parts";
@@ -352,6 +355,8 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::STRICT_FP_TO_SINT:          return "strict_fp_to_sint";
   case ISD::FP_TO_UINT:                 return "fp_to_uint";
   case ISD::STRICT_FP_TO_UINT:          return "strict_fp_to_uint";
+  case ISD::FP_TO_SINT_SAT:             return "fp_to_sint_sat";
+  case ISD::FP_TO_UINT_SAT:             return "fp_to_uint_sat";
   case ISD::BITCAST:                    return "bitcast";
   case ISD::ADDRSPACECAST:              return "addrspacecast";
   case ISD::FP16_TO_FP:                 return "fp16_to_fp";
@@ -398,8 +403,11 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::STACKRESTORE:               return "stackrestore";
   case ISD::TRAP:                       return "trap";
   case ISD::DEBUGTRAP:                  return "debugtrap";
+  case ISD::UBSANTRAP:                  return "ubsantrap";
   case ISD::LIFETIME_START:             return "lifetime.start";
   case ISD::LIFETIME_END:               return "lifetime.end";
+  case ISD::PSEUDO_PROBE:
+    return "pseudoprobe";
   case ISD::GC_TRANSITION_START:        return "gc_transition.start";
   case ISD::GC_TRANSITION_END:          return "gc_transition.end";
   case ISD::GET_DYNAMIC_AREA_OFFSET:    return "get.dynamic.area.offset";
@@ -418,6 +426,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::CTTZ_ZERO_UNDEF:            return "cttz_zero_undef";
   case ISD::CTLZ:                       return "ctlz";
   case ISD::CTLZ_ZERO_UNDEF:            return "ctlz_zero_undef";
+  case ISD::PARITY:                     return "parity";
 
   // Trampolines
   case ISD::INIT_TRAMPOLINE:            return "init_trampoline";
@@ -455,9 +464,9 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
     case ISD::SETFALSE2:                return "setfalse2";
     }
   case ISD::VECREDUCE_FADD:             return "vecreduce_fadd";
-  case ISD::VECREDUCE_STRICT_FADD:      return "vecreduce_strict_fadd";
+  case ISD::VECREDUCE_SEQ_FADD:         return "vecreduce_seq_fadd";
   case ISD::VECREDUCE_FMUL:             return "vecreduce_fmul";
-  case ISD::VECREDUCE_STRICT_FMUL:      return "vecreduce_strict_fmul";
+  case ISD::VECREDUCE_SEQ_FMUL:         return "vecreduce_seq_fmul";
   case ISD::VECREDUCE_ADD:              return "vecreduce_add";
   case ISD::VECREDUCE_MUL:              return "vecreduce_mul";
   case ISD::VECREDUCE_AND:              return "vecreduce_and";
@@ -469,6 +478,12 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::VECREDUCE_UMIN:             return "vecreduce_umin";
   case ISD::VECREDUCE_FMAX:             return "vecreduce_fmax";
   case ISD::VECREDUCE_FMIN:             return "vecreduce_fmin";
+
+    // Vector Predication
+#define BEGIN_REGISTER_VP_SDNODE(SDID, LEGALARG, NAME, ...)                    \
+  case ISD::SDID:                                                              \
+    return #NAME;
+#include "llvm/IR/VPIntrinsics.def"
   }
 }
 
@@ -738,7 +753,38 @@ void SDNode::print_details(raw_ostream &OS, const SelectionDAG *G) const {
       OS << ", compressing";
 
     OS << ">";
-  } else if (const MemSDNode* M = dyn_cast<MemSDNode>(this)) {
+  } else if (const auto *MGather = dyn_cast<MaskedGatherSDNode>(this)) {
+    OS << "<";
+    printMemOperand(OS, *MGather->getMemOperand(), G);
+
+    bool doExt = true;
+    switch (MGather->getExtensionType()) {
+    default: doExt = false; break;
+    case ISD::EXTLOAD:  OS << ", anyext"; break;
+    case ISD::SEXTLOAD: OS << ", sext"; break;
+    case ISD::ZEXTLOAD: OS << ", zext"; break;
+    }
+    if (doExt)
+      OS << " from " << MGather->getMemoryVT().getEVTString();
+
+    auto Signed = MGather->isIndexSigned() ? "signed" : "unsigned";
+    auto Scaled = MGather->isIndexScaled() ? "scaled" : "unscaled";
+    OS << ", " << Signed << " " << Scaled << " offset";
+
+    OS << ">";
+  } else if (const auto *MScatter = dyn_cast<MaskedScatterSDNode>(this)) {
+    OS << "<";
+    printMemOperand(OS, *MScatter->getMemOperand(), G);
+
+    if (MScatter->isTruncatingStore())
+      OS << ", trunc to " << MScatter->getMemoryVT().getEVTString();
+
+    auto Signed = MScatter->isIndexSigned() ? "signed" : "unsigned";
+    auto Scaled = MScatter->isIndexScaled() ? "scaled" : "unscaled";
+    OS << ", " << Signed << " " << Scaled << " offset";
+
+    OS << ">";
+  } else if (const MemSDNode *M = dyn_cast<MemSDNode>(this)) {
     OS << "<";
     printMemOperand(OS, *M->getMemOperand(), G);
     OS << ">";

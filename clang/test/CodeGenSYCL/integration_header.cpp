@@ -1,4 +1,3 @@
-// UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -fsycl-int-header=%t.h %s -emit-llvm -o %t.ll
 // RUN: FileCheck -input-file=%t.h %s
 //
@@ -29,8 +28,7 @@
 // CHECK-NEXT: const kernel_param_desc_t kernel_signatures[] = {
 // CHECK-NEXT:   //--- _ZTSZ4mainE12first_kernel
 // CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 1, 4 },
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 8 },
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 8, 4 },
 // CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 12 },
 // CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 24 },
 // CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 40 },
@@ -66,7 +64,7 @@
 // CHECK: template <> struct KernelInfo<::third_kernel<1, int, ::point<X>>> {
 // CHECK: template <> struct KernelInfo<::fourth_kernel<::template_arg_ns::namespaced_arg<1>>> {
 
-#include "sycl.hpp"
+#include "Inputs/sycl.hpp"
 
 template <typename KernelName, typename KernelType>
 __attribute__((sycl_kernel)) void kernel_single_task(const KernelType &kernelFunc) {

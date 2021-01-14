@@ -231,7 +231,7 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
 
   auto MaxLevel = findMaxTempBlobLevel(BlobIndices);
 
-  if (getCanonExprUtils().hasNonLinearSemantics(MaxLevel, NestingLevel)) {
+  if (CanonExpr::hasNonLinearSemantics(MaxLevel, NestingLevel)) {
     CE->setNonLinear();
   } else {
     CE->setDefinedAtLevel(MaxLevel);
@@ -247,7 +247,7 @@ void RegDDRef::updateDefLevel(unsigned Level) {
 }
 
 void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
-  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+  assert(CanonExpr::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
   // Update attached blob DDRefs' def level first.
@@ -258,8 +258,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
       continue;
     }
 
-    if (getCanonExprUtils().hasNonLinearSemantics(CE->getDefinedAtLevel(),
-                                                  NewLevel)) {
+    if (CanonExpr::hasNonLinearSemantics(CE->getDefinedAtLevel(), NewLevel)) {
       (*It)->setNonLinear();
     }
   }
@@ -377,6 +376,60 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
 void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
   printImpl(OS, Detailed, PrintDimDetails);
+#endif
+}
+
+void RegDDRef::printWithBlobDDRefs(formatted_raw_ostream &OS,
+                               unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE
+  const HLDDNode *ParentNode = getHLDDNode();
+  auto Indent = [&]() {
+    if (ParentNode)
+      ParentNode->indent(OS, Depth);
+  };
+
+  bool IsZttDDRef = false;
+  Indent();
+
+  const HLLoop *ParentLoop = dyn_cast<HLLoop>(ParentNode);
+  if (ParentLoop) {
+    OS << "| ";
+
+    IsZttDDRef = ParentLoop->isZttOperandDDRef(this);
+  }
+
+  if (IsZttDDRef) {
+    OS << "<ZTT-REG> ";
+  } else {
+    bool IsFake = false;
+    bool IsLval = false;
+
+    if (ParentNode) {
+      IsFake = isFake();
+      IsLval = isLval();
+    }
+
+    OS << "<" << (IsFake ? "FAKE-" : "") << (IsLval ? "LVAL" : "RVAL")
+       << "-REG> ";
+  }
+
+  print(OS, true);
+
+  OS << "\n";
+
+  for (auto B = blob_begin(), BE = blob_end(); B != BE; ++B) {
+    Indent();
+    if (ParentLoop) {
+      OS << "| ";
+    }
+
+    // Add extra indentation for blob ddrefs.
+    OS.indent(3);
+
+    OS << "<BLOB> ";
+    (*B)->print(OS, true);
+    OS << "\n";
+  }
 #endif
 }
 
@@ -682,6 +735,14 @@ bool RegDDRef::isFakeRval() const {
   return HNode->isFakeRval(this);
 }
 
+bool RegDDRef::isMasked() const {
+  auto HNode = getHLDDNode();
+
+  assert(HNode && "DDRef is not attached to any node!");
+
+  return HNode->getMaskDDRef();
+}
+
 bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel,
                                               bool IgnoreInnerIVs) const {
 
@@ -804,6 +865,14 @@ void RegDDRef::replaceSelfBlobIndex(unsigned NewIndex) {
   assert(isSelfBlob() && "DDRef is not a self blob!");
   getSingleCanonExpr()->replaceSingleBlobIndex(NewIndex);
   setSymbase(getBlobUtils().getTempBlobSymbase(NewIndex));
+}
+
+void RegDDRef::replaceSelfBlobByConstBlob(unsigned NewIndex) {
+  assert(isSelfBlob() && "DDRef is not a self blob!");
+  auto CE = getSingleCanonExpr();
+  CE->replaceSingleBlobIndex(NewIndex);
+  CE->setDefinedAtLevel(0);
+  setSymbase(ConstantSymbase);
 }
 
 void RegDDRef::makeSelfBlob(bool AssumeLvalIfDetached) {
@@ -1133,8 +1202,54 @@ BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
   return BRef;
 }
 
+BlobDDRef *RegDDRef::removeBlobDDRefWithIndex(unsigned Index) {
+
+  for (auto BI = blob_begin(), E = blob_end(); BI != E; ++BI) {
+    if ((*BI)->getBlobIndex() == Index) {
+      return removeBlobDDRef(BI);
+    }
+  }
+
+  llvm_unreachable("Could not find blobindex to remove!\n");
+  return nullptr;
+}
+
+bool RegDDRef::replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant) {
+  if (!usesTempBlob(OldIndex)) {
+    return false;
+  }
+
+  bool Replaced = false;
+  bool HasGEPInfo = hasGEPInfo();
+
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    if (getDimensionIndex(I)->replaceTempBlobByConstant(OldIndex, Constant,
+                                                        true)) {
+      Replaced = true;
+    }
+
+    if (HasGEPInfo) {
+      if (getDimensionLower(I)->replaceTempBlobByConstant(OldIndex, Constant,
+                                                          true)) {
+        Replaced = true;
+      }
+
+      if (getDimensionStride(I)->replaceTempBlobByConstant(OldIndex, Constant,
+                                                           true)) {
+        Replaced = true;
+      }
+    }
+  }
+
+  assert(Replaced && "Inconsistent DDRef found!");
+  (void)Replaced;
+  makeConsistent();
+  return true;
+}
+
 bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
                                bool AssumeLvalIfDetached) {
+
   if (!usesTempBlob(OldIndex)) {
     return false;
   }
@@ -1177,11 +1292,9 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
   }
 
   auto BRef = getBlobDDRef(OldIndex);
-  assert(Replaced && BRef && "Inconsistent DDRef found!");
+  assert(Replaced && BRef && "Inconsistent DDRef found!\n");
   (void)Replaced;
-
   BRef->replaceBlob(NewIndex);
-
   return true;
 }
 
@@ -1282,7 +1395,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
     NewLevel = getNodeLevel();
   }
 
-  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+  assert(CanonExpr::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
   // Refine Defined At Level, when DefLeve returned from
@@ -1323,7 +1436,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
         DefLevel = RefineDefLevel(AuxRef, DefLevel, Index);
 
-        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
+        if (CanonExpr::hasNonLinearSemantics(DefLevel, NewLevel)) {
           BRef->setNonLinear();
         } else {
           BRef->setDefinedAtLevel(DefLevel);
@@ -1350,7 +1463,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
         CanonExpr *CE = getSingleCanonExpr();
 
-        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
+        if (CanonExpr::hasNonLinearSemantics(DefLevel, NewLevel)) {
           CE->setNonLinear();
         } else {
           CE->setDefinedAtLevel(DefLevel);
@@ -1941,16 +2054,29 @@ void RegDDRef::shift(unsigned LoopLevel, int64_t Amount) {
   }
 }
 
-void RegDDRef::demoteIVs(unsigned StartLevel) {
-  unsigned Dim = getNumDimensions();
+template <bool Promote>
+static inline void demotePromoteIVs(RegDDRef *Ref, unsigned StartLevel) {
+  unsigned Dim = Ref->getNumDimensions();
 
   // Examine every Dimension
   for (unsigned I = 1; I <= Dim; ++I) {
-    CanonExpr *CE = getDimensionIndex(I);
+    CanonExpr *CE = Ref->getDimensionIndex(I);
 
     // Shift to create target CE
-    CE->demoteIVs(StartLevel);
+    if (Promote) {
+      CE->promoteIVs(StartLevel);
+    } else {
+      CE->demoteIVs(StartLevel);
+    }
   }
+}
+
+void RegDDRef::demoteIVs(unsigned StartLevel) {
+  demotePromoteIVs<false>(this, StartLevel);
+}
+
+void RegDDRef::promoteIVs(unsigned StartLevel) {
+  demotePromoteIVs<true>(this, StartLevel);
 }
 
 unsigned RegDDRef::getBasePtrBlobIndex() const {
@@ -1983,7 +2109,8 @@ void RegDDRef::clear(bool AssumeLvalIfDetached) {
 }
 
 RegDDRef *RegDDRef::simplifyConstArray() {
-  if (!isMemRef() || !accessesConstantArray() || getBitCastDestType()) {
+  if (!isMemRef() || isFake() || !accessesConstantArray() ||
+      getBitCastDestType()) {
     return nullptr;
   }
 
@@ -2010,13 +2137,8 @@ RegDDRef *RegDDRef::simplifyConstArray() {
 
   Constant *Val =
       ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
-  if (!Val) {
-    return nullptr;
-  }
-
-  // Representable as const ref
-  if (!isa<MetadataAsValue>(Val) && !isa<ConstantData>(Val) &&
-      !isa<ConstantVector>(Val)) {
+  // TODO: add support for constant GEP exprs.
+  if (!Val || isa<GEPOperator>(Val)) {
     return nullptr;
   }
 

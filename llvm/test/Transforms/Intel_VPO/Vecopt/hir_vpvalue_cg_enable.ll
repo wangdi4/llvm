@@ -10,7 +10,7 @@
 
 define void @foo(i64* noalias nocapture readonly %larr, float* noalias nocapture %farr) {
 ; MIXED-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; MIXED:               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; MIXED:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; MIXED-NEXT:          |   %fneg.vec = undef;
 ; MIXED-NEXT:          |   %.vec1 = undef;
 ; MIXED-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
@@ -21,7 +21,7 @@ define void @foo(i64* noalias nocapture readonly %larr, float* noalias nocapture
 ; MIXED-NEXT:          + END LOOP
 ;
 ; VPVAL-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; VPVAL:               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; VPVAL:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPVAL-NEXT:          |   %.vec2 = undef;
 ; VPVAL-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; VPVAL-NEXT:          |   %.vec1 = %.vec > 111;

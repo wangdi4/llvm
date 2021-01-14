@@ -39,12 +39,21 @@
 /// int __cdecl std::_Immortalize_impl<class std::_Iostream_error_category>(void * __ptr64,void * __ptr64,void * __ptr64 * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_immortalize_impl)
 TLI_DEFINE_STRING_INTERNAL("??$_Immortalize_impl@V_Iostream_error_category@std@@@std@@YAHPEAX0PEAPEAX@Z")
+/// template <class Facet> const Facet& use_facet(const locale& Loc) (codecvt);
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_use_facet)
+TLI_DEFINE_STRING_INTERNAL("??$use_facet@V?$codecvt@DDU_Mbstatet@@@std@@@std@@YAAEBV?$codecvt@DDU_Mbstatet@@@0@AEBVlocale@0@@Z")
 /// template <class Facet> const Facet& use_facet(const locale& Loc) (ctype);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_use_facet)
 TLI_DEFINE_STRING_INTERNAL("??$use_facet@V?$ctype@D@std@@@std@@YAAEBV?$ctype@D@0@AEBVlocale@0@@Z")
+/// template <class Facet> const Facet& use_facet(const locale& Loc) (num_get);
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_use_facet)
+TLI_DEFINE_STRING_INTERNAL("??$use_facet@V?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z")
 /// template <class Facet> const Facet& use_facet(const locale& Loc) (num_put);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_use_facet)
 TLI_DEFINE_STRING_INTERNAL("??$use_facet@V?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z")
+/// class std::numpunct<char> const & __ptr64 __cdecl std::use_facet<class std::numpunct<char> >(class std::locale const & __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_use_facet)
+TLI_DEFINE_STRING_INTERNAL("??$use_facet@V?$numpunct@D@std@@@std@@YAAEBV?$numpunct@D@0@AEBVlocale@0@@Z")
 /// public: __cdecl std::_Locinfo::_Locinfo(char const * __ptr64) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_locinfo_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0_Locinfo@std@@QEAA@PEBD@Z")
@@ -54,6 +63,9 @@ TLI_DEFINE_STRING_INTERNAL("??0_Lockit@std@@QEAA@H@Z")
 /// "public: __cdecl std::_System_error::_System_error(class std::_System_error const & __ptr64) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_system_error_const_ptr_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0_System_error@std@@QEAA@AEBV01@@Z")
+/// __cdecl std::bad_alloc::bad_alloc(class std::bad_alloc const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_bad_alloc_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0bad_alloc@std@@QEAA@AEBV01@@Z")
 /// exception(const exception &right);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_const_ptr_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0exception@std@@QEAA@AEBV01@@Z")
@@ -66,12 +78,27 @@ TLI_DEFINE_STRING_INTERNAL("??0failure@ios_base@std@@QEAA@PEBDAEBVerror_code@2@@
 /// runtime_error( const runtime_error& other )
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0runtime_error@std@@QEAA@AEBV01@@Z")
+/// explicit runtime_error(const char *message)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_char_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0runtime_error@std@@QEAA@PEBD@Z")
 /// public: __cdecl std::system_error::system_error(class std::system_error const & __ptr64) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_system_error_const_ptr_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0system_error@std@@QEAA@AEBV01@@Z")
 /// __cdecl std::_Yarn<char>::~_Yarn<char>(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_yarn_dtor)
 TLI_DEFINE_STRING_INTERNAL("??1?$_Yarn@D@std@@QEAA@XZ")
+///  __cdecl std::_Yarn<wchar_t>::~_Yarn<wchar_t>(void)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_yarn_wchar_dtor)
+TLI_DEFINE_STRING_INTERNAL("??1?$_Yarn@_W@std@@QEAA@XZ")
+/// __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::~basic_filebuf<char,struct std::char_traits<char> >(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_dtor)
+TLI_DEFINE_STRING_INTERNAL("??1?$basic_filebuf@DU?$char_traits@D@std@@@std@@UEAA@XZ")
+/// __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::~basic_streambuf<char,struct std::char_traits<char> >(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_dtor)
+TLI_DEFINE_STRING_INTERNAL("??1?$basic_streambuf@DU?$char_traits@D@std@@@std@@UEAA@XZ")
+/// __cdecl std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >::~basic_string<char,struct std::char_traits<char>,class std::allocator<char> >(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_dtor)
+TLI_DEFINE_STRING_INTERNAL("??1?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAA@XZ")
 /// public: __cdecl std::_Locinfo::~_Locinfo(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_locinfo_dtor)
 TLI_DEFINE_STRING_INTERNAL("??1_Locinfo@std@@QEAA@XZ")
@@ -123,21 +150,60 @@ TLI_DEFINE_ENUM_INTERNAL(msvc_delete_ptr64_longlong)
 TLI_DEFINE_STRING_INTERNAL("??3@YAXPEAX_K@Z")
 
 #if INTEL_CUSTOMIZATION
+/// basic_string<CharType, Traits, Allocator>& operator=(const value_type* ptr)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_operator_equal_const_ptr)
+TLI_DEFINE_STRING_INTERNAL("??4?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV01@QEBD@Z")
+/// basic_string<CharType, Traits, Allocator>& operator+=(value_type char_value)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_operator_plus_equal_char)
+TLI_DEFINE_STRING_INTERNAL("??Y?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV01@D@Z")
+/// [thunk]:public: virtual void * __ptr64 __cdecl std::basic_istream<char,struct std::char_traits<char> >::`vector deleting destructor'`vtordisp{4294967292,0}' (unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_istream_vector_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_E?$basic_istream@DU?$char_traits@D@std@@@std@@$4PPPPPPPM@A@EAAPEAXI@Z")
+/// [thunk]:public: virtual void * __ptr64 __cdecl std::basic_ostream<char,struct std::char_traits<char> >::`vector deleting destructor'`vtordisp{4294967292,0}' (unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_ostream_vector_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_E?$basic_ostream@DU?$char_traits@D@std@@@std@@$4PPPPPPPM@A@EAAPEAXI@Z")
+/// public: virtual void * __ptr64 __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::`scalar deleting destructor'
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$basic_filebuf@DU?$char_traits@D@std@@@std@@UEAAPEAXI@Z")
+/// public: virtual void * __ptr64 __cdecl std::basic_ios<char,struct std::char_traits<char> >::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_ios_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$basic_ios@DU?$char_traits@D@std@@@std@@UEAAPEAXI@Z")
+/// __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$basic_streambuf@DU?$char_traits@D@std@@@std@@UEAAPEAXI@Z")
+/// protected: virtual void * __ptr64 __cdecl std::codecvt<char,char,struct _Mbstatet>::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$codecvt@DDU_Mbstatet@@@std@@MEAAPEAXI@Z")
 /// protected: virtual void * __ptr64 __cdecl std::ctype<char>::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_G?$ctype@D@std@@MEAAPEAXI@Z")
+/// virtual void * __ptr64 __cdecl std::num_get<char,class std::istreambuf_iterator<char,struct std::char_traits<char> > >::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEAAPEAXI@Z")
+/// virtual void * __ptr64 __cdecl std::num_put<char,class std::ostreambuf_iterator<char,struct std::char_traits<char> > >::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_ostreambuf_iterator_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEAAPEAXI@Z")
+/// virtual void * __ptr64 __cdecl std::numpunct<char>::`scalar deleting destructor'(unsigned int) __ptr6
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_G?$numpunct@D@std@@MEAAPEAXI@Z")
 /// public: virtual void * __ptr64 __cdecl std::_Iostream_error_category::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_G_Iostream_error_category@std@@UEAAPEAXI@Z")
 /// public: virtual void * __ptr64 __cdecl std::_System_error::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_system_error_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_G_System_error@std@@UEAAPEAXI@Z")
+/// virtual void * __ptr64 __cdecl std::bad_alloc::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_bad_alloc_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_Gbad_alloc@std@@UEAAPEAXI@Z")
 /// public: virtual void * __ptr64 __cdecl std::exception::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_Gexception@std@@UEAAPEAXI@Z")
 /// public: virtual void * __ptr64 __cdecl std::ios_base::failure::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_ios_base_failure_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_Gfailure@ios_base@std@@UEAAPEAXI@Z")
+/// public: virtual void * __ptr64 __cdecl std::ios_base::`scalar deleting destructor'(unsigned int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ios_base_scalar_deleting_dtor)
+TLI_DEFINE_STRING_INTERNAL("??_Gios_base@std@@UEAAPEAXI@Z")
 /// public: virtual void * __ptr64 __cdecl std::runtime_error::`scalar deleting destructor'(unsigned int) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_scalar_deleting_dtor)
 TLI_DEFINE_STRING_INTERNAL("??_Gruntime_error@std@@UEAAPEAXI@Z")
@@ -190,27 +256,63 @@ TLI_DEFINE_STRING_INTERNAL("??_V@YAXPEAX_K@Z")
 /// public: virtual class std::_Facet_base * __ptr64 __cdecl std::locale::facet::_Decref(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locale_facet_decref)
 TLI_DEFINE_STRING_INTERNAL("?_Decref@facet@locale@std@@UEAAPEAV_Facet_base@3@XZ")
+/// bool __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::_Endwrite(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_under_Endwrite)
+TLI_DEFINE_STRING_INTERNAL("?_Endwrite@?$basic_filebuf@DU?$char_traits@D@std@@@std@@IEAA_NXZ")
 /// int __cdecl std::_Execute_once(struct std::once_flag & __ptr64,int (__cdecl*)(void * __ptr64,void * __ptr64,void * __ptr64 * __ptr64),void * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Execute_once)
 TLI_DEFINE_STRING_INTERNAL("?_Execute_once@std@@YAHAEAUonce_flag@1@P6AHPEAX1PEAPEAX@Z1@Z")
 /// void __cdecl std::_Facet_Register(class std::_Facet_base * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_facet_register)
 TLI_DEFINE_STRING_INTERNAL("?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z")
+/// struct _iobuf * __ptr64 __cdecl std::_Fiopen(char const * __ptr64,int,int)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_Fiopen)
+TLI_DEFINE_STRING_INTERNAL("?_Fiopen@std@@YAPEAU_iobuf@@PEBDHH@Z")
+/// class std::ostreambuf_iterator<char,struct std::char_traits<char> > __cdecl std::num_put<char,class std::ostreambuf_iterator<char,struct std::char_traits<char> > >::_Fput(class std::ostreambuf_iterator<char,struct std::char_traits<char> >,class std::ios_base & __ptr64,char,char const * __ptr64,unsigned __int64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_ostreambuf_iterator_Fput)
+TLI_DEFINE_STRING_INTERNAL("?_Fput@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@AEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DPEBD_K@Z")
+/// int __cdecl std::num_get<char,class std::istreambuf_iterator<char,struct std::char_traits<char> > >::_Getffld(char * __ptr64,class std::istreambuf_iterator<char,struct std::char_traits<char> > & __ptr64,class std::istreambuf_iterator<char,struct std::char_traits<char> > & __ptr64,class std::ios_base & __ptr64,int * __ptr64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_under_Getffld)
+TLI_DEFINE_STRING_INTERNAL("?_Getffld@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@AEBAHPEADAEAV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@1AEAVios_base@2@PEAH@Z")
 /// static class std::locale::_Locimp * __ptr64 __cdecl std::locale::_Getgloballocale(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locimp_Getgloballocale)
 TLI_DEFINE_STRING_INTERNAL("?_Getgloballocale@locale@std@@CAPEAV_Locimp@12@XZ")
+/// int __cdecl std::num_get<char,class std::istreambuf_iterator<char,struct std::char_traits<char> > >::_Getifld(char * __ptr64,class std::istreambuf_iterator<char,struct std::char_traits<char> > & __ptr64,class std::istreambuf_iterator<char,struct std::char_traits<char> > & __ptr64,int,class std::locale const & __ptr64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_under_Getifld)
+TLI_DEFINE_STRING_INTERNAL("?_Getifld@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@AEBAHPEADAEAV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@1HAEBVlocale@2@@Z")
 /// public: virtual void __cdecl std::locale::facet::_Incref(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locale_facet_incref)
 TLI_DEFINE_STRING_INTERNAL("?_Incref@facet@locale@std@@UEAAXXZ")
+/// private: static class std::locale::_Locimp * __ptr64 __cdecl std::locale::_Init(bool)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_locale_under_Init)
+TLI_DEFINE_STRING_INTERNAL("?_Init@locale@std@@CAPEAV_Locimp@12@_N@Z")
+/// "private: static void __cdecl std::ios_base::_Ios_base_dtor(class std::ios_base * __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ios_base_under_Ios_base_dtor)
+TLI_DEFINE_STRING_INTERNAL("?_Ios_base_dtor@ios_base@std@@CAXPEAV12@@Z")
+/// class std::ostreambuf_iterator<char,struct std::char_traits<char> > __cdecl std::num_put<char,class std::ostreambuf_iterator<char,struct std::char_traits<char> > >::_Iput(class std::ostreambuf_iterator<char,struct std::char_traits<char> >,class std::ios_base & __ptr64,char,char * __ptr64,unsigned __int64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_ostreambuf_iterator_iput)
+TLI_DEFINE_STRING_INTERNAL("?_Iput@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@AEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DPEAD_K@Z")
 /// void __cdecl std::_Locinfo::_Locinfo_ctor(class std::_Locinfo * __ptr64,char const * __ptr64);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locinfo_ctor)
 TLI_DEFINE_STRING_INTERNAL("?_Locinfo_ctor@_Locinfo@std@@SAXPEAV12@PEBD@Z")
 /// void __cdecl std::_Locinfo::_Locinfo_dtor(class std::_Locinfo * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_locinfo_dtor)
 TLI_DEFINE_STRING_INTERNAL("?_Locinfo_dtor@_Locinfo@std@@SAXPEAV12@@Z")
+/// public: virtual void __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::_Lock(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_under_Lock)
+TLI_DEFINE_STRING_INTERNAL("?_Lock@?$basic_filebuf@DU?$char_traits@D@std@@@std@@UEAAXXZ")
+/// void __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::_Lock(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_under_Lock)
+TLI_DEFINE_STRING_INTERNAL("?_Lock@?$basic_streambuf@DU?$char_traits@D@std@@@std@@UEAAXXZ")
 /// char const * __ptr64 __cdecl std::_Syserror_map(int)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Syserror_map)
 TLI_DEFINE_STRING_INTERNAL("?_Syserror_map@std@@YAPEBDH@Z")
+/// public: virtual void __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::_Unlock(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_under_Unlock)
+TLI_DEFINE_STRING_INTERNAL("?_Unlock@?$basic_filebuf@DU?$char_traits@D@std@@@std@@UEAAXXZ")
+/// __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::_Unlock(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_under_Unlock)
+TLI_DEFINE_STRING_INTERNAL("?_Unlock@?$basic_streambuf@DU?$char_traits@D@std@@@std@@UEAAXXZ")
 /// void __cdecl std::_Xbad_alloc(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xbad_alloc)
 TLI_DEFINE_STRING_INTERNAL("?_Xbad_alloc@std@@YAXXZ")
@@ -223,12 +325,90 @@ TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
 /// void __cdecl std::_Xout_of_range(char const * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xout_of_range)
 TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
+/// static void __cdecl std::_String_val<struct std::_Simple_types<char> >::_Xran(void)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xran)
+TLI_DEFINE_STRING_INTERNAL("?_Xran@?$_String_val@U?$_Simple_types@D@std@@@std@@SAXXZ")
 /// basic_string<CharType, Traits, Allocator>& append(const value_type* ptr, size_type count)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_append)
 TLI_DEFINE_STRING_INTERNAL("?append@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@QEBD_K@Z")
+/// basic_string<CharType, Traits, Allocator>& append(size_type count, value_type char_value)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_append_size_value)
+TLI_DEFINE_STRING_INTERNAL("?append@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@_KD@Z")
+/// basic_string<CharType, Traits, Allocator>& assign(const value_type* ptr)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_assign_const_ptr)
+TLI_DEFINE_STRING_INTERNAL("?assign@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@QEBD@Z")
+/// basic_string<CharType, Traits, Allocator>& assign(const value_type* ptr, size_type count)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_assign_const_ptr_size)
+TLI_DEFINE_STRING_INTERNAL("?assign@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@QEBD_K@Z")
 /// virtual class std::error_condition __cdecl std::error_category::default_error_condition(int)const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_error_category_default_error)
 TLI_DEFINE_STRING_INTERNAL("?default_error_condition@error_category@std@@UEBA?AVerror_condition@2@H@Z")
+/// virtual bool __cdecl std::codecvt<char,char,struct _Mbstatet>::do_always_noconv(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_do_always_noconv)
+TLI_DEFINE_STRING_INTERNAL("?do_always_noconv@?$codecvt@DDU_Mbstatet@@@std@@MEBA_NXZ")
+/// virtual char __cdecl std::numpunct<char>::do_decimal_point(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_do_decimal_point)
+TLI_DEFINE_STRING_INTERNAL("?do_decimal_point@?$numpunct@D@std@@MEBADXZ")
+// virtual int __cdecl std::codecvt_base::do_encoding(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_do_encoding)
+TLI_DEFINE_STRING_INTERNAL("?do_encoding@codecvt_base@std@@MEBAHXZ")
+/// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::numpunct<char>::do_falsename(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_do_falsename)
+TLI_DEFINE_STRING_INTERNAL("?do_falsename@?$numpunct@D@std@@MEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@XZ")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, unsigned short& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_unsigned_short_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAG@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, unsigned int& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_unsigned_int_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAI@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, long& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_long_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAJ@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, unsigned long& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_unsigned_long_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAK@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, float& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_float_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAM@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, double& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_double_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAN@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, long double& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_long_double_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAO@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, void *& val) const
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_void_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEAPEAX@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, long long& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_long_long_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEA_J@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, unsigned long long& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_unsigned_long_long_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEA_K@Z")
+/// virtual iter_type do_get(iter_type first, iter_type last, ios_base& iosbase, ios_base::iostate& state, bool& val) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_get_do_get_bool_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_get@?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$istreambuf_iterator@DU?$char_traits@D@std@@@2@V32@0AEAVios_base@2@AEAHAEA_N@Z")
+/// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::numpunct<char>::do_grouping(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_do_grouping)
+TLI_DEFINE_STRING_INTERNAL("?do_grouping@?$numpunct@D@std@@MEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@XZ")
+/// virtual int __cdecl std::codecvt<char,char,struct _Mbstatet>::do_in(struct _Mbstatet & __ptr64,char const * __ptr64,char const * __ptr64,char const * __ptr64 & __ptr64,char * __ptr64,char * __ptr64,char * __ptr64 & __ptr64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_do_in)
+TLI_DEFINE_STRING_INTERNAL("?do_in@?$codecvt@DDU_Mbstatet@@@std@@MEBAHAEAU_Mbstatet@@PEBD1AEAPEBDPEAD3AEAPEAD@Z")
+/// virtual int __cdecl std::codecvt<char,char,struct _Mbstatet>::do_length(struct _Mbstatet & __ptr64,char const * __ptr64,char const * __ptr64,unsigned __int64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_do_length)
+TLI_DEFINE_STRING_INTERNAL("?do_length@?$codecvt@DDU_Mbstatet@@@std@@MEBAHAEAU_Mbstatet@@PEBD1_K@Z")
+/// virtual int __cdecl std::codecvt_base::do_max_length(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_do_max_length)
+TLI_DEFINE_STRING_INTERNAL("?do_max_length@codecvt_base@std@@MEBAHXZ")
+/// virtual char do_narrow(CharType ch, char default = '\0') const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_narrow_char_char)
+TLI_DEFINE_STRING_INTERNAL("?do_narrow@?$ctype@D@std@@MEBADDD@Z")
+/// virtual const CharType* do_narrow(const CharType* first, const CharType* last, char default, char* dest) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_narrow_ptr_ptr_char_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_narrow@?$ctype@D@std@@MEBAPEBDPEBD0DPEAD@Z")
+/// virtual int __cdecl std::codecvt<char,char,struct _Mbstatet>::do_out(struct _Mbstatet & __ptr64,char const * __ptr64,char const * __ptr64,char const * __ptr64 & __ptr64,char * __ptr64,char * __ptr64,char * __ptr64 & __ptr64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_do_out)
+TLI_DEFINE_STRING_INTERNAL("?do_out@?$codecvt@DDU_Mbstatet@@@std@@MEBAHAEAU_Mbstatet@@PEBD1AEAPEBDPEAD3AEAPEAD@Z")
 /// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, long val) const;
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_long)
 TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@DJ@Z")
@@ -253,6 +433,9 @@ TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_t
 /// virtual iter_type do_put(iter_type dest, ios_base& _Iosbase, _Elem _Fill, bool val) const;
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_num_put_do_put_bool)
 TLI_DEFINE_STRING_INTERNAL("?do_put@?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEBA?AV?$ostreambuf_iterator@DU?$char_traits@D@std@@@2@V32@AEAVios_base@2@D_N@Z")
+/// virtual char __cdecl std::numpunct<char>::do_thousands_sep(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_do_thousands_sep)
+TLI_DEFINE_STRING_INTERNAL("?do_thousands_sep@?$numpunct@D@std@@MEBADXZ")
 /// virtual CharType do_tolower(CharType ch) const;
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_tolower_char)
 TLI_DEFINE_STRING_INTERNAL("?do_tolower@?$ctype@D@std@@MEBADD@Z")
@@ -265,9 +448,36 @@ TLI_DEFINE_STRING_INTERNAL("?do_toupper@?$ctype@D@std@@MEBADD@Z")
 /// virtual CharType do_toupper(CharType *first, const CharType *last) const;
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_toupper_ptr_ptr)
 TLI_DEFINE_STRING_INTERNAL("?do_toupper@?$ctype@D@std@@MEBAPEBDPEADPEBD@Z")
+/// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::numpunct<char>::do_truename(void)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_do_truename)
+TLI_DEFINE_STRING_INTERNAL("?do_truename@?$numpunct@D@std@@MEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@XZ")
+/// virtual int __cdecl std::codecvt<char,char,struct _Mbstatet>::do_unshift(struct _Mbstatet & __ptr64,char * __ptr64,char * __ptr64,char * __ptr64 & __ptr64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_codecvt_do_unshift)
+TLI_DEFINE_STRING_INTERNAL("?do_unshift@?$codecvt@DDU_Mbstatet@@@std@@MEBAHAEAU_Mbstatet@@PEAD1AEAPEAD@Z")
+/// virtual CharType do_widen(char byte) const
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_widen_char)
+TLI_DEFINE_STRING_INTERNAL("?do_widen@?$ctype@D@std@@MEBADD@Z")
+/// virtual const char *do_widen(const char* first, const char* last, CharType* dest) const;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_ctype_do_widen_ptr_ptr_ptr)
+TLI_DEFINE_STRING_INTERNAL("?do_widen@?$ctype@D@std@@MEBAPEBDPEBD0PEAD@Z")
 /// virtual bool __cdecl std::error_category::equivalent(class std::error_code const & __ptr64,int)const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_error_category_equivalent_error_code)
 TLI_DEFINE_STRING_INTERNAL("?equivalent@error_category@std@@UEBA_NAEBVerror_code@2@H@Z")
+/// virtual bool __cdecl std::error_category::equivalent(int,class std::error_condition const & __ptr64)const __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_error_category_equivalent_error_condition)
+TLI_DEFINE_STRING_INTERNAL("?equivalent@error_category@std@@UEBA_NHAEBVerror_condition@2@@Z")
+/// protected: virtual void __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::imbue(class std::locale const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_imbue)
+TLI_DEFINE_STRING_INTERNAL("?imbue@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAXAEBVlocale@2@@Z")
+/// protected: virtual void __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::imbue(class std::locale const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_imbue)
+TLI_DEFINE_STRING_INTERNAL("?imbue@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAXAEBVlocale@2@@Z")
+/// class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > & __ptr64 __cdecl std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >::insert(unsigned __int64,unsigned __int64,char) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_insert)
+TLI_DEFINE_STRING_INTERNAL("?insert@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@_K0D@Z")
+/// class std::error_code __cdecl std::make_error_code(enum std::io_errc)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_error_code_make_error_code)
+TLI_DEFINE_STRING_INTERNAL("?make_error_code@std@@YA?AVerror_code@1@W4io_errc@1@@Z")
 /// virtual class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl std::_Generic_error_category::message(int)const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_generic_error_category_message)
 TLI_DEFINE_STRING_INTERNAL("?message@_Generic_error_category@std@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@H@Z")
@@ -277,15 +487,90 @@ TLI_DEFINE_STRING_INTERNAL("?message@_Iostream_error_category@std@@UEBA?AV?$basi
 /// virtual char const * __ptr64 __cdecl std::_Iostream_error_category::name(void)const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_iostreamer_error_category_name)
 TLI_DEFINE_STRING_INTERNAL("?name@_Iostream_error_category@std@@UEBAPEBDXZ")
+/// protected: virtual int __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::overflow(int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_overflow)
+TLI_DEFINE_STRING_INTERNAL("?overflow@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAHH@Z")
+/// virtual int __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::overflow(int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_overflow)
+TLI_DEFINE_STRING_INTERNAL("?overflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHH@Z")
+/// protected: virtual int __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::pbackfail(int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_pbackfail)
+TLI_DEFINE_STRING_INTERNAL("?pbackfail@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAHH@Z")
+/// virtual int __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::pbackfail(int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_pbackfail)
+TLI_DEFINE_STRING_INTERNAL("?pbackfail@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHH@Z")
+/// void push_back(value_type char_value);
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_push_back)
+TLI_DEFINE_STRING_INTERNAL("?push_back@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAXD@Z")
+/// void __cdecl std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >::resize(unsigned __int64,char) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_resize)
+TLI_DEFINE_STRING_INTERNAL("?resize@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAX_KD@Z")
+/// protected: virtual class std::fpos<struct _Mbstatet> __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::seekoff(__int64,int,int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_std_fpos_seekoff)
+TLI_DEFINE_STRING_INTERNAL("?seekoff@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAA?AV?$fpos@U_Mbstatet@@@2@_JHH@Z")
+/// protected: virtual class std::fpos<struct _Mbstatet> __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::seekoff(__int64,int,int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_std_fpos_seekoff)
+TLI_DEFINE_STRING_INTERNAL("?seekoff@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA?AV?$fpos@U_Mbstatet@@@2@_JHH@Z")
+/// protected: virtual class std::fpos<struct _Mbstatet> __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::seekpos(class std::fpos<struct _Mbstatet>,int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_std_fpos_seekpos)
+TLI_DEFINE_STRING_INTERNAL("?seekpos@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAA?AV?$fpos@U_Mbstatet@@@2@V32@H@Z")
+/// protected: virtual class std::fpos<struct _Mbstatet> __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::seekpos(class std::fpos<struct _Mbstatet>,int) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_std_fpos_seekpos)
+TLI_DEFINE_STRING_INTERNAL("?seekpos@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA?AV?$fpos@U_Mbstatet@@@2@V32@H@Z")
+/// protected: virtual class std::basic_streambuf<char,struct std::char_traits<char> > * __ptr64 __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::setbuf(char * __ptr64,__int64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_setbuf)
+TLI_DEFINE_STRING_INTERNAL("?setbuf@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAPEAV?$basic_streambuf@DU?$char_traits@D@std@@@2@PEAD_J@Z")
+/// protected: virtual class std::basic_streambuf<char,struct std::char_traits<char> > * __ptr64 __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::setbuf(char * __ptr64,__int64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_setbuf)
+TLI_DEFINE_STRING_INTERNAL("?setbuf@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAPEAV12@PEAD_J@Z")
+/// virtual __int64 __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::showmanyc(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_showmanyc)
+TLI_DEFINE_STRING_INTERNAL("?showmanyc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JXZ")
+/// protected: virtual int __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::sync(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_sync)
+TLI_DEFINE_STRING_INTERNAL("?sync@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAHXZ")
+/// protected: virtual int __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::sync(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_sync)
+TLI_DEFINE_STRING_INTERNAL("?sync@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ")
+/// protected: virtual int __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::uflow(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_uflow)
+TLI_DEFINE_STRING_INTERNAL("?uflow@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAHXZ")
+/// virtual int __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::uflow(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_uflow)
+TLI_DEFINE_STRING_INTERNAL("?uflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ")
 /// bool __cdecl std::uncaught_exception(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_uncaught_exception)
 TLI_DEFINE_STRING_INTERNAL("?uncaught_exception@std@@YA_NXZ")
+/// protected: virtual int __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::underflow(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_underflow)
+TLI_DEFINE_STRING_INTERNAL("?underflow@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAHXZ")
+/// virtual int __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::underflow(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_underflow)
+TLI_DEFINE_STRING_INTERNAL("?underflow@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ")
 /// public: virtual char const * __ptr64 __cdecl std::exception::what(void) const __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_what)
 TLI_DEFINE_STRING_INTERNAL("?what@exception@std@@UEBAPEBDXZ")
+/// protected: virtual __int64 __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::xsgetn(char * __ptr64,__int64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_xsgetn)
+TLI_DEFINE_STRING_INTERNAL("?xsgetn@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAA_JPEAD_J@Z")
+// protected: virtual __int64 __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::xsgetn(char * __ptr64,__int64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_xsgetn)
+TLI_DEFINE_STRING_INTERNAL("?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JPEAD_J@Z")
+/// protected: virtual __int64 __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::xsputn(char const * __ptr64,__int64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_xsputn)
+TLI_DEFINE_STRING_INTERNAL("?xsputn@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAA_JPEBD_J@Z")
+/// protected: virtual __int64 __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::xsputn(char const * __ptr64,__int64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_xsputn)
+TLI_DEFINE_STRING_INTERNAL("?xsputn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JPEBD_J@Z")
 /// BOOL CloseHandle(HANDLE hObject);
 TLI_DEFINE_ENUM_INTERNAL(CloseHandle)
 TLI_DEFINE_STRING_INTERNAL("CloseHandle")
+/// LPVOID ConvertThreadToFiber(LPVOID lpParameter);
+TLI_DEFINE_ENUM_INTERNAL(ConvertThreadToFiber)
+TLI_DEFINE_STRING_INTERNAL("ConvertThreadToFiber")
+/// LPVOID CreateFiber(SIZE_T dwStackSize, LPFIBER_START_ROUTINE lpStartAddress, LPVOID lpParameter)
+TLI_DEFINE_ENUM_INTERNAL(CreateFiber)
+TLI_DEFINE_STRING_INTERNAL("CreateFiber")
 /// HANDLE CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
 TLI_DEFINE_ENUM_INTERNAL(CreateFileA)
 TLI_DEFINE_STRING_INTERNAL("CreateFileA")
@@ -295,6 +580,9 @@ TLI_DEFINE_STRING_INTERNAL("CreateFileW")
 /// void DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 TLI_DEFINE_ENUM_INTERNAL(DeleteCriticalSection)
 TLI_DEFINE_STRING_INTERNAL("DeleteCriticalSection")
+/// void DeleteFiber(LPVOID lpFiber)
+TLI_DEFINE_ENUM_INTERNAL(DeleteFiber)
+TLI_DEFINE_STRING_INTERNAL("DeleteFiber")
 /// void EnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 TLI_DEFINE_ENUM_INTERNAL(EnterCriticalSection)
 TLI_DEFINE_STRING_INTERNAL("EnterCriticalSection")
@@ -316,6 +604,9 @@ TLI_DEFINE_STRING_INTERNAL("FindNextFileW")
 /// HRSRC FindResourceA(HMODULE hModule, LPCSTR lpName, LPCSTR lpType);
 TLI_DEFINE_ENUM_INTERNAL(FindResourceA)
 TLI_DEFINE_STRING_INTERNAL("FindResourceA")
+/// DWORD FormatMessageA(DWORD dwFlags, LPCVOID lpSource, DWORD dwMessageId, DWORD dwLanguageId, LPSTR lpBuffer, DWORD nSize, va_list *Arguments)
+TLI_DEFINE_ENUM_INTERNAL(FormatMessageA)
+TLI_DEFINE_STRING_INTERNAL("FormatMessageA")
 /// BOOL FreeResource(HGLOBAL hResData)
 TLI_DEFINE_ENUM_INTERNAL(FreeResource)
 TLI_DEFINE_STRING_INTERNAL("FreeResource")
@@ -373,9 +664,15 @@ TLI_DEFINE_STRING_INTERNAL("InitializeCriticalSectionAndSpinCount")
 /// void LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 TLI_DEFINE_ENUM_INTERNAL(LeaveCriticalSection)
 TLI_DEFINE_STRING_INTERNAL("LeaveCriticalSection")
+/// HMODULE LoadLibraryA(LPCSTR lpLibFileName)
+TLI_DEFINE_ENUM_INTERNAL(LoadLibraryA)
+TLI_DEFINE_STRING_INTERNAL("LoadLibraryA")
 /// HGLOBAL LoadResource(HMODULE hModule, HRSRC hResInfo);
 TLI_DEFINE_ENUM_INTERNAL(LoadResource)
 TLI_DEFINE_STRING_INTERNAL("LoadResource")
+/// HLOCAL LocalFree(_Frees_ptr_opt_ HLOCAL hMem)
+TLI_DEFINE_ENUM_INTERNAL(LocalFree)
+TLI_DEFINE_STRING_INTERNAL("LocalFree")
 /// LPVOID LockResource(HGLOBAL hResData)
 TLI_DEFINE_ENUM_INTERNAL(LockResource)
 TLI_DEFINE_STRING_INTERNAL("LockResource")
@@ -397,6 +694,9 @@ TLI_DEFINE_STRING_INTERNAL("SizeofResource")
 /// void Sleep(DWORD dwMilliseconds)
 TLI_DEFINE_ENUM_INTERNAL(Sleep)
 TLI_DEFINE_STRING_INTERNAL("Sleep")
+/// void SwitchToFiber(LPVOID lpFiber)
+TLI_DEFINE_ENUM_INTERNAL(SwitchToFiber)
+TLI_DEFINE_STRING_INTERNAL("SwitchToFiber")
 /// BOOL SystemTimeToFileTime(const SYSTEMTIME *lpSystemTime, LPFILETIME lpFileTime);
 TLI_DEFINE_ENUM_INTERNAL(SystemTimeToFileTime)
 TLI_DEFINE_STRING_INTERNAL("SystemTimeToFileTime")
@@ -424,6 +724,27 @@ TLI_DEFINE_ENUM_INTERNAL(under_IO_putc)
 TLI_DEFINE_STRING_INTERNAL("_IO_putc")
 
 #if INTEL_CUSTOMIZATION
+/// void _Init_thread_abort(int data*)
+TLI_DEFINE_ENUM_INTERNAL(under_Init_thread_abort)
+TLI_DEFINE_STRING_INTERNAL("_Init_thread_abort")
+/// void _Init_thread_footer(int data*)
+TLI_DEFINE_ENUM_INTERNAL(under_Init_thread_footer)
+TLI_DEFINE_STRING_INTERNAL("_Init_thread_footer")
+/// void _Init_thread_header(int data*)
+TLI_DEFINE_ENUM_INTERNAL(under_Init_thread_header)
+TLI_DEFINE_STRING_INTERNAL("_Init_thread_header")
+/// long long _Stollx(char*, char**, int, int*)
+TLI_DEFINE_ENUM_INTERNAL(under_Stollx)
+TLI_DEFINE_STRING_INTERNAL("_Stollx")
+/// long _Stolx(char*, char**, int, int*)
+TLI_DEFINE_ENUM_INTERNAL(under_Stolx)
+TLI_DEFINE_STRING_INTERNAL("_Stolx")
+/// long long _Stoullx(char*, char**, int, int*)
+TLI_DEFINE_ENUM_INTERNAL(under_Stoullx)
+TLI_DEFINE_STRING_INTERNAL("_Stoullx")
+/// long _Stoulx(char*, char**, int, int*)
+TLI_DEFINE_ENUM_INTERNAL(under_Stoulx)
+TLI_DEFINE_STRING_INTERNAL("_Stoulx")
 /// _CRTIMP2_PURE int __CLRCALL_PURE_OR_CDECL _Tolower (int c, const _Ctypevec *ploc)
 TLI_DEFINE_ENUM_INTERNAL(under_Tolower)
 TLI_DEFINE_STRING_INTERNAL("_Tolower")
@@ -598,6 +919,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt13basic_filebufIcSt11char_traitsIcEE5closeEv")
 /// std::basic_filebuf<char, std::char_traits<char> >::basic_filebuf()
 TLI_DEFINE_ENUM_INTERNAL(ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev")
+/// std::basic_filebuf<char, std::char_traits<char> >::~basic_filebuf()
+TLI_DEFINE_ENUM_INTERNAL(gnu_std_basic_filebuf_dtor)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt13basic_filebufIcSt11char_traitsIcEED2Ev")
 /// std::runtime_error::runtime_error(char const*)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt13runtime_errorC1EPKc)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt13runtime_errorC1EPKc")
@@ -754,6 +1078,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIc
 /// std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >::basic_stringstream(std::_Ios_Openmode)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode")
+/// std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >::basic_stringstream()
+TLI_DEFINE_ENUM_INTERNAL(gnu_std_cxx11_basic_stringstream_ctor)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1Ev")
 /// std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >::basic_istringstream(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::_Ios_Openmode
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode")
@@ -958,6 +1285,12 @@ TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t")
 /// int __CxxFrameHandler3(...)
 TLI_DEFINE_ENUM_INTERNAL(dunder_CxxFrameHandler3)
 TLI_DEFINE_STRING_INTERNAL("__CxxFrameHandler3")
+// PVOID __RTDynamicCast(PVOID inptr, LONG VfDelta, PVOID SrcType, PVOID TargetType, BOOL isReference) throw(...)
+TLI_DEFINE_ENUM_INTERNAL(dunder_RTDynamicCast)
+TLI_DEFINE_STRING_INTERNAL("__RTDynamicCast")
+/// void* __RTtypeid(void *data)
+TLI_DEFINE_ENUM_INTERNAL(dunder_RTtypeid)
+TLI_DEFINE_STRING_INTERNAL("__RTtypeid")
 /// int ___mb_cur_max_func(void)
 TLI_DEFINE_ENUM_INTERNAL(tunder_mb_cur_max_func)
 TLI_DEFINE_STRING_INTERNAL("___mb_cur_max_func")
@@ -1353,6 +1686,9 @@ TLI_DEFINE_STRING_INTERNAL("__memcpy_chk")
 /// void *__memmove_chk(void *s1, const void *s2, size_t n, size_t s1size);
 TLI_DEFINE_ENUM_INTERNAL(memmove_chk)
 TLI_DEFINE_STRING_INTERNAL("__memmove_chk")
+/// void *__mempcpy_chk(void *s1, const void *s2, size_t n, size_t s1size);
+TLI_DEFINE_ENUM_INTERNAL(mempcpy_chk)
+TLI_DEFINE_STRING_INTERNAL("__mempcpy_chk")
 /// void *__memset_chk(void *s, char v, size_t n, size_t s1size);
 TLI_DEFINE_ENUM_INTERNAL(memset_chk)
 TLI_DEFINE_STRING_INTERNAL("__memset_chk")
@@ -1445,6 +1781,12 @@ TLI_DEFINE_STRING_INTERNAL("__std_reverse_trivially_swappable_8")
 /// void __std_terminate()
 TLI_DEFINE_ENUM_INTERNAL(dunder_std_terminate)
 TLI_DEFINE_STRING_INTERNAL("__std_terminate")
+/// int __std_type_info_compare(__std_type_info_data *data, __std_type_info_data *data)
+TLI_DEFINE_ENUM_INTERNAL(dunder_std_type_info_compare)
+TLI_DEFINE_STRING_INTERNAL("__std_type_info_compare")
+/// i8* __std_type_info_name(__std_type_info_data *data, __type_info_node *node)
+TLI_DEFINE_ENUM_INTERNAL(dunder_std_type_info_name)
+TLI_DEFINE_STRING_INTERNAL("__std_type_info_name")
 /// int __stdio_common_vfprintf(uint64_t location,FILE *, const char *format, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfprintf")
@@ -1546,6 +1888,15 @@ TLI_DEFINE_STRING_INTERNAL("_fdopen")
 /// int _fileno(FILE *stream)
 TLI_DEFINE_ENUM_INTERNAL(under_fileno)
 TLI_DEFINE_STRING_INTERNAL("_fileno")
+/// int _findclose(intptr_t handle)
+TLI_DEFINE_ENUM_INTERNAL(under_findclose)
+TLI_DEFINE_STRING_INTERNAL("_findclose")
+/// intptr_t _findfirst64i32(const char *filespec, struct _finddata64i32_t *fileinfo)
+TLI_DEFINE_ENUM_INTERNAL(under_findfirst64i32)
+TLI_DEFINE_STRING_INTERNAL("_findfirst64i32")
+/// int _findnext64i32(intptr_t handle, struct _finddata64i32_t *fileinfo)
+TLI_DEFINE_ENUM_INTERNAL(under_findnext64i32)
+TLI_DEFINE_STRING_INTERNAL("_findnext64i32")
 /// int _fseeki64(FILE *stream, __int64 offset, int origin)
 TLI_DEFINE_ENUM_INTERNAL(under_fseeki64)
 TLI_DEFINE_STRING_INTERNAL("_fseeki64")
@@ -1561,6 +1912,9 @@ TLI_DEFINE_STRING_INTERNAL("_ftelli64")
 /// void _ftime64( struct __timeb64 *timeptr )
 TLI_DEFINE_ENUM_INTERNAL(under_ftime64)
 TLI_DEFINE_STRING_INTERNAL("_ftime64")
+/// int _get_stream_buffer_pointers(_iobuf*, char***, char***, int**)
+TLI_DEFINE_ENUM_INTERNAL(under_get_stream_buffer_pointers)
+TLI_DEFINE_STRING_INTERNAL("_get_stream_buffer_pointers")
 /// char *_getcwd(char *buffer, int maxlen)
 TLI_DEFINE_ENUM_INTERNAL(under_getcwd)
 TLI_DEFINE_STRING_INTERNAL("_getcwd")
@@ -1582,6 +1936,9 @@ TLI_DEFINE_STRING_INTERNAL("_invalid_parameter_noinfo_noreturn")
 /// struct tm * _localtime64(const time_t *sourceTime)
 TLI_DEFINE_ENUM_INTERNAL(under_localtime64)
 TLI_DEFINE_STRING_INTERNAL("_localtime64")
+/// void _lock_file( FILE* file )
+TLI_DEFINE_ENUM_INTERNAL(under_lock_file)
+TLI_DEFINE_STRING_INTERNAL("_lock_file")
 /// __int64 _lseeki64(int fd, __int64 offset, int origin)
 TLI_DEFINE_ENUM_INTERNAL(under_lseeki64)
 TLI_DEFINE_STRING_INTERNAL("_lseeki64")
@@ -1636,6 +1993,9 @@ TLI_DEFINE_STRING_INTERNAL("_time64")
 /// int _unlink(const char *filename)
 TLI_DEFINE_ENUM_INTERNAL(under_unlink)
 TLI_DEFINE_STRING_INTERNAL("_unlink")
+/// void _unlock_file(FILE* file)
+TLI_DEFINE_ENUM_INTERNAL(under_unlock_file)
+TLI_DEFINE_STRING_INTERNAL("_unlock_file")
 /// int _waccess(const wchar_t *path, int mode)
 TLI_DEFINE_ENUM_INTERNAL(under_waccess)
 TLI_DEFINE_STRING_INTERNAL("_waccess")
@@ -2489,6 +2849,9 @@ TLI_DEFINE_STRING_INTERNAL("j1")
 /// int kill(pid_t pid, int sig);
 TLI_DEFINE_ENUM_INTERNAL(kill)
 TLI_DEFINE_STRING_INTERNAL("kill")
+/// void kmp_set_blocktime(int arg);
+TLI_DEFINE_ENUM_INTERNAL(kmp_set_blocktime)
+TLI_DEFINE_STRING_INTERNAL("kmp_set_blocktime")
 #endif // INTEL_CUSTOMIZATION
 
 /// long int labs(long int j);
@@ -3126,6 +3489,11 @@ TLI_DEFINE_STRING_INTERNAL("snprintf")
 /// int sprintf(char *str, const char *format, ...);
 TLI_DEFINE_ENUM_INTERNAL(sprintf)
 TLI_DEFINE_STRING_INTERNAL("sprintf")
+#if INTEL_CUSTOMIZATION
+/// int sprintf_s(char *buffer, size_t sizeOfBuffer, const char *format, ...)
+TLI_DEFINE_ENUM_INTERNAL(sprintf_s)
+TLI_DEFINE_STRING_INTERNAL("sprintf_s")
+#endif // INTEL_CUSTOMIZATION
 /// double sqrt(double x);
 TLI_DEFINE_ENUM_INTERNAL(sqrt)
 TLI_DEFINE_STRING_INTERNAL("sqrt")

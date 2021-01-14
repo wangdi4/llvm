@@ -7,6 +7,9 @@ add_library(DynamicLibraryLib STATIC
   ExportedFuncs.cpp
   )
 set_target_properties(DynamicLibraryLib PROPERTIES FOLDER "Tests")
+# INTEL_CUSTOMIZATION
+set_msvc_crt_flags(DynamicLibraryLib)
+# end INTEL_CUSTOMIZATION
 
 # extract_symbols.py relies on all its library arguments being in the same
 # directory, so we must set the output directory in the same way as if
@@ -26,6 +29,9 @@ function(dynlib_add_module NAME)
     PipSqueak.cpp
     )
   set_target_properties(${NAME} PROPERTIES FOLDER "Tests")
+  # INTEL_CUSTOMIZATION
+  set_msvc_crt_flags(${NAME})
+  # end INTEL_CUSTOMIZATION
 
   set_output_directory(${NAME}
     BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
@@ -38,6 +44,17 @@ function(dynlib_add_module NAME)
     )
 
   add_dependencies(DynamicLibraryTests ${NAME})
+  
+  if(LLVM_INTEGRATED_CRT_ALLOC)
+    # We need to link in the Support lib for the Memory allocator override,
+    # otherwise the DynamicLibrary.Shutdown test will fail, because it would
+    # allocate memory with the CRT allocator, and release it with our custom
+    # allocator (see llvm/lib/Support/Windows/Memory.inc).
+    # /INCLUDE:malloc is there to force searching into LLVMSupport before libucrt
+    llvm_map_components_to_libnames(llvm_libs Support)
+    target_link_libraries(${NAME} ${llvm_libs} "-INCLUDE:malloc")
+  endif()
+  
 endfunction(dynlib_add_module)
 
 # Revert -Wl,-z,nodelete on this test since it relies on the file

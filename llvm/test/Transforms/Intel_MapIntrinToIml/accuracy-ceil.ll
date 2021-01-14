@@ -18,7 +18,7 @@ define void @default_accuracy_no_fastmath(double %c) {
 
 define void @default_accuracy_fastmath(double %c) {
 ; CHECK-LABEL: @default_accuracy_fastmath
-; CHECK: call svml_cc <2 x double> @__svml_ceil2(
+; CHECK: call fast svml_cc <2 x double> @__svml_ceil2(
   %broadcast.splatinsert = insertelement <4 x double> undef, double %c, i32 0
   %broadcast.splat = shufflevector <4 x double> %broadcast.splatinsert, <4 x double> undef, <4 x i32> zeroinitializer
   %vec_call = call fast svml_cc <4 x double> @__svml_ceil4(<4 x double> %broadcast.splat) #1
@@ -36,7 +36,7 @@ define void @low_accuracy_no_fastmath(double %c) {
 
 define void @low_accuracy_fastmath(double %c) {
 ; CHECK-LABEL: @low_accuracy_fastmath
-; CHECK: call svml_cc <2 x double> @__svml_ceil2(
+; CHECK: call fast svml_cc <2 x double> @__svml_ceil2(
   %broadcast.splatinsert = insertelement <4 x double> undef, double %c, i32 0
   %broadcast.splat = shufflevector <4 x double> %broadcast.splatinsert, <4 x double> undef, <4 x i32> zeroinitializer
   %vec_call = call fast svml_cc <4 x double> @__svml_ceil4(<4 x double> %broadcast.splat) #2
@@ -54,7 +54,7 @@ define void @medium_accuracy_no_fastmath(double %c) {
 
 define void @medium_accuracy_fastmath(double %c) {
 ; CHECK-LABEL: @medium_accuracy_fastmath
-; CHECK: call svml_cc <2 x double> @__svml_ceil2(
+; CHECK: call fast svml_cc <2 x double> @__svml_ceil2(
   %broadcast.splatinsert = insertelement <4 x double> undef, double %c, i32 0
   %broadcast.splat = shufflevector <4 x double> %broadcast.splatinsert, <4 x double> undef, <4 x i32> zeroinitializer
   %vec_call = call fast svml_cc <4 x double> @__svml_ceil4(<4 x double> %broadcast.splat) #3
@@ -72,7 +72,7 @@ define void @high_accuracy_no_fastmath(double %c) {
 
 define void @high_accuracy_fastmath(double %c) {
 ; CHECK-LABEL: @high_accuracy_fastmath
-; CHECK: call svml_cc <2 x double> @__svml_ceil2(
+; CHECK: call fast svml_cc <2 x double> @__svml_ceil2(
   %broadcast.splatinsert = insertelement <4 x double> undef, double %c, i32 0
   %broadcast.splat = shufflevector <4 x double> %broadcast.splatinsert, <4 x double> undef, <4 x i32> zeroinitializer
   %vec_call = call fast svml_cc <4 x double> @__svml_ceil4(<4 x double> %broadcast.splat) #4

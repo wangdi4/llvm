@@ -5,51 +5,44 @@
 
 
 define internal void @test_legality_non_alloca(i8** %arr) #3 {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   signed (+) Start: i32 [[ZII_RED_CAST_PROMOTED0:%.*]] Exit: i32 [[VP_ADD4:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP0:%.*]], i32 [[VP_ADD4]], i32* [[VP_ZII_RED_CAST:%.*]], i32 [[VP_ZII_RED_CAST_RED_INIT:%.*]], i32 [[VP1:%.*]], i32 [[VP_ZII_RED_CAST_RED_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP0:%.*]], i32 [[VP_ADD4]], i32* [[VP_ZII_RED_CAST:%.*]], i32 [[VP_ZII_RED_CAST_RED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_ZII_RED_CAST_RED_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: i32* [[ZII_RED_CAST0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[VP_INDVARS_IV_NEXT:%.*]] = add i32 [[VP_INDVARS_IV:%.*]] i32 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP_INDVARS_IV]], i32 [[VP_INDVARS_IV_NEXT]], i32 [[VP_INDVARS_IV_IND_INIT:%.*]], i32 [[VP_INDVARS_IV_IND_FINAL:%.*]],
-; CHECK:         [[BB1:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK:         [[BB1:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     i32* [[VP_ZII_RED_CAST]] = allocate-priv i32*
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     i32* [[VP_ZII_RED_CAST]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     i32 [[VP_ZII_RED_CAST_RED_INIT]] = reduction-init i32 0 i32 [[ZII_RED_CAST_PROMOTED0]]
 ; CHECK-NEXT:     store i32 [[VP_ZII_RED_CAST_RED_INIT]] i32* [[VP_ZII_RED_CAST]]
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB0]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB0]]:
+; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV]] = phi  [ i32 [[VP_INDVARS_IV_NEXT]], [[BB0]] ],  [ i32 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP0]] = phi  [ i32 [[VP_ADD4]], [[BB0]] ],  [ i32 [[VP_ZII_RED_CAST_RED_INIT]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP_ADD4]] = add i32 [[VP_INDVARS_IV]] i32 [[VP0]]
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_NEXT]] = add i32 [[VP_INDVARS_IV]] i32 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp ult i32 1024 i32 [[VP_INDVARS_IV_NEXT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_CMP]]), [[BB0]](!i1 [[VP_CMP]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i32 [[VP_ZII_RED_CAST_RED_FINAL]] = reduction-final{u_add} i32 [[VP_ADD4]]
 ; CHECK-NEXT:     store i32 [[VP_ZII_RED_CAST_RED_FINAL]] i32* [[ZII_RED_CAST0]]
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0     [[ADD4_LCSSA0:%.*]] = phi i32 [ [[ADD40:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ] i32 [[VP_ZII_RED_CAST_RED_FINAL]] -> i32 [[ADD40]]

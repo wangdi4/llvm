@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S | FileCheck %s
 
 ; This test checks that after paropt pass, the runtime calls for "target data
 ; begin" and "target data end", outlined function and use of offload_ptrs,
@@ -39,7 +39,7 @@ target device_triples = "spir64"
 
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @.omp_offloading.requires_reg, i8* null }]
 
-; Function Attrs: noinline nounwind optnone uwtable
+; Function Attrs: noinline nounwind uwtable
 define dso_local void @test_target_data_if(i32 %map_size) #0 {
 entry:
   %map_size.addr = alloca i32, align 4
@@ -81,13 +81,13 @@ for.end:                                          ; preds = %for.cond
   %7 = mul nuw i64 %6, 4
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.IF"(i32 %conv), "QUAL.OMP.MAP.TO"(i32* %map_size.addr), "QUAL.OMP.MAP.TO:AGGRHEAD"([1024 x i32]* %a, i32* %arrayidx2, i64 %7) ]
 
-; CHECK: call void @__tgt_target_data_begin(i64 -1, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes{{.*}}, i32 0, i32 0))
+; CHECK: call void @__tgt_target_data_begin(i64 %{{.*}}, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes{{.*}}, i32 0, i32 0))
 ; CHECK-NEXT: call void @test_target_data_if.DIR.OMP.TARGET.DATA.{{.*}}(i32* %map_size.addr, [1024 x i32]* %a)
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_ptrs, i32 0, i32 0
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i64], [2 x i64]* %.offload_sizes, i32 0, i32 0
-; CHECK-NEXT: call void @__tgt_push_code_location({{.*}})
-; CHECK-NEXT: call void @__tgt_target_data_end(i64 -1, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes{{.*}}, i32 0, i32 0))
+; CHECK: call void @__tgt_push_code_location({{.*}})
+; CHECK-NEXT: call void @__tgt_target_data_end(i64 %{{.*}}, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes{{.*}}, i32 0, i32 0))
 ; CHECK-NEXT:  br label %if.end
 ; CHECK-EMPTY:
 ; CHECK-NEXT: if.else:
@@ -146,7 +146,7 @@ entry:
 
 declare dso_local void @__tgt_register_requires(i64)
 
-attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }
 attributes #2 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 

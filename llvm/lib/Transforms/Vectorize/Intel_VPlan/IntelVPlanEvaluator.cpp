@@ -1,0 +1,215 @@
+//===-- IntelVPlanEvaluator.cpp -------------------------------------------===//
+//
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//===----------------------------------------------------------------------===//
+
+#include "IntelVPlanEvaluator.h"
+#include "IntelVPlan.h"
+#include "IntelVPlanCostModel.h"
+#include "IntelVPlanVLSAnalysis.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+
+#define DEBUG_TYPE "VPlanEvaluator"
+
+static cl::opt<bool>
+    DisablePeelAndRemainder("vplan-disable-vector-peel-and-vector-remainder", cl::init(true),
+                            cl::Hidden,
+                            cl::desc("Disable vector peel and vector remainder."));
+
+using namespace llvm;
+using namespace llvm::vpo;
+
+// Calculates the cost of a Plan. If there is not any Plan available, then this
+// function returns UINT_MAX.
+unsigned VPlanEvaluator::calculatePlanCost(unsigned MainLoopVF, VPlan *Plan) {
+  if (Plan) {
+    VPlanCostModel CM(Plan, MainLoopVF, TTI, TLI, DL, VLSA);
+    return CM.getCost();
+  }
+  return UINT_MAX;
+}
+
+// Peel loop's trip count might be available at compile-time or it might be
+// calculated at run-time. In the worst case, the trip count of peel loop is
+// equal to MainLoopVF-1. If the trip count is not available at compile-time, then we
+// set the trip count to MainLoopVF-1.
+unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
+  if (PeelingVariant)
+    return PeelingVariant->getKind() == VPPK_StaticPeeling
+               ? cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
+               : MainLoopVF - 1;
+  return 0;
+}
+
+// Selects the best peeling variant (none, scalar, masked vector).
+VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
+
+  if (!PeelingVariant || DisablePeelAndRemainder) {
+    PeelKind = PeelLoopKind::None;
+    LoopCost = 0;
+    PeelTC = 0;
+    return PeelKind;
+  }
+
+  // Calculates the total cost of the masked vector peel loop.
+  unsigned MaskedVectorCost = calculatePlanCost(MainLoopVF, MaskedModePlan);
+
+  unsigned ScalarTC = getScalarPeelTripCount(MainLoopVF);
+  if (ScalarIterCost * ScalarTC > MaskedVectorCost) {
+    PeelKind = PeelLoopKind::MaskedVector;
+    PeelTC = ScalarTC;
+    LoopCost = MaskedVectorCost;
+  } else {
+    PeelKind = PeelLoopKind::Scalar;
+    PeelTC = ScalarTC;
+    LoopCost = ScalarIterCost * ScalarTC;
+  }
+  // TODO: calculate the cost of the runtime checks when the interface is
+  // available.
+  // Overhead of peel checks is identical for both variants.
+  // LoopCost += calculatePeelChecksCost(MainLoopVF);
+  return PeelKind;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+const char *VPlanPeelEvaluator::getPeelLoopKindStr() const {
+  switch (getPeelLoopKind()) {
+  case PeelLoopKind::None:
+    return "no peel loop";
+  case PeelLoopKind::Scalar:
+    return "scalar peel loop";
+  case PeelLoopKind::MaskedVector:
+    return "masked vector peel loop";
+  }
+  llvm_unreachable("bad peel loop kind");
+  return "error";
+}
+
+void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
+  switch (getPeelLoopKind()) {
+  case PeelLoopKind::None:
+    OS << "There is no peel loop.\n";
+    break;
+  case PeelLoopKind::Scalar:
+    OS << "The peel loop is scalar with trip count " << PeelTC << "."
+       << " The scalar cost is " << LoopCost << "(" << PeelTC << " x "
+       << ScalarIterCost << ").\n";
+    break;
+  case PeelLoopKind::MaskedVector:
+    OS << "The peel loop has trip count " << PeelTC
+       << " and it is vectorized with a mask. The vector cost is " << LoopCost
+       << ".\n";
+    break;
+  }
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+// Finds the best VF to vectorize the remainder loop and calculates the total
+// cost of vectorizing the remainder. After vectorizing the remainder loop, we
+// might have a new remainder loop for the remaining iterations of the
+// vectorized remainder loop.
+void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
+  unsigned MaxRemainderTC = MainLoopVF * MainLoopUF;
+  UnMaskedVectorCost = UINT_MAX;
+  // The remainder loop cannot be vectorized with VF bigger than the one of the
+  // main loop.
+  for (unsigned TempVF = MainLoopVF / 2; TempVF > 1; TempVF /= 2) {
+    // Cost of the vectorized remainder loop.
+    unsigned TempCost =
+        calculatePlanCost(TempVF, MainPlan) * (MaxRemainderTC / TempVF);
+    // Cost of the new scalar remainder loop.
+    TempCost += ScalarIterCost * (MaxRemainderTC % TempVF);
+    if (TempCost < UnMaskedVectorCost) {
+      UnMaskedVectorCost = TempCost;
+      RemainderVF = TempVF;
+    }
+  }
+}
+
+// Selects the best peeling variant (none, scalar, vector/scalar, masked
+// vector).
+VPlanRemainderEvaluator::RemainderLoopKind
+VPlanRemainderEvaluator::calculateBestVariant() {
+  if (RemainderTC == 0) {
+    RemainderKind = RemainderLoopKind::None;
+    LoopCost = 0;
+    return RemainderKind;
+  }
+
+  // Calculates the total cost for masked mode loop if it is available.
+  unsigned MaskedVectorCost =
+      calculatePlanCost(MainLoopVF, MaskedModePlan) * MainLoopUF;
+
+  // Calculate VF and the total cost for vector variant with possible scalar
+  // remainder.
+  calculateRemainderVFAndVectorCost();
+
+  unsigned ScalarRemainderLoopCost = ScalarIterCost * RemainderTC;
+  RemainderKind = RemainderLoopKind::Scalar;
+  LoopCost = ScalarRemainderLoopCost;
+  if (!DisablePeelAndRemainder) {
+    if (ScalarRemainderLoopCost > MaskedVectorCost) {
+      RemainderKind = RemainderLoopKind::MaskedVector;
+      LoopCost = MaskedVectorCost;
+    }
+    if (ScalarRemainderLoopCost > UnMaskedVectorCost) {
+      RemainderKind = RemainderLoopKind::VectorScalar;
+      LoopCost = UnMaskedVectorCost;
+      RemainderTC = (MainLoopUF * MainLoopVF) / RemainderVF;
+      NewRemainderTC = (MainLoopUF * MainLoopVF) % RemainderVF;
+    }
+  }
+  // TODO: calcualte the cost of run-time checks
+  // LoopCost += calculateRTChecksCost(MainLoopVF);
+  return RemainderKind;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+const char *VPlanRemainderEvaluator::getRemainderLoopKindStr() const {
+  switch (getRemainderLoopKind()) {
+  case RemainderLoopKind::None:
+    return "no remainder loop";
+  case RemainderLoopKind::Scalar:
+    return "scalar remainder loop";
+  case RemainderLoopKind::VectorScalar:
+    return "vector remainder loop";
+  case RemainderLoopKind::MaskedVector:
+    return "masked vector remainder loop";
+  }
+  llvm_unreachable("bad remainder loop kind");
+  return "error";
+}
+
+void VPlanRemainderEvaluator::dump(raw_ostream &OS) const {
+  switch (getRemainderLoopKind()) {
+  case RemainderLoopKind::None:
+    OS << "There is no remainder loop.\n";
+    break;
+  case RemainderLoopKind::Scalar:
+    OS << "The remainder loop is scalar with trip count " << RemainderTC << "."
+       << " The scalar cost is " << LoopCost << "(" << RemainderTC << " x "
+       << ScalarIterCost << ").\n";
+    break;
+  case RemainderLoopKind::VectorScalar:
+    OS << "The remainder loop has trip count " << RemainderTC
+       << " and it is vectorized with vector factor " << RemainderVF
+       << ". The vector cost is " << LoopCost << ".\n";
+    if (NewRemainderTC != 0)
+      OS << "The remainder loop has a new remainder loop with trip count "
+         << NewRemainderTC << ".\n";
+    break;
+  case RemainderLoopKind::MaskedVector:
+    OS << "The remainder loop has trip count " << RemainderTC
+       << " and it is vectorized with a mask. The vector cost is " << LoopCost
+       << ".\n";
+    break;
+  }
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP

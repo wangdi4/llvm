@@ -52,9 +52,9 @@ define i32 @main(i32 %argc, i8** %argv) {
   ; be called, followed by a direct call to the appropriate function for the
   ; object type, and marked with metadata for DTrans.
   %call = tail call zeroext i1 %fptr(%class.Base* %obj, i32 %argc)
-; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0
+; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi
 ; CHECK:  tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %obj, i32 %argc), !_Intel.Devirt.Call
-; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0
+; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi
 ; CHECK: call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %obj, i32 %argc), !_Intel.Devirt.Call
 
   ret i32 0

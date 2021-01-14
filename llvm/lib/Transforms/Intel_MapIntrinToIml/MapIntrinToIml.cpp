@@ -235,8 +235,9 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
 static Type *legalizeArgumentOrReturnType(Type *T, unsigned LogicalVL,
                                           unsigned TargetVL) {
   if (VectorType *VecTy = dyn_cast<VectorType>(T)) {
-    return VectorType::get(VecTy->getElementType(),
-                           (VecTy->getElementCount() / LogicalVL) * TargetVL);
+    return VectorType::get(
+        VecTy->getElementType(),
+        (VecTy->getElementCount().divideCoefficientBy(LogicalVL)) * TargetVL);
   }
 
   assert(T->isStructTy() &&
@@ -247,9 +248,9 @@ static Type *legalizeArgumentOrReturnType(Type *T, unsigned LogicalVL,
     assert(StructElementTy->isVectorTy() &&
            "Expect all elements in struct to be vectors");
     VectorType *VecTy = cast<VectorType>(StructElementTy);
-    NewStructElementTypes.push_back(
-        VectorType::get(VecTy->getElementType(),
-                        (VecTy->getElementCount() / LogicalVL) * TargetVL));
+    NewStructElementTypes.push_back(VectorType::get(
+        VecTy->getElementType(),
+        (VecTy->getElementCount().divideCoefficientBy(LogicalVL)) * TargetVL));
   }
 
   return StructType::get(T->getContext(), NewStructElementTypes);
@@ -741,7 +742,6 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
 StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
     StringRef ScalarFuncName, unsigned TargetVL, bool Masked, Instruction *I) {
 
-  StringRef DataType;
   std::string TargetVLString = std::to_string(TargetVL);
 
   // Use the generic parent function name emitted by the vectorizer to lookup
@@ -814,22 +814,6 @@ StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
 
   return ScalarFuncName;
-}
-
-// For a given Instruction with struct type, find an extractvalue
-// of that Instruction with the given index. It is an error if
-// there is no extractvalue found with that index.
-static Instruction *findExtract(Instruction *I, unsigned Idx) {
-#ifndef NDEBUG
-  auto *StrTy = dyn_cast<StructType>(I->getType());
-  assert(StrTy && StrTy->getNumElements() > Idx);
-#endif // NDEBUG
-  for (User *U : I->users())
-    if (auto *Extract = dyn_cast<ExtractValueInst>(U))
-      if (Extract->getIndices().front() == Idx)
-        return Extract;
-  llvm_unreachable("Can't find extract matching index");
-  return nullptr;
 }
 
 /// Build function name for SVML integer div/rem from opcode, scalar type and
@@ -1164,6 +1148,11 @@ bool MapIntrinToImlImpl::runImpl() {
       VariantFuncName = findX86SVMLVariantForScalarFunction(
           ScalarFuncName, TargetVL, Masked, CI);
     }
+
+    // Preserve fast math flag of the original call (if any)
+    IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
+    if (isa<FPMathOperator>(CI))
+      Builder.setFastMathFlags(CI->getFastMathFlags());
 
     // An alternate math library function was found for the original call, so
     // replace the original call with the new call. Set Dirty to true since

@@ -680,6 +680,54 @@ __m512h test_mm512_maskz_max_round_ph(__mmask32 __U, __m512h __A, __m512h __B) {
   return _mm512_maskz_max_round_ph(__U,__A,__B,_MM_FROUND_NO_EXC);
 }
 
+__m512h test_mm512_abs_ph(__m512h a) {
+  // CHECK-LABEL: @test_mm512_abs_ph
+  // CHECK: and <16 x i32>
+  return _mm512_abs_ph(a);
+}
+
+__m512h test_mm512_conj_pch(__m512h __A) {
+  // CHECK-LABEL: @test_mm512_conj_pch
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = xor <16 x i32> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x i32> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  return _mm512_conj_pch(__A);
+}
+
+__m512h test_mm512_mask_conj_pch(__m512h __W, __mmask32 __U, __m512h __A) {
+  // CHECK-LABEL: @test_mm512_mask_conj_pch
+  // CHECK:  %{{.*}} = trunc i32 %{{.*}} to i16
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = xor <16 x i32> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x i32> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast i16 %{{.*}} to <16 x i1>
+  // CHECK:  %{{.*}} = select <16 x i1> %{{.*}}, <16 x float> %{{.*}}, <16 x float> %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  return _mm512_mask_conj_pch(__W, __U, __A);
+}
+
+__m512h test_mm512_maskz_conj_pch(__mmask32 __U, __m512h __A) {
+  // CHECK-LABEL: @test_mm512_maskz_conj_pch
+  // CHECK:  %{{.*}} = trunc i32 %{{.*}} to i16
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <16 x i32>
+  // CHECK:  %{{.*}} = xor <16 x i32> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x i32> %{{.*}} to <16 x float>
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  // CHECK:  %{{.*}} = bitcast i16 %{{.*}} to <16 x i1>
+  // CHECK:  %{{.*}} = select <16 x i1> %{{.*}}, <16 x float> %{{.*}}, <16 x float> %{{.*}}
+  // CHECK:  %{{.*}} = bitcast <16 x float> %{{.*}} to <32 x half>
+  return _mm512_maskz_conj_pch(__U, __A);
+}
+
 __m128h test_mm_add_round_sh(__m128h __A, __m128h __B) {
   // CHECK-LABEL: @test_mm_add_round_sh
   // CHECK: @llvm.x86.avx512fp16.mask.add.sh.round
@@ -1430,6 +1478,48 @@ __m128h test_mm_maskz_load_sh(__mmask8 __U, const void * __W)
   return _mm_maskz_load_sh (__U, __W);
 }
 
+__m512h test_mm512_load_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm512_load_ph
+  // CHECK: load <32 x half>, <32 x half>* %{{.*}}, align 64
+  return _mm512_load_ph(p);
+}
+
+__m256h test_mm256_load_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm256_load_ph
+  // CHECK: load <16 x half>, <16 x half>* %{{.*}}, align 32
+  return _mm256_load_ph(p);
+}
+
+__m128h test_mm_load_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm_load_ph
+  // CHECK: load <8 x half>, <8 x half>* %{{.*}}, align 16
+  return _mm_load_ph(p);
+}
+
+__m512h test_mm512_loadu_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm512_loadu_ph
+  // CHECK: load <32 x half>, <32 x half>* {{.*}}, align 1{{$}}
+  return _mm512_loadu_ph(p);
+}
+
+__m256h test_mm256_loadu_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm256_loadu_ph
+  // CHECK: load <16 x half>, <16 x half>* {{.*}}, align 1{{$}}
+  return _mm256_loadu_ph(p);
+}
+
+__m128h test_mm_loadu_ph(void *p)
+{
+  // CHECK-LABEL: @test_mm_loadu_ph
+  // CHECK: load <8 x half>, <8 x half>* {{.*}}, align 1{{$}}
+  return _mm_loadu_ph(p);
+}
+
 void test_mm_store_sh(void * A, __m128h B) {
   // CHECK-LABEL: test_mm_store_sh
   // CHECK: extractelement <8 x half> %{{.*}}, i32 0
@@ -1440,8 +1530,53 @@ void test_mm_store_sh(void * A, __m128h B) {
 void test_mm_mask_store_sh(void * __P, __mmask8 __U, __m128h __A)
 {
   // CHECK-LABEL: @test_mm_mask_store_sh
-  // CHECK: call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %{{.*}}, <8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}}) 
+  // CHECK: call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %{{.*}}, <8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}})
   _mm_mask_store_sh(__P, __U, __A);
+}
+
+void test_mm512_store_ph(void *p, __m512h a)
+{
+  // CHECK-LABEL: @test_mm512_store_ph
+  // CHECK: store <32 x half> %{{.*}}, <32 x half>* %{{.*}}, align 64
+  _mm512_store_ph(p, a);
+}
+
+void test_mm256_store_ph(void *p, __m256h a)
+{
+  // CHECK-LABEL: @test_mm256_store_ph
+  // CHECK: store <16 x half> %{{.*}}, <16 x half>* %{{.*}}, align 32
+  _mm256_store_ph(p, a);
+}
+
+void test_mm_store_ph(void *p, __m128h a)
+{
+  // CHECK-LABEL: @test_mm_store_ph
+  // CHECK: store <8 x half> %{{.*}}, <8 x half>* %{{.*}}, align 16
+  _mm_store_ph(p, a);
+}
+
+void test_mm512_storeu_ph(void *p, __m512h a)
+{
+  // CHECK-LABEL: @test_mm512_storeu_ph
+  // CHECK: store <32 x half> %{{.*}}, <32 x half>* %{{.*}}, align 1{{$}}
+  // CHECK-NEXT: ret void
+  _mm512_storeu_ph(p, a);
+}
+
+void test_mm256_storeu_ph(void *p, __m256h a)
+{
+  // CHECK-LABEL: @test_mm256_storeu_ph
+  // CHECK: store <16 x half> %{{.*}}, <16 x half>* %{{.*}}, align 1{{$}}
+  // CHECK-NEXT: ret void
+  _mm256_storeu_ph(p, a);
+}
+
+void test_mm_storeu_ph(void *p, __m128h a)
+{
+  // CHECK-LABEL: @test_mm_storeu_ph
+  // CHECK: store <8 x half> %{{.*}}, <8 x half>* %{{.*}}, align 1{{$}}
+  // CHECK-NEXT: ret void
+  _mm_storeu_ph(p, a);
 }
 
 __m128h test_mm_move_sh(__m128h A, __m128h B) {
@@ -4267,3 +4402,96 @@ __m128h test_mm_maskz_fmul_round_sch(__mmask8 __U, __m128h __A, __m128h __B) {
   return _mm_maskz_fmul_round_sch(__U, __A, __B, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
 }
 
+_Float16 test_mm512_reduce_add_ph(__m512h __W){
+  // CHECK-LABEL: @test_mm512_reduce_add_ph
+  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // CHECK: %{{.*}} = fadd <16 x half> %{{.*}}, %{{.*}}
+  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 0, i32 1>
+  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
+  // CHECK: %{{.*}} = shufflevector <2 x double> %{{.*}}, <2 x double> %{{.*}}, <2 x i32> <i32 1, i32 0>
+  // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
+  // CHECK: %{{.*}} = shufflevector <4 x float> %{{.*}}, <4 x float> %{{.*}}, <4 x i32> <i32 1, i32 0, i32 2, i32 3>
+  // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
+  // CHECK: %{{.*}} = shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
+  // CHECK: %{{.*}} = extractelement <8 x half> %{{.*}}, i32 0
+  return _mm512_reduce_add_ph(__W);
+}
+
+_Float16 test_mm512_reduce_mul_ph(__m512h __W){
+  // CHECK-LABEL: @test_mm512_reduce_mul_ph
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // CHECK:  %{{.*}} = fmul <16 x half> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 0, i32 1>
+  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = shufflevector <2 x double> %{{.*}}, <2 x double> %{{.*}}, <2 x i32> <i32 1, i32 0>
+  // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = shufflevector <4 x float> %{{.*}}, <4 x float> %{{.*}}, <4 x i32> <i32 1, i32 0, i32 2, i32 3>
+  // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+  // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
+  // CHECK:  %{{.*}} = extractelement <8 x half> %{{.*}}, i32 0
+  return _mm512_reduce_mul_ph(__W);
+}
+
+_Float16 test_mm512_reduce_max_ph(__m512h __W){
+  // CHECK-LABEL: @test_mm512_reduce_max_ph
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> %{{.*}}, <8 x i32> <i32 2, i32 3, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> %{{.*}}, <8 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <16 x float> %{{.*}}, <16 x float> %{{.*}}, <16 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = extractelement <32 x half> %{{.*}}, i32 0
+  return _mm512_reduce_max_ph(__W);
+}
+
+_Float16 test_mm512_reduce_min_ph(__m512h __W){
+  // CHECK-LABEL: @test_mm512_reduce_min_ph
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> %{{.*}}, <8 x i32> <i32 2, i32 3, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> %{{.*}}, <8 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <16 x float> %{{.*}}, <16 x float> %{{.*}}, <16 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = shufflevector <32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  // CHECK:  %{{.*}} = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4) #7
+  // CHECK:  %{{.*}} = extractelement <32 x half> %{{.*}}, i32 0
+  return _mm512_reduce_min_ph(__W);
+}
+
+__m512h test_mm512_mask_blend_ph(__mmask32 __U, __m512h __A, __m512h __W) {
+  // CHECK-LABEL: @test_mm512_mask_blend_ph
+  // CHECK:  %{{.*}} = bitcast i32 %{{.*}} to <32 x i1>
+  // CHECK:  %{{.*}} = select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}
+  return _mm512_mask_blend_ph(__U,__A,__W);
+}
+
+__m512h test_mm512_permutex2var_ph(__m512h __A, __m512i __I, __m512h __B) {
+  // CHECK-LABEL: @test_mm512_permutex2var_ph
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = bitcast <8 x i64> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = call <32 x i16> @llvm.x86.avx512.vpermi2var.hi.512(<32 x i16> %{{.*}}, <32 x i16> %{{.*}}, <32 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <32 x i16> %{{.*}} to <32 x half>
+  return _mm512_permutex2var_ph(__A,__I,__B);
+}
+
+__m512h test_mm512_permutexvar_epi16(__m512i __A, __m512h __B) {
+  // CHECK-LABEL: @test_mm512_permutexvar_epi16
+  // CHECK:  %{{.*}} = bitcast <32 x half> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = bitcast <8 x i64> %{{.*}} to <32 x i16>
+  // CHECK:  %{{.*}} = call <32 x i16> @llvm.x86.avx512.permvar.hi.512(<32 x i16> %{{.*}}, <32 x i16> %{{.*}})
+  // CHECK:  %{{.*}} = bitcast <32 x i16> %{{.*}} to <32 x half>
+ return _mm512_permutexvar_ph(__A, __B);
+}

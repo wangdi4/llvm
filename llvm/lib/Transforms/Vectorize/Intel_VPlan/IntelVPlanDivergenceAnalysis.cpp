@@ -157,7 +157,8 @@ static void assertOperandsDefined(const VPInstruction &I,
                                   VPlanDivergenceAnalysis *DA) {
   assert(none_of(I.operands(),
                  [=](VPValue *Op) {
-                   return DA->getVectorShape(Op).isUndefined();
+                   return !isa<VPBasicBlock>(Op) &&
+                          DA->getVectorShape(Op).isUndefined();
                  }) &&
          "Undefined shape not expected!");
 }
@@ -188,6 +189,9 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
                                               bool &IsNegOneStride) const {
+  // Set IsNegOneStride to false. This will be set to true later if necessary.
+  IsNegOneStride = false;
+
   // Current DA doesn't have any way to propagate linearity into the vector
   // types, e.g. by forming
   //
@@ -204,21 +208,14 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
 
   assert(isa<PointerType>(Ptr->getType()) &&
          "Expect argument of isUnitStridePtr to be of PointerType.");
+
+  if (isSOAUnitStride(Ptr))
+    return true;
+
   // Compute the pointee-size in bytes.
   Type *PointeeTy = Ptr->getType()->getPointerElementType();
-  unsigned PtrNumBytes = getTypeSizeInBytes(PointeeTy);
 
-  // We can't do unit-stride access optimization if pointee type's allocated
-  // size does not match its store size since it implies implicit padding. Check
-  // https://godbolt.org/z/7e1r1j. For example -
-  // Type         SizeInBits  StoreSizeInBits  AllocSizeInBits
-  // ----         ----------  ---------------  ---------------
-  // <3 x i32>        96           96               128
-  //
-  // TODO: This bailout is too conservative since vectorizer codegen can
-  // generate optimal unit-stride accesses for such types by masking out lanes
-  // that access padding bytes. Check JIRA - CMPLRLLVM-22929.
-  if (Plan->getDataLayout()->getTypeStoreSize(PointeeTy) != PtrNumBytes)
+  if (hasIrregularTypeForUnitStride(PointeeTy, Plan->getDataLayout()))
     return false;
 
   auto VectorShape = getVectorShape(Ptr);
@@ -227,14 +224,21 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
   // IsNegOneStride and return true for unit stride case.
   if (VectorShape.isStrided() && VectorShape.hasKnownStride()) {
     auto StrideVal = VectorShape.getStrideVal();
+    unsigned PtrNumBytes = getTypeSizeInBytes(PointeeTy);
     if (std::abs(StrideVal) == PtrNumBytes) {
       IsNegOneStride = StrideVal < 0;
       return true;
     }
   }
 
-  IsNegOneStride = false;
   return false;
+}
+
+// Return true of the given variable has SOA unit-stride.
+bool VPlanDivergenceAnalysis::isSOAUnitStride(const VPValue *Ptr) const {
+  if (isa<VectorType>(Ptr->getType()))
+    return false;
+  return getVectorShape(Ptr).isSOAUnitStride();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -471,14 +475,15 @@ void VPlanDivergenceAnalysis::pushPHINodes(const VPBasicBlock &Block,
 }
 
 void VPlanDivergenceAnalysis::pushUsers(const VPValue &V) {
+  // Add all user-instructions in the VPlan to the worklist, including those in
+  // the loop-preheader. This is because, sometimes, we can have important
+  // instructions in the loop-preheader and computing/updating their shapes is
+  // important for accuracy of DA-results.
   for (const auto *User : V.users()) {
     const auto *UserInst = dyn_cast<const VPInstruction>(User);
     if (!UserInst)
       continue;
 
-    // only compute divergent/shapes inside loop
-    if (!inRegion(*UserInst))
-      continue;
     pushToWorklist(*UserInst);
   }
 }
@@ -617,7 +622,8 @@ void VPlanDivergenceAnalysis::computeImpl() {
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) ||
-      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V))
+      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V) ||
+      V.getType()->isLabelTy())
     return true;
 
   // TODO: We have a choice on how to handle functions such as get_global_id().
@@ -773,8 +779,6 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   for (VPBasicBlock *VPBB : RPOT) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     for (auto &VPInst : *VPBB) {
-      if (!PrintTerminatorInst && isa<VPBranchInst>(VPInst))
-        continue;
       if (isDivergent(VPInst))
         OS << "Divergent: ";
       else
@@ -1236,6 +1240,26 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCmpInst(
   const auto &VPBB = *I->getParent();
   VPValue *Op0 = I->getOperand(0);
   VPValue *Op1 = I->getOperand(1);
+
+  // If any of operands is VectorTripCountCalculation and condition is latch
+  // condition we consider it as uniform. Because even the induction which
+  // is compared with VectorTripCount is not uniform all its lanes contain
+  // values in {x+0:x+VF-1} range, and x is started from 0 and incremented by
+  // VF. So the condition will be true/false for all lanes simultaneously.
+  if (isa<VPVectorTripCountCalculation>(Op0) ||
+      isa<VPVectorTripCountCalculation>(Op1)) {
+    VPBasicBlock *Hdr = RegionLoop->getHeader();
+    VPBasicBlock *Latch = RegionLoop->getLoopLatch();
+    if (llvm::any_of(I->users(), [Hdr, Latch](const VPUser *U) {
+          return isa<VPBranchInst>(U) &&
+                 cast<VPInstruction>(U)->getParent() == Latch &&
+                 llvm::any_of(U->operands(), [Hdr](VPValue *V) {
+                   return V == Hdr;
+                 });
+        }))
+      return getUniformVectorShape();
+  }
+
   VPVectorShape Shape0 = getObservedShape(VPBB, *Op0);
   VPVectorShape Shape1 = getObservedShape(VPBB, *Op1);
 
@@ -1487,7 +1511,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
     // FIXME: Compute divergence based on the operands.
     NewShape = getRandomVectorShape();
-  } else {
+  } else if (Opcode == VPInstruction::ReuseLoop)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::OrigLiveOut)
+    NewShape = getUniformVectorShape();
+  else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&
@@ -1594,7 +1622,8 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 // Dominator/Post-Dominator tree, etc. are unchanged from the previous
 // invocation of the \p compute method.
 void VPlanDivergenceAnalysis::recomputeShapes(
-    SmallPtrSetImpl<VPInstruction *> &Seeds) {
+    SmallPtrSetImpl<VPInstruction *> &Seeds,
+    bool EnableFullDAVerificationAndPrint) {
 
   assert(!DARecomputationDisabled &&
          "DA should not be computed for this Cloned VPlan!");
@@ -1607,10 +1636,11 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 
   // Compute the shapes of the VPAllocatePrivate seed-instructions and push
   // their users to the Worklist.
-  for (auto *Priv : Seeds) {
-    auto Shape = computeVectorShape(Priv);
-    updateVectorShape(Priv, Shape);
-    pushUsers(*Priv);
+  for (auto *Inst : Seeds) {
+    assertOperandsDefined(*Inst, this);
+    auto Shape = computeVectorShape(Inst);
+    updateVectorShape(Inst, Shape);
+    pushUsers(*Inst);
   }
 
   // Compute the shapes of instructions.
@@ -1620,12 +1650,14 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
-  if (VPlanVerifyDA)
+  if (EnableFullDAVerificationAndPrint && VPlanVerifyDA)
     verifyVectorShapes();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DumpDA)
+  if (EnableFullDAVerificationAndPrint && DumpDA)
     print(dbgs(), RegionLoop);
+  if (EnableFullDAVerificationAndPrint && DumpPlanDA)
+    print(dbgs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 

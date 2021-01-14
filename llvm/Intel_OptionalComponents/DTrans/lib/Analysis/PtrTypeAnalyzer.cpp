@@ -17,6 +17,7 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
@@ -24,7 +25,11 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
 
+using namespace llvm::PatternMatch;
+
 #define DEBUG_TYPE "dtrans-pta"
+
+#define DTRANS_PARTIALPTR "dtrans-partialptr"
 
 // Trace messages for the pointer type analyzer when new information is
 // associated with a Value object.
@@ -97,6 +102,9 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
   return false;
 }
 
+#if 0
+// TODO: This commented out code will be needed when opaque pointers are
+// unabled.
 // Check whether the DTransType \p has a pointer. This is similar to the
 // utility function dtrans::hasPointerType(llvm::Type* Ty), which operates
 // on llvm Types.
@@ -138,7 +146,8 @@ static bool hasPointerType(dtrans::DTransType *Ty) {
 
   return false;
 }
-
+#endif
+  
 // Helper to get the base object type that makes up an array/vector/array nest
 // type.
 static DTransType *getSequentialObjectBaseType(DTransSequentialType *Ty) {
@@ -187,7 +196,8 @@ public:
       : Analyzer(Analyzer), CombineUseAndDecl(CombineUseAndDecl) {}
 
   // Dump the list of input parameter types detected for the function.
-  void emitFunctionAnnot(const Function *F, formatted_raw_ostream &OS) {
+  void emitFunctionAnnot(const Function *F,
+                         formatted_raw_ostream &OS) override {
     // We don't have information for parameters of function declarations.
     if (F->isDeclaration())
       return;
@@ -212,7 +222,7 @@ public:
 
   // For pointers and values of interest, print the type information determined
   // for Value \p CV
-  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) override {
     std::function<void(formatted_raw_ostream &, ConstantExpr *)>
         PrintConstantExpr =
             [&PrintConstantExpr, this](formatted_raw_ostream &OS,
@@ -591,10 +601,402 @@ public:
     }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-    if (!F.isDeclaration())
+    if (!F.isDeclaration()) {
+      IdentifyPartialPointerOperations(F);
+
       for (auto &A : F.args())
         if (hasPointerType(A.getType()))
           analyzeValue(&A);
+    }
+  }
+
+  // There is a very specific pattern that we need to be able to identify
+  // where we have pointer-to-pointer values and the pointers being pointed
+  // to are swapped by copying partial chunks of the pointer (either i8 or i32)
+  // We don't want to track the loads, stores or any associated bitcasts as
+  // potential safety violations in this case.
+  //
+  // The pattern we want to match looks like this for i32 swaps:
+  //
+  //   Block1:
+  //     %Cast1 = bitcast i8* %PtrToPtr to i32*
+  //     %Cast2 = bitcast i8* %OtherPtrToPtr to i32*
+  //     br label %Block2
+  //
+  //   Block2:
+  //     %Count = phi i64 [ 2, %Block1 ], [ %NextCount, %Block2 ]
+  //     %HalfPtr1 = phi i32* [ %Cast1, %Block1 ], [ %NextHalf1, %Block2 ]
+  //     %HalfPtr2 = phi i32* [ %Cast2, %Block1 ], [ %NextHalf2, %Block2 ]
+  //     %HalfVal1 = load i32, i32* %HalfPtr1
+  //     %HalfVal2 = load i32, i32* %HalfPtr2
+  //     %NextHalf1 = getelementptr inbounds i32, i32* %HalfPtr1, i64 1
+  //     store i32 %HalfVal2, i32* %HalfPtr1
+  //     %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
+  //     store i32 %HalfVal1, i32* %HalfPtr2
+  //     %NextCount = add nsw i64 %Count, -1
+  //     %Cmp = icmp sgt i64 %Count, 1
+  //     br i1 %Cmp, label %Block2, label %ExitBlock
+  //
+  // For i8 swaps, it looks similar without the bitcasts in Block1 and with
+  // a count constant of 8 rather than 2.
+  //
+  // (Note: Sometimes we can't identify that the incoming count value for the
+  //  32-bit case is not constant.)
+  //
+  // Even though the treatment of the two values is symmetric, we need to
+  // check them both together because we need to be sure that the partial-values
+  // are being written to adjacent memory locations.
+  //
+  // Here we attempt to match the pattern starting with one of the load
+  // instructions. For the pattern to match, the following conditions must be
+  // met:
+  //
+  //   1. The pointer operand of the load must be a PHI node with two incoming
+  //      values.
+  //   2. One of the incoming values must be from the block containing the
+  //      PHI, which loops back on itself.
+  //   3. The incoming value must be a GEP which increments the PHI pointer.
+  //   4. The PHI node must have three users, a load, a store, and a GEP.
+  //   5. The store must be storing a value loaded from the "partner PHI"
+  //   5. The load must have a single user, a store in the same block.
+  //   6. The load must be stored to the "partner PHI"
+  //   7. The GEP must be the other incoming value to the PHI.
+  //   8. The block containing this code must loop back on itself based on
+  //      a count value which is decremented each time the block executes.
+  void IdentifyPartialPointerOperations(Function &F) {
+
+    // Check that \p V is a PHI, which takes an input of itself, incremented by
+    // one element via a GEP which is within \p LoopBB.
+    //   bb1053:
+    //     %i1055 = phi p0 [ %i1039, %bb1050 ], [ %i1059, %bb1053 ]
+    //     ...
+    //     %i1059 = getelementptr i32, p0 %1055, i64 1
+    //
+    auto verifyPHI = [](Value *V, BasicBlock *LoopBB) {
+      auto *PN = dyn_cast<PHINode>(V);
+      if (!PN)
+        return false;
+
+      // The PHI must have two incoming values. We know one is the
+      // value we're here to check. We'll check the other below.
+      if (PN->getNumIncomingValues() != 2)
+        return false;
+
+      // The block containing the PHI must loop back on itself and the incoming
+      // value from that block must be a GEP that increments the PHI pointer.
+      Value *SelfInVal = nullptr;
+      if (PN->getIncomingBlock(0) == LoopBB)
+        SelfInVal = PN->getIncomingValue(0);
+      else if (PN->getIncomingBlock(1) == LoopBB)
+        SelfInVal = PN->getIncomingValue(1);
+      if (!SelfInVal)
+        return false;
+      auto *GEP = dyn_cast<GetElementPtrInst>(SelfInVal);
+      if (!GEP || GEP->getNumIndices() != 1 || !GEP->hasAllConstantIndices())
+        return false;
+      auto *Idx = dyn_cast<ConstantInt>(*GEP->idx_begin());
+      if (!Idx || !Idx->isOne())
+        return false;
+
+      return true;
+    };
+
+    // Verify that the PHI node is used in a block that loops back on itself
+    // based on a counter value.
+    auto verifyBlockIsLoop = [](PHINode *PN) {
+      auto *LoopBB = PN->getParent();
+      auto *Branch = dyn_cast<BranchInst>(LoopBB->getTerminator());
+      if (!Branch || !Branch->isConditional()) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Not matched. No conditional branch!\n");
+        return false;
+      }
+      // This could be much more general, but it meets our current needs.
+      auto *Condition = dyn_cast<ICmpInst>(Branch->getCondition());
+      if (!Condition) {
+        DEBUG_WITH_TYPE_P(
+            FNFilter, DTRANS_PARTIALPTR,
+            dbgs() << "Not matched. Branch condition is not icmp!\n");
+        return false;
+      }
+      ICmpInst::Predicate Pred;
+      Instruction *Base;
+      const APInt *Count;
+      // The condition should be a comparison based on a PHI node.
+      if (!match(Condition,
+                 m_ICmp(Pred, m_Instruction(Base), m_APInt(Count)))) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs()
+                              << "Not matched. icmp not using constant int!\n");
+        return false;
+      }
+      if (Pred != CmpInst::Predicate::ICMP_SGT) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Not matched. icmp predicate isn't sgt!\n");
+        return false;
+      }
+
+      // The loop count can be represented in various ways. The two handled here
+      // are:
+      //
+      //   %Count = phi i64 [ %InitCount, %Block1 ], [ %NextCount, %Block2 ]
+      //   ...
+      //   %NextCount = add nsw i64 %Count, -1
+      //   %Cmp = icmp sgt i64 %Count, 1
+      //
+      // and
+      //
+      //   %Count = phi i64 [ %InitCount, %Block1 ], [ %NextCount, %Block2 ]
+      //   ...
+      //   %NextCount = add nsw i64 %Count, -1
+      //   %Cmp = icmp sgt i64 %NextCount, 0
+      if (Count->isOneValue()) {
+        auto *BasePHI = dyn_cast<PHINode>(Base);
+        if (!BasePHI || BasePHI->getParent() != LoopBB) {
+          DEBUG_WITH_TYPE_P(
+              FNFilter, DTRANS_PARTIALPTR,
+              dbgs() << "Not matched. Branch condition isn't PHI!\n");
+          return false;
+        }
+        // The incoming value from the loop block must be a decrement of the
+        // count PHI.
+        Value *LoopInVal;
+        if (BasePHI->getIncomingBlock(0) == LoopBB)
+          LoopInVal = BasePHI->getIncomingValue(0);
+        else
+          LoopInVal = BasePHI->getIncomingValue(1);
+        unsigned Bitwidth = LoopInVal->getType()->getScalarSizeInBits();
+        if (!(match(LoopInVal, m_Add(m_Specific(BasePHI),
+                                     m_SpecificInt(APInt(Bitwidth, -1)))) ||
+              match(LoopInVal, m_Add(m_SpecificInt(APInt(Bitwidth, -1)),
+                                     m_Specific(BasePHI))))) {
+          DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                            dbgs()
+                                << "Not matched. PHI decrement not matched!\n");
+          return false;
+        }
+      } else {
+        if (!Count->isNullValue()) {
+          DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                            dbgs() << "Not matched. icmp not using 0 or 1!\n");
+          return false;
+        }
+
+        // If the comparison is against zero, we expect the value being
+        // compared to be a decrement of the PHI value.
+        Instruction *DecBase;
+        if (!(match(Base, m_Add(m_Instruction(DecBase), m_SpecificInt(-1))) ||
+              match(Base, m_Add(m_SpecificInt(-1), m_Instruction(DecBase))))) {
+          DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                            dbgs()
+                                << "Not matched. PHI decrement not matched!\n");
+          return false;
+        }
+        auto *BasePHI = dyn_cast<PHINode>(DecBase);
+        if (!BasePHI || BasePHI->getParent() != LoopBB) {
+          DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                            dbgs()
+                                << "Not matched. Decrement input isn't PHI!\n");
+          return false;
+        }
+        // The incoming value from the loop block must be the decrement result.
+        Value *LoopInVal;
+        if (BasePHI->getIncomingBlock(0) == LoopBB)
+          LoopInVal = BasePHI->getIncomingValue(0);
+        else
+          LoopInVal = BasePHI->getIncomingValue(1);
+        if (LoopInVal != Base) {
+          DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                            dbgs()
+                                << "Not matched. PHI decrement not matched!\n");
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+    auto matchPHIUsers = [](PHINode *PN, LoadInst *&LoadUser,
+                            StoreInst *&StoreUser,
+                            GetElementPtrInst *&GEPUser) {
+      // The PHI must have three users.
+      if (!PN->hasNUses(3)) {
+        DEBUG_WITH_TYPE_P(
+            FNFilter, DTRANS_PARTIALPTR,
+            dbgs() << "Not matched. PHI doesn't have three users!\n");
+        return false;
+      }
+
+      LoadUser = nullptr;
+      StoreUser = nullptr;
+      GEPUser = nullptr;
+      for (auto *U : PN->users()) {
+        if (!LoadUser)
+          LoadUser = dyn_cast<LoadInst>(U);
+        if (!StoreUser)
+          StoreUser = dyn_cast<StoreInst>(U);
+        if (!GEPUser)
+          GEPUser = dyn_cast<GetElementPtrInst>(U);
+      }
+      if (!LoadUser || !StoreUser || !GEPUser) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Not matched. PHI users don't match!\n");
+        return false;
+      }
+
+      // The GEP must have a single use which is the PHI.
+      if (!GEPUser->hasOneUse() || (*GEPUser->user_begin() != PN)) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Not matched. "
+                                 << "GEP isn't uniquely used by PHI!\n");
+        return false;
+      }
+
+      // The load user must have a single use. We'll check that elsewhere.
+      if (!LoadUser->hasOneUse()) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Not matched. "
+                                 << "Secondary load isn't single use!\n");
+        return false;
+      }
+
+      // The phi must be the target of the store, not the value stored.
+      if (StoreUser->getPointerOperand() != PN) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Not matched. "
+                                 << "Store doesn't write to PHI pointer!\n");
+        return false;
+      }
+
+      return true;
+    };
+
+    auto verifyLoadUsage = [](LoadInst *Load, Value *ExpectedDest) {
+      // We've already verified that the load user is only used once.
+      // That use must be a store instruction
+      auto *Store = dyn_cast<StoreInst>(*Load->user_begin());
+      if (!Store) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Not matched. "
+                                 << "Loaded value isn't used by store!\n");
+        return false;
+      }
+
+      // The loaded value must be the stored value, not the destination
+      // of the store.
+      if (Store->getValueOperand() != Load) {
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs()
+                              << "Not matched. Loaded value isn't stored!\n");
+        return false;
+      }
+
+      // Check that the destination of the store is what we expect.
+      if (Store->getPointerOperand() != ExpectedDest) {
+        DEBUG_WITH_TYPE_P(
+            FNFilter, DTRANS_PARTIALPTR,
+            dbgs() << "Not matched. Unexpected store destination!\n");
+        return false;
+      }
+
+      return true;
+    };
+
+    auto SetPartialPointerUse = [this](ArrayRef<Value *> Values) {
+      for (auto *V : Values) {
+        ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(V);
+        Info->setIsPartialPointerUse();
+      }
+    };
+
+    // When the idiom is matched there are two load instructions associated with
+    // the operation. Keep a set of the matches to avoid the need to evaluate
+    // the pattern on the paired load.
+    SmallPtrSet<Value *, 16> MatchingLoads;
+    for (auto &I : instructions(F)) {
+      if (auto *LI = dyn_cast<LoadInst>(&I)) {
+        Type *ValTy = LI->getType();
+        if (!(ValTy->isIntegerTy(8) || ValTy->isIntegerTy(32)))
+          continue;
+
+        if (MatchingLoads.count(LI))
+          continue;
+
+        // If we're not loading from a PHI node pointer, then it is not the
+        // supported pattern.
+        auto *PrimaryPHI = dyn_cast<PHINode>(LI->getPointerOperand());
+        if (!PrimaryPHI)
+          continue;
+
+        auto *LoopBB = PrimaryPHI->getParent();
+        if (!verifyPHI(PrimaryPHI, LoopBB))
+          continue;
+
+        DEBUG_WITH_TYPE_P(
+            FNFilter, DTRANS_PARTIALPTR,
+            dbgs() << "Checking potential partial pointer use idiom: ["
+                   << F.getName() << "]" << *LI << "\n");
+
+        // Make sure the block loops back on itself.
+        if (!verifyBlockIsLoop(PrimaryPHI))
+          continue;
+
+        // Try to match the PHI users as a load, a store, and a GEP.
+        LoadInst *LoadUser;
+        StoreInst *StoreUser;
+        GetElementPtrInst *GEPUser;
+        if (!matchPHIUsers(PrimaryPHI, LoadUser, StoreUser, GEPUser))
+          continue;
+
+        // The value stored should trace back to our partner value as such:
+        //   PartnerVal = bitcast
+        //   PartnerPHI = phi [PartnerVal....
+        //   StoredVal = load i32, i32* PartnerPHI
+        auto *ValStored = StoreUser->getValueOperand();
+        auto *PartnerLoad = dyn_cast<LoadInst>(ValStored);
+        if (!PartnerLoad) {
+          DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                            dbgs()
+                                << "Not matched. Can't find partner load!\n");
+          continue;
+        }
+        auto *PartnerPHI = dyn_cast<PHINode>(PartnerLoad->getPointerOperand());
+        if (!PartnerPHI || PartnerPHI->getParent() != PrimaryPHI->getParent()) {
+          DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                            dbgs() << "Not matched. Can't find partner PHI!\n");
+          continue;
+        }
+
+        if (!verifyPHI(PartnerPHI, LoopBB)) {
+          DEBUG_WITH_TYPE_P(
+              FNFilter, DTRANS_PARTIALPTR,
+              dbgs() << "Not matched. Partner PHI does match idiom!\n");
+          continue;
+        }
+
+        // Check that the value loaded from the PHI pointer is stored in the
+        // same place that the partner load was loaded from.
+        if (!verifyLoadUsage(LoadUser, PartnerPHI))
+          continue;
+
+        StoreInst *PartnerStore;
+        GetElementPtrInst *PartnerGEP;
+        if (!matchPHIUsers(PartnerPHI, PartnerLoad, PartnerStore, PartnerGEP))
+          continue;
+
+        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
+                          dbgs() << "Partial pointer use idiom matched: "
+                                 << "[" << F.getName() << "]:\n"
+                                 << "  Load #1: " << *LI << "\n"
+                                 << "  Load #2: " << *PartnerLoad << "\n"
+                                 << "  GEP #1 : " << *GEPUser << "\n"
+                                 << "  GEP #2 : " << *PartnerGEP << "\n");
+
+        MatchingLoads.insert(LI);
+        MatchingLoads.insert(PartnerLoad);
+        SetPartialPointerUse({PrimaryPHI, PartnerPHI, GEPUser, PartnerGEP});
+      }
+    }
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
@@ -668,14 +1070,40 @@ public:
     }
   }
 
+  void visitReturnInst(ReturnInst &I) {
+    // No additional analysis needs to be done, since the only time a
+    // ReturnInst produces a new type is when a type is cast, which will
+    // have been examined when inferring the type cast.
+    //
+    // TODO: When pointers are fully opaque, it may be necessary to
+    // perform inference here based on the expected return type.
+    return;
+  }
+
+  void visitCmpInst(CmpInst &I) {
+    // No type information needs to be collected for CmpInst. Included here so
+    // that visitInstruction does not mark operands as unhandled.
+    return;
+  }
+
   // All instructions not handled by other visit functions.
   void visitInstruction(Instruction &I) {
-    if (!hasPointerType(I.getType()))
-      return;
+    if (hasPointerType(I.getType())) {
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&I);
+      Info->setUnhandled();
+      LLVM_DEBUG(dbgs() << "Unhandled instruction: " << I << "\n");
+    }
 
-    ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&I);
-    Info->setUnhandled();
-    LLVM_DEBUG(dbgs() << "Unhandled instruction: " << I << "\n");
+    for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum) {
+      Value *Op = I.getOperand(OpNum);
+      if (hasPointerType(Op->getType())) {
+        ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&I, OpNum);
+        Info->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Operand used in unhandled instruction: " << *Op
+                          << "\n"
+                          << "User: " << I << "\n");
+      }
+    }
   }
 
 private:
@@ -830,6 +1258,10 @@ private:
   // Update the ResultInfo usage type alias set for ValueToInfer by looking at
   // all the users of the ValueToInfer to determine its type.
   void inferTypeFromUse(Value *ValueToInfer, ValueTypeInfo *ResultInfo) {
+    ValueTypeInfo *PtrInfo = PTA.getOrCreateValueTypeInfo(ValueToInfer);
+    if (PtrInfo->getIsPartialPointerUse())
+      return;
+
     // Don't start another inference triggered by an analyze routine when
     // one is already underway for the value.
     if (InferInProgress.count(ValueToInfer))
@@ -845,44 +1277,8 @@ private:
       It = ValueToInferredTypes.find(ValueToInfer);
     }
 
-    if (It == ValueToInferredTypes.end()) {
-      // If there were users, then a type should have been found once all the
-      // infer calls complete. However, if there are infer calls still in
-      // progress don't treat this as unhandled. The LIT test,
-      // ptrtype-icmp-infer01.ll, is an example of a case where inferring one
-      // value leads to analysis of another value that starts another inference
-      // call.
-      //
-      // (1) %tmp1008 = bitcast %struct.test01* %arg1001 to
-      //                        void (%struct.test01*, i8*)***
-      // (2) %tmp1009 = load void(%struct.test01*, i8*)**,
-      //                     void(%struct.test01*, i8*)*** %tmp1008
-      // (3) %tmp1010 = getelementptr inbounds void(%struct.test01*, i8*)*,
-      //                           void(%struct.test01*, i8*)** %tmp1009, i64 3
-      // (4) %tmp1011 = load void(%struct.test01*, i8*)*,
-      //                     void(%struct.test01*, i8*)** %tmp1010
-      // (5) %tmp1012 = bitcast void(%struct.test01*, i8*)* %tmp1011 to i8*
-      // (6) %tmp1013 = bitcast void(%struct.test01impl*, i8*)* @helper_test01
-      //                        to i8*
-      // (7) %tmp1014 = icmp eq i8* %tmp1012, %tmp1013
-      //
-      // Infer type for (1) requires examining its user (2)
-      // Examining (2) requires inferring from its user (3)
-      // Examining (3) requires inferring from its user (4)
-      // Examining (4) requires inferring from its user (5)
-      // Examining (5) requires inferring from its user (7)
-      // Examining (6) requires inferring from its user (7)
-      // (7) will attempt to analyze the dependent values (5) and (6) for
-      // types, which will trigger trying to infer the type for (5). This
-      // inference will reach this test while the original inference of (1)
-      // is still in progress.
-      if (!isInferInProgress() && !ValueToInfer->user_empty()) {
-        ResultInfo->setUnhandled();
-        LLVM_DEBUG(dbgs() << "Infer did not find any types for:"
-                          << *ValueToInfer << "\n");
-      }
+    if (It == ValueToInferredTypes.end())
       return;
-    }
 
     for (auto Ty : It->second)
       ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
@@ -891,6 +1287,21 @@ private:
   // Walk all the users of \p ValueToInfer, updating the ValueToInferredTypes
   // mapping with types that ValueToInfer is used as.
   void inferTypeFromUseImpl(Value *ValueToInfer) {
+    ValueTypeInfo *PtrInfo = PTA.getOrCreateValueTypeInfo(ValueToInfer);
+    if (PtrInfo->getIsPartialPointerUse()) {
+      // When an instruction has been tagged as being a partial pointer use, it
+      // indicates the user of the Value is going to be using the pointer in a
+      // very specific way with a type that does not match the actual type. In
+      // that case, do not look forward to those uses for inferring the type.
+      // Instead just propagate the types that are already known for the Value.
+      for (auto *DType :
+           PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+        if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
+          addInferredType(ValueToInfer, PtrTy);
+
+      return;
+    }
+
     // Simple types can be directly added to the mapping.
     llvm::Type *Ty = ValueToInfer->getType();
     if (!dtrans::hasPointerType(Ty)) {
@@ -1036,7 +1447,18 @@ private:
     for (auto &Arg : Call->args()) {
       if (Arg == ValueToInfer) {
         auto P = getArgumentType(Call, Idx);
-        if (P.first && P.second) {
+        if (!P.first) {
+          // The argument is not used, or not a type of interest. Just use the
+          // existing known types for the parameter to avoid it being marked as
+          // unhandled. TODO: see if there is a better way to determine when a
+          // type cannot be inferred.
+          ValueTypeInfo *ArgInfo =
+              PTA.getOrCreateValueTypeInfo(Arg.getUser(), 0);
+          for (auto *DType :
+               ArgInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+            if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
+              addInferredType(ValueToInfer, PtrTy);
+        } else if (P.second) {
           // Add the type, and continue to the next argument, rather than
           // exiting the loop, in case the ValueToInfer occurs multiple times.
           addInferredType(ValueToInfer, P.second);
@@ -1149,8 +1571,12 @@ private:
           if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
             InferredValTy = ElemZeroTy.getValue().second;
         }
-        addInferredType(ValOp, InferredValTy);
-        addInferredType(PtrOp, DType);
+        // The only time we would need to infer the value operand type is for a
+        // pointer value. Only add the type inferred if is a pointer value.
+        if (InferredValTy->isPointerTy()) {
+          addInferredType(ValOp, InferredValTy);
+          addInferredType(PtrOp, DType);
+        }
       }
   }
 
@@ -1176,8 +1602,40 @@ private:
         ValueTypeInfo *PtrOpInfo = analyzeValue(PtrOp);
         for (auto *DType :
              PtrOpInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
-          if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
-            addInferredType(PTI, PtrTy->getPointerElementType());
+          if (auto *PtrTy = dyn_cast<DTransPointerType>(DType)) {
+            // The original type of a PtrToInt instruction is expected to be a
+            // pointer type, so the storage location should be a
+            // pointer-to-pointer type. If that is the case, then add the
+            // pointer's element type to the inference set. If the stored
+            // location is not a pointer-to-pointer, but rather a pointer to an
+            // aggregate type, then the store is writing the first field within
+            // the aggregate.
+            //
+            // Case 1: Store a pointer to an allocated structure
+            //   %struct.test03 = type { i32, i32 }
+            //   %pps = alloca %struct.test03*
+            //   %tmp = bitcast %struct.test03** %pps to i64*
+            //   %alloc = call i8* @malloc(i64 %size)
+            //   %pti = ptrtoint i8* %alloc to i64
+            //   store i64 %pti, i64* %tmp
+            //
+            // Case 2: Store to the first field within a structure
+            //   %struct.test04 = type { i32*, i32* }
+            //   %ps = alloca %struct.test04
+            //   %tmp = bitcast %struct.test04* %ps to i64*
+            //   %alloc = call i8* @malloc(i64 %size)
+            //   %pti = ptrtoint i8* %alloc to i64
+            //   store i64 %pti, i64* %tmp
+            //
+            DTransType *ElemTy = PtrTy->getPointerElementType();
+            if (ElemTy->isPointerTy()) {
+              addInferredType(PTI, PtrTy->getPointerElementType());
+            } else if (ElemTy->isAggregateType()) {
+              auto ElemZeroTy = PTA.getElementZeroType(ElemTy);
+              if (ElemZeroTy && ElemZeroTy.getValue().second->isPointerTy())
+                addInferredType(PTI, ElemZeroTy.getValue().second);
+            }
+          }
       }
     }
 
@@ -1452,10 +1910,17 @@ private:
       if (OptRetType.second) {
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, OptRetType.second);
 
-        // An indirect call that returns an i8* should be checked for the
-        // actual type it gets used as.
-        if (Call->isIndirectCall() &&
-            OptRetType.second == PTA.getDTransI8PtrType())
+        // Any call that returns an i8* should be checked for the type it gets
+        // used as to support handling IR with non-opaque pointer type casts.
+        // For example:
+        //   1)  %ty1 = call i8* @creator()
+        //   2)  %ty2 = bitcast i8* %ty1 to %struct.type2*
+        //   3)  <some instruction using %ty2 as %struct.type2*>
+        //
+        // TODO: Once opaque pointers are introduced, the bitcast will no longer
+        // exist, and instruction 3 will directly use %ty1 as a %struct.type2*
+        // value, so this inference should no longer be necessary.
+        if (OptRetType.second == PTA.getDTransI8PtrType())
           inferTypeFromUse(Call, ResultInfo);
       } else {
         ResultInfo->setUnhandled();
@@ -1561,6 +2026,8 @@ private:
       case LibFunc_malloc:
       case LibFunc_realloc:
       case LibFunc_strcpy:
+      case LibFunc_Znam:
+      case LibFunc_Znwm:
         return PTA.getDTransI8PtrType();
 
         // Functions that return the system object for FILE*
@@ -1671,6 +2138,8 @@ private:
       case LibFunc_realloc:
       case LibFunc_sprintf:
       case LibFunc_strcpy:
+      case LibFunc_ZdlPv:
+      case LibFunc_ZdaPv:
         break;
 
         // Handle cases where the argument may be used as something other than
@@ -1721,6 +2190,14 @@ private:
       DType = MDReader.getDTransTypeFromMD(Call);
     else if (Target)
       DType = MDReader.getDTransTypeFromMD(Target);
+
+    // There is no need to add the type on the call parameter, if the callee
+    // is known not to use the argument.
+    if (Target && !Target->isDeclaration() && Idx < Target->arg_size()) {
+      Argument *TargetArg = Target->getArg(Idx);
+      if (TargetArg->user_empty())
+        return {false, nullptr};
+    }
 
     if (!DType) {
       // Try to get a FunctionType from the ValueTypeInfo of the call. Give up
@@ -1821,9 +2298,9 @@ private:
       return Agg;
     };
 
-    auto ProcessIndexedElement = [&GetGEPIndexedType, this, &GEP,
-                                  ResultInfo](DTransType *Ty,
-                                              SmallVector<Value *, 4> &GepOps) {
+    auto ProcessIndexedElement = [&GetGEPIndexedType, this, &GEP, ResultInfo](
+                                     DTransType *Ty,
+                                     SmallVectorImpl<Value *> &GepOps) {
       // Need to compute indexed type based on GEP indices
       // Case 1: Structure
       //  - 2 operands, type is field member type
@@ -1875,18 +2352,73 @@ private:
         DTransType *PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, PtrToElemTy);
 
+        // If the GEP is accessing an array that is nested within another type,
+        // collect the path to the array element.
+        auto CollectElementPointeePath =
+            [&GetGEPIndexedType](
+                DTransType *AggTy, SmallVectorImpl<Value *> &ArrayGepOps,
+                SmallVectorImpl<ValueTypeInfo::PointeeLoc::PointeePairType>
+                    &ElementOf) {
+              if (ArrayGepOps.size() > 1) {
+                SmallVector<Value *, 4> Ops(ArrayGepOps.begin(),
+                                            ArrayGepOps.end());
+                while (Ops.size() > 1) {
+                  // Get the index value for field accessed
+                  size_t Idx = 0;
+                  auto *ConstIdx = dyn_cast<ConstantInt>(Ops.back());
+                  if (ConstIdx)
+                    Idx = ConstIdx->getLimitedValue();
+
+                  // Determine the parent type of the field.
+                  Ops.pop_back();
+                  dtrans::DTransType *IndexedTy = GetGEPIndexedType(AggTy, Ops);
+                  ElementOf.push_back({IndexedTy, Idx});
+                }
+              }
+            };
+
         // Access is to an element of the structure, update element pointee
         // info.
         Value *LastArg = GEP.getOperand(GEP.getNumOperands() - 1);
         auto *ConstIdx = dyn_cast<ConstantInt>(LastArg);
         if (ConstIdx) {
           uint64_t ElemNum = ConstIdx->getLimitedValue();
-          ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
-                                        ElemNum);
+          if (GepOps.size() > 1) {
+            // Capture the GEP chain because an array nested within a structure
+            // could trigger a safety condition on the structure type. For
+            // example, the address could be passed to a memset call.
+            SmallVector<ValueTypeInfo::PointeeLoc::PointeePairType, 4>
+                ElementOf;
+            CollectElementPointeePath(Ty, GepOps, ElementOf);
+            assert(!ElementOf.empty() && "Unexpected empty list for GEP chain");
+
+            // Count the number of trailing zeros in the GEP index list.
+            size_t ZeroCount = 0;
+            size_t MaxIndex = GepOps.size() - 1;
+            for (size_t IndexNum = MaxIndex; IndexNum > 1; --IndexNum) {
+              auto *ConstIdx = dyn_cast<ConstantInt>(GepOps[IndexNum]);
+              if (ConstIdx && ConstIdx->isZero()) {
+                ZeroCount++;
+                continue;
+              }
+              break;
+            }
+            // Extract 1 or more elements from the ElementOf set to pass into
+            // the addElementPointee call.
+            SmallVector<ValueTypeInfo::PointeeLoc::PointeePairType, 4>
+                ZeroOffsetElementOf(ElementOf.begin(),
+                                    ElementOf.begin() + 1 + ZeroCount);
+            ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
+                                          ElemNum, ZeroOffsetElementOf);
+          } else {
+            ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
+                                          ElemNum);
+          }
         } else {
-          // TODO: LocalPointerAnalyzer treats this as an element pointee at
-          // index 0 when DTransOutOfBoundsOk = false for some reason, but not
-          // when DTransOutOfBounds = true. Mimic this behavior.
+          SmallVector<ValueTypeInfo::PointeeLoc::PointeePairType, 4> ElementOf;
+          CollectElementPointeePath(Ty, GepOps, ElementOf);
+          ResultInfo->addElementPointeeUnknownOffset(ValueTypeInfo::VAT_Decl,
+                                                     IndexedTy, ElementOf);
         }
         return true;
       }
@@ -1911,10 +2443,17 @@ private:
     // match the indexed type, so add that type as one of the 'usage' types
     // now. This is done for simple types, such as:
     //   %100 = getelementptr %testB, p0 %known.as.testA, i32 4
+    //
+    // This is not done for the partial pointer use idiom because it is known in
+    // those cases the GEP is indexing the type with a different type in a safe
+    // manner for something like:
+    //   %NextHalf1 = getelementptr i32, i32* %HalfPtr1, i64 1
+    //
     // TODO: For non-simple source element types, we may need more metadata to
     // indicate the type that is being indexed to detect when the type is
     // different than expected.
-    if (!GEP.getPointerOperandType()->isVectorTy() && TM.isSimpleType(SrcTy)) {
+    if (!PointerInfo->getIsPartialPointerUse() &&
+        !GEP.getPointerOperandType()->isVectorTy() && TM.isSimpleType(SrcTy)) {
       DTransType *DTransSrcTy = TM.getOrCreateSimpleType(SrcTy);
       assert(DTransSrcTy && "Expected simple type");
       PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use,
@@ -2478,7 +3017,7 @@ private:
     // Update the usage type of the pointer argument based on the type
     // of the load instruction if we are loading a known type.
     llvm::Type *LoadType = LI->getType();
-    if (!hasPointerType(LoadType)) {
+    if (!PointerInfo->getIsPartialPointerUse() && !hasPointerType(LoadType)) {
       PointerInfo->addTypeAlias(
           ValueTypeInfo::VAT_Use,
           TM.getOrCreatePointerType(TM.getOrCreateSimpleType(LoadType)));
@@ -2537,9 +3076,14 @@ private:
         if (PropAlias)
           LocalChanged |= DestInfo->addTypeAlias(Kind, PropAlias);
         else
-          LLVM_DEBUG(dbgs() << "Warning: Could not create element of requested "
-                               "deref level when propagating.\nFrom: "
-                            << *SrcInfo << "\nTo: " << *DestInfo << "\n");
+          LLVM_DEBUG({
+            dbgs() << "Warning: Could not create element of requested "
+                      "deref level when propagating.\nFrom: ";
+            SrcInfo->dump();
+            dbgs() << "\nTo: ";
+            DestInfo->dump();
+            dbgs() << "\n";
+          });
       }
 
       // The element pointer set does not need to be transferred when the level
@@ -2550,13 +3094,7 @@ private:
       // but %z is just being updated to be the pointee type from %x.
       if (DerefLevel == DerefType::DT_SameType)
         for (auto PointeePair : SrcInfo->getElementPointeeSet(Kind))
-          if (PointeePair.second.getKind() ==
-              ValueTypeInfo::PointeeLoc::PLK_Field)
-            LocalChanged |= DestInfo->addElementPointee(
-                Kind, PointeePair.first, PointeePair.second.getElementNum());
-          else
-            LocalChanged |= DestInfo->addElementPointeeByOffset(
-                Kind, PointeePair.first, PointeePair.second.getByteOffset());
+          LocalChanged |= DestInfo->addElementPointee(Kind, PointeePair);
 
       return LocalChanged;
     };
@@ -2742,17 +3280,53 @@ bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
   return Changed;
 }
 
-bool ValueTypeInfo::addElementPointeeByOffset(ValueAnalysisType Kind,
-                                              dtrans::DTransType *BaseTy,
-                                              size_t ByteOffset) {
-  PointeeLoc Loc(PointeeLoc::PLK_Offset, ByteOffset);
+bool ValueTypeInfo::addElementPointee(
+    ValueAnalysisType Kind, dtrans::DTransType *BaseTy, size_t ElemIdx,
+    PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
+  PointeeLoc Loc(PointeeLoc::PLK_Field, ElemIdx, ElementOfTypes);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
   return Changed;
 }
 
+bool ValueTypeInfo::addElementPointeeByOffset(ValueAnalysisType Kind,
+                                              dtrans::DTransType *BaseTy,
+                                              size_t ByteOffset) {
+  PointeeLoc Loc(PointeeLoc::PLK_ByteOffset, ByteOffset);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
+bool ValueTypeInfo::addElementPointeeByOffset(
+    ValueAnalysisType Kind, dtrans::DTransType *BaseTy, size_t ByteOffset,
+    PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
+  PointeeLoc Loc(PointeeLoc::PLK_ByteOffset, ByteOffset, ElementOfTypes);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
+bool ValueTypeInfo::addElementPointeeUnknownOffset(ValueAnalysisType Kind,
+                                                   dtrans::DTransType *BaseTy) {
+  PointeeLoc Loc(PointeeLoc::PLK_UnknownOffset, 0);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
+bool ValueTypeInfo::addElementPointeeUnknownOffset(
+    ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+    PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
+  PointeeLoc Loc(PointeeLoc::PLK_UnknownOffset, 0, ElementOfTypes);
+  bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
+  return Changed;
+}
+
+bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
+                                      const TypeAndPointeeLocPair &Pointee) {
+  return addElementPointeeImpl(Kind, Pointee.first, Pointee.second);
+}
+
 bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
                                           dtrans::DTransType *BaseTy,
-                                          PointeeLoc &Loc) {
+                                          const PointeeLoc &Loc) {
   bool Changed = ElementPointees[Kind].insert({BaseTy, Loc}).second;
   if (Changed) {
     DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
@@ -2760,10 +3334,17 @@ bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
              << ": ";
       printValue(dbgs(), V);
       dbgs() << " -- " << *BaseTy << " @ ";
-      if (Loc.getKind() == PointeeLoc::PLK_Field)
+      switch (Loc.getKind()) {
+      case PointeeLoc::PLK_Field:
         dbgs() << Loc.getElementNum() << "\n";
-      else
+        break;
+      case PointeeLoc::PLK_ByteOffset:
         dbgs() << "ByteOffset=" << Loc.getByteOffset() << ")\n";
+        break;
+      case PointeeLoc::PLK_UnknownOffset:
+        dbgs() << "UnknownOffset\n";
+        break;
+      }
     });
 
     if (Kind == VAT_Decl)
@@ -2835,6 +3416,15 @@ void ValueTypeInfo::setUnknownByteFlattenedGEP() {
   UnknownByteFlattenedGEP = true;
 }
 
+void ValueTypeInfo::setIsPartialPointerUse() {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
+    dbgs() << " - Marked as partial pointer use: ";
+    printValue(dbgs(), V);
+    dbgs() << "\n";
+  });
+  IsPartialPointerUse = true;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void ValueTypeInfo::dump() const { print(dbgs()); }
 
@@ -2878,11 +3468,28 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
     else
       OutputStream << *PointeePair.first;
     OutputStream << " @ ";
-    if (PointeePair.second.getKind() == PointeeLoc::PLK_Field)
+    switch (PointeePair.second.getKind()) {
+    case PointeeLoc::PLK_Field:
       OutputStream << PointeePair.second.getElementNum();
-    else
+      break;
+    case PointeeLoc::PLK_ByteOffset:
       OutputStream << "not-field ByteOffset: "
                    << PointeePair.second.getByteOffset();
+      break;
+    case PointeeLoc::PLK_UnknownOffset:
+      OutputStream << "UnknownOffset";
+      break;
+    }
+
+    if (!PointeePair.second.ElementOf.empty()) {
+      OutputStream << " ElementOf: ";
+      const char *Sep = "";
+      for (auto &T : PointeePair.second.ElementOf) {
+        OutputStream << Sep << *T.first << "@" << T.second;
+        Sep = ", ";
+      }
+    }
+
     OutputStream.flush();
     return OutputVal;
   };
@@ -2906,7 +3513,7 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
      << (getUnhandled() ? " <UNHANDLED>" : "")
      << (getDependsOnUnhandled() ? " <DEPENDS ON UNHANDLED>" : "")
      << (getUnknownByteFlattenedGEP() ? " <UNKNOWN BYTE FLATTENED GEP>" : "")
-     << "\n";
+     << (getIsPartialPointerUse() ? " <PARTIAL PTR>" : "") << "\n";
 
   if (!Combined) {
     OS << Prefix << "Declared Types:\n";
@@ -3016,37 +3623,6 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,
   }
 
   return getValueTypeInfo(V);
-}
-
-// Check whether the type for the Value object is something that needs to be
-// analyzed for potential pointer types. This differs from just checking the
-// Type of V with isTypeOfInterest, because this also needs to consider the
-// case of a pointer converted into a pointer sized integer.
-bool PtrTypeAnalyzer::isPossiblePtrValue(Value *V) const {
-  llvm::Type *ValueTy = V->getType();
-
-  // If the value is a pointer or the result of a pointer-to-int cast
-  // it definitely is a pointer.
-  if (ValueTy->isPointerTy() || isa<PtrToIntOperator>(V))
-    return true;
-
-  // A vector of pointers should be analyzed to track the pointer type.
-  if (ValueTy->isVectorTy() &&
-      cast<VectorType>(ValueTy)->getElementType()->isPointerTy())
-    return true;
-
-  // If the value is not a pointer and is not a pointer-sized integer, it
-  // is definitely not a value we will track as a pointer.
-  if (ValueTy != Impl->getLLVMPointerSizedIntType())
-    return false;
-
-  // If it is a pointer-sized integer, we may need to analyze it if
-  // it is the result of a load, select or PHI node.
-  if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
-    return true;
-
-  // Otherwise, we don't need to analyze it as a pointer.
-  return false;
 }
 
 void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, dtrans::DTransType *Ty) {

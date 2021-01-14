@@ -5,12 +5,12 @@
 ; inline-prof-instr-hot-percentage is small enough to exclude the less hot
 ; of two hottest callsites.
 
+; CHECK: define dso_local i32 @main
+; CHECK-NOT: call i32 @booz
 ; CHECK: COMPILE FUNC: main
 ; CHECK-NOT: INLINE: bar{{.*}}Callsite has hot profile
 ; CHECK-NOT: INLINE: baz{{.*}}Callsite has hot profile
 ; CHECK: INLINE: booz{{.*}}Callsite has hot profile
-; CHECK: define dso_local i32 @main
-; CHECK-NOT: call i32 @booz
 
 ; Function Attrs: cold nounwind uwtable
 define dso_local i32 @bar() local_unnamed_addr !prof !31 {

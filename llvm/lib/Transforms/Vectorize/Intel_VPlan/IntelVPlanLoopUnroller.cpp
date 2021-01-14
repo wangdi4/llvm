@@ -18,9 +18,7 @@
 
 using namespace llvm::vpo;
 
-static cl::opt<bool>
-    VPlanPrintUnroll("vplan-print-after-unroll", cl::init(false),
-                     cl::desc("Print plain dump after VPlan loop unrolling"));
+static LoopVPlanDumpControl UnrollDumpControl("unroll", "VPlan loop unrolling");
 
 void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   assert(UF > 1 && "Can't unroll with unroll factor less than 2");
@@ -196,5 +194,5 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
   CurrentLatch->setCondBit(ValueMap[CurrentLatch->getCondBit()]);
 
-  VPLAN_DUMP(VPlanPrintUnroll, "loop unrolling", Plan);
+  VPLAN_DUMP(UnrollDumpControl, Plan);
 }

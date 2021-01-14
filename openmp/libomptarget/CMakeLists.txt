@@ -29,6 +29,11 @@ include(LibomptargetUtils)
 # Get dependencies for the different components of the project.
 include(LibomptargetGetDependencies)
 
+# LLVM source tree is required at build time for libomptarget
+if (NOT LIBOMPTARGET_LLVM_MAIN_INCLUDE_DIR)
+  message(FATAL_ERROR "Missing definition for LIBOMPTARGET_LLVM_MAIN_INCLUDE_DIR")
+endif()
+
 # This is a list of all the targets that are supported/tested right now.
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} aarch64-unknown-linux-gnu")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} powerpc64le-ibm-linux-gnu")
@@ -58,7 +63,8 @@ if(LIBOMPTARGET_ENABLE_DEBUG)
   add_definitions(-DOMPTARGET_DEBUG)
 endif()
 
-include_directories(include)
+set(LIBOMPTARGET_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${LIBOMPTARGET_INCLUDE_DIR})
 
 if (INTEL_CUSTOMIZATION)
   if (OPENMP_STANDALONE_BUILD)
@@ -69,37 +75,41 @@ if (INTEL_CUSTOMIZATION)
     else()
       set(LIBOMP_LIB_NAME iomp5 libiomp5)
     endif()
-    set(LIBOMP_LIB_LOC ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER})
 
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}))
-      if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
+      if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
         if (WIN32)
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_win")
         else()
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_lin")
         endif()
       else()
         if (WIN32)
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_win")
         else()
-          set(LIBOMP_LIB_LOC
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
             "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_lin")
         endif()
       endif()
     endif()
 
-    set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER ${LIBOMP_LIB_LOC} CACHE STRING
-        "Path to folder containing libiomp5 library" FORCE)
+    message(STATUS "Looking for OMP library (${LIBOMP_LIB_NAME}) in "
+      "${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}")
 
-    message(STATUS "Looking for OMP library (${LIBOMP_LIB_NAME}) in \
-                    ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}")
+    if (NOT LIBOMP_LIB OR NOT EXISTS ${LIBOMP_LIB})
+      # Force cache reset, if the search path has been updated.
+      # This will let find_library() try a new path instead of
+      # taking non-existent LIBOMP_LIB path from the cache.
+      set(LIBOMP_LIB
+        "LIBOMP_LIB-NOTFOUND" CACHE FILEPATH "Path to libiomp5 library" FORCE)
+    endif()
     find_library(LIBOMP_LIB NAMES ${LIBOMP_LIB_NAME}
-                 PATHS "${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}"
-                 NO_DEFAULT_PATH)
+      PATHS "${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}"
+      NO_DEFAULT_PATH)
 
     if (NOT LIBOMP_LIB)
       message(FATAL_ERROR "OMP library required for libomptarget is not found.")
@@ -112,28 +122,30 @@ if (INTEL_CUSTOMIZATION)
     get_filename_component(LIBOMP_LIB_BASENAME "${LIBOMP_LIB}" NAME)
     set(LIBOMP_LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/${LIBOMP_LIB_BASENAME})
     add_custom_target(libomptarget-libiomp-file
+      BYPRODUCTS ${LIBOMP_LIB_FILE}
       DEPENDS ${LIBOMP_LIB}
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${LIBOMP_LIB}" ${CMAKE_CURRENT_BINARY_DIR}
-      COMMENT "Copying ${LIBOMP_LIB} to ${CMAKE_CURRENT_BINARY_DIR}")
-
-    set(LIBOMP_HEADER_LOC ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER})
+      "${LIBOMP_LIB}" ${LIBOMP_LIB_FILE}
+      COMMENT "Copying ${LIBOMP_LIB} to ${LIBOMP_LIB_FILE}")
 
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}))
-      set(LIBOMP_HEADER_LOC
+      set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER
         "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/include")
     endif()
 
-    set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER
-        ${LIBOMP_HEADER_LOC} CACHE STRING
-        "Path to folder containing omp.h" FORCE)
-
-    message(STATUS "Looking for omp.h in \
-                    ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+    message(STATUS "Looking for omp.h in "
+      "${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+    if (NOT LIBOMP_OMP_H_FILE OR NOT EXISTS ${LIBOMP_OMP_H_FILE})
+      # Force cache reset, if the search path has been updated.
+      # This will let find_file() try a new path instead of
+      # taking non-existent LIBOMP_OMP_H_FILE path from the cache.
+      set(LIBOMP_OMP_H_FILE
+        "LIBOMP_OMP_H_FILE-NOTFOUND" CACHE FILEPATH "Path to omp.h" FORCE)
+    endif()
     find_file(LIBOMP_OMP_H_FILE "omp.h"
-              PATHS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}
-              NO_DEFAULT_PATH)
+      PATHS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}
+      NO_DEFAULT_PATH)
     if (NOT LIBOMP_OMP_H_FILE)
       message(FATAL_ERROR "omp.h required for libomptarget is not found.")
     endif()
@@ -143,7 +155,8 @@ if (INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Build target agnostic offloading library.
-add_subdirectory(src)
+set(LIBOMPTARGET_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_subdirectory(${LIBOMPTARGET_SRC_DIR})
 
 # Retrieve the path to the resulting library so that it can be used for 
 # testing.

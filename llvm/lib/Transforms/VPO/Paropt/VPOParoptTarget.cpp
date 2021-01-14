@@ -17,6 +17,10 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CaptureTracking.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -60,10 +64,6 @@ static cl::opt<bool>
     UseInterop("vpo-paropt-use-interop", cl::Hidden,
                cl::init(true),
                cl::desc("Use the interop_obj for target variant dispatch."));
-static cl::opt<bool>
-    UseRawDevicePtr("vpo-paropt-use-raw-dev-ptr", cl::Hidden,
-               cl::init(true),
-               cl::desc("Pass raw device ptr to variant dispatch."));
 
 static cl::opt<uint32_t> FixedSIMDWidth(
     "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
@@ -73,6 +73,23 @@ static cl::opt<bool> SimulateGetNumThreadsInTarget(
     "vpo-paropt-simulate-get-num-threads-in-target", cl::Hidden, cl::init(true),
     cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
              "region. (This may have performance impact)."));
+
+static cl::opt<bool> EnableDeviceSimdCodeGen(
+    "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
+    cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
+
+cl::opt<bool> llvm::vpo::UseMapperAPI(
+    "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(true),
+    cl::desc("Emit calls to mapper specific functions in tgt RTL."));
+
+#if INTEL_CUSTOMIZATION
+// Controls adding noalias attribute to outlined target function arguments.
+static cl::opt<bool>
+    EnableTargetArgsNoAlias("vpo-paropt-enable-target-args-noalias", cl::Hidden,
+                            cl::init(true), cl::ZeroOrMore,
+                            cl::desc("Enable adding noalias attribute to "
+                                     "outlined target function arguments"));
+#endif // INTEL_CUSTOMIZATION
 
 // Reset the value in the Map clause to be empty.
 //
@@ -261,15 +278,36 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   SmallVector<Type *, 8> ParamsTy;
 
   unsigned AddrSpaceGlobal = vpo::ADDRESS_SPACE_GLOBAL;
+
+  // Modify the kernel function declaration so that function pointer arguments
+  // are received by the kernel as cl_ulong values, and all other pointer
+  // arguments are in addrspace(1). This also requires aligning the new argument
+  // types with the original uses of the arguments inside the function body.
+  // For example, cl_ulong function pointer arguments must be casted
+  // to their original pointer types, and all other pointer arguments
+  // must be addrspacecasted to their original address spaces.
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
-    if (PointerType *PtType = dyn_cast<PointerType>(*ArgTyI))
-      ParamsTy.push_back(
-          PtType->getElementType()->getPointerTo(AddrSpaceGlobal));
-    else
+    if (isa<PointerType>(*ArgTyI)) {
+      // TODO: OPAQUEPOINTER: this needs to be reimplemented,
+      // since we will not be able to detect function pointer
+      // arguments after outlining.
+      if (isa<FunctionType>((*ArgTyI)->getPointerElementType())) {
+        // Kernel arguments representing function pointers
+        // must be declared as 64-bit integers.
+        ParamsTy.push_back(Type::getInt64Ty(Fn->getContext()));
+      } else {
+        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
+        // to a specific AddressSpace. The API currently needs the Element Type
+        // as well.
+        ParamsTy.push_back(
+            (*ArgTyI)->getPointerElementType()->getPointerTo(AddrSpaceGlobal));
+      }
+    } else {
       // A non-pointer argument may appear as a result of scalar
       // FIRSTPRIVATE.
       ParamsTy.push_back(*ArgTyI);
+    }
   }
 
   Type *RetTy = FnTy->getReturnType();
@@ -294,20 +332,31 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
        ++I) {
     auto ArgV = &*NewArgI;
     Value *NewArgV = ArgV;
-    // Create an address space cast for pointer argument.
-    if (isa<PointerType>(ArgV->getType())) {
-      unsigned NewAddressSpace =
-          cast<PointerType>(ArgV->getType())->getAddressSpace();
-      unsigned OldAddressSpace =
-          cast<PointerType>(I->getType())->getAddressSpace();
+    if (PointerType *OldArgPtrTy = dyn_cast<PointerType>(I->getType())) {
+      // TODO: OPAQUEPOINTER: this needs to be reimplemented,
+      // since we will not be able to detect function pointer
+      // arguments after outlining.
+      if (isa<FunctionType>(I->getType()->getPointerElementType())) {
+        // The new argument has 64-bit integer type.
+        // We need to cast it to a function pointer type of the original
+        // argument.
+        NewArgV = Builder.CreateIntToPtr(
+            ArgV, OldArgPtrTy, ArgV->getName() + Twine(".cast"));
+      } else {
+        // Create an address space cast for pointer argument.
+        unsigned NewAddressSpace =
+            cast<PointerType>(ArgV->getType())->getAddressSpace();
+        unsigned OldAddressSpace = OldArgPtrTy->getAddressSpace();
 
-      if (NewAddressSpace != OldAddressSpace) {
-        // Assert the correct addrspacecast here instead of failing
-        // during SPIRV emission.
-        assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-               "finalizeKernelFunction: OpenCL global addrspaces can only be "
-               "casted to generic.");
-        NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+        if (NewAddressSpace != OldAddressSpace) {
+          // Assert the correct addrspacecast here instead of failing
+          // during SPIRV emission.
+          assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+                 "finalizeKernelFunction: OpenCL global addrspaces can only be "
+                 "casted to generic.");
+          NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(
+              ArgV, I->getType(), ArgV->getName() + Twine(".ascast"));
+        }
       }
     }
     I->replaceAllUsesWith(NewArgV);
@@ -315,9 +364,15 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     ++NewArgI;
   }
 
-  if (W->getSPIRVSIMDWidth() > 0) {
+  int simdWidth = W->getSPIRVSIMDWidth();
+  if (EnableDeviceSimdCodeGen) {
+    simdWidth = 1;
+    NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
+  }
+
+  if (simdWidth > 0) {
     Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(W->getSPIRVSIMDWidth())) };
+        ConstantAsMetadata::get(Builder.getInt32(simdWidth)) };
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
@@ -359,6 +414,22 @@ static bool isParOrTargetDirective(Instruction *Inst,
       // since there may not be any code between "target" and "teams".
       return true;
   }
+
+  return false;
+}
+
+/// This function checks if the instruction is a SIMD intrinsic instruction,
+static bool isSimdDirective(Instruction *Inst) {
+  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
+
+  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
+    return false;
+  }
+
+  int ID = VPOAnalysisUtils::getDirectiveID(Inst);
+
+  if (ID == DIR_OMP_SIMD || ID == DIR_OMP_END_SIMD)
+     return true;
 
   return false;
 }
@@ -545,10 +616,12 @@ void VPOParoptTransform::guardSideEffectStatements(
       // Distinguish between entry and other directives, since
       // we want to delete the entry directives after their
       // exit companions.
-      if (VPOAnalysisUtils::isBeginDirective(&*I))
-        EntryDirectivesToDelete.push_back(&*I);
-      else
-        ExitDirectivesToDelete.push_back(&*I);
+      if (!EnableDeviceSimdCodeGen || !isSimdDirective(&*I)) {
+        if (VPOAnalysisUtils::isBeginDirective(&*I))
+          EntryDirectivesToDelete.push_back(&*I);
+        else
+          ExitDirectivesToDelete.push_back(&*I);
+      }
     }
 
     if (isParOrTargetDirective(&*I) &&
@@ -854,6 +927,9 @@ void VPOParoptTransform::guardSideEffectStatements(
   KernelEntryDir->replaceAllUsesWith(NewEntryDir);
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);
+
+  if (EnableDeviceSimdCodeGen)
+    VPOUtils::stripDirectives(*KernelExitDir->getParent());
 }
 
 bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
@@ -951,7 +1027,9 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
     if (CS.getIsArraySection()) {
       assert(MapIt != Map.end());
       RenameBase(*MapIt++, Args[0]);
-    } else if (CS.getIsMapAggrHead() || CS.getIsMapAggr() || Args.size() == 4) {
+    } else if (CS.getIsMapAggrHead() || CS.getIsMapAggr() ||
+               ((Args.size() == 4 || Args.size() == 6) &&
+                isa<ConstantInt>(Args[3]))) {
       bool AggrStartsNewStyleMapChain =
           (!CS.getIsMapChainLink() && !CS.getIsMapAggrHead() &&
            !CS.getIsMapAggr() && Args.size() == 4);
@@ -981,6 +1059,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   resetValueInOmpClauseGeneric(W, W->getIf());
   resetValueInOmpClauseGeneric(W, W->getDevice());
+  resetValueInSubdeviceClause(W);
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
@@ -1027,10 +1106,37 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       // were left until this point for guardSideEffectStatements() to work.
       // The extra directive call may prevent address space inferring.
       NewF = finalizeKernelFunction(W, NewF, NewCall);
+
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
                         << *NewF << "\n");
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (EnableTargetArgsNoAlias) {
+    // Add noalias attribute to outlined function's pointer arguments. It should
+    // be safe to do it if actual value that is passed to the outlined region
+    // - is function local object that does not alias with any other object
+    // - is not captured before the call
+    // - does not alias with any other actual argument
+    SmallVector<Argument *, 16u> PtrArgs;
+    for (Argument &A : NewF->args())
+      if (isa<PointerType>(A.getType()))
+        PtrArgs.push_back(&A);
+    for (Argument *Arg : PtrArgs) {
+      Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
+
+      if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
+          !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
+                                      /*StoreCaptures=*/true, NewCall, DT) &&
+          none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
+            return A != Arg &&
+                   !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
+          }))
+        Arg->addAttr(Attribute::NoAlias);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (hasOffloadCompilation())
     // Everything below only makes sense on the host.
@@ -1109,7 +1215,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
       Builder.SetInsertPoint(NewCall);
       LLVMContext &C = F->getContext();
-      LoadInst *LastLoad = Builder.CreateLoad(OffloadError);
+      LoadInst *LastLoad =
+          Builder.CreateLoad(OffloadError->getAllocatedType(), OffloadError);
       ConstantInt *ValueZero = ConstantInt::getSigned(Type::getInt32Ty(C), 0);
       Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
       Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
@@ -1168,6 +1275,22 @@ void VPOParoptTransform::resetValueInNumTeamsAndThreadsClause(WRegionNode *W) {
   if (W->getIsPar())
     if (auto *NumThreadsPtr = W->getNumThreads())
       resetValueInOmpClauseGeneric(W, NumThreadsPtr);
+}
+
+// Reset the expression value in Subdevice clause to be empty.
+void VPOParoptTransform::resetValueInSubdeviceClause(WRegionNode* W) {
+    if (!W->canHaveSubdevice())
+        return;
+
+    SubdeviceClause& Subdevice = W->getSubdevice();
+    if (Subdevice.empty())
+        return;
+    assert(Subdevice.size() == 1 && "There should be only 1 Subdevice clause");
+    SubdeviceItem* SubdeviceI = Subdevice.front();
+
+    resetValueInOmpClauseGeneric(W, SubdeviceI->getStart());
+    resetValueInOmpClauseGeneric(W, SubdeviceI->getLength());
+    resetValueInOmpClauseGeneric(W, SubdeviceI->getStride());
 }
 
 // Reset the expression value in IsDevicePtr clause to be empty.
@@ -1239,6 +1362,7 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
 void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
+    SmallVectorImpl<GlobalVariable *> &Names, SmallVectorImpl<Value *> &Mappers,
     bool &hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
@@ -1253,6 +1377,29 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
       isa<WRNTargetVariantNode>(W);
+
+  GlobalVariable *MapNameUnknown = nullptr;
+  auto getMapNameForVar = [&](Value *V) -> GlobalVariable * {
+    if (!UseMapperAPI)
+      return nullptr;
+
+    bool IsDebugCompilation = F->getParent()->getNamedMetadata("llvm.dbg.cu");
+    if (!IsDebugCompilation)
+      return nullptr;
+
+    IRBuilder<> Builder(W->getEntryBBlock());
+
+    // TODO: Create the map name string using debug information for V.
+#ifndef NDEBUG
+    if (V->hasName())
+      return Builder.CreateGlobalString(
+          (";" + V->getName() + ";unknown;0;0;;").str());
+#endif
+
+    if (!MapNameUnknown)
+      MapNameUnknown = Builder.CreateGlobalString(";unknown;unknown;0;0;;");
+    return MapNameUnknown;
+  };
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -1317,6 +1464,16 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         } else
           MapTypes.push_back(
               getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0));
+
+        // MapName looks like:
+        //  @0 = private unnamed_addr constant [40 x i8]
+        //       c";y[0][0:1];tgt_map_ptr_arrsec.cpp;7;7;;\00", align 1
+        if (auto *AggrName = Aggr->getName())
+          Names.push_back(cast<GlobalVariable>(AggrName));
+        else
+          Names.push_back(getMapNameForVar(Aggr->getBasePtr()));
+
+        Mappers.push_back(Aggr->getMapper());
       }
     } else {
       assert(!MapI->getIsArraySection() &&
@@ -1324,6 +1481,8 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
       MapTypes.push_back(getMapTypeFlag(MapI, true, true));
+      Names.push_back(getMapNameForVar(MapI->getOrig()));
+      Mappers.push_back(nullptr);
     }
   }
 
@@ -1335,6 +1494,9 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       if (FprivI->getInMap())
         continue;
       Type *ItemTy = V->getType();
+      Names.push_back(getMapNameForVar(V));
+      Mappers.push_back(nullptr);
+
       if (!isa<PointerType>(ItemTy)) {
         // Non-pointer firstprivate items must be mapped as literals
         // with size 0.
@@ -1355,10 +1517,12 @@ void VPOParoptTransform::genTgtInformationForPtrs(
   }
 
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
-    Type *T = W->getParLoopNdInfoAlloca()->getType()->getPointerElementType();
+    Type *T = W->getParLoopNdInfoAlloca()->getAllocatedType();
     ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                           DL.getTypeAllocSize(T)));
     MapTypes.push_back(TGT_MAP_ND_DESC);
+    Names.push_back(getMapNameForVar(V));
+    Mappers.push_back(nullptr);
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTgtInformationForPtrs:"
@@ -1447,7 +1611,9 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
     if (I < DistributeDim)
       CloneUB = Builder.getInt64(0);
     else
-      CloneUB = Builder.CreateLoad(UncollapsedNDRange[Idx]);
+      CloneUB = Builder.CreateLoad(
+          UncollapsedNDRange[Idx]->getType()->getPointerElementType(),
+          UncollapsedNDRange[Idx]);
 
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
@@ -1477,7 +1643,9 @@ void VPOParoptTransform::genMapChainsForMapArraySections(
     const ArraySectionInfo &ArrSecInfo = MapI->getArraySectionInfo();
     auto *BasePtr = MapI->getOrig();
     if (ArrSecInfo.getBaseIsPointer())
-      BasePtr = GepBuilder.CreateLoad(BasePtr, BasePtr->getName() + ".load");
+      BasePtr = GepBuilder.CreateLoad(
+          BasePtr->getType()->getPointerElementType(),
+          BasePtr, BasePtr->getName() + ".load");
 
     auto *ElementTy = ArrSecInfo.getElementType();
     auto *SectionPtr =
@@ -1568,25 +1736,28 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     SmallVector<Constant *, 16> ConstSizes;
     SmallVector<uint64_t, 16> MapTypes;
+    SmallVector<GlobalVariable *, 16> Names;
+    SmallVector<Value *, 16> Mappers;
 
     if (ForceMapping)
-      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
                                hasRuntimeEvaluationCaptureSize);
     else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
-        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
+        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
                                  hasRuntimeEvaluationCaptureSize);
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, hasRuntimeEvaluationCaptureSize);
+                                 MapTypes, Names, Mappers,
+                                 hasRuntimeEvaluationCaptureSize);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
 
-    genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes,
-                         MapTypes, hasRuntimeEvaluationCaptureSize);
+    genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes, MapTypes, Names,
+                         Mappers, hasRuntimeEvaluationCaptureSize);
   }
 
   genOffloadArraysArgument(&Info, InsertPt);
@@ -1598,31 +1769,38 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
       WRNTeamsNode *TW = cast<WRNTeamsNode>(*IT);
       TgtCall = VPOParoptUtils::genTgtTargetTeams(
           TW, RegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
-          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes,
+          Info.ResNames, Info.ResMappers, InsertPt);
     } else
       TgtCall = VPOParoptUtils::genTgtTarget(
           W, RegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
-          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+          Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes,
+          Info.ResNames, Info.ResMappers, InsertPt);
   } else if (isa<WRNTargetDataNode>(W)) {
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
     genOffloadArraysArgument(&Info, InsertPt);
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   } else if (isa<WRNTargetUpdateNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataUpdate(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   else if (isa<WRNTargetEnterDataNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   else if (isa<WRNTargetExitDataNode>(W))
     TgtCall = VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+        Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+        InsertPt);
   else
     llvm_unreachable("genTargetInitCode: Unexpected region node.");
 
@@ -1671,22 +1849,35 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 
     Value *UDP = UDPI->getOrig();
     Value *MappedVal = UDP;
-    if (UDPI->getIsPointerToPointer())
+    if (UDPI->getIsPointerToPointer()) {
+      // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
       MappedVal = LoadBuilder.CreateLoad(
-          cast<PointerType>(UDP->getType())->getPointerElementType(), UDP,
+          UDP->getType()->getPointerElementType(), UDP,
           UDP->getName() + ".load");
 #if INTEL_CUSTOMIZATION
-    else if (UDPI->getIsF90DopeVector()) {
+    } else if (UDPI->getIsF90DopeVector()) {
       // For F90_DVs, the map needs to be added for the data pointer, i.e.
       // load i32*, i32** (getelementptr (%dv, 0, 0)).
       auto *Zero = LoadBuilder.getInt32(0);
       auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(UDP, {Zero, Zero},
                                                      UDP->getName() + ".addr0");
       MappedVal = LoadBuilder.CreateLoad(
-          cast<PointerType>(Addr0GEP->getType())->getPointerElementType(),
+          cast<GEPOperator>(Addr0GEP)->getResultElementType(),
           Addr0GEP, Addr0GEP->getName() + ".load");
-    }
+    } else if (UDPI->getIsCptr()) {
+      // CPTR type is of form: "%cptr = type { i64 }". So, for "cptr*" operands,
+      // we need to cast them to i8** before creating a load to be mapped, like:
+      //   load i8*, i8** (bitcast cptr* %p to i8**)
+      PointerType *Int8PtrTy = LoadBuilder.getInt8PtrTy();
+      PointerType *Int8PtrPtrTy = Int8PtrTy->getPointerTo();
+
+      auto *PtrPtrCast = LoadBuilder.CreateBitOrPointerCast(
+          UDP, Int8PtrPtrTy, UDP->getName() + ".cast");
+
+      MappedVal = LoadBuilder.CreateLoad(Int8PtrTy, PtrPtrCast,
+                                         UDP->getName() + ".val");
 #endif // INTEL_CUSTOMIZATION
+    }
     MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
     MapItem *MapI = new MapItem(MapAggr);
     MapI->setOrig(MappedVal);
@@ -1728,6 +1919,23 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 ///                                       |
 ///                                      (5) store i32* %a.load, i32** %a
 ///                                       |
+#if INTEL_CUSTOMIZATION
+///
+/// (C)
+/// --------------------------------------+------------------------------------
+///         Before                        |      After
+/// --------------------------------------+------------------------------------
+///                                      (6) %a.cast1 = bitcast cptr* %a to i8**
+///                                      (2) %a.load = load i*, i8** %a.cast1
+///                                       |
+/// "IS.DEVICE.PTR:CPTR" (cptr* %a)       | "IS_DEVICE_PTR:CPTR(cptr* %a)
+///                                      (3) "MAP"(i8* %a.load, PARAM|LITERAL)
+///                                      (4) "PRIVATE(i32** %a)
+///                                       |
+///                                      (7) %a.cast2 = bitcast cptr* %a to i8**
+///                                      (5) store i8* %a.load, i8** %a
+///                                       |
+#endif // INTEL_CUSTOMIZATION
 /// \endcode
 /// Note that (1), (3) and (4) are not added to the IR, just the data structures
 /// in \p W.
@@ -1756,25 +1964,31 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
   };
 
   bool Changed = false;
-  bool SeenPtrToPtrOperands = false;
+  bool SeenOperandsWithModifiers = false;
 
-  auto addMapIfNotPtrToPtr = [&](IsDevicePtrItem *IDPI) {
+  auto addMapIfNoModifier = [&](IsDevicePtrItem *IDPI) {
     if (IDPI->getIsPointerToPointer()) {
-      SeenPtrToPtrOperands = true;
+      SeenOperandsWithModifiers = true;
       return;
     }
+#if INTEL_CUSTOMIZATION
+    if (IDPI->getIsCptr()) {
+      SeenOperandsWithModifiers = true;
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
     Value *IDP = IDPI->getOrig();
     addMapForValue(IDP); //                                             (1)
-    LLVM_DEBUG(dbgs() << "addMapIfNotPtrToPtr: Converted 'is_device_ptr(";
-               IDP->printAsOperand(dbgs()); dbgs() << ")' to 'map(";
+    LLVM_DEBUG(dbgs() << "addMapIfNoModifiers: Converted 'IS_DEVICE_PTR(";
+               IDP->dump(); dbgs() << ")' to 'MAP(";
                IDP->printAsOperand(dbgs());
                dbgs() << ", TGT_PARAM | TGT_LITERAL)'.\n");
     Changed = true;
   };
 
   // (A) First, handle all "IS_DEVICE_PTR" clauses without PTR_TO_PTR modifiers.
-  std::for_each(IDPC.items().begin(), IDPC.items().end(), addMapIfNotPtrToPtr);
-  if (!SeenPtrToPtrOperands)
+  std::for_each(IDPC.items().begin(), IDPC.items().end(), addMapIfNoModifier);
+  if (!SeenOperandsWithModifiers)
     return Changed;
 
   // (B) Handle clauses with PTR_TO_PTR modifiers next.
@@ -1794,25 +2008,50 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
   IRBuilder<> StoreBuilder(StoreBB->getTerminator());
   PrivateClause &PC = W->getPriv();
 
+  auto addMapAndPrivateForIDP = [&addMapForValue, &PC, &LoadBuilder,
+                                 &StoreBuilder](
+                                    IsDevicePtrItem *IDPI, Type *LoadedValType,
+                                    Value *LoadSrc, Value *StoreDst) {
+    Value *IDP = IDPI->getOrig();
+    Value *IDPLoad = LoadBuilder.CreateLoad(LoadedValType, LoadSrc, //  (2)
+                                            IDP->getName() + ".load");
+    addMapForValue(IDPLoad); //                                         (3)
+    PC.add(IDP); //                                                     (4)
+    StoreBuilder.CreateStore(IDPLoad, StoreDst); //                     (5)
+    LLVM_DEBUG(dbgs() << "addMapAndPrivateForIDP: Converted 'IS_DEVICE_PTR:";
+               IDPI->dump(); dbgs() << "' to 'MAP(";
+               IDPLoad->printAsOperand(dbgs());
+               dbgs() << ", TGT_PARAM | TGT_LITERAL) PRIVATE(";
+               IDP->printAsOperand(dbgs()); dbgs() << ")'.\n");
+    return true;
+  };
+
   for (IsDevicePtrItem *IDPI : IDPC.items()) {
     Value *IDP = IDPI->getOrig();
+#if INTEL_CUSTOMIZATION
+    if (IDPI->getIsCptr()) {
+      unsigned AddrSpace =
+          cast<PointerType>(IDP->getType())->getAddressSpace();
+      PointerType *Int8PtrTy = LoadBuilder.getInt8PtrTy(AddrSpace);
+      PointerType *Int8PtrPtrTy = Int8PtrTy->getPointerTo(AddrSpace);
+
+      Value *LoadSrc = LoadBuilder.CreateBitOrPointerCast(
+          IDP, Int8PtrPtrTy, IDP->getName() + ".cast"); //              (6)
+      Value *StoreDst = StoreBuilder.CreateBitOrPointerCast(
+          IDP, Int8PtrPtrTy, IDP->getName() + ".cast"); //              (7)
+
+      Changed |= addMapAndPrivateForIDP(IDPI, Int8PtrTy, LoadSrc, StoreDst);
+      continue;
+    }
+
+#endif // INTEL_CUSTOMIZATION
     if (!IDPI->getIsPointerToPointer()) // Already handled above
       continue;
 
-    Value *IDPLoad = LoadBuilder.CreateLoad(
-        cast<PointerType>(IDP->getType())->getPointerElementType(), IDP,
-        IDP->getName() + ".load"); //                                   (2)
-    addMapForValue(IDPLoad); //                                         (3)
-    PC.add(IDP); //                                                     (4)
-    StoreBuilder.CreateStore(IDPLoad, IDP); //                          (5)
-
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Converted 'is_device_ptr:ptr_to_ptr(";
-               IDP->printAsOperand(dbgs()); dbgs() << ")' to 'map(";
-               IDPLoad->printAsOperand(dbgs());
-               dbgs() << ", TGT_PARAM | TGT_LITERAL) private(";
-               IDP->printAsOperand(dbgs()); dbgs() << ")'.\n");
-    Changed = true;
+    // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
+    Changed |= addMapAndPrivateForIDP(
+        IDPI, IDP->getType()->getPointerElementType(), IDP,
+        IDP);
   }
   return Changed;
 }
@@ -1884,13 +2123,34 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
 //     call @outlined.funtion(...DV* %udp.new)                       ; (6)
 //   call void @__tgt_target_data_end()
 //
+// Case 4: Type of %udp is cptr* (Fortran C_PTR), and it's marked as CPTR:
+// Before:
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     call @outlined.funtion(...cptr* %udp)  ; TgtDataOutlinedFunctionCall
+//   call void @__tgt_target_data_end()
+//
+// After:
+//   $udp.new = alloca cptr                                          ; (2)
+//   ...
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     %udp.gep.cast = cast i8** %udp.gep to i8**           ;elided  ; (3)
+//     %udp.updated.val = load i8*, i8** %udp.gep.cast               ; (4)
+//     %udp.new.cast = bitcast %udp.new to i8**                      ; (9)
+//     store i8* %udp.updated.val, i8** %udp.new.cast                ; (5)
+//     call @outlined.funtion(...cptr* %udp.new)                     ; (6)
+//   call void @__tgt_target_data_end()
+//
 #endif // INTEL_CUSTOMIZATION
 void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall) {
   assert(W && "Null WRegionNode.");
   assert(TgtDataOutlinedFunctionCall && "Null outlined function call.");
 
-  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+  if (!W->canHaveUseDevicePtr())
     return;
 
   UseDevicePtrClause &UDPC = W->getUseDevicePtr();
@@ -1916,7 +2176,8 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
         BasePtrGEP->getName() + ".cast"); //                                (3)
 
     LoadInst *UpdatedUDPVal =
-        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); //  (4)
+        Builder.CreateLoad(MapI->getOrig()->getType(), GepCast,
+                           OrigV->getName() + ".updated.val"); //           (4)
     Value *NewV = UpdatedUDPVal;
     if (UDPI->getIsPointerToPointer()) {
       NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
@@ -1932,15 +2193,33 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
       auto *Addr0GEP = Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, //     (8)
                                                  NewV->getName() + ".addr0");
       Builder.CreateStore(UpdatedUDPVal, Addr0GEP); //                      (5)
+    } else if (UDPI->getIsCptr()) {
+      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+                                    ".new"); //                             (2)
+      PointerType *Int8PtrPtrTy = Builder.getInt8PtrTy()->getPointerTo();
+      auto *NewVCast = Builder.CreateBitOrPointerCast(
+          NewV, Int8PtrPtrTy, NewV->getName() + ".cast"); //                (9)
+
+      Builder.CreateStore(UpdatedUDPVal, NewVCast); //                      (5)
     }
 #endif // INTEL_CUSTOMIZATION
 
     TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //         (6)
 
     LLVM_DEBUG(
-        dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
-        OrigV->printAsOperand(dbgs()); dbgs() << "', with '";
-        NewV->printAsOperand(dbgs()); dbgs() << "' in tgt_data region.\n");
+        if (llvm::is_contained(TgtDataOutlinedFunctionCall->operands(), NewV)) {
+          dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
+          OrigV->printAsOperand(dbgs());
+          dbgs() << "', with '";
+          NewV->printAsOperand(dbgs());
+          dbgs() << "' in region.\n";
+        } else {
+          dbgs() << __FUNCTION__ << ": Privatized use_device_ptr operand '";
+          OrigV->printAsOperand(dbgs());
+          dbgs() << "', as: '";
+          NewV->printAsOperand(dbgs());
+          dbgs() << "'. But no uses of the original were replaced.\n";
+        });
   }
 }
 
@@ -1949,33 +2228,50 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
 // true.
 void VPOParoptTransform::genOffloadArraysInitUtil(
     IRBuilder<> &Builder, Value *BasePtr, Value *SectionPtr, Value *Size,
-    TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes, unsigned &Cnt,
-    bool hasRuntimeEvaluationCaptureSize, Instruction **BasePtrGEPOut) {
+    Value *Mapper, TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes,
+    unsigned &Cnt, bool hasRuntimeEvaluationCaptureSize,
+    Instruction **BasePtrGEPOut) {
 
   assert(BasePtr && "Unexpected: BasePtr is null");
   assert(SectionPtr && "Unexpected: SectionPtr is null");
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInitUtil:"
                     << " BasePtr=(" << *BasePtr << ") SectionPtr=("
-                    << *SectionPtr << ") Cnt=" << Cnt << " ConstSizes.size()="
-                    << ConstSizes.size() << " hasRuntimeEvaluationCaptureSize="
-                    << hasRuntimeEvaluationCaptureSize << "\n");
+                    << *SectionPtr << ")";
+             if (Mapper) {
+               dbgs() << " Mapper=(";
+               Mapper->printAsOperand(dbgs());
+               dbgs() << ")";
+             } dbgs()
+             << " Cnt=" << Cnt << " ConstSizes.size()=" << ConstSizes.size()
+             << " hasRuntimeEvaluationCaptureSize="
+             << hasRuntimeEvaluationCaptureSize << "\n");
 
   Value *NewBPVal, *BP, *P, *S, *SizeValue;
+  auto *I8PTy = Builder.getInt8PtrTy();
+  auto *I8PArrayTy = ArrayType::get(I8PTy, Info->NumberOfPtrs);
 
   NewBPVal = genCastforAddr(BasePtr, Builder);
-  BP = Builder.CreateConstInBoundsGEP2_32(
-      ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-      Info->BaseDataPtrs, 0, Cnt);
+  BP = Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->BaseDataPtrs, 0,
+                                          Cnt);
   Builder.CreateStore(NewBPVal, BP);
   if (BasePtrGEPOut)
     *BasePtrGEPOut = cast<Instruction>(BP);
 
-  P = Builder.CreateConstInBoundsGEP2_32(
-      ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-      Info->DataPtrs, 0, Cnt);
+  P = Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->DataPtrs, 0, Cnt);
   NewBPVal = genCastforAddr(SectionPtr, Builder);
   Builder.CreateStore(NewBPVal, P);
+
+  if (UseMapperAPI) {
+    Value *MapperGEP =
+        Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->Mappers, 0, Cnt);
+    if (!Mapper)
+      Mapper = ConstantPointerNull::get(I8PTy);
+    else
+      Info->FoundValidMapper = true;
+    Value *MapperCast = genCastforAddr(Mapper, Builder);
+    Builder.CreateStore(MapperCast, MapperGEP);
+  }
 
   if (hasRuntimeEvaluationCaptureSize) {
     LLVMContext &C = F->getContext();
@@ -2039,17 +2335,19 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
       MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
+        // TODO: Use mapper from map-chain
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
-            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize,
-            I == 0 ? &BasePtrGEP : nullptr);
+            Aggr->getMapper(), Info, ConstSizes, Cnt,
+            hasRuntimeEvaluationCaptureSize, I == 0 ? &BasePtrGEP : nullptr);
       }
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
-                               Cnt, hasRuntimeEvaluationCaptureSize,
-                               &BasePtrGEP);
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal,
+                               /*Size=*/nullptr,
+                               /*Mapper=*/nullptr, Info, ConstSizes, Cnt,
+                               hasRuntimeEvaluationCaptureSize, &BasePtrGEP);
     }
     MapI->setBasePtrGEPForOrig(BasePtrGEP);
   }
@@ -2069,6 +2367,7 @@ void VPOParoptTransform::genOffloadArraysInit(
     WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
     SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
+    SmallVectorImpl<GlobalVariable *> &Names, SmallVectorImpl<Value *> &Mappers,
     bool hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInit:"
@@ -2082,6 +2381,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   bool Match = false;
   Value *SizesArray;
   LLVMContext &C = F->getContext();
+  Type *I8PTy = Builder.getInt8PtrTy();
 
   // Build the alloca defs of the target parms.
   // The allocas must be kept in the same region as their uses,
@@ -2104,12 +2404,10 @@ void VPOParoptTransform::genOffloadArraysInit(
   }
 
   AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
-        ".offload_baseptrs");
+      ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_baseptrs");
 
   AllocaInst *TgPointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
-        ".offload_ptrs");
+      ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_ptrs");
 
   Constant *MapTypesArrayInit =
         ConstantDataArray::get(Builder.getContext(), MapTypes);
@@ -2119,10 +2417,48 @@ void VPOParoptTransform::genOffloadArraysInit(
                          ".offload_maptypes", nullptr);
   MapTypesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
 
+  GlobalVariable *NamesArray = nullptr;
+  if (UseMapperAPI)
+    if (llvm::any_of(Names, [](GlobalVariable *C) { return C; })) {
+      SmallVector<Constant *, 16> NamesCasted;
+      // Create a global mapnames array from individual names:
+      // @0 = private unnamed_addr constant [13 x i8] c";y;t.c;4;7;;\00" // (1)
+      //
+      // @.offload_mapnames = private constant [1 x i8*] [               // (3)
+      //   i8* getelementptr inbounds ([13 x i8], [13 x i8]* @0,
+      //                               i32 0, i32 0)                     // (2)
+      //   ]
+      //
+      llvm::transform(
+          Names, std::back_inserter(NamesCasted),
+          [&C](GlobalVariable *N) { //                                      (1)
+            assert(N && "Name is null.");
+            Constant *Zero = ConstantInt::get(Type::getInt32Ty(C), 0);
+            Constant *Indices[] = {Zero, Zero};
+            return ConstantExpr::getInBoundsGetElementPtr(N->getValueType(), N,
+                                                          Indices); //      (2)
+          });
+
+      auto *NamesArrayInit = ConstantArray::get(
+          ArrayType::get(I8PTy, NamesCasted.size()), NamesCasted);
+      GlobalVariable *NamesArrayGbl =
+          new GlobalVariable(*(F->getParent()), NamesArrayInit->getType(), true,
+                             GlobalValue::PrivateLinkage, NamesArrayInit,
+                             ".offload_mapnames", nullptr); //              (3)
+      NamesArray = NamesArrayGbl;
+    }
+
+  AllocaInst *TgMappersArray = nullptr;
+  if (UseMapperAPI)
+    TgMappersArray = Builder.CreateAlloca(
+        ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_mappers");
+
   Info->BaseDataPtrs = TgBasePointersArray;
   Info->DataPtrs = TgPointersArray;
   Info->DataSizes = SizesArray;
   Info->DataMapTypes = MapTypesArrayGbl;
+  Info->Names = NamesArray;
+  Info->Mappers = TgMappersArray;
 
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
@@ -2153,12 +2489,15 @@ void VPOParoptTransform::genOffloadArraysInit(
                                   Builder, Cnt);
 
     if (!Match)
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
-                               Cnt, hasRuntimeEvaluationCaptureSize);
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal,
+                               /*Size=*/nullptr, /*Mapper=*/nullptr, Info,
+                               ConstSizes, Cnt,
+                               hasRuntimeEvaluationCaptureSize);
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
     genOffloadArraysInitUtil(Builder, W->getParLoopNdInfoAlloca(),
-                             W->getParLoopNdInfoAlloca(), nullptr, Info,
+                             W->getParLoopNdInfoAlloca(),
+                             /*Size=*/nullptr, /*Mapper=*/nullptr, Info,
                              ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
 
   LLVM_DEBUG(dbgs() << "\nExit2 VPOParoptTransform::genOffloadArraysInit:"
@@ -2176,28 +2515,43 @@ void VPOParoptTransform::genOffloadArraysArgument(
   LLVM_DEBUG(dbgs() << "\nVPOParoptTransform::genOffloadArraysArgument:"
                     << " Info->NumberOfPtrs=" << Info->NumberOfPtrs << "\n");
 
+  auto *I8PTy = Builder.getInt8PtrTy();
+  auto *I64Ty = Type::getInt64Ty(C);
+  auto *NullI8PP = ConstantPointerNull::get(PointerType::getUnqual(I8PTy));
+  auto *NullI64P = ConstantPointerNull::get(PointerType::getUnqual(I64Ty));
+
   if (Info->NumberOfPtrs) {
+    auto *I8PArrayTy = ArrayType::get(I8PTy, Info->NumberOfPtrs);
+    auto *I64ArrayTy = ArrayType::get(I64Ty, Info->NumberOfPtrs);
+
     Info->ResBaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->BaseDataPtrs, 0, 0);
-    Info->ResDataPtrs = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
-        Info->DataPtrs, 0, 0);
-    Info->ResDataSizes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
-        Info->DataSizes, 0, 0);
-    Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
-        Info->DataMapTypes, 0, 0);
-  } else {
-    Info->ResBaseDataPtrs = ConstantPointerNull::get(
-        PointerType::getUnqual(Builder.getInt8PtrTy()));
-    Info->ResDataPtrs = ConstantPointerNull::get(
-        PointerType::getUnqual(Builder.getInt8PtrTy()));
+        I8PArrayTy, Info->BaseDataPtrs, 0, 0);
+    Info->ResDataPtrs =
+        Builder.CreateConstInBoundsGEP2_32(I8PArrayTy, Info->DataPtrs, 0, 0);
     Info->ResDataSizes =
-        ConstantPointerNull::get(PointerType::getUnqual(Type::getInt64Ty(C)));
-    Info->ResDataMapTypes =
-        ConstantPointerNull::get(PointerType::getUnqual(Type::getInt64Ty(C)));
+        Builder.CreateConstInBoundsGEP2_32(I64ArrayTy, Info->DataSizes, 0, 0);
+    Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
+        I64ArrayTy, Info->DataMapTypes, 0, 0);
+    if (UseMapperAPI) {
+      // If there are no non-null names/mappers, pass "i8** null" to RTL.
+      Info->ResNames = Info->Names ? Builder.CreateConstInBoundsGEP2_32(
+                                         I8PArrayTy, Info->Names, 0, 0)
+                                   : NullI8PP;
+
+      Info->ResMappers = Info->FoundValidMapper
+                             ? Builder.CreateConstInBoundsGEP2_32(
+                                   I8PArrayTy, Info->Mappers, 0, 0)
+                             : NullI8PP;
+    }
+  } else {
+    Info->ResBaseDataPtrs = NullI8PP;
+    Info->ResDataPtrs = NullI8PP;
+    if (UseMapperAPI) {
+      Info->ResNames = NullI8PP;
+      Info->ResMappers = NullI8PP;
+    }
+    Info->ResDataSizes = NullI64P;
+    Info->ResDataMapTypes = NullI64P;
   }
 }
 
@@ -2309,6 +2663,14 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
     for (SharedItem *ShaI : ShaClause.items()) {
       NewV = removeLaunderIntrinsic(ShaI->getOrig(), true);
       ShaI->setOrig(NewV);
+    }
+  }
+
+  if (W->canHaveUseDevicePtr()) {
+    UseDevicePtrClause const &UDPClause = W->getUseDevicePtr();
+    for (UseDevicePtrItem *UDPI : UDPClause.items()) {
+      NewV = removeLaunderIntrinsic(UDPI->getOrig(), true);
+      UDPI->setOrig(NewV);
     }
   }
 
@@ -2514,9 +2876,10 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
     }
   }
 #endif // INTEL_CUSTOMIZATION
-  if (W->canHaveIsDevicePtr()) {
-    IsDevicePtrClause &IsDevPtrClause = W->getIsDevicePtr();
-    for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {
+
+  if (W->canHaveUseDevicePtr()) {
+    UseDevicePtrClause &UseDevPtrClause = W->getUseDevicePtr();
+    for (UseDevicePtrItem *Item : UseDevPtrClause.items()) {
       VNew = createRenamedValueForGlobalsAndConstExprs(Item->getOrig());
       Item->setOrig(VNew);
     }
@@ -2699,11 +3062,22 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 
 // Find and return the variant function name from the Declare Variant
 // information embedded in the "openmp-variant" string attribute of BaseCall.
-// The context to match is given by MatchConstruct and MatchArch.
+// The construct to match is given by MatchConstruct, and at least one of the
+// device architectures must be supported (ie, in enum DeviceArch).
+//
+// On a match, besides returning the variant function name, it also stores in
+// the output parameter 'DeviceArchs' a bit vector representing supported
+// device architectures that are listed in the string attribute.  If a match is
+// not found, it returns a null string and 'DeviceArchs' may be undefined.
 StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
-                         StringRef &MatchArch) {
+                         uint64_t &DeviceArchs) {
   assert(BaseCall && "BaseCall is null");
   Function *BaseFunc = BaseCall->getCalledFunction();
+  if (!BaseFunc) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": BaseCall->getCalledFunction() returned null\n");
+    return "";
+  }
 
   StringRef VariantAttributeString =
       BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
@@ -2729,20 +3103,44 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen"
   //
   // An example of VariantAttributeString with two <variant>s:
-  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen;;
+  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen9,XeHP;;
   //    name:foo_xxx;construct:parallel;arch:xxx"
   //
   // We want to find the <variant> whose "construt" field's <value> is
-  // MatchConstruct and "arch" field's <value> is MatchArch.
-  // If such a <variant> is found, return the string from its "name" field.
+  // MatchConstruct and whose "arch" field's <value> contains at least one
+  // architecture supported in enum DeviceArch.
+  // If such a <variant> is found, return the string from its "name" field
+  // and update the output parameter 'DeviceArchs'.
 
-  SmallVector<StringRef,1> Variants;   // holds <variant> substrings
-  SmallVector<StringRef,3> Fields;     // holds <field>:<value> substrings
-  SmallVector<StringRef,2> FV;         // FV[0]= <field>; FV[1]= <value>
+  SmallVector<StringRef, 1> Variants;  // holds <variant> substrings
+  SmallVector<StringRef, 3> Fields;    // holds <field>:<value> substrings
+  SmallVector<StringRef, 2> FV;        // FV[0]= <field>; FV[1]= <value>
   StringRef VariantName;               // string to return
   bool FoundConstruct = false;
   bool FoundArch = false;
   bool FoundName = false;
+
+  auto matchDeviceArch = [&DeviceArchs](StringRef &ArchList) {
+    // ArchList is of the form <arch>[,<arch>[,<arch>...]]
+    // Split it to extract each arch, and update DeviceArchs.
+    SmallVector<StringRef, 2> Arch;
+    ArchList.split(Arch, ",");
+    DeviceArchs = 0;
+    for (unsigned I = 0; I < Arch.size(); ++I) {
+      if (Arch[I] == "gen")
+        DeviceArchs |=
+            DeviceArch_Gen9 | DeviceArch_XeLP | DeviceArch_XeHP; // 0x7
+      else if (Arch[I] == "gen9")
+        DeviceArchs |= DeviceArch_Gen9;   // 0x1
+      else if (Arch[I] == "XeLP")
+        DeviceArchs |= DeviceArch_XeLP;   // 0x2
+      else if (Arch[I] == "XeHP")
+        DeviceArchs |= DeviceArch_XeHP;   // 0x4
+      else if (Arch[I] == "x86_64")
+        DeviceArchs |= DeviceArch_x86_64; // 0x100
+    }
+    return DeviceArchs;
+  };
 
   // Split VariantAttributeString so that each <variant> substring is
   // separately stored in the Variants vector
@@ -2772,7 +3170,7 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
              "Malformed <field>:<value> in openmp-variant attribute");
       if (FV[0] == "construct" && FV[1] == MatchConstruct)
         FoundConstruct = true;
-      else if (FV[0] == "arch" && FV[1] == MatchArch)
+      else if (FV[0] == "arch" && matchDeviceArch(FV[1]))
         FoundArch = true;
       else if (FV[0] == "name") {
         VariantName = FV[1];
@@ -2791,7 +3189,8 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
 
   if (FoundConstruct && FoundArch && FoundName) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function: "
-                      << VariantName << "\n");
+                      << VariantName << " and device bits "
+                      << llvm::format_hex(DeviceArchs, 6, true) << "\n");
   } else {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
   }
@@ -2802,29 +3201,13 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
 // construct, an AsyncObj is created and passed to @__tgt_create_interop_obj().
 // Its type is that of a struct of this form:
 //
-//      struct AsyncObjTy { // struct size = 8+8+4+4 = 24 on 64bit arch
-//        void* UDPtrs;     // pointer to a UseDevicePtrsTy struct
-//                          // unused when UseRawDevicePtr is set
+//      struct AsyncObjTy { // struct size = 8+8+4 = 20 on 64bit arch
+//        void* shareds;    // unused
 //        void* task_entry; // unused
 //        int   part_id;    // unused
-//        int   num_ptrs;   // number of use_device_ptr pointers
-//                          // unused when UseRawDevicePtr is set
 //      };
 //
-// TODO : Remove struct UseDevicePtrsTy when UseRawDevicePtr is default
-// where the UseDevicePtrsTy is a struct to hold void* pointers corresponding
-// to the target buffers created for each pointer. For example, for the
-// clause use_device_ptr(a,b,c,d), the structure will look like this:
-//
-//      struct UseDevicePtrsTy { // struct size = num_ptrs*8 on 64bit arch
-//        void* a.buffer;
-//        void* b.buffer;
-//        void* c.buffer;
-//        void* d.buffer;
-//      };
-//
-// The AsyncObjTy is actually a __kmp_task_t struct, and
-// the UseDevicePtrsTy corresponds to the "shareds" struct.
+// The AsyncObjTy is actually a __kmp_task_t struct.
 //
 // The AsyncObj is allocated by calling __kmpc_omp_task_alloc, with
 // the proxy flag bit set (WRNTaskFlag::Proxy is 0x10).
@@ -2842,54 +3225,29 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
 
   // Build the struct for AsyncObjTy:
   //
-  //   %__struct.AsyncObj = type { i8*, i8*, i32, i32 }
+  //   %__struct.AsyncObj = type { i8*, i8*, i32 }
 
-  Type *AsyncObjTyFields[] = {Int8PtrTy, // 0: Pointer to UseDevicePtrsTy struct
+  Type *AsyncObjTyFields[] = {Int8PtrTy, // 0: unused: shareds
                               Int8PtrTy, // 1: unused: task_entry
-                              Int32Ty,   // 2: unused: part_id
-                              Int32Ty};  // 3: number of ptrs in UseDevicePtrsTy
+                              Int32Ty};  // 2: unused: part_id
   StructType *AsyncObjTy =
       StructType::create(C, AsyncObjTyFields, "__struct.AsyncObj", false);
   int AsyncObjTySize = DL.getTypeAllocSize(AsyncObjTy);
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": AsyncObjTy: " << *AsyncObjTy
                     << "; Size = " << AsyncObjTySize << " bytes\n");
 
-  // Build the struct for UseDevicePtrsTy if use_device_ptr clause is present.
-  // Add one "i8*" field for each item in the clause.
-  // Example: for 4 pointers, the struct is:
-  //
-  //   %__struct.UDPtrs = type { i8*, i8*, i8*, i8* }
-
-  StructType *UseDevicePtrsTy = nullptr;
-  int UseDevicePtrsTySize = 0;
-  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  int NumberOfPointers = UseRawDevicePtr ? 0 : UDPtrClause.size();
-  if (NumberOfPointers > 0) {
-    SmallVector<Type *, 4> StructFields; // {i8*, i8*, i8*, etc.}
-    for (int I = 0; I < NumberOfPointers; I++)
-      StructFields.push_back(Int8PtrTy);
-    UseDevicePtrsTy =
-        StructType::create(C, StructFields, "__struct.UDPtrs", false);
-    UseDevicePtrsTySize = DL.getTypeAllocSize(UseDevicePtrsTy);
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": UseDevicePtrsTy: " << *UseDevicePtrsTy
-                      << "; Size = " << UseDevicePtrsTySize << " bytes\n");
-  }
-
-  // Create AsyncObj by calling __kmpc_omp_task_alloc()
-  // For the example with 4 use_device_ptr pointers, the call looks like this:
+  // Create AsyncObj by calling __kmpc_omp_task_alloc(). The call looks like:
   //
   //   %asyncobj = call i8* @__kmpc_omp_task_alloc(
   //                        %__struct.ident_t* @.kmpc_loc.0.0,
   //                        i32 0,      // unused
   //                        i32 16,     // "proxy" flag 0x10
-  //                        i64 24,     // sizeof(AsyncObjTy) = 8+8+4+4 = 24
-  //                        i64 32,     // sizeof(UseDevicePtrsTy) = 4*8 = 32
-  //                                    // 0 for UseRawDevicePtr
+  //                        i64 20,     // sizeof(AsyncObjTy) = 8+8+4 = 20
+  //                        i64 0,      // sizeof(shareds_t) = 0
   //                        i8* null)   // unused
 
   CallInst *AsyncObj = VPOParoptUtils::genKmpcTaskAllocForAsyncObj(
-      W, IdentTy, AsyncObjTySize, UseDevicePtrsTySize, InsertPt);
+      W, IdentTy, AsyncObjTySize, InsertPt);
   assert(AsyncObj && "AsyncObj not created for Target Variant Dispatch Nowait");
   AsyncObj->setName("asyncobj"); // void* pointer
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": AsyncObj: " << *AsyncObj << "\n");
@@ -2900,8 +3258,8 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
   Value *AsyncObjPtr = Builder.CreateBitCast( // base pointer to AsyncObjTy
       AsyncObj, PointerType::getUnqual(AsyncObjTy), "asyncobj.ptr");
 
-  // Initialize fields 1,2,3 of AsyncObj. Field 0 is already initialized
-  // by the runtime to hold a pointer to UseDevicePtrsTy.
+  // Initialize fields 1 and 2 of AsyncObj. Field 0 is already initialized
+  // by the runtime.
 
   // Field 1: task_entry pointer is unused. Just init it to null.
   //
@@ -2922,61 +3280,6 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
   Value *PartIdGep = Builder.CreateInBoundsGEP(
       AsyncObjTy, AsyncObjPtr, {Zero, Builder.getInt32(2)}, "part.id.gep");
   Builder.CreateStore(Zero, PartIdGep);
-
-  // Field 3: save the number of use_device_ptr pointers here.
-  //
-  //   %num.ptrs.gep = getelementptr inbounds %__struct.AsyncObj,
-  //                     %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 3
-  //   store i32 <NumberOfPointers>, i32* %num.ptrs.gep
-
-  Value *NumPointersGep =
-      Builder.CreateInBoundsGEP(AsyncObjTy, AsyncObjPtr,
-                                {Zero, Builder.getInt32(3)}, "num.ptrs.gep");
-  Builder.CreateStore(Builder.getInt32(NumberOfPointers), NumPointersGep);
-
-  // Save the target buffer for a use_device_ptr pointer in the
-  // UseDevicePtrsTy struct.
-  if (NumberOfPointers > 0) {
-
-    // Build "UDPtrsPtr" to point to the UseDevicePtrsTy struct.
-    // Field 0 of AsyncObj holds the address of the UseDevicePtrsTy struct.
-    // Load it and cast it to UseDevicePtrsTy*. The IR looks like this:
-    //
-    //   %UDPtrs.gep = getelementptr inbounds %__struct.AsyncObj,
-    //                   %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 0
-    //   %11 = load i8*, i8** %UDPtrs.gep
-    //   %UDPtrs.ptr = bitcast i8* %11 to %__struct.UDPtrs*
-
-    Value *UDPtrsGep = Builder.CreateInBoundsGEP(AsyncObjTy, AsyncObjPtr,
-                                                 {Zero, Zero}, "UDPtrs.gep");
-    LoadInst *UDPtrsLoad = Builder.CreateLoad(UDPtrsGep);
-    Value *UDPtrsPtr = Builder.CreateBitCast(
-        UDPtrsLoad, PointerType::getUnqual(UseDevicePtrsTy), "UDPtrs.ptr");
-
-    // Store each target buffer in the UseDevicePtrsTy struct.
-    int Index = 0;
-    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-      StringRef OrigName = Item->getOrig()->getName();
-
-      // Build GEP for the Index'th field in the UseDevicePtrsTy struct. E.g.,
-      //
-      //   %aaa.gep = getelementptr inbounds %__struct.UDPtrs,
-      //                 %__struct.UDPtrs* %UDPtrs.ptr, i32 0, i32 <Index>
-
-      Value *Gep = Builder.CreateInBoundsGEP(UseDevicePtrsTy, UDPtrsPtr,
-                                             {Zero, Builder.getInt32(Index++)},
-                                             OrigName + ".gep");
-      // Store the buffer in the UseDevicePtrsTy field corresponding to the GEP
-      //
-      //   %aaa.buffer = load i8*, i8** %aaa.tgt.buffer.addr
-      //   store i8* %aaa.buffer, i8** %aaa.gep
-
-      Value *TgtBufferAddr = Item->getNew(); // i8**
-      LoadInst *Load =
-          Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // i8*
-      Builder.CreateStore(Load, Gep);
-    }
-  }
 
   return AsyncObj;
 }
@@ -3030,195 +3333,6 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
   return InteropObj;
 }
 
-/// Auxiliary function called from genTargetVariantDispatchCode() to
-///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
-///       for each host pointer
-///   (B) Compute the dispatch condition; it is
-///          (device.available) && (all tgt buffers successfully created)
-///   (C) If (device.available) but some target buffers failed to create (ie,
-///       dispatch is false), emit cleanup code with __tgt_release_buffer()
-///       calls to free all target buffers that got created.
-///
-/// Pseudocode:
-/// \code
-///   bool dispatch = false;                                  (B1)
-///   void *a_tgtBuff = nullptr;                              (A1)
-///   void *b_tgtBuff = nullptr;                              (A1)
-///   if (available) {
-///
-///     // "if.device.available.create.buffers"
-///
-///     a_tgtBuff = __tgt_create_buffer(dnum, a);             (A2)
-///     if (a_tgtBuff != nullptr) {                           (A2)
-///       b_tgtBuff = __tgt_create_buffer(dnum, b);           (A2)
-///       if (b_tgtBuff != nullptr)                           (A2)
-///         dispatch = true;                                  (B2)
-///     }
-///
-///     // "begin.check.buffer"
-///
-///     if (dispatch == false) {                              (C)
-///       if (a_tgtBuff != nullptr)                           (C)
-///         __tgt_release_buffer(dnum, a_tgtBuff);            (C)
-///       if (b_tgtBuff != nullptr)                           (C)
-///         __tgt_release_buffer(dnum, b_tgtBuff);            (C)
-///     }
-///
-///     // "end.check.buffer"
-///
-///   }
-///   // "end.if.device.available.create.buffers"
-/// \endcode
-static Value *
-createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
-                                    Value *DeviceNum, Value *Available,
-                                    DominatorTree *DT, LoopInfo *LI) {
-  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  assert(!UDPtrClause.empty() && "Unexpected: no use_device_ptr clause");
-
-  IRBuilder<> Builder(InsertPt);
-  IntegerType *Int1Ty = Builder.getInt1Ty();
-  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
-  ConstantInt *ValueFalse = Builder.getFalse();
-  ConstantInt *ValueTrue = Builder.getTrue();
-  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
-
-  Value *DispatchTmp; // the dispatch condition
-
-  // (A1)
-  // For each host pointer in the use_device_pointer clause:
-  //   Alloc a target buffer pointer (void**)
-  //   Initialized it to null
-  //   Save it in the Clause Item's "New" field
-  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-    StringRef OrigName = Item->getOrig()->getName();
-    AllocaInst *TgtBufferAddr =
-        Builder.CreateAlloca(Int8PtrTy, nullptr, OrigName + ".tgt.buffer.addr");
-    Builder.CreateStore(NullPtr, TgtBufferAddr);
-    Item->setNew(TgtBufferAddr);
-  }
-
-  // (B1)
-  // Initialize dispatch flag to false. Later, set it to true
-  // if device is available && all target buffers are created successfully
-  AllocaInst *DispatchFlag =
-      Builder.CreateAlloca(Int1Ty, nullptr, "dispatch.flag");
-  Builder.CreateStore(ValueFalse, DispatchFlag);
-
-  // Split CFG for the if(available) {...} code
-  Instruction *AvailableTerm =
-      SplitBlockAndInsertIfThen(Available, InsertPt, false, nullptr, DT, LI);
-  AvailableTerm->getParent()->setName("if.device.available.create.buffers");
-
-  BasicBlock *BBCheckBuffer = InsertPt->getParent();
-  BasicBlock *BBEndIf = SplitBlock(BBCheckBuffer, InsertPt, DT, LI);
-  BBCheckBuffer->setName("begin.check.buffer");
-  BBEndIf->setName("end.if.device.available.create.buffers");
-
-  // After the previous SplitBlockAndInsertIfThen(Available,...) call,
-  // the successor of the False branch is BBCheckBuffer. We need to
-  // changed it to BBEndIf because we want to skip the tgtBuffer cleanup
-  // code since device is not available.
-  BasicBlock *BBIfAvailable = DispatchFlag->getParent();
-  Instruction *ITerm = BBIfAvailable->getTerminator();
-  assert(isa<BranchInst>(ITerm) && "Expected a branch");
-  BranchInst *IfAvailable = cast<BranchInst>(ITerm);
-  assert(IfAvailable->isConditional() && "Expected a conditional branch");
-  IfAvailable->setSuccessor(1, BBEndIf);
-
-  // CFG so far:
-  //   ...
-  //   br i1 %available, label %if.device.available.create.buffers,
-  //                     label %end.if.device.available.create.buffers
-  //
-  //   if.device.available.create.buffers:
-  //      br label %begin.check.buffer ; <--- AvailableTerm
-  //
-  //   begin.check.buffer:
-  //      br label %end.if.device.available.create.buffers
-  //
-  //   end.if.device.available.create.buffers:
-  //      ; <--- InsertPt
-  //   ...
-
-  // (B2)
-  // Instruction to set dispatch condition to true
-  Builder.SetInsertPoint(AvailableTerm);
-  Instruction *InsertBefore = Builder.CreateStore(ValueTrue, DispatchFlag);
-
-  // (A2)
-  // Create target buffer for each host pointer
-  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-    Builder.SetInsertPoint(InsertBefore);
-    Value *Orig = Item->getOrig();
-    StringRef OrigName = Orig->getName();
-    Instruction *NextInsertBefore = nullptr;
-    Value *HostPtr = nullptr;
-    if (Item->getIsPointerToPointer()) {
-      Type *OrigElemType = Item->getOrigElemType();
-      HostPtr = Builder.CreateLoad(OrigElemType, Orig, "hostPtr");
-      NextInsertBefore = cast<Instruction>(HostPtr);
-    } else
-      HostPtr = Orig;
-
-    assert(HostPtr->getType()->isPointerTy() &&
-           "Target Variant: Expected a pointer");
-    Value *PtrCast = Builder.CreateBitCast(HostPtr, Int8PtrTy);
-    if (!NextInsertBefore && isa<Instruction>(PtrCast))
-      NextInsertBefore = cast<Instruction>(PtrCast);
-    CallInst *BufferCall =
-        VPOParoptUtils::genTgtCreateBuffer(DeviceNum, PtrCast, InsertBefore);
-    BufferCall->setName(OrigName + ".buffer");
-    if (!NextInsertBefore)
-      NextInsertBefore = BufferCall;
-    assert(BufferCall->getType() == Int8PtrTy &&
-           "Expected __tgt_create_buffer() to return a void*");
-    Value *TgtBufferAddr = Item->getNew();
-    assert(TgtBufferAddr != nullptr && "Target Variant: missing TgtBufferAddr");
-    Builder.CreateStore(BufferCall, TgtBufferAddr);
-
-    Value *IsNull = Builder.CreateICmpEQ(BufferCall, NullPtr, "isNull");
-    SplitBlockAndInsertIfThen(IsNull, InsertBefore, false, nullptr, DT, LI,
-                              BBCheckBuffer);
-    InsertBefore->getParent()->setName("if.ptr.not.null");
-    InsertBefore = NextInsertBefore;
-  }
-
-  // (C)
-  // Emit cleanup code
-  Instruction *CheckTerm = BBCheckBuffer->getTerminator();
-  Builder.SetInsertPoint(CheckTerm);
-  DispatchTmp = Builder.CreateLoad(DispatchFlag, "dispatch");
-  Value *NotDispatch = Builder.CreateNot(DispatchTmp, "notDispatch");
-  Instruction *CleanupTerm =
-      SplitBlockAndInsertIfThen(NotDispatch, CheckTerm, false, nullptr, DT, LI);
-  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-    // Note: we cannot hoist Builder.SetInsertPoint(CleanupTerm) above the
-    // for loop. After SplitBlockAndInsertIfThen() below, CleanupTerm ends
-    // up in a new BB, so we need to call Builder.SetInsertPoint(CleanupTerm)
-    // inside the loop. If not, the Buffer=Builder.CreateLoad() below, while
-    // inserted into the right BB, will have its parent BB set to the wrong
-    // one (the old parent of CleanupTerm before the split).
-    // At -O2 this isn't a problem (somehow cleaned up) but at -O0 it
-    // dies in the verifier.
-    StringRef OrigName = Item->getOrig()->getName();
-    Builder.SetInsertPoint(CleanupTerm);
-    CleanupTerm->getParent()->setName("check.unused.buffer");
-    Value *TgtBufferAddr = Item->getNew();
-    LoadInst *Buffer = Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
-    Value *NotNull = Builder.CreateICmpNE(Buffer, NullPtr, "notNull");
-    Instruction *FreeTerm =
-        SplitBlockAndInsertIfThen(NotNull, CleanupTerm, false, nullptr, DT, LI);
-    FreeTerm->getParent()->setName("free.unused.buffer");
-    VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, FreeTerm);
-  }
-  CleanupTerm->getParent()->setName("end.check.unused.buffer");
-  CheckTerm->getParent()->setName("end.check.buffer");
-  Builder.SetInsertPoint(InsertPt);
-  DispatchTmp = Builder.CreateLoad(DispatchFlag, "dispatch");
-  return DispatchTmp;
-}
-
 /// Gen code for the target variant dispatch construct
 ///
 /// Case 1. No use_device_ptr clause:
@@ -3228,8 +3342,8 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 ///      foo(<args>);
 /// \endcode
 ///
-/// If the device clause is absent, the default dnum is -1. This tells
-/// the runtime to use the default device.
+/// If the device clause is absent, the default dnum is
+/// omp_get_default_device().
 ///
 /// The variant version of the base function "foo" is assumed to have been
 /// specified in a declare variant construct which Clang has processed and
@@ -3248,23 +3362,27 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 /// \endcode
 ///
 /// IR:
+///    define internal void @foo_gpu.wrapper(<args>) {
+///      ...
+///      %interop = call i8* @__tgt_create_interop_obj(...)                (7)
+///      %variant = call i32 @foo_gpu(<args>);                             (8)
+///      call i32 @__tgt_release_interop_obj(%interop)                     (9)
+///      ...
+///    }
+///
 ///    %0 = load i32, i32* @dnum, align 4
 ///    %1 = sext i32 %0 to i64
 ///    %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
 ///    %dispatch = icmp ne i32 %call1, 0                                   (2)
 ///    br i1 %dispatch, label %variant.call, label %base.call              (3)
 ///
-///  variant.call:
-///    %variant = call i32 @foo_gpu(<args>)                                (4)
+///  variant.call:                                                         (4)
+///    call @foo_gpu.wrapper(<args>)                                       (5)
 ///    br label %if.end
 ///
-///  base.call:
-///    %call = call i32 @foo(<args>)                                       (5)
+///  base.call:                                                            (6)
+///    %call = call i32 @foo(<args>)
 ///    br label %if.end
-///
-///  if.end:
-///    %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]   (6)
-///    ; replace all other uses of %call with %callphi
 ///
 ///
 /// Case 2. With use_device_ptr clause:
@@ -3276,69 +3394,43 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 ///
 /// The list items (a,b above) in the use_device_ptr clause are host pointers.
 ///
-/// Old Scheme uses opencl buffers.  New scheme does not create buffers
-/// To use new scheme UseRawDevicePtr flag should be true.
-/// At some point old Scheme will be delete.
-///
 /// The compiler emits extra code (on top of Case1) as follows:
 ///
-///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
-///       for each host pointer
-///   (B) Compute the dispatch condition; it is
-///          (device.available) && (all tgt buffers successfully created)
-///   (C) If (device.available) but some target buffers failed to create (ie,
-///       dispatch is false), emit cleanup code with __tgt_release_buffer()
-///       calls to free all target buffers that got created.
-///   (D) Replace args in the foo_variant() call such that each arg that is a
-///       load from a host pointer becomes a load from the target buffer ptr
-///   (E) Emit calls to __tgt_release_buffer() after returning from
-///       the foo_variant() call
-///
-/// The pseudocode looks like this:
+///   (A) Emit call to __tgt_target_data_begin/end() to get device pointers
+///       corresponding to use_device_ptr operands.
+///   (B) Replace args in the foo_variant() call to use the above mentioned
+///       device pointers.
+/// Pseudocode for the extra code looks like this:
 /// \code
-///   bool available = __tgt_is_device_available(dnum, ...)   (1)
-///   bool dispatch = false;                                  (B)
-///   void *a_tgtBuff = nullptr;                              (A)
-///   void *b_tgtBuff = nullptr;                              (A)
-///   if (available) {
-///     a_tgtBuff = __tgt_create_buffer(dnum, a);             (A)
-///     if (a_tgtBuff != nullptr) {                           (A)
-///       b_tgtBuff = __tgt_create_buffer(dnum, b);           (A)
-///       if (b_tgtBuff != nullptr)                           (A)
-///         dispatch = true;                                  (B)
-///     }
-///     if (dispatch == false) {                              (C)
-///       if (a_tgtBuff != nullptr)                           (C)
-///         __tgt_release_buffer(dnum, a_tgtBuff);            (C)
-///       if (b_tgtBuff != nullptr)                           (C)
-///         __tgt_release_buffer(dnum, b_tgtBuff);            (C)
-///     }
+///
+///   @.offload_maptypes = ... [96, 96] // TGT_PARAM | TGT_RETURN_PARAM
+///   @.offload_sizes = ... [0, 0]
+///   ...
+///   define internal void @foo_gpu.wrapper(i8* %a, i8* %b) {
+///     ...
+///     %variant = call i32 @foo_gpu(%a, %b);                              (8)
+///     ...
 ///   }
-///   if (dispatch == true) {
-///      foo_gpu(a_tgtBuff, b_tgtBuff);                       (D)
-///      __tgt_release_buffer(dnum, a_tgtBuff);               (E)
-///      __tgt_release_buffer(dnum, b_tgtBuff);               (E)
-///   }
-///   else
-///     foo(a, b);
+///   ...
+///   %a.map.gep = getelementptr(%offload_baseptrs, 0, 0)
+///   %b.map.gep = getelementptr(%offload_baseptrs, 0, 1)
+///   store i8* %a, i8** %a.map.gep
+///   store i8* %b, i8** %b.map.gep
+///
+///   call void @__tgt_target_data_begin(..., @.offload_sizes,
+///                                           @.offload_maptypes)
+///   %a_updated = load i8*, i8** %a.map.gep
+///   %b_updated = load i8*, i8** %a.map.gep
+///
+///   call foo_gpu.wrapper(%a_updated, %b_updated);                        (5)
+///   call void @__tgt_target_data_end(...)
 /// \endcode
 ///
-/// Tasks (A,B,C) are done in createTargetVariantDispatchHostPtrs()
-/// Task (D) is done in VPOParoptUtils::genVariantCall()
-/// Task (E) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
-///
-/// New Scheme when UseRawDevicePointer is true.
-/// Will replace the above old scheme in the future.
-///
-///   bool available = __tgt_is_device_available(dnum, ...)
-///
-///    call void @__tgt_target_data_begin(i64 -1, i32 1, i8** %5,
-///      i8** %6, i64* getelementptr inbounds ([1 x i64],
-///      [1 x i64]* @.offload_sizes, i32 0, i32 0),
-///      i64* getelementptr inbounds ([1 x i64],
-///      [1 x i64]* @.offload_maptypes, i32 0, i32 0))
-///   foo_gpu(a_tgtBuff, b_tgtBuff);
-///   call void @__tgt_target_data_end()
+/// Task (A) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
+/// Task (B) is done in useUpdatedUseDevicePtrsInTgtDataRegion()
+// See the header comment of useUpdatedUseDevicePtrsInTgtDataRegion() for
+// examples of the replacement of use_device_ptr operands with a private version
+// containing the device value.
 bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
@@ -3352,112 +3444,114 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // All other instructions in the region are ignored.
 
   StringRef MatchConstruct("target_variant_dispatch");
-  StringRef MatchArch("gen");
   StringRef VariantName;
+  uint64_t DeviceArchs = 0u; // bit vector of device architectures
   CallInst *BaseCall = nullptr;
   for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
     for (Instruction &I : *BB) {
       if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
         BaseCall = TempCallInst;
-        VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
-        if (!VariantName.empty())
+        VariantName = getVariantName(BaseCall, MatchConstruct, DeviceArchs);
+        if (!VariantName.empty()) {
           break;
+        }
       }
     }
     if (!VariantName.empty())
       break;
   }
 
+  auto emitRemark = [&](const StringRef &Message) {
+    OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+    R << ore::NV("Construct", W->getName()) << Message;
+    ORE.emit(R);
+  };
+
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
-  if (!BaseCall)
+  if (!BaseCall) {
+    emitRemark(" Could not find a valid function call in the region");
     return false;
+  }
 
   if (VariantName.empty()) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+    emitRemark(" Could not find a matching variant function");
     return false;
   }
+
+  // getVariantName() cannot return a name without corresponding device bits
+  assert(DeviceArchs && "No device arch for variant function");
+
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function name: "
                     << VariantName << "\n");
 
   // Initialize types and constants
-  Instruction *InsertPt = BaseCall;
+  BasicBlock *BranchBB = createEmptyPrivInitBB(W);
+  BasicBlock *EndVariantsBB = createEmptyPrivFiniBB(W);
+
+  Instruction *InsertPt = BranchBB->getTerminator();
   IRBuilder<> Builder(InsertPt);
   IntegerType *Int32Ty = Builder.getInt32Ty();
   IntegerType *Int64Ty = Builder.getInt64Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
   ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
-  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
 
-  // Default device num is -1
   Value *DeviceNum = W->getDevice();
-  if (DeviceNum == nullptr) {
-    DeviceNum = ConstantInt::get(Int64Ty, -1);
-  }
+  if (!DeviceNum)
+    DeviceNum =
+        Builder.CreateZExt(VPOParoptUtils::genOmpGetDefaultDevice(InsertPt),
+                           Int64Ty);
+
+  assert(!DeviceNum->getType()->isPointerTy() &&
+        "DeviceID should not be a pointer");
+  DeviceNum = VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
 
   // Emit call to check for device availability:
   //
-  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)      (1)
-  //   %available  = icmp ne i32 %call, 0                                 (2)
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType) (1)
+  //   %available  = icmp ne i32 %call, 0                                  (2)
   //
-  // The second argument of __tgt_is_device_available() is a pointer
-  // that is currently unused. When we support device types in the
-  // future, it will point to a struct holding device-type information.
-  Value *DeviceType = NullPtr;
+  // The second argument of __tgt_is_device_available() is a void* that
+  // carries device type information. Currently it is a bit vector representing
+  // devices listed in enum DeviceArch.
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  const unsigned PtrSz = DL.getPointerSizeInBits();
+  Value *DeviceArchVal;
+  if (PtrSz >= 64) {
+    DeviceArchVal = Builder.getInt64(DeviceArchs);
+  } else { // PtrSz <= 63
+    assert(DeviceArchs < (1LLu << PtrSz) &&
+           "Bit vector size exceeds pointer size");
+    DeviceArchVal = Builder.getIntN(PtrSz, DeviceArchs);
+  }
+  Value *DeviceType = Builder.CreateIntToPtr(DeviceArchVal, Int8PtrTy);
   CallInst *IsDeviceAvailable =
       VPOParoptUtils::genTgtIsDeviceAvailable(DeviceNum, DeviceType, InsertPt);
-  IsDeviceAvailable->setName("call");
-  Value *Available =
-      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "available");
-
-  Value *DispatchTmp; // the dispatch condition
+  IsDeviceAvailable->setName("available"); //                               (1)
+  Value *Available = // the dispatch condition
+      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "dispatch"); //    (2)
 
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  // NOTE : Remove after switching to UseDevicePtr
-  if (!UseRawDevicePtr && !UDPtrClause.empty()) {
-#if INTEL_CUSTOMIZATION
-    if (std::any_of(UDPtrClause.items().begin(), UDPtrClause.items().end(),
-                    [](UseDevicePtrItem *UDPI) {
-                      return UDPI->getIsF90DopeVector();
-                    })) {
-      std::string Msg =
-          "'vpo-paropt-use-raw-dev-ptr=false' is not supported with "
-          "use_device_ptr clause on Fortran assumed-shape arrays.";
-      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
-    }
 
-#endif // INTEL_CUSTOMIZATION
-    // A use_device_ptr clause is present. Therefore:
-    //   (A) Create the target buffers
-    //   (C) Free all target buffers if some failed to create
-    //   (B) return the dispatch condition
-    DispatchTmp = createTargetVariantDispatchHostPtrs(W, InsertPt,
-                                          DeviceNum, Available, DT, LI);
-  } else {
-    DispatchTmp = Available;
-    DispatchTmp->setName("dispatch");
-  }
-
-  // Here, Builder insertion point is "InsertPt"
   // Emit dispatch code:
   //
   //   br i1 %dispatch, label %variant.call, label %base.call               (3)
   //
-  // variant.call:
-  //   %variant = call i32 @foo_gpu(<args>)                               (4,D)
-  //   release buffer is in old scheme only
-  //   [calls to __tgt_release_buffer if use_device_ptr exists]             (E)
-  //   br label %if.end                                              (ThenTerm)
+  // variant.call:                                                          (4)
+  //   < call to target_data_begin, and maps to get device pointers >       (A)
+  //   call void @foo_gpu.wrapper(<args>)                               (5) (B)
+  //   < call to target_data_end() >                                        (A)
+  //   br label %if.end
   //
-  // base.call:
-  //   %call = call i32 @foo(<args>)                                        (5)
-  //   br label %if.end                                              (ElseTerm)
+  // base.call:                                                             (6)
+  //   %call = call i32 @foo(<args>)
+  //   br label %if.end
   //
-  // if.end:
-  //   %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]    (6)
-
-  Instruction *ThenTerm, *ElseTerm;
-  VPOParoptUtils::buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt,
-                                      DT); // (3)
+  ValueToValueMapTy VMap;
+  SmallVector<BasicBlock *, 32> BBSet;
+  VPOUtils::singleRegionMultiVersioning(BranchBB->getSingleSuccessor(),
+                                        EndVariantsBB, BBSet, VMap, Available,
+                                        DT); //                     (3) (4) (6)
 
   // Create the interop object for
   // (1) Asynchronous case (i.e., NOWAIT is present), or
@@ -3467,103 +3561,72 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   //     TODO: remove the old implementation when the new one if fully tested.
   Value *InteropObj = nullptr;
   if (UseInterop || W->getNowait())
-    InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm);
+    InteropObj = createInteropObj(W, DeviceNum, IdentTy, BaseCall); //      (7)
 
-  // Create and insert Variant call before ThenTerm
-  ThenTerm->getParent()->setName("variant.call");
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
-  CallInst *VariantCall = nullptr;
-  if (UseRawDevicePtr && !UDPtrClause.empty()) {
-    Builder.SetInsertPoint(ThenTerm);
-    TgDataInfo Info;
-    Info.NumberOfPtrs = UDPtrClause.size();
-    bool hasRuntimeEvaluationCaptureSize = false;
-    SmallVector<Constant *, 16> ConstSizes;
-    SmallVector<uint64_t, 16> MapTypes;
-
-    (void) addMapForUseDevicePtr(W, ThenTerm);
-
-    genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
-                                 hasRuntimeEvaluationCaptureSize);
-
-    InsertPt = ThenTerm;
-    CallInst *DummyCall = nullptr;
-    genOffloadArraysInit(W, &Info, DummyCall, InsertPt, ConstSizes,
-                        MapTypes, hasRuntimeEvaluationCaptureSize);
-
-    genOffloadArraysArgument(&Info, InsertPt);
-    (void) VPOParoptUtils::genTgtTargetDataBegin(
-        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-      MapItem *MapI = Item->getInMap();
-      assert(MapI && "No map found for use-device-ptr item.");
-      Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig();
-      assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
-      Value *OrigV = Item->getOrig();
-      Value *GepCast = Builder.CreateBitOrPointerCast(
-        BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
-        OrigV->getName() + ".cast");
-      Item->setNew(GepCast);
-    }
-    VariantCall =
-            VPOParoptUtils::genVariantCall(BaseCall, VariantName,
-                                           InteropObj, InsertPt, W);
-    VPOParoptUtils::genTgtTargetDataEnd(
-        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-  }
-  else
-      VariantCall =
-            VPOParoptUtils::genVariantCall(BaseCall, VariantName,
-                                           InteropObj, ThenTerm, W);  // (4,D)
+  CallInst *VariantCall = VPOParoptUtils::genVariantCall(
+      BaseCall, VariantName, InteropObj, BaseCall, W); //                   (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
-
-  if (!UseRawDevicePtr) // should be removed later
-    // Release target buffers after Variant call only for synchronous cases;
-    // i.e., when NOWAIT is false. For async cases they are released by the
-    // async_handler callback routine.
-    if (!UDPtrClause.empty() && W->getNowait() == false) {
-      Builder.SetInsertPoint(ThenTerm);
-      for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-        StringRef OrigName = Item->getOrig()->getName();
-        Value *TgtBufferAddr = Item->getNew();
-        LoadInst *Buffer =
-            Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
-        VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm); // (E)
-      }
-    }
 
   // Release the interop object for synchronous execution (no NOWAIT clause).
   // Don't do this for the asynchronous case; the async_handler will do it.
   if (InteropObj != nullptr && W->getNowait() == false)
-    VPOParoptUtils::genTgtReleaseInteropObj(InteropObj, ThenTerm);
+    VPOParoptUtils::genTgtReleaseInteropObj(InteropObj, BaseCall); //       (9)
 
-  // Move BaseCall to before ElseTerm
-  ElseTerm->getParent()->setName("base.call");
-  InsertPt = BaseCall->getNextNode(); // insert PHI before this point later
-  assert(InsertPt && "Corrupt IR: BaseCall cannot be last instruction in BB");
-  BaseCall->moveBefore(ElseTerm);                                        // (5)
+  BaseCall->replaceAllUsesWith(VariantCall);
+  assert(BaseCall->use_empty());
+  BaseCall->eraseFromParent();
 
-  // If BaseCall has users, then insert a PHI before InsertPt
-  // and replace all uses of BaseCall with PHI
-  if (BaseCall->getNumUses() > 0) {
-    Builder.SetInsertPoint(InsertPt);
-    PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi"); // (6)
-    Phi->addIncoming(VariantCall, ThenTerm->getParent());
-    Phi->addIncoming(BaseCall, ElseTerm->getParent());
-    for (User *U : BaseCall->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U))
-        if (UI != Phi) // don't replace in Phi
-          UI->replaceUsesOfWith(BaseCall, Phi);
-  }
+  Function *WrapperFn = VPOParoptUtils::genOutlineFunction(
+      *W, DT, AC, makeArrayRef(BBSet), (VariantName + ".wrapper").str()); // (5)
+  CallInst *VariantWrapperCall = cast<CallInst>(WrapperFn->user_back());
 
-  LLVM_DEBUG(
-      dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
+  auto finalizeAndReturn = [&W] {
+    LLVM_DEBUG(
+        dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
+    W->resetBBSet(); // Invalidate BBSet after transformations
+    return true;
+  };
 
-  W->resetBBSet(); // Invalidate BBSet after transformations
-  return true;
+  if (UDPtrClause.empty())
+    return finalizeAndReturn();
+
+  Builder.SetInsertPoint(VariantWrapperCall);
+  TgDataInfo Info;
+  Info.NumberOfPtrs = UDPtrClause.size();
+  bool hasRuntimeEvaluationCaptureSize = false;
+  SmallVector<Constant *, 16> ConstSizes;
+  SmallVector<uint64_t, 16> MapTypes;
+  SmallVector<GlobalVariable *, 16> Names;
+  SmallVector<Value *, 16> Mappers;
+
+  (void)addMapForUseDevicePtr(W, VariantWrapperCall);
+
+  genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
+                           hasRuntimeEvaluationCaptureSize);
+
+  CallInst *DummyCall = nullptr;
+  genOffloadArraysInit(W, &Info, DummyCall, VariantWrapperCall, ConstSizes,
+                       MapTypes, Names, Mappers,
+                       hasRuntimeEvaluationCaptureSize);
+
+  genOffloadArraysArgument(&Info, VariantWrapperCall);
+
+  (void)VPOParoptUtils::genTgtTargetDataBegin(
+      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+      VariantWrapperCall); //                                               (A)
+
+  CallInst *TgtDataEndCall = VPOParoptUtils::genTgtTargetDataEnd( //        (A)
+      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+      VariantWrapperCall);
+  TgtDataEndCall->moveAfter(VariantWrapperCall);
+
+  useUpdatedUseDevicePtrsInTgtDataRegion(W, VariantWrapperCall); //         (B)
+
+  return finalizeAndReturn();
 }
 
 // Set SIMD widening width for the target region based

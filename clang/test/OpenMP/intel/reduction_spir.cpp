@@ -1,19 +1,39 @@
 // INTEL_COLLAB
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64,spir \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o - %s
+
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN:  -emit-llvm -disable-llvm-passes \
+//RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s
 
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64,spir \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple spir64,spir \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64,spir \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
+//RUN:  -verify -Werror -Wsource-uses-openmp -o - %s \
+//RUN:  | FileCheck %s
+
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN:  -emit-llvm-bc -disable-llvm-passes \
+//RUN:  -fopenmp -fopenmp-targets=spir \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
+
+//RUN: %clang_cc1 -triple spir \
+//RUN:  -emit-llvm -disable-llvm-passes \
+//RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Werror -Wsource-uses-openmp -o - %s \

@@ -38,7 +38,12 @@ const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
     return Iter->second;
   }
 
-  return nullptr;
+  llvm_unreachable("Could not find src bblock for if!");
+}
+
+void HIRCreation::setSrcBBlock(HLIf *If, const BasicBlock *SrcBB) {
+  assert((Ifs.find(If) == Ifs.end()) && "SrcBB already set!");
+  Ifs[If] = SrcBB;
 }
 
 const BasicBlock *HIRCreation::getSrcBBlock(HLSwitch *Switch) const {
@@ -48,7 +53,7 @@ const BasicBlock *HIRCreation::getSrcBBlock(HLSwitch *Switch) const {
     return Iter->second;
   }
 
-  return nullptr;
+  llvm_unreachable("Could not find src bblock for switch!");
 }
 
 HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {

@@ -1,9 +1,9 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
 
 ; Verify that vpo-parops works with bisect limit 0:
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S -opt-bisect-limit=0 | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S -opt-bisect-limit=0 | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S -opt-bisect-limit=0 | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S -opt-bisect-limit=0 | FileCheck %s
 
 ; Verify correctness of CFG and run-time calls.
 
@@ -32,6 +32,9 @@
 ; CHECK: %[[UD:.+]] = load i32, i32* %[[PUD]]
 ; CHECK: br label %[[DISPH:[^,]+]]
 
+; EXIT:
+; CHECK: [[EXIT]]:
+
 ; DISPH:
 ; CHECK: [[DISPH]]:
 ; CHECK: %[[UBTMP:.+]] = load i32, i32* %[[PUB]]
@@ -43,7 +46,7 @@
 ; CHECK: %[[LBNEW:.+]] = load i32, i32* %[[PLB]]
 ; CHECK: %[[UBNEW:.+]] = load i32, i32* %[[PUB]]
 ; CHECK: %[[ZTT2:.+]] = icmp sle i32 %[[LBNEW]], %[[UBNEW]]
-; CHECK: br i1 %[[ZTT2]], label %[[LOOPBODY:[^,]+]], label %[[LOOPREGIONEXIT:[^,]+]]
+; CHECK: br i1 %[[ZTT2]], label %[[LOOPBODY:[^,]+]], label %[[DISPLATCH:[^,]+]]
 
 ; DISPMINUB:
 ; CHECK: [[DISPMINUB]]:
@@ -52,18 +55,28 @@
 
 ; LOOPBODY:
 ; CHECK: [[LOOPBODY]]:
+; CHECK: br label %[[BODYCONT:[^,]+]]
+
+; DISPLATCH:
+; CHECK: [[DISPLATCH]]:
+; CHECK: br label %[[LOOPREGIONEXIT:[^,]+]]
+
+; BODYCONT:
+; CHECK: [[BODYCONT]]:
+; CHECK: br label %[[LOOPINC:[^,]+]]
+
+; LOOPREGIONEXIT:
+; CHECK: [[LOOPREGIONEXIT]]:
+; CHECK: call void @__kmpc_for_static_fini({{.*}}, i32 %[[TID]])
+; CHECK: br label %[[EXIT]]
+
+; LOOPINC:
+; CHECK: [[LOOPINC]]:
 ; CHECK: br i1 {{.*}}, label %[[LOOPBODY]], label %[[DISPINC:[^,]+]]
 
 ; DISPINC:
 ; CHECK: [[DISPINC]]:
 ; CHECK: br label %[[DISPH]]
-
-; LOOPREGIONEXIT:
-; CHECK: [[LOOPREGIONEXIT]]:
-; CHECK: call void @__kmpc_for_static_fini({{.*}}, i32 %[[TID]])
-
-; EXIT:
-; CHECK: [[EXIT]]:
 
 ; ModuleID = 'dist_cases.cpp'
 source_filename = "dist_cases.cpp"

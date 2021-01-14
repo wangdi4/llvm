@@ -141,21 +141,15 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasINVPCID = false;
   bool HasENQCMD = false;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  bool HasULI = false;
-#endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  bool HasKeyLocker = false;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_HRESET
-  bool HasHRESET = false;
-#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_AMX_BF8
   bool HasAMXBF8 = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF8
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
   bool HasAMXMEMADVISE = false;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+  bool HasAMXMEMADVISEEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXREDUCE = false;
   bool HasAMXMEMORY = false;
@@ -193,9 +187,15 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AMX_TILE2
   bool HasAMXTILE2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  bool HasAVXVNNI = false;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  bool HasAMXCOMPLEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+  bool HasAMXCOMPLEXEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+  bool HasAMXFP19 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   bool HasAVX512DOTPRODINT8 = false;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -224,12 +224,29 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
   bool HasAVX512MPSADBW = false;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+  bool HasAVXMOVGET = false;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  bool HasAVX512MOVGET = false;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+  bool HasGPRMOVGET = false;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+  bool HasMOVGET64B = false;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
+  bool HasKL = false;      // For key locker
+  bool HasWIDEKL = false; // For wide key locker
+  bool HasHRESET = false;
+  bool HasAVXVNNI = false;
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
   bool HasAMXBF16 = false;
   bool HasSERIALIZE = false;
   bool HasTSXLDTRK = false;
+  bool HasUINTR = false;
 
 protected:
   llvm::X86::CPUKind CPU = llvm::X86::CK_None;
@@ -404,10 +421,13 @@ public:
   }
 
   bool isValidTuneCPUName(StringRef Name) const override {
+    if (Name == "generic")
+      return true;
+
     // Allow 32-bit only CPUs regardless of 64-bit mode unlike isValidCPUName.
     // NOTE: gcc rejects 32-bit mtune CPUs in 64-bit mode. But being lenient
     // since mtune was ignored by clang for so long.
-    return llvm::X86::parseArchX86(Name) != llvm::X86::CK_None;
+    return llvm::X86::parseTuneCPU(Name) != llvm::X86::CK_None;
   }
 
   void fillValidCPUList(SmallVectorImpl<StringRef> &Values) const override;

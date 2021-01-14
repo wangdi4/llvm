@@ -22,7 +22,7 @@ define i32 @multiple_uses(i32* %src, i32** %dest) {
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i64 [[TMP5]], 1024
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult i64 [[TMP5]], 1024
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 entry:

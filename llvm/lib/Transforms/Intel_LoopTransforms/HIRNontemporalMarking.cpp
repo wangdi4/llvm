@@ -93,9 +93,10 @@ public:
 } // namespace
 
 bool HIRNontemporalMarking::run() {
-  if (DisablePass || !(
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512) ||
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2))) {
+  if (DisablePass ||
+      !(TTI.isAdvancedOptEnabled(
+            TargetTransformInfo::AO_TargetHasIntelAVX512) ||
+        TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2))) {
     return false;
   }
 
@@ -103,11 +104,6 @@ bool HIRNontemporalMarking::run() {
   // on 32-bit code for reasons that are not yet understood. Disable this
   // transformation until it can be better understood.
   if (HIRF.getDataLayout().getPointerSizeInBits(0) != 64)
-    return false;
-
-  // CMPLRLLVM-21614: Disable this transformation on OpenMP code for the time
-  // being.
-  if (vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(HIRF.getFunction()))
     return false;
 
   HLNodeUtils &HNU = HIRF.getHLNodeUtils();
@@ -121,10 +117,33 @@ bool HIRNontemporalMarking::run() {
   return Changed;
 }
 
+/// Determines whether an edge in \p Edges represents a possible conflict within
+/// loop level \p NestLevel.
+template <typename DDEdgeRange>
+static const DDEdge *hasConflictingAccess(DDEdgeRange &&Edges,
+                                          unsigned NestLevel) {
+  for (DDEdge *E : Edges) {
+    // Ignore self-dependences; these are preserved by the conversion to
+    // nontemporal stores anyways.
+    if (E->getSrc() == E->getSink())
+      continue;
+
+    if (E->getDV().isIndepFromLevel(NestLevel))
+      continue;
+
+    return E;
+  }
+
+  // No conflicting edges found.
+  return nullptr;
+}
+
 bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
   // Loops must have some minimal amount of structure or else the next checks
-  // will fire assertion failures.
-  if (Loop->isUnknown())
+  // will fire assertion failures. Additionally, we don't expect significant
+  // benefit from optimizing multi-exit loops, and so those are also skipped
+  // here.
+  if (!Loop->isDo())
     return false;
 
   // Check for sufficient memory traffic in this loop. If the total memory
@@ -172,30 +191,39 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
       continue;
     }
 
-    // Regular store in the main body of the loop, check dependencies.
     LLVM_DEBUG({
       formatted_raw_ostream os(dbgs());
       I->print(os, 0);
     });
+
+    // Skip non-contiguous stores; they won't benefit from our later
+    // optimizations.
+    bool IsNegStride;
     RegDDRef *StoreAddr = I->getLvalDDRef();
-    bool HasConflictingAccess = false;
-    for (DDEdge *E : DepGraph.outgoing(StoreAddr)) {
-      // Ignore self-dependences; these are preserved by the conversion to
-      // nontemporal stores anyways.
-      if (E->getSrc() == E->getSink())
-        continue;
-
-      if (E->getDV().isIndepFromLevel(Loop->getNestingLevel()))
-        continue;
-
-      LLVM_DEBUG(dbgs() << "Interference from edge ");
-      LLVM_DEBUG(E->dump());
-      HasConflictingAccess = true;
-      break;
+    if (!StoreAddr->isUnitStride(Loop->getNestingLevel(), IsNegStride)) {
+      LLVM_DEBUG(dbgs() << "Not contiguous\n");
+      continue;
     }
 
-    if (HasConflictingAccess)
+    // Regular store in the main body of the loop, check dependencies.
+    if (const DDEdge *const Conflict = hasConflictingAccess(
+          DepGraph.outgoing(StoreAddr), Loop->getNestingLevel())) {
+      LLVM_DEBUG(dbgs() << "Interference from edge ");
+      LLVM_DEBUG(Conflict->dump());
       continue;
+    }
+
+    // Also check for incoming edges from possibly-aliased operations earlier in
+    // the loop. While it is still legal to optimize in the presence of such
+    // operations, we don't expect to see any benefits because these other
+    // operations will still bring data into the cache and negate the benefits
+    // of our nontemporal store.
+    if (const DDEdge *const Conflict = hasConflictingAccess(
+          DepGraph.incoming(StoreAddr), Loop->getNestingLevel())) {
+      LLVM_DEBUG(dbgs() << "Located temporal incoming edge ");
+      LLVM_DEBUG(Conflict->dump());
+      continue;
+    }
 
     // We're good to mark this as nontemporal.
     StoreAddr->setMetadata(LLVMContext::MD_nontemporal, NT_metadata);

@@ -279,7 +279,6 @@ typedef struct kmp_program_data {
 typedef struct kmp_global_state {
   kmp_barrier_t g_barrier;         // global barrier
   int assume_simple_spmd_mode;     // assume simple SPMD mode
-  kmp_program_data_t program_data; // data initialized by host
 } kmp_global_state_t;
 
 
@@ -290,7 +289,11 @@ typedef struct kmp_global_state {
 typedef int kmp_critical_name[8];
 
 typedef struct ident {
-  char bytes[24];
+  int reserved_1;
+  int flags;
+  int reserved_2;
+  int reserved_3;
+  const char *psource;
 } ident_t;
 
 
@@ -299,13 +302,16 @@ typedef struct ident {
 ///
 
 /// Global state
-EXTERN kmp_global_state_t GLOBAL;
+EXTERN kmp_global_state_t __omp_spirv_global_data;
+
+/// Program data initialized by runtime
+EXTERN kmp_program_data_t __omp_spirv_program_data;
 
 /// Per-team state
-EXTERN kmp_local_state_t LOCALS[KMP_MAX_NUM_GROUPS];
+EXTERN kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
 
 /// Per-thread state for all work groups
-EXTERN kmp_thread_state_t THREADS[KMP_MAX_NUM_GROUPS];
+EXTERN kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
 
 ///
 /// RTL init/fini routines
@@ -662,6 +668,9 @@ EXTERN void __kmpc_end_critical(kmp_critical_name *);
 
 EXTERN int __kmpc_master();
 EXTERN void __kmpc_end_master();
+
+EXTERN int __kmpc_single(ident_t *loc, int gtid);
+EXTERN void __kmpc_end_single(ident_t *loc, int gtid);
 
 /// Check if the current work item belongs to the master sub group
 EXTERN int __kmpc_master_sub_group();

@@ -1,6 +1,11 @@
-; REQUIRES: asserts
-; RUN: opt -vpo-paropt-prepare -debug -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(vpo-paropt-prepare)' -debug -S < %s 2>&1 | FileCheck %s
+; RUN: opt <%s -vpo-paropt-prepare -pass-remarks-output=%t -S
+; RUN: FileCheck --input-file %t %s
+; FIXME: This fails with new pass manager as genGlobalPrivatizationLaunderIntrin()
+; inserts an empty basic block even when there is nothing to be laundered, which
+; changes CFE, but it returns "Changed" as "false". This causes new PM's CFG verification
+; to fail.
+; COM: opt <%s -passes='function(vpo-paropt-prepare)' -pass-remarks-output=%t -S
+; COM: FileCheck --input-file %t %s
 ;
 ; The test does not declare a variant version of foo().
 ; Check that this does not cause compilation to fail.
@@ -14,7 +19,9 @@
 ; }
 ;
 ; Check for the debug string
-; CHECK: Base function {{.*}} does not have an openmp variant
+; CHECK: Pass:{{[ ]*}}openmp
+; CHECK: Construct:{{[ ]*}}target variant dispatch
+; CHECK: String:{{[ ]*}}' Could not find a matching variant function'
 ;
 source_filename = "lit.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

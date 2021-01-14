@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=CHECK-HST --check-prefix=CHECK-ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=CHECK-HST --check-prefix=CHECK-ALL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S | FileCheck %s --check-prefix=CHECK-HST --check-prefix=CHECK-ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S | FileCheck %s --check-prefix=CHECK-HST --check-prefix=CHECK-ALL
 ;
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S | FileCheck %s --check-prefix=CHECK-TGT --check-prefix=CHECK-ALL
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S | FileCheck %s --check-prefix=CHECK-TGT --check-prefix=CHECK-ALL
@@ -38,7 +38,7 @@ target device_triples = "x86_64-pc-linux-gnu"
 define dso_local void @foo() #0 {
 entry:
 ; Host code should try offload and fall back to host in casse of offload failure.
-; CHECK-HST: call i32 @__tgt_target(i64 -1, i8* [[ID]],
+; CHECK-HST: call i32 @__tgt_target(i64 %{{.*}}, i8* [[ID]],
 ; CHECK-HST: call void @[[OUTLINEDTARGET]]()
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]

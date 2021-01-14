@@ -20,6 +20,7 @@
 ; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
 ; CHECK-NEXT:       Expand fp128 instructions ;INTEL
+; C/HECK-NEXT:       Lower AMX type for load/store ;INTEL
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:       Lower Garbage Collection Instructions
 ; CHECK-NEXT:       Shadow Stack GC Lowering
@@ -44,6 +45,7 @@
 ; CHECK-NEXT:       MachineDominator Tree Construction
 ; CHECK-NEXT:       X86 EFLAGS copy lowering
 ; CHECK-NEXT:       X86 WinAlloca Expander
+; CHECK-NEXT:       X86 Pre-RA pseudo instruction expansion pass ;INTEL
 ; CHECK-NEXT:       Eliminate PHI nodes for register allocation
 ; CHECK-NEXT:       Two-Address instruction pass
 ; CHECK-NEXT:       Fast Register Allocator

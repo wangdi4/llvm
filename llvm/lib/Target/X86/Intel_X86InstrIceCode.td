@@ -20,6 +20,40 @@
 
 //===----------------------------------------------------------------------===//
 // IceCode instructions
+multiclass ce_xchg<bits<8> O, Format F, string asm> {
+  let Constraints = "$src1 = $dst" in {
+    def 32r : I<O, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src),
+                !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
+                [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") GR32:$src, GR32:$src1))]>;
+    def 32i : Ii32<0x81, F, (outs GR32:$dst), (ins GR32:$src1, i32u32imm:$src),
+                   !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
+                   [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") imm:$src, GR32:$src1))]>;
+
+    def 64r : RI<O, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR32:$src),
+                 !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
+                 [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") GR32:$src, GR64:$src1))]>;
+    def 64i : RIi32<0x81, F, (outs GR64:$dst), (ins GR64:$src1, i32u32imm:$src),
+                    !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
+                    [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") imm:$src, GR64:$src1))]>;
+  }
+}
+
+multiclass ce_read<bits<8> O, Format F, string asm> {
+    def 32r : I<O, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
+                !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
+                [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") GR32:$src))]>;
+    def 32i : Ii32<0x81, F, (outs GR32:$dst), (ins i32u32imm:$src),
+                   !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
+                   [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") imm:$src))]>;
+
+    def 64r : RI<O, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
+                 !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
+                 [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") GR32:$src))]>;
+    def 64i : RIi32<0x81, F, (outs GR64:$dst), (ins i32u32imm:$src),
+                    !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
+                    [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") imm:$src))]>;
+}
+
 let Predicates = [InIceCodeMode] in {
   def LOADSEGrm : I<0xb2, MRM0m, (outs), (ins i128mem:$mem),
                     "loadseg\t$mem", []>, PS;
@@ -60,64 +94,6 @@ let Predicates = [InIceCodeMode] in {
   def BCAST_SEG_STATE : I<0x01, MRM_EF, (outs), (ins), "bcast_seg_state", []>, XS;
 
   let OpPrefix = XS, OpMap = OB in {
-    let Constraints = "$src1 = $dst" in {
-      def CREG_XCHG32r : I<0x01, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src),
-                           "creg_xchg{l}\t{$src, $dst|$dst, $src}",
-                           [(set GR32:$dst, (int_x86_icecode_creg_xchg_32 GR32:$src, GR32:$src1))]>;
-      def CREG_XCHG32i : Ii32<0x81, MRM0r, (outs GR32:$dst), (ins GR32:$src1, i32u32imm:$src),
-                              "creg_xchg{l}\t{$src, $dst|$dst, $src}",
-                              [(set GR32:$dst, (int_x86_icecode_creg_xchg_32 imm:$src, GR32:$src1))]>;
-
-      def CREG_XCHG64r : RI<0x01, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR32:$src),
-                            "creg_xchg{q}\t{$src, $dst|$dst, $src}",
-                            [(set GR64:$dst, (int_x86_icecode_creg_xchg_64 GR32:$src, GR64:$src1))]>;
-      def CREG_XCHG64i : RIi32<0x81, MRM0r, (outs GR64:$dst), (ins GR64:$src1, i32u32imm:$src),
-                               "creg_xchg{q}\t{$src, $dst|$dst, $src}",
-                               [(set GR64:$dst, (int_x86_icecode_creg_xchg_64 imm:$src, GR64:$src1))]>;
-
-      def FSCP_XCHG32r : I<0x21, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src),
-                           "fscp_xchg{l}\t{$src, $dst|$dst, $src}",
-                           [(set GR32:$dst, (int_x86_icecode_fscp_xchg_32 GR32:$src, GR32:$src1))]>;
-      def FSCP_XCHG32i : Ii32<0x81, MRM4r, (outs GR32:$dst), (ins GR32:$src1, i32u32imm:$src),
-                              "fscp_xchg{l}\t{$src, $dst|$dst, $src}",
-                              [(set GR32:$dst, (int_x86_icecode_fscp_xchg_32 imm:$src, GR32:$src1))]>;
-
-      def FSCP_XCHG64r : RI<0x21, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR32:$src),
-                            "fscp_xchg{q}\t{$src, $dst|$dst, $src}",
-                            [(set GR64:$dst, (int_x86_icecode_fscp_xchg_64 GR32:$src, GR64:$src1))]>;
-      def FSCP_XCHG64i : RIi32<0x81, MRM4r, (outs GR64:$dst), (ins GR64:$src1, i32u32imm:$src),
-                               "fscp_xchg{q}\t{$src, $dst|$dst, $src}",
-                               [(set GR64:$dst, (int_x86_icecode_fscp_xchg_64 imm:$src, GR64:$src1))]>;
-    }
-
-    def CREG_READ32r : I<0x29, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
-                         "creg_read{l}\t{$src, $dst|$dst, $src}",
-                         [(set GR32:$dst, (int_x86_icecode_creg_read_32 GR32:$src))]>;
-    def CREG_READ32i : Ii32<0x81, MRM5r, (outs GR32:$dst), (ins i32u32imm:$src),
-                            "creg_read{l}\t{$src, $dst|$dst, $src}",
-                            [(set GR32:$dst, (int_x86_icecode_creg_read_32 imm:$src))]>;
-
-    def CREG_READ64r : RI<0x29, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
-                          "creg_read{q}\t{$src, $dst|$dst, $src}",
-                          [(set GR64:$dst, (int_x86_icecode_creg_read_64 GR32:$src))]>;
-    def CREG_READ64i : RIi32<0x81, MRM5r, (outs GR64:$dst), (ins i32u32imm:$src),
-                             "creg_read{q}\t{$src, $dst|$dst, $src}",
-                             [(set GR64:$dst, (int_x86_icecode_creg_read_64 imm:$src))]>;
-
-    def FSCP_READ32r : I<0x09, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
-                         "fscp_read{l}\t{$src, $dst|$dst, $src}",
-                         [(set GR32:$dst, (int_x86_icecode_fscp_read_32 GR32:$src))]>;
-    def FSCP_READ32i : Ii32<0x81, MRM1r, (outs GR32:$dst), (ins i32u32imm:$src),
-                            "fscp_read{l}\t{$src, $dst|$dst, $src}",
-                            [(set GR32:$dst, (int_x86_icecode_fscp_read_32 imm:$src))]>;
-
-    def FSCP_READ64r : RI<0x09, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
-                          "fscp_read{q}\t{$src, $dst|$dst, $src}",
-                          [(set GR64:$dst, (int_x86_icecode_fscp_read_64 GR32:$src))]>;
-    def FSCP_READ64i : RIi32<0x81, MRM1r, (outs GR64:$dst), (ins i32u32imm:$src),
-                             "fscp_read{q}\t{$src, $dst|$dst, $src}",
-                             [(set GR64:$dst, (int_x86_icecode_fscp_read_64 imm:$src))]>;
-
     def PORTIN8rm  : I<0x8a, MRMSrcMem, (outs GR8:$dst), (ins opaquemem:$src),
                        "portin{b}\t{$src, $dst|$dst, $src}",
                        [(set GR8:$dst, (int_x86_icecode_portin_8 addr:$src))]>, AdSize32;
@@ -159,6 +135,29 @@ let Predicates = [InIceCodeMode] in {
                          [(int_x86_icecode_set_tracker (i32 timm:$src))]>;
   }
 
+  defm CREG_XCHG: ce_xchg<0x01, MRM0r, "creg_xchg">, OBXS;
+  defm CREG_READ: ce_read<0x29, MRM5r, "creg_read">, OBXS;
+  defm FSCP_XCHG: ce_xchg<0x21, MRM4r, "fscp_xchg">, OBXS;
+  defm FSCP_READ: ce_read<0x09, MRM1r, "fscp_read">, OBXS;
+
+  let OpPrefix = XD, OpMap = OB in {
+    let Constraints = "$src1 = $dst" in {
+      def CREG_XCHG_MT32r : I<0x01, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src),
+                              "creg_xchg_mt{l}\t{$src, $dst|$dst, $src}",
+                              [(set GR32:$dst, (int_x86_icecode_creg_xchg_mt_32 GR32:$src, GR32:$src1))]>;
+      def CREG_XCHG_MT64r : RI<0x01, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR32:$src),
+                               "creg_xchg_mt{q}\t{$src, $dst|$dst, $src}",
+                               [(set GR64:$dst, (int_x86_icecode_creg_xchg_mt_64 GR32:$src, GR64:$src1))]>;
+    }
+
+    def CREG_READ_MT32r : I<0x29, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
+                            "creg_read_mt{l}\t{$src, $dst|$dst, $src}",
+                            [(set GR32:$dst, (int_x86_icecode_creg_read_mt_32 GR32:$src))]>;
+    def CREG_READ_MT64r : RI<0x29, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
+                             "creg_read_mt{q}\t{$src, $dst|$dst, $src}",
+                             [(set GR64:$dst, (int_x86_icecode_creg_read_mt_64 GR32:$src))]>;
+  }
+
   def SSERIALIZE : I<0x01, MRM_D4, (outs), (ins), "sserialize", []>, TB;
 
   def UCODECALL  : I<0x22, MRM0r, (outs), (ins GR32:$src),
@@ -188,5 +187,10 @@ let Predicates = [InIceCodeMode] in {
     def CMODEMOVcc : Ii8<0x40, MRMSrcRegCC, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2, i32u4imm:$cond),
                          "cmodemov\t{$cond, $src2, $dst|$dst, $src2, $cond}",
                          [(set GR64:$dst, (int_x86_icecode_cmodemov GR64:$src1, GR64:$src2, (i32 timm:$cond)))]>, XS;
+
+  let Uses = [RAX], OpMap = TB in {
+    def LOAD_TICKLE_GPA : I<0x01, MRM_CA, (outs), (ins), "load_tickle_gpa", []>;
+    def STORE_TICKLE_GPA : I<0x01, MRM_CB, (outs), (ins), "store_tickle_gpa", []>;
+  }
 }
 // end INTEL_FEATURE_ICECODE

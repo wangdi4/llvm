@@ -14,11 +14,13 @@
 #include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
+#include <CL/sycl/program.hpp>
 #include <CL/sycl/sampler.hpp>
 #include <detail/context_impl.hpp>
 #include <detail/event_impl.hpp>
 #include <detail/kernel_impl.hpp>
 #include <detail/kernel_info.hpp>
+#include <detail/program_impl.hpp>
 #include <detail/program_manager/program_manager.hpp>
 #include <detail/queue_impl.hpp>
 #include <detail/sampler_impl.hpp>
@@ -479,11 +481,12 @@ void Command::makeTraceEventEpilog() {
 }
 
 void Command::processDepEvent(EventImplPtr DepEvent, const DepDesc &Dep) {
-  const ContextImplPtr &Context = getContext();
+  const QueueImplPtr &WorkerQueue = getWorkerQueue();
+  const ContextImplPtr &WorkerContext = WorkerQueue->getContextImplPtr();
 
   // 1. Async work is not supported for host device.
   // 2. The event handle can be null in case of, for example, alloca command,
-  //    which is currently synchrounious, so don't generate OpenCL event.
+  //    which is currently synchronous, so don't generate OpenCL event.
   //    Though, this event isn't host one as it's context isn't host one.
   if (DepEvent->is_host() || DepEvent->getHandleRef() == nullptr) {
     // call to waitInternal() is in waitForPreparedHostEvents() as it's called
@@ -492,18 +495,25 @@ void Command::processDepEvent(EventImplPtr DepEvent, const DepDesc &Dep) {
     return;
   }
 
+  // Do not add redundant event dependencies for in-order queues.
+  if (Dep.MDepCommand && Dep.MDepCommand->getWorkerQueue() == WorkerQueue &&
+      WorkerQueue->has_property<property::queue::in_order>())
+    return;
+
   ContextImplPtr DepEventContext = DepEvent->getContextImpl();
   // If contexts don't match we'll connect them using host task
-  if (DepEventContext != Context && !Context->is_host()) {
+  if (DepEventContext != WorkerContext && !WorkerContext->is_host()) {
     Scheduler::GraphBuilder &GB = Scheduler::getInstance().MGraphBuilder;
     GB.connectDepEvent(this, DepEvent, Dep);
   } else
     MPreparedDepsEvents.push_back(std::move(DepEvent));
 }
 
-ContextImplPtr Command::getContext() const {
-  return detail::getSyclObjImpl(MQueue->get_context());
+const ContextImplPtr &Command::getWorkerContext() const {
+  return MQueue->getContextImplPtr();
 }
+
+const QueueImplPtr &Command::getWorkerQueue() const { return MQueue; }
 
 void Command::addDep(DepDesc NewDep) {
   if (NewDep.MDepCommand) {
@@ -759,14 +769,6 @@ cl_int AllocaCommand::enqueueImp() {
       detail::getSyclObjImpl(MQueue->get_context()), getSYCLMemObj(),
       MInitFromUserData, HostPtr, std::move(EventImpls), Event);
 
-  // if this is ESIMD accessor, wrap the allocated device memory buffer into
-  // an image buffer object.
-  // TODO Address copying SYCL/ESIMD memory between contexts.
-  if (getRequirement()->MIsESIMDAcc)
-    ESIMDExt.MWrapperImage = MemoryManager::wrapIntoImageBuffer(
-        detail::getSyclObjImpl(MQueue->get_context()), MMemAllocation,
-        getSYCLMemObj());
-
   return CL_SUCCESS;
 }
 
@@ -957,10 +959,6 @@ cl_int ReleaseCommand::enqueueImp() {
                            MAllocaCmd->getSYCLMemObj(),
                            MAllocaCmd->getMemAllocation(),
                            std::move(EventImpls), Event);
-    // Release the wrapper object if present.
-    if (void *WrapperImage = MAllocaCmd->ESIMDExt.MWrapperImage)
-      MemoryManager::releaseImageBuffer(
-          detail::getSyclObjImpl(MQueue->get_context()), WrapperImage);
   }
   return CL_SUCCESS;
 }
@@ -1136,13 +1134,15 @@ void MemCpyCommand::emitInstrumentationData() {
 #endif
 }
 
-ContextImplPtr MemCpyCommand::getContext() const {
-  const QueueImplPtr &Queue = MQueue->is_host() ? MSrcQueue : MQueue;
-  return detail::getSyclObjImpl(Queue->get_context());
+const ContextImplPtr &MemCpyCommand::getWorkerContext() const {
+  return getWorkerQueue()->getContextImplPtr();
+}
+
+const QueueImplPtr &MemCpyCommand::getWorkerQueue() const {
+  return MQueue->is_host() ? MSrcQueue : MQueue;
 }
 
 cl_int MemCpyCommand::enqueueImp() {
-  QueueImplPtr Queue = MQueue->is_host() ? MSrcQueue : MQueue;
   waitForPreparedHostEvents();
   std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
 
@@ -1150,21 +1150,12 @@ cl_int MemCpyCommand::enqueueImp() {
 
   auto RawEvents = getPiEvents(EventImpls);
 
-  // Omit copying if mode is discard one.
-  // TODO: Handle this at the graph building time by, for example, creating
-  // empty node instead of memcpy.
-  if (MDstReq.MAccessMode == access::mode::discard_read_write ||
-      MDstReq.MAccessMode == access::mode::discard_write ||
-      MSrcAllocaCmd->getMemAllocation() == MDstAllocaCmd->getMemAllocation()) {
-    Command::waitForEvents(Queue, EventImpls, Event);
-  } else {
-    MemoryManager::copy(
-        MSrcAllocaCmd->getSYCLMemObj(), MSrcAllocaCmd->getMemAllocation(),
-        MSrcQueue, MSrcReq.MDims, MSrcReq.MMemoryRange, MSrcReq.MAccessRange,
-        MSrcReq.MOffset, MSrcReq.MElemSize, MDstAllocaCmd->getMemAllocation(),
-        MQueue, MDstReq.MDims, MDstReq.MMemoryRange, MDstReq.MAccessRange,
-        MDstReq.MOffset, MDstReq.MElemSize, std::move(RawEvents), Event);
-  }
+  MemoryManager::copy(
+      MSrcAllocaCmd->getSYCLMemObj(), MSrcAllocaCmd->getMemAllocation(),
+      MSrcQueue, MSrcReq.MDims, MSrcReq.MMemoryRange, MSrcReq.MAccessRange,
+      MSrcReq.MOffset, MSrcReq.MElemSize, MDstAllocaCmd->getMemAllocation(),
+      MQueue, MDstReq.MDims, MDstReq.MMemoryRange, MDstReq.MAccessRange,
+      MDstReq.MOffset, MDstReq.MElemSize, std::move(RawEvents), Event);
 
   return CL_SUCCESS;
 }
@@ -1199,7 +1190,14 @@ AllocaCommandBase *ExecCGCommand::getAllocaForReq(Requirement *Req) {
 }
 
 vector_class<StreamImplPtr> ExecCGCommand::getStreams() const {
-  return ((CGExecKernel *)MCommandGroup.get())->getStreams();
+  if (MCommandGroup->getType() == CG::KERNEL)
+    return ((CGExecKernel *)MCommandGroup.get())->getStreams();
+  return {};
+}
+
+void ExecCGCommand::clearStreams() {
+  if (MCommandGroup->getType() == CG::KERNEL)
+    ((CGExecKernel *)MCommandGroup.get())->clearStreams();
 }
 
 cl_int UpdateHostRequirementCommand::enqueueImp() {
@@ -1276,13 +1274,16 @@ void MemCpyCommandHost::emitInstrumentationData() {
 #endif
 }
 
-ContextImplPtr MemCpyCommandHost::getContext() const {
-  const QueueImplPtr &Queue = MQueue->is_host() ? MSrcQueue : MQueue;
-  return detail::getSyclObjImpl(Queue->get_context());
+const ContextImplPtr &MemCpyCommandHost::getWorkerContext() const {
+  return getWorkerQueue()->getContextImplPtr();
+}
+
+const QueueImplPtr &MemCpyCommandHost::getWorkerQueue() const {
+  return MQueue->is_host() ? MSrcQueue : MQueue;
 }
 
 cl_int MemCpyCommandHost::enqueueImp() {
-  QueueImplPtr Queue = MQueue->is_host() ? MSrcQueue : MQueue;
+  const QueueImplPtr &Queue = getWorkerQueue();
   waitForPreparedHostEvents();
   std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
   std::vector<RT::PiEvent> RawEvents = getPiEvents(EventImpls);
@@ -1604,8 +1605,9 @@ static void adjustNDRangePerKernel(NDRDescT &NDR, RT::PiKernel Kernel,
   assert(NDR.NumWorkGroups[0] != 0 && NDR.LocalSize[0] == 0);
   // TODO might be good to cache this info together with the kernel info to
   // avoid get_kernel_work_group_info on every kernel run
-  range<3> WGSize = get_kernel_work_group_info<
-      range<3>, cl::sycl::info::kernel_work_group::compile_work_group_size>::
+  range<3> WGSize = get_kernel_device_specific_info<
+      range<3>,
+      cl::sycl::info::kernel_device_specific::compile_work_group_size>::
       get(Kernel, DeviceImpl.getHandleRef(), DeviceImpl.getPlugin());
 
   if (WGSize[0] == 0) {
@@ -1659,9 +1661,7 @@ pi_result ExecCGCommand::SetKernelParamsAndLaunch(
     case kernel_param_kind_t::kind_accessor: {
       Requirement *Req = (Requirement *)(Arg.MPtr);
       AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-      RT::PiMem MemArg = Req->MIsESIMDAcc
-                             ? (RT::PiMem)AllocaCmd->ESIMDExt.MWrapperImage
-                             : (RT::PiMem)AllocaCmd->getMemAllocation();
+      RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
       if (Plugin.getBackend() == backend::opencl) {
         Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
                                                sizeof(RT::PiMem), &MemArg);
@@ -2051,7 +2051,8 @@ cl_int ExecCGCommand::enqueueImp() {
             Req->MSYCLMemObj->MRecord->MAllocaCommands;
 
         for (AllocaCommandBase *AllocaCmd : AllocaCmds)
-          if (HostTask->MQueue == AllocaCmd->getQueue()) {
+          if (HostTask->MQueue->getContextImplPtr() ==
+              AllocaCmd->getQueue()->getContextImplPtr()) {
             auto MemArg =
                 reinterpret_cast<pi_mem>(AllocaCmd->getMemAllocation());
             ReqToMem.emplace_back(std::make_pair(Req, MemArg));

@@ -3,10 +3,10 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -disable-output -VPlanDriver -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-terminator-inst < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -VPlanDriver -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs  < %s 2>&1 | FileCheck %s
 ;
 define void @foo2(i64 %N) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list

@@ -20,15 +20,18 @@
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanAllZeroBypass.h"
+#include "IntelVPlanCFGMerger.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanDominatorTree.h"
+#include "IntelVPlanEvaluator.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanLCSSA.h"
 #include "IntelVPlanLoopCFU.h"
+#include "IntelVPlanLoopExitCanonicalization.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
@@ -59,18 +62,52 @@ static cl::opt<unsigned> VPlanForceVF("vplan-force-vf", cl::init(0),
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
+static cl::opt<bool>
+    EnableCFGMerge("vplan-enable-cfg-merge", cl::init(false), cl::Hidden,
+                   cl::desc("Enable CFG merge before VPlan code gen."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
-    "vplan-enable-all-zero-bypass-non-loops", cl::init(false), cl::Hidden,
+    "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for non-loops."));
 
 static cl::opt<bool> EnableAllZeroBypassLoops(
-    "vplan-enable-all-zero-bypass-loops", cl::init(false), cl::Hidden,
+    "vplan-enable-all-zero-bypass-loops", cl::init(true), cl::Hidden,
     cl::desc("Enable all-zero bypass insertion for loops."));
+
+static cl::opt<bool, true> LoopMassagingEnabledOpt(
+    "vplan-enable-loop-massaging", cl::location(LoopMassagingEnabled),
+    cl::Hidden,
+    cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
 static cl::opt<bool>
     EnableAllLiveOuts("vplan-enable-all-liveouts", cl::init(false),
                            cl::Hidden, cl::desc("Enable all liveouts, including private."));
+
+static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
+                                      cl::desc("Force VPlan to use given UF"));
+
+static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
+static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
+                                               "LoopCFU transformation");
+static LoopVPlanDumpControl
+    LinearizationDumpControl("linearization", "predication and linearization");
+static LoopVPlanDumpControl
+    AllZeroBypassDumpControl("all-zero-bypass", "all zero bypass insertion");
+static LoopVPlanDumpControl
+    LiveInOutListsDumpControl("live-inout-list", "live in/out lists creation");
+
+static LoopVPlanDumpControl LoopMassagingDumpControl("loop-massaging",
+                                                     "loop massaging");
+
+static LoopVPlanDumpControl
+    VPEntityInstructionsDumpControl("vpentity-instrs",
+                                    "insertion of VPEntities instructions");
+static LoopVPlanDumpControl
+    InitialTransformsDumpControl("initial-transforms",
+                                 "initial VPlan transforms");
+
+static LoopVPlanDumpControl CfgMergeDumpControl("cfg-merge",
+                                                "CFG merge before CG");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
@@ -78,34 +115,6 @@ static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     cl::ZeroOrMore,
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
-
-static cl::opt<bool>
-    PrintAfterLCSSA("vplan-print-after-lcssa", cl::init(false), cl::Hidden,
-                    cl::desc("Print VPlan after LCSSA transformation."));
-
-static cl::opt<bool>
-    PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
-                      cl::desc("Print VPlan after LoopCFU transformation."));
-
-static cl::opt<bool> DotAfterLoopCFU(
-    "vplan-dot-after-loop-cfu", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after LoopCFU transformation."));
-
-static cl::opt<bool> PrintAfterLinearization(
-    "vplan-print-after-linearization", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after predication and linearization."));
-
-static cl::opt<bool> DotAfterLinearization(
-    "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after predication and linearization."));
-
-static cl::opt<bool> PrintAfterAllZeroBypass(
-    "vplan-print-after-all-zero-bypass", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after all zero bypass insertion."));
-
-static cl::opt<bool> DotAfterAllZeroBypass(
-    "vplan-dot-after-all-zero-bypass", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after all zero bypass insertion."));
 
 static cl::opt<bool, true> PrintAfterCallVecDecisionsOpt(
     "vplan-print-after-call-vec-decisions", cl::Hidden,
@@ -116,21 +125,21 @@ static cl::opt<bool, true> PrintSVAResultsOpt(
     "vplan-print-scalvec-results", cl::Hidden, cl::location(PrintSVAResults),
     cl::desc("Print VPlan with results of ScalVec analysis."));
 
-static cl::opt<bool> PrintAfterLiveInOutList(
-    "vplan-print-after-live-inout-list", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after live in/out lists creation."));
+// Flag to enable SOA-analysis.
+// TODO: Ideally, this should be in the IntelVPlanDriver file. In the future,
+// consider moving it there.
+static cl::opt<bool, true>
+    EnableSOAAnalysisOpt("vplan-enable-soa", cl::Hidden,
+                         cl::location(EnableSOAAnalysis),
+                         cl::desc("Enable VPlan SOAAnalysis."));
+
+static cl::opt<bool>
+    PrintAfterEvaluator("vplan-print-after-evaluator", cl::init(false),
+                        cl::Hidden, cl::desc("Print VPlan after evaluator."));
 
 #else
-static constexpr bool PrintAfterLCSSA = false;
-static constexpr bool PrintAfterLoopCFU = false;
-static constexpr bool DotAfterLoopCFU = false;
-static constexpr bool PrintAfterLinearization = false;
-static constexpr bool DotAfterLinearization = false;
-static constexpr bool PrintAfterAllZeroBypass = false;
-static constexpr bool DotAfterAllZeroBypass = false;
 static constexpr bool PrintAfterCallVecDecisionsOpt = false;
 static constexpr bool PrintSVAResultsOpt = false;
-static constexpr bool PrintAfterLiveInOutList = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -184,6 +193,8 @@ namespace llvm {
 namespace vpo {
 bool PrintSVAResults = false;
 bool PrintAfterCallVecDecisions = false;
+bool LoopMassagingEnabled = true;
+bool EnableSOAAnalysis = false;
 } // namespace vpo
 } // namespace llvm
 
@@ -206,7 +217,8 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 #endif // INTEL_CUSTOMIZATION
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
-                                                      const DataLayout *DL) {
+                                                      const DataLayout *DL,
+                                                      ScalarEvolution *SE) {
   ++VPlanOrderNumber;
   unsigned MinVF, MaxVF;
   unsigned ForcedVF = getForcedVF(WRLp);
@@ -282,7 +294,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals);
+        buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals, SE);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
     if (!canProcessVPlan(*Plan.get())) {
@@ -290,25 +302,27 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
           dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
       return 0;
     }
+
+    // TODO: Implement computeScalarVPlanCost()
+
+    // Run initial set of vectorization specific transforms on plain VPlan CFG
+    // obtained from CFGBuilder. Includes the following set of transforms -
+    // 1. emitVPEntityInstrs
+    // 2. emitVecSpecifics
+    runInitialVecSpecificTransforms(Plan.get());
+
     createLiveInOutLists(*Plan.get());
+
+    // CFG canonicalization transform (merge loop exits).
+    doLoopMassaging(Plan.get());
+
+    printAndVerifyAfterInitialTransforms(Plan.get());
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
-    auto *VPLInfo = Plan->getVPLoopInfo();
-    VPLoop *CandidateLoop = *VPLInfo->begin();
     Plan->computeDT();
     Plan->computePDT();
-    Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
-                                *Plan->getDT(), *Plan->getPDT(),
-                                false /*Not in LCSSA form*/);
-
-    // Do SOA-analysis for loop-privates.
-    VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
-    SmallPtrSet<VPInstruction *, 32> SOAVars;
-    VPSOAA.doSOAAnalysis(SOAVars);
-
-    if (EnableSOAAnalysis)
-      Plan->getVPlanDA()->recomputeShapes(SOAVars);
+    Plan->computeDA();
 
     // TODO: Insert initial run of SVA here for any new users before CM & CG.
 
@@ -319,18 +333,22 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     EndRangeVF = MaxVF + 1;
   }
 
-  // Scalar VPlan is not necessary when VF was forced.
-  // TODO: Need it later for optreport to print potential speedup.
-  if (!ForcedVF)
-    VPlans[1] = VPlans[MinVF];
+  // Always capture scalar VPlan to handle cases where vectorization
+  // is not possible with VF > 1 (such as when forced VF greater than TC).
+  VPlans[1] = VPlans[MinVF];
 
   return i;
 }
 
 void LoopVectorizationPlanner::createLiveInOutLists(VPlan &Plan) {
   VPLiveInOutCreator LICreator(Plan);
-  LICreator.createInOutValues();
-  VPLAN_DUMP(PrintAfterLiveInOutList, "Live-in/out lists creation", Plan);
+  LICreator.createInOutValues(TheLoop);
+  VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (LiveInOutListsDumpControl.dumpPlain())
+    Plan.getExternals().dumpScalarInOuts(outs(), TheLoop);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
@@ -355,29 +373,23 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
   }
 }
 
+unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
+  if (VPlanForceUF == 0) {
+    if (Forced)
+      *Forced = false;
+    return 1;
+  }
+
+  if (Forced)
+    *Forced = true;
+  return VPlanForceUF;
+}
+
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns VF which corresponds to the best VPlan (could be VF = 1).
 template <typename CostModelTy>
 unsigned LoopVectorizationPlanner::selectBestPlan() {
   LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
-  if (VPlans.size() == 1) {
-    unsigned ForcedVF = getForcedVF(WRLp);
-    assert(ForcedVF &&
-           "Only one VPlan was constructed with non-forced vectorization.");
-    BestVF = ForcedVF;
-    // FIXME: this code should be revisited later to select best UF
-    // even with forced VF.
-    BestUF = 1;
-    LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
-                      << ", selecting it.\n");
-
-    return ForcedVF;
-  }
-
-  // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
-  // buildInitialVPlan.
-  // TODO: Add options to set MinVF and MaxVF.
-  const unsigned MaxVF = 32;
   VPlan *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
@@ -392,6 +404,31 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   VPLoop *OuterMostVPLoop = *VPLI->begin();
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
+  unsigned UF = getLoopUnrollFactor();
+  unsigned ForcedVF = getForcedVF(WRLp);
+  if (ForcedVF > 0) {
+    BestVF = ForcedVF;
+
+    if (BestVF * UF > TripCount) {
+      LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because ForcedVF("
+                 << ForcedVF << ") * UF(" << UF << ") > TripCount("
+                 << TripCount << ")\n");
+      return 1;
+    }
+
+    // FIXME: this code should be revisited later to select best UF
+    // even with forced VF.
+    // FIXME: We may want to use BestUF in the Unroller.
+    BestUF = 1;
+    LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
+                      << ", selecting it.\n");
+    return ForcedVF;
+  }
+
+  // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
+  // buildInitialVPlan.
+  // TODO: Add options to set MinVF and MaxVF.
+  const unsigned MaxVF = 32;
 #if INTEL_CUSTOMIZATION
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL, VLSA);
 #else
@@ -432,31 +469,42 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (!hasVPlanForVF(VF))
       continue;
 
-    if (TripCount < VF)
+    if (TripCount < VF * UF)
       continue; // FIXME: Consider masked low trip later.
 
     VPlan *Plan = getVPlanForVF(VF);
 
-    // FIXME: The remainder loop should be an explicit part of VPlan and the
-    // cost model should just do the right thing calulating the cost of the
-    // plan. However this is not the case yet so do some simple heuristic.
-#if INTEL_CUSTOMIZATION
-    CostModelTy VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
-#else
-    CostModelTy VectorCM(Plan, VF, TTI, TLI, DL);
-#endif // INTEL_CUSTOMIZATION
-    const unsigned VectorIterationCost = VectorCM.getCost();
-    if (VectorIterationCost == CostModelTy::UnknownCost) {
+    // Calculate cost for one iteration of the main loop.
+    CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
+    const unsigned MainLoopIterationCost = MainLoopCM.getCost();
+    if (MainLoopIterationCost == CostModelTy::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       continue;
     }
 
-    const decltype(TripCount) VectorTripCount = TripCount / VF;
-    const decltype(TripCount) RemainderTripCount = TripCount % VF;
-    // TODO: Take into account overhead for some instructions until explicit
-    // representation of peel/remainder not ready.
-    uint64_t VectorCost = VectorIterationCost * VectorTripCount +
-                          ScalarIterationCost * RemainderTripCount;
+    // Calculate the total cost of peel loop if there is one.
+    VPlanPeelEvaluator PeelEvaluator(
+        nullptr /*currently, we do not support masked peel variant*/,
+        ScalarIterationCost, TLI, TTI, DL, VLSA, VF,
+        Plan->getPreferredPeeling(VF));
+
+    // Calculate the total cost of remainder loop if there is one.
+    VPlanRemainderEvaluator RemainderEvaluator(
+        nullptr /*currently, we do not support masked remainder*/,
+        ScalarIterationCost, TLI, TTI, DL, VLSA, Plan, TripCount,
+        PeelEvaluator.getTripCount(), VF, BestUF);
+
+    // Calculate main loop's trip count. Currently, the unroll factor is set to
+    // 1 because VPlan's loop unroller is called after selecting the best VF.
+    const decltype(TripCount) MainLoopTripCount =
+        (TripCount - PeelEvaluator.getTripCount()) / (VF * BestUF);
+
+    // The total vector cost is calculated by adding the total cost of peel,
+    // main and remainder loops.
+    uint64_t VectorCost = PeelEvaluator.getLoopCost() +
+                          MainLoopIterationCost * MainLoopTripCount +
+                          RemainderEvaluator.getLoopCost();
+
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
                         << VF << ". Original cost = " << VectorCost << '\n');
@@ -465,12 +513,33 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
     (void)CmpChar;
-    LLVM_DEBUG(dbgs() << "Scalar Cost = " << TripCount << " x "
-                      << ScalarIterationCost << " = " << ScalarCost << ' '
-                      << CmpChar << " VectorCost = " << VectorTripCount << "[x"
-                      << VF << "] x " << VectorIterationCost << " + "
-                      << ScalarIterationCost << " x " << RemainderTripCount
-                      << " = " << VectorCost << '\n';);
+    LLVM_DEBUG(
+        dbgs() << "Scalar Cost = " << TripCount << " x " << ScalarIterationCost
+               << " = " << ScalarCost << ' ' << CmpChar
+               << " VectorCost = " << PeelEvaluator.getLoopCost() << " + "
+               << MainLoopTripCount << " x " << MainLoopIterationCost << " + "
+               << RemainderEvaluator.getLoopCost() << " = " << VectorCost
+               << '\n'
+               << "Peel loop cost = " << PeelEvaluator.getLoopCost() << " ("
+               << PeelEvaluator.getPeelLoopKindStr() << ")"
+               << "\n"
+               << "Main loop vector cost = "
+               << MainLoopTripCount * MainLoopIterationCost << "\n"
+               << "Remainder loop cost = " << RemainderEvaluator.getLoopCost()
+               << " (" << RemainderEvaluator.getRemainderLoopKindStr() << ")"
+               << "\n";);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintAfterEvaluator) {
+      PeelEvaluator.dump();
+      dbgs() << "The main loop is vectorized with vector factor " << VF
+             << ". The vector cost is "
+             << MainLoopTripCount * MainLoopIterationCost << "("
+             << MainLoopTripCount << " x " << MainLoopIterationCost << "). \n";
+      RemainderEvaluator.dump();
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
     if (VectorCost < BestCost) {
       BestCost = VectorCost;
       BestVF = VF;
@@ -524,7 +593,7 @@ void LoopVectorizationPlanner::predicate() {
 
     if (!SearchLoopHack)
       formLCSSA(*VPlan, true /* SkipTopLoop */);
-    VPLAN_DUMP(PrintAfterLCSSA, "LCSSA transformation", VPlan);
+    VPLAN_DUMP(LCSSADumpControl, VPlan);
 
     if (!SearchLoopHack) {
       assert(!VPlan->getVPlanDA()->isDivergent(
@@ -533,17 +602,14 @@ void LoopVectorizationPlanner::predicate() {
       VPlanLoopCFU LoopCFU(*VPlan);
       LoopCFU.run();
     }
-    VPLAN_DUMP(PrintAfterLoopCFU, "Loop CFU transformation", VPlan);
-    VPLAN_DOT(DotAfterLoopCFU, VPlan);
+    VPLAN_DUMP(LoopCFUDumpControl, VPlan);
 
     // Predication "has" to be done even for the search loop hack. Our
     // idiom-matching code and CG currently expect that. Note that predicator
     // has some hacks for search loop processing inside it as well.
     VPlanPredicator VPP(*VPlan);
     VPP.predicate();
-
-    VPLAN_DUMP(PrintAfterLinearization, "predication and linearization", VPlan);
-    VPLAN_DOT(DotAfterLinearization, VPlan);
+    VPLAN_DUMP(LinearizationDumpControl, VPlan);
 
     PredicatedVPlans.insert(VPlan);
   }
@@ -573,21 +639,20 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
     AZB.collectAllZeroBypassLoopRegions(AllZeroBypassRegions, RegionsCollected);
   if (EnableAllZeroBypassNonLoops &&
       TTI->isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42)) {
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42)) {
     VPlanCostModelProprietary VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
     AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
                                            RegionsCollected,
                                            &VectorCM);
   }
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
-
-  VPLAN_DUMP(PrintAfterAllZeroBypass, "all zero bypass insertion", Plan);
-  VPLAN_DOT(DotAfterAllZeroBypass, Plan);
+  VPLAN_DUMP(AllZeroBypassDumpControl, Plan);
 }
 
 void LoopVectorizationPlanner::unroll(
-    VPlan &Plan, unsigned UF,
+    VPlan &Plan,
     VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
+  unsigned UF = getLoopUnrollFactor();
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
     Unroller.run(VPInstUnrollPart);
@@ -654,16 +719,155 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
+    ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
 
+  if (EnableSOAAnalysis)
+    // Enable SOA-analysis.
+    Plan->enableSOAAnalysis();
+
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE);
   HCFGBuilder.buildHierarchicalCFG();
 
   return SharedPlan;
+}
+
+void LoopVectorizationPlanner::runInitialVecSpecificTransforms(VPlan *Plan) {
+  // 1. Convert VPLoopEntities into explicit VPInstructions.
+  emitVPEntityInstrs(Plan);
+  // 2. Emit explicit uniform vector loop IV.
+  emitVecSpecifics(Plan);
+}
+
+void LoopVectorizationPlanner::emitVPEntityInstrs(VPlan *Plan) {
+  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+  VPBuilder VPIRBuilder;
+  LE->insertVPInstructions(VPIRBuilder);
+
+  VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
+}
+
+void LoopVectorizationPlanner::emitVecSpecifics(VPlan *Plan) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  assert(PreHeader && "Single pre-header is expected!");
+
+  Type *VectorLoopIVType = Legal->getWidestInductionType();
+  if (!VectorLoopIVType) {
+    // Ugly workaround for tests forcing VPlan build when we can't actually do
+    // that. Shouldn't happen outside stress/forced pipeline.
+    VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
+  }
+  auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
+
+  VPBuilder Builder;
+  Builder.setInsertPoint(PreHeader);
+  auto *VF = Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
+
+  auto *OrigTC = Builder.create<VPOrigTripCountCalculation>(
+      "orig.trip.count", TheLoop, CandidateLoop, VectorLoopIVType);
+  auto *TC =
+      Builder.create<VPVectorTripCountCalculation>("vector.trip.count", OrigTC);
+
+  emitVectorLoopIV(Plan, TC, VF);
+}
+
+void LoopVectorizationPlanner::emitVectorLoopIV(VPlan *Plan, VPValue *TripCount,
+                                                VPValue *VF) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  auto *Header = CandidateLoop->getHeader();
+  auto *Latch = CandidateLoop->getLoopLatch();
+  assert(PreHeader && "Single pre-header is expected!");
+  assert(Latch && "Single loop latch is expected!");
+
+  Type *VectorLoopIVType = TripCount->getType();
+  auto *VPZero =
+      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
+
+  VPBuilder Builder;
+  Builder.setInsertPoint(Header, Header->begin());
+  auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
+  IV->addIncoming(VPZero, PreHeader);
+  Builder.setInsertPoint(Latch);
+  auto *IVUpdate = Builder.createAdd(IV, VF, "vector.loop.iv.next");
+  IV->addIncoming(IVUpdate, Latch);
+  auto *ExitCond = Builder.createCmpInst(
+      Latch->getSuccessor(0) == Header ? CmpInst::ICMP_ULT : CmpInst::ICMP_UGE,
+      IVUpdate, TripCount, "vector.loop.exitcond");
+
+  VPValue *OrigExitCond = Latch->getCondBit();
+  if (Latch->getNumSuccessors() > 1)
+    Latch->setCondBit(ExitCond);
+
+  // If original exit condition had single use, remove it - we calculate exit
+  // condition differently now.
+  // FIXME: "_or_null" here is due to broken stess pipeline that must really
+  // stop right after CFG is imported, before *any* transformation is tried on
+  // it.
+  if (auto *Inst = dyn_cast_or_null<VPInstruction>(OrigExitCond))
+    if (Inst->getNumUsers() == 0)
+      Latch->eraseInstruction(Inst);
+}
+
+void LoopVectorizationPlanner::doLoopMassaging(VPlan *Plan) {
+  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+
+  assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
+  VPLoop *TopLoop = *VPLInfo->begin();
+  auto &VPDomTree = *Plan->getDT();
+  (void)VPDomTree;
+
+  LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
+             VPDomTree.print(dbgs()));
+
+  if (LoopMassagingEnabled) {
+    // TODO: Bail-out loop massaging for uniform inner loops.
+    for (auto *VPL : post_order(TopLoop)) {
+      if (VPL == TopLoop) {
+        // TODO: Uncomment after search loops are supported without hacks.
+        // assert(VPL->getLoopLatch() == VPL->getExitingBlock() &&
+        //        "Top level loop is expected to be in canonical form!");
+        continue;
+      }
+      singleExitWhileLoopCanonicalization(VPL);
+      mergeLoopExits(VPL);
+      // TODO: Verify loops here? It is done again after all initial transforms.
+    }
+    VPLAN_DUMP(LoopMassagingDumpControl, Plan);
+    LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
+               VPDomTree.print(dbgs()));
+  }
+}
+
+void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
+    VPlan *Plan) {
+  // Run verifier after initial transforms in debug build.
+  std::unique_ptr<VPlanVerifier> Verifier(new VPlanVerifier(TheLoop, *DL));
+
+  LLVM_DEBUG(Plan->setName("Planner: After initial VPlan transforms\n");
+             dbgs() << *Plan);
+  LLVM_DEBUG(dbgs() << "Dominator Tree After initial VPlan transforms\n";
+             Plan->getDT()->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree After initial VPlan transforms :\n";
+             Plan->getPDT()->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "VPLoop Info After initial VPlan transforms:\n";
+             Plan->getVPLoopInfo()->print(dbgs()));
+
+  LLVM_DEBUG(
+      Verifier->verifyLoops(Plan, *Plan->getDT(), Plan->getVPLoopInfo()));
+  (void)Verifier;
+
+  VPLAN_DUMP(InitialTransformsDumpControl, Plan);
 }
 
 // Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
@@ -761,16 +965,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
   for (auto &Phi : Header->getVPPhis())
     if (!LE->getInduction(&Phi) && !LE->getReduction(&Phi) &&
         !LE->getPrivate(&Phi)) {
-      // Non-entity phi. Check whether it is explicit vector loop induction.
-      if (llvm::any_of(Phi.operands(), [](const VPValue *V) {
-            if (auto *I = dyn_cast<VPInstruction>(V))
-              return I->getOpcode() == Instruction::Add &&
-                     llvm::any_of(I->operands(), [](const VPValue *V) {
-                       return isa<VPInductionInitStep>(V);
-                     });
-            return false;
-          }))
-        continue;
+      // Non-entity phi. No other PHIs are expected in loop header since we are
+      // working on plain CFG before any transforms.
       LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");
       return false;
     }
@@ -856,3 +1052,16 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   ILV->finalizeLoop();
 }
+
+void LoopVectorizationPlanner::emitPeelRemainderVPLoops() {
+  if (!EnableCFGMerge)
+    return;
+  assert(BestVF > 1 && "Unexpected VF");
+  VPlan *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "No VPlan found for BestVF.");
+
+  VPlanCFGMerger CFGMerger(*Plan);
+  CFGMerger.createSimpleVectorRemainderChain(TheLoop);
+  VPLAN_DUMP(CfgMergeDumpControl, Plan);
+}
+

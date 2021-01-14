@@ -10,7 +10,7 @@
 ; <5:10>             |   %1 = (@C)[0][i1];
 ; <6:10>             |   %mul3 = %1  *  %0;
 ; <8:10>             |   (@A)[0][i1] = %mul3;
-; <9:11>             |   %2 = 42  >>  4;
+; <9:11>             |   %2 = 42  >>  %t;
 ; <10:11>            |   %fp.cmp = %mul3 > %1;
 ; <13:11>            |   %red.phi = zext.i1.i32(%fp.cmp) + %2  +  %red.phi; <Safe Reduction>
 ; <14:11>            |   %fp.select = (%mul3 > %1) ? %mul3 : %1;
@@ -21,13 +21,13 @@
 ; <0>          END REGION
 
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
 
 ; VEC-HIR:      <0>          BEGIN REGION { modified }
 ; VEC-HIR-NEXT: <26:8>                  %red.init = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <27:8>                  %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
-; VEC-HIR-NEXT: <25:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; VEC-HIR-NEXT: <25:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VEC-HIR-NEXT: <28:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <29:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <30:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !30
@@ -39,7 +39,7 @@
 ; VEC-HIR-NEXT: <36:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !32
 ; VEC-HIR-NEXT: <37:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <25:8>             + END LOOP
-; VEC-HIR-NEXT: <38:8>                  %vec.reduce = call i32 @llvm.experimental.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !29
+; VEC-HIR-NEXT: <38:8>                  %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <0>          END REGION
 
 
@@ -132,8 +132,8 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
-  %2 = ashr exact i32 42, 4, !dbg !41
-; VPLAN-IR:          i32 [[VP14:%.*]] = ashr i32 42 i32 4
+  %2 = ashr exact i32 42, %t, !dbg !41
+; VPLAN-IR:          i32 [[VP14:%.*]] = ashr i32 42 i32 %t
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 1

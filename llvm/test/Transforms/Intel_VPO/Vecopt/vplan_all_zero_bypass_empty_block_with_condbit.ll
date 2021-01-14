@@ -7,58 +7,44 @@ declare i32 @llvm.vplan.laneid()
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
-;
-; CHECK-LABEL:  VPlan after all zero bypass:
+; CHECK-LABEL:  VPlan after all-zero bypass for VPlan Function vectorization:
 ; CHECK-NEXT:  VPlan IR for: foo
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP4:%.*]] = icmp slt i32 [[N0:%.*]] i32 7
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp eq i32 [[VP0]] i32 3
-; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin9
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin9
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.begin9:
+; CHECK-NEXT:    all.zero.bypass.begin9: # preds: [[BB1]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_CMP1]]
-; CHECK-NEXT:    SUCCESSORS(2):all.zero.bypass.end11(i1 [[VP_ALL_ZERO_CHECK]]), [[BB2:BB[0-9]+]](!i1 [[VP_ALL_ZERO_CHECK]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end11, [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]:
+; CHECK-NEXT:      [[BB2]]: # preds: all.zero.bypass.begin9
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_X:%.*]] = add i32 [[VP_LANE]] i32 42
-; CHECK-NEXT:      SUCCESSORS(1):all.zero.bypass.end11
-; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin9
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end11
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.end11:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] all.zero.bypass.begin9
+; CHECK-NEXT:    all.zero.bypass.end11: # preds: [[BB2]], all.zero.bypass.begin9
+; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end11
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP4]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_CMP4]] = icmp slt i32 [[N0]] i32 7
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP4]]), [[BB5:BB[0-9]+]](!i1 [[VP_CMP4]])
-; CHECK-NEXT:    PREDECESSORS(1): all.zero.bypass.end11
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:       [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB4]]
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]], [[BB4]]
+; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 ;        entry
 ;          |

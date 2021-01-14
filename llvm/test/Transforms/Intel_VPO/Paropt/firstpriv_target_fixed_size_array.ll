@@ -61,7 +61,7 @@ arrayctor.cont:                                   ; preds = %arrayctor.loop
 ; CHECK-LABEL: priv.cpyctor.body:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[TO]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
 ; CHECK-NEXT:  %priv.cpy.src.ptr = phi %class.A addrspace(1)* [ %[[FROM]], %{{.*}} ], [ %priv.cpy.src.inc, %{{.*}} ]
-; CHECK:  call void @_ZTS1A.omp.copy_constr(%class.A addrspace(4)* %{{.*}}, %class.A addrspace(4)* %{{.*}})
+; CHECK:  call spir_func void @_ZTS1A.omp.copy_constr(%class.A addrspace(4)* %{{.*}}, %class.A addrspace(4)* %{{.*}})
 ; CHECK:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
 ; CHECK-NEXT:  %priv.cpy.src.inc = getelementptr %class.A, %class.A addrspace(1)* %priv.cpy.src.ptr, i32 1
 ; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]

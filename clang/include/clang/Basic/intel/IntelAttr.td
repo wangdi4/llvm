@@ -1,6 +1,6 @@
 //===--- IntelAttr.td - Intel attribute definitions -----------------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -54,11 +54,6 @@ def BNDVarSize : InheritableAttr {
   int Requires = 4;
 }
 
-def Leaf : IgnoredAttr {
-  let Spellings = [GNU<"leaf">];
-  let Subjects = SubjectList<[Function]>;
-}
-
 def IntelInline : Attr {
   let Spellings = [Pragma<"", "inline">, Pragma<"", "forceinline">,
                    Pragma<"", "noinline">];
@@ -100,6 +95,28 @@ def IntelBlockLoop : Attr {
       return "#pragma block_loop";
     else
       return "#pragma noblock_loop";
+  }
+  }];
+  let Documentation = [Undocumented];
+}
+
+// Pragma prefetch and noprefetch
+def IntelPrefetch : Attr {
+  let Spellings = [Pragma<"", "prefetch">,
+                   Pragma<"", "noprefetch">];
+  let Args = [
+    VariadicExprArgument<"PrefetchExprs">
+  ];
+  let AdditionalMembers = [{
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+    OS << getDiagnosticName(Policy);
+  }
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+    unsigned SpellingIndex = getSpellingListIndex();
+    if (SpellingIndex == Pragma_prefetch)
+      return "#pragma prefetch";
+    else
+      return "#pragma noprefetch";
   }
   }];
   let Documentation = [Undocumented];
@@ -343,14 +360,6 @@ def HLSMaxInvocationDelay : InheritableAttr {
   }];
 }
 
-def StallEnable : InheritableAttr {
-  let Spellings = [Clang<"stall_enable">];
-  let LangOpts = [OpenCL, HLS];
-  let Subjects = SubjectList<[Function]>;
-  let PragmaAttributeSupport = 0;
-  let Documentation = [Undocumented];
-}
-
 def HLSLocalNonConstVar : SubsetSubject<Var,
                               [{S->hasLocalStorage() &&
                                 S->getKind() != Decl::ImplicitParam &&
@@ -492,23 +501,6 @@ def StallFree : InheritableAttr {
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
-}
-
-def SchedulerTargetFmaxMHz : InheritableAttr {
-  let Spellings = [GNU<"scheduler_target_fmax_mhz">];
-  let Args = [ExprArgument<"SchedulerTargetFmaxMHz">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-  let LangOpts = [OpenCL, HLS];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 0;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
 }
 
 // One string argument

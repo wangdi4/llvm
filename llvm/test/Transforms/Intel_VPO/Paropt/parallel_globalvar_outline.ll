@@ -74,7 +74,7 @@ attributes #1 = { nounwind }
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"Intel(R) oneAPI DPC++ Compiler Pro 2021.1 (YYYY.x.0.MMDD)"}
+!1 = !{!"clang version 10.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target
@@ -25,7 +25,7 @@
 ; CHECK-DAG: %[[CAST1_2:.+]] = bitcast i32* %[[GEP1]] to i8*
 ; CHECK-DAG: store i8* %[[CAST1_2]]
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_begin
-; CHECK-DAG: call void @__tgt_target_data_begin(i64 -1, i32 1, {{.*}}@[[SIZE2]]{{.*}}@[[MAPTYPE2]]
+; CHECK-DAG: call void @__tgt_target_data_begin(i64 %{{.*}}, i32 1, {{.*}}@[[SIZE2]]{{.*}}@[[MAPTYPE2]]
 
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_exit
 ; CHECK-DAG: %[[GEP2:.+]] = {{.*}}getelementptr {{.*}} @a, i64 0, i64 9
@@ -34,7 +34,7 @@
 ; CHECK-DAG: store i8* %[[CAST2_1]]
 ; CHECK-DAG: %[[CAST2_2:.+]] = bitcast i32* %[[GEP2]] to i8*
 ; CHECK-DAG: store i8* %[[CAST2_2]]
-; CHECK-DAG: call void @__tgt_target_data_end(i64 -1, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
+; CHECK-DAG: call void @__tgt_target_data_end(i64 %{{.*}}, i32 1, {{.*}}@[[SIZE1]]{{.*}}@[[MAPTYPE1]]
 
 ; ModuleID = 'target_data_outlining.cpp'
 source_filename = "target_data_outlining.cpp"
@@ -44,7 +44,7 @@ target device_triples = "spir64"
 
 @a = dso_local target_declare global [100 x i32] zeroinitializer, align 16
 
-; Function Attrs: noinline optnone uwtable
+; Function Attrs: noinline uwtable
 define dso_local void @_Z15enter_exit_datav() #0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.ENTER.DATA"(), "QUAL.OMP.MAP.ALWAYS.TO:AGGRHEAD"([100 x i32]* @a, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @a, i64 0, i64 7), i64 68) ]
@@ -63,7 +63,7 @@ declare void @llvm.directive.region.exit(token) #1
 
 declare dso_local void @_Z22modify_array_on_targetv() #2
 
-attributes #0 = { noinline optnone uwtable "may-have-openmp-directive"="true" }
+attributes #0 = { noinline uwtable "may-have-openmp-directive"="true" }
 attributes #1 = { nounwind }
 attributes #2 = { nounwind }
 

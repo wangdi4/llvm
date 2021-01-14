@@ -16,45 +16,29 @@
 
 #include "X86.h"
 #include "X86Subtarget.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicsX86.h"
-#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Intel_CPU_utils.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 
@@ -74,7 +58,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetPassConfig>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
   }
 
   bool getTargetAttributes(Function &F,
@@ -94,7 +77,8 @@ public:
         auto Itr =
             std::find_if(std::begin(TargetFeatures), std::end(TargetFeatures),
                          [&](StringRef A) { return A == S; });
-        TargetFeatures.erase(Itr);
+        if (Itr != std::end(TargetFeatures))
+          TargetFeatures.erase(Itr);
       }
     }
     return true;
@@ -140,6 +124,10 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
+    DebugLoc Loc;
+    if (auto *SP = F.getSubprogram())
+      Loc = DILocation::get(F.getContext(), SP->getScopeLine(), 0, SP);
+    IRB.SetCurrentDebugLocation(Loc);
 
     // %tmp = alloca i32, align 4
     IntegerType *I32Ty = IRB.getInt32Ty();
@@ -211,6 +199,10 @@ public:
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     const DataLayout &DL = FirstNonAlloca->getModule()->getDataLayout();
     IRBuilder<> IRB(FirstNonAlloca);
+    DebugLoc Loc;
+    if (auto *SP = F.getSubprogram())
+      Loc = DILocation::get(F.getContext(),SP->getScopeLine(), 0, SP);
+    IRB.SetCurrentDebugLocation(Loc);
 
     // %1 = alloca i16, align 2
     IntegerType *I16Ty = IRB.getInt16Ty();
@@ -278,6 +270,11 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
+    DebugLoc Loc;
+    if (auto *SP = F.getSubprogram())
+      Loc = DILocation::get(F.getContext(), SP->getScopeLine(), 0, SP);
+    IRB.SetCurrentDebugLocation(Loc);
+
     uint32_t FtzDaz = getFtzDaz(F);
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), FtzDaz),

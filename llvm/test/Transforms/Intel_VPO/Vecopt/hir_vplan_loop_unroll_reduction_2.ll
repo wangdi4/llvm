@@ -30,70 +30,58 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after loop unrolling:
+; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%acc.08}
-; CHECK-DAG:     [[VP1:%.*]] = {%a}
-; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%n) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%n) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i32 [[ACC_080:%.*]]
-; CHECK-NEXT:  ID: 1 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], cloned.[[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = add i32 [[VP7]] i32 [[VP3]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP9:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP10:%.*]] = icmp sle i64 [[VP9]] i64 [[VP2]]
-; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = add i32 [[VP_LOAD]] i32 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = icmp sle i64 [[VP8]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    cloned.[[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32* [[VP11:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP9]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = load i32* [[VP11]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = add i32 [[VP12]] i32 [[VP8]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP9]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp sle i64 [[VP14]] i64 [[VP2]]
-; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP10:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = load i32* [[VP10]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = add i32 [[VP11]] i32 [[VP7]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP14:%.*]] = icmp sle i64 [[VP13]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    cloned.[[BB3]]:
-; CHECK-NEXT:     [DA: Div] i32* [[VP16:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP14]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP17:%.*]] = load i32* [[VP16]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = add i32 [[VP17]] i32 [[VP13]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP18:%.*]] = icmp sle i64 [[VP6]] i64 [[VP2]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP18]]), [[BB5:BB[0-9]+]](!i1 [[VP18]])
-; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB4]]
+; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP15:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP13]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP16:%.*]] = load i32* [[VP15]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = add i32 [[VP16]] i32 [[VP12]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP13]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = icmp sle i64 [[VP6]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP19:%.*]] = {%acc.08}
+; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP18:%.*]] = {%acc.08}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ;
@@ -106,7 +94,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:  <16>               {
 ; CGCHECK-NEXT:  <18>                     [[RED_VAR0:%.*]] = 0
 ; CGCHECK-NEXT:  <19>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
-; CGCHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <nounroll> <novectorize>
+; CGCHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <auto-vectorized> <nounroll> <novectorize>
 ; CGCHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; CGCHECK-NEXT:  <21>                  |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; CGCHECK-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
@@ -114,7 +102,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:  <24>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
 ; CGCHECK-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[DOTVEC30]]
 ; CGCHECK-NEXT:  <15>                  + END LOOP
-; CGCHECK-NEXT:  <26>                     [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; CGCHECK-NEXT:  <26>                     [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[RED_VAR0]])
 ; CGCHECK-NEXT:  <16>               }
 ; CGCHECK-NEXT:  <11>
 ; CGCHECK-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>

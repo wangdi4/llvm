@@ -5,13 +5,10 @@
 
 
 ; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4  2>&1 | FileCheck %s
-
-; CHECK: [[PRIV_BASE:%.*]] = getelementptr [2520 x double], [2520 x double]* {{.*}}, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[BC:%.*]] = bitcast <4 x [2520 x double]*> [[PRIV_BASE]] to <4 x i8*>
-; CHECK: [[PRIV_PTR1:%.*]] = extractelement <4 x i8*> [[BC]], i32 3
-; CHECK: [[PRIV_PTR2:%.*]] = extractelement <4 x i8*> [[BC]], i32 2
-; CHECK: [[PRIV_PTR3:%.*]] = extractelement <4 x i8*> [[BC]], i32 1
-; CHECK: [[PRIV_PTR4:%.*]] = extractelement <4 x i8*> [[BC]], i32 0
+; CHECK: [[WIDE_ARR:%.*]] = alloca [4 x [2520 x double]], align 8
+; CHECK: [[WIDE_ARR_BC:%.*]] = bitcast [4 x [2520 x double]]* [[WIDE_ARR]] to [2520 x double]*
+; CHECK: [[PRIV_BASE:%.*]] = getelementptr [2520 x double], [2520 x double]* [[WIDE_ARR_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK: [[BC:%.*]] = bitcast [4 x [2520 x double]]* [[WIDE_ARR]] to i8*
 
 ; CHECK: {{.*}} = phi <4 x double> {{.*}}, {{.*}}
 ; CHECK: [[GEP1:%.*]] = getelementptr inbounds [2520 x double], <4 x [2520 x double]*> [[PRIV_BASE]], <4 x i64> zeroinitializer, <4 x i64> zeroinitializer
@@ -29,10 +26,7 @@
 ; CHECK-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i32 0
 ; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[_0]] to <4 x i64> addrspace(1)*
 ; CHECK-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR4]])
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR3]])
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR2]])
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[PRIV_PTR1]])
+; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[BC]])
 
 ; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -63,7 +57,7 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: nounwind
-define void @main(double addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, double addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, double addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, i32, double, double, double addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval) local_unnamed_addr {
+define void @main(double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), i32, double, double, double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range")) local_unnamed_addr {
   %20 = alloca [2520 x double], align 8
   %21 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region

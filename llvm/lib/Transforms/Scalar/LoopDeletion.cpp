@@ -252,142 +252,143 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
   // of the loop.
   bool AllEntriesInvariant = true;
   bool AllOutgoingValuesSame = true;
-  for (PHINode &P : ExitBlock->phis()) {
-    Value *incoming = P.getIncomingValueForBlock(ExitingBlocks[0]);
+  if (!L->hasNoExitBlocks()) {
+    for (PHINode &P : ExitBlock->phis()) {
+      Value *incoming = P.getIncomingValueForBlock(ExitingBlocks[0]);
 
-    // Make sure all exiting blocks produce the same incoming value for the exit
-    // block.  If there are different incoming values for different exiting
-    // blocks, then it is impossible to statically determine which value should
-    // be used.
-    AllOutgoingValuesSame =
-        all_of(makeArrayRef(ExitingBlocks).slice(1), [&](BasicBlock *BB) {
-          return incoming == P.getIncomingValueForBlock(BB);
-        });
+      // Make sure all exiting blocks produce the same incoming value for the
+      // block. If there are different incoming values for different exiting
+      // blocks, then it is impossible to statically determine which value
+      // should be used.
+      AllOutgoingValuesSame =
+          all_of(makeArrayRef(ExitingBlocks).slice(1), [&](BasicBlock *BB) {
+            return incoming == P.getIncomingValueForBlock(BB);
+          });
 
-    if (!AllOutgoingValuesSame)
-      break;
-
-    if (Instruction *I = dyn_cast<Instruction>(incoming))
-      if (!L->makeLoopInvariant(I, Changed, Preheader->getTerminator())) {
-
-#if INTEL_CUSTOMIZATION
-        // p = pstart;
-        // {
-        //   p++; // actually p += sizeof(*p) in bytes
-        // } while (*p)
-        // pp = PHI(p) // 1 arg only
-        // len = pp-pstart;
-        // if (len != 0)
-        //
-        // If "p" and "len" are only used to make the computation above, the
-        // loop is dead. "len" is guaranteed to be nonzero, as pointer
-        // wraparound is undefined.
-        // We can replace p with undef, and len with sizeof(*p), without
-        // changing the code behavior. The loop deleter will then remove the
-        // loop, if the loop has no side effects, all other results are
-        // invariant, etc. (the usual criteria)
-        AllEntriesInvariant = false;
-        if (!I->getType()->isPointerTy())
-          // cannot be generalized to integers without knowing if the loop
-          // will terminate.
-          break;
-
-        uint64_t MinVal = 0;
-        assert(P.getModule() != nullptr && "Null module found!");
-        const DataLayout &DL = P.getModule()->getDataLayout();
-
-        // First, analyze the loop and get the initial value "pstart" and
-        // the real pointer increment value.
-        Value *Initial = getInitialValueAndInc(L, &P, MinVal, DL);
-        if (Initial == nullptr || MinVal == 0)
-          break;
-
-        // Find the instruction defining "len" above, by starting at the phi
-        // at the loop exit, and walking its uses.
-        // getInitialValueandInc() checks that the phi has only 1 incoming
-        // x value.
-        // This is important, as the "len" computation must be dominated
-        // by the loop body so that we are guaranteed the loop has executed
-        // at least once.
-        Instruction *SubResult = nullptr;
-        Instruction *CurrInst = &P;
-        while (CurrInst->hasOneUse()) {
-          // pattern may be:
-          //   %P = phi [x]
-          //   %1 = ptrtoint %P
-          //   %2 = ptrtoint %Initial
-          //   %len = sub %1 %2
-          // Only ptrtoint and bitcast are allowed.
-          Instruction *User = CurrInst->user_back();
-          if (User->getOpcode() == Instruction::Sub) {
-            // "len" must be as above: operand 0 is directly derived from
-            // the phi, and operand 1 must be the initial value of "p".
-            if (User->getOperand(0) != CurrInst)
-              break;
-            // The other sub operand may have some ptrtoints that we need
-            // to get through.
-            if (stripCast(User->getOperand(1)) == Initial)
-              SubResult = User;
-            CurrInst = User;
-            break;
-          }
-          if (!isa<BitCastInst>(User) && !isa<PtrToIntInst>(User))
-            break;
-          CurrInst = User;
-        }
-
-        if (SubResult == nullptr)
-          break;
-
-        LLVM_DEBUG(
-            dbgs()
-                << "Loop result is always positive, looking for zero test.\n";
-            SubResult->print(dbgs()); dbgs() << "\n");
-
-        if (!CurrInst->hasOneUse())
-          break;
-
-        assert(CurrInst == SubResult && "Incorrect subtract pattern match");
-
-        // CurrInst is now the subtraction resulting in "len".
-        // We need to prove that "len" is only used to test zero/nonzero.
-        // Some other operands may be applied to "len" before the compare.
-        // As long as these operations do not change the zero/nonzero property
-        // of "len", they can be ignored. More detail in AllUsesCmpZero().
-        CurrInst = CurrInst->user_back();
-        bool AllCmp = AllUsesCmpZero(CurrInst, MinVal, DL, 0);
-
-        if (AllCmp) {
-          // Replace "len" with the loop increment value (the minimum
-          // difference if the loop only iterated one time). The subtraction
-          // is now dead.
-          LLVM_DEBUG(dbgs() << "Loop result only used in zero-test, can "
-                            << "replace with constant " << MinVal << "\n");
-
-          Value *MinValIR =
-              ConstantInt::get(SubResult->getType(), MinVal, false);
-          SubResult->replaceAllUsesWith(MinValIR);
-
-          // I is the result incoming from the loop, which is the phi
-          // argument "p" in the example. Replace it with a constant, to
-          // force "p" to be dead. This allows the loop to be deleted if
-          // suitable.
-          I->replaceUsesOutsideBlock(
-              UndefValue::get(cast<PointerType>(I->getType())), I->getParent());
-          // Pointer increments can't roll over, tell the caller.
-          NotInfinite = true;
-          // This doesn't mean "all" entries; we will still continue to
-          // check the other
-          // live-out values of the loop and reset this flag if needed.
-          AllEntriesInvariant = true;
-
-          continue; // keep checking other live values
-        }
-#endif // INTEL_CUSTOMIZATION
-
-        AllEntriesInvariant = false;
+      if (!AllOutgoingValuesSame)
         break;
-      }
+
+      if (Instruction *I = dyn_cast<Instruction>(incoming))
+        if (!L->makeLoopInvariant(I, Changed, Preheader->getTerminator())) {
+#if INTEL_CUSTOMIZATION
+          // p = pstart;
+          // {
+          //   p++; // actually p += sizeof(*p) in bytes
+          // } while (*p)
+          // pp = PHI(p) // 1 arg only
+          // len = pp-pstart;
+          // if (len != 0)
+          //
+          // If "p" and "len" are only used to make the computation above, the
+          // loop is dead. "len" is guaranteed to be nonzero, as pointer
+          // wraparound is undefined.
+          // We can replace p with undef, and len with sizeof(*p), without
+          // changing the code behavior. The loop deleter will then remove the
+          // loop, if the loop has no side effects, all other results are
+          // invariant, etc. (the usual criteria)
+          AllEntriesInvariant = false;
+          if (!I->getType()->isPointerTy())
+            // cannot be generalized to integers without knowing if the loop
+            // will terminate.
+            break;
+
+          uint64_t MinVal = 0;
+          assert(P.getModule() != nullptr && "Null module found!");
+          const DataLayout &DL = P.getModule()->getDataLayout();
+
+          // First, analyze the loop and get the initial value "pstart" and
+          // the real pointer increment value.
+          Value *Initial = getInitialValueAndInc(L, &P, MinVal, DL);
+          if (Initial == nullptr || MinVal == 0)
+            break;
+
+          // Find the instruction defining "len" above, by starting at the phi
+          // at the loop exit, and walking its uses.
+          // getInitialValueandInc() checks that the phi has only 1 incoming
+          // x value.
+          // This is important, as the "len" computation must be dominated
+          // by the loop body so that we are guaranteed the loop has executed
+          // at least once.
+          Instruction *SubResult = nullptr;
+          Instruction *CurrInst = &P;
+          while (CurrInst->hasOneUse()) {
+            // pattern may be:
+            //   %P = phi [x]
+            //   %1 = ptrtoint %P
+            //   %2 = ptrtoint %Initial
+            //   %len = sub %1 %2
+            // Only ptrtoint and bitcast are allowed.
+            Instruction *User = CurrInst->user_back();
+            if (User->getOpcode() == Instruction::Sub) {
+              // "len" must be as above: operand 0 is directly derived from
+              // the phi, and operand 1 must be the initial value of "p".
+              if (User->getOperand(0) != CurrInst)
+                break;
+              // The other sub operand may have some ptrtoints that we need
+              // to get through.
+              if (stripCast(User->getOperand(1)) == Initial)
+                SubResult = User;
+              CurrInst = User;
+              break;
+            }
+            if (!isa<BitCastInst>(User) && !isa<PtrToIntInst>(User))
+              break;
+            CurrInst = User;
+          }
+
+          if (SubResult == nullptr)
+            break;
+
+          LLVM_DEBUG(
+              dbgs()
+                  << "Loop result is always positive, looking for zero test.\n";
+              SubResult->print(dbgs()); dbgs() << "\n");
+
+          if (!CurrInst->hasOneUse())
+            break;
+
+          assert(CurrInst == SubResult && "Incorrect subtract pattern match");
+
+          // CurrInst is now the subtraction resulting in "len".
+          // We need to prove that "len" is only used to test zero/nonzero.
+          // Some other operands may be applied to "len" before the compare.
+          // As long as these operations do not change the zero/nonzero property
+          // of "len", they can be ignored. More detail in AllUsesCmpZero().
+          CurrInst = CurrInst->user_back();
+          bool AllCmp = AllUsesCmpZero(CurrInst, MinVal, DL, 0);
+
+          if (AllCmp) {
+            // Replace "len" with the loop increment value (the minimum
+            // difference if the loop only iterated one time). The subtraction
+            // is now dead.
+            LLVM_DEBUG(dbgs() << "Loop result only used in zero-test, can "
+                              << "replace with constant " << MinVal << "\n");
+
+            Value *MinValIR =
+                ConstantInt::get(SubResult->getType(), MinVal, false);
+            SubResult->replaceAllUsesWith(MinValIR);
+
+            // I is the result incoming from the loop, which is the phi
+            // argument "p" in the example. Replace it with a constant, to
+            // force "p" to be dead. This allows the loop to be deleted if
+            // suitable.
+            I->replaceUsesOutsideBlock(
+                UndefValue::get(cast<PointerType>(I->getType())),
+                I->getParent());
+            // Pointer increments can't roll over, tell the caller.
+            NotInfinite = true;
+            // This doesn't mean "all" entries; we will still continue to
+            // check the other
+            // live-out values of the loop and reset this flag if needed.
+            AllEntriesInvariant = true;
+
+            continue; // keep checking other live values
+          }
+#endif // INTEL_CUSTOMIZATION
+          AllEntriesInvariant = false;
+          break;
+        }
+    }
   }
 
   if (Changed)
@@ -400,7 +401,9 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
   // This includes instructions that could write to memory, and loads that are
   // marked volatile.
   for (auto &I : L->blocks())
-    if (any_of(*I, [](Instruction &I) { return I.mayHaveSideEffects(); }))
+    if (any_of(*I, [](Instruction &I) {
+          return I.mayHaveSideEffects() && !I.isDroppable();
+        }))
       return false;
   return true;
 }
@@ -478,6 +481,10 @@ static LoopDeletionResult deleteLoopIfDead(Loop *L, DominatorTree &DT,
 
   if (ExitBlock && isLoopNeverExecuted(L)) {
     LLVM_DEBUG(dbgs() << "Loop is proven to never execute, delete it!");
+    // We need to forget the loop before setting the incoming values of the exit
+    // phis to undef, so we properly invalidate the SCEV expressions for those
+    // phis.
+    SE.forgetLoop(L);
     // Set incoming value to undef for phi nodes in the exit block.
     for (PHINode &P : ExitBlock->phis()) {
       std::fill(P.incoming_values().begin(), P.incoming_values().end(),
@@ -498,12 +505,12 @@ static LoopDeletionResult deleteLoopIfDead(Loop *L, DominatorTree &DT,
   SmallVector<BasicBlock *, 4> ExitingBlocks;
   L->getExitingBlocks(ExitingBlocks);
 
-  // We require that the loop only have a single exit block.  Otherwise, we'd
-  // be in the situation of needing to be able to solve statically which exit
-  // block will be branched to, or trying to preserve the branching logic in
-  // a loop invariant manner.
-  if (!ExitBlock) {
-    LLVM_DEBUG(dbgs() << "Deletion requires single exit block\n");
+  // We require that the loop has at most one exit block. Otherwise, we'd be in
+  // the situation of needing to be able to solve statically which exit block
+  // will be branched to, or trying to preserve the branching logic in a loop
+  // invariant manner.
+  if (!ExitBlock && !L->hasNoExitBlocks()) {
+    LLVM_DEBUG(dbgs() << "Deletion requires at most one exit block.\n");
     return LoopDeletionResult::Unmodified;
   }
   // Finally, we have to check that the loop really is dead.

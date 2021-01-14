@@ -29,6 +29,27 @@ RUN:   FileCheck --check-prefix=MISMATCHED-EXPLICIT-INVOKE %s
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-invoke-non-function-explicit-type.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=NON-FUNCTION-EXPLICIT-INVOKE %s
 
+; INTEL_CUSTOMIZATION
+RUN: not llvm-dis -disable-output %p/Inputs/intel-invalid-unknown-epoch.bc 2>&1 | \
+RUN:   FileCheck --check-prefix=INTEL-UNKNOWN-EPOCH %s
+
+; intel-invalid-unknown-epoch.bc was artificially produced with an invalid epoch id.
+; The test checks that the bitcode reader reports the error.
+INTEL-UNKNOWN-EPOCH: Incompatible epoch: Bitcode '0:555' vs current: '1:0'
+INTEL-UNKNOWN-EPOCH-NEXT: (Producer: 'FakeProducer' Reader: 'Intel.oneAPI.DPCPP.Compiler_2021.2.0')
+
+RUN: not llvm-dis -disable-output %p/Inputs/intel-invalid-producer.bc 2>&1 | \
+RUN:   FileCheck --check-prefix=INTEL-INVALID-PRODUCER %s
+
+; intel-invalid-producer.bc was artificially produced with an Intel epoch and
+; "FakeProducer" as the producer string.
+; The test checks that the bitcode reader reports the error.
+INTEL-INVALID-PRODUCER: The bitcode file uses an Intel epoch ID but was not produced by an Intel product.
+INTEL-INVALID-PRODUCER-NEXT: (Producer: 'FakeProducer' Reader: 'Intel.oneAPI.DPCPP.Compiler_2021.2.0')
+; end INTEL_CUSTOMIZATION
+
+
+
 INVALID-EMPTY: error: file too small to contain bitcode header
 INVALID-ENCODING: Invalid encoding
 BAD-ABBREV: error: can't skip to bit
@@ -204,7 +225,9 @@ ALIAS-TYPE-MISMATCH: Alias and aliasee types don't match
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-no-function-block.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=NO-FUNCTION-BLOCK %s
 
-NO-FUNCTION-BLOCK: Trying to materialize functions before seeing function blocks (Producer: 'LLVM3.8.0git' Reader: 'LLVM
+; INTEL_CUSTOMIZATION
+NO-FUNCTION-BLOCK: Trying to materialize functions before seeing function blocks (Producer: 'LLVM3.8.0git' Reader: 'Intel
+; end INTEL_CUSTOMIZATION
 
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-name-with-0-byte.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=NAME-WITH-0 %s

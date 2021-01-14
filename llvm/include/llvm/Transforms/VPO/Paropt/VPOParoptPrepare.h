@@ -58,6 +58,8 @@ public:
   bool runImpl(Function &F, vpo::WRegionInfo &WI,
                OptimizationRemarkEmitter &ORE);
 
+  static bool isRequired() { return true; }
+
 private:
 
   // VPO-mode

@@ -24,7 +24,6 @@
 
 namespace llvm {
 namespace vpo {
-
 /// Template specialization of the standard LLVM dominator tree utility for
 /// VPBasicBlocks.
 class VPDominatorTree : public DomTreeBase<VPBasicBlock> {};

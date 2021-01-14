@@ -185,17 +185,18 @@ static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
     return Triple.isArch32Bit() ? "lib" : "lib64";
   }
 
-  // It happens that only x86 and PPC use the 'lib32' variant of oslibdir, and
-  // using that variant while targeting other architectures causes problems
-  // because the libraries are laid out in shared system roots that can't cope
-  // with a 'lib32' library search path being considered. So we only enable
-  // them when we know we may need it.
+  // It happens that only x86, PPC and SPARC use the 'lib32' variant of
+  // oslibdir, and using that variant while targeting other architectures causes
+  // problems because the libraries are laid out in shared system roots that
+  // can't cope with a 'lib32' library search path being considered. So we only
+  // enable them when we know we may need it.
   //
   // FIXME: This is a bit of a hack. We should really unify this code for
   // reasoning about oslibdir spellings with the lib dir spellings in the
   // GCCInstallationDetector, but that is a more significant refactoring.
   if (Triple.getArch() == llvm::Triple::x86 ||
-      Triple.getArch() == llvm::Triple::ppc)
+      Triple.getArch() == llvm::Triple::ppc ||
+      Triple.getArch() == llvm::Triple::sparc)
     return "lib32";
 
   if (Triple.getArch() == llvm::Triple::x86_64 &&
@@ -577,20 +578,20 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel performance library headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePathExtra(DriverArgs));
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetMKLIncludePath(DriverArgs));
   }
-  if (DriverArgs.hasArg(clang::driver::options::OPT_ipp_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qipp_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetIPPIncludePath(DriverArgs));
-  if (DriverArgs.hasArg(clang::driver::options::OPT_tbb) ||
-      DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qtbb) ||
+      DriverArgs.hasArg(clang::driver::options::OPT_qdaal_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetTBBIncludePath(DriverArgs));
-  if (DriverArgs.hasArg(clang::driver::options::OPT_daal_EQ))
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qdaal_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetDAALIncludePath(DriverArgs));
 #endif // INTEL_CUSTOMIZATION

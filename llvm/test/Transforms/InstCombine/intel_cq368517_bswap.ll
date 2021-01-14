@@ -78,13 +78,14 @@ define i64 @_Z14byteswap_64b_nm(i64 %result) {
   ret i64 %23
 }
 
-; THIS SHOULD NOT BE CONVERTED INTO BSWAP INTRINSICS. 
+; THIS SHOULD NOT BE CONVERTED INTO BSWAP INTRINSICS.
 ; as one of the constant is wrong. this is not a bswap
 ; operation.
 ; inputs to OR are masks.
 ; Function Attrs: nounwind uwtable
 define i64 @_Z23not_byteswap_64b_logn_masksm(i64 %result) #0 {
-; CHECK: and i64 %11, -61777214294589696 
+; CHECK: [[RESULT:%.*]] = shl i64 {{.*}}, 8
+; CHECK: and i64 [[RESULT]], -61777214294589696
   %1 = lshr i64 %result, 32
   %2 = and i64 %1, 4294967295
   %3 = shl i64 %result, 32

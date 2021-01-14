@@ -185,8 +185,9 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
     GCCName = "gcc";
 
   const char *Exec = Args.MakeArgString(getToolChain().GetProgramPath(GCCName));
-  C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileCurCP(),
+                                         Exec, CmdArgs, Inputs, Output));
 }
 
 void tools::gcc::Preprocessor::RenderExtraToolArgs(
@@ -383,7 +384,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is statically link
   bool linkStatic = true;
-  if (const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ)) {
+  if (const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ)) {
     if (IL->getValue() == StringRef("dynamic") ||
         IL->getValue() == StringRef("shared"))
       linkStatic = false;
@@ -473,14 +474,14 @@ static void addDAALLibs(ArgStringList &CmdArgs,
 // Add performance library search paths.
 static void addPerfLibPaths(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
-  if (Args.hasArg(options::OPT_ipp_EQ))
+  if (Args.hasArg(options::OPT_qipp_EQ))
     TC.AddIPPLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_mkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ))
     TC.AddMKLLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
-      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_qdaal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
 }
 
@@ -671,8 +672,9 @@ void tools::gnutools::StaticLibTool::ConstructJob(
   }
 
   const char *Exec = Args.MakeArgString(getToolChain().GetStaticLibToolPath());
-  C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileCurCP(),
+                                         Exec, CmdArgs, Inputs, Output));
 }
 
 void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
@@ -874,6 +876,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   bool NeedsSanitizerDeps = addSanitizerRuntimes(ToolChain, Args, CmdArgs);
   bool NeedsXRayDeps = addXRayRuntime(ToolChain, Args, CmdArgs);
+  addLinkerCompressDebugSectionsOption(ToolChain, Args, CmdArgs);
   // When offloading, the input file(s) could be from unbundled partially
   // linked archives.  The unbundled information is a list of files and not
   // an actual object/archive.  Take that list and pass those to the linker
@@ -902,14 +905,14 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // The profile runtime also needs access to system libraries.
     getToolChain().addProfileRTLibs(Args, CmdArgs);
 
-  if (Args.hasArg(options::OPT_ipp_EQ))
+  if (Args.hasArg(options::OPT_qipp_EQ))
     addIPPLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_mkl_EQ))
+  if (Args.hasArg(options::OPT_qmkl_EQ))
     addMKLLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_qdaal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
-      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lsvml", ToolChain, CmdArgs, Args);
@@ -947,7 +950,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
-           (D.IsIntelMode() || Args.hasArg(options::OPT_mkl_EQ))) {
+           (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
     if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
@@ -958,7 +961,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // Add libirc to resolve any Intel and libimf references
     addIntelLibirc(ToolChain, CmdArgs, Args);
     // Add -ldl
-    if (Args.hasArg(options::OPT_mkl_EQ) || D.IsIntelMode())
+    if (Args.hasArg(options::OPT_qmkl_EQ) || D.IsIntelMode())
       CmdArgs.push_back("-ldl");
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1001,8 +1004,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         WantPthread = true;
 
 #if INTEL_CUSTOMIZATION
-      // Use of -mkl implies pthread
-      if (Args.hasArg(options::OPT_mkl_EQ))
+      // Use of -qmkl implies pthread
+      if (Args.hasArg(options::OPT_qmkl_EQ))
         WantPthread = true;
       // -stdlib=libc++ implies pthread
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
@@ -1094,8 +1097,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_T);
 
   const char *Exec = Args.MakeArgString(ToolChain.GetLinkerPath());
-  C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileCurCP(),
+                                         Exec, CmdArgs, Inputs, Output));
 }
 
 void tools::gnutools::Assembler::ConstructJob(Compilation &C,
@@ -1362,8 +1366,9 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
 
   const char *Exec =
       Args.MakeArgString(getToolChain().GetProgramPath(DefaultAssembler));
-  C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileCurCP(), Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileCurCP(),
+                                         Exec, CmdArgs, Inputs, Output));
 
   // Handle the debug info splitting at object creation time if we're
   // creating an object.
@@ -1371,7 +1376,7 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
   if (Args.hasArg(options::OPT_gsplit_dwarf) &&
       getToolChain().getTriple().isOSLinux())
     SplitDebugInfo(getToolChain(), C, *this, JA, Args, Output,
-                   SplitDebugName(Args, Inputs[0], Output));
+                   SplitDebugName(JA, Args, Inputs[0], Output));
 }
 
 namespace {
@@ -2397,27 +2402,36 @@ void Generic_GCC::GCCInstallationDetector::init(
   // installation available. GCC installs are ranked by version number.
   Version = GCCVersion::Parse("0.0.0");
   for (const std::string &Prefix : Prefixes) {
-    if (!D.getVFS().exists(Prefix))
+    auto &VFS = D.getVFS();
+    if (!VFS.exists(Prefix))
       continue;
     for (StringRef Suffix : CandidateLibDirs) {
       const std::string LibDir = Prefix + Suffix.str();
-      if (!D.getVFS().exists(LibDir))
+      if (!VFS.exists(LibDir))
         continue;
+      // Maybe filter out <libdir>/gcc and <libdir>/gcc-cross.
+      bool GCCDirExists = VFS.exists(LibDir + "/gcc");
+      bool GCCCrossDirExists = VFS.exists(LibDir + "/gcc-cross");
       // Try to match the exact target triple first.
-      ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, TargetTriple.str());
+      ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, TargetTriple.str(),
+                             false, GCCDirExists, GCCCrossDirExists);
       // Try rest of possible triples.
       for (StringRef Candidate : ExtraTripleAliases) // Try these first.
-        ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate);
+        ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate, false,
+                               GCCDirExists, GCCCrossDirExists);
       for (StringRef Candidate : CandidateTripleAliases)
-        ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate);
+        ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate, false,
+                               GCCDirExists, GCCCrossDirExists);
     }
     for (StringRef Suffix : CandidateBiarchLibDirs) {
       const std::string LibDir = Prefix + Suffix.str();
-      if (!D.getVFS().exists(LibDir))
+      if (!VFS.exists(LibDir))
         continue;
+      bool GCCDirExists = VFS.exists(LibDir + "/gcc");
+      bool GCCCrossDirExists = VFS.exists(LibDir + "/gcc-cross");
       for (StringRef Candidate : CandidateBiarchTripleAliases)
-        ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate,
-                               /*NeedsBiarchSuffix=*/ true);
+        ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate, true,
+                               GCCDirExists, GCCCrossDirExists);
     }
   }
 }
@@ -2913,7 +2927,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
 void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
     const llvm::Triple &TargetTriple, const ArgList &Args,
     const std::string &LibDir, StringRef CandidateTriple,
-    bool NeedsBiarchSuffix) {
+    bool NeedsBiarchSuffix, bool GCCDirExists, bool GCCCrossDirExists) {
   llvm::Triple::ArchType TargetArch = TargetTriple.getArch();
   // Locations relative to the system lib directory where GCC's triple-specific
   // directories might reside.
@@ -2927,11 +2941,10 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
     bool Active;
   } Suffixes[] = {
       // This is the normal place.
-      {"gcc/" + CandidateTriple.str(), "../..", true},
+      {"gcc/" + CandidateTriple.str(), "../..", GCCDirExists},
 
       // Debian puts cross-compilers in gcc-cross.
-      {"gcc-cross/" + CandidateTriple.str(), "../..",
-       TargetTriple.getOS() != llvm::Triple::Solaris},
+      {"gcc-cross/" + CandidateTriple.str(), "../..", GCCCrossDirExists},
 
       // The Freescale PPC SDK has the gcc libraries in
       // <sysroot>/usr/lib/<triple>/x.y.z so have a look there as well. Only do
@@ -2998,6 +3011,9 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooConfigs(
     const llvm::Triple &TargetTriple, const ArgList &Args,
     const SmallVectorImpl<StringRef> &CandidateTriples,
     const SmallVectorImpl<StringRef> &CandidateBiarchTriples) {
+  if (!D.getVFS().exists(D.SysRoot + GentooConfigDir))
+    return false;
+
   for (StringRef CandidateTriple : CandidateTriples) {
     if (ScanGentooGccConfig(TargetTriple, Args, CandidateTriple))
       return true;
@@ -3014,7 +3030,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooGccConfig(
     const llvm::Triple &TargetTriple, const ArgList &Args,
     StringRef CandidateTriple, bool NeedsBiarchSuffix) {
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> File =
-      D.getVFS().getBufferForFile(D.SysRoot + "/etc/env.d/gcc/config-" +
+      D.getVFS().getBufferForFile(D.SysRoot + GentooConfigDir + "/config-" +
                                   CandidateTriple.str());
   if (File) {
     SmallVector<StringRef, 2> Lines;
@@ -3026,7 +3042,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooGccConfig(
         continue;
       // Process the config file pointed to by CURRENT.
       llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ConfigFile =
-          D.getVFS().getBufferForFile(D.SysRoot + "/etc/env.d/gcc/" +
+          D.getVFS().getBufferForFile(D.SysRoot + GentooConfigDir + "/" +
                                       Line.str());
       std::pair<StringRef, StringRef> ActiveVersion = Line.rsplit('-');
       // List of paths to scan for libraries.
@@ -3125,6 +3141,15 @@ Tool *Generic_GCC::buildLinker() const {
   return new tools::gcc::Linker(*this);
 }
 
+#if INTEL_CUSTOMIZATION
+Tool *Generic_GCC::buildBackendCompiler() const {
+  if (getTriple().getSubArch() == llvm::Triple::SPIRSubArch_gen)
+    return new tools::SYCL::gen::BackendCompiler(*this);
+  // fall through is CPU.
+  return new tools::SYCL::x86_64::BackendCompiler(*this);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Generic_GCC::printVerboseInfo(raw_ostream &OS) const {
   // Print the information about how we detected the GCC installation.
   GCCInstallation.print(OS);
@@ -3133,7 +3158,13 @@ void Generic_GCC::printVerboseInfo(raw_ostream &OS) const {
 }
 
 bool Generic_GCC::IsUnwindTablesDefault(const ArgList &Args) const {
-  return getArch() == llvm::Triple::x86_64;
+  switch (getArch()) {
+  case llvm::Triple::aarch64:
+  case llvm::Triple::x86_64:
+    return true;
+  default:
+    return false;
+  }
 }
 
 bool Generic_GCC::isPICDefault() const {

@@ -15,20 +15,15 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b, i64* nocapture %c) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=2
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[A0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD_1:%.*]] = load i32* [[B0:%.*]] (SVAOpBits 0->F )
@@ -41,18 +36,14 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b, i6
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP4]] i64* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP5:%.*]] = icmp sle i64 [[VP1]] i64 1023 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP5]]), [[BB3:BB[0-9]+]](!i1 [[VP5]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP5]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
@@ -89,20 +80,15 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=2
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP2]] (SVAOpBits 0->V 1->V 2->V 3->V )
@@ -113,18 +99,14 @@ define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP3]] i32* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP5:%.*]] = icmp sle i64 [[VP1]] i64 1023 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP5]]), [[BB3:BB[0-9]+]](!i1 [[VP5]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP5]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
@@ -156,41 +138,31 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i32 [[REDUCTION_PHI0:%.*]]
-; CHECK-NEXT:  ID: 1 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[REDUCTION_PHI0]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[REDUCTION_PHI0:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[A0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP1]] = add i32 [[VP0]] i32 [[VP_LOAD]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP4:%.*]] = icmp sle i64 [[VP3]] i64 1023 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP4]]), [[BB3:BB[0-9]+]](!i1 [[VP4]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP4]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP5:%.*]] = {%reduction.phi}
@@ -222,52 +194,41 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=2
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP2:%.*]] = hir-copy i64 [[VP0]] , OriginPhiId: -1 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP3:%.*]] = icmp eq i64 [[VP0]] i64 42 (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[A0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP5:%.*]] = hir-copy i64 [[VP_LOAD]] , OriginPhiId: -1 (SVAOpBits 0->V )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP__BLEND_BB4:%.*]] = blend [ i64 [[VP2]], i1 true ], [ i64 [[VP5]], i1 [[VP3]] ] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[B0:%.*]] i64 [[VP0]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP__BLEND_BB4]] i64* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 1023 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP6]]), [[BB5:BB[0-9]+]](!i1 [[VP6]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP6]], [[BB2]], [[BB5:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB6:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]

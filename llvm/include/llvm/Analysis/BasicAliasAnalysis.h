@@ -18,10 +18,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CaptureTracking.h" // INTEL
-#include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h" // INTEL
@@ -74,6 +71,20 @@ class BasicAAResult : public AAResultBase<BasicAAResult> {
   /// optimization level is >= 3 or if this option was explicitly specified
   /// in command line.
   static cl::opt<unsigned> OptPtrMaxUsesToExplore;
+
+public:
+  /// Do opt-level based variable initialization for a BasicAAResult instance.
+  void setupWithOptLevel(unsigned OptLevel) {
+    DEBUG_WITH_TYPE("basicaa-opt-level",
+                    dbgs() << "BasicAAResult: using OptLevel = " << OptLevel
+                           << "\n");
+    PtrCaptureMaxUses =
+        OptLevel < 3 && OptPtrMaxUsesToExplore.getNumOccurrences() == 0
+            ? getDefaultMaxUsesToExploreForCaptureTracking()
+            : OptPtrMaxUsesToExplore;
+  }
+
+private:
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -84,10 +95,7 @@ public:
       : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), LI(LI), PV(PV)
 #if INTEL_CUSTOMIZATION
   {
-    PtrCaptureMaxUses =
-        OptLevel < 3 && OptPtrMaxUsesToExplore.getNumOccurrences() == 0
-            ? getDefaultMaxUsesToExploreForCaptureTracking()
-            : OptPtrMaxUsesToExplore;
+    setupWithOptLevel(OptLevel);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -156,6 +164,17 @@ private:
     bool operator!=(const VariableGEPIndex &Other) const {
       return !operator==(Other);
     }
+
+    void dump() const {
+      print(dbgs());
+      dbgs() << "\n";
+    }
+    void print(raw_ostream &OS) const {
+      OS << "(V=" << V->getName()
+	 << ", zextbits=" << ZExtBits
+	 << ", sextbits=" << SExtBits
+	 << ", scale=" << Scale << ")";
+    }
   };
 
   // Represents the internal structure of a GEP, decomposed into a base pointer,
@@ -163,15 +182,29 @@ private:
   struct DecomposedGEP {
     // Base pointer of the GEP
     const Value *Base;
-    // Total constant offset w.r.t the base from indexing into structs
-    APInt StructOffset;
-    // Total constant offset w.r.t the base from indexing through
-    // pointers/arrays/vectors
-    APInt OtherOffset;
+    // Total constant offset from base.
+    APInt Offset;
     // Scaled variable (non-constant) indices.
     SmallVector<VariableGEPIndex, 4> VarIndices;
     // Is GEP index scale compile-time constant.
     bool HasCompileTimeConstantScale;
+
+    void dump() const {
+      print(dbgs());
+      dbgs() << "\n";
+    }
+    void print(raw_ostream &OS) const {
+      OS << "(DecomposedGEP Base=" << Base->getName()
+	 << ", Offset=" << Offset
+	 << ", VarIndices=[";
+      for (size_t i = 0; i < VarIndices.size(); i++) {
+       if (i != 0)
+         OS << ", ";
+       VarIndices[i].print(OS);
+      }
+      OS << "], HasCompileTimeConstantScale=" << HasCompileTimeConstantScale
+	 << ")";
+    }
   };
 
   /// Tracks phi nodes we have visited.
@@ -207,8 +240,9 @@ private:
                                  DominatorTree *DT);
 #endif // INTEL_CUSTOMIZATION
 
-  static bool DecomposeGEPExpression(const Value *V, DecomposedGEP &Decomposed,
-      const DataLayout &DL, AssumptionCache *AC, DominatorTree *DT);
+  static DecomposedGEP
+  DecomposeGEPExpression(const Value *V, const DataLayout &DL,
+                         AssumptionCache *AC, DominatorTree *DT);
 
   static bool isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // INTEL
       const DecomposedGEP &DecompGEP, const DecomposedGEP &DecompObject,
@@ -251,8 +285,8 @@ private:
                           const Value *UnderV2, AAQueryInfo &AAQI);
 
   AliasResult aliasCheck(const Value *V1, LocationSize V1Size,
-                         AAMDNodes V1AATag, const Value *V2,
-                         LocationSize V2Size, AAMDNodes V2AATag,
+                         const AAMDNodes &V1AATag, const Value *V2,
+                         LocationSize V2Size, const AAMDNodes &V2AATag,
                          AAQueryInfo &AAQI, const Value *O1 = nullptr,
                          const Value *O2 = nullptr);
   const Value* getBaseValue(const Value *V1); // INTEL

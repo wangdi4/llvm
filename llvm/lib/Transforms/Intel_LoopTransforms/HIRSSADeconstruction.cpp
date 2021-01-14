@@ -41,6 +41,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -141,18 +142,18 @@ private:
   /// Processes liveouts instructions in the current region which are not part
   /// of any loop by creating a single operand phi copy of them in the region
   /// exit block.
-  void processNonLoopRegionLiveouts() const;
+  void processNonLoopRegionLiveouts();
 
   /// Splits region exit block at \p SplitPos for ease of liveout handling. It
   /// \p SplitPos is not specified, we split at the terminator.
-  void splitNonLoopRegionExit(Instruction *SplitPos = nullptr) const;
+  void splitNonLoopRegionExit(Instruction *SplitPos = nullptr);
 
   /// Does the following for regions containing non-loop blocks-
   /// 1) Split the entry block if required.
   /// 2) Split the exit block if required for liveout handling.
   /// 3) Create single operand phi copy of liveout instructions in non-loop
   /// blocks.
-  void processNonLoopRegionBlocks() const;
+  void processNonLoopRegionBlocks();
 
   /// \brief Performs SSA deconstruction on the regions.
   void deconstructSSAForRegions();
@@ -192,6 +193,7 @@ PreservedAnalyses HIRSSADeconstructionPass::run(Function &F,
   PA.preserve<HIRRegionIdentificationAnalysis>();
   PA.preserve<HIRSCCFormationAnalysis>();
   PA.preserve<AndersensAA>();
+  PA.preserve<GlobalsAA>();
   return PA;
 }
 
@@ -238,6 +240,7 @@ public:
     AU.addPreserved<HIRRegionIdentificationWrapperPass>();
     AU.addPreserved<HIRSCCFormationWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };
 
@@ -304,7 +307,15 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
     return false;
   }
 
-  return isa<SCEVAddRecExpr>(ScopedSE->getSCEV(Inst));
+  auto *Phi = dyn_cast<PHINode>(Inst->getOperand(0));
+  // IV update instruction is typically something like an add/sub/gep etc.
+  // Header phis as livein copy operand indicate phi dependency and treating
+  // them as IV update can result in incorrect deconstruction.
+  if (Phi && RI->isHeaderPhi(Phi)) {
+    return false;
+  }
+
+  return SCCF->isConsideredLinear(Inst);
 }
 
 void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
@@ -1009,7 +1020,7 @@ static void invalidateSCEVableInsts(ScalarEvolution &SE, Instruction *Inst) {
   visitAll(SE.getSCEV(Inst), Invalidator);
 }
 
-void HIRSSADeconstruction::processNonLoopRegionLiveouts() const {
+void HIRSSADeconstruction::processNonLoopRegionLiveouts() {
   auto *ExitingBB = CurRegIt->getExitBBlock();
   auto *ExitBB = ExitingBB->getSingleSuccessor();
 
@@ -1038,6 +1049,8 @@ void HIRSSADeconstruction::processNonLoopRegionLiveouts() const {
 
           // Create a single operand phi copy of Inst in the exit block.
           if (!LiveoutPhi) {
+            ModifiedIR = true;
+
             LiveoutPhi = PHINode::Create(Inst.getType(), 1, "liveoutcopy",
                                          &*ExitBB->begin());
             LiveoutPhi->addIncoming(&Inst, ExitingBB);
@@ -1057,7 +1070,7 @@ void HIRSSADeconstruction::processNonLoopRegionLiveouts() const {
   }
 }
 
-void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) const {
+void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) {
   auto *RegionExitBB = CurRegIt->getExitBBlock();
 
   // Split exit block to maintain single predecessor/successor relationship for
@@ -1071,6 +1084,8 @@ void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) const {
   auto *SuccessorBB = RegionExitBB->getSingleSuccessor();
 
   if (SplitPos || !SuccessorBB || !SuccessorBB->getSinglePredecessor()) {
+    ModifiedIR = true;
+
     auto *NewSplitBB =
         SplitBlock(RegionExitBB,
                    SplitPos ? SplitPos : RegionExitBB->getTerminator(), DT, LI);
@@ -1087,7 +1102,7 @@ void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) const {
   }
 }
 
-void HIRSSADeconstruction::processNonLoopRegionBlocks() const {
+void HIRSSADeconstruction::processNonLoopRegionBlocks() {
 
   auto *RegionEntryBB = CurRegIt->getEntryBBlock();
 
@@ -1101,6 +1116,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() const {
     auto *NewEntryBB =
         SplitBlock(RegionEntryBB, RegionEntryBB->getTerminator(), DT, LI);
     CurRegIt->replaceEntryBBlock(NewEntryBB);
+
+    ModifiedIR = true;
     return;
   }
 
@@ -1109,6 +1126,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() const {
   }
 
   if (CurRegIt->isLoopMaterializationCandidate()) {
+    ModifiedIR = true;
+
     // Always split entry block of loop materialization candidate to avoid
     // cross-region code generation complications. For example, this bblock may
     // be an early exit block of the loop which is in another region.
@@ -1146,6 +1165,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() const {
         (RegionEntryBB == &RegionEntryBB->getParent()->getEntryBlock())) {
       auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
       CurRegIt->replaceEntryBBlock(NewEntryBB);
+
+      ModifiedIR = true;
     }
 
     // Split the exit bblock after region exit intrinsic.
@@ -1163,6 +1184,7 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() const {
 
     if (!SuccessorBB->getSinglePredecessor()) {
       SplitEdge(CurRegIt->getExitBBlock(), SuccessorBB, DT, LI);
+      ModifiedIR = true;
     }
   }
 

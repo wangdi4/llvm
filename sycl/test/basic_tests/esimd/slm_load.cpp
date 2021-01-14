@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl -fsycl-explicit-simd -fsycl-device-only -fsyntax-only -Xclang -verify %s
+// RUN: %clangxx -fsycl -fsycl-explicit-simd -fsycl-device-only -fno-sycl-early-optimizations -fsyntax-only -Xclang -verify %s
 // expected-no-diagnostics
 
 #include <CL/sycl.hpp>
@@ -15,7 +15,7 @@ void kernel() __attribute__((sycl_device)) {
 
   auto v0 = slm_load<int, 32>(offsets);
 
-  slm_fence(3);
+  esimd_fence(3);
   esimd_barrier();
 
   v0 = v0 + v1;

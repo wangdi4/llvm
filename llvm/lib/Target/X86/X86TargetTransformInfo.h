@@ -137,6 +137,7 @@ public:
                        TTI::CastContextHint CCH, TTI::TargetCostKind CostKind,
                        const Instruction *I = nullptr);
   int getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
+                         CmpInst::Predicate VecPred,
                          TTI::TargetCostKind CostKind,
                          const Instruction *I = nullptr);
   int getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index);
@@ -152,7 +153,7 @@ public:
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                              bool VariableMask, Align Alignment,
                              TTI::TargetCostKind CostKind,
-                             const Instruction *I);
+                             const Instruction *I, bool UndefPassThru); // INTEL
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                              bool VariableMask, unsigned Alignment,
@@ -214,8 +215,9 @@ public:
 
   unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind);
 
-  int getIntImmCostInst(unsigned Opcode, unsigned Idx, const APInt &Imm, Type *Ty,
-                        TTI::TargetCostKind CostKind);
+  int getIntImmCostInst(unsigned Opcode, unsigned Idx, const APInt &Imm,
+                        Type *Ty, TTI::TargetCostKind CostKind,
+                        Instruction *Inst = nullptr);
   int getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx, const APInt &Imm,
                           Type *Ty, TTI::TargetCostKind CostKind);
   bool isLSRCostLess(TargetTransformInfo::LSRCost &C1,
@@ -228,6 +230,18 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);
+  bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint64_t ArrayNum,
+                                    uint32_t GatherNum,
+                                    uint32_t *WidenNum) const;
+  bool isLegalToTransformGather2PermuteLoad(const IntrinsicInst *II,
+                                            Type *&ArrayElemTy,
+                                            uint64_t &ArrayNum,
+                                            unsigned &GatherNum,
+                                            unsigned &WidenNum) const;
+  bool isLegalToTransformGather2PermuteLoad(
+      Intrinsic::ID ID, Type *DataTy, const Value *Ptr, bool VariableMask,
+      bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
+      unsigned &GatherNum, unsigned &WidenNum) const;
 #endif // INTEL_CUSTOMIZATION
   bool isLegalMaskedScatter(Type *DataType, Align Alignment);
   bool isLegalMaskedExpandLoad(Type *DataType);
@@ -238,6 +252,10 @@ public:
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
   bool isVPlanVLSProfitable() const;
   bool isAggressiveVLSProfitable() const;
+  int getMatchingVectorVariant(
+      VectorVariant &ForCall,
+      SmallVectorImpl<VectorVariant> &Variants,
+      const Module *M) const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
@@ -265,6 +283,7 @@ private:
                       unsigned AddressSpace);
   int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                       Align Alignment, unsigned AddressSpace);
+  bool targetMatchesVariantISA(VectorVariant::ISAClass VariantISA) const;
 #endif // INTEL_CUSTOMIZATION
   int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                       Align Alignment, unsigned AddressSpace);

@@ -51,7 +51,7 @@
 ; CHECK:       |      %Ai32ptr.then = %[[THCASTPTR]];
 ; CHECK:       |      %Ai64as1ptr.then = %[[HOISTEDAS1PTR]];
 ; CHECK:       |      %[[THCAST64:[A-za-z0-9_.]+]] = bitcast.double.i64(%[[HOISTED64]]);
-; CHECK:       |      %{{[A-za-z0-9_.]+}} = %[[THCAST64]];
+; CHECK:       |      {{[^ ]+}} = %[[THCAST64]];
 ; CHECK:       |   }
 ; CHECK:       |   else
 ; CHECK:       |   {
@@ -64,7 +64,7 @@
 ; CHECK:       |      %Ai32ptr.else = %[[EHCASTPTR]];
 ; CHECK:       |      %Ai64as1ptr.else = %[[HOISTEDAS1PTR]];
 ; CHECK:       |      %[[EHCAST64:[A-za-z0-9_.]+]] = bitcast.double.i64(%[[HOISTED64]]);
-; CHECK:       |      %{{[A-za-z0-9_.]+}} = %[[EHCAST64]];
+; CHECK:       |      {{[^ ]+}} = %[[EHCAST64]];
 ; CHECK:       |   }
 ; CHECK:       + END LOOP
 ; CHECK: END REGION

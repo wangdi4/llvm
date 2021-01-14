@@ -16,9 +16,10 @@
 ;}
 
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 2>&1 < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=1 2>&1 < %s -S | FileCheck %s
 
 ; Check HIR
-; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4   <DO_LOOP> <nounroll>
+; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll>
 ; CHECK: [[E0:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;
 ; CHECK-NEXT: ([[ArrB:%.*]])[0] = [[E0]];
 ; CHECK-NEXT: [[E1:%.*]] = extractelement i2 + <i64 0, i64 1, i64 2, i64 3>,  3;

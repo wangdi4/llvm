@@ -1,6 +1,7 @@
 add_llvm_component_library(LLVMAsmPrinter
   AccelTable.cpp
   AddressPool.cpp
+  AIXException.cpp
   ARMException.cpp
   AsmPrinter.cpp
   AsmPrinterDwarf.cpp
@@ -23,6 +24,7 @@ add_llvm_component_library(LLVMAsmPrinter
   EHStreamer.cpp
   ErlangGCPrinter.cpp
   OcamlGCPrinter.cpp
+  PseudoProbePrinter.cpp
   WinCFGuard.cpp
   WinException.cpp
   CodeViewDebug.cpp
@@ -37,9 +39,33 @@ add_llvm_component_library(LLVMAsmPrinter
 
   DEPENDS
   intrinsics_gen
+
+  LINK_COMPONENTS
+  Analysis
+  BinaryFormat
+  CodeGen
+  Core
+  DebugInfoCodeView
+  DebugInfoDWARF
+  DebugInfoMSF
+# INTEL_CUSTOMIZATION
+  DebugInfoTraceBack
+# end INTEL_CUSTOMIZATION
+  MC
+  MCParser
+  Remarks
+  Support
+  Target
   )
 
 if(INTEL_CUSTOMIZATION)
   target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_OptReport)
   target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_LoopOptReportSupport)
 endif(INTEL_CUSTOMIZATION)
+
+
+# INTEL_CUSTOMIZATION
+if (HOST_WINNT AND NOT MSVC)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-cast-qual")
+endif()
+# end INTEL_CUSTOMIZATION

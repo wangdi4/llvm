@@ -2,8 +2,8 @@
 ; Test to check correctness of decomposed HCFG when external definition of a
 ; DDRef is killed by an instruction inside the HLLoop being decomposed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <0>     BEGIN REGION { }
@@ -58,44 +58,35 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3foov() local_unnamed_addr {
-; CHECK-LABEL:  VPlan after importing plain CFG
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[ADD4260:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = phi  [ i32 [[ADD8240:%.*]], [[BB1]] ],  [ i32 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP6:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
-; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
-; CHECK-NEXT:     i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 2
-; CHECK-NEXT:     i32 [[VP9:%.*]] = trunc i64 [[VP4]] to i32
-; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP8]] i32 [[VP9]]
-; CHECK-NEXT:     i32 [[VP11:%.*]] = add i32 [[VP10]] i32 [[VP2]]
-; CHECK-NEXT:     i32 [[VP1]] = add i32 [[VP0]] i32 [[VP11]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP7]] i32 64
-; CHECK-NEXT:     i32 [[VP3]] = add i32 [[VP12]] i32 [[VP11]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i32 [[VP6:%.*]] = mul i32 [[VP_LOAD]] i32 2
+; CHECK-NEXT:     i32 [[VP7:%.*]] = trunc i64 [[VP4]] to i32
+; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP6]] i32 [[VP7]]
+; CHECK-NEXT:     i32 [[VP9:%.*]] = add i32 [[VP8]] i32 [[VP2]]
+; CHECK-NEXT:     i32 [[VP1]] = add i32 [[VP0]] i32 [[VP9]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP_LOAD]] i32 64
+; CHECK-NEXT:     i32 [[VP3]] = add i32 [[VP10]] i32 [[VP9]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp sle i64 [[VP5]] i64 1023
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP5]] i64 1023
+; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br <External Block>
 ;
 ; Check that the loop is not vectorized.
 ; CHECK:  DO i1 = 0, 1023, 1   <DO_LOOP>

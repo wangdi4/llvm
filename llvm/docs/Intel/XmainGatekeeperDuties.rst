@@ -43,6 +43,14 @@ Desirable Qualities of an Xmain Gatekeeper
 #. Ability to assess checkin risk
 #. Ability not to be pressured into allowing/compromising checkin requirements
 
+Gatekeeping for Changes Authored by a Gatekeeper
+================================================
+
+Gatekeepers who wish to submit changes which they themselves have authored
+should seek gatekeeping approval from another gatekeeper. If no other
+gatekeepers are available, a gatekeeper may request that the compiler architect
+approve their request.
+
 Xmain Gatekeepers Assignments
 =============================
 

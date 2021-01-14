@@ -1,5 +1,11 @@
-; RUN: opt -loop-unswitch -enable-new-pm=0 %s -S | FileCheck %s
+; INTEL_CUSTOMIZATION
+; Current llorg code base does not expect cleanuppad instruction edges to be split.
+; Intel custom changes enable breaking the edge : delete.notnull->lpad.
+; This enables loop unswitching on this loop.
+; RUN: opt -loop-unswitch -enable-new-pm=0 %s -verify
 
+; Without Intel custom changes:
+; END INTEL_CUSTOMIZATION
 ; When hoisting simple values out from a loop, and not being able to unswitch
 ; the loop due to the invoke instruction, the pass would return an incorrect
 ; Modified status. This was caught by the pass return status check that is

@@ -15,7 +15,6 @@
 
 #include "IntelVPOCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
@@ -28,6 +27,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
@@ -48,17 +48,13 @@ static cl::opt<bool> PredicateSafeValueDivision(
     cl::desc("Always serialize masked integer division, even if divisor is "
              "known to be safe for speculation."));
 
-static cl::opt<bool> EnableImprovedAlignment(
-    "vplan-enable-improved-alignment", cl::init(false), cl::Hidden,
-    cl::desc("Use improved alignment info for vector stores."));
-
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
 }
 
 // TODO: Consolidate and move this function to a IntelVPlanUtils.h
-static bool isScalarPointeeTy(const VPValue *Val) {
+static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
   assert(isa<PointerType>(Val->getType()) &&
          "Expect a pointer-type argument to isScalarPointeeTy function.");
   Type *PointeeTy = Val->getType()->getPointerElementType();
@@ -96,7 +92,7 @@ static bool isVPValueConsecutivePtrStride(const VPValue *Ptr, const VPlan *Plan,
 // IsNegOneStride value.
 static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
                                           const VPlan *Plan) {
-  bool IsNegOneStride;
+  bool IsNegOneStride = false;
   return isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
 }
 
@@ -131,6 +127,33 @@ static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
   auto *VPInstVecTy = dyn_cast<VectorType>(VPInstTy);
   unsigned NumElts = VPInstVecTy ? VPInstVecTy->getNumElements() * VF : VF;
   return FixedVectorType::get(VPInstTy->getScalarType(), NumElts);
+}
+
+/// Return true if \p Var a variable identified for SOA-layout.
+static bool isSOAAccess(const VPValue *Var, const VPlan *Plan) {
+  return Plan->getVPlanDA()->isSOAShape(Var);
+}
+
+/// Return true if \p Var has a SOA unit-stride access.
+static bool isSOAUnitStride(const VPValue *Var, const VPlan *Plan) {
+  return Plan->getVPlanDA()->isSOAUnitStride(Var);
+}
+
+// Generate SOA-type for the given input-type.
+// The following are the transformed for the SOA-layout.
+// Ty -> <VF x Ty>.
+// [NumElts x Ty] -> [NumElts x <VF x Ty>].
+// Other input-types are currently not supported for SOA-layout.
+static Type *getSOAType(Type *InTy, unsigned VF) {
+  if (auto ArrTy = dyn_cast<ArrayType>(InTy))
+    return ArrayType::get(getSOAType(ArrTy->getArrayElementType(), VF),
+                          ArrTy->getArrayNumElements());
+  else if (!(InTy->isAggregateType() || InTy->isVectorTy())) // Scalar-type.
+    return FixedVectorType::get(InTy, VF);
+  else
+    // Any other type should be unsupported. Structure-types would be supported
+    // in future.
+    llvm_unreachable("Unexpected type encountered.");
 }
 
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
@@ -533,6 +556,62 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
   return false;
 }
 
+// Clone the given Scalar-loop and connect it to nodes NewLoopPred and
+// NewLoopSucc in the CFG.
+//
+//  NewLoopPred                              NewLoopPred
+//      |                                         |
+//      V                                         V
+//  NewLoopSucc       cloneScalarLoop()      OrigLp.clone
+//      |           ------------------->          |
+//      .                                         V
+//      .                                    MewLoopSucc
+//      .                                         |
+//   OrigLp                                       .
+//                                                .
+//                                                .
+//                                             OrigLp
+//
+//
+Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
+                                  BasicBlock *NewLoopSucc, const Twine &Name) {
+
+  // Make sure that NewLoopPred and NewLoopSucc are connected.
+  assert(count(successors(NewLoopPred), NewLoopSucc) == 1 &&
+         "Expect NewLoopPred and NewLoopSucc to be connected.");
+
+  // Make sure that the original loop has a unique exit-block.
+  assert(OrigLP->getUniqueExitBlock() &&
+         "The original loop should have a valid unique exit block.");
+
+  // This is a map that holds mapping of values of new-loop that correspond
+  // to the old-loop.
+  ValueToValueMapTy VMap;
+
+  // This is the vector of blocks that would belong to the newly cloned loop.
+  SmallVector<BasicBlock *, 16> ClonedLoopBlocks;
+
+  // Clone the loop.
+  Loop *NewLoop = cloneLoopWithPreheader(
+      NewLoopSucc,
+      NewLoopPred /*Block that you want to dominate the new loop.*/,
+      OrigLP /*The original loop.*/, VMap /*Value2Value Map*/, Name, LI, DT,
+      ClonedLoopBlocks);
+
+  // Adjust the target blocks in the newly cloned loops.
+  remapInstructionsInBlocks(ClonedLoopBlocks, VMap);
+
+  // Connect the NewLoopPred to the new-loop preheader.
+  NewLoopPred->getTerminator()->replaceUsesOfWith(NewLoopSucc,
+                                                  NewLoop->getLoopPreheader());
+
+  // Connect the new loops exit to the provided  NewLoopSucc node.
+  NewLoop->getLoopLatch()->getTerminator()->replaceUsesOfWith(
+      OrigLP->getUniqueExitBlock(), NewLoopSucc);
+
+  return NewLoop;
+}
+
 void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
                                    AttributeList OrigAttrs,
                                    SmallVectorImpl<Value *> &VecArgs,
@@ -627,63 +706,79 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::ConstStepVector: {
+    // This would be a vector <i64 0, ..., i64 UB-1>.
+    VPConstStepVector *CV = cast<VPConstStepVector>(VPInst);
+    SmallVector<Constant *, 16> Indices;
+    for (int I = CV->getStart(), J = 0; J != CV->getNumSteps();
+         I += CV->getStep(), ++J)
+      Indices.push_back(
+          ConstantInt::get(Type::getInt64Ty(*Plan->getLLVMContext()), I));
+
+    Constant *Cv = ConstantVector::get(Indices);
+    VPWidenMap[CV] = Cv;
+    return;
+  }
+
   case Instruction::GetElementPtr: {
     // For consecutive load/store we create a scalar GEP.
     // TODO: Extend support for private pointers and VLS-based unit-stride
     // optimization.
-    auto isVectorizableLoadStoreFrom = [this](const VPValue *V,
-                                              const VPValue *Ptr) -> bool {
+    auto isVectorizableLoadStoreFrom = [](const VPValue *V,
+                                          const VPValue *Ptr) -> bool {
       if (getLoadStorePointerOperand(V) != Ptr)
         return false;
 
       return isVectorizableLoadStore(V);
     };
-    if (all_of(VPInst->users(),
-               [&](VPUser *U) -> bool {
-                 return isVectorizableLoadStoreFrom(U, VPInst);
-               }) &&
-        isVPValueConsecutivePtrStride(VPInst, Plan) &&
-        VPlanUseDAForUnitStride) {
+
+    VPGEPInstruction *GEP = cast<VPGEPInstruction>(VPInst);
+
+    if ((all_of(GEP->users(),
+                [&](VPUser *U) -> bool {
+                  return isVectorizableLoadStoreFrom(U, GEP);
+                }) &&
+         isVPValueConsecutivePtrStride(GEP, Plan) && VPlanUseDAForUnitStride) ||
+        isSOAUnitStride(GEP, Plan)) {
       SmallVector<Value *, 6> ScalarOperands;
-      for (unsigned Op = 0; Op < VPInst->getNumOperands(); ++Op) {
-        auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), 0 /*Lane*/);
+      for (unsigned Op = 0; Op < GEP->getNumOperands(); ++Op) {
+        auto *ScalarOp = getScalarValue(GEP->getOperand(Op), 0 /*Lane*/);
         assert(ScalarOp && "Operand for scalar GEP not found.");
         ScalarOperands.push_back(ScalarOp);
       }
 
-      Value *ScalarGep = generateSerialInstruction(VPInst, ScalarOperands);
-      ScalarGep->setName("scalar.gep");
-      VPScalarMap[VPInst][0] = ScalarGep;
+      Value *ScalarGep = generateSerialInstruction(GEP, ScalarOperands);
+      StringRef GepName =
+          isSOAAccess(GEP, Plan) ? "soa.scalar.gep" : "scalar.gep";
+      ScalarGep->setName(GepName);
+      VPScalarMap[GEP][0] = ScalarGep;
       break;
     }
     // Serialize if all users of GEP are uniform load/store.
-    if (all_of(VPInst->users(), [&](VPUser *U) -> bool {
-          return getLoadStorePointerOperand(U) == VPInst &&
+    if (all_of(GEP->users(), [&](VPUser *U) -> bool {
+          return getLoadStorePointerOperand(U) == GEP &&
                  isVPValueUniform(U, Plan);
         })) {
-      serializeInstruction(VPInst);
+      serializeInstruction(GEP);
       return;
     }
-
-    // Create the vector GEP, keeping all constant arguments scalar.
-    bool AllGEPOpsUniform = false;
-    VPGEPInstruction *GEP = cast<VPGEPInstruction>(VPInst);
-    if (all_of(GEP->operands(), [&](VPValue *Op) -> bool {
+    VPValue *GepBasePtr = GEP->getPointerOperand();
+    bool AllGEPIndicesUniform =
+        all_of(GEP->indices(), [&](VPValue *Op) -> bool {
           // TODO: Using DA for loop invariance.
           return isVPValueUniform(Op, Plan);
-        })) {
-      AllGEPOpsUniform = true;
-    }
+        });
 
-    SmallVector<Value *, 4> OpsV;
+    bool AllGEPOpsUniform =
+        isVPValueUniform(GepBasePtr, Plan) && AllGEPIndicesUniform;
 
     auto GetOrigVL = [](Type *Type) -> unsigned {
       auto *VecType = dyn_cast<VectorType>(Type);
       if (!VecType)
         return 1;
-      assert(!VecType->getElementCount().Scalable &&
+      assert(!VecType->getElementCount().isScalable() &&
              "Re-vectorizing scalable vector type isn't supported!");
-      return VecType->getElementCount().Min;
+      return VecType->getElementCount().getKnownMinValue();
     };
 
     unsigned MaxVL =
@@ -692,20 +787,46 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
                           return std::max(Max, GetOrigVL(Op->getType()));
                         });
 
+    auto GetVectorOp = [=](VPValue *V) {
+      return replicateVectorElts(getVectorValue(V),
+                                 MaxVL / GetOrigVL(V->getType()), Builder);
+    };
+
+    // We check the pointer-operand and the indices seperately. For the
+    // pointer-operand, decision on whether to use the scalar pointer or the
+    // vector pointer depends on the pointer itself. For the decision to widen
+    // the indices, we look at the the uniformity as well as whether the GEP
+    // itself is an unit-stride GEP or not.
+
+    // To correctly widen the  base-pointer, we check if all the operands of
+    // the GEP are uniform. If they are uniform, we retain the scalar-pointer.
+    // Another scenario where this is true is when we have pointer which are
+    // SOA-unit stride. In case of SOA-unit stride pointer, we retain the
+    // scalar-type pointer, typically <VF x Ty>*. Otherwise, we get the vector
+    // version of the pointer, which is typically a vector of pointers, i.e.,
+    // <VF x Ty*>.
+    // TODO: When CG would rely completely on SVA, this check can be removed.
+
+    // Widen the base-pointer.
+    Value *WideGepBasePtr =
+        AllGEPOpsUniform || isSOAUnitStride(GepBasePtr, Plan)
+            ? getScalarValue(GepBasePtr, 0)
+            : GetVectorOp(GepBasePtr);
+
+    // Widen the indices.
+    SmallVector<Value *, 4> OpsV;
     if (AllGEPOpsUniform)
-      llvm::transform(GEP->operands(), std::back_inserter(OpsV),
+      llvm::transform(GEP->indices(), std::back_inserter(OpsV),
                       [this](VPValue *Op) { return getScalarValue(Op, 0); });
     else
-      llvm::transform(GEP->operands(), std::back_inserter(OpsV),
-                      [this, MaxVL, GetOrigVL](VPValue *Op) {
-                        return replicateVectorElts(
-                            getVectorValue(Op),
-                            MaxVL / GetOrigVL(Op->getType()), Builder);
-                      });
+      llvm::transform(
+          GEP->indices(), std::back_inserter(OpsV),
+          [GetVectorOp](VPValue *Op) { return GetVectorOp(Op); });
 
-    Value *GepBasePtr = OpsV[0];
-    OpsV.erase(OpsV.begin());
-    Value *VectorGEP = Builder.CreateGEP(GepBasePtr, OpsV, "mm_vectorGEP");
+
+    StringRef GepName =
+        isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
+    Value *VectorGEP = Builder.CreateGEP(WideGepBasePtr, OpsV, GepName);
     cast<GetElementPtrInst>(VectorGEP)->setIsInBounds(GEP->isInBounds());
 
     // We need to bcast the scalar GEP to all lanes if all its operands were
@@ -713,7 +834,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (AllGEPOpsUniform)
       VectorGEP = Builder.CreateVectorSplat(VF, VectorGEP);
 
-    VPWidenMap[VPInst] = VectorGEP;
+    VPWidenMap[GEP] = VectorGEP;
+
     return;
   }
 
@@ -940,6 +1062,28 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(VPCall->getVFForScenario() == VF &&
            "Cannot find call vectorization scenario for VF.");
 
+    // TODO: Update the following assertion when we implement function pointers
+    // for OpenMP.
+    assert(!VPCall->isIntelIndirectCall() ||
+           VPCall->getVectorizationScenario() ==
+                   VPCallInstruction::CallVecScenariosTy::VectorVariant &&
+               "Intel indirect call should have vector-variants!");
+
+    // Handle lifetime_start/end intrinsics operating on private-memory.
+    // We use the following mechanism to handle the intrinsic:
+    // If the array-private is widened (AOS/SOA) and not serialized, do not
+    // serialize the intrinsic. Just use the widened-alloca pointer, i.e., its
+    // cast'ed version ( correct casting is handled in then vectorizeCast
+    // function), and pass it to the intrinsic. Along with this, if the first
+    // argument in the original call is not -1 (used to denote variable-size),
+    // compute the size of the widened copy and pass it to the intrinsic.
+    // If the array-private is not widened, and serialized, just bypass this
+    // block and serialize this call.
+    if (VPCall->isLifetimeStartOrEndIntrinsic()) {
+      vectorizeLifetimeStartEndIntrinsic(VPCall);
+      return;
+    }
+
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
       // Currently only kernel convergent uniform calls and uniform calls
@@ -1142,8 +1286,6 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::AllocatePrivate: {
-    assert(!EnableSOAAnalysis &&
-           "SOA-aware codegen is currently not supported.");
     vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
     return;
   }
@@ -1511,14 +1653,45 @@ void VPOCodeGen::vectorizeCast(
         std::is_same<CastInstTy, BitCastInst>::value ||
             std::is_same<CastInstTy, AddrSpaceCastInst>::value,
         VPInstruction>::type *VPInst) {
-  // TODO: Update code to handle loop privates.
-  Value *VecOp = getVectorValue(VPInst->getOperand(0));
-  Type *VecTy = getVPInstVectorType(VPInst->getType(), VF);
 
-  if (std::is_same<CastInstTy, BitCastInst>::value)
-    VPWidenMap[VPInst] = Builder.CreateBitCast(VecOp, VecTy);
+  bool IsScalarized = false;
+  Value *WidenedOp = nullptr;
+  Type *WidenedTy = nullptr;
+  Value *WidenedCast = nullptr;
+  bool IsBitCastInst = std::is_same<CastInstTy, BitCastInst>::value;
+  bool IsNonSerializedAllocaPointer = LoopPrivateVPWidenMap.count(
+      VPInst->getOperand(0)); // Is this AOS-widened ptr,
+                              // TODO: Add SOA-pointer check here.
+  bool IsOnlyUsedInLifetimeIntrinsics =
+      all_of(VPInst->users(),
+             [&](VPValue *V) { // All users of this cast should be the
+                               // lifetime_start and lifetime_end intrinsics.
+               if (auto *VPCall = dyn_cast<VPCallInstruction>(V))
+                 return VPCall->isLifetimeStartOrEndIntrinsic();
+               return false;
+             });
+
+  // If the pointer is a bitcast and is exclusively used in
+  // lifetime_start/end intrinsics, use the correct operands.
+  if (IsBitCastInst && IsNonSerializedAllocaPointer &&
+      IsOnlyUsedInLifetimeIntrinsics) {
+    WidenedOp = LoopPrivateVPWidenMap[VPInst->getOperand(0)];
+    WidenedTy = VPInst->getType();
+    IsScalarized = true;
+  } else {
+    WidenedOp = getVectorValue(VPInst->getOperand(0));
+    WidenedTy = getVPInstVectorType(VPInst->getType(), VF);
+  }
+
+  // Create the widened-cast instruction.
+  WidenedCast =
+      Builder.CreateCast(static_cast<Instruction::CastOps>(VPInst->getOpcode()),
+                         WidenedOp, WidenedTy);
+
+  if (IsScalarized)
+    VPScalarMap[VPInst][0] = WidenedCast;
   else
-    VPWidenMap[VPInst] = Builder.CreateAddrSpaceCast(VecOp, VecTy);
+    VPWidenMap[VPInst] = WidenedCast;
 }
 
 void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
@@ -1837,9 +2010,9 @@ Align VPOCodeGen::getAlignmentForGatherScatter(const VPInstruction *VPInst) {
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   Type *EltTy = VectorTy->getElementType();
-  assert(DL.getTypeSizeInBits(EltTy).isByteSized() &&
+  assert(DL.getTypeAllocSizeInBits(EltTy).isKnownMultipleOf(8) &&
          "Only types with multiples of 8 bits are supported.");
-  Align EltAlignment(DL.getTypeSizeInBits(EltTy).getFixedSize() / 8);
+  Align EltAlignment(DL.getTypeAllocSizeInBits(EltTy).getFixedSize() / 8);
 
   return std::min(EltAlignment, Alignment);
 }
@@ -2027,7 +2200,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 
   // Try to handle consecutive loads without VLS.
   if (VPlanUseDAForUnitStride) {
-    bool IsNegOneStride;
+    bool IsNegOneStride = false;
     bool ConsecutiveStride =
         isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
     if (ConsecutiveStride) {
@@ -2173,7 +2346,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
   Align Alignment;
-  if (!PreferredPeeling && EnableImprovedAlignment) {
+  if (!PreferredPeeling) {
     // No peeling means static peeling with peel count = 0.
     VPlanStaticPeeling Peeling(0);
     Alignment =
@@ -2261,7 +2434,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // Try to handle consecutive stores without VLS.
   if (VPlanUseDAForUnitStride) {
-    bool IsNegOneStride;
+    bool IsNegOneStride = false;
     bool ConsecutiveStride =
         isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
     if (ConsecutiveStride) {
@@ -2487,7 +2660,7 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
     assert(cast<VectorType>(VecValue->getType())->getNumElements() == VF &&
            "Invalid vector width of value");
 
-    bool IsNegOneStride;
+    bool IsNegOneStride = false;
     bool ConsecutiveStride =
         isVPValueConsecutivePtrStride(ScalarPtr, Plan, IsNegOneStride);
 
@@ -2541,6 +2714,7 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
                                   VectorIntrinID, MatchedVariant, IsMasked);
     assert(VectorF && "Can't create vector function.");
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+    VecCall->setCallingConv(VectorF->getCallingConv());
     CallResults.push_back(VecCall);
 
     // Copy fast math flags represented in VPInstruction.
@@ -2869,6 +3043,35 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   return Widened;
 }
 
+// Widen or Serialize lifetime_start/end intrinsic call.
+void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
+  // If this is a private, determine if the call can be widened with the widened
+  // pointer, else serialie.
+  if (VPValue *PrivPtr = const_cast<VPValue *>(
+          getVPValuePrivateMemoryPtr(VPCall->getOperand(1)))) {
+    if (LoopPrivateVPWidenMap.count(PrivPtr)) {
+      AllocaInst *AI = cast<AllocaInst>(LoopPrivateVPWidenMap[PrivPtr]);
+      ConstantInt *Size = Builder.getInt64(-1);
+      if (!cast<VPConstantInt>(VPCall->getOperand(0))->isMinusOne()) {
+        const DataLayout &DL =
+            OrigLoop->getHeader()->getModule()->getDataLayout();
+        Size =
+            Builder.getInt64(AI->getAllocationSizeInBits(DL).getValue() >> 3);
+      }
+      SmallVector<Value *, 3> ScalarArgs = {
+          Size, getScalarValue(VPCall->getOperand(1), 0),
+          getScalarValue(VPCall->getOperand(2), 0)};
+      auto *ScalarInstrinsic = generateSerialInstruction(VPCall, ScalarArgs);
+      VPScalarMap[VPCall][0] = ScalarInstrinsic;
+      return;
+    }
+  }
+
+  // This call is either not operating on privates, or is not vectorizable. So,
+  // serialize.
+  serializeWithPredication(VPCall);
+}
+
 Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   if (isa<VPExternalDef>(V) || isa<VPConstant>(V) || isa<VPMetadataAsValue>(V))
     return V->getUnderlyingValue();
@@ -3146,7 +3349,8 @@ void VPOCodeGen::processPredicatedNonWidenedUniformCall(VPInstruction *VPInst) {
   return serializeInstruction(VPInst);
 }
 
-void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
+Value *VPOCodeGen::getMaskNotAllZero() {
+  assert(MaskValue && "Should only be called in masked context!");
   auto *MaskTy = dyn_cast<VectorType>(MaskValue->getType());
   assert(MaskTy && MaskTy->getNumElements() == VF && "Unexpected Mask Type");
   // Emit not of all-zero check for mask
@@ -3158,6 +3362,14 @@ void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
   // if atleast one of the i1 masks in <VF x i1> is true.
   auto *CmpInst =
       Builder.CreateICmpNE(MaskBitCast, Constant::getNullValue(IntTy));
+
+  return CmpInst;
+}
+
+void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
+  // Mask is needed before the predicated instruction, so generate the code for
+  // it.
+  auto *NotAllZero = getMaskNotAllZero();
 
   // Now create a scalar instruction, populating correct values for its operands.
   SmallVector<Value *, 4> ScalarOperands;
@@ -3171,7 +3383,7 @@ void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
   VPScalarMap[VPInst][0] = SerialInstruction;
 
   PredicatedInstructions.push_back(
-      std::make_pair(cast<Instruction>(SerialInstruction), CmpInst));
+      std::make_pair(cast<Instruction>(SerialInstruction), NotAllZero));
 }
 
 void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
@@ -3305,52 +3517,52 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   // TODO: Need meaningful processing for Acc for FP reductions, and NoNan
   // parameter.
   switch (Intrin) {
-  case Intrinsic::experimental_vector_reduce_v2_fadd:
+  case Intrinsic::vector_reduce_fadd:
     assert(Acc && "Expected initial value");
     Ret = Builder.CreateFAddReduce(Acc, VecValue);
     Acc = nullptr;
     break;
-  case Intrinsic::experimental_vector_reduce_v2_fmul:
+  case Intrinsic::vector_reduce_fmul:
     assert(Acc && "Expected initial value");
     Ret = Builder.CreateFMulReduce(Acc, VecValue);
     Acc = nullptr;
     break;
-  case Intrinsic::experimental_vector_reduce_add:
+  case Intrinsic::vector_reduce_add:
     Ret = Builder.CreateAddReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_mul:
+  case Intrinsic::vector_reduce_mul:
     Ret = Builder.CreateMulReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_and:
+  case Intrinsic::vector_reduce_and:
     Ret = Builder.CreateAndReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_or:
+  case Intrinsic::vector_reduce_or:
     Ret = Builder.CreateOrReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_xor:
+  case Intrinsic::vector_reduce_xor:
     Ret = Builder.CreateXorReduce(VecValue);
     break;
-  case Intrinsic::experimental_vector_reduce_umax:
+  case Intrinsic::vector_reduce_umax:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMaxReduce(VecValue, false);
     break;
-  case Intrinsic::experimental_vector_reduce_smax:
+  case Intrinsic::vector_reduce_smax:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMaxReduce(VecValue, true);
     break;
-  case Intrinsic::experimental_vector_reduce_umin:
+  case Intrinsic::vector_reduce_umin:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMinReduce(VecValue, false);
     break;
-  case Intrinsic::experimental_vector_reduce_smin:
+  case Intrinsic::vector_reduce_smin:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateIntMinReduce(VecValue, true);
     break;
-  case Intrinsic::experimental_vector_reduce_fmax:
+  case Intrinsic::vector_reduce_fmax:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateFPMaxReduce(VecValue, /*NoNan*/ false);
     break;
-  case Intrinsic::experimental_vector_reduce_fmin:
+  case Intrinsic::vector_reduce_fmin:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateFPMinReduce(VecValue, /*NoNaN*/ false);
     break;
@@ -3386,10 +3598,16 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   Type *OrigTy = V->getType()->getPointerElementType();
 
   Type *VecTyForAlloca;
+  std::string VarName = Twine(V->getOrigName() + ".vec").str();
   // TODO. We should handle the case when original alloca has the size argument,
   // e.g. it's like alloca i32, i32 4.
   if (OrigTy->isAggregateType())
-    VecTyForAlloca = ArrayType::get(OrigTy, VF);
+    if (V->isSOALayout()) {
+      // TODO: Compute the correct alignment value.
+      VarName = Twine(V->getOrigName() + ".soa.vec").str();
+      VecTyForAlloca = getSOAType(OrigTy, VF);
+    } else
+      VecTyForAlloca = ArrayType::get(OrigTy, VF);
   else {
     // For non-aggregate types create a vector type.
     Type *EltTy = OrigTy;
@@ -3424,18 +3642,18 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // should be updated to use results from SOAAnalysis (which should internally
   // account for alignment for all types, before marking a private as SOASafe).
   // Again coverred by JIRA : CMPLRLLVM-11372.
-  if (VecAllocaPrefAlignment >= OrigAlignment || !OrigTy->isAggregateType()) {
+  if (VecAllocaPrefAlignment >= OrigAlignment || V->isSOALayout()) {
     // Use widened alloca if preferred alignment can accommodate original
     // alloca's alignment or if we're using SOALayout.
     AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
-        VecTyForAlloca, nullptr, V->getOrigName() + ".vec");
+        VecTyForAlloca, nullptr, VarName);
     WidenedPrivArr->setAlignment(VecAllocaPrefAlignment);
 
     LoopPrivateVPWidenMap[V] = WidenedPrivArr;
-    // TODO: For SOA, vector of pointers via GEPs should not be created.
-    // Load/store in SOA format need to be handled in a special way (just
-    // casting of original GEP to vector data type).
-    VPWidenMap[V] = createVectorPrivatePtrs(V);
+    if (V->isSOALayout())
+      VPScalarMap[V][0] = WidenedPrivArr;
+    else
+      VPWidenMap[V] = createVectorPrivatePtrs(V);
   } else {
     // If preferred alignment is less than original alignment, generate VF
     // copies of original alloca (one for each lane) and construct the

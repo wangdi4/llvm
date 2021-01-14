@@ -501,7 +501,7 @@ int main(int argc, char **argv) {
 // CHECK: alloca %struct.S1*,
 // CHECK-NEXT: store %struct.S1* %{{.+}}, %struct.S1** %
 // CHECK-NEXT: load %struct.S1*, %struct.S1** %
-// CHECK-NEXT: call void @_ZN2S1D1Ev(%struct.S1* %{{.+}})
+// CHECK-NEXT: call void @_ZN2S1D1Ev(%struct.S1* {{[^,]*}} %{{.+}})
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 
@@ -509,7 +509,7 @@ int main(int argc, char **argv) {
 // CHECK: alloca %struct.S2*,
 // CHECK-NEXT: store %struct.S2* %{{.+}}, %struct.S2** %
 // CHECK-NEXT: load %struct.S2*, %struct.S2** %
-// CHECK-NEXT: call void @_ZN2S2C1Ev(%struct.S2* %{{.+}})
+// CHECK-NEXT: call void @_ZN2S2C1Ev(%struct.S2* {{[^,]*}} %{{.+}})
 // CHECK-NEXT: ret %struct.S2* %
 // CHECK-NEXT: }
 

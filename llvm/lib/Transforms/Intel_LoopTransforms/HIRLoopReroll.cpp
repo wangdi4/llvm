@@ -361,8 +361,8 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
     return ConstSCEV1 == ConstSCEV2;
   }
 
-  if (auto CastSCEV1 = dyn_cast<SCEVCastExpr>(Blob1)) {
-    auto CastSCEV2 = cast<SCEVCastExpr>(Blob2);
+  if (auto CastSCEV1 = dyn_cast<SCEVIntegralCastExpr>(Blob1)) {
+    auto CastSCEV2 = cast<SCEVIntegralCastExpr>(Blob2);
     if (CastSCEV1->getOperand()->getType() !=
         CastSCEV2->getOperand()->getType()) {
       return false;
@@ -467,8 +467,8 @@ bool SequenceChecker::isBlobsMathchedForReroll(const CanonExpr *CE1,
 
   const BlobUtils &BU = Loop->getBlobUtils();
   const LoopInvariantBlobTy &Invs = LoopInvariantBlobs;
-  auto TempCompare = [Loop, &BU, &Invs](const BlobCoeffAndIndexTy &P1,
-                                        const BlobCoeffAndIndexTy &P2) {
+  auto TempCompare = [&BU, &Invs](const BlobCoeffAndIndexTy &P1,
+                                  const BlobCoeffAndIndexTy &P2) {
     // Use loop invariance info roughly
     bool Inv1 = Invs.find(BU.getBlob(P1.second)) != Invs.end();
     bool Inv2 = Invs.find(BU.getBlob(P2.second)) != Invs.end();
@@ -1252,7 +1252,7 @@ private:
       return true;
     }
 
-    if (auto CastSCEV = dyn_cast<SCEVCastExpr>(Blob)) {
+    if (auto CastSCEV = dyn_cast<SCEVIntegralCastExpr>(Blob)) {
       // We do not go further into cast operator.
       // This makes casts are added to the sequence,
       // and later checked.

@@ -7,7 +7,7 @@
 ; unsigned short. The test expects zext/sext/trunc to be folded into the canon
 ; expression without seeing explicit instructions for the same.
 ;
-; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:    %.vec = (<4 x i32>*)(@uintarr)[0][i1];
 ; CHECK-NEXT:    (<4 x i64>*)(@ulongarr)[0][i1] = %.vec;
 ; CHECK-NEXT:    %.vec1 = (<4 x i32>*)(@sintarr)[0][i1];

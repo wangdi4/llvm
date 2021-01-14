@@ -17,63 +17,70 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo() {
 ; CHECK-LABEL:  HIR Cost Model for VPlan foo.42 with VF = 8:
-; CHECK-NEXT:  Total VPlan Cost: 140
-; CHECK-NEXT:  VPlan Base Cost before adjustments: 84
-; CHECK-NEXT:  Total VPlan spill/fill cost: +56
+; CHECK-NEXT:  Total VPlan Cost: 140000
+; CHECK-NEXT:  VPlan Base Cost before adjustments: 84000
+; CHECK-NEXT:  Total VPlan spill/fill cost: +56000
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 26
+; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 26000
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_5:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_5:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_6:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_6:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_7:%.*]] = load i32* [[VP_SUBSCRIPT_7]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_7:%.*]] = load i32* [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_8:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_8:%.*]] = load i32* [[VP_SUBSCRIPT_8]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_8:%.*]] = load i32* [[VP_SUBSCRIPT_8]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_9:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_9:%.*]] = load i32* [[VP_SUBSCRIPT_9]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_9:%.*]] = load i32* [[VP_SUBSCRIPT_9]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_10:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP_LOAD_10:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP_LOAD_10:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP2:%.*]] = hir-copy i32 0 , OriginPhiId: -1
-; CHECK-NEXT:    Cost 2 for i32 [[VP3:%.*]] = add i32 [[VP_LOAD]] i32 1
-; CHECK-NEXT:    Cost 2 for i1 [[VP4:%.*]] = icmp ne i32 [[VP3]] i32 0
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 20
-; CHECK-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 24
+; CHECK-NEXT:    Cost 2000 for i32 [[VP3:%.*]] = add i32 [[VP_LOAD]] i32 1
+; CHECK-NEXT:    Cost 2000 for i1 [[VP4:%.*]] = icmp ne i32 [[VP3]] i32 0
+; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 20000
+; CHECK-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 24000
 ; CHECK-NEXT:    Cost 0 for i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP7:%.*]] = add i32 [[VP6]] i32 [[VP_LOAD_2]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP8:%.*]] = add i32 [[VP7]] i32 [[VP_LOAD_3]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP9:%.*]] = add i32 [[VP8]] i32 [[VP_LOAD_4]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP10:%.*]] = add i32 [[VP9]] i32 [[VP_LOAD_5]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP11:%.*]] = add i32 [[VP10]] i32 [[VP_LOAD_6]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP12:%.*]] = add i32 [[VP11]] i32 [[VP_LOAD_7]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP13:%.*]] = add i32 [[VP12]] i32 [[VP_LOAD_8]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP14:%.*]] = add i32 [[VP13]] i32 [[VP_LOAD_9]]
-; CHECK-NEXT:    Cost 2 for i32 [[VP15:%.*]] = add i32 [[VP14]] i32 [[VP_LOAD_10]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP7:%.*]] = add i32 [[VP6]] i32 [[VP_LOAD_2]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP8:%.*]] = add i32 [[VP7]] i32 [[VP_LOAD_3]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP9:%.*]] = add i32 [[VP8]] i32 [[VP_LOAD_4]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP10:%.*]] = add i32 [[VP9]] i32 [[VP_LOAD_5]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP11:%.*]] = add i32 [[VP10]] i32 [[VP_LOAD_6]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP12:%.*]] = add i32 [[VP11]] i32 [[VP_LOAD_7]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP13:%.*]] = add i32 [[VP12]] i32 [[VP_LOAD_8]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP14:%.*]] = add i32 [[VP13]] i32 [[VP_LOAD_9]]
+; CHECK-NEXT:    Cost 2000 for i32 [[VP15:%.*]] = add i32 [[VP14]] i32 [[VP_LOAD_10]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP16:%.*]] = hir-copy i32 [[VP15]] , OriginPhiId: -1
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 38
+; CHECK-NEXT:    Cost 0 for br [[BB3]]
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 38000
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__BLEND_BB4:%.*]] = blend [ i32 [[VP2]], i1 true ], [ i32 [[VP16]], i1 [[VP4]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2 for store i32 [[VP__BLEND_BB4]] i32* [[VP_SUBSCRIPT_11]]
-; CHECK-NEXT:    Cost 4 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 32 for i1 [[VP17:%.*]] = icmp sle i64 [[VP1]] i64 1023
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:    Cost 2000 for store i32 [[VP__BLEND_BB4]] i32* [[VP_SUBSCRIPT_11]]
+; CHECK-NEXT:    Cost 4000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:    Cost 32000 for i1 [[VP17:%.*]] = icmp sle i64 [[VP1]] i64 1023
+; CHECK-NEXT:    Cost 0 for br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:    Cost 0 for br [[BB6:BB[0-9]+]]
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 0
+; CHECK-NEXT:    Cost 0 for br <External Block>
 ;
 entry:
   br label %for.body

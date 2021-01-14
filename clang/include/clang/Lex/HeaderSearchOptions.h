@@ -108,6 +108,17 @@ public:
   /// etc.).
   std::string ResourceDir;
 
+#if INTEL_CUSTOMIZATION
+  /// The base directory of Intel compiler headers.
+  std::string HeaderBasePath;
+
+  /// The set of libraries with user-provided virtual filesystem.
+  std::vector<std::string> VFSOverlayLibs;
+#endif // INTEL_CUSTOMIZATION
+
+  using ModulesIgnoreMacrosTy =
+      llvm::SmallSetVector<llvm::CachedHashString, 16>;
+
   /// The directory used for the module cache.
   std::string ModuleCachePath;
 
@@ -142,6 +153,10 @@ public:
   /// file.
   unsigned ModuleMapFileHomeIsCwd : 1;
 
+  /// Also search for prebuilt implicit modules in the prebuilt module cache
+  /// path.
+  unsigned EnablePrebuiltImplicitModules : 1;
+
   /// The interval (in seconds) between pruning operations.
   ///
   /// This operation is expensive, because it requires Clang to walk through
@@ -172,14 +187,6 @@ public:
 
   /// The set of user-provided virtual filesystem overlay files.
   std::vector<std::string> VFSOverlayFiles;
-
-#if INTEL_CUSTOMIZATION
-  /// The base directory of Intel compiler headers.
-  std::string HeaderBasePath;
-
-  /// The set of libraries with user-provided virtual filesystem.
-  std::vector<std::string> VFSOverlayLibs;
-#endif // INTEL_CUSTOMIZATION
 
   /// Include the compiler builtin includes.
   unsigned UseBuiltinIncludes : 1;
@@ -225,8 +232,9 @@ public:
   HeaderSearchOptions(StringRef _Sysroot = "/")
       : Sysroot(_Sysroot), ModuleFormat("raw"), DisableModuleHash(false),
         ImplicitModuleMaps(false), ModuleMapFileHomeIsCwd(false),
-        UseBuiltinIncludes(true), UseStandardSystemIncludes(true),
-        UseStandardCXXIncludes(true), UseLibcxx(false), Verbose(false),
+        EnablePrebuiltImplicitModules(false), UseBuiltinIncludes(true),
+        UseStandardSystemIncludes(true), UseStandardCXXIncludes(true),
+        UseLibcxx(false), Verbose(false),
         ModulesValidateOncePerBuildSession(false),
         ModulesValidateSystemHeaders(false),
         ValidateASTInputFilesContent(false), UseDebugInfo(false),

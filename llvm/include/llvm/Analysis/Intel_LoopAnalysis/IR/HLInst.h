@@ -75,7 +75,7 @@ protected:
   /// for min
   bool checkMinMax(bool IsMin, bool IsMax) const;
 
-  void printReductionInfo(formatted_raw_ostream &OS) const;
+  void printReductionInfo(formatted_raw_ostream &OS, bool Detailed) const;
 
 public:
   /// Prints HLInst.
@@ -345,6 +345,7 @@ public:
   bool isAutoVecDirective() const;
 
   /// Checks if the Opcode is a reduction and returns it in \p OpCode.
+  /// Select Opcode is returned for min/max intrinsics.
   bool isReductionOp(unsigned *OpCode = nullptr) const;
 
   /// Checks if instruction is a min.

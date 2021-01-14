@@ -22,4 +22,10 @@ add_llvm_component_library(LLVMIntel_CSAScalarOpt
 
   DEPENDS
   intrinsics_gen
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+  Support
+  TransformUtils
   )

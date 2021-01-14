@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -delinearize  | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -delinearize  | FileCheck %s
+; RUN: opt < %s -passes='print<delinearization>' -disable-output  2>&1 | FileCheck %s
 
 ; void foo(long n, long m, long o, double A[n][m][o]) {
 ;
@@ -12,7 +13,7 @@
 ; CHECK: Base offset: %A
 ; CHECK: ArrayDecl[UnknownSize][%m][%o] with elements of 8 bytes.
 ; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK: ArrayRef[{3,+,1}<nuw><%for.i>][{-4,+,1}<nsw><%for.j>][{7,+,1}<nuw><nsw><%for.k>]
+; CHECK: ArrayRef[{3,+,1}<nuw><%for.i>][{-4,+,1}<nw><%for.j>][{7,+,1}<nuw><nsw><%for.k>]
 
 define void @foo(i64 %n, i64 %m, i64 %o, double* %A) {
 entry:

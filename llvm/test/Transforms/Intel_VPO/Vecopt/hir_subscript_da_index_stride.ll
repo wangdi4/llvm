@@ -33,14 +33,16 @@
 ; CHECK-NEXT:  Divergent: [Shape: Random] store double 2.000000e+00 double* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP3:%.*]] = icmp sle i64 [[VP1]] i64 29
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP3]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB3]]
 
 ; Checks for vector HIR generated.
-; CHECK:       + DO i1 = 0, 27, 4   <DO_LOOP> <novectorize>
+; CHECK:       + DO i1 = 0, 27, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:  |   [[NSBGEPCOPY0:%.*]] = &((<4 x double*>)(@A)[0][2])
 ; CHECK-NEXT:  |   [[NSBGEPCOPY1:%.*]] = &((double*)(@A)[0][2]);
 ; CHECK-NEXT:  |   (<4 x double>*)([[NSBGEPCOPY0]])[i1 + <i64 0, i64 1, i64 2, i64 3>] = 1.000000e+00

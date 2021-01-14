@@ -4,9 +4,6 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always < %s -disable-output -print-after=VPlanDriverHIR 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
 
-; This only has checks for the VLS test below.
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-loop-optreport=high -hir-optreport-emitter -enable-intel-advanced-opts -vplan-vls-level=always -enable-vplan-vls-cg -enable-vp-value-codegen-hir=0 < %s -disable-output -print-after=VPlanDriverHIR 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR-MIXED
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -120,7 +117,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-LABEL: Function: test_sqrt
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
-; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:        |   %.vec = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; HIR-NEXT:        |   %llvm.sqrt.v4f64 = @llvm.sqrt.v4f64(%.vec);
 ; HIR-NEXT:        |   %_Z4sqrtDv4_d = @_Z4sqrtDv4_d(%.vec);
@@ -188,7 +185,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-LABEL: Function: test_nonvls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
-; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:        |   %.vec9 = undef;
 ; HIR-NEXT:        |   %.vec5 = undef;
 ; HIR-NEXT:        |   %.vec = i1 + <i64 0, i64 1, i64 2, i64 3>  *  i1 + <i64 0, i64 1, i64 2, i64 3>;
@@ -295,7 +292,7 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-LABEL: Function: test_vls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
-; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
+; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:        |   %.vec6 = undef;
 ; HIR-NEXT:        |   %.vec5 = undef;
 ; HIR-NEXT:        |   %.vec = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>];
@@ -338,45 +335,6 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      Remark: --- end vector loop memory reference summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================
-
-; HIR-MIXED-LABEL: Function: test_vls_mem
-; HIR-MIXED:       BEGIN REGION { modified }
-; HIR-MIXED-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <novectorize>
-; HIR-MIXED-NEXT:        |   %ld.x2.mask.2.vec = undef;
-; HIR-MIXED-NEXT:        |   %ld.x2.mask.1.vec = undef;
-; HIR-MIXED-NEXT:        |   %ld.x3.1.vec = (<4 x i64>*)(%ptr)[3 * i1 + <i64 0, i64 3, i64 6, i64 9>];
-; HIR-MIXED-NEXT:        |   %ld.x3.2.vec = (<4 x i64>*)(%ptr)[3 * i1 + <i64 0, i64 3, i64 6, i64 9> + 1];
-; HIR-MIXED-NEXT:        |   (<4 x i64>*)(%ptr)[3 * i1 + <i64 0, i64 3, i64 6, i64 9>] = 41;
-; HIR-MIXED-NEXT:        |   (<4 x i64>*)(%ptr)[3 * i1 + <i64 0, i64 3, i64 6, i64 9> + 1] = %ld.x3.1.vec;
-; HIR-MIXED-NEXT:        |   %ld.x2.1.vls.load = (<8 x i64>*)(%ptr2)[2 * i1];
-; HIR-MIXED-NEXT:        |   %vls.shuf = shufflevector %ld.x2.1.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; HIR-MIXED-NEXT:        |   %vls.shuf2 = shufflevector %ld.x2.1.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; HIR-MIXED-NEXT:        |   %comb.shuf = shufflevector 41,  %vls.shuf,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
-; HIR-MIXED-NEXT:        |   %vls.interleave = shufflevector %comb.shuf,  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>;
-; HIR-MIXED-NEXT:        |   (<8 x i64>*)(%ptr2)[2 * i1] = %vls.interleave;
-; HIR-MIXED-NEXT:        |   %wide.cmp. = %vls.shuf == 67;
-; HIR-MIXED-NEXT:        |   %ld.x2.mask.1.vec = (<4 x i64>*)(%ptr3)[2 * i1 + <i64 0, i64 2, i64 4, i64 6>]; Mask = @{%wide.cmp.}
-; HIR-MIXED-NEXT:        |   %ld.x2.mask.2.vec = (<4 x i64>*)(%ptr3)[2 * i1 + <i64 0, i64 2, i64 4, i64 6> + 1]; Mask = @{%wide.cmp.}
-; HIR-MIXED-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + <i64 0, i64 2, i64 4, i64 6>] = 41; Mask = @{%wide.cmp.}
-; HIR-MIXED-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + <i64 0, i64 2, i64 4, i64 6> + 1] = 42; Mask = @{%wide.cmp.}
-; HIR-MIXED-NEXT:        + END LOOP
-; HIR-MIXED:             ret ;
-; HIR-MIXED-NEXT:  END REGION
-
-; HIR-MIXED-LABEL: Report from: HIR Loop optimizations framework for : test_vls_mem
-; HIR-MIXED-EMPTY:
-; HIR-MIXED-NEXT:  LOOP BEGIN
-; HIR-MIXED-NEXT:      Remark: LOOP WAS VECTORIZED
-; HIR-MIXED-NEXT:      Remark: vectorization support: vector length 4
-; HIR-MIXED:           Remark: --- begin vector loop memory reference summary ---
-; Only VLS remarks are implemented for HIR mixed CG.
-; HIR-MIXED:           Remark: Unmasked VLS-optimized loads (each part of the group counted separately): 2
-; HIR-MIXED-NEXT:      Remark: Masked VLS-optimized loads (each part of the group counted separately): 0
-; HIR-MIXED-NEXT:      Remark: Unmasked VLS-optimized stores (each part of the group counted separately): 2
-; HIR-MIXED-NEXT:      Remark: Masked VLS-optimized stores (each part of the group counted separately): 0
-; HIR-MIXED-NEXT:      Remark: --- end vector loop memory reference summary ---
-; HIR-MIXED:       LOOP END
-; HIR-MIXED-NEXT:  =================================================================
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %header

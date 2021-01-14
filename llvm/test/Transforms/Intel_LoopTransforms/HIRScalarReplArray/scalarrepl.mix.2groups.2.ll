@@ -44,22 +44,22 @@
 ;
 ; CHECK: %scalarepl = (@A)[0][0];
 ; CHECK: %scalarepl1 = (@A)[0][1];
-; CHECK: %scalarepl10 = (@B)[0][0];
-; CHECK: %scalarepl11 = (@B)[0][1];
+; CHECK: %scalarepl9 = (@B)[0][0];
+; CHECK: %scalarepl10 = (@B)[0][1];
 ; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   %4 = %scalarepl;
-; CHECK: |   %5 = %scalarepl10;
+; CHECK: |   %5 = %scalarepl9;
 ; CHECK: |   %scalarepl2 = %4 + %5;
 ; CHECK: |   %6 = %scalarepl1;
-; CHECK: |   %7 = %scalarepl11;
-; CHECK: |   %scalarepl12 = (@B)[0][i1 + 2];
-; CHECK: |   %8 = %scalarepl12;
+; CHECK: |   %7 = %scalarepl10;
+; CHECK: |   %scalarepl11 = (@B)[0][i1 + 2];
+; CHECK: |   %8 = %scalarepl11;
 ; CHECK: |   %scalarepl1 = %6 + %7 + %8;
 ; CHECK: |   (@A)[0][i1 + 1] = %scalarepl1;
 ; CHECK: |   %scalarepl = %scalarepl1;
 ; CHECK: |   %scalarepl1 = %scalarepl2;
+; CHECK: |   %scalarepl9 = %scalarepl10;
 ; CHECK: |   %scalarepl10 = %scalarepl11;
-; CHECK: |   %scalarepl11 = %scalarepl12;
 ; CHECK: + END LOOP
 ; CHECK: (@A)[0][101] = %scalarepl1;
 ;

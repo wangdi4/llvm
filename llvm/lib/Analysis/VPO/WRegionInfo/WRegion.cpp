@@ -515,6 +515,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
+  setIf(nullptr);
   setLoopOrder(WRNLoopOrderAbsent);
 #if INTEL_CUSTOMIZATION
   setIsAutoVec(isAutoVec);
@@ -533,6 +534,7 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
+  setIf(nullptr);
   setLoopOrder(WRNLoopOrderAbsent);
   setIsAutoVec(isAutoVec);
   setHasVectorAlways(false);
@@ -594,6 +596,7 @@ void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printInt("SIMDLEN", getSimdlen(), OS, Indent, Verbosity);
   vpo::printInt("SAFELEN", getSafelen(), OS, Indent, Verbosity);
   vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
+  vpo::printVal("IF", getIf(), OS, Indent, Verbosity);
   vpo::printStr("ORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
                 Verbosity);
 }

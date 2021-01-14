@@ -424,11 +424,11 @@ void foo3() {
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..2(%struct.A* noalias %0, %struct.A* noalias %1)
-// CHECK: call void @_ZN1AC1Eii(%struct.A* %3, i32 1, i32 0)
+// CHECK: call void @_ZN1AC1Eii(%struct.A* {{[^,]*}} %3, i32 1, i32 0)
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..4(%struct.B* noalias %0, %struct.B* noalias %1)
-// CHECK: call void @_ZN1BC1Eii(%struct.B* %3, i32 1, i32 0)
+// CHECK: call void @_ZN1BC1Eii(%struct.B* {{[^,]*}} %3, i32 1, i32 0)
 // CHECK-NEXT: ret void
 
 int con, des;
@@ -465,7 +465,7 @@ void findMinMax(Point* points, int n, Point* minPoint, Point* maxPoint) {
 }
 
 // CHECK: define internal void @.omp_initializer..11(%struct.Point* noalias %0, %struct.Point* noalias %1)
-// CHECK: call void @_ZN5PointC1Eii(%struct.Point* %3, i32 1, i32 1000)
+// CHECK: call void @_ZN5PointC1Eii(%struct.Point* {{[^,]*}} %3, i32 1, i32 1000)
 // CHECK-NEXT: ret void
 
 int dcnt;
@@ -555,27 +555,27 @@ void foo4() {
 }
 
 // CHECK: define internal void @.omp_initializer..13(%struct.B1* noalias %0, %struct.B1* noalias %1)
-// CHECK: %call2 = call i32 @_ZN2A1cv2B1Ev(%struct.A1* %ref.tmp
+// CHECK: %call2 = call i32 @_ZN2A1cv2B1Ev(%struct.A1* {{[^,]*}} %ref.tmp
 // CHECK-NEXT: %coerce.dive = getelementptr inbounds %struct.B1, %struct.B1* %3, i32 0, i32 0
 // CHECK-NEXT: store i32 %call2, i32* %coerce.dive, align 4
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..15(%struct.B2* noalias %0, %struct.B2* noalias %1)
-// CHECK: call void @_ZN2B2C1E2A2(%struct.B2* %3, i64 %9, i32 %11)
+// CHECK: call void @_ZN2B2C1E2A2(%struct.B2* {{[^,]*}} %3, i64 %9, i32 %11)
 // CHECK: ret void
 
 // CHECK: define internal void @.omp_initializer..17(%struct.B3* noalias %0, %struct.B3* noalias %1)
-// CHECK:call void @_ZN2A3D1Ev(%struct.A3* %ref.tmp)
+// CHECK:call void @_ZN2A3D1Ev(%struct.A3* {{[^,]*}} %ref.tmp)
 // CHECK-NEXT ret void
 
 
 // CHECK: define internal void @.omp_initializer..19(%struct.B4* noalias %0, %struct.B4* noalias %1)
-// CHECK: call void @_ZN2B4C1E2A4(%struct.B4* %3, %struct.A4* %agg.tmp)
-// CHECK-NEXT: call void @_ZN2A4D1Ev(%struct.A4* %agg.tmp)
+// CHECK: call void @_ZN2B4C1E2A4(%struct.B4* {{[^,]*}} %3, %struct.A4* %agg.tmp)
+// CHECK-NEXT: call void @_ZN2A4D1Ev(%struct.A4* {{[^,]*}} %agg.tmp)
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..21(%struct.A4* noalias %0, %struct.A4* noalias %1)
-// CHECK: call void @_Z4boo4v(%struct.A4* sret {{(align 4 )?}}%3)
+// CHECK: call void @_Z4boo4v(%struct.A4* sret(%struct.A4) {{(align 4 )?}}%3)
 // CHECK-NEXT: ret void
 
 
@@ -603,8 +603,8 @@ void foo5()
 }
 
 // CHECK: define internal void @.omp_initializer..23(%struct.AA3* noalias %0, %struct.AA3* noalias %1)
-// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* %3)
-// CHECK-NEXT: call void @_ZN3AA3D1Ev(%struct.AA3* %agg.tmp.ensured)
+// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret(%struct.AA3) {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* %3)
+// CHECK-NEXT: call void @_ZN3AA3D1Ev(%struct.AA3* {{[^,]*}} %agg.tmp.ensured)
 // CHECK-NEXT: ret void
 
 struct Foo { int i; };

@@ -76,16 +76,6 @@ pi_result redefinedKernelSetExecInfo(pi_kernel kernel,
 }
 
 TEST(KernelReleaseTest, GetKernelRelease) {
-#ifdef INTEL_CUSTOMIZATION
-  // Handle the case where no devices are available until the tests can be run
-  // with the spec-conformant behaviour of host device with default_selector.
-  try {
-    device dev{default_selector{}};
-  } catch (const runtime_error &) {
-    std::cerr << "Not run: no device available." << std::endl;
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
   platform Plt{default_selector()};
   if (Plt.is_host()) {
     std::cout << "The program/kernel methods are mostly no-op on the host "

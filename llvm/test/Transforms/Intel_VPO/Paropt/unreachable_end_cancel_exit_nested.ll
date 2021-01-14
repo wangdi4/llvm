@@ -2,10 +2,10 @@
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
 
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -S < %s | FileCheck %s -check-prefix=SIMPL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg))'  -S | FileCheck %s -check-prefix=SIMPL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop-simplify)'  -S | FileCheck %s -check-prefix=SIMPL
 
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s -check-prefix=TFORM
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s -check-prefix=TFORM
 
 ; Test src:
 ;
@@ -69,7 +69,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @.str = private unnamed_addr constant [11 x i8] c"%d: after\0A\00", align 1
 
-; Function Attrs: noinline nounwind optnone uwtable
+; Function Attrs: noinline nounwind uwtable
 define dso_local void @foo() #0 {
 entry:
   %i = alloca i32, align 4
@@ -109,7 +109,7 @@ declare dso_local i32 @printf(i8*, ...) #3
 ; Function Attrs: noreturn nounwind
 declare dso_local void @exit(i32) #4
 
-attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }
 attributes #2 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

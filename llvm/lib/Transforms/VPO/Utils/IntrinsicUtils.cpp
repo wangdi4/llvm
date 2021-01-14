@@ -81,7 +81,8 @@ bool VPOUtils::stripDirectives(BasicBlock &BB, ArrayRef<int> IDs) {
 
   for (Instruction *I : IntrinsicsToRemove) {
     if (I->getType()->isTokenTy())
-      I->replaceAllUsesWith(llvm::ConstantTokenNone::get(C));
+      // "llvm::ConstantTokenNone::get(C)" isn't supported by -debugify
+      I->replaceAllUsesWith(llvm::UndefValue::get(Type::getTokenTy(C)));
     I->eraseFromParent();
   }
 
@@ -163,93 +164,88 @@ bool VPOUtils::canBeRegisterized(Type *AllocaTy, const DataLayout &DL) {
 
 // Generates a memcpy call at the end of the given basic block BB.
 // The value D represents the destination while the value S represents
-// the source. The size of the memcpy is the size of destination.
+// the source. The size of the memcpy is specified as Size.
 // The compiler will insert the typecast if the type of source or destination
 // does not match with the type i8.
 // One example of the output is as follows.
 //   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
-CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
+CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
                               unsigned Align, BasicBlock *BB) {
-  return genMemcpy(D, S, DL, Align, BB->getTerminator());
+  IRBuilder<> MemcpyBuilder(BB->getTerminator());
+  return genMemcpy(D, S, Size, Align, MemcpyBuilder);
 }
 
-// Generates a memcpy call before the given instruction InsertPt.
+// Generates a memcpy call using MemcpyBuilder.
 // The value D represents the destination while the value S represents
-// the source. The size of the memcpy is the size of destination.
+// the source. The size of the memcpy is specified as Size.
 // The compiler will insert the typecast if the type of source or destination
 // does not match with the type i8.
-CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
-                              unsigned Align, Instruction *InsertPt) {
-  IRBuilder<> MemcpyBuilder(InsertPt);
-
-  Value *Dest, *Src, *Size;
-
+CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
+                              unsigned Align, IRBuilder<> &MemcpyBuilder) {
+  Value *Dest = D;
+  Value *Src = S;
+#if !ENABLE_OPAQUEPOINTER
   // The first two arguments of the memcpy expects the i8* operands.
   // The instruction bitcast is introduced if the incoming src or dest
   // operand in not in i8 type.
-  if (D->getType() !=
-      Type::getInt8PtrTy(InsertPt->getContext())) {
-    Dest = MemcpyBuilder.CreatePointerCast(D, MemcpyBuilder.getInt8PtrTy());
-    Src = MemcpyBuilder.CreatePointerCast(S, MemcpyBuilder.getInt8PtrTy());
-  }
-  else {
-    Dest = D;
-    Src = S;
-  }
+  Type *NewDestTy = MemcpyBuilder.getInt8PtrTy(
+      cast<PointerType>(D->getType())->getAddressSpace());
+  if (D->getType() != NewDestTy)
+    Dest = MemcpyBuilder.CreatePointerCast(D, NewDestTy);
+
+  Type *NewSrcTy = MemcpyBuilder.getInt8PtrTy(
+      cast<PointerType>(S->getType())->getAddressSpace());
+  if (S->getType() != NewSrcTy)
+    Src = MemcpyBuilder.CreatePointerCast(S, NewSrcTy);
+#endif // ENABLE_OPAQUEPOINTER
+
   // For 32/64 bit architecture, the size and alignment should be
   // set accordingly.
-  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->getIntegerBitWidth() ==
-      64)
-    Size = MemcpyBuilder.getInt64(
-        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
-  else
-    Size = MemcpyBuilder.getInt32(
-        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+  Function *F = MemcpyBuilder.GetInsertBlock()->getParent();
+  Type *SizeTTy = GeneralUtils::getSizeTTy(F);
+  unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
+  Value *SizeVal = MemcpyBuilder.getIntN(SizeTBitWidth, Size);
 
   AllocaInst *AI = dyn_cast<AllocaInst>(D);
   if (AI && AI->isArrayAllocation())
-    Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
+    SizeVal = MemcpyBuilder.CreateMul(SizeVal, AI->getArraySize());
 
   return MemcpyBuilder.CreateMemCpy(Dest, MaybeAlign(Align), Src,
-                                    MaybeAlign(Align), Size);
+                                    MaybeAlign(Align), SizeVal);
 }
 
-// Generates a memset call before the given instruction InsertPt.
+// Generates a memset call using MemsetBuilder.
 // The value P represents the pointer to the block of memory to fill while the
-// value V represents the value to be set. The size of the memset is the size of
-// pointer to the memory block. The compiler will insert the typecast if the
+// value V represents the value to be set. The size of the memset is specified
+// as Size. The compiler will insert the typecast if the
 // type of pointer and value does not match with the type i8.
-CallInst *VPOUtils::genMemset(Value *P, Value *V, const DataLayout &DL,
+CallInst *VPOUtils::genMemset(Value *P, Value *V, uint64_t Size,
                               unsigned Align, IRBuilder<> &MemsetBuilder) {
-  Value *Ptr, *Size;
+  Value *Ptr = P;
 
+#if !ENABLE_OPAQUEPOINTER
   // The first argument of the memset expect the i8* operand.
   // The instruction bitcast is introduced if the incoming pointer operand in
   // not in i8 type.
   if (P->getType() != Type::getInt8PtrTy(MemsetBuilder.getContext()))
     Ptr = MemsetBuilder.CreatePointerCast(P, MemsetBuilder.getInt8PtrTy());
-  else
-    Ptr = P;
 
   assert((V->getType() == Type::getInt8Ty(MemsetBuilder.getContext())) &&
          "Unsupported type for value in genMemset");
+#endif // !ENABLE_OPAQUEPOINTER
 
   // For 32/64 bit architecture, the size and alignment should be
   // set accordingly.
-  if (DL.getIntPtrType(MemsetBuilder.getInt8PtrTy())->getIntegerBitWidth() ==
-      64) {
-    Size = MemsetBuilder.getInt64(
-        DL.getTypeAllocSize(P->getType()->getPointerElementType()));
-  } else {
-    Size = MemsetBuilder.getInt32(
-        DL.getTypeAllocSize(P->getType()->getPointerElementType()));
-  }
+  Function *F = MemsetBuilder.GetInsertBlock()->getParent();
+  Type *SizeTTy = GeneralUtils::getSizeTTy(F);
+  unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
+  Value *SizeVal = MemsetBuilder.getIntN(SizeTBitWidth, Size);
 
   AllocaInst *AI = dyn_cast<AllocaInst>(P);
   if (AI && AI->isArrayAllocation())
-    Size = MemsetBuilder.CreateMul(Size, AI->getArraySize());
+    SizeVal = MemsetBuilder.CreateMul(SizeVal, AI->getArraySize());
 
-  return MemsetBuilder.CreateMemSet(Ptr, V, Size, MaybeAlign(Align));
+  return MemsetBuilder.CreateMemSet(Ptr, V, SizeVal, MaybeAlign(Align));
 }
 
 // Creates a clone of CI, adds OpBundlesToAdd to it, and returns it.

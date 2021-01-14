@@ -96,6 +96,15 @@ def warn_redundant_ivdep_pragma : Warning<
   InGroup<Pragmas>;
 def note_overriding_ivdep_pragma_is_specified_here : Note<
   "overriding ivdep pragma is specified here">;
+def err_prefetch_hint_out_of_range : Error<
+  "hint value, %0, must be between %1 and %2, inclusive">;
+def err_prefetch_distance_greater_than_zero : Error<
+  "distance value must be greater than zero">;
+def err_prefetch_invalid_argument : Error<
+  "invalid expression in '#pragma %0'">;
+def warn_intel_compat_feature : Warning<
+  "Intel compatibility feature [%0] %select{used|possible}1">,
+  InGroup<Pragmas>;
 }
 
 def warn_ovl_diff_return_type : Warning<
@@ -134,11 +143,6 @@ def err_hls_readwrite_arg_invalid : Error<
   "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
 def err_readwritememory_attribute_invalid : Error<
   "%0 attribute only applies to slave memory arguments">;
-def warn_max_concurrency_deprecated
-    : Warning<"attribute max_concurrency for variables is deprecated, use the "
-              "attribute private_copies instead">,
-      InGroup<IgnoredAttributes>;
-
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
   "%0 attribute can be aplied only for parameters that reside "
@@ -274,6 +278,9 @@ def warn_omp_simdlen_in_target_spir: Warning<
 def warn_collapse_ignored_with_tile : Warning<
   "'collapse' clause ignored when using 'tile' clause">, InGroup<OpenMPClauses>;
 def note_omp_tile_expr : Note<"as specified in 'tile' clause">;
+def warn_omp_subdevice_level: Warning<
+  "'subdevice' level value must be 0 or 1 - ignored, assuming 0">,
+  InGroup<Pragmas>;
 
 #if INTEL_FEATURE_CSA
 // Intel CSA extensions

@@ -157,6 +157,22 @@
 // CHECK: encoding: [0xf3,0x48,0x81,0xcb,0x04,0x03,0x02,0x01]
           fscp_read $0x01020304, %rbx
 
+// CHECK: creg_xchg_mtl %eax, %ebx
+// CHECK: encoding: [0xf2,0x01,0xc3]
+          creg_xchg_mt %eax, %ebx
+
+// CHECK: creg_xchg_mtq %eax, %rbx
+// CHECK: encoding: [0xf2,0x48,0x01,0xc3]
+          creg_xchg_mt %eax, %rbx
+
+// CHECK: creg_read_mtl %eax, %ebx
+// CHECK: encoding: [0xf2,0x29,0xc3]
+          creg_read_mt %eax, %ebx
+
+// CHECK: creg_read_mtq %eax, %rbx
+// CHECK: encoding: [0xf2,0x48,0x29,0xc3]
+          creg_read_mt %eax, %rbx
+
 // CHECK: portinb (%ebx), %al
 // CHECK: encoding: [0xf3,0x8a,0x03]
           portin (%ebx), %al
@@ -312,3 +328,11 @@
 // CHECK: portout24
 // CHECK: encoding: [0xf2,0xab]
           portout24
+
+// CHECK: load_tickle_gpa
+// CHECK: encoding: [0x0f,0x01,0xca]
+          load_tickle_gpa
+
+// CHECK: store_tickle_gpa
+// CHECK: encoding: [0x0f,0x01,0xcb]
+          store_tickle_gpa

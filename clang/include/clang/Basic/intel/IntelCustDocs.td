@@ -480,6 +480,146 @@ Support GCC __builtin_va_arg_pack and __builtin_va_arg_pack_len builtins.
   }];
 }
 
+def PragmaInlineDocs : Documentation {
+  let Category = DocCatIntelLoops;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-22959";
+  let RegressionTest = "";
+  let Owner = "zahiraam";
+  let Content = [{
+The ``inline`` pragmas and its options are pragmas used at call point. It gives
+a hint to the compiler that called function is to be inlined, no inlined and
+sometimes forced inline. Each pragma can take the option ``recursive`` to
+indicate that the pragma holds for each callee of the called function.
+
+Syntax:
+
+.. code-block:: text
+
+  #pragma inline [recursive]
+  #pragma forceinline [recursive]
+  #pragma noinline
+
+Example:
+
+.. code-block:: c++
+
+  void foo() { }
+
+  void bar1() {
+    foo();
+  }
+
+  void bar2() {
+  #pragma inline
+    foo();
+  }
+
+  void bar3() {
+  #pragma noinline
+    foo();
+  }
+
+  void bar4() {
+  #pragma forceinline
+    foo();
+  }
+
+  void bar5() {
+  #pragma inline recursive
+    foo();
+  }
+
+  void bar6() {
+  #pragma forceinline recursive
+    foo();
+  }
+
+AST:
+
+.. code-block:: console
+
+  FunctionDecl 0x1209c1f8 <line:7:1, line:10:1> line:7:6 bar2 'void ()'
+   -CompoundStmt 0x1209c388 <col:13, line:10:1>
+     -AttributedStmt 0x1209c370 <<invalid sloc>, line:9:7>
+       -IntelInlineAttr 0x1209c348 <line:8:9> Implicit inline NotRecursive
+       -CallExpr 0x1209c328 <line:9:3, col:7> 'void'
+
+  FunctionDecl 0x1209c3c0 <line:12:1, line:15:1> line:12:6 bar3 'void ()'
+   -CompoundStmt 0x1209c550 <col:13, line:15:1>
+     -AttributedStmt 0x1209c538 <<invalid sloc>, line:14:7>
+       -IntelInlineAttr 0x1209c510 <line:13:9> Implicit noinline NotRecursive
+       -CallExpr 0x1209c4f0 <line:14:3, col:7> 'void'
+
+  FunctionDecl 0x1209c588 <line:17:1, line:20:1> line:17:6 bar4 'void ()'
+   -CompoundStmt 0x1209c718 <col:13, line:20:1>
+     -AttributedStmt 0x1209c700 <<invalid sloc>, line:19:7>
+       -IntelInlineAttr 0x1209c6d8 <line:18:9> Implicit forceinline NotRecursive
+       -CallExpr 0x1209c6b8 <line:19:3, col:7> 'void'
+
+  FunctionDecl 0x1209c750 <line:22:1, line:25:1> line:22:6 bar5 'void ()'
+   -CompoundStmt 0x1209c8f0 <col:13, line:25:1>
+     -AttributedStmt 0x1209c8d8 <<invalid sloc>, line:24:7>
+       -IntelInlineAttr 0x1209c8b0 <line:23:9, col:16> Implicit inline Recursive
+       -CallExpr 0x1209c890 <line:24:3, col:7> 'void'
+
+  FunctionDecl 0x1209c928 <line:27:1, line:30:1> line:27:6 bar6 'void ()'
+   -CompoundStmt 0x1209cac8 <col:13, line:30:1>
+     -AttributedStmt 0x1209cab0 <<invalid sloc>, line:29:7>
+       -IntelInlineAttr 0x1209ca88 <line:28:9, col:21> Implicit forceinline Recursive
+       -CallExpr 0x1209ca68 <line:29:3, col:7> 'void'
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -disable-llvm-passes -fintel-compatibility -emit-llvm inline.cpp -O2 -o inline.ll
+
+.. code-block:: llvm
+
+  define void @_Z4bar2v() {
+  entry:
+    call void @_Z3foov() #1
+    ret void
+  }
+
+  define void @_Z4bar3v() {
+  entry:
+    call void @_Z3foov() #2
+    ret void
+  }
+
+  define void @_Z4bar4v() {
+  entry:
+    call void @_Z3foov() #3
+    ret void
+  }
+
+  define void @_Z4bar5v() {
+  entry:
+    call void @_Z3foov() #4
+    ret void
+  }
+
+  define void @_Z4bar6v() {
+  entry:
+    call void @_Z3foov() #5
+    ret void
+  }
+
+  attributes #1 = { inlinehint }
+  attributes #2 = { noinline }
+  attributes #3 = { alwaysinline }
+  attributes #4 = { "inline-hint-recursive" }
+  attributes #5 = { "always-inline-recursive" }
+  }];
+  let UserContent = [{
+Pragma inline gives a hint to the compiler that the called function and its
+callees are to be inlined, not inlined, forced inlined according to its keyword
+argument 'recursive'.
+  }];
+}
+
 def PragmaNoVectorDocs : Documentation {
   let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
@@ -563,7 +703,11 @@ Syntax:
 
 ``pragma vector`` with no other keyword will do nothing.
 
-Currently we only support ``pragma vector`` with no keywords or with 'always'.
+Currently we only support ``pragma vector``, ``pragma vector always`` and
+``pragma vector aligned``.
+When the 'aligned' keyword is used, it indicates to the compiler that the loop
+should be vectorized using aligned data movement instructions for all array
+references inside the loop.
 
 Example:
 
@@ -573,6 +717,8 @@ Example:
     #pragma vector
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector always
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector aligned
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -584,23 +730,27 @@ AST:
 
 .. code-block:: text
 
-  AttributedStmt 0xed8d0f0 <<invalid sloc>, line:3:46>
-  | |-LoopHintAttr 0xed8d0c8 <line:2:11> Implicit vector Vectorize Enable
+  AttributedStmt 0x2d888a36e48 <line:2:11, line:3:46>
+  | |-LoopHintAttr 0x2d888a36e08 <line:2:11> Implicit vector Vectorize Enable
   | | |-<<<NULL>>>
   | | `-<<<NULL>>>
   | `-ForStmt 0xed8d090 <line:3:3, col:46>
 
-  AttributedStmt 0xed8d628 <<invalid sloc>, line:5:46>
-  |-LoopHintAttr 0xed8d5d8 <line:4:11> Implicit vector Vectorize Enable
-  | |-<<<NULL>>>
-  | `-<<<NULL>>>
-  |-LoopHintAttr 0xed8d600 <col:11> Implicit vector VectorizeAlways Enable
+  AttributedStmt 0x2d888a372c8 <line:4:11, line:5:46>
+  |-LoopHintAttr 0x2d888a37288 <line:4:11> Implicit vector VectorizeAlways Enable
   | |-<<<NULL>>>
   | `-<<<NULL>>>
   `-ForStmt 0xed8d5a0 <line:5:3, col:46>
 
-Note than ``#pragma vector always`` will be represented as two LoopHint
-attributes.
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeAligned Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+
+
+Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
+represented as two LoopHint attributes.
+
 
 IR:
 
@@ -610,11 +760,15 @@ IR:
 
 .. code-block:: llvm
 
-  br label %for.cond, !llvm.loop !3
+  br label %for.cond6, !llvm.loop !2
+  br label %for.cond20, !llvm.loop !5
 
-  !3 = distinct !{!3, !4, !5}
-  !4 = !{!"llvm.loop.vectorize.ignore_profitability"}
-  !5 = !{!"llvm.loop.vectorize.enable", i1 true}
+  !2 = distinct !{!2, !3, !4}
+  !3 = !{!"llvm.loop.vectorize.ignore_profitability"}
+  !4 = !{!"llvm.loop.vectorize.enable", i1 true}
+  !5 = distinct !{!5, !6}
+  !6 = !{!"llvm.loop.intel.vector.aligned"}
+
   }];
   let UserContent = [{
 Accept #pragma vector - indicates a loop should be vectorized according to the
@@ -978,6 +1132,88 @@ IR:
 The ``block_loop`` pragma lets you exert greater control over optimizations on
 a specific loop inside a nested loop. The ``noblock_loop`` pragma lets you tune
 the performance by disabling loop blocking for nested loops.
+  }];
+}
+
+def PragmaPrefetchDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let RegressionTest = "CodeGenCXX/intel/prefetch.cpp, CodeGenCXX/intel/prefetch_messages.cpp";
+  let Owner = "dpagan";
+  let Content = [{
+The ``prefetch`` pragma enables data prefetching for some memory references.
+Prefetching data can minimize the effects of memory latency. The
+``noprefetch`` disables data prefetching for some memory references.
+
+Syntax:
+
+.. code-block:: text
+
+  #pragma prefetch [var1 [: hint1 [: distance1]] [, var2 [: hint2 [: distance2]]]...]
+  #pragma noprefetch [var1, [var2, [varN, ... ]]]
+
+Implements a new attribute (IntelPrefetchAttr) instead of using the LoopHint
+attribute framework. LoopHintAttrs create metadata but this pragma generates
+only directives.
+
+Example:
+
+.. code-block:: c
+
+  void *  sub(float *A, float *B, float *C,  int N) {
+
+    int i;
+    #pragma noprefetch C
+    #pragma prefetch A:1:40
+    #pragma prefetch B
+    for (i=0; i< N; i++) {
+      A[i] = B[i] + C[i] *  2.0;
+    }
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -ast-dump -o - t.c
+
+.. code-block:: text
+
+  AttributedStmt 0x11356a98 <<invalid sloc>, line:10:3>
+  |-IntelPrefetchAttr 0x113569d0 <line:5:9, col:21> Implicit noprefetch
+  | `-DeclRefExpr 0x113564f0 <col:20> 'float *' lvalue ParmVar 0x113561c0 'C' 'float *'
+  |-IntelPrefetchAttr 0x11356a08 <line:6:9, col:24> Implicit prefetch
+  | |-DeclRefExpr 0x11356520 <col:18> 'float *' lvalue ParmVar 0x113560c0 'A' 'float *'
+  | |-IntegerLiteral 0x11356540 <col:20> 'int' 1
+  | `-IntegerLiteral 0x11356560 <col:22> 'int' 40
+  |-IntelPrefetchAttr 0x11356a58 <line:7:9, col:19> Implicit prefetch
+  | `-DeclRefExpr 0x11356590 <col:18> 'float *' lvalue ParmVar 0x11356140 'B' 'float *'
+  `-ForStmt 0x11356998 <line:8:3, line:10:3>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ATTRIB"(i32 0), "QUAL.PRAGMA.VAR"(float** %C.addr) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ATTRIB"(i32 1), "QUAL.PRAGMA.VAR"(float** %A.addr), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ATTRIB"(i32 1), "QUAL.PRAGMA.VAR"(float** %B.addr) ]
+  store i32 0, i32* %i, align 4, !tbaa !6
+  br label %for.cond
+
+  call void @llvm.directive.region.exit(token %1) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
+  }];
+  let UserContent = [{
+The ``prefetch`` pragma enables data prefetching for memory references
+specified with the pragma, or all suitable memory references if no arguments
+were specified. Prefetching data can minimize the effects of memory latency.
+The ``noprefetch`` pragma disables data prefetching for memory references
+specified with the pragma, or all memory references if no arguments
+were specified with the pragma.
   }];
 }
 
@@ -1872,6 +2108,60 @@ functions.
   }];
 }
 
+def LdexpCallDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-25133";
+  let Owner = "pmrao";
+  let Content = [{
+This change adds calls to the ldexp intrinsics when appropriate, instead
+of the calling the equivalent math library functions.
+
+For example:
+
+.. code-block:: c
+
+  #include <math.h>
+
+  void foo() {
+    (void)ldexp(2.0, -32);
+    (void)ldexpf(3.0f, -32);
+    (void)ldexpl(4.0l, -32);
+  }
+
+Compiled with:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility ldexp.c -emit-llvm -o -
+
+The compiler calls the appropriate lvm.ldexp.* instead:
+
+.. code-block:: llvm
+
+  entry:
+    %0 = call double @llvm.ldexp.f64(double 2.000000e+00, i32 -32)
+    %1 = call float @llvm.ldexp.f32(float 3.000000e+00, i32 -32)
+    %2 = call x86_fp80 @llvm.ldexp.f80(x86_fp80 0xK40018000000000000000, i32 -32)
+
+  ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+  declare double @llvm.ldexp.f64(double, i32) #1
+
+  ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+  declare float @llvm.ldexp.f32(float, i32) #1
+
+  ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+  declare x86_fp80 @llvm.ldexp.f80(x86_fp80, i32) #1
+
+  attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
+
+  }];
+  let UserContent = [{
+When ``-fmath-errno`` option is not used, this change enables calling the
+llvm.ldexp.* intrinsics instead of the equivalent math library routines.
+  }];
+}
+
 def PredeclareAlignValTDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
@@ -2115,28 +2405,28 @@ def StallEnableDocs : Documentation {
   let RegressionTest = "SemaIntelHLS/stall_enable.cpp, CodeGenIntelHLS/stall_enable.cpp, SemaOpenCL/intel-fpga-stall_enable.cl, CodeGenOpenCL/intel-fpga-stall_enable.cl";
   let Owner = "eandrews";
   let Content = [{
-The ``stall_enable`` attribute is an FPGA function and lambda function
-attribute used in HLS and OpenCL to generate FPGA hardware for the function
-using stall/enable protocol. The attribute takes no arguments and adds
+The ``use_stall_enable_clusters`` attribute is an FPGA function and lambda
+function attribute used in HLS and OpenCL to generate FPGA hardware for the
+function using stall/enable protocol. The attribute takes no arguments and adds
 metadata to the function/lambda definition.
 
 Syntax:
 
 .. code-block:: text
 
-  __attribute__((stall_enable))
+  __attribute__((use_stall_enable_clusters))
 
 C++11 attribute syntax is also supported on HLS:
 
 .. code-block:: text
 
-  [[clang::stall_enable]]
+  [[clang::use_stall_enable_clusters]]
 
 Example:
 
 .. code-block:: c
 
-  void __attribute__((stall_enable)) foo() {}
+  void __attribute__((use_stall_enable_clusters)) foo() {}
 
 AST:
 
@@ -2148,7 +2438,7 @@ AST:
 
   FunctionDecl 0x235b69b8d98 <t.c:1:1, col:43> col:36 foo 'void ()'
   |-CompoundStmt 0x235b69b8eb0 <col:42, col:43>
-  `-StallEnableAttr 0x235b69b8e30 <col:21>
+  `-SYCLIntelUseStallEnableClustersAttr 0x235b69b8e30 <col:21>
 
 IR:
 
@@ -2162,7 +2452,7 @@ IR:
   !2 = !{i32 1}
   }];
   let UserContent = [{
-The ``stall_enable`` attribute is an FPGA function and lambda function
+The ``use_stall_enable_clusters`` attribute is an FPGA function and lambda function
 attribute used in HLS and OpenCL to generate FPGA hardware for the function
 using stall/enable protocol. The attribute takes no arguments and adds
 metadata to the function/lambda definition.
@@ -2635,6 +2925,14 @@ IR:
    !8 = !{!"readwritememory: READONLY}"}
 
    }];
+  let UserContent = [{
+The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+arguments. These are pointer arguments that already have the attribute
+"slave_memory_argument". The argument "type" is mandatory, and its values are
+"readonly", "writeonly", or "readwrite".
+It is illegal to apply the attribute readwrite_mode on pointer arguments that
+do not already have an attribute slave_memory_argument applied.
+  }];
 }
 
 def IntelFPGAForcePow2DepthDocs : Documentation {
@@ -2729,6 +3027,13 @@ IR:
      ret void
    }
    }];
+  let UserContent = [{
+The 'force_pow2_depth' attribute is applied to a variable in OpenCl, HLS and
+SYCL. It takes an integer argument between 0 and 1 that determines whether
+the memory implemented for the variable should have a power-of-2 depth or not.
+This attribute infers the 'memory' attribute, and it is illegal to apply it
+to the attribute 'register'.
+  }];
 }
 
 def HLSIIDocs : Documentation {

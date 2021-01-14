@@ -3,7 +3,7 @@
 ; The correctness of the transformation is covered by other GVN tests. The
 ; commit in this case is a cost model change only.
 
-; RUN: opt < %s -gvn -S | FileCheck %s
+; RUN: opt < %s -memoryssa -gvn -S | FileCheck %s
 
 ; CHECK-LABEL: 26:
 ; CHECK: icmp ult
@@ -34,7 +34,7 @@ define dso_local i1 @__Intel_PaddedMallocInterface() local_unnamed_addr {
 
 ; Function Attrs: nofree noinline norecurse nounwind uwtable
 define dso_local fastcc %struct.lzma_match* @bt_find_func(i32 %0, i32 %1, i8* nocapture readonly %2, i32 %3, i32 %4, i32* nocapture %5, i32 %6, i32 %7, %struct.lzma_match* %8, i32 %9) unnamed_addr #0 {
-  %11 = tail call i8* @llvm.ptr.annotation.p0i8(i8* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @1, i64 0, i64 0), i32 0)
+  %11 = tail call i8* @llvm.ptr.annotation.p0i8(i8* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @1, i64 0, i64 0), i32 0, i8* null)
   %12 = shl i32 %6, 1
   %13 = zext i32 %12 to i64
   %14 = getelementptr inbounds i32, i32* %5, i64 %13, !intel-tbaa !5
@@ -188,7 +188,7 @@ define dso_local fastcc %struct.lzma_match* @bt_find_func(i32 %0, i32 %1, i8* no
 }
 
 ; Function Attrs: nounwind willreturn
-declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32) #1
+declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*) #1
 
 attributes #0 = { nofree noinline norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { nounwind willreturn }
@@ -247,7 +247,7 @@ define internal i32 @lzma_mf_bt2_find_no_crush(%struct.lzma_mf_s* nocapture %0, 
   %23 = phi i32 [ %7, %13 ], [ %9, %2 ]
   %24 = getelementptr %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 0
   %25 = load i8*, i8** %24
-  %26 = tail call i8* @llvm.ptr.annotation.p0i8(i8* %25, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @1, i64 0, i64 0), i32 0)
+  %26 = tail call i8* @llvm.ptr.annotation.p0i8(i8* %25, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @1, i64 0, i64 0), i32 0, i8* null)
   %27 = zext i32 %4 to i64
   %28 = getelementptr inbounds i8, i8* %26, i64 %27
   %29 = getelementptr inbounds %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 4

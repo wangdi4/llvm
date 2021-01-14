@@ -177,6 +177,12 @@ private:
     return Inst;
   }
 
+  // Helper method to retrieve or create an empty PHI node for an ambiguous use
+  // of given DDRef. The PHI is created at the beginning of provided
+  // VPBasicBlock, and then added to relevant fixPhiNodes data structures.
+  VPPHINode *getOrCreateEmptyPhiForDDRef(Type *PhiTy, VPBasicBlock *VPBB,
+                                         DDRef *DDR);
+
   // Methods to decompose complex HIR.
   VPValue *combineDecompDefs(VPValue *LHS, VPValue *RHS, Type *Ty,
                              unsigned OpCode);
@@ -219,6 +225,7 @@ private:
     VPValue *visitTruncateExpr(const SCEVTruncateExpr *Expr);
     VPValue *visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr);
     VPValue *visitSignExtendExpr(const SCEVSignExtendExpr *Expr);
+    VPValue *visitPtrToIntExpr(const SCEVPtrToIntExpr *);
     VPValue *visitAddExpr(const SCEVAddExpr *Expr);
     VPValue *visitMulExpr(const SCEVMulExpr *Expr);
     VPValue *visitUDivExpr(const SCEVUDivExpr *Expr);
@@ -281,6 +288,21 @@ public:
   VPValue *createLoopIVNextAndBottomTest(loopopt::HLLoop *HLp,
                                          VPBasicBlock *LpPH,
                                          VPBasicBlock *LpLatch);
+
+  /// Create empty PHIs for temps that are live-out in VPlan's exit block. This
+  /// ensures that correct merge PHIs are emitted for ambiguous use of a DDRef
+  /// outside the loop being vectorized. Consider the example below -
+  //
+  // %t1 = ...
+  // DO LOOP
+  //   if (cond)
+  //     %t1 = ...
+  // END LOOP
+  //   ... = %t1
+  //
+  // For above input HIR, a PHI is needed in loop latch VPBB to merge ambiguous
+  // definitions of %t1, even though %t1 has no uses inside the loop.
+  void createExitPhisForExternalUses(VPBasicBlock *ExitBB);
 
   /// Add operands to empty VPPHINodes added during decomposition.
   void fixPhiNodes();

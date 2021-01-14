@@ -612,7 +612,7 @@ void Module::setProfileSummary(Metadata *M, ProfileSummary::Kind Kind) {
     setModuleFlag(ModFlagBehavior::Error, "ProfileSummary", M);
 }
 
-Metadata *Module::getProfileSummary(bool IsCS) {
+Metadata *Module::getProfileSummary(bool IsCS) const {
   return (IsCS ? getModuleFlag("CSProfileSummary")
                : getModuleFlag("ProfileSummary"));
 }

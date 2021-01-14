@@ -28,7 +28,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -40,67 +40,58 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local i32 @foo() local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK:         [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK:         [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 0 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP5:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 0 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP6:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 [[VP6]] i32 [[VP5]]
-; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP5]] i32 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
+; CHECK-NEXT:     i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 0 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP8]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     store i32 [[VP6]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 1 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP9:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 1 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     i32 [[VP11:%.*]] = add i32 [[VP10]] i32 [[VP9]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP9]] i32 [[VP10]]
+; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 [[VP_LOAD_3]] i32 [[VP_LOAD_2]]
+; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP_LOAD_2]] i32 [[VP_LOAD_3]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 1 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP12]] i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:     store i32 [[VP8]] i32* [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 2 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 2 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP14:%.*]] = load i32* [[VP_SUBSCRIPT_7]]
-; CHECK-NEXT:     i32 [[VP15:%.*]] = add i32 [[VP14]] i32 [[VP13]]
-; CHECK-NEXT:     i32 [[VP16:%.*]] = add i32 [[VP13]] i32 [[VP14]]
+; CHECK-NEXT:     i32 [[VP_LOAD_5:%.*]] = load i32* [[VP_SUBSCRIPT_7]]
+; CHECK-NEXT:     i32 [[VP9:%.*]] = add i32 [[VP_LOAD_5]] i32 [[VP_LOAD_4]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP_LOAD_4]] i32 [[VP_LOAD_5]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_8:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 2 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP16]] i32* [[VP_SUBSCRIPT_8]]
+; CHECK-NEXT:     store i32 [[VP10]] i32* [[VP_SUBSCRIPT_8]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_9:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 3 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP17:%.*]] = load i32* [[VP_SUBSCRIPT_9]]
+; CHECK-NEXT:     i32 [[VP_LOAD_6:%.*]] = load i32* [[VP_SUBSCRIPT_9]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_10:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 3 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP18:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
-; CHECK-NEXT:     i32 [[VP19:%.*]] = add i32 [[VP18]] i32 [[VP17]]
-; CHECK-NEXT:     i32 [[VP20:%.*]] = add i32 [[VP17]] i32 [[VP18]]
+; CHECK-NEXT:     i32 [[VP_LOAD_7:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
+; CHECK-NEXT:     i32 [[VP11:%.*]] = add i32 [[VP_LOAD_7]] i32 [[VP_LOAD_6]]
+; CHECK-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP_LOAD_6]] i32 [[VP_LOAD_7]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 3 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP20]] i32* [[VP_SUBSCRIPT_11]]
+; CHECK-NEXT:     store i32 [[VP12]] i32* [[VP_SUBSCRIPT_11]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP21:%.*]] = icmp sle i64 [[VP4]] i64 1023
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP21]]), [[BB3:BB[0-9]+]](!i1 [[VP21]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp sle i64 [[VP4]] i64 1023
+; CHECK-NEXT:     br i1 [[VP13]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  i32 [[VP19]] -> [[VP22:%.*]] = {%add}
+; CHECK-NEXT:  i32 [[VP11]] -> [[VP14:%.*]] = {%add}
 ;
 entry:
   br label %for.cond1.preheader

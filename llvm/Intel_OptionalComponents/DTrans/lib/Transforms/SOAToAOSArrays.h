@@ -1016,7 +1016,7 @@ public:
     };
 
     // Return true if "AI" is passed to "_CxxThrowException" call.
-    auto IsAllocaUsedByEHLib = [this, &IsLibFunction](const AllocaInst *AI) {
+    auto IsAllocaUsedByEHLib = [&IsLibFunction](const AllocaInst *AI) {
       bool PassedToEHCall = false;
       for (auto *UI : AI->users()) {
         auto *CB = dyn_cast<CallBase>(UI);
@@ -1343,6 +1343,13 @@ public:
 
   using OrigToCopyTy = DenseMap<Value *, Value *>;
 
+  // All original StoreInst, which access array element, instructions will be
+  // cloned for each field of newly created SOAToAOS's array element.
+  // Map:
+  // <unsigned (element offset), Original StoreInst, cloned StoreInst>
+  using ClonedElemStoreMapTy =
+      SmallDenseMap<unsigned, SmallDenseMap<StoreInst *, StoreInst *>, 4>;
+
   static void copyArgAttrs(Argument *From, Argument *To) {
     auto *F = To->getParent();
     AttrBuilder AB(F->getAttributes(), To->getArgNo());
@@ -1454,6 +1461,32 @@ public:
     }
   }
 
+  // For each element, new Load/GEP etc instructions are generated on the fly
+  // (in rawCopyAndRelink) from the original load/store instructions. After
+  // processing the first element, types on original GEP instructions are
+  // mutated in “gepRAUW”. This may cause type mismatches when creating new
+  // StoreInst instructions for remaining elements since type of ValueOperand
+  // may not match with type of PointerOperand. So, new StoreInst are created
+  // for all elements before processing any element and saved in
+  // ClonedElemStoreMap, which will be used later in rawCopyAndRelink instead
+  // of creating new StoreInst on the fly. Not doing the same for other
+  // instructions like Load, BitCast etc as I don’t see any problem creating
+  // them in rawCopyAndRelink.
+  void earlyCloneElemStoreInst(unsigned Off,
+                               ClonedElemStoreMapTy &ClonedElemStoreMap) {
+    IRBuilder<> Builder(Context);
+    for (auto *I : InstsToTransform.ElementInstToTransform) {
+      auto *NewI = cast<Instruction>((Value *)VMap[I]);
+      if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
+        Builder.SetInsertPoint(NewStore);
+        auto *CopyStore = Builder.CreateAlignedStore(
+            NewStore->getValueOperand(), NewStore->getPointerOperand(),
+            NewStore->getAlign(), false);
+        ClonedElemStoreMap[Off][NewStore] = CopyStore;
+      }
+    }
+  }
+
   // Copy and link def-use chains of instructions related to element accesses
   // in combined methods.
   //
@@ -1477,7 +1510,9 @@ public:
   // store i64 %tmp12, i64* %tmp
   void rawCopyAndRelink(OrigToCopyTy &OrigToCopy, bool UniqueInsts,
                         unsigned NumArrays, Type *OtherElemType,
-                        unsigned NewParamOffset) {
+                        unsigned NewParamOffset,
+                        ClonedElemStoreMapTy &ClonedElemStoreMap,
+                        unsigned Off) {
     IRBuilder<> Builder(Context);
 
     auto ProcessSafeBitCast = [&](const Value *Old,
@@ -1541,10 +1576,10 @@ public:
       } else if (auto *NewStore = dyn_cast<StoreInst>(NewI)) {
         Builder.SetInsertPoint(NewStore);
         auto *NewPtr = cast<Instruction>(NewStore->getPointerOperand());
-        auto *CopyStore = Builder.CreateAlignedStore(
-            NewStore->getValueOperand(), NewPtr,
-            // Assumed all pointer types have same alignment.
-            NewStore->getAlign(), false);
+        // Get already created StoreInst from ClonedElemStoreMap
+        auto *CopyStore = ClonedElemStoreMap[Off][NewStore];
+        assert(CopyStore && "Expected valid StoreInst");
+
         OrigToCopy[NewStore] = CopyStore;
 
         if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))

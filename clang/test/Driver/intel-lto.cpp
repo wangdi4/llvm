@@ -30,3 +30,6 @@
 // RUN:   -fuse-ld=gold -fno-lto -flto -### 2>&1 | FileCheck --check-prefix=LLVMGOLD %s
 // LLVMGOLD: "-plugin" "{{.*}}{{[/\\]}}icx-lto.{{dll|dylib|so}}"
 
+// RUN: %clang -target x86_64-unknown-linux -flto -mcmodel=medium -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK_LTO_MCMODEL %s
+// CHECK_LTO_MCMODEL: "-plugin-opt=-code-model=medium"

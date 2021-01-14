@@ -65,42 +65,102 @@
 // CHECK: encoding: [0x62,0x63,0x7e,0x48,0x10,0x72,0x80,0x7b]
                vmovadvisew zmm30, zmmword ptr [rdx - 8192], 123
 
-// CHECK:      vmovadvisew xmm12, xmmword ptr [rbp + 8*r14 + 268435456], 123
+// CHECK:      {evex} vmovadvisew xmm12, xmmword ptr [rbp + 8*r14 + 268435456], 123
 // CHECK: encoding: [0x62,0x33,0x7e,0x08,0x10,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
                {evex} vmovadvisew xmm12, xmmword ptr [rbp + 8*r14 + 268435456], 123
 
-// CHECK:      vmovadvisew xmm30, xmmword ptr [rbp + 8*r14 + 268435456], 123
+// CHECK:      {evex} vmovadvisew xmm30, xmmword ptr [rbp + 8*r14 + 268435456], 123
 // CHECK: encoding: [0x62,0x23,0x7e,0x08,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew xmm30, xmmword ptr [rbp + 8*r14 + 268435456], 123
+               {evex} vmovadvisew xmm30, xmmword ptr [rbp + 8*r14 + 268435456], 123
 
-// CHECK:      vmovadvisew xmm30, xmmword ptr [r9], 123
+// CHECK:      {evex} vmovadvisew xmm30, xmmword ptr [r9], 123
 // CHECK: encoding: [0x62,0x43,0x7e,0x08,0x10,0x31,0x7b]
-               vmovadvisew xmm30, xmmword ptr [r9], 123
+               {evex} vmovadvisew xmm30, xmmword ptr [r9], 123
 
-// CHECK:      vmovadvisew ymm12, ymmword ptr [rbp + 8*r14 + 268435456], 123
+// CHECK:      {evex} vmovadvisew ymm12, ymmword ptr [rbp + 8*r14 + 268435456], 123
 // CHECK: encoding: [0x62,0x33,0x7e,0x28,0x10,0xa4,0xf5,0x00,0x00,0x00,0x10,0x7b]
                {evex} vmovadvisew ymm12, ymmword ptr [rbp + 8*r14 + 268435456], 123
 
-// CHECK:      vmovadvisew ymm30, ymmword ptr [rbp + 8*r14 + 268435456], 123
+// CHECK:      {evex} vmovadvisew ymm30, ymmword ptr [rbp + 8*r14 + 268435456], 123
 // CHECK: encoding: [0x62,0x23,0x7e,0x28,0x10,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew ymm30, ymmword ptr [rbp + 8*r14 + 268435456], 123
+               {evex} vmovadvisew ymm30, ymmword ptr [rbp + 8*r14 + 268435456], 123
 
-// CHECK:      vmovadvisew ymm30, ymmword ptr [r9], 123
+// CHECK:      {evex} vmovadvisew ymm30, ymmword ptr [r9], 123
 // CHECK: encoding: [0x62,0x43,0x7e,0x28,0x10,0x31,0x7b]
-               vmovadvisew ymm30, ymmword ptr [r9], 123
+               {evex} vmovadvisew ymm30, ymmword ptr [r9], 123
 
-// CHECK:      vmovadvisew xmmword ptr [rbp + 8*r14 + 268435456], xmm30, 123
+// CHECK:      {evex} vmovadvisew xmmword ptr [rbp + 8*r14 + 268435456], xmm30, 123
 // CHECK: encoding: [0x62,0x23,0x7e,0x08,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew xmmword ptr [rbp + 8*r14 + 268435456], xmm30, 123
+               {evex} vmovadvisew xmmword ptr [rbp + 8*r14 + 268435456], xmm30, 123
 
-// CHECK:      vmovadvisew xmmword ptr [r9], xmm30, 123
+// CHECK:      {evex} vmovadvisew xmmword ptr [r9], xmm30, 123
 // CHECK: encoding: [0x62,0x43,0x7e,0x08,0x11,0x31,0x7b]
-               vmovadvisew xmmword ptr [r9], xmm30, 123
+               {evex} vmovadvisew xmmword ptr [r9], xmm30, 123
 
-// CHECK:      vmovadvisew ymmword ptr [rbp + 8*r14 + 268435456], ymm30, 123
+// CHECK:      {evex} vmovadvisew ymmword ptr [rbp + 8*r14 + 268435456], ymm30, 123
 // CHECK: encoding: [0x62,0x23,0x7e,0x28,0x11,0xb4,0xf5,0x00,0x00,0x00,0x10,0x7b]
-               vmovadvisew ymmword ptr [rbp + 8*r14 + 268435456], ymm30, 123
+               {evex} vmovadvisew ymmword ptr [rbp + 8*r14 + 268435456], ymm30, 123
 
-// CHECK:      vmovadvisew ymmword ptr [r9], ymm30, 123
+// CHECK:      {evex} vmovadvisew ymmword ptr [r9], ymm30, 123
 // CHECK: encoding: [0x62,0x43,0x7e,0x28,0x11,0x31,0x7b]
-               vmovadvisew ymmword ptr [r9], ymm30, 123
+               {evex} vmovadvisew ymmword ptr [r9], ymm30, 123
+
+// CHECK:      vmemadvise zmmword ptr [rbp + 8*r14 + 268435456], 123
+// CHECK: encoding: [0x62,0xb1,0x7f,0x48,0x71,0x84,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               vmemadvise zmmword ptr [rbp + 8*r14 + 268435456], 123
+
+// CHECK:      vmemadvise zmmword ptr [r8 + 4*rax + 291], 123
+// CHECK: encoding: [0x62,0xd1,0x7f,0x48,0x71,0x84,0x80,0x23,0x01,0x00,0x00,0x7b]
+               vmemadvise zmmword ptr [r8 + 4*rax + 291], 123
+
+// CHECK:      vmemadvise zmmword ptr [rip], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x05,0x00,0x00,0x00,0x00,0x7b]
+               vmemadvise zmmword ptr [rip], 123
+
+// CHECK:      vmemadvise zmmword ptr [2*rbp - 2048], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x04,0x6d,0x00,0xf8,0xff,0xff,0x7b]
+               vmemadvise zmmword ptr [2*rbp - 2048], 123
+
+// CHECK:      vmemadvise zmmword ptr [rcx + 8128], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x41,0x7f,0x7b]
+               vmemadvise zmmword ptr [rcx + 8128], 123
+
+// CHECK:      vmemadvise zmmword ptr [rdx - 8192], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x48,0x71,0x42,0x80,0x7b]
+               vmemadvise zmmword ptr [rdx - 8192], 123
+
+// CHECK:      {evex} vmemadvise xmmword ptr [rbp + 8*r14 + 268435456], 123
+// CHECK: encoding: [0x62,0xb1,0x7f,0x08,0x71,0x84,0xf5,0x00,0x00,0x00,0x10,0x7b]
+               {evex} vmemadvise xmmword ptr [rbp + 8*r14 + 268435456], 123
+
+// CHECK:      {evex} vmemadvise xmmword ptr [r8 + 4*rax + 291], 123
+// CHECK: encoding: [0x62,0xd1,0x7f,0x08,0x71,0x84,0x80,0x23,0x01,0x00,0x00,0x7b]
+               {evex} vmemadvise xmmword ptr [r8 + 4*rax + 291], 123
+
+// CHECK:      {evex} vmemadvise xmmword ptr [rip], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x05,0x00,0x00,0x00,0x00,0x7b]
+               {evex} vmemadvise xmmword ptr [rip], 123
+
+// CHECK:      {evex} vmemadvise xmmword ptr [2*rbp - 512], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x04,0x6d,0x00,0xfe,0xff,0xff,0x7b]
+               {evex} vmemadvise xmmword ptr [2*rbp - 512], 123
+
+// CHECK:      {evex} vmemadvise xmmword ptr [rcx + 2032], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x41,0x7f,0x7b]
+               {evex} vmemadvise xmmword ptr [rcx + 2032], 123
+
+// CHECK:      {evex} vmemadvise xmmword ptr [rdx - 2048], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x08,0x71,0x42,0x80,0x7b]
+               {evex} vmemadvise xmmword ptr [rdx - 2048], 123
+
+// CHECK:      {evex} vmemadvise ymmword ptr [2*rbp - 1024], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x28,0x71,0x04,0x6d,0x00,0xfc,0xff,0xff,0x7b]
+               {evex} vmemadvise ymmword ptr [2*rbp - 1024], 123
+
+// CHECK:      {evex} vmemadvise ymmword ptr [rcx + 4064], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x28,0x71,0x41,0x7f,0x7b]
+               {evex} vmemadvise ymmword ptr [rcx + 4064], 123
+
+// CHECK:      {evex} vmemadvise ymmword ptr [rdx - 4096], 123
+// CHECK: encoding: [0x62,0xf1,0x7f,0x28,0x71,0x42,0x80,0x7b]
+               {evex} vmemadvise ymmword ptr [rdx - 4096], 123

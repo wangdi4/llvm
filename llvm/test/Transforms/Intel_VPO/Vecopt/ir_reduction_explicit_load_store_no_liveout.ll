@@ -5,16 +5,16 @@
 ; the reduction is not live-out of the loop.
 ; TODO: LinkedValues are not itemized due to unpredictable order (they are kept in a set).
 
-; RUN: opt -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-entities-dump -S -vplan-print-terminator-inst < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-entities-dump -S  < %s 2>&1 | FileCheck %s
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; Check that reduction is imported as VPReduction.
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
 ; CHECK-NEXT:   (+) Start: float [[X_PROMOTED0:%.*]]
-; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], float [[VP0:%.*]], float [[VP_X_RED_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP0:%.*]], float [[VP_X_RED_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: float* [[X0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -86,12 +86,12 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI10]], 8
 ; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI0]], 8
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], 1000
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], 1000
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
 ; CHECK-NEXT:    [[WIDE_LOAD30:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
-; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD30]])
+; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD30]])
 ; CHECK-NEXT:    store float [[TMP6]], float* [[X0]], align 1
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;

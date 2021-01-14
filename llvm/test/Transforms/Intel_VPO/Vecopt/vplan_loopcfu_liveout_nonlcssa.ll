@@ -17,83 +17,70 @@ declare void @llvm.directive.region.exit(token)
 ;; LoopCFU transformation for any non-LCSSA uses.
 define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan IR for: foo_non_lcssa
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp eq i32 [[VP_LANE]] i64 [[MASK_OUT_LOOP0:%.*]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_SKIP_LOOP]]), [[BB2:BB[0-9]+]](!i1 [[VP_SKIP_LOOP]])
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SKIP_LOOP:%.*]] = icmp eq i64 [[VP_LANE]] i64 [[MASK_OUT_LOOP0:%.*]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP_SKIP_LOOP]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216:%.*]] = icmp eq i32 [[VP_LANE]] i64 0
+; CHECK-NEXT:      [[BB2]]: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216:%.*]] = icmp eq i64 [[VP_LANE]] i64 0
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB1]](i1 [[VP_CMP216]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP216]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:       [DA: Div] br i1 [[VP_CMP216]], [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB5:BB[0-9]+]] ],  [ i64 0, [[BB3]] ]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB5]] ],  [ i64 0, [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB3]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV:%.*]] = phi  [ i1 undef, [[BB3]] ],  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB5]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB5]]
+; CHECK-NEXT:       [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB6:BB[0-9]+]], [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB6]]:
+; CHECK-NEXT:        [[BB6]]: # preds: [[BB4]]
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp eq i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:        SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SOME_CMP]]), [[BB7:BB[0-9]+]](!i1 [[VP_SOME_CMP]])
-; CHECK-NEXT:        PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:         [DA: Uni] br i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:          [[BB7]]:
-; CHECK-NEXT:           [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
-; CHECK-NEXT:          SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
-; CHECK-NEXT:          PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:          [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:           [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_LANE]]
+; CHECK-NEXT:           [DA: Uni] br [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:          [[INTERMEDIATE_BB0]]:
-; CHECK-NEXT:           <Empty Block>
-; CHECK-NEXT:          SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:          PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:          [[INTERMEDIATE_BB0]]: # preds: [[BB6]]
+; CHECK-NEXT:           [DA: Uni] br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[NEW_LOOP_LATCH0]]:
+; CHECK-NEXT:        [[NEW_LOOP_LATCH0]]: # preds: [[BB7]], [[INTERMEDIATE_BB0]]
 ; CHECK-NEXT:         [DA: Uni] i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB7]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0]] ],  [ i1 false, [[BB7]] ]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_IV_NEXT]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB7]] ]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_IV]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB7]] ]
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB7]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:        SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:        PREDECESSORS(2): [[BB7]] [[INTERMEDIATE_BB0]]
+; CHECK-NEXT:         [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
+; CHECK-NEXT:      [[BB5]]: # preds: [[NEW_LOOP_LATCH0]], [[BB4]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_NO_PHI_INST_USE]] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_UPDATE_USE]] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_USE]] i64 [[VP_PHI_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP0]]), [[BB4]](!i1 [[VP0]])
-; CHECK-NEXT:      PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB4]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP0]], [[BB8:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE_LCSSA:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_USE_A:%.*]] = add i64 [[VP_PHI_USE_LCSSA]] i64 1
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_USE_B:%.*]] = add i64 [[VP_PHI_UPDATE_USE_LCSSA]] i64 1
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_USE_C:%.*]] = xor i1 [[VP_NO_PHI_INST_USE_LCSSA]] i1 true
-; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:       [DA: Uni] br [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(3): [[BB0]] [[BB2]] [[BB8]]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[BB2]], [[BB8]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()
@@ -134,27 +121,24 @@ exit:
 
 define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 %mask_out_loop) {
 ; CHECK-LABEL:  VPlan IR for: foo_non_lcssa_from_uniform_sub_loop
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[BB2:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB0]] ],  [ i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND:%.*]], [[BB2]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB2]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]:
+; CHECK-NEXT:      [[BB3]]: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp eq i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:      SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB4]], [[BB3]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 0, [[BB3]] ],  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB4]] ]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_MUL:%.*]] = mul i64 [[VP_IV]] i64 100
@@ -162,27 +146,23 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[A0]] i64 [[VP_IDX]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_DEF:%.*]] = load i64* [[VP_GEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_INNER_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 100
-; CHECK-NEXT:      SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_INNER_EXITCOND]]), [[BB4]](!i1 [[VP_INNER_EXITCOND]])
-; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB3]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_INNER_EXITCOND]], [[BB5:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_DEF_LCSSA:%.*]] = phi  [ i64 [[VP_INNER_DEF]], [[BB4]] ]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:       [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB5]], [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_DEF_LCSSA]] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_PREV]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_SOME_CMP_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP0]]), [[BB1]](!i1 [[VP0]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB1]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP0]], [[BB6:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()

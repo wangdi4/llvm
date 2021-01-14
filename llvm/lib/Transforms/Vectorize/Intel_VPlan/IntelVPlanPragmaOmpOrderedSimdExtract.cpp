@@ -146,9 +146,10 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
           nullptr /* block frequency */, nullptr /* branch probability */,
           nullptr /* assumption cache */, false /* allow varying arguments */,
           true /*allow extraction of blocks with alloca instructions */,
+          "ordered.simd.region" /*suffix which is appended to the name
+                                  of the new function */,
           true /* allow safety check for llvm.eh.typeid.for intrinsic */,
-          nullptr, "ordered.simd.region" /*suffix which is appended to the name
-                                           of the new function */);
+          nullptr);
 
       CodeExtractorAnalysisCache CEAC(*F);
       Function *NewFunc =

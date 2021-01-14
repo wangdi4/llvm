@@ -23,28 +23,36 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_ICMP1:%.*]] = icmp ugt i64 [[VP_ADD3]] i64 [[LOAD_160:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_SELECT:%.*]] = select i1 [[VP_ICMP1]] i64 [[LOAD_160]] i64 [[VP_ADD3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_ICMP2:%.*]] = icmp ult i64 [[VP_ADD2]] i64 [[VP_SELECT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_ICMP2]], [[BB1]], [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD7:%.*]] = add i64 [[VP_ADD1]] i64 12
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_PHI2:%.*]] = phi  [ i64 [[VP_ADD7]], [[BB1]] ],  [ i64 [[VP_ADD_REC:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD_REC]] = add i64 [[VP_PHI2]] i64 [[LOAD_150]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_ICMP3:%.*]] = icmp ult i64 [[VP_ADD_REC]] i64 [[VP_SELECT]]
+; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_ICMP3]], [[BB2]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB7]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB8:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB8]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
   %alloca.7 = alloca i64
   store i64 %ptr1, i64* %alloca.7
@@ -117,10 +125,12 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_ICMP1:%.*]] = icmp ugt i64 [[VP_ADD3]] i64 [[LOAD_160:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_SELECT:%.*]] = select i1 [[VP_ICMP1]] i64 [[LOAD_160]] i64 [[VP_ADD3]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_ICMP2:%.*]] = icmp ult i64 [[VP_ADD2]] i64 [[VP_SELECT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_ICMP2]], [[BB1]], [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD7:%.*]] = add i64 [[VP_ADD1]] i64 12
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_BC:%.*]] = bitcast i64 [[LOAD_150]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_PHI1:%.*]] = phi  [ i64 [[VP_BC]], [[BB1]] ],  [ i64 [[VP_ADD_REC1:%.*]], [[BB2]] ]
@@ -128,20 +138,26 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ADD_REC1]] = add i64 [[VP_PHI1]] i64 [[LOAD_150]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ADD_REC2]] = add i64 [[VP_PHI2]] i64 [[LOAD_150]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_ICMP3:%.*]] = icmp ult i64 [[VP_ADD2]] i64 [[VP_SELECT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_ICMP3]], [[BB2]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB7]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB8:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB8]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
   %alloca.7 = alloca i64
   store i64 %ptr1, i64* %alloca.7

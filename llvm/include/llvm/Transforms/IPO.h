@@ -32,6 +32,13 @@ class InlineReportBuilder; // INTEL
 
 //===----------------------------------------------------------------------===//
 //
+// This pass adds !annotation metadata to entries in the
+// @llvm.global.annotations global constant.
+//
+ModulePass *createAnnotation2MetadataLegacyPass();
+
+//===----------------------------------------------------------------------===//
+//
 // These functions removes symbols from functions and modules.  If OnlyDebugInfo
 // is true, only debugging information is removed from the module.
 //
@@ -213,6 +220,11 @@ ModulePass *createMergeFunctionsPass();
 /// createHotColdSplittingPass - This pass outlines cold blocks into a separate
 /// function(s).
 ModulePass *createHotColdSplittingPass();
+
+//===----------------------------------------------------------------------===//
+/// createIROutlinerPass - This pass finds similar code regions and factors
+/// those regions out into functions.
+ModulePass *createIROutlinerPass();
 
 //===----------------------------------------------------------------------===//
 /// createPartialInliningPass - This pass inlines parts of functions.

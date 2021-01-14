@@ -211,6 +211,39 @@ static bool lowerWholeProgramSafe(Function &F) {
   }
   return Changed;
 }
+
+static bool lowerIntelHonorFCmp(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    auto *CI = dyn_cast<IntelHonorFCmpIntrinsic>(I->getUser());
+    ++I;
+    if (!CI || CI->getCalledOperand() != &F)
+      continue;
+
+    IRBuilder<> Builder(CI);
+
+    // Use the fast-math flags from the intrinsic.
+    Builder.setFastMathFlags(CI->getFastMathFlags());
+    assert(!CI->hasNoNaNs());
+
+    // If the operands are constant, the IRBuilder may fold this.
+    Value *V = Builder.CreateFCmp(CI->getPredicate(), CI->getArgOperand(0),
+                                  CI->getArgOperand(1));
+    // If it didn't get folded, copy the fast-math flags and metadata.
+    if (auto *FCmpI = dyn_cast<Instruction>(V))
+      FCmpI->copyMetadata(*CI);
+    V->takeName(CI);
+    CI->replaceAllUsesWith(V);
+    CI->eraseFromParent();
+
+    Changed = true;
+  }
+  return Changed;
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool lowerIntrinsics(Module &M) {
@@ -235,6 +268,9 @@ static bool lowerIntrinsics(Module &M) {
 
     if (F.getIntrinsicID() == Intrinsic::ssa_copy)
       Changed |= lowerSSACopy(F);
+
+    if (F.getIntrinsicID() == Intrinsic::intel_honor_fcmp)
+      Changed |= lowerIntelHonorFCmp(F);
 #endif // INTEL_CUSTOMIZATION
 
     switch (F.getIntrinsicID()) {

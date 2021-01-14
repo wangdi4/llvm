@@ -2149,7 +2149,7 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   //      %5 = bitcast %struct.p** %0 to i64*
   //      %6 = load i64, i64* %5
   //
-  auto IsLoadingPtrAsInt = [this](Value *V) {
+  auto IsLoadingPtrAsInt = [](Value *V) {
     auto *LI = dyn_cast<LoadInst>(V);
     // Make sure load has single use to simplify the implementation.
     if (!LI || !LI->getType()->isIntegerTy() || !LI->hasOneUse())
@@ -4435,6 +4435,11 @@ private:
     unsigned getLibfuncModRefModel(LibFunc &TheLibFunc,
                                    const TargetLibraryInfo &TLI) const;
 
+    // Returns true if "F" is in DefinedLibFuncSet, which is a set of defined
+    // library functions with no change in expected behavior of the library
+    // functions.
+    bool isDefinedLibFunc(Function *F, const TargetLibraryInfo &TLI);
+
     // For Library functions marked with LFMR_FMT_CHECK attribute, get the
     // argument position of the formatting string
     unsigned getFormatCheckPosition(LibFunc &TheLibFunc);
@@ -4825,6 +4830,10 @@ private:
   typedef MapVector<Function *, FunctionRecord> FunctionRecordMap;
   FunctionRecordMap FunctionInfo;
 
+  // Set of library functions that have definitions in IR and have
+  // the same functionality of the library functions.
+  SmallPtrSet<Function *, 16> DefinedLibFuncSet;
+
   std::set<DeletionCallbackHandle> Handles;
 
   // Update the AndersensAA pointer, when the AndersenAA object gets moved.
@@ -4936,6 +4945,14 @@ void IntelModRefImpl::collectFunction(Function *F) {
   // Only run collection on the body of a function.
   if (F->isDeclaration()) {
     DEBUG_WITH_TYPE("imr-collect", dbgs() << "BOTTOM: No function body.\n\n");
+    return;
+  }
+
+  auto &TLI = GetTLI(*F);
+  if (isDefinedLibFunc(F, TLI)) {
+    DEBUG_WITH_TYPE("imr-collect",
+                    dbgs() << "Defined Libfunc has expected behavior.\n\n");
+    DefinedLibFuncSet.insert(F);
     return;
   }
 
@@ -5344,14 +5361,19 @@ void IntelModRefImpl::registerHandlers() {
       Tracked.insert(SI->first);
   }
 
+  for (auto F : DefinedLibFuncSet)
+    Tracked.insert(F);
+
   for (auto I = Tracked.begin(), E = Tracked.end(); I != E; ++I) {
     Handles.insert(DeletionCallbackHandle(*this, (*I)));
   }
 }
 
 void IntelModRefImpl::valueDeleted(Value *V) {
-  if (auto *F = dyn_cast<Function>(V))
+  if (auto *F = dyn_cast<Function>(V)) {
     FunctionInfo.erase(F);
+    DefinedLibFuncSet.erase(F);
+  }
 
   if (GlobalValue *GV = dyn_cast<GlobalValue>(V))
     // Remove the GlobalValue from all the ModRef sets.
@@ -5540,6 +5562,7 @@ unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc,
         {LibFunc_acoshf, LFMR_NONE},
         {LibFunc_acoshl, LFMR_NONE},
         {LibFunc_acosl, LFMR_NONE},
+        {LibFunc_acrt_iob_func, LFMR_NONE},
         {LibFunc_asin, LFMR_NONE},
         {LibFunc_asinf, LFMR_NONE},
         {LibFunc_asinh, LFMR_NONE},
@@ -5813,7 +5836,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       const Value *Object =
           getUnderlyingObject(Call->getArgOperand(ArgNo));
 
-      MemoryLocation Loc2 = MemoryLocation(Object);
+      MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::beforeOrAfterPointer());
       AAQueryInfo AAQIP;
       AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
       if (AR == NoAlias)
@@ -5849,6 +5872,260 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
   return Result;
 }
 
+// These types are used to prove the functionality of a library function has
+// the expected behavior if the library function has definition in IR.
+// Currently, this is used to prove the functionality of printf and fprintf but
+// it can be extended to other library functions like sprintf, snprintf etc. if
+// needed. Ex:
+//  define internal void @printf(i8* readonly %0, ...) {
+//    %2 = alloca i8*, align 8
+//    %3 = bitcast i8** %2 to i8*
+//    call void @llvm.va_start(i8* nonnull %3)
+//    %4 = load i8*, i8** %2, align 8
+//    %5 = call %struct._iobuf* @__acrt_iob_func(i32 1)
+//    %6 = call i64* @__local_stdio_printf_options()
+//    %7 = load i64, i64* %6, align 8
+//    %8 = call i32 @__stdio_common_vfprintf(%7, %5, %0, null, %4 )
+//    call void @llvm.va_end(i8* nonnull %3)
+//    ret void
+//  }
+//
+// "printf" function is just calling "__stdio_common_vfprintf" by passing
+// appropriate arguments like below.
+//  Argument 0 (%7): Depends on the return value of _local_stdio_printf_options
+//  Argument 1 (%5):  stdout (__acrt_iob_func(i32 1))
+//  Argument 2: (%0): is mapped to "Argument 0" of "printf" call.
+//  Argument 3: (null)
+//  Argument 4: (%4): VAArg address.
+
+struct LibFuncsMappingTy {
+  // Mapped library function. "__stdio_common_vfprintf" in the above example.
+  LibFunc MappedLibF;
+
+  // Argument position of format string that is passed to the library call.
+  // Ex: Position of format string for "printf" (i.e 0)
+  int LibCallStringArgNum;
+
+  // Argument position of File I/O that is passed to the library call.
+  // Ex: No File I/O is passed to "printf". So, -1 is used to represent this.
+  int LibCallFileIOArgNum;
+
+  // Argument position of format string that is passed to the mapped call.
+  // Ex: Position of format string for "__stdio_common_vfprintf" (i.e 2)
+  int MappedCallStringArgNum;
+
+  // Argument position of File I/O that is passed to the mapped call.
+  // Ex: Position of File I/O for "__stdio_common_vfprintf" (i.e 1)
+  int MappedCallFileIOArgNum;
+};
+typedef std::pair<LibFunc, LibFuncsMappingTy> LibFuncsMappingDataTy;
+
+bool IntelModRefImpl::isDefinedLibFunc(Function *F,
+                                       const TargetLibraryInfo &TLI) {
+
+  // This is used to check the functionality of defined library function.
+  static const LibFuncsMappingDataTy LibFuncsMappingData[] = {
+      {LibFunc_fprintf, {LibFunc_stdio_common_vfprintf, 1, 0, 2, 1}},
+      {LibFunc_printf, {LibFunc_stdio_common_vfprintf, 0, -1, 2, 1}},
+  };
+
+  // Returns true if "Callee" is a library function "TheLibF".
+  auto IsLibFunction = [](Function *Callee, const TargetLibraryInfo &TLI,
+                          LibFunc TheLibF) {
+    LibFunc LibF;
+    if (!Callee || !TLI.getLibFunc(Callee->getName(), LibF) || !TLI.has(LibF) ||
+        LibF != TheLibF)
+      return false;
+    return true;
+  };
+
+  // Returns true if "Val" is address of VarArg like below.
+  //
+  //          %2 = alloca i8*, align 8
+  //          %3 = bitcast i8** %2 to i8*
+  //          call void @llvm.va_start(i8* nonnull %3)
+  // Val:     %4 = load i8*, i8** %2, align 8
+  // TheCall: %8 = call i32 @__stdio_common_vfprintf(%7, %5, %0, null, %4 )
+  //          call void @llvm.va_end(i8* nonnull %3)
+  //
+  auto IsVarArgAddr = [](Value *Val, Instruction *TheCall,
+                         SmallPtrSetImpl<const Instruction *> &Visited) {
+    auto LI = dyn_cast<LoadInst>(Val);
+    if (!LI)
+      return false;
+    auto AI = dyn_cast<AllocaInst>(LI->getPointerOperand());
+    if (!AI)
+      return false;
+
+    // Check that AI has only two real uses (llvm.va_start and llvm.va_end).
+    SmallVector<const Value *, 8> WorkList;
+
+    // llvm.va_start instruction.
+    const Instruction *StartII = nullptr;
+    // llvm.va_end instruction.
+    const Instruction *EndII = nullptr;
+    WorkList.push_back(AI);
+    while (!WorkList.empty()) {
+      const Value *V = WorkList.pop_back_val();
+      for (auto *U : V->users()) {
+        auto *I = dyn_cast<Instruction>(U);
+        if (!I)
+          return false;
+        Visited.insert(I);
+        // Ignore LoadInst that is used by TheCall.
+        if (I->isLifetimeStartOrEnd() || I == LI || isa<DbgInfoIntrinsic>(I))
+          continue;
+        if (isa<BitCastInst>(I)) {
+          WorkList.push_back(I);
+          continue;
+        }
+        auto *II = dyn_cast<IntrinsicInst>(I);
+        if (!II)
+          return false;
+        if (II->getIntrinsicID() == Intrinsic::vastart) {
+          if (StartII)
+            return false;
+          StartII = I;
+        } else if (II->getIntrinsicID() == Intrinsic::vaend) {
+          if (EndII)
+            return false;
+          EndII = I;
+        } else {
+          return false;
+        }
+      }
+    }
+    if (!StartII || !EndII)
+      return false;
+    // Check dominator info for all three calls.
+    if (!StartII->comesBefore(TheCall) || !TheCall->comesBefore(EndII))
+      return false;
+    Visited.insert(AI);
+    return true;
+  };
+
+  // Returns true if "Val" is related to return value of
+  //  __local_stdio_printf_options.
+  //
+  // Ex:
+  //      %6 = call i64* @__local_stdio_printf_options() #7
+  // Val: %7 = load i64, i64* %6, align 8, !tbaa !35
+  auto IsOptionsArg =
+      [&IsLibFunction](Value *Val,
+                       SmallPtrSetImpl<const Instruction *> &Visited,
+                       const TargetLibraryInfo &TLI) {
+    auto LI = dyn_cast<LoadInst>(Val);
+    if (!LI)
+      return false;
+    auto CB = dyn_cast<CallBase>(LI->getPointerOperand());
+    if (!CB)
+      return false;
+    if (!IsLibFunction(CB->getCalledFunction(), TLI,
+                       LibFunc_local_stdio_printf_options))
+      return false;
+    Visited.insert(CB);
+    Visited.insert(LI);
+    return true;
+  };
+
+  // Check if library function has mapping in LibFuncsMappingData.
+  LibFunc LibF;
+  if (!TLI.getLibFunc(F->getName(), LibF) || !TLI.has(LibF))
+    return false;
+  const auto *It =
+      find_if(LibFuncsMappingData, [LibF](const LibFuncsMappingDataTy &Pair) {
+        return Pair.first == LibF;
+      });
+  if (It == std::end(LibFuncsMappingData))
+    return false;
+
+  const LibFuncsMappingTy *MapData = &It->second;
+
+  if (F->size() != 1)
+    return false;
+
+  SmallPtrSet<const Instruction *, 16> Visited;
+  Argument *StringArg = F->getArg(MapData->LibCallStringArgNum);
+  if (!StringArg || !StringArg->hasOneUse())
+    return false;
+  // Get the function call that uses StringArg. Makes sure that it is
+  // a call to "MapData->MappedLibF"
+  auto CB = dyn_cast<CallBase>(*StringArg->user_begin());
+  if (!CB)
+    return false;
+  Function *Callee = CB->getCalledFunction();
+  if (!IsLibFunction(Callee, TLI, MapData->MappedLibF))
+    return false;
+  if (CB->getArgOperand(MapData->MappedCallStringArgNum) != StringArg)
+    return false;
+
+  int MappedStringArgNum = MapData->MappedCallStringArgNum;
+  // Only 2 more arguments are expected after format string argument.
+  if (MappedStringArgNum + 2 != (int)Callee->arg_size() - 1)
+    return false;
+
+  // Check the 1st argument.
+  Value *OptionsArg = CB->getArgOperand(0);
+  if (!IsOptionsArg(OptionsArg, Visited, TLI))
+    return false;
+
+  // Check the argument at "MappedStringArgNum + 1": Always nullptr
+  auto LocaleArg =
+      dyn_cast<Constant>(CB->getArgOperand(MappedStringArgNum + 1));
+  if (!LocaleArg || !LocaleArg->isNullValue())
+    return false;
+
+  // Check the argument at "MappedStringArgNum + 2": Address of VarArg
+  if (!IsVarArgAddr(CB->getArgOperand(MappedStringArgNum + 2), CB, Visited))
+    return false;
+
+  // Check the File I/O argument.
+  Value *MappedCallFieldIOArg =
+      CB->getArgOperand(MapData->MappedCallFileIOArgNum);
+  if (MapData->LibCallFileIOArgNum == -1) {
+    // If the library call doesn't have File I/O (Ex: printf), stdout will
+    // be passed to the mapped call. So, check for "__acrt_iob_func(i32 1)"
+    if (!isMSVCStdoutCall(MappedCallFieldIOArg, GetTLI))
+      return false;
+    Visited.insert(cast<Instruction>(MappedCallFieldIOArg));
+  } else {
+    // Check that File I/O argument of library call is passed to mapped
+    // library call.
+    Argument *LibFileIOArg = F->getArg(MapData->LibCallFileIOArgNum);
+    if (!LibFileIOArg || !LibFileIOArg->hasOneUse())
+      return false;
+    if (MappedCallFieldIOArg != LibFileIOArg)
+      return false;
+  }
+
+  // Check the return value of CB
+  if (CB->hasNUsesOrMore(2))
+    return false;
+  if (CB->hasOneUse()) {
+    auto Ret = dyn_cast<ReturnInst>(CB->user_back());
+    if (!Ret)
+      return false;
+    Visited.insert(Ret);
+  }
+
+  Visited.insert(CB);
+
+  // Makes sure there are no other unknown instructions in the function.
+  for (auto &I : instructions(F)) {
+    if (Visited.count(&I))
+      continue;
+    // Ignore ReturnInst with no operands.
+    if (isa<ReturnInst>(&I) && I.getNumOperands() == 0)
+      continue;
+
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    // Return false if any instruction is not found in Visited.
+    return false;
+  }
+  return true;
+}
+
 // Check the ModRef sets to see if a specific call will Modify or Reference
 // (or Both) the Location.
 ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
@@ -5882,6 +6159,9 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
   LibFunc TheLibFunc;
   auto &TLI = GetTLI(*(const_cast<CallBase*>(Call)->getFunction()));
   if (F->isDeclaration() && TLI.getLibFunc(*F, TheLibFunc))
+    return getLibFuncModRefInfo(TheLibFunc, Call, Loc, TLI);
+
+  if (TLI.getLibFunc(F->getName(), TheLibFunc) && DefinedLibFuncSet.count(F))
     return getLibFuncModRefInfo(TheLibFunc, Call, Loc, TLI);
 
   const FunctionRecord *FR = getFunctionInfo(F);

@@ -31,15 +31,9 @@ static cl::opt<bool>
     ShowLLVMInst("hir-details-llvm-inst", cl::init(false), cl::Hidden,
                  cl::desc("Show LLVM instructions instead of dummy HLInst"));
 
-static cl::opt<bool>
-    PrintSafeReductionOp("hir-safe-reduction-analysis-print-op",
-                         cl::init(false), cl::Hidden,
-                         cl::desc("print reduction operation"));
-
-static cl::opt<bool>
-    PrintUnsafeAlgebra("hir-safe-reduction-analysis-print-unsafe-algebra",
-                       cl::init(false), cl::Hidden,
-                       cl::desc("print safe reduction unsafe algebra"));
+static cl::opt<bool> CheckIntrinsicSafeReduction(
+    "hir-safe-reduction-analysis-check-intrinsic", cl::init(false), cl::Hidden,
+    cl::desc("Check safe reduction for intrinsic calls"));
 
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
@@ -326,7 +320,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   printDistributePoint(OS);
-  printReductionInfo(OS);
+  printReductionInfo(OS, Detailed);
 
   OS << "\n";
 
@@ -334,21 +328,16 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
-void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
+void HLInst::printReductionInfo(formatted_raw_ostream &OS,
+                                bool Detailed) const {
   HIRSafeReductionAnalysis *SRA = this->getHLNodeUtils()
                                       .getHIRFramework()
                                       .getHIRAnalysisProvider()
                                       .get<HIRSafeReductionAnalysis>();
-  bool HasUnsafeAlgebra = false;
-  if (SRA && SRA->isSafeReduction(this, nullptr, &HasUnsafeAlgebra)) {
-    OS << " <Safe Reduction>";
-    if (PrintSafeReductionOp) {
-      OS << " Red Op: " << (SRA->getSafeRedInfo(this))->OpCode;
-    }
-
-    if (PrintUnsafeAlgebra) {
-      StringRef Msg = HasUnsafeAlgebra ? " Yes" : " No";
-      OS << " <Has Unsafe Algebra-" << Msg << ">";
+  if (SRA) {
+    if (const SafeRedInfo *const RedInfo = SRA->getSafeRedInfo(this)) {
+      OS << " ";
+      RedInfo->printMarkings(OS, Detailed);
     }
   }
 
@@ -504,6 +493,8 @@ void HLInst::verify() const {
   } else if (isa<LoadInst>(Inst)) {
     assert(getRvalDDRef()->isMemRef() &&
            "Rval of load instruction is not a memref!");
+    assert(getLvalDDRef()->isTerminalRef() &&
+           "Lval of load instruction is not a terminal ref!");
 
   } else if (isa<StoreInst>(Inst)) {
     assert(getLvalDDRef()->isMemRef() &&
@@ -512,6 +503,8 @@ void HLInst::verify() const {
   } else if (isa<GetElementPtrInst>(Inst)) {
     assert(getRvalDDRef()->isAddressOf() &&
            "Rval of GEP instruction is not an AddressOf ref!");
+    assert(getLvalDDRef()->isTerminalRef() &&
+           "Lval of GEP instruction is not a terminal ref!");
 
   } else if (isCopyInst()) {
     assert(getLvalDDRef()->isTerminalRef() &&
@@ -575,19 +568,32 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
 
     return isValidReductionOpCode(OpC);
 
-  } else if (isa<SelectInst>(LLVMInst)) {
+  } else if (isMinOrMax()) {
 
     if (OpCode) {
       *OpCode = Instruction::Select;
     }
 
-    return isMinOrMax();
+    return true;
   }
 
   return false;
 }
 
 bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
+  Intrinsic::ID Id;
+
+  if (CheckIntrinsicSafeReduction && isIntrinCall(Id)) {
+    if (IsMin && (Id == Intrinsic::minnum || Id == Intrinsic::minimum)) {
+      return true;
+    }
+
+    if (IsMax && (Id == Intrinsic::maxnum || Id == Intrinsic::maximum)) {
+      return true;
+    }
+
+    return false;
+  }
 
   if (!isa<SelectInst>(Inst)) {
     return false;
@@ -612,14 +618,16 @@ bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
     // min pattern: x >(=) y ? y : x    max pattern: x >(=) y ? x : y
     if ((!OneAndThree && IsMin) || (OneAndThree && IsMax)) {
       if (Pred == PredicateTy::ICMP_SGE || Pred == PredicateTy::ICMP_SGT ||
-          Pred == PredicateTy::FCMP_OGE || Pred == PredicateTy::FCMP_OGT) {
+          Pred == PredicateTy::FCMP_OGE || Pred == PredicateTy::FCMP_OGT ||
+          Pred == PredicateTy::ICMP_UGE || Pred == PredicateTy::ICMP_UGT) {
         return true;
       }
     }
     // min pattern: x <(=) y ? x : y    max pattern: x <(=) y ? y : x
     if ((OneAndThree && IsMin) || (!OneAndThree && IsMax)) {
       if (Pred == PredicateTy::ICMP_SLE || Pred == PredicateTy::ICMP_SLT ||
-          Pred == PredicateTy::FCMP_OLE || Pred == PredicateTy::FCMP_OLT) {
+          Pred == PredicateTy::FCMP_OLE || Pred == PredicateTy::FCMP_OLT ||
+          Pred == PredicateTy::ICMP_ULE || Pred == PredicateTy::ICMP_ULT) {
         return true;
       }
     }
@@ -771,7 +779,8 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
     break;
   }
 
-  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
+  return RecurrenceDescriptor::getRecurrenceIdentity(
+      RDKind, RecurrenceDescriptor::MRK_Invalid, Ty);
 }
 
 const DebugLoc HLInst::getDebugLoc() const {

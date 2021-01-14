@@ -19,7 +19,7 @@ struct st {
 };
 
 struct inner {
-  void (*fp)(); // expected-note {{Field with illegal type declared here}}
+  void (*fp)(); // expected-note {{field with illegal type declared here}}
 };
 
 struct outer {

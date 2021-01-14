@@ -16,11 +16,11 @@
 ;     return arr[0];
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
 
 ; Check plain HCFG
 ; HCFG: i1 [[Cmp:%.*]] = fcmp ogt float [[Arr:%.*]] float 0.000000e+00
-; HCFG: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[Cmp]]), {{BB[0-9]+}}(!i1 [[Cmp]])
+; HCFG: br i1 [[Cmp]], {{BB[0-9]+}}, {{BB[0-9]+}}
 
 ; NOTE: We force VF=4 here to test correctness of code generation
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s

@@ -34,7 +34,6 @@ class ParVecDirectiveInsertion {
   /// \brief Worker class for directive insertion.
   class Visitor final : public HLNodeVisitorBase {
     Function &Func;
-    HIRFramework *HIRF;
     HIRParVecAnalysis *PVA;
     ParVecInfo::AnalysisMode Mode;
     /// \brief Status flag to indicate whether we modified the HIR or not.
@@ -53,7 +52,7 @@ class ParVecDirectiveInsertion {
   public:
     Visitor(Function &Func, HIRFramework *HIRF, HIRParVecAnalysis *PVA,
             ParVecInfo::AnalysisMode Mode)
-        : Func(Func), HIRF(HIRF), PVA(PVA), Mode(Mode), Inserted(false), 
+        : Func(Func), PVA(PVA), Mode(Mode), Inserted(false), 
           SkipNode(nullptr) {}
     void visit(HLNode *N) {}
     void postVisit(HLNode *N) {}

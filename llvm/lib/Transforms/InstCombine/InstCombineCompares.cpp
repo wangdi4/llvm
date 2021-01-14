@@ -314,7 +314,7 @@ InstCombinerImpl::foldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP,
   if (!GEP->isInBounds()) {
     Type *IntPtrTy = DL.getIntPtrType(GEP->getType());
     unsigned PtrSize = IntPtrTy->getIntegerBitWidth();
-    if (Idx->getType()->getPrimitiveSizeInBits() > PtrSize)
+    if (Idx->getType()->getPrimitiveSizeInBits().getFixedSize() > PtrSize)
       Idx = Builder.CreateTrunc(Idx, IntPtrTy);
   }
 
@@ -487,7 +487,8 @@ static Value *evaluateGEPOffsetExpression(User *GEP, InstCombinerImpl &IC,
     // Cast to intptrty in case a truncation occurs.  If an extension is needed,
     // we don't need to bother extending: the extension won't affect where the
     // computation crosses zero.
-    if (VariableIdx->getType()->getPrimitiveSizeInBits() > IntPtrWidth) {
+    if (VariableIdx->getType()->getPrimitiveSizeInBits().getFixedSize() >
+        IntPtrWidth) {
       VariableIdx = IC.Builder.CreateTrunc(VariableIdx, IntPtrTy);
     }
     return VariableIdx;
@@ -552,7 +553,7 @@ static bool canRewriteGEPAsOffset(Value *Start, Value *Base,
         return false;
 
       if (isa<IntToPtrInst>(V) || isa<PtrToIntInst>(V)) {
-        auto *CI = dyn_cast<CastInst>(V);
+        auto *CI = cast<CastInst>(V);
         if (!CI->isNoopCast(DL))
           return false;
 
@@ -933,8 +934,8 @@ Instruction *InstCombinerImpl::foldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
     // For vectors, we apply the same reasoning on a per-lane basis.
     auto *Base = GEPLHS->getPointerOperand();
     if (GEPLHS->getType()->isVectorTy() && Base->getType()->isPointerTy()) {
-      int NumElts = cast<VectorType>(GEPLHS->getType())->getNumElements();
-      Base = Builder.CreateVectorSplat(NumElts, Base);
+      auto EC = cast<VectorType>(GEPLHS->getType())->getElementCount();
+      Base = Builder.CreateVectorSplat(EC, Base);
     }
     return new ICmpInst(Cond, Base,
                         ConstantExpr::getPointerBitCastOrAddrSpaceCast(
@@ -977,8 +978,8 @@ Instruction *InstCombinerImpl::foldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
         Type *LHSIndexTy = LOffset->getType();
         Type *RHSIndexTy = ROffset->getType();
         if (LHSIndexTy != RHSIndexTy) {
-          if (LHSIndexTy->getPrimitiveSizeInBits() <
-              RHSIndexTy->getPrimitiveSizeInBits()) {
+          if (LHSIndexTy->getPrimitiveSizeInBits().getFixedSize() <
+              RHSIndexTy->getPrimitiveSizeInBits().getFixedSize()) {
             ROffset = Builder.CreateTrunc(ROffset, LHSIndexTy);
           } else
             LOffset = Builder.CreateTrunc(LOffset, RHSIndexTy);
@@ -1648,15 +1649,13 @@ Instruction *InstCombinerImpl::foldICmpXorConstant(ICmpInst &Cmp,
   if (Xor->hasOneUse()) {
     // (icmp u/s (xor X SignMask), C) -> (icmp s/u X, (xor C SignMask))
     if (!Cmp.isEquality() && XorC->isSignMask()) {
-      Pred = Cmp.isSigned() ? Cmp.getUnsignedPredicate()
-                            : Cmp.getSignedPredicate();
+      Pred = Cmp.getFlippedSignednessPredicate();
       return new ICmpInst(Pred, X, ConstantInt::get(X->getType(), C ^ *XorC));
     }
 
     // (icmp u/s (xor X ~SignMask), C) -> (icmp s/u X, (xor C ~SignMask))
     if (!Cmp.isEquality() && XorC->isMaxSignedValue()) {
-      Pred = Cmp.isSigned() ? Cmp.getUnsignedPredicate()
-                            : Cmp.getSignedPredicate();
+      Pred = Cmp.getFlippedSignednessPredicate();
       Pred = Cmp.getSwappedPredicate(Pred);
       return new ICmpInst(Pred, X, ConstantInt::get(X->getType(), C ^ *XorC));
     }
@@ -1921,7 +1920,7 @@ Instruction *InstCombinerImpl::foldICmpAndConstant(ICmpInst &Cmp,
     if (ExactLogBase2 != -1 && DL.isLegalInteger(ExactLogBase2 + 1)) {
       Type *NTy = IntegerType::get(Cmp.getContext(), ExactLogBase2 + 1);
       if (auto *AndVTy = dyn_cast<VectorType>(And->getType()))
-        NTy = FixedVectorType::get(NTy, AndVTy->getNumElements());
+        NTy = VectorType::get(NTy, AndVTy->getElementCount());
       Value *Trunc = Builder.CreateTrunc(X, NTy);
       auto NewPred = Cmp.getPredicate() == CmpInst::ICMP_EQ ? CmpInst::ICMP_SGE
                                                             : CmpInst::ICMP_SLT;
@@ -2241,7 +2240,7 @@ Instruction *InstCombinerImpl::foldICmpShlConstant(ICmpInst &Cmp,
       DL.isLegalInteger(TypeBits - Amt)) {
     Type *TruncTy = IntegerType::get(Cmp.getContext(), TypeBits - Amt);
     if (auto *ShVTy = dyn_cast<VectorType>(ShType))
-      TruncTy = FixedVectorType::get(TruncTy, ShVTy->getNumElements());
+      TruncTy = VectorType::get(TruncTy, ShVTy->getElementCount());
     Constant *NewC =
         ConstantInt::get(TruncTy, C.ashr(*ShiftAmt).trunc(TypeBits - Amt));
     return new ICmpInst(Pred, Builder.CreateTrunc(X, TruncTy), NewC);
@@ -2918,7 +2917,7 @@ static Instruction *foldICmpBitCast(ICmpInst &Cmp,
 
           Type *NewType = Builder.getIntNTy(XType->getScalarSizeInBits());
           if (auto *XVTy = dyn_cast<VectorType>(XType))
-            NewType = FixedVectorType::get(NewType, XVTy->getNumElements());
+            NewType = VectorType::get(NewType, XVTy->getElementCount());
           Value *NewBitcast = Builder.CreateBitCast(X, NewType);
           if (TrueIfSigned)
             return new ICmpInst(ICmpInst::ICMP_SLT, NewBitcast,
@@ -3177,6 +3176,14 @@ Instruction *InstCombinerImpl::foldICmpEqIntrinsicWithConstant(
   Type *Ty = II->getType();
   unsigned BitWidth = C.getBitWidth();
   switch (II->getIntrinsicID()) {
+  case Intrinsic::abs:
+    // abs(A) == 0  ->  A == 0
+    // abs(A) == INT_MIN  ->  A == INT_MIN
+    if (C.isNullValue() || C.isMinSignedValue())
+      return new ICmpInst(Cmp.getPredicate(), II->getArgOperand(0),
+                          ConstantInt::get(Ty, C));
+    break;
+
   case Intrinsic::bswap:
     // bswap(A) == C  ->  A == bswap(C)
     return new ICmpInst(Cmp.getPredicate(), II->getArgOperand(0),
@@ -3252,10 +3259,23 @@ Instruction *InstCombinerImpl::foldICmpIntrinsicWithConstant(ICmpInst &Cmp,
 
   Type *Ty = II->getType();
   unsigned BitWidth = C.getBitWidth();
+  ICmpInst::Predicate Pred = Cmp.getPredicate();
   switch (II->getIntrinsicID()) {
+  case Intrinsic::ctpop: {
+    // (ctpop X > BitWidth - 1) --> X == -1
+    Value *X = II->getArgOperand(0);
+    if (C == BitWidth - 1 && Pred == ICmpInst::ICMP_UGT)
+      return CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, X,
+                             ConstantInt::getAllOnesValue(Ty));
+    // (ctpop X < BitWidth) --> X != -1
+    if (C == BitWidth && Pred == ICmpInst::ICMP_ULT)
+      return CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, X,
+                             ConstantInt::getAllOnesValue(Ty));
+    break;
+  }
   case Intrinsic::ctlz: {
     // ctlz(0bXXXXXXXX) > 3 -> 0bXXXXXXXX < 0b00010000
-    if (Cmp.getPredicate() == ICmpInst::ICMP_UGT && C.ult(BitWidth)) {
+    if (Pred == ICmpInst::ICMP_UGT && C.ult(BitWidth)) {
       unsigned Num = C.getLimitedValue();
       APInt Limit = APInt::getOneBitSet(BitWidth, BitWidth - Num - 1);
       return CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_ULT,
@@ -3263,8 +3283,7 @@ Instruction *InstCombinerImpl::foldICmpIntrinsicWithConstant(ICmpInst &Cmp,
     }
 
     // ctlz(0bXXXXXXXX) < 3 -> 0bXXXXXXXX > 0b00011111
-    if (Cmp.getPredicate() == ICmpInst::ICMP_ULT &&
-        C.uge(1) && C.ule(BitWidth)) {
+    if (Pred == ICmpInst::ICMP_ULT && C.uge(1) && C.ule(BitWidth)) {
       unsigned Num = C.getLimitedValue();
       APInt Limit = APInt::getLowBitsSet(BitWidth, BitWidth - Num);
       return CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_UGT,
@@ -3278,7 +3297,7 @@ Instruction *InstCombinerImpl::foldICmpIntrinsicWithConstant(ICmpInst &Cmp,
       return nullptr;
 
     // cttz(0bXXXXXXXX) > 3 -> 0bXXXXXXXX & 0b00001111 == 0
-    if (Cmp.getPredicate() == ICmpInst::ICMP_UGT && C.ult(BitWidth)) {
+    if (Pred == ICmpInst::ICMP_UGT && C.ult(BitWidth)) {
       APInt Mask = APInt::getLowBitsSet(BitWidth, C.getLimitedValue() + 1);
       return CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ,
                              Builder.CreateAnd(II->getArgOperand(0), Mask),
@@ -3286,8 +3305,7 @@ Instruction *InstCombinerImpl::foldICmpIntrinsicWithConstant(ICmpInst &Cmp,
     }
 
     // cttz(0bXXXXXXXX) < 3 -> 0bXXXXXXXX & 0b00000111 != 0
-    if (Cmp.getPredicate() == ICmpInst::ICMP_ULT &&
-        C.uge(1) && C.ule(BitWidth)) {
+    if (Pred == ICmpInst::ICMP_ULT && C.uge(1) && C.ule(BitWidth)) {
       APInt Mask = APInt::getLowBitsSet(BitWidth, C.getLimitedValue());
       return CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE,
                              Builder.CreateAnd(II->getArgOperand(0), Mask),
@@ -3482,8 +3500,8 @@ static Value *foldICmpWithLowBitMaskedVal(ICmpInst &I,
   // those elements by copying an existing, defined, and safe scalar constant.
   Type *OpTy = M->getType();
   auto *VecC = dyn_cast<Constant>(M);
-  if (OpTy->isVectorTy() && VecC && VecC->containsUndefElement()) {
-    auto *OpVTy = cast<VectorType>(OpTy);
+  auto *OpVTy = dyn_cast<FixedVectorType>(OpTy);
+  if (OpVTy && VecC && VecC->containsUndefElement()) {
     Constant *SafeReplacementConstant = nullptr;
     for (unsigned i = 0, e = OpVTy->getNumElements(); i != e; ++i) {
       if (!isa<UndefValue>(VecC->getAggregateElement(i))) {
@@ -4104,6 +4122,19 @@ Instruction *InstCombinerImpl::foldICmpBinOp(ICmpInst &I,
                               ConstantExpr::getNeg(RHSC));
   }
 
+  {
+    // Try to remove shared constant multiplier from equality comparison:
+    // X * C == Y * C (with no overflowing/aliasing) --> X == Y
+    Value *X, *Y;
+    const APInt *C;
+    if (match(Op0, m_Mul(m_Value(X), m_APInt(C))) && *C != 0 &&
+        match(Op1, m_Mul(m_Value(Y), m_SpecificInt(*C))) && I.isEquality())
+      if (!C->countTrailingZeros() ||
+          (BO0->hasNoSignedWrap() && BO1->hasNoSignedWrap()) ||
+          (BO0->hasNoUnsignedWrap() && BO1->hasNoUnsignedWrap()))
+      return new ICmpInst(Pred, X, Y);
+  }
+
   BinaryOperator *SRem = nullptr;
   // icmp (srem X, Y), Y
   if (BO0 && BO0->getOpcode() == Instruction::SRem && Op1 == BO0->getOperand(1))
@@ -4148,15 +4179,13 @@ Instruction *InstCombinerImpl::foldICmpBinOp(ICmpInst &I,
       if (match(BO0->getOperand(1), m_APInt(C))) {
         // icmp u/s (a ^ signmask), (b ^ signmask) --> icmp s/u a, b
         if (C->isSignMask()) {
-          ICmpInst::Predicate NewPred =
-              I.isSigned() ? I.getUnsignedPredicate() : I.getSignedPredicate();
+          ICmpInst::Predicate NewPred = I.getFlippedSignednessPredicate();
           return new ICmpInst(NewPred, BO0->getOperand(0), BO1->getOperand(0));
         }
 
         // icmp u/s (a ^ maxsignval), (b ^ maxsignval) --> icmp s/u' a, b
         if (BO0->getOpcode() == Instruction::Xor && C->isMaxSignedValue()) {
-          ICmpInst::Predicate NewPred =
-              I.isSigned() ? I.getUnsignedPredicate() : I.getSignedPredicate();
+          ICmpInst::Predicate NewPred = I.getFlippedSignednessPredicate();
           NewPred = I.getSwappedPredicate(NewPred);
           return new ICmpInst(NewPred, BO0->getOperand(0), BO1->getOperand(0));
         }
@@ -4180,10 +4209,6 @@ Instruction *InstCombinerImpl::foldICmpBinOp(ICmpInst &I,
           Value *And2 = Builder.CreateAnd(BO1->getOperand(0), Mask);
           return new ICmpInst(Pred, And1, And2);
         }
-        // If there are no trailing zeros in the multiplier, just eliminate
-        // the multiplies (no masking is needed):
-        // icmp eq/ne (X * C), (Y * C) --> icmp eq/ne X, Y
-        return new ICmpInst(Pred, BO0->getOperand(0), BO1->getOperand(0));
       }
       break;
     }
@@ -4669,7 +4694,7 @@ static unsigned calcReducedICmpSize(Value *Op, const DataLayout &DL) {
     unsigned OrigSize = Op->getType()->getIntegerBitWidth();
 
     // Make sure the shift is less than the width so we have some bits left.
-    if (C->getZExtValue() >= OrigSize)
+    if (C->getValue().uge(OrigSize))
       return 0;
 
     unsigned ShiftRemainder = OrigSize - C->getZExtValue();
@@ -4822,9 +4847,13 @@ bool InstCombinerImpl::OptimizeOverflowCheck(Instruction::BinaryOps BinaryOp,
   // compare.
   Builder.SetInsertPoint(&OrigI);
 
+  Type *OverflowTy = Type::getInt1Ty(LHS->getContext());
+  if (auto *LHSTy = dyn_cast<VectorType>(LHS->getType()))
+    OverflowTy = VectorType::get(OverflowTy, LHSTy->getElementCount());
+
   if (isNeutralValue(BinaryOp, RHS)) {
     Result = LHS;
-    Overflow = Builder.getFalse();
+    Overflow = ConstantInt::getFalse(OverflowTy);
     return true;
   }
 
@@ -4835,12 +4864,12 @@ bool InstCombinerImpl::OptimizeOverflowCheck(Instruction::BinaryOps BinaryOp,
     case OverflowResult::AlwaysOverflowsHigh:
       Result = Builder.CreateBinOp(BinaryOp, LHS, RHS);
       Result->takeName(&OrigI);
-      Overflow = Builder.getTrue();
+      Overflow = ConstantInt::getTrue(OverflowTy);
       return true;
     case OverflowResult::NeverOverflows:
       Result = Builder.CreateBinOp(BinaryOp, LHS, RHS);
       Result->takeName(&OrigI);
-      Overflow = Builder.getFalse();
+      Overflow = ConstantInt::getFalse(OverflowTy);
       if (auto *Inst = dyn_cast<Instruction>(Result)) {
         if (IsSigned)
           Inst->setHasNoSignedWrap();
@@ -5503,8 +5532,8 @@ InstCombiner::getFlippedStrictnessPredicateAndConstant(CmpInst::Predicate Pred,
     // Bail out if the constant can't be safely incremented/decremented.
     if (!ConstantIsOk(CI))
       return llvm::None;
-  } else if (auto *VTy = dyn_cast<VectorType>(Type)) {
-    unsigned NumElts = VTy->getNumElements();
+  } else if (auto *FVTy = dyn_cast<FixedVectorType>(Type)) {
+    unsigned NumElts = FVTy->getNumElements();
     for (unsigned i = 0; i != NumElts; ++i) {
       Constant *Elt = C->getAggregateElement(i);
       if (!Elt)
@@ -5571,7 +5600,7 @@ static ICmpInst *canonicalizeCmpWithConstant(ICmpInst &I) {
 // See  CMPLRLLVM-21338 for details.
 /// If we have a comparison with a non-canonical predicate, if we can update
 /// all the users, invert the predicate and adjust all the users.
-static CmpInst *canonicalizeICmpPredicate(CmpInst &I) {
+CmpInst *InstCombinerImpl::canonicalizeICmpPredicate(CmpInst &I) {
   // Is the predicate already canonical?
   CmpInst::Predicate Pred = I.getPredicate();
   if (InstCombiner::isCanonicalPredicate(Pred))
@@ -5599,7 +5628,7 @@ static CmpInst *canonicalizeICmpPredicate(CmpInst &I) {
       cast<BranchInst>(U)->swapSuccessors(); // swaps prof metadata too
       break;
     case Instruction::Xor:
-      U->replaceAllUsesWith(&I);
+      replaceInstUsesWith(cast<Instruction>(*U), &I);
       break;
     default:
       llvm_unreachable("Got unexpected user - out of sync with "
@@ -6345,7 +6374,7 @@ static Instruction *foldFCmpReciprocalAndZero(FCmpInst &I, Instruction *LHSI,
 /// Optimize fabs(X) compared with zero.
 static Instruction *foldFabsWithFcmpZero(FCmpInst &I, InstCombinerImpl &IC) {
   Value *X;
-  if (!match(I.getOperand(0), m_Intrinsic<Intrinsic::fabs>(m_Value(X))) ||
+  if (!match(I.getOperand(0), m_FAbs(m_Value(X))) ||
       !match(I.getOperand(1), m_PosZeroFP()))
     return nullptr;
 

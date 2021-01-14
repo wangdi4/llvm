@@ -331,12 +331,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasCLDEMOTE = true;
     } else if (Feature == "+rdpid") {
       HasRDPID = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-    } else if (Feature == "+keylocker") {
-      HasKeyLocker = true;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+    } else if (Feature == "+kl") {
+      HasKL = true;
+    } else if (Feature == "+widekl") {
+      HasWIDEKL = true;
     } else if (Feature == "+retpoline-external-thunk") {
       HasRetpolineExternalThunk = true;
     } else if (Feature == "+sahf") {
@@ -356,14 +354,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-    } else if (Feature == "+uli") {
-      HasULI = true;
-#endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
     } else if (Feature == "+hreset") {
       HasHRESET = true;
-#endif // INTEL_FEATURE_ISA_HRESET
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
     } else if (Feature == "+amx-int8") {
@@ -378,6 +370,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-memadvise") {
       HasAMXMEMADVISE = true;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+    } else if (Feature == "+amx-memadvise-evex") {
+      HasAMXMEMADVISEEVEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
       HasAMXREDUCE = true;
@@ -430,10 +426,18 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile2") {
       HasAMXTILE2 = true;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-    } else if (Feature == "+avxvnni") {
-      HasAVXVNNI = true;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+    } else if (Feature == "+amx-complex") {
+      HasAMXCOMPLEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+    } else if (Feature == "+amx-complex-evex") {
+      HasAMXCOMPLEXEVEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+    } else if (Feature == "+amx-fp19") {
+      HasAMXFP19 = true;
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
     } else if (Feature == "+avx512dotprodint8") {
       HasAVX512DOTPRODINT8 = true;
@@ -480,11 +484,31 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avx512mpsadbw") {
       HasAVX512MPSADBW = true;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+    } else if (Feature == "+avxmovget") {
+      HasAVXMOVGET = true;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+    } else if (Feature == "+avx512movget") {
+      HasAVX512MOVGET = true;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+    } else if (Feature == "+gprmovget") {
+      HasGPRMOVGET = true;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+    } else if (Feature == "+movget64b") {
+      HasMOVGET64B = true;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
+    } else if (Feature == "+avxvnni") {
+      HasAVXVNNI = true;
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
     } else if (Feature == "+tsxldtrk") {
       HasTSXLDTRK = true;
+    } else if (Feature == "+uintr") {
+      HasUINTR = true;
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
@@ -658,20 +682,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_IcelakeServer:
   case CK_Tigerlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-  case CK_SapphireRapids:
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  case CK_Alderlake:
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
   case CK_Rocketlake:
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+  case CK_SapphireRapids:
+  case CK_Alderlake:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -718,6 +734,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_K8:
   case CK_K8SSE3:
   case CK_x86_64:
+  case CK_x86_64_v2:
+  case CK_x86_64_v3:
+  case CK_x86_64_v4:
     defineCPUMacros(Builder, "k8");
     break;
   case CK_AMDFAM10:
@@ -747,6 +766,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_ZNVER2:
     defineCPUMacros(Builder, "znver2");
     break;
+  case CK_ZNVER3:
+    defineCPUMacros(Builder, "znver3");
+    break;
   case CK_Geode:
     defineCPUMacros(Builder, "geode");
     break;
@@ -771,6 +793,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasVPCLMULQDQ)
     Builder.defineMacro("__VPCLMULQDQ__");
+
+  // Note, in 32-bit mode, GCC does not define the macro if -mno-sahf. In LLVM,
+  // the feature flag only applies to 64-bit mode.
+  if (HasLAHFSAHF || getTriple().getArch() == llvm::Triple::x86)
+    Builder.defineMacro("__LAHF_SAHF__");
 
   if (HasLZCNT)
     Builder.defineMacro("__LZCNT__");
@@ -900,13 +927,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__PREFETCHWT1__");
   if (HasCLZERO)
     Builder.defineMacro("__CLZERO__");
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  if (HasKeyLocker)
-    Builder.defineMacro("__KEYLOCKER__");
-  Builder.defineMacro("__KEYLOCKER_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+  if (HasKL)
+    Builder.defineMacro("__KL__");
+  if (HasWIDEKL)
+    Builder.defineMacro("__WIDEKL__");
   if (HasRDPID)
     Builder.defineMacro("__RDPID__");
   if (HasCLDEMOTE)
@@ -926,16 +950,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-  if (HasULI)
-    Builder.defineMacro("__ULI__");
-  Builder.defineMacro("__ULI_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
   if (HasHRESET)
     Builder.defineMacro("__HRESET__");
-  Builder.defineMacro("__HRESET_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_HRESET
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
   if (HasAMXINT8)
@@ -945,43 +961,48 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__AMX_SUPPORTED__");
 #if INTEL_FEATURE_ISA_AMX_BF8
   if (HasAMXBF8)
-    Builder.defineMacro("__AMX_BF8__");
-  Builder.defineMacro("__AMX_BF8_SUPPORTED__");
+    Builder.defineMacro("__AMXBF8__");
+  Builder.defineMacro("__AMXBF8_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_BF8
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
   if (HasAMXMEMADVISE)
-    Builder.defineMacro("__AMX_MEMADVISE__");
-  Builder.defineMacro("__AMX_MEMADVISE_SUPPORTED__");
+    Builder.defineMacro("__AMXMEMADVISE__");
+  Builder.defineMacro("__AMXMEMADVISE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+  if (HasAMXMEMADVISEEVEX)
+    Builder.defineMacro("__AMXMEMADVISEEVEX__");
+  Builder.defineMacro("__AMXMEMADVISEEVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   if (HasAMXMEMORY2)
-    Builder.defineMacro("__AMX_MEMORY2__");
-  Builder.defineMacro("__AMX_MEMORY2_SUPPORTED__");
+    Builder.defineMacro("__AMXMEMORY2__");
+  Builder.defineMacro("__AMXMEMORY2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
   if (HasAMXBF16EVEX)
-    Builder.defineMacro("__AMX_BF16EVEX__");
-  Builder.defineMacro("__AMX_BF16EVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXBF16EVEX__");
+  Builder.defineMacro("__AMXBF16EVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
 #if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
   if (HasAMXELEMENTEVEX)
-    Builder.defineMacro("__AMX_ELEMENTEVEX__");
-  Builder.defineMacro("__AMX_ELEMENTEVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXELEMENTEVEX__");
+  Builder.defineMacro("__AMXELEMENTEVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
   if (HasAMXINT8EVEX)
-    Builder.defineMacro("__AMX_INT8EVEX__");
-  Builder.defineMacro("__AMX_INT8EVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXINT8EVEX__");
+  Builder.defineMacro("__AMXINT8EVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
 #if INTEL_FEATURE_ISA_AMX_TILE_EVEX
   if (HasAMXTILEEVEX)
-    Builder.defineMacro("__AMX_TILEEVEX__");
-  Builder.defineMacro("__AMX_TILEEVEX_SUPPORTED__");
+    Builder.defineMacro("__AMXTILEEVEX__");
+  Builder.defineMacro("__AMXTILEEVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   if (HasAMXTRANSPOSE2)
-    Builder.defineMacro("__AMX_TRANSPOSE2__");
-  Builder.defineMacro("__AMX_TRANSPOSE2_SUPPORTED__");
+    Builder.defineMacro("__AMXTRANSPOSE2__");
+  Builder.defineMacro("__AMXTRANSPOSE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   if (HasAMXREDUCE)
@@ -992,35 +1013,45 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFORMAT__");
   if (HasAMXELEMENT)
     Builder.defineMacro("__AMXELEMENT__");
-  Builder.defineMacro("__AMX_FUTURE_SUPPORTED__");
+  Builder.defineMacro("__AMXFUTURE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
   if (HasAMXTRANSPOSE)
     Builder.defineMacro("__AMXTRANSPOSE__");
   if (HasAMXAVX512)
     Builder.defineMacro("__AMXAVX512__");
-  Builder.defineMacro("__AMX_LNC_SUPPORTED__");
+  Builder.defineMacro("__AMXLNC_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_FP16
   if (HasAMXFP16)
     Builder.defineMacro("__AMXFP16__");
-  Builder.defineMacro("__AMX_FP16_SUPPORTED__");
+  Builder.defineMacro("__AMXFP16_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   if (HasAMXCONVERT)
-    Builder.defineMacro("__AMX_CONVERT__");
-  Builder.defineMacro("__AMX_CONVERT_SUPPORTED__");
+    Builder.defineMacro("__AMXCONVERT__");
+  Builder.defineMacro("__AMXCONVERT_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AMX_TILE2
   if (HasAMXTILE2)
-    Builder.defineMacro("__AMX_TILE2__");
-  Builder.defineMacro("__AMX_TILE2_SUPPORTED__");
+    Builder.defineMacro("__AMXTILE2__");
+  Builder.defineMacro("__AMXTILE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  if (HasAVXVNNI)
-    Builder.defineMacro("__AVXVNNI__");
-  Builder.defineMacro("__AVXVNNI_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  if (HasAMXCOMPLEX)
+    Builder.defineMacro("__AMXCOMPLEX__");
+  Builder.defineMacro("__AMXCOMPLEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+  if (HasAMXCOMPLEXEVEX)
+    Builder.defineMacro("__AMXCOMPLEXEVEX__");
+  Builder.defineMacro("__AMXCOMPLEXEVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+  if (HasAMXFP19)
+    Builder.defineMacro("__AMXFP19__");
+  Builder.defineMacro("__AMXFP19_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   if (HasAVX512DOTPRODINT8)
     Builder.defineMacro("__AVX512DOTPRODINT8__");
@@ -1079,6 +1110,26 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512MPSADBW__");
   Builder.defineMacro("__AVX512MPSADBW_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+  if (HasAVXMOVGET)
+    Builder.defineMacro("__AVXMOVGET__");
+  Builder.defineMacro("__AVXMOVGET_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  if (HasAVX512MOVGET)
+    Builder.defineMacro("__AVX512MOVGET__");
+  Builder.defineMacro("__AVX512MOVGET_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+  if (HasGPRMOVGET)
+    Builder.defineMacro("__GPRMOVGET__");
+  Builder.defineMacro("__GPRMOVGET_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+  if (HasMOVGET64B)
+    Builder.defineMacro("__MOVGET64B__");
+  Builder.defineMacro("__MOVGET64B_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1091,10 +1142,14 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  if (HasAVXVNNI)
+    Builder.defineMacro("__AVXVNNI__");
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
   if (HasTSXLDTRK)
     Builder.defineMacro("__TSXLDTRK__");
+  if (HasUINTR)
+    Builder.defineMacro("__UINTR__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -1208,6 +1263,10 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
       .Case("amx-memadvise", true)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+      .Case("amx-memadvise-evex", true)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", true)
       .Case("amx-memory", true)
@@ -1245,6 +1304,15 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", true)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+      .Case("amx-complex", true)
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+      .Case("amx-complex-evex", true)
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+      .Case("amx-fp19", true)
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
@@ -1273,10 +1341,8 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
       .Case("avx512vp2intersect", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", true)
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
       .Case("avxifma", true)
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -1295,17 +1361,10 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fsgsbase", true)
       .Case("fxsr", true)
       .Case("gfni", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_HRESET
       .Case("hreset", true)
-#endif // INTEL_FEATURE_ISA_HRESET
-#endif // INTEL_CUSTOMIZATION
       .Case("invpcid", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-      .Case("keylocker", true)
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+      .Case("kl", true)
+      .Case("widekl", true)
       .Case("lwp", true)
       .Case("lzcnt", true)
       .Case("mmx", true)
@@ -1339,11 +1398,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("sse4a", true)
       .Case("tbm", true)
       .Case("tsxldtrk", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-      .Case("uli", true)
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
+      .Case("uintr", true)
       .Case("vaes", true)
       .Case("vpclmulqdq", true)
       .Case("wbnoinvd", true)
@@ -1383,6 +1438,18 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
       .Case("avx512mpsadbw", true)
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+      .Case("avxmovget", true)
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+      .Case("avx512movget", true)
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+      .Case("gprmovget", true)
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+      .Case("movget64b", true)
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
@@ -1401,6 +1468,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
       .Case("amx-memadvise", HasAMXMEMADVISE)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+      .Case("amx-memadvise-evex", HasAMXMEMADVISEEVEX)
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", HasAMXREDUCE)
       .Case("amx-memory", HasAMXMEMORY)
@@ -1438,9 +1508,15 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", HasAMXTILE2)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-      .Case("avxvnni", HasAVXVNNI)
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+      .Case("amx-complex", HasAMXCOMPLEX)
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+      .Case("amx-complex-evex", HasAMXCOMPLEXEVEX)
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+      .Case("amx-fp19", HasAMXFP19)
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 #if INTEL_FEATURE_ISA_AVX_IFMA
       .Case("avxifma", HasAVXIFMA)
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -1448,6 +1524,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avxbf16", HasAVXBF16)
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
+      .Case("avxvnni", HasAVXVNNI)
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
@@ -1499,6 +1576,18 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
       .Case("avx512mpsadbw", HasAVX512MPSADBW)
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+      .Case("avxmovget", HasAVXMOVGET)
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+      .Case("avx512movget", HasAVX512MOVGET)
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+      .Case("gprmovget", HasGPRMOVGET)
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+      .Case("movget64b", HasMOVGET64B)
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
@@ -1515,17 +1604,10 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fsgsbase", HasFSGSBASE)
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_HRESET
       .Case("hreset", HasHRESET)
-#endif // INTEL_FEATURE_ISA_HRESET
-#endif // INTEL_CUSTOMIZATION
       .Case("invpcid", HasINVPCID)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-      .Case("keylocker", HasKeyLocker)
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+      .Case("kl", HasKL)
+      .Case("widekl", HasWIDEKL)
       .Case("lwp", HasLWP)
       .Case("lzcnt", HasLZCNT)
       .Case("mm3dnow", MMX3DNowLevel >= AMD3DNow)
@@ -1561,11 +1643,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
       .Case("tsxldtrk", HasTSXLDTRK)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ULI
-      .Case("uli", HasULI)
-#endif // INTEL_FEATURE_ISA_ULI
-#endif // INTEL_CUSTOMIZATION
+      .Case("uintr", HasUINTR)
       .Case("vaes", HasVAES)
       .Case("vpclmulqdq", HasVPCLMULQDQ)
       .Case("wbnoinvd", HasWBNOINVD)
@@ -1869,12 +1947,6 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Goldmont:
     case CK_GoldmontPlus:
     case CK_Tremont:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-    case CK_Alderlake:
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-
     case CK_Westmere:
     case CK_SandyBridge:
     case CK_IvyBridge:
@@ -1892,14 +1964,13 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Rocketlake:
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+    case CK_SapphireRapids:
     case CK_IcelakeClient:
     case CK_IcelakeServer:
 #if INTEL_CUSTOMIZATION
     case CK_CommonAVX512:
-#if INTEL_FEATURE_CPU_SPR
-    case CK_SapphireRapids:
-#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
+    case CK_Alderlake:
     case CK_KNL:
     case CK_KNM:
     // K7
@@ -1920,8 +1991,12 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     // Zen
     case CK_ZNVER1:
     case CK_ZNVER2:
+    case CK_ZNVER3:
     // Deprecated
     case CK_x86_64:
+    case CK_x86_64_v2:
+    case CK_x86_64_v3:
+    case CK_x86_64_v4:
     case CK_Yonah:
     case CK_Penryn:
     case CK_Core2:
@@ -2066,7 +2141,7 @@ void X86TargetInfo::fillValidCPUList(SmallVectorImpl<StringRef> &Values) const {
 }
 
 void X86TargetInfo::fillValidTuneCPUList(SmallVectorImpl<StringRef> &Values) const {
-  llvm::X86::fillValidCPUArchList(Values);
+  llvm::X86::fillValidTuneCPUList(Values);
 }
 
 ArrayRef<const char *> X86TargetInfo::getGCCRegNames() const {

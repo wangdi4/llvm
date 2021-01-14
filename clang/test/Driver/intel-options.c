@@ -216,18 +216,19 @@
 // RUN: %clang -### -fp-speculation=safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 // RUN: %clang -### -fp-model=fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
 // RUN: %clang -### -fp-model=fast=2 -S %s 2>&1 | FileCheck --check-prefixes=CHECK-FAST,CHECK-FAST2 %s
-// RUN: %clang -### -fp-model source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
-// RUN: %clang -### -fp-model=source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
 // RUN: %clang_cl -### -fp:fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
 // CHECK-SAFE: "-ffp-exception-behavior=maytrap"
 // CHECK-STRICT: "-ffp-exception-behavior=strict"
 // CHECK-IGNORE: "-ffp-exception-behavior=ignore"
 // CHECK-FAST2: overriding
 // CHECK-FAST: "-ffp-contract=fast"
-// CHECK-SOURCE: "-fno-rounding-math"
 
-// RUN: %clang_cl -### -Qlong-double -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
+// RUN: %clang_cl -### -Qlong-double --target=x86_64-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
 // LONG_DOUBLE: clang{{.*}} "-fintel-long-double-size=80"
+
+// RUN: %clang_cl -### -Qlong-double --target=i386-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE_ERROR %s
+// LONG_DOUBLE_ERROR: unsupported option
+// LONG_DOUBLE_ERROR-NOT: clang{{.*}} "-fintel-long-double-size=80"
 
 // RUN: %clang -### -fimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
@@ -548,7 +549,6 @@
 // RUN: %clang -### -O3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
 // RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
 // CHECK-GVN: "-mllvm" "-enable-gvn-hoist"
-// CHECK-GVN: "-mllvm" "-enable-npm-gvn-hoist"
 
 // RUN: %clang --intel -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
 // RUN: %clang --intel -O2 -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
@@ -565,14 +565,19 @@
 // CHECK-NO-WCHAR_T: "-fno-wchar"
 // CHECK-WCHAR_T-NOT: "-fno-wchar"
 
-// Tests for -qopenmp-link and -qopenmp-stubs
+// Test for -qopenmp-link
 // RUN: %clang -### -target x86_64-linux-gnu -qopenmp -qopenmp-link=static %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STATIC %s
-// RUN: %clang -### -target x86_64-linux-gnu -qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS %s
-// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /QopenmpS %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
-// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /Qopenmp-stubs %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-STUBS-WIN %s
-// CHECK-QOPENMP-STUBS-WIN: "--dependent-lib=libiompstubs5md"
 // CHECK-QOPENMP-STATIC: "-Bstatic" "-liomp5" "-Bdynamic"
-// CHECK-QOPENMP-STUBS: "-liompstubs5"
+
+// Tests for -qopenmp-stubs
+// RUN: %clang -### -target x86_64-linux-gnu -qopenmp-stubs %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP-STUBS,CHECK-QOPENMP-STUBS-LIN %s
+// RUN: %clang -### -target x86_64-linux-gnu -qopenmp -qopenmp-stubs %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP-STUBS,CHECK-QOPENMP-STUBS-LIN %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /QopenmpS %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP-STUBS,CHECK-QOPENMP-STUBS-WIN %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /Qopenmp-stubs %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP-STUBS,CHECK-QOPENMP-STUBS-WIN %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc /Qopenmp /Qopenmp-stubs %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP-STUBS,CHECK-QOPENMP-STUBS-WIN %s
+// CHECK-QOPENMP-STUBS-NOT: "-fopenmp"
+// CHECK-QOPENMP-STUBS-WIN: "--dependent-lib=libiompstubs5md"
+// CHECK-QOPENMP-STUBS-LIN: "-liompstubs5"
 // CHECK-QOPENMP-STUBS-NOT: "-lpthread"
 // CHECK-QOPENMP-STUBS-WIN: "-defaultlib:libiompstubs5md.lib"
 
@@ -606,3 +611,24 @@
 // RUN: %clang_cl -### /Qopt-assume-no-loop-carried-dep -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK-LOOP-CARRIED-DEP1 %s
 // CHECK-LOOP-CARRIED-DEP1: "-mllvm" "-hir-dd-test-assume-no-loop-carried-dep=1"
+
+// -parallel-source-info
+// RUN: %clang -### -parallel-source-info -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang -### -parallel-source-info=1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang_cl -### /Qparallel-source-info -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang_cl -### /Qparallel-source-info:1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO1 %s
+// RUN: %clang -### -parallel-source-info=2 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO2 %s
+// RUN: %clang_cl -### /Qparallel-source-info:2 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO2 %s
+// RUN: %clang -### -no-parallel-source-info -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO0 %s
+// RUN: %clang_cl -### /Qparallel-source-info- -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=PARALLEL_SOURCE_INFO0 %s
+// PARALLEL_SOURCE_INFO0: "-mllvm" "-parallel-source-info=0"
+// PARALLEL_SOURCE_INFO1: "-mllvm" "-parallel-source-info=1"
+// PARALLEL_SOURCE_INFO2: "-mllvm" "-parallel-source-info=2"

@@ -19,6 +19,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRTRANSFORM_UTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRTRANSFORM_UTILS_H
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
@@ -338,8 +339,61 @@ public:
   static bool doIdentityMatrixSubstitution(HLLoop *Loop,
                                            const RegDDRef *IdentityRef);
 
-  static bool substituteConstGlobals(HLNode *Node);
+  /// Propagates constants to refs and does constant folding for instructions.
+  /// Also substitutes constant global refs with equivalent constants.
+  static bool doConstantPropagation(HLNode *Node);
 
+  /// Returns true if instruction was folded, along with the new instruction.
+  /// If the instruction is null, it folded into a self-assignment (no-op).
+  /// \p Invalidate indicates that we need to invalidate the parent loop/region
+  static std::pair<bool, HLInst*> constantFoldInst(HLInst *Inst, bool Invalidate);
+
+
+  /// Conduct Array Scalarization for all memrefs provided in a set of symbases.
+  ///
+  /// A typical transformation looks like-
+  ///  example1 [BEFORE]
+  ///  do i1
+  ///    A[0][0] = .
+  ///    ...
+  ///       .    = A[0][0]
+  ///    ...
+  ///
+  ///  end do
+  ///
+  ///  These memrefs are on local arrays, contain only const-only subscripts,
+  ///  and are dead after the loop. Thus they can be replaced by a scalar temp.
+  ///  The above loop will become-
+  ///
+  ///  example1 [AFTER]
+  ///    type t0
+  ///  do i1
+  ///    t0       = .
+  ///    ...
+  ///          .  = t0
+  ///    ...
+  ///
+  ///  end do
+  ///
+  static bool doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
+                              HLLoop *InnermostLp, SmallSet<unsigned, 8> &SBS);
+
+  static bool doOptVarPredicate(HLLoop *Loop,
+                                SmallVectorImpl<HLLoop *> &OutLoops,
+                                SmallPtrSetImpl<HLNode *> &NodesToInvalidate);
+  /// Set \p Ref to be \p Blob with \p BlobIndex
+  /// The ref should be a single canon expr.
+  /// Notice that makeConsistent over Ref is NOT called.
+  /// It is user's responisbility.
+  static void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
+                               unsigned BlobIndex);
+
+  /// Replaces \p OldRef in its HLDDNode by \p NewRef. It returns the node where
+  /// the replacement was performed. This may be different than the original
+  /// node if creating a new one was necessary for replacement. Old node will be
+  /// replaced by the new one in this case. Note: This utility does not
+  /// invalidate analyses.
+  static HLDDNode *replaceOperand(RegDDRef *OldRef, RegDDRef *NewRef);
 };
 
 } // End namespace loopopt

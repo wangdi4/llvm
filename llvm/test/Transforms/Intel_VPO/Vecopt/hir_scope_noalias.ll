@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i64* %larr1, i64* readonly %larr2) {
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK:     + DO i64 i1 = 0, 99, 4   <DO_LOOP> <nounroll> <novectorize>
+; CHECK:     + DO i64 i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK:     |   [[VEC:.*]] = (<4 x i64>*)(%larr2)[i1];
 ; CHECK:     |   <RVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* %larr2)[LINEAR i64 i1] inbounds  !tbaa !1 !alias.scope !5
 ; CHECK:     |   (<4 x i64>*)(%larr1)[i1] = [[VEC]] + 1;

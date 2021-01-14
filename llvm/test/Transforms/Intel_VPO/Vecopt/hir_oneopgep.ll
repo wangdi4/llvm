@@ -22,12 +22,12 @@
 ; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK:              %red.var = 0;
 ; CHECK-NEXT:         %red.var = insertelement %red.var,  %n.09,  0;
-; CHECK-NEXT:         DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:         DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:            %nsbgepcopy = &((<4 x i8*>)(%0)[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0.0.0.0);
 ; CHECK-NEXT:            %.vec = (<4 x i64>*)(%nsbgepcopy)[40];
 ; CHECK-NEXT:            %red.var = %red.var  +  %.vec;
 ; CHECK-NEXT:         END LOOP
-; CHECK-NEXT:         %n.09 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
+; CHECK-NEXT:         %n.09 = @llvm.vector.reduce.add.v4i32(%red.var);
 ;
 %"class.std::vector" = type { %"struct.std::_Vector_base" }
 %"struct.std::_Vector_base" = type { %"struct.std::_Vector_base<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>, std::allocator<std::set<unsigned int, std::less<unsigned int>, std::allocator<unsigned int>>>>::_Vector_impl" }

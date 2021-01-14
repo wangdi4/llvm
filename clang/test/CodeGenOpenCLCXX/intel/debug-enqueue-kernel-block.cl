@@ -29,7 +29,7 @@ kernel void caller(global int* a)
 // CHECK:   load i32 addrspace(1)*, i32 addrspace(1)** %a.addr{{.*}}!dbg [[LINE20:![0-9]+]]
 // CHECK:   load i32 addrspace(1)*, i32 addrspace(1)** %a.addr{{.*}}!dbg [[LINE25:![0-9]+]]
 // CHECK:   store i32 addrspace(1)* %{{[0-9]+}}, i32 addrspace(1)** %block.captured{{.*}}!dbg [[LINE25]]
-// CHECK:   call i32 @__enqueue_kernel_basic({{.*}}), !dbg [[LINE21:![0-9]+]]
+// CHECK:   call spir_func i32 @__enqueue_kernel_basic({{.*}}), !dbg [[LINE21:![0-9]+]]
 // CHECK: }
 
 // CHECK-NOT: !DILocation(line: 0

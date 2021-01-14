@@ -3,7 +3,7 @@
 
 ; This test is to verify the module level computation for advanced optimizations
 ; is checking the target feature information of the functions in the module.
-; This should detect SSE4.2, AVX and AVX2, but not AVX512.
+; This should detect SSE4.2, AVX, AVX2, Intel-AVX2, but not AVX512.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -29,7 +29,8 @@ entry:
 
 attributes #1 = { "target-features"="+avx,+avx2,+sse4.2" }
 
-; CHECK: Target has SSE42
-; CHECK: Target has AVX
-; CHECK: Target has AVX2
-; CHECK-NOT: Target has AVX512
+; CHECK: Target has Intel SSE42
+; CHECK: Target has Intel AVX
+; CHECK: Target has Intel AVX2
+; CHECK: Target has generic AVX2
+; CHECK-NOT: Target has Intel AVX512

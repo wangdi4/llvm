@@ -146,6 +146,11 @@ public:
         IsUpdatedInThenBranch(Arg.IsUpdatedInThenBranch),
         IsUpdatedInElseBranch(Arg.IsUpdatedInElseBranch) {
     for (HLInst *Inst : Arg.Instructions) {
+      // Skip instructions that are already removed.
+      if (!Inst->getParent()) {
+        continue;
+      }
+
       HLInst *ClonedInst = Mapper.getMapped(Inst);
       assert(ClonedInst && "Nullptr instruction");
       Instructions.insert(ClonedInst);
@@ -299,7 +304,6 @@ using CaseNodeContainerMapTy = SmallDenseMap<int64_t, NodeContainerMapTy>;
 
 class HIROptPredicate {
 public:
-  static char ID;
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                   bool EnablePartialUnswitch, bool KeepLoopnestPerfect)
@@ -774,8 +778,20 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   }
 
   if (IsCandidate && Pass.KeepLoopnestPerfect && Level != 0) {
+    // Suppress single level predicate optimization for complete unroll
+    // candidates as it may complicate the analysis for unrolling and subsequent
+    // passes.
+    // TODO: Should we rename KeepLoopnestPerfect to EarlyPredicateOpt for
+    // better context?
+    uint64_t TC;
+    bool IsCompleteUnrollCandidate =
+        (ParentLoop->isInnermost() &&
+         (Level == ParentLoop->getNestingLevel() - 1) &&
+         ParentLoop->isConstTripLoop(&TC) && TC < 4);
+
     // Check if unswitching breaks the existing loopnest perfectness.
-    IsCandidate = Node->getParentLoopAtLevel(Level)->getNumChildren() > 1;
+    IsCandidate = !IsCompleteUnrollCandidate &&
+                  (Node->getParentLoopAtLevel(Level)->getNumChildren() > 1);
   }
 
   if (IsCandidate && PUC.isPURequired()) {
@@ -822,6 +838,59 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   Pass.Candidates.emplace_back(Node, Level, PUC);
 }
 
+// Function implements "less" predicate for a pair of HLNodes.
+// The order is expected to be [HLIfs..., HLSwitches...]. No other node kinds
+// are expected.
+static bool conditionalHLNodeLess(const HLNode *A, const HLNode *B) {
+  // The node may be one of two kinds here: HLIf or HLSwitch.
+  auto GetKind = [](const HLNode *Node) {
+    if (isa<HLIf>(Node))
+      return 0;
+
+    assert(isa<HLSwitch>(Node) &&
+           "Unexpected node kind: should be either HLIf or HLSwitch.");
+    return 1;
+  };
+
+  unsigned KindA = GetKind(A);
+  unsigned KindB = GetKind(B);
+  if (KindA != KindB) {
+    return KindA < KindB;
+  }
+
+  // Equal kind of nodes
+
+  if (KindA == 0 &&
+      HLNodeUtils::areEqualConditions(cast<HLIf>(A), cast<HLIf>(B))) {
+    return false;
+  }
+
+  if (KindA == 1 &&
+      HLNodeUtils::areEqualConditions(cast<HLSwitch>(A), cast<HLSwitch>(B))) {
+    return false;
+  }
+
+  return A->getNumber() < B->getNumber();
+}
+
+static unsigned countMaxEqualConditions(ArrayRef<const HLNode *> In) {
+  unsigned Count = 0;
+
+  for (auto I = In.begin(), E = In.end(); I != E;) {
+    auto FoundI = std::adjacent_find(I, E, conditionalHLNodeLess);
+    if (FoundI != E) {
+      ++FoundI;
+    }
+
+    unsigned NumPreds = std::distance(I, FoundI);
+    Count = std::max(Count, NumPreds);
+
+    I = FoundI;
+  }
+
+  return Count;
+}
+
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   SkipNode = Loop;
 
@@ -832,7 +901,23 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   // child.
   if (!DisableCostModel && !Loop->isInnermost() &&
       Loop->getNumChildren() != 1) {
-    TransformCurrentLoop = false;
+
+    SmallVector<const HLNode *, 8> ChildNodes;
+    auto ConditionalNodes =
+        make_filter_range(make_range(Loop->child_begin(), Loop->child_end()),
+                          [](const HLNode &Node) {
+                            return isa<HLIf>(Node) || isa<HLSwitch>(Node);
+                          });
+
+    std::transform(ConditionalNodes.begin(), ConditionalNodes.end(),
+                   std::back_inserter(ChildNodes),
+                   [](const HLNode &Node) { return &Node; });
+
+    std::sort(ChildNodes.begin(), ChildNodes.end(), conditionalHLNodeLess);
+
+    if (countMaxEqualConditions(ChildNodes) < 3) {
+      TransformCurrentLoop = false;
+    }
   }
 
   if (Loop->isSIMD()) {
@@ -1075,8 +1160,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(TargetLoop);
 
     // TODO: check if candidate is defined in preheader
-    TargetLoop->extractZtt();
-    TargetLoop->extractPreheaderAndPostexit();
+    TargetLoop->extractZttPreheaderAndPostexit();
 
     // TransformLoop and its clones.
     transformCandidate(TargetLoop, Candidate);
@@ -1288,7 +1372,7 @@ void HIROptPredicate::transformIf(
       for (HLInst *RedundantInst : C.PUC.getInstructions()) {
         // Remove instruction if it's still attached. May be removed by
         // another candidate.
-        if (RedundantInst->isAttached()) {
+        if (RedundantInst->getParent()) {
           addLvalAsLivein(RedundantInst->getLvalDDRef(), TargetLoop);
           HLNodeUtils::remove(RedundantInst);
         }
@@ -1334,7 +1418,7 @@ void HIROptPredicate::transformIf(
         // Remove instruction if it's still attached. May be removed by
         // another candidate.
         HLInst *RedundantInstClone = CloneMapper.getMapped(RedundantInst);
-        if (RedundantInstClone && RedundantInstClone->isAttached()) {
+        if (RedundantInstClone && RedundantInstClone->getParent()) {
           addLvalAsLivein(RedundantInstClone->getLvalDDRef(), NewElseLoop);
           HLNodeUtils::remove(RedundantInstClone);
         }
@@ -1376,12 +1460,12 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
         bool IsEquiv =
             C.Level == Candidate.Level && C.isIf() == Candidate.isIf() &&
             // Have same condition
-            (C.isIf() && HLNodeUtils::areEqualConditions(C.getIf(),
-                                                         Candidate.getIf()) ||
-             !C.isIf() && HLNodeUtils::areEqualConditions(
-                              C.getSwitch(), Candidate.getSwitch())) &&
-            // And are in the same target loop
-            HLNodeUtils::contains(TargetLoop, C.getNode(), false);
+            ((C.isIf() &&
+              HLNodeUtils::areEqualConditions(C.getIf(), Candidate.getIf())) ||
+             (!C.isIf() && HLNodeUtils::areEqualConditions(
+                               C.getSwitch(), Candidate.getSwitch()))) &&
+          // And are in the same target loop
+          HLNodeUtils::contains(TargetLoop, C.getNode(), false);
 
         if (!IsEquiv) {
           return false;
@@ -1498,6 +1582,11 @@ void HIROptPredicate::removeOrHoistIf(HoistCandidate &Candidate,
 
     unsigned Level = TargetLoop->getNestingLevel();
     for (HLInst *DefInst : DefInstructions) {
+      // Skip instructions that may already be removed by other candidates.
+      if (!DefInst->getParent()) {
+        continue;
+      }
+
       HLInst *DefInstClone = DefInst->clone();
       HLNodeUtils::insertBefore(TargetLoop, DefInstClone);
 

@@ -77,14 +77,18 @@ static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
                                       cl::Hidden,
                                       cl::desc("Threshold for huge loop size"));
 static cl::opt<unsigned>
-    MaxInstThresholdOption("hir-region-inst-threshold", cl::init(0), cl::Hidden,
+    MaxInstThresholdOption("hir-loop-inst-threshold", cl::init(0), cl::Hidden,
                            cl::desc("Threshold for maximum number of "
-                                    "instructions allowed in a HIR region"));
+                                    "instructions allowed in a HIR loop"));
+
+static cl::opt<unsigned> MaxIfThresholdOption(
+    "hir-loop-if-threshold", cl::init(0), cl::Hidden,
+    cl::desc("Threshold for maximum number of ifs allowed in a HIR loop"));
 
 static cl::opt<unsigned> MaxIfNestThresholdOption(
-    "hir-region-if-nest-threshold", cl::init(0), cl::Hidden,
+    "hir-loop-if-nest-threshold", cl::init(0), cl::Hidden,
     cl::desc(
-        "Threshold for maximum number of nested ifs allowed in a HIR region"));
+        "Threshold for maximum number of nested ifs allowed in a HIR loop"));
 
 static cl::opt<bool>
     PrintCostModelStats("hir-region-print-cost-model-stats", cl::init(false),
@@ -177,11 +181,13 @@ static bool isKnownLoopDirective(const Instruction *Inst, bool BeginDir,
   return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
                      TagName.equals("DIR.OMP.SIMD") ||
                      TagName.equals("DIR.PRAGMA.BLOCK_LOOP") ||
+                     TagName.equals("DIR.PRAGMA.PREFETCH_LOOP") ||
                      (!SkipDistributePoint &&
                       TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")))
                   : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
                      TagName.equals("DIR.OMP.END.SIMD") ||
                      TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP") ||
+                     TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP") ||
                      (!SkipDistributePoint &&
                       TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")));
 
@@ -518,8 +524,7 @@ static void printOptReportRemark(const Loop *Lp, const Twine &Remark) {
   LLVM_DEBUG(Lp->getHeader()->printAsOperand(dbgs(), false));
 
   if (const DebugLoc Loc = Lp->getStartLoc()) {
-    LLVM_DEBUG(dbgs() << " at "
-                      << "(" << Loc.getLine() << "," << Loc.getCol() << ")");
+    LLVM_DEBUG(dbgs() << " at "; Loc.print(dbgs()););
   }
 
   LLVM_DEBUG(dbgs() << ": " << Remark << "\n");
@@ -614,7 +619,8 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
 
 const unsigned O2MaxInstThreshold = 200;
 const unsigned O3MaxInstThreshold = 400;
-const unsigned MaxIfThreshold = 7;
+const unsigned OuterLoopMaxIfThreshold = 7;
+const unsigned InnermostLoopMaxIfThreshold = 15;
 const unsigned O2MaxIfNestThreshold = 3;
 const unsigned O3MaxIfNestThreshold = 7;
 const unsigned SmallTripThreshold = 16;
@@ -626,6 +632,7 @@ class HIRRegionIdentification::CostModelAnalyzer
   DomTreeNode *HeaderDomNode;
 
   const bool IsInnermostLoop;
+  const bool IsSingleExitLoop;
   const bool IsUnknownLoop;
   bool IsSmallTripLoop;
   bool IsProfitable;
@@ -636,6 +643,7 @@ class HIRRegionIdentification::CostModelAnalyzer
   unsigned IfCount;               // Approximates number of ifs in HIR.
 
   unsigned MaxInstThreshold;
+  unsigned MaxIfThreshold;
   unsigned MaxIfNestThreshold;
 
 public:
@@ -659,7 +667,8 @@ public:
 HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
     const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount,
     bool &ThrottleParentLoop)
-    : RI(RI), Lp(Lp), IsInnermostLoop(Lp.empty()),
+    : RI(RI), Lp(Lp), IsInnermostLoop(Lp.isInnermost()),
+      IsSingleExitLoop(Lp.getExitingBlock()),
       IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
       IfCount(0) {
@@ -668,6 +677,16 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
     MaxInstThreshold = MaxInstThresholdOption;
   } else {
     MaxInstThreshold = (OptLevel > 2) ? O3MaxInstThreshold : O2MaxInstThreshold;
+  }
+
+  if (MaxIfThresholdOption.getNumOccurrences() != 0) {
+    MaxIfThreshold = MaxIfThresholdOption;
+  } else {
+    // Use higher threshold for single-exit countable innermost loops at O3.
+    MaxIfThreshold =
+        (OptLevel > 2 && IsInnermostLoop && IsSingleExitLoop && !IsUnknownLoop)
+            ? InnermostLoopMaxIfThreshold
+            : OuterLoopMaxIfThreshold;
   }
 
   if (MaxIfNestThresholdOption.getNumOccurrences() != 0) {
@@ -709,7 +728,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   }
 
   // Only allow innermost multi-exit loops for now.
-  if (!Lp.getExitingBlock() && !Lp.empty()) {
+  if (!IsSingleExitLoop && !IsInnermostLoop) {
     printOptReportRemark(
         &Lp, "Outer multi-exit loop throttled for compile time reasons.");
     IsProfitable = false;
@@ -722,7 +741,7 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // ready yet. Innermost unknown loops embedded inside other loops are
   // throttled for compile time reasons.
   if (IsUnknownLoop &&
-      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !Lp.empty())) {
+      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !IsInnermostLoop)) {
     printOptReportRemark(
         &Lp, "Non-countable loop throttled for compile time reasons.");
     IsProfitable = false;
@@ -766,29 +785,23 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     const Instruction &Inst) {
-  // Compares are most likely eliminated in HIR.
-  // Subscript instructions are like GEPs and hence most likely eliminated in
-  // HIR. This check can be removed once we add support for them in
-  // ScalarEvolution.
-  if (!isa<CmpInst>(Inst) && !isa<SubscriptInst>(Inst) &&
-      !isa<DbgInfoIntrinsic>(Inst)) {
 
-    // The following checks are to ignore linear instructions.
-    if (RI.SE.isSCEVable(Inst.getType())) {
-      auto SC = RI.SE.getSCEV(const_cast<Instruction *>(&Inst));
-      auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+  // This logic is very similar to HIRParser::isEssential().
+  if (isa<CallInst>(Inst)) {
 
-      if (!AddRec || !AddRec->isAffine()) {
-        auto Phi = dyn_cast<PHINode>(&Inst);
+    if (!isa<SubscriptInst>(Inst) && !isa<DbgInfoIntrinsic>(Inst)) {
+      ++InstCount;
+    }
 
-        if (Phi) {
-          // Non-linear phis will be deconstructed using copy stmts for each
-          // operand.
-          InstCount += Phi->getNumIncomingValues();
-        } else {
-          ++InstCount;
-        }
-      }
+  } else if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+    ++InstCount;
+
+  } else if (!RI.SE.isSCEVable(Inst.getType())) {
+
+    if (auto *Phi = dyn_cast<PHINode>(&Inst)) {
+      // Non-linear phis will be deconstructed using copy stmts for each
+      // operand.
+      InstCount += Phi->getNumIncomingValues();
     } else {
       ++InstCount;
     }
@@ -865,18 +878,17 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   auto ParentBB = BI.getParent();
 
   // Complex CFG checks do not apply to headers/latches.
+  // Note: This ignores the very first conditional branch in the loop which for
+  // many outer loops is the ztt of the inner loop. This has the (probably
+  // unintentional) effect of being able to create deep loopnests without
+  // bailing out, based on if nesting threshold.
   if ((ParentBB == Lp.getHeader()) || (ParentBB == Lp.getLoopLatch())) {
     return true;
   }
 
-  if (++IfCount > MaxIfThreshold) {
-    printOptReportRemark(&Lp, "Throttled due to presence of too many ifs.");
-    return false;
-  }
+  auto *DomNode = RI.DT.getNode(const_cast<BasicBlock *>(ParentBB));
 
   unsigned IfNestCount = 0;
-  auto DomNode = RI.DT.getNode(const_cast<BasicBlock *>(ParentBB));
-
   while (DomNode != HeaderDomNode) {
     assert(DomNode && "Dominator tree node of a loop bblock is null!");
 
@@ -909,6 +921,16 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     DomNode = DomNode->getIDom();
   }
 
+  // Ignore top level loop invariant branches in innermost loops as these are
+  // likely to be unswitched.
+  if ((IfNestCount == 0) && IsInnermostLoop) {
+    auto *Cond = dyn_cast<Instruction>(BI.getCondition());
+
+    if (!Cond || !Lp.contains(Cond)) {
+      return true;
+    }
+  }
+
   // Add 1 to include reaching header node.
   if ((IfNestCount + 1) > MaxIfNestThreshold) {
     printOptReportRemark(
@@ -916,8 +938,14 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return false;
   }
 
+  if (++IfCount > MaxIfThreshold) {
+    printOptReportRemark(&Lp,
+                         "Loop throttled due to presence of too many ifs.");
+    return false;
+  }
+
   // Skip goto check for multi-exit loops.
-  if (!Lp.getExitingBlock()) {
+  if (!IsSingleExitLoop) {
     return true;
   }
 
@@ -1052,7 +1080,7 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
 }
 
 bool isInnermostConvolutionLoop(const Loop &Lp) {
-  if (!Lp.empty() || !Lp.getExitingBlock()) {
+  if (!Lp.isInnermost() || !Lp.getExitingBlock()) {
     return false;
   }
 
@@ -1088,7 +1116,7 @@ static bool isMiddleConvolutionLoop(const Loop &Lp) {
 static bool isOuterConvolutionLoop(const Loop &Lp, const SCEV *BECount) {
 
   // We are looking for an outer single-exit countable loop.
-  if (Lp.empty() || !Lp.getExitingBlock() ||
+  if (Lp.isInnermost() || !Lp.getExitingBlock() ||
       (BECount && isa<SCEVCouldNotCompute>(BECount))) {
     return false;
   }
@@ -1111,7 +1139,7 @@ static bool isOuterConvolutionLoop(const Loop &Lp, const SCEV *BECount) {
 
 static bool isOutermostConvolutionLoop(const Loop &Lp) {
 
-  if (Lp.empty() || !Lp.getExitingBlock()) {
+  if (Lp.isInnermost() || !Lp.getExitingBlock()) {
     return false;
   }
 
@@ -1170,7 +1198,7 @@ static bool containsInvariantSwitchInInnermostLoop(const Loop *Lp,
 
   const Loop *InnermostLp = Lp;
   // Recurse into single child loop to get to innermost loop.
-  while (!InnermostLp->empty()) {
+  while (!InnermostLp->isInnermost()) {
     if (std::distance(InnermostLp->begin(), InnermostLp->end()) != 1) {
       return false;
     }
@@ -1200,7 +1228,7 @@ static bool hasHugeOutermostParentLoop(const Loop *Lp, const SCEV *BECount) {
   if (BECount && !isa<SCEVCouldNotCompute>(BECount))
     return false;
 
-  if (!Lp->getExitingBlock() || Lp->getLoopDepth() > 2 || !Lp->empty())
+  if (!Lp->getExitingBlock() || Lp->getLoopDepth() > 2 || !Lp->isInnermost())
     return false;
 
   Loop *PLp = Lp->getParentLoop();
@@ -1282,12 +1310,24 @@ static bool isLoopCountMetadata(MDNode *Node) {
   return Str && Str->getString().startswith("llvm.loop.intel.loopcount");
 }
 
+static bool isParallelAccessMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().equals("llvm.loop.parallel_accesses");
+}
+
+static bool isMustProgressMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+  return Str && Str->getString().equals("llvm.loop.mustprogress");
+}
+
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
-      isFusionMetadata(Node)) {
+      isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
+      isMustProgressMetadata(Node)) {
     return true;
   }
 
@@ -1566,7 +1606,7 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
 }
 
 bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
-  bool IsInnermostLoop = Lp.empty();
+  bool IsInnermostLoop = Lp.isInnermost();
 
   // Check instructions inside the loop.
   for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {

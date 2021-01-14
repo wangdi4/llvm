@@ -908,7 +908,9 @@ protected:
   void traceCandidate(const SchedCandidate &Cand);
 #endif
 
-private:
+#if INTEL_CUSTOMIZATION
+public:
+#endif // INTEL_CUSTOMIZATION
   bool shouldReduceLatency(const CandPolicy &Policy, SchedBoundary &CurrZone,
                            bool ComputeRemLatency, unsigned &RemLatency) const;
 };

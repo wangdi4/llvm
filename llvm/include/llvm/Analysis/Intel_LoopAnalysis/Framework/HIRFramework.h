@@ -21,7 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
-#include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IR/PrintPasses.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -60,11 +60,12 @@ class HIRLoopStatistics;
 class HIRParVecAnalysis;
 class HIRSafeReductionAnalysis;
 class HIRSparseArrayReductionAnalysis;
+class HIRArraySectionAnalysis;
 
-typedef HIRAnalysisProviderBase<HIRDDAnalysis, HIRLoopLocality, HIRLoopResource,
-                                HIRLoopStatistics, HIRParVecAnalysis,
-                                HIRSafeReductionAnalysis,
-                                HIRSparseArrayReductionAnalysis>
+typedef HIRAnalysisProviderBase<
+    HIRDDAnalysis, HIRLoopLocality, HIRLoopResource, HIRLoopStatistics,
+    HIRParVecAnalysis, HIRSafeReductionAnalysis,
+    HIRSparseArrayReductionAnalysis, HIRArraySectionAnalysis>
     HIRAnalysisProvider;
 
 /// This analysis is the public interface for the HIR framework.
@@ -226,7 +227,7 @@ public:
       : OS(OS), PrintDetails(PrintDetails) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    if (llvm::isFunctionInPrintList(F.getName())) {
+    if (isFunctionInPrintList(F.getName())) {
       OS << "Function: " << F.getName() << "\n";
 
       AM.getResult<HIRFrameworkAnalysis>(F).print(PrintDetails, OS);

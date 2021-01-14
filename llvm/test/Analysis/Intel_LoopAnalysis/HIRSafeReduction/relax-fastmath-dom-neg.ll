@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-safe-reduction-analysis -hir-safe-reduction-analysis-print-unsafe-algebra -S 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -hir-safe-reduction-analysis-print-unsafe-algebra  -S 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -hir-safe-reduction-analysis -S 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-safe-reduction-analysis>"  -S 2>&1 < %s | FileCheck %s
 
 ; [Note] Safe reduction is on dom path (with unsafe algebra)
 
@@ -13,7 +13,8 @@
 ;  <0>          END REGION
 ;
 ; CHECK:        + DO i1 = 0, 1023, 1   <DO_LOOP>
-; CHECK:        |   %sum.07 = %0  +  %sum.07; <Safe Reduction> <Has Unsafe Algebra- Yes>
+; CHECK:        |   <Safe Reduction> Red Op: fadd <Has Unsafe Algebra- Yes> <Conditional- No>
+; CHECK:        |   %sum.07 = %0  +  %sum.07; <Safe Reduction>
 ; CHECK:        + END LOOP
 ;
 

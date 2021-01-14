@@ -1,5 +1,5 @@
 ; Inline report
-; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
@@ -12,7 +12,7 @@
 %struct.ss = type { i32, i64, i32 (%struct.ss*)* }
 %struct.tt = type { %struct.ss, i32 (%struct.ss*)* }
 
-define internal void @f(%struct.ss* byval  %b) nounwind  {
+define internal void @f(%struct.ss* byval(%struct.ss)  %b) nounwind  {
 entry:
   %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
   %tmp1 = load i32, i32* %tmp, align 4
@@ -21,7 +21,7 @@ entry:
   ret void
 }
 
-define internal void @g(%struct.ss* byval align 32 %b) nounwind {
+define internal void @g(%struct.ss* byval(%struct.ss) align 32 %b) nounwind {
 entry:
   %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
   %tmp1 = load i32, i32* %tmp, align 4
@@ -56,43 +56,43 @@ entry:
   ]
 
 sw.bb2: ; preds = %entry, %entry, %entry
-  call void @f(%struct.ss* byval %theXObject) nounwind
+  call void @f(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb5: ; preds = %entry
-  call void @g(%struct.ss* byval %theXObject) nounwind
+  call void @g(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb8: ; preds = %entry
-  call void @f(%struct.ss* byval %theXObject) nounwind
+  call void @f(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb12: ; preds = %entry
-  call void @g(%struct.ss* byval %theXObject) nounwind
+  call void @g(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb17: ; preds = %entry
-  call void @f(%struct.ss* byval %theXObject) nounwind
+  call void @f(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb20: ; preds = %entry
-  call void @g(%struct.ss* byval %theXObject) nounwind
+  call void @g(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb23: ; preds = %entry
-  call void @f(%struct.ss* byval %theXObject) nounwind
+  call void @f(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb32: ; preds = %entry
-  call void @g(%struct.ss* byval %theXObject) nounwind
+  call void @g(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.bb41: ; preds = %entry
-  call void @f(%struct.ss* byval %theXObject) nounwind
+  call void @f(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.default: ; preds = %entry
-  call void @g(%struct.ss* byval %theXObject) nounwind
+  call void @g(%struct.ss* byval(%struct.ss) %theXObject) nounwind
   br label %sw.epilog
 
 sw.epilog: ; preds = %sw.default, %sw.bb2 %sw.bb5, %sw.bb8, %sw.bb8, %sw.bb12, %sw.bb17, %sw.bb20, %sw.bb23, %sw.bb32, %sw.bb41
@@ -122,26 +122,26 @@ define i1 @main() nounwind  {
 ; CHECK-OLD: f{{.*}}Callsite has key switch computations
 ; CHECK-OLD: g{{.*}}Callsite has key switch computations
 ; CHECK-OLD:{{.*}}define{{.*}}@mycaller
-; CHECK-OLD: call void @f(%struct.ss* byval %theXObject)
-; CHECK-OLD: call void @g(%struct.ss* byval %theXObject)
-; CHECK-OLD: call void @f(%struct.ss* byval %theXObject)
-; CHECK-OLD: call void @g(%struct.ss* byval %theXObject)
-; CHECK-OLD: call void @f(%struct.ss* byval %theXObject)
-; CHECK-OLD: call void @g(%struct.ss* byval %theXObject)
-; CHECK-OLD: call void @f(%struct.ss* byval %theXObject)
-; CHECK-OLD: call void @g(%struct.ss* byval %theXObject)
+; CHECK-OLD: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-OLD: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-OLD: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-OLD: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-OLD: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-OLD: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-OLD: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-OLD: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
 
 ; Checking for new pass manager
 
 ; CHECK-NEW:{{.*}}define{{.*}}@mycaller
-; CHECK-NEW: call void @f(%struct.ss* byval %theXObject)
-; CHECK-NEW: call void @g(%struct.ss* byval %theXObject)
-; CHECK-NEW: call void @f(%struct.ss* byval %theXObject)
-; CHECK-NEW: call void @g(%struct.ss* byval %theXObject)
-; CHECK-NEW: call void @f(%struct.ss* byval %theXObject)
-; CHECK-NEW: call void @g(%struct.ss* byval %theXObject)
-; CHECK-NEW: call void @f(%struct.ss* byval %theXObject)
-; CHECK-NEW: call void @g(%struct.ss* byval %theXObject)
+; CHECK-NEW: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-NEW: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-NEW: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-NEW: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-NEW: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-NEW: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-NEW: call void @f(%struct.ss* byval(%struct.ss) %theXObject)
+; CHECK-NEW: call void @g(%struct.ss* byval(%struct.ss) %theXObject)
 ; CHECK-NEW: COMPILE FUNC: mycaller
 ; CHECK-NEW: mycallee{{.*}}Callsite has key switch computations
 ; CHECK-NEW: f{{.*}}Callsite has key switch computations

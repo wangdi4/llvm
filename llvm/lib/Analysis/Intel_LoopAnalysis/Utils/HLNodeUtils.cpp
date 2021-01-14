@@ -2864,23 +2864,22 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   return SFC.isStructured();
 }
 
-const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
-                                                  const HLNode *Node2,
-                                                  bool PostDomination,
-                                                  HIRLoopStatistics *HLS,
-                                                  const HLNode **LastParent1) {
+const HLNode *HLNodeUtils::getOutermostSafeParent(
+    const HLNode *Node1, const HLNode *Node2, bool PostDomination,
+    HIRLoopStatistics *HLS, const HLNode **LastParent1,
+    SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt) {
   const HLNode *Parent = Node1->getParent();
   const HLNode *FirstNode = nullptr, *LastNode = nullptr;
   const HLNode *TargetNode;
 
   *LastParent1 = Node1;
 
-  // Try to move up the parent chain by crossing loops without ztt.
+  // Try to move up the parent chain by crossing loops.
   while (Parent) {
 
     auto *Loop = dyn_cast<HLLoop>(Parent);
 
-    if (!Loop || !Loop->isDo() || Loop->hasZtt()) {
+    if (!Loop || Loop->isMultiExit()) {
       break;
     }
 
@@ -2905,6 +2904,13 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
       return nullptr;
     }
 
+    // We are crossing over a loop with Ztt. Add it to the vector which will
+    // be later used for checking whether Node2 is under the same Ztt
+    // conditions as well.
+    if (Loop->hasZtt()) {
+      Parent1LoopsWithZtt.push_back(Loop);
+    }
+
     *LastParent1 = Parent;
     Parent = Parent->getParent();
   }
@@ -2912,9 +2918,47 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
   return Parent;
 }
 
+static void eraseIdenticalZttLoops(SmallVectorImpl<const HLLoop *> &ZttLoops,
+                                   const HLLoop *RefZttLoop) {
+  for (auto It = ZttLoops.begin(); It != ZttLoops.end();) {
+    auto *ZttLoop = *It;
+
+    if (ZttLoop->getNumZttPredicates() != RefZttLoop->getNumZttPredicates()) {
+      ++It;
+      continue;
+    }
+
+    bool AreEqual = true;
+    for (auto PredIt1 = ZttLoop->ztt_pred_begin(),
+              PredIt2 = RefZttLoop->ztt_pred_begin(),
+              E = ZttLoop->ztt_pred_end();
+         PredIt1 != E; ++PredIt1, ++PredIt2) {
+
+      if ((*PredIt1 != *PredIt2) ||
+          !DDRefUtils::areEqual(
+              ZttLoop->getZttPredicateOperandDDRef(PredIt1, true),
+              RefZttLoop->getZttPredicateOperandDDRef(PredIt2, true)) ||
+          !DDRefUtils::areEqual(
+              ZttLoop->getZttPredicateOperandDDRef(PredIt1, false),
+              RefZttLoop->getZttPredicateOperandDDRef(PredIt2, false))) {
+
+        AreEqual = false;
+        break;
+      }
+    }
+
+    if (AreEqual) {
+      It = ZttLoops.erase(It);
+    } else {
+      ++It;
+    }
+  }
+}
+
 const HLNode *HLNodeUtils::getCommonDominatingParent(
     const HLNode *Parent1, const HLNode *LastParent1, const HLNode *Node2,
-    bool PostDomination, HIRLoopStatistics *HLS, const HLNode **LastParent2) {
+    bool PostDomination, HIRLoopStatistics *HLS, const HLNode **LastParent2,
+    SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt) {
 
   // For post-domination, Node2 itself needs to be checked in case it is a
   // parent node type like if/switch as they can contain gotos. In the example
@@ -2950,11 +2994,19 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
       break;
     }
 
+    auto *Parent2Lp = dyn_cast<HLLoop>(CommonParent);
+
+    if (Parent2Lp && Parent2Lp->hasZtt()) {
+      eraseIdenticalZttLoops(Parent1LoopsWithZtt, Parent2Lp);
+    }
+
     *LastParent2 = CommonParent;
     CommonParent = CommonParent->getParent();
   }
 
-  return CommonParent;
+  // Check whether Node2 is under the same conditions we crossed over to get to
+  // outermost parent of Node1.
+  return Parent1LoopsWithZtt.empty() ? CommonParent : nullptr;
 }
 
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
@@ -3001,8 +3053,10 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   //  }
   // }
   const HLNode *LastParent1 = nullptr;
-  const HLNode *Parent1 =
-      getOutermostSafeParent(Node1, Node2, PostDomination, HLS, &LastParent1);
+  SmallVector<const HLLoop *, 4> Parent1LoopsWithZtt;
+
+  const HLNode *Parent1 = getOutermostSafeParent(
+      Node1, Node2, PostDomination, HLS, &LastParent1, Parent1LoopsWithZtt);
 
   // Could't find an appropriate parent for Node1.
   if (!Parent1) {
@@ -3010,8 +3064,9 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   }
 
   const HLNode *LastParent2 = nullptr;
-  const HLNode *CommonParent = getCommonDominatingParent(
-      Parent1, LastParent1, Node2, PostDomination, HLS, &LastParent2);
+  const HLNode *CommonParent =
+      getCommonDominatingParent(Parent1, LastParent1, Node2, PostDomination,
+                                HLS, &LastParent2, Parent1LoopsWithZtt);
 
   const HLIf *IfParent = dyn_cast_or_null<HLIf>(CommonParent);
   const HLSwitch *SwitchParent = dyn_cast_or_null<HLSwitch>(CommonParent);

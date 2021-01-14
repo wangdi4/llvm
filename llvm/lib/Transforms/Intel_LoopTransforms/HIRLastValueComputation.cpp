@@ -1,4 +1,4 @@
-//===- HIRLastValueComputation.cpp - Implements LastValueComputation class ------------===//
+//===- HIRLastValueComputation.cpp - Implements LastValueComputation class -===//
 //
 // Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
@@ -236,6 +236,15 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   bool IsUpperBoundComplicated =
       UBCE->getNumOperations() > NumOperationsThreshold;
   bool ContainIV = false;
+  bool NeedConvertToStandAloneBlob = false;
+
+  if (UBCE->getDenominator() != 1) {
+    if (!UBCE->canConvertToStandAloneBlob()) {
+      return false;
+    } else {
+      NeedConvertToStandAloneBlob = true;
+    }
+  }
 
   for (auto It = Lp->child_rbegin(), End = Lp->child_rend(); It != End; ++It) {
     auto HInst = dyn_cast<HLInst>(&*It);
@@ -278,6 +287,10 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
 
   const SmallVector<const RegDDRef *, 1> Aux = {Lp->getUpperDDRef()};
   SmallDenseMap<HLGoto *, HLNode *, 16> GotoInsertPosition;
+
+  if (NeedConvertToStandAloneBlob) {
+    UBCE->convertToStandAloneBlob();
+  }
 
   for (auto *HInst : CandidateInsts) {
 

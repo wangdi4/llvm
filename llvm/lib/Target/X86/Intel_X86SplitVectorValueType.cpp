@@ -1371,9 +1371,8 @@ bool X86SplitVectorValueType::runOnFunction(Function &F) {
       // First split the operands of this instruction, then split this
       // instruction. All users of split instructions will be added to
       // WorkList and updateInstChain will split them transitively.
-      bool SplitSucc;
-      if (SplitSucc = splitInstChainBottomUp(Candidate, 0))
-        SplitSucc = updateInstChain();
+      bool SplitSucc =
+          splitInstChainBottomUp(Candidate, 0) && updateInstChain();
 
       if (SplitSucc) {
         // Update original instructions.

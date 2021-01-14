@@ -59,6 +59,8 @@ typedef SmallVector<SparseArrayReductionInfo, 4> SparseArrayReductionChainList;
 const unsigned SparserLoadDistance = 2;
 
 class HIRSparseArrayReductionAnalysis : public HIRAnalysis {
+  using HIRAnalysisBase::print;
+
   typedef DDRefGatherer<const RegDDRef, MemRefs> MemRefGatherer;
   typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
   typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;

@@ -100,6 +100,7 @@ class VPlanCostModel; // INTEL: to be later declared as a friend
 class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
 class VPlanDivergenceAnalysis;
 class VPlanBranchDependenceAnalysis;
+class VPValueMapper;
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
@@ -145,6 +146,19 @@ public:
   DominatorTree *getDominatorTree() { return DT; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const DataLayout *getDataLayout() { return DL; }
+};
+
+/// Enumeration to uniquely identify various VPlan analyses.
+// TODO: Consider introducing an inheritance hierarchy for VPlan analyses i.e. a
+// VPAnalysis base class and DA, VLS and SVA inheriting from this base class.
+// This enum can be then converted into subclass ID mechanism and virtual
+// functionalities like running/clearing analyses will be specialized in the
+// derived classes.
+enum class VPAnalysisID {
+  DA = 0,
+  VLS = 1,
+  SVA = 2,
+  LastVPAnalysis = SVA
 };
 
 template <typename ParentTy, typename NodeTy>
@@ -727,6 +741,9 @@ public:
       VectorTripCountCalculation,
       ActiveLane,
       ActiveLaneExtract,
+      ConstStepVector,
+      ReuseLoop,
+      OrigLiveOut,
   };
 
 private:
@@ -962,6 +979,18 @@ public:
   const VPBasicBlock *getParent() const { return Parent; }
   void setParent(VPBasicBlock *NewParent) { Parent = NewParent; }
 
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block that MovePos lives in, right before MovePos.
+  void moveBefore(VPInstruction *MovePos);
+
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block that MovePos lives in, right after MovePos.
+  void moveAfter(VPInstruction *MovePos);
+
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block BB, right before \p I.
+  void moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I);
+
   /// Generate the instruction.
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
@@ -1194,8 +1223,14 @@ protected:
 
 /// Concrete class for PHI instruction.
 class VPPHINode : public VPInstruction {
-private:
+  friend class VPlanCFGMerger;
+
   SmallVector<VPBasicBlock *, 2> VPBBUsers;
+  unsigned MergeId = VPExternalUse::UndefMergeId;
+
+  VPPHINode(unsigned Id, Type *BaseTy)
+      : VPInstruction(Instruction::PHI, BaseTy, ArrayRef<VPValue *>()),
+        MergeId(Id) {}
 
 public:
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
@@ -1339,6 +1374,8 @@ public:
     return true;
   }
 
+  unsigned getMergeId() const { return MergeId; }
+
 protected:
   /// Create new PHINode and copy original incoming values to the newly created
   /// PHINode. Caller is responsible to replace these values with what is
@@ -1357,31 +1394,7 @@ class VPGEPInstruction : public VPInstruction {
   friend class VPlanVerifier;
 
 private:
-  // Trailing struct offsets for a GEP are tracked via a vector of bools called
-  // OperandIsStructOffset. This vector will always be consistent with the
-  // number of operands stored in a given GEP instruction. An operand's
-  // corresponding index entry in OperandIsStructOffset is set to true if it's a
-  // trailing struct offset, false otherwise. NOTE: This information is needed
-  // only if the GEP is created via HIR-path. For LLVM-IR path the vector will
-  // always be false for all entries.
-  //
-  // Examples:
-  // 1. (@a)[0].1[i1] --> gep %a, 0, 1, %vpi1
-  //
-  //    Vector will look like:
-  //    <false, false, true, false>
-  //
-  //    i.e. operand at index 2 is a struct offset corresponding to the previous
-  //    last-found non struct offset operand (index 1).
-  //
-  // 2. (@a)[0].2.1[5][i1] --> gep %a, 0, 2, 1, 5, %vpi1
-  //
-  //    Vector will look like:
-  //    <false, false, true, true, false, false>
-  //
-
   bool InBounds;
-  SmallVector<bool, 4> OperandIsStructOffset;
 
 public:
   /// Default constructor for VPGEPInstruction. The default value for \p
@@ -1395,12 +1408,9 @@ public:
     // operands
     assert(!getNumOperands() &&
            "GEP instruction already has operands before base pointer.");
-    VPInstruction::addOperand(Ptr);
+    addOperand(Ptr);
     for (auto Idx : IdxList)
-      VPInstruction::addOperand(Idx);
-    // Track all operands as non struct offsets, since that information is not
-    // available at this point.
-    OperandIsStructOffset.resize(1 + IdxList.size(), false);
+      addOperand(Idx);
   }
 
   /// Setter and getter functions for InBounds.
@@ -1408,50 +1418,7 @@ public:
   bool isInBounds() const { return InBounds; }
 
   /// Get the base pointer operand of given VPGEPInstruction.
-  VPValue *getPointerOperand() const { return VPInstruction::getOperand(0); }
-
-  /// Overloaded method for adding an operand \p Operand. The struct offset
-  /// tracker is accordingly updated after operand addition.
-  void addOperand(VPValue *Operand, bool IsStructOffset = false) {
-    VPInstruction::addOperand(Operand);
-    OperandIsStructOffset.push_back(IsStructOffset);
-    assert(OperandIsStructOffset.size() == getNumOperands() &&
-           "Number of operands and struct offset tracker sizes don't match.");
-  }
-
-  /// Overloaded method for setting index \p Idx with operand \p Operand. The
-  /// struct offset tracker is accordingly updated after operand is set.
-  void setOperand(const unsigned Idx, VPValue *Operand,
-                  bool IsStructOffset = false) {
-    assert((Idx > 1 || !IsStructOffset) &&
-           "Base pointer and first index operand of GEP cannot be a struct "
-           "offset.");
-    VPInstruction::setOperand(Idx, Operand);
-    OperandIsStructOffset[Idx] = IsStructOffset;
-  }
-
-  /// Overloaded method for removing an operand at index \p Idx. The struct
-  /// offset tracker is accordingly updated after operand removal.
-  void removeOperand(const unsigned Idx) {
-    VPInstruction::removeOperand(Idx);
-    OperandIsStructOffset.erase(OperandIsStructOffset.begin() + Idx);
-    assert(OperandIsStructOffset.size() == getNumOperands() &&
-           "Number of operands and struct offset tracker sizes don't match.");
-  }
-
-  /// Check if a given operand \p Operand of this GEP is a struct offset.
-  bool isOperandStructOffset(VPValue *Operand) const {
-    auto It = llvm::find(operands(), Operand);
-    assert(It != op_end() && "Operand not found in VPGEPInstruction.");
-    return OperandIsStructOffset[std::distance(op_begin(), It)];
-  }
-
-  /// Check if operand at index \p Idx of this GEP is a struct offset.
-  bool isOperandStructOffset(const unsigned Idx) const {
-    assert(Idx < OperandIsStructOffset.size() &&
-           "Operand index out of bounds.");
-    return OperandIsStructOffset[Idx];
-  }
+  VPValue *getPointerOperand() const { return getOperand(0); }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -1462,12 +1429,26 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
+  // Iterators to access indices.
+  inline decltype(auto) idx_begin() { return op_begin() + 1; }
+  inline decltype(auto) idx_begin() const { return op_begin() + 1; }
+  inline decltype(auto) idx_end() { return op_end(); }
+  inline decltype(auto) idx_end() const { return op_end(); }
+
+  inline decltype(auto) indices() {
+    return make_range(idx_begin(), idx_end());
+  }
+
+  inline decltype(auto) indices() const {
+    return make_range(idx_begin(), idx_end());
+  }
+
 protected:
   virtual VPGEPInstruction *cloneImpl() const final {
     VPGEPInstruction *Cloned =
         new VPGEPInstruction(getType(), getOperand(0), {}, isInBounds());
     for (auto *O : make_range(op_begin()+1, op_end())) {
-      Cloned->addOperand(O, isOperandStructOffset(O));
+      Cloned->addOperand(O);
     }
     return Cloned;
   }
@@ -1695,8 +1676,8 @@ class VPLoadStoreInst : public VPInstruction {
 public:
   using MDNodesTy = SmallVector<std::pair<unsigned, MDNode *>, 6>;
 
-  VPLoadStoreInst(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
-      : VPInstruction(Opcode, BaseTy, Operands) {
+  VPLoadStoreInst(unsigned Opcode, Type *Ty, ArrayRef<VPValue *> Operands)
+      : VPInstruction(Opcode, Ty, Operands) {
     assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
            "Invalid opcode for load/store instruction.");
   }
@@ -1945,9 +1926,11 @@ public:
   const CallInst *getUnderlyingCallInst() const {
     if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction()))
       return IRCall;
-    else if (auto *HIRCall = HIR.getUnderlyingNode())
-      return cast<loopopt::HLInst>(HIRCall)->getCallInst();
-    else
+    else if (auto *HIRCall = HIR.getUnderlyingNode()) {
+      auto *IRCall = cast<loopopt::HLInst>(HIRCall)->getCallInst();
+      assert (IRCall && "Underlying call instruction expected here.");
+      return IRCall;
+    } else
       llvm_unreachable(
           "VPlan created a new VPCallInstruction without underlying IR.");
   }
@@ -1989,6 +1972,22 @@ public:
     return getOrigCallAttrs().hasFnAttribute("kernel-uniform-call");
   }
 
+  /// Return \p true if this call is a lifetime_start/end intrinsic call.
+  bool isLifetimeStartOrEndIntrinsic() const {
+    return isIntrinsicFromList(
+        {Intrinsic::lifetime_start, Intrinsic::lifetime_end});
+  }
+
+  /// Return \p true if this call is a intrinsic from the given list \p
+  /// IntrinsicsList.
+  bool isIntrinsicFromList(ArrayRef<Intrinsic::ID> IntrinsicsList) const {
+    if (auto *F = getCalledFunction())
+      return F->isIntrinsic() &&
+             llvm::find(IntrinsicsList, F->getIntrinsicID()) !=
+                 IntrinsicsList.end();
+    return false;
+  }
+
   /// Clear decision that was last computed for this call, and reset to initial
   /// state (Undef scenario) for new VF.
   void resetVecScenario(unsigned NewVF) {
@@ -2015,8 +2014,9 @@ public:
   void setShouldBeSerialized() {
     assert(VecScenario == CallVecScenarios::Undefined &&
            "Inconsistent scenario update.");
-    assert(!isKernelCallOnce() &&
-           "Calls with kernel-call-once attributes cannot be serialized.");
+    if (isKernelCallOnce())
+      report_fatal_error(
+          "Calls with kernel-call-once attributes cannot be serialized.");
     VecScenario = CallVecScenarios::Serialization;
   }
   // Scenario 2 : Vectorization using vector library functions (like SVML).
@@ -2228,6 +2228,9 @@ public:
     setOperand(0, NewVal);
   }
 
+  // This is function added to have a consistent interface with
+  // VPReductionInit, for an easier templatization of some code.
+  bool usesStartValue() const {return true;}
 
 protected:
   // Clones VPinductionInit.
@@ -2520,32 +2523,32 @@ public:
     switch (BinOpcode) {
     case Instruction::Add:
     case Instruction::Sub:
-      return Intrinsic::experimental_vector_reduce_add;
+      return Intrinsic::vector_reduce_add;
     case Instruction::FAdd:
     case Instruction::FSub:
-      return Intrinsic::experimental_vector_reduce_v2_fadd;
+      return Intrinsic::vector_reduce_fadd;
     case Instruction::Mul:
-      return Intrinsic::experimental_vector_reduce_mul;
+      return Intrinsic::vector_reduce_mul;
     case Instruction::FMul:
-      return Intrinsic::experimental_vector_reduce_v2_fmul;
+      return Intrinsic::vector_reduce_fmul;
     case Instruction::And:
-      return Intrinsic::experimental_vector_reduce_and;
+      return Intrinsic::vector_reduce_and;
     case Instruction::Or:
-      return Intrinsic::experimental_vector_reduce_or;
+      return Intrinsic::vector_reduce_or;
     case Instruction::Xor:
-      return Intrinsic::experimental_vector_reduce_xor;
+      return Intrinsic::vector_reduce_xor;
     case VPInstruction::UMin:
-      return Intrinsic::experimental_vector_reduce_umin;
+      return Intrinsic::vector_reduce_umin;
     case VPInstruction::SMin:
-      return Intrinsic::experimental_vector_reduce_smin;
+      return Intrinsic::vector_reduce_smin;
     case VPInstruction::UMax:
-      return Intrinsic::experimental_vector_reduce_umax;
+      return Intrinsic::vector_reduce_umax;
     case VPInstruction::SMax:
-      return Intrinsic::experimental_vector_reduce_smax;
+      return Intrinsic::vector_reduce_smax;
     case VPInstruction::FMax:
-      return Intrinsic::experimental_vector_reduce_fmax;
+      return Intrinsic::vector_reduce_fmax;
     case VPInstruction::FMin:
-      return Intrinsic::experimental_vector_reduce_fmin;
+      return Intrinsic::vector_reduce_fmin;
     default:
       llvm_unreachable("Vector reduction opcode not supported.");
     }
@@ -2568,6 +2571,53 @@ protected:
 private:
   unsigned BinOpcode;
   bool Signed;
+};
+
+/// Concrete class for representing a vector of steps of arithmetic progression.
+class VPConstStepVector : public VPInstruction {
+public:
+  VPConstStepVector(Type *Ty, int Start, int Step, int NumSteps)
+      : VPInstruction(VPInstruction::ConstStepVector, Ty, {}), Start(Start),
+        Step(Step), NumSteps(NumSteps) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ConstStepVector;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const {
+    O << "const-step-vector: { Start:" << Start << ", Step:" << Step
+      << ", NumSteps:" << NumSteps << "}";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  /// Get the start-value of the constant-vector.
+  int getStart() const { return Start; }
+
+  /// Get the step-value of the constant-vector.
+  int getStep() const { return Step; }
+
+  /// Get the upper-bound of the constant-vector.
+  int getNumSteps() const { return NumSteps; }
+
+private:
+  int Start;
+  int Step;
+  int NumSteps;
+
+protected:
+  // Clones VPConstStepVector.
+  virtual VPConstStepVector *cloneImpl() const final {
+    llvm_unreachable("This instruction should not be cloned. It sould be "
+                     "regenerated for a different VF.");
+    return nullptr;
+  }
 };
 
 /// Instruction representing trip count of the scalar loop (OrigLoop member).
@@ -2763,6 +2813,146 @@ protected:
   }
 };
 
+/// The VPReuseLoop represents scalar loop used for remainder loop.
+/// It has a list of incoming parameters which are linked with Values
+/// inside the loop. During CG, the incoming VPValues should replace the
+/// correspding values in scalar loop.
+/// The linking is done using the same indexes for incoming value in
+/// parameters list and for the use in the list of scalar uses.
+class VPReuseLoop : public VPInstruction {
+  Loop *Lp;
+  SmallVector<Use *, 4> OpLiveInMap;
+
+  // Make them private.
+  using VPInstruction::setOperand;
+  using VPInstruction::addOperand;
+  using VPInstruction::removeOperand;
+  using VPInstruction::removeAllOperands;
+
+public:
+  // TODO: Consider storing the loop as header/latch pair with an assert on some
+  // canonical form because \p Lp might become stale during CG stage.
+  VPReuseLoop(Loop *Lp)
+      : VPInstruction(VPInstruction::ReuseLoop,
+                      Type::getTokenTy(Lp->getHeader()->getContext()), {}),
+        Lp(Lp) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReuseLoop;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  void addLiveIn(VPValue *VPVal, Use *OrigLoopUse) {
+    assert(VPVal->getType()->isLabelTy() ||
+           (isa<PHINode>(OrigLoopUse->getUser()) &&
+            cast<PHINode>(OrigLoopUse->getUser())->getParent() ==
+                Lp->getHeader()) &&
+               "Live-ins can only be a header phi or a block!");
+    addOperand(VPVal);
+    OpLiveInMap.push_back(OrigLoopUse);
+  }
+
+  Use *getOrigUse(unsigned Idx) const { return OpLiveInMap[Idx]; }
+
+  Loop *getLoop() const { return Lp; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const {
+    O << " " << Lp->getName() << ", LiveInMap:";
+    assert(getNumOperands() == OpLiveInMap.size() &&
+           "Inconsistent live-ins data!");
+    for (unsigned I = 0; I < getNumOperands(); ++I) {
+      O << "\n       {";
+      OpLiveInMap[I]->get()->printAsOperand(O);
+      O << " in {" << *OpLiveInMap[I]->getUser() << "} -> ";
+      getOperand(I)->printAsOperand(O);
+      O << " }";
+    }
+  };
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+protected:
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+    return nullptr;
+  }
+};
+
+/// VPOrigLiveOut represents the outgoing value from the scalar
+/// loop described by VPReuseLoop, which is its operand. It links
+/// an outgoing scalar value from the loop with VPlan.
+/// Example.
+///
+/// The %vp3 describes outgoing value %add0 from the loop VP_REUSE_LOOP.
+/// The %vp4 describes outgoing value of induction %indvars.iv from the loop
+/// VP_REUSE_LOOP.
+///
+/// bb8:
+///   token %VP_REUSE_LOOP = re-use-loop for.body,
+///           # ... VPloopReuse operands/value_map
+///   i32 %vp3 = orig-live-out token %VP_REUSE_LOOP,
+///                     liveout: %add0 = add nsw i32 a.io, sum.070
+///   i64 %vp4 = orig-live-out token %VP_REUSE_LOOP,
+///                     liveout: %indvars.iv.next0 = add nuw nsw i64
+///                     %indvars.iv0, 1
+///   br label %bb7
+///
+/// bb7: # preds: bb8, bb6
+///   i32 [[VP5:%.*]] = phi-merge  [ i32 %vp3, %bb8 ],  [ i32 live-out0, %bb6 ]
+///   i64 [[VP6:%.*]] = phi-merge  [ i64 %vp4, %bb8 ],  [ i64 live-out1, %bb6 ]
+///   br label %bb9
+///
+class VPOrigLiveOut : public VPInstruction {
+  const Value *LiveOutVal;
+  unsigned MergeId;
+
+  // Make it private.
+  using VPInstruction::setOperand;
+  using VPInstruction::addOperand;
+  using VPInstruction::removeOperand;
+  using VPInstruction::removeAllOperands;
+
+public:
+  VPOrigLiveOut(VPReuseLoop *ReuseLoop, const Value *LiveOutVal, unsigned Id)
+      : VPInstruction(VPInstruction::OrigLiveOut, LiveOutVal->getType(),
+                      {ReuseLoop}),
+        LiveOutVal(LiveOutVal), MergeId(Id) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::OrigLiveOut;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const {
+    O << " ";
+    getOperand(0)->printAsOperand(O);
+    O << ", liveout: " << *LiveOutVal;
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Only CG needs this...
+  const Value *getLiveOutVal() const { return LiveOutVal; }
+
+  // Used during CFG merge.
+  unsigned getMergeId() const { return MergeId;}
+
+protected:
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+    return nullptr;
+  }
+};
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
@@ -2819,8 +3009,15 @@ private:
   //      itself is very weak in HIR CG.
   bool DisableActiveLaneInstructions = false;
 
+  /// Enable SOA-analysis flag.
+  bool EnableSOAAnalysis = false;
+
   /// Holds the name of the VPlan, for printing.
   std::string Name;
+
+  /// Flag showing that a new scheme of CG for loops and basic blocks
+  /// should be used.
+  bool ExplicitRemainderUsed = false;
 
   /// Map: VF -> PreferredPeeling.
   std::map<unsigned, std::unique_ptr<VPlanPeelingVariant>> PreferredPeelingMap;
@@ -2866,6 +3063,8 @@ public:
     VPlanDA = std::move(VPDA);
   }
 
+  void computeDA();
+
   void setVPSE(std::unique_ptr<VPlanScalarEvolution> A);
 
   void setVPVT(std::unique_ptr<VPlanValueTracking> A) {
@@ -2885,6 +3084,9 @@ public:
   // Compute SVA results for this VPlan.
   void runSVA(unsigned VF, const TargetLibraryInfo *TLI);
 
+  // Clear SVA results for this VPlan.
+  void clearSVA() { VPlanSVA.reset(); }
+
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
@@ -2901,6 +3103,22 @@ public:
     return DisableActiveLaneInstructions;
   }
 
+  /// Disable SOA-analysis.
+  void disableSOAAnalysis() { EnableSOAAnalysis = false; }
+
+  /// Enable SOA-analysis.
+  void enableSOAAnalysis() { EnableSOAAnalysis = true; }
+
+  /// Return \true if SOA-analysis is enabled.
+  bool isSOAAnalysisEnabled() const { return EnableSOAAnalysis; }
+
+  /// Utility to run/recompute results of analyses specified by \p Analyses.
+  // TODO : Implementation is missing.
+  void requiredAnalyses(ArrayRef<VPAnalysisID> Analyses);
+
+  /// Utility to invalidate results of analyses specified by \p Analyses.
+  void invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses);
+
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
 
   const VPLiveInValue *getLiveInValue(unsigned MergeId) const {
@@ -2916,8 +3134,7 @@ public:
       return V.get();});
   }
 
-
-  const VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
+  VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
     return LiveOutValues[MergeId].get();
   }
 
@@ -2931,6 +3148,10 @@ public:
       return V.get();});
   }
 
+  size_t getLiveOutValuesSize() const { return LiveOutValues.size(); }
+
+  bool hasExplicitRemainder() const { return ExplicitRemainderUsed; }
+  void setExplicitRemainderUsed() { ExplicitRemainderUsed = true; }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
@@ -3109,11 +3330,17 @@ public:
   // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
   void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsns.emplace_back(I); }
 
+  // When we clone the plan, we can choose if we want to calculate DA from
+  // scratch or clone DA or none of them. If the plan is cloned after the
+  // predicator, then we just have to clone instructions' vector shapes.
+  enum class UpdateDA : uint8_t {
+    RecalculateDA, // Compute DA from scratch.
+    CloneDA,       // Clone DA of the original plan to the new plan.
+    DoNotUpdateDA  // Do not set DA.
+  };
   // Clones VPlan. VPAnalysesFactory has methods to create additional analyses
-  // required for cloned VPlan. RecalculateDA indicates whether DA will be
-  // calculated from scratch (true) or we will just copy instructions' vector
-  // shapes (false).
-  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, bool RecalculateDA);
+  // required for cloned VPlan.
+  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, UpdateDA UDA);
 
 private:
   void addLiveInValue(VPLiveInValue *V) {
@@ -3150,6 +3377,9 @@ private:
     LiveOutValues.resize(Count);
   }
 
+  /// Clone live-out values from OrigVPlan and add them in LiveOutValues.
+  void cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
+
   /// Add to the given dominator tree the header block and every new basic block
   /// that was created between it and the latch block, inclusive.
   static void updateDominatorTree(class DominatorTree *DT,
@@ -3157,6 +3387,7 @@ private:
                                   BasicBlock *LoopLatchBB);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printLiveIns(raw_ostream &OS) const;
+  void printLiveOuts(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
@@ -3164,9 +3395,6 @@ private:
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
 /// indented and follows the dot format.
 class VPlanPrinter {
-  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
-
-private:
   raw_ostream &OS;
   const VPlan &Plan;
   unsigned Depth;
@@ -3186,7 +3414,7 @@ private:
 
   /// Print a given \p BasicBlock, including its instructions, followed by
   /// printing its successor blocks.
-  void dumpBasicBlock(const VPBasicBlock *BB);
+  void dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions);
 
   unsigned getOrCreateBID(const VPBasicBlock *BB) {
     return BlockID.count(BB) ? BlockID[BB] : BlockID[BB] = BID++;
@@ -3200,9 +3428,9 @@ private:
   void drawEdge(const VPBasicBlock *From, const VPBasicBlock *To, bool Hidden,
                 const Twine &Label);
 
+public:
   VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
-
-  void dump();
+  void dump(bool CFGOnly = false);
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
@@ -3279,37 +3507,118 @@ public:
 
 // Several inline functions to hide the #if machinery from the callers.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-inline void VPLAN_DUMP(bool Cond, const VPlan &Plan) {
-  if (!Cond)
-    return;
-  Plan.dump(outs());
-  outs().flush();
-}
-inline void VPLAN_DUMP(bool Cond, const VPlan *Plan) {
-  VPLAN_DUMP(Cond, *Plan);
-}
-
-inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan &Plan) {
+inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
   if (!Cond)
     return;
   outs() << "VPlan after " << Transformation << ":\n";
-  Plan.dump(outs());
+  Plan->dump(outs());
   outs().flush();
 }
-inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
-  return VPLAN_DUMP(Cond, Transformation, *Plan);
-}
-
-inline void VPLAN_DOT(bool Cond, const VPlan &Plan) {
-  if (!Cond)
-    return;
-  outs() << Plan;
-  outs().flush();
-}
-inline void VPLAN_DOT(bool Cond, const VPlan *Plan) { VPLAN_DOT(Cond, *Plan); }
 #else
 template <class... Args> inline void VPLAN_DUMP(const Args &...) {}
-template <class... Args> inline void VPLAN_DOT(const Args &...) {}
+#endif
+
+// In most cases the whole pair of plain dump/dot digraph can be abstracted...
+//
+// This is a way to overcome our inability to leverage PassManager
+// infrastructure. Ideally, we wouldn't need al that and would use something
+// like
+//
+//   opt -vplan-cfg-import -vplan-print -vplan-predicator -vplan-dot
+//
+// For now, just have all the pre-set points to print any kind of dump via
+// multiple cl::opts.
+class VPlanDumpControl {
+  // cl::opt is designed to accept StringRefs for name/description, so we need
+  // to ensure the actual strings are live thoughout the cl::opt lifetime.
+  class OptWrapper {
+    std::string NameString;
+    std::string DescriptionString;
+    cl::opt<bool> Opt;
+
+  public:
+    OptWrapper(const Twine &Name, const Twine &Description)
+        : NameString(Name.str()), DescriptionString(Description.str()),
+          Opt(StringRef(NameString), cl::init(false), cl::Hidden,
+              cl::desc(DescriptionString)) {}
+    operator bool() const { return Opt; }
+  };
+
+public:
+  VPlanDumpControl(const char *DumpOptPrefix, const char *DotOptPrefix,
+                   const char *DotCFGOnlyOptPrefix, const Twine &ShortName,
+                   const Twine &LongName, bool PrintPlainDumpPrefix)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      : PrintPlainDumpPrefix(PrintPlainDumpPrefix),
+        Dump(DumpOptPrefix + ShortName, "Print VPlan after " + LongName),
+        Dot(DotOptPrefix + ShortName, "Print VPlan digraph after " + LongName),
+        DotCFGOnly(DotCFGOnlyOptPrefix + ShortName,
+                   "Print VPlan CFG Only after " + LongName),
+        PassDescription(LongName.str()) {
+  }
+#else
+  {
+    (void)DumpOptPrefix;
+    (void)DotOptPrefix;
+    (void)DotCFGOnlyOptPrefix;
+    (void)ShortName;
+    (void)LongName;
+    (void)PrintPlainDumpPrefix;
+  }
+#endif
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  bool dumpPlain() const { return Dump; }
+  bool dumpDot() const { return Dot; }
+  bool dumpCFGOnly() const { return DotCFGOnly; }
+public:
+  const bool PrintPlainDumpPrefix;
+  StringRef getPassDescription() const { return PassDescription; }
+
+private:
+  OptWrapper Dump;
+  OptWrapper Dot;
+  OptWrapper DotCFGOnly;
+
+  std::string PassDescription;
+#endif
+};
+
+struct LoopVPlanDumpControl : public VPlanDumpControl {
+  LoopVPlanDumpControl(const Twine &ShortName, const Twine &LongName)
+      : VPlanDumpControl("vplan-print-after-", "vplan-dot-after-",
+                         "vplan-cfg-only-after-", ShortName, LongName, true) {}
+};
+struct FuncVecVPlanDumpControl : public VPlanDumpControl {
+  FuncVecVPlanDumpControl(const Twine &ShortName, const Twine &LongName,
+                          bool PrintPlainDumpPrefix = false)
+      : VPlanDumpControl("print-after-vplan-func-vec-",
+                         "dot-after-vplan-func-vec-",
+                         "cfg-only-after-vplan-func-vec-", ShortName, LongName,
+                         PrintPlainDumpPrefix) {}
+};
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan &Plan) {
+  if (Control.dumpPlain()) {
+    if (Control.PrintPlainDumpPrefix)
+      outs() << "VPlan after " << Control.getPassDescription() << ":\n";
+    Plan.dump(outs());
+    outs().flush();
+  }
+  VPlanPrinter Printer(outs(), Plan);
+  if (Control.dumpDot()) {
+    Printer.dump();
+    outs().flush();
+  }
+  if (Control.dumpCFGOnly()) {
+    Printer.dump(true);
+    outs().flush();
+  }
+}
+inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan *Plan) {
+  VPLAN_DUMP(Control, *Plan);
+}
 #endif
 
 } // namespace vpo

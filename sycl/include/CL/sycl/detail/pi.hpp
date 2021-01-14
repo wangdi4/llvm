@@ -57,14 +57,14 @@ enum TraceLevel {
 // Return true if we want to trace PI related activities.
 bool trace(TraceLevel level);
 
-#ifdef SYCL_RT_OS_WINDOWS
-#define OPENCL_PLUGIN_NAME "pi_opencl.dll"
-#define LEVEL_ZERO_PLUGIN_NAME "pi_level_zero.dll"
-#define CUDA_PLUGIN_NAME "pi_cuda.dll"
+#ifdef __SYCL_RT_OS_WINDOWS
+#define __SYCL_OPENCL_PLUGIN_NAME "pi_opencl.dll"
+#define __SYCL_LEVEL_ZERO_PLUGIN_NAME "pi_level_zero.dll"
+#define __SYCL_CUDA_PLUGIN_NAME "pi_cuda.dll"
 #else
-#define OPENCL_PLUGIN_NAME "libpi_opencl.so"
-#define LEVEL_ZERO_PLUGIN_NAME "libpi_level_zero.so"
-#define CUDA_PLUGIN_NAME "libpi_cuda.so"
+#define __SYCL_OPENCL_PLUGIN_NAME "libpi_opencl.so"
+#define __SYCL_LEVEL_ZERO_PLUGIN_NAME "libpi_level_zero.so"
+#define __SYCL_CUDA_PLUGIN_NAME "libpi_cuda.so"
 #endif
 
 // Report error and no return (keeps compiler happy about no return statements).
@@ -85,7 +85,7 @@ void handleUnknownParamName(const char *functionName, T parameter) {
 // This macro is used to report invalid enumerators being passed to PI API
 // GetInfo functions. It will print the name of the function that invoked it
 // and the value of the unknown enumerator.
-#define PI_HANDLE_UNKNOWN_PARAM_NAME(parameter)                                \
+#define __SYCL_PI_HANDLE_UNKNOWN_PARAM_NAME(parameter)                         \
   { cl::sycl::detail::pi::handleUnknownParamName(__func__, parameter); }
 
 using PiPlugin = ::pi_plugin;
@@ -123,6 +123,13 @@ __SYCL_EXPORT void contextSetExtendedDeleter(const cl::sycl::context &constext,
 // Function to load the shared library
 // Implementation is OS dependent.
 void *loadOsLibrary(const std::string &Library);
+
+// Function to unload the shared library
+// Implementation is OS dependent (see posix-pi.cpp and windows-pi.cpp)
+int unloadOsLibrary(void *Library);
+
+// OS agnostic function to unload the shared library
+int unloadPlugin(void *Library);
 
 // Function to get Address of a symbol defined in the shared
 // library, implementation is OS dependent.
@@ -169,108 +176,6 @@ uint64_t emitFunctionBeginTrace(const char *FName);
 /// emitFunctionBeginTrace() call.
 /// \param FName The name of the PI API call
 void emitFunctionEndTrace(uint64_t CorrelationID, const char *FName);
-
-// Helper utilities for PI Tracing
-// The run-time tracing of PI calls.
-// Print functions used by Trace class.
-template <typename T> inline void print(T val) {
-  std::cout << "<unknown> : " << val << std::endl;
-}
-
-template <> inline void print<>(PiPlatform val) {
-  std::cout << "pi_platform : " << val << std::endl;
-}
-
-/* INTEL_CUSTOMIZATION */
-template <> inline void print<>(PiEvent val) {
-  std::cout << "pi_event : " << val << std::endl;
-}
-
-template <> inline void print<>(PiMem val) {
-  std::cout << "pi_mem : " << val << std::endl;
-}
-
-template <> inline void print<>(PiEvent *val) {
-  std::cout << "pi_event * : " << val;
-  if (val) {
-    std::cout << "[ " << *val << " ... ]";
-  }
-  std::cout << std::endl;
-}
-
-template <> inline void print<>(const PiEvent *val) {
-  std::cout << "const pi_event * : " << val;
-  if (val) {
-    std::cout << "[ " << *val << " ... ]";
-  }
-  std::cout << std::endl;
-}
-/* end INTEL_CUSTOMIZATION */
-
-template <> inline void print<>(PiResult val) {
-  std::cout << "pi_result : ";
-  if (val == PI_SUCCESS)
-    std::cout << "PI_SUCCESS" << std::endl;
-  else
-    std::cout << val << std::endl;
-}
-
-// cout does not resolve a nullptr.
-template <> inline void print<>(std::nullptr_t val) { print<void *>(val); }
-
-inline void printArgs(void) {}
-template <typename Arg0, typename... Args>
-void printArgs(Arg0 arg0, Args... args) {
-  std::cout << "       ";
-  print(arg0);
-  pi::printArgs(std::forward<Args>(args)...);
-}
-
-/* INTEL_CUSTOMIZATION */
-template <typename T>
-struct printOut { printOut(T val) {(void)val;} }; // Do nothing
-
-template<> struct printOut<PiEvent *> {
-  printOut(PiEvent *val) {
-  std::cout << std::endl << "       ";
-  std::cout << "[out]pi_event * : " << val;
-  if (val) {
-    std::cout << "[ " << *val << " ... ]";
-  }
-}};
-
-template<> struct printOut<PiMem *> {
-  printOut(PiMem *val) {
-  std::cout << std::endl << "       ";
-  std::cout << "[out]pi_mem * : " << val;
-  if (val) {
-    std::cout << "[ " << *val << " ... ]";
-  }
-}};
-
-template<> struct printOut<void *> {
-  printOut(void *val) {
-  std::cout << std::endl << "       ";
-  std::cout << "[out]void * : " << val;
-}};
-
-template<typename T> struct printOut<T **> {
-  printOut(T **val) {
-  std::cout << std::endl << "       ";
-  std::cout << "[out]<unknown> ** : " << val;
-  if (val) {
-    std::cout << "[ " << *val << " ... ]";
-  }
-}};
-
-inline void printOuts(void) {}
-template <typename Arg0, typename... Args>
-void printOuts(Arg0 arg0, Args... args) {
-  using T = decltype(arg0);
-  printOut<T> a(arg0);
-  printOuts(std::forward<Args>(args)...);
-}
-/* end INTEL_CUSTOMIZATION */
 
 // A wrapper for passing around byte array properties
 class ByteArray {
@@ -386,11 +291,32 @@ public:
     return Format;
   }
 
-  /// Gets the iterator range over specialization constants in this this binary
-  /// image. For each property pointed to by an iterator within the range, the
-  /// name of the property is the specializaion constant symbolic ID and the
-  /// value is 32-bit unsigned integer ID.
-  const PropertyRange &getSpecConstants() const { return SpecConstIDMap; }
+  /// Gets the iterator range over scalar specialization constants in this
+  /// binary image. For each property pointed to by an iterator within the
+  /// range, the name of the property is the specialization constant symbolic ID
+  /// and the value is 32-bit unsigned integer ID.
+  const PropertyRange &getScalarSpecConstants() const {
+    return ScalarSpecConstIDMap;
+  }
+  /// Gets the iterator range over composite specialization constants in this
+  /// binary image. For each property pointed to by an iterator within the
+  /// range, the name of the property is the specialization constant symbolic ID
+  /// and the value is a list of tuples of 32-bit unsigned integer values, which
+  /// encode scalar specialization constants, that form the composite one.
+  /// Each tuple consists of ID of scalar specialization constant, its location
+  /// within a composite (offset in bytes from the beginning) and its size.
+  /// For example, for the following structure:
+  /// struct A { int a; float b; };
+  /// struct POD { A a[2]; int b; };
+  /// List of tuples will look like:
+  /// { ID0, 0, 4 },  // .a[0].a
+  /// { ID1, 4, 4 },  // .a[0].b
+  /// { ID2, 8, 4 },  // .a[1].a
+  /// { ID3, 12, 4 }, // .a[1].b
+  /// { ID4, 16, 4 }, // .b
+  const PropertyRange &getCompositeSpecConstants() const {
+    return CompositeSpecConstIDMap;
+  }
   const PropertyRange &getDeviceLibReqMask() const { return DeviceLibReqMask; }
   const PropertyRange &getKernelParamOptInfo() const {
     return KernelParamOptInfo;
@@ -403,7 +329,8 @@ protected:
 
   pi_device_binary Bin;
   pi::PiDeviceBinaryType Format = PI_DEVICE_BINARY_TYPE_NONE;
-  DeviceBinaryImage::PropertyRange SpecConstIDMap;
+  DeviceBinaryImage::PropertyRange ScalarSpecConstIDMap;
+  DeviceBinaryImage::PropertyRange CompositeSpecConstIDMap;
   DeviceBinaryImage::PropertyRange DeviceLibReqMask;
   DeviceBinaryImage::PropertyRange KernelParamOptInfo;
 };

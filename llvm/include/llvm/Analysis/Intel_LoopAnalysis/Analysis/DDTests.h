@@ -36,6 +36,7 @@
 #define LLVM_ANALYSIS_DDTEST_H
 
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -44,8 +45,6 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
-
-#include <array>
 
 namespace llvm {
 
@@ -96,13 +95,16 @@ inline const DVKind &operator|=(DVKind &Lhs, DVKind Rhs) {
   return Lhs = Lhs | Rhs;
 }
 
-struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
-  // Print DV from level 1 to Level
-  void print(raw_ostream &OS, unsigned Level,
-             bool ShowLevelDetail = false) const;
+struct DirectionVector : public SmallVector<DVKind, MaxLoopNestLevel> {
 
-  // Print the entire DirectionVector
+  // Print the DirectionVector
   void print(raw_ostream &OS, bool ShowLevelDetail = false) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() const {
+    print(dbgs(), false);
+  }
+#endif
 
   /// Is  DV all ( = = = .. =)?
   bool isEQ() const;
@@ -134,27 +136,26 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   ///  DV in this form (= = *)
   bool isTestingForInnermostLoop(unsigned InnermostLoopLevel) const;
 
-  // Returns last level in DV .e.g.  (= = =) return 3
-  unsigned getLastLevel() const;
-
   // Fill in input direction vector for demand driven DD
   // startLevel, toLevel
   // e.g. DV.initInput(3,3)
-  // will fill in (= = *)
+  // will resize to 3 and fill in (= = *)
   // which is testing for innermost loop only
+  // The size is reset to the maximum level; the expectation is that
+  // DDTest::depends will determine the proper length of the DV and resize it.
   void setAsInput(const unsigned int StartLevel = 1,
                   const unsigned int EndLevel = MaxLoopNestLevel);
-
-  // Construct all 0
-  void setZero();
 };
 
-struct DistanceVector : public std::array<DistTy, MaxLoopNestLevel> {
-  // Print DistVec from level 1 to Level
-  void print(raw_ostream &OS, unsigned Level) const;
+struct DistanceVector : public SmallVector<DistTy, MaxLoopNestLevel> {
+  // Print DistVec
+  void print(raw_ostream &OS) const;
 
-  // Set as all 0
-  void setZero();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() const {
+    print(dbgs());
+  }
+#endif
 };
 
 /// Dependence - This class represents a dependence between two memory
@@ -350,8 +351,12 @@ class DDTest {
                                      unsigned MaxLevel) const;
 
   /// \brief Query LLVM Alias Analysis to check if there is no aliasing between
-  /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes)
-  bool queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef);
+  /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes). A \p
+  /// LoopLevel of interest may be specified, in which case the query will try
+  /// to prove no aliasing specifically within that loop. Note that no aliasing
+  /// for level N implies no aliasing for level N+1, but not for level N-1.
+  bool queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
+                    unsigned LoopLevel);
 
   /// Set DV for various cases.
   /// PeelFirst && Reversed
@@ -381,10 +386,15 @@ class DDTest {
                               const DirectionVector &BackwardDV,
                               const Dependences &Result,
                               DistanceVector &ForwardDistV,
-                              DistanceVector &BackwardDistV, unsigned Levels);
+                              DistanceVector &BackwardDistV);
 
   void adjustDV(Dependences &Result, bool SameBase, const RegDDRef *SrcRegDDRef,
                 const RegDDRef *DstRegDDRef);
+
+  /// Attempt to to break dependencies at inner loop levels by querying alias
+  /// analysis.
+  void refineAAIndep(Dependences &Result, const RegDDRef *SrcRegDDRef,
+                     const RegDDRef *DstRegDDRef);
 
   /// When IVDEP directive is present for a level, DV can be adjusted
   /// SameBase indicates if the base pointer of src/dst DD_REF are the same

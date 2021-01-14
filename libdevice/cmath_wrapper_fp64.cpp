@@ -137,14 +137,9 @@ double asinh(double x) { return __devicelib_asinh(x); }
 
 DEVICE_EXTERN_C
 double atanh(double x) { return __devicelib_atanh(x); }
-#if INTEL_CUSTOMIZATION
-#if 0
-// Disable scalbn() wrapper, since it triggers
-// CMPLRXDEPS-719 issue in compute runtime for Linux.
+
 DEVICE_EXTERN_C
 double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
-#endif // 0
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target

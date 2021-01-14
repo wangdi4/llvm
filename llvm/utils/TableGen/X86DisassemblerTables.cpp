@@ -103,6 +103,7 @@ static inline bool inheritsFrom(InstructionContext child,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
            (inheritsFrom(child, IC_64BIT_CE)) ||
+           (noPrefix && inheritsFrom(child, IC_64BIT_XS_CE, noPrefix)) ||
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
            (noPrefix && inheritsFrom(child, IC_64BIT_OPSIZE, noPrefix)) ||
@@ -170,11 +171,6 @@ static inline bool inheritsFrom(InstructionContext child,
            (!AdSize64 && inheritsFrom(child, IC_64BIT_XD_ADSIZE)));
   case IC_64BIT_XS:
     return(inheritsFrom(child, IC_64BIT_REXW_XS) ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-           (inheritsFrom(child, IC_64BIT_XS_CE)) ||
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
            (!AdSize64 && inheritsFrom(child, IC_64BIT_XS_ADSIZE)));
   case IC_64BIT_XD_OPSIZE:
   case IC_64BIT_XS_OPSIZE:

@@ -1,7 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false < %s | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-use-interop=false -vpo-paropt-use-mapper-api=false -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-use-interop=false -vpo-paropt-use-mapper-api=false -S | FileCheck %s
 
 ; Original code:
 ; void __attribute__((nothrow)) foo_gpu(void *ptr);
@@ -14,21 +12,14 @@
 ;   foo(host_ptr);
 ; }
 
-; BUFFPTR: [[BUFFER:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* [[PTR:%[a-zA-Z._0-9]]])
-; BUFFPTR: store i8* [[BUFFER]], i8** [[TGT_BUFFER:%[a-zA-Z._0-9]+]]
+; CHECK: call void @__tgt_target_data_begin({{.+}})
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*foo_gpu.wrapper[^ (]*]](float** %host_ptr.new)
+; CHECK: call void @__tgt_target_data_end({{.+}})
 
-; Check that the host pointer casted from float* to i8* is not directly used in the call:
-; BUFFPTR-NOT: call void @foo_gpu(i8* [[PTR]])
-
-; BUFFPTR-DAG: [[LOAD1:%[a-zA-Z._0-9]+]] = load i8*, i8** [[TGT_BUFFER]]
-; BUFFPTR-DAG: icmp ne i8* [[LOAD1]], null
-
-; BUFFPTR-DAG: [[LOAD2:%[a-zA-Z._0-9]+]] = load i8*, i8** [[TGT_BUFFER]]
-; BUFFPTR-DAG: call void @foo_gpu(i8* [[LOAD2]])
-
-; RAWPTR: call void @__tgt_target_data_begin({{.+}})
-; RAWPTR-DAG: call void @foo_gpu({{.+}})
-; RAWPTR: call void @__tgt_target_data_end({{.+}})
+; CHECK: define internal void @[[VARIANT_WRAPPER]](float** [[HOST_PTR:%[^, )]+]])
+; CHECK: [[LOAD:%[^ ]+]] = load float*, float** [[HOST_PTR]]
+; CHECK: [[ARG:%[^ ]+]] = bitcast float* [[LOAD]] to i8*
+; CHECK: call void @foo_gpu(i8* [[ARG]])
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

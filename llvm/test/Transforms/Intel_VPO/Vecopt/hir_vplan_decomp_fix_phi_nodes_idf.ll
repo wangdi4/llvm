@@ -4,8 +4,8 @@
 ; missing PHI node due to lack of use. The issue is addressed when IDF based
 ; PHI node placement algorithm is executed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -disable-output -vplan-force-build < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <50>    + DO i1 = 0, %n + -1, 1   <DO_LOOP>
@@ -39,74 +39,68 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [101 x float]* nocapture %a, i1 zeroext %vec) local_unnamed_addr {
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
-; CHECK-LABEL:  VPlan after importing plain CFG
+; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%ret.021}
-; CHECK-DAG:     [[VP1:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%m + -1}
 ; CHECK-DAG:     [[VP2:%.*]] = {%a}
-; CHECK-DAG:     [[VP3:%.*]] = {%m + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {%n + -1}
 ; CHECK-DAG:     [[VP4:%.*]] = {%ub}
 ; CHECK-DAG:     [[VP5:%.*]] = {%m}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[RET_0210:%.*]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[RET_0210:%.*]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP9:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP10:%.*]] = hir-copy i64 [[VP8]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP11:%.*]] = hir-copy i64 0 , OriginPhiId: -1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     float [[VP12:%.*]] = sitofp i64 [[VP8]] to float
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB5]]
 ; CHECK-NEXT:     i64 [[VP13:%.*]] = phi  [ i64 [[VP6]], [[BB4]] ],  [ i64 [[VP13]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP14:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP15:%.*]], [[BB5]] ]
-; CHECK-NEXT:     float* [[VP16:%.*]] = subscript inbounds [101 x float]* [[A0:%.*]] i64 [[VP8]] i64 [[VP14]]
-; CHECK-NEXT:     store float [[VP12]] float* [[VP16]]
-; CHECK-NEXT:     i64 [[VP17:%.*]] = mul i64 3 i64 [[VP14]]
-; CHECK-NEXT:     i64 [[VP18:%.*]] = add i64 [[VP13]] i64 [[VP17]]
-; CHECK-NEXT:     i64* [[VP19:%.*]] = subscript inbounds i64* [[UB0:%.*]] i64 [[VP14]]
-; CHECK-NEXT:     store i64 [[VP18]] i64* [[VP19]]
+; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [101 x float]* [[A0:%.*]] i64 [[VP8]] i64 [[VP14]]
+; CHECK-NEXT:     store float [[VP12]] float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i64 [[VP16:%.*]] = mul i64 3 i64 [[VP14]]
+; CHECK-NEXT:     i64 [[VP17:%.*]] = add i64 [[VP13]] i64 [[VP16]]
+; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[UB0:%.*]] i64 [[VP14]]
+; CHECK-NEXT:     store i64 [[VP17]] i64* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP15]] = add i64 [[VP14]] i64 1
-; CHECK-NEXT:     i1 [[VP20:%.*]] = icmp sle i64 [[VP15]] i64 [[VP3]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP20]]), [[BB3]](!i1 [[VP20]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
+; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp sle i64 [[VP15]] i64 [[VP1]]
+; CHECK-NEXT:     br i1 [[VP18]], [[BB5]], [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     i64 [[VP21:%.*]] = phi  [ i64 [[VP13]], [[BB5]] ]
-; CHECK-NEXT:     i64 [[VP22:%.*]] = mul i64 [[M0:%.*]] i64 2
-; CHECK-NEXT:     i64 [[VP23:%.*]] = add i64 [[VP22]] i64 [[VP21]]
-; CHECK-NEXT:     i64 [[VP24:%.*]] = add i64 [[VP23]] i64 -2
-; CHECK-NEXT:     i64 [[VP25:%.*]] = add i64 [[VP24]] i64 2
-; CHECK-NEXT:     i64 [[VP7]] = hir-copy i64 [[VP25]] , OriginPhiId: -1
-; CHECK-NEXT:     i64 [[VP26:%.*]] = hir-copy i64 [[M0]] , OriginPhiId: -1
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
+; CHECK-NEXT:     i64 [[VP19:%.*]] = mul i64 [[M0:%.*]] i64 2
+; CHECK-NEXT:     i64 [[VP20:%.*]] = add i64 [[VP19]] i64 [[VP13]]
+; CHECK-NEXT:     i64 [[VP21:%.*]] = add i64 [[VP20]] i64 -2
+; CHECK-NEXT:     i64 [[VP22:%.*]] = add i64 [[VP21]] i64 2
+; CHECK-NEXT:     i64 [[VP7]] = hir-copy i64 [[VP22]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP23:%.*]] = hir-copy i64 [[M0]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
-; CHECK-NEXT:     i1 [[VP27:%.*]] = icmp sle i64 [[VP9]] i64 [[VP1]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP27]]), [[BB6:BB[0-9]+]](!i1 [[VP27]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:     i1 [[VP24:%.*]] = icmp sle i64 [[VP9]] i64 [[VP3]]
+; CHECK-NEXT:     br i1 [[VP24]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
+; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i64 [[VP10]] -> [[VP25:%.*]] = {%.omp.iv.0.out}
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   i64 [[VP23]] -> [[VP26:%.*]] = {%inc.lcssa25}
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 2   i64 [[VP7]] -> [[VP27:%.*]] = {%ret.021}
 ;
 entry:
   %i = alloca i64, align 8

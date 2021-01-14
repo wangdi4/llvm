@@ -8,15 +8,6 @@
 
 ; Checks for old pass manager with old inline report
 
-; CHECK-OLD: COMPILE FUNC: bar_
-; CHECK-OLD: COMPILE FUNC: baz_
-; CHECK-OLD: COMPILE FUNC: foo_
-; CHECK-OLD: baz_{{.*}}Inlining is not profitable
-; CHECK-OLD: bar_{{.*}}Inlining is not profitable
-; CHECK-OLD: bar_{{.*}}Inlining is not profitable
-; CHECK-OLD: COMPILE FUNC: MAIN__
-; CHECK-OLD: foo_{{.*}}Inlining is not profitable
-
 ; CHECK-OLD: define void @bar_
 ; CHECK-OLD: define void @foo_
 ; CHECK-OLD: call void @baz_
@@ -26,6 +17,15 @@
 ; CHECK-OLD: define void @MAIN__
 ; CHECK-OLD: call void @foo_
 ; CHECK-OLD: define void @baz_
+
+; CHECK-OLD: COMPILE FUNC: bar_
+; CHECK-OLD: COMPILE FUNC: baz_
+; CHECK-OLD: COMPILE FUNC: foo_
+; CHECK-OLD: baz_{{.*}}Inlining is not profitable
+; CHECK-OLD: bar_{{.*}}Inlining is not profitable
+; CHECK-OLD: bar_{{.*}}Inlining is not profitable
+; CHECK-OLD: COMPILE FUNC: MAIN__
+; CHECK-OLD: foo_{{.*}}Inlining is not profitable
 
 ; Checks for new pass manager with old inline report
 
@@ -39,8 +39,8 @@
 ; CHECK-NEW: call void @foo_
 ; CHECK-NEW: define void @baz_
 
-; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: bar_
+; CHECK-NEW: COMPILE FUNC: baz_
 ; CHECK-NEW: COMPILE FUNC: foo_
 ; CHECK-NEW: baz_{{.*}}Inlining is not profitable
 ; CHECK-NEW: bar_{{.*}}Inlining is not profitable

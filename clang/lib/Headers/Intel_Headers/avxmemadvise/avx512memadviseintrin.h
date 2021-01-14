@@ -29,23 +29,13 @@
 #define __AVX512MEMADVISEINTRIN_H
 #ifdef __x86_64__
 
-#define _mm128_vmovadvisew_loade_epi8(A, I) \
-   (__m128i)__builtin_ia32_vmovadvisew_loade_128((const __v4si *)(A), (I))
+#define _mm512_vmovadvisew_load_epi8(A, I) \
+   (__m512i)__builtin_ia32_vmovadvisew_load_512((const __v16si *)(A), (I))
 
-#define _mm128_vmovadvisew_storee_epi8(A, B, I) \
-   __builtin_ia32_vmovadvisew_storee_128((__v4si *)(A), (__v4si)(B), (I))
+#define _mm512_vmovadvisew_store_epi8(A, B, I) \
+   __builtin_ia32_vmovadvisew_store_512((__v16si *)(A), (__v16si)(B), (I))
 
-#define _mm256_vmovadvisew_loade_epi8(A, I) \
-   (__m256i)__builtin_ia32_vmovadvisew_loade_256((const __v8si *)(A), (I))
-
-#define _mm256_vmovadvisew_storee_epi8(A, B, I) \
-   __builtin_ia32_vmovadvisew_storee_256((__v8si *)(A), (__v8si)(B), (I))
-
-#define _mm512_vmovadvisew_loade_epi8(A, I) \
-   (__m512i)__builtin_ia32_vmovadvisew_loade_512((const __v16si *)(A), (I))
-
-#define _mm512_vmovadvisew_storee_epi8(A, B, I) \
-   __builtin_ia32_vmovadvisew_storee_512((__v16si *)(A), (__v16si)(B), (I))
-
+#define _mm512_vmemadvise_epi8(A, I) \
+   __builtin_ia32_vmemadvise_512((const __v64qi *)(A), (I))
 #endif /* __x86_64__ */
 #endif /* __AVX512MEMADVISEINTRIN_H */

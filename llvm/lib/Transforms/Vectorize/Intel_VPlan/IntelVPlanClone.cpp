@@ -17,12 +17,11 @@ namespace llvm {
 namespace vpo {
 
 /// Remap all operands from cloned \p Inst instruction.
-void VPValueMapper::remapInstruction(VPInstruction *Inst) {
-  for (unsigned I = 0, E = Inst->getNumOperands(); I != E; ++I) {
-    Inst->setOperand(I, remapValue(Value2ValueMap, Inst->getOperand(I)));
-  }
+void VPValueMapper::remapInstruction(VPUser *User) {
+  for (unsigned U = 0, E = User->getNumOperands(); U != E; ++U)
+    User->setOperand(U, remapValue(Value2ValueMap, User->getOperand(U)));
 
-  if (auto Phi = dyn_cast<VPPHINode>(Inst)) {
+  if (auto Phi = dyn_cast<VPPHINode>(User)) {
     for (auto &B : Phi->blocks()) {
       B = cast<VPBasicBlock>(remapValue(Value2ValueMap, B));
     }

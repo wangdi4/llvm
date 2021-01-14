@@ -68,14 +68,12 @@ define void @fmuladd_f64(i32 %n, double* %a_arr, double* %b_arr, double* %c_arr)
 ; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for VF=2:
 ; VEC-PROP:          [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP_A:%vp.*]] double [[VP_B:%vp.*]] double [[VP_C:%vp.*]] llvm.fmuladd.v2f64 [x 1]
 ; VEC-PROP-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = fcmp oeq double [[VP_CALL1]] double 4.200000e+01
-; VEC-PROP-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; VEC-PROP-NEXT:    PREDECESSORS(2): [[BB1:BB.*]] [[BB3:BB.*]]
+; VEC-PROP-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; VEC-PROP-EMPTY:
-; VEC-PROP-NEXT:    [[BB4]]:
+; VEC-PROP-NEXT:    [[BB4]]: # preds: [[BB2:BB.*]]
 ; VEC-PROP-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND]]
 ; VEC-PROP-NEXT:     [DA: Div] double [[VP_CALL2:%.*]] = call double [[VP_A]] double [[VP_B]] double [[VP_C]] llvm.fmuladd.v2f64 [x 1]
-; VEC-PROP-NEXT:    SUCCESSORS(1):[[BB3]]
-; VEC-PROP-NEXT:    PREDECESSORS(1): [[BB2:BB.*]]
+; VEC-PROP-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ;
 ; CG-CHECK-LABEL: @fmuladd_f64(
 ; CG-CHECK:       vector.body:

@@ -17,6 +17,7 @@
 //     * sorting of the resulting OpenMP offload entry table by entry name
 //     * making OpenMP declare target variables, referenced by OpenMP offload
 //       table, static (i.e. with internal linkage)
+// - OpenMP offload explicit simd adaptor pass invocation
 #endif // INTEL_COLLAB
 //===----------------------------------------------------------------------===//
 
@@ -31,6 +32,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/CommandLine.h"
@@ -44,12 +46,19 @@
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#if INTEL_COLLAB
+#include "llvm/Pass.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/MDBuilder.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptLowerSimd.h"
+#include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
+#endif // INTEL_COLLAB
+
 #include <memory>
 
 using namespace llvm;
 
 using string_vector = std::vector<std::string>;
-using SpecIDMapTy = std::map<StringRef, unsigned>;
 
 cl::OptionCategory PostLinkCat{"sycl-post-link options"};
 
@@ -97,17 +106,18 @@ static cl::opt<bool> OutputAssembly{"S",
                                     cl::Hidden, cl::cat(PostLinkCat)};
 
 enum IRSplitMode {
-  SPLIT_PER_TU,    // one module per translation unit
-  SPLIT_PER_KERNEL // one module per kernel
+  SPLIT_PER_TU,     // one module per translation unit
+  SPLIT_PER_KERNEL, // one module per kernel
+  SPLIT_AUTO        // automatically select split mode
 };
 
 static cl::opt<IRSplitMode> SplitMode(
-    "split", cl::desc("split input module"), cl::Optional,
-    cl::init(SPLIT_PER_TU),
-    cl::values(clEnumValN(SPLIT_PER_TU, "source",
-                          "1 output module per source (translation unit)"),
-               clEnumValN(SPLIT_PER_KERNEL, "kernel",
-                          "1 output module per kernel")),
+    "split", cl::desc("split input module"), cl::Optional, cl::init(SPLIT_AUTO),
+    cl::values(
+        clEnumValN(SPLIT_PER_TU, "source",
+                   "1 output module per source (translation unit)"),
+        clEnumValN(SPLIT_PER_KERNEL, "kernel", "1 output module per kernel"),
+        clEnumValN(SPLIT_AUTO, "auto", "Choose split mode automatically")),
     cl::cat(PostLinkCat));
 
 static cl::opt<bool> DoSymGen{"symbols",
@@ -145,6 +155,12 @@ static cl::opt<bool>
                          cl::desc("make OpenMP global variables referenced "
                                   "in the offload table static."),
                          cl::cat(PostLinkCat));
+
+static cl::opt<bool> EnableOmpExplicitSimd(
+    "ompoffload-explicit-simd", cl::init(false),
+    cl::desc("enable OpenMP offload explicit simd. "
+             "Does nothing without -ompoffload-explicit-simd"),
+    cl::cat(PostLinkCat));
 #endif // INTEL_COLLAB
 static cl::opt<bool> EmitKernelParamInfo{
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
@@ -315,6 +331,40 @@ enum KernelMapEntryScope {
   Scope_PerModule, // one entry per module
   Scope_Global     // single entry in the map for all kernels
 };
+
+static KernelMapEntryScope selectDeviceCodeSplitScopeAutomatically(Module &M) {
+  if (IROutputOnly) {
+    // We allow enabling auto split mode even in presence of -ir-output-only
+    // flag, but in this case we are limited by it so we can't do any split at
+    // all.
+    return Scope_Global;
+  }
+
+  for (const auto &F : M.functions()) {
+    // There are functions marked with [[intel::device_indirectly_callable]]
+    // attribute, because it instructs us to make this function available to the
+    // whole program as it was compiled as a single module.
+    if (F.hasFnAttribute("referenced-indirectly"))
+      return Scope_Global;
+    if (F.isDeclaration())
+      continue;
+    // There are indirect calls in the module, which means that we don't know
+    // how to group functions so both caller and callee of indirect call are in
+    // the same module.
+    for (const auto &BB : F) {
+      for (const auto &I : BB) {
+        if (auto *CI = dyn_cast<CallInst>(&I)) {
+          if (!CI->getCalledFunction())
+            return Scope_Global;
+        }
+      }
+    }
+  }
+
+  // At the moment, we assume that per-source split is the best way of splitting
+  // device code and can always be used execpt for cases handled above.
+  return Scope_PerModule;
+}
 
 // This function decides how kernels of the input module M will be distributed
 // ("split") into multiple modules based on the command options and IR
@@ -672,14 +722,19 @@ static string_vector saveDeviceImageProperty(
                   RMEntry);
     }
     if (ImgPSInfo.DoSpecConst && ImgPSInfo.SetSpecConstAtRT) {
-      // extract spec constant maps per each module
-      SpecIDMapTy TmpSpecIDMap;
-      if (ImgPSInfo.SpecConstsMet)
-        SpecConstantsPass::collectSpecConstantMetadata(*ResultModules[I].get(),
-                                                       TmpSpecIDMap);
-      PropSet.add(
-          llvm::util::PropertySetRegistry::SYCL_SPECIALIZATION_CONSTANTS,
-          TmpSpecIDMap);
+      if (ImgPSInfo.SpecConstsMet) {
+        // extract spec constant maps per each module
+        ScalarSpecIDMapTy TmpScalarSpecIDMap;
+        CompositeSpecIDMapTy TmpCompositeSpecIDMap;
+        SpecConstantsPass::collectSpecConstantMetadata(
+            *ResultModules[I].get(), TmpScalarSpecIDMap, TmpCompositeSpecIDMap);
+        PropSet.add(
+            llvm::util::PropertySetRegistry::SYCL_SPECIALIZATION_CONSTANTS,
+            TmpScalarSpecIDMap);
+        PropSet.add(llvm::util::PropertySetRegistry::
+                        SYCL_COMPOSITE_SPECIALIZATION_CONSTANTS,
+                    TmpCompositeSpecIDMap);
+      }
     }
     if (ImgPSInfo.EmitKernelParamInfo) {
       // extract kernel parameter optimization info per module
@@ -754,6 +809,8 @@ int main(int argc, char **argv) {
       "  kernels with the same values of the 'sycl-module-id' attribute will\n"
       "  be put into the same module. If -split=kernel option is specified,\n"
       "  one module per kernel will be emitted.\n"
+      "  '-split=auto' mode automatically selects the best way of splitting\n"
+      "  kernels into modules based on some heuristic.\n"
       "- If -symbols options is also specified, then for each produced module\n"
       "  a text file containing names of all spir kernels in it is generated.\n"
       "- Specialization constant intrinsic transformer. Replaces symbolic\n"
@@ -776,6 +833,9 @@ int main(int argc, char **argv) {
       "    * if -" + MakeOmpGlobalsStatic.ArgStr.str() + " is specified\n"
       "      all OpenMP declare target global variables will be made\n"
       "      static (internal linkage).\n"
+      "    * if -" + EnableOmpExplicitSimd.ArgStr.str() + " is specified\n"
+      "      all kernel functions will be converted to explicit simd\n"
+      "      kernel fcuntions.\n"
 #endif // INTEL_COLLAB
       "Normally, the tool generates a number of files and \"file table\"\n"
       "file listing all generated files in a table manner. For example, if\n"
@@ -791,7 +851,9 @@ int main(int argc, char **argv) {
       "  $ sycl-post-link --ir-output-only --spec-const=default \\\n"
       "    -o example_p.bc example.bc\n"
       "will produce single output file example_p.bc suitable for SPIRV\n"
-      "translation.\n");
+      "translation.\n"
+      "--ir-output-only option is not not compatible with split modes other\n"
+      "than 'auto'.\n");
 
   bool DoSplit = SplitMode.getNumOccurrences() > 0;
   bool DoSpecConst = SpecConstLower.getNumOccurrences() > 0;
@@ -802,6 +864,7 @@ int main(int argc, char **argv) {
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
   bool DoMakeOmpGlobalsStatic = MakeOmpGlobalsStatic.getNumOccurrences() > 0;
   bool DoSortOmpOffloadEntries = SortOmpOffloadEntries.getNumOccurrences() > 0;
+  bool DoEnableOmpExplicitSimd = EnableOmpExplicitSimd.getNumOccurrences() > 0;
 
   if (DoLinkOmpOffloadEntries && !IROutputOnly)
     // OpenMP offload works with IR output only currently.
@@ -819,9 +882,9 @@ int main(int argc, char **argv) {
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
-  if (IROutputOnly && DoSplit) {
-    errs() << "error: -" << SplitMode.ArgStr << " can't be used with -"
-           << IROutputOnly.ArgStr << "\n";
+  if (IROutputOnly && (DoSplit && SplitMode != SPLIT_AUTO)) {
+    errs() << "error: -" << SplitMode.ArgStr << "=" << SplitMode.ValueStr
+           << " can't be used with -" << IROutputOnly.ArgStr << "\n";
     return 1;
   }
   if (IROutputOnly && DoSymGen) {
@@ -844,6 +907,15 @@ int main(int argc, char **argv) {
     Err.print(argv[0], errs());
     return 1;
   }
+
+  // Special "llvm.used" variable which holds references to global values in the
+  // module is known to cause problems for tools which run later in pipeline, so
+  // remove it from the module before perfroming any other actions.
+  if (GlobalVariable *GV = MPtr->getGlobalVariable("llvm.used")) {
+    assert(GV->user_empty() && "unexpected llvm.used users");
+    GV->eraseFromParent();
+  }
+
   if (OutputFilename.getNumOccurrences() == 0)
     OutputFilename = (Twine(sys::path::stem(InputFilename)) + ".files").str();
 
@@ -851,8 +923,13 @@ int main(int argc, char **argv) {
 
   if (DoSplit || DoSymGen) {
     KernelMapEntryScope Scope = Scope_Global;
-    if (DoSplit)
-      Scope = SplitMode == SPLIT_PER_KERNEL ? Scope_PerKernel : Scope_PerModule;
+    if (DoSplit) {
+      if (SplitMode == SPLIT_AUTO)
+        Scope = selectDeviceCodeSplitScopeAutomatically(*MPtr);
+      else
+        Scope =
+            SplitMode == SPLIT_PER_KERNEL ? Scope_PerKernel : Scope_PerModule;
+    }
     collectKernelModuleMap(*MPtr, GlobalsSet, Scope);
   }
 
@@ -878,11 +955,20 @@ int main(int argc, char **argv) {
     PreservedAnalyses Res = RunSpecConst.run(*MPtr, MAM);
     SpecConstsMet = !Res.areAllPreserved();
   }
+
 #if INTEL_COLLAB
+  if (DoEnableOmpExplicitSimd) {
+    legacy::PassManager Passes;
+    Passes.add(createVPOParoptLowerSimdPass());
+    Passes.add(createGenXSPIRVWriterAdaptorPass());
+    Passes.run(*MPtr);
+  }
+
   if (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic)
     processOmpOffloadEntries(*MPtr, DoLinkOmpOffloadEntries,
                              DoSortOmpOffloadEntries, DoMakeOmpGlobalsStatic);
 #endif // INTEL_COLLAB
+
   if (IROutputOnly) {
     // the result is the transformed input LLVMIR file rather than a file table
     saveModule(*MPtr, OutputFilename);

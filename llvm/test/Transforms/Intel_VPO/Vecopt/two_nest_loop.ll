@@ -1,7 +1,7 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -vplan-print-after-linearization -disable-output | FileCheck %s
-; RUN: opt -S %s -passes="vplan-driver" -vplan-print-after-linearization -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -VPlanDriver -vplan-print-after-linearization -disable-output | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-driver" -vplan-print-after-linearization -disable-output | FileCheck %s
 
 ;source code:
 ;void foo(float *a, float *b, int* n) {
@@ -20,9 +20,9 @@
 
 ; CHECK-LABEL: VPlan after predication and linearization
 ; CHECK:        i1 [[ALLZERO_1:%vp.*]] = all-zero-check
-; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[ALLZERO_1]]), {{BB[0-9]+}}(!i1 [[ALLZERO_1]])
+; CHECK-NEXT:   br i1 [[ALLZERO_1]], {{BB[0-9]+}}, {{BB[0-9]+}}
 ; CHECK:        i1 [[ALLZERO_2:%vp.*]] = all-zero-check
-; CHECK:      SUCCESSORS(2):{{BB[0-9]+}}(i1 [[ALLZERO_2]]), {{BB[0-9]+}}(!i1 [[ALLZERO_2]])
+; CHECK:        br i1 [[ALLZERO_2]], {{BB[0-9]+}}, {{BB[0-9]+}}
 ;
 
 ; ModuleID = 'two_inner_llops.cpp'

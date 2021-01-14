@@ -573,6 +573,8 @@ static Value *operandWithNewAddressSpaceOrCreateUndef(
     SmallVectorImpl<const Use *> *UndefUsesToFix) {
   Value *Operand = OperandUse.get();
 
+  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+  // specific AddressSpace. The API currently needs the Element Type as well.
   Type *NewPtrTy =
       Operand->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
 
@@ -599,6 +601,8 @@ static Value *cloneInstructionWithNewAddressSpace(
     Instruction *I, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace,
     SmallVectorImpl<const Use *> *UndefUsesToFix) {
+  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+  // specific AddressSpace. The API currently needs the Element Type as well.
   Type *NewPtrType =
       I->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
 
@@ -660,6 +664,8 @@ static Value *cloneInstructionWithNewAddressSpace(
 static Value *cloneConstantExprWithNewAddressSpace(
     ConstantExpr *CE, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace) {
+  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+  // specific AddressSpace. The API currently needs the Element Type as well.
   Type *TargetType =
       CE->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
 
@@ -719,7 +725,7 @@ static Value *cloneConstantExprWithNewAddressSpace(
     // constant expression.
     return CE->getWithOperands(
         NewOperands, TargetType, /*OnlyIfReduced=*/false,
-        NewOperands[0]->getType()->getPointerElementType());
+        cast<GEPOperator>(CE)->getSourceElementType());
   }
 
   return CE->getWithOperands(NewOperands, TargetType);
@@ -1144,11 +1150,13 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
           unsigned NewAS = NewV->getType()->getPointerAddressSpace();
           if (ASC->getDestAddressSpace() == NewAS) {
             auto *BCNewV = NewV;
+#if !ENABLE_OPAQUEPOINTER
             if (ASC->getType()->getPointerElementType() !=
                 NewV->getType()->getPointerElementType()) {
               BCNewV = CastInst::Create(Instruction::BitCast, NewV,
                                         ASC->getType(), "", ASC);
             }
+#endif // !ENABLE_OPAQUEPOINTER
             ASC->replaceAllUsesWith(BCNewV);
             DeadInstructions.push_back(ASC);
             continue;
@@ -1226,10 +1234,12 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     auto *ValTy = dyn_cast<PointerType>(GV->getValueType());
     if (!ValTy)
       continue;
-
-    if (isa<PointerType>(ValTy->getElementType()))
+#if !ENABLE_OPAQUEPOINTER
+    if (isa<PointerType>(ValTy->getPointerElementType()))
       // TODO: for now analyze only pointer to non-pointer globals.
+      // TODO: OPAQUEPOINTER: remove this check
       continue;
+#endif // !ENABLE_OPAQUEPOINTER
 
     if (ValTy->getAddressSpace() != FlatAddrSpace)
       continue;
@@ -1319,7 +1329,9 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     }
 
     // The optimization is possible.
-    auto *NewValType = ValTy->getElementType()->getPointerTo(NewAS);
+    // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+    // specific AddressSpace. The API currently needs the Element Type as well.
+    auto *NewValType = ValTy->getPointerElementType()->getPointerTo(NewAS);
 
     // Create new global variable.
     Constant *Initializer = nullptr;
@@ -1348,7 +1360,11 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       // we used stripPointerCasts() above to find the initial
       // pointer).
       auto *NewStoreVal = Builder.CreateAddrSpaceCast(
-          StoreVal, StoreValTy->getElementType()->getPointerTo(NewAS));
+          StoreVal,
+          // TODO: OPAQUEPOINTER: Use the appropriate API for getting
+          // PointerType to a specific AddressSpace. The API currently
+          // needs the Element Type as well.
+          StoreValTy->getPointerElementType()->getPointerTo(NewAS));
       SI->replaceUsesOfWith(StoreVal, NewStoreVal);
       SI->replaceUsesOfWith(GV, NewGV);
     }
@@ -1360,7 +1376,11 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       // Clone the load instruction.
       auto *NewLI = LI->clone();
       NewLI->replaceUsesOfWith(GV, NewGV);
-      NewLI->mutateType(LoadValTy->getElementType()->getPointerTo(NewAS));
+      NewLI->mutateType(
+          // TODO: OPAQUEPOINTER: Use the appropriate API for getting
+          // PointerType to a specific AddressSpace. The API currently
+          // needs the Element Type as well.
+          LoadValTy->getPointerElementType()->getPointerTo(NewAS));
       NewLI->insertBefore(LI);
       // Cast the new load value to the original flat address space.
       // We could have called InferAddrSpaces() again to optimize

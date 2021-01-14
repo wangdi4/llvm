@@ -71,7 +71,7 @@ void *dlopen(const char *file, int mode) {
   HMODULE handle = LoadLibraryW(w_path);
 #ifdef OMPTARGET_DEBUG
   if (!static_cast<void*>(handle))
-    DP("Call to LoadLibray() failed with error code 0x%x\n", GetLastError());
+    DP("Call to LoadLibray() was unsuccessful with code 0x%lx\n", GetLastError());
 #endif // OMPTARGET_DEBUG
 
   // Restore error mode
@@ -87,7 +87,8 @@ int dlclose(void *handle) {
 }
 
 void *dlsym(void *handle, const char *name) {
-  void *addr = GetProcAddress(static_cast<HMODULE>(handle), name);
+  void *addr = reinterpret_cast<void *>(
+      GetProcAddress(static_cast<HMODULE>(handle), name));
   return addr;
 }
 

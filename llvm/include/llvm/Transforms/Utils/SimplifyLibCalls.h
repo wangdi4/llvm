@@ -59,6 +59,7 @@ private:
   Value *optimizeStrpCpyChk(CallInst *CI, IRBuilderBase &B, LibFunc Func);
   Value *optimizeStrpNCpyChk(CallInst *CI, IRBuilderBase &B, LibFunc Func);
   Value *optimizeStrLenChk(CallInst *CI, IRBuilderBase &B);
+  Value *optimizeMemPCpyChk(CallInst *CI, IRBuilderBase &B);
   Value *optimizeMemCCpyChk(CallInst *CI, IRBuilderBase &B);
   Value *optimizeSNPrintfChk(CallInst *CI, IRBuilderBase &B);
   Value *optimizeSPrintfChk(CallInst *CI,IRBuilderBase &B);
@@ -192,6 +193,9 @@ private:
   Value *replacePowWithSqrt(CallInst *Pow, IRBuilderBase &B);
   Value *optimizeExp2(CallInst *CI, IRBuilderBase &B);
   Value *optimizeFMinFMax(CallInst *CI, IRBuilderBase &B);
+#if INTEL_CUSTOMIZATION
+  Value *optimizeFMod(CallInst *CI, IRBuilderBase &B);
+#endif // INTEL_CUSTOMIZATION
   Value *optimizeLog(CallInst *CI, IRBuilderBase &B);
   Value *optimizeSqrt(CallInst *CI, IRBuilderBase &B);
   Value *optimizeSinCosPi(CallInst *CI, IRBuilderBase &B);

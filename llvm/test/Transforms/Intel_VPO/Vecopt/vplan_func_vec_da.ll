@@ -7,7 +7,8 @@ define void @test(i32 %a) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_UNI:%.*]] = add i32 [[A0:%.*]] i32 42
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_ADD:%.*]] = add i32 [[VP_LANE]] i32 42
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
   %lane = call i32 @llvm.vplan.laneid()
   %uni = add i32 %a, 42
@@ -19,16 +20,19 @@ define void @test_loop_uni(i32 %vf) {
 ; CHECK:       Printing Divergence info for test_loop_uni
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB1:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXIT_COND]], [[BB2:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
@@ -50,14 +54,17 @@ define void @test_loop_div_linear(i32 %vf) {
 ; CHECK:       Printing Divergence info for test_loop_div_linear
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB1:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_EXIT_COND]], [[BB2:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
@@ -78,14 +85,17 @@ define void @test_loop_div_random(i32 %vf) {
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_MUL:%.*]] = mul i32 [[VP_LANE]] i32 [[VP_LANE]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB1:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 [[VP_MUL]], [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_EXIT_COND]], [[BB2:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
@@ -106,8 +116,9 @@ define void @test_loop_reduction(i32 %vf) {
 ; CHECK:       Printing Divergence info for test_loop_reduction
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB1:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_RED:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_RED_NEXT:%.*]], [[BB1]] ]
@@ -115,9 +126,11 @@ define void @test_loop_reduction(i32 %vf) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_RED_NEXT]] = add i32 [[VP_RED]] i32 [[VP_VEC]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXIT_COND]], [[BB2:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Divergent: [Shape: Random] void [[VP0:%.*]] = ret
+; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ret
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()

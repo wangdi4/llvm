@@ -49,15 +49,12 @@ WRegionCollection WRegionCollectionAnalysis::run(Function &F,
   auto &DI = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LI = AM.getResult<LoopAnalysis>(F);
   auto &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
-  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
-  auto &AC = AM.getResult<AssumptionAnalysis>(F);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
 #if INTEL_CUSTOMIZATION
   auto *HIRF = AM.getCachedResult<loopopt::HIRFrameworkAnalysis>(F);
-  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA, HIRF);
+  WRegionCollection WRC(&F, &DI, &LI, &SE, &AA, HIRF);
 #else
-  WRegionCollection WRC(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA);
+  WRegionCollection WRC(&F, &DI, &LI, &SE, &AA);
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionAnalysis::run: " << F.getName()
@@ -70,9 +67,6 @@ INITIALIZE_PASS_BEGIN(WRegionCollectionWrapperPass, "vpo-wrncollection",
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(WRegionCollectionWrapperPass, "vpo-wrncollection",
                     "VPO Work-Region Collection", false, true)
@@ -93,9 +87,6 @@ void WRegionCollectionWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
-  AU.addRequired<AssumptionCacheTracker>();
-  AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<AAResultsWrapperPass>();
 }
 
@@ -106,17 +97,13 @@ bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
   auto &DI = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
 #if INTEL_CUSTOMIZATION
   auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();
-  WRC.reset(
-      new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA,
-                            HIRFA != nullptr ? &HIRFA->getHIR() : nullptr));
+  WRC.reset(new WRegionCollection(
+      &F, &DI, &LI, &SE, &AA, HIRFA != nullptr ? &HIRFA->getHIR() : nullptr));
 #else
-  WRC.reset(new WRegionCollection(&F, &DI, &LI, &SE, &TTI, &AC, &TLI, &AA));
+  WRC.reset(new WRegionCollection(&F, &DI, &LI, &SE, &AA));
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionCollectionWrapperPass::runOnFunction: "
@@ -271,19 +258,14 @@ void WRegionCollection::buildWRGraphImpl(Function &F) {
 
 WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
                                      LoopInfo *LI, ScalarEvolution *SE,
-                                     const TargetTransformInfo *TTI,
-                                     AssumptionCache *AC,
-                                     const TargetLibraryInfo *TLI,
 #if INTEL_CUSTOMIZATION
                                      AliasAnalysis *AA,
                                      loopopt::HIRFramework *HIRF)
-    : WRGraph(nullptr), Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
-      TLI(TLI), AA(AA), HIRF(HIRF) {
+    : WRGraph(nullptr), Func(F), DT(DT), LI(LI), SE(SE), AA(AA), HIRF(HIRF) {
 }
 #else
                                      AliasAnalysis *AA)
-    : WRGraph(nullptr), Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
-      TLI(TLI), AA(AA) {
+    : WRGraph(nullptr), Func(F), DT(DT), LI(LI), SE(SE), AA(AA) {
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -358,9 +340,6 @@ bool WRegionCollection::invalidate(Function &F, const PreservedAnalyses &PA,
   return Inv.invalidate<DominatorTreeAnalysis>(F, PA) ||
       Inv.invalidate<LoopAnalysis>(F, PA) ||
       Inv.invalidate<ScalarEvolutionAnalysis>(F, PA) ||
-      Inv.invalidate<TargetIRAnalysis>(F, PA) ||
-      Inv.invalidate<AssumptionAnalysis>(F, PA) ||
-      Inv.invalidate<TargetLibraryAnalysis>(F, PA) ||
 #if INTEL_CUSTOMIZATION
       Inv.invalidate<loopopt::HIRFrameworkAnalysis>(F, PA) ||
 #endif // INTEL_CUSTOMIZATION

@@ -1,21 +1,17 @@
 ; RUN: opt < %s -S -whole-program-assume -dtrans-soatoaos                                       \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                   \
-; RUN:          -dtrans-soatoaos-ignore-classinfo=true                                          \
 ; RUN:       | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -dtrans-soatoaos                                       \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaos-ignore-classinfo=true                                          \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                   \
 ; RUN:       | %lli
 ; RUN: opt < %s -S -whole-program-assume -passes=dtrans-soatoaos                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaos-ignore-classinfo=true                                          \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                   \
 ; RUN:       | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -passes=dtrans-soatoaos                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaos-ignore-classinfo=true                                          \
 ; RUN:          -enable-dtrans-soatoaos -dtrans-soatoaos-size-heuristic=false                   \
 ; RUN:       | %lli
 ; REQUIRES: x86_64-linux
@@ -31,59 +27,58 @@
 ; extern void *malloc(int) noexcept;
 ; extern void free(void *) noexcept;
 ; }
+;  struct Mem {
+;   virtual void *allocate() = 0;
+;   virtual void *deallocate() = 0;
+; };
 ;
 ; template <typename S> struct Arr {
-;   int capacilty;
+;   bool flag;
+;   unsigned capacity;
 ;   S *base;
-;   int size;
+;   unsigned size;
+;   struct Mem* mem;
 ;   S &get(int i) {
-;     if (capacilty > 1)
-;       return base[5 * i];
+;     if (i >= size)
+;       throw;
 ;     return base[i];
 ;   }
 ;   void set(int i, S val) {
-;     if (capacilty > 1)
-;       base[5*i] = val;
-;     else
-;       base[i] = val;
+;     if (i >= size)
+;       throw;
+;     base[i] = val;
 ;   }
-;   Arr(int c = 1) : capacilty(c), size(0), base(nullptr) {
-;     base = (S *)malloc(capacilty * sizeof(S));
+;   Arr(unsigned c = 2, struct Mem *mem = 0)
+;     : flag(false), capacity(c), size(0), base(0), mem(mem) {
+;     base = (S*)malloc(capacity * sizeof(S));
+;     memset(base, 0, capacity * sizeof(S));
 ;   }
 ;   void realloc(int inc) {
-;     if (size + inc <= capacilty)
-;       return;
+;     unsigned int newMax = size + inc;
+;     if (newMax <= capacity)
+;        return;
+;     unsigned int minNewMax = (unsigned int)((double)size * 1.25);
+;     if (newMax < minNewMax)
+;         newMax = minNewMax;
+;     S *newList = (S *) malloc (newMax * sizeof(S));
+;     for (unsigned int index = 0; index < size; index++)
+;        newList[index] = base[index];
 ;
-;     capacilty = size + inc;
-;     S *new_base = (S *)malloc(5 * capacilty * sizeof(S));
-;     for (int i = 0; i < size; ++i) {
-;       new_base[5 * i] = base[i];
-;     }
-;     free(base);
-;     base = new_base;
+;     free(base); //delete [] fElemList;
+;     base = newList;
+;     capacity = newMax;
 ;   }
 ;   void add(const S &e) {
 ;     realloc(1);
-;
-;     if (capacilty > 1)
-;       base[5 * size] = e;
-;     else
-;       base[size] = e;
-;
+;     base[size] = e;
 ;     ++size;
 ;   }
-;   Arr(const Arr &A) {
-;     capacilty = A.capacilty;
-;     size = A.size;
-;     if (capacilty > 1)
-;       base = (S *)malloc(5 * capacilty * sizeof(S));
-;     else
-;       base = (S *)malloc(capacilty * sizeof(S));
-;     for (int i = 0; i < size; ++i)
-;       if (capacilty > 1)
-;         base[5 * i] = A.base[5 * i];
-;       else
-;         base[i] = A.base[i];
+;   Arr(const Arr &A) :
+;     flag(A.flag), capacity(A.capacity), size(A.size), base(0), mem(A.mem) {
+;     base = (S*)malloc(capacity * sizeof(S));
+;     memset(base, 0, capacity * sizeof(S));
+;     for (unsigned int index = 0; index < size; index++)
+;       base[index] = A.base[index];
 ;   }
 ;   ~Arr() { free(base); }
 ; };
@@ -92,6 +87,7 @@
 ; public:
 ;   Arr<int *> *f1;
 ;   Arr<float *> *f2;
+;   struct Mem* mem;
 ;   F(const F &f) {
 ;     f1 = new Arr<int *>(*f.f1);
 ;     f2 = new Arr<float *>(*f.f2);
@@ -173,11 +169,12 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%class.F = type { %struct.Arr*, %struct.Arr.0* }
-%struct.Arr = type <{ i32, [4 x i8], i32**, i32, [4 x i8] }>
-%struct.Arr.0 = type <{ i32, [4 x i8], float**, i32, [4 x i8] }>
-; CHECK-DAG: %__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64 }
-; CHECK-DAG: %__SOADT_AR_struct.Arr = type { i32, [4 x i8], %__SOADT_EL_class.F*, i32, [4 x i8] }
+%class.F = type { %struct.Arr*, %struct.Arr.0*, %struct.Mem* }
+%struct.Mem = type { i32 (...)** }
+%struct.Arr = type { i8, i32, i32**, i32, %struct.Mem* }
+%struct.Arr.0 = type { i8, i32, float**, i32, %struct.Mem* }
+; CHECK-DAG: %__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64,  %struct.Mem* }
+; CHECK-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, %__SOADT_EL_class.F*, i32, %struct.Mem* }
 ; CHECK-DAG: %__SOADT_EL_class.F = type { i32*, float* }
 
 @v1 = global i32 20, align 4, !dbg !0
@@ -263,7 +260,7 @@ entry:
 
 define i32 @main() personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !171 {
 entry:
-  %call = call i8* @_Znwm(i64 16), !dbg !174
+  %call = call i8* @_Znwm(i64 24), !dbg !174
   %tmp = bitcast i8* %call to %class.F*, !dbg !174
   invoke void @"F::F()"(%class.F* %tmp)
           to label %invoke.cont unwind label %lpad, !dbg !175
@@ -343,9 +340,9 @@ if.then23:                                        ; preds = %if.end21
   br label %return, !dbg !222
 
 if.end24:                                         ; preds = %if.end21
-  %call25 = call i8* @_Znwm(i64 16), !dbg !223
+  %call25 = call i8* @_Znwm(i64 24), !dbg !223
   %tmp21 = bitcast i8* %call25 to %class.F*, !dbg !223
-  invoke void @"F::F(F const&)"(%class.F* %tmp21, %class.F* dereferenceable(16) %tmp)
+  invoke void @"F::F(F const&)"(%class.F* %tmp21, %class.F* dereferenceable(24) %tmp)
           to label %invoke.cont27 unwind label %lpad26, !dbg !224
 
 invoke.cont27:                                    ; preds = %if.end24
@@ -404,17 +401,17 @@ declare noalias i8* @_Znwm(i64)
 define void @"F::F()"(%class.F* nocapture %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !235 {
 entry:
   call void @llvm.dbg.value(metadata %class.F* %this, metadata !236, metadata !DIExpression()), !dbg !237
-  %call = call i8* @_Znwm(i64 24), !dbg !238
+  %call = call i8* @_Znwm(i64 32), !dbg !238
   %tmp = bitcast i8* %call to %struct.Arr*, !dbg !238
-  invoke void @"Arr<int*>::Arr(int)"(%struct.Arr* %tmp, i32 1)
+  invoke void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* %tmp, i32 1, %struct.Mem* null)
           to label %invoke.cont unwind label %lpad, !dbg !240
 
 invoke.cont:                                      ; preds = %entry
   %f1 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !241
   store %struct.Arr* %tmp, %struct.Arr** %f1, align 8, !dbg !242
-  %call2 = call i8* @_Znwm(i64 24), !dbg !243
+  %call2 = call i8* @_Znwm(i64 32), !dbg !243
   %tmp1 = bitcast i8* %call2 to %struct.Arr.0*, !dbg !243
-  invoke void @"Arr<float*>::Arr(int)"(%struct.Arr.0* %tmp1, i32 1)
+  invoke void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* %tmp1, i32 1, %struct.Mem* null)
           to label %invoke.cont4 unwind label %lpad3, !dbg !244
 
 invoke.cont4:                                     ; preds = %invoke.cont
@@ -492,25 +489,25 @@ entry:
   ret void, !dbg !280
 }
 
-define void @"F::F(F const&)"(%class.F* nocapture %this, %class.F* nocapture readonly dereferenceable(16) %f) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !281 {
+define void @"F::F(F const&)"(%class.F* nocapture %this, %class.F* nocapture readonly dereferenceable(24) %f) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !281 {
 entry:
   call void @llvm.dbg.value(metadata %class.F* %this, metadata !282, metadata !DIExpression()), !dbg !283
   call void @llvm.dbg.value(metadata %class.F* %f, metadata !284, metadata !DIExpression()), !dbg !285
-  %call = call i8* @_Znwm(i64 24), !dbg !286
+  %call = call i8* @_Znwm(i64 32), !dbg !286
   %tmp = bitcast i8* %call to %struct.Arr*, !dbg !286
   %f1 = getelementptr inbounds %class.F, %class.F* %f, i32 0, i32 0, !dbg !288
   %tmp2 = load %struct.Arr*, %struct.Arr** %f1, align 8, !dbg !288
-  invoke void @"Arr<int*>::Arr(Arr<int*> const&)"(%struct.Arr* %tmp, %struct.Arr* dereferenceable(24) %tmp2)
+  invoke void @"Arr<int*>::Arr(Arr<int*> const&)"(%struct.Arr* %tmp, %struct.Arr* dereferenceable(32) %tmp2)
           to label %invoke.cont unwind label %lpad, !dbg !289
 
 invoke.cont:                                      ; preds = %entry
   %f12 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !290
   store %struct.Arr* %tmp, %struct.Arr** %f12, align 8, !dbg !291
-  %call3 = call i8* @_Znwm(i64 24), !dbg !292
+  %call3 = call i8* @_Znwm(i64 32), !dbg !292
   %tmp3 = bitcast i8* %call3 to %struct.Arr.0*, !dbg !292
   %f2 = getelementptr inbounds %class.F, %class.F* %f, i32 0, i32 1, !dbg !293
   %tmp5 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8, !dbg !293
-  invoke void @"Arr<float*>::Arr(Arr<float*> const&)"(%struct.Arr.0* %tmp3, %struct.Arr.0* dereferenceable(24) %tmp5)
+  invoke void @"Arr<float*>::Arr(Arr<float*> const&)"(%struct.Arr.0* %tmp3, %struct.Arr.0* dereferenceable(32) %tmp5)
           to label %invoke.cont5 unwind label %lpad4, !dbg !294
 
 invoke.cont5:                                     ; preds = %invoke.cont
@@ -577,29 +574,21 @@ define dereferenceable(8) i32** @"Arr<int*>::get(int)"(%struct.Arr* nocapture re
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !309, metadata !DIExpression()), !dbg !310
   call void @llvm.dbg.value(metadata i32 %i, metadata !311, metadata !DIExpression()), !dbg !312
-  %capacilty = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !313
-  %tmp = load i32, i32* %capacilty, align 8, !dbg !313
-  %cmp = icmp sgt i32 %tmp, 1, !dbg !315
-  br i1 %cmp, label %if.then, label %if.end, !dbg !316
+  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !313
+  %tmp = load i32, i32* %size, align 8, !dbg !313
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !315
+  br i1 %cmp, label %if.end, label %if.then, !dbg !316
 
 if.then:                                          ; preds = %entry
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !317
-  %tmp1 = load i32**, i32*** %base, align 8, !dbg !317
-  %mul = mul nsw i32 5, %i, !dbg !318
-  %idxprom = sext i32 %mul to i64, !dbg !317
-  %arrayidx = getelementptr inbounds i32*, i32** %tmp1, i64 %idxprom, !dbg !317
-  br label %return, !dbg !319
+  call void @__cxa_rethrow()
+  unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !320
-  %tmp3 = load i32**, i32*** %base2, align 8, !dbg !320
-  %idxprom3 = sext i32 %i to i64, !dbg !320
-  %arrayidx4 = getelementptr inbounds i32*, i32** %tmp3, i64 %idxprom3, !dbg !320
-  br label %return, !dbg !321
-
-return:                                           ; preds = %if.end, %if.then
-  %retval.0 = phi i32** [ %arrayidx, %if.then ], [ %arrayidx4, %if.end ], !dbg !310
-  ret i32** %retval.0, !dbg !322
+  %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2
+  %tmp3 = load i32**, i32*** %base2, align 8
+  %idxprom3 = zext i32 %i to i64
+  %arrayidx4 = getelementptr inbounds i32*, i32** %tmp3, i64 %idxprom3
+  ret i32** %arrayidx4
 }
 
 ; Function Attrs: nounwind readonly
@@ -607,115 +596,88 @@ define dereferenceable(8) float** @"Arr<float*>::get(int)"(%struct.Arr.0* nocapt
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !324, metadata !DIExpression()), !dbg !325
   call void @llvm.dbg.value(metadata i32 %i, metadata !326, metadata !DIExpression()), !dbg !327
-  %capacilty = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !328
-  %tmp = load i32, i32* %capacilty, align 8, !dbg !328
-  %cmp = icmp sgt i32 %tmp, 1, !dbg !330
-  br i1 %cmp, label %if.then, label %if.end, !dbg !331
+  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !328
+  %tmp = load i32, i32* %size, align 8, !dbg !328
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !330
+  br i1 %cmp, label %if.end, label %if.then, !dbg !331
 
 if.then:                                          ; preds = %entry
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !332
-  %tmp1 = load float**, float*** %base, align 8, !dbg !332
-  %mul = mul nsw i32 5, %i, !dbg !333
-  %idxprom = sext i32 %mul to i64, !dbg !332
-  %arrayidx = getelementptr inbounds float*, float** %tmp1, i64 %idxprom, !dbg !332
-  br label %return, !dbg !334
+  call void @__cxa_rethrow()
+  unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !335
-  %tmp3 = load float**, float*** %base2, align 8, !dbg !335
-  %idxprom3 = sext i32 %i to i64, !dbg !335
-  %arrayidx4 = getelementptr inbounds float*, float** %tmp3, i64 %idxprom3, !dbg !335
-  br label %return, !dbg !336
-
-return:                                           ; preds = %if.end, %if.then
-  %retval.0 = phi float** [ %arrayidx, %if.then ], [ %arrayidx4, %if.end ], !dbg !325
-  ret float** %retval.0, !dbg !337
+  %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2
+  %tmp3 = load float**, float*** %base2, align 8
+  %idxprom3 = zext i32 %i to i64
+  %arrayidx4 = getelementptr inbounds float*, float** %tmp3, i64 %idxprom3
+  ret float** %arrayidx4
 }
 
-define void @"Arr<int*>::Arr(int)"(%struct.Arr* nocapture %this, i32 %c) align 2 !dbg !338 {
+define void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* nocapture %this, i32 %c, %struct.Mem* %mem) align 2 !dbg !338 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !339, metadata !DIExpression()), !dbg !340
   call void @llvm.dbg.value(metadata i32 %c, metadata !341, metadata !DIExpression()), !dbg !342
-  %capacilty = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !343
-  store i32 %c, i32* %capacilty, align 8, !dbg !343
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !344
-  store i32** null, i32*** %base, align 8, !dbg !344
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !345
-  store i32 0, i32* %size, align 8, !dbg !345
-  %capacilty2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !346
-  %tmp1 = load i32, i32* %capacilty2, align 8, !dbg !346
-  %conv = sext i32 %tmp1 to i64, !dbg !346
-  %mul = mul i64 %conv, 8, !dbg !348
-  %conv3 = trunc i64 %mul to i32, !dbg !346
-  %call = call i8* @malloc(i32 %conv3), !dbg !349
-  %tmp2 = bitcast i8* %call to i32**, !dbg !350
-  %base4 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !351
-  store i32** %tmp2, i32*** %base4, align 8, !dbg !352
-  ret void, !dbg !353
+  %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0,  !dbg !343
+  store i8 0, i8* %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
+  store i32 %c, i32* %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
+  store i32** null, i32*** %base, align 8
+  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
+  store i32 0, i32* %size, align 8
+  %mem2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 4
+  store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
+  %conv = zext i32 %c to i64
+  %mul = shl nuw nsw i64 %conv, 3
+  %call = call noalias i8* @malloc(i64 %mul)
+  %i = bitcast i8* %call to i32**
+  store i32** %i, i32*** %base, align 8
+  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  ret void
 }
 
-define void @"Arr<float*>::Arr(int)"(%struct.Arr.0* nocapture %this, i32 %c) align 2 !dbg !354 {
+define void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* nocapture %this, i32 %c, %struct.Mem* %mem) align 2 !dbg !354 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !355, metadata !DIExpression()), !dbg !356
   call void @llvm.dbg.value(metadata i32 %c, metadata !357, metadata !DIExpression()), !dbg !358
-  %capacilty = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !359
-  store i32 %c, i32* %capacilty, align 8, !dbg !359
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !360
-  store float** null, float*** %base, align 8, !dbg !360
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !361
-  store i32 0, i32* %size, align 8, !dbg !361
-  %capacilty2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !362
-  %tmp1 = load i32, i32* %capacilty2, align 8, !dbg !362
-  %conv = sext i32 %tmp1 to i64, !dbg !362
-  %mul = mul i64 %conv, 8, !dbg !364
-  %conv3 = trunc i64 %mul to i32, !dbg !362
-  %call = call i8* @malloc(i32 %conv3), !dbg !365
-  %tmp2 = bitcast i8* %call to float**, !dbg !366
-  %base4 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !367
-  store float** %tmp2, float*** %base4, align 8, !dbg !368
-  ret void, !dbg !369
+  %flag = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 0, !dbg !359
+    store i8 0, i8* %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 1
+  store i32 %c, i32* %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
+  store float** null, float*** %base, align 8
+  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
+  store i32 0, i32* %size, align 8
+  %mem2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 4
+  store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
+  %conv = zext i32 %c to i64
+  %mul = shl nuw nsw i64 %conv, 3
+  %call = call noalias i8* @malloc(i64 %mul)
+  %i = bitcast i8* %call to float**
+  store float** %i, float*** %base, align 8
+  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  ret void
 }
 
-declare i8* @malloc(i32)
+declare i8* @malloc(i64)
+declare void @__cxa_rethrow()
+declare void @llvm.memset.p0i8.i64(i8*  align 8, i8, i64, i1)
 
 define void @"Arr<int*>::add(int* const&)"(%struct.Arr* nocapture %this, i32** nocapture readonly dereferenceable(8) %e) align 2 !dbg !370 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !371, metadata !DIExpression()), !dbg !372
   call void @llvm.dbg.value(metadata i32** %e, metadata !373, metadata !DIExpression()), !dbg !374
   call void @"Arr<int*>::realloc(int)"(%struct.Arr* %this, i32 1), !dbg !375
-  %capacilty = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !376
-  %tmp = load i32, i32* %capacilty, align 8, !dbg !376
-  %cmp = icmp sgt i32 %tmp, 1, !dbg !378
-  br i1 %cmp, label %if.then, label %if.else, !dbg !379
-
-if.then:                                          ; preds = %entry
-  %tmp2 = load i32*, i32** %e, align 8, !dbg !380
+  %tmp2 = load i32*, i32** %e, align 8, !dbg !376
   %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !381
   %tmp3 = load i32**, i32*** %base, align 8, !dbg !381
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !382
   %tmp4 = load i32, i32* %size, align 8, !dbg !382
-  %mul = mul nsw i32 5, %tmp4, !dbg !383
-  %idxprom = sext i32 %mul to i64, !dbg !381
+  %idxprom = zext i32 %tmp4 to i64, !dbg !381
   %arrayidx = getelementptr inbounds i32*, i32** %tmp3, i64 %idxprom, !dbg !381
   store i32* %tmp2, i32** %arrayidx, align 8, !dbg !384
-  br label %if.end, !dbg !381
-
-if.else:                                          ; preds = %entry
-  %tmp6 = load i32*, i32** %e, align 8, !dbg !385
-  %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !386
-  %tmp7 = load i32**, i32*** %base2, align 8, !dbg !386
-  %size3 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !387
-  %tmp8 = load i32, i32* %size3, align 8, !dbg !387
-  %idxprom4 = sext i32 %tmp8 to i64, !dbg !386
-  %arrayidx5 = getelementptr inbounds i32*, i32** %tmp7, i64 %idxprom4, !dbg !386
-  store i32* %tmp6, i32** %arrayidx5, align 8, !dbg !388
-  br label %if.end
-
-if.end:                                           ; preds = %if.else, %if.then
-  %size6 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !389
-  %tmp9 = load i32, i32* %size6, align 8, !dbg !390
-  %inc = add nsw i32 %tmp9, 1, !dbg !390
-  store i32 %inc, i32* %size6, align 8, !dbg !390
+  %inc = add nsw i32 %tmp4, 1, !dbg !390
+  store i32 %inc, i32* %size, align 8, !dbg !390
   ret void, !dbg !391
 }
 
@@ -724,39 +686,16 @@ entry:
   call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !393, metadata !DIExpression()), !dbg !394
   call void @llvm.dbg.value(metadata float** %e, metadata !395, metadata !DIExpression()), !dbg !396
   call void @"Arr<float*>::realloc(int)"(%struct.Arr.0* %this, i32 1), !dbg !397
-  %capacilty = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !398
-  %tmp = load i32, i32* %capacilty, align 8, !dbg !398
-  %cmp = icmp sgt i32 %tmp, 1, !dbg !400
-  br i1 %cmp, label %if.then, label %if.else, !dbg !401
-
-if.then:                                          ; preds = %entry
-  %tmp2 = load float*, float** %e, align 8, !dbg !402
+  %tmp2 = load float*, float** %e, align 8, !dbg !398
   %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !403
   %tmp3 = load float**, float*** %base, align 8, !dbg !403
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !404
   %tmp4 = load i32, i32* %size, align 8, !dbg !404
-  %mul = mul nsw i32 5, %tmp4, !dbg !405
-  %idxprom = sext i32 %mul to i64, !dbg !403
+  %idxprom = zext i32 %tmp4 to i64, !dbg !403
   %arrayidx = getelementptr inbounds float*, float** %tmp3, i64 %idxprom, !dbg !403
   store float* %tmp2, float** %arrayidx, align 8, !dbg !406
-  br label %if.end, !dbg !403
-
-if.else:                                          ; preds = %entry
-  %tmp6 = load float*, float** %e, align 8, !dbg !407
-  %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !408
-  %tmp7 = load float**, float*** %base2, align 8, !dbg !408
-  %size3 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !409
-  %tmp8 = load i32, i32* %size3, align 8, !dbg !409
-  %idxprom4 = sext i32 %tmp8 to i64, !dbg !408
-  %arrayidx5 = getelementptr inbounds float*, float** %tmp7, i64 %idxprom4, !dbg !408
-  store float* %tmp6, float** %arrayidx5, align 8, !dbg !410
-  br label %if.end
-
-if.end:                                           ; preds = %if.else, %if.then
-  %size6 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !411
-  %tmp9 = load i32, i32* %size6, align 8, !dbg !412
-  %inc = add nsw i32 %tmp9, 1, !dbg !412
-  store i32 %inc, i32* %size6, align 8, !dbg !412
+  %inc = add nsw i32 %tmp4, 1, !dbg !412
+  store i32 %inc, i32* %size, align 8, !dbg !412
   ret void, !dbg !413
 }
 
@@ -766,68 +705,51 @@ entry:
   call void @llvm.dbg.value(metadata i32 %inc, metadata !417, metadata !DIExpression()), !dbg !418
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !419
   %tmp = load i32, i32* %size, align 8, !dbg !419
-  %add = add nsw i32 %tmp, %inc, !dbg !421
-  %capacilty = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !422
-  %tmp2 = load i32, i32* %capacilty, align 8, !dbg !422
-  %cmp = icmp sle i32 %add, %tmp2, !dbg !423
-  br i1 %cmp, label %if.then, label %if.end, !dbg !424
-
-if.then:                                          ; preds = %entry
-  br label %return, !dbg !425
+  %add = add nsw i32 %tmp, 1, !dbg !421
+  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 1, !dbg !422
+  %tmp2 = load i32, i32* %capacity, align 8, !dbg !422
+  %cmp = icmp ugt i32 %add, %tmp2, !dbg !423
+  br i1 %cmp, label %if.end, label %cleanup
 
 if.end:                                           ; preds = %entry
-  %size2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !426
-  %tmp3 = load i32, i32* %size2, align 8, !dbg !426
-  %add3 = add nsw i32 %tmp3, %inc, !dbg !427
-  %capacilty4 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !428
-  store i32 %add3, i32* %capacilty4, align 8, !dbg !429
-  %capacilty5 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !430
-  %tmp5 = load i32, i32* %capacilty5, align 8, !dbg !430
-  %mul = mul nsw i32 5, %tmp5, !dbg !431
-  %conv = sext i32 %mul to i64, !dbg !432
-  %mul6 = mul i64 %conv, 8, !dbg !433
-  %conv7 = trunc i64 %mul6 to i32, !dbg !432
-  %call = call i8* @malloc(i32 %conv7), !dbg !434
-  %tmp6 = bitcast i8* %call to i32**, !dbg !435
-  call void @llvm.dbg.value(metadata i32** %tmp6, metadata !436, metadata !DIExpression()), !dbg !437
-  call void @llvm.dbg.value(metadata i32 0, metadata !438, metadata !DIExpression()), !dbg !440
-  br label %for.cond, !dbg !441
+  %conv = uitofp i32 %tmp to double
+  %mul = fmul fast double %conv, 1.250000e+00
+  %conv3 = fptoui double %mul to i32
+  %cmp4 = icmp ult i32 %add, %conv3
+  %spec.select = select i1 %cmp4, i32 %conv3, i32 %add
+  %conv7 = zext i32 %spec.select to i64
+  %mul8 = shl nuw nsw i64 %conv7, 3
+  %call = call noalias i8* @malloc(i64 %mul8)
+  %i2 = bitcast i8* %call to i32**
+  %cmp1029 = icmp eq i32 %tmp, 0
+  br i1 %cmp1029, label %for.cond.cleanup, label %for.body.lr.ph
 
-for.cond:                                         ; preds = %for.inc, %if.end
-  %i.0 = phi i32 [ 0, %if.end ], [ %inc13, %for.inc ], !dbg !442
-  call void @llvm.dbg.value(metadata i32 %i.0, metadata !438, metadata !DIExpression()), !dbg !440
-  %size8 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !443
-  %tmp8 = load i32, i32* %size8, align 8, !dbg !443
-  %cmp9 = icmp slt i32 %i.0, %tmp8, !dbg !445
-  br i1 %cmp9, label %for.body, label %for.end, !dbg !446
+for.body.lr.ph:                                   ; preds = %if.end
+  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
+  %i3 = load i32**, i32*** %base, align 8
+  %wide.trip.count = zext i32 %tmp to i64
+  br label %for.body
 
-for.body:                                         ; preds = %for.cond
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !447
-  %tmp9 = load i32**, i32*** %base, align 8, !dbg !447
-  %idxprom = sext i32 %i.0 to i64, !dbg !447
-  %arrayidx = getelementptr inbounds i32*, i32** %tmp9, i64 %idxprom, !dbg !447
-  %tmp11 = load i32*, i32** %arrayidx, align 8, !dbg !447
-  %mul10 = mul nsw i32 5, %i.0, !dbg !449
-  %idxprom11 = sext i32 %mul10 to i64, !dbg !450
-  %arrayidx12 = getelementptr inbounds i32*, i32** %tmp6, i64 %idxprom11, !dbg !450
-  store i32* %tmp11, i32** %arrayidx12, align 8, !dbg !451
-  br label %for.inc, !dbg !452
+for.cond.cleanup:                                 ; preds = %for.body, %if.end
+  %base14 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
+  %i4 = bitcast i32*** %base14 to i8**
+  %i5 = load i8*, i8** %i4, align 8
+  call void @free(i8* %i5)
+  store i8* %call, i8** %i4, align 8
+  store i32 %spec.select, i32* %capacity, align 4
+  br label %cleanup
 
-for.inc:                                          ; preds = %for.body
-  %inc13 = add nsw i32 %i.0, 1, !dbg !453
-  call void @llvm.dbg.value(metadata i32 %inc13, metadata !438, metadata !DIExpression()), !dbg !440
-  br label %for.cond, !dbg !454, !llvm.loop !455
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
+  %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
+  %ptridx = getelementptr inbounds i32*, i32** %i3, i64 %indvars.iv
+  %i6 = load i32*, i32** %ptridx, align 8
+  %ptridx12 = getelementptr inbounds i32*, i32** %i2, i64 %indvars.iv
+  store i32* %i6, i32** %ptridx12, align 8
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
 
-for.end:                                          ; preds = %for.cond
-  %base14 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !457
-  %tmp15 = load i32**, i32*** %base14, align 8, !dbg !457
-  %tmp16 = bitcast i32** %tmp15 to i8*, !dbg !457
-  call void @free(i8* %tmp16), !dbg !458
-  %base15 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !459
-  store i32** %tmp6, i32*** %base15, align 8, !dbg !460
-  br label %return, !dbg !461
-
-return:                                           ; preds = %for.end, %if.then
+cleanup:                                          ; preds = %for.cond.cleanup, %entry
   ret void, !dbg !461
 }
 
@@ -839,68 +761,51 @@ entry:
   call void @llvm.dbg.value(metadata i32 %inc, metadata !465, metadata !DIExpression()), !dbg !466
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !467
   %tmp = load i32, i32* %size, align 8, !dbg !467
-  %add = add nsw i32 %tmp, %inc, !dbg !469
-  %capacilty = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !470
-  %tmp2 = load i32, i32* %capacilty, align 8, !dbg !470
-  %cmp = icmp sle i32 %add, %tmp2, !dbg !471
-  br i1 %cmp, label %if.then, label %if.end, !dbg !472
-
-if.then:                                          ; preds = %entry
-  br label %return, !dbg !473
+  %add = add nsw i32 %tmp, 1, !dbg !469
+  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 1, !dbg !470
+  %tmp2 = load i32, i32* %capacity, align 8, !dbg !470
+  %cmp = icmp ugt i32 %add, %tmp2, !dbg !471
+   br i1 %cmp, label %if.end, label %cleanup
 
 if.end:                                           ; preds = %entry
-  %size2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !474
-  %tmp3 = load i32, i32* %size2, align 8, !dbg !474
-  %add3 = add nsw i32 %tmp3, %inc, !dbg !475
-  %capacilty4 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !476
-  store i32 %add3, i32* %capacilty4, align 8, !dbg !477
-  %capacilty5 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !478
-  %tmp5 = load i32, i32* %capacilty5, align 8, !dbg !478
-  %mul = mul nsw i32 5, %tmp5, !dbg !479
-  %conv = sext i32 %mul to i64, !dbg !480
-  %mul6 = mul i64 %conv, 8, !dbg !481
-  %conv7 = trunc i64 %mul6 to i32, !dbg !480
-  %call = call i8* @malloc(i32 %conv7), !dbg !482
-  %tmp6 = bitcast i8* %call to float**, !dbg !483
-  call void @llvm.dbg.value(metadata float** %tmp6, metadata !484, metadata !DIExpression()), !dbg !485
-  call void @llvm.dbg.value(metadata i32 0, metadata !486, metadata !DIExpression()), !dbg !488
-  br label %for.cond, !dbg !489
+  %conv = uitofp i32 %tmp to double
+  %mul = fmul fast double %conv, 1.250000e+00
+  %conv3 = fptoui double %mul to i32
+  %cmp4 = icmp ult i32 %add, %conv3
+  %spec.select = select i1 %cmp4, i32 %conv3, i32 %add
+  %conv7 = zext i32 %spec.select to i64
+  %mul8 = shl nuw nsw i64 %conv7, 3
+  %call = call noalias i8* @malloc(i64 %mul8)
+  %i2 = bitcast i8* %call to float**
+  %cmp1029 = icmp eq i32 %tmp, 0
+  br i1 %cmp1029, label %for.cond.cleanup, label %for.body.lr.ph
 
-for.cond:                                         ; preds = %for.inc, %if.end
-  %i.0 = phi i32 [ 0, %if.end ], [ %inc13, %for.inc ], !dbg !490
-  call void @llvm.dbg.value(metadata i32 %i.0, metadata !486, metadata !DIExpression()), !dbg !488
-  %size8 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !491
-  %tmp8 = load i32, i32* %size8, align 8, !dbg !491
-  %cmp9 = icmp slt i32 %i.0, %tmp8, !dbg !493
-  br i1 %cmp9, label %for.body, label %for.end, !dbg !494
+for.body.lr.ph:                                   ; preds = %if.end
+  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
+  %i3 = load float**, float*** %base, align 8
+  %wide.trip.count = zext i32 %tmp to i64
+  br label %for.body
 
-for.body:                                         ; preds = %for.cond
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !495
-  %tmp9 = load float**, float*** %base, align 8, !dbg !495
-  %idxprom = sext i32 %i.0 to i64, !dbg !495
-  %arrayidx = getelementptr inbounds float*, float** %tmp9, i64 %idxprom, !dbg !495
-  %tmp11 = load float*, float** %arrayidx, align 8, !dbg !495
-  %mul10 = mul nsw i32 5, %i.0, !dbg !497
-  %idxprom11 = sext i32 %mul10 to i64, !dbg !498
-  %arrayidx12 = getelementptr inbounds float*, float** %tmp6, i64 %idxprom11, !dbg !498
-  store float* %tmp11, float** %arrayidx12, align 8, !dbg !499
-  br label %for.inc, !dbg !500
+for.cond.cleanup:                                 ; preds = %for.body, %if.end
+  %base14 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
+  %i4 = bitcast float*** %base14 to i8**
+  %i5 = load i8*, i8** %i4, align 8
+  call void @free(i8* %i5)
+  store i8* %call, i8** %i4, align 8
+  store i32 %spec.select, i32* %capacity, align 4
+  br label %cleanup
 
-for.inc:                                          ; preds = %for.body
-  %inc13 = add nsw i32 %i.0, 1, !dbg !501
-  call void @llvm.dbg.value(metadata i32 %inc13, metadata !486, metadata !DIExpression()), !dbg !488
-  br label %for.cond, !dbg !502, !llvm.loop !503
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
+  %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
+  %ptridx = getelementptr inbounds float*, float** %i3, i64 %indvars.iv
+  %i6 = load float*, float** %ptridx, align 8
+  %ptridx12 = getelementptr inbounds float*, float** %i2, i64 %indvars.iv
+  store float* %i6, float** %ptridx12, align 8
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
 
-for.end:                                          ; preds = %for.cond
-  %base14 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !505
-  %tmp15 = load float**, float*** %base14, align 8, !dbg !505
-  %tmp16 = bitcast float** %tmp15 to i8*, !dbg !505
-  call void @free(i8* %tmp16), !dbg !506
-  %base15 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !507
-  store float** %tmp6, float*** %base15, align 8, !dbg !508
-  br label %return, !dbg !509
-
-return:                                           ; preds = %for.end, %if.then
+cleanup:                                          ; preds = %for.cond.cleanup, %entry
   ret void, !dbg !509
 }
 
@@ -910,29 +815,21 @@ entry:
   call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !511, metadata !DIExpression()), !dbg !512
   call void @llvm.dbg.value(metadata i32 %i, metadata !513, metadata !DIExpression()), !dbg !514
   call void @llvm.dbg.value(metadata i32* %val, metadata !515, metadata !DIExpression()), !dbg !516
-  %capacilty = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !517
-  %tmp = load i32, i32* %capacilty, align 8, !dbg !517
-  %cmp = icmp sgt i32 %tmp, 1, !dbg !519
-  br i1 %cmp, label %if.then, label %if.else, !dbg !520
+  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !517
+  %tmp = load i32, i32* %size, align 8, !dbg !517
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !519
+  br i1 %cmp, label %if.end, label %if.then, !dbg !520
 
 if.then:                                          ; preds = %entry
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !521
-  %tmp2 = load i32**, i32*** %base, align 8, !dbg !521
-  %mul = mul nsw i32 5, %i, !dbg !522
-  %idxprom = sext i32 %mul to i64, !dbg !521
-  %arrayidx = getelementptr inbounds i32*, i32** %tmp2, i64 %idxprom, !dbg !521
-  store i32* %val, i32** %arrayidx, align 8, !dbg !523
-  br label %if.end, !dbg !521
+  call void @__cxa_rethrow() #12
+  unreachable
 
-if.else:                                          ; preds = %entry
+if.end:                                          ; preds = %entry
   %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !524
   %tmp5 = load i32**, i32*** %base2, align 8, !dbg !524
-  %idxprom3 = sext i32 %i to i64, !dbg !524
+  %idxprom3 = zext i32 %i to i64, !dbg !524
   %arrayidx4 = getelementptr inbounds i32*, i32** %tmp5, i64 %idxprom3, !dbg !524
   store i32* %val, i32** %arrayidx4, align 8, !dbg !525
-  br label %if.end
-
-if.end:                                           ; preds = %if.else, %if.then
   ret void, !dbg !526
 }
 
@@ -942,230 +839,126 @@ entry:
   call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !528, metadata !DIExpression()), !dbg !529
   call void @llvm.dbg.value(metadata i32 %i, metadata !530, metadata !DIExpression()), !dbg !531
   call void @llvm.dbg.value(metadata float* %val, metadata !532, metadata !DIExpression()), !dbg !533
-  %capacilty = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !534
-  %tmp = load i32, i32* %capacilty, align 8, !dbg !534
-  %cmp = icmp sgt i32 %tmp, 1, !dbg !536
-  br i1 %cmp, label %if.then, label %if.else, !dbg !537
+  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !534
+  %tmp = load i32, i32* %size, align 8, !dbg !534
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !536
+  br i1 %cmp, label %if.end, label %if.then, !dbg !537
 
 if.then:                                          ; preds = %entry
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !538
-  %tmp2 = load float**, float*** %base, align 8, !dbg !538
-  %mul = mul nsw i32 5, %i, !dbg !539
-  %idxprom = sext i32 %mul to i64, !dbg !538
-  %arrayidx = getelementptr inbounds float*, float** %tmp2, i64 %idxprom, !dbg !538
-  store float* %val, float** %arrayidx, align 8, !dbg !540
-  br label %if.end, !dbg !538
+  call void @__cxa_rethrow() #12
+  unreachable
 
-if.else:                                          ; preds = %entry
+if.end:                                          ; preds = %entry
   %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !541
   %tmp5 = load float**, float*** %base2, align 8, !dbg !541
-  %idxprom3 = sext i32 %i to i64, !dbg !541
+  %idxprom3 = zext i32 %i to i64, !dbg !541
   %arrayidx4 = getelementptr inbounds float*, float** %tmp5, i64 %idxprom3, !dbg !541
   store float* %val, float** %arrayidx4, align 8, !dbg !542
-  br label %if.end
-
-if.end:                                           ; preds = %if.else, %if.then
   ret void, !dbg !543
 }
 
-define void @"Arr<int*>::Arr(Arr<int*> const&)"(%struct.Arr* nocapture %this, %struct.Arr* nocapture readonly dereferenceable(24) %A) align 2 !dbg !544 {
+define void @"Arr<int*>::Arr(Arr<int*> const&)"(%struct.Arr* nocapture %this, %struct.Arr* nocapture readonly dereferenceable(32) %A) align 2 !dbg !544 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !545, metadata !DIExpression()), !dbg !546
   call void @llvm.dbg.value(metadata %struct.Arr* %A, metadata !547, metadata !DIExpression()), !dbg !548
-  %capacilty = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i32 0, i32 0, !dbg !549
-  %tmp1 = load i32, i32* %capacilty, align 8, !dbg !549
-  %capacilty2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !551
-  store i32 %tmp1, i32* %capacilty2, align 8, !dbg !552
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i32 0, i32 3, !dbg !553
-  %tmp3 = load i32, i32* %size, align 8, !dbg !553
-  %size3 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !554
-  store i32 %tmp3, i32* %size3, align 8, !dbg !555
-  %capacilty4 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !556
-  %tmp4 = load i32, i32* %capacilty4, align 8, !dbg !556
-  %cmp = icmp sgt i32 %tmp4, 1, !dbg !558
-  br i1 %cmp, label %if.then, label %if.else, !dbg !559
+    %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0, !dbg !549
+  %flag2 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 0
+  %i = load i8, i8* %flag2, align 8
+  store i8 %i, i8* %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
+  %capacity3 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 1
+  %i1 = load i32, i32* %capacity3, align 4
+  store i32 %i1, i32* %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
+  store i32** null, i32*** %base, align 8
+  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
+  %size4 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 3
+  %i2 = load i32, i32* %size4, align 8
+  store i32 %i2, i32* %size, align 8
+  %mem = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 4
+  %mem5 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 4
+  %i3 = load %struct.Mem*, %struct.Mem** %mem5, align 8
+  store %struct.Mem* %i3, %struct.Mem** %mem, align 8
+  %conv = zext i32 %i1 to i64
+  %mul = shl nuw nsw i64 %conv, 3
+  %call = call noalias i8* @malloc(i64 %mul)
+  %i4 = bitcast i32*** %base to i8**
+  store i8* %call, i8** %i4, align 8
+  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %cmp25 = icmp eq i32 %i2, 0
+  br i1 %cmp25, label %for.cond.cleanup, label %for.body.lr.ph
 
-if.then:                                          ; preds = %entry
-  %capacilty5 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !560
-  %tmp5 = load i32, i32* %capacilty5, align 8, !dbg !560
-  %mul = mul nsw i32 5, %tmp5, !dbg !561
-  %conv = sext i32 %mul to i64, !dbg !562
-  %mul6 = mul i64 %conv, 8, !dbg !563
-  %conv7 = trunc i64 %mul6 to i32, !dbg !562
-  %call = call i8* @malloc(i32 %conv7), !dbg !564
-  %tmp6 = bitcast i8* %call to i32**, !dbg !565
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !566
-  store i32** %tmp6, i32*** %base, align 8, !dbg !567
-  br label %if.end, !dbg !566
+for.body.lr.ph:                                   ; preds = %entry
+  %base13 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 2
+  %i5 = load i32**, i32*** %base13, align 8
+  %i6 = load i32**, i32*** %base, align 8
+  %wide.trip.count = zext i32 %i2 to i64
+  br label %for.body
 
-if.else:                                          ; preds = %entry
-  %capacilty8 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !568
-  %tmp7 = load i32, i32* %capacilty8, align 8, !dbg !568
-  %conv9 = sext i32 %tmp7 to i64, !dbg !568
-  %mul10 = mul i64 %conv9, 8, !dbg !569
-  %conv11 = trunc i64 %mul10 to i32, !dbg !568
-  %call12 = call i8* @malloc(i32 %conv11), !dbg !570
-  %tmp8 = bitcast i8* %call12 to i32**, !dbg !571
-  %base13 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !572
-  store i32** %tmp8, i32*** %base13, align 8, !dbg !573
-  br label %if.end
-
-if.end:                                           ; preds = %if.else, %if.then
-  call void @llvm.dbg.value(metadata i32 0, metadata !574, metadata !DIExpression()), !dbg !576
-  br label %for.cond, !dbg !577
-
-for.cond:                                         ; preds = %for.inc, %if.end
-  %i.0 = phi i32 [ 0, %if.end ], [ %inc, %for.inc ], !dbg !578
-  call void @llvm.dbg.value(metadata i32 %i.0, metadata !574, metadata !DIExpression()), !dbg !576
-  %size14 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !579
-  %tmp10 = load i32, i32* %size14, align 8, !dbg !579
-  %cmp15 = icmp slt i32 %i.0, %tmp10, !dbg !581
-  br i1 %cmp15, label %for.body, label %for.end, !dbg !582
-
-for.body:                                         ; preds = %for.cond
-  %capacilty16 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 0, !dbg !583
-  %tmp11 = load i32, i32* %capacilty16, align 8, !dbg !583
-  %cmp17 = icmp sgt i32 %tmp11, 1, !dbg !585
-  br i1 %cmp17, label %if.then18, label %if.else25, !dbg !586
-
-if.then18:                                        ; preds = %for.body
-  %base19 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i32 0, i32 2, !dbg !587
-  %tmp13 = load i32**, i32*** %base19, align 8, !dbg !587
-  %mul20 = mul nsw i32 5, %i.0, !dbg !588
-  %idxprom = sext i32 %mul20 to i64, !dbg !589
-  %arrayidx = getelementptr inbounds i32*, i32** %tmp13, i64 %idxprom, !dbg !589
-  %tmp15 = load i32*, i32** %arrayidx, align 8, !dbg !589
-  %base21 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !590
-  %tmp16 = load i32**, i32*** %base21, align 8, !dbg !590
-  %mul22 = mul nsw i32 5, %i.0, !dbg !591
-  %idxprom23 = sext i32 %mul22 to i64, !dbg !590
-  %arrayidx24 = getelementptr inbounds i32*, i32** %tmp16, i64 %idxprom23, !dbg !590
-  store i32* %tmp15, i32** %arrayidx24, align 8, !dbg !592
-  br label %if.end32, !dbg !590
-
-if.else25:                                        ; preds = %for.body
-  %base26 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i32 0, i32 2, !dbg !593
-  %tmp19 = load i32**, i32*** %base26, align 8, !dbg !593
-  %idxprom27 = sext i32 %i.0 to i64, !dbg !594
-  %arrayidx28 = getelementptr inbounds i32*, i32** %tmp19, i64 %idxprom27, !dbg !594
-  %tmp21 = load i32*, i32** %arrayidx28, align 8, !dbg !594
-  %base29 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !595
-  %tmp22 = load i32**, i32*** %base29, align 8, !dbg !595
-  %idxprom30 = sext i32 %i.0 to i64, !dbg !595
-  %arrayidx31 = getelementptr inbounds i32*, i32** %tmp22, i64 %idxprom30, !dbg !595
-  store i32* %tmp21, i32** %arrayidx31, align 8, !dbg !596
-  br label %if.end32
-
-if.end32:                                         ; preds = %if.else25, %if.then18
-  br label %for.inc, !dbg !597
-
-for.inc:                                          ; preds = %if.end32
-  %inc = add nsw i32 %i.0, 1, !dbg !598
-  call void @llvm.dbg.value(metadata i32 %inc, metadata !574, metadata !DIExpression()), !dbg !576
-  br label %for.cond, !dbg !599, !llvm.loop !600
-
-for.end:                                          ; preds = %for.cond
+for.cond.cleanup:                                 ; preds = %for.body, %entry
   ret void, !dbg !602
+
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
+  %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
+  %ptridx = getelementptr inbounds i32*, i32** %i5, i64 %indvars.iv
+  %i7 = load i32*, i32** %ptridx, align 8
+  %ptridx16 = getelementptr inbounds i32*, i32** %i6, i64 %indvars.iv
+  store i32* %i7, i32** %ptridx16, align 8
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
-define void @"Arr<float*>::Arr(Arr<float*> const&)"(%struct.Arr.0* nocapture %this, %struct.Arr.0* nocapture readonly dereferenceable(24) %A) align 2 !dbg !603 {
+define void @"Arr<float*>::Arr(Arr<float*> const&)"(%struct.Arr.0* nocapture %this, %struct.Arr.0* nocapture readonly dereferenceable(32) %A) align 2 !dbg !603 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !604, metadata !DIExpression()), !dbg !605
   call void @llvm.dbg.value(metadata %struct.Arr.0* %A, metadata !606, metadata !DIExpression()), !dbg !607
-  %capacilty = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i32 0, i32 0, !dbg !608
-  %tmp1 = load i32, i32* %capacilty, align 8, !dbg !608
-  %capacilty2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !610
-  store i32 %tmp1, i32* %capacilty2, align 8, !dbg !611
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i32 0, i32 3, !dbg !612
-  %tmp3 = load i32, i32* %size, align 8, !dbg !612
-  %size3 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !613
-  store i32 %tmp3, i32* %size3, align 8, !dbg !614
-  %capacilty4 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !615
-  %tmp4 = load i32, i32* %capacilty4, align 8, !dbg !615
-  %cmp = icmp sgt i32 %tmp4, 1, !dbg !617
-  br i1 %cmp, label %if.then, label %if.else, !dbg !618
+  %flag = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 0, !dbg !608
+  %flag2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 0
+  %i = load i8, i8* %flag2, align 8
+  store i8 %i, i8* %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 1
+  %capacity3 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 1
+  %i1 = load i32, i32* %capacity3, align 4
+  store i32 %i1, i32* %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
+  store float** null, float*** %base, align 8
+  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
+  %size4 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 3
+  %i2 = load i32, i32* %size4, align 8
+  store i32 %i2, i32* %size, align 8
+  %mem = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 4
+  %mem5 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 4
+  %i3 = load %struct.Mem*, %struct.Mem** %mem5, align 8
+  store %struct.Mem* %i3, %struct.Mem** %mem, align 8
+  %conv = zext i32 %i1 to i64
+  %mul = shl nuw nsw i64 %conv, 3
+  %call = call noalias i8* @malloc(i64 %mul)
+  %i4 = bitcast float*** %base to i8**
+  store i8* %call, i8** %i4, align 8
+  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %cmp25 = icmp eq i32 %i2, 0
+  br i1 %cmp25, label %for.cond.cleanup, label %for.body.lr.ph
 
-if.then:                                          ; preds = %entry
-  %capacilty5 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !619
-  %tmp5 = load i32, i32* %capacilty5, align 8, !dbg !619
-  %mul = mul nsw i32 5, %tmp5, !dbg !620
-  %conv = sext i32 %mul to i64, !dbg !621
-  %mul6 = mul i64 %conv, 8, !dbg !622
-  %conv7 = trunc i64 %mul6 to i32, !dbg !621
-  %call = call i8* @malloc(i32 %conv7), !dbg !623
-  %tmp6 = bitcast i8* %call to float**, !dbg !624
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !625
-  store float** %tmp6, float*** %base, align 8, !dbg !626
-  br label %if.end, !dbg !625
+for.body.lr.ph:                                   ; preds = %entry
+  %base13 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 2
+  %i5 = load float**, float*** %base13, align 8
+  %i6 = load float**, float*** %base, align 8
+  %wide.trip.count = zext i32 %i2 to i64
+  br label %for.body
 
-if.else:                                          ; preds = %entry
-  %capacilty8 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !627
-  %tmp7 = load i32, i32* %capacilty8, align 8, !dbg !627
-  %conv9 = sext i32 %tmp7 to i64, !dbg !627
-  %mul10 = mul i64 %conv9, 8, !dbg !628
-  %conv11 = trunc i64 %mul10 to i32, !dbg !627
-  %call12 = call i8* @malloc(i32 %conv11), !dbg !629
-  %tmp8 = bitcast i8* %call12 to float**, !dbg !630
-  %base13 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !631
-  store float** %tmp8, float*** %base13, align 8, !dbg !632
-  br label %if.end
-
-if.end:                                           ; preds = %if.else, %if.then
-  call void @llvm.dbg.value(metadata i32 0, metadata !633, metadata !DIExpression()), !dbg !635
-  br label %for.cond, !dbg !636
-
-for.cond:                                         ; preds = %for.inc, %if.end
-  %i.0 = phi i32 [ 0, %if.end ], [ %inc, %for.inc ], !dbg !637
-  call void @llvm.dbg.value(metadata i32 %i.0, metadata !633, metadata !DIExpression()), !dbg !635
-  %size14 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !638
-  %tmp10 = load i32, i32* %size14, align 8, !dbg !638
-  %cmp15 = icmp slt i32 %i.0, %tmp10, !dbg !640
-  br i1 %cmp15, label %for.body, label %for.end, !dbg !641
-
-for.body:                                         ; preds = %for.cond
-  %capacilty16 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 0, !dbg !642
-  %tmp11 = load i32, i32* %capacilty16, align 8, !dbg !642
-  %cmp17 = icmp sgt i32 %tmp11, 1, !dbg !644
-  br i1 %cmp17, label %if.then18, label %if.else25, !dbg !645
-
-if.then18:                                        ; preds = %for.body
-  %base19 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i32 0, i32 2, !dbg !646
-  %tmp13 = load float**, float*** %base19, align 8, !dbg !646
-  %mul20 = mul nsw i32 5, %i.0, !dbg !647
-  %idxprom = sext i32 %mul20 to i64, !dbg !648
-  %arrayidx = getelementptr inbounds float*, float** %tmp13, i64 %idxprom, !dbg !648
-  %tmp15 = load float*, float** %arrayidx, align 8, !dbg !648
-  %base21 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !649
-  %tmp16 = load float**, float*** %base21, align 8, !dbg !649
-  %mul22 = mul nsw i32 5, %i.0, !dbg !650
-  %idxprom23 = sext i32 %mul22 to i64, !dbg !649
-  %arrayidx24 = getelementptr inbounds float*, float** %tmp16, i64 %idxprom23, !dbg !649
-  store float* %tmp15, float** %arrayidx24, align 8, !dbg !651
-  br label %if.end32, !dbg !649
-
-if.else25:                                        ; preds = %for.body
-  %base26 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i32 0, i32 2, !dbg !652
-  %tmp19 = load float**, float*** %base26, align 8, !dbg !652
-  %idxprom27 = sext i32 %i.0 to i64, !dbg !653
-  %arrayidx28 = getelementptr inbounds float*, float** %tmp19, i64 %idxprom27, !dbg !653
-  %tmp21 = load float*, float** %arrayidx28, align 8, !dbg !653
-  %base29 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !654
-  %tmp22 = load float**, float*** %base29, align 8, !dbg !654
-  %idxprom30 = sext i32 %i.0 to i64, !dbg !654
-  %arrayidx31 = getelementptr inbounds float*, float** %tmp22, i64 %idxprom30, !dbg !654
-  store float* %tmp21, float** %arrayidx31, align 8, !dbg !655
-  br label %if.end32
-
-if.end32:                                         ; preds = %if.else25, %if.then18
-  br label %for.inc, !dbg !656
-
-for.inc:                                          ; preds = %if.end32
-  %inc = add nsw i32 %i.0, 1, !dbg !657
-  call void @llvm.dbg.value(metadata i32 %inc, metadata !633, metadata !DIExpression()), !dbg !635
-  br label %for.cond, !dbg !658, !llvm.loop !659
-
-for.end:                                          ; preds = %for.cond
+for.cond.cleanup:                                 ; preds = %for.body, %entry
   ret void, !dbg !661
+
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
+  %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
+  %ptridx = getelementptr inbounds float*, float** %i5, i64 %indvars.iv
+  %i7 = load float*, float** %ptridx, align 8
+  %ptridx16 = getelementptr inbounds float*, float** %i6, i64 %indvars.iv
+  store float* %i7, float** %ptridx16, align 8
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
 define void @"Arr<int*>::~Arr()"(%struct.Arr* nocapture readonly %this) align 2 !dbg !662 {
@@ -1235,7 +1028,7 @@ attributes #2 = { nounwind }
 !32 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !33, size: 64)
 !33 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "Arr<int *>", file: !3, line: 6, size: 192, flags: DIFlagTypePassByReference, elements: !34, templateParams: !63, identifier: "typeinfo name for Arr<int*>")
 !34 = !{!35, !36, !37, !38, !43, !46, !49, !50, !55, !60}
-!35 = !DIDerivedType(tag: DW_TAG_member, name: "capacilty", scope: !33, file: !3, line: 7, baseType: !8, size: 32)
+!35 = !DIDerivedType(tag: DW_TAG_member, name: "capacity", scope: !33, file: !3, line: 7, baseType: !8, size: 32)
 !36 = !DIDerivedType(tag: DW_TAG_member, name: "base", scope: !33, file: !3, line: 8, baseType: !6, size: 64, offset: 64)
 !37 = !DIDerivedType(tag: DW_TAG_member, name: "size", scope: !33, file: !3, line: 9, baseType: !8, size: 32, offset: 128)
 !38 = !DISubprogram(name: "get", linkageName: "Arr<int*>::get(int)", scope: !33, file: !3, line: 10, type: !39, isLocal: false, isDefinition: false, scopeLine: 10, flags: DIFlagPrototyped, isOptimized: false)
@@ -1269,7 +1062,7 @@ attributes #2 = { nounwind }
 !66 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !67, size: 64)
 !67 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "Arr<float *>", file: !3, line: 6, size: 192, flags: DIFlagTypePassByReference, elements: !68, templateParams: !97, identifier: "typeinfo name for Arr<float*>")
 !68 = !{!69, !70, !71, !72, !77, !80, !83, !84, !89, !94}
-!69 = !DIDerivedType(tag: DW_TAG_member, name: "capacilty", scope: !67, file: !3, line: 7, baseType: !8, size: 32)
+!69 = !DIDerivedType(tag: DW_TAG_member, name: "capacity", scope: !67, file: !3, line: 7, baseType: !8, size: 32)
 !70 = !DIDerivedType(tag: DW_TAG_member, name: "base", scope: !67, file: !3, line: 8, baseType: !9, size: 64, offset: 64)
 !71 = !DIDerivedType(tag: DW_TAG_member, name: "size", scope: !67, file: !3, line: 9, baseType: !8, size: 32, offset: 128)
 !72 = !DISubprogram(name: "get", linkageName: "Arr<float*>::get(int)", scope: !67, file: !3, line: 10, type: !73, isLocal: false, isDefinition: false, scopeLine: 10, flags: DIFlagPrototyped, isOptimized: false)
@@ -1538,7 +1331,7 @@ attributes #2 = { nounwind }
 !335 = !DILocation(line: 13, column: 12, scope: !323)
 !336 = !DILocation(line: 13, column: 5, scope: !323)
 !337 = !DILocation(line: 14, column: 3, scope: !323)
-!338 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<int*>::Arr(int)", scope: !33, file: !3, line: 21, type: !47, isLocal: false, isDefinition: true, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !46, retainedNodes: !4)
+!338 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<int*>::Arr(int, %struct.Mem*)", scope: !33, file: !3, line: 21, type: !47, isLocal: false, isDefinition: true, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !46, retainedNodes: !4)
 !339 = !DILocalVariable(name: "this", arg: 1, scope: !338, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
 !340 = !DILocation(line: 0, scope: !338)
 !341 = !DILocalVariable(name: "c", arg: 2, scope: !338, file: !3, line: 21, type: !8)
@@ -1554,7 +1347,7 @@ attributes #2 = { nounwind }
 !351 = !DILocation(line: 22, column: 5, scope: !347)
 !352 = !DILocation(line: 22, column: 10, scope: !347)
 !353 = !DILocation(line: 23, column: 3, scope: !338)
-!354 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<float*>::Arr(int)", scope: !67, file: !3, line: 21, type: !81, isLocal: false, isDefinition: true, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !80, retainedNodes: !4)
+!354 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<float*>::Arr(int, %struct.Mem*)", scope: !67, file: !3, line: 21, type: !81, isLocal: false, isDefinition: true, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !80, retainedNodes: !4)
 !355 = !DILocalVariable(name: "this", arg: 1, scope: !354, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
 !356 = !DILocation(line: 0, scope: !354)
 !357 = !DILocalVariable(name: "c", arg: 2, scope: !354, file: !3, line: 21, type: !8)

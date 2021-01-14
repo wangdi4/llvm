@@ -410,32 +410,32 @@ attributes #11 = { noreturn nounwind }
 ; CHECK:       %0 = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*
 ; CHECK-NEXT:  %1 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
 ; CHECK-NEXT:  %2 = icmp eq i8* %0, %1
-; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
+; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi, label %ElseDevirt__ZN7Derived3fooEi
 
 ; If the address matches with Derived:foo, then call it
-; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi:
 ; CHECK:        %3 = invoke zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
-; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
+; CHECK-NEXT:          to label %MergeBB unwind label %lpad
 
 ; Else, compare the address with Derived2:foo
-; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi_0_0:
+; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi:
 ; CHECK:        %4 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
 ; CHECK-NEXT:   %5 = icmp eq i8* %0, %4
-; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
+; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi, label %DefaultBB
 
 ; The address matches Derived2::foo
-; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
+; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi:
 ; CHECK:        %6 = invoke zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
-; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
+; CHECK-NEXT:          to label %MergeBB unwind label %lpad
 
 ; Default case
-; CHECK-LABEL: DefaultBB_0_0:
+; CHECK-LABEL: DefaultBB:
 ; CHECK:        %7 = invoke zeroext i1 %tmp2(%class.Base* %.16, i32 %argc)
-; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
+; CHECK-NEXT:          to label %MergeBB unwind label %lpad
 
 ; Check that the PhiNode was generated correctly
-; CHECK-LABEL: MergeBB_0_0:
-; CHECK:        %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %7, %DefaultBB_0_0 ]
+; CHECK-LABEL: MergeBB:
+; CHECK:        %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi ], [ %6, %BBDevirt__ZN8Derived23fooEi ], [ %7, %DefaultBB ]
 ; CHECK-NEXT: br label %invoke.cont
 
 
@@ -446,7 +446,7 @@ attributes #11 = { noreturn nounwind }
 
 
 ; Check that the unwind destination have all the basic blocks connected correctly
-; CHECK:       lpad:                                             ; preds = %BBDevirt__ZN8Derived23fooEi_0_0, %BBDevirt__ZN7Derived3fooEi_0_0, %invoke.cont1, %invoke.cont, %DefaultBB_0_0
+; CHECK:       lpad:                                             ; preds = %BBDevirt__ZN8Derived23fooEi, %BBDevirt__ZN7Derived3fooEi, %invoke.cont1, %invoke.cont, %DefaultBB
 ; CHECK-NEXT:   %tmp3 = landingpad { i8*, i32 }
 ; CHECK-NEXT:            cleanup
 ; CHECK-NEXT:            catch i8* bitcast (i8** @_ZTIPKc to i8*)

@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; This test is to verify that when the pre-PGO inlining pass is run for a
 ; DTrans LTO compilation, the DTrans SOA-to-AOS heuristics are used during
 ; that inlining pass.
@@ -6,36 +7,38 @@
 ; inserted to the pass pipeline. The behavior being tested occurs before
 ; PGO feedback, so actual data values are not needed.
 
+; The test was modified by rcox2 to also use -debug-only=inline because we
+; now produce only a single inlining report per compilation.
+
 ; RUN: llvm-profdata merge %S/Inputs/soatoaos01-inlpgo.proftext -o %t.profdata
-; RUN: opt -disable-output -O2 -prepare-for-lto -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -inline-report=7 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
+; RUN: opt -disable-output -O2 -prepare-for-lto -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=7 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
 
 
 ; Test without the LTO configuration
-; RUN: opt -disable-output -O2 -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -inline-report=7 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
+; RUN: opt -disable-output -O2 -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=7 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
 
 ; New pass manager
 ; These tests are currently disabled because the inlining report
 ; is not configured for the pre-PGO inlinining pass of the
 ; new pass manager, currently.
-; RUN-FUTURE: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -inline-report=7 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
-; RUN-FUTURE: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -inline-report=7 -inline-for-xmain -pre-lto-inline-cost %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
+; RUN-FUTURE: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=7 -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost %s 2>&1 | FileCheck --check-prefix=CHECK-DTRANS %s
+; RUN-FUTURE: opt -disable-output -passes="lto-pre-link<O2>" -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -debug-only=inline -inline-report=7 -inline-for-xmain -pre-lto-inline-cost %s  2>&1 | FileCheck --check-prefix=CHECK-INL %s
 
 
 ; The rest of this test is taken from the test soatoaos01-inl.ll, which tests
 ; the soa-to-aos inlining heuristics.
 
-; CHECK-DTRANS: _ZN3ArrIPiEC2EiP3Mem {{.*}}preferred for
-; CHECK-DTRANS: _ZN3ArrIPvEC2EiP3Mem {{.*}}preferred for
-; CHECK-DTRANS: _ZN3ArrIPiE3setEiS0_ {{.*}}preferred for
-; CHECK-DTRANS: _ZN3ArrIPvE3getEi {{.*}}preferred for
-; CHECK-DTRANS: _ZN1FC2Ev{{.*}}preferred for
+; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPiEC2EiP3Mem
+; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPvEC2EiP3Mem
+; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPiE3setEiS0_
+; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN3ArrIPvE3getEi
+; CHECK-DTRANS: NOT Inlining (cost=never): {{.*}} @_ZN1FC2Ev
 
 ; CHECK-INL: INLINE{{.*}}_ZN3ArrIPiEC2EiP3Mem
 ; CHECK-INL: INLINE{{.*}}_ZN3ArrIPvEC2EiP3Mem
 ; CHECK-INL: INLINE{{.*}}_ZN3ArrIPiE3setEiS0_
 ; CHECK-INL: INLINE{{.*}}_ZN3ArrIPvE3getEi
 ; CHECK-INL: INLINE{{.*}}_ZN1FC2Ev
-
 
 ; struct Mem {
 ;   virtual void *allocate() = 0;

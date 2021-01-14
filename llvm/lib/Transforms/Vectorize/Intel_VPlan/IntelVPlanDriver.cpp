@@ -16,12 +16,15 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
+#include "IntelVPMemRefTransform.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanMaskedModeLoop.h"
 #include "IntelVPlanScalarEvolution.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
@@ -93,9 +96,6 @@ static cl::opt<unsigned> VPlanVectCand(
     "vplan-build-vect-candidates", cl::init(0),
     cl::desc(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
-
-static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
-                                      cl::desc("Force VPlan to use given UF"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
@@ -272,7 +272,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, &SE)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -288,7 +288,17 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   }
 #else
   LVP.buildInitialVPlans();
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
+
+  if (EnableMaskedVariant)
+    for (auto &Pair : LVP.getAllVPlans()) {
+      std::shared_ptr<VPlan> Plan = Pair.second.MainPlan;
+      if (!Pair.second.MaskedModeLoop) {
+        MaskedModeLoopCreator MML(Plan.get(), VPAF);
+        LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
+                                            Plan, MML.createMaskedModeLoop()});
+      }
+    }
 
   // VPlan Predicator
   LVP.predicate();
@@ -323,10 +333,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // tuning is not yet implemented and we don't want to prevent vectorization.
   LVP.insertAllZeroBypasses(Plan, VF);
 
-  unsigned UF = VPlanForceUF;
-  if (UF == 0)
-    UF = 1;
-  LVP.unroll(*Plan, UF);
+  unsigned UF = LVP.getLoopUnrollFactor();
+  LVP.unroll(*Plan);
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
   // loop creation inside vec-clone) followed by loop vectorization. That
@@ -356,6 +364,11 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                  "single iteration optimization", Plan);
     }
 
+  // Do the preparation for CG: create auxiliary loops and merge them into one
+  // piece of CFG.
+  if (VF > 1)
+    LVP.emitPeelRemainderVPLoops();
+
   if (DisableCodeGen)
     return false;
 
@@ -370,12 +383,18 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
                     << "\n");
 
-  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF, &LVL,
+  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, VF, UF, &LVL,
                       &VLSA, Plan);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
   // Run VLS analysis before IR for the current loop is modified.
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
+
+  // Transform SOA-GEPs.
+  if (EnableSOAAnalysis) {
+    VPMemRefTransform VPMemRefTrans(*Plan);
+    VPMemRefTrans.transformSOAGEPs(VF);
+  }
 
   LVP.executeBestPlan(VCodeGen);
 
@@ -388,9 +407,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
   addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
 
-  // Mark source and vectorized loops with isvectorized directive so that
-  // WarnMissedTransforms pass will not complain that this loop is not
-  // vectorized
+  // Mark source and vector and scalar loops with isvectorized directive so that
+  // WarnMissedTransforms pass will not complain that vector and scalar loops
+  // are not vectorized
   if (isOmpSIMDLoop) {
     setLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
     setLoopMD(VCodeGen.getOrigLoop(), "llvm.loop.isvectorized");
@@ -808,7 +827,10 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPlanDriver::runOnFunction(Function &Fn) {
-  if (skipFunction(Fn))
+
+  bool isOmpSimdKernel = (Fn.getMetadata("omp_simd_kernel") != nullptr);
+
+  if (skipFunction(Fn) && !isOmpSimdKernel)
     return false;
 
   auto SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -851,13 +873,14 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto TTI = &AM.getResult<TargetIRAnalysis>(F);
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
+  auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   MemorySSA *MSSA = EnableMSSALoopDependency
                         ? &AM.getResult<MemorySSAAnalysis>(F).getMSSA()
                         : nullptr;
   auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
   auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
     LoopStandardAnalysisResults AR = {*AA, *AC,  *DT,  *LI,
-                                      *SE, *TLI, *TTI, MSSA};
+                                      *SE, *TLI, *TTI, BFI, MSSA};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
 
@@ -1126,17 +1149,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // tuning is not yet implemented and we don't want to prevent vectorization.
   LVP.insertAllZeroBypasses(Plan, VF);
 
-  unsigned UF = HLoop->getUnrollPragmaCount();
-  if (VPlanForceUF)
-    UF = VPlanForceUF;
-  // Unroll factor set as a hint from prior LoopOpt transforms.
-  if (UF == 0)
-    UF = HLoop->getForcedVectorUnrollFactor();
-  if (UF == 0)
-    UF = 1;
+  unsigned UF = LVP.getLoopUnrollFactor();
 
   VPlanLoopUnroller::VPInstUnrollPartTy VPInstUnrollPart;
-  LVP.unroll(*Plan, UF, &VPInstUnrollPart);
+  LVP.unroll(*Plan, &VPInstUnrollPart);
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
@@ -1168,9 +1184,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
             VPORBuilder, &VCodeGen);
         // Mark source and vectorized loops with isvectorized directive so that
         // WarnMissedTransforms pass will not complain that this loop is not
-        // vectorized
-        if (isOmpSIMDLoop)
+        // vectorized. We also tag the main vector loop based on
+        // simd/auto-vectorization scenarios. This tag will be reflected in
+        // downstream HIR dumps.
+        if (isOmpSIMDLoop) {
           setHLLoopMD(Lp, "llvm.loop.isvectorized", Fn.getContext());
+          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::SIMD);
+        } else {
+          VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::AUTOVEC);
+        }
       }
     }
   }
@@ -1281,7 +1303,7 @@ bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
 bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
 #endif
   // Only consider inner loops
-  if (!Lp->empty())
+  if (!Lp->isInnermost())
     return false;
 
   PredicatedScalarEvolution PSE(*SE, *Lp);

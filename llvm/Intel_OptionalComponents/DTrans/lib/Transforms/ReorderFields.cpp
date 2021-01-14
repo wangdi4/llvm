@@ -1340,6 +1340,11 @@ static bool isSimpleStructType(TypeInfo *TI) {
                              isArrayOrVectTy))
     return false;
 
+  // Only field address obtained via GEP are currently supported.
+  if (std::any_of(StInfo->getFields().begin(), StInfo->getFields().end(),
+                  [](FieldInfo &FI) { return FI.hasNonGEPAccess(); }))
+    return false;
+
   if (StructT
       && StructT->getNumElements() < DTransReorderFieldsNumFieldsThreshold)
     return true;

@@ -1092,7 +1092,7 @@ void ResolveTypesImpl::identifyCandidateSets(
     // If BaseName is a not a known type, claim the name for this type.
     // This will potentially allow us to remap other types with the same
     // base name to this type.
-    StructType *BaseTy = M.getTypeByName(BaseName);
+    StructType *BaseTy = StructType::getTypeByName(M.getContext(), BaseName);
     if (!BaseTy) {
       LLVM_DEBUG(dbgs() << "resolve-types: Renaming " << TyName << " -> "
                         << BaseName << "\n");
@@ -1190,7 +1190,8 @@ void ResolveTypesImpl::findNonRemappableTypes(
         // with that name, if one does not exist previously. If there is not a
         // type with the name, then the dependent type was not a candidate for
         // being remapped, and we can move on to the next element.
-        StructType *BaseTy = M.getTypeByName(BaseName);
+        StructType *BaseTy =
+            StructType::getTypeByName(M.getContext(), BaseName);
         if (!BaseTy)
           continue;
 

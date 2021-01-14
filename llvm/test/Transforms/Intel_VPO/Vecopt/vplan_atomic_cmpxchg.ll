@@ -5,6 +5,7 @@
 
 define void @test_cmpxchg(float* %counter_N0, i32* %op2) {
 ;
+;
 ; CHECK:  define void @test_cmpxchg(float* [[COUNTER_N00:%.*]], i32* [[OP20:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0:%.*]] ]
@@ -30,8 +31,8 @@ define void @test_cmpxchg(float* %counter_N0, i32* %op2) {
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI10]], 2
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 0
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i64 [[TMP7]], 1024
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
 ;
 entry:
   %bc1 = bitcast float* %counter_N0 to i32*
@@ -53,7 +54,7 @@ simd.loop:
 simd.loop.end:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
-  br i1 %cmp, label %simd.end.region, label %simd.loop
+  br i1 %cmp, label %simd.loop, label %simd.end.region
 
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]

@@ -10,7 +10,7 @@ target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:1
 
 %struct.ss = type { i32, i64 }
 
-define internal void @f(%struct.ss* byval  %b) nounwind  {
+define internal void @f(%struct.ss* byval(%struct.ss)  %b) nounwind  {
 entry:
   %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
   %tmp1 = load i32, i32* %tmp, align 4
@@ -19,7 +19,7 @@ entry:
   ret void
 }
 
-define internal void @g(%struct.ss* byval align 32 %b) nounwind {
+define internal void @g(%struct.ss* byval(%struct.ss) align 32 %b) nounwind {
 entry:
   %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
   %tmp1 = load i32, i32* %tmp, align 4
@@ -35,8 +35,8 @@ entry:
   store i32 1, i32* %tmp1, align 8
   %tmp4 = getelementptr %struct.ss, %struct.ss* %S, i32 0, i32 1
   store i64 2, i64* %tmp4, align 4
-  call void @f(%struct.ss* byval %S) nounwind
-  call void @g(%struct.ss* byval %S) nounwind
+  call void @f(%struct.ss* byval(%struct.ss) %S) nounwind
+  call void @g(%struct.ss* byval(%struct.ss) %S) nounwind
   ret i32 0
 }
 

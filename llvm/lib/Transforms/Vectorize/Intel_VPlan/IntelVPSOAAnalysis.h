@@ -32,7 +32,6 @@ class VPLoop;
 class VPInstruction;
 class VPValue;
 
-extern bool EnableSOAAnalysis;
 extern bool VPlanDisplaySOAAnalysisInformation;
 
 /// Class for SOA-datalayout transformation analysis for loop-privates.

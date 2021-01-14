@@ -16,47 +16,37 @@ declare void @llvm.directive.region.exit(token) #4
 
 define void @_ZGVbN4_direct() #1 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i32 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_NKSt5arrayIPFiifELm2EE4dataEv [x 1] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbN4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1] (SVAOpBits 0->V 1->V 2->V 3->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 false, [[BB2]], [[BB4:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     Condition(external): i1 false
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 false), [[BB4:BB[0-9]+]](!i1 false)
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP_INDEX_IND_FINAL]]
@@ -88,6 +78,6 @@ return:                                           ; preds = %simd.end.region
 }
 
 attributes #1 = { "vector-variants"="_ZGVbM4_direct,_ZGVbN4_direct" }
-attributes #2 = { "vector-variants"="_ZGVbM4_NKSt5arrayIPFiifELm2EE4dataEv,_ZGVbN4_NKSt5arrayIPFiifELm2EE4dataEv" }
+attributes #2 = { "vector-variants"="_ZGVbM4_ZNKSt5arrayIPFiifELm2EE4dataEv,_ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv" }
 attributes #3 = { "vector-variants"="_ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f,_ZGVbN4vv___intel_indirect_call_i32_p0p0f_i32i32f32f" }
 attributes #4 = { nounwind }

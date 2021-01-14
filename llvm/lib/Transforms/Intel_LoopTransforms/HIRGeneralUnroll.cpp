@@ -82,6 +82,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
@@ -129,7 +130,7 @@ static cl::opt<unsigned>
                                  "unroll factor factored in"));
 
 static cl::opt<unsigned> MaxLoopCost(
-    "hir-general-unroll-max-loop-cost", cl::init(40), cl::Hidden,
+    "hir-general-unroll-max-loop-cost", cl::init(45), cl::Hidden,
     cl::desc("Max allowed cost of the original loop which is to be unrolled"));
 
 static cl::opt<bool> DisableSwitchGeneration(
@@ -466,6 +467,44 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   }
 
   unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
+  unsigned NumExits = HLoop->getNumExits();
+  unsigned NumLiveouts = HLoop->getNumLiveOutTemps();
+
+  // Liveouts tend to increase register pressure for multi-exit loops.
+  if (NumExits > 1 && NumLiveouts > 5) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll of multi-exit loop with "
+                      << NumLiveouts
+                      << " liveouts to not increase register pressure!\n");
+    return 0;
+  }
+
+  bool IsInnerLoop =
+      ((HLoop->getNestingLevel() > 1) || (HLoop->getLLVMLoopDepth() > 1));
+
+  // Add penalty for inner loops with liveouts to account for increase in
+  // register pressure.
+  if (IsInnerLoop && NumLiveouts != 0) {
+    // Number of exits complicate the CFG by adding additional edges. If there are
+    // values liveout these exits, it will make life difficult for register
+    // allocation.
+    // Normal exit is ignored for DO loops but accounted for unknown loops
+    // because its explicit backedge is cloned.
+    unsigned ExitCost = (HLoop->isUnknown()) ? NumExits : (NumExits - 1);
+
+    // Account for number of liveouts in non-DO loops.
+    unsigned LiveoutCost = (HLoop->isDo()) ? 0 : NumLiveouts;
+
+    // Add penalty for inner loops with liveouts.
+    unsigned InnerLoopLiveoutPenalty = (ExitCost + LiveoutCost);
+
+    LLVM_DEBUG(dbgs() << "Computed penalty for inner loop liveouts: "
+                      << InnerLoopLiveoutPenalty << "\n");
+
+    SelfCost += InnerLoopLiveoutPenalty;
+  }
+
+  LLVM_DEBUG(dbgs() << "Computed loop body cost of unroll candidate to be: "
+                    << SelfCost << "\n");
 
   if (SelfCost > MaxLoopCost) {
     if (HasEnablingPragma) {
@@ -483,8 +522,8 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     if (HasEnablingPragma) {
       return 2;
     } else {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of loop as unrolled loop body cost "
-                           "exceeds threshold!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll of loop as smallest unrolled loop "
+                           "body cost exceeds threshold!\n");
       return 0;
     }
   }
@@ -507,10 +546,17 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     return 0;
   }
 
-  // Multi-exit loops have a higher chance of having a low trip count as they
-  // can take early exits. We may cause degradations in those cases by
-  // increasing code size. Unroll factor of 2 is the safest bet.
-  UnrollFactor = (HLoop->getNumExits() > 1) ? 2 : MaxUnrollFactor;
+  // If loop has temporal reuse, unrolling with higher factor can expose more
+  // redundant loads/stores.
+  if ((NumExits == 1) || HIRLoopLocality::hasTemporalReuseLocality(
+                             HLoop, MaxUnrollFactor - 1, true)) {
+    UnrollFactor = MaxUnrollFactor;
+  } else {
+    // Multi-exit loops have a higher chance of having a low trip count as they
+    // can take early exits. We may cause degradations in those cases by
+    // increasing code size. Unroll factor of 2 is the safest bet.
+    UnrollFactor = 2;
+  }
 
   while ((UnrollFactor * SelfCost) > MaxUnrolledLoopCost) {
     UnrollFactor /= 2;
@@ -554,8 +600,9 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
 
   if (!HasEnablingPragma) {
-    bool IsMultiExit = (Loop->getNumExits() > 1);
+    unsigned NumExits = Loop->getNumExits();
 
+    bool IsMultiExit = (NumExits > 1);
     // 32bit platform seems to be more sensitive to register pressure/code size.
     // Unrolling too many loops leads to regression in the same benchmark which
     // is improved on 64-bit platform.
@@ -563,16 +610,6 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
       LLVM_DEBUG(
           dbgs()
           << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
-      return false;
-    }
-
-    // Enable this when we find a convincing test case where unrolling helps.
-    // All the current instances where it helps is when we have locality
-    // between memrefs. These should be handled by scalar replacement (captured
-    // in CMPLRS-41981). It is causing degradations in some benchmarks and the
-    // reasons are not quite clear to me.
-    if (Loop->isDoMultiExit()) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of DO multi-exit loop!\n");
       return false;
     }
 

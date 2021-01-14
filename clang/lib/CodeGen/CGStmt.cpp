@@ -19,9 +19,11 @@
 #include "clang/AST/Expr.h"  // INTEL
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/Builtins.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
@@ -51,7 +53,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   PGO.setCurrentStmt(S);
 
   // These statements have their own debug info handling.
-  if (EmitSimpleStmt(S))
+  if (EmitSimpleStmt(S, Attrs))
     return;
 
   // Check if we are generating unreachable code.
@@ -448,23 +450,44 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   }
 }
 
-bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
+bool CodeGenFunction::EmitSimpleStmt(const Stmt *S,
+                                     ArrayRef<const Attr *> Attrs) {
   switch (S->getStmtClass()) {
-  default: return false;
-  case Stmt::NullStmtClass: break;
-  case Stmt::CompoundStmtClass: EmitCompoundStmt(cast<CompoundStmt>(*S)); break;
-  case Stmt::DeclStmtClass:     EmitDeclStmt(cast<DeclStmt>(*S));         break;
-  case Stmt::LabelStmtClass:    EmitLabelStmt(cast<LabelStmt>(*S));       break;
+  default:
+    return false;
+  case Stmt::NullStmtClass:
+    break;
+  case Stmt::CompoundStmtClass:
+    EmitCompoundStmt(cast<CompoundStmt>(*S));
+    break;
+  case Stmt::DeclStmtClass:
+    EmitDeclStmt(cast<DeclStmt>(*S));
+    break;
+  case Stmt::LabelStmtClass:
+    EmitLabelStmt(cast<LabelStmt>(*S));
+    break;
   case Stmt::AttributedStmtClass:
-                            EmitAttributedStmt(cast<AttributedStmt>(*S)); break;
-  case Stmt::GotoStmtClass:     EmitGotoStmt(cast<GotoStmt>(*S));         break;
-  case Stmt::BreakStmtClass:    EmitBreakStmt(cast<BreakStmt>(*S));       break;
-  case Stmt::ContinueStmtClass: EmitContinueStmt(cast<ContinueStmt>(*S)); break;
-  case Stmt::DefaultStmtClass:  EmitDefaultStmt(cast<DefaultStmt>(*S));   break;
-  case Stmt::CaseStmtClass:     EmitCaseStmt(cast<CaseStmt>(*S));         break;
-  case Stmt::SEHLeaveStmtClass: EmitSEHLeaveStmt(cast<SEHLeaveStmt>(*S)); break;
+    EmitAttributedStmt(cast<AttributedStmt>(*S));
+    break;
+  case Stmt::GotoStmtClass:
+    EmitGotoStmt(cast<GotoStmt>(*S));
+    break;
+  case Stmt::BreakStmtClass:
+    EmitBreakStmt(cast<BreakStmt>(*S));
+    break;
+  case Stmt::ContinueStmtClass:
+    EmitContinueStmt(cast<ContinueStmt>(*S));
+    break;
+  case Stmt::DefaultStmtClass:
+    EmitDefaultStmt(cast<DefaultStmt>(*S), Attrs);
+    break;
+  case Stmt::CaseStmtClass:
+    EmitCaseStmt(cast<CaseStmt>(*S), Attrs);
+    break;
+  case Stmt::SEHLeaveStmtClass:
+    EmitSEHLeaveStmt(cast<SEHLeaveStmt>(*S));
+    break;
   }
-
   return true;
 }
 
@@ -869,6 +892,73 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
   }
 }
 
+/// Handle #pragma prefetch
+CodeGenFunction::IntelPrefetchExprHandler::IntelPrefetchExprHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+  decltype(Attrs)::iterator AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::IntelPrefetch;
+      });
+
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  for (auto End = std::end(Attrs); AttrItr != End; ++AttrItr) {
+    if (OpBundles.empty())
+      OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.PREFETCH_LOOP",
+                                                 ArrayRef<llvm::Value *>{}));
+    const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(*AttrItr);
+    bool IsNoPrefetchLoop = (IPA->getSemanticSpelling() ==
+                             IntelPrefetchAttr::Pragma_noprefetch);
+    llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+    OpBundles.push_back(llvm::OperandBundleDef(
+        "QUAL.PRAGMA.ENABLE",
+         llvm::ConstantInt::get(Int32Ty, IsNoPrefetchLoop ? 0 : 1)));
+    bool HintSeen = false;
+    for (const auto *PrefetchExpr : IPA->prefetchExprs()) {
+      SmallVector<llvm::Value *, 4> BundleValues;
+      if (const IntegerLiteral *IL = dyn_cast<IntegerLiteral>(PrefetchExpr)) {
+        llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+        const llvm::APInt &V = IL->getValue();
+        if (HintSeen) {
+          OpBundles.push_back(llvm::OperandBundleDef(
+              "QUAL.PRAGMA.DISTANCE", llvm::ConstantInt::get(Int32Ty, V)));
+        } else {
+          OpBundles.push_back(llvm::OperandBundleDef(
+              "QUAL.PRAGMA.HINT", llvm::ConstantInt::get(Int32Ty, V)));
+          HintSeen = true;
+        }
+      } else {
+        // We'll have either an lvalue or, if variable reference omitted
+        // from the prefetch argument list, a null pointer.
+        if (isa<CXXNullPtrLiteralExpr>(PrefetchExpr))
+          BundleValues.push_back(CGF.EmitScalarExpr(PrefetchExpr));
+        else
+          BundleValues.push_back(CGF.EmitLValue(PrefetchExpr).getPointer(CGF));
+        OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.VAR",
+                            BundleValues));
+        HintSeen = false;
+      }
+    }
+  }
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+      OpBundles);
+}
+
+CodeGenFunction::IntelPrefetchExprHandler::~IntelPrefetchExprHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.PREFETCH_LOOP",
+                           ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
@@ -882,6 +972,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
+  IntelPrefetchExprHandler IPH(*this, S.getAttrs());
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
   IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
@@ -963,8 +1054,14 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
   if (S.getElse())
     ElseBlock = createBasicBlock("if.else");
 
-  EmitBranchOnBoolExpr(S.getCond(), ThenBlock, ElseBlock,
-                       getProfileCount(S.getThen()));
+  // Prefer the PGO based weights over the likelihood attribute.
+  // When the build isn't optimized the metadata isn't used, so don't generate
+  // it.
+  Stmt::Likelihood LH = Stmt::LH_None;
+  uint64_t Count = getProfileCount(S.getThen());
+  if (!Count && CGM.getCodeGenOpts().OptimizationLevel)
+    LH = Stmt::getLikelihood(S.getThen(), S.getElse());
+  EmitBranchOnBoolExpr(S.getCond(), ThenBlock, ElseBlock, Count, LH);
 
   // Emit the 'then' code.
   EmitBlock(ThenBlock);
@@ -1004,11 +1101,6 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   JumpDest LoopHeader = getJumpDestInCurrentScope("while.cond");
   EmitBlock(LoopHeader.getBlock());
 
-  const SourceRange &R = S.getSourceRange();
-  LoopStack.push(LoopHeader.getBlock(), CGM.getContext(), CGM.getCodeGenOpts(),
-                 WhileAttrs, SourceLocToDebugLoc(R.getBegin()),
-                 SourceLocToDebugLoc(R.getEnd()));
-
   // Create an exit block for when the condition fails, which will
   // also become the break target.
   JumpDest LoopExit = getJumpDestInCurrentScope("while.end");
@@ -1036,9 +1128,19 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   // while(1) is common, avoid extra exit blocks.  Be sure
   // to correctly handle break/continue though.
   bool EmitBoolCondBranch = true;
-  if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(BoolCondVal))
-    if (C->isOne())
+  bool LoopMustProgress = false;
+  if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(BoolCondVal)) {
+    if (C->isOne()) {
       EmitBoolCondBranch = false;
+      FnIsMustProgress = false;
+    }
+  } else if (LanguageRequiresProgress())
+    LoopMustProgress = true;
+
+  const SourceRange &R = S.getSourceRange();
+  LoopStack.push(LoopHeader.getBlock(), CGM.getContext(), CGM.getCodeGenOpts(),
+                 WhileAttrs, SourceLocToDebugLoc(R.getBegin()),
+                 SourceLocToDebugLoc(R.getEnd()), LoopMustProgress);
 
   // As long as the condition is true, go to the loop body.
   llvm::BasicBlock *LoopBody = createBasicBlock("while.body");
@@ -1046,14 +1148,22 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
     llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
     if (ConditionScope.requiresCleanups())
       ExitBlock = createBasicBlock("while.exit");
-    Builder.CreateCondBr(
-        BoolCondVal, LoopBody, ExitBlock,
-        createProfileWeightsForLoop(S.getCond(), getProfileCount(S.getBody())));
+    llvm::MDNode *Weights = createProfileOrBranchWeightsForLoop(
+        S.getCond(), getProfileCount(S.getBody()), S.getBody());
+    Builder.CreateCondBr(BoolCondVal, LoopBody, ExitBlock, Weights);
 
     if (ExitBlock != LoopExit.getBlock()) {
       EmitBlock(ExitBlock);
       EmitBranchThroughCleanup(LoopExit);
     }
+  } else if (const Attr *A = Stmt::getLikelihoodAttr(S.getBody())) {
+    CGM.getDiags().Report(A->getLocation(),
+                          diag::warn_attribute_has_no_effect_on_infinite_loop)
+        << A << A->getRange();
+    CGM.getDiags().Report(
+        S.getWhileLoc(),
+        diag::note_attribute_has_no_effect_on_infinite_loop_here)
+        << SourceRange(S.getWhileLoc(), S.getRParenLoc());
   }
 
   // Emit the loop body.  We have to emit this in a cleanup scope
@@ -1106,11 +1216,6 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
 
   EmitBlock(LoopCond.getBlock());
 
-  const SourceRange &R = S.getSourceRange();
-  LoopStack.push(LoopBody, CGM.getContext(), CGM.getCodeGenOpts(), DoAttrs,
-                 SourceLocToDebugLoc(R.getBegin()),
-                 SourceLocToDebugLoc(R.getEnd()));
-
   // C99 6.8.5.2: "The evaluation of the controlling expression takes place
   // after each execution of the loop body."
 
@@ -1124,9 +1229,19 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   // "do {} while (0)" is common in macros, avoid extra blocks.  Be sure
   // to correctly handle break/continue though.
   bool EmitBoolCondBranch = true;
-  if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(BoolCondVal))
+  bool LoopMustProgress = false;
+  if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(BoolCondVal)) {
     if (C->isZero())
       EmitBoolCondBranch = false;
+    else if (C->isOne())
+      FnIsMustProgress = false;
+  } else if (LanguageRequiresProgress())
+    LoopMustProgress = true;
+
+  const SourceRange &R = S.getSourceRange();
+  LoopStack.push(LoopBody, CGM.getContext(), CGM.getCodeGenOpts(), DoAttrs,
+                 SourceLocToDebugLoc(R.getBegin()),
+                 SourceLocToDebugLoc(R.getEnd()), LoopMustProgress);
 
   // As long as the condition is true, iterate the loop.
   if (EmitBoolCondBranch) {
@@ -1164,10 +1279,20 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
   llvm::BasicBlock *CondBlock = Continue.getBlock();
   EmitBlock(CondBlock);
 
+  bool LoopMustProgress = false;
+  Expr::EvalResult Result;
+  if (LanguageRequiresProgress()) {
+    if (!S.getCond()) {
+      FnIsMustProgress = false;
+    } else if (!S.getCond()->EvaluateAsInt(Result, getContext())) {
+      LoopMustProgress = true;
+    }
+  }
+
   const SourceRange &R = S.getSourceRange();
   LoopStack.push(CondBlock, CGM.getContext(), CGM.getCodeGenOpts(), ForAttrs,
                  SourceLocToDebugLoc(R.getBegin()),
-                 SourceLocToDebugLoc(R.getEnd()));
+                 SourceLocToDebugLoc(R.getEnd()), LoopMustProgress);
 
   // If the for loop doesn't have an increment we can just use the
   // condition as the continue block.  Otherwise we'll need to create
@@ -1201,9 +1326,14 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
     // C99 6.8.5p2/p4: The first substatement is executed if the expression
     // compares unequal to 0.  The condition must be a scalar type.
     llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
-    Builder.CreateCondBr(
-        BoolCondVal, ForBody, ExitBlock,
-        createProfileWeightsForLoop(S.getCond(), getProfileCount(S.getBody())));
+    llvm::MDNode *Weights = createProfileOrBranchWeightsForLoop(
+        S.getCond(), getProfileCount(S.getBody()), S.getBody());
+
+    if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(BoolCondVal))
+      if (C->isOne())
+        FnIsMustProgress = false;
+
+    Builder.CreateCondBr(BoolCondVal, ForBody, ExitBlock, Weights);
 
     if (ExitBlock != LoopExit.getBlock()) {
       EmitBlock(ExitBlock);
@@ -1282,9 +1412,9 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   // The body is executed if the expression, contextually converted
   // to bool, is true.
   llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
-  Builder.CreateCondBr(
-      BoolCondVal, ForBody, ExitBlock,
-      createProfileWeightsForLoop(S.getCond(), getProfileCount(S.getBody())));
+  llvm::MDNode *Weights = createProfileOrBranchWeightsForLoop(
+      S.getCond(), getProfileCount(S.getBody()), S.getBody());
+  Builder.CreateCondBr(BoolCondVal, ForBody, ExitBlock, Weights);
 
   if (ExitBlock != LoopExit.getBlock()) {
     EmitBlock(ExitBlock);
@@ -1548,7 +1678,8 @@ void CodeGenFunction::EmitContinueStmt(const ContinueStmt &S) {
 /// EmitCaseStmtRange - If case statement range is not too big then
 /// add multiple cases to switch instruction, one for each value within
 /// the range. If range is too big then emit "if" condition check.
-void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
+void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S,
+                                        ArrayRef<const Attr *> Attrs) {
   assert(S.getRHS() && "Expected RHS value in CaseStmt");
 
   llvm::APSInt LHS = S.getLHS()->EvaluateKnownConstInt(getContext());
@@ -1565,6 +1696,7 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
   if (LHS.isSigned() ? RHS.slt(LHS) : RHS.ult(LHS))
     return;
 
+  Stmt::Likelihood LH = Stmt::getLikelihood(Attrs);
   llvm::APInt Range = RHS - LHS;
   // FIXME: parameters such as this should not be hardcoded.
   if (Range.ult(llvm::APInt(Range.getBitWidth(), 64))) {
@@ -1579,6 +1711,9 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
     for (unsigned I = 0; I != NCases; ++I) {
       if (SwitchWeights)
         SwitchWeights->push_back(Weight + (Rem ? 1 : 0));
+      else if (SwitchLikelihood)
+        SwitchLikelihood->push_back(LH);
+
       if (Rem)
         Rem--;
       SwitchInsn->addCase(Builder.getInt(LHS), CaseDest);
@@ -1616,7 +1751,9 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
     // need to update the weight for the default, ie, the first case, to include
     // this case.
     (*SwitchWeights)[0] += ThisCount;
-  }
+  } else if (SwitchLikelihood)
+    Weights = createBranchWeights(LH);
+
   Builder.CreateCondBr(Cond, CaseDest, FalseDest, Weights);
 
   // Restore the appropriate insertion point.
@@ -1626,7 +1763,8 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
     Builder.ClearInsertionPoint();
 }
 
-void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
+void CodeGenFunction::EmitCaseStmt(const CaseStmt &S,
+                                   ArrayRef<const Attr *> Attrs) {
   // If there is no enclosing switch instance that we're aware of, then this
   // case statement and its block can be elided.  This situation only happens
   // when we've constant-folded the switch, are emitting the constant case,
@@ -1639,12 +1777,14 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
 
   // Handle case ranges.
   if (S.getRHS()) {
-    EmitCaseStmtRange(S);
+    EmitCaseStmtRange(S, Attrs);
     return;
   }
 
   llvm::ConstantInt *CaseVal =
     Builder.getInt(S.getLHS()->EvaluateKnownConstInt(getContext()));
+  if (SwitchLikelihood)
+    SwitchLikelihood->push_back(Stmt::getLikelihood(Attrs));
 
   // If the body of the case is just a 'break', try to not emit an empty block.
   // If we're profiling or we're not optimizing, leave the block in for better
@@ -1685,6 +1825,10 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
   // that falls through to the next case which is IR intensive.  It also causes
   // deep recursion which can run into stack depth limitations.  Handle
   // sequential non-range case statements specially.
+  //
+  // TODO When the next case has a likelihood attribute the code returns to the
+  // recursive algorithm. Maybe improve this case if it becomes common practice
+  // to use a lot of attributes.
   const CaseStmt *CurCase = &S;
   const CaseStmt *NextCase = dyn_cast<CaseStmt>(S.getSubStmt());
 
@@ -1700,6 +1844,10 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
       CaseDest = createBasicBlock("sw.bb");
       EmitBlockWithFallThrough(CaseDest, &S);
     }
+    // Since this loop is only executed when the CaseStmt has no attributes
+    // use a hard-coded value.
+    if (SwitchLikelihood)
+      SwitchLikelihood->push_back(Stmt::LH_None);
 
     SwitchInsn->addCase(CaseVal, CaseDest);
     NextCase = dyn_cast<CaseStmt>(CurCase->getSubStmt());
@@ -1709,7 +1857,8 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
   EmitStmt(CurCase->getSubStmt());
 }
 
-void CodeGenFunction::EmitDefaultStmt(const DefaultStmt &S) {
+void CodeGenFunction::EmitDefaultStmt(const DefaultStmt &S,
+                                      ArrayRef<const Attr *> Attrs) {
   // If there is no enclosing switch instance that we're aware of, then this
   // default statement can be elided. This situation only happens when we've
   // constant-folded the switch.
@@ -1721,6 +1870,9 @@ void CodeGenFunction::EmitDefaultStmt(const DefaultStmt &S) {
   llvm::BasicBlock *DefaultBlock = SwitchInsn->getDefaultDest();
   assert(DefaultBlock->empty() &&
          "EmitDefaultStmt: Default block already defined?");
+
+  if (SwitchLikelihood)
+    SwitchLikelihood->front() = Stmt::getLikelihood(Attrs);
 
   EmitBlockWithFallThrough(DefaultBlock, &S);
 
@@ -1959,10 +2111,67 @@ static bool FindCaseStatementsForValue(const SwitchStmt &S,
          FoundCase;
 }
 
+static Optional<SmallVector<uint64_t, 16>>
+getLikelihoodWeights(ArrayRef<Stmt::Likelihood> Likelihoods) {
+  // Are there enough branches to weight them?
+  if (Likelihoods.size() <= 1)
+    return None;
+
+  uint64_t NumUnlikely = 0;
+  uint64_t NumNone = 0;
+  uint64_t NumLikely = 0;
+  for (const auto LH : Likelihoods) {
+    switch (LH) {
+    case Stmt::LH_Unlikely:
+      ++NumUnlikely;
+      break;
+    case Stmt::LH_None:
+      ++NumNone;
+      break;
+    case Stmt::LH_Likely:
+      ++NumLikely;
+      break;
+    }
+  }
+
+  // Is there a likelihood attribute used?
+  if (NumUnlikely == 0 && NumLikely == 0)
+    return None;
+
+  // When multiple cases share the same code they can be combined during
+  // optimization. In that case the weights of the branch will be the sum of
+  // the individual weights. Make sure the combined sum of all neutral cases
+  // doesn't exceed the value of a single likely attribute.
+  // The additions both avoid divisions by 0 and make sure the weights of None
+  // don't exceed the weight of Likely.
+  const uint64_t Likely = INT32_MAX / (NumLikely + 2);
+  const uint64_t None = Likely / (NumNone + 1);
+  const uint64_t Unlikely = 0;
+
+  SmallVector<uint64_t, 16> Result;
+  Result.reserve(Likelihoods.size());
+  for (const auto LH : Likelihoods) {
+    switch (LH) {
+    case Stmt::LH_Unlikely:
+      Result.push_back(Unlikely);
+      break;
+    case Stmt::LH_None:
+      Result.push_back(None);
+      break;
+    case Stmt::LH_Likely:
+      Result.push_back(Likely);
+      break;
+    }
+  }
+
+  return Result;
+}
+
 void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
   // Handle nested switch statements.
   llvm::SwitchInst *SavedSwitchInsn = SwitchInsn;
   SmallVector<uint64_t, 16> *SavedSwitchWeights = SwitchWeights;
+  SmallVector<Stmt::Likelihood, 16> *SavedSwitchLikelihood = SwitchLikelihood;
   llvm::BasicBlock *SavedCRBlock = CaseRangeBlock;
 
   // See if we can constant fold the condition of the switch and therefore only
@@ -2037,7 +2246,12 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
     // The default needs to be first. We store the edge count, so we already
     // know the right weight.
     SwitchWeights->push_back(DefaultCount);
+  } else if (CGM.getCodeGenOpts().OptimizationLevel) {
+    SwitchLikelihood = new SmallVector<Stmt::Likelihood, 16>();
+    // Initialize the default case.
+    SwitchLikelihood->push_back(Stmt::LH_None);
   }
+
   CaseRangeBlock = DefaultBlock;
 
   // Clear the insertion point to indicate we are in unreachable code.
@@ -2101,9 +2315,21 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
       SwitchInsn->setMetadata(llvm::LLVMContext::MD_prof,
                               createProfileWeights(*SwitchWeights));
     delete SwitchWeights;
+  } else if (SwitchLikelihood) {
+    assert(SwitchLikelihood->size() == 1 + SwitchInsn->getNumCases() &&
+           "switch likelihoods do not match switch cases");
+    Optional<SmallVector<uint64_t, 16>> LHW =
+        getLikelihoodWeights(*SwitchLikelihood);
+    if (LHW) {
+      llvm::MDBuilder MDHelper(CGM.getLLVMContext());
+      SwitchInsn->setMetadata(llvm::LLVMContext::MD_prof,
+                              createProfileWeights(*LHW));
+    }
+    delete SwitchLikelihood;
   }
   SwitchInsn = SavedSwitchInsn;
   SwitchWeights = SavedSwitchWeights;
+  SwitchLikelihood = SavedSwitchLikelihood;
   CaseRangeBlock = SavedCRBlock;
 }
 
@@ -2163,7 +2389,8 @@ SimplifyConstraint(const char *Constraint, const TargetInfo &Target,
 static std::string
 AddVariableConstraints(const std::string &Constraint, const Expr &AsmExpr,
                        const TargetInfo &Target, CodeGenModule &CGM,
-                       const AsmStmt &Stmt, const bool EarlyClobber) {
+                       const AsmStmt &Stmt, const bool EarlyClobber,
+                       std::string *GCCReg = nullptr) {
   const DeclRefExpr *AsmDeclRef = dyn_cast<DeclRefExpr>(&AsmExpr);
   if (!AsmDeclRef)
     return Constraint;
@@ -2188,6 +2415,8 @@ AddVariableConstraints(const std::string &Constraint, const Expr &AsmExpr,
   }
   // Canonicalize the register here before returning it.
   Register = Target.getNormalizedGCCRegisterName(Register);
+  if (GCCReg != nullptr)
+    *GCCReg = Register.str();
   return (EarlyClobber ? "&{" : "{") + Register.str() + "}";
 }
 
@@ -2391,6 +2620,9 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   // Keep track of out constraints for tied input operand.
   std::vector<std::string> OutputConstraints;
 
+  // Keep track of defined physregs.
+  llvm::SmallSet<std::string, 8> PhysRegOutputs;
+
   // An inline asm can be marked readonly if it meets the following conditions:
   //  - it doesn't have any sideeffects
   //  - it doesn't clobber memory
@@ -2410,9 +2642,15 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     const Expr *OutExpr = S.getOutputExpr(i);
     OutExpr = OutExpr->IgnoreParenNoopCasts(getContext());
 
+    std::string GCCReg;
     OutputConstraint = AddVariableConstraints(OutputConstraint, *OutExpr,
                                               getTarget(), CGM, S,
-                                              Info.earlyClobber());
+                                              Info.earlyClobber(),
+                                              &GCCReg);
+    // Give an error on multiple outputs to same physreg.
+    if (!GCCReg.empty() && !PhysRegOutputs.insert(GCCReg).second)
+      CGM.Error(S.getAsmLoc(), "multiple outputs to hard register: " + GCCReg);
+
     OutputConstraints.push_back(OutputConstraint);
     LValue Dest = EmitLValue(OutExpr);
     if (!Constraints.empty())
@@ -2474,8 +2712,21 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
             std::max((uint64_t)LargestVectorWidth,
                      VT->getPrimitiveSizeInBits().getKnownMinSize());
     } else {
-      ArgTypes.push_back(Dest.getAddress(*this).getType());
-      Args.push_back(Dest.getPointer(*this));
+      llvm::Type *DestAddrTy = Dest.getAddress(*this).getType();
+      llvm::Value *DestPtr = Dest.getPointer(*this);
+      // Matrix types in memory are represented by arrays, but accessed through
+      // vector pointers, with the alignment specified on the access operation.
+      // For inline assembly, update pointer arguments to use vector pointers.
+      // Otherwise there will be a mis-match if the matrix is also an
+      // input-argument which is represented as vector.
+      if (isa<MatrixType>(OutExpr->getType().getCanonicalType())) {
+        DestAddrTy = llvm::PointerType::get(
+            ConvertType(OutExpr->getType()),
+            cast<llvm::PointerType>(DestAddrTy)->getAddressSpace());
+        DestPtr = Builder.CreateBitCast(DestPtr, DestAddrTy);
+      }
+      ArgTypes.push_back(DestAddrTy);
+      Args.push_back(DestPtr);
       Constraints += "=*";
       Constraints += OutputConstraint;
       ReadOnly = ReadNone = false;
@@ -2499,7 +2750,8 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
         LargestVectorWidth =
             std::max((uint64_t)LargestVectorWidth,
                      VT->getPrimitiveSizeInBits().getKnownMinSize());
-      if (Info.allowsRegister())
+      // Only tie earlyclobber physregs.
+      if (Info.allowsRegister() && (GCCReg.empty() || Info.earlyClobber()))
         InOutConstraints += llvm::utostr(i);
       else
         InOutConstraints += OutputConstraint;

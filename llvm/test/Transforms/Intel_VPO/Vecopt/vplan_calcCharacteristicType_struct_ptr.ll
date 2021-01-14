@@ -10,8 +10,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.S = type { double, i32 }
 
 ; Function Attrs: uwtable
-define dso_local <4 x i32> @_ZGVbN4v_3gooi(<4 x i32> %c) local_unnamed_addr {
-; CHECK-LABEL: @_ZGVbN4v_3gooi(
+define dso_local <4 x i32> @_ZGVbN4v__Z3gooi(<4 x i32> %c) local_unnamed_addr {
+; CHECK-LABEL: @_ZGVbN4v__Z3gooi(
 entry:
   %a = alloca %struct.S, align 8
   %vec.c = alloca <4 x i32>, align 16
@@ -38,7 +38,7 @@ if.then:                                          ; preds = %simd.loop
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[WIDE_LOAD:%.*]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    [[MASKEXT:%.*]] = sext <4 x i1> [[TMP2]] to <4 x i64>
-; CHECK-NEXT:    call void @_ZGVbM4v_3fooP1S(<4 x %struct.S*> nonnull [[A_VEC_BASE_ADDR:%.*]], <4 x i64> [[MASKEXT]])
+; CHECK-NEXT:    call void @_ZGVbM4v__Z3fooP1S(<4 x %struct.S*> nonnull [[A_VEC_BASE_ADDR:%.*]], <4 x i64> [[MASKEXT]])
   call void @_Z3fooP1S(%struct.S* nonnull %a)
   %k = getelementptr inbounds %struct.S, %struct.S* %a, i64 0, i32 1
   %.pre = load i32, i32* %k, align 8

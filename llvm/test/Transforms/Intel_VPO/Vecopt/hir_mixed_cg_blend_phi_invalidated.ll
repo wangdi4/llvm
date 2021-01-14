@@ -34,7 +34,7 @@
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %nz.039,  0;
 
-; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       |   %coef.0.in1.vec = undef
 ; CHECK-NEXT:       |   %.vec = (<4 x i16>*)(%dct)[i1];
 ; CHECK-NEXT:       |   %.vec2 = (<4 x i16>*)(%mf)[i1];
@@ -60,7 +60,7 @@
 ; CHECK-NEXT:       |   %red.var = %red.var  |  %coef.0.in1.vec;
 ; CHECK-NEXT:       + END LOOP
 
-; CHECK:            %nz.039 = @llvm.experimental.vector.reduce.or.v4i32(%red.var);
+; CHECK:            %nz.039 = @llvm.vector.reduce.or.v4i32(%red.var);
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

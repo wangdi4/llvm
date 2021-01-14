@@ -20,57 +20,55 @@
 
 ; Checks for generated HIR code
 ; CHECK:                     %red.var = 0.000000e+00;
-; CHECK-NEXT:                + DO i1 = 0, 999, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:                + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                |   BB3.27:
 ; CHECK-NEXT:                |   %wide.cmp. = %N2 > 0;
 ; CHECK-NEXT:                |   %phi.temp = %red.var;
-; CHECK-NEXT:                |   %phi.temp1 = %red.var;
 ; CHECK-NEXT:                |   %unifcond = extractelement %wide.cmp.,  0;
 ; CHECK-NEXT:                |   if (%unifcond == 1)
 ; CHECK-NEXT:                |   {
-; CHECK-NEXT:                |      goto BB4.35;
+; CHECK-NEXT:                |      goto BB4.34;
 ; CHECK-NEXT:                |   }
 ; CHECK-NEXT:                |   else
 ; CHECK-NEXT:                |   {
-; CHECK-NEXT:                |      goto BB5.40;
+; CHECK-NEXT:                |      goto BB5.39;
 ; CHECK-NEXT:                |   }
-; CHECK-NEXT:                |   BB4.35:
+; CHECK-NEXT:                |   BB4.34:
 ; CHECK-NEXT:                |   %add.vec = (<4 x float>*)(@B)[0][i1]  +  (<4 x float>*)(@C)[0][i1];
-; CHECK-NEXT:                |   %.vec = %phi.temp  +  %add.vec;
-; CHECK-NEXT:                |   %phi.temp1 = %.vec;
-; CHECK-NEXT:                |   goto BB5.40;
-; CHECK-NEXT:                |   BB5.40:
-; CHECK-NEXT:                |   %red.var = %phi.temp1;
+; CHECK-NEXT:                |   %.vec = %red.var  +  %add.vec;
+; CHECK-NEXT:                |   %phi.temp = %.vec;
+; CHECK-NEXT:                |   goto BB5.39;
+; CHECK-NEXT:                |   BB5.39:
+; CHECK-NEXT:                |   %red.var = %phi.temp;
 ; CHECK-NEXT:                + END LOOP
-; CHECK:                     %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; CHECK:                     %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 
 ; Checks for VPValue based code generation.
 ; VPCHECK:                   %red.var = 0.000000e+00;
-; VPCHECK-NEXT:              + DO i1 = 0, 999, 4   <DO_LOOP> <novectorize>
+; VPCHECK-NEXT:              + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPCHECK-NEXT:              |   BB3.27:
 ; VPCHECK-NEXT:              |   %.vec = %N2 > 0;
 ; VPCHECK-NEXT:              |   %phi.temp = %red.var;
-; VPCHECK-NEXT:              |   %phi.temp1 = %red.var;
 ; VPCHECK-NEXT:              |   %unifcond = extractelement %.vec,  0;
 ; VPCHECK-NEXT:              |   if (%unifcond == 1)
 ; VPCHECK-NEXT:              |   {
-; VPCHECK-NEXT:              |      goto BB4.35;
+; VPCHECK-NEXT:              |      goto BB4.34;
 ; VPCHECK-NEXT:              |   }
 ; VPCHECK-NEXT:              |   else
 ; VPCHECK-NEXT:              |   {
-; VPCHECK-NEXT:              |      goto BB5.42;
+; VPCHECK-NEXT:              |      goto BB5.41;
 ; VPCHECK-NEXT:              |   }
-; VPCHECK-NEXT:              |   BB4.35:
-; VPCHECK-NEXT:              |   %.vec3 = (<4 x float>*)(@B)[0][i1];
-; VPCHECK-NEXT:              |   %.vec4 = (<4 x float>*)(@C)[0][i1];
-; VPCHECK-NEXT:              |   %.vec5 = %.vec3  +  %.vec4;
-; VPCHECK-NEXT:              |   %.vec6 = %phi.temp  +  %.vec5;
-; VPCHECK-NEXT:              |   %phi.temp1 = %.vec6;
-; VPCHECK-NEXT:              |   goto BB5.42;
-; VPCHECK-NEXT:              |   BB5.42:
-; VPCHECK-NEXT:              |   %red.var = %phi.temp1;
+; VPCHECK-NEXT:              |   BB4.34:
+; VPCHECK-NEXT:              |   %.vec1 = (<4 x float>*)(@B)[0][i1];
+; VPCHECK-NEXT:              |   %.vec2 = (<4 x float>*)(@C)[0][i1];
+; VPCHECK-NEXT:              |   %.vec3 = %.vec1  +  %.vec2;
+; VPCHECK-NEXT:              |   %.vec4 = %red.var  +  %.vec3;
+; VPCHECK-NEXT:              |   %phi.temp = %.vec4;
+; VPCHECK-NEXT:              |   goto BB5.41;
+; VPCHECK-NEXT:              |   BB5.41:
+; VPCHECK-NEXT:              |   %red.var = %phi.temp;
 ; VPCHECK-NEXT:              + END LOOP
-; VPCHECK-NEXT:              %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
+; VPCHECK-NEXT:              %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

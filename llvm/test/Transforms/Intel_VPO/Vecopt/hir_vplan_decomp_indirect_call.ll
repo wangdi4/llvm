@@ -23,14 +23,14 @@
 ; <0>     END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = trunc i64 [[VP2]] to i32
 ; CHECK-NEXT:     store i32 [[VP4]] i32* [[I_LPRIV0:%.*]]
 ; CHECK-NEXT:     i8* [[VP5:%.*]] = bitcast i32* [[B_PRIV0:%.*]]
-; CHECK-NEXT:     void [[VP6:%.*]] = call i64 4 i8* [[VP5]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     call i64 4 i8* [[VP5]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     store i32 0 i32* [[B_PRIV0]]
 ; CHECK-NEXT:     i32 (i32)** [[VP7:%.*]] = subscript inbounds i32 (i32)** [[FUNC0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i32 (i32)* [[VP8:%.*]] = load i32 (i32)** [[VP7]]
@@ -48,7 +48,7 @@
 ; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP19]]
 ; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP20]]
 ; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[B_PRIV0]]
-; CHECK-NEXT:     void [[VP22:%.*]] = call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp sle i64 [[VP3]] i64 [[VP1:%vp.*]]
 

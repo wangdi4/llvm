@@ -16,6 +16,22 @@
 
 #include "omptarget-opencl.h"
 
+/// Use SPIRV constants directly in place of OCL intrinsic functions.
+#define __SPIRV_VAR_QUALIFIERS extern const
+typedef size_t size_t_vec __attribute__((ext_vector_type(3)));
+__SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInGlobalSize;
+__SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInGlobalInvocationId;
+__SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInGlobalOffset;
+__SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInLocalInvocationId;
+__SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInNumWorkgroups;
+__SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInWorkgroupId;
+__SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInWorkgroupSize;
+
+__SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInNumSubgroups;
+__SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInSubgroupId;
+__SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInSubgroupLocalInvocationId;
+__SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInSubgroupMaxSize;
+
 ///
 /// Basic messaging -- we don't have variadics in OpenCL
 ///
@@ -39,38 +55,56 @@
 
 /// Return linear global id
 INLINE size_t __kmp_get_global_id() {
-  return get_global_linear_id();
+  return
+      (__spirv_BuiltInGlobalInvocationId.z - __spirv_BuiltInGlobalOffset.z)
+          * __spirv_BuiltInGlobalSize.y * __spirv_BuiltInGlobalSize.x
+      + (__spirv_BuiltInGlobalInvocationId.y - __spirv_BuiltInGlobalOffset.y)
+          * __spirv_BuiltInGlobalSize.x
+      + (__spirv_BuiltInGlobalInvocationId.x - __spirv_BuiltInGlobalOffset.x);
 }
 
 /// Return linear local id
 INLINE size_t __kmp_get_local_id() {
-  return get_local_linear_id();
+  return
+      __spirv_BuiltInLocalInvocationId.z * __spirv_BuiltInWorkgroupSize.y
+          * __spirv_BuiltInWorkgroupSize.x
+      + __spirv_BuiltInLocalInvocationId.y * __spirv_BuiltInWorkgroupSize.x
+      + __spirv_BuiltInLocalInvocationId.x;
 }
 
 /// Return linear group id
 INLINE size_t __kmp_get_group_id() {
-  return get_group_id(0) + get_num_groups(0) * get_group_id(1) +
-      get_num_groups(0) * get_num_groups(1) * get_group_id(2);
+  return
+      __spirv_BuiltInWorkgroupId.x
+      + __spirv_BuiltInNumWorkgroups.x * __spirv_BuiltInWorkgroupId.y
+      + __spirv_BuiltInNumWorkgroups.x * __spirv_BuiltInNumWorkgroups.y
+          * __spirv_BuiltInWorkgroupId.z;
 }
 
 /// Return global size
 INLINE size_t __kmp_get_global_size() {
-  return get_global_size(0) * get_global_size(1) * get_global_size(2);
+  return
+      __spirv_BuiltInGlobalSize.x * __spirv_BuiltInGlobalSize.y
+          * __spirv_BuiltInGlobalSize.z;
 }
 
 /// Return local size
 INLINE size_t __kmp_get_local_size() {
-  return get_local_size(0) * get_local_size(1) * get_local_size(2);
+  return
+      __spirv_BuiltInWorkgroupSize.x * __spirv_BuiltInWorkgroupSize.y
+          * __spirv_BuiltInWorkgroupSize.z;
 }
 
 /// Return number of groups
 INLINE size_t __kmp_get_num_groups() {
-  return get_num_groups(0) * get_num_groups(1) * get_num_groups(2);
+  return
+      __spirv_BuiltInNumWorkgroups.x * __spirv_BuiltInNumWorkgroups.y
+          * __spirv_BuiltInNumWorkgroups.z;
 }
 
 /// Return the work id for the master thread
 INLINE int __kmp_get_master_id() {
-  return get_max_sub_group_size() * (get_num_sub_groups() - 1);
+  return __spirv_BuiltInSubgroupMaxSize * (__spirv_BuiltInNumSubgroups - 1);
 }
 
 /// Return the number of workers
@@ -80,13 +114,14 @@ INLINE int __kmp_get_num_workers() {
 
 /// Return the active sub group leader id
 INLINE int __kmp_get_active_sub_group_leader_id() {
-  int id = get_sub_group_local_id();
+  int id = __spirv_BuiltInSubgroupLocalInvocationId;
   return sub_group_scan_inclusive_min(id);
 }
 
 /// Acquire lock for a sub group
 INLINE void __kmp_acquire_lock(int *lock) {
-  if (get_sub_group_local_id() == __kmp_get_active_sub_group_leader_id()) {
+  if (__spirv_BuiltInSubgroupLocalInvocationId ==
+      __kmp_get_active_sub_group_leader_id()) {
     int expected;
     bool acquired;
     do {
@@ -102,7 +137,8 @@ INLINE void __kmp_acquire_lock(int *lock) {
 /// Release lock for a sub group
 INLINE void __kmp_release_lock(int *lock) {
   sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
-  if (get_sub_group_local_id() == __kmp_get_active_sub_group_leader_id()) {
+  if (__spirv_BuiltInSubgroupLocalInvocationId ==
+      __kmp_get_active_sub_group_leader_id()) {
     atomic_store_explicit((volatile atomic_int *)lock, 0, memory_order_release);
   }
 }
@@ -111,23 +147,23 @@ INLINE void __kmp_release_lock(int *lock) {
 INLINE void __kmp_init_local(kmp_local_state_t *local_state) {
   atomic_init(&local_state->work_barrier.count, 0);
   atomic_init(&local_state->work_barrier.go, 0);
-  local_state->spmd_num_threads = 0xffff;
+  local_state->spmd_num_threads = 0;
 }
 
 /// Access local data
 INLINE kmp_local_state_t *__kmp_get_local_state() {
-  return &LOCALS[__kmp_get_group_id()];
+  return &__omp_spirv_local_data[__kmp_get_group_id()];
 }
 
 /// Access thread data
 INLINE kmp_thread_state_t *__kmp_get_thread_state() {
-  return &THREADS[__kmp_get_group_id()];
+  return &__omp_spirv_thread_data[__kmp_get_group_id()];
 }
 
 /// Initialize all team data
 INLINE void __kmp_init_locals() {
   for (int i = 0; i < KMP_MAX_NUM_GROUPS; ++i)
-    __kmp_init_local(&LOCALS[i]);
+    __kmp_init_local(&__omp_spirv_local_data[i]);
 }
 
 /// Initialize work barrier
@@ -283,7 +319,7 @@ INLINE void __kmp_barrier_dissem(global kmp_barrier_t *barrier) {
 INLINE void __kmp_work_barrier(kmp_barrier_counting_t *bar, int count) {
   sub_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 
-  if (get_sub_group_local_id() == 0) {
+  if (__spirv_BuiltInSubgroupLocalInvocationId == 0) {
     uint curr_go = atomic_load_explicit(&bar->go, memory_order_acquire,
                                         memory_scope_work_group);
     if (atomic_fetch_add_explicit(&bar->count, 1, memory_order_acq_rel,

@@ -61,11 +61,19 @@ def warn_multiple_blockloop_clause : Warning<
 def warn_pragma_loop_count_invalid_option
     : Warning<"invalid loop count '#pragma loop_count' - ignored">,
       InGroup<IgnoredPragmas>;
+def err_pragma_expected_integer_const
+    : Error<"expected an integer constant in '#pragma %0'">;
+def warn_pragma_unsupported_modifier
+    : Warning<"unsupported modifier '%0' - ignored">,
+      InGroup<IgnoredPragmas>;
 
 // OpenMP
 def warn_pragma_omp_ignored_for_target : Warning<
   "OpenMP directive '%0' ignored for target '%1'">,
   InGroup<SourceUsesOpenMP>, DefaultIgnore;
+def warn_pragma_omp_unimplemented : Warning<
+  "OpenMP directive '%0' unimplemented - ignored">,
+  InGroup<IgnoredPragmas>;
 
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;

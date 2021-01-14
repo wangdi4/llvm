@@ -32,6 +32,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include <cstdint>
 #include <limits>
@@ -188,7 +189,9 @@ bool EliminateDuplicatePHINodes(BasicBlock *BB);
 /// It returns true if a modification was made, possibly deleting the basic
 /// block that was pointed to. LoopHeaders is an optional input parameter
 /// providing the set of loop headers that SimplifyCFG should not eliminate.
+extern cl::opt<bool> RequireAndPreserveDomTree;
 bool simplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
+                 DomTreeUpdater *DTU = nullptr,
                  const SimplifyCFGOptions &Options = {},
                  SmallPtrSetImpl<BasicBlock *> *LoopHeaders = nullptr);
 
@@ -200,7 +203,9 @@ bool FlattenCFG(BasicBlock *BB, AAResults *AA = nullptr);
 /// If this basic block is ONLY a setcc and a branch, and if a predecessor
 /// branches to us and one of our successors, fold the setcc into the
 /// predecessor and use logical operations to pick the right destination.
-bool FoldBranchToCommonDest(BranchInst *BI, MemorySSAUpdater *MSSAU = nullptr,
+bool FoldBranchToCommonDest(BranchInst *BI, llvm::DomTreeUpdater *DTU = nullptr,
+                            MemorySSAUpdater *MSSAU = nullptr,
+                            const TargetTransformInfo *TTI = nullptr,
                             unsigned BonusInstThreshold = 1);
 
 /// This function takes a virtual register computed by an Instruction and
@@ -258,7 +263,7 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   unsigned NumVectorElements = SubscriptInst::getResultVectorNumElements(
       {Lower, Stride, BasePtr, Index});
 
-  Type *OffsetTy = DL.getIntPtrType(BasePtr->getType());
+  Type *OffsetTy = DL.getIndexType(BasePtr->getType());
 
   // Perform scalar/vector division of stride by sizeof(element).
   {

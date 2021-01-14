@@ -41,6 +41,9 @@ class TypeMetadataReader;
 // the DTrans information.
 class DTransSafetyInfo {
 public:
+  using GetTLIFnType =
+      std::function<const TargetLibraryInfo &(const Function &)>;
+
   // Adapter for directly iterating over the dtrans::TypeInfo pointers.
   struct type_info_iterator
       : public iterator_adaptor_base<
@@ -65,11 +68,8 @@ public:
   ~DTransSafetyInfo();
 
   // Collect the safety bits for the structure types
-  void analyzeModule(
-      Module &M,
-      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
-      WholeProgramInfo &WPInfo,
-      function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
+  void analyzeModule(Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
+                     function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
 
   // Cleanup memory, and set object back to default state.
   void reset();

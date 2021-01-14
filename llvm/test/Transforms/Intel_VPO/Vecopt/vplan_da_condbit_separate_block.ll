@@ -16,36 +16,48 @@ define void @foo() {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDEX:%.*]] = phi  [ i64 [[VP_INDEX_IND_INIT:%.*]], [[BB10]] ],  [ i64 [[VP_INDVAR:%.*]], [[BB9]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD1:%.*]] = add i64 [[LID00:%.*]] i64 [[VP_INDEX]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMPZ:%.*]] = icmp eq i64 [[LSZ00:%.*]] i64 [[VP_ADD1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_CMPZ]], [[BB3]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; VP_CMPZ divergence should result in divergence of VP_DIV_PHI.
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_DIV_PHI:%.*]] = phi  [ i1 false, [[BB2]] ],  [ i1 true, [[BB3]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
+; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_CMPZ]], [[BB7]], [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB8]]
 ; VP_CMPZ divergence should result in divergence of VP_DIV_PHI2.
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_DIV_PHI2:%.*]] = phi  [ i1 false, [[BB6]] ],  [ i1 true, [[BB7]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB9]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVAR]] = add i64 [[VP_INDEX]] i64 [[VP_INDEX_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB11:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB11]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB12:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB12]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 entry:
   %lid0 = call i64 @_Z12get_local_idj(i32 0) #3

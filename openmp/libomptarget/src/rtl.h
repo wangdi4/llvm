@@ -62,9 +62,7 @@ struct RTLInfoTy {
                                                void **, size_t);
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
   typedef void *(data_alloc_user_ty)(int32_t, int64_t, void *);
-  typedef void *(create_buffer_ty)(int32_t, void *);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
-  typedef int32_t(release_buffer_ty)(void *);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
   typedef int32_t(run_team_nd_region_nowait_ty)(int32_t, void *, void **,
@@ -78,13 +76,18 @@ struct RTLInfoTy {
   typedef void *(create_offload_queue_ty)(int32_t, bool);
   typedef void *(get_platform_handle_ty)(int32_t);
   typedef void *(get_device_handle_ty)(int32_t);
+  typedef void *(get_context_handle_ty)(int32_t);
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
-  typedef int32_t(data_delete_managed_ty)(int32_t, void *);
-  typedef int32_t(is_managed_ptr_ty)(int32_t, void *);
+  typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);
   typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
+  typedef int32_t(push_subdevice_ty)(int64_t);
+  typedef int32_t(pop_subdevice_ty)(void);
+  typedef void (add_build_options_ty)(const char *, const char *);
+  typedef int32_t(is_supported_device_ty)(int32_t, void *);
+  typedef void (deinit_ty)(void);
 #endif // INTEL_COLLAB
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
@@ -129,9 +132,7 @@ struct RTLInfoTy {
   manifest_data_for_region_ty *manifest_data_for_region = nullptr;
   data_alloc_base_ty *data_alloc_base = nullptr;
   data_alloc_user_ty *data_alloc_user = nullptr;
-  create_buffer_ty *create_buffer = nullptr;
   get_device_name_ty *get_device_name = nullptr;
-  release_buffer_ty *release_buffer = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
   run_region_nowait_ty *run_region_nowait = nullptr;
@@ -139,13 +140,18 @@ struct RTLInfoTy {
   create_offload_queue_ty *create_offload_queue = nullptr;
   get_platform_handle_ty *get_platform_handle = nullptr;
   get_device_handle_ty *get_device_handle = nullptr;
+  get_context_handle_ty *get_context_handle = nullptr;
   release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
-  data_delete_managed_ty *data_delete_managed = nullptr;
-  is_managed_ptr_ty *is_managed_ptr = nullptr;
+  is_device_accessible_ptr_ty *is_device_accessible_ptr = nullptr;
   data_alloc_explicit_ty *data_alloc_explicit = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
+  push_subdevice_ty *push_subdevice = nullptr;
+  pop_subdevice_ty *pop_subdevice = nullptr;
+  add_build_options_ty *add_build_options = nullptr;
+  is_supported_device_ty *is_supported_device = nullptr;
+  deinit_ty *deinit = nullptr;
 #endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
@@ -194,9 +200,7 @@ struct RTLInfoTy {
     manifest_data_for_region = r.manifest_data_for_region;
     data_alloc_base = r.data_alloc_base;
     data_alloc_user = r.data_alloc_user;
-    create_buffer = r.create_buffer;
     get_device_name = r.get_device_name;
-    release_buffer = r.release_buffer;
     run_team_nd_region = r.run_team_nd_region;
     run_team_nd_region_nowait = r.run_team_nd_region_nowait;
     run_region_nowait = r.run_region_nowait;
@@ -204,13 +208,18 @@ struct RTLInfoTy {
     create_offload_queue = r.create_offload_queue;
     get_platform_handle = r.get_platform_handle;
     get_device_handle = r.get_device_handle;
+    get_context_handle = r.get_context_handle;
     release_offload_queue = r.release_offload_queue;
     data_alloc_managed = r.data_alloc_managed;
-    data_delete_managed = r.data_delete_managed;
-    is_managed_ptr = r.is_managed_ptr;
+    is_device_accessible_ptr = r.is_device_accessible_ptr;
     data_alloc_explicit = r.data_alloc_explicit;
     init_ompt = r.init_ompt;
     get_data_alloc_info = r.get_data_alloc_info;
+    push_subdevice = r.push_subdevice;
+    pop_subdevice = r.pop_subdevice;
+    add_build_options = r.add_build_options;
+    is_supported_device = r.is_supported_device;
+    deinit = r.deinit;
 #endif // INTEL_COLLAB
     isUsed = r.isUsed;
     synchronize = r.synchronize;
@@ -250,8 +259,6 @@ public:
   // Unregister a shared library from all RTLs.
   void UnregisterLib(__tgt_bin_desc *desc);
 };
-extern RTLsTy *RTLs;
-extern std::mutex *RTLsMtx;
 
 
 /// Map between the host entry begin and the translation table. Each
@@ -269,8 +276,6 @@ struct TranslationTable {
 };
 typedef std::map<__tgt_offload_entry *, TranslationTable>
     HostEntriesBeginToTransTableTy;
-extern HostEntriesBeginToTransTableTy *HostEntriesBeginToTransTable;
-extern std::mutex *TrlTblMtx;
 
 /// Map between the host ptr and a table index
 struct TableMap {
@@ -281,7 +286,5 @@ struct TableMap {
       : Table(table), Index(index) {}
 };
 typedef std::map<void *, TableMap> HostPtrToTableMapTy;
-extern HostPtrToTableMapTy *HostPtrToTableMap;
-extern std::mutex *TblMapMtx;
 
 #endif

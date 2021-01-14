@@ -6,14 +6,9 @@ macro(add_sycl_unittest test_dirname link_variant)
   # Enable exception handling for these unit tests
   set(LLVM_REQUIRES_EH 1)
 
-# INTEL_CUSTOMIZATION
   if (MSVC AND CMAKE_BUILD_TYPE MATCHES "Debug")
-    set(sycl_obj_target "syclmtd_object")
-    set(sycl_so_target "syclmtd")
-  elseif (MSVC)
-    set(sycl_obj_target "syclmt_object")
-    set(sycl_so_target "syclmt")
-#end INTEL_CUSTOMIZATION
+    set(sycl_obj_target "sycld_object")
+    set(sycl_so_target "sycld")
   else()
     set(sycl_obj_target "sycl_object")
     set(sycl_so_target "sycl")
@@ -42,6 +37,13 @@ macro(add_sycl_unittest test_dirname link_variant)
 # INTEL_CUSTOMIZATION
   if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
     set(TESTING_SUPPORT_LIB LLVMTestingSupport_stdcpp)
+  elseif(WIN32)
+    set(TESTING_SUPPORT_LIB LLVMTestingSupport_dyn)
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
+      target_compile_options(${test_dirname} PRIVATE "/MDd")
+    else()
+      target_compile_options(${test_dirname} PRIVATE "/MD")
+    endif()
   else()
     set(TESTING_SUPPORT_LIB LLVMTestingSupport)
   endif()
@@ -106,17 +108,47 @@ macro(add_sycl_unittest_with_device test_dirname link_variant)
     list(APPEND EXTRA_LIBS shlwapi)
   else()
     list(APPEND EXTRA_LIBS dl)
+# INTEL_CUSTOMIZATION
+    list(APPEND EXTRA_LIBS pthread)
+# end INTEL_CUSTOMIZATION
   endif()
 
   if (SYCL_ENABLE_XPTI_TRACING)
     list(APPEND EXTRA_LIBS ${XPTI_LIB})
   endif()
 
+# INTEL_CUSTOMIZATION
+  if (MSVC)
+    list(APPEND TESTING_SUPPORT_LIBS
+      "gtest_main_dyn;gtest_dyn;LLVMSupport_dyn;LLVMTestingSupport_dyn")
+  else()
+    if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+      list(APPEND TESTING_SUPPORT_LIBS
+        "gtest_main_stdcpp;gtest_stdcpp;LLVMSupport_stdcpp;LLVMTestingSupport_stdcpp")
+    else()
+      list(APPEND TESTING_SUPPORT_LIBS
+        "gtest_main;gtest;LLVMSupport;LLVMTestingSupport")
+    endif()
+  endif()
+  if ("${CMAKE_CXX_COMPILER}" MATCHES "icpx")
+    message("Add libraries needed for self-build.")
+    list(APPEND EXTRA_LIBS "svml;intlc")
+    get_filename_component(OMP_LIB_PATH "${LIBOMP_LIB}/.." ABSOLUTE)
+    if (MSVC)
+      list(APPEND COMMON_OPTS /LIBPATH:${OMP_LIB_PATH})
+    else()
+      list(APPEND COMMON_OPTS -L${OMP_LIB_PATH})
+    endif()
+  endif()
+# end INTEL_CUSTOMIXATION
+
   if ("${link_variant}" MATCHES "OBJECT")
     add_sycl_executable(${test_dirname}
-      OPTIONS -nolibsycl ${COMMON_OPTS} ${LLVM_PTHREAD_LIB}
+      OPTIONS -nolibsycl ${COMMON_OPTS} ${LLVM_PTHREAD_LIB} ${TERMINFO_LIB}
       SOURCES ${ARGN} $<TARGET_OBJECTS:${sycl_obj_target}>
-      LIBRARIES gtest_main gtest LLVMSupport LLVMTestingSupport OpenCL ${EXTRA_LIBS} ${TERMINFO_LIBS}
+      # INTEL_CUSTOMIZATION
+      LIBRARIES ${TESTING_SUPPORT_LIBS} OpenCL ${EXTRA_LIBS}
+      # end INTEL_CUSTOMIZATION
       DEPENDANTS SYCLUnitTests)
   else()
     # TODO support shared library case.

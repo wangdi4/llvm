@@ -485,8 +485,6 @@ struct InlineLists : public ModulePass {
   }
 
   bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
     return setInlineListsAttributes(M);
   }
 };

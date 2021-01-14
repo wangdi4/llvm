@@ -12,67 +12,55 @@
 ;
 define void @foo(i64* nocapture %larr) {
 ; CHECK-LABEL:  VPlan after predication and linearization:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_L1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_L1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_L1:%.*]] = phi  [ i64 [[VP_L1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INC:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LARR0:%.*]] i64 [[VP_L1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LDVAL:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP:%.*]] = icmp eq i64 [[VP_LDVAL]] i64 1111
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP_NOT:%.*]] = not i1 [[VP_LDVALCMP]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LDVALCMP_NOT]]
 ; CHECK-NEXT:     [DA: Div] store i64 2222 i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LDVALCMP]]
 ; CHECK-NEXT:     [DA: Div] store i64 3333 i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INC]] = add i64 [[VP_L1]] i64 [[VP_L1_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_L1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_L1_IND_FINAL]]
 ;
 ; CHECK:  define void @foo(i64* nocapture [[LARR0]]) {
-; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0:%.*]] ]
+; CHECK:       vector.body: ; preds = [[VECTOR_BODY0:%.*]], [[VECTOR_PH0:%.*]]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64* [[LARR0]], i64 [[UNI_PHI10]]
@@ -87,7 +75,7 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 100
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 100
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
 ;
 entry:

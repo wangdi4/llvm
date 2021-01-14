@@ -16,7 +16,7 @@
 ; Check CG when VPLoopEntities representation is used for reduction.
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=VPRED
 
-; VPRED:             + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; VPRED:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPRED-NEXT:        |   %.vec = (<4 x i32*>*)(%arr)[i1];
 ; VPRED-NEXT:        |   %.vec1 = (<4 x i32>*)(%.vec)[i1 + <i64 0, i64 1, i64 2, i64 3>];
 ; VPRED-NEXT:        |   %red.var = %.vec1  +  %red.var;

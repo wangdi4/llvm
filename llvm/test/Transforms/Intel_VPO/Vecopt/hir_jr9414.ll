@@ -1,4 +1,4 @@
-; RUN: opt -hir-framework -VPlanDriverHIR -VPlanDriver -vplan-force-vf=2 -S -vplan-print-plain-cfg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-framework -VPlanDriverHIR -VPlanDriver -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 ;
 ; Test checks that we do not crash during HIR decomposition. Currently HIR CG
 ; cannot handle vector types and we bail out during vectorization - we check

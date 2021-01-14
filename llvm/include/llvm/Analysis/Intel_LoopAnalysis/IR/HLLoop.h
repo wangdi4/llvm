@@ -45,6 +45,20 @@ struct BlockingPragmaInfo {
   SmallVector<RegDDRef *, 4> Privates;
 };
 
+// Prefetching pragma info data structure:
+// Var is null when omitted in the directive
+// Hint is -1 when omitted in the directive
+// Distance is -1 when omitted in the directive
+// Distance of 0 indicates prefetching is disabled
+struct PrefetchingPragmaInfo {
+  const RegDDRef *Var;
+  int Hint;
+  int Dist;
+
+  PrefetchingPragmaInfo(const RegDDRef *Var, int Hint, int Dist)
+      : Var(Var), Hint(Hint), Dist(Dist) {}
+};
+
 /// High level node representing a loop
 class HLLoop final : public HLDDNode {
 public:
@@ -87,6 +101,9 @@ public:
 
   typedef LiveInSetTy::const_iterator const_live_in_iterator;
   typedef LiveOutSetTy::const_iterator const_live_out_iterator;
+
+  /// Scenarios that can be used to tag a given vectorized HLLoop.
+  enum class VecTagTy { NONE = 0, AUTOVEC = 1, SIMD = 2 };
 
 private:
   const Loop *OrigLoop;
@@ -155,8 +172,15 @@ private:
   // Special field to force vector UF for a loop inside LoopOpt.
   unsigned ForcedVectorUnrollFactor;
 
+  // Tag to mark loop as being auto/simd-vectorized. Default is none of the
+  // scenarios.
+  VecTagTy VecTag;
+
   // Contains info specified in blocking pragma.
   std::unique_ptr<BlockingPragmaInfo> BlockingInfo;
+
+  // Contains info specified in prefetching pragma.
+  SmallVector<PrefetchingPragmaInfo, 0> PrefetchingInfoVec;
 
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
@@ -244,6 +268,12 @@ protected:
       BlockingInfo.reset(new BlockingPragmaInfo);
     }
     BlockingInfo->Privates.push_back(Private);
+  }
+
+  /// Adds prefetch pragma info specified in the prefetching pragma vector for
+  /// this loop.
+  void addPrefetchingPragmaInfo(const RegDDRef *Var, int Hint, int Dist) {
+    PrefetchingInfoVec.emplace_back(Var, Hint, Dist);
   }
 
 public:
@@ -512,6 +542,12 @@ public:
     return NestingLevel;
   }
 
+  /// Returns loop depth of the underlying LLVM loop if it exists, otherwise
+  /// returns 0. This can be useful for cost-modelling.
+  unsigned getLLVMLoopDepth() const {
+    return OrigLoop ? OrigLoop->getLoopDepth() : 0;
+  }
+
   /// Returns true if this is the innermost loop in the loop nest.
   bool isInnermost() const { return IsInnermost; }
 
@@ -599,7 +635,20 @@ public:
 
   /// Moves preheader nodes before the loop and postexit nodes after the
   /// loop. Ztt is extracted first, if present.
-  void extractPreheaderAndPostexit();
+  void extractPreheaderAndPostexit() {
+    extractPreheader();
+    extractPostexit();
+  }
+
+  /// Extracts any ZTT, preheader nodes, and postexit nodes that are present in
+  /// this loop.
+  ///
+  /// This is similar to \ref extractPreheaderAndPostexit, but extracts the
+  /// loop's ZTT even if no preheader or postexit nodes are present.
+  void extractZttPreheaderAndPostexit() {
+    extractZtt();
+    extractPreheaderAndPostexit();
+  }
 
   /// Removes loop postexit nodes.
   void removePostexit();
@@ -1020,6 +1069,11 @@ public:
     ForcedVectorUnrollFactor = UF;
   }
 
+  /// Returns the vectorization tag attached to this loop.
+  VecTagTy getVecTag() const { return VecTag; }
+  /// Tags the loop with given vectorization scenario.
+  void setVecTag(VecTagTy VT) { VecTag = VT; }
+
   /// Returns true if minimum trip count of loop is specified using pragma and
   /// returns the value in \p MinTripCount.
   bool getPragmaBasedMinimumTripCount(unsigned &MinTripCount) const {
@@ -1141,6 +1195,9 @@ public:
 
   /// Marks loop to do not unroll & jam.
   void markDoNotUnrollAndJam();
+
+  /// Marks loop not to block.
+  void markDoNotBlock();
 
   /// Supply Loop Lower Bound CanonExpr when normalization is using
   /// that instead of the one in the Loop
@@ -1272,6 +1329,13 @@ public:
       return BlockingInfo->Privates;
     }
     return {};
+  }
+
+  void promoteNestingLevel(unsigned StartLevel);
+
+  /// Returns the prefetching pragma vector
+  ArrayRef<PrefetchingPragmaInfo> getPrefetchingPragmaInfo() const {
+    return PrefetchingInfoVec;
   }
 };
 

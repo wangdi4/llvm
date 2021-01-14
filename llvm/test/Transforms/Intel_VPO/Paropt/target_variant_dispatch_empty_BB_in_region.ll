@@ -1,5 +1,3 @@
-; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr=false -vpo-paropt-use-interop=false | FileCheck %s
 ; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-interop=false < %s | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-interop=false | FileCheck %s
 ; Test for TARGET VARIANT DISPATCH construct without a DEVICE clause
@@ -27,34 +25,48 @@
 ;
 ; The dispatch code looks like this:
 ;
-;   %call1 = call i32 @__tgt_is_device_available(i64 -1, i8* null)
-;   %dispatch = icmp ne i32 %call1, 0
+;   %available = call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* inttoptr (i64 7 to i8*))
+;   %dispatch = icmp ne i32 %available, 0
+;   br label %dispatch.check
+;
+; dispatch.check:
 ;   br i1 %dispatch, label %variant.call, label %base.call
 ;
 ; variant.call:
-;   %variant = call i32 @foo_gpu(i32 %0)
+;   call void @main.foo_gpu.wrapper(i32* %rrr)
 ;   br label %if.end
 ;
 ; base.call:
-;   %call = call i32 @foo(i32 %0)
+;   %2 = load i32, i32* @dnum
+;   %call.clone = call i32 @foo(i32 %2)
+;   store i32 %call.clone, i32* %rrr
 ;   br label %if.end
+; ...
 ;
-; if.end:
-;   %callphi = phi i32 [ %variant, %variant.call ], [ %call, %base.call ]
-;   store i32 %callphi, i32* %rrr, align 4
+; define internal void @main.foo_gpu.wrapper(i32* %rrr) {
+;   %0 = load i32, i32* @dnum
+;   %variant = call i32 @foo_gpu(i32 %0)
+;   store i32 %variant, i32* %rrr
+; }
+;
 
-; CHECK: [[CALL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i64 -1
+;
+; CHECK: [[CALL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i64 %{{.*}}, i8* inttoptr (i64 7 to i8*))
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne i32 [[CALL]], 0
-; CHECK-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
+; CHECK: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 
 ; CHECK-DAG: [[VARIANTLBL]]:
-; CHECK-NEXT: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu
+; CHECK-NEXT: call void @[[VARIANT_WRAPPER:[^ ,]*foo_gpu.wrapper[^ ,)]*]](i32* %rrr)
 
 ; CHECK-DAG: [[BASELBL]]:
-; CHECK-NEXT: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo
+; CHECK: [[BASE_ARG:%[^ ]+]] = load i32, i32* @dnum
+; CHECK: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i32 [[BASE_ARG]])
+; CHECK-NEXT: store i32 [[BASE]], i32* %rrr
 
-; CHECK: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
-
+; CHECK-DAG: define internal void @[[VARIANT_WRAPPER]](i32* %rrr)
+; CHECK: [[ARG:%[^ ]+]] = load i32, i32* @dnum
+; CHECK: [[VARIANT:%[^ ]+]] = call i32 @foo_gpu(i32 [[ARG]])
+; CHECK: store i32 [[VARIANT]], i32* %rrr
 
 ; ModuleID = 'target_variant_dispatch_intfunc.c'
 source_filename = "target_variant_dispatch_intfunc.c"

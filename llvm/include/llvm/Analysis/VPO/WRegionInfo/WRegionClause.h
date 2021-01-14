@@ -126,6 +126,7 @@ class Item
                                    // It can be used as the insertion point of
                                    // the firstprivate initialization code for
                                    // the DV. Used during transformation.
+    bool IsCptr = false;           // true for Fortran C_PTRs
     bool IsWILocal = false;
 #endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
@@ -192,8 +193,8 @@ class Item
     void setIsVla(bool Flag)      { IsVla = Flag;       }
     void setIsPointerToPointer(bool Flag) {
 #if INTEL_CUSTOMIZATION
-      assert((!Flag || !IsF90DopeVector) &&
-             "Unexpected: item has both F90_DV and PTR_TO_PTR modifiers.");
+      assert((!Flag || (!IsF90DopeVector && !IsCptr)) &&
+             "Unexpected: item has PTR_TO_PTR modifier with F90_DV/CPTR.");
 #endif // INTEL_CUSTOMIZATION
       IsPointerToPointer = Flag;
     }
@@ -225,8 +226,8 @@ class Item
     void setHOrig(HVAR V)         { HOrigItem = V;         }
     template <IRKind IR = LLVMIR> VarType<IR> getOrig() const;
     void setIsF90DopeVector(bool Flag) {
-      assert((!Flag || !IsPointerToPointer) &&
-             "Unexpected: item has both F90_DV and PTR_TO_PTR modifiers.");
+      assert((!Flag || (!IsCptr && !IsPointerToPointer)) &&
+             "Unexpected: item has F90_DV modifier with CPTR/PTR_TO_PTR.");
       IsF90DopeVector = Flag;
     }
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
@@ -240,6 +241,12 @@ class Item
     Instruction *getF90DVDataAllocationPoint() const {
       return F90DVDataAllocationPoint;
     }
+    void setIsCptr(bool Flag) {
+      assert((!Flag || (!IsF90DopeVector && !IsPointerToPointer)) &&
+             "Unexpected: item has CPTR modifier with F90_DV/PTR_TO_PTR.");
+      IsCptr = Flag;
+    }
+    bool getIsCptr()             const { return IsCptr; }
     void setIsWILocal(bool Flag)       { IsWILocal = Flag; }
     bool getIsWILocal()          const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
@@ -247,12 +254,10 @@ class Item
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
 
 #if INTEL_CUSTOMIZATION
-      if (getIsF90DopeVector()) {
-        if (getIsByRef())
-          OS << "F90_DV,";
-        else
-          OS << "F90_DV(";
-      }
+      if (getIsF90DopeVector())
+        OS << "F90_DV(";
+      if (getIsCptr())
+        OS << "CPTR(";
 #endif // INTEL_CUSTOMIZATION
       if (getIsByRef())
         OS << "BYREF(";
@@ -269,7 +274,9 @@ class Item
       if (getIsByRef())
         OS << ")";
 #if INTEL_CUSTOMIZATION
-      else if (getIsF90DopeVector())
+      if (getIsCptr())
+        OS << ")";
+      if (getIsF90DopeVector())
         OS << ")";
 #endif // INTEL_CUSTOMIZATION
     }
@@ -278,6 +285,11 @@ class Item
 #if INTEL_CUSTOMIZATION
       if (getIsF90DopeVector()) {
         OS << "F90_DV";
+        if (getIsCptr() || getIsByRef() || getIsPointerToPointer())
+          OS << ",";
+      }
+      if (getIsCptr()) {
+        OS << "CPTR";
         if (getIsByRef() || getIsPointerToPointer())
           OS << ",";
       }
@@ -302,7 +314,7 @@ class Item
     void dump() const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       formatted_raw_ostream OS(dbgs());
-      print(OS, false);
+      print(OS, true);
 #endif
     }
 
@@ -913,6 +925,9 @@ private:
   Value *SectionPtr;
   Value *Size;
   uint64_t MapType;
+  GlobalVariable *Name = nullptr;
+  Value *Mapper = nullptr;
+
 public:
   MapAggrTy(Value *BP, Value *SP, Value *Sz)
       : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(0) {}
@@ -922,10 +937,14 @@ public:
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
   void setMapType(uint64_t MT) { MapType = MT;}
+  void setName(GlobalVariable *N) { Name = N; }
+  void setMapper(Value *M) { Mapper = M; }
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
   uint64_t getMapType() const { return MapType; }
+  GlobalVariable *getName() const { return Name; }
+  Value *getMapper() const { return Mapper; }
 };
 
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
@@ -1077,6 +1096,8 @@ public:
         Value *SectionPtr = Aggr->getSectionPtr();
         Value *Size = Aggr->getSize();
         uint64_t MapType = Aggr->getMapType();
+        GlobalVariable *Name = Aggr->getName();
+        Value *Mapper = Aggr->getMapper();
         OS << "<" ;
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
@@ -1085,7 +1106,17 @@ public:
         Size->printAsOperand(OS, PrintType);
         OS << ", ";
         OS << MapType;
-        OS <<  "> ";
+        OS << ", ";
+        if (Name)
+          Name->printAsOperand(OS, PrintType);
+        else
+          OS << "null";
+        OS << ", ";
+        if (Mapper)
+          Mapper->printAsOperand(OS, PrintType);
+        else
+          OS << "null";
+        OS << "> ";
       }
       OS << ") ";
     } else if (getIsArraySection()) {
@@ -1170,9 +1201,9 @@ class SubdeviceItem
     void setLength(EXPR Len)    { Length = Len;  }
     void setStride(EXPR Str)    { Stride = Str;  }
 
-    EXPR setLevel()     const   { return Level;  }
+    EXPR getLevel()     const   { return Level;  }
     EXPR getStart()     const   { return Start;  }
-    EXPR getLevel()     const   { return Length; }
+    EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
         OS << "SUBDEVICE(" << Level << ", " << Start << ", " << Length << ", "

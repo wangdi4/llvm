@@ -244,19 +244,33 @@ unsigned SplitAllCriticalEdges(Function &F,
                                const CriticalEdgeSplittingOptions &Options =
                                    CriticalEdgeSplittingOptions());
 
-/// Split the edge connecting specified block.
+/// Split the edge connecting the specified blocks, and return the newly created
+/// basic block between \p From and \p To.
 BasicBlock *SplitEdge(BasicBlock *From, BasicBlock *To,
                       DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
                       MemorySSAUpdater *MSSAU = nullptr);
 
-/// Split the specified block at the specified instruction - everything before
-/// SplitPt stays in Old and everything starting with SplitPt moves to a new
-/// block. The two blocks are joined by an unconditional branch and the loop
-/// info is updated.
+/// Split the specified block at the specified instruction.
+///
+/// If \p Before is true, splitBlockBefore handles the block
+/// splitting. Otherwise, execution proceeds as described below.
+///
+/// Everything before \p SplitPt stays in \p Old and everything starting with \p
+/// SplitPt moves to a new block. The two blocks are joined by an unconditional
+/// branch. The new block with name \p BBName is returned.
 BasicBlock *SplitBlock(BasicBlock *Old, Instruction *SplitPt,
                        DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
                        MemorySSAUpdater *MSSAU = nullptr,
-                       const Twine &BBName = "");
+                       const Twine &BBName = "", bool Before = false);
+
+/// Split the specified block at the specified instruction \p SplitPt.
+/// All instructions before \p SplitPt are moved to a new block and all
+/// instructions after \p SplitPt stay in the old block. The new block and the
+/// old block are joined by inserting an unconditional branch to the end of the
+/// new block. The new block with name \p BBName is returned.
+BasicBlock *splitBlockBefore(BasicBlock *Old, Instruction *SplitPt,
+                             DominatorTree *DT, LoopInfo *LI,
+                             MemorySSAUpdater *MSSAU, const Twine &BBName = "");
 
 /// This method introduces at least one new basic block into the function and
 /// moves some of the predecessors of BB to be predecessors of the new block.
@@ -295,6 +309,20 @@ void SplitLandingPadPredecessors(
     const char *Suffix2, SmallVectorImpl<BasicBlock *> &NewBBs,
     DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
     MemorySSAUpdater *MSSAU = nullptr, bool PreserveLCSSA = false);
+
+/// This method splits the edge from Preds to an EHPad in OrigBB, by inserting a
+/// basic block before OrigBB. All edges from Preds basic blocks, go into the
+/// new BB created. This method currently handles only cleanuppad instructions.
+/// The cleanuppad instruction is cloned from OrigBB, and the cleanupret
+/// instruction unwinds to OrigBB. NewBB has Suffix added to it's name.
+///
+/// This currently updates the DominatorTree, LoopInfo, and LCCSA but no other
+/// analyses. It might not preserve LoopSimplify.
+void SplitEHPadPredecessors(BasicBlock *OrigBB, ArrayRef<BasicBlock *> Preds,
+                            const char *Suffix, BasicBlock *&NewBB,
+                            DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
+                            MemorySSAUpdater *MSSAU = nullptr,
+                            bool PreserveLCSSA = false);
 
 /// This method duplicates the specified return instruction into a predecessor
 /// which ends in an unconditional branch. If the return instruction returns a

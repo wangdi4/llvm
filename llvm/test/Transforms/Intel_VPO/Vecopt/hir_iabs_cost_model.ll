@@ -6,9 +6,9 @@
 define dso_local void @foo(i64* noalias nocapture %larr, i64* noalias nocapture %larr2) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  HIR Cost Model for VPlan foo.19 with VF = 4:
-; CHECK:         Cost 1 for i1 [[VP4:%.*]] = icmp slt i64 [[VP2:%.*]] i64 10
-; CHECK-NEXT:    Cost 1 for i64 [[VP5:%.*]] = select i1 [[VP4]] i64 [[VP3:%.*]] i64 222
-; CHECK-NEXT:    Cost 2 for i64 [[VP6:%.*]] = abs i64 [[VP2]]
+; CHECK:         Cost 1000 for i1 [[VP4:%.*]] = icmp slt i64 [[VP2:%.*]] i64 10
+; CHECK-NEXT:    Cost 1000 for i64 [[VP5:%.*]] = select i1 [[VP4]] i64 [[VP3:%.*]] i64 222
+; CHECK-NEXT:    Cost 2000 for i64 [[VP6:%.*]] = abs i64 [[VP2]]
 ;
 entry:
   br label %for.body

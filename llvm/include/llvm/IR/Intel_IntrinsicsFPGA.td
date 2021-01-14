@@ -13,7 +13,7 @@
 ///               UsesEmpty, UsesValid)
 def int_intel_hls_instream_read
     : Intrinsic<
-          [ LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i32_ty ],
+          [ LLVMAnyPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i32_ty ],
           [
             llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty,
             llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
@@ -24,7 +24,7 @@ def int_intel_hls_instream_read
 ///               UsesEmpty, UsesValid)
 def int_intel_hls_instream_tryRead
     : Intrinsic<[
-      LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty,
+      LLVMAnyPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty,
       llvm_i32_ty
     ],
                 [
@@ -37,7 +37,7 @@ def int_intel_hls_instream_tryRead
 ///               UsesEmpty, UsesValid)
 def int_intel_hls_outstream_read
     : Intrinsic<
-          [ LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i32_ty ],
+          [ LLVMAnyPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i32_ty ],
           [
             llvm_i64_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty,
             llvm_i1_ty, llvm_i1_ty, llvm_i1_ty
@@ -48,7 +48,7 @@ def int_intel_hls_outstream_read
 ///               UsesEmpty, UsesValid)
 def int_intel_hls_outstream_tryRead
     : Intrinsic<[
-      LLVMPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty,
+      LLVMAnyPointerType<llvm_any_ty>, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty,
       llvm_i32_ty
     ],
                 [
@@ -62,7 +62,7 @@ def int_intel_hls_outstream_tryRead
 def int_intel_hls_instream_write
     : Intrinsic<[],
                 [
-                  LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
+                  LLVMAnyPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
                   llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],
@@ -73,7 +73,7 @@ def int_intel_hls_instream_write
 def int_intel_hls_instream_tryWrite
     : Intrinsic<[ llvm_i1_ty ],
                 [
-                  LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
+                  LLVMAnyPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
                   llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],
@@ -84,7 +84,7 @@ def int_intel_hls_instream_tryWrite
 def int_intel_hls_outstream_write
     : Intrinsic<[],
                 [
-                  LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
+                  LLVMAnyPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
                   llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],
@@ -95,7 +95,7 @@ def int_intel_hls_outstream_write
 def int_intel_hls_outstream_tryWrite
     : Intrinsic<[ llvm_i1_ty ],
                 [
-                  LLVMPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
+                  LLVMAnyPointerType<llvm_any_ty>, llvm_i64_ty, llvm_i32_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i1_ty, llvm_i1_ty,
                   llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i32_ty
                 ],

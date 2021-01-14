@@ -1,5 +1,5 @@
 ; This test case verifies that aggressive inlining is not triggered using
-; " Single Access Function GlobalVar Heuristic" since "bar3" is not leaf
+; "Single Access Function GlobalVar Heuristic" since "bar3" is not leaf
 ; as expected by the heuristic. "bar3" calls "bar4" that calls "bar5".
 
 ; REQUIRES: asserts
@@ -16,14 +16,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @grad = internal unnamed_addr global double* null, align 8
 
-define dso_local void @bar5() {
+define dso_local void @bar5(double* nocapture %d) {
 entry:
+  store double 4.000000e+01, double* %d, align 8
   ret void
 }
 
-define dso_local void @bar4() {
+define dso_local void @bar4(double* nocapture %d) {
 entry:
-  tail call void @bar5()
+  tail call void @bar5(double* %d)
   ret void
 }
 
@@ -55,7 +56,7 @@ entry:
 define dso_local void @bar3(double* nocapture %d) {
 entry:
   store double 3.000000e+01, double* %d, align 8
-  tail call void @bar4()
+  tail call void @bar4(double* %d)
   ret void
 }
 

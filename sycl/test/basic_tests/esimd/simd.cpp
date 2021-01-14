@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl -fsycl-explicit-simd -fsycl-device-only -fsyntax-only -Xclang -verify %s
+// RUN: %clangxx -fsycl -fsycl-explicit-simd -fsycl-device-only -fno-sycl-early-optimizations -fsyntax-only -Xclang -verify %s
 // expected-no-diagnostics
 
 #include <CL/sycl/INTEL/esimd.hpp>
@@ -48,8 +48,8 @@ bool test_simd_select() __attribute__((sycl_device)) {
 bool test_2d_offset() __attribute__((sycl_device)) {
   simd<int, 16> v = 0;
   auto ref = v.format<short, 8, 4>();
-  return ref.select<2, 2, 2, 2>(2, 1).getOffset<0>() == 1 &&
-         ref.select<2, 2, 2, 2>(2, 1).getOffset<1>() == 2;
+  return ref.select<2, 2, 2, 2>(2, 1).getOffsetX() == 1 &&
+         ref.select<2, 2, 2, 2>(2, 1).getOffsetY() == 2;
 }
 
 bool test_simd_bin_op_promotion() __attribute__((sycl_device)) {

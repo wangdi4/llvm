@@ -8,6 +8,7 @@
 
 #include <CL/sycl/device.hpp>
 #include <detail/device_impl.hpp>
+#include <detail/platform_impl.hpp>
 
 #include <algorithm>
 
@@ -16,8 +17,7 @@ namespace sycl {
 namespace detail {
 
 device_impl::device_impl()
-    : MIsHostDevice(true),
-      MPlatform(std::make_shared<platform_impl>(platform_impl())) {}
+    : MIsHostDevice(true), MPlatform(platform_impl::getHostPlatformImpl()) {}
 
 device_impl::device_impl(pi_native_handle InteropDeviceHandle,
                          const plugin &Plugin)
@@ -67,11 +67,7 @@ device_impl::device_impl(pi_native_handle InteropDeviceHandle,
 
   // set MPlatform
   if (!Platform) {
-    RT::PiPlatform plt = nullptr; // TODO catch an exception and put it to list
-                                  // of asynchronous exceptions
-    Plugin.call<PiApiKind::piDeviceGetInfo>(MDevice, PI_DEVICE_INFO_PLATFORM,
-                                            sizeof(plt), &plt, nullptr);
-    Platform = std::make_shared<platform_impl>(plt, Plugin);
+    Platform = platform_impl::getPlatformFromPiDevice(MDevice, Plugin);
   }
   MPlatform = Platform;
 }
@@ -81,7 +77,7 @@ device_impl::~device_impl() {
     // TODO catch an exception and put it to list of asynchronous exceptions
     const detail::plugin &Plugin = getPlugin();
     RT::PiResult Err = Plugin.call_nocheck<PiApiKind::piDeviceRelease>(MDevice);
-    CHECK_OCL_CODE_NO_EXC(Err);
+    __SYCL_CHECK_OCL_CODE_NO_EXC(Err);
   }
 }
 
@@ -146,7 +142,7 @@ device_impl::create_sub_devices(const cl_device_partition_property *Properties,
   std::for_each(SubDevices.begin(), SubDevices.end(),
                 [&res, this](const RT::PiDevice &a_pi_device) {
                   device sycl_device = detail::createSyclObjFromImpl<device>(
-                      std::make_shared<device_impl>(a_pi_device, MPlatform));
+                      MPlatform->getOrMakeDeviceImpl(a_pi_device, MPlatform));
                   res.push_back(sycl_device);
                 });
   return res;
@@ -220,6 +216,9 @@ pi_native_handle device_impl::getNative() const {
 }
 
 bool device_impl::has(aspect Aspect) const {
+  size_t return_size = 0;
+  pi_device_type device_type;
+
   switch (Aspect) {
   case aspect::host:
     return is_host();
@@ -229,6 +228,8 @@ bool device_impl::has(aspect Aspect) const {
     return is_gpu();
   case aspect::accelerator:
     return is_accelerator();
+  case aspect::custom:
+    return false;
   case aspect::fp16:
     return has_extension("cl_khr_fp16");
   case aspect::fp64:
@@ -245,10 +246,58 @@ bool device_impl::has(aspect Aspect) const {
     return get_info<info::device::is_linker_available>();
   case aspect::queue_profiling:
     return get_info<info::device::queue_profiling>();
+  case aspect::usm_device_allocations:
+    return get_info<info::device::usm_device_allocations>();
+  case aspect::usm_host_allocations:
+    return get_info<info::device::usm_host_allocations>();
+  case aspect::usm_shared_allocations:
+    return get_info<info::device::usm_shared_allocations>();
+  case aspect::usm_restricted_shared_allocations:
+    return get_info<info::device::usm_restricted_shared_allocations>();
+  case aspect::usm_system_allocator:
+    return get_info<info::device::usm_system_allocator>();
+  case aspect::ext_intel_pci_address:
+    return getPlugin().call_nocheck<detail::PiApiKind::piDeviceGetInfo>(
+               MDevice, PI_DEVICE_INFO_PCI_ADDRESS, sizeof(pi_device_type),
+               &device_type, &return_size) == PI_SUCCESS;
+  case aspect::ext_intel_gpu_eu_count:
+    return getPlugin().call_nocheck<detail::PiApiKind::piDeviceGetInfo>(
+               MDevice, PI_DEVICE_INFO_GPU_EU_COUNT, sizeof(pi_device_type),
+               &device_type, &return_size) == PI_SUCCESS;
+  case aspect::ext_intel_gpu_eu_simd_width:
+    return getPlugin().call_nocheck<detail::PiApiKind::piDeviceGetInfo>(
+               MDevice, PI_DEVICE_INFO_GPU_EU_SIMD_WIDTH,
+               sizeof(pi_device_type), &device_type,
+               &return_size) == PI_SUCCESS;
+  case aspect::ext_intel_gpu_slices:
+    return getPlugin().call_nocheck<detail::PiApiKind::piDeviceGetInfo>(
+               MDevice, PI_DEVICE_INFO_GPU_SLICES, sizeof(pi_device_type),
+               &device_type, &return_size) == PI_SUCCESS;
+  case aspect::ext_intel_gpu_subslices_per_slice:
+    return getPlugin().call_nocheck<detail::PiApiKind::piDeviceGetInfo>(
+               MDevice, PI_DEVICE_INFO_GPU_SUBSLICES_PER_SLICE,
+               sizeof(pi_device_type), &device_type,
+               &return_size) == PI_SUCCESS;
+  case aspect::ext_intel_gpu_eu_count_per_subslice:
+    return getPlugin().call_nocheck<detail::PiApiKind::piDeviceGetInfo>(
+               MDevice, PI_DEVICE_INFO_GPU_EU_COUNT_PER_SUBSLICE,
+               sizeof(pi_device_type), &device_type,
+               &return_size) == PI_SUCCESS;
+  case aspect::ext_intel_max_mem_bandwidth:
+    // currently not supported
+    return false;
+
   default:
     throw runtime_error("This device aspect has not been implemented yet.",
                         PI_INVALID_DEVICE);
   }
+}
+
+std::shared_ptr<device_impl> device_impl::getHostDeviceImpl() {
+  static std::shared_ptr<device_impl> HostImpl =
+      std::make_shared<device_impl>();
+
+  return HostImpl;
 }
 
 } // namespace detail

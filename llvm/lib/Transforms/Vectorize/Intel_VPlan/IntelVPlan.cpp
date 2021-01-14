@@ -81,6 +81,9 @@ static cl::opt<bool>
                           cl::Hidden,
                           cl::desc("Enable analysis to compute scalar/vector "
                                    "nature of instructions in VPlan."));
+static cl::opt<bool> DumpVPlanLiveInsLiveOuts(
+    "vplan-dump-live-inout", cl::init(false), cl::Hidden,
+    cl::desc("Print live-ins and live-outs of main loop"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
@@ -107,6 +110,20 @@ void ilist_traits<VPBasicBlock>::removeNodeFromList(VPBasicBlock *VPBB) {
 void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {
   assert(!VPBB->getParent() && "VPBasicBlock is still in a VPlan!");
   delete VPBB;
+}
+
+void VPInstruction::moveBefore(VPInstruction *MovePos) {
+  moveBefore(*MovePos->getParent(), MovePos->getIterator());
+}
+
+void VPInstruction::moveAfter(VPInstruction *MovePos) {
+  moveBefore(*MovePos->getParent(), ++MovePos->getIterator());
+}
+
+void VPInstruction::moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I) {
+  assert((I == BB.end() || I->getParent() == &BB) &&
+         "Iterator is out of basic block");
+  BB.getInstructions().splice(I, getParent()->getInstructions(), getIterator());
 }
 
 void VPInstruction::generateInstruction(VPTransformState &State,
@@ -323,7 +340,8 @@ bool VPInstruction::mayHaveSideEffects() const {
       Opcode == VPInstruction::AllZeroCheck ||
       Opcode == VPInstruction::InductionInit || Opcode == Instruction::Br ||
       Opcode == VPInstruction::HIRCopy || Opcode == VPInstruction::ActiveLane ||
-      Opcode == VPInstruction::ActiveLaneExtract)
+      Opcode == VPInstruction::ActiveLaneExtract ||
+      Opcode == VPInstruction::ConstStepVector)
     return false;
 
   return true;
@@ -379,6 +397,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "active-lane";
   case VPInstruction::ActiveLaneExtract:
     return "lane-extract";
+  case VPInstruction::ReuseLoop:
+    return "re-use-loop";
+  case VPInstruction::OrigLiveOut:
+    return "orig-live-out";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -441,7 +463,7 @@ void VPInstruction::print(raw_ostream &O) const {
 }
 
 void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
-  if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
+  if (!getType()->isVoidTy()) {
     printAsOperand(O);
     O << " = ";
   }
@@ -462,6 +484,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   }
   case Instruction::Call: {
     cast<VPCallInstruction>(this)->printImpl(O);
+    break;
+  }
+  case VPInstruction::ConstStepVector: {
+    cast<VPConstStepVector>(this)->printImpl(O);
     break;
   }
   case Instruction::GetElementPtr:
@@ -506,6 +532,16 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   default:
     O << getOpcodeName(getOpcode());
   }
+  if (auto *ReuseLoop = dyn_cast<VPReuseLoop>(this)) {
+    ReuseLoop->printImpl(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
+    LiveOut->printImpl(O);
+    return;
+  }
+
   if (getOpcode() == VPInstruction::OrigTripCountCalculation) {
     auto *Self = cast<VPOrigTripCountCalculation>(this);
     O << " for original loop " << Self->getOrigLoop()->getName();
@@ -514,6 +550,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
   if (auto *Phi = dyn_cast<const VPPHINode>(this)) {
+    if (Phi->getMergeId() != VPExternalUse::UndefMergeId)
+      O << "-merge";
     auto PrintValueWithBB = [&](const unsigned i) {
       O << " ";
       O << " [ ";
@@ -643,6 +681,20 @@ void VPlan::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
   VPlanSVA->compute(this, VF, TLI);
 }
 
+void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
+  for (auto ID : Analyses) {
+    switch (ID) {
+    case VPAnalysisID::SVA:
+      clearSVA();
+      break;
+    case VPAnalysisID::DA:
+    case VPAnalysisID::VLS:
+    default:
+      llvm_unreachable("Add invalidation support for analysis.");
+    }
+  }
+}
+
 // Generate the code inside the body of the vectorized loop. Assumes a single
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
@@ -720,7 +772,7 @@ void VPlan::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlan::executeHIR(VPOCodeGenHIR *CG) {
-  assert(!EnableSOAAnalysis &&
+  assert(!isSOAAnalysisEnabled() &&
          "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   const VPLoop *VLoop = CG->getVPLoop();
@@ -848,7 +900,8 @@ void VPlan::dump(raw_ostream &OS) const {
   if (DumpExternalDefsHIR)
     Externals.dumpExternalDefs(FOS);
 
-  printLiveIns(FOS);
+  if (DumpVPlanLiveInsLiveOuts)
+    printLiveIns(FOS);
 
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
@@ -857,6 +910,9 @@ void VPlan::dump(raw_ostream &OS) const {
   }
 
   print(FOS, 1);
+
+  if (DumpVPlanLiveInsLiveOuts)
+    printLiveOuts(FOS);
 
   Externals.dumpExternalUses(FOS, LiveOutValues.size() ? this : nullptr);
 }
@@ -874,10 +930,19 @@ void VPlan::printLiveIns(raw_ostream &OS) const {
   }
 }
 
+void VPlan::printLiveOuts(raw_ostream &OS) const {
+  if (!LiveOutValues.size())
+    return;
+  OS << "Live-out values:\n";
+  for (auto LO : liveOutValues()) {
+    if (LO)
+      LO->print(OS);
+  }
+}
 
 void VPlan::dump() const { dump(dbgs()); }
 
-void VPlanPrinter::dump() {
+void VPlanPrinter::dump(bool CFGOnly) {
 #if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
     Plan.dump(OS);
@@ -897,7 +962,7 @@ void VPlanPrinter::dump() {
   OS << "compound=true\n";
 
   for (const VPBasicBlock *BB : depth_first(Plan.getEntryBlock()))
-    dumpBasicBlock(BB);
+    dumpBasicBlock(BB, CFGOnly);
 
   OS << "}\n";
 }
@@ -924,31 +989,51 @@ void VPlanPrinter::dumpEdges(const VPBasicBlock *BB) {
   }
 }
 
-void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
-  OS << Indent << getUID(BB) << " [label =\n";
+void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions) {
+  std::string Br = "<BR ALIGN=\"left\"/>\n";
+  OS << Indent << getUID(BB) << " [label =<" << Br;
   bumpIndent(1);
-  OS << Indent << "\"" << DOT::EscapeString(BB->getName().str()) << ":\\n\"";
+  OS << Indent << DOT::EscapeString(BB->getName().str()) << ":" << Br;
   bumpIndent(1);
-  for (const VPInstruction &Inst : *BB) {
-    OS << " +\n" << Indent << "\"EMIT ";
-    Inst.print(OS);
-    OS << "\\l\"";
-  }
-#if INTEL_CUSTOMIZATION
+  auto Print = [this, &Br](const VPValue &Val) {
+    std::string Str;
+    raw_string_ostream SS(Str);
+    Val.print(SS);
+    for (unsigned i = 0; i != Str.length(); ++i)
+      switch (Str[i]) {
+      case '<':
+        Str.replace(i, 1, "&lt;");
+        i += 3;
+        break;
+      case '>':
+        Str.replace(i, 1, "&gt;");
+        i += 3;
+        break;
+      }
+    OS << Indent <<  DOT::EscapeString(Str) << Br;
+  };
+  if (!SkipInstructions)
+    for (const VPInstruction &Inst : *BB)
+      Print(Inst);
+
   const VPValue *CBV = BB->getCondBit();
   // Dump the CondBit
   if (CBV) {
-    OS << " +\n" << Indent << " \"CondBit: ";
+    if (SkipInstructions) {
+      // In order to have DA results.
+      Print(*CBV);
+    }
+    OS << Indent << "CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {
       CBI->printAsOperand(OS);
-      OS << " (" << DOT::EscapeString(CBI->getParent()->getName().str()) << ")\\l\"";
+      OS << " (" << DOT::EscapeString(CBI->getParent()->getName().str()) << ")" << Br;
     } else {
       CBV->printAsOperand(OS);
+      OS << '"';
     }
   }
-#endif
   bumpIndent(-2);
-  OS << "\n" << Indent << "]\n";
+  OS << Indent << ">]\n";
   dumpEdges(BB);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -1131,6 +1216,10 @@ void VPValue::invalidateUnderlyingIR() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPValue::printAsOperand(raw_ostream &OS) const {
+  if (getType()->isLabelTy()) {
+    OS << "label " << cast<VPBasicBlock>(this)->getName();
+    return;
+  }
   if (EnableNames && !Name.empty())
     // There is no interface to enforce uniqueness of the names, so continue
     // using the pointer-based name for the suffix.
@@ -1148,8 +1237,30 @@ using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif
 
-std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
-                                    bool RecalculateDA) {
+void VPlan::computeDA() {
+  VPLoopInfo *VPLInfo = getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+  getVPlanDA()->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
+                        false /*Not in LCSSA form*/);
+  if (isSOAAnalysisEnabled()) {
+    // Do SOA-analysis for loop-privates.
+    // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
+    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
+    SmallPtrSet<VPInstruction *, 32> SOAVars;
+    VPSOAA.doSOAAnalysis(SOAVars);
+    getVPlanDA()->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
+  }
+}
+
+void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  for (auto OrigLO : OrigPlan.liveOutValues()) {
+    auto ClonedLO = OrigLO->clone();
+    addLiveOutValue(ClonedLO);
+    Mapper.registerClone(OrigLO, ClonedLO);
+  }
+}
+
+std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new VPlan
   std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
 
@@ -1157,11 +1268,16 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
   VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
                                  nullptr, "Cloned.", ClonedVPlan.get());
+  // Clone live out values.
+  VPValueMapper Mapper(OrigClonedValuesMap);
+  ClonedVPlan->cloneLiveOutValues(*this, Mapper);
 
   // Update cloned instructions' operands
-  VPValueMapper Mapper(OrigClonedValuesMap);
   for (VPBasicBlock &OrigVPBB : *this)
     Mapper.remapOperands(&OrigVPBB);
+
+  for (auto LO : ClonedVPlan->liveOutValues())
+    Mapper.remapInstruction(LO);
 
   // Update FullLinearizationForced
   if (isFullLinearizationForced())
@@ -1173,6 +1289,10 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
 
   if (areActiveLaneInstructionsDisabled())
     ClonedVPlan->disableActiveLaneInstructions();
+
+  // Enable SOA-analysis if it was enabled in the original VPlan.
+  if (isSOAAnalysisEnabled())
+    ClonedVPlan->enableSOAAnalysis();
 
   // Set SCEV to Cloned Plan
   ClonedVPlan->setVPSE(VPAF.createVPSE());
@@ -1190,29 +1310,16 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
   ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
   LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
 
-  // Clone DA from the original VPlan to the new one. If RecalculateDA is true,
-  // then we compute DA from scratch. If we clone VPlan after the predicator
-  // (RecalculateDA=false), then we just have to clone instructions' vector
-  // shapes.
-  if (RecalculateDA) {
-    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
-    ClonedVPlan->setVPlanDA(std::move(VPDA));
-    auto *VPLInfo = ClonedVPlan->getVPLoopInfo();
-    VPLoop *CandidateLoop = *VPLInfo->begin();
-    ClonedVPlan->getVPlanDA()->compute(
-        ClonedVPlan.get(), CandidateLoop, VPLInfo, *ClonedVPlan->getDT(),
-        *ClonedVPlan->getPDT(), false /*Not in LCSSA form*/);
-    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
-    SmallPtrSet<VPInstruction *, 32> SOAVars;
-    VPSOAA.doSOAAnalysis(SOAVars);
-
-    if (EnableSOAAnalysis)
-      ClonedVPlan->getVPlanDA()->recomputeShapes(SOAVars);
-  } else {
+  // Update DA.
+  if (UDA != UpdateDA::DoNotUpdateDA) {
     auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
     ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
-    getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
-    ClonedVPlan->getVPlanDA()->disableDARecomputation();
+    if (UDA == UpdateDA::RecalculateDA)
+      ClonedVPlan->computeDA();
+    else if (UDA == UpdateDA::CloneDA) {
+      getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
+      ClonedVPlan->getVPlanDA()->disableDARecomputation();
+    }
   }
   return ClonedVPlan;
 }

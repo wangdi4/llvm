@@ -204,10 +204,8 @@ exit:
 define void @nsw_start1_step2(i4 %n) {
 ; CHECK-LABEL: 'nsw_start1_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @nsw_start1_step2
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + (3 smax %n))<nsw> /u 2)
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + (3 smax %n))<nsw> /u 2)
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -335,10 +333,8 @@ exit:
 define void @even_start1_step2(i4 %n) {
 ; CHECK-LABEL: 'even_start1_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_start1_step2
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + (3 smax (2 * %n)))<nsw> /u 2)
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + (3 smax (2 * %n)))<nsw> /u 2)
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
@@ -469,10 +465,8 @@ exit:
 define void @even_nsw_start1_step2(i4 %n) {
 ; CHECK-LABEL: 'even_nsw_start1_step2'
 ; CHECK-NEXT:  Determining loop execution counts for: @even_nsw_start1_step2
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + (3 smax (2 * %n)))<nsw> /u 2)
 ; CHECK-NEXT:  Loop %loop: max backedge-taken count is 2
-; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + (3 smax (2 * %n)))<nsw> /u 2)
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1

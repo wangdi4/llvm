@@ -7,7 +7,7 @@
 
 %struct.ss = type { i32, i64 }
 
-define internal void @f(%struct.ss* byval %b) !prof !0 {
+define internal void @f(%struct.ss* byval(%struct.ss) %b) !prof !0 {
 entry:
   %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
   %tmp1 = load i32, i32* %tmp, align 4
@@ -21,7 +21,7 @@ entry:
 ; CHECK: store i32 %b.0
 ; CHECK: store i64 %b.1
 
-define internal void @g(%struct.ss* byval align 32 %b) !prof !1 {
+define internal void @g(%struct.ss* byval(%struct.ss) align 32 %b) !prof !1 {
 entry:
   %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
   %tmp1 = load i32, i32* %tmp, align 4
@@ -44,10 +44,10 @@ entry:
   store i64 2, i64* %tmp4, align 4
   br i1 undef, label %path1, label %path2
 path1:
-  call void @f(%struct.ss* byval %S), !intel-profx !2
+  call void @f(%struct.ss* byval(%struct.ss) %S), !intel-profx !2
   br label %exit
 path2:
-  call void @g(%struct.ss* byval %S), !intel-profx !3
+  call void @g(%struct.ss* byval(%struct.ss) %S), !intel-profx !3
   br label %exit
 exit:
   ret i32 0

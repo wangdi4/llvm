@@ -34,6 +34,7 @@ class HIRSafeReductionAnalysis;
 
 struct UnrollThresholds {
   unsigned LoopTripThreshold;
+  unsigned MultiExitLoopTripThreshold;
   unsigned LoopnestTripThreshold;
   unsigned SavingsThreshold;
   unsigned UnrolledLoopMemRefThreshold;

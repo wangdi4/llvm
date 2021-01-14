@@ -20,10 +20,8 @@
 
 #include <cassert>
 #include <climits>
+#include <cstdio>
 #include <string>
-
-/// Map between Device ID (i.e. openmp device id) and its DeviceTy.
-DevicesTy Devices;
 
 DeviceTy::DeviceTy(const DeviceTy &D)
     : DeviceID(D.DeviceID), RTL(D.RTL), RTLDeviceID(D.RTLDeviceID),
@@ -53,7 +51,12 @@ DeviceTy::DeviceTy(RTLInfoTy *RTL)
       ShadowPtrMap(), DataMapMtx(), PendingGlobalsMtx(), ShadowMtx(),
       MemoryManager(nullptr) {}
 
-DeviceTy::~DeviceTy() = default;
+DeviceTy::~DeviceTy() {
+  if (DeviceID == -1 || getInfoLevel() < 1)
+    return;
+
+  dumpTargetPointerMappings(*this);
+}
 
 int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
   DataMapMtx.lock();
@@ -70,17 +73,17 @@ int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
          "host ptr, nothing to do\n");
       return OFFLOAD_SUCCESS;
     } else {
-      DP("Not allowed to re-associate a different device ptr+offset with the "
-         "same host ptr\n");
+      REPORT("Not allowed to re-associate a different device ptr+offset with "
+             "the same host ptr\n");
       return OFFLOAD_FAIL;
     }
   }
 
   // Mapping does not exist, allocate it with refCount=INF
-  HostDataToTargetTy newEntry((uintptr_t) HstPtrBegin /*HstPtrBase*/,
-                              (uintptr_t) HstPtrBegin /*HstPtrBegin*/,
-                              (uintptr_t) HstPtrBegin + Size /*HstPtrEnd*/,
-                              (uintptr_t) TgtPtrBegin /*TgtPtrBegin*/,
+  HostDataToTargetTy newEntry((uintptr_t)HstPtrBegin /*HstPtrBase*/,
+                              (uintptr_t)HstPtrBegin /*HstPtrBegin*/,
+                              (uintptr_t)HstPtrBegin + Size /*HstPtrEnd*/,
+                              (uintptr_t)TgtPtrBegin /*TgtPtrBegin*/, nullptr,
                               true /*IsRefCountINF*/);
 
   DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", HstEnd="
@@ -106,14 +109,14 @@ int DeviceTy::disassociatePtr(void *HstPtrBegin) {
       DataMapMtx.unlock();
       return OFFLOAD_SUCCESS;
     } else {
-      DP("Trying to disassociate a pointer which was not mapped via "
-         "omp_target_associate_ptr\n");
+      REPORT("Trying to disassociate a pointer which was not mapped via "
+             "omp_target_associate_ptr\n");
     }
   }
 
   // Mapping not found
   DataMapMtx.unlock();
-  DP("Association not found\n");
+  REPORT("Association not found\n");
   return OFFLOAD_FAIL;
 }
 
@@ -194,9 +197,9 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
 // If NULL is returned, then either data allocation failed or the user tried
 // to do an illegal mapping.
 void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
-                                 int64_t Size, bool &IsNew, bool &IsHostPtr,
-                                 bool IsImplicit, bool UpdateRefCount,
-                                 bool HasCloseModifier,
+                                 int64_t Size, map_var_info_t HstPtrName,
+                                 bool &IsNew, bool &IsHostPtr, bool IsImplicit,
+                                 bool UpdateRefCount, bool HasCloseModifier,
                                  bool HasPresentModifier) {
   void *rc = NULL;
   IsHostPtr = false;
@@ -217,11 +220,14 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
       HT.incRefCount();
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-    DP("Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-        "Size=%" PRId64 ",%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
-        DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
-        (UpdateRefCount ? " updated" : ""),
-        HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
+    INFO(DeviceID,
+         "Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
+         ", "
+         "Size=%" PRId64 ",%s RefCount=%s, Name=%s\n",
+         (IsImplicit ? " (implicit)" : ""), DPxPTR(HstPtrBegin), DPxPTR(tp),
+         Size, (UpdateRefCount ? " updated" : ""),
+         HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str(),
+         (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "(null)");
     rc = (void *)tp;
   } else if ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && !IsImplicit) {
     // Explicit extension of mapped data - not allowed.
@@ -235,11 +241,11 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
               "exist for host address " DPxMOD " (%" PRId64 " bytes)",
               DPxPTR(HstPtrBegin), Size);
 #if INTEL_COLLAB
-  } else if (((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-                   !managed_memory_supported()) ||
-             is_managed_ptr(HstPtrBegin)) &&
+  } else if (((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+               !managed_memory_supported()) ||
+              is_device_accessible_ptr(HstPtrBegin)) &&
 #else // INTEL_COLLAB
-  } else if ((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
+  } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
 #endif // INTEL_COLLAB
              !HasCloseModifier) {
     // If unified shared memory is active, implicitly mapped variables that are
@@ -288,7 +294,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
        DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
     HostDataToTargetMap.emplace(
         HostDataToTargetTy((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                           (uintptr_t)HstPtrBegin + Size, tp));
+                           (uintptr_t)HstPtrBegin + Size, tp, HstPtrName));
     rc = (void *)tp;
   }
 
@@ -296,7 +302,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
   return rc;
 }
 
-// Used by targetDataBegin, targetDataEnd, target_data_update and target.
+// Used by targetDataBegin, targetDataEnd, targetDataUpdate and target.
 // Return the target pointer begin (where the data will be moved).
 // Decrement the reference counter if called from targetDataEnd.
 void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
@@ -323,11 +329,11 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
         HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
 #if INTEL_COLLAB
-  } else if ((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+  } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
                   !managed_memory_supported()) ||
-             is_managed_ptr(HstPtrBegin)) {
+             is_device_accessible_ptr(HstPtrBegin)) {
 #else  // INTEL_COLLAB
-  } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+  } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
     // If the value isn't found in the mapping and unified shared memory
     // is on then it means we have stumbled upon a value which we need to
@@ -359,11 +365,13 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
 int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
                             bool HasCloseModifier) {
 #if INTEL_COLLAB
-  if (((RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-            !managed_memory_supported()) ||
-       is_managed_ptr(HstPtrBegin)) && !HasCloseModifier)
+  if (((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+        !managed_memory_supported()) ||
+       is_device_accessible_ptr(HstPtrBegin)) &&
+      !HasCloseModifier)
 #else  // INTEL_COLLAB
-  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
+  if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+      !HasCloseModifier)
 #endif // INTEL_COLLAB
     return OFFLOAD_SUCCESS;
   // Check if the pointer is contained in any sub-nodes.
@@ -391,8 +399,9 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
     }
     rc = OFFLOAD_SUCCESS;
   } else {
-    DP("Section to delete (hst addr " DPxMOD ") does not exist in the allocated"
-       " memory\n", DPxPTR(HstPtrBegin));
+    REPORT("Section to delete (hst addr " DPxMOD ") does not exist in the"
+           " allocated memory\n",
+           DPxPTR(HstPtrBegin));
     rc = OFFLOAD_FAIL;
   }
 
@@ -404,7 +413,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
 void DeviceTy::init() {
   // Make call to init_requires if it exists for this plugin.
   if (RTL->init_requires)
-    RTL->init_requires(RTLs->RequiresFlags);
+    RTL->init_requires(PM->RTLs.RequiresFlags);
   int32_t Ret = RTL->init_device(RTLDeviceID);
   if (Ret != OFFLOAD_SUCCESS)
     return;
@@ -649,24 +658,6 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   return RC;
 }
 
-void *DeviceTy::create_buffer(void *HstPtr) {
-  void *rc = NULL;
-  DataMapMtx.lock();
-  rc = getTgtPtrBegin(HstPtr, 1);
-  if (rc != NULL && RTL->create_buffer)
-    rc = RTL->create_buffer(RTLDeviceID, rc);
-  else
-    rc = NULL;
-  DataMapMtx.unlock();
-  return rc;
-}
-
-int32_t DeviceTy::release_buffer(void *TgtBuffer) {
-  if (RTL->release_buffer)
-    return RTL->release_buffer(TgtBuffer);
-  return OFFLOAD_SUCCESS;
-}
-
 char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
   assert(Buffer && "Buffer cannot be nullptr.");
   assert(BufferMaxSize > 0 && "BufferMaxSize cannot be zero.");
@@ -804,6 +795,12 @@ void *DeviceTy::get_device_handle() {
   return RTL->get_device_handle(RTLDeviceID);
 }
 
+void *DeviceTy::get_context_handle() {
+  if (!RTL->get_context_handle)
+    return nullptr;
+  return RTL->get_context_handle(RTLDeviceID);
+}
+
 void *DeviceTy::data_alloc_managed(int64_t Size) {
   if (RTL->data_alloc_managed)
     return RTL->data_alloc_managed(RTLDeviceID, Size);
@@ -811,22 +808,15 @@ void *DeviceTy::data_alloc_managed(int64_t Size) {
     return nullptr;
 }
 
-int32_t DeviceTy::data_delete_managed(void *Ptr) {
-  if (RTL->data_delete_managed)
-    return RTL->data_delete_managed(RTLDeviceID, Ptr);
-  else
-    return OFFLOAD_FAIL;
-}
-
-int32_t DeviceTy::is_managed_ptr(void *Ptr) {
-  if (RTL->is_managed_ptr)
-    return RTL->is_managed_ptr(RTLDeviceID, Ptr);
+int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
+  if (RTL->is_device_accessible_ptr)
+    return RTL->is_device_accessible_ptr(RTLDeviceID, Ptr);
   else
     return 0;
 }
 
 int32_t DeviceTy::managed_memory_supported() {
-  return RTL->is_managed_ptr != nullptr;
+  return RTL->is_device_accessible_ptr != nullptr;
 }
 
 void *DeviceTy::data_alloc_explicit(int64_t Size, int32_t Kind) {
@@ -842,6 +832,27 @@ int32_t DeviceTy::get_data_alloc_info(
     return RTL->get_data_alloc_info(RTLDeviceID, NumPtrs, TgtPtrs, Infos);
   else
     return OFFLOAD_FAIL;
+}
+
+int32_t DeviceTy::pushSubDevice(int64_t ID) {
+  if (RTL->push_subdevice)
+    return RTL->push_subdevice(ID);
+  else
+    return OFFLOAD_SUCCESS;
+}
+
+int32_t DeviceTy::popSubDevice(void) {
+  if (RTL->pop_subdevice)
+    return RTL->pop_subdevice();
+  else
+    return OFFLOAD_SUCCESS;
+}
+
+bool DeviceTy::isSupportedDevice(void *DeviceType) {
+  if (RTL->is_supported_device)
+    return RTL->is_supported_device(RTLDeviceID, DeviceType);
+  else
+    return false;
 }
 #endif // INTEL_COLLAB
 
@@ -869,16 +880,16 @@ bool device_is_ready(int device_num) {
   DP("Checking whether device %d is ready.\n", device_num);
   // Devices.size() can only change while registering a new
   // library, so try to acquire the lock of RTLs' mutex.
-  RTLsMtx->lock();
-  size_t Devices_size = Devices.size();
-  RTLsMtx->unlock();
-  if (Devices_size <= (size_t)device_num) {
+  PM->RTLsMtx.lock();
+  size_t DevicesSize = PM->Devices.size();
+  PM->RTLsMtx.unlock();
+  if (DevicesSize <= (size_t)device_num) {
     DP("Device ID  %d does not have a matching RTL\n", device_num);
     return false;
   }
 
   // Get device info
-  DeviceTy &Device = Devices[device_num];
+  DeviceTy &Device = PM->Devices[device_num];
 
   DP("Is the device %d (local ID %d) initialized? %d\n", device_num,
        Device.RTLDeviceID, Device.IsInit);

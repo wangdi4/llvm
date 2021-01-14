@@ -10,8 +10,8 @@ producer (write_only pipe int __attribute__((blocking)) c0) {
     }
 }
 // CHECK: define {{.*}} void @producer
-// SPIR_20: %{{[0-9]+}} = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8 addrspace(4)* {{.*}}, i32 4, i32 4)
-// SPIR_12: %{{[0-9]+}} = call i32 @__write_pipe_2_bl_AS0(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8* {{.*}}, i32 4, i32 4)
+// SPIR_20: %{{[0-9]+}} = call spir_func i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8 addrspace(4)* {{.*}}, i32 4, i32 4)
+// SPIR_12: %{{[0-9]+}} = call spir_func i32 @__write_pipe_2_bl_AS0(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8* {{.*}}, i32 4, i32 4)
 // X86: %{{[0-9]+}} = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t* %{{.*}}, i8* {{.*}}, i32 4, i32 4)
 
 __kernel void
@@ -22,6 +22,6 @@ consumer (__global int * restrict dst,
     }
 }
 // CHECK: define {{.*}} void @consumer
-// SPIR_20: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(4)* %{{[0-9]+}}, i32 4, i32 4)
-// SPIR_12: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl_AS1(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(1)* %{{[0-9]+}}, i32 4, i32 4)
+// SPIR_20: %{{[0-9]+}} = {{.*}}call spir_func i32 @__read_pipe_2_bl(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(4)* %{{[0-9]+}}, i32 4, i32 4)
+// SPIR_12: %{{[0-9]+}} = {{.*}}call spir_func i32 @__read_pipe_2_bl_AS1(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(1)* %{{[0-9]+}}, i32 4, i32 4)
 // X86: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl(%opencl.pipe_ro_t* %{{.*}}, i8* %{{[0-9]+}}, i32 4, i32 4)

@@ -111,6 +111,9 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
           [&]() { return AM.getCachedResult<HIRSafeReductionAnalysisPass>(F); },
           [&]() {
             return AM.getCachedResult<HIRSparseArrayReductionAnalysisPass>(F);
+          },
+          [&]() {
+            return AM.getCachedResult<HIRArraySectionAnalysisPass>(F);
           }));
 }
 
@@ -196,6 +199,11 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
             auto *Wrapper = getAnalysisIfAvailable<
                 HIRSparseArrayReductionAnalysisWrapperPass>();
             return Wrapper ? &Wrapper->getHSAR() : nullptr;
+          },
+          [&]() {
+            auto *Wrapper =
+                getAnalysisIfAvailable<HIRArraySectionAnalysisWrapperPass>();
+            return Wrapper ? &Wrapper->getASA() : nullptr;
           })));
   return false;
 }
@@ -225,7 +233,9 @@ void HIRFramework::processDeferredZtts() {
       continue;
     }
 
-    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
+    if (!PhaseLoopFormation->setRecognizedZtt(Lp, Ztt, false)) {
+      continue;
+    }
 
     // If ztt was successfuly recognized, it moved from (LoopLevel-1) to
     // LoopLevel so we will need to update level of non-linear blobs.
@@ -254,6 +264,84 @@ void HIRFramework::processDeferredZtts() {
 
         if (UpdateDefLevel) {
           ZttRef->updateDefLevel(LoopLevel);
+        }
+      }
+    }
+  }
+}
+
+static void cleanupRefLowerBounds(HLRegion &Reg) {
+  // The function merges lower bounds of GEP RegDDRefs into the Index part.
+  //
+  //  (%a)[1:i1 + 1:8] -> (%a)[0:i1:8]
+  //  (%a)[1:i1:8] -> (%a)[0:i1 - 1:8]
+  //
+  // Merging is happening per dimension. The lower bound of particular dimension
+  // will be merged only if it's possible to do for all references with the same
+  // base.
+  //
+  // If there is a RegDDRef dimension where LB may not be merged into the Index
+  // then no dimension of references with that base will be transformed.
+
+  // Only fortran frontend may generate non-zero lower bounds.
+  // if (!Reg.getHLNodeUtils().getFunction().isFortran()) {
+  //   return;
+  // }
+
+  using Gatherer = DDRefGatherer<RegDDRef, MemRefs | IsAddressOfRefs>;
+  Gatherer::VectorTy Refs;
+  Gatherer::gather(&Reg, Refs);
+
+  DDRefGrouping::RefGroupVecTy<RegDDRef *> Groups;
+  DDRefIndexGrouping(Groups, Refs);
+
+  // Each group has references with the same base.
+  for (auto &Group : Groups) {
+    bool AnyNonZeroLB = false;
+
+    // Store "CanMerge" result across references in the group.
+    // Dimensions here are from outermost to innermost.
+    SmallVector<bool, MaxLoopNestLevel> CanMergeDimension;
+
+    // First check if it's possible to do the merge for all references.
+    for (auto *Ref : Group) {
+      auto NumDims = Ref->getNumDimensions();
+      if (NumDims > CanMergeDimension.size()) {
+        CanMergeDimension.resize(Ref->getNumDimensions(), true);
+      }
+
+      for (unsigned DimI = 1; DimI <= NumDims; ++DimI) {
+        auto *LBCE = Ref->getDimensionLower(DimI);
+        if (LBCE->isZero()) {
+          continue;
+        }
+
+        bool &CanMerge = CanMergeDimension[NumDims - DimI];
+
+        CanMerge =
+            CanMerge && LBCE->isIntConstant() &&
+            CanonExprUtils::canSubtract(Ref->getDimensionIndex(DimI), LBCE);
+
+        AnyNonZeroLB = true;
+      }
+    }
+
+    // Bail out early if it's impossible to transform any dimension of
+    // references in the Group.
+    if (!AnyNonZeroLB ||
+        std::all_of(CanMergeDimension.begin(), CanMergeDimension.end(),
+                    [](bool CanMerge) { return !CanMerge; })) {
+      continue;
+    }
+
+    // Then transform references if it's possible.
+    for (auto *Ref : Group) {
+      unsigned NumDims = Ref->getNumDimensions();
+      for (unsigned DimI = 1; DimI <= NumDims; ++DimI) {
+        auto *LBCE = Ref->getDimensionLower(DimI);
+        if (CanMergeDimension[NumDims - DimI] && !LBCE->isZero()) {
+          CanonExprUtils::subtract(Ref->getDimensionIndex(DimI), LBCE);
+          LBCE->clear();
         }
       }
     }
@@ -292,6 +380,10 @@ void HIRFramework::runImpl() {
   }
 
   PhaseParser->run();
+
+  for (auto &Reg : make_range(hir_begin(), hir_end())) {
+    cleanupRefLowerBounds(cast<HLRegion>(Reg));
+  }
 
   if (HIRFrameworkDebugPhase == P5_Parsing) {
     return;
@@ -375,7 +467,7 @@ struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
   void visit(HLDDNode *Node);
 
   void visit(RegDDRef *Ref, HLDDNode *Node);
-  void visit(CanonExpr *CE, unsigned NumElements, HLDDNode *Node);
+  void visit(CanonExpr *CE, uint64_t NumElements, HLDDNode *Node);
 };
 
 void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
@@ -449,7 +541,7 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   auto BaseVal =
       BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
 
-  auto NumElements = HIRF->PhaseParser->getPointerDimensionSize(BaseVal);
+  auto NumElements = HIRParser::getPossibleMaxPointerDimensionSize(BaseVal);
 
   if (NumElements) {
     visit(HighestCE, NumElements, Node);
@@ -461,7 +553,7 @@ bool isInRange(int64_t Val, int64_t LowerBound, int64_t UpperBound) {
 }
 
 void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
-                                                unsigned NumElements,
+                                                uint64_t NumElements,
                                                 HLDDNode *Node) {
 
   // We cannot estimate the iteration space of the IV with a varying blob.

@@ -681,13 +681,12 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 // Return true if \p Def is considered an external definition. An external
 // definition is a definition that happens outside of the outermost HLLoop,
 // including its preheader and exit.
-bool VPDecomposerHIR::isExternalDef(const DDRef *UseDDR) {
+bool VPDecomposerHIR::isExternalDef(const DDRef *DDR) {
   // TODO: We are pushing outermost loop PH and Exit outside of the VPlan region
   // for now so this code won't be valid until we bring them back. return
   // !Def->getHLNodeUtils().contains(OutermostHLp, Def,
   //                                 true /*include preheader/exit*/);
-  assert(UseDDR->isRval() && "DDRef must be an RValue!");
-  return OutermostHLp->isLiveIn(UseDDR->getSymbase());
+  return OutermostHLp->isLiveIn(DDR->getSymbase());
 }
 
 // Utility function to determine if the live-in external definition of ref \p
@@ -1274,6 +1273,48 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   return BottomTest;
 }
 
+VPPHINode *VPDecomposerHIR::getOrCreateEmptyPhiForDDRef(Type *PhiTy,
+                                                        VPBasicBlock *VPBB,
+                                                        DDRef *DDR) {
+  // Build the key pair to look-up PhisToFix map
+  PhiFixMapKey VPBBSymPair = std::make_pair(VPBB, DDR->getSymbase());
+
+  auto VPPhiMapIt = PhisToFix.find(VPBBSymPair);
+  // If a VPPhi node was already created for this sink DDRef's Symbase in
+  // current VPBB, then reuse that.
+  if (VPPhiMapIt != PhisToFix.end())
+    return (VPPhiMapIt->second).first;
+
+  // If no entry is found in PhisToFix then create a new VPPhi node and add it
+  // to the map
+  VPBuilder::InsertPointGuard Guard(Builder);
+  Builder.setInsertPoint(VPBB, VPBB->begin());
+  auto *VPPhi = Builder.createPhiInstruction(PhiTy);
+  PhisToFix[VPBBSymPair] = std::make_pair(VPPhi, DDR);
+
+  LLVM_DEBUG(dbgs() << "Adding a new empty PHI node for:\n");
+  LLVM_DEBUG(dbgs() << "Symbase: " << DDR->getSymbase() << "\n");
+  LLVM_DEBUG(dbgs() << "DDR: "; DDR->dump(); dbgs() << "\n");
+
+  // Add the Symbase of sink DDRef to be tracked for fixing PHI nodes
+  TrackedSymbases.insert(DDR->getSymbase());
+
+  // Add the type of the PHI node that was added for this tracked Symbase
+  if (TrackedSymTypes.count(DDR->getSymbase())) {
+    assert(TrackedSymTypes[DDR->getSymbase()] == PhiTy &&
+           "Different type PHI node was inserted for same symbase.");
+  } else {
+    TrackedSymTypes[DDR->getSymbase()] = PhiTy;
+  }
+
+  // Add entry to map the PHI node to the sink DDRef Symbase it was generated
+  // for
+  assert(PhiToSymbaseMap.find(VPPhi) == PhiToSymbaseMap.end() &&
+         "The PHI node is already mapped to a Symbase?");
+  PhiToSymbaseMap[VPPhi] = DDR->getSymbase();
+
+  return VPPhi;
+}
 
 /// Determine which blocks the current symbase \p CurSymbase is live in.
 ///
@@ -1525,6 +1566,31 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   }
 }
 
+void VPDecomposerHIR::createExitPhisForExternalUses(VPBasicBlock *ExitBB) {
+  // TODO: Live-outs for multi-exit loops cannot be handled correctly because of
+  // missing undef incoming value on edges where Symbase is not defined.
+  if (OutermostHLp->isDoMultiExit())
+    return;
+
+  for (auto *ExtUse : Plan->getExternals().getVPExternalUsesHIR()) {
+    const VPOperandHIR *HIROp = ExtUse->getOperandHIR();
+    assert(HIROp && "Cannot find HIR operand for external use.");
+    auto *HIROpBlob = cast<VPBlob>(HIROp);
+    DDRef *DDR = const_cast<DDRef *>(HIROpBlob->getBlob());
+
+    // If the live-out temp is also live-in, then proactively create a
+    // ExternalDef for it since it need not have any uses inside the loop.
+    if (OutermostHLp->isLiveIn(DDR->getSymbase()))
+      getVPExternalDefForDDRef(DDR);
+
+    auto *ExitPhi = getOrCreateEmptyPhiForDDRef(ExtUse->getType(), ExitBB, DDR);
+    LLVM_DEBUG(dbgs() << "Empty PHI was created for live out temp: ";
+               DDR->dump();
+               dbgs() << " in VPBB: " << ExitBB->getName() << "\n");
+    (void)ExitPhi;
+  }
+}
+
 // Add operands to VPInstructions representing PHI nodes inserted by HIR
 // decomposer. PhisToFix represents a map of empty PHI nodes which need to be
 // fixed. We implement a dataflow analysis algorithm which tracks the VPValue of
@@ -1615,12 +1681,11 @@ void VPDecomposerHIR::fixPhiNodes() {
   // master VPI's HIR to valid (VPPhi->HIR.getMaster()->HIR.setValid())
   for (auto PhiMapIt : PhisToFix) {
     VPPHINode *FixedPhi = PhiMapIt.second.first;
-    if (FixedPhi->getNumIncomingValues() ==
-        FixedPhi->getParent()->getNumPredecessors())
-      continue;
-    // This fixed PHI node has an empty/null incoming value from one of its
-    // predecessors. This could happen due to inaccuracies in DDG. In most
-    // cases such PHI nodes are not even needed. Following are possible cases :
+
+    // This fixed PHI node might have an empty/null incoming value from one of
+    // its predecessors. This could happen due to inaccuracies in DDG. We also
+    // consider PHIs with single operands here. In most cases such PHI nodes are
+    // not even needed. Following are possible cases :
     // 1. The PHI node has just a single incoming value.
     //    Solution : We replace all uses of this PHI with its operand, and
     //    remove the PHI.
@@ -1631,23 +1696,22 @@ void VPDecomposerHIR::fixPhiNodes() {
     //    get the first HLInst (and VPInstruction)  that defines the symbase,
     //    replace all uses of PHI with this instruction thereby removing the
     //    PHI.
-    if (FixedPhi->getNumIncomingValues() > 1)
-      llvm_unreachable(
-          "Only expecting incorrect PHIs with single or no incoming values.");
-
-    LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
-                         "replaced and removed:";
-               FixedPhi->dump(); dbgs() << "\n");
 
     if (FixedPhi->getNumIncomingValues() == 1) {
       // Solution for case 1
+      LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
+                           "replaced and removed:";
+                 FixedPhi->dump(); dbgs() << "\n");
       unsigned Idx = 0;
       // HIR should not be invalidated, we are still building initial HCFG.
       FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx),
                                    false /*InvalidateIR*/);
       FixedPhi->getParent()->eraseInstruction(FixedPhi);
-    } else {
+    } else if (FixedPhi->getNumIncomingValues() == 0) {
       // Solution for case 2
+      LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
+                           "replaced and removed:";
+                 FixedPhi->dump(); dbgs() << "\n");
       HLDDNode *FirstDefNode = nullptr;
       for (auto &VPI : *(FixedPhi->getParent())) {
         if (!VPI.HIR.isMaster())
@@ -1682,6 +1746,11 @@ void VPDecomposerHIR::fixPhiNodes() {
       // invalidated, we are still building initial HCFG.
       FixedPhi->replaceAllUsesWith(FirstDefVPI, false /*InvalidateIR*/);
       FixedPhi->getParent()->eraseInstruction(FixedPhi);
+    } else {
+      // Nothing to do, PHI has been fixed accurately.
+      assert(FixedPhi->getNumIncomingValues() ==
+                 FixedPhi->getParent()->getNumPredecessors() &&
+             "PHI node has incorrect number of operands.");
     }
   }
 }
@@ -1870,6 +1939,11 @@ void VPDecomposerHIR::fixPhiNodePass(
 // post-dominating live-out VPInstruction for given ExternalUse and fix its
 // operands accordingly.
 void VPDecomposerHIR::fixExternalUses() {
+  // TODO: Live-outs for multi-exit loops cannot be handled correctly because of
+  // missing undef incoming value on edges where Symbase is not defined.
+  if (OutermostHLp->isDoMultiExit())
+    return;
+
   Plan->computePDT();
   const VPPostDominatorTree *PDT = Plan->getPDT();
 
@@ -1889,18 +1963,16 @@ void VPDecomposerHIR::fixExternalUses() {
           });
 
       if (PostDominates) {
-        assert(PostDomOpIdx == -1 &&
-               "Multiple post-dominating operands for VPExternalUse.");
+        assert(
+            (PostDomOpIdx == -1 ||
+             ExtUse->getOperand(Idx) == ExtUse->getOperand(PostDomOpIdx)) &&
+            "Multiple different post-dominating operands for VPExternalUse.");
         PostDomOpIdx = Idx;
       }
     }
 
-    if (PostDomOpIdx == -1) {
-      // Could not find any post-dominating operands for VPExternalUse. This can
-      // happen for search loops and for live-out symbases without any uses
-      // inside the loop. Check JIRA : CMPLRLLVM-21456.
-      continue;
-    }
+    assert(PostDomOpIdx != -1 &&
+           "Could not find any post-dominating operand for VPExternalUse");
 
     // Cache the post-dominating operand to be used after clearing operand list.
     VPValue *PostDomOp = ExtUse->getOperand(PostDomOpIdx);
@@ -2022,43 +2094,8 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     Decomposer.getOrCreateVPDefsForUse(DDR, VPDefs);
     Type *BaseTy = VPDefs.front()->getType();
 
-    // Build the key pair to look-up PhisToFix map
-    PhiFixMapKey VPBBSymPair =
-        std::make_pair(Decomposer.Builder.getInsertBlock(), DDR->getSymbase());
-
-    auto VPPhiMapIt = Decomposer.PhisToFix.find(VPBBSymPair);
-    // If a VPPhi node was already created for this sink DDRef's Symbase in
-    // current VPBB, then reuse that.
-    if (VPPhiMapIt != Decomposer.PhisToFix.end())
-      return (VPPhiMapIt->second).first;
-
-    // If no entry is found in PhisToFix then create a new VPPhi node and add it
-    // to the map
-    auto *VPPhi = Decomposer.Builder.createPhiInstruction(BaseTy);
-    Decomposer.PhisToFix[VPBBSymPair] = std::make_pair(VPPhi, DDR);
-
-    LLVM_DEBUG(dbgs() << "Adding a new empty PHI node for:\n");
-    LLVM_DEBUG(dbgs() << "Symbase: " << DDR->getSymbase() << "\n");
-    LLVM_DEBUG(dbgs() << "DDR: "; DDR->dump(); dbgs() << "\n");
-
-    // Add the Symbase of sink DDRef to be tracked for fixing PHI nodes
-    Decomposer.TrackedSymbases.insert(DDR->getSymbase());
-
-    // Add the type of the PHI node that was added for this tracked Symbase
-    if (Decomposer.TrackedSymTypes.count(DDR->getSymbase())) {
-      assert(Decomposer.TrackedSymTypes[DDR->getSymbase()] == BaseTy &&
-             "Different type PHI node was inserted for same symbase.");
-    } else {
-      Decomposer.TrackedSymTypes[DDR->getSymbase()] = BaseTy;
-    }
-
-    // Add entry to map the PHI node to the sink DDRef Symbase it was generated
-    // for
-    assert(Decomposer.PhiToSymbaseMap.find(VPPhi) ==
-               Decomposer.PhiToSymbaseMap.end() &&
-           "The PHI node is already mapped to a Symbase?");
-    Decomposer.PhiToSymbaseMap[VPPhi] = DDR->getSymbase();
-
+    auto *VPPhi = Decomposer.getOrCreateEmptyPhiForDDRef(
+        BaseTy, Decomposer.Builder.getInsertBlock(), DDR);
     return VPPhi;
   }
 }
@@ -2102,6 +2139,13 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::visitSignExtendExpr(
     const SCEVSignExtendExpr *Expr) {
   VPValue *Src = visit(Expr->getOperand());
   return Decomposer.decomposeConversion(Src, Instruction::SExt,
+                                        Expr->getType());
+}
+
+VPValue *VPDecomposerHIR::VPBlobDecompVisitor::visitPtrToIntExpr(
+    const SCEVPtrToIntExpr *Expr) {
+  VPValue *Src = visit(Expr->getOperand());
+  return Decomposer.decomposeConversion(Src, Instruction::PtrToInt,
                                         Expr->getType());
 }
 

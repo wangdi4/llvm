@@ -4,7 +4,7 @@
 ; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=4 -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output  | FileCheck %s
 
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i64 %N, i64 %c) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -13,20 +13,17 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   IntInduction(+) Start: i64 [[K_IV_B0:%.*]] Step: i64 2 BinOp: i64 [[VP_K_IV_NEXT:%.*]] = add i64 [[VP_K_IV_N1:%.*]] i64 1 need close form
 ; CHECK-NEXT:    Linked values: i64 [[VP_K_IV:%.*]], i64 [[VP_K_IV_NEXT]], i64 [[VP_K_IV_IND_INIT:%.*]], i64 [[VP0:%.*]], i64 [[VP_K_IV_IND_FINAL:%.*]],
-; CHECK:         [[BB1:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK:         [[BB1:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT]] = induction-init{add} i64 [[K_IV_B0]] i64 2
 ; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 2
-; CHECK-NEXT:    SUCCESSORS(1):[[BB0]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB0]]:
+; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP_K_IV]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP0]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP_K_IV_N1]] = add i64 [[VP_K_IV]] i64 1
@@ -34,19 +31,15 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:     i64 [[VP_K_IV_NEXT]] = add i64 [[VP_K_IV_N1]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB0]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 1 i64 1
 ; CHECK-NEXT:     i64 [[VP_K_IV_IND_FINAL]] = induction-final{add} i64 [[K_IV_B0]] i64 2
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br <External Block>
 ;
 entry:
   %k = alloca i64, align 4

@@ -27,6 +27,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/ADT/Twine.h"
 
+#include <unordered_map>
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -196,23 +197,16 @@ void VPOUtils::addPHINodes(
 /// The "if(Cond)" is a conditional branch instruction added to NewHead, and
 /// PHI instructions are added to NewTail for all live-out values in BBSet.
 ///
-/// The function optionally maintains Dominator Tree information, however
-/// it does not maintain Loop information. The client needs to recompute loop
-/// information if needed.
-///
-/// Also, the WRegion information may need to be updated depending on the
-/// client. For example, if the directives in the cloned WRegion is deleted,
-/// which becomes serial code, then there is no need to update the WRegion
-/// information, otherwise, a new WRegion is formed from the cloned code,
-/// where its BBSet needs to be collected and the WRegion Tree needs to be
-/// recomputed.
-///
+/// The function maintains DominatorTree and LoopInfo analyses,
+/// if they are provided.
 void VPOUtils::singleRegionMultiVersioning(
   BasicBlock *EntryBB,
   BasicBlock *ExitBB,
   SmallVectorImpl<BasicBlock*> &BBSet,
+  ValueToValueMapTy &VMap,
   Value *Cond,
-  DominatorTree *DT
+  DominatorTree *DT,
+  LoopInfo *LI
 )
 {
   assert(EntryBB && "no entry basic block for the region");
@@ -227,9 +221,9 @@ void VPOUtils::singleRegionMultiVersioning(
   // SplitBlock will return the bottom half of the original block as a new
   // block.
   BasicBlock *NewHead = EntryBB;
-  EntryBB = SplitBlock(NewHead, &NewHead->front(), DT);
+  EntryBB = SplitBlock(NewHead, &NewHead->front(), DT, LI);
   // ExitBB has a single successor, so split it at the bottom of the exitBB.
-  BasicBlock *NewTail = SplitBlock(ExitBB, ExitBB->getTerminator(), DT);
+  BasicBlock *NewTail = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);
 
   // 2) Collect BasicBlock Set if it is empty, based on EntryBB and ExitBB.
   //
@@ -238,7 +232,6 @@ void VPOUtils::singleRegionMultiVersioning(
 
   // 3) Clone BBSet into the same function F.
   //
-  ValueToValueMapTy VMap;
   VPOSmallVectorBB ClonedBBSet;
   Function* F = EntryBB->getParent();
 
@@ -294,6 +287,77 @@ void VPOUtils::singleRegionMultiVersioning(
 
     // The two regions merge in the NewTail, dominated by the NewHead now.
     DT->changeImmediateDominator(NewTail, NewHead);
+  }
+
+#ifndef NDEBUG
+    // Verify DominatorTree before proceeding further.
+    assert((!DT || DT->verify()) && "DominatorTree is invalid.");
+#endif  // NDEBUG
+
+  if (LI) {
+    std::unordered_map<Loop *, Loop *> LoopMap;
+
+    // Make sure that clones of the blocks that belong
+    // to the NewHead's parent Loop (if it exists) also
+    // belong to the same Loop, i.e. we must not clone
+    // the NewHead's parent Loop.
+    Loop *ParentLoop = LI->getLoopFor(NewHead);
+    if (ParentLoop)
+      LoopMap[ParentLoop] = ParentLoop;
+
+    // First, create phony clones for the original loops.
+    for (BasicBlock *BB : BBSet) {
+      Loop *BBLoop = LI->getLoopFor(BB);
+
+      if (!BBLoop)
+        continue;
+
+      // Create new Loop, if needed.
+      if (LoopMap.find(BBLoop) == LoopMap.end())
+        LoopMap[BBLoop] = LI->AllocateLoop();
+    }
+
+    // Second, establish loops hierarchy for the new loops.
+    for (auto MapI : LoopMap) {
+      Loop *OrigLoop = MapI.first;
+      Loop *NewLoop = MapI.second;
+      if (OrigLoop == ParentLoop)
+        continue;
+
+      Loop *OrigLoopParent = OrigLoop->getParentLoop();
+      if (!OrigLoopParent) {
+        // OrigLoop is not the NewHead's parent Loop,
+        // and it does not have a parent Loop. This could only
+        // means that NewHead does not belong to any loop,
+        // otherwise, OrigLoop's parent Loop would be
+        // the NewHead's parent Loop.
+        assert(!ParentLoop && "Inconsistent Loop structure.");
+        LI->addTopLevelLoop(NewLoop);
+        continue;
+      }
+
+      auto NewParentLoopI = LoopMap.find(OrigLoopParent);
+      assert(NewParentLoopI != LoopMap.end() && "Loop must have been mapped.");
+      NewParentLoopI->second->addChildLoop(NewLoop);
+    }
+
+    // Finally, populate the new loops with the cloned blocks.
+    for (BasicBlock *BB : BBSet) {
+      Loop *BBLoop = LI->getLoopFor(BB);
+
+      // Clones of the blocks that do not belong to any Loop
+      // must not belong to any Loop as well.
+      if (!BBLoop)
+        continue;
+
+      BasicBlock *NewBB = cast<BasicBlock>(VMap[BB]);
+      Loop *NewBBLoop = LoopMap[BBLoop];
+      assert(NewBBLoop && "Loop must have been mapped.");
+
+      NewBBLoop->addBasicBlockToLoop(NewBB, *LI);
+      if (BB == BBLoop->getHeader())
+        NewBBLoop->moveToHeader(NewBB);
+    }
   }
 }
 #endif // INTEL_COLLAB

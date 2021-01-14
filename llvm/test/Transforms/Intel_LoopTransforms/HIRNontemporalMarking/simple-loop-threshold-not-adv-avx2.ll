@@ -2,8 +2,6 @@
 ; RUN: opt -mtriple=i686-- -mattr=+avx2 -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
-; Check to make sure that we convert to nontemporal for a simple loop.
-
 ; Check to make sure that we do not convert to nontemporal for a simple loop
 ; when compiled for -mattr=+avx2, but not for -enable-intel-advanced-opts.
 

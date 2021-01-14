@@ -1005,6 +1005,7 @@ typedef std::vector<STIDebugFixup*> STIDebugFixupTable;
 //===----------------------------------------------------------------------===//
 
 class STIDebugImpl : public STIDebug {
+using AsmPrinterHandler::beginModule;
 private:
   typedef DenseMap<const Function *, STISymbolProcedure *> FunctionMap;
   typedef DenseMap<const MDNode *, STIScope *> STIScopeMap;
@@ -4147,14 +4148,14 @@ STISymbolVariable *STIDebugImpl::createSymbolVariableFromFrameIndex(
     int frameIndex) {
   STILocation *location = nullptr;
   Register regnum;
-  int          offset;
+  StackOffset offset;
 
   const TargetFrameLowering *TFL =
       ASM()->MF->getSubtarget().getFrameLowering();
 
   offset = TFL->getFrameIndexReference(*ASM()->MF, frameIndex, regnum);
 
-  location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset);
+  location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset.getFixed());
 
   return createSymbolVariable(DIV, location);
 }

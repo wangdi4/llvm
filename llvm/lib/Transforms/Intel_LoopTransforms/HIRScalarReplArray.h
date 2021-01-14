@@ -21,7 +21,6 @@ class Function;
 namespace loopopt {
 class DDGraph;
 class HIRDDAnalysis;
-class HIRLoopLocality;
 struct LoopStatistics;
 
 namespace scalarreplarray {
@@ -333,7 +332,6 @@ class HIRScalarReplArray {
 
   HIRFramework &HIRF;
   HIRDDAnalysis &HDDA;
-  HIRLoopLocality &HLA;
   HIRLoopStatistics &HLS;
   HLNodeUtils &HNU;
   DDRefUtils &DDRU;
@@ -343,7 +341,7 @@ class HIRScalarReplArray {
 
 public:
   HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                     HIRLoopLocality &HLA, HIRLoopStatistics &HLS);
+                     HIRLoopStatistics &HLS);
 
   bool run();
 

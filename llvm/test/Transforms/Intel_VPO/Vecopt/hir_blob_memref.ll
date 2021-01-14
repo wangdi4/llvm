@@ -21,36 +21,36 @@
 ;
 define dso_local void @foo(i64* nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
-; CHECK-NEXT:  |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%larr)[i1 + <i64 0, i64 1, i64 2, i64 3>]));
-; CHECK-NEXT:  |   %.vec1 = inttoptr.<4 x i64>.<4 x i64*>(%.vec + 8);
-; CHECK-NEXT:  |   %uni.idx = extractelement %.vec1,  0;
-; CHECK-NEXT:  |   (<4 x i64>*)(%uni.idx)[0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:  |   [[DOTVEC0:%.*]] = inttoptr.<4 x i64>.<4 x i64*>(8 * i1 + ptrtoint.i64*.i64([[LARR0:%.*]]) + 8 * <i64 0, i64 1, i64 2, i64 3> + 8)
+; CHECK-NEXT:  |   [[EXTRACT_0:%.*]] = extractelement [[DOTVEC0]],  0
+; CHECK-NEXT:  |   (<4 x i64>*)([[EXTRACT_0]])[0] = i1 + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:  + END LOOP
+
+; CHECK:       *** IR Dump After SROA ***
 ;
-; CHECK:  *** IR Dump After SROA ***
-;
-; CHECK:  define dso_local void @foo(i64* nocapture [[LARR0:%.*]]) local_unnamed_addr {
+; CHECK:  define dso_local void @foo(i64* nocapture [[LARR0]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP_160:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  loop.16:
 ; CHECK-NEXT:    [[I1_I64_00:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[NEXTIVLOOP_160:%.*]], [[LOOP_160]] ]
-; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <4 x i64*> undef, i64* [[LARR0]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <4 x i64*> [[DOTSPLATINSERT0]], <4 x i64*> undef, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[DOTSPLATINSERT20:%.*]] = insertelement <4 x i64> undef, i64 [[I1_I64_00]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT30:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT20]], <4 x i64> undef, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP0:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT30]]
-; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i64, <4 x i64*> [[DOTSPLAT0]], <4 x i64> [[TMP0]]
-; CHECK-NEXT:    [[TMP1:%.*]] = ptrtoint <4 x i64*> [[ARRAYIDX0]] to <4 x i64>
-; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i64> [[TMP1]], <i64 8, i64 8, i64 8, i64 8>
-; CHECK-NEXT:    [[TMP3:%.*]] = inttoptr <4 x i64> [[TMP2]] to <4 x i64*>
-; CHECK-NEXT:    [[UNI_IDX40:%.*]] = extractelement <4 x i64*> [[TMP3]], i64 0
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i64* [[UNI_IDX40]] to <4 x i64>*
-; CHECK-NEXT:    [[DOTSPLATINSERT50:%.*]] = insertelement <4 x i64> undef, i64 [[I1_I64_00]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT60:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT50]], <4 x i64> undef, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP5:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT60]]
-; CHECK-NEXT:    store <4 x i64> [[TMP5]], <4 x i64>* [[TMP4]], align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint i64* [[LARR0]] to i64
+; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <4 x i64> undef, i64 [[TMP0]], i32 0
+; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT0]], <4 x i64> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i64> [[DOTSPLAT0]], <i64 0, i64 8, i64 16, i64 24>
+; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 8, [[I1_I64_00]]
+; CHECK-NEXT:    [[DOTSPLATINSERT10:%.*]] = insertelement <4 x i64> undef, i64 [[TMP2]], i32 0
+; CHECK-NEXT:    [[DOTSPLAT20:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT10]], <4 x i64> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i64> [[TMP1]], [[DOTSPLAT20]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i64> [[TMP3]], <i64 8, i64 8, i64 8, i64 8>
+; CHECK-NEXT:    [[TMP5:%.*]] = inttoptr <4 x i64> [[TMP4]] to <4 x i64*>
+; CHECK-NEXT:    [[UNI_IDX30:%.*]] = extractelement <4 x i64*> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i64* [[UNI_IDX30]] to <4 x i64>*
+; CHECK-NEXT:    [[DOTSPLATINSERT40:%.*]] = insertelement <4 x i64> undef, i64 [[I1_I64_00]], i32 0
+; CHECK-NEXT:    [[DOTSPLAT50:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT40]], <4 x i64> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT50]]
+; CHECK-NEXT:    store <4 x i64> [[TMP7]], <4 x i64>* [[TMP6]], align 8
 ; CHECK-NEXT:    [[NEXTIVLOOP_160]] = add nuw nsw i64 [[I1_I64_00]], 4
 ; CHECK-NEXT:    [[CONDLOOP_160:%.*]] = icmp sle i64 [[NEXTIVLOOP_160]], 99
 ; CHECK-NEXT:    br i1 [[CONDLOOP_160]], label [[LOOP_160]], label [[AFTERLOOP_160:%.*]], !llvm.loop !0

@@ -3,15 +3,22 @@
 ; load metadata), that provides a more refined type. This could happen in
 ; after inlining into a caller passing a derived type.
 
+; INTEL_CUSTOMIZATION
+; This customization is for turning off the multiversioning during
+; whole program devirtualization
+
 ; RUN: opt -module-summary %s -o %t.o
 ; RUN: llvm-lto2 run -o %t.out %t.o \
 ; RUN:	 -pass-remarks=wholeprogramdevirt \
+; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:	 -r %t.o,_ZN1A3fooEv,px \
 ; RUN:	 -r %t.o,_ZN1B3fooEv,px \
 ; RUN:	 -r %t.o,_Z6callerP1B,px \
 ; RUN:	 -r %t.o,_ZTV1A,px \
 ; RUN:	 -r %t.o,_ZTV1B,px \
 ; RUN:	 -save-temps 2>&1 | FileCheck %s
+
+; END INTEL_CUSTOMIZATION
 
 ; CHECK-COUNT-2: single-impl: devirtualized a call to _ZN1B3fooEv
 

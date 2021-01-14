@@ -69,19 +69,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   {
 ; CHECK:       |   |   case 1:
 ; CHECK:       |   |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |   |      |   %AikBkj = -1.000000e+00  *  (%B)[i1 + 32 * i3];
-; CHECK:       |   |      |   %sum = %sum  +  %AikBkj;
+; CHECK:       |   |      |   %sum = %sum  - (%B)[i1 + 32 * i3];
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |      break;
 ; CHECK:       |   |   case 2:
-; CHECK:       |   |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |   |      |   %AikBkj = 0.000000e+00  *  (%B)[i1 + 32 * i3];
-; CHECK:       |   |      |   %sum = %sum  +  %AikBkj;
-; CHECK:       |   |      + END LOOP
-; CHECK:       |   |      break;
+; CHECK-NEXT:  |   |      break;
 ; CHECK:       |   |   case 3:
 ; CHECK:       |   |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |   |      |   %AikBkj = 1.000000e+00  *  (%B)[i1 + 32 * i3];
+; CHECK:       |   |      |   %AikBkj = (%B)[i1 + 32 * i3];
 ; CHECK:       |   |      |   %sum = %sum  +  %AikBkj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |      break;
@@ -122,7 +117,7 @@ L3:
   %Bkjp = getelementptr inbounds double, double* %B, i32 %B_ind
   %Bkj = load double, double* %Bkjp
   %AikBkj = fmul fast double %Aik, %Bkj
-  %sum.next = fadd double %sum.L3, %AikBkj
+  %sum.next = fadd fast double %sum.L3, %AikBkj
   %k.next = add nuw nsw i32 %k, 1
   %L3.cond = icmp eq i32 %k.next, 128
   br i1 %L3.cond, label %L3.exit, label %L3

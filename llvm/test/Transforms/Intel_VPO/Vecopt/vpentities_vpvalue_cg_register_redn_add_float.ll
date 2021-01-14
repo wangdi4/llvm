@@ -28,7 +28,7 @@
 ; CHECK-HIR: [[VEC_LD:%.*]] = (<4 x float>*)(%ptr)
 ; CHECK-HIR: [[RED_VAR]] = [[RED_VAR]] + [[VEC_LD]];
 ; CHECK-HIR: END LOOP
-; CHECK-HIR: [[RED_INIT:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_INIT]],  [[RED_VAR]]);
+; CHECK-HIR: [[RED_INIT:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_INIT]],  [[RED_VAR]]);
 
 
 ; Fully VPValue-based LLVM-IR codegen
@@ -39,7 +39,7 @@
 ; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x float> [ zeroinitializer, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
 ; CHECK-LLVMIR: [[RED_ADD]] = fadd <4 x float> [[RED_PHI]], {{%.*}}
 ; CHECK-LLVMIR-LABEL: VPlannedBB:
-; CHECK-LLVMIR: [[RED_LVC:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(float 0.000000e+00, <4 x float> [[RED_ADD]])
+; CHECK-LLVMIR: [[RED_LVC:%.*]] = call float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> [[RED_ADD]])
 ; CHECK-LLVMIR-LABEL: scalar.ph:
 ; CHECK-LLVMIR: [[MERGE_RED_PHI:%.*]] = phi float [ 0.000000e+00, %DIR.OMP.SIMD.2 ], [ [[RED_LVC]], %middle.block ]
 

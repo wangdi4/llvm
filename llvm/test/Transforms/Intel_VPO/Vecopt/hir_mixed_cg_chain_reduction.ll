@@ -16,7 +16,7 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=false -print-after=VPlanDriverHIR -vplan-print-after-hcfg -vplan-entities-dump -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=false -print-after=VPlanDriverHIR -vplan-print-after-initial-transforms -vplan-entities-dump -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported as VPReduction.
 ; CHECK:      Reduction list
@@ -26,7 +26,7 @@
 
 ; Check generated vector code.
 ; CHECK:           %red.var = 0.000000e+00;
-; CHECK:           + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; CHECK:           + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:      |   %conv.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK-NEXT:      |   %mul.vec = (<4 x float>*)(@b)[0][i1]  *  %conv.vec;
 ; CHECK-NEXT:      |   %.vec = %add4  +  %red.var;
@@ -36,7 +36,7 @@
 ; CHECK-NEXT:      |   %.vec4 = %.vec2  +  %.vec3;
 ; CHECK-NEXT:      |   %red.var = %.vec4  +  %mul.vec;
 ; CHECK-NEXT:      + END LOOP
-; CHECK:           %sum.021 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%sum.021,  %red.var);
+; CHECK:           %sum.021 = @llvm.vector.reduce.fadd.v4f32(%sum.021,  %red.var);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

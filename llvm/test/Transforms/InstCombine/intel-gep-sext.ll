@@ -10,7 +10,7 @@ target triple = "x86_64-pc-win32"
 ; whether the memory reference in the form of
 ;       A[sext(32bit_loop-index + ...)]
 ; can be unit-stride load/store or has to become gather/scatter.
-; 
+;
 ; Once this becomes
 ;       A[zext(32bit_loop-index + ...)]
 ; later optimizer(s) try to widen the IV using trunc.
@@ -70,6 +70,28 @@ bb1:
   %cond = icmp ult i32 %inc, 100000
   br i1 %cond, label %bb1, label %bb2
 bb2:
+  ret void
+}
+
+; Test that following transform is inhibited:
+;   from:     sext_i32_to_i64(trunc_i64_to_i32(X) + C)
+;   to:       ((X << 32) + (C << 32)) >> 32
+;
+define void @test3(i32* %p, i32 %x) {
+; CHECK-LABEL: @test3
+; CHECK:        trunc
+; CHECK-NEXT:   add
+; CHECK-NEXT:   sext
+; CHECK-NOT:    shl
+; CHECK-NOT:    ashr
+  %addr_begin = getelementptr i32, i32* %p, i64 40
+  %val_fixed = call i64 @get_global_id(i32 0)
+  %trunc = trunc i64 %val_fixed to i32
+  %add = add i32 %trunc, 2
+  %sext = sext i32 %add to i64
+  %addr = getelementptr i32, i32* %addr_begin, i64 %sext
+  %val = load i32, i32* %addr
+  call void @use(i32 %val)
   ret void
 }
 

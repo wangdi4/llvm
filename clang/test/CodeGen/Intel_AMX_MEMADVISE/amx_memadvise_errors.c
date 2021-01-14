@@ -9,5 +9,14 @@
 void test_tile_movadvise(void *A) {
   _tile_movadvise_load(16, A, 8, 4); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
   _tile_movadvise_store(A, 8, 16, 4); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+}
 
+void test_tile_t2rpntlvwz0advise(const void *A, size_t B) {
+  _tile_t2rpntlvwz0advise(16, A, B, 127); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_t2rpntlvwz0advise(15, A, B, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+void test_tile_t2rpntlvwz1advise(const void *A, size_t B) {
+  _tile_t2rpntlvwz1advise(16, A, B, 127); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_t2rpntlvwz0advise(15, A, B, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }

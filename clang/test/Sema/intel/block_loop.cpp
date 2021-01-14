@@ -120,7 +120,7 @@ void zoo(T var) // expected-note {{declared here}}
 {
   int var1, i;
   // expected-error@+2 {{expression is not an integral constant expression}}
-  // expected-note@+1 {{read of non-const variable 'var' is not allowed in a constant expression}}
+  // expected-note@+1 {{function parameter 'var' with unknown value cannot be used in a constant expression}}
   #pragma block_loop private(var, var) factor(var)
   for (i = 0; i < 10; ++i)
     var1 = var1 + i;
@@ -167,7 +167,7 @@ void bar3(int var)
 {
   int i;
   // expected-error@+2 {{expression is not an integral constant expression}}
-  // expected-note@+1 {{read of non-const variable 'var' is not allowed in a constant expression}}
+  // expected-note@+1 {{function parameter 'var' with unknown value cannot be used in a constant expression}}
   #pragma block_loop level(var:var)
   for (i = 0; i < 10; ++i)
     var = var + i;

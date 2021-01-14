@@ -5,87 +5,71 @@
 
 define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-LABEL:  VPlan after predication and linearization:
-; VPLAN-NEXT:  Live-in values:
-; VPLAN-NEXT:  ID: 0 Value: i64 0
-; VPLAN-NEXT:    [[BB0:BB[0-9]+]]:
+; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; VPLAN-NEXT:    no PREDECESSORS
+; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB1]]:
+; VPLAN-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop header
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB0]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB2]]:
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; VPLAN-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp sgt i64 [[VP_IV]] i64 0
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB4]]:
+; VPLAN-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB2]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB5]]:
+; VPLAN-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[UNIFORM0]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB4]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB6]]:
+; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM_NOT]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB5]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB7]]:
+; VPLAN-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]].active.lane
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB6]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]].active.lane
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB8]].active.lane:
+; VPLAN-NEXT:    [[BB8]].active.lane: # preds: [[BB7]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_BLEND_BLEND_BB5:%.*]] = blend [ i64 2, i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i64 1, i1 [[VP_BB3_BR_VP_UNIFORM]] ]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_COND_ACTIVE:%.*]] = active-lane i1 [[VP_COND]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_BLEND_BLEND_BB5_ACTIVE:%.*]] = lane-extract i64 [[VP_BLEND_BLEND_BB5]] i1 [[VP_COND_ACTIVE]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB8]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB7]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB8]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB8]]:
+; VPLAN-NEXT:    [[BB8]]: # preds: [[BB8]].active.lane
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_COND]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VAL:%.*]] = add i64 [[VP_BLEND_BLEND_BB5_ACTIVE]] i64 1
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB8]].active.lane
+; VPLAN-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB9]]:
+; VPLAN-NEXT:    [[BB9]]: # preds: [[BB8]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_COND]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB3]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB8]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB3]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB3]]:
+; VPLAN-NEXT:    [[BB3]]: # preds: [[BB9]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_ST_BLEND_BB8:%.*]] = blend [ i64 -1, i1 true ], [ i64 [[VP_VAL]], i1 [[VP_COND]] ]
 ; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
 ; VPLAN-NEXT:     [DA: Div] store i64 [[VP_ST_BLEND_BB8]] i64* [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-NEXT:    SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB9]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB10:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB10]]:
+; VPLAN-NEXT:    [[BB10]]: # preds: [[BB3]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB3]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB11]]:
-; VPLAN-NEXT:     <Empty Block>
-; VPLAN-NEXT:    no SUCCESSORS
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB10]]
+; VPLAN-NEXT:    [[BB11]]: # preds: [[BB10]]
+; VPLAN-NEXT:     [DA: Uni] br <External Block>
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:  External Uses:
 ; VPLAN-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
@@ -112,7 +96,7 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; CG-NEXT:    [[TMP8]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CG-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI10]], 2
 ; CG-NEXT:    [[TMP10]] = add i64 [[UNI_PHI0]], 2
-; CG-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[TMP10]], 4
+; CG-NEXT:    [[TMP11:%.*]] = icmp uge i64 [[TMP10]], 4
 ; CG-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
 ;
 ; HIR-CG-LABEL: BEGIN REGION { modified }
@@ -205,64 +189,51 @@ exit:
 ; the same now that blends with undef are optimized inside predicator.
 define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-LABEL:  VPlan after predication and linearization:
-; VPLAN-NEXT:  Live-in values:
-; VPLAN-NEXT:  ID: 0 Value: i64 0
-; VPLAN-NEXT:    [[BB0:BB[0-9]+]]:
-; VPLAN-NEXT:     <Empty Block>
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; VPLAN-NEXT:    no PREDECESSORS
+; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB1]]:
+; VPLAN-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop header
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB0]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB2]]:
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; VPLAN-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp sgt i64 [[VP_IV]] i64 0
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i64 [[VP_IV]] i64 [[N0:%.*]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB4]]:
+; VPLAN-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB2]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB5]]:
+; VPLAN-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_VARYING]]
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB4]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB6]]:
+; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VAL:%.*]] = add i64 1 i64 1
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB3]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB5]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB3]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB3]]:
+; VPLAN-NEXT:    [[BB3]]: # preds: [[BB6]]
 ; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
 ; VPLAN-NEXT:     [DA: Div] store i64 1 i64* [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB6]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB7]]:
+; VPLAN-NEXT:    [[BB7]]: # preds: [[BB3]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; VPLAN-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB3]]
+; VPLAN-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; VPLAN-EMPTY:
-; VPLAN-NEXT:    [[BB8]]:
-; VPLAN-NEXT:     <Empty Block>
-; VPLAN-NEXT:    no SUCCESSORS
-; VPLAN-NEXT:    PREDECESSORS(1): [[BB7]]
+; VPLAN-NEXT:    [[BB8]]: # preds: [[BB7]]
+; VPLAN-NEXT:     [DA: Uni] br <External Block>
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:  External Uses:
 ; VPLAN-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
@@ -282,9 +253,10 @@ define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; CG-NEXT:    [[TMP4]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CG-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI10]], 2
 ; CG-NEXT:    [[TMP6]] = add i64 [[UNI_PHI0]], 2
-; CG-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[TMP6]], 4
+; CG-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP6]], 4
 ; CG-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
 ;
+
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %header

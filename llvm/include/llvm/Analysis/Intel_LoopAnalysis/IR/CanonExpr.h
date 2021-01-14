@@ -284,6 +284,33 @@ public:
   /// no-op depending upon src and dest types.
   void setExtType(bool SExt) { IsSExt = SExt; }
 
+  /// Returns true if the Loop level is in a valid range from
+  /// [1, MaxLoopNestLevel].
+  static bool isValidLoopLevel(unsigned Level) {
+    return (Level > 0 && Level <= MaxLoopNestLevel);
+  }
+
+  /// Returns true if DefLevel is a valid DefinedAtLevel for any CanonExpr.
+  static bool isValidDefLevel(unsigned DefLevel) {
+    return (DefLevel <= NonLinearLevel);
+  }
+
+  /// Returns true if DefLevel is a valid DefinedAtLevel for a linear CanonExpr.
+  static bool isValidLinearDefLevel(unsigned DefLevel) {
+    return (DefLevel <= MaxLoopNestLevel);
+  }
+
+  /// Returns true if this CE should be considered non-linear given DefLevel and
+  /// NestingLevel. DefLevel is the definition level of a blob contained in the
+  /// CE. NestingLevel is the level where the CE is attached to HIR.
+  static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel) {
+    assert(isValidDefLevel(DefLevel) && "DefLevel is invalid!");
+    assert(isValidLinearDefLevel(NestingLevel) && "NestingLevel is invalid!");
+
+    return ((DefLevel == NonLinearLevel) ||
+            (DefLevel && (DefLevel >= NestingLevel)));
+  }
+
   /// Returns the innermost level at which some blob present in this canon expr
   /// is defined. The canon expr in linear in all the inner loop levels w.r.t
   /// this level.
@@ -307,7 +334,12 @@ public:
 
   /// Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel(unsigned Level) const;
+  bool isLinearAtLevel(unsigned Level) const {
+    assert(CanonExpr::isValidLinearDefLevel(Level) &&
+           "Cannot compute linearity without a valid loop level");
+
+    return DefinedAtLevel < Level;
+  }
 
   /// Returns true if the canon expr is invariant at \p Level.
   /// If \p IgnoreInnerIVs is set to true, inner loop IVs are ignored.
@@ -339,6 +371,12 @@ public:
   bool isConstant() const {
     return (isIntConstant() || isConstantData() || isNull() || isMetadata() ||
             isConstantVector() || isNullVector());
+  }
+
+  /// Returns true if canon expr represents a constant that can be constant
+  /// propagated.
+  bool isFoldableConstant() const {
+    return (isIntConstant() || isFPConstant() || isConstantVector());
   }
 
   /// Returns true if canon expr is a constant integer. Integer value is
@@ -469,6 +507,19 @@ public:
     if (isIntConstant(&Val) && Val == 1) {
       return true;
     } else if (isFPConstant(&ConstFPVal) && ConstFPVal->isExactlyValue(1.0)) {
+      return true;
+    }
+    return false;
+  }
+
+  /// return true if the CanonExpr is negative one
+  /// Does not handle FP vector types
+  bool isMinusOne() const {
+    int64_t Val;
+    ConstantFP *ConstFPVal;
+    if (isIntConstant(&Val) && Val == -1) {
+      return true;
+    } else if (isFPConstant(&ConstFPVal) && ConstFPVal->isExactlyValue(-1.0)) {
       return true;
     }
     return false;
@@ -672,7 +723,8 @@ public:
   bool replaceTempBlob(unsigned TempIndex, unsigned NewTempIndex);
 
   /// Replaces the blob with \p OldTempIndex by the \p Constant value.
-  bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant);
+  bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant,
+                                 bool Simplify = false);
 
   /// Clears everything from the CanonExpr except Type so it represents constant
   /// 0 or null. Denominator is set to 1.
@@ -692,10 +744,12 @@ public:
   /// Iterator version of shift.
   void shift(iv_iterator IVI, int64_t Val);
 
-  /// Demotes the nesting level of all canon expr IVs starting from \p
+  /// Promotes/Demotes the nesting level of all canon expr IVs starting from \p
   /// StartLevel.
   /// E.g.
+  /// i1 -> i2, i2 -> i3, ...
   /// i2 -> i1, i3 -> i2, ...
+  void promoteIVs(unsigned StartLevel);
   void demoteIVs(unsigned StartLevel);
 
   /// Populates Indices with all the blobs contained in the CanonExpr

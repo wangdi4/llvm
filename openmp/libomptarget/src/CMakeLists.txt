@@ -12,37 +12,70 @@
 
 libomptarget_say("Building offloading runtime library libomptarget.")
 
-set(src_files
-  api.cpp
-  device.cpp
-  interface.cpp
-  MemoryManager.cpp
-  rtl.cpp
-  omptarget.cpp
+set(LIBOMPTARGET_SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/interface.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/MemoryManager.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
 )
 
-# Build libomptarget library with libdl dependency.
-add_library(omptarget SHARED ${src_files})
-
-if(INTEL_COLLAB)
- if(INTEL_CUSTOMIZATION)
-   include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
-   add_dependencies(omptarget libomptarget-libiomp-file)
-   target_link_libraries(omptarget ${LIBOMP_LIB_FILE})
- else(INTEL_CUSTOMIZATION)
-   # OpenMP runtime library must be linked in.
-   target_link_libraries(omptarget omp)
- endif(INTEL_CUSTOMIZATION)
- target_link_libraries(omptarget ${CMAKE_DL_LIBS})
- if (NOT WIN32)
-   target_link_libraries(omptarget
+# Build libomptarget library with libdl dependency. Add LLVMSupport
+# dependency if building in-tree with profiling enabled.
+if(OPENMP_STANDALONE_BUILD OR (NOT OPENMP_ENABLE_LIBOMPTARGET_PROFILING))
+  add_library(omptarget SHARED ${LIBOMPTARGET_SRC_FILES})
+  if(INTEL_COLLAB)
+    if(INTEL_CUSTOMIZATION)
+      include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+      add_dependencies(omptarget libomptarget-libiomp-file)
+      target_link_libraries(omptarget PRIVATE ${LIBOMP_LIB_FILE})
+    else(INTEL_CUSTOMIZATION)
+      # OpenMP runtime library must be linked in.
+      target_link_libraries(omptarget PRIVATE omp)
+    endif(INTEL_CUSTOMIZATION)
+    target_link_libraries(omptarget PRIVATE ${CMAKE_DL_LIBS})
+    if (NOT WIN32)
+      target_link_libraries(omptarget PRIVATE
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+    endif()
+  else(INTEL_COLLAB)
+  target_link_libraries(omptarget
+    ${CMAKE_DL_LIBS}
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
-  endif()
-else(INTEL_COLLAB)
-target_link_libraries(omptarget
-  ${CMAKE_DL_LIBS}
-  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
-endif(INTEL_COLLAB)
+  endif(INTEL_COLLAB)
+else()
+  if(INTEL_COLLAB)
+    set(LLVM_LINK_COMPONENTS
+      Support
+      )
+    add_llvm_library(omptarget SHARED ${LIBOMPTARGET_SRC_FILES}
+        LINK_LIBS ${CMAKE_DL_LIBS}
+        )
+    if(INTEL_CUSTOMIZATION)
+      include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+      add_dependencies(omptarget libomptarget-libiomp-file)
+      target_link_libraries(omptarget PRIVATE ${LIBOMP_LIB_FILE})
+    else(INTEL_CUSTOMIZATION)
+      # OpenMP runtime library must be linked in.
+      target_link_libraries(omptarget PRIVATE omp)
+    endif(INTEL_CUSTOMIZATION)
+    if (NOT WIN32)
+      target_link_libraries(omptarget PRIVATE
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+    endif()
+    target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
+  else(INTEL_COLLAB)
+  set(LLVM_LINK_COMPONENTS
+    Support
+    )
+  add_llvm_library(omptarget SHARED ${LIBOMPTARGET_SRC_FILES}
+      LINK_LIBS ${CMAKE_DL_LIBS}
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports"
+      )
+  target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
+  endif(INTEL_COLLAB)
+endif()
 
 if(INTEL_CUSTOMIZATION)
   if(WIN32)

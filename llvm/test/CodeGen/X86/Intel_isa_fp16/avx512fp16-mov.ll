@@ -544,7 +544,8 @@ define <32 x half> @loadu32f16maskz(<32 x half>* %a, i32 %c) {
 define void @store32f16(<32 x half> %a) {
 ; X64-LABEL: store32f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovaps %zmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g32f16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps %zmm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -560,7 +561,8 @@ define void @store32f16(<32 x half> %a) {
 define void @storeu32f16(<32 x half> %a) {
 ; X64-LABEL: storeu32f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovups %zmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g32f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovups %zmm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -805,7 +807,8 @@ define <16 x half> @loadu16f16maskz(<16 x half>* %a, i16 %c) {
 define void @store16f16(<16 x half> %a) {
 ; X64-LABEL: store16f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovaps %ymm0, {{.*}}(%rip)
+; X64-NEXT:    movq g16f16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps %ymm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -821,7 +824,8 @@ define void @store16f16(<16 x half> %a) {
 define void @storeu16f16(<16 x half> %a) {
 ; X64-LABEL: storeu16f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovups %ymm0, {{.*}}(%rip)
+; X64-NEXT:    movq g16f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovups %ymm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
 ;
@@ -1066,7 +1070,8 @@ define <8 x half> @loadu8f16maskz(<8 x half>* %a, i8 %c) {
 define void @store8f16(<8 x half> %a) {
 ; X64-LABEL: store8f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovaps %xmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g8f16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps %xmm0, (%rax)
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: store8f16:
@@ -1080,7 +1085,8 @@ define void @store8f16(<8 x half> %a) {
 define void @storeu8f16(<8 x half> %a) {
 ; X64-LABEL: storeu8f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovups %xmm0, {{.*}}(%rip)
+; X64-NEXT:    movq g8f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovups %xmm0, (%rax)
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: storeu8f16:
@@ -1347,7 +1353,7 @@ define half @extract_f16_7(<8 x half> %x) {
 define i16 @extract_i16_0(<8 x i16> %x) {
 ; CHECK-LABEL: extract_i16_0:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    vmovw %xmm0, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    ret{{[l|q]}}
    %res = extractelement <8 x i16> %x, i32 0
@@ -1771,11 +1777,11 @@ define <8 x half> @build_vector_xxxxxxxx(half %a0, half %a1, half %a2, half %a3,
 ; X64:       # %bb.0:
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm6 = xmm6[0],xmm7[0],xmm6[1],xmm7[1],xmm6[2],xmm7[2],xmm6[3],xmm7[3]
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm4 = xmm4[0],xmm5[0],xmm4[1],xmm5[1],xmm4[2],xmm5[2],xmm4[3],xmm5[3]
-; X64-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0],xmm6[0],zero,zero
+; X64-NEXT:    vpunpckldq {{.*#+}} xmm4 = xmm4[0],xmm6[0],xmm4[1],xmm6[1]
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
 ; X64-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
-; X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],zero,zero
-; X64-NEXT:    vmovlhps {{.*#+}} xmm0 = xmm0[0],xmm4[0]
+; X64-NEXT:    vpunpckldq {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
+; X64-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm4[0]
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: build_vector_xxxxxxxx:
@@ -1786,15 +1792,15 @@ define <8 x half> @build_vector_xxxxxxxx(half %a0, half %a1, half %a2, half %a3,
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
 ; X86-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1],xmm1[2],xmm2[2],xmm1[3],xmm2[3]
-; X86-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm1[0],zero,zero
+; X86-NEXT:    vpunpckldq {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1]
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
 ; X86-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1],xmm1[2],xmm2[2],xmm1[3],xmm2[3]
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
 ; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm3
 ; X86-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
-; X86-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],xmm2[0],zero,zero
-; X86-NEXT:    vmovlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
+; X86-NEXT:    vpunpckldq {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1]
+; X86-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; X86-NEXT:    retl
   %a = insertelement <8 x half> undef, half %a0, i32 0
   %b = insertelement <8 x half> %a, half %a1, i32 1

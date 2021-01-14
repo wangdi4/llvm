@@ -1,5 +1,6 @@
 add_llvm_component_library(LLVMipo
   AlwaysInliner.cpp
+  Annotation2Metadata.cpp
   ArgumentPromotion.cpp
   Attributor.cpp
   AttributorAttributes.cpp
@@ -19,6 +20,7 @@ add_llvm_component_library(LLVMipo
   GlobalSplit.cpp
   HotColdSplitting.cpp
   IPO.cpp
+  IROutliner.cpp
   InferFunctionAttrs.cpp
   Intel_AdvancedFastCall.cpp   # INTEL
   Intel_AggInliner.cpp # INTEL
@@ -47,7 +49,9 @@ add_llvm_component_library(LLVMipo
   PartialInlining.cpp
   PassManagerBuilder.cpp
   PruneEH.cpp
+  SampleContextTracker.cpp
   SampleProfile.cpp
+  SampleProfileProbe.cpp
   SCCP.cpp
   StripDeadPrototypes.cpp
   StripSymbols.cpp
@@ -61,10 +65,39 @@ add_llvm_component_library(LLVMipo
 
   DEPENDS
   intrinsics_gen
+
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
   omp_gen
+
+  COMPONENT_NAME
+  IPO
+
+  LINK_COMPONENTS
+  AggressiveInstCombine
+  Analysis
+  BitReader
+  BitWriter
+  Core
+  FrontendOpenMP
+  InstCombine
+  IRReader
+  Linker
+  Object
+  ProfileData
+  Scalar
+  Support
+  TransformUtils
+  Vectorize
+  Instrumentation
+# INTEL_CUSTOMIZATION
+  Intel_LoopTransforms
+  Intel_MapIntrinToIml
+  VPOTransforms
+  Intel_OptReport
+  Intel_DPCPPKernelTransforms
+# end INTEL_CUSTOMIZATION
   )
 
 # INTEL_CUSTOMIZATION

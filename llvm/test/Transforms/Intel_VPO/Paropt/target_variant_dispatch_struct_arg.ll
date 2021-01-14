@@ -22,33 +22,44 @@
 ; }
 ;
 ; The dispatch code looks like this:
-;   %call = tail call i32 @__tgt_is_device_available(i64 0, i8* null)
-;    %dispatch = icmp eq i32 %call, 0
+;    %available = call i32 @__tgt_is_device_available(i64 0, i8* inttoptr (i64 7 to i8*))
+;    %dispatch = icmp ne i32 %available, 0
+;    br label %dispatch.check
+;
+; dispatch.check:
 ;    br i1 %dispatch, label %base.call, label %variant.call
 
 ; variant.call:
-;    %interop.obj.sync = tail call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
-;    tail call void @foo_offload(i64 undef, i32 undef, i8* %interop.obj.sync)
-;    %0 = tail call i32 @__tgt_release_interop_obj(i8* %interop.obj.sync)
+;    call void @foo.foo_offload.wrapper(...)
 ;    br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.4
 
 ;  base.call:
 ;    tail call void @bar(i64 undef, i32 undef) #2
 ;    br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.4
 ;
+; define internal void @foo.foo_offload.wrapper(...) {
+;    ...
+;    %interop.obj.sync = tail call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
+;    tail call void @foo_offload(i64 undef, i32 undef, i8* %interop.obj.sync)
+;    %0 = tail call i32 @__tgt_release_interop_obj(i8* %interop.obj.sync)
+;    ...
+; }
+;
 ;   DIR.OMP.END.TARGET.VARIANT.DISPATCH.4:
 
-; CHECK: [[AVAIL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available
+; CHECK: [[AVAIL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i64 0, i8* inttoptr (i64 7 to i8*))
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne i32 [[AVAIL]], 0
-; CHECK-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
+; CHECK: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 
 ; CHECK-DAG: [[VARIANTLBL]]:
-; CHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj
-; CHECK-NEXT: call void @foo_offload
+; CHECK: call void @[[VARIANT_WRAPPER:[^ ]*.foo_offload.wrapper[^ (]*]]
 
 ; CHECK-DAG: [[BASELBL]]:
-; CHECK-NEXT: call void @bar
+; CHECK: call void @bar
 
+; CHECK-DAG: define internal void @[[VARIANT_WRAPPER]]
+; CHECK: {{%[a-zA-Z._0-9]+}} = call i8* @__tgt_create_interop_obj
+; CHECK-NEXT: call void @foo_offload
 
 ; ModuleID = '/target_variant_dispatch_struct_arg.o'
 source_filename = "target_variant_dispatch_struct_arg.o"

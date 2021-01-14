@@ -12,6 +12,32 @@ add_llvm_component_library(LLVMPasses
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
+
+  LINK_COMPONENTS
+  AggressiveInstCombine
+  Analysis
+  Core
+  Coroutines
+  HelloNew
+  IPO
+  InstCombine
+  ObjCARC
+  Scalar
+  Support
+  Target
+  TransformUtils
+  Vectorize
+  Instrumentation
+# INTEL_CUSTOMIZATION
+  Intel_DPCPPKernelTransforms
+  Intel_LoopAnalysis
+  Intel_LoopTransforms
+  Intel_MapIntrinToIml
+  Intel_OpenCLTransforms
+  Intel_OptReport
+  VPOAnalysis
+  VPOTransforms
+# end INTEL_CUSTOMIZATION
   )
 
 # INTEL_CUSTOMIZATION

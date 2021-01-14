@@ -129,20 +129,6 @@ bool IPOUtils::preserveOrSuppressInlineReport(Instruction *I, Instruction *NI) {
   return false;
 }
 
-static Function *getCalledFunction(const CallBase &Call) {
-  Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
-  if (auto *CalledF = dyn_cast<Function>(CalledValue))
-    return CalledF;
-
-  if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
-    if (!GA->isInterposable())
-      if (auto *AliasF =
-          dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
-        return AliasF;
-
-  return nullptr;
-}
-
 static AllocKind getAllocFnKind(const CallBase *Call,
                                 const TargetLibraryInfo &TLI) {
   if (isNewLikeFn(Call, &TLI))

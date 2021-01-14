@@ -23,7 +23,7 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr, i64* noalias n
 ;
 ; HIR-CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; HIR-CHECK-NEXT:  Function: foo
-; HIR-CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; HIR-CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; HIR-CHECK-NEXT:          |   %.vec2 = freeze(%.vec);
 ; HIR-CHECK-NEXT:          |   (<4 x i64>*)(%larr2)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3> + %.vec2;

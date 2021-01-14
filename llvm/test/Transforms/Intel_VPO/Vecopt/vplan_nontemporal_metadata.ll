@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-enable-improved-alignment=true < %s | FileCheck %s --match-full-lines
+; RUN: opt -S -VPlanDriver < %s | FileCheck %s --match-full-lines
 
 target triple = "x86_64-unknown-linux-gnu"
 

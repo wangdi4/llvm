@@ -390,8 +390,12 @@ Optional<unsigned> Preprocessor::getSkippedRangeForExcludedConditionalBlock(
 
   std::pair<FileID, unsigned> HashFileOffset =
       SourceMgr.getDecomposedLoc(HashLoc);
-  const llvm::MemoryBuffer *Buf = SourceMgr.getBuffer(HashFileOffset.first);
-  auto It = ExcludedConditionalDirectiveSkipMappings->find(Buf);
+  Optional<llvm::MemoryBufferRef> Buf =
+      SourceMgr.getBufferOrNone(HashFileOffset.first);
+  if (!Buf)
+    return None;
+  auto It =
+      ExcludedConditionalDirectiveSkipMappings->find(Buf->getBufferStart());
   if (It == ExcludedConditionalDirectiveSkipMappings->end())
     return None;
 
@@ -2068,7 +2072,7 @@ Preprocessor::ImportAction Preprocessor::HandleHeaderIncludeOrImport(
   // some directives (e.g. #endif of a header guard) will never be seen.
   // Since this will lead to confusing errors, avoid the inclusion.
   if (Action == Enter && File && PreambleConditionalStack.isRecording() &&
-      SourceMgr.isMainFile(*File)) {
+      SourceMgr.isMainFile(File->getFileEntry())) {
     Diag(FilenameTok.getLocation(),
          diag::err_pp_including_mainfile_in_preamble);
     return {ImportAction::None};
@@ -2690,7 +2694,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   // directives we've seen so far (since they can depend on each other).
   // The wrapper file is compiled by the Microsoft compiler.
   //
-  int WrapperFileDesc;
+  int WrapperFileDesc = 0;
   if (WrapperFilename.empty()) {
     SmallString<128> WrapperFilenameImpl;
     if (std::error_code ErrorCode = llvm::sys::fs::createTemporaryFile(
@@ -2722,7 +2726,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   // Create a response file for the arguments needed to compile the
   // wrapper file.
   //
-  int ArgFileDesc;
+  int ArgFileDesc = 0;
   SmallString<128> ArgFilename;
   if (std::error_code ErrorCode = llvm::sys::fs::createTemporaryFile(
           llvm::sys::path::stem(TypelibHeaderName), "arg", ArgFileDesc,

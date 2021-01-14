@@ -23,6 +23,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -851,6 +852,16 @@ void SCCPSolver::visitCastInst(CastInst &I) {
     auto &LV = getValueState(&I);
     ConstantRange OpRange = OpSt.getConstantRange();
     Type *DestTy = I.getDestTy();
+    // Vectors where all elements have the same known constant range are treated
+    // as a single constant range in the lattice. When bitcasting such vectors,
+    // there is a mis-match between the width of the lattice value (single
+    // constant range) and the original operands (vector). Go to overdefined in
+    // that case.
+    if (I.getOpcode() == Instruction::BitCast &&
+        I.getOperand(0)->getType()->isVectorTy() &&
+        OpRange.getBitWidth() < DL.getTypeSizeInBits(DestTy))
+      return (void)markOverdefined(&I);
+
     ConstantRange Res =
         OpRange.castOp(I.getOpcode(), DL.getTypeSizeInBits(DestTy));
     mergeInValue(LV, &I, ValueLatticeElement::getRange(Res));
@@ -1073,57 +1084,58 @@ void SCCPSolver::visitCmpInst(CmpInst &I) {
 }
 
 #if INTEL_CUSTOMIZATION
-// If the input constant 'ConstPtr' is a pointer to the beginning of an array,
+// If the input value 'VPtr' is a pointer to the beginning of an array,
 // then return the ArrayType.
-static ArrayType *getArrayFromPointerCast(Constant *ConstPtr) {
-  if (!ConstPtr)
+static ArrayType *getArrayFromPointerCast(Value *VPtr) {
+  if (!EnableCallbacks)
     return nullptr;
 
-  PointerType *ConstTy = dyn_cast<PointerType>(ConstPtr->getType());
-  if (!ConstTy)
+  if (!VPtr)
     return nullptr;
 
-  Constant *TempRetConst = ConstPtr->stripPointerCasts();
-  PointerType *ArrPtr = dyn_cast<PointerType>(TempRetConst->getType());
+  PointerType *ArrPtr =
+      dyn_cast<PointerType>(VPtr->stripPointerCasts()->getType());
+  if (!ArrPtr)
+    return nullptr;
+
   return dyn_cast<ArrayType>(ArrPtr->getElementType());
 }
 
-// Return true if the input Value is BitCastOperator, or if it is a GEPOperator
-// and the pointer operand is a BitCast, else return false. In other words, the
-// pointer is casted from one type to another type and then it is accessed with
-// a GEP.
-static bool isValueCasted(Value *V) {
-  if (!V)
+// Return true if the type of the input ArrayVal doesn't match with the type
+// of the input PtrVal, but both types matches after the casts are removed.
+// This function will be used later to decide if a casting is needed between
+// the constant and the variable in order to apply the propagation.
+static bool isCastingNeeded(Value *ArrayVal, Value *PtrVal) {
+  if (!EnableCallbacks)
     return false;
 
-  Value *TempVal = V;
-  if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(V))
-    TempVal = GEPOp->getPointerOperand();
-
-  return isa<BitCastOperator>(TempVal);
-}
-
-// Return true if the type of the input Constant doesn't match with the type
-// of the input Value, but both types matches after the casting is removed
-// from the Constant.
-static bool isStripPointerCastNeeded(Constant *ConstPtr, Value *V) {
-  if (!ConstPtr || !V)
+  if (!ArrayVal || !PtrVal)
     return false;
 
-  auto ValTy = V->getType();
-  auto ConstTy = ConstPtr->getType();
-  if (ValTy == ConstTy)
+  auto ArrValTy = ArrayVal->getType();
+  auto PtrValTy = PtrVal->getType();
+  if (ArrValTy == PtrValTy)
     return false;
+
+  auto *ArrTy = getArrayFromPointerCast(ArrayVal);
+  if (!ArrTy)
+    return false;
+
+  auto *PtrTy = dyn_cast<PointerType>(PtrValTy);
+  if (!PtrTy)
+    return false;
+
+  auto *ElemType = PtrTy->getElementType();
 
   // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
   // then we need to collect the actual array and check if the types matches.
-  if (auto *VPtrType = dyn_cast<PointerType>(ValTy)) {
-     auto *ElemType = VPtrType->getElementType();
-     if (ArrayType *ArrTy = getArrayFromPointerCast(ConstPtr))
-       return ArrTy == ElemType;
-  }
+  if (ArrTy == ElemType)
+    return true;
 
-  // TODO: We might want to handle other cast cases in the future.
+  // CMPLRLLVM-24186: If the constant is casted from a pointer to an array, then
+  // we need to make sure that the types matches.
+  if (ArrTy->getElementType() == ElemType)
+    return true;
 
   return false;
 }
@@ -1158,11 +1170,18 @@ void SCCPSolver::visitGetElementPtrInst(GetElementPtrInst &I) {
   auto Indices = makeArrayRef(Operands.begin() + 1, Operands.end());
 
 #if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
-  // then we need to collect the actual array to create the new GEP.
-  if (ArrayType *Arr = getArrayFromPointerCast(Ptr))
-    if (I.getSourceElementType() == Arr)
-      Ptr = Ptr->stripPointerCasts();
+  // CMPLRLLVM-22930: If the constant is an array and the value is a pointer,
+  // or vice-versa, then we need to cast it and replace the uses.
+  Value *GEPOperand = I.getPointerOperand();
+  if (isCastingNeeded(Ptr, GEPOperand) || isCastingNeeded(GEPOperand, Ptr)) {
+    auto *BC = new BitCastInst(Ptr, GEPOperand->getType(), "bc_const", &I);
+    // NOTE: We won't use replaceAllUsesWith since there is a chance that the
+    // GEP pointer operand is used in another instruction. If we need to create
+    // another BitCast instruction with the same constant then the instruction
+    // simplify pass will take care of cleaning the IR.
+    I.setOperand(0, BC);
+    return (void)markOverdefined(&I);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   Constant *C =
@@ -1309,7 +1328,31 @@ void SCCPSolver::handleCallOverdefined(CallBase &CB) {
 
 void SCCPSolver::handleCallArguments(CallBase &CB) {
 #if INTEL_CUSTOMIZATION
-  auto HandleArgs = [this](auto &CB, bool IsCallback, auto GetArgOperand) {
+  // Return true if there is some casting in the input Values VPtr and VArr
+  // but the casting mismatches. Else return false.
+  auto BadArrToPtrCast = [](Value *VArr, Value *VPtr) -> bool {
+    if (!VArr || !VPtr)
+      return false;
+
+    if (!EnableCallbacks)
+      return false;
+
+    // Check if the pointer is casted from one type to another type and then
+    // it is accessed with a GEP.
+    Value *TempVPtr = VPtr;
+    if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(VPtr))
+      TempVPtr = GEPOp->getPointerOperand();
+
+    if(!isa<BitCastOperator>(TempVPtr))
+      return false;
+
+    // Check if there is some casting in the input VPtr and VArr, but the
+    // types between the pointer and the array doesn't matches
+    return (getArrayFromPointerCast(VArr) && !isCastingNeeded(VArr, VPtr));
+  };
+
+  auto HandleArgs = [this, BadArrToPtrCast](auto &CB, bool IsCallback,
+                                             auto GetArgOperand) {
     Function *F = CB.getCalledFunction();
     // If this is a local function that doesn't have its address taken, mark its
     // entry block executable and merge in the actual arguments to the call into
@@ -1340,16 +1383,12 @@ void SCCPSolver::handleCallArguments(CallBase &CB) {
             continue;
           }
 
-          // CMPLRLLVM-22930: If the constant is casted from an array to a
-          // pointer, then we need to make sure that the types matches between
-          // the argument and the array that has been casted.
-          if (PointerType *VPtr = dyn_cast<PointerType>(V->getType())) {
-            ArrayType *ArrTy = getArrayFromPointerCast(C);
-            if (ArrTy && isValueCasted(V) &&
-                ArrTy->getArrayElementType() != VPtr->getElementType()) {
-              markOverdefined(&A);
-              continue;
-            }
+          // CMPLRLLVM-22930 and CMPLRLLVM-24186: If the constant is casted
+          // from an array to a pointer, or vice-versa, then we need to make
+          // sure that the types matches between the array and the pointer.
+          if (BadArrToPtrCast(C, V) || BadArrToPtrCast(V, C)) {
+            markOverdefined(&A);
+            continue;
           }
         }
 
@@ -1463,6 +1502,25 @@ void SCCPSolver::handleCallResult(CallBase &CB) {
 
       return (void)mergeInValue(IV, &CB, CopyOfVal);
     }
+
+    if (ConstantRange::isIntrinsicSupported(II->getIntrinsicID())) {
+      // Compute result range for intrinsics supported by ConstantRange.
+      // Do this even if we don't know a range for all operands, as we may
+      // still know something about the result range, e.g. of abs(x).
+      SmallVector<ConstantRange, 2> OpRanges;
+      for (Value *Op : II->args()) {
+        const ValueLatticeElement &State = getValueState(Op);
+        if (State.isConstantRange())
+          OpRanges.push_back(State.getConstantRange());
+        else
+          OpRanges.push_back(
+              ConstantRange::getFull(Op->getType()->getScalarSizeInBits()));
+      }
+
+      ConstantRange Result =
+          ConstantRange::intrinsic(II->getIntrinsicID(), OpRanges);
+      return (void)mergeInValue(II, ValueLatticeElement::getRange(Result));
+    }
   }
 
   // The common case is that we aren't tracking the callee, either because we
@@ -1561,6 +1619,7 @@ void SCCPSolver::Solve() {
 /// This scan also checks for values that use undefs. It conservatively marks
 /// them as overdefined.
 bool SCCPSolver::ResolvedUndefsIn(Function &F) {
+  bool MadeChange = false;
   for (BasicBlock &BB : F) {
     if (!BBExecutable.count(&BB))
       continue;
@@ -1586,8 +1645,10 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
         // more precise than this but it isn't worth bothering.
         for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
           ValueLatticeElement &LV = getStructValueState(&I, i);
-          if (LV.isUnknownOrUndef())
+          if (LV.isUnknownOrUndef()) {
             markOverdefined(LV, &I);
+            MadeChange = true;
+          }
         }
         continue;
       }
@@ -1614,7 +1675,7 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       }
 
       markOverdefined(&I);
-      return true;
+      MadeChange = true;
     }
 
     // Check to see if we have a branch or switch on an undefined value.  If so
@@ -1631,7 +1692,8 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       if (isa<UndefValue>(BI->getCondition())) {
         BI->setCondition(ConstantInt::getFalse(BI->getContext()));
         markEdgeExecutable(&BB, TI->getSuccessor(1));
-        return true;
+        MadeChange = true;
+        continue;
       }
 
       // Otherwise, it is a branch on a symbolic value which is currently
@@ -1640,7 +1702,7 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       // FIXME: Distinguish between dead code and an LLVM "undef" value.
       BasicBlock *DefaultSuccessor = TI->getSuccessor(1);
       if (markEdgeExecutable(&BB, DefaultSuccessor))
-        return true;
+        MadeChange = true;
 
       continue;
     }
@@ -1659,7 +1721,8 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       if (isa<UndefValue>(IBR->getAddress())) {
         IBR->setAddress(BlockAddress::get(IBR->getSuccessor(0)));
         markEdgeExecutable(&BB, IBR->getSuccessor(0));
-        return true;
+        MadeChange = true;
+        continue;
       }
 
       // Otherwise, it is a branch on a symbolic value which is currently
@@ -1669,7 +1732,7 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       // we can assume the branch has undefined behavior instead.
       BasicBlock *DefaultSuccessor = IBR->getSuccessor(0);
       if (markEdgeExecutable(&BB, DefaultSuccessor))
-        return true;
+        MadeChange = true;
 
       continue;
     }
@@ -1684,7 +1747,8 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       if (isa<UndefValue>(SI->getCondition())) {
         SI->setCondition(SI->case_begin()->getCaseValue());
         markEdgeExecutable(&BB, SI->case_begin()->getCaseSuccessor());
-        return true;
+        MadeChange = true;
+        continue;
       }
 
       // Otherwise, it is a branch on a symbolic value which is currently
@@ -1693,13 +1757,13 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
       // FIXME: Distinguish between dead code and an LLVM "undef" value.
       BasicBlock *DefaultSuccessor = SI->case_begin()->getCaseSuccessor();
       if (markEdgeExecutable(&BB, DefaultSuccessor))
-        return true;
+        MadeChange = true;
 
       continue;
     }
   }
 
-  return false;
+  return MadeChange;
 }
 
 static bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
@@ -1727,13 +1791,6 @@ static bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
         isConstant(IV) ? Solver.getConstant(IV) : UndefValue::get(V->getType());
   }
   assert(Const && "Constant is nullptr here!");
-
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-240614: Check if the pointer cast needs to be removed from the
-  // Constant Const in order to apply the transformation
-  if (isStripPointerCastNeeded(Const, V))
-    Const = Const->stripPointerCasts();
-#endif // INTEL_CUSTOMIZATION
 
   // Replacing `musttail` instructions with constant breaks `musttail` invariant
   // unless the call itself can be removed
@@ -2080,13 +2137,12 @@ bool llvm::runIPSCCP(
   while (ResolvedUndefs) {
     LLVM_DEBUG(dbgs() << "RESOLVING UNDEFS\n");
     ResolvedUndefs = false;
-    for (Function &F : M)
-      if (Solver.ResolvedUndefsIn(F)) {
-        // We run Solve() after we resolved an undef in a function, because
-        // we might deduce a fact that eliminates an undef in another function.
-        Solver.Solve();
+    for (Function &F : M) {
+      if (Solver.ResolvedUndefsIn(F))
         ResolvedUndefs = true;
-      }
+    }
+    if (ResolvedUndefs)
+      Solver.Solve();
   }
 
   bool MadeChanges = false;
@@ -2113,18 +2169,18 @@ bool llvm::runIPSCCP(
       // inaccessiblemem_or_argmemonly attributes do not hold any longer. Remove
       // them from both the function and callsites.
       if (ReplacedPointerArg) {
-        SmallVector<Attribute::AttrKind, 2> AttributesToRemove = {
-            Attribute::ArgMemOnly, Attribute::InaccessibleMemOrArgMemOnly};
-        for (auto Attr : AttributesToRemove)
-          F.removeFnAttr(Attr);
+        AttrBuilder AttributesToRemove;
+        AttributesToRemove.addAttribute(Attribute::ArgMemOnly);
+        AttributesToRemove.addAttribute(Attribute::InaccessibleMemOrArgMemOnly);
+        F.removeAttributes(AttributeList::FunctionIndex, AttributesToRemove);
 
         for (User *U : F.users()) {
           auto *CB = dyn_cast<CallBase>(U);
           if (!CB || CB->getCalledFunction() != &F)
             continue;
 
-          for (auto Attr : AttributesToRemove)
-            CB->removeAttribute(AttributeList::FunctionIndex, Attr);
+          CB->removeAttributes(AttributeList::FunctionIndex,
+                               AttributesToRemove);
         }
       }
     }
@@ -2217,7 +2273,7 @@ bool llvm::runIPSCCP(
         // poison nor undef. Poison will be outside any range and currently
         // values outside of the specified range cause immediate undefined
         // behavior.
-        if (!isGuaranteedNotToBeUndefOrPoison(CB, CB))
+        if (!isGuaranteedNotToBeUndefOrPoison(CB, nullptr, CB))
           continue;
 
         // Do not touch existing metadata for now.
@@ -2249,9 +2305,27 @@ bool llvm::runIPSCCP(
   }
 
   // Zap all returns which we've identified as zap to change.
+  SmallSetVector<Function *, 8> FuncZappedReturn;
   for (unsigned i = 0, e = ReturnsToZap.size(); i != e; ++i) {
     Function *F = ReturnsToZap[i]->getParent()->getParent();
     ReturnsToZap[i]->setOperand(0, UndefValue::get(F->getReturnType()));
+    // Record all functions that are zapped.
+    FuncZappedReturn.insert(F);
+  }
+
+  // Remove the returned attribute for zapped functions and the
+  // corresponding call sites.
+  for (Function *F : FuncZappedReturn) {
+    for (Argument &A : F->args())
+      F->removeParamAttr(A.getArgNo(), Attribute::Returned);
+    for (Use &U : F->uses()) {
+      // Skip over blockaddr users.
+      if (isa<BlockAddress>(U.getUser()))
+        continue;
+      CallBase *CB = cast<CallBase>(U.getUser());
+      for (Use &Arg : CB->args())
+        CB->removeParamAttr(CB->getArgOperandNo(&Arg), Attribute::Returned);
+    }
   }
 
   // If we inferred constant or undef values for globals variables, we can

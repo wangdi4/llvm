@@ -245,7 +245,7 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
     // times. We add inserts before deletes here to reduce compile time.
     for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I)
       // This successor of BB may already have PredBB as a predecessor.
-      if (llvm::find(successors(PredBB), *I) == succ_end(PredBB))
+      if (!llvm::is_contained(successors(PredBB), *I))
         Updates.push_back({DominatorTree::Insert, PredBB, *I});
     for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I)
       Updates.push_back({DominatorTree::Delete, BB, *I});
@@ -292,11 +292,6 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
   }
   // Add unreachable to now empty BB.
   new UnreachableInst(BB->getContext(), BB);
-
-  // Eliminate duplicate/redundant dbg.values. This seems to be a good place to
-  // do that since we might end up with redundant dbg.values describing the
-  // entry PHI node post-splice.
-  RemoveRedundantDbgInstrs(PredBB);
 
   // Inherit predecessors name if it exists.
   if (!PredBB->hasName())
@@ -523,7 +518,7 @@ BasicBlock *llvm::SplitEdge(BasicBlock *BB, BasicBlock *Succ, DominatorTree *DT,
     // block.
     assert(SP == BB && "CFG broken");
     SP = nullptr;
-    return SplitBlock(Succ, &Succ->front(), DT, LI, MSSAU);
+    return SplitBlock(Succ, &Succ->front(), DT, LI, MSSAU, "", /*Before=*/true);
   }
 
   // Otherwise, if BB has a single successor, split it at the bottom of the
@@ -550,7 +545,10 @@ llvm::SplitAllCriticalEdges(Function &F,
 
 BasicBlock *llvm::SplitBlock(BasicBlock *Old, Instruction *SplitPt,
                              DominatorTree *DT, LoopInfo *LI,
-                             MemorySSAUpdater *MSSAU, const Twine &BBName) {
+                             MemorySSAUpdater *MSSAU, const Twine &BBName,
+                             bool Before) {
+  if (Before)
+    return splitBlockBefore(Old, SplitPt, DT, LI, MSSAU, BBName);
   BasicBlock::iterator SplitIt = SplitPt->getIterator();
   while (isa<PHINode>(SplitIt) || SplitIt->isEHPad())
     ++SplitIt;
@@ -579,6 +577,51 @@ BasicBlock *llvm::SplitBlock(BasicBlock *Old, Instruction *SplitPt,
   if (MSSAU)
     MSSAU->moveAllAfterSpliceBlocks(Old, New, &*(New->begin()));
 
+  return New;
+}
+
+BasicBlock *llvm::splitBlockBefore(BasicBlock *Old, Instruction *SplitPt,
+                                   DominatorTree *DT, LoopInfo *LI,
+                                   MemorySSAUpdater *MSSAU,
+                                   const Twine &BBName) {
+
+  BasicBlock::iterator SplitIt = SplitPt->getIterator();
+  while (isa<PHINode>(SplitIt) || SplitIt->isEHPad())
+    ++SplitIt;
+  std::string Name = BBName.str();
+  BasicBlock *New = Old->splitBasicBlock(
+      SplitIt, Name.empty() ? Old->getName() + ".split" : Name,
+      /* Before=*/true);
+
+  // The new block lives in whichever loop the old one did. This preserves
+  // LCSSA as well, because we force the split point to be after any PHI nodes.
+  if (LI)
+    if (Loop *L = LI->getLoopFor(Old))
+      L->addBasicBlockToLoop(New, *LI);
+
+  if (DT) {
+    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+    SmallVector<DominatorTree::UpdateType, 8> DTUpdates;
+    // New dominates Old. The predecessor nodes of the Old node dominate
+    // New node.
+    DTUpdates.push_back({DominatorTree::Insert, New, Old});
+    for (BasicBlock *Pred : predecessors(New))
+      if (DT->getNode(Pred)) {
+        DTUpdates.push_back({DominatorTree::Insert, Pred, New});
+        DTUpdates.push_back({DominatorTree::Delete, Pred, Old});
+      }
+
+    DTU.applyUpdates(DTUpdates);
+    DTU.flush();
+
+    // Move MemoryAccesses still tracked in Old, but part of New now.
+    // Update accesses in successor blocks accordingly.
+    if (MSSAU) {
+      MSSAU->applyUpdates(DTUpdates, *DT);
+      if (VerifyMemorySSA)
+        MSSAU->getMemorySSA()->verifyMemorySSA();
+    }
+  }
   return New;
 }
 
@@ -675,7 +718,7 @@ static void UpdateAnalysisInformation(BasicBlock *OldBB, BasicBlock *NewBB,
 /// Update the PHI nodes in OrigBB to include the values coming from NewBB.
 /// This also updates AliasAnalysis, if available.
 static void UpdatePHINodes(BasicBlock *OrigBB, BasicBlock *NewBB,
-                           ArrayRef<BasicBlock *> Preds, BranchInst *BI,
+                           ArrayRef<BasicBlock *> Preds, Instruction *InsertBefore,
                            bool HasLoopExit) {
   // Otherwise, create a new PHI node in NewBB for each PHI node in OrigBB.
   SmallPtrSet<BasicBlock *, 16> PredSet(Preds.begin(), Preds.end());
@@ -722,7 +765,7 @@ static void UpdatePHINodes(BasicBlock *OrigBB, BasicBlock *NewBB,
     // PHI.
     // Create the new PHI node, insert it into NewBB at the end of the block
     PHINode *NewPHI =
-        PHINode::Create(PN->getType(), Preds.size(), PN->getName() + ".ph", BI);
+        PHINode::Create(PN->getType(), Preds.size(), PN->getName() + ".ph", InsertBefore);
 
     // NOTE! This loop walks backwards for a reason! First off, this minimizes
     // the cost of removal if we end up removing a large number of values, and
@@ -759,6 +802,15 @@ BasicBlock *llvm::SplitBlockPredecessors(BasicBlock *BB,
                                 LI, MSSAU, PreserveLCSSA);
     return NewBBs[0];
   }
+#ifdef INTEL_CUSTOMIZATION
+  // For EHPads we can currently handle splittig of only CleanupPadInstr.
+  if (BB->isEHPad()) {
+    BasicBlock *NewBB;
+    SplitEHPadPredecessors(BB, Preds, Suffix, NewBB, DT, LI, MSSAU,
+                           PreserveLCSSA);
+    return NewBB;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Create new basic block, insert right before the original block.
   BasicBlock *NewBB = BasicBlock::Create(
@@ -931,6 +983,118 @@ void llvm::SplitLandingPadPredecessors(BasicBlock *OrigBB,
     LPad->eraseFromParent();
   }
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void llvm::SplitEHPadPredecessors(BasicBlock *OrigBB,
+                                  ArrayRef<BasicBlock *> Preds,
+                                  const char *Suffix, BasicBlock *&NewBB,
+                                  DominatorTree *DT, LoopInfo *LI,
+                                  MemorySSAUpdater *MSSAU, bool PreserveLCSSA) {
+  assert(OrigBB->isEHPad() && "Trying to split a non-EH pad!");
+
+  Instruction *FirstNonPHI = OrigBB->getFirstNonPHI();
+  assert(isa<CleanupPadInst>(FirstNonPHI) &&
+         "Cannot split other EHPads besides a CleanupPadInst.");
+
+  // Check all Pred of OrigBB, if any have catchswitch with this CleanupPadInst
+  // as an unwind label, we will refrain from breaking this edge.
+  // If we break this critical edge, we might change the unwind edges of some
+  // catchpads in the parent catchswitch, but not all. This will might break the
+  // rule that the unwind edges out of a catch must have the same unwind dest as
+  // the parent catchswitch.
+
+  for (pred_iterator i = pred_begin(OrigBB), e = pred_end(OrigBB); i != e;
+       i++) {
+    BasicBlock *Pred = *i;
+    Instruction *Term = Pred->getTerminator();
+    if (isa<CatchSwitchInst>(Term) &&
+        (dyn_cast<CatchSwitchInst>(Term))->getUnwindDest() == OrigBB) {
+      NewBB =  nullptr;
+      return;
+    }
+  }
+
+  // Algorithm:
+  // Split the critical edges by inserting a new basic block with instructions:
+  // cleanuppad and cleanupret with unwind to OrigBB.
+  //
+  // Eg:
+  // Before SplitEHPadPredecessors:
+  // ------------------
+  // loopbasicblock:                           ; preds = %someloopBB
+  // ....
+  // invoke void @bar() to label %someloopBB unwind label ehcleanup
+  //
+  // outsideloopblock:                         ; preds = %someCFGBB
+  // invoke void @foo() to label %someotherlabel unwind label ehcleanup
+  //
+  // ehcleanup                                 ; preds = %loopbasicblock,
+  //                                                     %outsideloopblock
+  // %num2 = phi ...
+  // %num = cleanuppad within none[]
+  // ....
+  // cleanupret from %num unwind to caller
+  // ------------------
+  //
+  // After SplitEHPadPredecessors:
+  // ------------------
+  // loopbasicblock:                           ; preds = %loopBB
+  // ....
+  // invoke void @bar() to label %someloopBB unwind label ehcleanup.loopexit
+  //
+  // outsideloopblock:                         ; preds = %someCFGBB
+  // invoke void @foo() to label %someotherlabel unwind label ehcleanup
+  //
+  // ehcleanup.loopexit:                       ; preds = %loopbasicblock
+  // %cpad.loopexit = cleanuppad within none []
+  // cleanupret from %cpad.loopexit unwind label %ehcleanup
+  //
+  // ehcleanup                                 ; preds = %ehcleanup.loopexit,
+  //                                                     %outsideloopblock
+  // %num2 = phi ... (updated and as needed)
+  // %num = cleanup within none[]
+  // ....
+  // cleanupret from %num unwind to caller
+  // ------------------
+
+  // Create a new basic block for OrigBB's predecessors listed in Preds.
+  // Insert it right before the original block.
+  NewBB = BasicBlock::Create(OrigBB->getContext(), OrigBB->getName() + Suffix,
+                             OrigBB->getParent(), OrigBB);
+
+  // Create and insert the cleanuppad instruction.
+  CleanupPadInst *OrigCPad = dyn_cast<CleanupPadInst>(FirstNonPHI);
+  Instruction *Clone = OrigCPad->clone();
+  Clone->setName(Twine("cpad") + Suffix);
+  NewBB->getInstList().insert(NewBB->getFirstInsertionPt(), Clone);
+
+  // Create and insert the cleanupret instruction.
+  CleanupReturnInst *CPadRet = CleanupReturnInst::Create(Clone, OrigBB, NewBB);
+  (void)(CPadRet);
+
+  Clone->setDebugLoc(FirstNonPHI->getDebugLoc());
+  CPadRet->setDebugLoc(FirstNonPHI->getDebugLoc());
+
+  // Move the edges from Preds to point to NewBB instead of OrigBB by changing
+  // the invoke instruction.
+  for (unsigned i = 0, e = Preds.size(); i != e; ++i) {
+    // This is slightly more strict than necessary; the minimum requirement
+    // is that there be no more than one indirectbr branching to BB. And
+    // all BlockAddress uses would need to be updated.
+    assert(!isa<IndirectBrInst>(Preds[i]->getTerminator()) &&
+           "Cannot split an edge from an IndirectBrInst");
+
+    Preds[i]->getTerminator()->replaceUsesOfWith(OrigBB, NewBB);
+  }
+
+  bool HasLoopExit = false;
+  UpdateAnalysisInformation(OrigBB, NewBB, Preds, DT, LI, MSSAU, PreserveLCSSA,
+                            HasLoopExit);
+
+  // Update the PHI nodes in OrigBB with the values coming from NewBB.
+  UpdatePHINodes(OrigBB, NewBB, Preds, Clone, HasLoopExit);
+}
+#endif // INTEL_CUSTOMIZATION
 
 ReturnInst *llvm::FoldReturnIntoUncondBranch(ReturnInst *RI, BasicBlock *BB,
                                              BasicBlock *Pred,

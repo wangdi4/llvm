@@ -65,16 +65,6 @@ pi_result redefinedEventRelease(pi_event event) {
 // Check that the USM events are cleared from the queue upon call to wait(),
 // so that they are not waited for multiple times.
 TEST(QueueWaitTest, USMEventClear) {
-#ifdef INTEL_CUSTOMIZATION
-  // Handle the case where no devices are available until the tests can be run
-  // with the spec-conformant behaviour of host device with default_selector.
-  try {
-    device dev{default_selector{}};
-  } catch (const runtime_error &) {
-    std::cerr << "Not run: no device available." << std::endl;
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
   platform Plt{default_selector()};
   if (Plt.is_host()) {
     std::cout << "Not run on host - no PI events created in that case"

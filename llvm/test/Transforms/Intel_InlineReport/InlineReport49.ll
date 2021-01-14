@@ -7,15 +7,15 @@
 ;   (3) the call to goo() is not inlined, because it is NOT a linkonce ODR
 ;       function and it has a profile count of 0.
 
+; CHECK: define{{.*}}@main
+; CHECK-NOT: call{{.*}}@foo
+; CHECK: call{{.*}}@goo
 ; CHECK: DEAD STATIC FUNC: foo
 ; CHECK: COMPILE FUNC: goo
 ; CHECK: COMPILE FUNC: main
 ; CHECK: INLINE: foo{{.*}}<<Callee is single basic block>>
 ; CHECK: INLINE: foo{{.*}}<<Callsite has hot profile>>
 ; CHECK: goo{{.*}}Callsite has cold profile
-; CHECK: define{{.*}}@main
-; CHECK-NOT: call{{.*}}@foo
-; CHECK: call{{.*}}@goo
 
 @myglobal = dso_local local_unnamed_addr global i32 0, align 4
 

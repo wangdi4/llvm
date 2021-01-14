@@ -59,10 +59,11 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                           "icelake-client")
               .CasesLower("icelake-server", "icelake_server", "icelake-server")
               .CaseLower("cascadelake", "cascadelake")
+              .CaseLower("cooperlake", "cooperlake")
               .CaseLower("tigerlake", "tigerlake")
               .CasesLower("sapphirerapids", "sapphire-rapids",
                           "sapphire_rapids", "sapphirerapids")
-              .CaseLower("host", llvm::sys::getHostCPUName().data())
+              .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }
   // We check for valid /arch and /Qx values, so overlap values are covered
@@ -76,7 +77,7 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
     // No match found.  Instead of erroring out with a bad language type, we
     // will pass the arg to the compiler to validate.
     if (!IsArchOpt && !types::lookupTypeForTypeSpecifier(Arch.data()))
-      CPU = Arch.data();
+      CPU = Arch;
   }
   return std::string(CPU);
 }
@@ -210,8 +211,16 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
                                const ArgList &Args,
                                std::vector<StringRef> &Features) {
   // If -march=native, autodetect the feature list.
-  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ)) {
-    if (StringRef(A->getValue()) == "native") {
+#if INTEL_CUSTOMIZATION
+  // if -xHost/QxHost, autodetect the feature list.
+  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ,
+                                     options::OPT_x, options::OPT__SLASH_Qx)) {
+    if ((A->getOption().matches(options::OPT_march_EQ) &&
+         (StringRef(A->getValue()) == "native")) ||
+        ((A->getOption().matches(options::OPT_x) ||
+          A->getOption().matches(options::OPT__SLASH_Qx)) &&
+         ((StringRef(A->getValue())).lower() == "host"))) {
+#endif // INTEL_CUSTOMIZATION
       llvm::StringMap<bool> HostFeatures;
       if (llvm::sys::getHostCPUFeatures(HostFeatures))
         for (auto &F : HostFeatures)

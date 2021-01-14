@@ -1,3 +1,4 @@
+#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanTestBase.h"
@@ -11,7 +12,8 @@ namespace {
 class CloneVPlan : public vpo::VPlanTestBase {};
 
 DenseMap<const VPBasicBlock *, const VPBasicBlock *>
-CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan) {
+CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan,
+                                         VPlan::UpdateDA UDA) {
   SmallVector<std::pair<const VPBasicBlock *, const VPBasicBlock *>, 5>
       Worklist;
   const VPBasicBlock *ClonedEntryVPBB = ClonedVPlan->getEntryBlock();
@@ -49,9 +51,23 @@ CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan) {
       EXPECT_TRUE(ItC != ClonedVPBB->end());
       EXPECT_EQ((&*ItO)->getOpcode(), (&*ItC)->getOpcode());
       // Check DA
-      EXPECT_FALSE(OrigVPlan->getVPlanDA()->shapesAreDifferent(
-          OrigVPlan->getVPlanDA()->getVectorShape(&*ItO),
-          ClonedVPlan->getVPlanDA()->getVectorShape(&*ItC)));
+      if (UDA == VPlan::UpdateDA::CloneDA ||
+          UDA == VPlan::UpdateDA::RecalculateDA) {
+        EXPECT_FALSE(OrigVPlan->getVPlanDA()->shapesAreDifferent(
+            OrigVPlan->getVPlanDA()->getVectorShape(&*ItO),
+            ClonedVPlan->getVPlanDA()->getVectorShape(&*ItC)));
+      }
+    }
+
+    auto OrigLiveOutRange = OrigVPlan->liveOutValues();
+    auto ClonedLiveOutRange = ClonedVPlan->liveOutValues();
+    EXPECT_EQ(OrigVPlan->getLiveOutValuesSize(),
+              ClonedVPlan->getLiveOutValuesSize());
+    for (auto ItO = OrigLiveOutRange.begin(), ItO_End = OrigLiveOutRange.end(),
+              ItC = ClonedLiveOutRange.begin();
+         ItO != ItO_End; ++ItO, ++ItC) {
+      EXPECT_EQ(cast<VPInstruction>((*ItO)->getOperand(0))->getOpcode(),
+                cast<VPInstruction>((*ItC)->getOperand(0))->getOpcode());
     }
   }
   return ClonedOrigVPBBsMap;
@@ -93,18 +109,14 @@ TEST_F(CloneVPlan, TestCloneVPlan) {
                          true);
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
-  auto *OrigVPLI = OrigVPlan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *OrigVPLI->begin();
-  OrigVPlan->computeDT();
-  OrigVPlan->computePDT();
-  OrigVPlan->getVPlanDA()->compute(OrigVPlan.get(), CandidateLoop, OrigVPLI,
-                                   *OrigVPlan->getDT(), *OrigVPlan->getPDT(),
-                                   true /*In LCSSA form*/);
-  std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF, true);
+  OrigVPlan->computeDA();
+  std::unique_ptr<VPlan> ClonedVPlan =
+      OrigVPlan->clone(VPAF, VPlan::UpdateDA::RecalculateDA);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Compare ClonedVPlan and OrigVPlan graphs.
-  CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(), OrigVPlan.get());
+  CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(), OrigVPlan.get(),
+                                           VPlan::UpdateDA::RecalculateDA);
 }
 
 TEST_F(CloneVPlan, TestCloneLoop) {
@@ -143,14 +155,9 @@ TEST_F(CloneVPlan, TestCloneLoop) {
                          true);
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
-  auto *OrigVPLI = OrigVPlan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *OrigVPLI->begin();
-  OrigVPlan->computeDT();
-  OrigVPlan->computePDT();
-  OrigVPlan->getVPlanDA()->compute(OrigVPlan.get(), CandidateLoop, OrigVPLI,
-                                   *OrigVPlan->getDT(), *OrigVPlan->getPDT(),
-                                   true /*In LCSSA form*/);
-  std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF, true);
+  OrigVPlan->computeDA();
+  std::unique_ptr<VPlan> ClonedVPlan =
+      OrigVPlan->clone(VPAF, VPlan::UpdateDA::RecalculateDA);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Create a map between the loops of the original and cloned plans.
@@ -192,9 +199,10 @@ TEST_F(CloneVPlan, TestCloneLoop) {
 
   // Create the map between ClonedVPBBs and OrigVPBBs.
   DenseMap<const VPBasicBlock *, const VPBasicBlock *> ClonedOrigVPBBsMap =
-      CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(),
-                                               OrigVPlan.get());
+      CompareGraphsAndCreateClonedOrigVPBBsMap(
+          ClonedVPlan.get(), OrigVPlan.get(), VPlan::UpdateDA::RecalculateDA);
 
+  VPLoopInfo *OrigVPLI = OrigVPlan->getVPLoopInfo();
   VPLoopInfo *ClonedVPLI = ClonedVPlan->getVPLoopInfo();
   // Check if the loops have the same basic blocks.
   for (const auto &Pair : ClonedOrigVPBBsMap) {
@@ -256,17 +264,52 @@ TEST_F(CloneVPlan, TestCloneDA) {
                          true);
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
-  auto *OrigVPLI = OrigVPlan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *OrigVPLI->begin();
-  OrigVPlan->computeDT();
-  OrigVPlan->computePDT();
-  OrigVPlan->getVPlanDA()->compute(OrigVPlan.get(), CandidateLoop, OrigVPLI,
-                                   *OrigVPlan->getDT(), *OrigVPlan->getPDT(),
-                                   true /*In LCSSA form*/);
-  std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF, false);
+  OrigVPlan->computeDA();
+  std::unique_ptr<VPlan> ClonedVPlan =
+      OrigVPlan->clone(VPAF, VPlan::UpdateDA::CloneDA);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Create the map between ClonedVPBBs and OrigVPBBs.
-  CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(), OrigVPlan.get());
+  CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(), OrigVPlan.get(),
+                                           VPlan::UpdateDA::CloneDA);
+}
+
+TEST_F(CloneVPlan, TestCloneVPLiveOut) {
+  const char *ModuleString =
+      "define void @f() {\n"
+      "entry:\n"
+      "  br label %forbody\n"
+      "forbody:\n"
+      "  %iv = phi i32 [ 0, %entry ], [ %iv.next, %forbody ]\n"
+      "  %iv.next = add nsw i32 %iv, 1\n"
+      "  %bottom_test = icmp eq i32 %iv.next, 128\n"
+      "  br i1 %bottom_test, label %loopexit, label %forbody\n"
+      "loopexit:\n"
+      "  %lcssa.phi = phi i32 [ %iv.next, %forbody ]\n"
+      "  %x = add nsw i32 %lcssa.phi, 1\n"
+      "  br label %end\n"
+      "end:\n"
+      "  ret void\n"
+      "}\n";
+
+  Module &M = parseModule(ModuleString);
+  Function *F = M.getFunction("f");
+  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
+  std::unique_ptr<VPlan> OrigVPlan = buildHCFG(LoopHeader);
+  ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
+  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), AC.get(), DL.get(),
+                         true);
+  // Compute DA.
+  auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+  OrigVPlan->setVPlanDA(std::move(VPDA));
+  OrigVPlan->computeDA();
+
+  std::unique_ptr<VPlan> ClonedVPlan =
+      OrigVPlan->clone(VPAF, VPlan::UpdateDA::CloneDA);
+  EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
+
+  // Compare ClonedVPlan and OrigVPlan graphs.
+  CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(), OrigVPlan.get(),
+                                           VPlan::UpdateDA::CloneDA);
 }
 } // namespace

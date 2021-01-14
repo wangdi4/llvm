@@ -1,3 +1,6 @@
+; CMPLRLLVM-24857
+; XFAIL: *
+
 ; RUN: opt -enable-intel-advanced-opts -S -aa-pipeline="default" -passes 'unaligned-nontemporal,verify' < %s | FileCheck %s
 ; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify < %s | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"

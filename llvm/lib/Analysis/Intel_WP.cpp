@@ -862,16 +862,19 @@ void WholeProgramInfo::computeIsAdvancedOptEnabled() {
   LLVM_DEBUG({
     if (WholeProgramAdvanceOptTrace) {
       auto &Enabled = IsAdvancedOptEnabled;
-      if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42])
-        dbgs() << "Target has SSE42\n";
-      if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX])
-        dbgs() << "Target has AVX\n";
+      if (Enabled
+              [TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42])
+        dbgs() << "Target has Intel SSE42\n";
+      if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX])
+        dbgs() << "Target has Intel AVX\n";
       if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2])
         dbgs() << "Target has Intel AVX2\n";
-      if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2])
-        dbgs() << "Target has AVX2\n";
-      if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512])
-        dbgs() << "Target has AVX512\n";
+      if (Enabled
+              [TargetTransformInfo::AdvancedOptLevel::AO_TargetHasGenericAVX2])
+        dbgs() << "Target has generic AVX2\n";
+      if (Enabled
+              [TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512])
+        dbgs() << "Target has Intel AVX512\n";
     }
   });
 }

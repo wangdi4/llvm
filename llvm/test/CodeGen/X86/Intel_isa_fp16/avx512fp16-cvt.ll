@@ -620,7 +620,7 @@ define half @s128_to_half(i128 %x) {
 ; X64:       # %bb.0:
 ; X64-NEXT:    pushq %rax
 ; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    callq __floattihf
+; X64-NEXT:    callq __floattihf@PLT
 ; X64-NEXT:    popq %rax
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
@@ -705,7 +705,7 @@ define half @u128_to_half(i128 %x) {
 ; X64:       # %bb.0:
 ; X64-NEXT:    pushq %rax
 ; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    callq __floattihf
+; X64-NEXT:    callq __floatuntihf@PLT
 ; X64-NEXT:    popq %rax
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
@@ -716,7 +716,7 @@ define half @u128_to_half(i128 %x) {
 ; X86-NEXT:    .cfi_def_cfa_offset 20
 ; X86-NEXT:    vmovups {{[0-9]+}}(%esp), %xmm0
 ; X86-NEXT:    vmovups %xmm0, (%esp)
-; X86-NEXT:    calll __floattihf
+; X86-NEXT:    calll __floatuntihf
 ; X86-NEXT:    addl $16, %esp
 ; X86-NEXT:    .cfi_def_cfa_offset 4
 ; X86-NEXT:    retl
@@ -792,7 +792,7 @@ define i128 @half_to_s128(half %x) {
 ; X64:       # %bb.0:
 ; X64-NEXT:    pushq %rax
 ; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    callq __fixhfti
+; X64-NEXT:    callq __fixhfti@PLT
 ; X64-NEXT:    popq %rcx
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
@@ -895,7 +895,7 @@ define i128 @half_to_u128(half %x) {
 ; X64:       # %bb.0:
 ; X64-NEXT:    pushq %rax
 ; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    callq __fixunshfti
+; X64-NEXT:    callq __fixunshfti@PLT
 ; X64-NEXT:    popq %rcx
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
@@ -934,7 +934,7 @@ define x86_fp80 @half_to_f80(half %x) nounwind {
 ; X64-LABEL: half_to_f80:
 ; X64:       # %bb.0:
 ; X64-NEXT:    pushq %rax
-; X64-NEXT:    callq __extendhfxf2
+; X64-NEXT:    callq __extendhfxf2@PLT
 ; X64-NEXT:    popq %rax
 ; X64-NEXT:    retq
 ;
@@ -956,7 +956,7 @@ define half @f80_to_half(x86_fp80 %x) nounwind {
 ; X64-NEXT:    subq $24, %rsp
 ; X64-NEXT:    fldt {{[0-9]+}}(%rsp)
 ; X64-NEXT:    fstpt (%rsp)
-; X64-NEXT:    callq __truncxfhf2
+; X64-NEXT:    callq __truncxfhf2@PLT
 ; X64-NEXT:    addq $24, %rsp
 ; X64-NEXT:    retq
 ;
@@ -981,10 +981,7 @@ define half @f80_to_half(x86_fp80 %x) nounwind {
 define fp128 @half_to_f128(half %x) nounwind {
 ; X64-LABEL: half_to_f128:
 ; X64:       # %bb.0:
-; X64-NEXT:    pushq %rax
-; X64-NEXT:    callq __extendhftf2
-; X64-NEXT:    popq %rax
-; X64-NEXT:    retq
+; X64-NEXT:    jmp __extendhftf2@PLT # TAILCALL
 ;
 ; X86-LABEL: half_to_f128:
 ; X86:       # %bb.0:
@@ -1016,7 +1013,7 @@ define half @f128_to_half(fp128 %x) nounwind {
 ; X64-LABEL: f128_to_half:
 ; X64:       # %bb.0:
 ; X64-NEXT:    pushq %rax
-; X64-NEXT:    callq __trunctfhf2
+; X64-NEXT:    callq __trunctfhf2@PLT
 ; X64-NEXT:    popq %rax
 ; X64-NEXT:    retq
 ;

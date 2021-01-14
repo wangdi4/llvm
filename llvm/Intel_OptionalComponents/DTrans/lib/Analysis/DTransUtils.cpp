@@ -27,6 +27,7 @@
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
+using namespace llvm::PatternMatch;
 using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
@@ -543,6 +544,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Unsafe pointer store (related types)";
   if (SafetyInfo & dtrans::MemFuncNestedStructsPartialWrite)
     return "Memfunc partial write (nested structure)";
+  if (SafetyInfo & dtrans::ComplexAllocSize)
+    return "Complex alloc size";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -576,7 +579,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadPtrManipulationForRelatedTypes |
       dtrans::MismatchedElementAccessRelatedTypes |
       dtrans::UnsafePointerStoreRelatedTypes |
-      dtrans::MemFuncNestedStructsPartialWrite | dtrans::UnhandledUse;
+      dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
+      dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -602,7 +606,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::BadPtrManipulationForRelatedTypes ^
            dtrans::MismatchedElementAccessRelatedTypes ^
            dtrans::UnsafePointerStoreRelatedTypes ^
-           dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::UnhandledUse),
+           dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
+           dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
   // Go through the issues in the order of LSB to MSB, and print the names of
@@ -717,6 +722,9 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
 
   if (isMismatchedElementAccess())
     OS << " MismatchedElementAccess";
+
+  if (hasNonGEPAccess())
+    OS << " NonGEPAccess";
 
   if (isPaddedField())
     OS << (isCleanPaddedField() ? "" : " Dirty") << " PaddedField";
@@ -1705,7 +1713,7 @@ llvm::Type *dtrans::collectRelatedType(llvm::Type *InTy, Module &M) {
   //   %class.A.base.2 = type <{ i32 (...)**, i32, i8 }>
   //
   // This issue happens when templates are involved in the source code.
-  RelatedType = M.getTypeByName(StrRelatedName);
+  RelatedType = StructType::getTypeByName(M.getContext(), StrRelatedName);
   if (!RelatedType)
     return nullptr;
 
@@ -1789,7 +1797,8 @@ void dtrans::collectAllStructTypes(Module &M,
         if (TyName.size() == BaseName.size())
           return;
         // Add the base type now. This might be the only way it is found.
-        StructType *BaseTy = M.getTypeByName(BaseName);
+        StructType *BaseTy =
+            StructType::getTypeByName(M.getContext(), BaseName);
         if (!BaseTy || !SeenTypes.insert(BaseTy))
           return;
         findMissedNestedTypes(BaseTy);
@@ -1877,4 +1886,229 @@ bool dtrans::isTypeTestRelatedIntrinsic(const Instruction *I) {
     return false;
   Intrinsic::ID IID = II->getIntrinsicID();
   return (IID == Intrinsic::assume || IID == Intrinsic::type_test);
+}
+
+// Trace back instruction sequence corresponding to the following code:
+//     foo (..., int n, ...) {
+//         struct s *s_ptr = malloc(c1 + c2 * n);
+//     }
+// Returns false if it cannot trace \p InVal back to constants and calculate
+// the size.
+bool dtrans::traceNonConstantValue(Value *InVal, uint64_t ElementSize,
+                                   bool EndsInZeroSizedArray) {
+  // Trace call sites to collect all constant actual parameters corresponding to
+  // \p FormalArgNo.
+  std::function<bool(Function *, Value *, unsigned,
+                     SmallVectorImpl<ConstantInt *> &)>
+      FindAllArgValues =
+          [&FindAllArgValues](
+              Function *F, Value *V, unsigned FormalArgNo,
+              SmallVectorImpl<ConstantInt *> &ActualArgs) -> bool {
+    for (Use &U : V->uses()) {
+      Value *Inst = U.getUser();
+      // In case of function cast operator do one more step.
+      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Inst)) {
+        if (!FindAllArgValues(F, BC, FormalArgNo, ActualArgs))
+          return false;
+        continue;
+      }
+
+      // Must be a direct call.
+      auto *Call = dyn_cast<CallBase>(Inst);
+      if (!Call || Call->isIndirectCall())
+        return false;
+
+      // A called function should be F.
+      if (!Call->isCallee(&U))
+        if (dtrans::getCalledFunction(*Call) != F)
+          return false;
+
+      ConstantInt *ArgC =
+          dyn_cast_or_null<ConstantInt>(Call->getArgOperand(FormalArgNo));
+      if (!ArgC)
+        return false;
+
+      ActualArgs.push_back(ArgC);
+    }
+
+    return true;
+  };
+
+  if (!InVal)
+    return false;
+
+  Value *AddOp, *ShlOp;
+  ConstantInt *AddC, *ShlC = nullptr, *MulC = nullptr;
+
+  // Match alloc size with the add with the constant operand.
+  if (!match(InVal, m_OneUse(m_Add(m_ConstantInt(AddC), m_Value(AddOp)))) &&
+      !match(InVal, m_OneUse(m_Add(m_Value(AddOp), m_ConstantInt(AddC)))))
+    return false;
+
+  // Second add operand with the shl or mul with the constant operand.
+  if (!match(AddOp, m_Shl(m_Value(ShlOp), m_ConstantInt(ShlC))) &&
+      !match(AddOp, m_Mul(m_Value(ShlOp), m_ConstantInt(MulC))) &&
+      !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(ShlOp))))
+    return false;
+
+  // Second operand of the shl or mul expected to be function argument.
+  Argument *FormalArg = dyn_cast<Argument>(ShlOp);
+  if (!FormalArg)
+    return false;
+
+  // Now we need to look into each call site and find all constant values
+  // for the corresponding argument. If not all actual arguments are constant,
+  // return false.
+  Function *Callee = FormalArg->getParent();
+  unsigned FormalArgNo = FormalArg->getArgNo();
+
+  SmallVector<ConstantInt *, 8> ActualArgs;
+  if (!FindAllArgValues(Callee, Callee, FormalArgNo, ActualArgs))
+    return false;
+
+  // Now iterate through all constants to verify that the allocation size was
+  // correct.
+  bool Verified = true;
+  for (auto *Const : ActualArgs) {
+    uint64_t ArgConst = Const->getLimitedValue();
+    uint64_t Res = ShlC ? (ArgConst << ShlC->getLimitedValue())
+                        : (ArgConst * MulC->getLimitedValue());
+    Res += AddC->getLimitedValue();
+
+    // If the structure has zero-sized array in the last field. It means
+    // that allocation size is allowed to be greater or equal to the structure
+    // size.
+    if (!EndsInZeroSizedArray)
+      Verified &= ((Res % ElementSize) == 0);
+    else
+      Verified &= (Res > ElementSize);
+  }
+
+  return Verified;
+}
+
+// Helper to analyze a pointer-to-member usage to determine if only a
+// specific subset of the structure fields of \p StructTy, starting from \p
+// FieldNum and extending by \p AccessSize bytes of the structure are
+// touched.
+//
+// Return 'true' if it can be resolved to precisely match one or more
+// adjacent fields starting with the field number identified in the 'LPI'.
+// If so, also updated the RegionDesc to set the starting index into
+// 'FirstField' and the ending index of affected fields into 'LastField'.
+// Otherwise, return 'false'.
+static bool analyzeStructFieldAccess(const DataLayout &DL, StructType *StructTy,
+                                     size_t FieldNum, uint64_t PrePadBytes,
+                                     uint64_t AccessSize,
+                                     dtrans::MemfuncRegion *RegionDesc) {
+  uint64_t TypeSize = DL.getTypeAllocSize(StructTy);
+
+  // If the size is larger than the base structure size, then the write
+  // exceeds the bounds of a single structure, and it's an unsupported
+  // use.
+  if (AccessSize > TypeSize)
+    return false;
+
+  // Try to identify the range of fields being accessed based on the
+  // layout of the structure.
+  auto FieldTypes = StructTy->elements();
+  auto *SL = DL.getStructLayout(StructTy);
+  uint64_t FieldOffset = SL->getElementOffset(FieldNum);
+  uint64_t AccessStart = FieldOffset - PrePadBytes;
+  uint64_t AccessEnd = AccessStart + AccessSize - 1;
+
+  // Check that the access stays within the memory region of the structure,
+  // and is not just padding bytes between the fields.
+  if (AccessEnd > TypeSize || AccessEnd < FieldOffset)
+    return false;
+
+  unsigned int LF = SL->getElementContainingOffset(AccessEnd);
+
+  // Check if the last field was completely covered. If not, we do not
+  // support it. It could be safe, but could complicate transforms that need
+  // to work with nested structures.
+  uint64_t LastFieldStart = SL->getElementOffset(LF);
+  uint64_t LastFieldSize = DL.getTypeStoreSize(FieldTypes[LF]);
+  if (AccessEnd < (LastFieldStart + LastFieldSize - 1))
+    return false;
+
+  uint64_t PostPadBytes = AccessEnd - (LastFieldStart + LastFieldSize - 1);
+  RegionDesc->PrePadBytes = PrePadBytes;
+  RegionDesc->FirstField = FieldNum;
+  RegionDesc->LastField = LF;
+  RegionDesc->PostPadBytes = PostPadBytes;
+  if (!(FieldNum == 0 && LF == (StructTy->getNumElements() - 1)))
+    RegionDesc->IsCompleteAggregate = false;
+  else
+    RegionDesc->IsCompleteAggregate = true;
+  return true;
+}
+
+bool dtrans::analyzePartialStructUse(const DataLayout &DL, StructType *StructTy,
+                                     size_t FieldNum, uint64_t PrePadBytes,
+                                     const Value *AccessSizeVal,
+                                     dtrans::MemfuncRegion *RegionDesc) {
+  if (!StructTy)
+    return false;
+
+  if (!AccessSizeVal)
+    return false;
+
+  auto *AccessSizeCI = dyn_cast<ConstantInt>(AccessSizeVal);
+  if (!AccessSizeCI)
+    return false;
+
+  uint64_t AccessSize = AccessSizeCI->getLimitedValue();
+  assert(FieldNum < StructTy->getNumElements());
+
+  return analyzeStructFieldAccess(DL, StructTy, FieldNum, PrePadBytes,
+                                  AccessSize, RegionDesc);
+}
+
+// Return true if the input size (SetSize) partially accesses the inner
+// structures in StructTy. For example:
+//
+//   %class.outer = type { %"class.inner1" }
+//   %class.inner1 = type { %"class.inner2", %"class.inner2" }
+//   %class.inner2 = type { %class.TestClass, i64, i64 }
+//   %class.TestClass = type { i64, i64, i64 }
+//
+//   %tmp1 = bitcast %class.outer* %VAR1 to i8*
+//   %tmp2 = bitcast %class.outer* %VAR2 to i8*
+//
+//   call void @llvm.memcpy(i8* nonnull align 8 dereferenceable(32) %tmp1,
+//                          i8* nonnull align 8 dereferenceable(32) %tmp2,
+//                          i64 32, i1 false)
+//
+// In the example above, the memcpy is just copying the first 32 bytes from
+// %tmp2 to %tmp1. This means that it is copying the fields 0 and 1 from the
+// %class.inner2, which can be reached by traversing the 0 element from
+// %class.outer. This memcpy can be considered as a partial access.
+bool dtrans::analyzePartialAccessNestedStructures(const DataLayout &DL,
+                                                  StructType *StructTy,
+                                                  Value *SetSize) {
+  if (!StructTy || !SetSize)
+    return false;
+
+  uint64_t InputSize = 0;
+  if (auto *Const = dyn_cast<ConstantInt>(SetSize))
+    InputSize = Const->getZExtValue();
+  else
+    return false;
+
+  if (InputSize == 0)
+    return false;
+
+  StructType *CurrStruct = StructTy;
+  while (CurrStruct) {
+    dtrans::MemfuncRegion RegionDesc;
+
+    if (analyzeStructFieldAccess(DL, CurrStruct, 0 /* FieldNum */,
+                                 0 /* PrePadBytes */, InputSize, &RegionDesc))
+      return RegionDesc.PostPadBytes == 0;
+
+    CurrStruct = dyn_cast<StructType>(CurrStruct->getElementType(0));
+  }
+
+  return false;
 }

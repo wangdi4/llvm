@@ -54,7 +54,7 @@ static uint8_t byteFromBitsInit(BitsInit &init) {
 /// @param rec  - The record from which to extract the value.
 /// @param name - The name of the field in the record.
 /// @return     - The field, as translated by byteFromBitsInit().
-static uint8_t byteFromRec(const Record* rec, const std::string &name) {
+static uint8_t byteFromRec(const Record* rec, StringRef name) {
   BitsInit* bits = rec->getValueAsBitsInit(name);
   return byteFromBitsInit(*bits);
 }
@@ -587,6 +587,14 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(vvvvRegister)
     break;
+  case X86Local::MRMDestMemImm8:
+    // Operand 1 is a memory operand.
+    // Operand 2 is an immediate.
+    assert(numPhysicalOperands <= 2 &&
+           "Unexpected number of operands for MRMDestMemImm8");
+    HANDLE_OPERAND(memory);
+    HANDLE_OPTIONAL(immediate);
+    break;
 #endif
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB:
@@ -637,11 +645,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate) // above might be a register in 7:4
     break;
   case X86Local::MRMSrcReg4VOp3:
-    assert(numPhysicalOperands == 3 &&
+    assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 && // INTEL
            "Unexpected number of operands for MRMSrcReg4VOp3Frm");
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(rmRegister)
     HANDLE_OPERAND(vvvvRegister)
+    HANDLE_OPTIONAL(immediate) // INTEL
     break;
   case X86Local::MRMSrcRegOp4:
     assert(numPhysicalOperands >= 4 && numPhysicalOperands <= 5 &&
@@ -867,6 +876,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMSrcMemCC:
   case X86Local::MRMXmCC:
   case X86Local::MRMXm:
+  case X86Local::MRMDestMemImm8: // INTEL
     filter = std::make_unique<ModFilter>(false);
     break;
   case X86Local::MRM0r: case X86Local::MRM1r:

@@ -55,7 +55,6 @@ public:
 };
 
 class HIRDeadStoreElimination {
-  HIRFramework &HIRF;
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
   HLNodeUtils &HNU;
@@ -86,7 +85,7 @@ class HIRDeadStoreElimination {
 public:
   HIRDeadStoreElimination(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                           HIRLoopStatistics &HLS)
-      : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()) {}
+      : HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()) {}
 
   bool run(HLRegion &Region, HLLoop *Lp, bool IsRegion);
 };

@@ -43,7 +43,7 @@
 
 ; DEBUG: Statistics Collected
 ; DEBUG-DAG:  1 hir-hlnode-utils          - Number of loops invalidated by utility
-; DEBUG-DAG: 45 hir-hlnode-utils          - Number of redundant predicates removed by utility
+; DEBUG-DAG: 54 hir-hlnode-utils          - Number of redundant predicates removed by utility
 ; DEBUG-NOT: hir-hlnode-utils
 
 

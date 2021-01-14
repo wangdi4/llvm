@@ -644,6 +644,9 @@ private:
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
   bool TreatDistributeParLoopAsDistribute; // Used during transformation.
+  /// Values such as dist_schedule chunk size, which will be
+  /// used directly inside the outlined function created for the WRegion.
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
 public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -683,6 +686,13 @@ public:
   }
   bool getTreatDistributeParLoopAsDistribute() const {
     return TreatDistributeParLoopAsDistribute;
+  }
+
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) {
+    DirectlyUsedNonPointerValues.push_back(V);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -1172,6 +1182,7 @@ private:
   UniformClause Uniform; // The simd construct does not take a uniform clause,
                           // so we won't get this from the front-end, but this
                           // list can/will be populated by the vector backend
+  EXPR IfExpr;
   int Simdlen;
   int Safelen;
   int Collapse;
@@ -1195,6 +1206,7 @@ public:
   WRNVecLoopNode(BasicBlock *BB, LoopInfo *L);
 #endif //INTEL_CUSTOMIZATION
 
+  void setIf(EXPR E) { IfExpr = E; }
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
@@ -1217,6 +1229,7 @@ public:
   DEFINE_GETTER(UniformClause,     getUniform, Uniform)
   DEFINE_GETTER(WRNLoopInfo,       getWRNLoopInfo, WRNLI)
 
+  EXPR getIf() const { return IfExpr; }
   int getSimdlen() const { return Simdlen; }
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }

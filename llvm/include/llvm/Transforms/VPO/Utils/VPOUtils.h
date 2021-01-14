@@ -152,8 +152,10 @@ public:
                           const DataLayout *DL);
 #endif  // INTEL_CUSTOMIZATION
 
-  /// Generate a memcpy call with the destination argument \p D and the source
-  /// argument \p S at the end of basic block \p BB.
+  /// Generate a memcpy call with the destination argument \p D, the source
+  /// argument \p S and size argument \p Size. \p Align specifies
+  /// maximum guanranteed alignment of \p D and \p S. The new call is inserted
+  /// at the end of basic block \p BB.
   /// \code
   ///   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*),
   ///                                        i8* %2,
@@ -161,17 +163,21 @@ public:
   ///                                        i32 4,
   ///                                        i1 false)
   /// \endcode
-  static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
+  static CallInst *genMemcpy(Value *D, Value *S, uint64_t Size,
                              unsigned Align, BasicBlock *BB);
 
-  /// Generate a memcpy call with the destination argument \p D and the source
-  /// argument \p S at before the given instruction \p InsertPt.
-  static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
-                             unsigned Align, Instruction *InsertPt);
+  /// Generate a memcpy call with the destination argument \p D, the source
+  /// argument \p S and size argument \p Size. \p Align specifies
+  /// maximum guanranteed alignment of \p D and \p S. The new call is inserted
+  /// using \p MemcpyBuilder IRBuilder.
+  static CallInst *genMemcpy(Value *D, Value *S, uint64_t Size,
+                             unsigned Align, IRBuilder<> &MemcpyBuilder);
 
-  /// Generate a memset call with the pointer argument \p P and the value
-  /// argument \p V.
-  static CallInst *genMemset(Value *P, Value *V, const DataLayout &DL,
+  /// Generate a memset call with the pointer argument \p P, the value
+  /// argument \p V and size argument \p Size. \p Align specifies
+  /// maximum guanranteed alignment of \p P. The new call is inserted
+  /// using \p MemsetBuilder IRBuilder.
+  static CallInst *genMemset(Value *P, Value *V, uint64_t Size,
                              unsigned Align, IRBuilder<> &MemsetBuilder);
 
   /// Return true if the type can be registerized.
@@ -183,16 +189,16 @@ public:
   /// Given a single-entry and single-exit region represented by BBSet,
   /// generate the code: `if(Cond) BBSet; else ClonedBBSet;`. Where
   /// ClonedBBSet is the cloned region of BBSet.
-  ///
-  /// Client needs to recompute Loop information if needed and may need to
-  /// recompute WRegion information as well depending on what the cloned
-  /// region will look like, e.g., becoming serial code or remaining as a
-  /// parallel region.
+  /// The output parameter \p VMap is a value map between the original
+  /// and the cloned instructions and blocks. \p DT and \p LI are updated
+  /// accordingly, if they are not null.
   static void singleRegionMultiVersioning(BasicBlock *EntryBB,
                                           BasicBlock *ExitBB,
                                           SmallVectorImpl<BasicBlock *> &BBSet,
+                                          ValueToValueMapTy &VMap,
                                           Value *Cond,
-                                          DominatorTree *DT = nullptr);
+                                          DominatorTree *DT = nullptr,
+                                          LoopInfo *LI = nullptr);
 
   /// Clone all the basic blocks in \p BBSet to \p ClonedBBSet and remap
   /// all the values in the \p ClonedBBSet. The function does not maintain DT
@@ -240,9 +246,9 @@ public:
   // Generate a switch statement for the parallel section or work-sharing
   // section represented by \p Node. Each section in the parallel section or
   // work-sharing section corresponds to a case statement in the switch.
-  static void genParSectSwitch(Value *SwitchCond, ParSectNode *Node,
-                               IRBuilder<> &Builder, int Counter,
-                               DominatorTree *DT = nullptr);
+  static void genParSectSwitch(Value *SwitchCond, Type *SwitchCondTy,
+                               ParSectNode *Node, IRBuilder<> &Builder,
+                               int Counter, DominatorTree *DT = nullptr);
 
   // Generate a tree data structure called Section Tree to represent the
   // nesting relationship of OMP_PARALLEL_SECTIONS (or OMP_SECTIONS) and

@@ -31,9 +31,14 @@ class VPlanCostModelProprietary;
 class VPlanAllZeroBypass {
 
 public:
-  // BypassPairTy indicates a begin/end set of basic blocks for which to form
-  // an all-zero bypass around. This data structure reflects the blocks forming
-  // the region before the bypass insertion.
+  // BypassPairTy is used for both pre-insertion and post-insertion to indicate
+  // the begin/end blocks of bypass regions. For region pre-insertion, it
+  // corresponds to the first/last blocks that are contained on the edge where
+  // the bypass is not taken. During insertion, a separate data structure is
+  // used to mark the new begin/end blocks of the region now forming the bypass.
+  // These blocks are used later at the end of region insertion to make sure
+  // valid regions are formed. E.g., assert that we have single entry, single
+  // exit regions formed.
   using BypassPairTy = std::pair<VPBasicBlock *, VPBasicBlock *>;
   using AllZeroBypassRegionsTy = SmallVector<BypassPairTy, 8>;
 
@@ -42,7 +47,7 @@ public:
   // multimap because it could be possible that multiple regions are formed
   // using the same block-predicate.
   using RegionsCollectedTy =
-      std::multimap<VPValue *, SmallPtrSet<VPBasicBlock *, 4>>;
+      std::multimap<VPValue *, SetVector<VPBasicBlock *>>;
 
 private:
   // VPlan for bypass insertion.
@@ -65,7 +70,7 @@ private:
   /// Computes the set of blocks that forms the all-zero bypass region.
   void getRegionBlocks(VPBasicBlock *FirstBlockInBypassRegion,
                        VPBasicBlock *LastBlockInBypassRegion,
-                       SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+                       SetVector<VPBasicBlock *> &RegionBlocks);
 
   /// Records a live-out value \p LiveOutVal and its corresponding user
   /// \p LiveOutUser that is outside of the region specified by the caller.
@@ -95,11 +100,12 @@ private:
                              VPBasicBlock *LastBlockInBypassRegion,
                              VPDominatorTree *DT,
                              VPPostDominatorTree *PDT,
-                             VPLoopInfo *VPLI);
+                             VPLoopInfo *VPLI,
+                             AllZeroBypassRegionsTy &AllZeroBypassRegionsFinal);
 
   /// Assert if the structure of the bypass is not well formed.
   void verifyBypassRegion(VPBasicBlock *FirstBlockInRegion,
-                          SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+                          SetVector<VPBasicBlock *> &RegionBlocks);
 
   /// Returns true if \p Block has already been included within a region
   /// under block-predicate \p Pred.
@@ -116,7 +122,7 @@ private:
   /// Returns true if the loop or non-loop region should end at \p Block.
   /// The region will not include \p Block.
   bool endRegionAtBlock(VPBasicBlock *Block, VPValue *CandidateBlockPred,
-                        SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+                        SetVector<VPBasicBlock *> &RegionBlocks);
 
 public:
   VPlanAllZeroBypass(VPlan &Plan) : Plan(Plan) {};
@@ -126,7 +132,7 @@ public:
   void collectAllZeroBypassNonLoopRegions(
       AllZeroBypassRegionsTy &AllZeroBypassRegions,
       RegionsCollectedTy &RegionsCollected,
-      VPlanCostModelProprietary *CM = nullptr);
+      VPlanCostModel *CM = nullptr);
 
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
   /// insertion for loops.
@@ -137,7 +143,7 @@ public:
   /// Iterate over blocks previously collected and insert an all-zero bypass
   /// around those blocks. This is also done for loops with divergent loop
   /// entry.
-  void insertAllZeroBypasses(AllZeroBypassRegionsTy &AllZeroBypassRegion);
+  void insertAllZeroBypasses(AllZeroBypassRegionsTy &AllZeroBypassRegions);
 };
 } // end namespace vpo
 } // end namespace llvm

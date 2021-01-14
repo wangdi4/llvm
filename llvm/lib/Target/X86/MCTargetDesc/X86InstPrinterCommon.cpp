@@ -375,7 +375,22 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
     O << "\t{vex}";
   else if (TSFlags & X86II::ExplicitEVEXPrefix)
     O << "\t{evex}";
+  else
 #endif // INTEL_CUSTOMIZATION
+  // These all require a pseudo prefix
+  if ((Flags & X86::IP_USE_VEX) || (TSFlags & X86II::ExplicitVEXPrefix))
+    O << "\t{vex}";
+  else if (Flags & X86::IP_USE_VEX2)
+    O << "\t{vex2}";
+  else if (Flags & X86::IP_USE_VEX3)
+    O << "\t{vex3}";
+  else if (Flags & X86::IP_USE_EVEX)
+    O << "\t{evex}";
+
+  if (Flags & X86::IP_USE_DISP8)
+    O << "\t{disp8}";
+  else if (Flags & X86::IP_USE_DISP32)
+    O << "\t{disp32}";
 }
 
 void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,

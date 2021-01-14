@@ -73,23 +73,21 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   |   case 1:
 ; CHECK:       |   |         %sum.L2 = %sum.L1
 ; CHECK:       |   |      + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  -1.000000e+00;
-; CHECK:       |   |      |   %sum.L2 = %sum.L2  +  %Aijbj;
+; CHECK:       |   |      |   %sum.L2 = %sum.L2  - (%A)[(%N * %M) * i1 + %M * i2 + i3];
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |         %sum.L1 = %sum.L2
 ; CHECK:       |   |      break;
 ; CHECK:       |   |   case 2:
+; CHECK:       |   |      if (%M > 0)
+; CHECK:       |   |      {
 ; CHECK:       |   |         %sum.L2 = %sum.L1
-; CHECK:       |   |      + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  0.000000e+00;
-; CHECK:       |   |      |   %sum.L2 = %sum.L2  +  %Aijbj;
-; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |         %sum.L1 = %sum.L2
+; CHECK:       |   |      }
 ; CHECK:       |   |      break;
 ; CHECK:       |   |   case 3:
 ; CHECK:       |   |         %sum.L2 = %sum.L1
 ; CHECK:       |   |      + DO i3 = 0, %M + -1, 1   <DO_LOOP>
-; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3]  *  1.000000e+00;
+; CHECK:       |   |      |   %Aijbj = (%A)[(%N * %M) * i1 + %M * i2 + i3];
 ; CHECK:       |   |      |   %sum.L2 = %sum.L2  +  %Aijbj;
 ; CHECK:       |   |      + END LOOP
 ; CHECK:       |   |         %sum.L1 = %sum.L2
@@ -143,7 +141,7 @@ L2:
   %bjp = getelementptr inbounds double, double* %b, i64 %j
   %bj = load double, double* %bjp
   %Aijbj = fmul fast double %Aij, %bj
-  %sum.next = fadd double %sum.L2, %Aijbj
+  %sum.next = fadd fast double %sum.L2, %Aijbj
   %j.next = add nuw nsw i64 %j, 1
   %L2.cond = icmp eq i64 %j.next, %M
   br i1 %L2.cond, label %L2.exit, label %L2

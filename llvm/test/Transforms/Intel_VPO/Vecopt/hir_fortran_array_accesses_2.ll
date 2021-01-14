@@ -2,7 +2,7 @@
 ; Check VPlan decomposition and codegen approaches for a simple Fortran-based loop nest with
 ; struct accesses.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=false -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVALUE-CG
 
@@ -18,17 +18,13 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPLAN-IR-NEXT:  External Defs Start:
 ; VPLAN-IR-DAG:     [[VP0:%.*]] = {%arr}
 ; VPLAN-IR-NEXT:  External Defs End:
-; VPLAN-IR-NEXT:    [[BB0:BB[0-9]+]]:
-; VPLAN-IR-NEXT:     <Empty Block>
-; VPLAN-IR-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; VPLAN-IR-NEXT:    no PREDECESSORS
+; VPLAN-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; VPLAN-IR-NEXT:     br [[BB1:BB[0-9]+]]
 ; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB1]]:
-; VPLAN-IR-NEXT:     <Empty Block>
-; VPLAN-IR-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; VPLAN-IR-NEXT:    PREDECESSORS(1): [[BB0]]
+; VPLAN-IR-NEXT:    [[BB1]]: # preds: [[BB0]]
+; VPLAN-IR-NEXT:     br [[BB2:BB[0-9]+]]
 ; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB2]]:
+; VPLAN-IR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; VPLAN-IR-NEXT:     i64 [[VP1:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
 ; VPLAN-IR-NEXT:     i32 [[VP3:%.*]] = trunc i64 [[VP1]] to i32
 ; VPLAN-IR-NEXT:     i32 [[VP4:%.*]] = mul i32 10 i32 [[VP3]]
@@ -36,24 +32,19 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPLAN-IR-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT]]
 ; VPLAN-IR-NEXT:     i64 [[VP2]] = add i64 [[VP1]] i64 1
 ; VPLAN-IR-NEXT:     i1 [[VP5:%.*]] = icmp sle i64 [[VP2]] i64 1023
-; VPLAN-IR-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP5]]), [[BB3:BB[0-9]+]](!i1 [[VP5]])
-; VPLAN-IR-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; VPLAN-IR-NEXT:     br i1 [[VP5]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB3]]:
-; VPLAN-IR-NEXT:     <Empty Block>
-; VPLAN-IR-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; VPLAN-IR-NEXT:    PREDECESSORS(1): [[BB2]]
+; VPLAN-IR-NEXT:    [[BB3]]: # preds: [[BB2]]
+; VPLAN-IR-NEXT:     br [[BB4:BB[0-9]+]]
 ; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:    [[BB4]]:
-; VPLAN-IR-NEXT:     <Empty Block>
-; VPLAN-IR-NEXT:    no SUCCESSORS
-; VPLAN-IR-NEXT:    PREDECESSORS(1): [[BB3]]
+; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
+; VPLAN-IR-NEXT:     br <External Block>
 ;
 ; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; MIXED-CG-NEXT:  Function: foo
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
-; MIXED-CG-NEXT:  <17>               + DO i1 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; MIXED-CG-NEXT:  <17>               + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; MIXED-CG-NEXT:  <18>               |   (<2 x i32>*)([[ARR0:%.*]])[0][i1 + <i64 0, i64 1>].1 = 10 * i1 + <i32 0, i32 10>
 ; MIXED-CG-NEXT:  <17>               + END LOOP
 ; MIXED-CG-NEXT:  <0>          END REGION
@@ -62,7 +53,7 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPVALUE-CG-NEXT:  Function: foo
 ; VPVALUE-CG-EMPTY:
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
-; VPVALUE-CG-NEXT:  <17>               + DO i1 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; VPVALUE-CG-NEXT:  <17>               + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPVALUE-CG-NEXT:  <18>               |   (<2 x i32>*)([[ARR0:%.*]])[0][i1 + <i64 0, i64 1>].1 = 10 * i1 + 10 * <i32 0, i32 1>
 ; VPVALUE-CG-NEXT:  <17>               + END LOOP
 ; VPVALUE-CG-NEXT:  <0>          END REGION

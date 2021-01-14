@@ -109,13 +109,22 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
+static cl::opt<unsigned> NumLoopsForBulkTransform(
+    "hir-store-result-into-temp-array-num-loops-for-bulk-transform",
+    cl::init(2), cl::Hidden,
+    cl::desc("Threshold for number of loops for bulk loop carried scalar "
+             "replacement"));
+
 namespace {
+const unsigned NumLoopnestLevel = 3;
 
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+using LpExpensiveInstsPairsTy =
+    SmallVector<std::pair<HLLoop *, SmallVector<HLInst *, 16>>, 4>;
 
 class HIRStoreResultIntoTempArray {
   HIRFramework &HIRF;
@@ -131,9 +140,17 @@ private:
   bool isLegalForLoopCarriedScalarReplacement(
       HLLoop *Lp, SmallVectorImpl<HLInst *> &ExpensiveInsts);
 
+  bool isLegalForBulkLoopCarriedScalarReplacement(
+      LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
+      SmallVectorImpl<RegDDRef *> &LoopUpperBounds);
+
   bool
   doLoopCarriedScalarReplacement(HLLoop *Lp,
                                  SmallVectorImpl<HLInst *> &ExpensiveInsts);
+
+  bool doBulkLoopCarriedScalarReplacement(
+      LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
+      SmallVectorImpl<RegDDRef *> &LoopUpperBounds);
 
   bool hasSameExprTree(HLLoop *InnermostLp, DDGraph &DDG,
                        SmallVectorImpl<HLInst *> &ExpensiveInsts);
@@ -147,9 +164,19 @@ private:
                               HLInst *&AllocaInst,
                               SmallVectorImpl<int64_t> &Offsets);
 
+  HLLoop *createExtractedLoopWithLargestLoopUpperBounds(
+      HLLoop *FirstLoop, RegDDRef *MemRef, HLInst *ExpensiveInst,
+      SmallVectorImpl<RegDDRef *> &LoopUpperBounds,
+      SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs,
+      SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst,
+      SmallVectorImpl<int64_t> &Offsets);
+
+  void getDistsBetweenMinRefAndMaxRef(
+      LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
+      SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs);
+
   RegDDRef *addDimensionForAllocaMemRef(const HLLoop *ExtractedLoop,
-                                        const HLLoop *Lp,
-                                        const RegDDRef *AllocaRef,
+                                        const HLLoop *Lp, RegDDRef *AllocaRef,
                                         const RegDDRef *MemRef,
                                         uint64_t TypeSize,
                                         SmallVectorImpl<int64_t> &Offsets);
@@ -262,7 +289,7 @@ static bool checkIV(const BlobDDRef *Ref, DDGraph &DDG, unsigned LoopLevel,
 }
 
 static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
-                           HLLoop *Lp) {
+                           HLLoop *InnermostLp) {
   if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(), false)) {
     return false;
   }
@@ -273,8 +300,10 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
   // 3) The IV levels should be in increasing order
   // Ref1 should have the format, like %A[i1+1][i2][i3][0]
   // Ref2 might have the format, like %A[i1+2[%rem][%rem6+1]
-  unsigned LoopLevel = 1;
-  unsigned Level = 0;
+  unsigned OutermostLoopLevel =
+      InnermostLp->getNestingLevel() - NumLoopnestLevel + 1;
+  auto *Lp = InnermostLp;
+  unsigned LoopLevel = OutermostLoopLevel;
 
   for (unsigned Dim = Ref1->getNumDimensions(); Dim > 0; --Dim, ++LoopLevel) {
     auto *CE = Ref1->getDimensionIndex(Dim);
@@ -283,58 +312,59 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
       return false;
     }
 
-    switch (Dim) {
-    case 4:
-      if (!CE->hasIV(LoopLevel)) {
-        return false;
-      }
-      break;
-    case 3:
-      if (!CE->isStandAloneIV(false, &Level) && Level == LoopLevel) {
-        return false;
-      }
-      break;
-    case 2:
-      if (!CE->isStandAloneIV(false, &Level) && Level == LoopLevel) {
-        return false;
-      }
-      break;
-    case 1:
+    if (Dim == 1) {
       if (!CE->isConstant()) {
         return false;
       }
-      break;
-    default:
+    } else if (Dim <= 4) {
+      if (!CE->hasIV(LoopLevel)) {
+        return false;
+      }
+
+      if (CE->numIVs() != 1 || CE->getDenominator() != 1) {
+        return false;
+      }
+
+      unsigned Index;
+      int64_t Coeff;
+
+      CE->getIVCoeff(LoopLevel, &Index, &Coeff);
+
+      if ((Coeff != 1) || (Index != InvalidBlobIndex)) {
+        return false;
+      }
+
+      //  CE might have a sext case: LINEAR sext.i32.i64(i2 + 3)
+      if (!CE->isSExt() && CE->getSrcType() != CE->getDestType()) {
+        return false;
+      }
+    } else {
       return false;
     }
 
     if (Dim > 1) {
-      CanonExpr *MemRefLowerDimCE = Ref1->getDimensionLower(Dim);
+      CanonExpr *MemRefLowerDimCE1 = Ref1->getDimensionLower(Dim);
+      CanonExpr *MemRefLowerDimCE2 = Ref2->getDimensionLower(Dim);
 
-      // Check the dim lower bound for Ref1
-      if (!MemRefLowerDimCE->isConstant()) {
+      // Check the dim lower bound for Ref1 and Ref2 are identical
+      if (!CanonExprUtils::areEqual(MemRefLowerDimCE1, MemRefLowerDimCE2,
+                                    true)) {
         return false;
       }
 
-      if (!MemRefLowerDimCE->isZero() &&
-          !CanonExprUtils::canAdd(Lp->getUpperCanonExpr(), MemRefLowerDimCE,
-                                  true)) {
+      CanonExpr *MemRefDimStride1 = Ref1->getDimensionStride(Dim);
+      CanonExpr *MemRefDimStride2 = Ref2->getDimensionStride(Dim);
+
+      // Check the dim stride for Ref1 and Ref2 are identical
+      if (!CanonExprUtils::areEqual(MemRefDimStride1, MemRefDimStride2, true)) {
         return false;
       }
+
       Lp = Lp->getParentLoop();
     }
   }
 
-  // Check the dim lower bound for Ref2
-  for (unsigned Dim = Ref2->getNumDimensions(); Dim > 1; --Dim) {
-    CanonExpr *MemRefLowerDimCE = Ref2->getDimensionLower(Dim);
-
-    if (!MemRefLowerDimCE->isConstant()) {
-      return false;
-    }
-  }
-
-  Level = 1;
+  unsigned Level = OutermostLoopLevel;
 
   for (auto Iter1 = Ref1->canon_rbegin(), Iter2 = Ref2->canon_rbegin(),
             End = Ref1->canon_rend();
@@ -344,8 +374,13 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
 
     if (CE1->hasIV(Level)) {
 
-      if (CE2->hasBlob()) {
-        if (CE2->numBlobs() != 1) {
+      if (CE2->hasBlob()) { // CE2 might have the case like: zext.i32.i64(%773)
+                            // + 1
+        if (CE2->hasIV(Level)) {
+          return false;
+        }
+
+        if (CE2->getConstant() > 1) {
           return false;
         }
 
@@ -353,7 +388,12 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
 
         CE2->collectTempBlobIndices(BlobIndices);
 
+        if (BlobIndices.size() != 1) {
+          return false;
+        }
+
         unsigned BlobIndex = BlobIndices[0];
+
         BlobDDRef *BlobRef = Ref2->getBlobDDRef(BlobIndex);
 
         int64_t Constant = 0;
@@ -381,9 +421,7 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
   return true;
 }
 
-// Compare whether the two Refs are corresponding
-static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
-                        HLLoop *InnermostLp) {
+static bool compareRefTypes(RegDDRef *Ref1, RegDDRef *Ref2) {
   if (!((Ref1->isTerminalRef() && Ref2->isTerminalRef()) ||
         (Ref1->isMemRef() && Ref2->isMemRef()))) {
     return false;
@@ -393,6 +431,12 @@ static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
     return false;
   }
 
+  return true;
+}
+
+// Compare whether the two Refs are corresponding
+static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
+                        HLLoop *InnermostLp) {
   if (Ref1->isConstant()) {
     return DDRefUtils::areEqual(Ref1, Ref2);
   }
@@ -402,7 +446,52 @@ static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
             Ref2->isNonLinear());
   }
 
+  if (!compareRefTypes(Ref1, Ref2)) {
+    return false;
+  }
+
   if (!compareMemRefs(Ref1, Ref2, DDG, InnermostLp)) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool compareInsts(HLInst *Inst1, HLInst *Inst2) {
+  auto *LLVMInst1 = Inst1->getLLVMInstruction();
+  auto *LLVMInst2 = Inst2->getLLVMInstruction();
+
+  if (LLVMInst1->getOpcode() != LLVMInst2->getOpcode()) {
+    return false;
+  }
+
+  if (auto *FPInst1 = dyn_cast<FPMathOperator>(LLVMInst1)) {
+    auto *FPInst2 = dyn_cast<FPMathOperator>(LLVMInst2);
+
+    if (!FPInst2 || (FPInst1->isFast() != FPInst2->isFast())) {
+      return false;
+    }
+  }
+
+  unsigned NumOperands1 = Inst1->getNumOperands();
+  unsigned NumOperands2 = Inst2->getNumOperands();
+
+  if (NumOperands1 != NumOperands2) {
+    return false;
+  }
+  return true;
+}
+
+static bool compareLvals(HLInst *Inst1, HLInst *Inst2) {
+  auto *Lval1 = Inst1->getLvalDDRef();
+  auto *Lval2 = Inst2->getLvalDDRef();
+  assert(Lval1 && Lval2 && "The insts should have Lvals");
+
+  if (!Lval1->isTerminalRef() || !Lval2->isTerminalRef()) {
+    return false;
+  }
+
+  if (!Lval1->isNonLinear() || !Lval2->isNonLinear()) {
     return false;
   }
 
@@ -428,25 +517,7 @@ static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
 // END DO
 static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
                         HLLoop *InnermostLp) {
-  auto *LLVMInst1 = Inst1->getLLVMInstruction();
-  auto *LLVMInst2 = Inst2->getLLVMInstruction();
-
-  if (LLVMInst1->getOpcode() != LLVMInst2->getOpcode()) {
-    return false;
-  }
-
-  if (auto *FPInst1 = dyn_cast<FPMathOperator>(LLVMInst1)) {
-    auto *FPInst2 = dyn_cast<FPMathOperator>(LLVMInst2);
-
-    if (!FPInst2 || (FPInst1->isFast() != FPInst2->isFast())) {
-      return false;
-    }
-  }
-
-  unsigned NumOperands1 = Inst1->getNumOperands();
-  unsigned NumOperands2 = Inst2->getNumOperands();
-
-  if (NumOperands1 != NumOperands2) {
+  if (!compareInsts(Inst1, Inst2)) {
     return false;
   }
 
@@ -496,15 +567,7 @@ static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
     }
   }
 
-  auto *Lval1 = Inst1->getLvalDDRef();
-  auto *Lval2 = Inst2->getLvalDDRef();
-  assert(Lval1 && Lval2 && "The insts should have Lvals");
-
-  if (!Lval1->isTerminalRef() || !Lval2->isTerminalRef()) {
-    return false;
-  }
-
-  if (!Lval1->isNonLinear() || !Lval2->isNonLinear()) {
+  if (!compareLvals(Inst1, Inst2)) {
     return false;
   }
 
@@ -531,6 +594,8 @@ bool HIRStoreResultIntoTempArray::hasSameExprTree(
 }
 
 static bool isLoopnestValid(const HLLoop *Lp) {
+  unsigned OuterLoopLevel = Lp->getNestingLevel() - NumLoopnestLevel + 1;
+
   do {
     if (!Lp->isDo() || !Lp->isNormalized()) {
       return false;
@@ -542,7 +607,8 @@ static bool isLoopnestValid(const HLLoop *Lp) {
         UpperCE->getDenominator() != 1) {
       return false;
     }
-  } while (Lp = Lp->getParentLoop());
+  } while ((Lp = Lp->getParentLoop()) &&
+           Lp->getNestingLevel() >= OuterLoopLevel);
 
   return true;
 }
@@ -552,7 +618,7 @@ bool HIRStoreResultIntoTempArray::isLegalForLoopCarriedScalarReplacement(
 
   unsigned LoopLevel = Lp->getNestingLevel();
 
-  if (LoopLevel != 3) {
+  if (LoopLevel < NumLoopnestLevel) {
     return false;
   }
 
@@ -589,7 +655,8 @@ bool HIRStoreResultIntoTempArray::isLegalForLoopCarriedScalarReplacement(
 
   DDGraph DDG;
 
-  DDG = DDA.getGraph(Lp->getOutermostParentLoop());
+  DDG =
+      DDA.getGraph(Lp->getParentLoopAtLevel(LoopLevel - NumLoopnestLevel + 1));
 
   if (!hasSameExprTree(Lp, DDG, ExpensiveInsts)) {
     return false;
@@ -636,26 +703,31 @@ static void recordOffsets(RegDDRef *MinRef, unsigned LoopLevel,
 // like %array_size = zext.i32.i64(%ny)  *  sext.i32.i64(%nz);
 //      %array_size5 = zext.i32.i64(%nx) + 1  *  %array_size;
 //      %TempArray = alloca %array_size5;
-static HLInst *createAllocaInst(DDGraph DDG, RegDDRef *MinRef, RegDDRef *MaxRef,
-                                HLLoop *Lp, Type *DestTy,
+static HLInst *createAllocaInst(DDGraph DDG, RegDDRef *MemRef,
+                                HLLoop *InnermostLp, Type *DestTy,
                                 SmallVectorImpl<HLInst *> &ArraySizeInsts,
                                 SmallVectorImpl<RegDDRef *> &TripCountRefs,
                                 SmallVectorImpl<int64_t> &Offsets) {
+  unsigned Level = InnermostLp->getNestingLevel();
+  auto *Lp = InnermostLp;
   auto &HNU = Lp->getHLNodeUtils();
-  unsigned LoopLevel = Lp->getNestingLevel();
+  unsigned OutermostLoopLevel = Level - NumLoopnestLevel + 1;
   RegDDRef *TripCountRef = Lp->getTripCountDDRef();
 
   // Update the array size by the offset of iv
-  recordOffsets(MinRef, LoopLevel, Offsets);
+  recordOffsets(MemRef, Level, Offsets);
 
   TripCountRefs.push_back(TripCountRef);
 
   HLInst *ArraySizeMulInst = nullptr;
 
-  while (Lp = Lp->getParentLoop()) {
+  unsigned LoopLevel = Level;
+
+  while ((Lp = Lp->getParentLoop()) && (LoopLevel > OutermostLoopLevel)) {
     RegDDRef *ParentTripCountRef = Lp->getTripCountDDRef();
     LoopLevel = Lp->getNestingLevel();
-    recordOffsets(MinRef, LoopLevel, Offsets);
+
+    recordOffsets(MemRef, LoopLevel, Offsets);
 
     // Create trip count multiplication inst, like %array_size =
     // zext.i32.i64(%ny)  *  sext.i32.i64(%nz);
@@ -701,12 +773,12 @@ static CanonExpr *getStrideCE(const HLLoop *Lp, uint64_t TypeSize,
 // Add dimensons for the AllocaRef by copying the CEs of the MemRef in the
 // expression tree
 RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
-    const HLLoop *ExtractedLoop, const HLLoop *Lp, const RegDDRef *AllocaRef,
+    const HLLoop *ExtractedLoop, const HLLoop *Lp, RegDDRef *AllocaRef,
     const RegDDRef *MemRef, uint64_t TypeSize,
     SmallVectorImpl<int64_t> &Offsets) {
   unsigned LoopLevel = Lp->getNestingLevel();
-  DDGraph DDG = DDA.getGraph(Lp->getOutermostParentLoop());
-  RegDDRef *AllocaRefClone = AllocaRef->clone();
+  unsigned OutermostLoopLevel = LoopLevel - NumLoopnestLevel + 1;
+  DDGraph DDG = DDA.getGraph(Lp->getParentLoopAtLevel(OutermostLoopLevel));
 
   // A set collects the CE with blob refs that we also handled, like-
   // %t1 = i1 % nx;
@@ -714,7 +786,9 @@ RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
   // ... = %A[%t1][%t2];
   SmallSet<const CanonExpr *, 8> CEsChecked;
 
-  for (unsigned I = 1; I <= LoopLevel; ++I) {
+  unsigned OffsetId = 0;
+
+  for (unsigned I = OutermostLoopLevel; I <= LoopLevel; ++I) {
 
     for (auto Iter = MemRef->canon_rbegin(), End = MemRef->canon_rend();
          Iter != End; ++Iter) {
@@ -764,23 +838,37 @@ RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
 
       CanonExpr *CloneCE = CE->clone();
 
-      CloneCE->addConstant(-Offsets[I - 1], true);
+      CloneCE->convertToStandAloneBlob();
+
+      CloneCE->addConstant(-Offsets[OffsetId++], true);
 
       CanonExpr *StrideCE = getStrideCE(ExtractedLoop, TypeSize, I);
       Type *DimTy = AllocaRef->getBaseType();
 
-      AllocaRefClone->addDimension(CloneCE, {}, nullptr, StrideCE, DimTy);
+      AllocaRef->addDimension(CloneCE, {}, nullptr, StrideCE, DimTy);
 
       break;
     }
   }
 
-  return AllocaRefClone;
+  return AllocaRef;
 }
 
-static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
-  HLLoop *Lp = Loop;
+static void updateLiveInArraySize(HLLoop *InnermostLp, unsigned SB) {
+  HLLoop *Lp = InnermostLp;
+
   while (Lp) {
+    Lp->addLiveInTemp(SB);
+    Lp = Lp->getParentLoop();
+  }
+}
+
+static void updateLiveInAllocaTemp(HLLoop *InnermostLp, unsigned SB) {
+  HLLoop *Lp = InnermostLp;
+  unsigned LoopLevel = InnermostLp->getNestingLevel();
+  unsigned OutermostLoopLevel = LoopLevel - NumLoopnestLevel + 1;
+
+  while (Lp && (Lp->getNestingLevel() >= OutermostLoopLevel)) {
     Lp->addLiveInTemp(SB);
     Lp = Lp->getParentLoop();
   }
@@ -829,25 +917,15 @@ static bool NeedUpdateUpperBound(DDGraph DDG, RegDDRef *MaxRef,
 static void updateUpperBound(DDGraph DDG, RegDDRef *MaxRef, unsigned LoopLevel,
                              HLLoop *Lp) {
   int64_t Constant = 0;
-  unsigned NumDim = MaxRef->getNumDimensions();
 
   // We need to update the upperbound by adding the constant in the
   // operand2 of the blob's src instruction, such as %mod = i2 + 3  %
   // %"jacobian_$NY_fetch" + 1;
-  // This is also related to the dim lower bound of memref.
-  // The basic idea is to compute the maximum possible index for the dimension
-  // and update the upper bound accordingly
   for (auto BI = MaxRef->blob_begin(), E = MaxRef->blob_end(); BI != E; ++BI) {
     BlobDDRef *BlobRef = *BI;
 
     if (checkIV(BlobRef, DDG, LoopLevel, Constant) && Constant > 0) {
-      CanonExpr *DimLowerCE = MaxRef->getDimensionLower(NumDim - LoopLevel + 1);
-
-      int64_t Diff = Constant - DimLowerCE->getConstant();
-
-      if (Diff > 0) {
-        Lp->getUpperCanonExpr()->addConstant(Diff, true);
-      }
+      Lp->getUpperCanonExpr()->addConstant(Constant, true);
     }
   }
 
@@ -868,6 +946,7 @@ static HLLoop *createExtractedLoopNest(DDGraph DDG, HLLoop *Lp, HLLoop *NewLoop,
                                        RegDDRef *MaxRef, RegDDRef *MinRef) {
   unsigned Level = Lp->getNestingLevel();
   unsigned LoopLevel = Level;
+  unsigned OutermostLoopLevel = Level - NumLoopnestLevel + 1;
 
   HLLoop *ParentLoop = nullptr;
   CanonExpr *MinCanonExpr = nullptr;
@@ -878,7 +957,7 @@ static HLLoop *createExtractedLoopNest(DDGraph DDG, HLLoop *Lp, HLLoop *NewLoop,
   unsigned NumDimension = MinRef->getNumDimensions();
   unsigned Dim = 1;
 
-  while (LoopLevel >= 1) {
+  while (LoopLevel >= OutermostLoopLevel) {
     bool HasSelfBlob = false;
     bool Subtracted = true;
 
@@ -940,12 +1019,10 @@ static HLInst *insertCallToStacksave(HLLoop *Lp) {
   auto &HNU = Lp->getHLNodeUtils();
 
   HLInst *StacksaveCall = HNU.createStacksave(DLoc);
-  HLNodeUtils::insertBefore(Lp->getOutermostParentLoop(), StacksaveCall);
-
   return StacksaveCall;
 }
 
-static void insertCallToStackrestore(HLLoop *Lp, RegDDRef *StackAddrRef) {
+static HLInst *insertCallToStackrestore(HLLoop *Lp, RegDDRef *StackAddrRef) {
   auto &HNU = Lp->getHLNodeUtils();
   auto &DRU = HNU.getDDRefUtils();
   auto &CEU = HNU.getCanonExprUtils();
@@ -959,7 +1036,7 @@ static void insertCallToStackrestore(HLLoop *Lp, RegDDRef *StackAddrRef) {
       cast<PointerType>(Ty)->getElementType(), APInt(8, 0)));
 
   HLInst *StackrestoreCall = HNU.createStackrestore(StackAddrRef);
-  HLNodeUtils::insertAfter(Lp->getOutermostParentLoop(), StackrestoreCall);
+  return StackrestoreCall;
 }
 
 static void makeConsistent(RegDDRef *AllocaRef, RegDDRef *MemRef, HLLoop *Lp) {
@@ -968,12 +1045,28 @@ static void makeConsistent(RegDDRef *AllocaRef, RegDDRef *MemRef, HLLoop *Lp) {
 
   AuxRefs.push_back(MemRef);
 
-  while (Lp) {
+  unsigned LoopLevel = Lp->getNestingLevel();
+  unsigned OutermostLoopLevel = LoopLevel - NumLoopnestLevel + 1;
+
+  while (Lp && (Lp->getNestingLevel() >= OutermostLoopLevel)) {
     AuxRefs.push_back(Lp->getUpperDDRef());
     Lp = Lp->getParentLoop();
   }
 
   AllocaRef->makeConsistent(AuxRefs);
+}
+
+static void updateLiveInForBlobs(RegDDRef *MemRef, HLLoop *InnermostLp) {
+  auto &HNU = InnermostLp->getHLNodeUtils();
+  auto &BU = HNU.getBlobUtils();
+  SmallVector<unsigned, 4> TempBlobIndices;
+
+  unsigned BlobIndex = MemRef->getSingleCanonExpr()->getSingleBlobIndex();
+  BU.collectTempBlobs(BlobIndex, TempBlobIndices);
+
+  for (auto BI : TempBlobIndices) {
+    updateLiveInArraySize(InnermostLp, BU.getTempBlobSymbase(BI));
+  }
 }
 
 // Create a new loop and insert the insts in the expression tree into the new
@@ -983,7 +1076,9 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
     SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst,
     SmallVectorImpl<int64_t> &Offsets) {
 
-  HLLoop *OuterAnchorLp = Lp->getOutermostParentLoop();
+  unsigned OutermostLoopLevel = Lp->getNestingLevel() - NumLoopnestLevel + 1;
+
+  HLLoop *OuterAnchorLp = Lp->getParentLoopAtLevel(OutermostLoopLevel);
 
   // Create the extracted loop
   HLLoop *NewLoop = Lp->cloneEmpty();
@@ -998,6 +1093,9 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
   // stacksave intrinsicc
   HLInst *Stacksave = insertCallToStacksave(NewLoop);
 
+  HLNodeUtils::insertBefore(NewLoop->getParentLoopAtLevel(OutermostLoopLevel),
+                            Stacksave);
+
   // Insert the inst seqences
   for (auto Inst : InstsInExprTree) {
     HLInst *InstClone = Inst->clone();
@@ -1009,11 +1107,11 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
   SmallVector<RegDDRef *, 8> TripCountRefs;
 
   // Create Alloca inst, like %TempArray = alloca %array_size5
-  AllocaInst = createAllocaInst(DDG, MinRef, MaxRef, NewLoop,
+  AllocaInst = createAllocaInst(DDG, MinRef, NewLoop,
                                 ExpensiveInst->getLvalDDRef()->getDestType(),
                                 ArraySizeInsts, TripCountRefs, Offsets);
 
-  HLLoop *NewOutermostLoop = NewLoop->getOutermostParentLoop();
+  HLLoop *NewOutermostLoop = NewLoop->getParentLoopAtLevel(OutermostLoopLevel);
 
   // Insert array size insts as last preheader of the loop
   for (auto ArraySizeInst : ArraySizeInsts) {
@@ -1024,20 +1122,11 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
 
   auto &HNU = NewLoop->getHLNodeUtils();
   auto &DRU = HNU.getDDRefUtils();
-  auto &BU = HNU.getBlobUtils();
 
   // Update live in of the trip count refs in the array size insts
   for (auto TripCountRef : TripCountRefs) {
     TripCountRef->makeConsistent();
-    unsigned BlobIndex =
-        TripCountRef->getSingleCanonExpr()->getSingleBlobIndex();
-    SmallVector<unsigned, 4> TempBlobIndices;
-
-    BU.collectTempBlobs(BlobIndex, TempBlobIndices);
-
-    for (auto BI : TempBlobIndices) {
-      updateLiveInAllocaTemp(NewLoop, BU.getTempBlobSymbase(BI));
-    }
+    updateLiveInForBlobs(TripCountRef, NewLoop);
   }
 
   HNU.insertBefore(NewOutermostLoop, AllocaInst);
@@ -1066,8 +1155,11 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
   updateLiveInAllocaTemp(NewLoop, AllocaRef->getBasePtrSymbase());
 
   // stackrestore intrinsic
-  insertCallToStackrestore(Lp, Stacksave->getOperandDDRef(0));
+  HLInst *Stackrestore =
+      insertCallToStackrestore(Lp, Stacksave->getOperandDDRef(0));
 
+  HLNodeUtils::insertAfter(Lp->getParentLoopAtLevel(OutermostLoopLevel),
+                           Stackrestore);
   return NewLoop;
 }
 
@@ -1094,23 +1186,6 @@ static void removeDependentInsts(HLInst *HInst, DDGraph &DDG,
     }
   }
   return;
-}
-
-// If the dimension lower bounds of MemRef do not start from 0, we need to
-// change the use of temp array's dimension lower bounds
-static void adjustLowerDimsForAllocaRef(RegDDRef *MemRef, RegDDRef *AllocaRef) {
-  unsigned Dim = MemRef->getNumDimensions();
-
-  while (Dim > 1) {
-    CanonExpr *MemRefLowerDimCE = MemRef->getDimensionLower(Dim);
-
-    if (!MemRefLowerDimCE->isZero()) {
-      AllocaRef->getDimensionLower(Dim - 1)->setConstant(
-          MemRefLowerDimCE->getConstant());
-    }
-
-    --Dim;
-  }
 }
 
 bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
@@ -1173,8 +1248,6 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
     RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
         ExtractedLoop, Lp, AllocaDDRef->clone(), MemRef, TypeSize, Offsets);
 
-    adjustLowerDimsForAllocaRef(MemRef, AllocaRef);
-
     // Create a load inst to replace the expensive inst, like -
     // transfer from -
     //   %call119.us = @pow(%conv118.us,  2.500000e+00);
@@ -1227,6 +1300,563 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
   return true;
 }
 
+// Check whether two loops have the same lower bounds and strides, and store the
+// largest loop upperbounds
+bool areLoopBoundsConformed(HLLoop *FirstLoop, HLLoop *CurLoop,
+                            SmallVectorImpl<RegDDRef *> &LoopUpperBounds) {
+  unsigned FirstLoopLevel = FirstLoop->getNestingLevel();
+  unsigned CurLoopLevel = CurLoop->getNestingLevel();
+
+  if (FirstLoopLevel != CurLoopLevel) {
+    return false;
+  }
+
+  unsigned LoopLevel = FirstLoopLevel;
+  unsigned OutermostLoopLevel = FirstLoopLevel - NumLoopnestLevel + 1;
+
+  while (LoopLevel >= OutermostLoopLevel) {
+    auto *FirstLoopUpperCanonExpr = FirstLoop->getUpperCanonExpr();
+    auto *FirstLoopLowerCanonExpr = FirstLoop->getLowerCanonExpr();
+    auto *FirstLoopStrideCanonExpr = FirstLoop->getStrideCanonExpr();
+
+    auto *CurLoopUpperCanonExpr = CurLoop->getUpperCanonExpr();
+    auto *CurLoopLowerCanonExpr = CurLoop->getLowerCanonExpr();
+    auto *CurLoopStrideCanonExpr = CurLoop->getStrideCanonExpr();
+
+    int64_t Dist = 0;
+
+    bool HaveConstDistance = CanonExprUtils::getConstDistance(
+        FirstLoopUpperCanonExpr, CurLoopUpperCanonExpr, &Dist);
+
+    if (!(HaveConstDistance ||
+          CanonExprUtils::areEqual(FirstLoopUpperCanonExpr,
+                                   CurLoopUpperCanonExpr)) ||
+        !CanonExprUtils::areEqual(FirstLoopLowerCanonExpr,
+                                  CurLoopLowerCanonExpr) ||
+        !CanonExprUtils::areEqual(FirstLoopStrideCanonExpr,
+                                  CurLoopStrideCanonExpr)) {
+      return false;
+    }
+
+    if (Dist >= 0) {
+      LoopUpperBounds[2 + LoopLevel - FirstLoopLevel] =
+          FirstLoop->getUpperDDRef();
+    } else {
+      LoopUpperBounds[2 + LoopLevel - FirstLoopLevel] =
+          CurLoop->getUpperDDRef();
+    }
+
+    FirstLoop = FirstLoop->getParentLoop();
+    CurLoop = CurLoop->getParentLoop();
+    --LoopLevel;
+  }
+
+  return true;
+}
+
+static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2,
+                           unsigned InnermostLoopLevel) {
+  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, false)) {
+    return false;
+  }
+
+  unsigned Level = InnermostLoopLevel - NumLoopnestLevel + 1;
+
+  for (auto Iter1 = Ref1->canon_rbegin(), Iter2 = Ref2->canon_rbegin(),
+            End = Ref1->canon_rend();
+       Iter1 != End; ++Iter1, ++Iter2, ++Level) {
+    CanonExpr *CE1 = *Iter1;
+    CanonExpr *CE2 = *Iter2;
+
+    if (CE1->hasIV(Level)) {
+      if (!CE2->hasIV(Level)) {
+        return false;
+      } else {
+        int64_t Dist = 0;
+        if (!(CanonExprUtils::getConstIterationDistance(CE1, CE2, Level,
+                                                        &Dist) ||
+              CanonExprUtils::areEqual(CE1, CE2, true))) {
+          return false;
+        }
+      }
+    } else {
+
+      if (!CanonExprUtils::areEqual(CE1, CE2)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+static bool corresponds(RegDDRef *Ref1, RegDDRef *Ref2,
+                        unsigned InnermostLoopLevel) {
+  if (Ref1->isConstant()) {
+    return DDRefUtils::areEqual(Ref1, Ref2);
+  }
+
+  if (Ref1->isTerminalRef()) {
+    return (Ref1->isSelfBlob() && Ref1->isNonLinear() && Ref2->isSelfBlob() &&
+            Ref2->isNonLinear());
+  }
+
+  if (!compareRefTypes(Ref1, Ref2)) {
+    return false;
+  }
+
+  if (!compareMemRefs(Ref1, Ref2, InnermostLoopLevel)) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG1,
+                        DDGraph &DDG2, unsigned InnermostLoopLevel) {
+  if (!compareInsts(Inst1, Inst2)) {
+    return false;
+  }
+
+  auto *RvalIt1 = Inst1->rval_op_ddref_begin();
+  auto *RvalIt2 = Inst2->rval_op_ddref_begin();
+
+  for (auto End = Inst1->rval_op_ddref_end(); RvalIt1 != End;
+       ++RvalIt1, ++RvalIt2) {
+    if (!corresponds(*RvalIt1, *RvalIt2, InnermostLoopLevel)) {
+      return false;
+    }
+
+    // Give up if ref1 is memref and ref1 and ref2 have any incoming edges
+    if ((*RvalIt1)->isMemRef()) {
+
+      if (DDG1.incoming_edges_begin(*RvalIt1) !=
+              DDG1.incoming_edges_end(*RvalIt1) ||
+          DDG2.incoming_edges_begin(*RvalIt2) !=
+              DDG2.incoming_edges_end(*RvalIt2)) {
+        return false;
+      }
+
+      continue;
+    }
+
+    unsigned NumIncomingEdge1 = DDG1.getTotalNumIncomingFlowEdges(*RvalIt1);
+    unsigned NumIncomingEdge2 = DDG2.getTotalNumIncomingFlowEdges(*RvalIt2);
+
+    if (NumIncomingEdge1 != NumIncomingEdge2) {
+      return false;
+    }
+
+    auto EdgeIt1 = DDG1.incoming_edges_begin(*RvalIt1);
+    auto EdgeIt2 = DDG2.incoming_edges_begin(*RvalIt2);
+
+    for (auto EndEdge = DDG1.incoming_edges_end(*RvalIt1); EdgeIt1 != EndEdge;
+         ++EdgeIt1, ++EdgeIt2) {
+      auto *Src1 = (*EdgeIt1)->getSrc();
+      auto *Src2 = (*EdgeIt2)->getSrc();
+
+      HLInst *SrcInst1 = cast<HLInst>(Src1->getHLDDNode());
+      HLInst *SrcInst2 = cast<HLInst>(Src2->getHLDDNode());
+
+      if (!corresponds(SrcInst1, SrcInst2, DDG1, DDG2, InnermostLoopLevel)) {
+        return false;
+      }
+    }
+  }
+
+  if (!compareLvals(Inst1, Inst2)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool HIRStoreResultIntoTempArray::isLegalForBulkLoopCarriedScalarReplacement(
+    LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
+    SmallVectorImpl<RegDDRef *> &LoopUpperBounds) {
+  if (LpExpensiveInstsPairs.size() < NumLoopsForBulkTransform) {
+    return false;
+  }
+
+  auto It1 = LpExpensiveInstsPairs.begin();
+  HLLoop *FirstLoop = (*It1).first;
+
+  if (!FirstLoop->getParentRegion()->isFunctionLevel()) {
+    return false;
+  }
+
+  unsigned InnermostLoopLevel = FirstLoop->getNestingLevel();
+  unsigned OutermostLoopLevel = InnermostLoopLevel - NumLoopnestLevel + 1;
+  auto *CurNode = FirstLoop->getParentLoopAtLevel(OutermostLoopLevel);
+  HLInst *FirstExpensiveInst = (*((*It1).second).begin());
+  DDGraph DDG1 = DDA.getGraph(FirstLoop);
+
+  HLLoop *CurLoop = nullptr;
+  HLInst *CurExpensiveInst = nullptr;
+
+  for (auto It2 = std::next(LpExpensiveInstsPairs.begin());
+       It2 != LpExpensiveInstsPairs.end(); ++It2) {
+    CurLoop = (*It2).first;
+    CurExpensiveInst = (*((*It2).second).begin());
+    auto *CurOutermostLoop = CurLoop->getParentLoopAtLevel(OutermostLoopLevel);
+
+    // Make sure there is no labels or branches among loops
+    if (!HLNodeUtils::postDominates(CurOutermostLoop, CurNode) ||
+        !HLNodeUtils::dominates(CurNode, CurOutermostLoop)) {
+      return false;
+    }
+
+    CurNode = CurOutermostLoop;
+
+    if (!areLoopBoundsConformed(FirstLoop, CurLoop, LoopUpperBounds)) {
+      return false;
+    }
+
+    DDGraph DDG2 = DDA.getGraph(CurLoop);
+
+    if (!corresponds(FirstExpensiveInst, CurExpensiveInst, DDG1, DDG2,
+                     InnermostLoopLevel)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static HLLoop *
+createExtractedLoopNest(HLLoop *Lp, HLLoop *NewLoop, RegDDRef *MemRef,
+                        SmallVectorImpl<RegDDRef *> &LoopUpperBounds,
+                        SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs) {
+  unsigned InnermostLoopLevel = Lp->getNestingLevel();
+  unsigned OutermostLoopLevel = InnermostLoopLevel - NumLoopnestLevel + 1;
+
+  HLLoop *ParentLoop = nullptr;
+  CanonExpr *MemCanonExpr = nullptr;
+  CanonExpr *MemRefLowerDimCE = nullptr;
+  unsigned NumDimension = MemRef->getNumDimensions();
+  unsigned Dim = 1;
+
+  for (unsigned Id = NumLoopnestLevel - 1, LoopLevel = InnermostLoopLevel;
+       LoopLevel >= OutermostLoopLevel; --LoopLevel, --Id) {
+    do {
+      MemCanonExpr = MemRef->getDimensionIndex(Dim);
+      MemRefLowerDimCE = MemRef->getDimensionLower(Dim);
+      Dim++;
+    } while (MemCanonExpr->isConstant() && Dim <= NumDimension);
+
+    if (LoopLevel != InnermostLoopLevel) {
+      // Clone the empty parent loop nest for the new loop's parent loops
+      Lp = Lp->getParentLoop();
+      ParentLoop = Lp->cloneEmpty();
+
+      ParentLoop->setUpperDDRef(LoopUpperBounds[Id]->clone());
+      CanonExprUtils::add(ParentLoop->getUpperCanonExpr(),
+                          DistsBetweenMemRefs[Id], true);
+
+      HLNodeUtils::insertAsFirstChild(ParentLoop, NewLoop);
+      NewLoop = NewLoop->getParentLoop();
+    } else {
+      NewLoop->setUpperDDRef(LoopUpperBounds[Id]->clone());
+      CanonExprUtils::add(NewLoop->getUpperCanonExpr(), DistsBetweenMemRefs[Id],
+                          true);
+    }
+
+    if (!MemRefLowerDimCE->isZero()) {
+      CanonExprUtils::add(NewLoop->getUpperCanonExpr(), MemRefLowerDimCE, true);
+    }
+  }
+
+  return ParentLoop;
+}
+
+HLLoop *
+HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
+    HLLoop *FirstLoop, RegDDRef *MemRef, HLInst *ExpensiveInst,
+    SmallVectorImpl<RegDDRef *> &LoopUpperBounds,
+    SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs,
+    SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst,
+    SmallVectorImpl<int64_t> &Offsets) {
+  unsigned OuterLoopLevel = FirstLoop->getNestingLevel() - NumLoopnestLevel + 1;
+  HLLoop *OuterAnchorLp = FirstLoop->getParentLoopAtLevel(OuterLoopLevel);
+
+  // Create the extracted loop
+  HLLoop *NewLoop = FirstLoop->cloneEmpty();
+
+  DDGraph DDG = DDA.getGraph(OuterAnchorLp);
+
+  HLLoop *NewOuterLoop = createExtractedLoopNest(
+      FirstLoop, NewLoop, MemRef, LoopUpperBounds, DistsBetweenMemRefs);
+
+  HLNodeUtils::insertBefore(OuterAnchorLp, NewOuterLoop);
+
+  // Insert the inst seqences
+  for (auto Inst : InstsInExprTree) {
+    HLInst *InstClone = Inst->clone();
+    HLNodeUtils::insertAsLastChild(NewLoop, InstClone);
+    updateLiveInAllocaTemp(NewLoop, InstClone->getLvalDDRef()->getSymbase());
+  }
+
+  SmallVector<HLInst *, 8> ArraySizeInsts;
+  SmallVector<RegDDRef *, 8> TripCountRefs;
+
+  // Create Alloca inst, like %TempArray = alloca %array_size5
+  AllocaInst = createAllocaInst(DDG, MemRef, NewLoop,
+                                ExpensiveInst->getLvalDDRef()->getDestType(),
+                                ArraySizeInsts, TripCountRefs, Offsets);
+
+  HLInst *AnchorForArraySizeInsts = nullptr;
+
+  // Insert array size insts as last preheader of the loop
+  for (unsigned I = 0; I < ArraySizeInsts.size(); ++I) {
+    if (I == 0) {
+      HLNodeUtils::insertAsFirstChild(NewLoop->getParentRegion(),
+                                      ArraySizeInsts[I]);
+    } else {
+      HLNodeUtils::insertAfter(AnchorForArraySizeInsts, ArraySizeInsts[I]);
+    }
+    updateLiveInArraySize(NewLoop,
+                          ArraySizeInsts[I]->getLvalDDRef()->getSymbase());
+
+    AnchorForArraySizeInsts = ArraySizeInsts[I];
+  }
+
+  auto &HNU = NewLoop->getHLNodeUtils();
+  auto &DRU = HNU.getDDRefUtils();
+
+  // Update live in of the trip count refs in the array size insts
+  for (auto TripCountRef : TripCountRefs) {
+    TripCountRef->makeConsistent();
+    updateLiveInForBlobs(TripCountRef, NewLoop);
+  }
+
+  HNU.insertAfter(AnchorForArraySizeInsts, AllocaInst);
+
+  RegDDRef *AllocaLval = AllocaInst->getLvalDDRef();
+
+  updateLiveInArraySize(NewLoop, AllocaLval->getSymbase());
+
+  updateLiveInForBlobs(AllocaLval, NewLoop);
+
+  // Create a memref using AllocaRef and update the expensive inst's lval
+  RegDDRef *AllocaDDRef =
+      DRU.createMemRef(AllocaLval->getSingleCanonExpr()->getSingleBlobIndex());
+
+  RegDDRef *AllocaDDRefClone = AllocaDDRef->clone();
+
+  uint64_t TypeSize = ExpensiveInst->getLvalDDRef()->getDestTypeSizeInBytes();
+
+  RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
+      NewLoop, NewLoop, AllocaDDRefClone, MemRef, TypeSize, Offsets);
+
+  HLNodeUtils::insertAsLastChild(NewLoop, ExpensiveInst->clone());
+
+  auto LastInst = cast<HLInst>(NewLoop->getLastChild());
+
+  LastInst->setLvalDDRef(AllocaRef);
+
+  makeConsistent(AllocaRef, MemRef, NewLoop);
+
+  updateLiveInAllocaTemp(NewLoop, AllocaRef->getBasePtrSymbase());
+
+  return NewLoop;
+}
+
+void HIRStoreResultIntoTempArray::getDistsBetweenMinRefAndMaxRef(
+    LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
+    SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs) {
+  SmallVector<HLInst *, 16> InstsInExprTree;
+  SmallVector<RegDDRef *, 16> MemRefs;
+
+  for (auto &LpInstPair : LpExpensiveInstsPairs) {
+    HLLoop *Lp = LpInstPair.first;
+    SmallVector<HLInst *, 16> ExpensiveInsts = LpInstPair.second;
+    DDGraph DDG = DDA.getGraph(Lp);
+
+    for (auto ExpensiveInst : ExpensiveInsts) {
+      InstsInExprTree.clear();
+      collectInstsInExprTree(DDG, ExpensiveInst, InstsInExprTree);
+      RegDDRef *MemRef = getMemRef(InstsInExprTree);
+      MemRefs.push_back(MemRef);
+    }
+  }
+
+  RegDDRef *MinRef = *(MemRefs.begin());
+  unsigned NumDimension = MinRef->getNumDimensions();
+
+  for (auto I = std::next(MemRefs.begin()), End = MemRefs.end(); I != End;
+       ++I) {
+    RegDDRef *MaxRef = *(I);
+    unsigned Dim = 1;
+    CanonExpr *MinCanonExpr = nullptr;
+    CanonExpr *MaxCanonExpr = nullptr;
+    CanonExpr *MinCE = nullptr;
+    CanonExpr *MaxCE = nullptr;
+
+    for (int Index = NumLoopnestLevel - 1; Index >= 0; --Index) {
+      do {
+        MinCanonExpr = MinRef->getDimensionIndex(Dim);
+        MaxCanonExpr = MaxRef->getDimensionIndex(Dim);
+        Dim++;
+      } while (MinCanonExpr->isConstant() && Dim <= NumDimension);
+
+      MinCE = MinCanonExpr->clone();
+      MaxCE = MaxCanonExpr->clone();
+
+      if (MaxCE->hasBlob()) {
+        continue;
+      }
+
+      bool Subtracted = CanonExprUtils::subtract(MaxCE, MinCE, true);
+
+      if (!Subtracted) {
+        continue;
+      }
+
+      if (!DistsBetweenMemRefs[Index]) {
+        DistsBetweenMemRefs[Index] = MaxCE;
+      } else {
+        DistsBetweenMemRefs[Index] =
+            MaxCE->getConstant() > DistsBetweenMemRefs[Index]->getConstant()
+                ? MaxCE
+                : DistsBetweenMemRefs[Index];
+      }
+    }
+  }
+}
+
+bool HIRStoreResultIntoTempArray::doBulkLoopCarriedScalarReplacement(
+    LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
+    SmallVectorImpl<RegDDRef *> &LoopUpperBounds) {
+  SmallVector<CanonExpr *, NumLoopnestLevel> DistsBetweenMemRefs = {
+      nullptr, nullptr, nullptr};
+
+  // Get the largest constant distances for each dimensions between minref and
+  // maxref
+  getDistsBetweenMinRefAndMaxRef(LpExpensiveInstsPairs, DistsBetweenMemRefs);
+
+  auto It = LpExpensiveInstsPairs.begin();
+  HLLoop *FirstLoop = (*It).first;
+
+  HLInst *FirstExpensiveInst = (*((*It).second).begin());
+
+  DDGraph DDG = DDA.getGraph(FirstLoop);
+  auto &HNU = FirstLoop->getHLNodeUtils();
+  auto &DRU = HNU.getDDRefUtils();
+  SmallVector<HLInst *, 16> InstsInExprTree;
+
+  collectInstsInExprTree(DDG, FirstExpensiveInst, InstsInExprTree);
+
+  RegDDRef *MemRef = getMemRef(InstsInExprTree);
+
+  // Start to handle the first ExpensiveInst of which expression tree which
+  // includes the MinRef This is also the case that we extract the corresponding
+  // expression tree to create the extracted loop
+  auto LowerTopSortNum = [](const HLInst *HInst1, const HLInst *HInst2) {
+    return HInst1->getTopSortNum() < HInst2->getTopSortNum();
+  };
+
+  std::sort(InstsInExprTree.begin(), InstsInExprTree.end(), LowerTopSortNum);
+
+  HLInst *AllocaInst = nullptr;
+  SmallVector<int64_t, 4> Offsets;
+
+  HLLoop *ExtractedLoop = createExtractedLoopWithLargestLoopUpperBounds(
+      FirstLoop, MemRef, FirstExpensiveInst, LoopUpperBounds,
+      DistsBetweenMemRefs, InstsInExprTree, AllocaInst, Offsets);
+
+  // Create a temporary alloca to store the result
+  RegDDRef *AllocaDDRef = DRU.createMemRef(
+      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex());
+
+  // Handle the transformation of the rest of expression trees in the loop
+  for (auto &LpInstPair : LpExpensiveInstsPairs) {
+    HLLoop *Lp = LpInstPair.first;
+    SmallVector<HLInst *, 16> ExpensiveInsts = LpInstPair.second;
+    DDG = DDA.getGraph(Lp);
+
+    for (auto ExpensiveInst : ExpensiveInsts) {
+
+      InstsInExprTree.clear();
+
+      collectInstsInExprTree(DDG, ExpensiveInst, InstsInExprTree);
+
+      std::sort(InstsInExprTree.begin(), InstsInExprTree.end(),
+                LowerTopSortNum);
+
+      // Get the MemRef in the expression tree so that we can copy each
+      // dimension's CE to the new AllocaRef
+      RegDDRef *MemRef = getMemRef(InstsInExprTree);
+
+      uint64_t TypeSize =
+          ExpensiveInst->getLvalDDRef()->getDestTypeSizeInBytes();
+
+      RegDDRef *AllocaDDRefClone = AllocaDDRef->clone();
+
+      RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
+          ExtractedLoop, Lp, AllocaDDRefClone, MemRef, TypeSize, Offsets);
+
+      // Create a load inst to replace the expensive inst, like -
+      // transfer from -
+      //   %call119.us = @pow(%conv118.us,  2.500000e+00);
+      // to -
+      //   %call119.us = (%TempArray)[i1 + 2][%rem.us][%rem10.us];
+      auto LoadInst = HNU.createLoad(AllocaRef, "Load",
+                                     ExpensiveInst->getLvalDDRef()->clone());
+
+      HLNodeUtils::insertAfter(ExpensiveInst, LoadInst);
+
+      updateLiveInAllocaTemp(Lp, AllocaRef->getBasePtrSymbase());
+
+      makeConsistent(AllocaRef, MemRef, ExtractedLoop);
+
+      for (auto Blob :
+           make_range(AllocaRef->blob_begin(), AllocaRef->blob_end())) {
+        updateLiveInAllocaTemp(Lp, Blob->getSymbase());
+      }
+
+      // Collect the dependent insts for the ExpensiveInst
+      SmallSet<HLInst *, 16> InstsNeedToKeep;
+
+      for (auto II = Lp->child_begin(), EE = Lp->child_end(); II != EE; ++II) {
+
+        HLInst *HInst = dyn_cast<HLInst>(&*II);
+
+        if (std::find(InstsInExprTree.begin(), InstsInExprTree.end(), HInst) !=
+            InstsInExprTree.end()) {
+          continue;
+        }
+
+        if (HInst == ExpensiveInst) {
+          continue;
+        }
+
+        removeDependentInsts(HInst, DDG, InstsInExprTree, InstsNeedToKeep);
+      }
+
+      for (auto Inst : InstsInExprTree) {
+        if (!InstsNeedToKeep.count(Inst)) {
+          HLNodeUtils::remove(Inst);
+        }
+      }
+    }
+
+    for (auto ExpensiveInst : ExpensiveInsts) {
+      HLNodeUtils::remove(ExpensiveInst);
+    }
+  }
+
+  return true;
+}
+
+static void setInvalidate(HLLoop *Lp) {
+  Lp->addInt32LoopMetadata("intel.loop.distribute.loopnest.enable", 1);
+
+  HIRInvalidationUtils::invalidateBody(Lp);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(
+      Lp->getParentLoopAtLevel(Lp->getNestingLevel() - NumLoopnestLevel + 1));
+  return;
+}
+
 bool HIRStoreResultIntoTempArray::run() {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << "HIR Store Result Into Temp Array Disabled \n");
@@ -1252,23 +1882,47 @@ bool HIRStoreResultIntoTempArray::run() {
 
   // The vector collects the expensive insts
   SmallVector<HLInst *, 16> ExpensiveInsts;
+  LpExpensiveInstsPairsTy LpExpensiveInstsPairs;
 
   for (auto *Lp : InnermostLoops) {
-    bool Transformed = false;
     ExpensiveInsts.clear();
 
     if (isLegalForLoopCarriedScalarReplacement(Lp, ExpensiveInsts)) {
-      Transformed = doLoopCarriedScalarReplacement(Lp, ExpensiveInsts);
-      Result = Result || Transformed;
+      LpExpensiveInstsPairs.push_back(std::make_pair(Lp, ExpensiveInsts));
     }
+  }
+
+  SmallVector<RegDDRef *, NumLoopnestLevel> LoopUpperBounds = {nullptr, nullptr,
+                                                               nullptr};
+  bool Transformed = false;
+
+  if (isLegalForBulkLoopCarriedScalarReplacement(LpExpensiveInstsPairs,
+                                                 LoopUpperBounds)) {
+    Transformed = doBulkLoopCarriedScalarReplacement(LpExpensiveInstsPairs,
+                                                     LoopUpperBounds);
 
     if (Transformed) {
-      Lp->addInt32LoopMetadata("intel.loop.distribute.loopnest.enable", 1);
+      (LpExpensiveInstsPairs[0].first)->getParentRegion()->setGenCode();
 
-      Lp->getParentRegion()->setGenCode();
-      HIRInvalidationUtils::invalidateBody(Lp);
-      HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(
-          Lp->getOutermostParentLoop());
+      for (auto &LpInstPair : LpExpensiveInstsPairs) {
+        HLLoop *Lp = LpInstPair.first;
+        setInvalidate(Lp);
+      }
+    }
+
+    Result = Result || Transformed;
+  } else {
+    for (auto &LpInstPair : LpExpensiveInstsPairs) {
+      HLLoop *Lp = LpInstPair.first;
+      ExpensiveInsts = LpInstPair.second;
+      Transformed = doLoopCarriedScalarReplacement(Lp, ExpensiveInsts);
+
+      if (Transformed) {
+        Lp->getParentRegion()->setGenCode();
+        setInvalidate(Lp);
+      }
+
+      Result = Result || Transformed;
     }
   }
 

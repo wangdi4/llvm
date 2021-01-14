@@ -30,6 +30,10 @@ const char *MDStructTypesTag = "dtrans_types";
 // information for pointer type recovery.
 const char *MDDTransTypeTag = "dtrans_type";
 
+// Tag associated with the metadata node that represents declaration types for
+// declared functions and global variables.
+const char *MDDeclTypesTag = "dtrans_decl_types";
+
 bool TypeMetadataReader::initialize(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
   if (!DTMDTypes)
@@ -118,6 +122,66 @@ bool TypeMetadataReader::initialize(Module &M) {
       RecoveryErrors = true;
     }
   }
+
+  // Build a table to map symbol names for functions and variables to metadata
+  // nodes about the symbol's type. This is to handle function and global
+  // variable declarations since these cannot have metadata directly attached
+  // to them in the IR.
+  NamedMDNode *DTDeclTypes = M.getNamedMetadata(MDDeclTypesTag);
+  if (DTDeclTypes) {
+    for (auto *MD : DTDeclTypes->operands()) {
+      // Each operand should be a pair of the form: { "symbol name", MDid }
+      // where MDid is the MDNode that describes the symbol's type.
+      if (MD->getNumOperands() != 2) {
+        LLVM_DEBUG(
+            dbgs() << "Incorrect MD encoding for declaration description:\n"
+                   << *MD << "\n");
+        continue;
+      }
+
+      auto *MDS = dyn_cast<MDString>(MD->getOperand(0));
+      if (!MDS) {
+        LLVM_DEBUG(
+            dbgs() << "Incorrect MD encoding for declaration description:\n"
+                   << *MD << "\n");
+        continue;
+      }
+
+      auto *TypeID = dyn_cast<MDNode>(MD->getOperand(1));
+      if (!TypeID) {
+        LLVM_DEBUG(
+            dbgs() << "Incorrect MD encoding for declaration description:\n"
+                   << *MD << "\n");
+        continue;
+      }
+
+      // If the symbol is locally defined, ignore the node and instead rely on
+      // the type attached to the Function or GlobalVariable. This is necessary
+      // because the type for the declaration may have different types in this
+      // metadata due to the IRMover creating multiple types when it fails to
+      // merge common types. However, the type where a definition for the symbol
+      // exists would match the type used in the IR for the symbol.
+      StringRef SymName = MDS->getString();
+      Function *F = M.getFunction(SymName);
+      GlobalVariable *GV = M.getGlobalVariable(SymName, /*AllowInternal=*/true);
+      if ((F && !F->isDeclaration()) || (GV && !GV->isDeclaration()))
+        continue;
+
+      // The symbol may have declarations in multiple files. Due to type
+      // renaming in the IRMover, there could be conflicting descriptions.
+      auto It = SymbolNameToMDNodeMap.find(SymName);
+      if (It != SymbolNameToMDNodeMap.end() && It->second != TypeID) {
+        LLVM_DEBUG(dbgs() << "  WARNING: Multiple types for symbol " << SymName
+                          << ":" << *MD << "\n");
+        // Reset the type information because it is ambiguous.
+        SymbolNameToMDNodeMap[SymName] = nullptr;
+        continue;
+      }
+
+      SymbolNameToMDNodeMap[SymName] = TypeID;
+    }
+  }
+
   return AllRecovered && !RecoveryErrors;
 }
 
@@ -264,7 +328,8 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
 
   // If the module has the corresponding structure, we will use it to check for
   // possible incorrect metadata information.
-  llvm::StructType *StTy = M.getTypeByName(DTStTy->getName());
+  llvm::StructType *StTy =
+      StructType::getTypeByName(M.getContext(), DTStTy->getName());
 
   unsigned FieldNum = 0;
   unsigned NumOps = MD->getNumOperands();
@@ -313,11 +378,17 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
 // Otherwise, returns nullptr.
 DTransType *TypeMetadataReader::getDTransTypeFromMD(Value *V) {
   MDNode *MDNode = nullptr;
-  if (auto *I = dyn_cast<Instruction>(V))
+  if (auto *I = dyn_cast<Instruction>(V)) {
     MDNode = I->getMetadata(MDDTransTypeTag);
-  else if (auto *G = dyn_cast<GlobalObject>(V))
+  } else if (auto *G = dyn_cast<GlobalObject>(V)) {
     MDNode = G->getMetadata(MDDTransTypeTag);
-
+    if (!MDNode) {
+      // Try to find a type from the table of declaration types.
+      auto It = SymbolNameToMDNodeMap.find(G->getName());
+      if (It != SymbolNameToMDNodeMap.end())
+        MDNode = It->second;
+    }
+  }
   if (MDNode)
     return decodeMDNode(MDNode);
 
@@ -353,6 +424,8 @@ DTransType *TypeMetadataReader::decodeMDNode(MDNode *MD) {
       return decodeMDLiteralStructNode(MD);
     else if (Tag.equals("R"))
       return decodeMDStructRefNode(MD);
+    else if (Tag.equals("metadata"))
+      return TM.getOrCreateAtomicType(Type::getMetadataTy(MD->getContext()));
   }
 
   // If the first field of the metadata node is a metadata node
@@ -471,7 +544,7 @@ DTransType *TypeMetadataReader::decodeMDVoidNode(MDNode *MD) {
 
 // Decode a metadata description for a literal struct type.
 // Metadata is of the form:
-//     !{!"L", i32 <numElem>, !MDNodefield1, !MDNodefield2, …}
+//     !{!"L", i32 <numElem>, !MDNodefield1, !MDNodefield2, ...}
 //
 DTransType *TypeMetadataReader::decodeMDLiteralStructNode(MDNode *MD) {
   if (MD->getNumOperands() < 2) {

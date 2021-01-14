@@ -1,6 +1,6 @@
 //===- Intel_InlineReportCommon.h - Inlining report utils ------*- C++ -*-===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -43,8 +43,7 @@ typedef enum {
                            //   compilation
   DontSkipIntrin = 0x200,  // Do create the inlining report info for the
                            //   special intrinsic call sites
-  Language = 0x400,     // Print the source language C for C/C++ F for Fortran
-  AlwaysInline = 0x800  // Print a report for AlwaysInline inlining passes
+  Language = 0x400     // Print the source language C for C/C++ F for Fortran
 } InlineReportOptions;
 }
 
@@ -241,6 +240,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee has exception handling"},
     // NinlrIsCrossLanguage
     {InlPrtSimple, "Caller and Callee have different source languages"},
+    // NinlrNotMandatory
+    {InlPrtSimple, "Inlining is not mandatory"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

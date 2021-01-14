@@ -13,6 +13,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   ../Intel_VPO/Vecopt/VPODirectiveCleanup.cpp
   Paropt/Intel_VPOParoptFortranUtils.cpp
   Paropt/Intel_VPOParoptOptimizeDataSharing.cpp
+  Paropt/Intel_VPOParoptSharedPrivatization.cpp
   )
 
 # INTEL_FEATURE_CSA
@@ -37,6 +38,15 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
 
+get_property(LLVMGenXIntrinsics_SOURCE_DIR GLOBAL 
+             PROPERTY LLVMGenXIntrinsics_SOURCE_PROP)
+get_property(LLVMGenXIntrinsics_BINARY_DIR GLOBAL 
+             PROPERTY LLVMGenXIntrinsics_BINARY_PROP)
+
+include_directories(
+  ${LLVMGenXIntrinsics_SOURCE_DIR}/GenXIntrinsics/include
+  ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include)
+
 add_llvm_component_library(LLVMVPOTransforms
   VPOTransform.cpp
 
@@ -49,6 +59,7 @@ add_llvm_component_library(LLVMVPOTransforms
   Paropt/VPOParopt.cpp
   Paropt/VPOParoptAtomics.cpp
   Paropt/VPOParoptLoopCollapse.cpp
+  Paropt/VPOParoptLowerSimd.cpp
   Paropt/VPOParoptModuleTransform.cpp
   Paropt/VPOParoptPrepare.cpp
   Paropt/VPOParoptTpv.cpp
@@ -56,11 +67,33 @@ add_llvm_component_library(LLVMVPOTransforms
   Paropt/VPOParoptTask.cpp
   Paropt/VPOParoptTransform.cpp
   Paropt/VPOParoptUtils.cpp
+
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
+
+  ADDITIONAL_HEADER_DIRS
+  ${LLVMGenXIntrinsics_SOURCE_DIR}/GenXIntrinsics/include
+  ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include
+
+  LINK_LIBS
+  LLVMDemangle
+  LLVMGenXIntrinsics
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+# INTEL_CUSTOMIZATION
+  Intel_LoopAnalysis
+  Intel_LoopTransforms
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
+  Scalar
+  Support
+  TransformUtils
+  VPOAnalysis
 )
 
-add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen)
+add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMDemangle LLVMGenXIntrinsics)
 
 # end INTEL_COLLAB

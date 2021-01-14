@@ -660,3 +660,19 @@ bool DDRefUtils::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   return GepRefs.front()->getDDRefUtils().getHIRParser().delinearizeRefs(
       GepRefs, OutRefs, DimSizes, AllowSExt);
 }
+
+bool DDRefUtils::isMemRefAllDimsConstOnly(const RegDDRef *Ref) {
+  if (!Ref->isMemRef()) {
+    return false;
+  }
+
+  for (unsigned I = 1, E = Ref->getNumDimensions(); I < E; ++I) {
+    if (!Ref->getDimensionStride(I)->isIntConstant() ||
+        !Ref->getDimensionIndex(I)->isIntConstant() ||
+        !Ref->getDimensionLower(I)->isIntConstant()) {
+      return false;
+    }
+  }
+
+  return true;
+}

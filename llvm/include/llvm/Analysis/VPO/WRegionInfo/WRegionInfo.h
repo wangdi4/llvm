@@ -19,7 +19,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 
 namespace llvm {
 
@@ -27,6 +26,7 @@ class AAResults;
 class Function;
 class DominatorTree;
 class PostDominatorTree;
+class TargetTransformInfo;
 
 namespace vpo {
 
@@ -50,15 +50,15 @@ public:
   typedef WRContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  Function *Func;
-  DominatorTree *DT;
-  LoopInfo *LI;
-  ScalarEvolution *SE;
-  const TargetTransformInfo *TTI;
-  AssumptionCache *AC;
-  const TargetLibraryInfo *TLI;
-  AAResults *AA;
-  WRegionCollection *WRC;
+  Function *Func = nullptr;
+  DominatorTree *DT = nullptr;
+  LoopInfo *LI = nullptr;
+  ScalarEvolution *SE = nullptr;
+  const TargetTransformInfo *TTI = nullptr;
+  AssumptionCache *AC = nullptr;
+  const TargetLibraryInfo *TLI = nullptr;
+  AAResults *AA = nullptr;
+  WRegionCollection *WRC = nullptr;
   OptimizationRemarkEmitter &ORE;
 
   /// \brief Populates W-Region with WRegionNodes.
@@ -66,9 +66,8 @@ private:
 
 public:
   WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
-              const TargetTransformInfo *TTI, AssumptionCache *AC,
-              const TargetLibraryInfo *TLI, AAResults *AA,
-              WRegionCollection *WRC, OptimizationRemarkEmitter &ORE);
+              AAResults *AA, WRegionCollection *WRC,
+              OptimizationRemarkEmitter &ORE);
 
   void print(raw_ostream &OS) const;
 
@@ -88,8 +87,15 @@ public:
   DominatorTree *getDomTree() { return DT; }
   LoopInfo *getLoopInfo()     { return LI; }
   ScalarEvolution *getSE()    { return SE; }
+#if INTEL_CUSTOMIZATION
+  /// Propagate \p OptLevel to AA.
+  void setupAAWithOptLevel(unsigned OptLevel);
+#endif // INTEL_CUSTOMIZATION
+  void setTargetTransformInfo(TargetTransformInfo *TTI) { this->TTI = TTI; }
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
+  void setAssumptionCache(AssumptionCache *AC) { this->AC = AC; }
   AssumptionCache *getAssumptionCache() { return AC; }
+  void setTargetLibraryInfo(TargetLibraryInfo *TLI) { this->TLI = TLI; }
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
   AAResults *getAliasAnalysis() { return AA; }
   OptimizationRemarkEmitter &getORE() { return ORE; }

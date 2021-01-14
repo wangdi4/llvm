@@ -285,10 +285,12 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
 #if INTEL_COLLAB
+                             std::string Suffix,
                              bool AllowEHTypeID,
-                             const OrderedArgs *TgtClauseArgs,
-#endif // INTEL_COLLAB
+                             const OrderedArgs *TgtClauseArgs)
+#else // INTEL_COLLAB
                              std::string Suffix)
+#endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AC(AC), AllowVarArgs(AllowVarArgs),
 #if INTEL_COLLAB
@@ -601,6 +603,46 @@ void CodeExtractor::findAllocas(const CodeExtractorAnalysisCache &CEAC,
       LLVM_DEBUG(dbgs() << "Sinking alloca: " << *AI << "\n");
       SinkCands.insert(AI);
       continue;
+    }
+
+    // Find bitcasts in the outlined region that have lifetime marker users
+    // outside that region. Replace the lifetime marker use with an
+    // outside region bitcast to avoid unnecessary alloca/reload instructions
+    // and extra lifetime markers.
+    SmallVector<Instruction *, 2> LifetimeBitcastUsers;
+    for (User *U : AI->users()) {
+      if (!definedInRegion(Blocks, U))
+        continue;
+
+      if (U->stripInBoundsConstantOffsets() != AI)
+        continue;
+
+      Instruction *Bitcast = cast<Instruction>(U);
+      for (User *BU : Bitcast->users()) {
+        IntrinsicInst *IntrInst = dyn_cast<IntrinsicInst>(BU);
+        if (!IntrInst)
+          continue;
+
+        if (!IntrInst->isLifetimeStartOrEnd())
+          continue;
+
+        if (definedInRegion(Blocks, IntrInst))
+          continue;
+
+        LLVM_DEBUG(dbgs() << "Replace use of extracted region bitcast"
+                          << *Bitcast << " in out-of-region lifetime marker "
+                          << *IntrInst << "\n");
+        LifetimeBitcastUsers.push_back(IntrInst);
+      }
+    }
+
+    for (Instruction *I : LifetimeBitcastUsers) {
+      Module *M = AIFunc->getParent();
+      LLVMContext &Ctx = M->getContext();
+      auto *Int8PtrTy = Type::getInt8PtrTy(Ctx);
+      CastInst *CastI =
+          CastInst::CreatePointerCast(AI, Int8PtrTy, "lt.cast", I);
+      I->replaceUsesOfWith(I->getOperand(1), CastI);
     }
 
     // Follow any bitcasts.
@@ -981,9 +1023,11 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       // Those attributes should be safe to propagate to the extracted function.
       case Attribute::AlwaysInline:
       case Attribute::Cold:
+      case Attribute::Hot:
       case Attribute::NoRecurse:
       case Attribute::InlineHint:
       case Attribute::MinSize:
+      case Attribute::NoCallback:
       case Attribute::NoDuplicate:
       case Attribute::NoFree:
       case Attribute::NoImplicitFloat:
@@ -1009,6 +1053,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::StrictFP:
       case Attribute::UWTable:
       case Attribute::NoCfCheck:
+      case Attribute::MustProgress:
         break;
       }
 
@@ -1560,7 +1605,7 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
   // function arguments, as the parameters don't correspond to anything at the
   // source level.
   assert(OldSP->getUnit() && "Missing compile unit for subprogram");
-  DIBuilder DIB(*OldFunc.getParent(), /*AllowUnresolvedNodes=*/false,
+  DIBuilder DIB(*OldFunc.getParent(), /*AllowUnresolved=*/false,
                 OldSP->getUnit());
   auto SPType = DIB.createSubroutineType(DIB.getOrCreateTypeArray(None));
   DISubprogram::DISPFlags SPFlags = DISubprogram::SPFlagDefinition |
@@ -1631,7 +1676,7 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
   // function.
   for (Instruction &I : instructions(NewFunc)) {
     if (const DebugLoc &DL = I.getDebugLoc())
-      I.setDebugLoc(DebugLoc::get(DL.getLine(), DL.getCol(), NewSP));
+      I.setDebugLoc(DILocation::get(Ctx, DL.getLine(), DL.getCol(), NewSP));
 
     // Loop info metadata may contain line locations. Fix them up.
     auto updateLoopInfoLoc = [&Ctx,
@@ -1642,7 +1687,7 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
     updateLoopMetadataDebugLocations(I, updateLoopInfoLoc);
   }
   if (!TheCall.getDebugLoc())
-    TheCall.setDebugLoc(DebugLoc::get(0, 0, OldSP));
+    TheCall.setDebugLoc(DILocation::get(Ctx, 0, 0, OldSP));
 
   eraseDebugIntrinsicsWithNonLocalRefs(NewFunc);
 }
@@ -2220,7 +2265,7 @@ bool CodeExtractor::verifyAssumptionCache(const Function &OldFunc,
                                           const Function &NewFunc,
                                           AssumptionCache *AC) {
   for (auto AssumeVH : AC->assumptions()) {
-    CallInst *I = dyn_cast_or_null<CallInst>(AssumeVH);
+    auto *I = dyn_cast_or_null<CallInst>(AssumeVH);
     if (!I)
       continue;
 
@@ -2232,12 +2277,12 @@ bool CodeExtractor::verifyAssumptionCache(const Function &OldFunc,
     // that were previously in the old function, but that have now been moved
     // to the new function.
     for (auto AffectedValVH : AC->assumptionsFor(I->getOperand(0))) {
-      CallInst *AffectedCI = dyn_cast_or_null<CallInst>(AffectedValVH);
+      auto *AffectedCI = dyn_cast_or_null<CallInst>(AffectedValVH);
       if (!AffectedCI)
         continue;
       if (AffectedCI->getFunction() != &OldFunc)
         return true;
-      auto *AssumedInst = dyn_cast<Instruction>(AffectedCI->getOperand(0));
+      auto *AssumedInst = cast<Instruction>(AffectedCI->getOperand(0));
       if (AssumedInst->getFunction() != &OldFunc)
         return true;
     }

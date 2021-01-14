@@ -144,7 +144,7 @@ private:
       checkHLLoopTy<T>();
       bool IsLevelVisit = (VL == VisitKind::Level);
       (void)IsLevelVisit;
-      assert((!IsLevelVisit || CanonExprUtils::isValidLoopLevel(Level)) &&
+      assert((!IsLevelVisit || CanonExpr::isValidLoopLevel(Level)) &&
              " Level is out of range.");
     }
 
@@ -419,18 +419,18 @@ private:
   /// Returns the outermost parent of Node1 which is safe to be used for
   /// checking domination. We move up through constant trip count loops. Last
   /// parent indicates the path used to reach to the parent.
-  static const HLNode *getOutermostSafeParent(const HLNode *Node1,
-                                              const HLNode *Node2,
-                                              bool PostDomination,
-                                              HIRLoopStatistics *HLS,
-                                              const HLNode **LastParent1);
+  static const HLNode *
+  getOutermostSafeParent(const HLNode *Node1, const HLNode *Node2,
+                         bool PostDomination, HIRLoopStatistics *HLS,
+                         const HLNode **LastParent1,
+                         SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt);
 
   /// Internally used by domination utility to get to the commona dominating
   /// parent. Last parent indicates the path used to reach to the parent.
-  static const HLNode *
-  getCommonDominatingParent(const HLNode *Parent1, const HLNode *LastParent1,
-                            const HLNode *Node2, bool PostDomination,
-                            HIRLoopStatistics *HLS, const HLNode **LastParent2);
+  static const HLNode *getCommonDominatingParent(
+      const HLNode *Parent1, const HLNode *LastParent1, const HLNode *Node2,
+      bool PostDomination, HIRLoopStatistics *HLS, const HLNode **LastParent2,
+      SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt);
 
   /// Implements domination/post-domination functionality.
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
@@ -1427,8 +1427,7 @@ public:
     (void)Loop;
     assert((!Loop || !Loop->isInnermost()) &&
            " Gathering loops inside innermost loop.");
-    assert(CanonExprUtils::isValidLoopLevel(Level) &&
-           " Level is out of range.");
+    assert(CanonExpr::isValidLoopLevel(Level) && " Level is out of range.");
     LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, Level);
     visit(LoopVisit, Node);
   }
@@ -1566,6 +1565,7 @@ public:
   static bool isKnownPredicateRange(IterTy Begin, IterTy End,
                                     GetPredicateFuncTy GetPredOp,
                                     bool *IsTrue) {
+    bool UnknownPredicate = false;
     bool FinalResult = true;
 
     // Check every predicate if its value is known. Evaluate the result of the
@@ -1575,19 +1575,23 @@ public:
       auto *DDRefRhs = GetPredOp(I, false);
 
       if (!DDRefLhs->isTerminalRef() || !DDRefRhs->isTerminalRef()) {
-        return false;
+        UnknownPredicate = true;
+        continue;
       }
 
       bool Result;
       if (!HLNodeUtils::isKnownPredicate(DDRefLhs->getSingleCanonExpr(), *I,
                                          DDRefRhs->getSingleCanonExpr(),
                                          &Result)) {
-        return false;
+        UnknownPredicate = true;
+        continue;
       }
 
-      // TODO: we should return 'known false' if any predicate is known to be
-      // false since they are 'and'ed.
       FinalResult = FinalResult && Result;
+    }
+
+    if (FinalResult && UnknownPredicate) {
+      return false;
     }
 
     if (IsTrue) {

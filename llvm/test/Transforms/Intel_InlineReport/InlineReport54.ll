@@ -1,5 +1,5 @@
-; RUN: opt -ip-cloning -force-ip-manyreccalls-splitting -inline -inline-report=7 -dtrans-inline-heuristics  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; RUN: opt -ip-cloning -force-ip-manyreccalls-splitting -inline -inline-report=7 -dtrans-inline-heuristics  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-META
 ; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-META
 
@@ -93,35 +93,35 @@
 ; CHECK: call {{.*}} @GetVirtualPixelsFromNexus.split.0
 ; CHECK: call {{.*}} @GetVirtualPixelsFromNexus.split.1
 
-; CHECK-NEW: COMPILE FUNC: GetVirtualPixelsFromNexus.split.0
-; CHECK-NEW: COMPILE FUNC: GetVirtualPixelsFromNexus.split.1
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: GetOneCacheViewVirtualPixel
-; CHECK-NEW: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
-; CHECK-NEW: COMPILE FUNC: MeanShiftImage
-; CHECK-NEW: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-NEW: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
-; CHECK-NEW: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
+; CHECK-CL: COMPILE FUNC: GetVirtualPixelsFromNexus.split.0
+; CHECK-CL: COMPILE FUNC: GetVirtualPixelsFromNexus.split.1
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Callee has recursion
+; CHECK-CL: GetVirtualPixelsFromNexus.split.0 {{.*}}Inlining is not profitable
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
+; CHECK-CL: COMPILE FUNC: GetOneCacheViewVirtualPixel
+; CHECK-CL: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
+; CHECK-CL: COMPILE FUNC: MeanShiftImage
+; CHECK-CL: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callsite inlined for many recursive calls splitting
+; CHECK-CL: INLINE: GetVirtualPixelsFromNexus.split.0 {{.*}}Callsite inlined for many recursive calls splitting
+; CHECK-CL: GetVirtualPixelsFromNexus.split.1 {{.*}}Inlining is not profitable
 
 %struct._ExceptionInfo = type { i32, i32, i8*, i8*, i8*, i32, %struct.SemaphoreInfo*, i64 }
 %struct.SemaphoreInfo = type { i64, i32, i64, i64 }

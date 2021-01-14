@@ -26,7 +26,6 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
@@ -76,8 +75,7 @@ public:
   /// Perform paropt transformation on a module.
   bool doParoptTransforms(
       std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
-          WRegionInfoGetter,
-      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
+          WRegionInfoGetter);
 
 private:
   friend class VPOParoptTransform;
@@ -271,7 +269,7 @@ private:
 
     size_t getSize() const override {
       const auto *Var = cast<GlobalVariable>(getAddress());
-      auto *VarType = Var->getType()->getPointerElementType();
+      auto *VarType = Var->getValueType();
       // Global variables have pointer type always.
       // For the purpose of the size calculation, we have to
       // get the pointee's type.

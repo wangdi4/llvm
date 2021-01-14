@@ -6,6 +6,8 @@ declare <4 x i32> @llvm.x86.avx2.vmovadvisew.load.128(i8* %a, i8 %i) nounwind re
 declare void @llvm.x86.avx2.vmovadvisew.store.128(i8*, <4 x i32>, i8 %i) nounwind
 declare <8 x i32> @llvm.x86.avx2.vmovadvisew.load.256(i8* %a, i8 %i) nounwind readonly
 declare void @llvm.x86.avx2.vmovadvisew.store.256(i8*, <8 x i32>, i8 %i) nounwind
+declare void @llvm.x86.avx2.vmemadvise.128(i8* %a, i8 %i) nounwind
+declare void @llvm.x86.avx2.vmemadvise.256(i8* %a, i8 %i) nounwind
 
 define <4 x i32> @test_x86_avx2_vmovadvisew_load_128(i8* %a0) {
 ; CHECK-LABEL: test_x86_avx2_vmovadvisew_load_128:
@@ -41,5 +43,23 @@ define void @test_x86_avx2_vmovadvisew_store_256(i8* %a0, <8 x i32> %a1) {
 ; CHECK-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.avx2.vmovadvisew.store.256(i8* %a0, <8 x i32> %a1, i8 16)
+  ret void
+}
+
+define void @test_x86_avx2_vmemadvise_128(i8* %a0) {
+; CHECK-LABEL: test_x86_avx2_vmemadvise_128:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmemadvisex $123, (%rdi) # encoding: [0xc5,0xfb,0x71,0x07,0x7b]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  call void @llvm.x86.avx2.vmemadvise.128(i8* %a0, i8 123)
+  ret void
+}
+
+define void @test_x86_avx2_vmemadvise_256(i8* %a0) {
+; CHECK-LABEL: test_x86_avx2_vmemadvise_256:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmemadvisey $12, (%rdi) # encoding: [0xc5,0xff,0x71,0x07,0x0c]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  call void @llvm.x86.avx2.vmemadvise.256(i8* %a0, i8 12)
   ret void
 }

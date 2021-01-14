@@ -9,21 +9,19 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Inline report
-; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-OLD-PM,CHECK
-; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NEW-PM,CHECK
+; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-CL,CHECK
+; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-CL,CHECK
 ; Inline report via metadata
 ; RUN: opt -inlinereportsetup -inline-report=128 < %s -S | opt -inline -inline-report=128 -S | opt -inlinereportemitter -inline-report=128 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 ; RUN: opt -passes='inlinereportsetup' -inline-report=128 < %s -S | opt -passes='cgscc(inline)' -inline-report=128 -S | opt -passes='inlinereportemitter' -inline-report=128 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 
 ; CHECK-MD: -> INLINE: {{.*}}myprintf{{.*}}
 ; CHECK-MD:DEAD STATIC FUNC: {{.*}}myprintf{{.*}}
-; CHECK-OLD-PM:DEAD STATIC FUNC: {{.*}}myprintf{{.*}}
-; CHECK-OLD-PM: -> INLINE: {{.*}}myprintf{{.*}}
 ; CHECK: define i32 @main()
 ; CHECK-NOT: call i32 @llvm.va_arg_pack
 ; CHECK: ret i32 0
-; CHECK-NEW-PM:DEAD STATIC FUNC: {{.*}}myprintf{{.*}}
-; CHECK-NEW-PM: -> INLINE: {{.*}}myprintf{{.*}}
+; CHECK-CL:DEAD STATIC FUNC: {{.*}}myprintf{{.*}}
+; CHECK-CL: -> INLINE: {{.*}}myprintf{{.*}}
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }

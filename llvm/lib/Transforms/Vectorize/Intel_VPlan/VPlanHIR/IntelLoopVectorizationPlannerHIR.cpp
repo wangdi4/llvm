@@ -34,9 +34,8 @@ static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
                                            cl::desc("Force CFG linearization"));
 
 static cl::opt<bool>
-    EnableInMemoryEntitiesHIR("vplan-enable-inmemory-entities-hir",
-                              cl::init(false), cl::Hidden,
-                              cl::desc("Enable in memory entities."));
+    EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
+                           cl::Hidden, cl::desc("Enable in memory entities."));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
@@ -83,10 +82,14 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
+    ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
+
+  // Disable SOA-analysis for HIR.
+  Plan->disableSOAAnalysis();
 
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
@@ -110,7 +113,13 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
 
 bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlan &Plan,
                                                      const VPLoop &Loop) const {
-  if (EnableInMemoryEntitiesHIR)
+  // TODO: Privates are not being imported from HIRLegality to VPEntities, hence
+  // below checks for in-memory entities will not capture OMP SIMD private
+  // construct. Remove this check after importing is implemented.
+  if (HIRLegality->getPrivates().size() > 0)
+    return false;
+
+  if (EnableInMemoryEntities)
     return true;
 
   // HIR-CG is not setup to deal with instructions related to in-memory entities
@@ -119,4 +128,31 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlan &Plan,
   // we insert entity related instructions.
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
   return !LE->hasInMemoryEntity();
+}
+
+unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
+  bool ForcedValue = false;
+  unsigned UF = LoopVectorizationPlanner::getLoopUnrollFactor(&ForcedValue);
+
+  if (!ForcedValue) {
+    UF = TheLoop->getUnrollPragmaCount();
+
+    if (UF > 0)
+      ForcedValue = true;
+    else {
+      // getUnrollPragmaCount() returns negative value, which means no
+      // #pragma unroll N is specified for TheLoop.  Leave ForcedValue
+      // to be false then.
+      // Capture UF that could be specified internally by other LoopOpt
+      // transforms.
+      UF = TheLoop->getForcedVectorUnrollFactor();
+      if (UF == 0)
+        UF = 1;
+    }
+  }
+
+  if (Forced)
+    *Forced = ForcedValue;
+
+  return UF;
 }

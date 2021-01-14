@@ -2,12 +2,11 @@
 ; RUN: opt -S -vplan-func-vec -print-after-vplan-func-vec-cfg-import < %s -disable-output | FileCheck %s
 define void @test() {
 ; CHECK-LABEL:  VPlan IR for: test
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_ADD:%.*]] = add i32 [[VP_LANE]] i32 42
-; CHECK-NEXT:     void [[VP0:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:     ret
+; CHECK-NEXT:     br <External Block>
 ;
   %lane = call i32 @llvm.vplan.laneid()
   %add = add i32 %lane, 42

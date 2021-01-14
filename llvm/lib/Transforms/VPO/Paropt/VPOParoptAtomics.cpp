@@ -486,7 +486,7 @@ CallInst *VPOParoptAtomics::genAtomicCall(WRegionNode *W,
     Function *F = B->getParent();
     Module *M = F->getParent();
     AtomicCall = VPOParoptUtils::genCall(M, Name, ReturnTy, Args, nullptr);
-    VPOParoptUtils::setFuncCallingConv(AtomicCall, IsTargetSPIRV);
+    VPOParoptUtils::setFuncCallingConv(AtomicCall, M);
     assert(AtomicCall && "Generated Atomic call for GPU offloading is null.");
   }
   return AtomicCall;
@@ -1202,9 +1202,14 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 
   unsigned OpCode = Operation.getOpcode();
 
-  if (IsTargetSPIRV && (!Enable64BitOpenCLAtomics &&
-                        (AtomicOpndType->getScalarSizeInBits() > 32 ||
-                         ValueOpndType->getScalarSizeInBits() > 32))) {
+  const Function *F = Operation.getFunction();
+
+  if (IsTargetSPIRV &&
+      ((!Enable64BitOpenCLAtomics ||
+        // Do not use 64-bit atomics, if optimizations are not enabled.
+        !F || F->hasFnAttribute(Attribute::OptimizeNone)) &&
+       (AtomicOpndType->getScalarSizeInBits() > 32 ||
+        ValueOpndType->getScalarSizeInBits() > 32))) {
     // If 64-bit OpenCL atomics are not supported,
     // then we have to use critical section.
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "

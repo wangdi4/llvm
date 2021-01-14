@@ -16,49 +16,41 @@ declare void @llvm.directive.region.exit(token) nounwind
 
 define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan IR for: foo
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP114:%.*]] = icmp sgt i32 [[VP0]] i32 0
-; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_CMP114]]), [[BB2:BB[0-9]+]](!i1 [[VP_CMP114]])
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:     [DA: Div] br i1 [[VP_CMP114]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB1]]:
-; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_LANE_TRUNC:%.*]] = trunc i32 [[VP_LANE]] to i32
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_LANE_TRUNC:%.*]] = trunc i64 [[VP_LANE]] to i32
+; CHECK-NEXT:       [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP_REC:%.*]] = phi  [ i32 [[VP0]], [[BB1]] ],  [ i32 [[VP_REC_NEXT:%.*]], [[BB4:BB[0-9]+]] ]
+; CHECK-NEXT:      [[BB3]]: # preds: [[BB1]], [[BB4:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_REC:%.*]] = phi  [ i32 [[VP0]], [[BB1]] ],  [ i32 [[VP_REC_NEXT:%.*]], [[BB4]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP114]], [[BB1]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB4]] ]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB4]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      PREDECESSORS(2): [[BB1]] [[BB4]]
+; CHECK-NEXT:       [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB5:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB5]]:
+; CHECK-NEXT:        [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP_REC]] i32 [[VP_LANE_TRUNC]]
 ; CHECK-NEXT:         [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_REC_NEXT]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp sgt i32 [[VP_REC_NEXT]] i32 0
-; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:         [DA: Uni] br [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB5]], [[BB3]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP1]]), [[BB3]](!i1 [[VP1]])
-; CHECK-NEXT:      PREDECESSORS(2): [[BB5]] [[BB3]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP1]], [[BB6:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]]
+; CHECK-NEXT:       [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB6]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB0]], [[BB6]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()

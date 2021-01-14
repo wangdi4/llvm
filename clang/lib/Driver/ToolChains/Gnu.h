@@ -241,6 +241,9 @@ public:
     /// The set of multilibs that the detected installation supports.
     MultilibSet Multilibs;
 
+    // Gentoo-specific toolchain configurations are stored here.
+    const std::string GentooConfigDir = "/etc/env.d/gcc";
+
   public:
     explicit GCCInstallationDetector(const Driver &D) : IsValid(false), D(D) {}
     void init(const llvm::Triple &TargetTriple, const llvm::opt::ArgList &Args,
@@ -296,7 +299,8 @@ public:
                                 const llvm::opt::ArgList &Args,
                                 const std::string &LibDir,
                                 StringRef CandidateTriple,
-                                bool NeedsBiarchSuffix = false);
+                                bool NeedsBiarchSuffix, bool GCCDirExists,
+                                bool GCCCrossDirExists);
 
     bool ScanGentooConfigs(const llvm::Triple &TargetTriple,
                            const llvm::opt::ArgList &Args,
@@ -334,6 +338,7 @@ protected:
   Tool *getTool(Action::ActionClass AC) const override;
   Tool *buildAssembler() const override;
   Tool *buildLinker() const override;
+  Tool *buildBackendCompiler() const override; // INTEL
 
   virtual std::string getMultiarchTriple(const Driver &D,
                                          const llvm::Triple &TargetTriple,

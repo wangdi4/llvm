@@ -23,7 +23,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
@@ -85,9 +84,6 @@ STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
 STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 
-extern cl::opt<unsigned> IntelInlineReportLevel; // INTEL
-
-/// Flag to disable manual alloca merging.
 ///
 /// Merging of allocas was originally done as a stack-size saving technique
 /// prior to LLVM's code generator having support for stack coloring based on
@@ -120,12 +116,16 @@ static cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats(
 
 #if INTEL_CUSTOMIZATION
 LegacyInlinerBase::LegacyInlinerBase(char &ID)
-    : CallGraphSCCPass(ID), Report(IntelInlineReportLevel),
-      MDReport(IntelInlineReportLevel) {}
+    : CallGraphSCCPass(ID) {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
+}
 
 LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
-    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime),
-      Report(IntelInlineReportLevel), MDReport(IntelInlineReportLevel) {}
+    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime) {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// For this class, we declare that we require and preserve the call graph.
@@ -460,8 +460,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
                 InliningLoopInfoCache *ILIC,  // INTEL
                 WholeProgramInfo *WPI,        // INTEL
-                InlineReport& IR,             // INTEL
-                InlineReportBuilder& MDIR) {  // INTEL
+                LegacyInlinerBase *LIB,       // INTEL
+                InlineReport *IR,             // INTEL
+                InlineReportBuilder *MDIR) {  // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   LLVM_DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -481,11 +482,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
   // infinite inlining in some obscure cases.  To represent this, we use an
   // index into the InlineHistory vector.
   SmallVector<std::pair<Function *, int>, 8> InlineHistory;
-
-#if INTEL_CUSTOMIZATION
-  IR.beginSCC(CG, SCC);
-  MDIR.beginSCC(CG, SCC);
-#endif // INTEL_CUSTOMIZATION
 
   for (CallGraphNode *Node : SCC) {
     Function *F = Node->getFunction();
@@ -526,10 +522,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
   LLVM_DEBUG(dbgs() << ": " << CallSites.size() << " call sites.\n");
 
   // If there are no calls in this function, exit early.
-  if (CallSites.empty()) { // INTEL
-    IR.endSCC(); // INTEL
+  if (CallSites.empty())
     return false;
-  } // INTEL
 
   // Now that we have all of the call sites, move the ones to functions in the
   // current SCC to the end of the list.
@@ -563,12 +557,12 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       if (!Callee || Callee->isDeclaration()) { // INTEL
 #if INTEL_CUSTOMIZATION
         if (!Callee) {
-          IR.setReasonNotInlined(&CB, NinlrIndirect);
+          IR->setReasonNotInlined(&CB, NinlrIndirect);
           llvm::setMDReasonNotInlined(&CB, NinlrIndirect);
           continue;
         }
         if (Callee->isDeclaration()) {
-          IR.setReasonNotInlined(&CB, NinlrExtern);
+          IR->setReasonNotInlined(&CB, NinlrExtern);
           llvm::setMDReasonNotInlined(&CB, NinlrExtern);
           continue;
         }
@@ -587,7 +581,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         if (InlineHistoryID != -1 &&
             inlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
 #if INTEL_CUSTOMIZATION
-          IR.setReasonNotInlined(&CB, NinlrRecursive);
+          IR->setReasonNotInlined(&CB, NinlrRecursive);
           llvm::setMDReasonNotInlined(&CB, NinlrRecursive);
 #endif // INTEL_CUSTOMIZATION
           setInlineRemark(CB, "recursive");
@@ -602,10 +596,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 #if INTEL_CUSTOMIZATION
       InlineCost IC = shouldInline(CB, GetInlineCost, ORE);
       if (IC.getIsRecommended()) {
-        IR.setReasonIsInlined(&CB, IC);
+        IR->setReasonIsInlined(&CB, IC);
         llvm::setMDReasonIsInlined(&CB, IC);
       } else {
-        IR.setReasonNotInlined(&CB, IC);
+        IR->setReasonNotInlined(&CB, IC);
         llvm::setMDReasonNotInlined(&CB, IC);
       }
 #endif // INTEL_CUSTOMIZATION
@@ -621,7 +615,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       if (IsTriviallyDead) {
         LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << CB << "\n");
 #if INTEL_CUSTOMIZATION
-        IR.setReasonNotInlined(&CB, NinlrDeleted);
+        IR->setReasonNotInlined(&CB, NinlrDeleted);
         llvm::setMDReasonNotInlined(&CB, NinlrDeleted);
 #endif // INTEL_CUSTOMIZATION
         // Update the call graph by deleting the edge from Callee to Caller.
@@ -637,8 +631,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // Attempt to inline the function.
         using namespace ore;
 #if INTEL_CUSTOMIZATION
-        IR.beginUpdate(&CB);
-        MDIR.beginUpdate(&CB);
+        IR->beginUpdate(&CB);
+        MDIR->beginUpdate(&CB);
         bool IsAlwaysInlineRecursive =
             CB.hasFnAttr("always-inline-recursive");
         bool IsInlineHintRecursive =
@@ -649,13 +643,13 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         if (Caller == Callee)
           RecursiveCallCountOld = recursiveCallCount(*Caller);
         InlineResult LIR = inlineCallIfPossible(
-            CB, InlineInfo, &IR, &MDIR, InlinedArrayAllocas,
+            CB, InlineInfo, IR, MDIR, InlinedArrayAllocas,
             InlineHistoryID, InsertLifetime, AARGetter, ImportedFunctionsStats);
         InlineReason Reason = LIR.getIntelInlReason();
         if (!LIR.isSuccess()) {
-          IR.endUpdate();
-          IR.setReasonNotInlined(&CB, Reason);
-          MDIR.endUpdate();
+          IR->endUpdate();
+          IR->setReasonNotInlined(&CB, Reason);
+          MDIR->endUpdate();
           llvm::setMDReasonNotInlined(&CB, Reason);
           setInlineRemark(CB, std::string(LIR.getFailureReason()) + "; " +
                                   inlineCostStr(IC));
@@ -690,10 +684,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         }
         ILIC->invalidateFunction(Caller);
         emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC);
-        IR.inlineCallSite();
-        IR.endUpdate();
-        MDIR.updateInliningReport();
-        MDIR.endUpdate();
+        IR->inlineCallSite();
+        IR->endUpdate();
+        MDIR->updateInliningReport();
+        MDIR->endUpdate();
 #endif // INTEL_CUSTOMIZATION
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
@@ -743,9 +737,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           CG[Callee]->getNumReferences() == 0) {
         LLVM_DEBUG(dbgs() << "    -> Deleting dead function: "
                           << Callee->getName() << "\n");
-        IR.setDead(Callee); // INTEL
-        MDIR.setDead(Callee); // INTEL
-
+        IR->setDead(Callee); // INTEL
+        MDIR->setDead(Callee); // INTEL
         CallGraphNode *CalleeNode = CG[Callee];
 
         // Remove any call graph edges from the callee to its callees.
@@ -773,8 +766,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       LocalChange = true;
     }
   } while (LocalChange);
-
-  IR.endSCC(); // INTEL
   return Changed;
 }
 
@@ -794,11 +785,11 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
     return ACT->getAssumptionCache(F);
   };
-  CG.registerCGReport(&MDReport); // INTEL
-  bool rv = inlineCallsImpl(      // INTEL
+  bool rv = inlineCallsImpl(     // INTEL
       SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
       [&](CallBase &CB) { return getInlineCost(CB); }, LegacyAARGetter(*this),
-      ImportedFunctionsStats, ILIC, WPI, getReport(), getMDReport()); // INTEL
+      ImportedFunctionsStats, ILIC, WPI, this, getReport(), // INTEL
+      getMDReport());                                       // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -810,11 +801,7 @@ bool LegacyInlinerBase::doFinalization(CallGraph &CG) {
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
     ImportedFunctionsStats.dump(InlinerFunctionImportStats ==
                                 InlinerFunctionImportStatsOpts::Verbose);
-#if INTEL_CUSTOMIZATION
-  bool ReturnValue = removeDeadFunctions(CG);
-  getReport().print(/*IsAlwaysInline=*/false);
-  return ReturnValue;
-#endif // INTEL_CUSTOMIZATION
+  return removeDeadFunctions(CG);
 }
 
 /// Remove dead functions that are not included in DNR (Do Not Remove) list.
@@ -895,7 +882,7 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
   // CMPLRLLVM-10061: Remove references to these newly dead functions
   // in a consistent order.
   for (auto F : InlineReportFunctionsToRemove)
-    getReport().removeFunctionReference(*F);
+    getReport()->removeFunctionReference(*F);
 #endif // INTEL_CUSTOMIZATION
 
   // Now that we know which functions to delete, do so.  We didn't want to do
@@ -917,8 +904,9 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass() : Report(IntelInlineReportLevel) {
-  MDReport = new InlineReportBuilder(IntelInlineReportLevel);
+InlinerPass::InlinerPass() {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
 }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -928,10 +916,7 @@ InlinerPass::~InlinerPass() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-#if INTEL_CUSTOMIZATION
-  if (!Report.isEmpty())
-    Report.print(/*IsAlwaysInline=*/false);
-#endif  // INTEL_CUSTOMIZATION
+  getReport()->testAndPrint(this); // INTEL
 }
 
 InlineAdvisor &
@@ -969,8 +954,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
   WholeProgramInfo *WPI                                         // INTEL
       = MAMProxy.getCachedResult<WholeProgramAnalysis>(M);      // INTEL
-  CG.registerCGReport(&Report); // INTEL
-  CG.registerCGReport(MDReport); // INTEL
 
   FunctionAnalysisManager &FAM =
       AM.getResult<FunctionAnalysisManagerCGSCCProxy>(InitialC, CG)
@@ -989,11 +972,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   }
 
 #if INTEL_CUSTOMIZATION
-  Report.beginSCC(CG, InitialC);
-  MDReport->beginSCC(CG, InitialC);
+  Report->beginSCC(InitialC, this);
+  MDReport->beginSCC(InitialC);
   InlineParams Params = getInlineParams();
   if (Params.PrepareForLTO.getValueOr(false))
-    collectDtransFuncs(CG.getModule());
+    collectDtransFuncs(M);
 #endif // INTEL_CUSTOMIZATION
 
   // We use a single common worklist for calls across the entire SCC. We
@@ -1002,7 +985,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   //
   // Note that this particular order of processing is actually critical to
   // avoid very bad behaviors. Consider *highly connected* call graphs where
-  // each function contains a small amonut of code and a couple of calls to
+  // each function contains a small amount of code and a couple of calls to
   // other functions. Because the LLVM inliner is fundamentally a bottom-up
   // inliner, it can handle gracefully the fact that these all appear to be
   // reasonable inlining candidates as it will flatten things until they become
@@ -1063,14 +1046,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   }
 #if INTEL_CUSTOMIZATION
   if (Calls.empty()) {
-    Report.endSCC();
+    Report->endSCC();
     return PreservedAnalyses::all();
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Capture updatable variables for the current SCC and RefSCC.
+  // Capture updatable variable for the current SCC.
   auto *C = &InitialC;
-  auto *RC = &C->getOuterRefSCC();
 
   // When inlining a callee produces new call sites, we want to keep track of
   // the fact that they were inlined from the callee.  This allows us to avoid
@@ -1155,15 +1137,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
-        Report.setReasonNotInlined(CB, *IC);   // INTEL
+        Report->setReasonNotInlined(CB, *IC);   // INTEL
         llvm::setMDReasonNotInlined(CB, *IC);  // INTEL
         continue;
       }
 
 #if INTEL_CUSTOMIZATION
-      Report.beginUpdate(CB);
+      Report->beginUpdate(CB);
       MDReport->beginUpdate(CB);
-      Report.setReasonIsInlined(CB, *IC);
+      Report->setReasonIsInlined(CB, *IC);
       llvm::setMDReasonIsInlined(CB, *IC);
 #endif // INTEL_CUSTOMIZATION
 
@@ -1180,15 +1162,17 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       unsigned RecursiveCallCountOld = 0;
       if (&Caller == &Callee)
         RecursiveCallCountOld = recursiveCallCount(Caller);
-      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport);
+      InlineResult IR =
+          InlineFunction(*CB, IFI, Report, MDReport,
+                         &FAM.getResult<AAManager>(*CB->getCaller()));
 #endif // INTEL_CUSTOMIZATION
 
       if (!IR.isSuccess()) {
         Advice->recordUnsuccessfulInlining(IR);
 #if INTEL_CUSTOMIZATION
         InlineReason Reason = IR.getIntelInlReason();
-        Report.setReasonNotInlined(CB, Reason);
-        Report.endUpdate();
+        Report->setReasonNotInlined(CB, Reason);
+        Report->endUpdate();
         llvm::setMDReasonNotInlined(CB, Reason);
         MDReport->endUpdate();
 #endif // INTEL_CUSTOMIZATION
@@ -1222,8 +1206,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       ++NumInlined;
 
 #if INTEL_CUSTOMIZATION
-      Report.inlineCallSite();
-      Report.endUpdate();
+      Report->inlineCallSite();
+      Report->endUpdate();
       MDReport->updateInliningReport();
       MDReport->endUpdate();
 #endif // INTEL_CUSTOMIZATION
@@ -1277,12 +1261,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           // Note that after this point, it is an error to do anything other
           // than use the callee's address or delete it.
           Callee.dropAllReferences();
-          assert(find(DeadFunctions, &Callee) == DeadFunctions.end() &&
+          assert(!is_contained(DeadFunctions, &Callee) &&
                  "Cannot put cause a function to become dead twice!");
           DeadFunctions.push_back(&Callee);
           InlineReportDeadFunctions.insert(&Callee); // INTEL
           ILIC->invalidateFunction(&Callee);         // INTEL
-          Report.setDead(&Callee);                   // INTEL
+          Report->setDead(&Callee);                  // INTEL
           CalleeWasDeleted = true;
         }
       }
@@ -1300,20 +1284,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       continue;
     Changed = true;
 
-    // Add all the inlined callees' edges as ref edges to the caller. These are
-    // by definition trivial edges as we always have *some* transitive ref edge
-    // chain. While in some cases these edges are direct calls inside the
-    // callee, they have to be modeled in the inliner as reference edges as
-    // there may be a reference edge anywhere along the chain from the current
-    // caller to the callee that causes the whole thing to appear like
-    // a (transitive) reference edge that will require promotion to a call edge
-    // below.
-    for (Function *InlinedCallee : InlinedCallees) {
-      LazyCallGraph::Node &CalleeN = *CG.lookup(*InlinedCallee);
-      for (LazyCallGraph::Edge &E : *CalleeN)
-        RC->insertTrivialRefEdge(N, E.getNode());
-    }
-
     // At this point, since we have made changes we have at least removed
     // a call instruction. However, in the process we do some incremental
     // simplification of the surrounding code. This simplification can
@@ -1326,9 +1296,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // as we're going to mutate this particular function we want to make sure
     // the proxy is in place to forward any invalidation events.
     LazyCallGraph::SCC *OldC = C;
-    C = &updateCGAndAnalysisManagerForFunctionPass(CG, *C, N, AM, UR, FAM);
+    C = &updateCGAndAnalysisManagerForCGSCCPass(CG, *C, N, AM, UR, FAM);
     LLVM_DEBUG(dbgs() << "Updated inlining SCC: " << *C << "\n");
-    RC = &C->getOuterRefSCC();
 
     // If this causes an SCC to split apart into multiple smaller SCCs, there
     // is a subtle risk we need to prepare for. Other transformations may
@@ -1365,7 +1334,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   // CMPLRLLVM-10061: Remove references to these newly dead functions
   // in a consistent order.
   for (auto F : InlineReportDeadFunctions)
-    getReport().removeFunctionReference(*F);
+    getReport()->removeFunctionReference(*F);
 #endif // INTEL_CUSTOMIZATION
   // Now that we've finished inlining all of the calls across this SCC, delete
   // all of the trivially dead functions, updating the call graph and the CGSCC
@@ -1401,7 +1370,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     ++NumDeleted;
   }
   delete ILIC; // INTEL
-  Report.endSCC(); // INTEL
+  Report->endSCC(); // INTEL
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -1416,8 +1385,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
                                                    bool Debugging,
                                                    InliningAdvisorMode Mode,
-                                                   unsigned MaxDevirtIterations,
-                                                   InlinerPass *InlP) // INTEL
+                                                   unsigned MaxDevirtIterations)
     : Params(Params), Mode(Mode), MaxDevirtIterations(MaxDevirtIterations),
       PM(Debugging), MPM(Debugging) {
   // Run the inliner first. The theory is that we are walking bottom-up and so
@@ -1425,12 +1393,6 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
-#if INTEL_CUSTOMIZATION
-  if (InlP) {
-    PM.addPass(std::move(*InlP));
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
   PM.addPass(InlinerPass());
 }
 

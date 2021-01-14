@@ -24,4 +24,10 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DEPENDS
   intrinsics_gen
   directives_gen
+
+  LINK_COMPONENTS
+  Analysis
+  Core
+  Support
+  TransformUtils
 )

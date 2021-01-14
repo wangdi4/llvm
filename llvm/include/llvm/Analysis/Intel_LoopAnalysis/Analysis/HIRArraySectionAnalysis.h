@@ -45,12 +45,16 @@ private:
   SmallVector<CanonExpr *, 4> Lowers;
   SmallVector<CanonExpr *, 4> Uppers;
 
+  // Keep all unique index expressions per dimension.
+  SmallVector<SmallVector<CanonExpr *, 1>, 4> Indices;
+
 public:
   ArraySectionInfo(){};
   ArraySectionInfo(unsigned NumDimensions) {
     assert(NumDimensions != 0);
     Lowers.resize(NumDimensions);
     Uppers.resize(NumDimensions);
+    Indices.resize(NumDimensions);
   }
 
   ArraySectionInfo(const ArraySectionInfo &Info) = delete;
@@ -64,15 +68,25 @@ public:
   void clear() {
     Lowers.clear();
     Uppers.clear();
+    Indices.clear();
     UDFlag = UDFlagTy::UNKNOWN;
   }
 
+  bool equals(const ArraySectionInfo &Info) const;
+
   unsigned getNumDimensions() const { return Lowers.size(); }
+
   ArrayRef<const CanonExpr *> lowers() const { return Lowers; }
   MutableArrayRef<CanonExpr *> lowers() { return Lowers; }
 
   ArrayRef<const CanonExpr *> uppers() const { return Uppers; }
   MutableArrayRef<CanonExpr *> uppers() { return Uppers; }
+
+  ArrayRef<const CanonExpr *> indices(unsigned Dim) const {
+    return Indices[Dim];
+  }
+
+  SmallVectorImpl<CanonExpr *> &indices(unsigned Dim) { return Indices[Dim]; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const;
@@ -113,6 +127,8 @@ public:
   }
 
   ArrayRef<unsigned> knownBaseIndices() const { return KnownBaseIndices; }
+  void merge(const ArraySectionAnalysisResult &InResult,
+             const HLLoop *Loop = nullptr);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(formatted_raw_ostream &OS, const HLLoop *Lp = nullptr) const;

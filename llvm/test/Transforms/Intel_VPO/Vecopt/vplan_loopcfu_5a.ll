@@ -13,45 +13,38 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP__PRE:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_REC:%.*]] = phi  [ i32 [[VP_REC_NEXT:%.*]], [[BB2:BB[0-9]+]] ],  [ i32 [[VP__PRE]], [[BB0]] ]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[BB2:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_REC:%.*]] = phi  [ i32 [[VP_REC_NEXT:%.*]], [[BB2]] ],  [ i32 [[VP__PRE]], [[BB0]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_NEXT:%.*]], [[BB2]] ],  [ i32 0, [[BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB2]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]:
+; CHECK-NEXT:      [[BB3]]: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP_REC]] i32 [[VP_IV]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_REC_NEXT]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp sgt i32 [[VP_REC]] i32 0
-; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:       [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB3]], [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP0]]), [[BB1]](!i1 [[VP0]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP0]], [[BB4:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()

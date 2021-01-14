@@ -1,7 +1,7 @@
-; RUN: opt -inline -inline-report=0x407 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-CODE-AFTER %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=0x407 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-CODE-BEFORE %s
-; RUN: opt -inlinereportsetup -inline-report=0x486 < %s -S | opt -inline -inline-report=0x486 -S | opt -inlinereportemitter -inline-report=0x486 -S 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-CODE-AFTER %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0x486 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x486 -S | opt -passes='inlinereportemitter' -inline-report=0x486 -S 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-CODE-AFTER %s
+; RUN: opt -inline -inline-report=0x407 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-BEFORE %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0x407 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-BEFORE %s
+; RUN: opt -inlinereportsetup -inline-report=0x486 < %s -S | opt -inline -inline-report=0x486 -S | opt -inlinereportemitter -inline-report=0x486 -S 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-AFTER %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=0x486 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x486 -S | opt -passes='inlinereportemitter' -inline-report=0x486 -S 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-AFTER %s
 
 ; Check that when 0x400 bit is selected in the inlining report, that the
 ; language of the functions and callsites is printed as either 'F' (Fortran)
@@ -22,12 +22,12 @@
 ; CHECK-OLD: COMPILE FUNC: C fooc
 ; CHECK-OLD: INLINE: C barc
 
-; CHECK-NEW: DEAD STATIC FUNC: C barc
 ; CHECK-NEW: DEAD STATIC FUNC: F barf
-; CHECK-NEW: COMPILE FUNC: C fooc
-; CHECK-NEW: INLINE: C barc
+; CHECK-NEW: DEAD STATIC FUNC: C barc
 ; CHECK-NEW: COMPILE FUNC: F foof
 ; CHECK-NEW: INLINE: F barf
+; CHECK-NEW: COMPILE FUNC: C fooc
+; CHECK-NEW: INLINE: C barc
 
 ; CHECK-META: COMPILE FUNC: F foof
 ; CHECK-META: INLINE: F barf

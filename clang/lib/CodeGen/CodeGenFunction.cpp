@@ -26,6 +26,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/Basic/Builtins.h"
@@ -33,6 +34,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
@@ -41,6 +43,8 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Support/CRC.h"
+#include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 using namespace clang;
@@ -120,7 +124,10 @@ void CodeGenFunction::SetFPModel() {
 void CodeGenFunction::SetFastMathFlags(FPOptions FPFeatures) {
   llvm::FastMathFlags FMF;
   FMF.setAllowReassoc(FPFeatures.getAllowFPReassociate());
-  FMF.setNoNaNs(FPFeatures.getNoHonorNaNs());
+#if INTEL_CUSTOMIZATION
+  FMF.setNoNaNs(FPFeatures.getNoHonorNaNs() &&
+                !FPFeatures.getHonorNaNCompares());
+#endif // INTEL_CUSTOMIZATION
   FMF.setNoInfs(FPFeatures.getNoHonorInfs());
   FMF.setNoSignedZeros(FPFeatures.getNoSignedZero());
   FMF.setAllowReciprocal(FPFeatures.getAllowReciprocal());
@@ -130,9 +137,23 @@ void CodeGenFunction::SetFastMathFlags(FPOptions FPFeatures) {
 }
 
 CodeGenFunction::CGFPOptionsRAII::CGFPOptionsRAII(CodeGenFunction &CGF,
+                                                  const Expr *E)
+    : CGF(CGF) {
+  ConstructorHelper(E->getFPFeaturesInEffect(CGF.getLangOpts()));
+}
+
+CodeGenFunction::CGFPOptionsRAII::CGFPOptionsRAII(CodeGenFunction &CGF,
                                                   FPOptions FPFeatures)
-    : CGF(CGF), OldFPFeatures(CGF.CurFPFeatures) {
+    : CGF(CGF) {
+  ConstructorHelper(FPFeatures);
+}
+
+void CodeGenFunction::CGFPOptionsRAII::ConstructorHelper(FPOptions FPFeatures) {
+  OldFPFeatures = CGF.CurFPFeatures;
   CGF.CurFPFeatures = FPFeatures;
+
+  OldExcept = CGF.Builder.getDefaultConstrainedExcept();
+  OldRounding = CGF.Builder.getDefaultConstrainedRounding();
 
   if (OldFPFeatures == FPFeatures)
     return;
@@ -164,7 +185,10 @@ CodeGenFunction::CGFPOptionsRAII::CGFPOptionsRAII(CodeGenFunction &CGF,
       CGF.CurFn->addFnAttr(Name, llvm::toStringRef(NewValue));
   };
   mergeFnAttrValue("no-infs-fp-math", FPFeatures.getNoHonorInfs());
-  mergeFnAttrValue("no-nans-fp-math", FPFeatures.getNoHonorNaNs());
+#if INTEL_CUSTOMIZATION
+  mergeFnAttrValue("no-nans-fp-math", FPFeatures.getNoHonorNaNs() &&
+                                      !FPFeatures.getHonorNaNCompares());
+#endif // INTEL_CUSTOMIZATION
   mergeFnAttrValue("no-signed-zeros-fp-math", FPFeatures.getNoSignedZero());
   mergeFnAttrValue("unsafe-fp-math", FPFeatures.getAllowFPReassociate() &&
                                          FPFeatures.getAllowReciprocal() &&
@@ -174,6 +198,8 @@ CodeGenFunction::CGFPOptionsRAII::CGFPOptionsRAII(CodeGenFunction &CGF,
 
 CodeGenFunction::CGFPOptionsRAII::~CGFPOptionsRAII() {
   CGF.CurFPFeatures = OldFPFeatures;
+  CGF.Builder.setDefaultConstrainedExcept(OldExcept);
+  CGF.Builder.setDefaultConstrainedRounding(OldRounding);
 }
 
 LValue CodeGenFunction::MakeNaturalAlignAddrLValue(llvm::Value *V, QualType T) {
@@ -574,6 +600,110 @@ CodeGenFunction::DecodeAddrUsedInPrologue(llvm::Value *F,
                             "decoded_addr");
 }
 
+#if INTEL_CUSTOMIZATION
+void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
+                                                     llvm::Function *Fn) {
+  llvm::LLVMContext &Context = getLLVMContext();
+
+  // MDNode for the local_mem_size attribute.
+  SmallVector<llvm::Metadata*, 8> ArgLocalMemSizeAttr;
+  bool IsLocalMemSizeAttr = false;
+  for (unsigned I = 0, E = FD->getNumParams(); I != E; ++I) {
+    const ParmVarDecl *parm = FD->getParamDecl(I);
+
+    auto *LocalMemSizeAttr = parm->getAttr<OpenCLLocalMemSizeAttr>();
+    if (LocalMemSizeAttr)
+      IsLocalMemSizeAttr = true;
+    ArgLocalMemSizeAttr.push_back(llvm::ConstantAsMetadata::get(
+        (LocalMemSizeAttr)
+            ? Builder.getInt32(LocalMemSizeAttr->getLocalMemSize())
+            : Builder.getInt32(0)));
+  }
+
+  if (IsLocalMemSizeAttr)
+    Fn->setMetadata("local_mem_size",
+                    llvm::MDNode::get(Context, ArgLocalMemSizeAttr));
+
+  if (const auto *MCA = FD->getAttr<MaxConcurrencyAttr>()) {
+    llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("max_concurrency",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(MCAInt))));
+  }
+
+  if (FD->hasAttr<StallFreeAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("stall_free", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const auto *CA = FD->getAttr<ClusterAttr>()) {
+    SmallVector<llvm::Metadata *, 2> Args;
+    StringRef Name = CA->getName();
+    int hasName = CA->getHasName();
+    Args.push_back(llvm::MDString::get(Context, Name));
+    Args.push_back(llvm::ConstantAsMetadata::get(
+        llvm::ConstantInt::get(Int32Ty, hasName)));
+    Fn->setMetadata("cluster", llvm::MDNode::get(Context, Args));
+  }
+
+  if (FD->hasAttr<SYCLIntelUseStallEnableClustersAttr>()) {
+    Fn->setMetadata("stall_enable",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt32(1))));
+  }
+
+  if (const auto *SLA = FD->getAttr<StallLatencyAttr>()) {
+    Fn->setMetadata("stall_latency",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                 Builder.getInt32(SLA->isEnabled()))));
+  }
+
+  if (const auto *A = FD->getAttr< SYCLIntelSchedulerTargetFmaxMhzAttr>()) {
+    llvm::APSInt STFMInt =
+        A->getValue()->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("scheduler_target_fmax_mhz",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(STFMInt))));
+  }
+  if (const auto *IIA = FD->getAttr<HLSIIAttr>()) {
+    llvm::APSInt Cycle = IIA->getValue()->EvaluateKnownConstInt( getContext());
+    Fn->setMetadata("loop_ii_count",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Cycle))));
+  }
+
+  if (const auto *MIIA = FD->getAttr<HLSMinIIAttr>()) {
+    llvm::APSInt Cycle = MIIA->getValue()->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("min_ii",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Cycle))));
+  }
+
+  if (const auto *MIIA = FD->getAttr<HLSMaxIIAttr>()) {
+    llvm::APSInt Cycle = MIIA->getValue()->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("max_ii",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Cycle))));
+  }
+
+  if (const auto *MIDA = FD->getAttr<HLSMaxInvocationDelayAttr>()) {
+    llvm::APSInt Delay = MIDA->getValue()->EvaluateKnownConstInt(getContext());
+    Fn->setMetadata("max_invocation_delay",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                                   Builder.getInt(Delay))));
+  }
+
+  if (const auto *FLPA = FD->getAttr<HLSForceLoopPipeliningAttr>()) {
+    StringRef ForceLoopPipelining = FLPA->getForceLoopPipelining();
+    Fn->setMetadata(
+        "force_loop_pipelining",
+        llvm::MDNode::get(Context,
+                          (llvm::MDString::get(Context, ForceLoopPipelining))));
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                llvm::Function *Fn)
 {
@@ -620,11 +750,27 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
   }
 
   if (const ReqdWorkGroupSizeAttr *A = FD->getAttr<ReqdWorkGroupSizeAttr>()) {
+    llvm::LLVMContext &Context = getLLVMContext();
+    Optional<llvm::APSInt> XDimVal =
+        A->getXDim()->getIntegerConstantExpr(FD->getASTContext());
+    Optional<llvm::APSInt> YDimVal =
+        A->getYDim()->getIntegerConstantExpr(FD->getASTContext());
+    Optional<llvm::APSInt> ZDimVal =
+        A->getZDim()->getIntegerConstantExpr(FD->getASTContext());
+
+    // For a SYCLDevice ReqdWorkGroupSizeAttr arguments are reversed.
+    if (getLangOpts().SYCLIsDevice)
+      std::swap(XDimVal, ZDimVal);
+
     llvm::Metadata *AttrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
-    Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, AttrMDArgs));
+        llvm::ConstantAsMetadata::get(
+            Builder.getInt32(XDimVal->getZExtValue())),
+        llvm::ConstantAsMetadata::get(
+            Builder.getInt32(YDimVal->getZExtValue())),
+        llvm::ConstantAsMetadata::get(
+            Builder.getInt32(ZDimVal->getZExtValue()))};
+    Fn->setMetadata("reqd_work_group_size",
+                    llvm::MDNode::get(Context, AttrMDArgs));
   }
 
 #if INTEL_CUSTOMIZATION
@@ -692,7 +838,7 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
     Fn->setMetadata("intel_reqd_sub_group_size",
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
-  
+
   if (const SYCLIntelNumSimdWorkItemsAttr *A =
       FD->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
     llvm::LLVMContext &Context = getLLVMContext();
@@ -705,28 +851,69 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
-  if (const SYCLIntelMaxWorkGroupSizeAttr *A =
-      FD->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-    llvm::Metadata *AttrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
-    Fn->setMetadata("max_work_group_size",
+  if (const SYCLIntelSchedulerTargetFmaxMhzAttr *A =
+          FD->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>()) {
+    Optional<llvm::APSInt> ArgVal =
+        A->getValue()->getIntegerConstantExpr(FD->getASTContext());
+    assert(ArgVal.hasValue() && "Not an integer constant expression");
+    llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(ArgVal->getSExtValue()))};
+    Fn->setMetadata("scheduler_target_fmax_mhz",
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
   if (const SYCLIntelMaxGlobalWorkDimAttr *A =
       FD->getAttr<SYCLIntelMaxGlobalWorkDimAttr>()) {
-    llvm::Metadata *AttrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getNumber()))};
+    llvm::LLVMContext &Context = getLLVMContext();
+    Optional<llvm::APSInt> ArgVal =
+        A->getValue()->getIntegerConstantExpr(FD->getASTContext());
+    assert(ArgVal.hasValue() && "Not an integer constant expression");
+    llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(ArgVal->getSExtValue()))};
     Fn->setMetadata("max_global_work_dim",
+                    llvm::MDNode::get(Context, AttrMDArgs));
+  }
+
+  if (const SYCLIntelMaxWorkGroupSizeAttr *A =
+          FD->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
+    llvm::LLVMContext &Context = getLLVMContext();
+    Optional<llvm::APSInt> XDimVal =
+        A->getXDim()->getIntegerConstantExpr(FD->getASTContext());
+    Optional<llvm::APSInt> YDimVal =
+        A->getYDim()->getIntegerConstantExpr(FD->getASTContext());
+    Optional<llvm::APSInt> ZDimVal =
+        A->getZDim()->getIntegerConstantExpr(FD->getASTContext());
+
+    // For a SYCLDevice SYCLIntelMaxWorkGroupSizeAttr arguments are reversed.
+    if (getLangOpts().SYCLIsDevice)
+      std::swap(XDimVal, ZDimVal);
+
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(
+            Builder.getInt32(XDimVal->getZExtValue())),
+        llvm::ConstantAsMetadata::get(
+            Builder.getInt32(YDimVal->getZExtValue())),
+        llvm::ConstantAsMetadata::get(
+            Builder.getInt32(ZDimVal->getZExtValue()))};
+    Fn->setMetadata("max_work_group_size",
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
   if (const SYCLIntelNoGlobalWorkOffsetAttr *A =
           FD->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
-    if (A->getEnabled())
+    const Expr *Arg = A->getValue();
+    assert(Arg && "Got an unexpected null argument");
+    Optional<llvm::APSInt> ArgVal =
+        Arg->getIntegerConstantExpr(FD->getASTContext());
+    assert(ArgVal.hasValue() && "Not an integer constant expression");
+    if (ArgVal->getBoolValue())
       Fn->setMetadata("no_global_work_offset", llvm::MDNode::get(Context, {}));
+  }
+
+  if (FD->hasAttr<SYCLIntelUseStallEnableClustersAttr>()) {
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(1))};
+    Fn->setMetadata("stall_enable", llvm::MDNode::get(Context, AttrMDArgs));
   }
 }
 
@@ -892,13 +1079,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         SanOpts.Mask &= ~SanitizerKind::Null;
 
   // Apply xray attributes to the function (as a string, for now)
+  bool AlwaysXRayAttr = false;
   if (const auto *XRayAttr = D ? D->getAttr<XRayInstrumentAttr>() : nullptr) {
     if (CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
             XRayInstrKind::FunctionEntry) ||
         CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
             XRayInstrKind::FunctionExit)) {
-      if (XRayAttr->alwaysXRayInstrument() && ShouldXRayInstrumentFunction())
+      if (XRayAttr->alwaysXRayInstrument() && ShouldXRayInstrumentFunction()) {
         Fn->addFnAttr("function-instrument", "xray-always");
+        AlwaysXRayAttr = true;
+      }
       if (XRayAttr->neverXRayInstrument())
         Fn->addFnAttr("function-instrument", "xray-never");
       if (const auto *LogArgs = D->getAttr<XRayLogArgsAttr>())
@@ -924,6 +1114,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
             XRayInstrKind::FunctionEntry))
       Fn->addFnAttr("xray-skip-entry");
+
+    auto FuncGroups = CGM.getCodeGenOpts().XRayTotalFunctionGroups;
+    if (FuncGroups > 1) {
+      auto FuncName = llvm::makeArrayRef<uint8_t>(
+          CurFn->getName().bytes_begin(), CurFn->getName().bytes_end());
+      auto Group = crc32(FuncName) % FuncGroups;
+      if (Group != CGM.getCodeGenOpts().XRaySelectedFunctionGroup &&
+          !AlwaysXRayAttr)
+        Fn->addFnAttr("function-instrument", "xray-never");
+    }
   }
 
   unsigned Count, Offset;
@@ -960,6 +1160,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     Fn->addFnAttr("cfi-canonical-jump-table");
 
 #if INTEL_CUSTOMIZATION
+  if (D && (D->hasAttr<PreferDSPAttr>() || D->hasAttr<PreferSoftLogicAttr>())) {
+    auto *MDValueWrapper = llvm::ConstantAsMetadata::get(
+        Builder.getInt32(D->hasAttr<PreferDSPAttr>() ? 1 : 0));
+    Fn->addMetadata("prefer_dsp",
+                    *llvm::MDNode::get(getLLVMContext(), MDValueWrapper));
+  }
+  if (D && D->hasAttr<PropagateDSPPreferenceAttr>()) {
+    auto *MDValueWrapper = llvm::ConstantAsMetadata::get(Builder.getInt32(1));
+    Fn->addMetadata("propagate_dsp_preference",
+                    *llvm::MDNode::get(getLLVMContext(), MDValueWrapper));
+  }
+
   if (getLangOpts().HLS) {
     // Add metadata for HLS components
     if (const auto *FD = dyn_cast_or_null<FunctionDecl>(D))
@@ -975,6 +1187,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 #endif // INTEL_CUSTOMIZATION
   if (getLangOpts().SYCLIsHost && D && D->hasAttr<SYCLKernelAttr>())
     Fn->addFnAttr("sycl_kernel");
+
+  if (getLangOpts().SYCLIsDevice && D) {
+    if (const auto *A = D->getAttr<SYCLIntelLoopFuseAttr>()) {
+      Expr *E = A->getValue();
+      llvm::Metadata *AttrMDArgs[] = {
+          llvm::ConstantAsMetadata::get(Builder.getInt32(
+              E->getIntegerConstantExpr(D->getASTContext())->getZExtValue())),
+          llvm::ConstantAsMetadata::get(
+              A->isIndependent() ? Builder.getInt32(1) : Builder.getInt32(0))};
+      Fn->setMetadata("loop_fuse",
+                      llvm::MDNode::get(getLLVMContext(), AttrMDArgs));
+    }
+  }
 
   if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
     // Add metadata for a kernel function.
@@ -1040,8 +1265,8 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   }
 
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
-    Builder.setIsFPConstrained(FD->usesFPIntrin());
-    if (FD->usesFPIntrin())
+    Builder.setIsFPConstrained(FD->hasAttr<StrictFPAttr>());
+    if (FD->hasAttr<StrictFPAttr>())
       Fn->addFnAttr(llvm::Attribute::StrictFP);
   }
 
@@ -1299,10 +1524,18 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
 void CodeGenFunction::EmitFunctionBody(const Stmt *Body) {
   incrementProfileCounter(Body);
+  if (CPlusPlusWithProgress())
+    FnIsMustProgress = true;
+
   if (const CompoundStmt *S = dyn_cast<CompoundStmt>(Body))
     EmitCompoundStmtWithoutScope(*S);
   else
     EmitStmt(Body);
+
+  // This is checked after emitting the function body so we know if there
+  // are any permitted infinite loops.
+  if (FnIsMustProgress)
+    CurFn->addFnAttr(llvm::Attribute::MustProgress);
 }
 
 /// When instrumenting to collect profile data, the counts for some blocks
@@ -1759,16 +1992,15 @@ bool CodeGenFunction::ConstantFoldsToSimpleInteger(const Expr *Cond,
   return true;
 }
 
-
-
 /// EmitBranchOnBoolExpr - Emit a branch on a boolean condition (e.g. for an if
 /// statement) to the specified blocks.  Based on the condition, this might try
 /// to simplify the codegen of the conditional based on the branch.
-///
+/// \param LH The value of the likelihood attribute on the True branch.
 void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
                                            llvm::BasicBlock *TrueBlock,
                                            llvm::BasicBlock *FalseBlock,
-                                           uint64_t TrueCount) {
+                                           uint64_t TrueCount,
+                                           Stmt::Likelihood LH) {
   Cond = Cond->IgnoreParens();
 
   if (const BinaryOperator *CondBOp = dyn_cast<BinaryOperator>(Cond)) {
@@ -1783,7 +2015,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
         // br(1 && X) -> br(X).
         incrementProfileCounter(CondBOp);
         return EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock,
-                                    TrueCount);
+                                    TrueCount, LH);
       }
 
       // If we have "X && 1", simplify the code to use an uncond branch.
@@ -1792,7 +2024,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
           ConstantBool) {
         // br(X && 1) -> br(X).
         return EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, FalseBlock,
-                                    TrueCount);
+                                    TrueCount, LH);
       }
 
       // Emit the LHS as a conditional.  If the LHS conditional is false, we
@@ -1805,7 +2037,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       ConditionalEvaluation eval(*this);
       {
         ApplyDebugLocation DL(*this, Cond);
-        EmitBranchOnBoolExpr(CondBOp->getLHS(), LHSTrue, FalseBlock, RHSCount);
+        // Propagate the likelihood attribute like __builtin_expect
+        // __builtin_expect(X && Y, 1) -> X and Y are likely
+        // __builtin_expect(X && Y, 0) -> only Y is unlikely
+        EmitBranchOnBoolExpr(CondBOp->getLHS(), LHSTrue, FalseBlock, RHSCount,
+                             LH == Stmt::LH_Unlikely ? Stmt::LH_None : LH);
         EmitBlock(LHSTrue);
       }
 
@@ -1814,7 +2050,8 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
 
       // Any temporaries created here are conditional.
       eval.begin(*this);
-      EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, TrueCount);
+      EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, TrueCount,
+                           LH);
       eval.end(*this);
 
       return;
@@ -1829,7 +2066,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
         // br(0 || X) -> br(X).
         incrementProfileCounter(CondBOp);
         return EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock,
-                                    TrueCount);
+                                    TrueCount, LH);
       }
 
       // If we have "X || 0", simplify the code to use an uncond branch.
@@ -1838,7 +2075,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
           !ConstantBool) {
         // br(X || 0) -> br(X).
         return EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, FalseBlock,
-                                    TrueCount);
+                                    TrueCount, LH);
       }
 
       // Emit the LHS as a conditional.  If the LHS conditional is true, we
@@ -1853,8 +2090,12 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
 
       ConditionalEvaluation eval(*this);
       {
+        // Propagate the likelihood attribute like __builtin_expect
+        // __builtin_expect(X || Y, 1) -> only Y is likely
+        // __builtin_expect(X || Y, 0) -> both X and Y are unlikely
         ApplyDebugLocation DL(*this, Cond);
-        EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, LHSFalse, LHSCount);
+        EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, LHSFalse, LHSCount,
+                             LH == Stmt::LH_Likely ? Stmt::LH_None : LH);
         EmitBlock(LHSFalse);
       }
 
@@ -1863,7 +2104,8 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
 
       // Any temporaries created here are conditional.
       eval.begin(*this);
-      EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, RHSCount);
+      EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, RHSCount,
+                           LH);
 
       eval.end(*this);
 
@@ -1876,9 +2118,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     if (CondUOp->getOpcode() == UO_LNot) {
       // Negate the count.
       uint64_t FalseCount = getCurrentProfileCount() - TrueCount;
+      // The values of the enum are chosen to make this negation possible.
+      LH = static_cast<Stmt::Likelihood>(-LH);
       // Negate the condition and swap the destination blocks.
       return EmitBranchOnBoolExpr(CondUOp->getSubExpr(), FalseBlock, TrueBlock,
-                                  FalseCount);
+                                  FalseCount, LH);
     }
   }
 
@@ -1887,9 +2131,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     llvm::BasicBlock *LHSBlock = createBasicBlock("cond.true");
     llvm::BasicBlock *RHSBlock = createBasicBlock("cond.false");
 
+    // The ConditionalOperator itself has no likelihood information for its
+    // true and false branches. This matches the behavior of __builtin_expect.
     ConditionalEvaluation cond(*this);
     EmitBranchOnBoolExpr(CondOp->getCond(), LHSBlock, RHSBlock,
-                         getProfileCount(CondOp));
+                         getProfileCount(CondOp), Stmt::LH_None);
 
     // When computing PGO branch weights, we only know the overall count for
     // the true block. This code is essentially doing tail duplication of the
@@ -1909,14 +2155,14 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     {
       ApplyDebugLocation DL(*this, Cond);
       EmitBranchOnBoolExpr(CondOp->getLHS(), TrueBlock, FalseBlock,
-                           LHSScaledTrueCount);
+                           LHSScaledTrueCount, LH);
     }
     cond.end(*this);
 
     cond.begin(*this);
     EmitBlock(RHSBlock);
     EmitBranchOnBoolExpr(CondOp->getRHS(), TrueBlock, FalseBlock,
-                         TrueCount - LHSScaledTrueCount);
+                         TrueCount - LHSScaledTrueCount, LH);
     cond.end(*this);
 
     return;
@@ -1945,11 +2191,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     }
   }
 
-  // Create branch weights based on the number of times we get here and the
-  // number of times the condition should be true.
-  uint64_t CurrentCount = std::max(getCurrentProfileCount(), TrueCount);
-  llvm::MDNode *Weights =
-      createProfileWeights(TrueCount, CurrentCount - TrueCount);
+  llvm::MDNode *Weights = createBranchWeights(LH);
+  if (!Weights) {
+    uint64_t CurrentCount = std::max(getCurrentProfileCount(), TrueCount);
+    Weights = createProfileWeights(TrueCount, CurrentCount - TrueCount);
+  }
 
   // Emit the code with the fully general case.
   llvm::Value *CondV;
@@ -2459,13 +2705,39 @@ void CodeGenFunction::emitAlignmentAssumption(llvm::Value *PtrValue,
                                               SourceLocation AssumptionLoc,
                                               llvm::Value *Alignment,
                                               llvm::Value *OffsetValue) {
-  llvm::Value *TheCheck;
-  llvm::Instruction *Assumption = Builder.CreateAlignmentAssumption(
-      CGM.getDataLayout(), PtrValue, Alignment, OffsetValue, &TheCheck);
+  if (Alignment->getType() != IntPtrTy)
+    Alignment =
+        Builder.CreateIntCast(Alignment, IntPtrTy, false, "casted.align");
+  if (OffsetValue && OffsetValue->getType() != IntPtrTy)
+    OffsetValue =
+        Builder.CreateIntCast(OffsetValue, IntPtrTy, true, "casted.offset");
+  llvm::Value *TheCheck = nullptr;
   if (SanOpts.has(SanitizerKind::Alignment)) {
-    emitAlignmentAssumptionCheck(PtrValue, Ty, Loc, AssumptionLoc, Alignment,
-                                 OffsetValue, TheCheck, Assumption);
+    llvm::Value *PtrIntValue =
+        Builder.CreatePtrToInt(PtrValue, IntPtrTy, "ptrint");
+
+    if (OffsetValue) {
+      bool IsOffsetZero = false;
+      if (const auto *CI = dyn_cast<llvm::ConstantInt>(OffsetValue))
+        IsOffsetZero = CI->isZero();
+
+      if (!IsOffsetZero)
+        PtrIntValue = Builder.CreateSub(PtrIntValue, OffsetValue, "offsetptr");
+    }
+
+    llvm::Value *Zero = llvm::ConstantInt::get(IntPtrTy, 0);
+    llvm::Value *Mask =
+        Builder.CreateSub(Alignment, llvm::ConstantInt::get(IntPtrTy, 1));
+    llvm::Value *MaskedPtr = Builder.CreateAnd(PtrIntValue, Mask, "maskedptr");
+    TheCheck = Builder.CreateICmpEQ(MaskedPtr, Zero, "maskcond");
   }
+  llvm::Instruction *Assumption = Builder.CreateAlignmentAssumption(
+      CGM.getDataLayout(), PtrValue, Alignment, OffsetValue);
+
+  if (!SanOpts.has(SanitizerKind::Alignment))
+    return;
+  emitAlignmentAssumptionCheck(PtrValue, Ty, Loc, AssumptionLoc, Alignment,
+                               OffsetValue, TheCheck, Assumption);
 }
 
 void CodeGenFunction::emitAlignmentAssumption(llvm::Value *PtrValue,
@@ -2485,13 +2757,24 @@ void CodeGenFunction::emitAlignmentAssumption(llvm::Value *PtrValue,
 llvm::Value *CodeGenFunction::EmitAnnotationCall(llvm::Function *AnnotationFn,
                                                  llvm::Value *AnnotatedVal,
                                                  StringRef AnnotationStr,
-                                                 SourceLocation Location) {
-  llvm::Value *Args[4] = {
-    AnnotatedVal,
-    Builder.CreateBitCast(CGM.EmitAnnotationString(AnnotationStr), Int8PtrTy),
-    Builder.CreateBitCast(CGM.EmitAnnotationUnit(Location), Int8PtrTy),
-    CGM.EmitAnnotationLineNo(Location)
+                                                 SourceLocation Location,
+                                                 const AnnotateAttr *Attr) {
+  SmallVector<llvm::Value *, 5> Args = {
+      AnnotatedVal,
+      Builder.CreateBitCast(CGM.EmitAnnotationString(AnnotationStr), Int8PtrTy),
+      Builder.CreateBitCast(CGM.EmitAnnotationUnit(Location), Int8PtrTy),
+      CGM.EmitAnnotationLineNo(Location),
   };
+  if (Attr)
+    Args.push_back(CGM.EmitAnnotationArgs(Attr));
+  else {
+    assert(AnnotationFn->isIntrinsic() &&
+           "Annotation call must be an intrinsic");
+    const llvm::Intrinsic::ID ID = AnnotationFn->getIntrinsicID();
+    if (ID == llvm::Intrinsic::ptr_annotation ||
+        ID == llvm::Intrinsic::var_annotation)
+      Args.push_back(llvm::ConstantPointerNull::get(Int8PtrTy));
+  }
   return Builder.CreateCall(AnnotationFn, Args);
 }
 
@@ -2502,7 +2785,7 @@ void CodeGenFunction::EmitVarAnnotations(const VarDecl *D, llvm::Value *V) {
   for (const auto *I : D->specific_attrs<AnnotateAttr>())
     EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
                        Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
-                       I->getAnnotation(), D->getLocation());
+                       I->getAnnotation(), D->getLocation(), I);
 }
 
 Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
@@ -2517,7 +2800,7 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, VTy);
 
     for (const auto *I : D->specific_attrs<AnnotateAttr>())
-      V = EmitAnnotationCall(F, V, I->getAnnotation(), D->getLocation());
+      V = EmitAnnotationCall(F, V, I->getAnnotation(), D->getLocation(), I);
 
     return Address(V, Addr.getAlignment());
   }
@@ -2527,7 +2810,7 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
 
   for (const auto *I : D->specific_attrs<AnnotateAttr>()) {
     V = Builder.CreateBitCast(V, CGM.Int8PtrTy);
-    V = EmitAnnotationCall(F, V, I->getAnnotation(), D->getLocation());
+    V = EmitAnnotationCall(F, V, I->getAnnotation(), D->getLocation(), I);
     V = Builder.CreateBitCast(V, VTy);
   }
 
@@ -2609,34 +2892,6 @@ void CGBuilderInserter::InsertHelper(
     CGF->InsertHelper(I, Name, BB, InsertPt);
 }
 
-static bool hasRequiredFeatures(const SmallVectorImpl<StringRef> &ReqFeatures,
-                                CodeGenModule &CGM, const FunctionDecl *FD,
-                                std::string &FirstMissing) {
-  // If there aren't any required features listed then go ahead and return.
-  if (ReqFeatures.empty())
-    return false;
-
-  // Now build up the set of caller features and verify that all the required
-  // features are there.
-  llvm::StringMap<bool> CallerFeatureMap;
-  CGM.getContext().getFunctionFeatureMap(CallerFeatureMap, FD);
-
-  // If we have at least one of the features in the feature list return
-  // true, otherwise return false.
-  return std::all_of(
-      ReqFeatures.begin(), ReqFeatures.end(), [&](StringRef Feature) {
-        SmallVector<StringRef, 1> OrFeatures;
-        Feature.split(OrFeatures, '|');
-        return llvm::any_of(OrFeatures, [&](StringRef Feature) {
-          if (!CallerFeatureMap.lookup(Feature)) {
-            FirstMissing = Feature.str();
-            return false;
-          }
-          return true;
-        });
-      });
-}
-
 // Emits an error if we don't have a valid set of target features for the
 // called function.
 void CodeGenFunction::checkTargetFeatures(const CallExpr *E,
@@ -2663,19 +2918,20 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
   // listed cpu and any listed features.
   unsigned BuiltinID = TargetDecl->getBuiltinID();
   std::string MissingFeature;
+  llvm::StringMap<bool> CallerFeatureMap;
+  CGM.getContext().getFunctionFeatureMap(CallerFeatureMap, FD);
   if (BuiltinID) {
-    SmallVector<StringRef, 1> ReqFeatures;
-    const char *FeatureList =
-        CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
+    StringRef FeatureList(
+        CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID));
     // Return if the builtin doesn't have any required features.
-    if (!FeatureList || StringRef(FeatureList) == "")
+    if (FeatureList.empty())
       return;
-    StringRef(FeatureList).split(ReqFeatures, ',');
-    if (!hasRequiredFeatures(ReqFeatures, CGM, FD, MissingFeature))
+    assert(FeatureList.find(' ') == StringRef::npos &&
+           "Space in feature list");
+    TargetFeatures TF(CallerFeatureMap);
+    if (!TF.hasRequiredFeatures(FeatureList))
       CGM.getDiags().Report(Loc, diag::err_builtin_needs_feature)
-          << TargetDecl->getDeclName()
-          << CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
-
+          << TargetDecl->getDeclName() << FeatureList;
   } else if (!TargetDecl->isMultiVersion() &&
              TargetDecl->hasAttr<TargetAttr>()) {
     // Get the required features for the callee.
@@ -2698,7 +2954,13 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
       if (F.getValue())
         ReqFeatures.push_back(F.getKey());
     }
-    if (!hasRequiredFeatures(ReqFeatures, CGM, FD, MissingFeature))
+    if (!llvm::all_of(ReqFeatures, [&](StringRef Feature) {
+      if (!CallerFeatureMap.lookup(Feature)) {
+        MissingFeature = Feature.str();
+        return false;
+      }
+      return true;
+    }))
       CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
           << FD->getDeclName() << TargetDecl->getDeclName() << MissingFeature;
   }
@@ -2880,4 +3142,37 @@ llvm::DebugLoc CodeGenFunction::SourceLocToDebugLoc(SourceLocation Location) {
     return DI->SourceLocToDebugLoc(Location);
 
   return llvm::DebugLoc();
+}
+
+static Optional<std::pair<uint32_t, uint32_t>>
+getLikelihoodWeights(Stmt::Likelihood LH) {
+  switch (LH) {
+  case Stmt::LH_Unlikely:
+    return std::pair<uint32_t, uint32_t>(llvm::UnlikelyBranchWeight,
+                                         llvm::LikelyBranchWeight);
+  case Stmt::LH_None:
+    return None;
+  case Stmt::LH_Likely:
+    return std::pair<uint32_t, uint32_t>(llvm::LikelyBranchWeight,
+                                         llvm::UnlikelyBranchWeight);
+  }
+  llvm_unreachable("Unknown Likelihood");
+}
+
+llvm::MDNode *CodeGenFunction::createBranchWeights(Stmt::Likelihood LH) const {
+  Optional<std::pair<uint32_t, uint32_t>> LHW = getLikelihoodWeights(LH);
+  if (!LHW)
+    return nullptr;
+
+  llvm::MDBuilder MDHelper(CGM.getLLVMContext());
+  return MDHelper.createBranchWeights(LHW->first, LHW->second);
+}
+
+llvm::MDNode *CodeGenFunction::createProfileOrBranchWeightsForLoop(
+    const Stmt *Cond, uint64_t LoopCount, const Stmt *Body) const {
+  llvm::MDNode *Weights = createProfileWeightsForLoop(Cond, LoopCount);
+  if (!Weights && CGM.getCodeGenOpts().OptimizationLevel)
+    Weights = createBranchWeights(Stmt::getLikelihood(Body));
+
+  return Weights;
 }

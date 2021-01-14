@@ -44,4 +44,3 @@ entry:
 ; CHECK: retbr:                                            ; preds = %recbr
 ; CHECK-NEXT:  ret void
 ; CHECK-NEXT: }
-

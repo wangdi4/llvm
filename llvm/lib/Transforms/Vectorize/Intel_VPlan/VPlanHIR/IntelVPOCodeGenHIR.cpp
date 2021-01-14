@@ -284,6 +284,7 @@ public:
   RegDDRef *visitTruncateExpr(const SCEVTruncateExpr *Expr);
   RegDDRef *visitZeroExtendExpr(const SCEVZeroExtendExpr *Expr);
   RegDDRef *visitSignExtendExpr(const SCEVSignExtendExpr *Expr);
+  RegDDRef *visitPtrToIntExpr(const SCEVPtrToIntExpr *);
   RegDDRef *visitAddExpr(const SCEVAddExpr *Expr);
   RegDDRef *visitMulExpr(const SCEVMulExpr *Expr);
   RegDDRef *visitUDivExpr(const SCEVUDivExpr *Expr);
@@ -316,7 +317,8 @@ RegDDRef *NestedBlobCG::codegenCoeff(int64_t Coeff, Type *Ty) {
 RegDDRef *NestedBlobCG::codegenConversion(RegDDRef *Src, unsigned ConvOpCode,
                                           Type *DestType) {
   assert((ConvOpCode == Instruction::ZExt || ConvOpCode == Instruction::SExt ||
-          ConvOpCode == Instruction::Trunc) &&
+          ConvOpCode == Instruction::Trunc ||
+          ConvOpCode == Instruction::PtrToInt) &&
          "Unexpected conversion OpCode");
 
   Type *VecTy = FixedVectorType::get(DestType, ACG->getVF());
@@ -406,6 +408,11 @@ RegDDRef *NestedBlobCG::visitSignExtendExpr(const SCEVSignExtendExpr *Expr) {
   return codegenConversion(Src, Instruction::SExt, Expr->getType());
 }
 
+RegDDRef *NestedBlobCG::visitPtrToIntExpr(const SCEVPtrToIntExpr *Expr) {
+  RegDDRef *Src = visit(Expr->getOperand());
+  return codegenConversion(Src, Instruction::PtrToInt, Expr->getType());
+}
+
 RegDDRef *NestedBlobCG::visitAddExpr(const SCEVAddExpr *Expr) {
   return codegenNAryOp(Expr, Instruction::Add);
 }
@@ -487,8 +494,7 @@ private:
   unsigned VF;
   bool UnitStrideRefSeen;
   bool MemRefSeen;
-  bool NegativeIVCoeffSeen;
-  bool FieldAccessSeen;
+  bool VectorizableCallSeen;
   unsigned LoopLevel;
   VPOCodeGenHIR *CG;
 
@@ -502,8 +508,8 @@ public:
   HandledCheck(const HLLoop *OrigLoop, TargetLibraryInfo *TLI, int VF,
                VPOCodeGenHIR *CG)
       : IsHandled(true), OrigLoop(OrigLoop), TLI(TLI), VF(VF),
-        UnitStrideRefSeen(false), MemRefSeen(false), NegativeIVCoeffSeen(false),
-        FieldAccessSeen(false), CG(CG) {
+        UnitStrideRefSeen(false), MemRefSeen(false),
+        VectorizableCallSeen(false), CG(CG) {
     LoopLevel = OrigLoop->getNestingLevel();
   }
 
@@ -513,7 +519,8 @@ public:
     // Current CG uses VPlan to generate the code, so Gotos should be ok to
     // support in CG.
     if (!CG->isSearchLoop()) {
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE(
+          "VPOCGHIR-bailout",
           dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
       IsHandled = false;
     }
@@ -525,8 +532,7 @@ public:
   bool isHandled() { return IsHandled; }
   bool getUnitStrideRefSeen() { return UnitStrideRefSeen; }
   bool getMemRefSeen() { return MemRefSeen; }
-  bool getNegativeIVCoeffSeen() { return NegativeIVCoeffSeen; }
-  bool getFieldAccessSeen() { return FieldAccessSeen; }
+  bool getVectorizableCallSeen() { return VectorizableCallSeen; }
 };
 
 class HLInstCounter final : public HLNodeVisitorBase {
@@ -548,9 +554,9 @@ public:
 
 void HandledCheck::visit(HLDDNode *Node) {
   if (!isa<HLInst>(Node) && !isa<HLIf>(Node)) {
-    LLVM_DEBUG(
-        dbgs() << "VPLAN_OPTREPORT: Loop not handled - only HLInst/HLIf are "
-                  "supported\n");
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                    dbgs() << "VPLAN_OPTREPORT: Loop not handled - only "
+                              "HLInst/HLIf are supported\n");
     IsHandled = false;
     return;
   }
@@ -560,10 +566,11 @@ void HandledCheck::visit(HLDDNode *Node) {
     auto LLInst = Inst->getLLVMInstruction();
 
     if (LLInst->mayThrow()) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE(
+          "VPOCGHIR-bailout",
           dbgs()
-          << "VPLAN_OPTREPORT: Loop not handled - instruction may throw\n");
+              << "VPLAN_OPTREPORT: Loop not handled - instruction may throw\n");
       IsHandled = false;
       return;
     }
@@ -572,16 +579,18 @@ void HandledCheck::visit(HLDDNode *Node) {
     if ((Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
          Opcode == Instruction::URem || Opcode == Instruction::SRem) &&
         (Inst->getParent() != OrigLoop)) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked DIV/REM "
-                           "instruction\n");
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                      dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
+                                "DIV/REM instruction\n");
       IsHandled = false;
       return;
     }
 
     if (Opcode == Instruction::Alloca) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE(
+          "VPOCGHIR-bailout",
           dbgs() << "VPLAN_OPTREPORT: Loop not handled - alloca instruction\n");
       IsHandled = false;
       return;
@@ -596,9 +605,18 @@ void HandledCheck::visit(HLDDNode *Node) {
       if (EnableVPValueCodegenHIR && !CG->isReductionRef(TLval, RedOpcode)) {
         LLVM_DEBUG(Inst->dump());
         LLVM_DEBUG(
-            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout "
-                      "induction/private not handled - forcing mixed CG\n");
+            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private not "
+                      "handled - forcing mixed CG\n");
         CG->setForceMixedCG(true);
+        if (getVectorizableCallSeen()) {
+          DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+          DEBUG_WITH_TYPE(
+              "VPOCGHIR-bailout",
+              dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
+                        "vectorization not supported in mixed CG mode\n");
+          IsHandled = false;
+          return;
+        }
       }
     }
 
@@ -607,20 +625,31 @@ void HandledCheck::visit(HLDDNode *Node) {
         OrigLoop->isLiveOut(TLval->getSymbase()) &&
         Inst->getParent() != OrigLoop &&
         !CG->isReductionRef(TLval, MaskedRedOpcode)) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(
-          dbgs()
-          << "VPLAN_OPTREPORT: Liveout conditional non-reduction scalar assign "
-             "not handled\n");
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                      dbgs() << "VPLAN_OPTREPORT: Liveout conditional "
+                                "non-reduction scalar assign not handled\n");
       IsHandled = false;
       return;
     }
 
     if (const CallInst *Call = Inst->getCallInst()) {
+      if (!CG->isIgnoredCall(Call) &&
+          (CG->getForceMixedCG() || !EnableVPValueCodegenHIR)) {
+        LLVM_DEBUG(Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE(
+            "VPOCGHIR-bailout",
+            dbgs() << "VPLAN_OPTREPORT: Loop not handled - call vectorization "
+                      "not supported in mixed CG mode\n");
+        IsHandled = false;
+        return;
+      }
+
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
-        LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
             dbgs() << "VPLAN_OPTREPORT: Loop not handled - indirect call\n");
         IsHandled = false;
         return;
@@ -635,16 +664,17 @@ void HandledCheck::visit(HLDDNode *Node) {
       // not profitable specifically for non-AVX512 targets. Check JIRA :
       // CMPLRLLVM-11468.
       if (TrivialVectorIntrinsic && ID == Intrinsic::fabs &&
-          !VPlanAssumeMaskedFabsProfitable && !CG->targetHasAVX512())
+          !VPlanAssumeMaskedFabsProfitable && !CG->targetHasIntelAVX512())
         TrivialVectorIntrinsic = false;
       if (isa<HLIf>(Inst->getParent()) &&
           (VF > 1 && !TrivialVectorIntrinsic &&
            !TLI->isFunctionVectorizable(CalledFunc, VF))) {
         // Masked svml calls are supported, but masked non-trivially
         // vectorizable intrinsics are not at the moment.
-        LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
-                             "non-trivially vectorizable intrinsic\n");
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
+                                  "non-trivially vectorizable intrinsic\n");
         IsHandled = false;
         return;
       }
@@ -655,8 +685,8 @@ void HandledCheck::visit(HLDDNode *Node) {
       // floor calls are also temporarily disabled until FeatureOutlining is
       // fixed (CQ410864)
       if (CalledFunc == "fabs" || CalledFunc == "floor") {
-        LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
             dbgs() << "VPLAN_OPTREPORT: Loop not handled - fabs/floor call "
                       "disabled\n");
         IsHandled = false;
@@ -670,9 +700,9 @@ void HandledCheck::visit(HLDDNode *Node) {
            (!TLI->isFunctionVectorizable(CalledFunc, VF) ||
             (!VPlanVecNonReadonlyLibCalls && !Call->onlyReadsMemory()))) &&
           !ID) {
-        LLVM_DEBUG(
-            dbgs()
-            << "VPLAN_OPTREPORT: Loop not handled - call not vectorizable\n");
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
+                                  "not vectorizable\n");
         IsHandled = false;
         return;
       }
@@ -688,8 +718,9 @@ void HandledCheck::visit(HLDDNode *Node) {
             auto *OperandCE =
                 Inst->getOperandDDRef(ArgOffset + I)->getSingleCanonExpr();
             if (!OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel())) {
-              LLVM_DEBUG(dbgs()
-                         << "VPLAN_OPTREPORT: Loop not handled - always scalar "
+              DEBUG_WITH_TYPE(
+                  "VPOCGHIR-bailout",
+                  dbgs() << "VPLAN_OPTREPORT: Loop not handled - always scalar "
                             "operand of vector intrinsic is loop variant\n");
               IsHandled = false;
               return;
@@ -697,6 +728,9 @@ void HandledCheck::visit(HLDDNode *Node) {
           }
         }
       }
+
+      if (!CG->isIgnoredCall(Call))
+        VectorizableCallSeen = true;
     }
   }
 
@@ -712,9 +746,9 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   if (!VectorType::isValidElementType(RegDD->getSrcType()) ||
       !VectorType::isValidElementType(RegDD->getDestType())) {
-    LLVM_DEBUG(RegDD->getSrcType()->dump());
-    LLVM_DEBUG(RegDD->getDestType()->dump());
-    LLVM_DEBUG(
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getSrcType()->dump());
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getDestType()->dump());
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
         dbgs() << "VPLAN_OPTREPORT: Loop not handled - invalid element type\n");
     IsHandled = false;
     return;
@@ -731,13 +765,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   }
 
   // Visit GEP Base
-  if (RegDD->hasGEPInfo()) {
-    // Track if we see field accesses in the lowest dimension
-    if (RegDD->hasTrailingStructOffsets(1))
-      FieldAccessSeen = true;
-
+  if (RegDD->hasGEPInfo())
     MemRefSeen = true;
-  }
 }
 
 // Checks Canon Expr to see if we support it. Currently, we do not
@@ -748,11 +777,9 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
   if (InMemRef) {
     int64_t ConstCoeff = 0;
     CExpr->getIVCoeff(LoopLevel, nullptr, &ConstCoeff);
-    if (ConstCoeff < 0)
-      NegativeIVCoeffSeen = true;
   }
   if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
-    LLVM_DEBUG(
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
         dbgs()
         << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
@@ -774,7 +801,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
         ZeroCheck.visitAll(TopBlob);
 
         if (ZChk.isDivByZeroPossible()) {
-          LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
+          DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
           IsHandled = false;
           return;
         }
@@ -788,7 +815,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
     auto TopBlob = BlobUtilities.getBlob(BI);
 
     if (BlobUtilities.isNestedBlob(TopBlob)) {
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
       IsHandled = false;
       return;
     }
@@ -809,7 +836,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
-    LLVM_DEBUG(
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
         dbgs()
         << "VPLAN_OPTREPORT: Loop not handled - loop not in normalized form\n");
     return false;
@@ -824,7 +851,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
     // Check for minimum trip count threshold
     if (TinyTripCountThreshold && ConstTripCount <= TinyTripCountThreshold) {
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
           dbgs() << "VPLAN_OPTREPORT: Loop not handled - loop with small "
                     "trip count\n");
       return false;
@@ -832,7 +859,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
     // Check that main vector loop will have at least one iteration
     if (ConstTripCount < VF) {
-      LLVM_DEBUG(
+      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
           dbgs()
           << "VPLAN_OPTREPORT: Loop not handled - zero iteration main loop\n");
       return false;
@@ -853,16 +880,8 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   // implemented.
   if (DisableStressTest && NodeCheck.getMemRefSeen() &&
       !NodeCheck.getUnitStrideRefSeen()) {
-    LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
                          "unit-stride\n");
-    return false;
-  }
-
-  // Workaround for performance regressions until cost model can be refined
-  if (NodeCheck.getFieldAccessSeen() && NodeCheck.getNegativeIVCoeffSeen()) {
-    LLVM_DEBUG(
-        dbgs() << "VPLAN_OPTREPORT: Loop not handled - combination of field "
-                  "accesses and negative IV coefficients seen\n");
     return false;
   }
 
@@ -1630,35 +1649,35 @@ static HLInst *createVectorReduce(const VPReductionFinal *RedFinal,
   SmallVector<RegDDRef *, 2> Ops;
 
   switch (VecRedIntrin) {
-  case Intrinsic::experimental_vector_reduce_v2_fadd:
-  case Intrinsic::experimental_vector_reduce_v2_fmul:
+  case Intrinsic::vector_reduce_fadd:
+  case Intrinsic::vector_reduce_fmul:
     assert(Acc && "Expected initial value");
     assert(!isa<VectorType>(Acc->getDestType()) &&
            "Accumulator for FP reduction is not scalar.");
-    Tys.insert(Tys.end(), {Acc->getDestType(), VecType});
+    Tys.insert(Tys.end(), {VecType});
     Ops.insert(Ops.end(), {Acc, VecRef});
     Acc = nullptr;
     break;
-  case Intrinsic::experimental_vector_reduce_add:
-  case Intrinsic::experimental_vector_reduce_mul:
-  case Intrinsic::experimental_vector_reduce_and:
-  case Intrinsic::experimental_vector_reduce_or:
-  case Intrinsic::experimental_vector_reduce_xor:
+  case Intrinsic::vector_reduce_add:
+  case Intrinsic::vector_reduce_mul:
+  case Intrinsic::vector_reduce_and:
+  case Intrinsic::vector_reduce_or:
+  case Intrinsic::vector_reduce_xor:
     Tys.insert(Tys.end(), {VecType});
     Ops.insert(Ops.end(), {VecRef});
     break;
-  case Intrinsic::experimental_vector_reduce_umax:
-  case Intrinsic::experimental_vector_reduce_smax:
-  case Intrinsic::experimental_vector_reduce_umin:
-  case Intrinsic::experimental_vector_reduce_smin:
+  case Intrinsic::vector_reduce_umax:
+  case Intrinsic::vector_reduce_smax:
+  case Intrinsic::vector_reduce_umin:
+  case Intrinsic::vector_reduce_smin:
     assert(!Acc && "Unexpected initial value");
     // Since we use generic IRBuilder::CreateCall interface in HIR, signedness
     // does not need to be explicitly specified.
     Tys.insert(Tys.end(), {VecType});
     Ops.insert(Ops.end(), {VecRef});
     break;
-  case Intrinsic::experimental_vector_reduce_fmax:
-  case Intrinsic::experimental_vector_reduce_fmin:
+  case Intrinsic::vector_reduce_fmax:
+  case Intrinsic::vector_reduce_fmin:
     assert(!Acc && "Unexpected initial value");
     // TODO: Need processing to determine NoNaN.
     return HLNodeUtilities.createFPMinMaxVectorReduce(
@@ -2140,12 +2159,10 @@ void VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
         OptRptStats.MaskedVLSStores += Grp->size();
       else
         OptRptStats.UnmaskedVLSStores += Grp->size();
-      assert(GrpStartInst &&
-             "Group start instruction pointer should not be null");
+      assert(GrpStartInst && "Group start instruction pointer should not be null");
       RegDDRef *WStorePtrRef = widenRef(GrpStartInst->getOperandDDRef(0),
                                         getVF() * InterleaveFactor, true);
-      assert(WStorePtrRef &&
-             "Wide store reference should not be null pointer");
+      assert(WStorePtrRef && "Wide store reference should not be null pointer");
       WideInst = createInterleavedStore(StoreValRefs, WStorePtrRef,
                                         InterleaveFactor, Mask);
       SmallVector<const RegDDRef *, 4> MemDDRefVec;
@@ -2688,36 +2705,52 @@ void VPOCodeGenHIR::generateStoreForSinCos(const HLInst *HInst,
                 "sincos.cos.store");
 }
 
-HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
-                                 SmallVectorImpl<RegDDRef *> &WideOps,
-                                 RegDDRef *Mask,
-                                 SmallVectorImpl<RegDDRef *> &CallArgs,
-                                 bool HasLvalArg) {
-  const CallInst *Call = INode->getCallInst();
-  assert(Call && "Unexpected null call");
-  Function *Fn = Call->getCalledFunction();
+HLInst *VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
+                                        RegDDRef *Mask) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+         "widenLibraryCall called for mismatched scenario.");
+  Function *CalledFunc = VPCall->getCalledFunction();
+  assert(CalledFunc && "Unexpected null called function.");
+
+  auto *WideCall = generateWideCall(
+      VPCall, Mask, Intrinsic::not_intrinsic /*No vector intrinsic*/);
+
+  assert(WideCall && WideCall->isCallInst() &&
+         "Widened call instruction expected.");
+  CallInst *WideLLVMCall = const_cast<CallInst *>(WideCall->getCallInst());
+  Function *CalledLLVMFunc = WideLLVMCall->getCalledFunction();
+  assert(CalledLLVMFunc && "Called function expected for the call");
+  // Set calling conventions for SVML function calls
+  if (isSVMLFunction(TLI, CalledFunc->getName(), CalledLLVMFunc->getName())) {
+    WideLLVMCall->setCallingConv(CallingConv::SVML);
+  }
+
+  return WideCall;
+}
+
+HLInst *VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic &&
+         "widenTrivialIntrinsic called for mismatched scenario.");
+  Intrinsic::ID VectorIntrinID = VPCall->getVectorIntrinsic();
+  assert(VectorIntrinID != Intrinsic::not_intrinsic &&
+         "Unexpected non-intrinsic call.");
+
+  // Trivial vector intrinsics are always unmasked.
+  auto *WideCall = generateWideCall(VPCall, nullptr /*Mask*/, VectorIntrinID);
+  return WideCall;
+}
+
+HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
+                                        RegDDRef *Mask,
+                                        Intrinsic::ID VectorIntrinID) {
+  auto *Call = VPCall->getUnderlyingCallInst();
+  Function *Fn = VPCall->getCalledFunction();
   assert(Fn && "Unexpected null called function");
   StringRef FnName = Fn->getName();
-  RegDDRef *WideLval = HasLvalArg ? WideOps[0] : nullptr;
 
-  // Default to svml. If svml is not available, try the intrinsic.
-  Intrinsic::ID ID = Intrinsic::not_intrinsic;
-  if (!TLI->isFunctionVectorizable(FnName, VF)) {
-    ID = getVectorIntrinsicIDForCall(Call, TLI);
-    // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
-    //        completely ignoring them.
-    if (ID && (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
-               ID == Intrinsic::lifetime_start)) {
-      return nullptr;
-    }
-  }
-
-  unsigned ArgOffset = 0;
-  // If WideOps contains the widened Lval, the actual call arguments start
-  // at position 1 in the WideOps vector.
-  if (HasLvalArg) {
-    ArgOffset = 1;
-  }
+  // Widen all arg operands of the call and adjust them based on masking.
   unsigned ArgIgnored = 0;
   // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
   // functions return the results directly in a struct. The pointers should be
@@ -2727,21 +2760,25 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
 
   AttributeList Attrs = Call->getAttributes();
 
+  SmallVector<RegDDRef *, 4> CallArgs;
   SmallVector<Type *, 1> ArgTys;
   SmallVector<AttributeSet, 1> ArgAttrs;
-  for (unsigned i = ArgOffset; i < WideOps.size() - ArgIgnored; i++) {
-    CallArgs.push_back(WideOps[i]);
-    ArgTys.push_back(WideOps[i]->getDestType());
-    ArgAttrs.push_back(Attrs.getParamAttributes(i - ArgOffset));
+  for (unsigned I = 0; I < VPCall->getNumArgOperands() - ArgIgnored; I++) {
+    // TODO: Consider integrating the check below for scalarizing intrinsic call
+    // args here.
+    auto *WideArg = widenRef(VPCall->getOperand(I), VF);
+    CallArgs.push_back(WideArg);
+    ArgTys.push_back(WideArg->getDestType());
+    ArgAttrs.push_back(Attrs.getParamAttributes(I));
   }
 
-  if (ID != Intrinsic::not_intrinsic) {
+  if (VectorIntrinID != Intrinsic::not_intrinsic) {
     // Scalarize argument operands of intrinsic calls, if needed.
     // TODO: For VPValue-based CG scalarization decision about operands should
     // be done in general earlier. We should not blindly widen all operands of
     // an instruction.
     for (unsigned I = 0; I < CallArgs.size(); ++I) {
-      if (hasVectorInstrinsicScalarOpd(ID, I)) {
+      if (hasVectorInstrinsicScalarOpd(VectorIntrinID, I)) {
         assert(CallArgs[I]->isTerminalRef() &&
                "Scalar operand of intrinsic is not terminal ref.");
         auto *OperandCE = CallArgs[I]->getSingleCanonExpr();
@@ -2755,11 +2792,13 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     }
   }
 
-  // Masked intrinsics will not have explicit mask parameter. They are handled
-  // like other BinOp HLInsts i.e. execute on all lanes and extract active lanes
-  // during HIR-CG.
-  bool Masked = Mask && ID == Intrinsic::not_intrinsic;
+  bool Masked = Mask != nullptr;
   if (Masked) {
+    // Masked intrinsics will not have explicit mask parameter. They are handled
+    // like other BinOp HLInsts i.e. execute on all lanes and extract active
+    // lanes during HIR-CG.
+    assert(VectorIntrinID == Intrinsic::not_intrinsic &&
+           "Vectorization of trivial intrinsics is not expected to be masked.");
     StringRef VecFuncName =
         TLI->getVectorizedFunction(Fn->getName(), VF, Masked);
     // Masks of SVML function calls need special treatment, it's different from
@@ -2775,29 +2814,22 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     }
   }
 
-  // TODO: Fix when vector-variants will become supported.
-  ++OptRptStats.VectorMathCalls;
   Function *VectorF = getOrInsertVectorFunction(
-      Fn, VF, ArgTys, TLI, ID, nullptr /* vector-variant */, Masked);
+      Fn, VF, ArgTys, TLI, VectorIntrinID, nullptr /*vector-variant*/, Masked);
   assert(VectorF && "Can't create vector function.");
 
   FastMathFlags FMF =
-      isa<FPMathOperator>(Call) ? Call->getFastMathFlags() : FastMathFlags();
+      VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags() : FastMathFlags();
   auto *WideInst = HLNodeUtilities.createCall(
-      VectorF, CallArgs, VectorF->getName(), WideLval, {} /*Bundle*/,
+      VectorF, CallArgs, VectorF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
       {} /*BundleOps*/, FMF);
-  CallInst *VecCall =
-      cast<CallInst>(const_cast<Instruction *>(WideInst->getLLVMInstruction()));
+  CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
+  assert(VecCall && "Call instruction is expected to be exist");
 
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
   copyRequiredAttributes(Call, VecCall, ArgAttrs);
-
-  // Set calling conventions for SVML function calls
-  if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
-    VecCall->setCallingConv(CallingConv::SVML);
-  }
 
   return WideInst;
 }
@@ -2908,18 +2940,9 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     WideInst = HLNodeUtilities.createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
   } else if (INode->isCallInst()) {
-    bool HasLvalArg = INode->hasLval();
-    WideInst = widenCall(INode, WideOps, Mask, CallArgs, HasLvalArg);
-    if (!WideInst)
-      return;
-    if (HasLvalArg) {
-      // If this is a void function, there will be no LVal DDRef for it, so
-      // don't try to insert it in the map. i.e., there are no users of an
-      // LVal for a void function.
-      InsertInMap = true;
-    } else {
-      InsertInMap = false;
-    }
+    assert(isIgnoredCall(INode->getCallInst()) &&
+           "Only ignored calls are handled in mixed CG.");
+    return;
   } else if (INode->isCopyInst()) {
     WideInst = HLNodeUtilities.createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
@@ -3186,7 +3209,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
 
   RegDDRef *PtrRef;
   if (NeedScalarRef)
-    PtrRef = getOrCreateScalarRef(VPPtr);
+    PtrRef = getOrCreateScalarRef(VPPtr, 0 /*LaneID*/);
   else
     PtrRef = widenRef(VPPtr, getVF());
 
@@ -3331,18 +3354,20 @@ RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
   return NewRef;
 }
 
-RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal) {
+RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
+                                              unsigned ScalarLaneID) {
   RegDDRef *ScalarRef = nullptr;
-  unsigned Lane = 0;
-  if ((ScalarRef = getScalRefForVPVal(VPVal, Lane)))
+  if ((ScalarRef = getScalRefForVPVal(VPVal, ScalarLaneID)))
     return ScalarRef->clone();
 
   if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal))
     return getUniformScalarRef(VPVal);
 
+  assert(ScalarLaneID < getVF() && "Invalid lane ID.");
   RegDDRef *WideRef = widenRef(VPVal, getVF());
   HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
-      WideRef->clone(), (unsigned)Lane, "uni.idx");
+      WideRef->clone(), (unsigned)ScalarLaneID,
+      "extract." + Twine(ScalarLaneID) + ".");
   addInstUnmasked(ExtractInst);
   ScalarRef = ExtractInst->getLvalDDRef();
   return ScalarRef->clone();
@@ -3589,6 +3614,36 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
       VPLoad, widenRef(ScalarInst->getLvalDDRef()->clone(), getVF()));
 }
 
+void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
+    const VPLoadStoreInst *VPStore) {
+  const VPValue *ValOp = VPStore->getOperand(0);
+  RegDDRef *MemRef = getMemoryRef(VPStore, true /* Lane0Value */);
+  RegDDRef *ValRef = nullptr;
+  if (!Plan->getVPlanDA()->isDivergent(*ValOp))
+    // Value being stored is uniform - use lane 0 value as the value to store.
+    ValRef = getOrCreateScalarRef(ValOp, 0 /*LaneID*/);
+  else {
+    const VPPHINode *VPPhi = dyn_cast<VPPHINode>(ValOp);
+    if (VPPhi && MainLoopIVInsts.count(VPPhi)) {
+      // If the value being stored is the loop IV, generate IV + (VF - 1).
+      auto RefDestTy = VPPhi->getType();
+      auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
+      CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+                1 /* constant IV coefficient */);
+      CE->addConstant(getVF() - 1, false /* IsMathAdd */);
+      ValRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
+    } else {
+      // Value being stored is divergent non loop IV - use last lane value as
+      // the value to store.
+      ValRef = getOrCreateScalarRef(ValOp, getVF() - 1);
+    }
+  }
+
+  HLInst *WideInst =
+      HLNodeUtilities.createStore(ValRef, "uniform.store", MemRef);
+  addInstUnmasked(WideInst);
+}
+
 void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
                                        RegDDRef *Mask, const OVLSGroup *Group,
                                        int64_t InterleaveFactor,
@@ -3599,11 +3654,17 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 
   auto Opcode = VPLoadStore->getOpcode();
 
-  // Handle uniform load
   const VPValue *PtrOp = getLoadStorePointerOperand(VPLoadStore);
-  if (Opcode == Instruction::Load && !Plan->getVPlanDA()->isDivergent(*PtrOp)) {
-    widenUniformLoadImpl(VPLoadStore, Mask);
-    return;
+  if (!Plan->getVPlanDA()->isDivergent(*PtrOp)) {
+    // Handle uniform load
+    if (Opcode == Instruction::Load) {
+      widenUniformLoadImpl(VPLoadStore, Mask);
+      return;
+    } else if (!Mask) {
+      // Handle unmasked uniform store
+      widenUnmaskedUniformStoreImpl(VPLoadStore);
+      return;
+    }
   }
 
   bool InterleaveAccess = interleaveAccess(Group, Mask, VPLoadStore);
@@ -3659,12 +3720,13 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 }
 
 void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
-                                            RegDDRef *Mask, bool Widen) {
+                                            RegDDRef *Mask, bool Widen,
+                                            unsigned ScalarLaneID) {
   auto RefDestTy = VPSubscript->getType();
   auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
 
-  RegDDRef *PointerRef =
-      getOrCreateRefForVPVal(VPSubscript->getPointerOperand(), Widen);
+  RegDDRef *PointerRef = getOrCreateRefForVPVal(
+      VPSubscript->getPointerOperand(), Widen, ScalarLaneID);
   // Base canon expression needs to be a self blob.
   if (!PointerRef->isSelfBlob()) {
     auto *CopyInst = HLNodeUtilities.createCopyInst(PointerRef, "nsbgepcopy");
@@ -3680,17 +3742,20 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
 
   // Utility to specially handle lower/stride fields of a subscript. We ensure
   // that loop invariant lower/stride are kept scalar even in vectorized memref.
-  auto generateLowerOrStride = [this](VPValue *V, bool Widen) {
+  auto generateLowerOrStride = [this](VPValue *V, bool Widen,
+                                      unsigned ScalarLaneID) {
     if (!Plan->getVPlanDA()->isDivergent(*V))
-      return getOrCreateRefForVPVal(V, false /*always scalar*/);
-    return getOrCreateRefForVPVal(V, Widen);
+      return getOrCreateRefForVPVal(V, false /*always scalar*/, 0 /*LaneID*/);
+    return getOrCreateRefForVPVal(V, Widen, ScalarLaneID);
   };
 
   for (int Dim = VPSubscript->getNumDimensions() - 1; Dim >= 0; --Dim) {
-    RegDDRef *Lower = generateLowerOrStride(VPSubscript->getLower(Dim), Widen);
+    RegDDRef *Lower =
+        generateLowerOrStride(VPSubscript->getLower(Dim), Widen, ScalarLaneID);
     RegDDRef *Stride =
-        generateLowerOrStride(VPSubscript->getStride(Dim), Widen);
-    RegDDRef *Idx = getOrCreateRefForVPVal(VPSubscript->getIndex(Dim), Widen);
+        generateLowerOrStride(VPSubscript->getStride(Dim), Widen, ScalarLaneID);
+    RegDDRef *Idx =
+        getOrCreateRefForVPVal(VPSubscript->getIndex(Dim), Widen, ScalarLaneID);
     AuxRefs.insert(AuxRefs.end(), {Idx, Lower, Stride});
     ArrayRef<unsigned> StructOffsets = VPSubscript->getStructOffsets(Dim);
     Type *DimTy = VPSubscript->getDimensionType(Dim);
@@ -3699,20 +3764,19 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
                          Stride->getSingleCanonExpr(), DimTy);
   }
 
-  makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen);
+  makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen, ScalarLaneID);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] NewMemRef: "; NewRef->dump(1));
 }
 
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex,
-                                const HLInst *GrpStartInst, bool Widen) {
+                                const HLInst *GrpStartInst, bool Widen,
+                                unsigned ScalarLaneID) {
   assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
          "Unxpected instruction for scalar constructs");
 
   HLInst *NewInst = nullptr;
-  SmallVector<RegDDRef *, 1> CallArgs;
-  const HLInst *CallInst = nullptr;
   const Twine InstName = ".vec";
 
   if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
@@ -3746,7 +3810,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                        InterleaveFactor, InterleaveIndex);
     return;
   case VPInstruction::Subscript:
-    generateHIRForSubscript(cast<VPSubscriptInst>(VPInst), Mask, Widen);
+    generateHIRForSubscript(cast<VPSubscriptInst>(VPInst), Mask, Widen,
+                            ScalarLaneID);
     return;
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
@@ -3765,11 +3830,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   // using operands of the instruction corresponding to the select mask.
   bool SkipFirstSelectOp = VPInst->getOpcode() == Instruction::Select;
   SmallVector<RegDDRef *, 6> RefOps;
-  // For call instructions we need to widen only argument operands. Called
-  // value/function operand should not be included here for widening.
+  // Do not widen any operands for call instruction. They are explicitly handled
+  // during instruction widening.
   VPUser::const_operand_range OpRange =
       isa<VPCallInstruction>(VPInst)
-          ? cast<VPCallInstruction>(VPInst)->arg_operands()
+          ? make_range(VPInst->op_end(), VPInst->op_end())
           : VPInst->operands();
   for (const VPValue *Operand : OpRange) {
     if (SkipFirstSelectOp) {
@@ -3781,8 +3846,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (Widen)
       Ref = widenRef(Operand, getVF());
     else {
-      // Obtain the scalar ref for lane 0 if one exists already
-      if ((Ref = getScalRefForVPVal(Operand, 0)))
+      // Obtain the scalar ref for lane ScalarLaneID if one exists already
+      if ((Ref = getScalRefForVPVal(Operand, ScalarLaneID)))
         Ref = Ref->clone();
       else if (isa<VPExternalDef>(Operand) || isa<VPConstant>(Operand))
         // Creation of a scalar ref for externaldefs/constants does not require
@@ -3839,7 +3904,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         CanonExprUtilities.canAdd(CE1, CE2)) {
       SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone(), RefOp1};
       CanonExprUtilities.add(CE1, CE2);
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
@@ -3879,7 +3944,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
         CE1->setDenominator(CI->getSExtValue());
         CE1->setDivisionType(VPInst->getOpcode() == Instruction::SDiv);
-        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
         return;
       }
     }
@@ -3904,12 +3969,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     if (!ReductionVPInsts.count(VPInst) &&
         CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
-        CE2->isLinearAtLevel(MainLoop->getNestingLevel()))
-      if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0)))
+        CE2->isLinearAtLevel(MainLoop->getNestingLevel())) {
+      if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0))))
         NonConstIndex = 1;
-      else if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1)))
+      else if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1))))
         NonConstIndex = 0;
-
+    }
     if (ConstOp) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
       // The constant value needs to fit in 64 bits which is what
@@ -3921,7 +3986,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         SmallVector<const RegDDRef *, 2> AuxRefs = {ResultRef->clone()};
         int64_t ConstVal = CI->getSExtValue();
         if (NonConstCE->multiplyByConstant(ConstVal)) {
-          makeConsistentAndAddToMap(ResultRef, VPInst, AuxRefs, Widen);
+          makeConsistentAndAddToMap(ResultRef, VPInst, AuxRefs, Widen,
+                                    ScalarLaneID);
           return;
         }
       }
@@ -4068,13 +4134,13 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
           CE->setSrcType(ResultRefTy);
           CE->setDestType(ResultRefTy);
         }
-        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
         return;
       }
 
       CE->setDestType(ResultRefTy);
       CE->setExtType(VPInst->getOpcode() == Instruction::SExt);
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
@@ -4104,7 +4170,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
       RefOp0->setBitCastDestType(ResultRefTy);
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
@@ -4146,69 +4212,59 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // If we have a single operand GEP, we can simply reuse RefOp0
     if (VPInst->getNumOperands() == 1) {
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }
 
     // Any other case of GEP implies it was introduced after decomposer by some
     // VPlan-to-VPlan xform.
     assert(false && "VPlan-to-VPlan xform introduced a new IR-agnostic GEP.");
-
-    auto RefDestTy = VPInst->getType();
-    auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
-    auto VPGEP = cast<VPGEPInstruction>(VPInst);
-    RegDDRef *NewRef = RefOp0;
-
-    // Base canon expression needs to be a self blob.
-    if (!RefOp0->isSelfBlob()) {
-      auto *CopyInst = HLNodeUtilities.createCopyInst(RefOp0, "nsbgepcopy");
-      addInst(CopyInst, Mask);
-      NewRef = CopyInst->getLvalDDRef();
-    }
-
-    NewRef = DDRefUtilities.createAddressOfRef(NewRef->getSelfBlobIndex(),
-                                               NewRef->getDefinedAtLevel());
-    NewRef->setBitCastDestType(ResultRefTy);
-
-    // Widened operands contain reference dimensions and trailing struct
-    // offsets. Add reference dimensions and trailing struct offsets.
-    for (unsigned OpIdx = 1; OpIdx < RefOps.size();) {
-      auto Operand = RefOps[OpIdx];
-      AuxRefs.push_back(Operand);
-      ++OpIdx;
-      SmallVector<unsigned, 2> StructOffsets;
-      while (OpIdx < RefOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
-        const VPValue *VPOffset = VPInst->getOperand(OpIdx);
-        ConstantInt *CVal =
-            cast<ConstantInt>(cast<VPConstant>(VPOffset)->getConstant());
-        unsigned Offset = CVal->getZExtValue();
-        StructOffsets.push_back(Offset);
-        ++OpIdx;
-      }
-      NewRef->addDimension(Operand->getSingleCanonExpr(), StructOffsets);
-    }
-
-    makeConsistentAndAddToMap(NewRef, VPInst, AuxRefs, Widen);
     return;
   }
 
   case Instruction::Call: {
+    assert(Widen && "Below code assumes that calls are always widened.");
+
     // Calls need to be masked with current mask value if Mask is null.
     if (!Mask)
       Mask = CurMaskValue;
 
-    // TODO - VPValue codegen for call instructions still accesses
-    // underlying node. This needs to be changed when we add all
-    // necessary information such as call properties to VPInstruction.
-    CallInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-    assert(CallInst && CallInst->isCallInst() &&
-           "Expected non-null underlying call instruction");
+    auto *VPCall = cast<VPCallInstruction>(VPInst);
 
-    // The Lval is not represented as an explicit operand in VPInstructions.
-    NewInst =
-        widenCall(CallInst, RefOps, Mask, CallArgs, false /* HasLvalArg */);
-    if (!NewInst)
+    // For all calls vectorization scenario should be available for current VF.
+    assert(VPCall->getVFForScenario() == VF &&
+           "Cannot find call vectorization scenario for VF.");
+
+    // Skip ignored calls (for example, lifetime intrinsics).
+    if (isIgnoredCall(VPCall->getUnderlyingCallInst()))
       return;
+
+    switch (VPCall->getVectorizationScenario()) {
+    case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
+      NewInst = widenLibraryCall(VPCall, Mask);
+      ++OptRptStats.VectorMathCalls;
+      break;
+    }
+    case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic: {
+      NewInst = widenTrivialIntrinsic(VPCall);
+      ++OptRptStats.VectorMathCalls;
+      break;
+    }
+    default: {
+      Intrinsic::ID ID =
+          getVectorIntrinsicIDForCall(VPCall->getUnderlyingCallInst(), TLI);
+      // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
+      // completely ignoring them.
+      if (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
+          ID == Intrinsic::lifetime_start) {
+        return;
+      }
+
+      llvm_unreachable("VPCallInstruction does not have a valid decision for "
+                       "HIR vectorizer.");
+    }
+    }
+
     break;
   }
 
@@ -4271,9 +4327,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   const class CallInst *Call = NewInst->getCallInst();
   if (Call &&
       Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
-    assert(CallInst && "Expected non-null CallInst");
     addInst(NewInst, nullptr);
-    generateStoreForSinCos(CallInst, NewInst, Mask,
+    // TODO: sincos handling uses underlying HLInst since it's designed to work
+    // even for scalar remainder loop (replaceLibCallsInRemainderLoop).
+    auto *UnderlyingHLInst = cast<HLInst>(VPInst->HIR.getUnderlyingNode());
+    generateStoreForSinCos(UnderlyingHLInst, NewInst, Mask,
                            false /* IsRemainderLoop */);
     return;
   }
@@ -4304,25 +4362,26 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // Generate wide constructs for all VPInstuctions. This will be changed later
   // to use SVA information.
   generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-              GrpStartInst, true /* Widen */);
+              GrpStartInst, true /*Widen*/);
 
   // Generate a scalar instruction for strided/uniform GEPs/subscripts. This is
   // needed to avoid generating extractelement instructions for unit strided
   // pointers and pointers used in VLS interleaved accesses. This
   // will be changed later to use SVA information.
   if (isa<VPGEPInstruction>(VPInst) || isa<VPSubscriptInst>(VPInst)) {
-    if (Plan->getVPlanDA()->getVectorShape(VPInst).hasKnownStride())
+    if (Plan->getVPlanDA()->getVectorShape(VPInst).hasKnownStride() ||
+        !Plan->getVPlanDA()->isDivergent(*VPInst))
       generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                  GrpStartInst, false /* Widen */);
+                  GrpStartInst, false /*Widen*/, 0 /*LaneID*/);
     return;
   }
 
-  // Generate a scalar value for some opcodes to avoid making references
-  // non-linear. This is made possible due to support for folding such opcodes.
-  // This will be changed later to use SVA information.
+  // Generate a scalar value corresponding to lane 0 for some opcodes to avoid
+  // making references non-linear. This is made possible due to support for
+  // folding such opcodes. This will be changed later to use SVA information.
   if (isOpcodeForScalarInst(VPInst->getOpcode()))
     generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                GrpStartInst, false /* Widen */);
+                GrpStartInst, false /*Widen*/, 0 /*LaneID*/);
 }
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
@@ -4443,9 +4502,9 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
   // TODO
 }
 
-bool VPOCodeGenHIR::targetHasAVX512() const {
+bool VPOCodeGenHIR::targetHasIntelAVX512() const {
   return TTI->isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512);
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
 }
 
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,

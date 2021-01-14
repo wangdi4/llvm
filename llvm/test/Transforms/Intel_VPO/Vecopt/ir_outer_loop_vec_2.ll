@@ -8,7 +8,7 @@
 ; CHECK: VPlannedBB{{.*}} preds = %VPlannedBB{{.*}}
 ; CHECK:  icmp eq {{.*}} 200
 ; CHECK: VPlannedBB{{.*}} preds = %VPlannedBB{{.*}}
-; CHECK:  icmp eq {{.*}} 300
+; CHECK:  icmp uge {{.*}} 300
 ; CHECK: middle.block:
 
 ; ModuleID = 'krtest2.c'

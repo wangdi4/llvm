@@ -1,6 +1,6 @@
 //===----  Intel_IPArrayTranspose.cpp - Intel IPO Array Transpose  --------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -174,6 +174,10 @@ private:
   // Number of columns in transposed array.
   int64_t TransposedNumCols = 0;
 
+  // Set when __kmpc_fork_call call is processed. This is used as a
+  // heuristic to insert kmp_set_blocktime(0) in "main".
+  bool KmpLibCallSeen = false;
+
   bool collectMallocCalls();
   bool isKmpcLibCall(Function *, const TargetLibraryInfo *, LibFunc);
   bool computePointerAliases();
@@ -181,6 +185,7 @@ private:
   bool validateAllMemRefs();
   bool isTransposeProfitable(void);
   void transformMemRefs(void);
+  CallInst *insertKmpSetBlocktimeCall();
   int64_t computeTransposedOffset(int64_t Idx);
   bool checkConstantMulExpr(const SCEV *, int64_t &, const SCEV *&);
   bool parseSCEVSignExtExpr(const SCEV *, int64_t &, const SCEV *&);
@@ -394,6 +399,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
       assert(CalledF && "Expected function argument");
       I += 3;
       ArgPos = 2;
+      KmpLibCallSeen = true;
     }
     if (CalledF->isDeclaration())
       return false;
@@ -919,7 +925,7 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
   std::function<bool(const SCEV *, int64_t)> ParseScaledAddRecExpr;
   std::function<bool(const SCEV *, int64_t)> ParseScaledExpr;
 
-  // Returns true if "SC" is terminal or "SExt (terminal)".
+  // Returns true if "SC" is terminal or "SExt (terminal)" / "ZExt (terminal)".
   auto CheckTerminal = [&](const SCEV *SC) {
     // Allowing base pointer only at top level expression tree.
     if (SC == Base)
@@ -929,11 +935,14 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
     auto SignExt = dyn_cast<SCEVSignExtendExpr>(SC);
     if (SignExt && isa<SCEVUnknown>(SignExt->getOperand()))
       return true;
+    auto ZeroExt = dyn_cast<SCEVZeroExtendExpr>(SC);
+    if (ZeroExt && isa<SCEVUnknown>(ZeroExt->getOperand()))
+      return true;
     return false;
   };
 
   // Parse operands of "SC" SCEVAdd expression and propagate "ScaledV".
-  auto ParseScaledAddExpr = [&, this](const SCEV *SC, int64_t ScaledV) {
+  auto ParseScaledAddExpr = [&](const SCEV *SC, int64_t ScaledV) {
     auto A = dyn_cast<SCEVAddExpr>(SC);
     assert(A && "Expected SCEVAdd Expr");
     for (const SCEV *S1 : A->operands()) {
@@ -950,7 +959,7 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
   };
 
   // Parse operands of "SC" SCEVAddRec expression and propagate "ScaledV".
-  ParseScaledAddRecExpr = [&, this](const SCEV *SC, int64_t ScaledV) {
+  ParseScaledAddRecExpr = [&](const SCEV *SC, int64_t ScaledV) {
     const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(SC);
     assert(AR && "Expected SCEVAddRec Expr");
     if (!AR->isAffine())
@@ -1045,7 +1054,7 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
   };
 
   // Returns estimated trip count for "L" using "SE".
-  auto GetTripCount = [this](const Loop *L, ScalarEvolution &SE) {
+  auto GetTripCount = [](const Loop *L, ScalarEvolution &SE) {
     if (unsigned TC = SE.getSmallConstantTripCount(L))
       return TC;
     if (unsigned TC = SE.getSmallConstantMaxTripCount(L))
@@ -1581,6 +1590,31 @@ void ArrayTransposeImpl::transformMemRefs(void) {
   }
 }
 
+// Insert kmp_set_blocktime(0) at the beginning of “main” routine
+// to avoid performance variance. The following heuristics are used
+// to insert the call.
+//   IPArrayTranspose transformation is triggered and
+//   Array pointer is passed through __kmpc_fork_call call.
+//
+CallInst *ArrayTransposeImpl::insertKmpSetBlocktimeCall(void) {
+  if (!KmpLibCallSeen)
+    return nullptr;
+  assert(MainRtn && "MainRtn expected");
+  auto &TLI = GetTLI(*MainRtn);
+  if (!TLI.has(LibFunc_kmp_set_blocktime))
+    return nullptr;
+  LLVMContext &Ctx = M.getContext();
+  Type *Int32Ty = Type::getInt32Ty(Ctx);
+  FunctionCallee SetFunc = M.getOrInsertFunction(
+      TLI.getName(LibFunc_kmp_set_blocktime), Type::getVoidTy(Ctx), Int32Ty);
+  if (!SetFunc)
+    return nullptr;
+  auto IP = MainRtn->getEntryBlock().getFirstInsertionPt();
+  Value *Params[] = {ConstantInt::get(Int32Ty, 0)};
+  CallInst *CI = CallInst::Create(SetFunc, Params, "", &*IP);
+  return CI;
+}
+
 bool ArrayTransposeImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "  IP Array Transpose: Started\n");
@@ -1613,6 +1647,10 @@ bool ArrayTransposeImpl::run(void) {
   }
   transformMemRefs();
   LLVM_DEBUG(dbgs() << "  IP Array Transpose: Done\n");
+
+  CallInst *CI = insertKmpSetBlocktimeCall();
+  if (CI)
+    LLVM_DEBUG(dbgs() << "Created kmp_set_blocktime: " << *CI << "\n");
   return true;
 }
 

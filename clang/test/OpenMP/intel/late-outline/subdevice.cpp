@@ -385,9 +385,9 @@ int test(int n) {
   // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, i32* [[CE3]]
   // CHECK-NEXT: [[LD4:%[0-9]+]] = load i32, i32* [[CE4]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
-  // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 2, i32 [[LD2]], i32 [[LD3]], i32 [[LD4]])
+  // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 1, i32 [[LD2]], i32 [[LD3]], i32 [[LD4]])
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
-  #pragma omp target subdevice(2,start:length:stride)
+  #pragma omp target subdevice(1,start:length:stride)
   {}
 
   // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
@@ -399,11 +399,13 @@ int test(int n) {
   #pragma omp target subdevice(0,start)
   {}
 
+  // Verify out of range value for level is set to zero.
+  //
   // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
   // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
   // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
-  // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 2147483647, i32 [[LD1]], i32 1, i32 1)
+  // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 1, i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
   #pragma omp target subdevice(2147483647,start)
   {}

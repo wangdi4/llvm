@@ -368,6 +368,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor has AVX-512 Vector Neural Network Instructions
   bool HasVNNI = false;
 
+  /// Processor has AVX Vector Neural Network Instructions
+  bool HasAVXVNNI = false;
+
   /// Processor has AVX-512 bfloat16 floating-point extensions
   bool HasBF16 = false;
 
@@ -416,24 +419,15 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasPCONFIG = false;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  /// Processor support Keylocker instructions
-  bool HasKeyLocker = false;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_ULI
-  bool HasULI = false;
-#endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
-  /// Processor supports HRESET instruction
-  bool HasHRESET = false;
-#endif // INTEL_FEATURE_ISA_HRESET
-
 #if INTEL_FEATURE_ISA_AMX_BF8
   bool HasAMXBF8 = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF8
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
   bool HasAMXMEMADVISE = false;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+  bool HasAMXMEMADVISEEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXELEMENT = false;
@@ -472,6 +466,15 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_AMX_TILE2
   bool HasAMXTILE2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  bool HasAMXCOMPLEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+  bool HasAMXCOMPLEXEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+  bool HasAMXFP19 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   bool HasCONVERT = false;
@@ -479,10 +482,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_AVX_CONVERT
   bool HasAVXCONVERT = false;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
-
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  bool HasAVXVNNI = false;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
 
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
   bool HasDOTPROD = false;
@@ -516,7 +515,29 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
   bool HasAVXDOTPRODPHPS = false;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+  bool HasAVXMOVGET = false;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  bool HasAVX512MOVGET = false;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+  bool HasGPRMOVGET = false;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+  bool HasMOVGET64B = false;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
+  /// Processor support key locker instructions
+  bool HasKL = false;
+
+  /// Processor support key locker wide instructions
+  bool HasWIDEKL = false;
+
+  /// Processor supports HRESET instruction
+  bool HasHRESET = false;
+
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 
@@ -527,6 +548,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   bool HasAMXTILE = false;
   bool HasAMXBF16 = false;
   bool HasAMXINT8 = false;
+
+  /// Processor supports User Level Interrupt instructions
+  bool HasUINTR = false;
 
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -578,6 +602,8 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   Align stackAlignment = Align(4);
+
+  Align TileConfigAlignment = Align(4);
 
   /// Max. memset / memcpy size that is turned into rep/movs, rep/stos ops.
   ///
@@ -675,6 +701,9 @@ public:
   const X86RegisterInfo *getRegisterInfo() const override {
     return &getInstrInfo()->getRegisterInfo();
   }
+
+  unsigned getTileConfigSize() const { return 64; }
+  Align getTileConfigAlignment() const { return TileConfigAlignment; }
 
   /// Returns the minimum alignment known to hold of the
   /// stack frame on entry to the function and which must be maintained by every
@@ -893,19 +922,12 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  bool hasKeyLocker() const { return HasKeyLocker; }
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_ULI
-  bool hasULI() const { return HasULI; }
-#endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
+  bool hasKL() const { return HasKL; }
+  bool hasWIDEKL() const { return HasWIDEKL; }
   bool hasHRESET() const { return HasHRESET; }
-#endif // INTEL_FEATURE_ISA_HRESET
-#endif // INTEL_CUSTOMIZATION
   bool hasSERIALIZE() const { return HasSERIALIZE; }
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
+  bool hasUINTR() const { return HasUINTR; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;
@@ -917,6 +939,9 @@ public:
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
   bool hasAMXMEMADVISE() const { return HasAMXMEMADVISE; }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+  bool hasAMXMEMADVISEEVEX() const { return HasAMXMEMADVISEEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool hasAMXELEMENT() const { return HasAMXELEMENT; }
   bool hasAMXREDUCE() const { return HasAMXREDUCE; }
@@ -954,9 +979,15 @@ public:
 #if INTEL_FEATURE_ISA_AMX_TILE2
   bool hasAMXTILE2() const { return HasAMXTILE2; }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  bool hasAVXVNNI() const { return HasAVXVNNI; }
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  bool hasAMXCOMPLEX() const { return HasAMXCOMPLEX; }
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+  bool hasAMXCOMPLEXEVEX() const { return HasAMXCOMPLEXEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+  bool hasAMXFP19() const { return HasAMXFP19; }
+#endif // INTEL_FEATURE_ISA_AMX_FP19
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   bool hasAVX512DOTPRODINT8() const { return HasAVX512DOTPRODINT8; }
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -985,7 +1016,20 @@ public:
 #if INTEL_FEATURE_ISA_AVX_MPSADBW
   bool hasAVX512MPSADBW() const { return HasAVX512MPSADBW; }
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+  bool hasAVXMOVGET() const { return HasAVXMOVGET; }
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+  bool hasAVX512MOVGET() const { return HasAVX512MOVGET; }
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+  bool hasGPRMOVGET() const { return HasGPRMOVGET; }
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+  bool hasMOVGET64B() const { return HasMOVGET64B; }
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
+  bool hasAVXVNNI() const { return HasAVXVNNI; }
   bool hasAMXTILE() const { return HasAMXTILE; }
   bool hasAMXBF16() const { return HasAMXBF16; }
   bool hasAMXINT8() const { return HasAMXINT8; }
@@ -1173,6 +1217,10 @@ public:
   }
 
   bool enableAdvancedRASplitCost() const override { return true; }
+#if INTEL_CUSTOMIZATION
+  void overrideSchedPolicy(MachineSchedPolicy &Policy,
+                           unsigned NumRegionInstrs) const override;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

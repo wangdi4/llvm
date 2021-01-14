@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; Original code:
 ; void foo(int *a)
@@ -34,7 +34,7 @@ source_filename = "simd_lastprivate.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline nounwind optnone uwtable
+; Function Attrs: noinline nounwind uwtable
 define dso_local void @foo(i32* %a) #0 {
 entry:
   %a.addr = alloca i32*, align 8
@@ -95,7 +95,7 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-attributes #0 = { noinline nounwind optnone uwtable "may-have-openmp-directive"="true" }
+attributes #0 = { noinline nounwind uwtable "may-have-openmp-directive"="true" }
 attributes #1 = { nounwind }
 
 !llvm.module.flags = !{!0}

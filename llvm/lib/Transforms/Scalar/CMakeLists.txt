@@ -1,10 +1,11 @@
 add_llvm_component_library(LLVMScalarOpts
   ADCE.cpp
   AlignmentFromAssumptions.cpp
+  AnnotationRemarks.cpp
   BDCE.cpp
   CallSiteSplitting.cpp
   ConstantHoisting.cpp
-  ConstantProp.cpp
+  ConstraintElimination.cpp
   CorrelatedValuePropagation.cpp
   DCE.cpp
   DeadStoreElimination.cpp
@@ -24,6 +25,7 @@ add_llvm_component_library(LLVMScalarOpts
 # INTEL_CUSTOMIZATION
   Intel_FunctionRecognizer.cpp
   Intel_GlobalOpt.cpp
+  Intel_HandlePragmaVectorAligned.cpp
   Intel_IndirectCallConv.cpp
   Intel_LoopOptMarker.cpp
   Intel_LoopOptReportEmitter.cpp
@@ -33,6 +35,7 @@ add_llvm_component_library(LLVMScalarOpts
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
   Intel_TransformFPGAReg.cpp
+  Intel_TransformSinAndCosCalls.cpp
   Intel_MultiVersioning.cpp
   Intel_AddSubReassociate.cpp
   Intel_ForcedCMOVGeneration.cpp
@@ -50,6 +53,7 @@ add_llvm_component_library(LLVMScalarOpts
   LoopIdiomRecognize.cpp
   LoopInstSimplify.cpp
   LoopInterchange.cpp
+  LoopFlatten.cpp
   LoopLoadElimination.cpp
   LoopPassManager.cpp
   LoopPredication.cpp
@@ -82,6 +86,7 @@ add_llvm_component_library(LLVMScalarOpts
   SROA.cpp
   Scalar.cpp
   Scalarizer.cpp
+  ScalarizeMaskedMemIntrin.cpp
   SeparateConstOffsetFromGEP.cpp
   SimpleLoopUnswitch.cpp
   SimplifyCFGPass.cpp
@@ -102,6 +107,20 @@ add_llvm_component_library(LLVMScalarOpts
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
+
+  COMPONENT_NAME
+  Scalar
+
+  LINK_COMPONENTS
+  AggressiveInstCombine
+  Analysis
+  Core
+  InstCombine
+# INTEL_CUSTOMIZATION
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
+  Support
+  TransformUtils
   )
 
 # INTEL_CUSTOMIZATION

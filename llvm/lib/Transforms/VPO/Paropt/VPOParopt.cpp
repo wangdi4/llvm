@@ -52,7 +52,10 @@ INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 #endif  // INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                     false)
@@ -77,49 +80,67 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<WRegionInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
-#endif  // INTEL_CUSTOMIZATION
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<XmainOptLevelWrapperPass>();
+#endif  // INTEL_CUSTOMIZATION
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
 bool VPOParopt::runOnModule(Module &M) {
-  auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
-    return getAnalysis<WRegionInfoWrapperPass>(F, Changed).getWRegionInfo();
-  };
-
-  auto TLIGetter = [&](Function &F) -> TargetLibraryInfo & {
-    return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-
+  auto &MTTI = getAnalysis<TargetTransformInfoWrapperPass>();
+  auto &MAC = getAnalysis<AssumptionCacheTracker>();
+  auto &MTLI = getAnalysis<TargetLibraryInfoWrapperPass>();
+#if INTEL_CUSTOMIZATION
   auto OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
+#endif // INTEL_CUSTOMIZATION
+
+  auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
+    assert(!F.isDeclaration() && "Cannot get analysis on declaration.");
+    auto &WRI =
+        getAnalysis<WRegionInfoWrapperPass>(F, Changed).getWRegionInfo();
+
+    WRI.setTargetTransformInfo(&MTTI.getTTI(F));
+    WRI.setAssumptionCache(&MAC.getAssumptionCache(F));
+    WRI.setTargetLibraryInfo(&MTLI.getTLI(F));
+#if INTEL_CUSTOMIZATION
+    WRI.setupAAWithOptLevel(OptLevel);
+#endif // INTEL_CUSTOMIZATION
+    return WRI;
+  };
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+  return Impl.runImpl(M, WRegionInfoGetter, OptLevel);
+#else
+  return Impl.runImpl(M, WRegionInfoGetter);
 #endif  // INTEL_CUSTOMIZATION
-
-  return Impl.runImpl(M, WRegionInfoGetter, TLIGetter, OptLevel);
 }
 
 PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
     auto &FAM =
         AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-    return FAM.getResult<WRegionInfoAnalysis>(F);
-  };
+    auto &WRI = FAM.getResult<WRegionInfoAnalysis>(F);
+    auto &TTI = FAM.getResult<TargetIRAnalysis>(F);
+    auto &AC = FAM.getResult<AssumptionAnalysis>(F);
+    auto &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
 
-  auto TLIGetter = [&](Function &F) -> TargetLibraryInfo & {
-    auto &FAM =
-        AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-    return FAM.getResult<TargetLibraryAnalysis>(F);
+    WRI.setTargetTransformInfo(&TTI);
+    WRI.setAssumptionCache(&AC);
+    WRI.setTargetLibraryInfo(&TLI);
+    return WRI;
   };
-
-  auto OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
 
 #if INTEL_CUSTOMIZATION
+  auto OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
   ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(M).getVerbosity();
+  bool Changed = runImpl(M, WRegionInfoGetter, OptLevel);
+#else
+  bool Changed = runImpl(M, WRegionInfoGetter);
 #endif  // INTEL_CUSTOMIZATION
 
-  if (!runImpl(M, WRegionInfoGetter, TLIGetter, OptLevel))
+  if (!Changed)
     return PreservedAnalyses::all();
 
   return PreservedAnalyses::none();
@@ -131,9 +152,12 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
 bool VPOParoptPass::runImpl(
     Module &M,
     std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
+#if INTEL_CUSTOMIZATION
         WRegionInfoGetter,
-    std::function<TargetLibraryInfo &(Function &F)> TLIGetter,
     unsigned OptLevel) {
+#else
+        WRegionInfoGetter) {
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\n====== VPO ParoptPass ======\n\n");
 
@@ -142,8 +166,13 @@ bool VPOParoptPass::runImpl(
      DisableOffload = true;
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
+#if INTEL_CUSTOMIZATION
   VPOParoptModuleTransform VP(M, Mode, OptLevel, DisableOffload);
-  bool Changed = VP.doParoptTransforms(WRegionInfoGetter, TLIGetter);
+#else
+  VPOParoptModuleTransform VP(M, Mode, /*OptLevel=*/2, DisableOffload);
+#endif // INTEL_CUSTOMIZATION
+
+  bool Changed = VP.doParoptTransforms(WRegionInfoGetter);
 
   LLVM_DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
   return Changed;

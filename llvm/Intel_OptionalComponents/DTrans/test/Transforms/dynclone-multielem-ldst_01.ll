@@ -40,12 +40,12 @@ define void @proc1() {
 ; CHECK: [[GEP1:%[0-9]+]] = getelementptr %__DYN_struct.test.01, %__DYN_struct.test.01* [[BC]], i32 0, i32 4
 ; CHECK: %F2 = bitcast i16* [[GEP1]] to i32*
 
-  %A2 = call i32* @llvm.ptr.annotation.p0i32(i32* %F2, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0)
+  %A2 = call i32* @llvm.ptr.annotation.p0i32(i32* %F2, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0, i8* null)
   %F3 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 3
 ; CHECK: [[BC2:%[0-9]+]] = bitcast %struct.test.01* %tp2 to %__DYN_struct.test.01*
 ; CHECK: [[GEP2:%[0-9]+]] = getelementptr %__DYN_struct.test.01, %__DYN_struct.test.01* [[BC2]], i32 0, i32 5
 ; CHECK: %F3 = bitcast i16* [[GEP2]] to i32*
-  %A3 = call i32* @llvm.ptr.annotation.p0i32(i32* %F3, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0)
+  %A3 = call i32* @llvm.ptr.annotation.p0i32(i32* %F3, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0, i8* null)
   %M = select i1 undef, i32* %F2, i32* %F3
   %L = load i32, i32* %M
 ; CHECK:  [[BC3:%[0-9]+]] = bitcast i32* %M to i16*
@@ -70,7 +70,7 @@ define void @proc1() {
 ; 2nd array fields of @n.
 define %struct.test.01* @init() {
   %call0 = call noalias i8* @calloc(i64 1000, i64 32)
-  %call.ptr = call i8* @llvm.ptr.annotation.p0i8(i8* %call0, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), i8* null, i32 0)
+  %call.ptr = call i8* @llvm.ptr.annotation.p0i8(i8* %call0, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), i8* null, i32 0, i8* null)
   %C01 = getelementptr i8, i8* %call0, i64 0
   %C02 = bitcast i8* %C01 to i64*
   store i64* %C02, i64** getelementptr (%struct.ns, %struct.ns* @n, i64 0, i32 0)
@@ -102,5 +102,5 @@ entry:
 
 ; Function Attrs: nounwind
 declare dso_local noalias i8* @calloc(i64, i64)
-declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32)
-declare dso_local noalias i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32)
+declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
+declare dso_local noalias i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)

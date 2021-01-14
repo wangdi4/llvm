@@ -1,6 +1,6 @@
 ; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
 ; INTEL_CUSTOMIZATION
-; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHKSS
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"
 target triple = "arm-apple-ios"
@@ -20,12 +20,12 @@ define void @test2(i8* %P, i8* %Q) #3 {
 ; CHECK-LABEL: Function: test2:
 
 ; CHECK:   MayAlias:     i8* %P, i8* %Q
-; CHECK:   Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK:   Just Ref:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK:   Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK:   Just Ref:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK:   Just Mod:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK:   Just Mod:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK:   Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK:   Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK:   Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK:   Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK:   Both ModRef:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK:   Both ModRef:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
 }
 
 define void @test2_atomic(i8* %P, i8* %Q) #3 {
@@ -36,12 +36,12 @@ define void @test2_atomic(i8* %P, i8* %Q) #3 {
 ; CHECK-LABEL: Function: test2_atomic:
 
 ; CHECK:   MayAlias:     i8* %P, i8* %Q
-; CHECK:   Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
-; CHECK:   Just Ref:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
-; CHECK:   Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
-; CHECK:   Just Ref:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
-; CHECK:   Just Mod:   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1) <->   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
-; CHECK:   Just Mod:   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1) <->   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
+; CHECK:   Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
+; CHECK:   Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
+; CHECK:   Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
+; CHECK:   Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
+; CHECK:   Both ModRef:   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1) <->   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
+; CHECK:   Both ModRef:   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1) <->   tail call void @llvm.memcpy.element.unordered.atomic.p0i8.p0i8.i64(i8* align 1 %P, i8* align 1 %Q, i64 12, i32 1)
 }
 
 define void @test2a(i8* noalias %P, i8* noalias %Q) #3 {
@@ -152,12 +152,12 @@ define void @test3(i8* %P, i8* %Q) #3 {
 ; CHECK-LABEL: Function: test3:
 
 ; CHECK: MayAlias:     i8* %P, i8* %Q
-; CHECK: Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
-; CHECK: Just Ref:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
-; CHECK: Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK: Just Ref:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK: Just Mod:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK: Just Mod:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK: Both ModRef:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK: Both ModRef:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 8, i1 false)
 }
 
 define void @test3a(i8* noalias %P, i8* noalias %Q) #3 {
@@ -202,14 +202,14 @@ define void @test5(i8* %P, i8* %Q, i8* %R) #3 {
 ; CHECK: MayAlias:     i8* %P, i8* %Q
 ; CHECK: MayAlias:     i8* %P, i8* %R
 ; CHECK: MayAlias:     i8* %Q, i8* %R
-; CHECK: Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK: Just Ref:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
 ; CHECK: Both ModRef:  Ptr: i8* %R     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
-; CHECK: Just Mod:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %P     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
 ; CHECK: Both ModRef:  Ptr: i8* %Q     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
-; CHECK: Just Ref:  Ptr: i8* %R     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
-; CHECK: Just Mod:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
-; CHECK: Just Mod:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
+; CHECK: Both ModRef:  Ptr: i8* %R     <->  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
+; CHECK: Both ModRef:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false)
+; CHECK: Both ModRef:   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %R, i64 12, i1 false) <->   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %P, i8* %Q, i64 12, i1 false)
 }
 
 define void @test5a(i8* noalias %P, i8* noalias %Q, i8* noalias %R) nounwind ssp {
@@ -276,9 +276,9 @@ entry:
 ; CHECK-LABEL: Function: test8
 ; CHECK: NoModRef:  Ptr: i8* %p <->  call void @an_inaccessiblememonly_func()
 ; CHECK: NoModRef:  Ptr: i8* %q <->  call void @an_inaccessiblememonly_func()
-; CHECK: NoModRef:  Ptr: i8* %p <->  call void @an_inaccessibleorargmemonly_func(i8* %q)
+; CHECK: Both ModRef:  Ptr: i8* %p <->  call void @an_inaccessibleorargmemonly_func(i8* %q)
 ; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q <->  call void @an_inaccessibleorargmemonly_func(i8* %q)
-; CHECK: NoModRef:  Ptr: i8* %p <->  call void @an_argmemonly_func(i8* %q)
+; CHECK: Both ModRef:  Ptr: i8* %p <->  call void @an_argmemonly_func(i8* %q)
 ; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q <->  call void @an_argmemonly_func(i8* %q)
 ; CHECK: Just Ref: call void @a_readonly_func(i8* %p) <-> call void @an_inaccessiblememonly_func()
 ; CHECK: Just Ref: call void @a_readonly_func(i8* %p) <-> call void @an_inaccessibleorargmemonly_func(i8* %q)
@@ -368,14 +368,13 @@ entry:
   ret void
 
 ; INTEL_CUSTOMIZATION
-; More generic reg-exps
 ; CHECK: Just Ref:  Ptr: i8* %p        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
 ; CHECK: Just Ref:  Ptr: i8* %q        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
 ; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
 ; CHECK: NoModRef:  Ptr: i8* %q        <->  call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef:  Ptr: i8* %p        <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 ; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
-; CHECK: NoModRef:  Ptr: i8* %p        <->  call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
+; CHECK: Both ModRef:  Ptr: i8* %p        <->  call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 ; CHECK: Both ModRef (MustAlias):  Ptr: i8* %q     <->  call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 ; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
 ; CHECK: Just Ref:   call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
@@ -392,7 +391,8 @@ entry:
 }
 
 
-; CHECK:      attributes #{{.*}} = { argmemonly nounwind willreturn writeonly }
+; CHECK:      attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn writeonly }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind writeonly }
@@ -400,8 +400,7 @@ entry:
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind }
-; CHKSS-NEXT: attributes #{{.*}} = { nounwind readnone speculatable }
-; CHECK-NEXT: attributes #{{.*}} = { readonly }
+; CHECK:      attributes #{{.*}} = { readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly }

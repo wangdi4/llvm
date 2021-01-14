@@ -248,48 +248,11 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       continue;
     }
 
-    bool IsZttDDRef = false;
-    indent(OS, Depth);
-
-    if (IsLoop) {
-      OS << "| ";
-
-      IsZttDDRef = *I ? cast<HLLoop>(this)->isZttOperandDDRef(*I) : false;
-    }
-
-    if (IsZttDDRef) {
-      OS << "<ZTT-REG> ";
-    } else {
-      bool IsFake = false;
-      bool IsLval = false;
-
-      if (*I) {
-        IsFake = isFake(*I);
-        IsLval = isLval(*I);
-      }
-
-      OS << "<" << (IsFake ? "FAKE-" : "") << (IsLval ? "LVAL" : "RVAL")
-         << "-REG> ";
-    }
-
-    (*I) ? (*I)->print(OS, true) : (void)(OS << *I);
-
-    OS << "\n";
-
     if (*I) {
-      for (auto B = (*I)->blob_begin(), BE = (*I)->blob_end(); B != BE; ++B) {
-        indent(OS, Depth);
-        if (IsLoop) {
-          OS << "| ";
-        }
-
-        // Add extra indentation for blob ddrefs.
-        OS.indent(IndentWidth);
-
-        OS << "<BLOB> ";
-        (*B)->print(OS, true);
-        OS << "\n";
-      }
+      (*I)->printWithBlobDDRefs(OS, Depth);
+    } else {
+      indent(OS, Depth);
+      OS << "<NULL-REG> " << (*I) << "\n";
     }
 
     Printed = true;

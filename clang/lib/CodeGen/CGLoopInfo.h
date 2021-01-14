@@ -106,6 +106,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
 
+  /// Value for llvm.loop.intel.vector_aligned.enable metadata.
+  bool VectorizeAlignedEnable;
+
   /// Value for llvm.loop.intel.loopcount
   llvm::SmallVector<unsigned, 2> LoopCount;
 
@@ -222,6 +225,12 @@ struct LoopAttributes {
 
   /// Value for llvm.loop.pipeline.iicount metadata.
   unsigned PipelineInitiationInterval;
+
+  /// Flag for llvm.loop.fusion.disable metatdata.
+  bool SYCLNofusionEnable;
+
+  /// Value for whether the loop is required to make progress.
+  bool MustProgress;
 };
 
 /// Information used when generating a structured loop.
@@ -357,7 +366,7 @@ public:
   void push(llvm::BasicBlock *Header, clang::ASTContext &Ctx,
             const clang::CodeGenOptions &CGOpts,
             llvm::ArrayRef<const Attr *> Attrs, const llvm::DebugLoc &StartLoc,
-            const llvm::DebugLoc &EndLoc);
+            const llvm::DebugLoc &EndLoc, bool MustProgress = false);
 
   /// End the current loop.
   void pop();
@@ -450,6 +459,10 @@ public:
   /// Set next pushed loop  'vector_always.enable'
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
+  }
+  /// Set next pushed loop  'vector_aligned.enable'
+  void setVectorizeAlignedEnable() {
+    StagedAttrs.VectorizeAlignedEnable = true;
   }
 
   /// Set the LoopCount for the next loop pushed.
@@ -573,6 +586,12 @@ public:
   void setPipelineInitiationInterval(unsigned C) {
     StagedAttrs.PipelineInitiationInterval = C;
   }
+
+  /// Set flag of nofusion for the next loop pushed.
+  void setSYCLNofusionEnable() { StagedAttrs.SYCLNofusionEnable = true; }
+
+  /// Set no progress for the next loop pushed.
+  void setMustProgress(bool P) { StagedAttrs.MustProgress = P; }
 
 private:
   /// Returns true if there is LoopInfo on the stack.

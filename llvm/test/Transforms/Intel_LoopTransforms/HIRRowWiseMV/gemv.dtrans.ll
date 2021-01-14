@@ -78,16 +78,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |      |   {
 ; CHECK:       |      |   case 1:
 ; CHECK:       |      |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |      |   %Aijbj = (%A)[128 * i2 + i3]  *  -1.000000e+00;
-; CHECK:       |      |      |   %sum.L1 = %sum.L1  +  %Aijbj;
+; CHECK:       |      |      |   %sum.L1 = %sum.L1  - (%A)[128 * i2 + i3];
 ; CHECK:       |      |      + END LOOP
 ; CHECK:       |      |      break;
 ; CHECK:       |      |   case 2:
-; CHECK:       |      |      + DO i3 = 0, 127, 1   <DO_LOOP>
-; CHECK:       |      |      |   %Aijbj = (%A)[128 * i2 + i3]  *  0.000000e+00;
-; CHECK:       |      |      |   %sum.L1 = %sum.L1  +  %Aijbj;
-; CHECK:       |      |      + END LOOP
-; CHECK:       |      |      break;
+; CHECK-NEXT:  |      |      break;
 ; CHECK-NEXT:  |      |   default:
 ; CHECK:       |      |      + DO i3 = 0, 127, 1   <DO_LOOP>
 ; CHECK:       |      |      |   %Aijbj = (%A)[128 * i2 + i3]  *  (%b)[i3];
@@ -137,7 +132,7 @@ L2:
   %bjp = getelementptr inbounds double, double* %b, i32 %j
   %bj = load double, double* %bjp
   %Aijbj = fmul fast double %Aij, %bj
-  %sum.next = fadd double %sum.L2, %Aijbj
+  %sum.next = fadd fast double %sum.L2, %Aijbj
   %j.next = add nuw nsw i32 %j, 1
   %L2.cond = icmp eq i32 %j.next, 128
   br i1 %L2.cond, label %L2.exit, label %L2

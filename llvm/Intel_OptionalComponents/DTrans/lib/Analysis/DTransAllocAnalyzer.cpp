@@ -1366,7 +1366,8 @@ void DTransAllocAnalyzer::parseListOptions(const Module &M) {
           continue;
         }
 
-        if (auto *Ty = M.getTypeByName(RecordItem[0])) {
+        if (auto *Ty =
+                StructType::getTypeByName(M.getContext(), RecordItem[0])) {
           if (Ty->element_begin() == Ty->element_end() ||
               !isa<PointerType>(Ty->getElementType(0))) {
             LLVM_DEBUG(dbgs() << "IPO: error 1: record <" << Record

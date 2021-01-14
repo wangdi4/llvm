@@ -482,13 +482,21 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   OptSize = F.hasOptSize();
   if (ProfileGuidedSectionPrefix) {
-    if (PSI->isFunctionHotInCallGraph(&F, *BFI))
-      F.setSectionPrefix(".hot");
-    else if (PSI->isFunctionColdInCallGraph(&F, *BFI))
-      F.setSectionPrefix(".unlikely");
+    // The hot attribute overwrites profile count based hotness while profile
+    // counts based hotness overwrite the cold attribute.
+    // This is a conservative behabvior.
+    if (F.hasFnAttribute(Attribute::Hot) ||
+        PSI->isFunctionHotInCallGraph(&F, *BFI))
+      F.setSectionPrefix("hot");
+    // If PSI shows this function is not hot, we will placed the function
+    // into unlikely section if (1) PSI shows this is a cold function, or
+    // (2) the function has a attribute of cold.
+    else if (PSI->isFunctionColdInCallGraph(&F, *BFI) ||
+             F.hasFnAttribute(Attribute::Cold))
+      F.setSectionPrefix("unlikely");
     else if (ProfileUnknownInSpecialSection && PSI->hasPartialSampleProfile() &&
              PSI->isFunctionHotnessUnknown(F))
-      F.setSectionPrefix(".unknown");
+      F.setSectionPrefix("unknown");
   }
 
   /// This optimization identifies DIV instructions that can be
@@ -557,6 +565,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
     LargeOffsetGEPID.clear();
   }
 
+  NewGEPBases.clear();
   SunkAddrs.clear();
 
   if (!DisableBranchOpts) {
@@ -572,7 +581,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
       for (SmallVectorImpl<BasicBlock*>::iterator
              II = Successors.begin(), IE = Successors.end(); II != IE; ++II)
-        if (pred_begin(*II) == pred_end(*II))
+        if (pred_empty(*II))
           WorkList.insert(*II);
     }
 
@@ -586,7 +595,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
       for (SmallVectorImpl<BasicBlock*>::iterator
              II = Successors.begin(), IE = Successors.end(); II != IE; ++II)
-        if (pred_begin(*II) == pred_end(*II))
+        if (pred_empty(*II))
           WorkList.insert(*II);
     }
 
@@ -668,6 +677,7 @@ bool CodeGenPrepare::eliminateFallThrough(Function &F) {
   for (auto &Block : llvm::make_range(std::next(F.begin()), F.end()))
     Blocks.push_back(&Block);
 
+  SmallSet<WeakTrackingVH, 16> Preds;
   for (auto &Block : Blocks) {
     auto *BB = cast_or_null<BasicBlock>(Block);
     if (!BB)
@@ -686,8 +696,16 @@ bool CodeGenPrepare::eliminateFallThrough(Function &F) {
 
       // Merge BB into SinglePred and delete it.
       MergeBlockIntoPredecessor(BB);
+      Preds.insert(SinglePred);
     }
   }
+
+  // (Repeatedly) merging blocks into their predecessors can create redundant
+  // debug intrinsics.
+  for (auto &Pred : Preds)
+    if (auto *BB = cast_or_null<BasicBlock>(Pred))
+      RemoveRedundantDbgInstrs(BB);
+
   return Changed;
 }
 
@@ -2062,7 +2080,14 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
     switch (II->getIntrinsicID()) {
     default: break;
     case Intrinsic::assume: {
+      Value *Operand = II->getOperand(0);
       II->eraseFromParent();
+      // Prune the operand, it's most likely dead.
+      resetIteratorIfInvalidatedWhileCalling(BB, [&]() {
+        RecursivelyDeleteTriviallyDeadInstructions(
+            Operand, TLInfo, nullptr,
+            [&](Value *V) { removeAllAssertingVHReferences(V); });
+      });
       return true;
     }
 
@@ -2243,13 +2268,12 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT
     // Skip over debug and the bitcast.
     do {
       ++BI;
-    } while (isa<DbgInfoIntrinsic>(BI) || &*BI == BCI || &*BI == EVI);
+    } while (isa<DbgInfoIntrinsic>(BI) || &*BI == BCI || &*BI == EVI ||
+             isa<PseudoProbeInst>(BI));
     if (&*BI != RetI)
       return false;
   } else {
-    BasicBlock::iterator BI = BB->begin();
-    while (isa<DbgInfoIntrinsic>(BI)) ++BI;
-    if (&*BI != RetI)
+    if (BB->getFirstNonPHIOrDbg(true) != RetI)
       return false;
   }
 
@@ -2274,18 +2298,12 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT
     for (pred_iterator PI = pred_begin(BB), PE = pred_end(BB); PI != PE; ++PI) {
       if (!VisitedBBs.insert(*PI).second)
         continue;
-
-      BasicBlock::InstListType &InstList = (*PI)->getInstList();
-      BasicBlock::InstListType::reverse_iterator RI = InstList.rbegin();
-      BasicBlock::InstListType::reverse_iterator RE = InstList.rend();
-      do { ++RI; } while (RI != RE && isa<DbgInfoIntrinsic>(&*RI));
-      if (RI == RE)
-        continue;
-
-      CallInst *CI = dyn_cast<CallInst>(&*RI);
-      if (CI && CI->use_empty() && TLI->mayBeEmittedAsTailCall(CI) &&
-          attributesPermitTailCall(F, CI, RetI, *TLI))
-        TailCallBBs.push_back(*PI);
+      if (Instruction *I = (*PI)->rbegin()->getPrevNonDebugInstruction(true)) {
+        CallInst *CI = dyn_cast<CallInst>(I);
+        if (CI && CI->use_empty() && TLI->mayBeEmittedAsTailCall(CI) &&
+            attributesPermitTailCall(F, CI, RetI, *TLI))
+          TailCallBBs.push_back(*PI);
+      }
     }
   }
 
@@ -2309,7 +2327,7 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT
   }
 
   // If we eliminated all predecessors of the block, delete the block now.
-  if (Changed && !BB->hasAddressTaken() && pred_begin(BB) == pred_end(BB))
+  if (Changed && !BB->hasAddressTaken() && pred_empty(BB))
     BB->eraseFromParent();
 
   return Changed;
@@ -5287,22 +5305,11 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
   // If we have no uses, recursively delete the value and all dead instructions
   // using it.
   if (Repl->use_empty()) {
-    // This can cause recursive deletion, which can invalidate our iterator.
-    // Use a WeakTrackingVH to hold onto it in case this happens.
-    Value *CurValue = &*CurInstIterator;
-    WeakTrackingVH IterHandle(CurValue);
-    BasicBlock *BB = CurInstIterator->getParent();
-
-    RecursivelyDeleteTriviallyDeadInstructions(
-        Repl, TLInfo, nullptr,
-        [&](Value *V) { removeAllAssertingVHReferences(V); });
-
-    if (IterHandle != CurValue) {
-      // If the iterator instruction was recursively deleted, start over at the
-      // start of the block.
-      CurInstIterator = BB->begin();
-      SunkAddrs.clear();
-    }
+    resetIteratorIfInvalidatedWhileCalling(CurInstIterator->getParent(), [&]() {
+      RecursivelyDeleteTriviallyDeadInstructions(
+          Repl, TLInfo, nullptr,
+          [&](Value *V) { removeAllAssertingVHReferences(V); });
+    });
   }
   ++NumMemoryInsts;
   return true;
@@ -5323,92 +5330,112 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
 ///
 /// If the final index isn't a vector or is a splat, we can emit a scalar GEP
 /// followed by a GEP with an all zeroes vector index. This will enable
-/// SelectionDAGBuilder to use a the scalar GEP as the uniform base and have a
+/// SelectionDAGBuilder to use the scalar GEP as the uniform base and have a
 /// zero index.
 bool CodeGenPrepare::optimizeGatherScatterInst(Instruction *MemoryInst,
                                                Value *Ptr) {
-  const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr);
-  if (!GEP || !GEP->hasIndices())
-    return false;
-
-  // If the GEP and the gather/scatter aren't in the same BB, don't optimize.
-  // FIXME: We should support this by sinking the GEP.
-  if (MemoryInst->getParent() != GEP->getParent())
-    return false;
-
-  SmallVector<Value *, 2> Ops(GEP->op_begin(), GEP->op_end());
-
-  bool RewriteGEP = false;
-
-  if (Ops[0]->getType()->isVectorTy()) {
-    Ops[0] = const_cast<Value *>(getSplatValue(Ops[0]));
-    if (!Ops[0])
-      return false;
-    RewriteGEP = true;
-  }
-
-  unsigned FinalIndex = Ops.size() - 1;
-
-  // Ensure all but the last index is 0.
-  // FIXME: This isn't strictly required. All that's required is that they are
-  // all scalars or splats.
-  for (unsigned i = 1; i < FinalIndex; ++i) {
-    auto *C = dyn_cast<Constant>(Ops[i]);
-    if (!C)
-      return false;
-    if (isa<VectorType>(C->getType()))
-      C = C->getSplatValue();
-    auto *CI = dyn_cast_or_null<ConstantInt>(C);
-    if (!CI || !CI->isZero())
-      return false;
-    // Scalarize the index if needed.
-    Ops[i] = CI;
-  }
-
-  // Try to scalarize the final index.
-  if (Ops[FinalIndex]->getType()->isVectorTy()) {
-    if (Value *V = const_cast<Value *>(getSplatValue(Ops[FinalIndex]))) {
-      auto *C = dyn_cast<ConstantInt>(V);
-      // Don't scalarize all zeros vector.
-      if (!C || !C->isZero()) {
-        Ops[FinalIndex] = V;
-        RewriteGEP = true;
-      }
-    }
-  }
-
-  // If we made any changes or the we have extra operands, we need to generate
-  // new instructions.
-  if (!RewriteGEP && Ops.size() == 2)
-    return false;
-
-  unsigned NumElts = cast<FixedVectorType>(Ptr->getType())->getNumElements();
-
-  IRBuilder<> Builder(MemoryInst);
-
-  Type *ScalarIndexTy = DL->getIndexType(Ops[0]->getType()->getScalarType());
-
   Value *NewAddr;
 
-  // If the final index isn't a vector, emit a scalar GEP containing all ops
-  // and a vector GEP with all zeroes final index.
-  if (!Ops[FinalIndex]->getType()->isVectorTy()) {
-    NewAddr = Builder.CreateGEP(Ops[0], makeArrayRef(Ops).drop_front());
-    auto *IndexTy = FixedVectorType::get(ScalarIndexTy, NumElts);
-    NewAddr = Builder.CreateGEP(NewAddr, Constant::getNullValue(IndexTy));
-  } else {
-    Value *Base = Ops[0];
-    Value *Index = Ops[FinalIndex];
+  if (const auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+    // Don't optimize GEPs that don't have indices.
+    if (!GEP->hasIndices())
+      return false;
 
-    // Create a scalar GEP if there are more than 2 operands.
-    if (Ops.size() != 2) {
-      // Replace the last index with 0.
-      Ops[FinalIndex] = Constant::getNullValue(ScalarIndexTy);
-      Base = Builder.CreateGEP(Base, makeArrayRef(Ops).drop_front());
+    // If the GEP and the gather/scatter aren't in the same BB, don't optimize.
+    // FIXME: We should support this by sinking the GEP.
+    if (MemoryInst->getParent() != GEP->getParent())
+      return false;
+
+    SmallVector<Value *, 2> Ops(GEP->op_begin(), GEP->op_end());
+
+    bool RewriteGEP = false;
+
+    if (Ops[0]->getType()->isVectorTy()) {
+      Ops[0] = getSplatValue(Ops[0]);
+      if (!Ops[0])
+        return false;
+      RewriteGEP = true;
     }
 
-    // Now create the GEP with scalar pointer and vector index.
-    NewAddr = Builder.CreateGEP(Base, Index);
+    unsigned FinalIndex = Ops.size() - 1;
+
+    // Ensure all but the last index is 0.
+    // FIXME: This isn't strictly required. All that's required is that they are
+    // all scalars or splats.
+    for (unsigned i = 1; i < FinalIndex; ++i) {
+      auto *C = dyn_cast<Constant>(Ops[i]);
+      if (!C)
+        return false;
+      if (isa<VectorType>(C->getType()))
+        C = C->getSplatValue();
+      auto *CI = dyn_cast_or_null<ConstantInt>(C);
+      if (!CI || !CI->isZero())
+        return false;
+      // Scalarize the index if needed.
+      Ops[i] = CI;
+    }
+
+    // Try to scalarize the final index.
+    if (Ops[FinalIndex]->getType()->isVectorTy()) {
+      if (Value *V = getSplatValue(Ops[FinalIndex])) {
+        auto *C = dyn_cast<ConstantInt>(V);
+        // Don't scalarize all zeros vector.
+        if (!C || !C->isZero()) {
+          Ops[FinalIndex] = V;
+          RewriteGEP = true;
+        }
+      }
+    }
+
+    // If we made any changes or the we have extra operands, we need to generate
+    // new instructions.
+    if (!RewriteGEP && Ops.size() == 2)
+      return false;
+
+    auto NumElts = cast<VectorType>(Ptr->getType())->getElementCount();
+
+    IRBuilder<> Builder(MemoryInst);
+
+    Type *ScalarIndexTy = DL->getIndexType(Ops[0]->getType()->getScalarType());
+
+    // If the final index isn't a vector, emit a scalar GEP containing all ops
+    // and a vector GEP with all zeroes final index.
+    if (!Ops[FinalIndex]->getType()->isVectorTy()) {
+      NewAddr = Builder.CreateGEP(Ops[0], makeArrayRef(Ops).drop_front());
+      auto *IndexTy = VectorType::get(ScalarIndexTy, NumElts);
+      NewAddr = Builder.CreateGEP(NewAddr, Constant::getNullValue(IndexTy));
+    } else {
+      Value *Base = Ops[0];
+      Value *Index = Ops[FinalIndex];
+
+      // Create a scalar GEP if there are more than 2 operands.
+      if (Ops.size() != 2) {
+        // Replace the last index with 0.
+        Ops[FinalIndex] = Constant::getNullValue(ScalarIndexTy);
+        Base = Builder.CreateGEP(Base, makeArrayRef(Ops).drop_front());
+      }
+
+      // Now create the GEP with scalar pointer and vector index.
+      NewAddr = Builder.CreateGEP(Base, Index);
+    }
+  } else if (!isa<Constant>(Ptr)) {
+    // Not a GEP, maybe its a splat and we can create a GEP to enable
+    // SelectionDAGBuilder to use it as a uniform base.
+    Value *V = getSplatValue(Ptr);
+    if (!V)
+      return false;
+
+    auto NumElts = cast<VectorType>(Ptr->getType())->getElementCount();
+
+    IRBuilder<> Builder(MemoryInst);
+
+    // Emit a vector GEP with a scalar pointer and all 0s vector index.
+    Type *ScalarIndexTy = DL->getIndexType(V->getType()->getScalarType());
+    auto *IndexTy = VectorType::get(ScalarIndexTy, NumElts);
+    NewAddr = Builder.CreateGEP(V, Constant::getNullValue(IndexTy));
+  } else {
+    // Constant, SelectionDAGBuilder knows to check if its a splat.
+    return false;
   }
 
   MemoryInst->replaceUsesOfWith(Ptr, NewAddr);
@@ -5807,6 +5834,12 @@ bool CodeGenPrepare::optimizePhiType(
   Visited.insert(I);
   SmallPtrSet<Instruction *, 4> Defs;
   SmallPtrSet<Instruction *, 4> Uses;
+  // This works by adding extra bitcasts between load/stores and removing
+  // existing bicasts. If we have a phi(bitcast(load)) or a store(bitcast(phi))
+  // we can get in the situation where we remove a bitcast in one iteration
+  // just to add it again in the next. We need to ensure that at least one
+  // bitcast we remove are anchored to something that will not change back.
+  bool AnyAnchored = false;
 
   while (!Worklist.empty()) {
     Instruction *II = Worklist.pop_back_val();
@@ -5823,6 +5856,8 @@ bool CodeGenPrepare::optimizePhiType(
             Worklist.push_back(OpPhi);
           }
         } else if (auto *OpLoad = dyn_cast<LoadInst>(V)) {
+          if (!OpLoad->isSimple())
+            return false;
           if (!Defs.count(OpLoad)) {
             Defs.insert(OpLoad);
             Worklist.push_back(OpLoad);
@@ -5840,9 +5875,12 @@ bool CodeGenPrepare::optimizePhiType(
           if (!Defs.count(OpBC)) {
             Defs.insert(OpBC);
             Worklist.push_back(OpBC);
+            AnyAnchored |= !isa<LoadInst>(OpBC->getOperand(0)) &&
+                           !isa<ExtractElementInst>(OpBC->getOperand(0));
           }
-        } else if (!isa<UndefValue>(V))
+        } else if (!isa<UndefValue>(V)) {
           return false;
+        }
       }
     }
 
@@ -5857,7 +5895,7 @@ bool CodeGenPrepare::optimizePhiType(
           Worklist.push_back(OpPhi);
         }
       } else if (auto *OpStore = dyn_cast<StoreInst>(V)) {
-        if (OpStore->getOperand(0) != II)
+        if (!OpStore->isSimple() || OpStore->getOperand(0) != II)
           return false;
         Uses.insert(OpStore);
       } else if (auto *OpBC = dyn_cast<BitCastInst>(V)) {
@@ -5866,12 +5904,15 @@ bool CodeGenPrepare::optimizePhiType(
         if (OpBC->getType() != ConvertTy)
           return false;
         Uses.insert(OpBC);
-      } else
+        AnyAnchored |=
+            any_of(OpBC->users(), [](User *U) { return !isa<StoreInst>(U); });
+      } else {
         return false;
+      }
     }
   }
 
-  if (!ConvertTy || !TLI->shouldConvertPhiType(PhiTy, ConvertTy))
+  if (!ConvertTy || !AnyAnchored || !TLI->shouldConvertPhiType(PhiTy, ConvertTy))
     return false;
 
   LLVM_DEBUG(dbgs() << "Converting " << *I << "\n  and connected nodes to "
@@ -5882,11 +5923,13 @@ bool CodeGenPrepare::optimizePhiType(
   ValueToValueMap ValMap;
   ValMap[UndefValue::get(PhiTy)] = UndefValue::get(ConvertTy);
   for (Instruction *D : Defs) {
-    if (isa<BitCastInst>(D))
+    if (isa<BitCastInst>(D)) {
       ValMap[D] = D->getOperand(0);
-    else
+      DeletedInstrs.insert(D);
+    } else {
       ValMap[D] =
           new BitCastInst(D, ConvertTy, D->getName() + ".bc", D->getNextNode());
+    }
   }
   for (PHINode *Phi : PhiNodes)
     ValMap[Phi] = PHINode::Create(ConvertTy, Phi->getNumIncomingValues(),
@@ -5897,15 +5940,17 @@ bool CodeGenPrepare::optimizePhiType(
     for (int i = 0, e = Phi->getNumIncomingValues(); i < e; i++)
       NewPhi->addIncoming(ValMap[Phi->getIncomingValue(i)],
                           Phi->getIncomingBlock(i));
+    Visited.insert(NewPhi);
   }
   // And finally pipe up the stores and bitcasts
   for (Instruction *U : Uses) {
     if (isa<BitCastInst>(U)) {
       DeletedInstrs.insert(U);
       U->replaceAllUsesWith(ValMap[U->getOperand(0)]);
-    } else
+    } else {
       U->setOperand(0,
                     new BitCastInst(ValMap[U->getOperand(0)], PhiTy, "bc", U));
+    }
   }
 
   // Save the removed phis to be deleted later.
@@ -6500,9 +6545,7 @@ bool CodeGenPrepare::optimizeFunnelShift(IntrinsicInst *Fsh) {
 /// If we have a SelectInst that will likely profit from branch prediction,
 /// turn it into a branch.
 bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
-  // If branch conversion isn't desirable, exit early.
-  if (DisableSelectToBranch || OptSize ||
-      llvm::shouldOptimizeForSize(SI->getParent(), PSI, BFI.get()))
+  if (DisableSelectToBranch)
     return false;
 
   // Find all consecutive select instructions that share the same condition.
@@ -6538,7 +6581,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
     SelectKind = TargetLowering::ScalarValSelect;
 
   if (TLI->isSelectSupported(SelectKind) &&
-      !isFormingBranchFromSelectProfitable(TTI, TLI, SI))
+      (!isFormingBranchFromSelectProfitable(TTI, TLI, SI) || OptSize ||
+       llvm::shouldOptimizeForSize(SI->getParent(), PSI, BFI.get())))
     return false;
 
   // The DominatorTree needs to be rebuilt by any consumers after this
@@ -6976,10 +7020,10 @@ class VectorPromoteHelper {
     if (UseSplat)
       return ConstantVector::getSplat(EC, Val);
 
-    if (!EC.Scalable) {
+    if (!EC.isScalable()) {
       SmallVector<Constant *, 4> ConstVec;
       UndefValue *UndefVal = UndefValue::get(Val->getType());
-      for (unsigned Idx = 0; Idx != EC.Min; ++Idx) {
+      for (unsigned Idx = 0; Idx != EC.getKnownMinValue(); ++Idx) {
         if (Idx == ExtractIdx)
           ConstVec.push_back(Val);
         else

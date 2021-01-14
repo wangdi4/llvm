@@ -48,11 +48,11 @@ class VPOCodeGen {
 public:
   VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
-             TargetLibraryInfo *TLI, const TargetTransformInfo *TTI,
+             TargetLibraryInfo *TLI,
              unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlan *Plan)
-      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
+      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI),
         Legal(LVL), VLSA(VLSA),
         VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
@@ -155,6 +155,16 @@ public:
 
   OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
+  /// Clone the given scalar loop \p OrigLP and insert the cloned loop on the
+  /// edge between NewLoopPred and NewLoopSucc. The NewLoopPred and NewLoopSucc
+  /// should be connected directly and that is asserted by the function.
+  //  TODO: This function will most likely not work for multi-exit loops. The
+  //  full support for cloning such loops would have to be tested before this
+  //  function is used for cloning such loops.
+  Loop *cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
+                        BasicBlock *NewLoopSucc,
+                        const Twine &Name = "cloned.loop");
+
 private:
   /// Return true if instruction \p V needs scalar code generated, i.e. is
   /// used in scalar context after vectorization.
@@ -191,6 +201,9 @@ private:
 
   /// Serialize instruction that requires predication.
   void serializeWithPredication(VPInstruction *VPInst);
+
+  /// Create a series of instruction resulting in !all-zero(current-block-mask).
+  Value *getMaskNotAllZero();
 
   /// Specialized method to handle predication of a uniform instruction. This
   /// function generates a single scalar instruction predicated by a
@@ -365,8 +378,6 @@ private:
 
   /// Target Library Info.
   TargetLibraryInfo *TLI;
-  /// Target Transform Info.
-  const TargetTransformInfo *TTI;
 
   /// Vectorization Legality.
   VPOVectorizationLegality *Legal;
@@ -571,6 +582,9 @@ private:
   // Widen call instruction using a matched SIMD vector variant.
   // TODO: Add support for pumping.
   void vectorizeVecVariant(VPCallInstruction *VPCall);
+
+  // Widen or Serialize lifetime_start/end intrinsic call.
+  void vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(VPInstruction *VPInst);

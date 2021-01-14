@@ -276,7 +276,7 @@ static void removeNoWrapFlags(BinaryOperator *BinOp,
 }
 
 static bool processLoop(Loop *L, DominatorTree *DT) {
-  assert(L->empty() && "Only process inner loops.");
+  assert(L->isInnermost() && "Only process inner loops.");
 
   LLVM_DEBUG(dbgs() << "\nLDist: In \""
                     << L->getHeader()->getParent()->getName() << "\" checking "
@@ -432,7 +432,7 @@ static bool runImpl(LoopInfo *LI, DominatorTree *DT) {
   auto Loops = LI->getLoopsInPreorder();
 
   for (Loop *Lp : Loops) {
-    if (Lp->empty()) {
+    if (Lp->isInnermost()) {
       Changed |= processLoop(Lp, DT);
     }
   }

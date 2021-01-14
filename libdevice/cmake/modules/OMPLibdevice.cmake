@@ -12,7 +12,19 @@ else()
   set(cmplr_obj_out -c -o)
 endif()
 
-set(clang_opts -fdeclare-spirv-builtins)
+# Specify O1 optimizations to avoid noinline attribute
+# in SPIR-V code. Device compilers have to be able to inline
+# libdevice functions.
+set(clang_opts -fdeclare-spirv-builtins -O1)
+if (INTEL_CUSTOMIZATION)
+  # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
+  #        the same way icx does.
+  set(new_clang_opts)
+  foreach(o ${clang_opts})
+    list(APPEND new_clang_opts -Xclang ${o})
+  endforeach()
+  set(clang_opts ${new_clang_opts})
+endif(INTEL_CUSTOMIZATION)
 list(APPEND omp_compile_opts
   -DOMP_LIBDEVICE
   -DINTEL_COLLAB
@@ -37,7 +49,6 @@ function(add_obj_file src dst)
     # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
     #        the same way icx does.
     set(cmplr $<TARGET_FILE:icx>)
-    set(clang_opts -Xclang ${clang_opts})
   else(INTEL_CUSTOMIZATION)
     set(cmplr $<TARGET_FILE:clang>)
   endif(INTEL_CUSTOMIZATION)
@@ -65,7 +76,6 @@ function(add_spv_file src dst)
     # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
     #        the same way icx does.
     set(cmplr $<TARGET_FILE:icx>)
-    set(clang_opts -Xclang ${clang_opts})
   else(INTEL_CUSTOMIZATION)
     set(cmplr $<TARGET_FILE:clang>)
   endif(INTEL_CUSTOMIZATION)

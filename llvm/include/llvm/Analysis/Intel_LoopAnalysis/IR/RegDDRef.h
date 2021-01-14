@@ -277,6 +277,9 @@ public:
   virtual void print(formatted_raw_ostream &OS,
                      bool Detailed = false) const override;
 
+  /// Print together with list of attached BlobDDRefs.
+  void printWithBlobDDRefs(formatted_raw_ostream &OS, unsigned Depth) const;
+
   /// Prints details of dimensions, matching with -hir-details-refs
   /// Argument Detailed has the same meaning of Detailed in print.
   void dumpDims(bool Detailed = false) const;
@@ -304,6 +307,12 @@ public:
   }
   uint64_t getDestTypeSizeInBytes() const {
     return getCanonExprUtils().getTypeSizeInBytes(getDestType());
+  }
+
+  // Returns source type size. User is responsible for checking that the type is
+  // sized.
+  uint64_t getSrcTypeSizeInBytes() const {
+    return getCanonExprUtils().getTypeSizeInBytes(getSrcType());
   }
 
   // Returns true if the ref is AddressOf ref whose element type is sized.
@@ -360,7 +369,7 @@ public:
   // Returns true if the reference really represents a pointer value equal
   // to the BaseCE: &((%b)[0]).
   bool isSelfAddressOf() const {
-    return isAddressOf() && (getNumDimensions() == 1) &&
+    return isAddressOf() && isSingleDimension() &&
            getSingleCanonExpr()->isZero() && getDimensionLower(1)->isZero() &&
            getTrailingStructOffsets(1).empty() && !getBitCastDestType();
   }
@@ -613,6 +622,13 @@ public:
     return isTerminalRef() && getSingleCanonExpr()->isConstant();
   }
 
+  /// Returns true if ref is able to safely propagate a constant from lval
+  /// to future rval. Currently supports scalar/vector types.
+  ///
+  bool isFoldableConstant() const {
+    return isTerminalRef() && getSingleCanonExpr()->isFoldableConstant();
+  }
+
   /// Returns the number of dimensions of the DDRef.
   unsigned getNumDimensions() const { return CanonExprs.size(); }
 
@@ -626,8 +642,8 @@ public:
     return const_cast<RegDDRef *>(this)->getSingleCanonExpr();
   }
 
-  /// Returns true if this DDRef has only one canon expr.
-  bool isSingleCanonExpr() const { return (getNumDimensions() == 1); }
+  /// Returns true if this DDRef has only one dimension.
+  bool isSingleDimension() const { return (getNumDimensions() == 1); }
 
   /// Updates the only Canon Expr of this RegDDRef
   void setSingleCanonExpr(CanonExpr *CE) {
@@ -705,6 +721,10 @@ public:
   /// DDRef is connected to a HLDDNode.
   bool isFakeRval() const;
 
+  /// Returns true if Ref executed under a mask. This function assumes that the
+  /// DDRef is connected to a HLDDNode.
+  bool isMasked() const;
+
   /// This method checks if the DDRef is
   /// not a memory reference or a pointer reference
   /// Returns false for:
@@ -713,7 +733,7 @@ public:
   /// Else returns true for cases like DDRef - 2*i and M+N.
   bool isTerminalRef() const override {
     if (!hasGEPInfo()) {
-      assert(isSingleCanonExpr() &&
+      assert(isSingleDimension() &&
              "Terminal ref has more than one dimension!");
       return true;
     }
@@ -779,6 +799,11 @@ public:
   /// Return true if the DDRef represents a constant 1.
   bool isOne() const {
     return isTerminalRef() && getSingleCanonExpr()->isOne();
+  }
+
+  /// Return true if the DDRef represents a constant -1.
+  bool isMinusOne() const {
+    return isTerminalRef() && getSingleCanonExpr()->isMinusOne();
   }
 
   /// Returns true if this DDRef contains undefined canon expressions.
@@ -910,8 +935,11 @@ public:
   //  CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
   // }
 
-  /// Replaces existing self blob index with \p NewIndex.
+  /// Replaces existing self blob index with \p NewIndex and corresponding SB.
   void replaceSelfBlobIndex(unsigned NewIndex);
+
+  /// Replaces existing self blob index with \p NewIndex and Constant SB.
+  void replaceSelfBlobByConstBlob(unsigned NewIndex);
 
   /// Converts a terminal lval ref into a self blob ref using its symbase.
   /// For example, if we have t1 = t2 + t3, where t1's canonical form is (1 * t2
@@ -935,11 +963,16 @@ public:
   /// Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
+  /// Remove and return attached BlobDDRef based on Blob Index
+  BlobDDRef *removeBlobDDRefWithIndex(unsigned Index);
+
   /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
   /// it exists in DDRef. Returns true if it is replaced.
   /// If the ref is a terminal lval ref and \p OldIndex corresponds to the
   /// symbase of the Ref, it is assumed as a use of the temp. This is relavant
   /// for instructions such as: t = i1 + 1, where 't' has a linear form.
+  /// Note: The new temp is assumed to have the same def level as the old temp.
+  /// For constants, see replaceSelfBlobByConstBlob()
   bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
                        bool AssumeLvalIfDetached = false);
 
@@ -948,6 +981,9 @@ public:
   bool replaceTempBlobs(
       const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
       bool AssumeLvalIfDetached = false);
+
+  /// Replaces temp blob with int constant
+  bool replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant);
 
   /// Removes all blob DDRefs attached to this DDRef.
   void removeAllBlobDDRefs();
@@ -1104,13 +1140,13 @@ public:
   /// i2 -> i1, i3 -> i2, ...
   ///
   /// See Also: CanonExpr::demoteIVs();
+  void promoteIVs(unsigned StartLevel);
   void demoteIVs(unsigned StartLevel);
 
   /// Does constant folding for the ref if it is a global const.
   /// If the ref can be replaced with a constant value, that constant
   /// ref is returned, otherwise nullptr if no constant equivalent found.
-  RegDDRef* simplifyConstArray();
-
+  RegDDRef *simplifyConstArray();
 
   /// Verifies RegDDRef integrity.
   virtual void verify() const override;

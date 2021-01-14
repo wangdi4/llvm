@@ -28,7 +28,7 @@ EXTERN void __kmpc_kernel_init(int thread_limit, short needs_rtl) {
   KMP_ASSERT(needs_rtl,
              "__kmpc_kernel_init() expects device RTL is required");
 
-  GLOBAL.assume_simple_spmd_mode = 0;
+  __omp_spirv_global_data.assume_simple_spmd_mode = 0;
 
   __kmp_set_execution_flags(EXEC_MODE_GENERIC, RTL_STATE_INITIALIZED);
 
@@ -65,7 +65,7 @@ EXTERN void __kmpc_kernel_fini(short is_rtl_initialized) {
 /// Initialize SPMD kernel execution -- every work/thread should call this
 EXTERN void __kmpc_spmd_kernel_init(int thread_limit, short needs_rtl,
                                     short needs_data_sharing) {
-  GLOBAL.assume_simple_spmd_mode = 0;
+  __omp_spirv_global_data.assume_simple_spmd_mode = 0;
 
   __kmp_set_execution_flags(EXEC_MODE_SPMD,
       needs_rtl ? RTL_STATE_INITIALIZED : RTL_STATE_UNINITIALIZED);
@@ -136,12 +136,6 @@ void __kmpc_init_runtime() {
   __kmp_init_locals();
 }
 
-/// Initialize program data
-kernel void __kmpc_init_program(global void *data) {
-  GLOBAL.program_data = *(kmp_program_data_t *)data;
-  __kmp_init_locals();
-}
-
 
 ///
 /// Support for critical section
@@ -162,7 +156,7 @@ EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
 ///
 
 EXTERN int __kmpc_master() {
-  if (GLOBAL.assume_simple_spmd_mode)
+  if (__omp_spirv_global_data.assume_simple_spmd_mode)
     return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
 
   return (__kmp_get_omp_thread_id(__kmp_is_spmd_mode()) == 0);
@@ -172,9 +166,19 @@ EXTERN void __kmpc_end_master() {
   // nothing to be done
 }
 
-EXTERN uint __kmpc_global_thread_num(void *loc) {
+EXTERN int __kmpc_single(ident_t *loc, int gtid) {
+  // This is a conforming implementation.
+  return __kmpc_master();
+}
+
+EXTERN void __kmpc_end_single(ident_t *loc, int gtid) {
+  // nothing to be done
+}
+
+EXTERN uint __kmpc_global_thread_num(ident_t *loc) {
   return 0;
 }
+
 
 ///
 /// Support for generic/hierarchical target region
@@ -182,7 +186,7 @@ EXTERN uint __kmpc_global_thread_num(void *loc) {
 
 /// Check if the current work belong to the master sub group
 EXTERN int __kmpc_master_sub_group() {
-  if (get_sub_group_id() == get_num_sub_groups() - 1)
+  if (__spirv_BuiltInSubgroupId == __spirv_BuiltInNumSubgroups - 1)
     return KMP_TRUE;
   else
     return KMP_FALSE;
@@ -190,7 +194,8 @@ EXTERN int __kmpc_master_sub_group() {
 
 /// Check if the current work is the leader of the master sub group
 EXTERN int __kmpc_master_sub_group_leader() {
-  if (__kmpc_master_sub_group() && get_sub_group_local_id() == 0)
+  if (__kmpc_master_sub_group() &&
+      __spirv_BuiltInSubgroupLocalInvocationId == 0)
     return KMP_TRUE;
   else
     return KMP_FALSE;
@@ -198,7 +203,8 @@ EXTERN int __kmpc_master_sub_group_leader() {
 
 /// Check if current work is the active sub group leader
 EXTERN int __kmpc_active_sub_group_leader() {
-  if (__kmp_get_active_sub_group_leader_id() == get_sub_group_local_id())
+  if (__kmp_get_active_sub_group_leader_id() ==
+      __spirv_BuiltInSubgroupLocalInvocationId)
     return KMP_TRUE;
   else
     return KMP_FALSE;

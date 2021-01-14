@@ -175,14 +175,6 @@ static const char* valid_accuracy_names[] =
 };
 #endif
 
-// note: here we maintain ordered list of accuracies, for ease of
-// compares:
-// accuracy_vector[c_accuracy_ep] < accuracy_vector[c_accuracy_high]
-// this is done for the sole purpose of not re-arranging the library
-// description table. Should be removed in the future.
-static const int accuracy_vector[SUPPORTED_ACCURACIES_NUMBER] =
-    {1, 0, 3, 2, 4};
-
 typedef enum
 {
     c_precision_unsupported     = -1,
@@ -384,11 +376,6 @@ typedef struct
     // array of pointers to constant names of cpu-specific functions
     const char * cpu_specific_names[SUPPORTED_CPUS_NUMBER];
 
-    // flag 1 if GLOB_fusa_math is requested, 0 otherwize
-    // TODO: populate table with the right values, now they are not
-    // given in the initializers lists and such this always gets 0.
-    int fusa;
-
 } FunctionDescriptionType;
 
 // This list contains all currently supported
@@ -405,7 +392,6 @@ typedef enum
     c_attribute_bitwise_consistency,
     c_attribute_domain_exclusion,
     c_attribute_force_dynamic,
-    c_attribute_fusa,
     c_attribute_configuration,
     c_attribute_relative_error,
     c_attribute_precision,
@@ -427,7 +413,6 @@ static const char* valid_attributes_names[SUPPORTED_ATTRIBUTES_NUMBER] =
     "arch-consistency",     // 6
     "domain-exclusion",     // 7
     "force-dynamic",        // 8
-    "fusa",                 // 9
     "isa-set",              // 10
     "max-error",            // 11
     "precision",            // 12
@@ -593,7 +578,6 @@ static int attrInitFuncDescription(
     function_description->valid_status_bits = 0;
     function_description->use_svml_allowed = 0;
     function_description->zmm_low = 0;
-    function_description->fusa = 0;
 
     for (i = 0; i < SUPPORTED_CPUS_NUMBER; i++)
     {
@@ -689,7 +673,6 @@ static int attrExternal2InternalAttr(
         case c_attribute_use_svml:             if(!attr_chosen){aname =  "c_attribute_use_svml"; attr_chosen = 1;}
         case c_attribute_valid_status_bits:    if(!attr_chosen){aname =  "c_attribute_valid_status_bits"; attr_chosen = 1;}
         case c_attribute_zmm_low:              if(!attr_chosen){aname =  "c_attribute_zmm_low"; attr_chosen = 1;}
-        case c_attribute_fusa:                 if(!attr_chosen){aname =  "c_attribute_fusa"; attr_chosen = 1;}
             internal_attribute->attribute_value.i = (!strcmp(external_attribute->value,"true"))?1:0; //assuming false even if garbage input
             PRN_MSG("%-32s: \tattribute %s = %d \n", "attrExternal2InternalAttr", aname, internal_attribute->attribute_value.i);
             break;
@@ -975,10 +958,6 @@ static int attrUpdateFuncDescription(
         case c_attribute_zmm_low:
             function_description->zmm_low = internal_attribute->attribute_value.i;
 
-            break;
-
-        case c_attribute_fusa:
-            function_description->fusa = internal_attribute->attribute_value.i;
             break;
 
         default: // not supported internal_attribute
@@ -1551,14 +1530,6 @@ const char* get_library_function_name(const char* func_base_name,
     {
         attrFixupIntegerFuncDescription(&function_description_user);
         PRN_MSG("%-32s: Function is integer, resetting its FP attributes to good ones\n", "get_library_function_name");
-    }
-
-    // Handle FuSa
-    if ( function_description_user.fusa == 1 )
-    {
-            PRN_MSG("%-32s: [FAILURE] no FuSa functions yet\n", "get_library_function_name");
-            PRN_MSG("=================================\n\n");
-            return NULL;
     }
 
     if ( is_svml == 0)

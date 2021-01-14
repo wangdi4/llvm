@@ -311,6 +311,49 @@ define i64 @fscp_read64(i32 %reg) {
   ret i64 %res
 }
 
+declare i32 @llvm.x86.icecode.creg.xchg.mt.32(i32, i32)
+declare i64 @llvm.x86.icecode.creg.xchg.mt.64(i32, i64)
+declare i32 @llvm.x86.icecode.creg.read.mt.32(i32)
+declare i64 @llvm.x86.icecode.creg.read.mt.64(i32)
+
+define i32 @creg_xchg_mt32(i32 %reg, i32 %v) {
+; CHECK-LABEL: creg_xchg_mt32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl %esi, %eax
+; CHECK-NEXT:    creg_xchg_mtl %edi, %eax
+; CHECK-NEXT:    retq
+  %res1 = call i32 @llvm.x86.icecode.creg.xchg.mt.32(i32 %reg, i32 %v)
+  ret i32 %res1
+}
+
+define i64 @creg_xchg_mt64(i32 %reg, i64 %v) {
+; CHECK-LABEL: creg_xchg_mt64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq %rsi, %rax
+; CHECK-NEXT:    creg_xchg_mtq %edi, %rax
+; CHECK-NEXT:    retq
+  %res1 = call i64 @llvm.x86.icecode.creg.xchg.mt.64(i32 %reg, i64 %v)
+  ret i64 %res1
+}
+
+define i32 @creg_read_mt32(i32 %reg) {
+; CHECK-LABEL: creg_read_mt32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    creg_read_mtl %edi, %eax
+; CHECK-NEXT:    retq
+  %res1 = call i32 @llvm.x86.icecode.creg.read.mt.32(i32 %reg)
+  ret i32 %res1
+}
+
+define i64 @creg_read_mt64(i32 %reg) {
+; CHECK-LABEL: creg_read_mt64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    creg_read_mtq %edi, %rax
+; CHECK-NEXT:    retq
+  %res1 = call i64 @llvm.x86.icecode.creg.read.mt.64(i32 %reg)
+  ret i64 %res1
+}
+
 declare i8 @llvm.x86.icecode.portin.8(i64)
 declare i16 @llvm.x86.icecode.portin.16(i64)
 declare i32 @llvm.x86.icecode.portin.32(i64)

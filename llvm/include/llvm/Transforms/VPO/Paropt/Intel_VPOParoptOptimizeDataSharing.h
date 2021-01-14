@@ -28,6 +28,7 @@ public:
   VPOParoptOptimizeDataSharingPass() = default;
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 } // end namespace llvm
 #endif  // LLVM_TRANSFORMS_VPO_PAROPT_OPTIMIZE_DATA_SHARING_H

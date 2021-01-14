@@ -352,7 +352,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
 
       CallInst *NewCall = CallInst::Create(
           FnTy, OCLSincosDecl, {FnArgs[0], FnArgs[2]}, "sine", OldCall);
-      VPOParoptUtils::setFuncCallingConv(NewCall, /*IsTargetSPIRV=*/true);
+      VPOParoptUtils::setFuncCallingConv(NewCall, NewCall->getModule());
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": OCL sincos: " << *NewCall
                         << "\n");
@@ -380,8 +380,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
 // generated for the target).
 bool VPOParoptModuleTransform::doParoptTransforms(
     std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
-        WRegionInfoGetter,
-    std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
+        WRegionInfoGetter) {
 
   bool Changed = false;
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);

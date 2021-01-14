@@ -208,8 +208,8 @@ HLLoop *HIRUndoSinkingForPerfectLoopnest::getPrevSiblingLoop(
 
   HLLoop *SiblingLp = nullptr;
 
-  while (Node = Node->getPrevNode()) {
-    if (SiblingLp = dyn_cast<HLLoop>(Node)) {
+  while ((Node = Node->getPrevNode())) {
+    if ((SiblingLp = dyn_cast<HLLoop>(Node))) {
       break;
     } else if (auto *Inst = dyn_cast<HLInst>(Node)) {
       if (Inst->isCallInst()) {

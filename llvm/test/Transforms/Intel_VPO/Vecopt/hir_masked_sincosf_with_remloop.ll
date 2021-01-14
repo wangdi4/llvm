@@ -20,9 +20,7 @@
 ;  }
 ;}
 ;
-; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
-; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 
 ; Check to see that the main vector loop was vectorized with svml and
@@ -32,7 +30,7 @@
 ; CHECK-LABEL: Function: unit_strided
 ; CHECK:      if (0 <u [[#VL]] * %tgu)
 ; CHECK-NEXT: {
-; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <nounroll> <novectorize>
+; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   [[SRC_UNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK-NEXT:    |   [[RET_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_UNIT]]);
 ; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_UNIT]], 0;
@@ -76,7 +74,7 @@
 ; CHECK-LABEL: Function: non_unit_strided
 ; CHECK:      if (0 <u [[#VL]] * %tgu)
 ; CHECK-NEXT: {
-; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <nounroll> <novectorize>
+; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   [[SRC_NONUNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK:         |   [[RET_NONUNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_NONUNIT]]);
 ; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_NONUNIT]], 0;

@@ -99,6 +99,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "HIRLMM.h"
 
@@ -107,9 +108,6 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::lmm;
-
-const std::string LIMMTempName = "limm";
-const std::string LIMMCopyName = "copy";
 
 // Disable the HIR Loop-Invariant Memory Motion (default is false)
 static cl::opt<bool>
@@ -153,7 +151,7 @@ static bool foundRegionDominatingLoadOrStore(DominatorTree &DT,
 
   // Traverse dominating nodes of region entry block to find an identical GEP.
   bool FoundDominatingLoadOrStore = false;
-  while (DomNode = DomNode->getIDom()) {
+  while ((DomNode = DomNode->getIDom())) {
     auto *DomBlock = DomNode->getBlock();
 
     for (auto &Inst : *DomBlock) {
@@ -204,6 +202,8 @@ static bool foundRegionDominatingLoadOrStore(DominatorTree &DT,
 
   return FoundDominatingLoadOrStore;
 }
+
+/* =========================================================== */
 
 void MemRefGroup::analyze(const HLLoop *Lp, DominatorTree *DT,
                           bool LoopNestHoistingOnly) {
@@ -398,7 +398,7 @@ public:
                      bool IgnoreIVs)
       : MRC(InitMRC), UnknownAliasingCallInsts(UnknownAliasingCallInsts),
         LoopLevel(InitLevel), SkipMemRefs(CandidateMemRef), IsDone(false) {
-    assert(CanonExprUtils::isValidLoopLevel(InitLevel) &&
+    assert(CanonExpr::isValidLoopLevel(InitLevel) &&
            "LoopLevel is out of bound\n");
 
     if (CandidateMemRef && !collectMemRef(CandidateMemRef, IgnoreIVs)) {
@@ -452,7 +452,7 @@ bool MemAccessCollector::collectMemRef(RegDDRef *Ref, bool IgnoreIVs) {
     // blob is non-linear.
 
     unsigned BaseIndex = Ref->getBasePtrBlobIndex();
-    bool IsSingleDim = (Ref->getNumDimensions() == 1);
+    bool IsSingleDim = Ref->isSingleDimension();
 
     for (auto *BRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
       if (!BRef->isLinearAtLevel(LoopLevel) &&
@@ -518,6 +518,7 @@ bool HIRLMM::doLoopMemoryMotion(HLLoop *Lp) {
   }
 
   doTransform(Lp);
+
   return true;
 }
 
@@ -743,7 +744,7 @@ void HIRLMM::doTransform(HLLoop *Lp) {
     assert(Group.isProfitable() && "Legal group should be profitable!");
 
     // LLVM_DEBUG(Group.print(true); dbgs() << "Before LIMM on a Group\n";
-    // Lp->dump(););
+    //           Lp->dump(););
     doLIMMRef(Lp, Group, TempRefSet);
     ++NumLIMM;
     // LLVM_DEBUG(dbgs() << "After LIMM on a Group\n"; Lp->dump(););
@@ -1147,7 +1148,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Create a TempDDRef if needed
   if (!TmpDDRef) {
-    TmpDDRef = HNU.createTemp(FirstRef->getDestType(), LIMMTempName);
+    TmpDDRef = HNU.createTemp(FirstRef->getDestType(), "limm");
   }
 
   TempRefSet.insert(TmpDDRef->getSymbase());
@@ -1193,47 +1194,13 @@ void HIRLMM::handleInLoopMemRef(unsigned Level, RegDDRef *Ref, RegDDRef *TmpRef,
                                 bool IsLoadOnly) {
   // Debug: Examine the Loop Before processing
   // LLVM_DEBUG(Lp->dump(););
-  HLDDNode *DDNode = Ref->getHLDDNode();
   RegDDRef *TmpRefClone = TmpRef->clone();
 
   if (IsLoadOnly) {
     setLinear(TmpRefClone, Level);
   }
 
-  HLInst *HInst = dyn_cast<HLInst>(DDNode);
-  // Handle HLInst* special cases: LoadInst and StoreInst
-  if (HInst) {
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    HLInst *CopyInst = nullptr;
-    RegDDRef *OtherRef = nullptr;
-
-    // StoreInst: replace with a LoadInst or CopyInst depending on the rval.
-    if (isa<StoreInst>(LLVMInst) && Ref->isLval()) {
-      OtherRef = DDNode->removeOperandDDRef(1);
-      if (OtherRef->isMemRef()) {
-        auto LInst = HNU.createLoad(OtherRef, LIMMCopyName, TmpRefClone);
-        HLNodeUtils::replace(DDNode, LInst);
-      } else {
-        CopyInst = HNU.createCopyInst(OtherRef, LIMMCopyName, TmpRefClone);
-        HLNodeUtils::replace(DDNode, CopyInst);
-      }
-    }
-    // LoadInst: replace with a CopyInst
-    else if (isa<LoadInst>(LLVMInst)) {
-      OtherRef = DDNode->removeOperandDDRef(0);
-      CopyInst = HNU.createCopyInst(TmpRefClone, LIMMCopyName, OtherRef);
-      HLNodeUtils::replace(DDNode, CopyInst);
-    }
-    // Neither a Load nor a Store in HLInst*: do regular replacement
-    else {
-      DDNode->replaceOperandDDRef(Ref, TmpRefClone);
-    }
-
-  }
-  // All other cases: do regular replacement
-  else {
-    DDNode->replaceOperandDDRef(Ref, TmpRefClone);
-  }
+  HIRTransformUtils::replaceOperand(Ref, TmpRefClone);
 
   // Debug: Examine the Loop again, notice the LIMM promotion(s) for
   // load, store, and binaryOp types
@@ -1260,7 +1227,7 @@ static void insertInPreheader(HLLoop *Lp, HLInst *LoadInPrehdr,
 HLInst *HIRLMM::createLoadInPreheader(HLLoop *RefLp, RegDDRef *Ref,
                                       HLLoop *OuterLp) const {
   auto RvalRef = Ref->clone();
-  HLInst *LoadInPrehdr = HNU.createLoad(RvalRef, LIMMTempName);
+  HLInst *LoadInPrehdr = HNU.createLoad(RvalRef, "limm");
 
   RegDDRef *TmpRef = LoadInPrehdr->getLvalDDRef();
   unsigned TmpSB = TmpRef->getSymbase();
@@ -1340,7 +1307,7 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
   Lp->addLiveOutTemp(TmpRefClone->getSymbase());
 
   auto LvalRef = Ref->clone();
-  auto *StoreInPostexit = HNU.createStore(TmpRefClone, LIMMTempName, LvalRef);
+  auto *StoreInPostexit = HNU.createStore(TmpRefClone, "limm", LvalRef);
 
   if (Lp->getNumExits() > 1) {
     // Collect all the Gotos if it is a multi-exit loop
@@ -1351,7 +1318,7 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
     for (auto &Goto : Gotos) {
       auto *StoreInst = StoreInPostexit->clone();
 
-      if (Ref->getHLDDNode()->getTopSortNum() < Goto->getTopSortNum()) {
+      if (HLNodeUtils::dominates(Ref->getHLDDNode(), Goto)) {
         HLNodeUtils::insertBefore(Goto, StoreInst);
       } else {
         // Create an inst like %t = 0 and insert it as first prehearder of the

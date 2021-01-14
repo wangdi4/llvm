@@ -32,6 +32,8 @@
 
 #include <level_zero/ze_api.h>
 
+#include "usm_allocator.hpp"
+
 template <class To, class From> To pi_cast(From Value) {
   // TODO: see if more sanity checks are possible.
   assert(sizeof(From) == sizeof(To));
@@ -76,19 +78,60 @@ struct _pi_platform {
   std::string ZeDriverApiVersion;
 
   // Cache pi_devices for reuse
-  std::vector<pi_device> PiDevicesCache;
+  std::vector<std::unique_ptr<_pi_device>> PiDevicesCache;
   std::mutex PiDevicesCacheMutex;
   pi_device getDeviceFromNativeHandle(ze_device_handle_t);
+  bool DeviceCachePopulated = false;
 
   // Maximum Number of Command Lists that can be created.
   // This Value is initialized to 20000, but can be changed by the user
-  // thru the environment variable SYCL_PI_LEVEL0_MAX_COMMAND_LIST_CACHE
-  // ie SYCL_PI_LEVEL0_MAX_COMMAND_LIST_CACHE =10000.
+  // thru the environment variable SYCL_PI_LEVEL_ZERO_MAX_COMMAND_LIST_CACHE
+  // ie SYCL_PI_LEVEL_ZERO_MAX_COMMAND_LIST_CACHE =10000.
   int ZeMaxCommandListCache = 0;
 
   // Current number of L0 Command Lists created on this platform.
   // this number must not exceed ZeMaxCommandListCache.
   std::atomic<int> ZeGlobalCommandListCount{0};
+};
+
+// Implements memory allocation via L0 RT for USM allocator interface.
+class USMMemoryAllocBase : public SystemMemory {
+protected:
+  pi_context Context;
+  pi_device Device;
+  // Internal allocation routine which must be implemented for each allocation
+  // type
+  virtual pi_result allocateImpl(void **ResultPtr, size_t Size,
+                                 pi_uint32 Alignment) = 0;
+
+public:
+  USMMemoryAllocBase(pi_context Ctx, pi_device Dev)
+      : Context{Ctx}, Device{Dev} {}
+  void *allocate(size_t Size) override final;
+  void *allocate(size_t Size, size_t Alignment) override final;
+  void deallocate(void *Ptr) override final;
+};
+
+// Allocation routines for shared memory type
+class USMSharedMemoryAlloc : public USMMemoryAllocBase {
+protected:
+  pi_result allocateImpl(void **ResultPtr, size_t Size,
+                         pi_uint32 Alignment) override;
+
+public:
+  USMSharedMemoryAlloc(pi_context Ctx, pi_device Dev)
+      : USMMemoryAllocBase(Ctx, Dev) {}
+};
+
+// Allocation routines for device memory type
+class USMDeviceMemoryAlloc : public USMMemoryAllocBase {
+protected:
+  pi_result allocateImpl(void **ResultPtr, size_t Size,
+                         pi_uint32 Alignment) override;
+
+public:
+  USMDeviceMemoryAlloc(pi_context Ctx, pi_device Dev)
+      : USMMemoryAllocBase(Ctx, Dev) {}
 };
 
 struct _pi_device : _pi_object {
@@ -135,9 +178,13 @@ struct _pi_device : _pi_object {
   // caller must pass a command queue to create a new fence for the new command
   // list if a command list/fence pair is not available. All Command Lists &
   // associated fences are destroyed at Device Release.
+  // If AllowBatching is true, then the command list returned may already have
+  // command in it, if AllowBatching is false, any open command lists that
+  // already exist in Queue will be closed and executed.
   pi_result getAvailableCommandList(pi_queue Queue,
                                     ze_command_list_handle_t *ZeCommandList,
-                                    ze_fence_handle_t *ZeFence);
+                                    ze_fence_handle_t *ZeFence,
+                                    bool AllowBatching = false);
 
   // Cache of the immutable device properties.
   ze_device_properties_t ZeDeviceProperties;
@@ -145,10 +192,32 @@ struct _pi_device : _pi_object {
 };
 
 struct _pi_context : _pi_object {
-  _pi_context(pi_uint32 NumDevices, const pi_device *Devs)
-      : Devices{Devs, Devs + NumDevices}, ZeCommandListInit{nullptr},
-        ZeEventPool{nullptr}, NumEventsAvailableInEventPool{},
-        NumEventsLiveInEventPool{} {}
+  _pi_context(ze_context_handle_t ZeContext, pi_uint32 NumDevices,
+              const pi_device *Devs)
+      : ZeContext{ZeContext}, Devices{Devs, Devs + NumDevices},
+        ZeCommandListInit{nullptr}, ZeEventPool{nullptr},
+        NumEventsAvailableInEventPool{}, NumEventsLiveInEventPool{} {
+    // Create USM allocator context for each pair (device, context).
+    for (uint32_t I = 0; I < NumDevices; I++) {
+      pi_device Device = Devs[I];
+      SharedMemAllocContexts.emplace(
+          std::piecewise_construct, std::make_tuple(Device),
+          std::make_tuple(std::unique_ptr<SystemMemory>(
+              new USMSharedMemoryAlloc(this, Device))));
+      DeviceMemAllocContexts.emplace(
+          std::piecewise_construct, std::make_tuple(Device),
+          std::make_tuple(std::unique_ptr<SystemMemory>(
+              new USMDeviceMemoryAlloc(this, Device))));
+      // NOTE: one must additionally call initialize() to complete
+      // PI context creation.
+    }
+  }
+
+  // Initialize the PI context.
+  pi_result initialize();
+
+  // Finalize the PI context
+  pi_result finalize();
 
   // A L0 context handle is primarily used during creation and management of
   // resources that may be used by multiple devices.
@@ -175,6 +244,12 @@ struct _pi_context : _pi_object {
   // If event is destroyed then decrement number of events living in the pool
   // and destroy the pool if there are no alive events.
   ze_result_t decrementAliveEventsInPool(ze_event_pool_handle_t pool);
+
+  // Store USM allocator context(internal allocator structures)
+  // for USM shared/host and device allocations. There is 1 allocator context
+  // per each pair of (context, device) per each memory type.
+  std::unordered_map<pi_device, USMAllocContext> SharedMemAllocContexts;
+  std::unordered_map<pi_device, USMAllocContext> DeviceMemAllocContexts;
 
 private:
   // Following member variables are used to manage assignment of events
@@ -205,10 +280,15 @@ private:
   std::mutex NumEventsLiveInEventPoolMutex;
 };
 
+// If doing dynamic batching, start batch size at 4.
+const pi_uint32 DynamicBatchStartSize = 4;
+
 struct _pi_queue : _pi_object {
   _pi_queue(ze_command_queue_handle_t Queue, pi_context Context,
-            pi_device Device)
-      : ZeCommandQueue{Queue}, Context{Context}, Device{Device} {}
+            pi_device Device, pi_uint32 BatchSize)
+      : ZeCommandQueue{Queue}, Context{Context}, Device{Device},
+        QueueBatchSize{BatchSize > 0 ? BatchSize : DynamicBatchStartSize},
+        UseDynamicBatching{BatchSize == 0} {}
 
   // Level Zero command queue handle.
   ze_command_queue_handle_t ZeCommandQueue;
@@ -230,9 +310,47 @@ struct _pi_queue : _pi_object {
   // needed/used for the queue data structures.
   std::mutex PiQueueMutex;
 
+  // Open command list field for batching commands into this queue.
+  ze_command_list_handle_t ZeOpenCommandList = {nullptr};
+  ze_fence_handle_t ZeOpenCommandListFence = {nullptr};
+  pi_uint32 ZeOpenCommandListSize = {0};
+
+  // Approximate number of commands that are allowed to be batched for
+  // this queue.
+  // Added this member to the queue rather than using a global variable
+  // so that future implementation could use heuristics to change this on
+  // a queue specific basis. And by putting it in the queue itself, this
+  // is thread safe because of the locking of the queue that occurs.
+  pi_uint32 QueueBatchSize = {0};
+
+  // specifies whether this queue will be using dynamic batch size adjustment
+  // or not.  This is set only at queue creation time, and is therefore
+  // const for the life of the queue.
+  const bool UseDynamicBatching;
+
+  // These two members are used to keep track of how often the
+  // batching closes and executes a command list before reaching the
+  // QueueBatchSize limit, versus how often we reach the limit.
+  // This info might be used to vary the QueueBatchSize value.
+  pi_uint32 NumTimesClosedEarly = {0};
+  pi_uint32 NumTimesClosedFull = {0};
+
   // Map of all Command lists created with their associated Fence used for
   // tracking when the command list is available for use again.
   std::map<ze_command_list_handle_t, ze_fence_handle_t> ZeCommandListFenceMap;
+
+  // Returns true if any commands for this queue are allowed to
+  // be batched together.
+  bool isBatchingAllowed();
+
+  // adjust the queue's batch size, knowing that the current command list
+  // is being closed with a full batch.
+  void adjustBatchSizeForFullBatch();
+
+  // adjust the queue's batch size, knowing that the current command list
+  // is being closed with only a partial batch of commands.  How many commands
+  // are in this partial closure is passed as the parameter.
+  void adjustBatchSizeForPartialBatch(pi_uint32 PartialBatchSize);
 
   // Resets the Command List and Associated fence in the ZeCommandListFenceMap.
   // If the reset command list should be made available, then MakeAvailable
@@ -243,12 +361,23 @@ struct _pi_queue : _pi_object {
 
   // Attach a command list to this queue, close, and execute it.
   // Note that this command list cannot be appended to after this.
-  // The "is_blocking" tells if the wait for completion is requested.
+  // The "IsBlocking" tells if the wait for completion is required.
   // The "ZeFence" passed is used to track when the command list passed
   // has completed execution on the device and can be reused.
+  // If OKToBatchCommand is true, then this command list may be executed
+  // immediately, or it may be left open for other future command to be
+  // batched into.
+  // If IsBlocking is true, then batching will not be allowed regardless
+  // of the value of OKToBatchCommand
   pi_result executeCommandList(ze_command_list_handle_t ZeCommandList,
                                ze_fence_handle_t ZeFence,
-                               bool is_blocking = false);
+                               bool IsBlocking = false,
+                               bool OKToBatchCommand = false);
+
+  // If there is an open command list associated with this queue,
+  // close it, exceute it, and reset ZeOpenCommandList, ZeCommandListFence,
+  // and ZeOpenCommandListSize.
+  pi_result executeOpenCommandList();
 };
 
 struct _pi_mem : _pi_object {
@@ -351,6 +480,35 @@ struct _pi_image final : _pi_mem {
   ze_image_handle_t ZeImage;
 };
 
+struct _pi_ze_event_list_t {
+  // List of level zero events for this event list.
+  ze_event_handle_t *ZeEventList = {nullptr};
+
+  // List of pi_events for this event list.
+  pi_event *PiEventList = {nullptr};
+
+  // length of both the lists.  The actual allocation of these lists
+  // may be longer than this length.  This length is the actual number
+  // of elements in the above arrays that are valid.
+  pi_uint32 Length = {0};
+
+  // A mutex is needed for destroying the event list.
+  // Creation is already thread-safe because we only create the list
+  // when an event in initially created.  However, it might be
+  // possible to have multiple threads racing to destroy the list,
+  // so this will be used to make list destruction thread-safe.
+  std::mutex PiZeEventListMutex;
+
+  // Initialize this using the array of events in EventList, and retain
+  // all the pi_events in the created data structure.
+  pi_result createAndRetainPiZeEventList(pi_uint32 EventListLength,
+                                         const pi_event *EventList);
+
+  // Release all the events in this object's PiEventList, and destroy
+  // the data structures it contains.
+  pi_result releaseAndDestroyPiZeEventList();
+};
+
 struct _pi_event : _pi_object {
   _pi_event(ze_event_handle_t ZeEvent, ze_event_pool_handle_t ZeEventPool,
             pi_context Context, pi_command_type CommandType)
@@ -379,9 +537,11 @@ struct _pi_event : _pi_object {
   // Opaque data to hold any data needed for CommandType.
   void *CommandData;
 
-  // Methods for translating PI events list into Level Zero events list
-  static ze_event_handle_t *createZeEventList(pi_uint32, const pi_event *);
-  static void deleteZeEventList(ze_event_handle_t *);
+  // List of events that were in the wait list of the command that will
+  // signal this event.  These events must be retained when the command is
+  // enqueued, and must then be released when this event has signalled.
+  // This list must be destroyed once the event has signalled.
+  _pi_ze_event_list_t WaitList;
 };
 
 struct _pi_program : _pi_object {
@@ -566,22 +726,14 @@ struct _pi_program : _pi_object {
 };
 
 struct _pi_kernel : _pi_object {
-  _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program,
-             const char *KernelName)
-      : ZeKernel{Kernel}, Program{Program}, KernelName(KernelName) {}
+  _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program)
+      : ZeKernel{Kernel}, Program{Program} {}
 
   // Level Zero function handle.
   ze_kernel_handle_t ZeKernel;
 
   // Keep the program of the kernel.
   pi_program Program;
-
-  // TODO: remove when bug in the Level Zero runtime will be fixed.
-#if INTEL_CUSTOMIZATION
-  // Details:
-  // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
-#endif // INTEL_CUSTOMIZATION
-  std::string KernelName;
 };
 
 #if INTEL_CUSTOMIZATION

@@ -137,7 +137,6 @@ if( "spirv-mesa3d-" IN_LIST LIBCLC_TARGETS_TO_BUILD OR "spirv64-mesa3d-" IN_LIST
 	endif()
 endif()
 
-set( CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake )
 set( CMAKE_CLC_COMPILER ${LLVM_CLANG} )
 set( CMAKE_CLC_ARCHIVE ${LLVM_LINK} )
 set( CMAKE_LLAsm_PREPROCESSOR ${LLVM_CLANG} )
@@ -192,26 +191,26 @@ if( ENABLE_RUNTIME_SUBNORMAL )
 		DESTINATION ${CMAKE_INSTALL_DATADIR}/clc )
 endif()
 
-find_program( PYTHON python )
+find_package( Python3 REQUIRED COMPONENTS Interpreter )
 file( TO_CMAKE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/generic/lib/gen_convert.py clc_script_loc )
 file( TO_CMAKE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/generic/libspirv/gen_core_convert.py core_script_loc )
 file( TO_CMAKE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/generic/libspirv/gen_convert.py spirv_script_loc )
 
 add_custom_command(
 	OUTPUT convert-core.cl
-	COMMAND ${PYTHON} ${core_script_loc} > convert-core.cl
+	COMMAND ${Python3_EXECUTABLE} ${core_script_loc} > convert-core.cl
 	DEPENDS ${core_script_loc} )
 add_custom_target( "generate_convert_core.cl" DEPENDS convert-core.cl )
 
 add_custom_command(
 	OUTPUT convert-spirv.cl
-	COMMAND ${PYTHON} ${spirv_script_loc} > convert-spirv.cl
+	COMMAND ${Python3_EXECUTABLE} ${spirv_script_loc} > convert-spirv.cl
 	DEPENDS ${spirv_script_loc} )
 add_custom_target( "generate_convert_spirv.cl" DEPENDS convert-spirv.cl )
 
 add_custom_command(
 	OUTPUT convert-clc.cl
-	COMMAND ${PYTHON} ${clc_script_loc} > convert-clc.cl
+	COMMAND ${Python3_EXECUTABLE} ${clc_script_loc} > convert-clc.cl
 	DEPENDS ${clc_script_loc} )
 add_custom_target( "generate_convert_clc.cl" DEPENDS convert-clc.cl )
 
@@ -258,59 +257,17 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
 		LIB_DIR libspirv
 		DIRS ${dirs} ${DARCH} ${DARCH}-${OS} ${DARCH}-${VENDOR}-${OS}
 		DEPS convert-spirv.cl convert-core.cl)
-	# Enumerate SOURCES* files
-	set( source_list )
-	foreach( l ${dirs} ${DARCH} ${DARCH}-${OS} ${DARCH}-${VENDOR}-${OS} )
-		foreach( s "SOURCES" "SOURCES_${LLVM_MAJOR}.${LLVM_MINOR}" )
-			file( TO_CMAKE_PATH ${l}/lib/${s} file_loc )
-			file( TO_CMAKE_PATH ${CMAKE_SOURCE_DIR}/${file_loc} loc )
-			# Prepend the location to give higher priority to
-			# specialized implementation
-			if( EXISTS ${loc} )
-				set( source_list ${file_loc} ${source_list} )
-			endif()
-		endforeach()
-	endforeach()
-
-	# Add the generated convert.cl here to prevent adding
-	# the one listed in SOURCES
-	if( NOT ${ARCH} STREQUAL "spirv" AND NOT ${ARCH} STREQUAL "spirv64" )
-		set( rel_files convert.cl )
-		set( objects convert.cl )
-		if( NOT ENABLE_RUNTIME_SUBNORMAL )
-			list( APPEND rel_files generic/lib/subnormal_use_default.ll )
-		endif()
-	else()
-		set( rel_files )
-		set( objects )
-	endif()
-
-	foreach( l ${source_list} )
-		file( READ ${l} file_list )
-		string( REPLACE "\n" ";" file_list ${file_list} )
-		get_filename_component( dir ${l} DIRECTORY )
-		foreach( f ${file_list} )
-			list( FIND objects ${f} found )
-			if( found EQUAL  -1 )
-				list( APPEND objects ${f} )
-				list( APPEND rel_files ${dir}/${f} )
-				# FIXME: This should really go away
-				file( TO_CMAKE_PATH ${CMAKE_SOURCE_DIR}/${dir}/${f} src_loc )
-				get_filename_component( fdir ${src_loc} DIRECTORY )
-
-				set_source_files_properties( ${dir}/${f}
-					PROPERTIES COMPILE_FLAGS "-I ${fdir}" )
-			endif()
-		endforeach()
-	endforeach()
 
 	foreach( d ${${t}_devices} )
 		# Some targets don't have a specific GPU to target
 		if( ${d} STREQUAL "none" OR ${ARCH} STREQUAL "spirv" OR ${ARCH} STREQUAL "spirv64" )
-			set( mcpu )
+			# FIXME: Ideally we would not be tied to a specific PTX ISA version
+			if( ${ARCH} STREQUAL nvptx OR ${ARCH} STREQUAL nvptx64 )
+				set( flags "SHELL:-Xclang -target-feature" "SHELL:-Xclang +ptx64")
+			endif()
 			set( arch_suffix "${t}" )
 		else()
-			set( mcpu "-mcpu=${d}" )
+			set( flags "-mcpu=${d}" )
 			set( arch_suffix "${d}-${t}" )
 		endif()
 		message( "    DEVICE: ${d} ( ${${d}_aliases} )" )
@@ -322,14 +279,14 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
 		if( ${ARCH} STREQUAL nvptx OR ${ARCH} STREQUAL nvptx64 )
 			add_libclc_sycl_binding(libspirv_files
 				TRIPLE ${t}
-				COMPILE_OPT ${mcpu}
+				COMPILE_OPT ${flags}
 				FILES generic/libspirv/sycldevice-binding.cpp)
 		endif()
 
 		add_libclc_builtin_set(libspirv-${arch_suffix}
 			TRIPLE ${t}
 			TARGET_ENV libspirv
-			COMPILE_OPT ${mcpu}
+			COMPILE_OPT ${flags}
 			FILES ${libspirv_files}
 			ALIASES ${${d}_aliases}
 			GENERATE_TARGET "generate_convert_spirv.cl" "generate_convert_core.cl"
@@ -338,101 +295,12 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
 		add_libclc_builtin_set(clc-${arch_suffix}
 			TRIPLE ${t}
 			TARGET_ENV clc
-			COMPILE_OPT ${mcpu}
+			COMPILE_OPT ${flags}
 			FILES ${lib_files}
 			LIB_DEP libspirv-${arch_suffix}
 			ALIASES ${${d}_aliases}
 			GENERATE_TARGET "generate_convert_clc.cl"
 			PARENT_TARGET libclc-builtins)
-		message( "	DEVICE: ${d} ( ${${d}_aliases} )" )
-
-		if ( ${ARCH} STREQUAL "spirv" OR ${ARCH} STREQUAL "spirv64" )
-			if( ${ARCH} STREQUAL "spirv" )
-				set( t "spir--" )
-			else()
-				set( t "spir64--" )
-			endif()
-			set( build_flags -O0 -finline-hint-functions )
-			set( opt_flags )
-			set( spvflags --spirv-max-version=1.1 )
-		else()
-			set( build_flags )
-			set( opt_flags -O3 )
-		endif()
-
-		add_library( builtins.link.${arch_suffix} STATIC ${rel_files} )
-		# Make sure we depend on the pseudo target to prevent
-		# multiple invocations
-		add_dependencies( builtins.link.${arch_suffix}
-			generate_convert.cl )
-		# CMake will turn this include into absolute path
-		target_include_directories( builtins.link.${arch_suffix} PRIVATE
-			"generic/include" )
-		target_compile_definitions( builtins.link.${arch_suffix} PRIVATE
-			"__CLC_INTERNAL" )
-		string( TOUPPER "-DCLC_${ARCH}" CLC_TARGET_DEFINE )
-		target_compile_definitions( builtins.link.${arch_suffix} PRIVATE
-			${CLC_TARGET_DEFINE} )
-		target_compile_options( builtins.link.${arch_suffix} PRIVATE  -target
-			${t} ${mcpu} -fno-builtin -nostdlib ${build_flags} )
-		set_target_properties( builtins.link.${arch_suffix} PROPERTIES
-			LINKER_LANGUAGE CLC )
-
-		set( obj_suffix ${arch_suffix}.bc )
-
-		# Add opt target
-		add_custom_command( OUTPUT "builtins.opt.${obj_suffix}"
-				    COMMAND ${LLVM_OPT} ${opt_flags} -o
-				    "builtins.opt.${obj_suffix}"
-				    "builtins.link.${obj_suffix}"
-				    DEPENDS "builtins.link.${arch_suffix}" )
-		add_custom_target( "opt.${obj_suffix}" ALL
-		                   DEPENDS "builtins.opt.${obj_suffix}" )
-
-		if( ${ARCH} STREQUAL "spirv" OR ${ARCH} STREQUAL "spirv64" )
-			set( spv_suffix ${arch_suffix}.spv )
-			add_custom_command( OUTPUT "${spv_suffix}"
-					    COMMAND ${LLVM_SPIRV} ${spvflags}
-					    -o "${spv_suffix}"
-					    "builtins.link.${obj_suffix}"
-					    DEPENDS "builtins.link.${arch_suffix}" )
-			add_custom_target( "prepare-${spv_suffix}" ALL
-			                   DEPENDS "${spv_suffix}" )
-			install( FILES ${CMAKE_CURRENT_BINARY_DIR}/${spv_suffix}
-				 DESTINATION ${CMAKE_INSTALL_DATADIR}/clc )
-		else()
-
-			# Add prepare target
-			add_custom_command( OUTPUT "${obj_suffix}"
-				            COMMAND prepare_builtins -o
-					    "${obj_suffix}"
-					    "builtins.opt.${obj_suffix}"
-					    DEPENDS "opt.${obj_suffix}"
-					            "builtins.opt.${obj_suffix}"
-					            prepare_builtins )
-			add_custom_target( "prepare-${obj_suffix}" ALL
-					   DEPENDS "${obj_suffix}" )
-
-			# nvptx-- targets don't include workitem builtins
-			if( NOT ${t} MATCHES ".*ptx.*--$" )
-				add_test( NAME external-calls-${obj_suffix}
-					  COMMAND ./check_external_calls.sh ${CMAKE_CURRENT_BINARY_DIR}/${obj_suffix}
-					  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} )
-				set_tests_properties( external-calls-${obj_suffix}
-					PROPERTIES ENVIRONMENT "LLVM_CONFIG=${LLVM_CONFIG}" )
-			endif()
-
-			install( FILES ${CMAKE_CURRENT_BINARY_DIR}/${obj_suffix} DESTINATION ${CMAKE_INSTALL_DATADIR}/clc )
-			foreach( a ${${d}_aliases} )
-				set( alias_suffix "${a}-${t}.bc" )
-				add_custom_target( ${alias_suffix} ALL
-						   COMMAND ${CMAKE_COMMAND} -E
-						   create_symlink ${obj_suffix}
-						   ${alias_suffix}
-				                   DEPENDS "prepare-${obj_suffix}" )
-				install( FILES ${CMAKE_CURRENT_BINARY_DIR}/${alias_suffix} DESTINATION ${CMAKE_INSTALL_DATADIR}/clc )
-			endforeach( a )
-		endif()
 	endforeach( d )
 endforeach( t )
 

@@ -38,7 +38,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
@@ -79,6 +78,8 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"      // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"    // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -225,9 +226,11 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   Function *NF = Function::Create(NFTy, F->getLinkage(), F->getAddressSpace(),
                                   F->getName());
   NF->copyAttributesFrom(F);
+  NF->copyMetadata(F, 0);
 
-  // Patch the pointer to LLVM function in debug info descriptor.
-  NF->setSubprogram(F->getSubprogram());
+  // The new function will have the !dbg metadata copied from the original
+  // function. The original function may not be deleted, and dbg metadata need
+  // to be unique so we need to drop it.
   F->setSubprogram(nullptr);
 
   LLVM_DEBUG(dbgs() << "ARG PROMOTION:  Promoting to:" << *NF << "\n"
@@ -576,25 +579,6 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       }
     }
 
-#if INTEL_CUSTOMIZATION
-    // Normally, the original function will be deleted, which will replace
-    // any remaining references from the metadata to the original argument by
-    // the new function being removed. However, due to the interactions between
-    // the indirect call promotion, inliner, and instruction combiner, it's
-    // possible to have a function exist in the SCC graph, which will appear to
-    // have uses, thus preventing the deletion of the arguments. This leads to
-    // dangling references within the metadata which will refer to the original
-    // function. Update the metadata to no longer refer to the just replaced
-    // argument.
-    //
-    // It's possible this fix should be pushed back to the community version,
-    // however, thus far I have not been able to prove the existence in a
-    // problem in the llorg version, due to unique nature of the xmain specific
-    // passes that are involved.
-    if (I->isUsedByMetadata())
-      ValueAsMetadata::handleRAUW(I, UndefValue::get(I->getType()));
-#endif
-
     // Increment I2 past all of the arguments added for this promoted pointer.
     std::advance(I2, ArgIndices.size());
   }
@@ -611,6 +595,9 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg, Type *Ty) {
   unsigned ArgNo = Arg->getArgNo();
 
 #if INTEL_CUSTOMIZATION
+  // Check if Arg is marked with dereferenceable attribute.
+  if (isDereferenceablePointer(Arg, Ty, DL))
+    return true;
   // Look at all call sites of the function.  At this point we know we only have
   // direct or callback callees.
   for (const Use &U : Callee->uses()) {
@@ -877,6 +864,14 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
     if (DL.getTypeStoreSize(BaseTy) > DL.getTypeStoreSize(Arg->getType()))
       return false;
   }
+
+  // Since the argument is only used by load instructions (i.e not escaped)
+  // and the argument is marked with NoAlias, we don't need to prove that
+  // the argument pointer is not modified before its uses. It is safe to
+  // assume that the argument pointer is not modified in the current routine.
+  if (isNoAliasArgument(Arg))
+    return true;
+
 #endif // INTEL_CUSTOMIZATION
 
   // Okay, now we know that the argument is only used by load instructions and
@@ -1132,6 +1127,23 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     bool isSafeToPromote = PtrArg->hasByValAttr() && !isCallback && // INTEL
                            (ArgumentPromotionPass::isDenselyPacked(AgTy, DL) ||
                             !canPaddingBeAccessed(PtrArg));
+#if INTEL_COLLAB
+    if (cast<PointerType>(PtrArg->getType())->getAddressSpace() !=
+        DL.getAllocaAddrSpace()) {
+      // Replacing arguments with non-default address space is incorrect:
+      //   define void @foo(
+      //       %struct.ty addrspace(4)* byval(%struct.ty) %x' argument) {
+      //   entry:
+      //     <use of %struct.ty addrspace(4)* %x>
+      //   }
+      //
+      // The following alloca will be created to replace %x:
+      //   %new.x = alloca %struct.ty
+      //
+      // Since the new value's type is '%struct.ty*' the RAUW will fail.
+      isSafeToPromote = false;
+    }
+#endif // INTEL_COLLAB
     if (isSafeToPromote) {
       if (StructType *STy = dyn_cast<StructType>(AgTy)) {
         if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
@@ -1227,10 +1239,10 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         continue;
       LocalChange = true;
 
-      // INTEL Argument promotion is replacing F with NF.
-      // INTEL We need to update all of the call graph reports to reflect
-      // INTEL this.
-      CG.replaceFunctionWithFunctionInCGReports(&OldF, NewF); // INTEL
+#if INTEL_CUSTOMIZATION
+      getInlineReport()->replaceFunctionWithFunction(&OldF, NewF);
+      getMDInlineReport()->replaceFunctionWithFunction(&OldF, NewF);
+#endif // INTEL_CUSTOMIZATION
 
       // Directly substitute the functions in the call graph. Note that this
       // requires the old function to be completely dead and completely
@@ -1345,7 +1357,10 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
         // INTEL Argument promotion is replacing F with NF.
         // INTEL We need to update all of the call graph reports to reflect
         // INTEL this.
-        CG.replaceFunctionWithFunctionInCGReports(OldF, NewF); // INTEL
+#if INTEL_CUSTOMIZATION
+        getInlineReport()->replaceFunctionWithFunction(OldF, NewF);
+        getMDInlineReport()->replaceFunctionWithFunction(OldF, NewF);
+#endif // INTEL_CUSTOMIZATION
 
         // Update the call graph for the newly promoted function.
         CallGraphNode *NewNode = CG.getOrInsertFunction(NewF);

@@ -237,6 +237,7 @@ public:
   bool canHaveCollapse() const;
   bool canHaveNowait() const;
   bool canHaveAllocate() const;
+  bool canHaveOrderedTripCounts() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -537,6 +538,7 @@ public:
   friend class WRegionUtils;
   friend class WRegionCollection;  //temporary
   friend class VPOParoptTransform;
+  friend class VPOParoptUtils;
 
   // WRegionNodes are destroyed in bulk using WRegionUtils::destroyAll()
   virtual ~WRegionNode() {

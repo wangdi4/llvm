@@ -150,6 +150,9 @@ FunctionPass *createHIRArrayTransposePass();
 /// Creates pass that performs Aos To Soa.
 FunctionPass *createHIRAosToSoaPass();
 
+/// Creates pass that performs inter-loopnest-tiling.
+FunctionPass *createHIRInterLoopBlockingPass();
+
 /// Creates pass that fuses loops.
 FunctionPass *createHIRLoopFusionPass();
 
@@ -208,6 +211,13 @@ FunctionPass *createHIRIdentityMatrixSubstitutionPass();
 
 /// Create pass that marks stores as nontemporal where appropriate.
 FunctionPass *createHIRNontemporalMarkingPass();
+
+/// Create pass that performs HIR array-scalarization test launch.
+FunctionPass *createHIRArrayScalarizationTestLauncherPass();
+
+/// Create pass that does array contraction for multiple loops.
+FunctionPass *createHIRCrossLoopArrayContractionLegacyPass();
+
 } // namespace llvm
 
 #endif

@@ -26,7 +26,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK:         [[TMP6]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[TMP6]], 1024
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 1024
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 entry:

@@ -11,45 +11,36 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%larr}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LARR0:%.*]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = load i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = abs i64 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = abs i64 [[VP_LOAD]]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LARR0]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] store i64 [[VP4]] i64* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = icmp sle i64 [[VP2]] i64 99
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP5]]), [[BB3:BB[0-9]+]](!i1 [[VP5]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp sle i64 [[VP2]] i64 99
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; CHECK-NEXT:          |   %.vec1 = (%.vec < 0) ? -1 * %.vec : %.vec;
 ; CHECK-NEXT:          |   (<4 x i64>*)(%larr)[i1] = %.vec1;

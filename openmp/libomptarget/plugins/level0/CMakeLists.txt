@@ -60,7 +60,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
           ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} DIRECTORY)
       get_filename_component(LEVEL0_LIBRARY_NAME
           ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} NAME)
-      target_link_libraries(omptarget.rtl.level0
+      target_link_libraries(omptarget.rtl.level0 PRIVATE
           ${LEVEL0_LIBRARY_NAME} ${LIBOMP_LIB_FILE}
           -LIBPATH:${LEVEL0_LIBRARY_PATH})
       libomptarget_add_resource_file(omptarget.rtl.level0)

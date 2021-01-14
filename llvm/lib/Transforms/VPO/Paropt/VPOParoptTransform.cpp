@@ -100,6 +100,10 @@ static cl::opt<bool> OptimizeScalarFirstprivate(
     "vpo-paropt-opt-scalar-fp", cl::Hidden, cl::init(true),
     cl::desc("Pass scalar firstprivates as literals."));
 
+static cl::opt<bool> EmitSPIRVBuiltins(
+    "vpo-paropt-emit-spirv-builtins", cl::Hidden, cl::init(false),
+    cl::desc("Emit SPIR-V builtin calls to compute loop bounds for SIMD."));
+
 static cl::opt<bool> AllowDistributeDimension(
     "vpo-paropt-allow-distribute-dimension",
      cl::Hidden, cl::init(true),
@@ -130,6 +134,12 @@ static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                                     "default on): similar with"
                                                     " bit 0, but for array "
                                                     "reduction."));
+
+static cl::opt<bool> EmitTargetFPCtorDtors(
+    "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
+    cl::desc("Enable emission of constructors/destructors for firstprivate "
+             "operands on target constructs, during target compilation."));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -328,14 +338,32 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   unsigned DimNum = NumLoops - Idx - 1;
   DimNum += W->getWRNLoopInfo().getNDRangeStartDim();
   initArgArray(&Arg, DimNum);
+
   // get_num_groups() returns a value of type size_t by specification,
   // and the return value is greater than 0.
-  CallInst *NumGroupsCall =
-      VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, CallsInsertPt);
-  Value *LB = Builder.CreateLoad(LowerBnd);
-  Value *UB = Builder.CreateLoad(UpperBnd);
+  CallInst *NumGroupsCall;
+  if (EmitSPIRVBuiltins) {
+    std::string fname;
+    SmallVector<Value *, 1> Arg;
+    switch (Idx) {
+    case 0: fname = "_Z29__spirv_NumWorkgroups_xv";
+      break;
+    case 1: fname = "_Z29__spirv_NumWorkgroups_yv";
+      break;
+    case 2: fname = "_Z29__spirv_NumWorkgroups_zv";
+      break;
+    default:
+      llvm_unreachable("Invalid dimentional index ");
+    }
+    NumGroupsCall = VPOParoptUtils::genOCLGenericCall(fname,
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  } else {
+    NumGroupsCall = VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  }
+
+  Value *LB = Builder.CreateLoad(LowerBnd->getAllocatedType(), LowerBnd);
+  Value *UB = Builder.CreateLoad(UpperBnd->getAllocatedType(), UpperBnd);
   // LB and UB have the type of the canonical induction variable.
   auto *ItSpaceType = LB->getType();
   // The subtraction cannot overflow, because the normalized lower bound
@@ -365,10 +393,27 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   // get_group_id returns a value of type size_t by specification,
   // and the return value is non-negative.
-  CallInst *GroupIdCall =
-      VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, CallsInsertPt);
+  CallInst *GroupIdCall;
+  if (EmitSPIRVBuiltins) {
+    std::string fname;
+    SmallVector<Value *, 1> Arg;
+    switch (Idx) {
+    case 0: fname = "_Z21__spirv_WorkgroupId_xv";
+      break;
+    case 1: fname = "_Z21__spirv_WorkgroupId_yv";
+      break;
+    case 2: fname = "_Z21__spirv_WorkgroupId_zv";
+      break;
+    default:
+        llvm_unreachable("Invalid dimentional index ");
+    }
+    GroupIdCall = VPOParoptUtils::genOCLGenericCall(fname,
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  } else {
+    GroupIdCall = VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
+      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+  }
+
   Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
   // Compute new_team_lb
@@ -413,15 +458,17 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     BuilderThen.CreateStore(NewUB, TeamUpperBnd);
 
     Builder.SetInsertPoint(InsertPt);
-    TeamLB = Builder.CreateLoad(TeamLowerBnd);
-    TeamUB = Builder.CreateLoad(TeamUpperBnd);
-    TeamST = Builder.CreateLoad(TeamStride);
+    TeamLB = Builder.CreateLoad(TeamLowerBnd->getAllocatedType(), TeamLowerBnd);
+    TeamUB = Builder.CreateLoad(TeamUpperBnd->getAllocatedType(), TeamUpperBnd);
+    TeamST = Builder.CreateLoad(TeamStride->getAllocatedType(), TeamStride);
     // Team distribute loop may insert minimum upper bound computation
     // between the above loads and the below stores, and update
     // TeamUpperBnd variable, so we need to reload the team bounds again
     // before initializing the loop bounds.
-    Builder.CreateStore(Builder.CreateLoad(TeamLowerBnd), LowerBnd);
-    Builder.CreateStore(Builder.CreateLoad(TeamUpperBnd), UpperBnd);
+    Builder.CreateStore(Builder.CreateLoad(
+        TeamLowerBnd->getAllocatedType(), TeamLowerBnd), LowerBnd);
+    Builder.CreateStore(Builder.CreateLoad(
+        TeamUpperBnd->getAllocatedType(), TeamUpperBnd), UpperBnd);
   }
 }
 
@@ -479,8 +526,8 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   DimNum += W->getWRNLoopInfo().getNDRangeStartDim();
   initArgArray(&Arg, DimNum);
 
-  Value *LB = Builder.CreateLoad(LowerBnd);
-  Value *UB = Builder.CreateLoad(UpperBnd);
+  Value *LB = Builder.CreateLoad(LowerBnd->getAllocatedType(), LowerBnd);
+  Value *UB = Builder.CreateLoad(UpperBnd->getAllocatedType(), UpperBnd);
 
   WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
       W, VPOParoptUtils::getLoopScheduleKind(W), WRNScheduleStaticEven);
@@ -569,10 +616,27 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
-    CallInst *LocalSize =
-        VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-                                          GeneralUtils::getSizeTTy(F),
-                                          Arg, CallsInsertPt);
+
+    CallInst *LocalSize;
+    if (EmitSPIRVBuiltins) {
+      std::string fname;
+      SmallVector<Value *, 1> Arg;
+      switch (Idx) {
+      case 0: fname = "_Z22__spirv_WorkgroupSize_xv";
+        break;
+      case 1: fname = "_Z22__spirv_WorkgroupSize_yv";
+        break;
+      case 2: fname = "_Z22__spirv_WorkgroupSize_zv";
+        break;
+      default:
+        llvm_unreachable("Invalid dimentional index ");
+      }
+      LocalSize = VPOParoptUtils::genOCLGenericCall(fname,
+                         GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    } else {
+      LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
+        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    }
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
@@ -604,10 +668,26 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       Builder.CreateStore(SchedStrideVal, SchedStride);
     }
 
-    CallInst *LocalId =
-        VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                          GeneralUtils::getSizeTTy(F),
-                                          Arg, CallsInsertPt);
+    CallInst *LocalId;
+    if (EmitSPIRVBuiltins) {
+      std::string fname;
+      SmallVector<Value *, 1> Arg;
+      switch (Idx) {
+        case 0: fname = "_Z27__spirv_LocalInvocationId_xv";
+          break;
+        case 1: fname = "_Z27__spirv_LocalInvocationId_yv";
+          break;
+        case 2: fname = "_Z27__spirv_LocalInvocationId_zv";
+          break;
+        default:
+          llvm_unreachable("Invalid dimentional index ");
+      }
+      LocalId = VPOParoptUtils::genOCLGenericCall(fname,
+                   GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    }
+    else
+     LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+                  GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
 
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
@@ -640,10 +720,28 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   } else {
     // Use SPMD mode by setting lower and upper bound to get_global_id().
     // This will let each WI execute just one iteration of the loop.
-    CallInst *GlobalId =
-      VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, CallsInsertPt);
+    CallInst *GlobalId;
+
+    if (EmitSPIRVBuiltins) {
+      std::string fname;
+      SmallVector<Value *, 1> Arg;
+      switch (Idx) {
+      case 0: fname = "_Z28__spirv_GlobalInvocationId_xv";
+        break;
+      case 1: fname = "_Z28__spirv_GlobalInvocationId_yv";
+        break;
+      case 2: fname = "_Z28__spirv_GlobalInvocationId_zv";
+        break;
+      default:
+        llvm_unreachable("Invalid dimentional index ");
+      }
+      GlobalId = VPOParoptUtils::genOCLGenericCall(fname,
+        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    } else {
+      GlobalId = VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
+        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    }
+
     Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
     Builder.CreateStore(GlobalIdCasted, LowerBnd);
     NewUB = GlobalIdCasted;
@@ -699,8 +797,8 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
   IRBuilder<> Builder(InsertPt);
 
-  LoadInst *LoadLB = Builder.CreateLoad(LowerBnd);
-  LoadInst *LoadUB = Builder.CreateLoad(UpperBnd);
+  LoadInst *LoadLB = Builder.CreateLoad(LowerBnd->getAllocatedType(), LowerBnd);
+  LoadInst *LoadUB = Builder.CreateLoad(UpperBnd->getAllocatedType(), UpperBnd);
 
   BasicBlock *StaticInitBB = InsertPt->getParent();
 
@@ -1066,7 +1164,7 @@ bool VPOParoptTransform::genOCLParallelLoop(
   Instruction *TeamST = nullptr;
   const WRNScheduleKind DistSchedKind = getSchedKindForMultiLevelLoops(
       W, VPOParoptUtils::getDistLoopScheduleKind(W),
-      WRNScheduleDistributeStaticEven);;
+      WRNScheduleDistributeStaticEven);
 
   bool ChunkForTeams =
       (W->getIsDistribute() &&
@@ -1083,7 +1181,30 @@ bool VPOParoptTransform::genOCLParallelLoop(
   IRBuilder<> AllocaBuilder(
       VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/false));
 
+  bool DoNotPartition = false;
+  // Do not partition parallel loop(s) lexically nested in other
+  // parallel loop(s). The current partitioning will produce incorrect
+  // results for such loops. For the time being, we execute them serially.
+  if (W->getIsParLoop() &&
+      WRegionUtils::getParentRegion(W,
+          [](WRegionNode *W) { return W->getIsParLoop(); },
+          [](WRegionNode *W) { return true; }))
+    DoNotPartition = true;
+
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
+
+    if (DoNotPartition) {
+      Value *IsLastLoc = AllocaBuilder.CreateAlloca(
+          AllocaBuilder.getInt32Ty(), nullptr,
+          "loop" + Twine(I - 1) + ".is.last");
+      // Since each "thread" will execute the loop completely, and
+      // the last iteration check only matters after the loop, we may
+      // always initialize the last iteration predicate to true
+      // before the loop.
+      AllocaBuilder.CreateStore(AllocaBuilder.getInt32(1), IsLastLoc);
+      IsLastLocs.push_back(IsLastLoc);
+      continue;
+    }
 
     IsLastLocs.push_back(nullptr);
 
@@ -1204,7 +1325,7 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
 //
 //   REGION.END:
 //   llvm.region.exit(%0)
-void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
+bool VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
   assert(W && "Null WRegionNode.");
   Instruction *EntryDirective = W->getEntryDirective();
 
@@ -1247,7 +1368,7 @@ void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
                     << W->getNumber() << "', using '";
              TempAddr->printAsOperand(dbgs()); dbgs() << "'.\n";);
 
-  return;
+  return true;
 }
 
 bool VPOParoptTransform::genLaunderIntrinIfPrivatizedInAncestor(
@@ -1388,16 +1509,14 @@ bool VPOParoptTransform::paroptTransforms() {
   }
 #endif  // INTEL_FEATURE_CSA
 
-  // Early preprocessing for outlined work regions that regularizes loops,
-  // privatizes shared items and generates aliasing information. This need
-  // to be done early before outlining because outlining damages aliasing
-  // information.
+  // Early preprocessing for outlined work regions that regularizes loops
+  // and generates aliasing information. This need to be done early before
+  // outlining because outlining damages aliasing information.
   if ((Mode & OmpPar) && (Mode & ParTrans))
     for (auto *W : WRegionList) {
       switch (W->getWRegionKindID()) {
       case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
-        RoutineChanged |= privatizeSharedItems(W);
         if (!isTargetSPIRV())
           improveAliasForOutlinedFunc(W);
         break;
@@ -1405,7 +1524,6 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallelLoop:
       case WRegionNode::WRNDistributeParLoop:
         RoutineChanged |= regularizeOMPLoop(W, false);
-        RoutineChanged |= privatizeSharedItems(W);
         improveAliasForOutlinedFunc(W);
         break;
       case WRegionNode::WRNTask:
@@ -1434,6 +1552,9 @@ bool VPOParoptTransform::paroptTransforms() {
     assignParallelDimensions();
   }
 
+  if ((Mode & OmpPar) && (Mode & ParTrans))
+    RoutineChanged |= addRangeMetadataToOmpCalls();
+
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NeedTID)
@@ -1451,6 +1572,7 @@ bool VPOParoptTransform::paroptTransforms() {
     F->getContext().diagnose(DI);
   };
 
+  SmallPtrSet<WRegionNode *, 4> RegionsNeedingDummyBranchInsertion;
   //
   // Walk through W-Region list, the outlining / lowering is performed from
   // inner to outer
@@ -1558,6 +1680,7 @@ bool VPOParoptTransform::paroptTransforms() {
             else {
               Changed |= genPrivatizationCode(W);
               Changed |= genReductionCode(W);
+              Changed |= genDestructorCode(W);
 
               // The directive gets removed, when processing the target region,
               // do not remove it here, since guardSideEffects needs the
@@ -1652,6 +1775,7 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genLastPrivatizationCode(W, IfLastIterBB);
               Changed |= genFirstPrivatizationCode(W);
               Changed |= genReductionCode(W);
+              Changed |= genDestructorCode(W);
             }
           } else {
 #if INTEL_CUSTOMIZATION
@@ -1698,6 +1822,7 @@ bool VPOParoptTransform::paroptTransforms() {
           }
           Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
+          Changed |= genParallelAccessMetadata(W);
           RemoveDirectives = true;
 
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
@@ -1753,7 +1878,8 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
-          Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
+          AllocaInst *LBPtr, *UBPtr, *STPtr;
+          Value *LastIterGep;
           BasicBlock *IfLastIterBB = nullptr;
           // Taskloop Construct Doesn't need a call to
           // genLaunderIntrinIfPrivatizedInAncestor because
@@ -1812,6 +1938,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
+          Changed |= genDestructorCode(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -1893,8 +2020,13 @@ bool VPOParoptTransform::paroptTransforms() {
         // it is codegen'ed during the Prepare phase of the HOST compilation
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
-          if (!hasOffloadCompilation()) // for host only
+          if (!hasOffloadCompilation()) { // for host only
+            // The purpose is to generate place holder for global use_device_ptr
+            // operands.
+            Changed |= genGlobalPrivatizationLaunderIntrin(W);
             Changed |= genTargetVariantDispatchCode(W);
+            Changed |= clearLaunderIntrinBeforeRegion(W);
+          }
           RemoveDirectives = true;
         }
         break;
@@ -1944,6 +2076,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
             Changed |= sinkSIMDDirectives(W);
+            Changed |= genParallelAccessMetadata(W);
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
@@ -2063,6 +2196,7 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genBarrier(W, false);
           }
           Changed |= sinkSIMDDirectives(W);
+          Changed |= genParallelAccessMetadata(W);
           RemoveDirectives = true;
         }
         break;
@@ -2226,7 +2360,7 @@ bool VPOParoptTransform::paroptTransforms() {
   if (!isTargetCSA())
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-      addBranchToEndDirective(W);
+      RegionsNeedingDummyBranchInsertion.insert(W);
 
     if (Changed) { // Code transformations happened for this WRN
       RoutineChanged = true;
@@ -2237,6 +2371,10 @@ bool VPOParoptTransform::paroptTransforms() {
       LLVM_DEBUG(dbgs() << "   === WRN #" << W->getNumber()
                         << " NOT transformed.\n\n");
   }
+
+  for (auto *W : WRegionList)
+    if (RegionsNeedingDummyBranchInsertion.count(W))
+      RoutineChanged |= addBranchToEndDirective(W);
 
   WRegionList.clear();
   return RoutineChanged;
@@ -2252,12 +2390,17 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
   VPOParoptUtils::genConstructorCall(RedI->getConstructor(), ReductionValueLoc,
                                      Builder);
 
-  if (RedI->getInitializer() != nullptr) {
-    Function *Fn = RedI->getInitializer();
-    FunctionType *FnTy = Fn->getFunctionType();
-    Builder.CreateCall(FnTy, Fn, {ReductionValueLoc, ReductionVar}, "");
+  Function *Fn = RedI->getInitializer();
+  if (Fn != nullptr) {
+    CallInst *Call = VPOParoptUtils::genCall(
+        Fn->getParent(), Fn, {ReductionValueLoc, ReductionVar},
+        {ReductionValueLoc->getType(), ReductionVar->getType()}, nullptr);
+    Builder.Insert(Call);
+    BasicBlock::iterator InsertPt = Builder.GetInsertPoint();
+    if (Builder.GetInsertBlock()->end() != InsertPt)
+      Call->setDebugLoc((&*InsertPt)->getDebugLoc());
   } else {
-    // if intializer is null but constructor is not null, let constructor do
+    // if initializer is null but constructor is not null, let constructor do
     // default initialization. Otherwise, initialize the variable to 0.
     if (RedI->getConstructor() != nullptr)
       return;
@@ -2276,11 +2419,13 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
     } else {
       V = ConstantInt::get(Builder.getInt8Ty(), 0);
       const DataLayout &DL =
-          cast<Instruction>(ReductionValueLoc)->getModule()->getDataLayout();
+          Builder.GetInsertBlock()->getModule()->getDataLayout();
+      uint64_t Size = DL.getTypeAllocSize(
+          ReductionValueLoc->getType()->getPointerElementType());
       unsigned Alignment = 0;
       if (auto *AI = dyn_cast<AllocaInst>(RedI->getNew()->stripPointerCasts()))
         Alignment = AI->getAlignment();
-      VPOUtils::genMemset(ReductionValueLoc, V, DL, Alignment, Builder);
+      VPOUtils::genMemset(ReductionValueLoc, V, Size, Alignment, Builder);
     }
   }
 }
@@ -2445,10 +2590,14 @@ bool VPOParoptTransform::genReductionUdrFini(ReductionItem *RedI,
   assert((RedI->getCombiner() != nullptr) &&
          "NULL combiner for user defined reduction.");
 
-  CallInst *Res = VPOParoptUtils::genCall(
+  CallInst *Res = VPOParoptUtils::genCall(RedI->getCombiner()->getParent(),
       RedI->getCombiner(), {ReductionVar, ReductionValueLoc},
       {ReductionVar->getType(), ReductionValueLoc->getType()}, nullptr);
   Builder.Insert(Res);
+
+  BasicBlock::iterator InsertPt = Builder.GetInsertPoint();
+  if (Builder.GetInsertBlock()->end() != InsertPt)
+    Res->setDebugLoc((&*InsertPt)->getDebugLoc());
 
   return true;
 }
@@ -2493,8 +2642,10 @@ bool VPOParoptTransform::genReductionScalarFini(
     Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
     DominatorTree *DT) {
   Value *Res = nullptr;
-  auto *Rhs2 = Builder.CreateLoad(ReductionValueLoc);
-  auto *Rhs1 = Builder.CreateLoad(ReductionVar);
+  auto *Rhs2 = Builder.CreateLoad(
+      ReductionValueLoc->getType()->getPointerElementType(), ReductionValueLoc);
+  auto *Rhs1 = Builder.CreateLoad(
+      ReductionVar->getType()->getPointerElementType(), ReductionVar);
 
   switch (RedI->getType()) {
   case ReductionItem::WRNReductionAdd:
@@ -2681,7 +2832,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
-    OldV = Builder.CreateLoad(OldV);
+    OldV = Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
@@ -2894,18 +3045,21 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
 
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (IsByRef)
-    From = Builder.CreateLoad(From);
+    From = Builder.CreateLoad(From->getType()->getPointerElementType(), From);
   assert(From->getType()->isPointerTy() && To->getType()->isPointerTy());
   Type *ObjType = AI ? AI->getAllocatedType()
-                     : cast<PointerType>(From->getType())->getElementType();
-  if (Cctor)
+                     : From->getType()->getPointerElementType();
+  if (Cctor) {
     genPrivatizationInitOrFini(I, Cctor, FK_CopyCtor, To, From, InsertPt, DT);
-  else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
-           (AI && AI->isArrayAllocation())) {
+  } else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
+             (AI && AI->isArrayAllocation())) {
     unsigned Alignment = DL.getABITypeAlignment(ObjType);
-    VPOUtils::genMemcpy(To, From, DL, Alignment, InsertPt);
-  } else
-    Builder.CreateStore(Builder.CreateLoad(From), To);
+    uint64_t Size = DL.getTypeAllocSize(To->getType()->getPointerElementType());
+    VPOUtils::genMemcpy(To, From, Size, Alignment, Builder);
+  } else {
+    Builder.CreateStore(
+        Builder.CreateLoad(From->getType()->getPointerElementType(), From), To);
+  }
 }
 
 // Generate the firstprivate initialization code.
@@ -3228,18 +3382,18 @@ void VPOParoptTransform::genConditionalLPCode(
   // variable, whether a variable was ever modified in the current chunk, or
   // whether it was ever modified by the current thread.
   IRBuilder<> AllocaBuilder(LprivINew);
-  Instruction *MaxLocalIndex = AllocaBuilder.CreateAlloca(
+  AllocaInst *MaxLocalIndex = AllocaBuilder.CreateAlloca(
       LoopIdxTy, nullptr, NamePrefix + ".local.max.idx"); //          (2), (31)
   AllocaBuilder.CreateStore(                              //          (3), (32)
       AllocaBuilder.getIntN(LoopIdxTy->getIntegerBitWidth(), 0), MaxLocalIndex);
 
-  Instruction *ModifiedByCurrentThread = AllocaBuilder.CreateAlloca( // (4), (5)
+  AllocaInst *ModifiedByCurrentThread = AllocaBuilder.CreateAlloca( // (4), (5)
       AllocaBuilder.getInt1Ty(), nullptr, NamePrefix + ".modified.by.thread");
   AllocaBuilder.CreateStore(AllocaBuilder.getFalse(),
                             ModifiedByCurrentThread); //              (33), (34)
 
   Instruction *ValInMaxLocalIndex = nullptr;
-  Instruction *ModifiedByCurrentChunk = nullptr;
+  AllocaInst *ModifiedByCurrentChunk = nullptr;
 
   if (!BranchToNextChunk) { // Static-even scheduling. A thread executes only
                             // one chunk.
@@ -3273,12 +3427,14 @@ void VPOParoptTransform::genConditionalLPCode(
   // Generate code that is executed in the End of each chunk, if needed.
   if (BranchToNextChunk) {
     IRBuilder<> ChunkFiniBuilder(BranchToNextChunk);
-    Value *ModifiedByChunk =
-        ChunkFiniBuilder.CreateLoad(ModifiedByCurrentChunk); //       (42)
+    Value *ModifiedByChunk = ChunkFiniBuilder.CreateLoad( //          (42)
+        ModifiedByCurrentChunk->getAllocatedType(),
+        ModifiedByCurrentChunk);
     Value *IsModified = ChunkFiniBuilder.CreateICmpEQ(       //       (43)
         ModifiedByChunk, ChunkFiniBuilder.getTrue(), NamePrefix + ".modified");
     Value *MaxLBToModifyVarForThreadTillNow =
-        ChunkFiniBuilder.CreateLoad(MaxLocalIndex); //                (44)
+        ChunkFiniBuilder.CreateLoad(MaxLocalIndex->getAllocatedType(),
+                                    MaxLocalIndex); //                (44)
     Value *IsChunkLBGreaterThanMaxLocalIndex = ChunkFiniBuilder.CreateICmpUGE(
         OMPLBForChunk, MaxLBToModifyVarForThreadTillNow,
         NamePrefix + ".chunk.is.higher"); //                          (45)
@@ -3293,7 +3449,8 @@ void VPOParoptTransform::genConditionalLPCode(
     ModifiedBuilder.CreateStore(ModifiedBuilder.getTrue(),
                                 ModifiedByCurrentThread);          // (48)
     ModifiedBuilder.CreateStore(OMPLBForChunk, MaxLocalIndex);     // (49)
-    auto *ValueInChunk = ModifiedBuilder.CreateLoad(LprivINew);    // (50)
+    auto *ValueInChunk = ModifiedBuilder.CreateLoad(
+        LprivINew->getType()->getPointerElementType(), LprivINew); // (50)
     ModifiedBuilder.CreateStore(ValueInChunk, ValInMaxLocalIndex); // (51)
   }
 
@@ -3317,8 +3474,9 @@ void VPOParoptTransform::genConditionalLPCode(
   // No participation in max computation is needed if the current thread didn't
   // write to the var.
   IRBuilder<> GlobalMaxComputationBuilder(ConditionalLPBarrier);
-  auto *ModifiedByCurrentThreadLoad =
-      GlobalMaxComputationBuilder.CreateLoad(ModifiedByCurrentThread); //  (53)
+  auto *ModifiedByCurrentThreadLoad = GlobalMaxComputationBuilder.CreateLoad(
+      ModifiedByCurrentThread->getAllocatedType(),
+      ModifiedByCurrentThread); //                                         (53)
   auto *DidThreadWriteAnything = GlobalMaxComputationBuilder.CreateICmpEQ(
       ModifiedByCurrentThreadLoad, GlobalMaxComputationBuilder.getTrue(),
       NamePrefix + ".written.by.thread"); //                               (54)
@@ -3335,10 +3493,10 @@ void VPOParoptTransform::genConditionalLPCode(
       GlobalMaxComputationBuilder.getIntN(LoopIdxTy->getIntegerBitWidth(), 0),
       NamePrefix + ".global.max.idx"); //                             (1), (30)
 
-  auto *FinalLocalMaxIndex =
-      GlobalMaxComputationBuilder.CreateLoad(MaxLocalIndex); //       (56)
-  auto *GlobalMaxIndexLoad =
-      GlobalMaxComputationBuilder.CreateLoad(MaxGlobalIndex); //      (58)
+  auto *FinalLocalMaxIndex = GlobalMaxComputationBuilder.CreateLoad(
+      MaxLocalIndex->getAllocatedType(),MaxLocalIndex); //            (56)
+  auto *GlobalMaxIndexLoad = GlobalMaxComputationBuilder.CreateLoad(
+      MaxGlobalIndex->getValueType(), MaxGlobalIndex); //             (58)
   auto *IsLocalGreaterThanGlobal = GlobalMaxComputationBuilder.CreateICmpUGE(
       FinalLocalMaxIndex, GlobalMaxIndexLoad,
       NamePrefix + ".is.local.idx.higher"); //                        (59)
@@ -3365,10 +3523,10 @@ void VPOParoptTransform::genConditionalLPCode(
   Instruction *BarrierSuccessorInst =
       GeneralUtils::nextUniqueInstruction(ConditionalLPBarrier);
   IRBuilder<> LPCopyoutBuilder(BarrierSuccessorInst);
-  auto *FinalMaxLocalIndexLoad =
-      LPCopyoutBuilder.CreateLoad(MaxLocalIndex); //                  (24), (64)
-  auto *FinalMaxGlobalIndexLoad =
-      LPCopyoutBuilder.CreateLoad(MaxGlobalIndex); //                 (25), (65)
+  auto *FinalMaxLocalIndexLoad = LPCopyoutBuilder.CreateLoad(
+      MaxLocalIndex->getAllocatedType(), MaxLocalIndex); //           (24), (64)
+  auto *FinalMaxGlobalIndexLoad = LPCopyoutBuilder.CreateLoad(
+      MaxGlobalIndex->getValueType(), MaxGlobalIndex); //             (25), (65)
   auto *ShouldThreadDoCopyout = LPCopyoutBuilder.CreateICmpEQ(
       FinalMaxLocalIndexLoad, FinalMaxGlobalIndexLoad,
       NamePrefix + ".copyout.or.not"); //                             (26), (66)
@@ -3378,8 +3536,9 @@ void VPOParoptTransform::genConditionalLPCode(
   if (ValInMaxLocalIndex) {
     // Do copyout using ValInMaxLocalIndex instead of LprivINew.
     IRBuilder<> CopyoutBuilder(IfShouldDoCopyoutThen);
-    auto *ValInMaxLocalIndexLoad =
-        CopyoutBuilder.CreateLoad(ValInMaxLocalIndex); //             (68)
+    auto *ValInMaxLocalIndexLoad = CopyoutBuilder.CreateLoad(
+        ValInMaxLocalIndex->getType()->getPointerElementType(),
+        ValInMaxLocalIndex); //                                       (68)
     CopyoutBuilder.CreateStore(ValInMaxLocalIndexLoad, LprivINew); // (69)
   }
 
@@ -3428,7 +3587,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
     IRBuilder<> Builder(InsertPt);
     // For by-refs, do a pointer dereference to reach the actual operand.
     if (RedI->getIsByRef())
-      OldV = Builder.CreateLoad(OldV);
+      OldV = Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -3472,6 +3631,10 @@ BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
   // update code at the exit block of the loop.
   if (HonorZTT && W->getIsOmpLoop())
     if (BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB()) {
+      // FIXME: some prior transformations (e.g. reduction-via-critical
+      //        for SPIR-V target) may introduce non-linear code outside
+      //        the ZTT and before the exit block, so the loop below
+      //        may not find the right block always.
       while (distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
         ExitBlock = *pred_begin(ExitBlock);
       assert(distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
@@ -3505,8 +3668,7 @@ bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
   if (I->getIsArraySection())
     return true;
 
-  Type *ElementType =
-      cast<PointerType>(I->getOrig()->getType())->getElementType();
+  Type *ElementType = I->getOrig()->getType()->getPointerElementType();
   if (ElementType->isArrayTy())
     return true;
 
@@ -3725,8 +3887,12 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
     } else if (NumElements != nullptr) {
       // Create a LOAD with result type i32* if original type is array section
       // with variable length/size (i32 a[0:n]).
-      DstGEP = Builder.CreateLoad(DstGEP, DstGEP->getName() + ".load");
-      SrcGEP = Builder.CreateLoad(SrcGEP, SrcGEP->getName() + ".load");
+      DstGEP = Builder.CreateLoad(
+          cast<GEPOperator>(DstGEP)->getResultElementType(), DstGEP,
+          DstGEP->getName() + ".load");
+      SrcGEP = Builder.CreateLoad(
+          cast<GEPOperator>(SrcGEP)->getResultElementType(), SrcGEP,
+          SrcGEP->getName() + ".load");
     }
 
     // For array section with non-constant size, the size is global variable
@@ -3734,7 +3900,8 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
     Value *NewSize = nullptr;
     if (RedI->getIsArraySection()) {
       if (GlobalVariable *GV = RedI->getArraySectionInfo().getGVSize()) {
-        NewSize = Builder.CreateLoad(GV, GV->getName() + ".load");
+        NewSize = Builder.CreateLoad(GV->getValueType(), GV,
+                                     GV->getName() + ".load");
       }
     }
 
@@ -3959,7 +4126,7 @@ void VPOParoptTransform::genFastRedAggregateCopy(
 /// Generate copy code for scalar type (only used by fast reduction).
 void VPOParoptTransform::genFastRedScalarCopy(Value *Dst, Value *Src,
                                               IRBuilder<> &Builder) {
-  Value *V = Builder.CreateLoad(Src);
+  Value *V = Builder.CreateLoad(Src->getType()->getPointerElementType(), Src);
   Builder.CreateStore(V, Dst);
 }
 
@@ -3978,13 +4145,13 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
   // approproiate logic.
   std::tie(AllocaTy, NumElements) =
       GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
-          Src, cast<PointerType>(Src->getType())->getElementType());
+          Src, Src->getType()->getPointerElementType());
   assert(AllocaTy && "genFastRedCopy: item type cannot be deduced.");
 
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
-    Dst = Builder.CreateLoad(Dst);
+    Dst = Builder.CreateLoad(Dst->getType()->getPointerElementType(), Dst);
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector()) {
@@ -4042,7 +4209,9 @@ Value *VPOParoptTransform::genFastRedPrivateVariable(ReductionItem *RedI,
     RecInst = Builder.CreateInBoundsGEP(RecInst, {ValueZero, ValueZero},
                                         RecInst->getName() + Twine(".gep"));
   else if (NumElements != nullptr)
-    RecInst = Builder.CreateLoad(RecInst, RecInst->getName() + ".load");
+    RecInst = Builder.CreateLoad(
+        cast<GEPOperator>(RecInst)->getResultElementType(), RecInst,
+        RecInst->getName() + ".load");
 
   return RecInst;
 }
@@ -4332,13 +4501,11 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       }
 
       // According to the specification 'alignmnent' value is optional and when
-      // it is not provided FE sets 'alignment' to 0. In such case, according to
-      // specification, we can use an "implementation-defined default alignments
-      // for SIMD instructions on the target platforms", but I am not sure that
-      // TTI currently provides such information.
+      // it is not provided FE sets 'alignment' to 0. If this is the case, set
+      // alignment to be equal to the size of the largest vector register.
       int Align = AI->getAlign();
       if (!Align)
-        continue;
+        Align = TTI->getRegisterBitWidth(true) / 8;
 
       // Generate llvm.assume call for the specified value.
       IRBuilder<> Builder(GetAlignedBlock()->getTerminator());
@@ -4362,29 +4529,57 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
   W->populateBBSet();
   LLVMContext &Context = F->getContext();
   bool Changed = false;
+  MDNode *NtmpMD = nullptr;
 
   // Find all memrefs derived from nontemporal bases in the region and attach
-  // !nontemporal metadata to them. The incoming IR is expected to look like:
+  // !nontemporal metadata to them. The incoming IR may look like:
   //
   //   @llvm.directive.region.entry() [ "QUAL.OMP.NONTEMPORAL"(float* %a.addr)]
   //   %ptridx10 = getelementptr inbounds float, float* %a.addr, i64 %indvars.iv
-  //   store float %conv8, float* %ptridx10
+  //   %bcast = bitcast float* %ptridx10 to i32*
+  //   store i32 %conv8, i32* %bcast
   //   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
   //
-  for (NontemporalItem *VarAddr : W->getNontemporal()) {
-    for (User *VarUse : VarAddr->getOrig()->users()) {
-      if (!isa<GetElementPtrInst>(VarUse))
-        continue;
-      for (User *GepUse : VarUse->users()) {
-        if (!isa<StoreInst>(GepUse) && !isa<LoadInst>(GepUse))
+  for (NontemporalItem *NtmpItem : W->getNontemporal()) {
+    SmallVector<Use *, 4> WorkList;
+    SmallPtrSet<Use *, 8> VisitedSet;
+
+    auto growWorkList = [W, &WorkList, &VisitedSet](Value *V) {
+      for (Use *U = &V->user_begin().getUse(); U; U = U->getNext()) {
+        if (VisitedSet.contains(U))
           continue;
-        Instruction *Mrf = cast<Instruction>(GepUse);
-        if (!W->contains(Mrf->getParent()))
+
+        // Consider only those instructions that are inside the region.
+        Instruction *I = dyn_cast<Instruction>(U->getUser());
+        if (I && !W->contains(I->getParent()))
           continue;
-        Constant *One = ConstantInt::get(Type::getInt32Ty(Context), 1);
-        MDNode *Node = MDNode::get(Context, ConstantAsMetadata::get(One));
-        Mrf->setMetadata(LLVMContext::MD_nontemporal, Node);
-        Changed = true;
+
+        WorkList.push_back(U);
+        VisitedSet.insert(U);
+      }
+    };
+
+    growWorkList(NtmpItem->getOrig());
+
+    while (!WorkList.empty()) {
+      Use *U = WorkList.pop_back_val();
+      User *Usr = U->getUser();
+
+      // Check if the nontemporal address is passed as a pointer argument to a
+      // store or load instruction.
+      if ((isa<StoreInst>(Usr) && U->getOperandNo() == 1) ||
+          isa<LoadInst>(Usr)) {
+        // Attach !nontemporal metadata to the instruction.
+        Instruction *Mrf = cast<Instruction>(Usr);
+        if (!NtmpMD) {
+          Constant *One = ConstantInt::get(Type::getInt32Ty(Context), 1);
+          NtmpMD = MDNode::get(Context, ConstantAsMetadata::get(One));
+          Changed = true;
+        }
+        Mrf->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
+      } else if (isa<GEPOperator>(Usr) || isa<BitCastOperator>(Usr)) {
+        // Look through getelementptr and bitcast operators.
+        growWorkList(Usr);
       }
     }
   }
@@ -4415,9 +4610,12 @@ Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
   Value *BeginAddr = Orig;
   IRBuilder<> Builder(InsertBefore);
 
-  if (ArrSecInfo.getBaseIsPointer())
-    BeginAddr =
-        Builder.CreateLoad(BeginAddr, BeginAddr->getName() + ".load"); // (1)
+  if (ArrSecInfo.getBaseIsPointer()) {
+    // TODO: OPAQUEPOINTER: we just need to load a pointer value here.
+    BeginAddr = Builder.CreateLoad(
+        BeginAddr->getType()->getPointerElementType(), BeginAddr,
+        BeginAddr->getName() + ".load"); //                               (1)
+  }
 
   assert(BeginAddr && isa<PointerType>(BeginAddr->getType()) &&
          "Illegal Begin Addr for array section.");
@@ -4586,11 +4784,11 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   IRBuilder<> Builder(InsertPt);
 
   Type *CITy = Orig->getType();
-  Type *ElemTy = cast<PointerType>(CITy)->getElementType();
+  Type *ElemTy = CITy->getPointerElementType();
 
   if (IsByRef)
     // Strip away one pointer for by-refs.
-    ElemTy = cast<PointerType>(ElemTy)->getElementType();
+    ElemTy = ElemTy->getPointerElementType();
 
   bool BaseIsPointer = false;
   if (isa<PointerType>(ElemTy)) {
@@ -4608,7 +4806,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
     // reach the base element type (i32 for yptr) or the array type ([10 x i32]
     // for yarrptr).
     BaseIsPointer = true;
-    ElemTy = cast<PointerType>(ElemTy)->getElementType();
+    ElemTy = ElemTy->getPointerElementType();
   }
 
   // At this point, ElemTy is the base element type for 1D array sections. For
@@ -4757,7 +4955,7 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
     //        we will probably have to deal with it sometime.
     Type *OrigArrayType =
         RedI.getIsByRef()
-            ? cast<PointerType>(Orig->getType())->getPointerElementType()
+            ? Orig->getType()->getPointerElementType()
             : Orig->getType();
     return Builder.CreateBitCast(NewMinusOffset, OrigArrayType,
                                  NewMinusOffset->getName());
@@ -4861,7 +5059,7 @@ VPOParoptTransform::getItemInfo(const Item *I) {
       assert(!NumElements &&
              "Unexpected number of elements for byref pointer.");
 
-      ElementType = cast<PointerType>(ElementType)->getPointerElementType();
+      ElementType = ElementType->getPointerElementType();
     }
   }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
@@ -5033,7 +5231,8 @@ static void genPrivatizationDebug(WRegionNode *W,
     // The variable is emitted into the scope tree according to the scope
     // associated with the llvm.dbg intrinsic and not the scope associated with
     // the variable. Create a new location in the region scope.
-    DebugLoc DL = DebugLoc::get(
+    DebugLoc DL = DILocation::get( // INTEL
+        M->getContext(),           // INTEL
         Location->getLine(),
         Location->getColumn(),
         RegionScope,
@@ -5175,7 +5374,10 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
-        GEPI->mutateType(DstTy->getElementType()->getPointerTo(SrcAS));
+        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
+        // to a specific AddressSpace. The API currently needs the Element Type
+        // as well.
+        GEPI->mutateType(DstTy->getPointerElementType()->getPointerTo(SrcAS));
         CollectUsers = true;
       }
       break;
@@ -5188,7 +5390,10 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
-        BCI->mutateType(DstTy->getElementType()->getPointerTo(SrcAS));
+        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
+        // to a specific AddressSpace. The API currently needs the Element Type
+        // as well.
+        BCI->mutateType(DstTy->getPointerElementType()->getPointerTo(SrcAS));
         CollectUsers = true;
       }
       break;
@@ -5357,7 +5562,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     if (LinearI->getIsByRef())
       Orig = new LoadInst(NewVTy, Orig, "", NewLinearInsertPt);
 
-    NewVTy = cast<PointerType>(NewVTy)->getElementType();
+    NewVTy = NewVTy->getPointerElementType();
 
     // (B) Capture value of linear variable before entering the loop
     LoadInst *LoadOrig = CaptureBuilder.CreateLoad(NewVTy, Orig);       // (3)
@@ -5483,7 +5688,7 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
     if (LinearI->getIsByRef())
       Orig = InitBuilder.CreateLoad(NewVTy, Orig);
 
-    NewVTy = cast<PointerType>(NewVTy)->getElementType();
+    NewVTy = NewVTy->getPointerElementType();
     // For LINEAR:IV, the initialization using closed-form is inserted in each
     // iteration of the loop by the frontend, so we don't need to do the
     // "firstprivate copyin" to the privatized linear var.
@@ -5585,25 +5790,34 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // map in addition to a firstprivate clause. We need to honor both.
         if (!FprivI->getIsF90DopeVector())
 #endif // INTEL_CUSTOMIZATION
-        // For some reason clang may put a variable both into map() and
-        // firstprivate clause, e.g.:
-        // void foo(int n) {
-        //   #pragma omp target map(from:n)
-        //   #pragma omp teams num_teams(n)
-        //   ...
-        // }
+        // In some cases, clang may put a variable both into map and
+        // firstprivate clauses. Usually, in such cases, we do not need to
+        // generate any for firstprivate clause, as all the data movement
+        // is handled by the map clause processing.
+        //
+        // But for NONPODs, we need to emit constructors/destructors for them
+        // while handling the firstprivate clause (at least for the host
+        // fallback function). Whether these are emitted for target compilation
+        // is determined based on EmitTargetFPCtorDtors.
+        //
+        //   Class C;
+        //   void foo() {
+        //     C c1;
+        //     #pragma omp target firstprivate(c1)
+        //     ...
+        //   }
         //
         // The generated region will look like this:
-        // %0 = call token @llvm.directive.region.entry() [
-        //          "DIR.OMP.TARGET"(),
-        //          "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-        //          "QUAL.OMP.MAP.FROM"(i32* %n.addr),
-        //          "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr) ]
+        //   call token @llvm.directive.region.entry() [
+        //   "DIR.OMP.TARGET"(), ...,
+        //   "QUAL.OMP.FIRSTPRIVATE:NONPOD"(%class.C* %c1,
+        //     void (%class.C*, %class.C*)* @_ZTS1C.omp.copy_constr,
+        //     void (%class.C*)* @_ZTS1C.omp.destr),
+        //   "QUAL.OMP.MAP.TO"(%class.C* %c1, %class.C* %c1, i64 4, i64 161) ]
         //
-        // We do not need to generate any special code for firstprivate()
-        // clause, as long as all the data movement will be handled
-        // by the map() processing.
-        continue;
+        if (!FprivI->getIsNonPod() ||
+            (isTargetSPIRV() && !EmitTargetFPCtorDtors))
+          continue;
 
       Value *NewPrivInst = nullptr;
       Value *Orig = FprivI->getOrig();
@@ -5766,8 +5980,9 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           //   store float %x.val.bcast.zext.trunc.bcast, float* %x.fpriv
           //   ...
           IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
-          Value *NewArg =
-              PredBuilder.CreateLoad(Orig, Orig->getName() + Twine(".val"));
+          Value *NewArg = PredBuilder.CreateLoad(
+              Orig->getType()->getPointerElementType(),
+              Orig, Orig->getName() + Twine(".val"));
           NewArg = PredBuilder.CreateBitCast(NewArg, ValueIntTy,
               NewArg->getName() + Twine(".bcast"));
           NewArg = PredBuilder.CreateZExt(NewArg, IntPtrTy,
@@ -5820,7 +6035,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           // object created by "target data".
           // We also avoid an extra dereference, which is profitable.
           IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
-          auto *Load = PredBuilder.CreateLoad(Orig);
+          auto *Load = PredBuilder.CreateLoad(
+              Orig->getType()->getPointerElementType(), Orig);
           IRBuilder<> RegBuilder(PrivInitEntryBB->getTerminator());
           RegBuilder.CreateStore(Load, FprivI->getNew());
 
@@ -5975,8 +6191,10 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDestructorCode\n");
 
-  // Create a BB before ExitBB in which to insert dtor calls
-  BasicBlock *NewBB = createEmptyPrivFiniBB(W);
+  // Create a BB before ExitBB in which to insert dtor calls.
+  // FIXME: the destructors must be called outside of ZTT check,
+  //        since the constructors are called before ZTT.
+  BasicBlock *NewBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
   Instruction* InsertBeforePt = NewBB->getTerminator();
 
   // Destructors for privates
@@ -5990,8 +6208,11 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   if (W->canHaveFirstprivate())
     for (FirstprivateItem *FI : W->getFpriv().items())
       if (auto *Dtor = FI->getDestructor())
-        genPrivatizationInitOrFini(FI, Dtor, FK_Dtor, FI->getNew(), nullptr,
-                                   InsertBeforePt, DT);
+        if (auto *FNew = FI->getNew()) // getNew() can be null for firstprivate
+                                       // on target constructs based on
+                                       // EmitTargetFPCtorDtors.
+          genPrivatizationInitOrFini(FI, Dtor, FK_Dtor, FNew, nullptr,
+                                     InsertBeforePt, DT);
 
   // Destructors for lastprivates (that are not also firstprivate)
   if (W->canHaveLastprivate())
@@ -6394,6 +6615,100 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
   return Changed;
 }
 
+// Add llvm.loop.parallel_accesses metadata to loops with non-monotonic
+// property. This metadata refers to one or more access group metadata nodes
+// (see llvm.access.group) attached to memory access instructions in a loop. It
+// indicates that no loop-carried memory dependence exists between it and other
+// instructions in the loop with this metadata (see detailed description at
+// https://llvm.org/docs/LangRef.html#llvm-loop-parallel-accesses-metadata).
+//
+// loop:
+//   ...
+//   %val = load float, float* %ptr1, !llvm.access.group !0
+//   ...
+//   store float %val, float* %ptr2, !llvm.access.group !0
+//   ...
+//   br i1 %cond, label %end, label %loop, !llvm.loop !1
+//
+// end:
+// ...
+//
+// !0 = distinct !{}
+// !1 = distinct !{!1, !2}
+// !2 = !{!"llvm.loop.parallel_accesses", !0}
+bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
+  if (!W->getIsOmpLoop() || W->getIsSections() || isa<WRNDistributeNode>(W))
+    return false;
+
+  // Check if this loop can have parallel access metadata.
+  if (W->getLoopOrder() != WRNLoopOrderConcurrent) {
+    // With presence of 'safelen' loop-carried dependences are possible.
+    if (isa<WRNVecLoopNode>(W) && W->getSafelen())
+      return false;
+
+    if (W->canHaveSchedule()) {
+      // OpenMP 5.0, 2.9.2 Worksharing-Loop Construct, Description
+      // If the static schedule kind is specified or if the ordered clause is
+      // specified, and if the nonmonotonic modifier is not specified, the
+      // effect is as if the monotonic modifier is specified. Otherwise, unless
+      // the monotonic modifier is specified, the effect is as if the
+      // nonmonotonic modifier is specified.
+      const auto &Sched = W->getSchedule();
+      bool IsMonotonic = W->getOrdered() >= 0 || Sched.getIsSchedMonotonic() ||
+                         ((Sched.getKind() == WRNScheduleStatic ||
+                           Sched.getKind() == WRNScheduleOrderedStatic) &&
+                          !Sched.getIsSchedNonmonotonic());
+      if (IsMonotonic)
+        return false;
+    }
+  }
+
+  LLVMContext &C = F->getContext();
+  Loop *L = W->getWRNLoopInfo().getLoop();
+
+  // Add access group metadata to all memory r/w instructions in the loop.
+  MDNode *AG = nullptr;
+  for (BasicBlock *BB : L->blocks())
+    for (Instruction &I : *BB) {
+      if (!I.mayReadOrWriteMemory())
+        continue;
+
+      if (!AG)
+        AG = MDNode::getDistinct(C, {});
+
+      if (MDNode *MD = I.getMetadata(LLVMContext::MD_access_group)) {
+        // Existing access groups need to be retained for nested parallel loops.
+        SmallVector<Metadata *, 8u> AGs{AG};
+        if (MD->getNumOperands())
+          copy(MD->operands(), std::back_inserter(AGs));
+        else
+          AGs.push_back(MD);
+        I.setMetadata(LLVMContext::MD_access_group, MDNode::get(C, AGs));
+      } else
+        I.setMetadata(LLVMContext::MD_access_group, AG);
+    }
+  if (!AG)
+    return false;
+
+  // Now add parallel access metadata to the loop. If loop already has loop
+  // metadata, then it need to be retained.
+  SmallVector<Metadata *, 8u> MDs(1u);
+  if (MDNode *ID = L->getLoopID())
+    std::copy(std::next(ID->op_begin()), ID->op_end(), std::back_inserter(MDs));
+
+  // Add parallel access metadata with the access group that was created for
+  // this loop.
+  MDs.push_back(
+      MDNode::get(C, {MDString::get(C, "llvm.loop.parallel_accesses"), AG}));
+
+  // And add new metadata to the loop.
+  MDNode *NewID = MDNode::get(C, MDs);
+  NewID->replaceOperandWith(0, NewID);
+  L->setLoopID(NewID);
+
+  return true;
+}
+
 void VPOParoptTransform::simplifyLoopPHINodes(
     const Loop &L, const SimplifyQuery &SQ) const {
   SmallVector<PHINode *, 8> PHIsToDelete;
@@ -6719,8 +7034,12 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     return false;
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
-      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W))
+      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W) &&
+      !isa<WRNDistributeParLoopNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
+    //
+    // While this condition is here it should match with one in
+    // WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion.
     return false;
 
   const auto &DirectlyUsedNonPointerVals = W->getDirectlyUsedNonPointerValues();
@@ -7115,8 +7434,7 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
   // emit per-element function. Now frontend has the option to switch between
   // per-element and array functions.
   FunctionType *FnTy = Fn->getFunctionType();
-  Type *ElementTy =
-      cast<PointerType>(FnTy->getParamType(0))->getPointerElementType();
+  Type *ElementTy = FnTy->getParamType(0)->getPointerElementType();
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(I);
@@ -7196,9 +7514,14 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Value *ReplacementVal = getClauseItemReplacementValue(PrivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 
-        if (auto *Ctor = PrivI->getConstructor())
+        if (auto *Ctor = PrivI->getConstructor()) {
+          Instruction *CtorInsertPt = dyn_cast<Instruction>(NewPrivInst);
+          // NewPrivInst might be at module level. e.g. 'target private (x)'.
+          if (!CtorInsertPt)
+            CtorInsertPt = InsertPt;
           genPrivatizationInitOrFini(PrivI, Ctor, FK_Ctor, NewPrivInst, nullptr,
-                                     cast<Instruction>(NewPrivInst), DT);
+                                     CtorInsertPt, DT);
+        }
 
 #if INTEL_CUSTOMIZATION
         if (!ForTask && PrivI->getIsF90DopeVector())
@@ -7645,6 +7968,75 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals, ECs);
 
+  // Try to find average and maximum trip counts for the loop. If loop has
+  // static or dynamic schedule and known chunk then both average and maximum
+  // trip counts will be equal to the chunk value.
+  Optional<APInt> MaxTC;
+#if INTEL_CUSTOMIZATION
+  Optional<APInt> AvgTC;
+#endif // INTEL_CUSTOMIZATION
+  if (W->canHaveSchedule() && (SchedKind == WRNScheduleStatic ||
+                               SchedKind == WRNScheduleOrderedStatic ||
+                               SchedKind == WRNScheduleDynamic ||
+                               SchedKind == WRNScheduleOrderedDynamic))
+    if (auto *Chunk =
+            dyn_cast_or_null<ConstantInt>(W->getSchedule().getChunkExpr()))
+      if (!Chunk->isZero() && !Chunk->isOne()) {
+        MaxTC = Chunk->getValue();
+#if INTEL_CUSTOMIZATION
+        AvgTC = Chunk->getValue();
+#endif // INTEL_CUSTOMIZATION
+      }
+
+  // Try to find loop's upper bound to get maximum trip count if it is not known
+  // yet.
+  // TODO: add support for collapsed loops with more than one normalized UB.
+  if (!MaxTC && W->getWRNLoopInfo().getNormUBSize() == 1) {
+    if (auto *UB = dyn_cast<AllocaInst>(W->getWRNLoopInfo().getNormUB(0))) {
+      // Walk UB uses trying to find single store that initializes UB.
+      StoreInst *SingleStore = nullptr;
+      for (Use &U : UB->uses())
+        if (auto *I = dyn_cast<Instruction>(U.getUser())) {
+          if (VPOAnalysisUtils::isOpenMPDirective(I) || isa<LoadInst>(I) ||
+              I->isLifetimeStartOrEnd() ||
+              isa<BitCastInst>(I) && all_of(I->uses(), [](Use &U) {
+                if (auto *I = dyn_cast<Instruction>(U.getUser()))
+                  return I->isLifetimeStartOrEnd();
+                return false;
+              }))
+            continue;
+
+          if (auto *SI = dyn_cast<StoreInst>(I))
+            if (SI->getPointerOperand() == UB)
+              if (!SingleStore) {
+                SingleStore = SI;
+                continue;
+              }
+
+          SingleStore = nullptr;
+          break;
+        }
+
+      // If we have found single store check what is being stored. If it is a
+      // constant integer then trip count is known.
+      if (SingleStore)
+        if (auto *CI = dyn_cast<ConstantInt>(SingleStore->getValueOperand()))
+          MaxTC = CI->getValue() + 1u;
+    }
+  }
+
+#if INTEL_CUSTOMIZATION
+  if (MaxTC &&
+      !findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_maximum"))
+    addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_maximum",
+                            MaxTC->getZExtValue());
+
+  if (AvgTC &&
+      !findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_average"))
+    addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_average",
+                            AvgTC->getZExtValue());
+#endif // INTEL_CUSTOMIZATION
+
   //
   // This is initial implementation of parallel loop scheduling to get
   // a simple loop to work end-to-end.
@@ -7708,16 +8100,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     if (VPOParoptUtils::getDistLoopScheduleKind(W) ==
         WRNScheduleDistributeStatic) {
       DistChunkVal = W->getDistSchedule().getChunkExpr();
-#if 0
-      // FIXME: enable this back, when FE starts capturing dist_schedule
-      //        chunk size.
-      if (!isa<Constant>(DistChunkVal)) {
-        resetValueInOmpClauseGeneric(W, DistChunkVal);
-        DistChunkVal =
-            VPOParoptUtils::cloneInstructions(DistChunkVal, PHTerm);
-        PHBuilder.SetInsertPoint(PHTerm);
-      }
-#endif
       IsDistChunkedParLoop = IsDistParLoop;
     }
   }
@@ -7870,7 +8252,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
             LowerBnd, UpperBnd, UpperD,
             Stride, StrideVal,
             IsDistForLoop ? DistChunkVal : ChunkVal,
-            IsUnsigned, PHTerm);
+            IsUnsigned, IndValTy, PHTerm);
 
     if (WRegionUtils::isDistributeParLoopNode(W) &&
         VPOParoptUtils::getDistLoopScheduleKind(W) ==
@@ -7930,6 +8312,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       PHBuilder.CreateAlignedLoad(IndValTy, LowerBnd, Align(4), "lb.new");
   LoadInst *LoadUB =
       PHBuilder.CreateAlignedLoad(IndValTy, UpperBnd, Align(4), "ub.new");
+
+  // If IV is signed add range metadata indicating that LB/UB are in positive
+  // range [0, MaxValue), where MaxValue is the original loop's TC+1 if loop
+  // bounds are known, or the maximum signed value of the IV's type otherwise.
+  if (!IsUnsigned) {
+    APInt MaxValue =
+        MaxTC ? *MaxTC + 1u : APInt::getSignedMaxValue(IndValTy->getBitWidth());
+    MDNode *RNode = MDBuilder(C).createRange(
+        ConstantInt::get(IndValTy, 0),
+        ConstantInt::get(IndValTy, MaxValue.getSExtValue()));
+    LoadLB->setMetadata(llvm::LLVMContext::MD_range, RNode);
+    LoadUB->setMetadata(llvm::LLVMContext::MD_range, RNode);
+  }
 
   // Fixup the induction variable's PHI to take the initial value
   // from the value of the lower bound returned by the run-time init.
@@ -8224,6 +8619,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   // Remove references from num_teams/thread_limit or num_threads
   // clauses so that they do not appear as live-ins for the code extractor.
   resetValueInNumTeamsAndThreadsClause(W);
+  if (!W->getIsTeams())
+    resetValueInOmpClauseGeneric(W, W->getIf());
 
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
@@ -8383,8 +8780,6 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
     else
       ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
                                     "__kmpc_fork_call", M);
-
-    ForkCallFn->setCallingConv(CallingConv::C);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -8414,8 +8809,8 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
-  GlobalVariable *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
-      F, CI, IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
+  Constant *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+      IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
   ConstantInt *NumArgs =
       ConstantInt::get(Type::getInt32Ty(C), CI->getNumArgOperands() - 2);
@@ -8439,7 +8834,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 
   // CI->replaceAllUsesWith(NewCI);
 
-  ForkCallInst->setCallingConv(CallingConv::C);
+  VPOParoptUtils::setFuncCallingConv(ForkCallInst, ForkCallInst->getModule());
   ForkCallInst->setTailCall(false);
   ForkCallInst->setDebugLoc(CI->getDebugLoc());
 
@@ -8606,7 +9001,9 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
            CopyinEndBB->getTerminator(), IdentTy, true);
       }
 
-      VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, NDL,
+      uint64_t Size = NDL.getTypeAllocSize(
+          C->getOrig()->getType()->getPointerElementType());
+      VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, Size,
                           getAlignmentCopyIn(C->getOrig(), NDL),
                           Term->getParent());
 
@@ -8638,15 +9035,29 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
 
   genThreadedEntryFormalParmList(W, ParamsTy);
 
+  // This is a map between new function's parameter index to the attribute set
+  // that need to be applied to the parameter after finalizing the new function.
+  // Parameter attributes are copied from the old function.
+  DenseMap<unsigned, AttributeSet> Param2Attrs;
+
+  unsigned int FnParmNo = 0;
   unsigned int TidParmNo = 0;
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
 
     // Matching formal argument and actual argument for Thread ID
-    if (!IsTidArg || TidParmNo != TidArgNo)
+    if (!IsTidArg || TidParmNo != TidArgNo) {
+      Param2Attrs[ParamsTy.size()] =
+          Fn->getAttributes().getParamAttributes(FnParmNo);
       ParamsTy.push_back(*ArgTyI);
+    }
+
+    // Remove parameter attributes from the old function.
+    Fn->removeParamAttrs(FnParmNo,
+                         Fn->getAttributes().getParamAttributes(FnParmNo));
 
     ++TidParmNo;
+    ++FnParmNo;
   }
 
   Type *RetTy = FnTy->getReturnType();
@@ -8656,6 +9067,11 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   Function *NFn = Function::Create(NFnTy, Fn->getLinkage());
 
   NFn->copyAttributesFrom(Fn);
+
+  // Propagate old parameter attributes to the new function.
+  for (auto &P : Param2Attrs)
+    NFn->addParamAttrs(P.first, P.second);
+
   if (W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
       W->getWRegionKindID() == WRegionNode::WRNTask)
     NFn->addFnAttr("task-mt-func", "true");
@@ -9898,12 +10314,13 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   Function *FnCopyPriv = genCopyPrivateFunc(W, KmpCopyPrivateTy);
   assert(isa<PointerType>(CopyPrivateBase->getType()) &&
            "genCopyPrivateCode: Expect non-empty pointer type");
-  PointerType *PtrTy = cast<PointerType>(CopyPrivateBase->getType());
   const DataLayout &DL = F->getParent()->getDataLayout();
-  uint64_t Size = DL.getTypeAllocSize(PtrTy->getElementType());
+  uint64_t Size =
+      DL.getTypeAllocSize(CopyPrivateBase->getType()->getPointerElementType());
   VPOParoptUtils::genKmpcCopyPrivate(
       W, IdentTy, TidPtrHolder, Size, CopyPrivateBase, FnCopyPriv,
-      Builder.CreateLoad(IsSingleThread), InsertPt);
+      Builder.CreateLoad(IsSingleThread->getAllocatedType(), IsSingleThread),
+      InsertPt);
 
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
@@ -9952,8 +10369,12 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
                                               OrigName + ".src.gep");
     Value *DstGep = Builder.CreateInBoundsGEP(KmpCopyPrivateTy, DstArg, Indices,
                                               OrigName + ".dst.gep");
-    LoadInst *SrcLoad = Builder.CreateLoad(SrcGep, OrigName + ".src");
-    LoadInst *DstLoad = Builder.CreateLoad(DstGep, OrigName + ".dst");
+    LoadInst *SrcLoad = Builder.CreateLoad(
+        cast<GEPOperator>(SrcGep)->getResultElementType(), SrcGep,
+        OrigName + ".src");
+    LoadInst *DstLoad = Builder.CreateLoad(
+        cast<GEPOperator>(DstGep)->getResultElementType(), DstGep,
+        OrigName + ".dst");
     Value *NewCopyPrivInst =
         genPrivatizationAlloca(CprivI, EntryBB->getTerminator(), ".cp.priv");
     genLprivFini(CprivI, NewCopyPrivInst, DstLoad, EntryBB->getTerminator());
@@ -9973,177 +10394,6 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   W->populateBBSet();
   VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
-}
-
-bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
-  // This transformation should be combined with the argument promotion pass (to
-  // do a cleanup) which currently runs only at O3, therefore we limit it to O3
-  // as well.
-  if (OptLevel < 3 || !W->canHaveShared())
-    return false;
-
-  W->populateBBSet();
-
-  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::privatizeSharedItems: "
-                    << W->getName() << "\n");
-
-  // Returns true if all given users are either load instructions or bitcasts
-  // that are used by the loads.
-  auto allUsersAreLoads = [W](ArrayRef<Instruction *> Users) {
-    SmallVector<Instruction *, 8u> Worklist{Users.begin(), Users.end()};
-    while (!Worklist.empty()) {
-      Instruction *I = Worklist.pop_back_val();
-      if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
-        WRegionUtils::findUsersInRegion(W, I, &Worklist, true);
-        continue;
-      }
-      if (!isa<LoadInst>(I))
-        return false;
-    }
-    return true;
-  };
-
-#ifndef NDEBUG
-  auto reportSkipped = [](Value *V, const Twine &Msg) {
-    dbgs() << "skipping '" << V->getName() << "' - " << Msg << "\n";
-  };
-#endif // NDEBUG
-
-  auto IsPrivatizationCandidate = [&](AllocaInst *AI) {
-    // Do not attempt to promote arrays or structures.
-    if (AI->isArrayAllocation() ||
-        !AI->getType()->getElementType()->isSingleValueType()) {
-      LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
-      return false;
-    }
-    Optional<uint64_t> Size =
-        AI->getAllocationSizeInBits(F->getParent()->getDataLayout());
-    if (!Size) {
-      LLVM_DEBUG(reportSkipped(AI, "unknown size"));
-      return false;
-    }
-
-    // Check if item's memory is modified inside the region. If not then it
-    // should be safe to privatize it.
-    MemoryLocation Loc{AI, LocationSize::precise(*Size)};
-    if (any_of(W->blocks(), [&](const BasicBlock *BB) {
-          if (BB == W->getEntryBBlock() || BB == W->getExitBBlock())
-            return false;
-          if (!AA->canBasicBlockModify(*BB, Loc))
-            return false;
-          LLVM_DEBUG(reportSkipped(AI, "is modified in " + BB->getName()));
-          return true;
-        }))
-      return false;
-    return true;
-  };
-
-  // Find "shared" candidates that can be privatized.
-  using ItemData = std::pair<AllocaInst *, SmallVector<Instruction *, 8>>;
-  SmallVector<ItemData, 8> ToPrivatize;
-  for (SharedItem *I : W->getShared().items()) {
-    if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
-      if (!IsPrivatizationCandidate(AI))
-      continue;
-
-      SmallVector<Instruction *, 8> Users;
-      if (!WRegionUtils::findUsersInRegion(W, AI, &Users, true)) {
-        LLVM_DEBUG(reportSkipped(AI, "no users in the region"));
-        continue;
-      }
-
-      // Check if item has no users other than loads or bitcasts/GEPs + loads.
-      if (!allUsersAreLoads(Users)) {
-        LLVM_DEBUG(reportSkipped(AI, "address escapes"));
-        continue;
-      }
-
-      ToPrivatize.emplace_back(AI, std::move(Users));
-      continue;
-    }
-
-    // Check if shared item is a bitcasted alloca instruction that can be
-    // privatized. If so move bitcast into the work region and change shared
-    // item to alloca instruction.
-    if (auto *BCI = dyn_cast<BitCastInst>(I->getOrig()))
-      if (auto *AI = dyn_cast<AllocaInst>(BCI->getOperand(0))) {
-
-        // TODO: If the BC's region is nested, we cannot make the alloca
-        // live-into the inner region without fixing up all the outer
-        // regions with map and/or explicit shared. Just disable for now.
-        if (W->getParent() && W->needsOutlining())
-          continue;
-
-        if (!IsPrivatizationCandidate(AI))
-          continue;
-
-        SmallVector<Instruction *, 8> Users;
-        if (!WRegionUtils::findUsersInRegion(W, BCI, &Users)) {
-          LLVM_DEBUG(reportSkipped(BCI, "no users in the region"));
-          continue;
-        }
-
-        if (!allUsersAreLoads(BCI)) {
-          LLVM_DEBUG(reportSkipped(BCI, "address escapes"));
-          continue;
-        }
-
-        // Change shared value to alloca instruction.
-        auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
-        EntryDir->replaceUsesOfWith(BCI, AI);
-        I->setOrig(AI);
-
-        // And move bitcast into the region.
-        auto *NewBCI = cast<BitCastInst>(BCI->clone());
-        NewBCI->insertAfter(EntryDir);
-
-        for (auto *User : Users)
-          User->replaceUsesOfWith(BCI, NewBCI);
-
-        // Add alloca to the provatization list. Bitcast is the only user of
-        // alloca inside the region.
-        ToPrivatize.emplace_back(AI, SmallVector<Instruction *, 1>({NewBCI}));
-        continue;
-      }
-
-    LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
-  }
-
-  // Clear blocks.
-  W->resetBBSet();
-
-  if (ToPrivatize.empty())
-    return false;
-
-  // Create separate block for alloca and load/store instructions.
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *NewBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
-  Instruction *InsPt = NewBB->getTerminator();
-  Instruction *AllocaInsPt =
-      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/false);
-
-  // Create private instances for variables collected earlier.
-  for (ItemData &P : ToPrivatize) {
-    AllocaInst *AI = P.first;
-
-    LLVM_DEBUG(dbgs() << "privatizing '" << AI->getName() << "'\n");
-
-    // Allocate space for the private copy.
-    auto *NewAI = cast<AllocaInst>(AI->clone());
-    NewAI->setName(AI->getName() + ".fp");
-    NewAI->insertBefore(AllocaInsPt);
-
-    // Copy variable value from the original location to the private instance.
-    new StoreInst(
-        new LoadInst(AI->getAllocatedType(), AI, AI->getName() + ".v", InsPt),
-        NewAI, InsPt);
-
-    // And replace all uses of the original variable in the region with the
-    // private one.
-    for (auto *User : P.second)
-      User->replaceUsesOfWith(AI, NewAI);
-  }
-  return true;
 }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -10708,9 +10958,9 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   SmallVector<Value *, 3> MulOperands;
   for (unsigned Idx = 0; Idx < NumLoops; ++Idx) {
     auto *UBPtrDef = W->getWRNLoopInfo().getNormUB(Idx);
-    auto *UBVal =
-        BeforeRegBuilder.CreateLoad(UBPtrDef,
-                                    Twine(UBPtrDef->getName()) + Twine(".val"));
+    auto *UBVal = BeforeRegBuilder.CreateLoad(
+        UBPtrDef->getType()->getPointerElementType(), UBPtrDef,
+        Twine(UBPtrDef->getName()) + Twine(".val"));
     MulOperands.push_back(
         BeforeRegBuilder.CreateAdd(
             BeforeRegBuilder.CreateZExtOrTrunc(UBVal, CombinedUBType, ".zext"),
@@ -10772,9 +11022,9 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   SmallVector<Value *, 3> Dimensions;
   for (unsigned Idx = 1; Idx < NumLoops; ++Idx) {
     auto *UBPtrDef = W->getWRNLoopInfo().getNormUB(Idx);
-    auto *UBVal =
-        DimInitBuilder.CreateLoad(UBPtrDef,
-                                  Twine(UBPtrDef->getName()) + Twine(".val"));
+    auto *UBVal = DimInitBuilder.CreateLoad(
+        UBPtrDef->getType()->getPointerElementType(), UBPtrDef,
+        Twine(UBPtrDef->getName()) + Twine(".val"));
     Dimensions.push_back(
         DimInitBuilder.CreateAdd(
             DimInitBuilder.CreateZExtOrTrunc(UBVal, CombinedUBType, ".zext"),
@@ -10998,15 +11248,16 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   assert(LoopContentStart && "IV init block must have one successor.");
 
   IRBuilder<> IVInitBuilder(&IVInitBB->front());
-  IVInitBuilder.CreateStore(IVInitBuilder.CreateLoad(NewLBPtrDef), NewIVPtrDef);
+  IVInitBuilder.CreateStore(
+      IVInitBuilder.CreateLoad(CombinedUBType, NewLBPtrDef), NewIVPtrDef);
 
   BasicBlock *LoopCondBB =
     SplitBlock(IVInitBB, IVInitBB->getTerminator(), DT, LI);
   // This block will be inside the new loop.
   LoopCondBB->setName("omp.collapsed.loop.cond");
   IRBuilder<> LoopCondBuilder(&LoopCondBB->front());
-  Value *IVLoad = LoopCondBuilder.CreateLoad(NewIVPtrDef);
-  Value *LoadUB = LoopCondBuilder.CreateLoad(NewUBPtrDef);
+  Value *IVLoad = LoopCondBuilder.CreateLoad(CombinedUBType, NewIVPtrDef);
+  Value *LoadUB = LoopCondBuilder.CreateLoad(CombinedUBType, NewUBPtrDef);
   Value *CmpI = LoopCondBuilder.CreateICmpSLE(IVLoad, LoadUB);
   Instruction *ElseTerm = LoopCondBB->getTerminator();
   // Split the block: the Then block will jump to the loop
@@ -11028,7 +11279,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   // one iteration) based on the combined IV.
   IRBuilder<> ThenBuilder(ThenTerm);
   Value *NewBndVal =
-      ThenBuilder.CreateLoad(NewIVPtrDef,
+      ThenBuilder.CreateLoad(CombinedUBType, NewIVPtrDef,
                              Twine(NewIVPtrDef->getName()) + Twine(".val"));
   for (unsigned Idx = 0; Idx < NumLoops; ++Idx) {
     Value *UpdateVal = ThenBuilder.CreateSDiv(NewBndVal, Dimensions[Idx]);
@@ -11063,7 +11314,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   LoopIncBB->getTerminator()->setSuccessor(0, LoopCondBB);
   IRBuilder<> IncBuilder(LoopIncBB->getTerminator());
   IncBuilder.CreateStore(
-      IncBuilder.CreateAdd(IncBuilder.CreateLoad(NewIVPtrDef),
+      IncBuilder.CreateAdd(IncBuilder.CreateLoad(CombinedUBType, NewIVPtrDef),
                            ConstantInt::get(CombinedUBType, 1),
                            "", true, true),
       NewIVPtrDef);
@@ -11347,5 +11598,132 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   WTarget->resetUncollapsedNDRangeDimensions();
 
   return true;
+}
+
+bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
+  // Set of function's blocks outside of any work region. Initially it contains
+  // all function's block, but we'll be removing work region's blocks from it
+  // while processing them.
+  SmallPtrSet<BasicBlock *, 8u> OrphanBlocks;
+  for (BasicBlock &BB : *F)
+    OrphanBlocks.insert(&BB);
+
+  auto GetConstantValue = [](Value *V) -> Optional<APInt> {
+    if (auto *CI = dyn_cast_or_null<ConstantInt>(V))
+      return CI->getValue();
+    return None;
+  };
+
+  auto GetParentValue = [](WRegionNode *W,
+                           SmallDenseMap<WRegionNode *, Optional<APInt>> &Map)
+      -> Optional<APInt> {
+    if (WRegionNode *PW = W->getParent())
+      return Map[PW];
+    return None;
+  };
+
+  // Propagate number of teams and threads from outer regions to inner.
+  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumTeams;
+  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumThreads;
+  for (WRegionNode *W : reverse(WRegionList)) {
+    W->populateBBSet();
+
+    // Update set of blocks which do not belong to any work region.
+    for (BasicBlock *BB : W->blocks())
+      OrphanBlocks.erase(BB);
+
+    // The number of teams and threads can be changed by teams, parallel and
+    // target constructs. Other work regions inherit values from the parent
+    // region.
+    if (W->getIsTeams()) {
+      W2NumTeams[W] = GetConstantValue(W->getNumTeams());
+      W2NumThreads[W] = GetConstantValue(W->getThreadLimit());
+      continue;
+    }
+    if (W->getIsPar()) {
+      W2NumTeams[W] = GetParentValue(W, W2NumTeams);
+      W2NumThreads[W] = GetConstantValue(W->getNumThreads());
+      continue;
+    }
+    if (W->getIsTarget()) {
+      W2NumTeams[W] = None;
+      W2NumThreads[W] = None;
+      continue;
+    }
+    W2NumTeams[W] = GetParentValue(W, W2NumTeams);
+    W2NumThreads[W] = GetParentValue(W, W2NumThreads);
+  }
+
+  // Adds [Lo, Hi) range metadata to the given call instruction. If upper
+  // bound is not specified then max positive value of the call's result type
+  // is used.
+  auto AddRangeMD = [](CallBase *Call, int64_t Lo, Optional<APInt> Hi) {
+    auto *Ty = cast<IntegerType>(Call->getType());
+    APInt Max = Hi ? *Hi : APInt::getSignedMaxValue(Ty->getBitWidth());
+    MDNode *RangeMD =
+        MDBuilder(Call->getContext())
+            .createRange(ConstantInt::get(Ty, Lo),
+                         ConstantInt::get(Ty, Max.getSExtValue()));
+    Call->setMetadata(LLVMContext::MD_range, RangeMD);
+  };
+
+  // Annotate OpenMP API calls in the given basic block using provided number of
+  // teams and threads in the block.
+  auto AnnotateCalls = [this, &AddRangeMD](BasicBlock *BB,
+                                           Optional<APInt> NumTeams,
+                                           Optional<APInt> NumThreads) {
+    bool Changed = false;
+    for (Instruction &I : *BB) {
+      auto *Call = dyn_cast<CallBase>(&I);
+      if (!Call || Call->getMetadata(LLVMContext::MD_range))
+        continue;
+
+      Function *Callee = Call->getCalledFunction();
+      if (!Callee)
+        continue;
+
+      LibFunc TheLibFunc;
+      if (!TLI->getLibFunc(*Callee, TheLibFunc) || !TLI->has(TheLibFunc))
+        continue;
+
+      switch (TheLibFunc) {
+      case LibFunc_omp_get_num_teams:
+        AddRangeMD(Call, 1, NumTeams ? *NumTeams + 1u : Optional<APInt>{None});
+        Changed = true;
+        break;
+      case LibFunc_omp_get_team_num:
+        AddRangeMD(Call, 0, NumTeams);
+        Changed = true;
+        break;
+      case LibFunc_omp_get_num_threads:
+        AddRangeMD(Call, 1,
+                   NumThreads ? *NumThreads + 1u : Optional<APInt>{None});
+        Changed = true;
+        break;
+      case LibFunc_omp_get_thread_num:
+        AddRangeMD(Call, 0, NumThreads);
+        Changed = true;
+        break;
+      default:
+        break;
+      }
+    }
+    return Changed;
+  };
+
+  // Walk work regions inner to outer and annotate OpenMP calls in work region's
+  // blocks.
+  bool Changed = false;
+  for (WRegionNode *W : WRegionList) {
+    for (BasicBlock *BB : W->blocks())
+      Changed |= AnnotateCalls(BB, W2NumTeams[W], W2NumThreads[W]);
+    W->resetBBSet();
+  }
+
+  // And finally annotate calls in function's blocks outside of any work region.
+  for (BasicBlock *BB : OrphanBlocks)
+    Changed |= AnnotateCalls(BB, None, None);
+
+  return Changed;
 }
 #endif // INTEL_COLLAB

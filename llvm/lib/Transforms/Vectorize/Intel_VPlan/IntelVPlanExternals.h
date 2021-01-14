@@ -16,12 +16,85 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_EXTERNALS_H
 
 #include "IntelVPlanValue.h"
+#include "llvm/ADT/MapVector.h"
 
 namespace llvm {
 namespace vpo {
 
 class VPlan;
 class VPLoopEntityList;
+class ScalarInOutList;
+class VPLoopEntity;
+
+// Auxiliary class to describe live-in/out values for scalar loop.
+class ScalarInOutDescr {
+  PHINode *Phi;         // the phi node that takes the starting value
+  int StartValOpNum;    // Start-value operand num
+  const Value *LiveOut; // Live out value
+  unsigned MergeId;     // Synchronization key
+
+public:
+  ScalarInOutDescr(PHINode *PN, int StartOp, const Value *LiveOutInst,
+                   unsigned Id)
+      : Phi(PN), StartValOpNum(StartOp), LiveOut(LiveOutInst), MergeId(Id) {}
+
+  PHINode *getPhi() const { return Phi; }
+  int getStartOpNum() const { return StartValOpNum; }
+  const Value *getLiveOut() const { return LiveOut; }
+  unsigned getId() const { return MergeId; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const;
+  void dump() const { dump(outs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+// List of descriptors of in/out values for scalar loop.
+class ScalarInOutList {
+  // The list of descriptors is kept as a map to be able to take
+  // descriptors by Id.
+  using InOutListTy = MapVector<unsigned, std::unique_ptr<ScalarInOutDescr>>;
+  InOutListTy InOutList;
+
+public:
+  // Add a descriptor.
+  void add(PHINode *PN, int StartOp, const Value *LiveOutInst, unsigned Id) {
+    assert(InOutList.count(Id) == 0 && "Second descriptor for an Id");
+    InOutList.insert(std::make_pair(
+        Id, std::make_unique<ScalarInOutDescr>(PN, StartOp, LiveOutInst, Id)));
+  }
+
+  ScalarInOutDescr *getDescr(unsigned Id) const {
+    auto Iter = InOutList.find(Id);
+    assert(Iter != InOutList.end() && "Invalid Id");
+    return Iter->second.get();
+  }
+
+  // Return iterator to list of descriptors.
+  decltype(auto) list() const {
+    return map_range(
+        make_range(InOutList.begin(), InOutList.end()),
+        [](const InOutListTy::value_type &I) -> ScalarInOutDescr * {
+          return I.second.get();
+        });
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const {
+    OS << "Original loop live-ins/live-outs:";
+    if (InOutList.empty())
+      OS << " empty\n";
+    else {
+      OS << "\n";
+      for (const auto Descr : list()) {
+        Descr->dump(OS);
+        OS << "\n";
+      }
+    }
+  }
+  void dump() const { dump(dbgs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
 
 /// Class to hold external data used in VPlan. We can have several VPlans that
 /// model different vectozation scenarios for one loop. Those VPlans are in most
@@ -95,6 +168,9 @@ class VPExternalValues {
   // Holds the original incoming values.
   SmallVector<VPValue*, 16> OriginalIncomingValues;
 
+  // Holds live-in/out descriptors of scalar loops.
+  std::map<const Loop *, ScalarInOutList> ScalarLoopsInOut;
+
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
@@ -155,7 +231,7 @@ public:
   }
 
   /// Return VPExternalUse by its MergeId.
-  const VPExternalUse *getVPExternalUse(unsigned MergeId) const {
+  VPExternalUse *getVPExternalUse(unsigned MergeId) const {
     return VPExternalUses[MergeId].get();
   }
 
@@ -262,6 +338,14 @@ public:
     OriginalIncomingValues.resize(Count, nullptr);
   }
 
+  /// Get in/out list for scalar loop.
+  const ScalarInOutList *getScalarLoopInOuts(const Loop *OrigLoop) const {
+    auto It = ScalarLoopsInOut.find(OrigLoop);
+    if (It != ScalarLoopsInOut.end())
+      return &It->second;
+    return nullptr;
+  }
+
   // Verify that VPConstants are unique in the pool and that the map keys are
   // consistent with the underlying IR information of each VPConstant.
   void verifyVPConstants() const;
@@ -282,9 +366,15 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpExternalDefs(raw_ostream &FOS) const;
   void dumpExternalUses(raw_ostream &FOS, const VPlan *P) const;
+  void dumpScalarInOuts(raw_ostream &FOS, const Loop *L) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  /// Non const getter for scalar in/out descriptors.
+  ScalarInOutList *getOrCreateScalarLoopInOuts(const Loop *OrigLoop) {
+    return &ScalarLoopsInOut[OrigLoop];
+  }
+
   // Insert new ExternalUse into table.
   VPExternalUse *insertExternalUse(VPExternalUse *EUse, unsigned Id) {
     assert((Id == VPExternalUses.size() && EUse->getMergeId() == Id) &&
@@ -414,7 +504,8 @@ public:
   /// wrappers for all live-out, also adding fake VPExternalUse when needed.
   /// The original incoming vaules are replaced by the newly created
   /// VPLiveInValues and VExternalUse-users are replaced by VPLiveOutValues.
-  void createInOutValues();
+  /// Also, descriptors of in/out values for scalar loops are created in VPlan.
+  void createInOutValues(Loop *OrigLoop);
 
   /// Replace all occurenses of VPLiveInValues with original incoming values.
   /// Temporary, until CFG merge process is not implemented. Then all such
@@ -422,12 +513,13 @@ public:
   void restoreLiveIns();
 
 private:
-
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's inductions.
-  void createInOutsInductions(const VPLoopEntityList *VPLEntityList);
+  void createInOutsInductions(const VPLoopEntityList *VPLEntityList,
+                              Loop *OrigLoop);
 
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's reductions.
-  void createInOutsReductions(const VPLoopEntityList *VPLEntityList);
+  void createInOutsReductions(const VPLoopEntityList *VPLEntityList,
+                              Loop *OrigLoop);
 
   VPLiveInValue *createLiveInValue(unsigned Id, Type *Ty) {
     VPLiveInValue *LiveIn = new VPLiveInValue(Id, Ty);
@@ -441,6 +533,13 @@ private:
     LiveOut->setName(Name + Twine(Id));
     return LiveOut;
   }
+  template <class InitTy, class FinalTy>
+  void addInOutValues(InitTy *Init, FinalTy *Final, VPExternalUse *ExtUse,
+                      bool ExtUseAdded, VPValue *StartV);
+  // Create and add descriptor of livein/out value in scalar loop.
+  void addOriginalLiveInOut(const VPLoopEntityList *VPLEntityList,
+                            Loop *OrigLoop, VPLoopEntity *E,
+                            VPExternalUse *ExtUse, ScalarInOutList &SList);
 };
 
 } // namespace vpo

@@ -154,15 +154,13 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2w_512(<32 x half> %arg0, <
   ret <32 x i16> %res
 }
 
-; FIXME: insertelement doesn't work with halfs yet
-;
-; define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2w_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
-;   %scalar = load half, half* %arg0
-;   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
-;   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
-;   %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvtph2w.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
-;   ret <32 x i16> %res
-; }
+define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2w_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+  %scalar = load half, half* %arg0
+  %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
+  %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
+  %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvtph2w.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
+  ret <32 x i16> %res
+}
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2w_512_r(<32 x half> %arg0, <32 x i16> %arg1, i32 %mask) {
 ; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvtph2w_512_r:
@@ -358,15 +356,13 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2uw_512(<32 x half> %arg0, 
   ret <32 x i16> %res
 }
 
-; FIXME: insertelement doesn't work with halfs yet
-;
-; define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2uw_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
-;   %scalar = load half, half* %arg0
-;   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
-;   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
-;   %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvtph2uw.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
-;   ret <32 x i16> %res
-; }
+define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2uw_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+  %scalar = load half, half* %arg0
+  %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
+  %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
+  %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvtph2uw.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
+  ret <32 x i16> %res
+}
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2uw_512_r(<32 x half> %arg0, <32 x i16> %arg1, i32 %mask) {
 ; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvtph2uw_512_r:
@@ -422,15 +418,13 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2w_512(<32 x half> %arg0, 
   ret <32 x i16> %res
 }
 
-; FIXME: insertelement doesn't work with halfs yet
-;
-; define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2w_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
-;   %scalar = load half, half* %arg0
-;   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
-;   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
-;   %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvttph2w.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
-;   ret <32 x i16> %res
-; }
+define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2w_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+  %scalar = load half, half* %arg0
+  %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
+  %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
+  %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvttph2w.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
+  ret <32 x i16> %res
+}
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2w_512_sae(<32 x half> %arg0, <32 x i16> %arg1, i32 %mask) {
 ; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvttph2w_512_sae:
@@ -486,15 +480,13 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2uw_512(<32 x half> %arg0,
   ret <32 x i16> %res
 }
 
-; FIXME: insertelement doesn't work with halfs yet
-;
-; define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2uw_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
-;   %scalar = load half, half* %arg0
-;   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
-;   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
-;   %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvttph2uw.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
-;   ret <32 x i16> %res
-; }
+define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2uw_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+  %scalar = load half, half* %arg0
+  %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
+  %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
+  %res = call <32 x i16> @llvm.x86.avx512fp16.mask.vcvttph2uw.512(<32 x half> %val, <32 x i16> %arg1, i32 %mask, i32 4)
+  ret <32 x i16> %res
+}
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2uw_512_sae(<32 x half> %arg0, <32 x i16> %arg1, i32 %mask) {
 ; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvttph2uw_512_sae:

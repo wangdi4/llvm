@@ -38,6 +38,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLoopConcatenation.cpp
         HIRArrayTranspose.cpp
         HIRAosToSoa.cpp
+        HIRInterLoopBlocking.cpp
         Utils/HIRTransformUtils.cpp
         HIRLoopFusion.cpp
         HIRLoopFusionGraph.cpp
@@ -61,10 +62,21 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRSumWindowReuse.cpp
         HIRNonZeroSinkingForPerfectLoopnest.cpp
         HIRIdentityMatrixSubstitution.cpp
+        HIRArrayScalarizationTestLauncher.cpp
+        HIRArrayScalarization.cpp
+        HIRCrossLoopArrayContraction.cpp
 
-  ADDITIONAL_HEADER_DIRS
-  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
-  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
+        ADDITIONAL_HEADER_DIRS
+        ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
+        ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
+
+        LINK_COMPONENTS
+        Analysis
+        Core
+        Intel_LoopAnalysis
+        Intel_OptReport
+        Support
+        TransformUtils
         )
 
 target_link_libraries(LLVMIntel_LoopTransforms PRIVATE LLVMIntel_DTransAnalysis)

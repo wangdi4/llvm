@@ -57,6 +57,11 @@ public:
     initializeSimpleInlinerPass(*PassRegistry::getPassRegistry());
   }
 
+#if INTEL_CUSTOMIZATION
+  ~SimpleInliner() {
+    getReport()->testAndPrint(this);
+  }
+#endif // INTEL_CUSTOMIZATION
   static char ID; // Pass identification, replacement for typeid
 
   InlineCost getInlineCost(CallBase &CB) override {
@@ -140,8 +145,14 @@ Pass *llvm::createFunctionInliningPass(InlineParams &Params) {
 
 bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
   TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
-  TLIWP = &getAnalysis<TargetLibraryInfoWrapperPass>(); // INTEL
-  return LegacyInlinerBase::runOnSCC(SCC);
+#if INTEL_CUSTOMIZATION
+  TLIWP = &getAnalysis<TargetLibraryInfoWrapperPass>();
+  getInlineReport()->beginSCC(SCC, this);
+  getMDInlineReport()->beginSCC(SCC);
+  bool RV = LegacyInlinerBase::runOnSCC(SCC);
+  getInlineReport()->endSCC();
+  return RV;
+#endif // INTEL_CUSTOMIZATION
 }
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {

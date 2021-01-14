@@ -138,10 +138,9 @@ namespace {
 class HIRUnrollAndJam {
 public:
   HIRUnrollAndJam(HIRFramework &HIRF, HIRLoopStatistics &HLS,
-                  HIRLoopResource &HLR, HIRLoopLocality &HLA,
-                  HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
-                  bool PragmaOnlyUnroll)
-      : HIRF(HIRF), HLS(HLS), HLR(HLR), HLA(HLA), DDA(DDA), HSRA(HSRA),
+                  HIRLoopResource &HLR, HIRDDAnalysis &DDA,
+                  HIRSafeReductionAnalysis &HSRA, bool PragmaOnlyUnroll)
+      : HIRF(HIRF), HLS(HLS), HLR(HLR), DDA(DDA), HSRA(HSRA),
         HaveUnrollCandidates(false), PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   bool run();
@@ -164,7 +163,6 @@ private:
   HIRFramework &HIRF;
   HIRLoopStatistics &HLS;
   HIRLoopResource &HLR;
-  HIRLoopLocality &HLA;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &HSRA;
 
@@ -318,8 +316,7 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   // innermost loop so we check whether swapping the corresponding DV elements
   // yields a legal DV.
 
-  unsigned LastLevel = DV.getLastLevel();
-  assert((LastLevel >= LoopLevel) && "DV has invalid last level!");
+  unsigned LastLevel = DV.size();
 
   DVKind LoopLevelDV = DV[LoopLevel - 1];
   DVKind InnermostDV = DV[LastLevel - 1];
@@ -890,7 +887,7 @@ void HIRUnrollAndJam::Analyzer::refineUnrollFactorUsingParentLoop(
     ParUnrollFactor = 1;
   }
 
-  if (!HUAJ.HLA.hasTemporalLocality(ParLp, 1, true)) {
+  if (!HIRLoopLocality::hasTemporalLocality(ParLp, 1, true)) {
     LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                          "temporal locality!\n");
     HUAJ.throttle(ParLp);
@@ -968,7 +965,7 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   if (!HasEnablingPragma) {
     // TODO: refine unroll factor using extra cache lines accessed by
     // unrolling?
-    if (!HUAJ.HLA.hasTemporalLocality(Lp, UnrollFactor - 1, true)) {
+    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true)) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                            "temporal locality!\n");
       HUAJ.throttle(Lp);
@@ -1648,7 +1645,6 @@ PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
   HIRUnrollAndJam(AM.getResult<HIRFrameworkAnalysis>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<HIRLoopResourceAnalysis>(F),
-                  AM.getResult<HIRLoopLocalityAnalysis>(F),
                   AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F), false)
       .run();
@@ -1671,7 +1667,6 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   }
@@ -1685,7 +1680,6 @@ public:
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
                getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
                getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
                PragmaOnlyUnroll)
@@ -1699,7 +1693,6 @@ INITIALIZE_PASS_BEGIN(HIRUnrollAndJamLegacyPass, "hir-unroll-and-jam",
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRUnrollAndJamLegacyPass, "hir-unroll-and-jam",

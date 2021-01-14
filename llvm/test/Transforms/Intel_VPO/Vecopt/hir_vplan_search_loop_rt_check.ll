@@ -40,7 +40,7 @@
 ; CHECK:       if (%valid.padding != 0)
 ; CHECK:       {
 ; CHECK:          %tgu = 2;
-; CHECK:          + DO i1 = 0, 7, 4   <DO_MULTI_EXIT_LOOP> <novectorize>
+; CHECK:          + DO i1 = 0, 7, 4   <DO_MULTI_EXIT_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:          |   %wide.cmp. = (<4 x i8>*)(%pv1)[i1] != (<4 x i8>*)(%pv1)[i1];
 ; CHECK:          |   %intmask = bitcast.<4 x i1>.i4(%wide.cmp.);
 ; CHECK:          |   if (%intmask != 0)
@@ -71,7 +71,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define internal zeroext i1 @searchloop(i32* %p) {
 entry:
-  %t0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 2)
+  %t0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 2, i8* null)
   %pv1 = bitcast i32* %t0 to i8*
   br label %bb2
 
@@ -102,22 +102,7 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32) #0
-
-; Function Attrs: nounwind
-declare i16* @llvm.ptr.annotation.p0i16(i16*, i8*, i8*, i32) #0
-
-; Function Attrs: nounwind
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32) #0
-
-; Function Attrs: nounwind
-declare i64* @llvm.ptr.annotation.p0i64(i64*, i8*, i8*, i32) #0
-
-; Function Attrs: nounwind
-declare float* @llvm.ptr.annotation.p0f32(float*, i8*, i8*, i32) #0
-
-; Function Attrs: nounwind
-declare double* @llvm.ptr.annotation.p0f64(double*, i8*, i8*, i32) #0
+declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*) #0
 
 attributes #0 = { nounwind }
 

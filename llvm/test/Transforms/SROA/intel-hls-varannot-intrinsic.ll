@@ -19,7 +19,7 @@ entry:
   store i32 %b, i32* %b.addr, align 4
   store i32 %c, i32* %c.addr, align 4
   %a1 = bitcast i32* %a to i8*
-  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 4)
+  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 4, i8* null)
   %0 = load i32, i32* %b.addr, align 4
   store i32 %0, i32* %a, align 4
   %1 = load i32, i32* %c.addr, align 4
@@ -45,7 +45,7 @@ entry:
   store i32 %b, i32* %b.addr, align 4
   store i32 %c, i32* %c.addr, align 4
   %a1 = bitcast i32* %a to i8*
-  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 14)
+  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 14, i8* null)
   %0 = load i32, i32* %b.addr, align 4
   store i32 %0, i32* %a, align 4
   %1 = load i32, i32* %c.addr, align 4
@@ -71,7 +71,7 @@ entry:
   store i32 %b, i32* %b.addr, align 4
   store i32 %c, i32* %c.addr, align 4
   %a1 = bitcast i32* %a to i8*
-  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 22)
+  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 22, i8* null)
   %0 = load i32, i32* %b.addr, align 4
   store i32 %0, i32* %a, align 4
   %1 = load i32, i32* %c.addr, align 4
@@ -94,12 +94,12 @@ entry:
   %lifetime_ptr = bitcast [2 x i8]* %a to i8*
   call void @llvm.lifetime.start.p0i8(i64 288, i8* %lifetime_ptr) #1
   %a1 = getelementptr inbounds [2 x i8], [2 x i8]* %a, i64 0, i64 0
-  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 14)
+  call void @llvm.var.annotation(i8* %a1, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @.str.1, i32 0, i32 0), i32 14, i8* null)
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.var.annotation(i8*, i8*, i8*, i32) #0
+declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #0
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1

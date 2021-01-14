@@ -18,10 +18,12 @@
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
@@ -68,6 +70,20 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
   AAResults &AA = AAGetter(F);
   DominatorTree &DT = DTGetter(F);
 
+  // Make a pass of the Function's uses in order to look through ConstantExpr
+  // cast uses. The AbstractCallSite constructor can do this for cases where
+  // the ConstantExpr has a single use, but doing it for the constructor allows
+  // ConstantExpr use which themselves have multiple uses to be handled.
+  SmallVector<Use *, 4> FuncUses;
+  for (Use &U : F.uses()) {
+    ConstantExpr *CE = dyn_cast<ConstantExpr>(U.getUser());
+    if (CE && !CE->hasOneUse() && CE->isCast())
+      for (Use &CEUse : CE->uses())
+        FuncUses.push_back(&CEUse);
+    else
+      FuncUses.push_back(&U);
+  }
+
   // Check all function's call sites to see what values are passed to the
   // pointer arguments. We check if actual value that is passed to the call
   //  - is derived from a noalias pointer
@@ -77,8 +93,8 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
   // function argument.
   // TODO: we may consider cloning functions if noalias can be added for some
   // call sites but not all.
-  for (Use &U : F.uses()) {
-    AbstractCallSite CS(&U);
+  for (Use *U : FuncUses) {
+    AbstractCallSite CS(U);
 
     // Must be a direct or a callback call.
     if (!CS || !(CS.isDirectCall() || CS.isCallbackCall()))
@@ -92,21 +108,29 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
       if (Value *PV = CS.getCallArgOperand(*P.first)) {
         Value *Origin = PV->stripPointerCasts();
 
-        // So far we are checking for aliasing only the following values that
-        // are passed to the call
-        //  - Function arguments with noalias attribute
-        //  - Function calls that return noalias pointer
-        //  - Alloca instructions
-        NoAlias = isNoAliasArgument(Origin) || isNoAliasCall(Origin) ||
-                  isa<AllocaInst>(Origin);
+        // Returns true if the Value is both derived from a function-local
+        // noalias pointer and not captured before the call site.
+        auto IsLocalAndUncaptured = [&DT, &CS](const Value *V) -> bool {
+          if (!isIdentifiedFunctionLocal(V))
+            return false;
 
-        if (NoAlias)
-          // Pointer that is passed to the call should not be captured because
-          // otherwise we cannot guarantee that it does not alias with any other
-          // pointer value that is used inside the function.
-          NoAlias = !PointerMayBeCapturedBefore(PV, /*ReturnCaptures=*/true,
-                                                /*StoreCaptures=*/true,
-                                                CS.getInstruction(), &DT);
+          return !PointerMayBeCapturedBefore(V, /*ReturnCaptures=*/true,
+                                             /*StoreCaptures=*/ true,
+                                             CS.getInstruction(), &DT);
+        };
+
+        // Returns true if the Value is derived exclusively from local objects
+        // which have not escaped. For example, the Value may be a PHI choosing
+        // between multiple allocas.
+        auto IsDerivedFromUncaptured =
+            [&IsLocalAndUncaptured](Value *V) -> bool {
+          SmallVector<const Value *, 4> Pointers;
+          getUnderlyingObjects(V, Pointers);
+
+          return all_of(Pointers, IsLocalAndUncaptured);
+        };
+
+        NoAlias = IsDerivedFromUncaptured(Origin);
 
         if (NoAlias)
           // Actual argument should not alias with any other pointer values that

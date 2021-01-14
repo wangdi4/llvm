@@ -70,8 +70,9 @@ public:
     // The library function we use requires AVX-512 or AVX-2 to work correctly.
     // If we're not optimizing for either, then don't try to use it.
     HasLibFunc =
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX512) ||
-      TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2);
+        TTI.isAdvancedOptEnabled(
+            TargetTransformInfo::AO_TargetHasIntelAVX512) ||
+        TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2);
 
     // CMPLRLLVM-21684: For some reason, the library function does not work
     // correctly on x86-32. Until this can be understood, disable the library
@@ -151,7 +152,7 @@ void NontemporalStore::run() {
       ArrayType::get(Builder.getInt8Ty(), 0) // Source data pointer
   };
   StructType *StoreBufferType =
-    F.getParent()->getTypeByName("__nontemporal_buffer_data");
+    StructType::getTypeByName(F.getContext(), "__nontemporal_buffer_data");
   if (!StoreBufferType || StoreBufferType->elements() != ArrayRef<Type*>(Tys)) {
     StoreBufferType = StructType::create(Tys, "__nontemporal_buffer_data");
   }
@@ -375,7 +376,7 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
 
   // Get the location that we store. Adjust it for the range of the array that
   // we could be storing, as well as the size of the type we are storing.
-  LocationSize Size = LocationSize::unknown();
+  LocationSize Size = LocationSize::beforeOrAfterPointer();
   if (TripCount) {
     Size = LocationSize::precise(
         DL.getTypeStoreSize(SI.getValueOperand()->getType()) *
@@ -401,7 +402,7 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
       // range between the first and last store in the loop. Otherwise, just
       // check for aliasing in the entire object.
       auto ILoc = MemoryLocation::getOrNone(&Inst);
-      LocationSize QuerySize = LocationSize::unknown();
+      LocationSize QuerySize = LocationSize::beforeOrAfterPointer();
       if (ILoc && TripCount) {
         const SCEV *QuerySCEV = SE.getSCEV(const_cast<Value*>(ILoc->Ptr));
         if (auto AddRec = dyn_cast<SCEVAddRecExpr>(QuerySCEV)) {
@@ -437,7 +438,9 @@ public:
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.setPreservesAll();
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<LoopInfoWrapperPass>();
+    AU.addPreserved<ScalarEvolutionWrapperPass>();
   };
 
   bool runOnFunction(Function &F) override;
@@ -453,7 +456,12 @@ PreservedAnalyses NontemporalStorePass::run(Function &F,
       AM.getResult<ScalarEvolutionAnalysis>(F),
       AM.getResult<TargetIRAnalysis>(F));
   Impl.run();
-  return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<LoopAnalysis>();
+  PA.preserve<ScalarEvolutionAnalysis>();
+  return PA;
 }
 
 char NontemporalStoreWrapperPass::ID = 0;

@@ -74,7 +74,7 @@ void VPOParoptUtils::genF90DVInitCode(
   StringRef NamePrefix = DstV->getName();
   assert(isa<PointerType>(SrcV->getType()) && "Orig value is not a pointer");
   assert(
-      isa<StructType>(cast<PointerType>(SrcV->getType())->getElementType()) &&
+      isa<StructType>(SrcV->getType()->getPointerElementType()) &&
       "Clause item is expected to be a struct for F90 DVs.");
 
   if (AllowOverrideInsertPt && !GeneralUtils::isOMPItemGlobalVAR(DstV))
@@ -82,10 +82,10 @@ void VPOParoptUtils::genF90DVInitCode(
 
   IRBuilder<> Builder(InsertPt);
 
-  MaybeAlign OrigAlignment =
-      SrcV->getPointerAlignment(InsertPt->getModule()->getDataLayout());
+  auto &DL = InsertPt->getModule()->getDataLayout();
+  MaybeAlign OrigAlignment = SrcV->getPointerAlignment(DL);
   CallInst *DataSize = genF90DVInitCall(SrcV, DstV, InsertPt, IsTargetSPIRV);
-  setFuncCallingConv(DataSize, IsTargetSPIRV);
+  setFuncCallingConv(DataSize, DataSize->getModule());
 
   Instruction *AllocBuilderInsertPt = &*Builder.GetInsertPoint();
 
@@ -115,10 +115,8 @@ void VPOParoptUtils::genF90DVInitCode(
   auto *Zero = AllocBuilder.getInt32(0);
   auto *Addr0GEP =
       AllocBuilder.CreateInBoundsGEP(DstV, {Zero, Zero}, NamePrefix + ".addr0");
-  Type *ElementTy =
-      cast<PointerType>(cast<PointerType>(Addr0GEP->getType()->getScalarType())
-                            ->getElementType())
-          ->getElementType();
+  Type *ElementTy = Addr0GEP->getType()->getScalarType()->
+      getPointerElementType()->getPointerElementType();
   Value *PointeeData = genPrivatizationAlloca(
       ElementTy, DataSize, OrigAlignment, &*AllocBuilder.GetInsertPoint(),
       IsTargetSPIRV, NamePrefix + ".data");
@@ -136,7 +134,7 @@ void VPOParoptUtils::genF90DVInitCode(
   auto *NumElements = Builder.CreateUDiv(
       DataSize,
       Builder.getIntN(DataSize->getType()->getPrimitiveSizeInBits(),
-                      ElementTy->getPrimitiveSizeInBits() / 8),
+                      DL.getTypeSizeInBits(ElementTy) / 8),
       NamePrefix + ".num_elements");
   I->setF90DVNumElements(NumElements);
 
@@ -196,8 +194,8 @@ void VPOParoptUtils::genF90DVFirstOrLastprivateCopyCallImpl(
       Builder.CreatePointerBitCastOrAddrSpaceCast(OrigV, Int8PtrTy);
   CallInst *F90DVCopy = genCall(InsertBefore->getModule(), FnName,
                                 Builder.getVoidTy(), {NewVCast, OrigVCast});
-  setFuncCallingConv(F90DVCopy, IsTargetSPIRV);
   F90DVCopy->insertBefore(InsertBefore);
+  setFuncCallingConv(F90DVCopy, F90DVCopy->getModule());
 }
 
 void VPOParoptUtils::genF90DVFirstprivateCopyCall(Value *NewV, Value *OrigV,
@@ -228,9 +226,10 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP =
       Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, NamePrefix + ".addr0");
-  DestArrayBeginOut = Builder.CreateLoad(Addr0GEP, NamePrefix + ".data");
-  DestElementTyOut =
-      cast<PointerType>(DestArrayBeginOut->getType())->getElementType();
+  DestArrayBeginOut = Builder.CreateLoad(
+      Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
+      NamePrefix + ".data");
+  DestElementTyOut = DestArrayBeginOut->getType()->getPointerElementType();
 
   Value *NumElementsFromI = I->getF90DVNumElements();
   GlobalVariable *NumElementsGV = I->getF90DVNumElementsGV();
@@ -244,7 +243,8 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
   }
 
   Value *NumElementsLoadedFromGV =
-      Builder.CreateLoad(NumElementsGV, NumElementsGV->getName() + ".load");
+      Builder.CreateLoad(NumElementsGV->getValueType(),
+                         NumElementsGV, NumElementsGV->getName() + ".load");
   NumElementsOut = NumElementsLoadedFromGV;
 }
 
@@ -266,6 +266,8 @@ void VPOParoptUtils::genF90DVReductionSrcDstInfo(
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP =
       Builder.CreateInBoundsGEP(DestVal, {Zero, Zero}, NamePrefix + ".addr0");
-  DestArrayBeginOut = Builder.CreateLoad(Addr0GEP, NamePrefix + ".data");
+  DestArrayBeginOut = Builder.CreateLoad(
+      Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
+      NamePrefix + ".data");
 }
 #endif // INTEL_CUSTOMIZATION

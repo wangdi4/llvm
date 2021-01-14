@@ -52,6 +52,9 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   // threadprivate copy of the variable VD
   QualType PtrTy = Ctx.getPointerType(Ty);
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
                         /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
@@ -115,6 +118,9 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   // of the variable VD
   QualType PtrTy = Ctx.getPointerType(Ty);
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
                         /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
@@ -191,6 +197,9 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   QualType ObjPtrTy = C.getPointerType(Ty);
 
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
                             ImplicitParamDecl::Other);
@@ -222,7 +231,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
                         ObjPtrTy, VK_LValue, SourceLocation());
     ImplicitCastExpr CastExpr(ImplicitCastExpr::OnStack,
                               C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
-                              VK_RValue);
+                              VK_RValue, FPOptionsOverride());
     UnaryOperator *SRC = UnaryOperator::Create(
         C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
         SourceLocation(), /*CanOverflow=*/false, FPOptionsOverride());
@@ -230,7 +239,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
     QualType CTy = ElemType;
     CTy.addConst();
     ImplicitCastExpr NoOpCast(ImplicitCastExpr::OnStack, CTy, CK_NoOp, SRC,
-                              VK_LValue);
+                              VK_LValue, FPOptionsOverride());
 
     SmallVector<Expr *, 8> ConstructorArgs;
     ConstructorArgs.push_back(&NoOpCast);
@@ -291,6 +300,9 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
   QualType ObjPtrTy = C.getPointerType(Ty);
 
   CodeGenFunction NewCGF(CGM);
+
+  NewCGF.disableDebugInfo(); // No valid locations for this routine.
+
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
                             ImplicitParamDecl::Other);
@@ -592,6 +604,31 @@ void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK,
     D->OpBundles.push_back(B);
   }
   clearBundleTemps();
+}
+
+void OpenMPLateOutliner::emitImplicit(llvm::Value *V, ImplicitClauseKind K) {
+
+  switch (K) {
+  case ICK_private:
+  case ICK_linear_private:
+    addArg("QUAL.OMP.PRIVATE");
+    break;
+  case ICK_specified_firstprivate:
+  case ICK_firstprivate:
+    addArg("QUAL.OMP.FIRSTPRIVATE");
+    break;
+  case ICK_lastprivate:
+  case ICK_linear_lastprivate:
+    addArg("QUAL.OMP.LASTPRIVATE");
+    break;
+  case ICK_shared:
+    addArg("QUAL.OMP.SHARED");
+    break;
+  default:
+    llvm_unreachable("Clause not allowed");
+  }
+  ClauseEmissionHelper CEH(*this, OMPC_unknown);
+  addArg(V);
 }
 
 void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
@@ -1096,6 +1133,18 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       }
       break;
     }
+    if (const auto *C = dyn_cast<OMPReductionClause>(Cl))
+      switch (C->getModifier()) {
+      case OMPC_REDUCTION_task:
+        CSB.setTask();
+        break;
+      case OMPC_REDUCTION_inscan:
+        CSB.setInScan();
+        break;
+      case OMPC_REDUCTION_default:
+      case OMPC_REDUCTION_unknown:
+        break;
+      }
     if (PVD->getType()->isAnyComplexType())
       CSB.setCmplx();
     if (IsRef)
@@ -1684,20 +1733,36 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     OpenMPClauseKind CK = OMPC_map;
     if (CurrentDirectiveKind == OMPD_target_update)
       CK = I.MapType == OMPC_MAP_to ? OMPC_to : OMPC_from;
+    if (!I.IsChain && I.Var) {
+      QualType Ty = I.Var->getType();
+      if (isImplicitTask(OMPD_task)) {
+        // Variables used in the "QUAL.OMP.MAP" clause on the
+        // "DIR.OMP.TARGET" should be marked as shared on the
+        // "DIR.OMP.TASK"
+        if (isImplicit(I.Var))
+          ImplicitMap.erase(ImplicitMap.find(I.Var));
+        ImplicitMap.insert(std::make_pair(I.Var, ICK_shared));
+      } else
+        addExplicit(I.Var, OMPC_map);
+      if (CurrentDirectiveKind == OMPD_target)
+        if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
+            isa<llvm::LoadInst>(I.Base)) {
+          MapTemps.emplace_back(I.Base, I.Var);
+          if (isImplicit(I.Var) && Ty->isReferenceType() &&
+              Ty.getNonReferenceType()->isScalarType() &&
+              !Ty.getNonReferenceType()->isPointerType()) {
+            // Emit implicit clause instead map clause for
+            // variable with reference type to non-pointer scalar.
+            emitImplicit(I.Base, ImplicitMap[I.Var]);
+            continue;
+          }
+        }
+    }
     ClauseEmissionHelper CEH(*this, CK);
     ClauseStringBuilder &CSB = CEH.getBuilder();
     buildMapQualifier(CSB, I.MapType, I.Modifiers);
     if (I.IsChain)
       CSB.setChain();
-    else if (I.Var) {
-      QualType Ty = I.Var->getType();
-      if (!isImplicitTask(OMPD_task))
-        addExplicit(I.Var, OMPC_map);
-      if (CurrentDirectiveKind == OMPD_target)
-        if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
-            isa<llvm::LoadInst>(I.Base))
-          MapTemps.emplace_back(I.Base, I.Var);
-    }
     addArg(CSB.getString());
     addArg(I.Base);
     addArg(I.Pointer);
@@ -2103,7 +2168,7 @@ void OpenMPLateOutliner::emitOMPTargetExitDataDirective() {
 }
 void OpenMPLateOutliner::emitOMPTaskDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK", OMPD_task);
-  if (CGF.requiresImplicitTask(Directive)) {
+  if (CodeGenFunction::requiresImplicitTask(Directive)) {
     bool NeedIf = Directive.hasClausesOfKind<OMPDependClause>();
     NeedIf = NeedIf && !Directive.hasClausesOfKind<OMPNowaitClause>();
     if (NeedIf) {
@@ -2244,16 +2309,15 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
         ClauseKind == OMPC_from)
       continue;
     switch (ClauseKind) {
-#define OMP_CLAUSE_CLASS(Enum, Str, Class)                                     \
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class)                                         \
   case llvm::omp::Clause::Enum:                                                \
     emit##Class(cast<Class>(C));                                               \
     break;
-#define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
+#define CLAUSE_NO_CLASS(Enum, Str)                                             \
   case llvm::omp::Clause::Enum:                                                \
     llvm_unreachable("Clause not allowed");
-  default:
-    break;
-#include "llvm/Frontend/OpenMP/OMPKinds.def"
+#include "llvm/Frontend/OpenMP/OMP.inc"
     }
   }
   if (!shouldSkipExplicitClause(OMPC_map) ||
@@ -2268,6 +2332,9 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
                                                OpenMPDirectiveKind Kind) {
   if (Kind == OMPD_unknown)
     return true;
+
+  if (CodeGenFunction::requiresImplicitTask(S))
+    return Kind == OMPD_task;
 
   OpenMPDirectiveKind DKind = S.getDirectiveKind();
   if (Kind == DKind)
@@ -2289,9 +2356,6 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_target_enter_data:
   case OMPD_target_exit_data:
   case OMPD_target_update:
-    if (S.hasClausesOfKind<OMPDependClause>() ||
-        S.hasClausesOfKind<OMPNowaitClause>())
-      return Kind == OMPD_task;
     return Kind == OMPD_target;
 
   case OMPD_teams_distribute:
@@ -2427,7 +2491,7 @@ static void EmitBody(CodeGenFunction &CGF, const OMPExecutableDirective &D) {
 
 /// Return true if processing the part of an implicit task corresponding to K.
 bool OpenMPLateOutliner::isImplicitTask(OpenMPDirectiveKind K) {
-  if (!CGF.requiresImplicitTask(Directive))
+  if (!CodeGenFunction::requiresImplicitTask(Directive))
      return false;
    return K == CurrentDirectiveKind;
 }

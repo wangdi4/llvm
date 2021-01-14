@@ -33,11 +33,50 @@ private Intel repositories.
 
 .. image:: llorg-pdown-flow.png
 
+Pulldown Coordinator Role
+=========================
+
+Pulldown coordinator is a compiler engineer, whose goals are:
+
+#. Keep blue line on the chart close to zero. This corresponds to minimal delay
+   between change committed in the community and this change merged to
+   xmain-web, ready for the next pulldown.
+#. Keep green line on the chart below ~2000. This corresponds to ~2 weeks delay
+   between change committed in the community and this change merged to xmain.
+
+Responsibilities of pulldown coordinator are:
+
+#. Resolve conflicts and pulldown issues, which don't require specific
+   component deep expertise.
+#. Open bug reports and assign to component issues which require expertise.
+   Usually these bugs are Critical or High exposure if they are blocking
+   pulldown process.
+#. Coordinate fixes delivery between all parties to corresponding branches.
+#. Form and lead taskforce of engineers to resolve complex problems.
+#. Escalate issues to management early if fixes are not progressing forward as
+   expected.
+#. Stabilize and merge stabilized pulldown candidate to xmain branch.
+#. Train next pulldown coordinator and ensure smooth duty transition.
+#. Suggest pulldown process improvements and contribute to these improvements,
+   as well as maintain this document in up to date state.
+
+Pulldown coordination duties are usually split between two coordinators from
+different timezones (US and PRC or Russia) to have 24 hours coverage.
+Coordinators have equal responsibilities and sync daily on pulldown progress.
+For effective switch on conflicts or build breakages which cannot be resolved by
+end of workday it is recommended to upload partial changes to gerrit for the
+partner to pick it up and continue.
+
+Names of the current and previous pulldown coordinators can be found `here
+<https://wiki.ith.intel.com/display/ITSCompilersDevOps/Pulldown+coordinators+and+gatekeepers>`_.
+
 .. _automated-merge-tool:
 
 Automated Merge Tool
 ====================
 
+Merge process
+--------------------
 We have a constantly running automated tool that polls xmain, sycl and llvm.org
 for new change sets and merges them into ``xmain-web`` and ``sycl-web`` branches
 one at a time. For each change set, the tool attempts to automatically merge the
@@ -53,6 +92,11 @@ developers and the merge tool.
    information about the problem to ``merge.status`` and halts the merge
    process. Once the problem is fixed, the developer deletes the contents of
    the file to signal to the merge tool that it is okay to continue.
+
+   The file contains a link to the review created by the merge tool for a
+   conflicting merge. The "resolution" is simply staging and committing the
+   conflict markers. The job of pulldown coordinators is to resolve the
+   conflicts and upload proper resolution as a new patchset for that review.
 
 #. ``build.status``: When the tool encounters a build failure, it writes
    information about the problem to ``build.status`` and halts the merge
@@ -72,6 +116,31 @@ developers and the merge tool.
    as it would for a normal build breakage. Upon a successful build, the merge
    tool automatically clears the contents of ``build.status``.
 
+   Similarly to the ``merge.status`` the file contains the link for the review
+   where the resolution should be uploaded to.
+
+Checking merge tool progress
+--------------------
+The merge process differs between ``sycl-web`` and ``xmain-web`` branches, but
+the risk of forgetting to reset merge/build status remains the same. This
+affects the backlog growth. To reduce the number of such situations, the
+coordinator(s) can use these BKMs to to control that the pulldown process is in
+progress:
+
+#. ``sycl-web``: New commits are not merged to this branch until the merge tool
+   faces a conflict there (it is done in order to reduce the number of merge
+   commits). Therefore, to get the latest status of the merge process the
+   developer can check the `sycl-web/status tag
+   <https://github.com/otcshare/llvm/releases/tag/sycl-web%2Fstatus>`_
+#. ``xmain-web``: New commits are merged to branch, the automation reports about
+   the failures. To know the current status, the developer can do the following:
+
+    .. code-block:: bash
+
+     # run in the xmain-web root directory
+     git pull
+     git show --status
+
 .. _resolving-conflicts:
 
 Resolving Conflicts
@@ -80,12 +149,12 @@ Resolving Conflicts
 Notification Process
 --------------------
 When the merge tool encounters conflicts that it cannot resolve, it halts the
-merge process and sends an email notification to pulldown coordinators,
-requesting resolution of the conflict. A developer whose changes are considered
-associated with the conflict based on some heuristic is copied on the email.
-The email contains some details about the conflict and some information about
-the conflict resolution process, including the technical details on how to
-check out a workspace and check in the changes.
+merge process and uploads a review with resolution markers in the code. A
+developer whose changes are considered associated with the conflict based on
+some heuristic is added as a reviewer, as well as pulldown coordinators. The
+tools also replies with a comment to the review that contains a link to this
+document.
+
 Pulldown coordinators are responsible for resolving simple conflicts. Majority
 of conflicts are not difficult to resolve and can be handled by the pulldown
 coordinators without involving developers, however in complex cases pulldown
@@ -97,6 +166,36 @@ for details), therefore any delay in the resolution causes backlog to grow
 quickly. Even though most conflicts get resolved by the pulldown coordinator,
 developers are expected to review the checkins (post-commit) and let the
 pulldown coordinator know about any potential issues.
+
+Conflict Resolution Steps
+-------------------------
+
+#. Create a workspace if not yet done:
+
+   .. code-block:: bash
+
+     ics mk xmain-web xmain-web head
+
+#. Download the conflict into the local workspace:
+
+   .. code-block:: bash
+
+     # Assuming WS is active already:
+     $ sh $ICS_WSDIR/pulldown/update-to-conflict.sh
+
+#. Resolve conflicts and upload the changes:
+
+   .. code-block:: bash
+
+     # Resolve conflicts
+     $ git add ...
+     $ git commit --amend # Keep commit message generated by the tool
+     $ repo upload
+
+#. Perform review in gerrit, put CR+2/Verified+1 and submit the change. In case
+   the resolution required making changes to several projects, submit the
+   original review (created by the automation, but possibly a different patch
+   set if changes were needed) as the last one.
 
 Conflict Resolution BKMs
 ------------------------
@@ -167,30 +266,6 @@ resolving conflicts or build breakages in your component.
 
 Commits to ``xmain-web``
 ------------------------
-It was found useful to include the abbreviated hash *and* the title of the
-commit that caused the conflict into the title of the resolution commit. This is
-especially convenient if the commit gets reverted/recommitted multiple times -
-it's easy for the pulldown coordinators to find the previous resolution in the
-"recently closed" list in gerrit under "My Changes" tab. One can get the
-required string for copy-paste like this:
-
-.. code-block:: bash
-
-  $ git --no-pager log --oneline --abbrev -1 5eb83c58cd54e69e13eb3ed969879a0daa440536
-  5eb83c58cd5 [IR] Begin removal of TerminatorInst by removing successor manipulation.
-
-And the final message should look like this
-
-::
-
-   Resolve conflicts after <abbreviated hash> <title of the commit>
-
-or like this for build failures
-
-::
-
-   Resolve build failures after <abbreviated hash> <title of the commit>
-
 Once you have a patch to resolve a conflict or fix a build you should pass a
 component owner(s) review. Normally you'll be allowed to commit only after a
 review. However there are several exceptions when you can review after a commit:
@@ -209,11 +284,9 @@ review. However there are several exceptions when you can review after a commit:
 #. Merge conflict caused by reverted commit (the merge conflict of which was
    previously resolved).
 
-But in any case, pulldown coordinators and the developer identified by the
-pulldown heuristic as related to the conflict should be added as reviewers to
-the resolution patch. Gerrit will then send an email which serves as a
-notification indicating that conflict resolution has already been uploaded
-for review.
+If conflict is resolved with LIT tests failing it is recommended to record
+failed LIT tests in gerrit comments. This makes triaging easier, since the time
+interval when new LIT failure occured can be easily detected.
 
 .. _xmain-web-stabilization:
 
@@ -338,9 +411,9 @@ Pulldown Planning
 -----------------
 The pulldown coordinator is expected to periodically merge ``xmain-web`` changes
 back to ``xmain``. Usually that should be done bi-weekly, however all pulldowns
-must be aligned with the ``xmain`` release schedule (see 'Upcoming Releases and
-Deliveries' paragraph at `DPCPP Compiler Deliverables <https://wiki.ith.intel.com/display/DPCPP/Status+Wiki+for+DPCPP+Compiler+Deliverables>`_
-page). Per agreement with the process team pulldowns are expected to be
+must be aligned with the ``xmain`` release schedule (see
+`DPCPP release schedule <https://wiki.ith.intel.com/display/DPCPP/DPCPP+release+schedule>`_).
+Per agreement with the process team pulldowns are expected to be
 completed not later than one week before the code cutoff in ``xmain``. Therefore
 pulldown coordinator should carefully plan when to start the pulldown keeping in
 mind that ``xmain-cand`` stabilization usually requires running full alloy
@@ -353,7 +426,13 @@ Selecting a Revision of ``xmain-web`` to Stabilize
 --------------------------------------------------
 The pulldown coordinator can decide which revision of ``xmain-web`` is a good
 candidate for stabilization and promotion based on the results from regular
-alloy testing. Once a revision is selected, the ``xmain-cand`` branch is
+alloy testing.
+
+It is recommended to build local xmain-web workspaces with “-Werror" enabled
+for chosen revision. This allow promptly catching warnings that will be exposed
+as errors once “-Werror” flag will be enabled (in xmain-cand).
+
+Once a revision is selected, the ``xmain-cand`` branch is
 updated to that revision using the following process.
 
    .. code-block:: bash
@@ -384,7 +463,6 @@ used (you might want to use origin/xmain-web instead of HEAD):
 You might want to use bare "git merge" command if you need to merge
 a required commit.
 
-
 Stabilizing and Promoting ``xmain-cand``
 ----------------------------------------
 Fixes for test failures are committed to the ``xmain-cand`` branch. Once all
@@ -395,7 +473,7 @@ the normal branch promotion process, e.g.
 
      $ ics mk xmain-promo-ws xmain head -git
      $ ics merge xmain-cand head
-     $ alloy run -file xmain_checkin_pulldown -ref_comp ws -notify
+     $ alloy run -file xmain_checkin_pulldown -notify
      <Request gatekeeper approval>
      $ ics merge -push
 
@@ -465,23 +543,6 @@ opposite to generated code performance):
   Some deeper initial analysis is welcome as it will ease the gatekeeper's work
   on assessing the severeness of the fails and will allow to get an approve for
   the pulldown faster, so such analysis is worth doing.
-
-Recommendations for pulldown coordinators
-=========================================
-
-* Build local xmain-web workspaces with “-Werror” enabled. This allow promptly
-  catching warnings that will be exposed as errors once “-Werror” flag will be
-  enabled (in xmain-cand).
-
-* Copy failed LIT tests in gerrit comments after each conflict resolution.
-  This makes triaging easier, since the time interval when new LIT failure
-  occured can be easily detected.
-
-* Pulldown coordination duties are usually split between two coordinators from
-  different timezones (US and PRC or Russia) to have 24 hours coverage. So, for
-  complicated conflicts or build breakages which cannot be resolved by end of
-  workday upload partial changes to gerrit for the partner to pick it up and
-  continue.
 
 Xmain Pulldown History
 ======================

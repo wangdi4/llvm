@@ -1,5 +1,5 @@
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -max-bb-size-for-multi-node-slp=250 -S | FileCheck %s -check-prefix=CHECK_LO_LIMIT
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -max-bb-size-for-multi-node-slp=400 -S | FileCheck %s -check-prefix=CHECK_HI_LIMIT
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=250 -S | FileCheck %s -check-prefix=CHECK_LO_LIMIT
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -max-bb-size-for-multi-node-slp=400 -S | FileCheck %s -check-prefix=CHECK_HI_LIMIT
 
 ; This test tries to limit building MultiNodes via lowering maximum BB
 ; size allowed for the optimization. Basic block labeled lp.1248 is processed first and
@@ -49,52 +49,52 @@ lp.1247:
   %i1.i64.0 = sext i32 %x to i64
   %0 = mul i64 %i1.i64.0, %idx.ext.i
   %arrayIdx = getelementptr inbounds i8, i8* %pix1, i64 %0
-  %gepload = load i8, i8* %arrayIdx, align 1, !tbaa !2
+  %gepload = load i8, i8* %arrayIdx, align 1
   %1 = mul i64 %i1.i64.0, %idx.ext63.i
   %arrayIdx1013 = getelementptr inbounds i8, i8* %pix2, i64 %1
-  %gepload1014 = load i8, i8* %arrayIdx1013, align 1, !tbaa !2
+  %gepload1014 = load i8, i8* %arrayIdx1013, align 1
   %2 = add i64 %0, 4
   %arrayIdx1015 = getelementptr inbounds i8, i8* %pix1, i64 %2
-  %gepload1016 = load i8, i8* %arrayIdx1015, align 1, !tbaa !2
+  %gepload1016 = load i8, i8* %arrayIdx1015, align 1
   %3 = add i64 %1, 4
   %arrayIdx1017 = getelementptr inbounds i8, i8* %pix2, i64 %3
-  %gepload1018 = load i8, i8* %arrayIdx1017, align 1, !tbaa !2
+  %gepload1018 = load i8, i8* %arrayIdx1017, align 1
   %4 = add i64 %0, 1
   %arrayIdx1019 = getelementptr inbounds i8, i8* %pix1, i64 %4
-  %gepload1020 = load i8, i8* %arrayIdx1019, align 1, !tbaa !2
+  %gepload1020 = load i8, i8* %arrayIdx1019, align 1
   %5 = add i64 %1, 1
   %arrayIdx1021 = getelementptr inbounds i8, i8* %pix2, i64 %5
-  %gepload1022 = load i8, i8* %arrayIdx1021, align 1, !tbaa !2
+  %gepload1022 = load i8, i8* %arrayIdx1021, align 1
   %6 = add i64 %0, 5
   %arrayIdx1023 = getelementptr inbounds i8, i8* %pix1, i64 %6
-  %gepload1024 = load i8, i8* %arrayIdx1023, align 1, !tbaa !2
+  %gepload1024 = load i8, i8* %arrayIdx1023, align 1
   %7 = add i64 %1, 5
   %arrayIdx1025 = getelementptr inbounds i8, i8* %pix2, i64 %7
-  %gepload1026 = load i8, i8* %arrayIdx1025, align 1, !tbaa !2
+  %gepload1026 = load i8, i8* %arrayIdx1025, align 1
   %8 = add i64 %0, 2
   %arrayIdx1027 = getelementptr inbounds i8, i8* %pix1, i64 %8
-  %gepload1028 = load i8, i8* %arrayIdx1027, align 1, !tbaa !2
+  %gepload1028 = load i8, i8* %arrayIdx1027, align 1
   %9 = add i64 %1, 2
   %arrayIdx1029 = getelementptr inbounds i8, i8* %pix2, i64 %9
-  %gepload1030 = load i8, i8* %arrayIdx1029, align 1, !tbaa !2
+  %gepload1030 = load i8, i8* %arrayIdx1029, align 1
   %10 = add i64 %0, 6
   %arrayIdx1031 = getelementptr inbounds i8, i8* %pix1, i64 %10
-  %gepload1032 = load i8, i8* %arrayIdx1031, align 1, !tbaa !2
+  %gepload1032 = load i8, i8* %arrayIdx1031, align 1
   %11 = add i64 %1, 6
   %arrayIdx1033 = getelementptr inbounds i8, i8* %pix2, i64 %11
-  %gepload1034 = load i8, i8* %arrayIdx1033, align 1, !tbaa !2
+  %gepload1034 = load i8, i8* %arrayIdx1033, align 1
   %12 = add i64 %0, 3
   %arrayIdx1035 = getelementptr inbounds i8, i8* %pix1, i64 %12
-  %gepload1036 = load i8, i8* %arrayIdx1035, align 1, !tbaa !2
+  %gepload1036 = load i8, i8* %arrayIdx1035, align 1
   %13 = add i64 %1, 3
   %arrayIdx1037 = getelementptr inbounds i8, i8* %pix2, i64 %13
-  %gepload1038 = load i8, i8* %arrayIdx1037, align 1, !tbaa !2
+  %gepload1038 = load i8, i8* %arrayIdx1037, align 1
   %14 = add i64 %0, 7
   %arrayIdx1039 = getelementptr inbounds i8, i8* %pix1, i64 %14
-  %gepload1040 = load i8, i8* %arrayIdx1039, align 1, !tbaa !2
+  %gepload1040 = load i8, i8* %arrayIdx1039, align 1
   %15 = add i64 %1, 7
   %arrayIdx1041 = getelementptr inbounds i8, i8* %pix2, i64 %15
-  %gepload1042 = load i8, i8* %arrayIdx1041, align 1, !tbaa !2
+  %gepload1042 = load i8, i8* %arrayIdx1041, align 1
   %arrayIdx1043 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %alloca, i64 0, i64 %i1.i64.0, i64 0
   %16 = zext i8 %gepload1036 to i32
   %17 = zext i8 %gepload1028 to i32
@@ -177,52 +177,52 @@ lp.1247:
   store i32 %Bridge_T21_174, i32* %arrayIdx1081, align 4
   %64 = add i64 %0, 8
   %arrayIdx1098 = getelementptr inbounds i8, i8* %pix1, i64 %64
-  %gepload1099 = load i8, i8* %arrayIdx1098, align 1, !tbaa !2
+  %gepload1099 = load i8, i8* %arrayIdx1098, align 1
   %65 = add i64 %1, 8
   %arrayIdx1100 = getelementptr inbounds i8, i8* %pix2, i64 %65
-  %gepload1101 = load i8, i8* %arrayIdx1100, align 1, !tbaa !2
+  %gepload1101 = load i8, i8* %arrayIdx1100, align 1
   %66 = add i64 %0, 12
   %arrayIdx1102 = getelementptr inbounds i8, i8* %pix1, i64 %66
-  %gepload1103 = load i8, i8* %arrayIdx1102, align 1, !tbaa !2
+  %gepload1103 = load i8, i8* %arrayIdx1102, align 1
   %67 = add i64 %1, 12
   %arrayIdx1104 = getelementptr inbounds i8, i8* %pix2, i64 %67
-  %gepload1105 = load i8, i8* %arrayIdx1104, align 1, !tbaa !2
+  %gepload1105 = load i8, i8* %arrayIdx1104, align 1
   %68 = add i64 %0, 9
   %arrayIdx1106 = getelementptr inbounds i8, i8* %pix1, i64 %68
-  %gepload1107 = load i8, i8* %arrayIdx1106, align 1, !tbaa !2
+  %gepload1107 = load i8, i8* %arrayIdx1106, align 1
   %69 = add i64 %1, 9
   %arrayIdx1108 = getelementptr inbounds i8, i8* %pix2, i64 %69
-  %gepload1109 = load i8, i8* %arrayIdx1108, align 1, !tbaa !2
+  %gepload1109 = load i8, i8* %arrayIdx1108, align 1
   %70 = add i64 %0, 13
   %arrayIdx1110 = getelementptr inbounds i8, i8* %pix1, i64 %70
-  %gepload1111 = load i8, i8* %arrayIdx1110, align 1, !tbaa !2
+  %gepload1111 = load i8, i8* %arrayIdx1110, align 1
   %71 = add i64 %1, 13
   %arrayIdx1112 = getelementptr inbounds i8, i8* %pix2, i64 %71
-  %gepload1113 = load i8, i8* %arrayIdx1112, align 1, !tbaa !2
+  %gepload1113 = load i8, i8* %arrayIdx1112, align 1
   %72 = add i64 %0, 10
   %arrayIdx1114 = getelementptr inbounds i8, i8* %pix1, i64 %72
-  %gepload1115 = load i8, i8* %arrayIdx1114, align 1, !tbaa !2
+  %gepload1115 = load i8, i8* %arrayIdx1114, align 1
   %73 = add i64 %1, 10
   %arrayIdx1116 = getelementptr inbounds i8, i8* %pix2, i64 %73
-  %gepload1117 = load i8, i8* %arrayIdx1116, align 1, !tbaa !2
+  %gepload1117 = load i8, i8* %arrayIdx1116, align 1
   %74 = add i64 %0, 14
   %arrayIdx1118 = getelementptr inbounds i8, i8* %pix1, i64 %74
-  %gepload1119 = load i8, i8* %arrayIdx1118, align 1, !tbaa !2
+  %gepload1119 = load i8, i8* %arrayIdx1118, align 1
   %75 = add i64 %1, 14
   %arrayIdx1120 = getelementptr inbounds i8, i8* %pix2, i64 %75
-  %gepload1121 = load i8, i8* %arrayIdx1120, align 1, !tbaa !2
+  %gepload1121 = load i8, i8* %arrayIdx1120, align 1
   %76 = add i64 %0, 11
   %arrayIdx1122 = getelementptr inbounds i8, i8* %pix1, i64 %76
-  %gepload1123 = load i8, i8* %arrayIdx1122, align 1, !tbaa !2
+  %gepload1123 = load i8, i8* %arrayIdx1122, align 1
   %77 = add i64 %1, 11
   %arrayIdx1124 = getelementptr inbounds i8, i8* %pix2, i64 %77
-  %gepload1125 = load i8, i8* %arrayIdx1124, align 1, !tbaa !2
+  %gepload1125 = load i8, i8* %arrayIdx1124, align 1
   %78 = add i64 %0, 15
   %arrayIdx1126 = getelementptr inbounds i8, i8* %pix1, i64 %78
-  %gepload1127 = load i8, i8* %arrayIdx1126, align 1, !tbaa !2
+  %gepload1127 = load i8, i8* %arrayIdx1126, align 1
   %79 = add i64 %1, 15
   %arrayIdx1128 = getelementptr inbounds i8, i8* %pix2, i64 %79
-  %gepload1129 = load i8, i8* %arrayIdx1128, align 1, !tbaa !2
+  %gepload1129 = load i8, i8* %arrayIdx1128, align 1
   %arrayIdx1131 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %alloca, i64 0, i64 %i1.i64.0, i64 4
   %80 = zext i8 %gepload1123 to i32
   %81 = zext i8 %gepload1115 to i32
@@ -308,40 +308,33 @@ lp.1247:
 
 lp.1248:
   %arrayidx = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 0
-  %n0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %n0 = load i32, i32* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 0
-  %n1 = load i32, i32* %arrayidx1, align 4, !tbaa !2
+  %n1 = load i32, i32* %arrayidx1, align 4
   %sub = add i32 %n0, 1
   %add = sub i32 %sub, %n1
-  store i32 %add, i32* %arrayidx1, align 4, !tbaa !2
+  store i32 %add, i32* %arrayidx1, align 4
   %arrayidx5 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 1
-  %n2 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  %n2 = load i32, i32* %arrayidx5, align 4
   %arrayidx7 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 1
-  %n3 = load i32, i32* %arrayidx7, align 4, !tbaa !2
+  %n3 = load i32, i32* %arrayidx7, align 4
   %sub8 = add i32 %n2, 2
   %add9 = sub i32 %sub8, %n3
-  store i32 %add9, i32* %arrayidx7, align 4, !tbaa !2
+  store i32 %add9, i32* %arrayidx7, align 4
   %arrayidx13 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 2
-  %n4 = load i32, i32* %arrayidx13, align 4, !tbaa !2
+  %n4 = load i32, i32* %arrayidx13, align 4
   %arrayidx15 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 2
-  %n5 = load i32, i32* %arrayidx15, align 4, !tbaa !2
+  %n5 = load i32, i32* %arrayidx15, align 4
   %sub16 = add i32 %n4, 3
   %add17 = sub i32 %sub16, %n5
-  store i32 %add17, i32* %arrayidx15, align 4, !tbaa !2
+  store i32 %add17, i32* %arrayidx15, align 4
   %arrayidx21 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 3
-  %n6 = load i32, i32* %arrayidx21, align 4, !tbaa !2
+  %n6 = load i32, i32* %arrayidx21, align 4
   %arrayidx23 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 3
-  %n7 = load i32, i32* %arrayidx23, align 4, !tbaa !2
+  %n7 = load i32, i32* %arrayidx23, align 4
   %sub24 = add i32 %n6, 4
   %add25 = sub i32 %sub24, %n7
-  store i32 %add25, i32* %arrayidx23, align 4, !tbaa !2
+  store i32 %add25, i32* %arrayidx23, align 4
 
   ret i32 0
 }
-
-!llvm.module.flags = !{!0}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}

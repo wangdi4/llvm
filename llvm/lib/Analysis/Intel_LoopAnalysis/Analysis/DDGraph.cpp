@@ -59,14 +59,9 @@ void DDEdge::print(raw_ostream &OS) const {
   FOS << " ";
   FOS << getEdgeType();
   FOS << " ";
-  unsigned Level;
-  for (Level = 0; Level < MaxLoopNestLevel; ++Level) {
-    if (DV[Level] == DVKind::NONE) {
-      break;
-    }
-  }
-  DV.print(FOS, Level);
-  DistVector.print(FOS, Level);
+  assert(DV.size() == DistVector.size());
+  DV.print(FOS);
+  DistVector.print(FOS);
   FOS << " \n";
   // todo
 }

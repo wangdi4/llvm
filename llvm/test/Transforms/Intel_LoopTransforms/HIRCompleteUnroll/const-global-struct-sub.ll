@@ -3,6 +3,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify constant array of structs is replaced with constant values
+; Global struct contains {{1,2}{3,0}}
 
 ; CHECK: Function:
 ; CHECK: BEGIN REGION { }
@@ -21,18 +22,14 @@
 ; CHECK: Function:
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:       + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK:       |   %0 = 1;
 ; CHECK:       |   %2 = (%A)[0];
-; CHECK:       |   (%A)[0] = %0 + %2;
-; CHECK:       |   %3 = 2;
+; CHECK:       |   (%A)[0] = %2 + 1;
 ; CHECK:       |   %5 = (%A)[1];
-; CHECK:       |   (%A)[1] = %3 + %5;
-; CHECK:       |   %0 = 3;
+; CHECK:       |   (%A)[1] = %5 + 2;
 ; CHECK:       |   %2 = (%A)[2];
-; CHECK:       |   (%A)[2] = %0 + %2;
-; CHECK:       |   %3 = 0;
+; CHECK:       |   (%A)[2] = %2 + 3;
 ; CHECK:       |   %5 = (%A)[3];
-; CHECK:       |   (%A)[3] = %3 + %5;
+; CHECK:       |   (%A)[3] = %5;
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 

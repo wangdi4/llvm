@@ -1,31 +1,72 @@
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64,spir \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o - %s \
+//RUN:  | FileCheck %s --check-prefix=HOST --check-prefix=ALL
+
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN:  -emit-llvm -disable-llvm-passes \
+//RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=HOST --check-prefix=ALL
 
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64,spir \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64,spir \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR --check-prefix=ALL
 
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN:  -emit-llvm-bc -disable-llvm-passes \
+//RUN:  -fopenmp -fopenmp-targets=spir \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
+
 //RUN: %clang_cc1 -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64,spir \
+//RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR --check-prefix=ALL
+
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN:  -emit-llvm-bc -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t_host_old_atomic.bc %s
+
+//RUN: %clang_cc1 -triple spir64 \
+//RUN:  -emit-llvm -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host_old_atomic.bc \
+//RUN:  -verify -Wsource-uses-openmp -o - %s \
+//RUN:  | FileCheck %s --check-prefix=TARG-SPIR-OLD --check-prefix=ALL
+
+//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN:  -emit-llvm-bc -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
+//RUN:  -fopenmp -fopenmp-targets=spir \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t_host_old_atomic.bc %s
+
+//RUN: %clang_cc1 -triple spir \
+//RUN:  -emit-llvm -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
+//RUN:  -fopenmp -fopenmp-targets=spir \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host_old_atomic.bc \
+//RUN:  -verify -Wsource-uses-openmp -o - %s \
+//RUN:  | FileCheck %s --check-prefix=TARG-SPIR-OLD --check-prefix=ALL
 
 #pragma omp declare target
 int zzvar = 23;
@@ -171,8 +212,9 @@ void foo1()
   {
     int i = 0;
     //HOST: atomicrmw add i32* %i{{.*}}monotonic
-    //TARG-SPIR: call{{.*}}__atomic_load
-    //TARG-SPIR: call{{.*}}__atomic_compare_exchange
+    //TARG-SPIR: atomicrmw add i32 addrspace(4)* %i{{.*}}monotonic
+    //TARG-SPIR-OLD: call{{.*}}__atomic_load
+    //TARG-SPIR-OLD: call{{.*}}__atomic_compare_exchange
     #pragma omp atomic
     i++;
     //ALL: [[T2:%[0-9]+]]{{.*}}region.entry(){{.*}}"DIR.OMP.BARRIER"
@@ -385,8 +427,9 @@ void hp_bar(int M, int N)
       hp_func(444);
 
       //HOST: atomicrmw add i32* %myV{{.*}}monotonic
-      //TARG-SPIR: call{{.*}}__atomic_load
-      //TARG-SPIR: call{{.*}}__atomic_compare_exchange
+      //TARG-SPIR: atomicrmw add i32 addrspace(4)* %myV{{.*}}monotonic
+      //TARG-SPIR-OLD: call{{.*}}__atomic_load
+      //TARG-SPIR-OLD: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic
       myV += x;
     }
@@ -453,8 +496,9 @@ void hp_bar(int M, int N)
       hp_func(333);
 
       //HOST: atomicrmw add i32* %myV{{.*}}monotonic
-      //TARG-SPIR: call{{.*}}__atomic_load
-      //TARG-SPIR: call{{.*}}__atomic_compare_exchange
+      //TARG-SPIR: atomicrmw add i32 addrspace(4)* %myV{{.*}}monotonic
+      //TARG-SPIR-OLD: call{{.*}}__atomic_load
+      //TARG-SPIR-OLD: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic
       myV += x;
     }

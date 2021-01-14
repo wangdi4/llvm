@@ -26,6 +26,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <climits>
 
 namespace llvm {
 namespace vpo {
@@ -59,6 +60,7 @@ class VPValue {
   friend class VPlanScalarEvolutionLLVM;
   friend class VPLoopEntityList;
   friend class IndirectCallCodeGenerator;
+  friend class VPLiveInOutCreator;
 
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
@@ -484,6 +486,12 @@ public:
     return getConstantInt()->getValue();
   }
 
+  /// This function will return true iff every bit in this constant is set to true.
+  // Adapted from Constant.h
+  bool isMinusOne() const {
+    return getConstant()->isAllOnesValue();
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
@@ -507,6 +515,7 @@ public:
 class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
   friend class VPExternalValues;
+  friend class VPLiveInOutCreator;
   friend class VPOCodeGenHIR;
   friend class VPOCodeGen;
 
@@ -589,8 +598,10 @@ public:
 class VPExternalUse : public VPUser {
 private:
   friend class VPExternalValues;
+  friend class VPLiveInOutCreator;
   friend class VPOCodeGen;
   friend class VPOCodeGenHIR;
+  friend class VPDecomposerHIR;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
@@ -624,6 +635,9 @@ private:
   const VPOperandHIR *getOperandHIR() const { return HIROperand.get(); };
 
 public:
+  static constexpr unsigned UndefMergeId =
+      std::numeric_limits<unsigned int>::max();
+
   VPExternalUse() = delete;
   VPExternalUse(const VPExternalUse &) = delete;
   VPExternalUse &operator=(const VPExternalUse &) = delete;
@@ -634,6 +648,10 @@ public:
   }
 
   unsigned getMergeId() const { return MergeId; }
+
+  bool hasUnderlying() const {
+    return getUnderlyingValue() != nullptr || HIROperand != nullptr;
+  }
 
   /// Adds operand with an underlying value. The underlying value points to the
   /// value which should be replaced by the new one generated from vector code.
@@ -702,7 +720,7 @@ public:
     }
   }
 
-  void printAsOperand(raw_ostream &OS) const {
+  void printAsOperand(raw_ostream &OS) const override {
     getType()->print(OS);
     OS << " ext-use" << getMergeId() << "(";
     if (getNumOperands() > 0)
@@ -721,7 +739,7 @@ private:
 
   // Identifier of the live out value in VPlan. Is provided by VPlan and used
   // to keep track of live-outs during VPlan cloning.
-  unsigned MergeId = 0;
+  unsigned MergeId;
 };
 
 /// This class augments VPValue with Metadata that is used as operand of another
@@ -808,7 +826,7 @@ public:
     OS << "live-in" << getMergeId() << "\n";
   }
 
-  void printAsOperand(raw_ostream &OS) const {
+  void printAsOperand(raw_ostream &OS) const override {
     getType()->print(OS);
     OS << " live-in" << getMergeId();
   }
@@ -846,15 +864,21 @@ public:
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const override {
-    OS << "live-out" << getMergeId() << "\n";
+    OS << "live-out" << getMergeId() << "(";
+    getOperand(0)->printAsOperand(OS);
+    OS << ")\n";
   }
 
-  void printAsOperand(raw_ostream &OS) const {
+  void printAsOperand(raw_ostream &OS) const override {
     getType()->print(OS);
     OS << " live-out" << getMergeId();
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  VPLiveOutValue *clone() const {
+    VPLiveOutValue *Cloned = new VPLiveOutValue(MergeId, getOperand(0));
+    return Cloned;
+  }
 
 private:
   unsigned MergeId;

@@ -287,6 +287,9 @@ class Verifier : public InstVisitor<Verifier>, VerifierSupport {
   /// Whether the current function has a DISubprogram attached to it.
   bool HasDebugInfo = false;
 
+  /// The current source language.
+  dwarf::SourceLanguage CurrentSourceLang = dwarf::DW_LANG_lo_user;
+
   /// Whether source was present on the first DIFile encountered in each CU.
   DenseMap<const DICompileUnit *, bool> HasSourceDebugInfo;
 
@@ -429,6 +432,7 @@ private:
   void visitRangeMetadata(Instruction &I, MDNode *Range, Type *Ty);
   void visitDereferenceableMetadata(Instruction &I, MDNode *MD);
   void visitProfMetadata(Instruction &I, MDNode *MD);
+  void visitAnnotationMetadata(MDNode *Annotation);
 
   template <class Ty> bool isValidMetadataArray(const MDTuple &N);
 #define HANDLE_SPECIALIZED_MDNODE_LEAF(CLASS) void visit##CLASS(const CLASS &N);
@@ -597,7 +601,8 @@ void Verifier::visitGlobalValue(const GlobalValue &GV) {
     Assert(!GV.isDSOLocal(),
            "GlobalValue with DLLImport Storage is dso_local!", &GV);
 
-    Assert((GV.isDeclaration() && GV.hasExternalLinkage()) ||
+    Assert((GV.isDeclaration() &&
+            (GV.hasExternalLinkage() || GV.hasExternalWeakLinkage())) ||
                GV.hasAvailableExternallyLinkage(),
            "Global is marked as dllimport, but not external", &GV);
   }
@@ -923,7 +928,9 @@ void Verifier::visitDIScope(const DIScope &N) {
 
 void Verifier::visitDISubrange(const DISubrange &N) {
   AssertDI(N.getTag() == dwarf::DW_TAG_subrange_type, "invalid tag", &N);
-  AssertDI(N.getRawCountNode() || N.getRawUpperBound(),
+  bool HasAssumedSizedArraySupport = dwarf::isFortran(CurrentSourceLang);
+  AssertDI(HasAssumedSizedArraySupport || N.getRawCountNode() ||
+               N.getRawUpperBound(),
            "Subrange must contain count or upperBound", &N);
   AssertDI(!N.getRawCountNode() || !N.getRawUpperBound(),
            "Subrange can have any one of count or upperBound", &N);
@@ -946,6 +953,30 @@ void Verifier::visitDISubrange(const DISubrange &N) {
   auto *Stride = N.getRawStride();
   AssertDI(!Stride || isa<ConstantAsMetadata>(Stride) ||
                isa<DIVariable>(Stride) || isa<DIExpression>(Stride),
+           "Stride must be signed constant or DIVariable or DIExpression", &N);
+}
+
+void Verifier::visitDIGenericSubrange(const DIGenericSubrange &N) {
+  AssertDI(N.getTag() == dwarf::DW_TAG_generic_subrange, "invalid tag", &N);
+  AssertDI(N.getRawCountNode() || N.getRawUpperBound(),
+           "GenericSubrange must contain count or upperBound", &N);
+  AssertDI(!N.getRawCountNode() || !N.getRawUpperBound(),
+           "GenericSubrange can have any one of count or upperBound", &N);
+  auto *CBound = N.getRawCountNode();
+  AssertDI(!CBound || isa<DIVariable>(CBound) || isa<DIExpression>(CBound),
+           "Count must be signed constant or DIVariable or DIExpression", &N);
+  auto *LBound = N.getRawLowerBound();
+  AssertDI(LBound, "GenericSubrange must contain lowerBound", &N);
+  AssertDI(isa<DIVariable>(LBound) || isa<DIExpression>(LBound),
+           "LowerBound must be signed constant or DIVariable or DIExpression",
+           &N);
+  auto *UBound = N.getRawUpperBound();
+  AssertDI(!UBound || isa<DIVariable>(UBound) || isa<DIExpression>(UBound),
+           "UpperBound must be signed constant or DIVariable or DIExpression",
+           &N);
+  auto *Stride = N.getRawStride();
+  AssertDI(Stride, "GenericSubrange must contain stride", &N);
+  AssertDI(isa<DIVariable>(Stride) || isa<DIExpression>(Stride),
            "Stride must be signed constant or DIVariable or DIExpression", &N);
 }
 
@@ -1079,6 +1110,11 @@ void Verifier::visitDICompositeType(const DICompositeType &N) {
     AssertDI(N.getTag() == dwarf::DW_TAG_array_type,
              "allocated can only appear in array type");
   }
+
+  if (N.getRawRank()) {
+    AssertDI(N.getTag() == dwarf::DW_TAG_array_type,
+             "rank can only appear in array type");
+  }
 }
 
 void Verifier::visitDISubroutineType(const DISubroutineType &N) {
@@ -1127,6 +1163,8 @@ void Verifier::visitDICompileUnit(const DICompileUnit &N) {
            N.getRawFile());
   AssertDI(!N.getFile()->getFilename().empty(), "invalid filename", &N,
            N.getFile());
+
+  CurrentSourceLang = (dwarf::SourceLanguage)N.getSourceLanguage();
 
   verifySourceDebugInfo(N, *N.getFile());
 
@@ -1569,8 +1607,8 @@ void Verifier::visitModuleFlagCGProfileEntry(const MDOperand &MDO) {
     if (!FuncMDO)
       return;
     auto F = dyn_cast<ValueAsMetadata>(FuncMDO);
-    Assert(F && isa<Function>(F->getValue()), "expected a Function or null",
-           FuncMDO);
+    Assert(F && isa<Function>(F->getValue()->stripPointerCasts()),
+           "expected a Function or null", FuncMDO);
   };
   auto Node = dyn_cast_or_null<MDNode>(MDO);
   Assert(Node && Node->getNumOperands() == 3, "expected a MDNode triple", MDO);
@@ -1588,6 +1626,7 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   case Attribute::NoReturn:
   case Attribute::NoSync:
   case Attribute::WillReturn:
+  case Attribute::NoCallback:
   case Attribute::NoCfCheck:
   case Attribute::NoUnwind:
   case Attribute::NoInline:
@@ -1616,6 +1655,7 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   case Attribute::Builtin:
   case Attribute::NoBuiltin:
   case Attribute::Cold:
+  case Attribute::Hot:
   case Attribute::OptForFuzzing:
   case Attribute::OptimizeNone:
   case Attribute::JumpTable:
@@ -1629,6 +1669,7 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   case Attribute::Speculatable:
   case Attribute::StrictFP:
   case Attribute::NullPointerIsValid:
+  case Attribute::MustProgress:
     return true;
   default:
     break;
@@ -1744,17 +1785,6 @@ void Verifier::verifyParameterAttrs(AttributeSet Attrs, Type *Ty,
          "'noinline and alwaysinline' are incompatible!",
          V);
 
-  if (Attrs.hasAttribute(Attribute::ByVal) && Attrs.getByValType()) {
-    Assert(Attrs.getByValType() == cast<PointerType>(Ty)->getElementType(),
-           "Attribute 'byval' type does not match parameter!", V);
-  }
-
-  if (Attrs.hasAttribute(Attribute::Preallocated)) {
-    Assert(Attrs.getPreallocatedType() ==
-               cast<PointerType>(Ty)->getElementType(),
-           "Attribute 'preallocated' type does not match parameter!", V);
-  }
-
   AttrBuilder IncompatibleAttrs = AttributeFuncs::typeIncompatible(Ty);
   Assert(!AttrBuilder(Attrs).overlaps(IncompatibleAttrs),
          "Wrong types for attribute: " +
@@ -1781,6 +1811,16 @@ void Verifier::verifyParameterAttrs(AttributeSet Attrs, Type *Ty,
     if (Attrs.hasAttribute(Attribute::ByRef)) {
       Assert(Attrs.getByRefType() == PTy->getElementType(),
              "Attribute 'byref' type does not match parameter!", V);
+    }
+
+    if (Attrs.hasAttribute(Attribute::ByVal) && Attrs.getByValType()) {
+      Assert(Attrs.getByValType() == PTy->getElementType(),
+             "Attribute 'byval' type does not match parameter!", V);
+    }
+
+    if (Attrs.hasAttribute(Attribute::Preallocated)) {
+      Assert(Attrs.getPreallocatedType() == PTy->getElementType(),
+             "Attribute 'preallocated' type does not match parameter!", V);
     }
   } else {
     Assert(!Attrs.hasAttribute(Attribute::ByVal),
@@ -2318,6 +2358,11 @@ void Verifier::visitFunction(const Function &F) {
   default:
   case CallingConv::C:
     break;
+  case CallingConv::X86_INTR: {
+    Assert(F.arg_empty() || Attrs.hasParamAttribute(0, Attribute::ByVal),
+           "Calling convention parameter requires byval", &F);
+    break;
+  }
   case CallingConv::AMDGPU_KERNEL:
   case CallingConv::SPIR_KERNEL:
     Assert(F.getReturnType()->isVoidTy(),
@@ -2461,6 +2506,10 @@ void Verifier::visitFunction(const Function &F) {
                  "function must have a single !dbg attachment", &F, I.second);
         AssertDI(isa<DISubprogram>(I.second),
                  "function !dbg attachment must be a subprogram", &F, I.second);
+        AssertDI(cast<DISubprogram>(I.second)->isDistinct(),
+                 "function definition may only have a distinct !dbg attachment",
+                 &F);
+
         auto *SP = cast<DISubprogram>(I.second);
         const Function *&AttachedTo = DISubprogramAttachments[SP];
         AssertDI(!AttachedTo || AttachedTo == &F,
@@ -2559,11 +2608,6 @@ void Verifier::visitBasicBlock(BasicBlock &BB) {
     SmallVector<std::pair<BasicBlock*, Value*>, 8> Values;
     llvm::sort(Preds);
     for (const PHINode &PN : BB.phis()) {
-      // Ensure that PHI nodes have at least one entry!
-      Assert(PN.getNumIncomingValues() != 0,
-             "PHI nodes must have at least one entry.  If the block is dead, "
-             "the PHI should be removed!",
-             &PN);
       Assert(PN.getNumIncomingValues() == Preds.size(),
              "PHINode should have one entry for each predecessor of its "
              "parent basic block!",
@@ -2954,8 +2998,8 @@ void Verifier::visitAddrSpaceCastInst(AddrSpaceCastInst &I) {
   Assert(SrcTy->getPointerAddressSpace() != DestTy->getPointerAddressSpace(),
          "AddrSpaceCast must be between different address spaces", &I);
   if (auto *SrcVTy = dyn_cast<VectorType>(SrcTy))
-    Assert(SrcVTy->getNumElements() ==
-               cast<VectorType>(DestTy)->getNumElements(),
+    Assert(SrcVTy->getElementCount() ==
+               cast<VectorType>(DestTy)->getElementCount(),
            "AddrSpaceCast vector pointer number of elements mismatch", &I);
   visitInstruction(I);
 }
@@ -4364,6 +4408,14 @@ void Verifier::visitProfMetadata(Instruction &I, MDNode *MD) {
   }
 }
 
+void Verifier::visitAnnotationMetadata(MDNode *Annotation) {
+  Assert(isa<MDTuple>(Annotation), "annotation must be a tuple");
+  Assert(Annotation->getNumOperands() >= 1,
+         "annotation must have at least one operand");
+  for (const MDOperand &Op : Annotation->operands())
+    Assert(isa<MDString>(Op.get()), "operands must be strings");
+}
+
 /// verifyInstruction - Verify that an instruction is well formed.
 ///
 void Verifier::visitInstruction(Instruction &I) {
@@ -4524,6 +4576,9 @@ void Verifier::visitInstruction(Instruction &I) {
   if (MDNode *MD = I.getMetadata(LLVMContext::MD_prof))
     visitProfMetadata(I, MD);
 
+  if (MDNode *Annotation = I.getMetadata(LLVMContext::MD_annotation))
+    visitAnnotationMetadata(Annotation);
+
   if (MDNode *N = I.getDebugLoc().getAsMDNode()) {
     AssertDI(isa<DILocation>(N), "invalid !dbg metadata attachment", &I, N);
     visitMDNode(*N, AreDebugLocsAllowed::Yes);
@@ -4608,21 +4663,32 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
       Assert(Elem.Tag->getKey() == "ignore" ||
                  Attribute::isExistingAttribute(Elem.Tag->getKey()),
              "tags must be valid attribute names");
-      Assert(Elem.End - Elem.Begin <= 2, "to many arguments");
       Attribute::AttrKind Kind =
           Attribute::getAttrKindFromName(Elem.Tag->getKey());
+      unsigned ArgCount = Elem.End - Elem.Begin;
+      if (Kind == Attribute::Alignment) {
+        Assert(ArgCount <= 3 && ArgCount >= 2,
+               "alignment assumptions should have 2 or 3 arguments");
+        Assert(Call.getOperand(Elem.Begin)->getType()->isPointerTy(),
+               "first argument should be a pointer");
+        Assert(Call.getOperand(Elem.Begin + 1)->getType()->isIntegerTy(),
+               "second argument should be an integer");
+        if (ArgCount == 3)
+          Assert(Call.getOperand(Elem.Begin + 2)->getType()->isIntegerTy(),
+                 "third argument should be an integer if present");
+        return;
+      }
+      Assert(ArgCount <= 2, "to many arguments");
       if (Kind == Attribute::None)
         break;
       if (Attribute::doesAttrKindHaveArgument(Kind)) {
-        Assert(Elem.End - Elem.Begin == 2,
-               "this attribute should have 2 arguments");
+        Assert(ArgCount == 2, "this attribute should have 2 arguments");
         Assert(isa<ConstantInt>(Call.getOperand(Elem.Begin + 1)),
                "the second argument should be a constant integral value");
       } else if (isFuncOnlyAttr(Kind)) {
-        Assert((Elem.End - Elem.Begin) == 0, "this attribute has no argument");
+        Assert((ArgCount) == 0, "this attribute has no argument");
       } else if (!isFuncOrArgAttr(Kind)) {
-        Assert((Elem.End - Elem.Begin) == 1,
-               "this attribute should have one argument");
+        Assert((ArgCount) == 1, "this attribute should have one argument");
       }
     }
     break;
@@ -4646,6 +4712,16 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
 #include "llvm/IR/ConstrainedOps.def"
     visitConstrainedFPIntrinsic(cast<ConstrainedFPIntrinsic>(Call));
     break;
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::intel_honor_fcmp: {
+    auto Pred = cast<IntelHonorFCmpIntrinsic>(&Call)->getPredicate();
+    Assert(CmpInst::isFPPredicate(Pred),
+           "invalid predicate for intel.honor.fcmp intrinsic", Call);
+    Assert(!Call.hasNoNaNs(),
+           "nnan is not permitted on intel.honor.fcmp intrinsic", Call);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::dbg_declare: // llvm.dbg.declare
     Assert(isa<MetadataAsValue>(Call.getArgOperand(0)),
            "invalid llvm.dbg.declare intrinsic call 1", Call);
@@ -5124,6 +5200,14 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     Assert(Size % 16 == 0, "bswap must be an even number of bytes", &Call);
     break;
   }
+  case Intrinsic::invariant_start: {
+    ConstantInt *InvariantSize = dyn_cast<ConstantInt>(Call.getArgOperand(0));
+    Assert(InvariantSize &&
+               (!InvariantSize->isNegative() || InvariantSize->isMinusOne()),
+           "invariant_start parameter must be -1, 0 or a positive number",
+           &Call);
+    break;
+  }
   case Intrinsic::matrix_multiply:
   case Intrinsic::matrix_transpose:
   case Intrinsic::matrix_column_major_load:
@@ -5187,7 +5271,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
              "Vector element type mismatch of the result and second operand "
              "vector!", IF);
 
-    Assert(ResultTy->getNumElements() ==
+    Assert(cast<FixedVectorType>(ResultTy)->getNumElements() ==
                NumRows->getZExtValue() * NumColumns->getZExtValue(),
            "Result of a matrix operation does not fit in the returned vector!");
 
@@ -5195,6 +5279,26 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
       Assert(Stride->getZExtValue() >= NumRows->getZExtValue(),
              "Stride must be greater or equal than the number of rows!", IF);
 
+    break;
+  }
+  case Intrinsic::experimental_vector_insert: {
+    VectorType *VecTy = cast<VectorType>(Call.getArgOperand(0)->getType());
+    VectorType *SubVecTy = cast<VectorType>(Call.getArgOperand(1)->getType());
+
+    Assert(VecTy->getElementType() == SubVecTy->getElementType(),
+           "experimental_vector_insert parameters must have the same element "
+           "type.",
+           &Call);
+    break;
+  }
+  case Intrinsic::experimental_vector_extract: {
+    VectorType *ResultTy = cast<VectorType>(Call.getType());
+    VectorType *VecTy = cast<VectorType>(Call.getArgOperand(0)->getType());
+
+    Assert(ResultTy->getElementType() == VecTy->getElementType(),
+           "experimental_vector_extract result must have the same element "
+           "type as the input vector.",
+           &Call);
     break;
   }
   };
@@ -5273,7 +5377,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
     Assert(Operand->getType()->isFPOrFPVectorTy(),
            "Intrinsic first argument must be floating point", &FPI);
     if (auto *OperandT = dyn_cast<VectorType>(Operand->getType())) {
-      NumSrcElem = OperandT->getNumElements();
+      NumSrcElem = cast<FixedVectorType>(OperandT)->getNumElements();
     }
 
     Operand = &FPI;
@@ -5282,7 +5386,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
     Assert(Operand->getType()->isIntOrIntVectorTy(),
            "Intrinsic result must be an integer", &FPI);
     if (auto *OperandT = dyn_cast<VectorType>(Operand->getType())) {
-      Assert(NumSrcElem == OperandT->getNumElements(),
+      Assert(NumSrcElem == cast<FixedVectorType>(OperandT)->getNumElements(),
              "Intrinsic first argument and result vector lengths must be equal",
              &FPI);
     }
@@ -5296,7 +5400,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
     Assert(Operand->getType()->isIntOrIntVectorTy(),
            "Intrinsic first argument must be integer", &FPI);
     if (auto *OperandT = dyn_cast<VectorType>(Operand->getType())) {
-      NumSrcElem = OperandT->getNumElements();
+      NumSrcElem = cast<FixedVectorType>(OperandT)->getNumElements();
     }
 
     Operand = &FPI;
@@ -5305,7 +5409,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
     Assert(Operand->getType()->isFPOrFPVectorTy(),
            "Intrinsic result must be a floating point", &FPI);
     if (auto *OperandT = dyn_cast<VectorType>(Operand->getType())) {
-      Assert(NumSrcElem == OperandT->getNumElements(),
+      Assert(NumSrcElem == cast<FixedVectorType>(OperandT)->getNumElements(),
              "Intrinsic first argument and result vector lengths must be equal",
              &FPI);
     }
@@ -5324,9 +5428,8 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
     Assert(OperandTy->isVectorTy() == ResultTy->isVectorTy(),
            "Intrinsic first argument and result disagree on vector use", &FPI);
     if (OperandTy->isVectorTy()) {
-      auto *OperandVecTy = cast<VectorType>(OperandTy);
-      auto *ResultVecTy = cast<VectorType>(ResultTy);
-      Assert(OperandVecTy->getNumElements() == ResultVecTy->getNumElements(),
+      Assert(cast<FixedVectorType>(OperandTy)->getNumElements() ==
+                 cast<FixedVectorType>(ResultTy)->getNumElements(),
              "Intrinsic first argument and result vector lengths must be equal",
              &FPI);
     }

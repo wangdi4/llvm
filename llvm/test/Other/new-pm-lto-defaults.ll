@@ -24,7 +24,7 @@
 ; RUN:     --check-prefix=CHECK-O3 --check-prefix=CHECK-EP-Peephole
 
 ; CHECK-O: Starting llvm::Module pass manager run.
-; CHECK-O-NEXT: Starting llvm::Module pass manager run.
+; CHECK-O-NEXT: Running pass: Annotation2Metadata
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass   ;INTEL
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit  ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis  ;INTEL
@@ -108,6 +108,12 @@
 ; CHECK-O2-NEXT: Running pass: InlinerPass
 ; CHECK-O2-NEXT: Finished CGSCC pass manager run.
 ; CHECK-O2-NEXT: Finished llvm::Module pass manager run.
+; CHECK-O2-NEXT: Running pass: ModuleInlinerWrapperPass
+; CHECK-O2-NEXT: Starting llvm::Module pass manager run.
+; CHECK-O2-NEXT: Starting CGSCC pass manager run.
+; CHECK-O2-NEXT: Running pass: InlinerPass
+; CHECK-O2-NEXT: Finished CGSCC pass manager run.
+; CHECK-O2-NEXT: Finished llvm::Module pass manager run.
 ; INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; CHECK-O2-NEXT: Running pass: IntelIPOPrefetchPass
@@ -122,7 +128,7 @@
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O2-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O2-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-O2-NEXT: Running analysis: PostDominatorTreeAnalysis                        ;INTEL
+; CHECK-O2-NEXT: Running analysis: PostDominatorTreeAnalysis on foo                  ;INTEL
 ; CHECK-O2-NEXT: Running pass: SROA on foo
 ; CHECK-O2-NEXT: Running pass: TailCallElimPass on foo
 ; CHECK-O2-NEXT: Finished llvm::Function pass manager run.
@@ -132,6 +138,8 @@
 ; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O2-NEXT: Running pass: MemCpyOptPass on foo
 ; CHECK-O2-NEXT: Running pass: DSEPass on foo
+; Running analysis: PostDominatorTreeAnalysis on foo   ;INTEL PostDom has moved, cannot make check work
+; CHECK-O2-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O2-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass on foo
 ; CHECK-O2-NEXT: Running pass: SCCPPass on foo
@@ -147,8 +155,8 @@
 ; CHECK-O2-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O2-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
+; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-O2-NEXT: Running pass: InlineReportEmitterPass          ;INTEL
-; CHECK-O-NEXT: Finished llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.

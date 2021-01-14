@@ -3,13 +3,13 @@
 ; Check that with the old pass manager, the first call to foo() is not inlined
 ; because it is cold, while the second is inlined, because it is hot.
 
+; CHECK: define{{.*}}@main
+; CHECK: call{{.*}}@foo
+; CHECK-NOT: call{{.*}}@foo
 ; CHECK: COMPILE FUNC: foo
 ; CHECK: COMPILE FUNC: main
 ; CHECK: foo{{.*}}Callsite has cold profile
 ; CHECK: INLINE: foo{{.*}}<<Callsite has hot profile>>
-; CHECK: define{{.*}}@main
-; CHECK: call{{.*}}@foo
-; CHECK-NOT: call{{.*}}@foo
 
 @myglobal = dso_local local_unnamed_addr global i32 0, align 4
 

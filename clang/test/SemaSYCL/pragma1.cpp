@@ -95,11 +95,11 @@ void foo_ivdep()
   [[intel::ivdep()]] // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
   for (int i=0;i<32;++i) {}
 
-  //expected-error@+1{{duplicate argument to 'ivdep'. attribute requires one or both of a safelen and array}}
+  //expected-error@+1{{duplicate argument to 'ivdep'; attribute requires one or both of a safelen and array}}
   [[intel::ivdep(4,8)]]
   for (int i=0;i<32;++i) {}
 
-  //expected-error@+1{{duplicate argument to 'ivdep'. attribute requires one or both of a safelen and array}}
+  //expected-error@+1{{duplicate argument to 'ivdep'; attribute requires one or both of a safelen and array}}
   [[intel::ivdep(myArray, myArray)]]
   for (int i=0;i<32;++i) {}
 

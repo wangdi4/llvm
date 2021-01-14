@@ -7,24 +7,21 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @test_uniform_lcssa_phi() {
 ; CHECK-LABEL:  VPlan IR for: test_uniform_lcssa_phi
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[BB1]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_IV]] i32 42
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB1]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB1]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT_LCSSA:%.*]] = phi  [ i32 [[VP_IV_NEXT]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_USE:%.*]] = add i32 [[VP_IV_NEXT_LCSSA]] i32 42
-; CHECK-NEXT:     [DA: Div] void [[VP0:%.*]] = ret
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()

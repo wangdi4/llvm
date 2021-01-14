@@ -38,7 +38,7 @@
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 ; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_1:[^ ,]+]]
 ; CHECK: [[IF_MASTER_1]]:
-; CHECK:  %{{.*}} = call %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*))
+; CHECK:  %{{.*}} = call spir_func %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*))
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
@@ -54,7 +54,7 @@
 
 ; CHECK: store i32 %{{.*}}, i32 addrspace(3)* @i0.ascast.priv.__local
 ; CHECK: call spir_func void @_ZNSt7complexIdEC2Edd(%"struct.std::complex" addrspace(4)* %{{.*}}, double 1.000000e+00, double 0.000000e+00)
-; CHECK: call spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* sret align 8 %{{.*}}, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*), %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %{{.*}})
+; CHECK: call spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* sret(%"struct.std::complex") align 8 %{{.*}}, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*), %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %{{.*}})
 ; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 ; CHECK: %[[COUNTER:[^,]+]] = bitcast %"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to i8 addrspace(3)*
 ; CHECK: %[[REF:[^,]+]] = bitcast %"struct.std::complex"* %ref.tmp.ascast.priv to i8*
@@ -152,7 +152,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %add = add nsw i32 0, %mul
   store i32 %add, i32 addrspace(4)* %i0.ascast, align 4
   call spir_func void @_ZNSt7complexIdEC2Edd(%"struct.std::complex" addrspace(4)* %ref.tmp1.ascast, double 1.000000e+00, double 0.000000e+00) #2
-  call spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* sret align 8 %ref.tmp.ascast, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %counter_N0.ascast, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %ref.tmp1.ascast) #2
+  call spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* sret(%"struct.std::complex") align 8 %ref.tmp.ascast, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %counter_N0.ascast, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %ref.tmp1.ascast) #2
   %8 = bitcast %"struct.std::complex" addrspace(4)* %counter_N0.ascast to i8 addrspace(4)*
   %9 = bitcast %"struct.std::complex" addrspace(4)* %ref.tmp.ascast to i8 addrspace(4)*
   call void @llvm.memcpy.p4i8.p4i8.i64(i8 addrspace(4)* align 8 %8, i8 addrspace(4)* align 8 %9, i64 16, i1 false)
@@ -258,7 +258,7 @@ entry:
   store %"struct.std::complex" addrspace(4)* %__z, %"struct.std::complex" addrspace(4)* addrspace(4)* %__z.addr.ascast, align 8
   %this1 = load %"struct.std::complex" addrspace(4)*, %"struct.std::complex" addrspace(4)* addrspace(4)* %this.addr.ascast, align 8
   %0 = load %"struct.std::complex" addrspace(4)*, %"struct.std::complex" addrspace(4)* addrspace(4)* %__z.addr.ascast, align 8
-  call spir_func void @_ZNKSt7complexIdE5__repEv({ double, double } addrspace(4)* sret align 8 %tmp.ascast, %"struct.std::complex" addrspace(4)* %0)
+  call spir_func void @_ZNKSt7complexIdE5__repEv({ double, double } addrspace(4)* sret({ double, double }) align 8 %tmp.ascast, %"struct.std::complex" addrspace(4)* %0)
   %tmp.ascast.realp = getelementptr inbounds { double, double }, { double, double } addrspace(4)* %tmp.ascast, i32 0, i32 0
   %tmp.ascast.real = load double, double addrspace(4)* %tmp.ascast.realp, align 8
   %tmp.ascast.imagp = getelementptr inbounds { double, double }, { double, double } addrspace(4)* %tmp.ascast, i32 0, i32 1
@@ -278,7 +278,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind
-define internal %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* %0) #3 {
+define internal spir_func %"struct.std::complex" addrspace(4)* @_ZTSSt7complexIdE.omp.def_constr(%"struct.std::complex" addrspace(4)* %0) #3 {
 entry:
   %retval = alloca %"struct.std::complex" addrspace(4)*, align 8
   %retval.ascast = addrspacecast %"struct.std::complex" addrspace(4)** %retval to %"struct.std::complex" addrspace(4)* addrspace(4)*
@@ -291,7 +291,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind
-define internal void @_ZTSSt7complexIdE.omp.destr(%"struct.std::complex" addrspace(4)* %0) #3 {
+define internal spir_func void @_ZTSSt7complexIdE.omp.destr(%"struct.std::complex" addrspace(4)* %0) #3 {
 entry:
   %.addr = alloca %"struct.std::complex" addrspace(4)*, align 8
   %.addr.ascast = addrspacecast %"struct.std::complex" addrspace(4)** %.addr to %"struct.std::complex" addrspace(4)* addrspace(4)*
@@ -300,7 +300,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind optnone
-define linkonce_odr hidden spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* noalias sret align 8 %agg.result, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %__x, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %__y) #1 comdat {
+define linkonce_odr hidden spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* noalias sret(%"struct.std::complex") align 8 %agg.result, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %__x, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %__y) #1 comdat {
 entry:
   %__x.addr = alloca %"struct.std::complex" addrspace(4)*, align 8
   %__x.addr.ascast = addrspacecast %"struct.std::complex" addrspace(4)** %__x.addr to %"struct.std::complex" addrspace(4)* addrspace(4)*
@@ -334,7 +334,7 @@ declare spir_func align 8 dereferenceable(8) %"class.std::basic_ostream" addrspa
 declare spir_func void @exit(i32) #6
 
 ; Function Attrs: noinline nounwind optnone
-define linkonce_odr hidden spir_func void @_ZNKSt7complexIdE5__repEv({ double, double } addrspace(4)* noalias sret align 8 %agg.result, %"struct.std::complex" addrspace(4)* %this) #1 comdat align 2 {
+define linkonce_odr hidden spir_func void @_ZNKSt7complexIdE5__repEv({ double, double } addrspace(4)* noalias sret({ double, double }) align 8 %agg.result, %"struct.std::complex" addrspace(4)* %this) #1 comdat align 2 {
 entry:
   %this.addr = alloca %"struct.std::complex" addrspace(4)*, align 8
   %this.addr.ascast = addrspacecast %"struct.std::complex" addrspace(4)** %this.addr to %"struct.std::complex" addrspace(4)* addrspace(4)*

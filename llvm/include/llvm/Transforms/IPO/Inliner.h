@@ -66,8 +66,8 @@ struct LegacyInlinerBase : public CallGraphSCCPass {
   /// deal with that subset of the functions.
   bool removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly = false);
 
-  InlineReport& getReport() { return Report; } // INTEL
-  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
+  InlineReport* getReport() { return Report; } // INTEL
+  InlineReportBuilder* getMDReport() { return MDReport; } // INTEL
 
   /// This function performs the main work of the pass.  The default of
   /// Inlinter::runOnSCC() calls skipSCC() before calling this method, but
@@ -80,8 +80,8 @@ private:
   bool InsertLifetime = true;
 
   // INTEL The inline report
-  InlineReport Report; // INTEL
-  InlineReportBuilder MDReport; // INTEL
+  InlineReport *Report; // INTEL
+  InlineReportBuilder *MDReport; // INTEL
 
 protected:
 #if INTEL_CUSTOMIZATION
@@ -114,16 +114,19 @@ public:
   InlinerPass(); // INTEL
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
-      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
-        Report(std::move(Arg.Report)),                                 // INTEL
-        MDReport(std::move(Arg.MDReport))                              // INTEL
-  {}                                                                   // INTEL
+#if INTEL_CUSTOMIZATION
+      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)),
+        Report(std::move(Arg.Report)), MDReport(std::move(Arg.MDReport)) {}
+#endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
-
-  InlineReport& getReport() { return Report; } // INTEL
-  InlineReportBuilder *getMDReport() { return MDReport; } // INTEL
+#if INTEL_CUSTOMIZATION
+  InlineReport *getReport() { return Report; }
+  InlineReportBuilder *getMDReport() { return MDReport; }
+  bool getIsAlwaysInline() { return IsAlwaysInline; }
+  void setIsAlwaysInline(bool AlwaysInline) { IsAlwaysInline = AlwaysInline; }
+#endif // INTEL_CUSTOMIZATION
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             FunctionAnalysisManager &FAM, Module &M);
@@ -131,8 +134,9 @@ private:
   Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
 
   // INTEL The inline report
-  InlineReport Report; // INTEL
+  InlineReport *Report; // INTEL
   InlineReportBuilder *MDReport; // INTEL
+  bool IsAlwaysInline; // INTEL
 };
 
 /// Module pass, wrapping the inliner pass. This works in conjunction with the
@@ -146,7 +150,7 @@ public:
   ModuleInlinerWrapperPass(
       InlineParams Params = getInlineParams(), bool Debugging = false,
       InliningAdvisorMode Mode = InliningAdvisorMode::Default,
-      unsigned MaxDevirtIterations = 0, InlinerPass *InlP = nullptr); // INTEL
+      unsigned MaxDevirtIterations = 0);
   ModuleInlinerWrapperPass(ModuleInlinerWrapperPass &&Arg) = default;
 
   PreservedAnalyses run(Module &, ModuleAnalysisManager &);

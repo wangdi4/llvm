@@ -93,6 +93,9 @@ class MachineModuleInfo {
 
   /// This is the MCContext used for the entire code generator.
   MCContext Context;
+  // This is an external context, that if assigned, will be used instead of the
+  // internal context.
+  MCContext *ExternalContext = nullptr;
 
   /// This is the LLVM Module being worked on.
   const Module *TheModule;
@@ -161,6 +164,9 @@ class MachineModuleInfo {
 public:
   explicit MachineModuleInfo(const LLVMTargetMachine *TM = nullptr);
 
+  explicit MachineModuleInfo(const LLVMTargetMachine *TM,
+                             MCContext *ExtContext);
+
   MachineModuleInfo(MachineModuleInfo &&MMII);
 
   ~MachineModuleInfo();
@@ -170,8 +176,12 @@ public:
 
   const LLVMTargetMachine &getTarget() const { return TM; }
 
-  const MCContext &getContext() const { return Context; }
-  MCContext &getContext() { return Context; }
+  const MCContext &getContext() const {
+    return ExternalContext ? *ExternalContext : Context;
+  }
+  MCContext &getContext() {
+    return ExternalContext ? *ExternalContext : Context;
+  }
 
   const Module *getModule() const { return TheModule; }
 
@@ -296,6 +306,9 @@ class MachineModuleInfoWrapperPass : public ImmutablePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit MachineModuleInfoWrapperPass(const LLVMTargetMachine *TM = nullptr);
+
+  explicit MachineModuleInfoWrapperPass(const LLVMTargetMachine *TM,
+                                        MCContext *ExtContext);
 
   // Initialization and Finalization
   bool doInitialization(Module &) override;

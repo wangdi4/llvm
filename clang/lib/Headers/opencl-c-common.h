@@ -25,6 +25,21 @@
 #pragma OPENCL EXTENSION cl_intel_planar_yuv : end
 #endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
 
+// Define extension macros
+
+#if (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
+// For SPIR all extensions are supported.
+#if defined(__SPIR__)
+#define cl_khr_subgroup_extended_types 1
+#define cl_khr_subgroup_non_uniform_vote 1
+#define cl_khr_subgroup_ballot 1
+#define cl_khr_subgroup_non_uniform_arithmetic 1
+#define cl_khr_subgroup_shuffle 1
+#define cl_khr_subgroup_shuffle_relative 1
+#define cl_khr_subgroup_clustered_reduce 1
+#endif // defined(__SPIR__)
+#endif // (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
+
 // built-in scalar data types:
 
 /**
@@ -4839,6 +4854,7 @@ float16 __ovld __cnfn convert_float16(float16);
 // Conversions with double data type parameters or return value.
 
 #ifdef cl_khr_fp64
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 char __ovld __cnfn convert_char(double);
 char __ovld __cnfn convert_char_rte(double);
 char __ovld __cnfn convert_char_rtn(double);
@@ -5661,6 +5677,7 @@ double16 __ovld __cnfn convert_double16_rtz(ushort16);
 #endif //cl_khr_fp64
 
 #ifdef cl_khr_fp16
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 // Convert half types to non-double types.
 uchar __ovld __cnfn convert_uchar(half);
 uchar __ovld __cnfn convert_uchar_rte(half);

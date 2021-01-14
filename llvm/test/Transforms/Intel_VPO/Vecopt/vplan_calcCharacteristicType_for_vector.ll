@@ -16,60 +16,48 @@ declare void @llvm.directive.region.exit(token) #3
 define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ;
 ; CHECK-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i32 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_MASK_GEP:%.*]] = getelementptr i32* [[MASK_CAST0:%.*]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_MASK_PARM:%.*]] = load i32* [[VP_MASK_GEP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND:%.*]] = icmp ne i32 [[VP_MASK_PARM]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND_NOT:%.*]] = not i1 [[VP_MASK_COND]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_MASK_COND_NOT]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_MASK_COND]]
 ; CHECK-NEXT:     [DA: Div] <4 x i32> [[VP_CALL_I:%.*]] = call i32 5 _ZGVbM4v_Z3barPif [x 1] [@CurrMask]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 false, [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-NEXT:     Condition(external): i1 false
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 false), [[BB6:BB[0-9]+]](!i1 false)
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
 ; CHECK:  define void @_ZGVbM4_direct(<4 x i32> [[MASK0:%.*]]) #2 {
 ; CHECK-NEXT:  entry:
@@ -98,7 +86,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:    [[TMP4]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP5]] = add nuw i32 [[UNI_PHI10]], 4
 ; CHECK-NEXT:    [[TMP6]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i32 [[TMP6]], 4
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i32 [[TMP6]], 4
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:

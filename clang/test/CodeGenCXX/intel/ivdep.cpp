@@ -33,9 +33,9 @@ void foo() {
   }
 }
 
-// CHECK: ![[LOOP_1]] = distinct !{![[LOOP_1]], ![[IVDEPBACK:.*]]}
+// CHECK: ![[LOOP_1]] = distinct !{![[LOOP_1]], ![[LOOP_MUSTPROGRESS:[0-9]+]], ![[IVDEPBACK:.*]]}
 // CHECK: ![[IVDEPBACK]] = !{!"llvm.loop.vectorize.ivdep_back"}
-// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[IVDEPLOOP:.*]]}
+// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[LOOP_MUSTPROGRESS]], ![[IVDEPLOOP:.*]]}
 // CHECK: ![[IVDEPLOOP]] = !{!"llvm.loop.vectorize.ivdep_loop"}
-// CHECK: ![[LOOP_3]] = distinct !{![[LOOP_3]], ![[IVDEPBACK]]}
-// CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[IVDEPBACK]]}
+// CHECK: ![[LOOP_3]] = distinct !{![[LOOP_3]], ![[LOOP_MUSTPROGRESS]], ![[IVDEPBACK]]}
+// CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[LOOP_MUSTPROGRESS]], ![[IVDEPBACK]]}

@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.pair = type { i32, i32 }
 
-define i32 @foo(%struct.pair* byval %x) #0 {
+define i32 @foo(%struct.pair* byval(%struct.pair) %x) #0 {
 ; CHECK-LABEL: @_ZGVbN4u_foo(
 ; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <4 x i32>
 ; CHECK-NEXT:    [[RET_CAST:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL]] to i32*

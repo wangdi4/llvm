@@ -701,7 +701,7 @@ void VPOUtils::doParSectTrans(
   //
   // generateSwitch() will return the switch instruction created.
   //
-  genParSectSwitch(IV, Node, Builder, Counter, DT);
+  genParSectSwitch(IV, IntTy, Node, Builder, Counter, DT);
 
   Instruction *Inst = Node->EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
@@ -798,10 +798,9 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
           TargetTriple.getArch() == Triple::ArchType::spir64) {
 
         // Address space Casting to ADDRESS_SPACE_GENERIC = 4 for GPU device
-        PointerType *PtType = cast<PointerType>(TmpUB->getType());
         IRBuilder<> Builder(InsertPt);
         Value *V = Builder.CreatePointerBitCastOrAddrSpaceCast(
-                     TmpUB, PtType->getElementType()->getPointerTo(4),
+                     TmpUB, TmpUB->getAllocatedType()->getPointerTo(4),
                      TmpUB->getName() + ".ascast");
         NormalizedUB = V;
       } else
@@ -831,12 +830,13 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 
   // Loop BodyBB
   Builder.SetInsertPoint(BodyBB);
-  Value *IncIV = Builder.CreateAdd(Builder.CreateLoad(IV, true), Stride,
-                                   ".sloop.inc." + Twine(Counter),
+  Value *IncIV = Builder.CreateAdd(Builder.CreateLoad(LoopIVType, IV, true),
+                                   Stride, ".sloop.inc." + Twine(Counter),
                                    true /*HasNUW*/, true /*HasNSW*/);
   Builder.CreateStore(IncIV, IV, true);
   Value *LoopCond = Builder.CreateICmp(ICmpInst::ICMP_SLE,
-                                       Builder.CreateLoad(IV, true), UpperBnd);
+                                       Builder.CreateLoad(LoopIVType, IV, true),
+                                       UpperBnd);
   LoopCond->setName(FName + ".sloop.cond." + Twine(Counter));
 
   // Loop latch
@@ -895,6 +895,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 //
 void VPOUtils::genParSectSwitch(
   Value *SwitchCond,
+  Type *SwitchCondTy,
   ParSectNode *Node,
   IRBuilder<> &Builder,
   int Counter,
@@ -921,7 +922,8 @@ void VPOUtils::genParSectSwitch(
 
   BasicBlock *Default = Node->Children[0]->EntryBB;
   SwitchInst *SwitchInstruction = Builder.CreateSwitch(
-      Builder.CreateLoad(SwitchCond, true), Default, NumCases - 1);
+      Builder.CreateLoad(SwitchCondTy, SwitchCond, true),
+      Default, NumCases - 1);
 
   BasicBlock *Epilog = BasicBlock::Create(
           Context, FName + ".sw.epilog." + Twine(Counter), F);

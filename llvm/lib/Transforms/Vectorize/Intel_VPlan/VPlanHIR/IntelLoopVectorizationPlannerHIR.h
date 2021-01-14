@@ -42,9 +42,14 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
-  std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                           unsigned &EndRangeVF,
-                                           VPExternalValues &Ext) override;
+  std::shared_ptr<VPlan>
+  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
+                    VPExternalValues &Ext,
+                    ScalarEvolution *SE = nullptr) override;
+
+  void emitVecSpecifics(VPlan *Plan) override {
+    Plan->markBackedgeUniformityForced();
+  };
 
 protected:
   /// Check whether everything in the loop body is supported at the moment.
@@ -67,6 +72,11 @@ public:
   /// best selected VPlan. This function returns true if code generation was
   /// successful, false if there was any late bailout during CG.
   bool executeBestPlan(VPOCodeGenHIR *CG, unsigned UF);
+
+  /// Return Loop Unroll Factor either forced by option or pragma
+  /// or advised by optimizations.
+  /// \p Forced indicates that Unroll Factor is forced.
+  virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr) override;
 
   /// Return a pair of the <min, max> types' width used in the underlying loop.
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {

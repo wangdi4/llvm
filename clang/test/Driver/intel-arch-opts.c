@@ -114,6 +114,10 @@
 // RUN:  | FileCheck -check-prefixes=ARCH-CASCADELAKE %s
 // ARCH-CASCADELAKE: "-target-cpu" "cascadelake"
 
+// RUN: %clang_cl -### -c /arch:COOPERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-COOPERLAKE %s
+// ARCH-COOPERLAKE: "-target-cpu" "cooperlake"
+
 // RUN: %clang_cl -### -c /arch:TIGERLAKE %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=ARCH-TIGERLAKE %s
 // ARCH-TIGERLAKE: "-target-cpu" "tigerlake"

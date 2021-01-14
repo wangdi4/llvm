@@ -2,13 +2,11 @@
 ; explicit SIMD reduction descriptors when vectorzing with incoming HIR.
 
 ; __inline
-; int bar(int p0, int p1, int n, int *ptr, int step) {
-;     char c = step;
+; int bar(int p0, int p1, int n, int *ptr) {
 ; #pragma omp simd reduction(+: p0, p1)
 ;     for(int i = 0; i < n; i++) {
-;         p0 += *ptr * c;
+;         p0 += *ptr * i;
 ;         p1 += 2*i;
-;         c++;
 ;     }
 ;     return p0 +p1;
 ; }
@@ -20,31 +18,25 @@
 ; }
 
 ; Input HIR
-; <0>     BEGIN REGION { }
-; <2>           %6 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%p0.addr.i)[0])),  QUAL.OMP.REDUCTION.ADD(&((%p1.addr.i)[0])),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
-; <3>           %7 = (@A)[0][3];
-; <4>           %p0.addr.i.promoted = (%p0.addr.i)[0];
-; <5>           %p1.addr.i.promoted = (%p1.addr.i)[0];
-; <6>           %add10.i5 = %p1.addr.i.promoted;
-; <7>           %add8.i4 = %p0.addr.i.promoted;
-; <9>           %c.0.i2 = %3;
-; <31>
-; <31>          + DO i1 = 0, %2 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295> <simd>
-; <14>          |   %add8.i4 = %add8.i4  +  (sext.i8.i32(%c.0.i2) * %7); <Safe Reduction>
-; <16>          |   %add10.i = %add10.i5  +  2 * i1;
-; <20>          |   %c.0.i2 = i1 + trunc.i32.i8(%3) + 1;
-; <22>          |   %add10.i5 = %add10.i;
-; <31>          + END LOOP
-; <31>
-; <27>          (%p0.addr.i)[0] = %add8.i4;
-; <28>          (%p1.addr.i)[0] = %add10.i;
-; <29>          @llvm.directive.region.exit(%6); [ DIR.OMP.END.SIMD() ]
-; <0>     END REGION
-
-; For the above HIR, reduction for the variable %p0.addr.i is auto-recognized
-; as SRA while that for %p1.addr.i is recognized explicitly via clause
-; descriptors. We use aliases of the descriptor variables to correctly identify
-; the init and finalize VPValues.
+; <0>          BEGIN REGION { }
+; <2>                %6 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%p0.addr.i)[0])),  QUAL.OMP.REDUCTION.ADD(&((%p1.addr.i)[0])),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+; <3>                %7 = (@A)[0][3];
+; <4>                %p0.addr.i.promoted = (%p0.addr.i)[0];
+; <5>                %p1.addr.i.promoted = (%p1.addr.i)[0];
+; <6>                %add10.i5 = %p1.addr.i.promoted;
+; <7>                %add8.i4 = %p0.addr.i.promoted;
+; <28>
+; <28>               + DO i1 = 0, %2 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295> <simd>
+; <12>               |   %add8.i = %add8.i4  +  %7 * i1;
+; <14>               |   %add10.i = %add10.i5  +  2 * i1;
+; <18>               |   %add8.i4 = %add8.i;
+; <19>               |   %add10.i5 = %add10.i;
+; <28>               + END LOOP
+; <28>
+; <24>               (%p0.addr.i)[0] = %add8.i;
+; <25>               (%p1.addr.i)[0] = %add10.i;
+; <26>               @llvm.directive.region.exit(%6); [ DIR.OMP.END.SIMD() ]
+; <0>          END REGION
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
@@ -95,13 +87,10 @@ omp.inner.for.body.i:                             ; preds = %omp.inner.for.body.
   %add10.i5 = phi i32 [ %add10.i, %omp.inner.for.body.i ], [ %p1.addr.i.promoted, %DIR.OMP.SIMD.2 ]
   %add8.i4 = phi i32 [ %add8.i, %omp.inner.for.body.i ], [ %p0.addr.i.promoted, %DIR.OMP.SIMD.2 ]
   %.omp.iv.i.0 = phi i32 [ %add11.i, %omp.inner.for.body.i ], [ 0, %DIR.OMP.SIMD.2 ]
-  %c.0.i2 = phi i8 [ %inc.i, %omp.inner.for.body.i ], [ %conv.i, %DIR.OMP.SIMD.2 ]
-  %conv6.i = sext i8 %c.0.i2 to i32
-  %mul7.i = mul nsw i32 %7, %conv6.i
+  %mul7.i = mul nsw i32 %7, %.omp.iv.i.0
   %add8.i = add nsw i32 %add8.i4, %mul7.i
   %mul9.i = shl nuw nsw i32 %.omp.iv.i.0, 1
   %add10.i = add nsw i32 %add10.i5, %mul9.i
-  %inc.i = add i8 %c.0.i2, 1
   %add11.i = add nuw nsw i32 %.omp.iv.i.0, 1
   %exitcond = icmp eq i32 %add11.i, %2
   br i1 %exitcond, label %omp.loop.exit.i, label %omp.inner.for.body.i

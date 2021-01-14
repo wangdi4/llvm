@@ -37,7 +37,7 @@
 ;   }
 ; }
 
-; RUN: opt -vector-library=SVML -VPlanDriver -vplan-force-vf=8 -S %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -vector-library=SVML -VPlanDriver -vplan-force-vf=8 -S %s | FileCheck %s
 
 ; CHECK-LABEL: entry
 ; CHECK:         [[COSPTR_VEC:%.*]] = alloca <8 x float>

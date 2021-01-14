@@ -195,31 +195,39 @@ public:
   char *getPtr() override { return reinterpret_cast<char *>(&MKernel); }
 
   template <class ArgT = KernelArgType>
-  typename std::enable_if<std::is_same<ArgT, void>::value>::type
+  typename detail::enable_if_t<std::is_same<ArgT, void>::value>
   runOnHost(const NDRDescT &) {
     MKernel();
   }
 
   template <class ArgT = KernelArgType>
-  typename std::enable_if<std::is_same<ArgT, sycl::id<Dims>>::value>::type
+  typename detail::enable_if_t<std::is_same<ArgT, sycl::id<Dims>>::value>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
-    for (int I = 0; I < Dims; ++I)
+    sycl::id<Dims> Offset;
+    for (int I = 0; I < Dims; ++I) {
       Range[I] = NDRDesc.GlobalSize[I];
+      Offset[I] = NDRDesc.GlobalOffset[I];
+    }
 
 /* INTEL_CUSTOMIZATION */
 #if !DPCPP_HOST_DEVICE_SERIAL
     ParallelFor(Range, [this](const sycl::id<Dims> Id) { MKernel(Id); });
 #else
 /* end INTEL_CUSTOMIZATION */
-    detail::NDLoop<Dims>::iterate(
-        Range, [&](const sycl::id<Dims> &ID) { MKernel(ID); });
+    detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> &ID) {
+      sycl::item<Dims, /*Offset=*/true> Item =
+          IDBuilder::createItem<Dims, true>(Range, ID, Offset);
+      store_id(&ID);
+      store_item(&Item);
+      MKernel(ID);
+    });
 #endif // INTEL
   }
 
   template <class ArgT = KernelArgType>
-  typename std::enable_if<
-      std::is_same<ArgT, item<Dims, /*Offset=*/false>>::value>::type
+  typename detail::enable_if_t<
+      std::is_same<ArgT, item<Dims, /*Offset=*/false>>::value>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::id<Dims> ID;
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
@@ -235,13 +243,16 @@ public:
 #endif // INTEL
       sycl::item<Dims, /*Offset=*/false> Item =
           IDBuilder::createItem<Dims, false>(Range, ID);
+      sycl::item<Dims, /*Offset=*/true> ItemWithOffset = Item;
+      store_id(&ID);
+      store_item(&ItemWithOffset);
       MKernel(Item);
     });
   }
 
   template <class ArgT = KernelArgType>
-  typename std::enable_if<
-      std::is_same<ArgT, item<Dims, /*Offset=*/true>>::value>::type
+  typename detail::enable_if_t<
+      std::is_same<ArgT, item<Dims, /*Offset=*/true>>::value>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     sycl::id<Dims> Offset;
@@ -260,12 +271,14 @@ public:
       sycl::id<Dims> OffsetID = ID + Offset;
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, OffsetID, Offset);
+      store_id(&OffsetID);
+      store_item(&Item);
       MKernel(Item);
     });
   }
 
   template <class ArgT = KernelArgType>
-  typename std::enable_if<std::is_same<ArgT, nd_item<Dims>>::value>::type
+  typename detail::enable_if_t<std::is_same<ArgT, nd_item<Dims>>::value>
   runOnHost(const NDRDescT &NDRDesc) {
     sycl::range<Dims> GroupSize(InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I) {
@@ -309,6 +322,11 @@ public:
             IDBuilder::createItem<Dims, false>(LocalSize, LocalID);
         const sycl::nd_item<Dims> NDItem =
             IDBuilder::createNDItem<Dims>(GlobalItem, LocalItem, Group);
+        store_id(&GlobalID);
+        store_item(&GlobalItem);
+        store_nd_item(&NDItem);
+        auto g = NDItem.get_group();
+        store_group(&g);
         MKernel(NDItem);
 #if DPCPP_HOST_DEVICE_SERIAL // INTEL
       });

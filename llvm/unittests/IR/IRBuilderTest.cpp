@@ -390,28 +390,137 @@ TEST_F(IRBuilderTest, Lifetime) {
   EXPECT_EQ(II_End1->getIntrinsicID(), Intrinsic::lifetime_end);
 }
 
-TEST_F(IRBuilderTest, CreateCondBr) {
+#if INTEL_CUSTOMIZATION
+// TODO: Generalize this to avoid the duplicated code.
+// TODO: Test vector types.
+TEST_F(IRBuilderTest, HonorNaNCompares) {
   IRBuilder<> Builder(BB);
-  BasicBlock *TBB = BasicBlock::Create(Ctx, "", F);
-  BasicBlock *FBB = BasicBlock::Create(Ctx, "", F);
+  Type *F32Ty = Type::getFloatTy(Ctx);
+  Value *F32NaN = ConstantFP::getNaN(F32Ty);
+  Value *F32Zero = ConstantFP::getNullValue(F32Ty);
+  Type *F64Ty = Type::getDoubleTy(Ctx);
+  Value *F64NaN = ConstantFP::getNaN(F64Ty);
+  Value *F64Zero = ConstantFP::getNullValue(F64Ty);
+  Value *V;
+  IntelHonorFCmpIntrinsic *II;
+  Value *VMul;
+  Value *VFloat;
+  GlobalVariable *GVFloat = new GlobalVariable(*M, F32Ty, true,
+      GlobalValue::ExternalLinkage, nullptr);
+  Value *VDouble;
+  GlobalVariable *GVDouble = new GlobalVariable(*M, F64Ty, true,
+      GlobalValue::ExternalLinkage, nullptr);
 
-  BranchInst *BI = Builder.CreateCondBr(Builder.getTrue(), TBB, FBB);
-  Instruction *TI = BB->getTerminator();
-  EXPECT_EQ(BI, TI);
-  EXPECT_EQ(2u, TI->getNumSuccessors());
-  EXPECT_EQ(TBB, TI->getSuccessor(0));
-  EXPECT_EQ(FBB, TI->getSuccessor(1));
+  VFloat = Builder.CreateLoad(GVFloat->getValueType(), GVFloat);
+  VDouble = Builder.CreateLoad(GVDouble->getValueType(), GVDouble);
 
-  BI->eraseFromParent();
-  MDNode *Weights = MDBuilder(Ctx).createBranchWeights(42, 13);
-  BI = Builder.CreateCondBr(Builder.getTrue(), TBB, FBB, Weights);
-  TI = BB->getTerminator();
-  EXPECT_EQ(BI, TI);
-  EXPECT_EQ(2u, TI->getNumSuccessors());
-  EXPECT_EQ(TBB, TI->getSuccessor(0));
-  EXPECT_EQ(FBB, TI->getSuccessor(1));
-  EXPECT_EQ(Weights, TI->getMetadata(LLVMContext::MD_prof));
+  // See if we get the iee.fcmp intrinsic instead of an fcmp instruction.
+  Builder.setIsFPHonorNaNCompares(true);
+
+  // Test with F32.
+  VMul = Builder.CreateFMul(VFloat, VFloat);
+  V = Builder.CreateFCmpOGT(VFloat, VMul);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OGT);
+
+  V = Builder.CreateFSub(VMul, VMul);
+  V = Builder.CreateFCmpOEQ(V, F32Zero);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OEQ);
+
+  V = Builder.CreateFCmpOLT(VFloat, F32NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OLT);
+
+  V = Builder.CreateFCmpUNE(VFloat, F32NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_UNE);
+
+  // Repeat for F64
+  VMul = Builder.CreateFMul(VDouble, VDouble);
+  V = Builder.CreateFCmpOGT(VDouble, VMul);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OGT);
+
+  V = Builder.CreateFSub(VMul, VMul);
+  V = Builder.CreateFCmpOEQ(V, F64Zero);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OEQ);
+
+  V = Builder.CreateFCmpOLT(VDouble, F64NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OLT);
+
+  V = Builder.CreateFCmpUNE(VDouble, F64NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_UNE);
+
+  // Test again with fast math
+  Builder.setFastMathFlags(FastMathFlags::getFast());
+
+  // Test with F32.
+  VMul = Builder.CreateFMul(VFloat, VFloat);
+  V = Builder.CreateFCmpOGT(VFloat, VMul);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OGT);
+  EXPECT_FALSE(II->hasNoNaNs());
+
+  V = Builder.CreateFSub(VMul, VMul);
+  V = Builder.CreateFCmpOEQ(V, F32Zero);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OEQ);
+  EXPECT_FALSE(II->hasNoNaNs());
+
+  V = Builder.CreateFCmpOLT(VFloat, F32NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OLT);
+  EXPECT_FALSE(II->hasNoNaNs());
+
+  V = Builder.CreateFCmpUNE(VFloat, F32NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_UNE);
+  EXPECT_FALSE(II->hasNoNaNs());
+
+  // Repeat for F64
+  VMul = Builder.CreateFMul(VDouble, VDouble);
+  V = Builder.CreateFCmpOGT(VDouble, VMul);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OGT);
+  EXPECT_FALSE(II->hasNoNaNs());
+
+  V = Builder.CreateFSub(VMul, VMul);
+  V = Builder.CreateFCmpOEQ(V, F64Zero);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OEQ);
+  EXPECT_FALSE(II->hasNoNaNs());
+
+  V = Builder.CreateFCmpOLT(VDouble, F64NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_OLT);
+  EXPECT_FALSE(II->hasNoNaNs());
+
+  V = Builder.CreateFCmpUNE(VDouble, F64NaN);
+  ASSERT_TRUE(isa<IntelHonorFCmpIntrinsic>(V));
+  II = cast<IntelHonorFCmpIntrinsic>(V);
+  EXPECT_EQ(II->getPredicate(), FCmpInst::FCMP_UNE);
+  EXPECT_FALSE(II->hasNoNaNs());
 }
+#endif // INTEL_CUSTOMIZATION
 
 TEST_F(IRBuilderTest, LandingPadName) {
   IRBuilder<> Builder(BB);
@@ -770,7 +879,7 @@ TEST_F(IRBuilderTest, DIBuilder) {
       CU, "bar", "", File, 1, Type, 1, DINode::FlagZero,
       DISubprogram::SPFlagDefinition | DISubprogram::SPFlagOptimized);
   auto BadScope = DIB.createLexicalBlockFile(BarSP, File, 0);
-  I->setDebugLoc(DebugLoc::get(2, 0, BadScope));
+  I->setDebugLoc(DILocation::get(Ctx, 2, 0, BadScope));
   DIB.finalize();
   EXPECT_TRUE(verifyModule(*M));
 }
@@ -792,8 +901,8 @@ TEST_F(IRBuilderTest, createArtificialSubprogram) {
   F->setSubprogram(SP);
   AllocaInst *I = Builder.CreateAlloca(Builder.getInt8Ty());
   ReturnInst *R = Builder.CreateRetVoid();
-  I->setDebugLoc(DebugLoc::get(3, 2, SP));
-  R->setDebugLoc(DebugLoc::get(4, 2, SP));
+  I->setDebugLoc(DILocation::get(Ctx, 3, 2, SP));
+  R->setDebugLoc(DILocation::get(Ctx, 4, 2, SP));
   DIB.finalize();
   EXPECT_FALSE(verifyModule(*M));
 
@@ -821,7 +930,8 @@ TEST_F(IRBuilderTest, createArtificialSubprogram) {
   DebugLoc DL = I->getDebugLoc();
   DenseMap<const MDNode *, MDNode *> IANodes;
   auto IA = DebugLoc::appendInlinedAt(DL, InlinedAtNode, Ctx, IANodes);
-  auto NewDL = DebugLoc::get(DL.getLine(), DL.getCol(), DL.getScope(), IA);
+  auto NewDL =
+      DILocation::get(Ctx, DL.getLine(), DL.getCol(), DL.getScope(), IA);
   I->setDebugLoc(NewDL);
   EXPECT_FALSE(verifyModule(*M));
 

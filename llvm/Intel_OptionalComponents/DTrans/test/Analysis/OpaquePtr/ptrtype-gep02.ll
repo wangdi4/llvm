@@ -49,7 +49,8 @@ define internal i64 @test02(i32 %idx) {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
-; CHECK-NEXT:  No element pointees.
+; CHECK-NEXT: Element pointees:
+; CHECK-NEXT:   [20 x i64] @ UnknownOffset
 
 
 ; Test handling for a zero-sized array element at the end of the structure.

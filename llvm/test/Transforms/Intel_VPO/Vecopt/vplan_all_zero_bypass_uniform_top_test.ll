@@ -19,88 +19,69 @@ declare void @llvm.directive.region.exit(token)
 define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after all zero bypass insertion:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i64 0
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_OUTER_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.cond1.preheader
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_OUTER_IV_IND_INIT]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp eq i64 [[N0:%.*]] i64 0
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB3]](i1 [[VP_UNIFORM_TOP_TEST]]), [[BB4:BB[0-9]+]](!i1 [[VP_UNIFORM_TOP_TEST]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_UNIFORM_TOP_TEST]], [[BB3]], [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB6:BB[0-9]+]] ],  [ i64 0, [[BB4]] ]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB6]] ],  [ i64 0, [[BB4]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
-; CHECK-NEXT:      SUCCESSORS(1):all.zero.bypass.begin13
-; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB6]]
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.begin13
 ; CHECK-EMPTY:
-; CHECK-NEXT:      all.zero.bypass.begin13:
+; CHECK-NEXT:      all.zero.bypass.begin13: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:      SUCCESSORS(2):all.zero.bypass.end15(i1 [[VP_ALL_ZERO_CHECK]]), [[BB7:BB[0-9]+]](!i1 [[VP_ALL_ZERO_CHECK]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end15, [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB7]]:
+; CHECK-NEXT:        [[BB7]]: # preds: all.zero.bypass.begin13
 ; CHECK-NEXT:         [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INNER_IV_NEXT:%.*]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:        SUCCESSORS(1):all.zero.bypass.end15
-; CHECK-NEXT:        PREDECESSORS(1): all.zero.bypass.begin13
+; CHECK-NEXT:         [DA: Uni] br all.zero.bypass.end15
 ; CHECK-EMPTY:
-; CHECK-NEXT:      all.zero.bypass.end15:
+; CHECK-NEXT:      all.zero.bypass.end15: # preds: [[BB7]], all.zero.bypass.begin13
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP0]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[BB7]] ],  [ i64 0, all.zero.bypass.begin13 ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB7]] ],  [ i1 false, all.zero.bypass.begin13 ]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB7]] all.zero.bypass.begin13
+; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]:
+; CHECK-NEXT:      [[BB6]]: # preds: all.zero.bypass.end15
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP3]]), [[BB5]](!i1 [[VP3]])
-; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.end15
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP3]], [[BB8:BB[0-9]+]], [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB6]]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]], [[BB8]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP_OUTER_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB8]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB9:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]:
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_OUTER_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
+; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_OUTER_IV_IND_FINAL]]

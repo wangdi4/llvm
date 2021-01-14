@@ -184,13 +184,9 @@ def FeaturePKU   : SubtargetFeature<"pku", "HasPKU", "true",
 def FeatureVNNI    : SubtargetFeature<"avx512vnni", "HasVNNI", "true",
                           "Enable AVX-512 Vector Neural Network Instructions",
                                       [FeatureAVX512]>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
 def FeatureAVXVNNI    : SubtargetFeature<"avxvnni", "HasAVXVNNI", "true",
                            "Support AVX_VNNI encoding",
                                       [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#endif // INTEL_CUSTOMIZATION
 def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
                            "Support bfloat16 floating point",
                                       [FeatureBWI]>;
@@ -211,10 +207,11 @@ def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
                                             [FeatureAVX512]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-// FIXME: FP16 scaler inrinsics use the type v8f16, which is supposed to be guarded
-// under condition hasVLX. So we imply it in FeatureFP16 currently.
-// FIXME: FP16 conversion between f16 and i64 customise type v8i64, which is supposed
-// to be guarded under condition hasDQI. So we imply it in FeatureFP16 currently.
+// FIXME: FP16 scalar intrinsics use the type v8f16, which is supposed to be
+// guarded under condition hasVLX. So we imply it in FeatureFP16 currently.
+// FIXME: FP16 conversion between f16 and i64 customise type v8i64, which is
+// supposed to be guarded under condition hasDQI. So we imply it in FeatureFP16
+// currently.
 def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            "Support 16-bit floating point",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
@@ -274,6 +271,17 @@ def FeatureAVX512MPSADBW  : SubtargetFeature<"avx512mpsadbw", "HasAVX512MPSADBW"
                             "Enable AVX512-MPSADBW",
                             [FeatureBWI]>;
 #endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX_MOVGET
+def FeatureAVXMOVGET : SubtargetFeature<"avxmovget", "HasAVXMOVGET", "true",
+                       "Support AVX-MOVGET instructions",
+                       [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_MOVGET
+def FeatureAVX512MOVGET : SubtargetFeature<"avx512movget", "HasAVX512MOVGET", "true",
+                          "Support AVX512-MOVGET instructions",
+                          [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
@@ -358,6 +366,11 @@ def FeatureAMXMEMADVISE   : SubtargetFeature<"amx-memadvise", "HasAMXMEMADVISE",
                                     "Support AMX-MEMADVISE instructions",
                                     [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+def FeatureAMXMEMADVISEEVEX : SubtargetFeature<"amx-memadvise-evex", "HasAMXMEMADVISEEVEX", "true",
+                                  "Support AMX-MEMADVISE-EVEX instructions",
+                                  [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def FeatureAMXELEMENT     : SubtargetFeature<"amx-element", "HasAMXELEMENT", "true",
                                       "Support AMX amx-element instructions",
@@ -442,6 +455,31 @@ def FeatureAMXTILE2 : SubtargetFeature<"amx-tile2", "HasAMXTILE2", "true",
                                        "Support AMX amx-tile2 instructions",
                                        [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
+                                          "Support AMX-COMPLEX instructions",
+                                          [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+def FeatureAMXCOMPLEXEVEX : SubtargetFeature<"amx-complex-evex", "HasAMXCOMPLEXEVEX", "true",
+                                             "Support AMX-COMPLEX-EVEX instructions",
+                                             [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+def FeatureAMXFP19 : SubtargetFeature<"amx-fp19", "HasAMXFP19", "true",
+                                      "Support AMX-FP19 instructions",
+                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_GPR_MOVGET
+def FeatureGPRMOVGET : SubtargetFeature<"gprmovget", "HasGPRMOVGET", "true",
+                                        "Support GPR-MOVGET instructions",
+                                        []>;
+#endif // INTEL_FEATURE_ISA_GPR_MOVGET
+#if INTEL_FEATURE_ISA_MOVGET64B
+def FeatureMOVGET64B : SubtargetFeature<"movget64b", "HasMOVGET64B", "true",
+                                        "Support MOVGET64B instructions",
+                                        [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_MOVGET64B
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
@@ -470,25 +508,20 @@ def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
 def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
                                      "Has ENQCMD instructions">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
-                                         "Support KeyLocker Instructions",
-                                         [FeatureSSE2]>;
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_ULI
-def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
-                                  "Has ULI Instructions">;
-#endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_HRESET
+def FeatureKL  : SubtargetFeature<"kl", "HasKL", "true",
+                                  "Support Key Locker kl Instructions",
+                                  [FeatureSSE2]>;
+def FeatureWIDEKL  : SubtargetFeature<"widekl", "HasWIDEKL", "true",
+                                      "Support Key Locker wide Instructions",
+                                      [FeatureKL]>;
 def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
                                       "Has hreset instruction">;
-#endif // INTEL_FEATURE_ISA_HRESET
-#endif // INTEL_CUSTOMIZATION
 def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
                                         "Has serialize instruction">;
 def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
                                        "Support TSXLDTRK instructions">;
+def FeatureUINTR : SubtargetFeature<"uintr", "HasUINTR", "true",
+                                    "Has UINTR Instructions">;
 // On some processors, instructions that implicitly take two memory operands are
 // slow. In practice, this means that CALL, PUSH, and POP with memory operands
 // should be avoided in favor of a MOV + register CALL/PUSH/POP.
@@ -763,18 +796,27 @@ include "X86SchedSkylakeServer.td"
 //===----------------------------------------------------------------------===//
 
 def ProcessorFeatures {
+  // x86-64 and x86-64-v[234]
+  list<SubtargetFeature> X86_64V1Features = [
+    FeatureX87, FeatureCMPXCHG8B, FeatureCMOV, FeatureMMX, FeatureSSE2,
+    FeatureFXSR, FeatureNOPL, Feature64Bit
+  ];
+  list<SubtargetFeature> X86_64V2Features = !listconcat(
+      X86_64V1Features,
+      [FeatureCMPXCHG16B, FeatureLAHFSAHF, FeaturePOPCNT, FeatureSSE42]);
+  list<SubtargetFeature> X86_64V3Features = !listconcat(X86_64V2Features, [
+    FeatureAVX2, FeatureBMI, FeatureBMI2, FeatureF16C, FeatureFMA, FeatureLZCNT,
+    FeatureMOVBE, FeatureXSAVE
+  ]);
+  list<SubtargetFeature> X86_64V4Features = !listconcat(X86_64V3Features, [
+    FeatureBWI,
+    FeatureCDI,
+    FeatureDQI,
+    FeatureVLX,
+  ]);
+
   // Nehalem
-  list<SubtargetFeature> NHMFeatures = [FeatureX87,
-                                        FeatureCMPXCHG8B,
-                                        FeatureCMOV,
-                                        FeatureMMX,
-                                        FeatureSSE42,
-                                        FeatureFXSR,
-                                        FeatureNOPL,
-                                        Feature64Bit,
-                                        FeatureCMPXCHG16B,
-                                        FeaturePOPCNT,
-                                        FeatureLAHFSAHF];
+  list<SubtargetFeature> NHMFeatures = X86_64V2Features;
   list<SubtargetFeature> NHMTuning = [FeatureMacroFusion,
                                       FeatureInsertVZEROUPPER];
 
@@ -969,11 +1011,7 @@ def ProcessorFeatures {
 
   //Tigerlake
   list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-                                                  FeatureKeyLocker,
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
+                                                  FeatureKL,
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
@@ -981,42 +1019,42 @@ def ProcessorFeatures {
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
+  //Sapphirerapids
+  list<SubtargetFeature> SPRAdditionalFeatures = [FeatureAMXTILE,
+                                                  FeatureAMXINT8,
+                                                  FeatureAMXBF16,
+                                                  FeatureBF16,
+                                                  FeatureSERIALIZE,
+                                                  FeatureCLDEMOTE,
+                                                  FeatureWAITPKG,
+                                                  FeaturePTWRITE,
 #if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> IntelAnonymous1AdditionalFeatures =[
-#if INTEL_FEATURE_ISA_AMX
-    FeatureAMXTILE,
-    FeatureAMXINT8,
-    FeatureAMXBF16,
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_FP16
-    FeatureFP16,
+                                                  FeatureFP16,
 #endif // INTEL_FEATURE_ISA_FP16
-    FeatureBF16,
-    FeatureSERIALIZE,
-    FeatureCLDEMOTE,
-    FeatureWAITPKG,
-    FeaturePTWRITE,
-#if INTEL_FEATURE_ISA_ULI
-    FeatureULI,
-#endif // INTEL_FEATURE_ISA_ULI
-    FeatureTSXLDTRK,
-    FeatureENQCMD,
-#if INTEL_FEATURE_ISA_AVX_VNNI
-    FeatureAVXVNNI,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-    FeatureHRESET,
-#endif // INTEL_FEATURE_ISA_HRESET
-    FeatureSHSTK,
-    FeatureVP2INTERSECT,
-    FeatureMOVDIRI,
-    FeatureMOVDIR64B
-  ];
-  // TODO: inherit from Willowcove instead of ICX.
-  list<SubtargetFeature> IntelAnonymous1Features =
-    !listconcat(ICXFeatures, IntelAnonymous1AdditionalFeatures);
-  list<SubtargetFeature> IntelAnonymous1Tuning = ICXTuning;
 #endif // INTEL_CUSTOMIZATION
+                                                  FeatureAVXVNNI,
+                                                  FeatureTSXLDTRK,
+                                                  FeatureENQCMD,
+                                                  FeatureSHSTK,
+                                                  FeatureVP2INTERSECT,
+                                                  FeatureMOVDIRI,
+                                                  FeatureMOVDIR64B,
+                                                  FeatureUINTR];
+  list<SubtargetFeature> SPRTuning = ICXTuning;
+  list<SubtargetFeature> SPRFeatures =
+    !listconcat(ICXFeatures, SPRAdditionalFeatures);
+
+  // Alderlake
+  list<SubtargetFeature> ADLAdditionalFeatures = [FeatureAVXVNNI,
+                                                  FeatureCLDEMOTE,
+                                                  FeatureHRESET,
+                                                  FeaturePTWRITE,
+                                                  FeatureSERIALIZE,
+                                                  FeatureWAITPKG];
+  list<SubtargetFeature> ADLTuning = SKLTuning;
+  list<SubtargetFeature> ADLFeatures =
+    !listconcat(SKLFeatures, ADLAdditionalFeatures);
 
   // Atom
   list<SubtargetFeature> AtomFeatures = [FeatureX87,
@@ -1103,9 +1141,7 @@ def ProcessorFeatures {
     FeaturePCONFIG,
     FeatureWBNOINVD,
     FeatureSHSTK,
-#if INTEL_FEATURE_ISA_KEYLOCKER
-    FeatureKeyLocker,
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureKL,
     FeatureINVPCID,
     FeatureADX,
     FeatureAVX,
@@ -1118,14 +1154,10 @@ def ProcessorFeatures {
     FeatureBMI2,
     FeatureLZCNT,
     // TODO: set feature of RAO-INT when it's ready
-#if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
     FeaturePKU,
     FeaturePCONFIG,
-#if INTEL_FEATURE_ISA_HRESET
     FeatureHRESET,
-#endif // INTEL_FEATURE_ISA_HRESET
     FeatureCLDEMOTE,
     FeatureMOVDIRI,
     FeatureMOVDIR64B,
@@ -1339,6 +1371,13 @@ def ProcessorFeatures {
   list<SubtargetFeature> ZN2Tuning = ZNTuning;
   list<SubtargetFeature> ZN2Features =
     !listconcat(ZNFeatures, ZN2AdditionalFeatures);
+  list<SubtargetFeature> ZN3AdditionalFeatures = [FeatureINVPCID,
+                                                  FeaturePKU,
+                                                  FeatureVAES,
+                                                  FeatureVPCLMULQDQ];
+  list<SubtargetFeature> ZN3Tuning = ZNTuning;
+  list<SubtargetFeature> ZN3Features =
+    !listconcat(ZN2Features, ZN3AdditionalFeatures);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1359,8 +1398,14 @@ class ProcModel<string Name, SchedMachineModel Model,
 // NOTE: 64Bit is here as "generic" is the default llc CPU. The X86Subtarget
 // constructor checks that any CPU used in 64-bit mode has Feature64Bit enabled.
 // It has no effect on code generation.
-def : Proc<"generic",         [FeatureX87, FeatureCMPXCHG8B, Feature64Bit],
-                              [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
+def : ProcModel<"generic", SandyBridgeModel,
+                [FeatureX87, FeatureCMPXCHG8B, Feature64Bit],
+                [FeatureSlow3OpsLEA,
+                 FeatureSlowDivide64,
+                 FeatureSlowIncDec,
+                 FeatureMacroFusion,
+                 FeatureInsertVZEROUPPER]>;
+
 def : Proc<"i386",            [FeatureX87],
                               [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
 def : Proc<"i486",            [FeatureX87],
@@ -1404,20 +1449,10 @@ def : ProcModel<"pentium-m", GenericPostRAModel,
                 [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
 
 foreach P = ["pentium4", "pentium4m"] in {
-//  def : ProcModel<P, GenericPostRAModel,
-//                  [FeatureX87, FeatureCMPXCHG8B, FeatureMMX, FeatureSSE2,
-//                   FeatureFXSR, FeatureNOPL, FeatureCMOV]>;
-//                  [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
-
-  // Since 'pentium4' is the default 32-bit CPU on Linux and Windows,
-  // give it more modern tunings.
-  // FIXME: This wouldn't be needed if we supported mtune.
-  def : ProcModel<P, SandyBridgeModel,
+  def : ProcModel<P, GenericPostRAModel,
                   [FeatureX87, FeatureCMPXCHG8B, FeatureMMX, FeatureSSE2,
                    FeatureFXSR, FeatureNOPL, FeatureCMOV],
-                  [FeatureSlow3OpsLEA, FeatureSlowDivide64,
-                   FeatureSlowIncDec, FeatureMacroFusion,
-                   FeatureInsertVZEROUPPER]>;
+                  [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
 }
 
 // Intel Quark.
@@ -1579,14 +1614,10 @@ def : ProcModel<"icelake-server", SkylakeServerModel,
                 ProcessorFeatures.ICXFeatures, ProcessorFeatures.ICXTuning>;
 def : ProcModel<"tigerlake", SkylakeServerModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
 def : ProcModel<"sapphirerapids", SkylakeServerModel,
-                ProcessorFeatures.IntelAnonymous1Features,
-                ProcessorFeatures.IntelAnonymous1Tuning>;
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
+                ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
+def : ProcModel<"alderlake", SkylakeClientModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 
 // AMD CPUs.
 
@@ -1653,6 +1684,8 @@ def : ProcModel<"znver1", Znver1Model, ProcessorFeatures.ZNFeatures,
                 ProcessorFeatures.ZNTuning>;
 def : ProcModel<"znver2", Znver2Model, ProcessorFeatures.ZN2Features,
                 ProcessorFeatures.ZN2Tuning>;
+def : ProcModel<"znver3", Znver2Model, ProcessorFeatures.ZN3Features,
+                ProcessorFeatures.ZN3Tuning>;
 
 def : Proc<"geode",           [FeatureX87, FeatureCMPXCHG8B, Feature3DNowA],
                               [FeatureSlowUAMem16, FeatureInsertVZEROUPPER]>;
@@ -1677,16 +1710,7 @@ def : Proc<"c3-2",            [FeatureX87, FeatureCMPXCHG8B, FeatureMMX,
 // covers a huge swath of x86 processors. If there are specific scheduling
 // knobs which need to be tuned differently for AMD chips, we might consider
 // forming a common base for them.
-def : ProcModel<"x86-64", SandyBridgeModel, [
-  FeatureX87,
-  FeatureCMPXCHG8B,
-  FeatureCMOV,
-  FeatureMMX,
-  FeatureSSE2,
-  FeatureFXSR,
-  FeatureNOPL,
-  Feature64Bit,
-],
+def : ProcModel<"x86-64", SandyBridgeModel, ProcessorFeatures.X86_64V1Features,
 [
   FeatureSlow3OpsLEA,
   FeatureSlowDivide64,
@@ -1694,6 +1718,16 @@ def : ProcModel<"x86-64", SandyBridgeModel, [
   FeatureMacroFusion,
   FeatureInsertVZEROUPPER
 ]>;
+
+// x86-64 micro-architecture levels.
+def : ProcModel<"x86-64-v2", SandyBridgeModel, ProcessorFeatures.X86_64V2Features,
+                ProcessorFeatures.SNBTuning>;
+// Close to Haswell.
+def : ProcModel<"x86-64-v3", HaswellModel, ProcessorFeatures.X86_64V3Features,
+                ProcessorFeatures.HSWTuning>;
+// Close to the AVX-512 level implemented by Xeon Scalable Processors.
+def : ProcModel<"x86-64-v4", HaswellModel, ProcessorFeatures.X86_64V4Features,
+                ProcessorFeatures.SKXTuning>;
 
 //===----------------------------------------------------------------------===//
 // Calling Conventions

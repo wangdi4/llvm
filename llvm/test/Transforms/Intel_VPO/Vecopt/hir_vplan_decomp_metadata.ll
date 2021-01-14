@@ -1,11 +1,11 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that decomposer is able to handle metadata.
 ; IR generated from IR in hir_vplan_decomp_term_refs.ll.
 
 ; CHECK: i32 %vp{{[0-9]+}} = load i32* %vp{{[0-9]+}}
-; CHECK-NEXT: void %vp{{[0-9]+}} = call metadata !"MD.TEST"
+; CHECK-NEXT: call metadata !"MD.TEST"
 ; CHECK-NEXT: i32* %vp{{[0-9]+}} = subscript
 ; CHECK-NEXT: store i32 %vp{{[0-9]+}} i32* %vp{{[0-9]+}}
 

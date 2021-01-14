@@ -12,24 +12,19 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
-; CALLVECDEC-NEXT:  Live-in values:
-; CALLVECDEC-NEXT:  ID: 0 Value: i64 0
-; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]:
-; CALLVECDEC-NEXT:     <Empty Block>
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CALLVECDEC-NEXT:    no PREDECESSORS
+; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB1]]:
+; CALLVECDEC-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CALLVECDEC-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
 ; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB0]]
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB2]]:
-; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CALLVECDEC-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CALLVECDEC-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
 ; CALLVECDEC-NEXT:     [DA: Div] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @src i64 0 i64 [[VP_INDVARS_IV]]
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]]
@@ -41,18 +36,16 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP_INTRIN:%.*]] = call float [[VP0]] float [[VP_SERIAL_CALL]] float [[VP_VEC_VARIANT]] llvm.fmuladd.v4f32 [x 1]
 ; CALLVECDEC-NEXT:     [DA: Div] i64 [[VP_COND:%.*]] = and i64 [[VP_INDVARS_IV]] i64 1
 ; CALLVECDEC-NEXT:     [DA: Div] i1 [[VP_CMP13:%.*]] = icmp eq i64 [[VP_COND]] i64 0
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CALLVECDEC-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB4]]:
+; CALLVECDEC-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CALLVECDEC-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP13]]
 ; CALLVECDEC-NEXT:     [DA: Div] double [[VP_MASK_LIB_CALL:%.*]] = call double [[VP_CONV]] __svml_log4_mask [x 1] [@CurrMask]
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP_MASK_LIB_TRUNC:%.*]] = fptrunc double [[VP_MASK_LIB_CALL]] to float
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP_MASK_VEC_VARIANT:%.*]] = call float [[VP0]] _ZGVbM4v_simdBar [x 1] [@CurrMask]
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB3]]
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB2]]
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB3]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB3]]:
+; CALLVECDEC-NEXT:    [[BB3]]: # preds: [[BB4]]
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP_PHI_MASK_LIB_BLEND_BB3:%.*]] = blend [ float 0.000000e+00, i1 true ], [ float [[VP_MASK_LIB_TRUNC]], i1 [[VP_CMP13]] ]
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP_PHI_MASK_VV_BLEND_BB3:%.*]] = blend [ float 0.000000e+00, i1 true ], [ float [[VP_MASK_VEC_VARIANT]], i1 [[VP_CMP13]] ]
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP2:%.*]] = fadd float [[VP_SERIAL_CALL]] float [[VP_VEC_VARIANT]]
@@ -64,42 +57,33 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:     [DA: Div] store float [[VP6]] float* [[VP_ARRAYIDX2]]
 ; CALLVECDEC-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CALLVECDEC-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB4]]
+; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB5]]:
+; CALLVECDEC-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB3]]
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB6]]:
-; CALLVECDEC-NEXT:     <Empty Block>
-; CALLVECDEC-NEXT:    no SUCCESSORS
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB5]]
+; CALLVECDEC-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CALLVECDEC-NEXT:     [DA: Uni] br <External Block>
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:  External Uses:
 ; CALLVECDEC-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
-; SVA-NEXT:  Live-in values:
-; SVA-NEXT:  ID: 0 Value: i64 0
-; SVA-NEXT:    [[BB0:BB[0-9]+]]:
-; SVA-NEXT:     <Empty Block>
-; SVA-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; SVA-NEXT:    no PREDECESSORS
+; SVA-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB1]]:
+; SVA-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; SVA-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body (SVAOpBits )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
-; SVA-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; SVA-NEXT:    PREDECESSORS(1): [[BB0]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB2]]:
-; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ] (SVAOpBits 0->F 1->F )
+; SVA-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
 ; SVA-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ] (SVAOpBits 0->FV 1->FV )
 ; SVA-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @src i64 0 i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
@@ -111,18 +95,16 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP_INTRIN:%.*]] = call float [[VP0]] float [[VP_SERIAL_CALL]] float [[VP_VEC_VARIANT]] llvm.fmuladd.v4f32 [x 1] (SVAOpBits 0->V 1->V 2->V 3->F )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_COND:%.*]] = and i64 [[VP_INDVARS_IV]] i64 1 (SVAOpBits 0->V 1->V )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_CMP13:%.*]] = icmp eq i64 [[VP_COND]] i64 0 (SVAOpBits 0->V 1->V )
-; SVA-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; SVA-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB4]]:
+; SVA-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP13]] (SVAOpBits 0->V )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] double [[VP_MASK_LIB_CALL:%.*]] = call double [[VP_CONV]] __svml_log4_mask [x 1] [@CurrMask] (SVAOpBits 0->V 1->F )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP_MASK_LIB_TRUNC:%.*]] = fptrunc double [[VP_MASK_LIB_CALL]] to float (SVAOpBits 0->V )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP_MASK_VEC_VARIANT:%.*]] = call float [[VP0]] _ZGVbM4v_simdBar [x 1] [@CurrMask] (SVAOpBits 0->V 1->F )
-; SVA-NEXT:    SUCCESSORS(1):[[BB3]]
-; SVA-NEXT:    PREDECESSORS(1): [[BB2]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB3]]:
+; SVA-NEXT:    [[BB3]]: # preds: [[BB4]]
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP_PHI_MASK_LIB_BLEND_BB3:%.*]] = blend [ float 0.000000e+00, i1 true ], [ float [[VP_MASK_LIB_TRUNC]], i1 [[VP_CMP13]] ] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP_PHI_MASK_VV_BLEND_BB3:%.*]] = blend [ float 0.000000e+00, i1 true ], [ float [[VP_MASK_VEC_VARIANT]], i1 [[VP_CMP13]] ] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP2:%.*]] = fadd float [[VP_SERIAL_CALL]] float [[VP_VEC_VARIANT]] (SVAOpBits 0->V 1->V )
@@ -134,19 +116,15 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] store float [[VP6]] float* [[VP_ARRAYIDX2]] (SVAOpBits 0->V 1->F )
 ; SVA-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVA-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; SVA-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; SVA-NEXT:    PREDECESSORS(1): [[BB4]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB5]]:
+; SVA-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; SVA-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; SVA-NEXT:    PREDECESSORS(1): [[BB3]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB6:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB6]]:
-; SVA-NEXT:     <Empty Block>
-; SVA-NEXT:    no SUCCESSORS
-; SVA-NEXT:    PREDECESSORS(1): [[BB5]]
+; SVA-NEXT:    [[BB6]]: # preds: [[BB5]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; SVA-EMPTY:
 ; SVA-NEXT:  External Uses:
 ; SVA-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
@@ -213,23 +191,18 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32 %N) {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=128:
-; CALLVECDEC-NEXT:  Live-in values:
-; CALLVECDEC-NEXT:  ID: 0 Value: i32 0
-; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]:
-; CALLVECDEC-NEXT:     <Empty Block>
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; CALLVECDEC-NEXT:    no PREDECESSORS
+; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB1]]:
+; CALLVECDEC-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CALLVECDEC-NEXT:     [DA: Div] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
 ; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB0]]
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB2]]:
+; CALLVECDEC-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; CALLVECDEC-NEXT:     [DA: Div] i32 [[VP__OMP_IV_LOCAL_014:%.*]] = phi  [ i32 [[VP_ADD6:%.*]], [[BB2]] ],  [ i32 [[VP__OMP_IV_LOCAL_014_IND_INIT]], [[BB1]] ]
 ; CALLVECDEC-NEXT:     [DA: Div] float [[VP_CONV:%.*]] = sitofp i32 [[VP__OMP_IV_LOCAL_014]] to float
@@ -239,41 +212,32 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:     [DA: Div] store float [[VP_PUMP_CALL]] float* [[VP_ARRAYIDXA]]
 ; CALLVECDEC-NEXT:     [DA: Div] i32 [[VP_ADD6]] = add i32 [[VP__OMP_IV_LOCAL_014]] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP]]
 ; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
-; CALLVECDEC-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CALLVECDEC-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB3]]:
+; CALLVECDEC-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB2]]
+; CALLVECDEC-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
-; CALLVECDEC-NEXT:    [[BB4]]:
-; CALLVECDEC-NEXT:     <Empty Block>
-; CALLVECDEC-NEXT:    no SUCCESSORS
-; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB3]]
+; CALLVECDEC-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CALLVECDEC-NEXT:     [DA: Uni] br <External Block>
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:  External Uses:
 ; CALLVECDEC-NEXT:  Id: 0   no underlying for i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
-; SVA-NEXT:  Live-in values:
-; SVA-NEXT:  ID: 0 Value: i32 0
-; SVA-NEXT:    [[BB0:BB[0-9]+]]:
-; SVA-NEXT:     <Empty Block>
-; SVA-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
-; SVA-NEXT:    no PREDECESSORS
+; SVA-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB1]]:
+; SVA-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; SVA-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body (SVAOpBits )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
-; SVA-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; SVA-NEXT:    PREDECESSORS(1): [[BB0]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB2]]:
+; SVA-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; SVA-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP__OMP_IV_LOCAL_014:%.*]] = phi  [ i32 [[VP_ADD6:%.*]], [[BB2]] ],  [ i32 [[VP__OMP_IV_LOCAL_014_IND_INIT]], [[BB1]] ] (SVAOpBits 0->FV 1->FV )
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CONV:%.*]] = sitofp i32 [[VP__OMP_IV_LOCAL_014]] to float (SVAOpBits 0->V )
@@ -283,19 +247,15 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; SVA-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_PUMP_CALL]] float* [[VP_ARRAYIDXA]] (SVAOpBits 0->V 1->F )
 ; SVA-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_ADD6]] = add i32 [[VP__OMP_IV_LOCAL_014]] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVA-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp eq i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; SVA-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; SVA-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB3]]:
+; SVA-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
-; SVA-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; SVA-NEXT:    PREDECESSORS(1): [[BB2]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
-; SVA-NEXT:    [[BB4]]:
-; SVA-NEXT:     <Empty Block>
-; SVA-NEXT:    no SUCCESSORS
-; SVA-NEXT:    PREDECESSORS(1): [[BB3]]
+; SVA-NEXT:    [[BB4]]: # preds: [[BB3]]
+; SVA-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; SVA-EMPTY:
 ; SVA-NEXT:  External Uses:
 ; SVA-NEXT:  Id: 0   no underlying for i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL]]

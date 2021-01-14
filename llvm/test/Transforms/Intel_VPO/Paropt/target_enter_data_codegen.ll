@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -vpo-paropt -vpo-paropt-use-mapper-api=false -S | FileCheck %s
+; RUN: opt < %s -passes='vpo-paropt' -vpo-paropt-use-mapper-api=false -S | FileCheck %s
 
 ; This file tests the implementation to support omp target enter data.
 ; void device_side_scan(int arg) {

@@ -34,13 +34,13 @@
 
 define void @foo(i64* nocapture readonly %unif, i64 %n2) local_unnamed_addr #0 {
 ; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    %.unifload = (%unif)[0];
 ; CHECK-NEXT:    %.vec = (<4 x i64>*)(@larr)[0][i1];
 ; CHECK-NEXT:    %.vec2 = %.vec != 0;
 ; CHECK-NEXT:    %.vec3 = %.unifload  *  %n2;
-; CHECK-NEXT:    %uni.idx = extractelement %.vec3,  0;
-; CHECK-NEXT:    (<4 x i64>*)(@larr2)[0][%uni.idx][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{%.vec2}
+; CHECK-NEXT:    %extract.0. = extractelement %.vec3,  0;
+; CHECK-NEXT:    (<4 x i64>*)(@larr2)[0][%extract.0.][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{%.vec2}
 ; CHECK-NEXT:  END LOOP
 ;
 omp.inner.for.body.lr.ph:
