@@ -46,9 +46,6 @@ namespace vpo {
 // for incoming HIR. Currently various loop entities like reductions, inductions
 // and privates are identified and stored within this class.
 class HIRVectorizationLegality {
-  using RecurrenceKind = RecurrenceDescriptor::RecurrenceKind;
-  using MMRecurrenceKind = RecurrenceDescriptor::MinMaxRecurrenceKind;
-
 public:
   struct CompareByDDRefSymbase {
     bool operator()(const DDRef *Ref1, const DDRef *Ref2) const {
@@ -135,15 +132,12 @@ public:
   // via SIMD reduction clause. The reduction's kind and signed datatype
   // information is also stored within this class.
   struct RedDescr : public DescrWithAliases {
-    RedDescr(const RegDDRef *RegV, RecurrenceKind KindV,
-             MMRecurrenceKind MMKindV, bool Signed)
-        : DescrWithAliases(RegV), Kind(KindV), MMKind(MMKindV),
-          IsSigned(Signed) {}
+    RedDescr(const RegDDRef *RegV, RecurKind KindV, bool Signed)
+        : DescrWithAliases(RegV), Kind(KindV), IsSigned(Signed) {}
     // Move constructor
     RedDescr(RedDescr &&Other) = default;
 
-    RecurrenceKind Kind;
-    MMRecurrenceKind MMKind;
+    RecurKind Kind;
     bool IsSigned;
   };
   typedef SmallVector<RedDescr, 8> ReductionListTy;
@@ -192,29 +186,25 @@ public:
 
   /// Register explicit reduction variables provided from outside.
   void addReductionMin(RegDDRef *V, bool IsSigned) {
-    addReduction(V, RecurrenceKind::RK_IntegerMinMax, IsSigned,
-                 IsSigned ? MMRecurrenceKind::MRK_SIntMin
-                          : MMRecurrenceKind::MRK_UIntMin);
+    addReduction(V, IsSigned ? RecurKind::SMin : RecurKind::UMin, IsSigned);
   }
   void addReductionMax(RegDDRef *V, bool IsSigned) {
-    addReduction(V, RecurrenceKind::RK_IntegerMinMax, IsSigned,
-                 IsSigned ? MMRecurrenceKind::MRK_SIntMax
-                          : MMRecurrenceKind::MRK_UIntMax);
+    addReduction(V, IsSigned ? RecurKind::SMax : RecurKind::UMax, IsSigned);
   }
   void addReductionAdd(RegDDRef *V) {
-    addReduction(V, RecurrenceKind::RK_IntegerAdd);
+    addReduction(V, RecurKind::Add);
   }
   void addReductionMult(RegDDRef *V) {
-    addReduction(V, RecurrenceKind::RK_IntegerMult);
+    addReduction(V, RecurKind::Mul);
   }
   void addReductionAnd(RegDDRef *V) {
-    addReduction(V, RecurrenceKind::RK_IntegerAnd);
+    addReduction(V, RecurKind::And);
   }
   void addReductionXor(RegDDRef *V) {
-    addReduction(V, RecurrenceKind::RK_IntegerXor);
+    addReduction(V, RecurKind::Xor);
   }
   void addReductionOr(RegDDRef *V) {
-    addReduction(V, RecurrenceKind::RK_IntegerOr);
+    addReduction(V, RecurKind::Or);
   }
 
   // Add explicit linear.
@@ -268,10 +258,9 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
-  void addReduction(RegDDRef *V, RecurrenceKind Kind, bool IsSigned = false,
-                    MMRecurrenceKind MMKind = MMRecurrenceKind::MRK_Invalid) {
+  void addReduction(RegDDRef *V, RecurKind Kind, bool IsSigned = false) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
-    ReductionList.emplace_back(V, Kind, MMKind, IsSigned);
+    ReductionList.emplace_back(V, Kind, IsSigned);
   }
 
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type

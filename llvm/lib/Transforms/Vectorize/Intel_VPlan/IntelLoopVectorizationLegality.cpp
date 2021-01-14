@@ -57,30 +57,29 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
   }
 }
 
-static bool checkCombinerOp(Value *CombinerV,
-                            RecurrenceDescriptor::RecurrenceKind Kind) {
+static bool checkCombinerOp(Value *CombinerV, RecurKind Kind) {
   switch (Kind) {
-  case RecurrenceDescriptor::RK_FloatAdd:
+  case RecurKind::FAdd:
     return isa<Instruction>(CombinerV) &&
            (cast<Instruction>(CombinerV)->getOpcode() == Instruction::FAdd ||
             cast<Instruction>(CombinerV)->getOpcode() == Instruction::FSub);
-  case RecurrenceDescriptor::RK_IntegerAdd:
+  case RecurKind::Add:
     return isa<Instruction>(CombinerV) &&
            (cast<Instruction>(CombinerV)->getOpcode() == Instruction::Add ||
             cast<Instruction>(CombinerV)->getOpcode() == Instruction::Sub);
-  case RecurrenceDescriptor::RK_IntegerMult:
+  case RecurKind::Mul:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Mul;
-  case RecurrenceDescriptor::RK_FloatMult:
+  case RecurKind::FMul:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::FMul;
-  case RecurrenceDescriptor::RK_IntegerAnd:
+  case RecurKind::And:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::And;
-  case RecurrenceDescriptor::RK_IntegerOr:
+  case RecurKind::Or:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Or;
-  case RecurrenceDescriptor::RK_IntegerXor:
+  case RecurKind::Xor:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Xor;
   default:
@@ -384,9 +383,8 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
          isEntityAliasingSafe(linearVals(), IsInstInRelevantScope);
 }
 
-void VPOVectorizationLegality::parseMinMaxReduction(
-    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
+void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
+                                                    RecurKind Kind) {
 
   // Analyzing 2 possible scenarios:
   // (1)
@@ -437,15 +435,15 @@ void VPOVectorizationLegality::parseMinMaxReduction(
     }
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, Mrk, nullptr,
+    RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, nullptr,
                             StartV->getType(), true, CastInsts);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
   }
-  InMemoryReductions[RedVarPtr] = {Kind, Mrk};
+  InMemoryReductions[RedVarPtr] = Kind;
 }
 
-void VPOVectorizationLegality::parseBinOpReduction(
-    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind) {
+void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
+                                                   RecurKind Kind) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -489,25 +487,23 @@ void VPOVectorizationLegality::parseBinOpReduction(
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF,
-                            RecurrenceDescriptor::MRK_Invalid, nullptr,
+    RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF, nullptr,
                             ReductionPhi->getType(), true, CastInsts);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
   } else if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
-    InMemoryReductions[RedVarPtr] = {Kind, RecurrenceDescriptor::MRK_Invalid};
+    InMemoryReductions[RedVarPtr] = Kind;
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::parseExplicitReduction(
-    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
+void VPOVectorizationLegality::parseExplicitReduction(Value *RedVarPtr,
+                                                      RecurKind Kind) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
-  if (Mrk != RecurrenceDescriptor::MRK_Invalid)
-    return parseMinMaxReduction(RedVarPtr, Kind, Mrk);
+  if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
+    return parseMinMaxReduction(RedVarPtr, Kind);
 
   return parseBinOpReduction(RedVarPtr, Kind);
 }
@@ -518,38 +514,32 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
 
 void VPOVectorizationLegality::addReductionMult(Value *V) {
   if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerMult);
+    parseExplicitReduction(V, RecurKind::Mul);
   else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatMult);
+    parseExplicitReduction(V, RecurKind::FMul);
 }
 
 void VPOVectorizationLegality::addReductionAdd(Value *V) {
   if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerAdd);
+    parseExplicitReduction(V, RecurKind::Add);
   else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatAdd);
+    parseExplicitReduction(V, RecurKind::FAdd);
 }
 
 void VPOVectorizationLegality::addReductionMin(Value *V, bool IsSigned) {
   if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
-        IsSigned ? RecurrenceDescriptor::MRK_SIntMin
-                 : RecurrenceDescriptor::MRK_UIntMin;
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerMinMax, Mrk);
+    RecurKind Kind = IsSigned ? RecurKind::SMin : RecurKind::UMin;
+    parseExplicitReduction(V, Kind);
   } else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatMinMax,
-                           RecurrenceDescriptor::MRK_FloatMin);
+    parseExplicitReduction(V, RecurKind::FMin);
 }
 
 void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
   if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
-        IsSigned ? RecurrenceDescriptor::MRK_SIntMax
-                 : RecurrenceDescriptor::MRK_UIntMax;
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerMinMax, Mrk);
+    RecurKind Kind = IsSigned ? RecurKind::SMax : RecurKind::UMax;
+    parseExplicitReduction(V, Kind);
   } else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatMinMax,
-                           RecurrenceDescriptor::MRK_FloatMax);
+    parseExplicitReduction(V, RecurKind::FMax);
 }
 
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,

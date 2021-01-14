@@ -716,8 +716,6 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
 
 class ReductionDescriptorHIR {
   using DataType = loopopt::HLInst;
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   friend class ReductionInputIteratorHIR;
   friend class MinMaxIdiomsInputIteratorHIR;
 
@@ -727,52 +725,42 @@ public:
   const DataType *getHLInst() const { return HLInst; }
   SafeRedChain getRedChain() const { return RedChain; }
   const DataType *getParentInst() const { return ParentInst; }
-  RecurrenceKind getKind() const { return RKind; }
-  MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
+  RecurKind getKind() const { return RKind; }
   Type *getRedType() const { return RedType; }
   bool isSigned() const { return IsSigned; }
 
 private:
   void fillReductionKinds(Type *DestType, unsigned OpCode, PredicateTy Pred,
                           bool IsMax) {
-    MK = MinMaxRecurrenceKind::MRK_Invalid;
     RedType = DestType;
     IsSigned = false;
     switch (OpCode) {
     case Instruction::FAdd:
     case Instruction::FSub:
-      RKind = RecurrenceKind::RK_FloatAdd;
+      RKind = RecurKind::FAdd;
       break;
     case Instruction::Add:
     case Instruction::Sub:
-      RKind = RecurrenceKind::RK_IntegerAdd;
+      RKind = RecurKind::Add;
       break;
     case Instruction::FMul:
-      RKind = RecurrenceKind::RK_FloatMult;
+      RKind = RecurKind::FMul;
       break;
     case Instruction::Mul:
-      RKind = RecurrenceKind::RK_IntegerMult;
+      RKind = RecurKind::Mul;
       break;
     case Instruction::And:
-      RKind = RecurrenceKind::RK_IntegerAnd;
+      RKind = RecurKind::And;
       break;
     case Instruction::Or:
-      RKind = RecurrenceKind::RK_IntegerOr;
+      RKind = RecurKind::Or;
       break;
     case Instruction::Xor:
-      RKind = RecurrenceKind::RK_IntegerXor;
+      RKind = RecurKind::Xor;
       break;
-    case Instruction::Select: {
-      if (RedType->isIntegerTy()) {
-        RKind = RecurrenceKind::RK_IntegerMinMax;
-      } else {
-        assert(RedType->isFloatingPointTy() &&
-               "Floating point type expected at this point!");
-        RKind = RecurrenceKind::RK_FloatMinMax;
-      }
+    case Instruction::Select:
       setMinMaxReductionKind(Pred, IsMax);
       break;
-    }
     default:
       llvm_unreachable("Unexpected reduction opcode");
       break;
@@ -785,20 +773,17 @@ private:
     case PredicateTy::ICMP_SGT:
     case PredicateTy::ICMP_SLE:
     case PredicateTy::ICMP_SLT:
-      MK = IsMax ? MinMaxRecurrenceKind::MRK_SIntMax
-                 : MinMaxRecurrenceKind::MRK_SIntMin;
+      RKind = IsMax ? RecurKind::SMax : RecurKind::SMin;
       IsSigned = true;
       break;
     case PredicateTy::ICMP_UGE:
     case PredicateTy::ICMP_UGT:
     case PredicateTy::ICMP_ULE:
     case PredicateTy::ICMP_ULT:
-      MK = IsMax ? MinMaxRecurrenceKind::MRK_UIntMax
-                 : MinMaxRecurrenceKind::MRK_UIntMin;
+      RKind = IsMax ? RecurKind::UMax : RecurKind::UMin;
       break;
     default:
-      MK = IsMax ? MinMaxRecurrenceKind::MRK_FloatMax
-                 : MinMaxRecurrenceKind::MRK_FloatMin;
+      RKind = IsMax ? RecurKind::FMax : RecurKind::FMin;
       break;
     }
   }
@@ -806,8 +791,7 @@ private:
   void clear() {
     HLInst = nullptr;
     ParentInst = nullptr;
-    RKind = RecurrenceKind::RK_NoRecurrence;
-    MK = MinMaxRecurrenceKind::MRK_Invalid;
+    RKind = RecurKind::None;
     RedType = nullptr;
     IsSigned = false;
   }
@@ -815,8 +799,7 @@ private:
   const DataType *HLInst;
   SafeRedChain RedChain;
   const DataType *ParentInst; // Link to parent reduction.
-  RecurrenceKind RKind;
-  MinMaxRecurrenceKind MK;
+  RecurKind RKind;
   Type *RedType;
   bool IsSigned;
 };
@@ -830,8 +813,6 @@ private:
 /// all statements so this iterator goes through both lists, first taking the
 /// HIRSafeRedInfo and then going through its list of statements.
 class ReductionInputIteratorHIR {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
 public:
   using iterator_category = std::input_iterator_tag;
   using value_type = ReductionDescriptorHIR;
@@ -928,9 +909,6 @@ private:
 /// indexes. Both kinds of instructions are imported as reductions (VPReduction
 /// and VPReductionIndex).
 class MinMaxIdiomsInputIteratorHIR {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
-
 public:
   using iterator_category = std::input_iterator_tag;
   using value_type = ReductionDescriptorHIR;
@@ -1049,8 +1027,6 @@ public:
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
   using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
 
 
@@ -1141,7 +1117,6 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(nullptr);
     Descriptor.setKind(CurValue.getKind());
-    Descriptor.setMinMaxKind(CurValue.getMinMaxKind());
     Descriptor.setRecType(CurValue.getRedType());
     Descriptor.setSigned(CurValue.isSigned());
     Descriptor.setAllocaInst(nullptr);
@@ -1200,22 +1175,19 @@ public:
 
     Descriptor.setStartPhi(nullptr);
     Descriptor.setKind(CurrValue.Kind);
-    Descriptor.setMinMaxKind(CurrValue.MMKind);
     // In the directive, we have the kinds always set as for integers. Need to
     // correct them for fp-data.
     if (RType->isFloatingPointTy()) {
-      if (CurrValue.Kind == RecurrenceKind::RK_IntegerAdd)
-        Descriptor.setKind( RecurrenceKind::RK_FloatAdd);
-      else if (CurrValue.Kind == RecurrenceKind::RK_IntegerMult)
-        Descriptor.setKind(RecurrenceKind::RK_FloatMult);
-      else if (CurrValue.Kind == RecurrenceKind::RK_IntegerMinMax) {
-        Descriptor.setKind(RecurrenceKind::RK_FloatMinMax);
-        if (CurrValue.MMKind == MinMaxRecurrenceKind::MRK_UIntMin ||
-            CurrValue.MMKind == MinMaxRecurrenceKind::MRK_SIntMin)
-          Descriptor.setMinMaxKind(MinMaxRecurrenceKind::MRK_FloatMin);
-        else
-          Descriptor.setMinMaxKind(MinMaxRecurrenceKind::MRK_FloatMax);
-      }
+      if (CurrValue.Kind == RecurKind::Add)
+        Descriptor.setKind(RecurKind::FAdd);
+      else if (CurrValue.Kind == RecurKind::Mul)
+        Descriptor.setKind(RecurKind::FMul);
+      else if (CurrValue.Kind == RecurKind::UMin ||
+               CurrValue.Kind == RecurKind::SMin)
+        Descriptor.setKind(RecurKind::FMin);
+      else if (CurrValue.Kind == RecurKind::UMax ||
+               CurrValue.Kind == RecurKind::SMax)
+        Descriptor.setKind(RecurKind::FMax);
     }
     Descriptor.setRecType(RType);
     Descriptor.setSigned(CurrValue.IsSigned);

@@ -98,11 +98,11 @@ class VPReduction
   using RDTempl = RecurrenceDescriptorTempl<VPValue, VPInstruction, VPValue *>;
 
 public:
-  VPReduction(VPValue *Start, VPInstruction *Exit, RecurrenceKind K,
-              FastMathFlags FMF, MinMaxRecurrenceKind MK, Type *RT, bool Signed,
+  VPReduction(VPValue *Start, VPInstruction *Exit, RecurKind RdxKind,
+              FastMathFlags FMF, Type *RT, bool Signed,
               bool IsMemOnly = false, unsigned char Id = Reduction)
       : VPLoopEntity(Id, IsMemOnly),
-        RDTempl(Start, Exit, K, FMF, MK, RT, Signed) {}
+        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -110,15 +110,18 @@ public:
   }
 
   unsigned getReductionOpcode() const {
-    return getReductionOpcode(getRecurrenceKind(), getMinMaxRecurrenceKind());
+    return getReductionOpcode(getRecurrenceKind());
   }
 
-  bool isMinMax() const { return MinMaxKind != MRK_Invalid; }
+  bool isMinMax() const {
+    return RecurrenceDescriptorData::isMinMaxRecurrenceKind(
+        getRecurrenceKind());
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &OS) const;
 #endif
-  static unsigned getReductionOpcode(RecurrenceKind K, MinMaxRecurrenceKind MK);
+  static unsigned getReductionOpcode(RecurKind K);
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -129,13 +132,13 @@ public:
   VPIndexReduction(const VPReduction *Parent, VPValue *Start,
                    VPInstruction *Exit, Type *RT, bool Signed, bool ForLast,
                    bool IsMemOnly = false)
-      : VPReduction(Start, Exit, RK_IntegerMinMax, FastMathFlags::getFast(),
-                    ForLast ? (Signed ? MRK_SIntMax : MRK_UIntMax)
-                            : (Signed ? MRK_SIntMin : MRK_UIntMin),
-                    RT, Signed, IsMemOnly, IndexReduction),
+      : VPReduction(Start, Exit,
+                    ForLast ? (Signed ? RecurKind::SMax : RecurKind::UMax)
+                            : (Signed ? RecurKind::SMin : RecurKind::UMin),
+                    FastMathFlags::getFast(), RT, Signed, IsMemOnly,
+                    IndexReduction),
         ParentRed(Parent) {
-    assert((Parent && Parent->getMinMaxRecurrenceKind() != MRK_Invalid) &&
-           "Incorrect parent reduction");
+    assert((Parent && Parent->isMinMax()) && "Incorrect parent reduction");
   }
 
   const VPReduction *getParentReduction() const { return ParentRed; }
@@ -314,8 +317,6 @@ private:
 /// be able to operate in terms of VPValue. It encapsulates also some additional
 /// analysis that can be done on VPLoop body.
 class VPLoopEntityList {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
   using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
@@ -324,9 +325,9 @@ public:
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.
   VPReduction *addReduction(VPInstruction *Instr, VPValue *Incoming,
-                    VPInstruction *Exit, RecurrenceKind K, FastMathFlags FMF,
-                    MinMaxRecurrenceKind MK, Type *RT, bool Signed,
-                    VPValue *AI = nullptr, bool ValidMemOnly = false);
+                            VPInstruction *Exit, RecurKind K,
+                            FastMathFlags FMF, Type *RT, bool Signed,
+                            VPValue *AI = nullptr, bool ValidMemOnly = false);
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
   /// exiting instruction \p Exit, \p Signed data type \p RT, and
@@ -705,8 +706,6 @@ protected:
 /// cases it can be obtained only after some analysis, at the second stage of
 /// importing.
 class ReductionDescr : public VPEntityImportDescr {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using BaseT = VPEntityImportDescr;
 public:
   ReductionDescr() = default;
@@ -714,8 +713,7 @@ public:
   VPInstruction *getStartPhi() const { return StartPhi; }
   VPValue *getStart() const { return Start; }
   VPInstruction *getExit() const { return Exit; }
-  RecurrenceKind getKind() const { return K; }
-  MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
+  RecurKind getKind() const { return K; }
   Type *getRecType() const { return RT; }
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
@@ -727,8 +725,7 @@ public:
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
   void setExit(VPInstruction *V) { Exit = V; }
-  void setKind(RecurrenceKind V) { K = V; }
-  void setMinMaxKind(MinMaxRecurrenceKind V) { MK = V; }
+  void setKind(RecurKind V) { K = V; }
   void setRecType(Type *V) { RT = V; }
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
@@ -742,8 +739,7 @@ public:
     Start = nullptr;
     UpdateVPInsts.clear();
     Exit = nullptr;
-    K = RecurrenceKind::RK_NoRecurrence;
-    MK = MinMaxRecurrenceKind::MRK_Invalid;
+    K = RecurKind::None;
     RT = nullptr;
     Signed = false;
     LinkPhi = nullptr;
@@ -787,8 +783,7 @@ private:
   /// Instruction(s) in VPlan that update the reduction variable
   SmallVector<VPInstruction *, 4> UpdateVPInsts;
   VPInstruction *Exit = nullptr;
-  RecurrenceKind K = RecurrenceKind::RK_NoRecurrence;
-  MinMaxRecurrenceKind MK = MinMaxRecurrenceKind::MRK_Invalid;
+  RecurKind K = RecurKind::None;
   Type *RT = nullptr;
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
