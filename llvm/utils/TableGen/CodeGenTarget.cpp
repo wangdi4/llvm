@@ -393,11 +393,7 @@ void CodeGenTarget::ReadRegAltNameIndices() const {
 /// getRegisterByName - If there is a register with the specific AsmName,
 /// return it.
 const CodeGenRegister *CodeGenTarget::getRegisterByName(StringRef Name) const {
-  const StringMap<CodeGenRegister*> &Regs = getRegBank().getRegistersByName();
-  StringMap<CodeGenRegister*>::const_iterator I = Regs.find(Name);
-  if (I == Regs.end())
-    return nullptr;
-  return I->second;
+  return getRegBank().getRegistersByName().lookup(Name);
 }
 
 std::vector<ValueTypeByHwMode> CodeGenTarget::getRegisterVTs(Record *R)
@@ -407,7 +403,7 @@ std::vector<ValueTypeByHwMode> CodeGenTarget::getRegisterVTs(Record *R)
   for (const auto &RC : getRegBank().getRegClasses()) {
     if (RC.contains(Reg)) {
       ArrayRef<ValueTypeByHwMode> InVTs = RC.getValueTypes();
-      Result.insert(Result.end(), InVTs.begin(), InVTs.end());
+      llvm::append_range(Result, InVTs);
     }
   }
 
@@ -420,7 +416,7 @@ std::vector<ValueTypeByHwMode> CodeGenTarget::getRegisterVTs(Record *R)
 
 void CodeGenTarget::ReadLegalValueTypes() const {
   for (const auto &RC : getRegBank().getRegClasses())
-    LegalValueTypes.insert(LegalValueTypes.end(), RC.VTs.begin(), RC.VTs.end());
+    llvm::append_range(LegalValueTypes, RC.VTs);
 
   // Remove duplicates.
   llvm::sort(LegalValueTypes);
