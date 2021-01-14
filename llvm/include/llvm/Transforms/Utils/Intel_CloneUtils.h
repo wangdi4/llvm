@@ -1,6 +1,6 @@
 //===--------- Intel_CloneUtils.h - Utilites for Cloning ----------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,6 +16,8 @@
 
 #ifndef LLVM_TRANSFORM_UTILS_INTEL_CLONEUTILS_H
 #define LLVM_TRANSFORM_UTILS_INTEL_CLONEUTILS_H
+
+#include "llvm/IR/Instructions.h"
 
 namespace llvm {
 
@@ -39,6 +41,11 @@ extern bool isRecProgressionCloneCandidate(
     Function &F, bool TestCountForConstant, unsigned *ArgPos = nullptr,
     unsigned *Count = nullptr, int *Start = nullptr, int *Inc = nullptr,
     bool *IsByRef = nullptr, bool *IsCyclic = nullptr);
+
+//
+// Return the unique callsite of 'F', if there is a unique callsite.
+//
+extern CallInst *uniqueCallSite(Function &F);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORM_UTILS_INTEL_CLONEUTILS_H

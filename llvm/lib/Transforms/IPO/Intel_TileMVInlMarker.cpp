@@ -26,6 +26,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#include "llvm/Transforms/Utils/Intel_CloneUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -86,23 +87,6 @@ static Function *uniqueCaller(Function &F) {
     Caller = CB->getCaller();
   }
   return Caller;
-}
-
-//
-// Return the unique callsite of 'F', if there is a unique callsite.
-//
-static CallInst *uniqueCallSite(Function &F) {
-  CallInst *CISave = nullptr;
-  for (User *U : F.users()) {
-    auto BCO = dyn_cast<BitCastOperator>(U);
-    if (BCO && BCO->hasNUses(0))
-      continue;
-    auto CI = dyn_cast<CallInst>(U);
-    if (!CI || CISave)
-      return nullptr;
-    CISave = CI;
-  }
-  return CISave;
 }
 
 //
