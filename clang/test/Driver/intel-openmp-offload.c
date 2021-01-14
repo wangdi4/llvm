@@ -223,7 +223,7 @@
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc --intel -Qopenmp -Qopenmp-targets:spir64 -Qopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
-// FOPENMP_TARGET_SIMD: clang{{.*}} "-triple" "spir64" {{.*}} "-mllvm" "-vpo-paropt-enable-device-simd-codegen"
+// FOPENMP_TARGET_SIMD: clang{{.*}} "-triple" "spir64" {{.*}} "-fopenmp-target-simd" "-mllvm" "-vpo-paropt-enable-device-simd-codegen"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-vpo-paropt-emit-spirv-builtins"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-vpo-paropt-gpu-execution-scheme=0"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-enable-device-simd"

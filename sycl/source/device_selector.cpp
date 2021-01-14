@@ -128,8 +128,8 @@ device device_selector::select_device() const {
 #if INTEL_CUSTOMIZATION
   throw cl::sycl::runtime_error(
       "No device of requested type available. Please check "
-      "https://software.intel.com/en-us/articles/"
-      "intel-oneapi-dpcpp-compiler-system-requirements-beta",
+      "https://software.intel.com/content/www/us/en/develop/articles/"
+      "intel-oneapi-dpcpp-system-requirements.html",
       PI_DEVICE_NOT_FOUND);
 #endif // INTEL_CUSTOMIZATION
 }

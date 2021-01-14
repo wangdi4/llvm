@@ -1628,6 +1628,9 @@ if (INTEL_CUSTOMIZATION)
 
     if (WIN32)
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+        # llvm-lib is a copy of llvm-ar, and it cannot
+        # be deployed without deploying llvm-ar
+        llvm-ar llvm-lib
         # XDEV components
         xdev-xilib xdev-xilink
         )

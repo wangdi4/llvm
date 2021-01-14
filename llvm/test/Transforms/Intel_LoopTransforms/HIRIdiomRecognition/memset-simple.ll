@@ -19,7 +19,7 @@
 ;OPTREPORT: Global loop optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT-NEXT:     Remark: The memset idiom has been recognized
+;OPTREPORT-NEXT:     remark: The memset idiom has been recognized
 ;OPTREPORT-NEXT: LOOP END
 ;
 ; ModuleID = 'memset.ll'

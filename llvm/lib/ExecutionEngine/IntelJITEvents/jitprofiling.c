@@ -19,7 +19,11 @@
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 #include <windows.h>
+#if !defined (MSVC_VER) && defined(__clang__)
+#pragma clang optimize off
+#else
 #pragma optimize("", off)
+#endif // !defined (MSVC_VER) && defined(__clang__)
 #else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #include <dlfcn.h>
 #include <pthread.h>

@@ -237,7 +237,6 @@ struct GenKillInfo {
 /// backwards from the live out until the point in question.
 class ArrayUseInfo::RangeDataflow {
   ScalarEvolution &SE;
-  const ArrayUse &AU;
 
   DenseMap<BasicBlock *, SmallVector<GenKillInfo, 4>> BlockMap;
   DenseMap<BasicBlock *, ArrayRangeInfo> LiveOuts;
@@ -246,7 +245,7 @@ public:
   bool Valid = false;
 
   RangeDataflow(ScalarEvolution &SE, const ArrayUse &AU)
-    : SE(SE), AU(AU) {}
+    : SE(SE) {}
 
   void noteGenKillInfo(GenKillInfo GKI, Instruction *Point) {
     BlockMap[Point->getParent()].emplace_back(std::move(GKI));
@@ -578,8 +577,7 @@ ArrayUseInfo *ArrayUse::getSourceArray(Value *V) const {
   if (!UseInfoPtr) {
     UseInfoPtr = ArrayUseInfo::make(ArrayVal, SE);
     if (UseInfoPtr) {
-      UseInfoPtr->DataflowResults = std::move(UseInfoPtr->computeDataflow(
-        SE, *this));
+      UseInfoPtr->DataflowResults = UseInfoPtr->computeDataflow(SE, *this);
     }
   }
   return UseInfoPtr.get();

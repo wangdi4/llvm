@@ -31,8 +31,8 @@ public:
     VLSA->getOVLSMemrefs(Plan, VF);
   }
 
-  virtual unsigned getCost() final;
-  virtual unsigned getLoadStoreCost(
+  unsigned getCost() final;
+  unsigned getLoadStoreCost(
     const VPInstruction *VPInst, Align Alignment, unsigned VF) final {
     return getLoadStoreCost(VPInst, Alignment, VF,
                             false /* Don't use VLS cost by default */);
@@ -44,8 +44,8 @@ public:
   ~VPlanCostModelProprietary() {}
 
 private:
-  virtual unsigned getCost(const VPInstruction *VPInst) final;
-  virtual unsigned getCost(const VPBasicBlock *VPBB) final;
+  unsigned getCost(const VPInstruction *VPInst) final;
+  unsigned getCost(const VPBasicBlock *VPBB) final;
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
                             Align Alignment, unsigned VF,
                             const bool UseVLSCost);
@@ -56,10 +56,8 @@ private:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printForVPInstruction(
-    raw_ostream &OS, const VPInstruction *VPInst);
-  void printForVPBasicBlock(
-    raw_ostream &OS, const VPBasicBlock *VPBlock);
+  void printForVPInstruction(raw_ostream &OS, const VPInstruction *VPInst);
+  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Implements basic register pressure calculation pass.
@@ -77,11 +75,11 @@ private:
 
   // Consolidates proprietary code that gets the cost of one operand or two
   // operands arithmetics instructions.
-  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
-                                                const VPValue *Op1,
-                                                const VPValue *Op2,
-                                                const Type *ScalarTy,
-                                                const unsigned VF) final;
+  unsigned getArithmeticInstructionCost(const unsigned Opcode,
+                                        const VPValue *Op1,
+                                        const VPValue *Op2,
+                                        const Type *ScalarTy,
+                                        const unsigned VF) final;
 
   // ProcessedOVLSGroups holds the groups which Cost has already been taken into
   // account while traversing through VPlan during getCost().  This way we avoid
@@ -130,15 +128,6 @@ private:
   unsigned getGatherScatterCost(const VPInstruction *VPInst);
   unsigned getGatherScatterCost(const VPBasicBlock *VPBlock);
   unsigned getGatherScatterCost();
-
-  // FIXME: This is a temporary workaround until proper cost modeling is
-  // implemented.
-  //
-  // To bail out if too many i1 operations are inside the loop as that (most
-  // probably) represents complicated CFG and we need to use Basic Block
-  // Frequency info to correctly calculate the cost. Until it's done, just
-  // report high vector cost for loops with too many i1 instructions.
-  unsigned NumberOfBoolComputations = 0;
 };
 
 } // namespace vpo

@@ -4598,6 +4598,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
       // Add args specific to -fopenmp-target-simd
       if (Args.hasArg(options::OPT_fopenmp_target_simd)) {
+        CmdArgs.push_back("-fopenmp-target-simd");
         CmdArgs.push_back("-mllvm");
         CmdArgs.push_back("-vpo-paropt-enable-device-simd-codegen");
         CmdArgs.push_back("-mllvm");

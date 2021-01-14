@@ -1,4 +1,4 @@
-//      Copyright  (C) 2009-2019 Intel Corporation.
+//      Copyright  (C) 2009-2021 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -8,7 +8,7 @@
 // and may not be copied or disclosed except in accordance
 // with the terms of that agreement.
 //
-// cvs_id[] = "$Id: iml_accuracy_interface.c 14521 2018-10-04 22:17:06Z rcgilber $"
+// cvs_id[] = "$Id: iml_accuracy_interface.c 14604 2019-01-23 18:31:29Z akolesov $"
 //
 
 //++
@@ -86,6 +86,8 @@
 //                   be done in LIBM/SVML CPU dispatchers. Nikita Astafiev
 //      19-Jun-2017, strcat related KW warning fixed, CMPLRS-43705. Nikita Astafiev
 //      19-Mar-2108, Adding recognition of zmm-low=true/false. CMPLRS-47343. NA
+//      21-Dec-2108, Pulldown from mainline with new fusa SVML attribute introduced.
+//                   Complete fusa mode support implemented. Andrey Kolesov
 //
 //--
 
@@ -139,14 +141,18 @@ extern "C" {
 // SUPPORTED_ACCURACIES_NUMBER*SUPPORTED_CPUS_NUMBER
 #define SUPPORTED_VARIANTS_NUMBER             4
 
+// Uncomment to use advanced attribute checks
+// #define USE_ADVANCED_ATTRS
 
 // Macros to simplify navigation in libm_description_table
 #define LIBM_FUNC_NAME_STR(function_id)             libm_description_table[function_id][0]
 #define LIBM_FUNC_PRECISION_STR(function_id)        libm_description_table[function_id][1]
-#define LIBM_FUNC_VARIANT_STR(function_id,variant)  libm_description_table[(function_id)][2+(variant)]
+#define LIBM_FUNC_FUSA_STR(function_id)             libm_description_table[function_id][2]
+#define LIBM_FUNC_VARIANT_STR(function_id,variant)  libm_description_table[(function_id)][3+(variant)]
 
 #define INLINE_FUNC_NAME_STR(function_id)           inline_description_table[function_id][0]
 #define INLINE_FUNC_PRECISION_STR(function_id)      inline_description_table[function_id][1]
+#define INLINE_FUNC_FUSA_STR(function_id)           inline_description_table[function_id][2]
 
 //
 // Defines precision levels:
@@ -325,8 +331,6 @@ static SupportedCpusEnum attrLibFeatureFlagToTTABIndex(unsigned long long featur
         new_value = c_cpu_unsupported;
     }
 
-    PRN_MSG("%-32s: \tconverting int64 feature flag %08X%08X into integer index %d meaning %s\n","attrLibFeatureFlagToTTABIndex", *(1+(int *)(&features)), *(0+(int *)(&features)), new_value, attrGetConfigName(new_value));
-
     return new_value;
 }
 #endif
@@ -373,6 +377,8 @@ typedef struct
     // flag 1 if -qopt-zmm-usage=low requested, 0 otherwize
     int zmm_low;
 
+    // flag 1 if GLOB_fusa_math is requested, 0 otherwize
+    int fusa;
     // array of pointers to constant names of cpu-specific functions
     const char * cpu_specific_names[SUPPORTED_CPUS_NUMBER];
 
@@ -392,6 +398,7 @@ typedef enum
     c_attribute_bitwise_consistency,
     c_attribute_domain_exclusion,
     c_attribute_force_dynamic,
+    c_attribute_fusa,
     c_attribute_configuration,
     c_attribute_relative_error,
     c_attribute_precision,
@@ -413,6 +420,7 @@ static const char* valid_attributes_names[SUPPORTED_ATTRIBUTES_NUMBER] =
     "arch-consistency",     // 6
     "domain-exclusion",     // 7
     "force-dynamic",        // 8
+    "fusa",                 // 9
     "isa-set",              // 10
     "max-error",            // 11
     "precision",            // 12
@@ -442,7 +450,7 @@ typedef struct
 
 
 //  LIBM library description table in short format
-static const char* libm_description_table[][2+SUPPORTED_VARIANTS_NUMBER] =
+static const char* libm_description_table[][3+SUPPORTED_VARIANTS_NUMBER] =
 {
 #if (defined IML_OCLSVML_BUILD)
   #include "iml_table_ocl.inc"
@@ -453,7 +461,7 @@ static const char* libm_description_table[][2+SUPPORTED_VARIANTS_NUMBER] =
 static const int libm_functions_num = _IML_ATTR_SIZEOF_TABLE(libm_description_table);
 
 //  INLINE library description table in short format
-static const char* inline_description_table[][2] =
+static const char* inline_description_table[][3] =
 {
 #include "iml_table_inline.inc"
 };
@@ -578,6 +586,7 @@ static int attrInitFuncDescription(
     function_description->valid_status_bits = 0;
     function_description->use_svml_allowed = 0;
     function_description->zmm_low = 0;
+    function_description->fusa = 0;
 
     for (i = 0; i < SUPPORTED_CPUS_NUMBER; i++)
     {
@@ -649,6 +658,12 @@ static int attrExternal2InternalAttr(
 
             internal_attribute->attribute_value.i = flag;
             PRN_MSG("%-32s: \tattribute %s = %d \n", "attrExternal2InternalAttr", aname, internal_attribute->attribute_value.i);
+            if (flag >= 0)
+            {
+                PRN_MSG("%-32s: \t\t:converting int64 feature flag %08X%08X into integer index %d meaning %s\n","attrLibFeatureFlagToTTABIndex",
+                *(1+(int *)(&tmp)), *(0+(int *)(&tmp)), flag, attrGetConfigName((SupportedCpusEnum)flag));
+            }
+
             break;
 
         case c_attribute_accurate_bits_32:  aname = "c_attribute_accurate_bits_32"; attr_chosen = 1;
@@ -673,6 +688,7 @@ static int attrExternal2InternalAttr(
         case c_attribute_use_svml:             if(!attr_chosen){aname =  "c_attribute_use_svml"; attr_chosen = 1;}
         case c_attribute_valid_status_bits:    if(!attr_chosen){aname =  "c_attribute_valid_status_bits"; attr_chosen = 1;}
         case c_attribute_zmm_low:              if(!attr_chosen){aname =  "c_attribute_zmm_low"; attr_chosen = 1;}
+        case c_attribute_fusa:                 if(!attr_chosen){aname =  "c_attribute_fusa"; attr_chosen = 1;}
             internal_attribute->attribute_value.i = (!strcmp(external_attribute->value,"true"))?1:0; //assuming false even if garbage input
             PRN_MSG("%-32s: \tattribute %s = %d \n", "attrExternal2InternalAttr", aname, internal_attribute->attribute_value.i);
             break;
@@ -960,6 +976,10 @@ static int attrUpdateFuncDescription(
 
             break;
 
+        case c_attribute_fusa:
+            function_description->fusa = internal_attribute->attribute_value.i;
+            break;
+
         default: // not supported internal_attribute
             PRN_MSG("%-32s: [ERROR] internal_attribute not supported\n","attrUpdateFuncDescription");
             break;
@@ -1023,9 +1043,9 @@ static const char* libmGetFuncPrecisionString(int function_id)
 
 // this function performs a binary search over the !sorted! column of strings
 // and returns the index if the value is found
-static int libmGetNameIndex(const char* name)
+static int libmGetNameIndex(const char* name, int req_fusa)
 {
-    int l, r, s, direction;
+    int l, r, s, direction, result = -3;
 
     if (!strcmp(name, ""))
     {
@@ -1055,22 +1075,48 @@ static int libmGetNameIndex(const char* name)
         direction = strcmp(name, LIBM_FUNC_NAME_STR(s));
         if (direction < 0) { r = s; }
         else if (direction > 0) { l = s; }
-        else if (direction == 0) { return s; }
+        else if (direction == 0)
+        {
+            result = s;
+            break;
+        }
+
     }
 
-    if (!strcmp(name, LIBM_FUNC_NAME_STR(l))) { return l; }
-    if (!strcmp(name, LIBM_FUNC_NAME_STR(r))) { return r; }
+    if(result < 0)
+    {
+        if (!strcmp(name, LIBM_FUNC_NAME_STR(l)))
+        {
+            result = l;
+        }
+        else if (!strcmp(name, LIBM_FUNC_NAME_STR(r)))
+        {
+            result = r;
+        }
+    }
 
-    //TODO: maybe insert unsorted search: just in case...
-    PRN_MSG( "%-32s: [failure] token \"%s\" not found\n", "libmGetNameIndex", name );
-    return -3;
+    if(result >= 0)
+    {
+        if((1 == req_fusa) && strcmp("true", LIBM_FUNC_FUSA_STR(result)))
+        {
+            // TODO: support miltiple instances with the same names
+            PRN_MSG( "%-32s: [failure] token found but not fusa-compliant:\"%s\"\n", "libmGetNameIndex", name );
+            result = -4;
+        }
+    }
+    else
+    {
+        PRN_MSG( "%-32s: [failure] token \"%s\" not found\n", "libmGetNameIndex", name );
+    }
+
+    return result;
 }
 
 
 // This function accesses libm_description_table and based on input
 // function ID and function variant number returns pointer to a string
 // containing appropriate function variant name
-static const char* libmGetVariantName(int function_id, int variant)
+static const char* libmGetVariantName(int function_id, int variant, int req_fusa)
 {
     const char* pstr = NULL;
 
@@ -1079,6 +1125,13 @@ static const char* libmGetVariantName(int function_id, int variant)
     {
         PRN_MSG("%-32s: [ERROR] invalid query (id = %d, variant = %d)\n","libmGetVariantName",function_id,variant);
         return NULL;
+    }
+
+    // No 'br' variant for fusa
+    if((1 == req_fusa) && (2 == variant))
+    {
+        PRN_MSG("%-32s: [WARNING] 'br' variant requested in fusa mode. Replaced by 'ha' variant\n","libmGetVariantName");
+        variant = 0;
     }
 
     pstr = LIBM_FUNC_VARIANT_STR(function_id, variant);
@@ -1095,10 +1148,20 @@ static const char* libmGetVariantName(int function_id, int variant)
 
 // This function looks up the function precision in the
 // libm_description_table and translates it into enumeration
-static PrecisionEnum libmGetFuncPrecision(int function_id)
+static PrecisionEnum libmGetFuncPrecision(const char * func_base_name)
 {
-    const char* string_precision = libmGetFuncPrecisionString(function_id);
-    return attrMapPrecisionStr2Enum(string_precision);
+    int function_id = libmGetNameIndex(func_base_name, 0);
+    if (function_id < 0)
+    {
+        PRN_MSG( "%-32s: [ERROR] function name is invalid - not found in table (id = %d)\n", "libmGetFuncPrecision", function_id );
+        return c_precision_unsupported;
+    }
+    else
+    {
+        PRN_MSG("%-32s: Function index = %d\n", "libmGetFuncPrecision", function_id );
+    }
+
+    return attrMapPrecisionStr2Enum(libmGetFuncPrecisionString(function_id));
 }
 
 
@@ -1191,7 +1254,7 @@ static int svmlMatchFuncDescriptions(
     }
 
 
-#if 0
+#if defined USE_ADVANCED_ATTRS
     PRN_MSG("%-32s: \taccuracy check : requested \"%s\" (%d), suggested \"%s\" (%d): ","svmlMatchFuncDescriptions",\
             attrGetAccuracyName(function_description_user.accuracy), accuracy_vector[function_description_user.accuracy], \
             attrGetAccuracyName(function_description_compiler.accuracy), accuracy_vector[function_description_compiler.accuracy]);
@@ -1207,7 +1270,7 @@ static int svmlMatchFuncDescriptions(
     }
 #endif
 
-#if 0
+#if defined USE_ADVANCED_ATTRS
     //
     // Temporarily disable this part due to cq306561: we don't initialize this
     // variable if only a "max-error" attribute comes (no bits attributes).
@@ -1232,7 +1295,7 @@ static int svmlMatchFuncDescriptions(
     if (function_description_user.ulp_error <  function_description_compiler.ulp_error)
     {
         PRN_MSG("[failure]\n");
-#if 0
+#if defined USE_ADVANCED_ATTRS
 
         if (function_description_compiler.absolute_error < 0.0f)
         {
@@ -1304,6 +1367,18 @@ static int svmlMatchFuncDescriptions(
     if (function_description_user.use_svml_allowed >  function_description_compiler.use_svml_allowed)
     {
         PRN_MSG("[failure]: either we are trying to inline a sequence (which has no use_svml_allowed field or it is set to zero) or we are trying to call some complex LIBM function (which is not handled here in this function yet anyway)\n");
+        return 0;
+    }
+    else
+    {
+        PRN_MSG("[success]\n");
+    }
+
+    PRN_MSG("%-32s: \tfusa requirement check : requested %d, suggested %d: ", "svmlMatchFuncDescriptions",\
+            function_description_user.fusa,  function_description_compiler.fusa);
+    if (function_description_user.fusa != function_description_compiler.fusa)
+    {
+        PRN_MSG("[failure]\n");
         return 0;
     }
     else
@@ -1442,20 +1517,8 @@ const char* get_library_function_name(const char* func_base_name,
 
     if ( is_svml == 0)
     {
-        // Index in libm_description_table and find out the function number
-        function_description_user.index = libmGetNameIndex(func_base_name);
-        if (function_description_user.index < 0)
-        {
-            PRN_MSG( "%-32s: [ERROR] function name is invalid - not found in table (id = %d)\n", "get_library_function_name", function_description_user.index );
-            return NULL;
-        }
-        else
-        {
-            PRN_MSG("%-32s: Function index = %d\n", "get_library_function_name", function_description_user.index );
-        }
-
-        // Read the function precision property from the libm_description_table
-        function_precision = libmGetFuncPrecision( function_description_user.index );
+        // Find libm function precision
+        function_precision = libmGetFuncPrecision( func_base_name );
     }
     else
     {
@@ -1534,6 +1597,15 @@ const char* get_library_function_name(const char* func_base_name,
 
     if ( is_svml == 0)
     {
+        function_description_user.index = libmGetNameIndex(func_base_name, function_description_user.fusa);
+
+        if(function_description_user.index < 0)
+        {
+            PRN_MSG("%-32s: [FAILURE] appropriate variant for \"%s\" not found\n", "get_library_function_name", func_base_name);
+            PRN_MSG("=================================\n\n");
+            return result_string_pointer;
+        }
+
         // =========================================================================
         // Here we presumably finished collecting user requests and classified them
         // into the appropriate fields of the structure. Now we are ready to compute
@@ -1541,7 +1613,8 @@ const char* get_library_function_name(const char* func_base_name,
         // =========================================================================
         result_string_pointer = libmGetVariantName(
                                     function_description_user.index,
-                                    function_description_user.accuracy);
+                                    function_description_user.accuracy,
+                                    function_description_user.fusa);
 
         PRN_MSG("%-32s: [SUCCESS] return \"%s\" function name\n", "get_library_function_name", result_string_pointer);
         PRN_MSG("=================================\n\n");
@@ -1552,7 +1625,13 @@ const char* get_library_function_name(const char* func_base_name,
         // loop over function descriptions and choose the fastest acceptable implementation
         for (i = 0; i < function_description_compiler_variants_num; i++)
         {
-            PRN_MSG("%-32s: Looking at \"%s\" variant:\n", "get_library_function_name", function_description_compiler_variant[i].cpu_specific_names[c_cpu_all]);
+            const char * variant_name = function_description_compiler_variant[i].cpu_specific_names[c_cpu_all];
+            (void) variant_name;
+
+            // Some fusa-compliant variants have no generic implementations to provide the name for next printout
+            // replacing them to 'fusa compliant' string
+            PRN_MSG("%-32s: Looking at \"%s\" variant:\n", "get_library_function_name", (variant_name[0] == '\0')?"fusa compliant":variant_name);
+
             if (svmlMatchFuncDescriptions(function_description_user, function_description_compiler_variant[i]))
             {   //Assumption: the first matching implementation is the fastest
                 result_string_pointer = function_description_compiler_variant[i].cpu_specific_names[c_cpu_all];
@@ -1588,10 +1667,19 @@ const char* get_library_function_name(const char* func_base_name,
                 // Handle missing cpu-specific entries
                 if (result_string_pointer[0] == '\0')
                 {
-                    PRN_MSG("%-32s: configuration number %d led to an empty function name, we may be not exposing these names in SVML or maybe being asked for DP on SSE1?\n", "get_library_function_name", function_description_user.configuration);
+                    if (0 == function_description_user.fusa)
+                    {
 
-                    PRN_MSG("%-32s: resorting to dispatcher entry\n", "get_library_function_name");
-                    result_string_pointer = function_description_compiler_variant[i].cpu_specific_names[c_cpu_all];
+                        PRN_MSG("%-32s: configuration number %d led to an empty function name, we may be not exposing these names in SVML or maybe being asked for DP on SSE1?\n", "get_library_function_name", function_description_user.configuration);
+                        PRN_MSG("%-32s: resorting to dispatcher entry\n", "get_library_function_name");
+                        result_string_pointer = function_description_compiler_variant[i].cpu_specific_names[c_cpu_all];
+                    }
+                    else
+                    {
+                        PRN_MSG("%-32s: [failure] no fusa compliant implementation for configuration \"%s\" of function \"%s\"\n",
+                        "get_library_function_name", attrGetConfigName((SupportedCpusEnum)function_description_user.configuration), func_base_name);
+                        continue;
+                    }
                 }
                 // Success
                 PRN_MSG("%-32s: [SUCCESS] return \"%s\" function name\n", "get_library_function_name", result_string_pointer);
@@ -1600,7 +1688,7 @@ const char* get_library_function_name(const char* func_base_name,
             }
         }
 
-        PRN_MSG("%-32s: [ERROR] function wasn't chosen\n", "get_library_function_name");
+        PRN_MSG("%-32s: [FAILURE] function wasn't chosen\n", "get_library_function_name");
         PRN_MSG("=================================\n\n");
 
         return NULL;
@@ -1608,7 +1696,7 @@ const char* get_library_function_name(const char* func_base_name,
 }
 
 bool is_libm_function(const char *name) {
-  return libmGetNameIndex(name) >= 0 ? true : false;
+  return libmGetNameIndex(name, 0) >= 0 ? true : false;
 }
 
 //******************************************************************************************/
@@ -1680,13 +1768,16 @@ int may_i_use_inline_implementation(
     attrInitFuncDescription(&function_description_compiler);
 
     /* Search in LIBM table */
-    flag = libmGetNameIndex(func_base_name);
+    flag = libmGetNameIndex(func_base_name, 0);
     if (flag >= 0)
     {
+        PrecisionEnum function_precision = c_precision_unsupported;
+
+        function_precision = libmGetFuncPrecision(func_base_name);
         function_description_user.index = flag;
         function_description_compiler.index = flag;
-        function_description_user.precision = libmGetFuncPrecision(function_description_user.index);
-        function_description_compiler.precision = libmGetFuncPrecision(function_description_compiler.index);
+        function_description_user.precision = function_precision;
+        function_description_compiler.precision = function_precision;
         PRN_MSG("%-32s: Function \"%s\" found in LIBM table [success]\n", "may_i_use_inline_implementation", func_base_name);
     }
     else

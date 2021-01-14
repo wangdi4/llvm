@@ -1,6 +1,6 @@
 //===------ LoopOptReportBuilder.h ----------------------------*- C++ -*---===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,6 +21,7 @@
 #define LLVM_ANALYSIS_INTEL_OPTREPORT_MDOPTREPORTBUILDER_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugLoc.h"
@@ -166,25 +167,64 @@ public:
                                                        std::forward<F>(Func));
   }
 
+  // Legacy interface to add origin remarks without remark ID.
+  // TODO: Remove this interface after all opt-report clients are updated to use
+  // new interface using remark IDs.
   template <typename... Args>
   LoopOptReportThunk<T> &addOrigin(Args &&... args) {
+    return addOrigin(OptReportDiag::InvalidRemarkID,
+                     std::forward<Args>(args)...);
+  }
+  // Interface to add origin remarks using given remark ID.
+  template <typename... Args>
+  LoopOptReportThunk<T> &addOrigin(unsigned RemarkID, Args &&...args) {
     if (!Builder.getVerbosity())
       return *this;
 
-    LoopOptRemark Remark =
-        LoopOptRemark::get(Builder.getContext(), std::forward<Args>(args)...);
+    LoopOptRemark Remark;
+    if (RemarkID == OptReportDiag::InvalidRemarkID) {
+      Remark = LoopOptRemark::get(Builder.getContext(), RemarkID,
+                                  std::forward<Args>(args)...);
+    } else {
+      // TODO: Remark message should not be added to metadata when remark ID is
+      // available. It will be directly obtained from catalogue when the remark
+      // is being printed. Update when legacy interface is retired.
+      Remark = LoopOptRemark::get(Builder.getContext(), RemarkID,
+                                  OptReportDiag::getMsg(RemarkID),
+                                  std::forward<Args>(args)...);
+    }
     getOrCreateOptReport().addOrigin(Remark);
     return *this;
   }
 
+  // Legacy interface to add opt-report remarks without remark ID.
+  // TODO: Remove this interface after all opt-report clients are updated to use
+  // new interface using remark IDs.
   template <typename... Args>
   LoopOptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
-                                   Args &&... args) {
+                                   Args &&...args) {
+    return addRemark(MessageVerbosity, OptReportDiag::InvalidRemarkID,
+                     std::forward<Args>(args)...);
+  }
+  // Interface to add opt-report remarks using given remark ID.
+  template <typename... Args>
+  LoopOptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
+                                   unsigned RemarkID, Args &&...args) {
     if (Builder.getVerbosity() < MessageVerbosity)
       return *this;
 
-    LoopOptRemark Remark =
-        LoopOptRemark::get(Builder.getContext(), std::forward<Args>(args)...);
+    LoopOptRemark Remark;
+    if (RemarkID == OptReportDiag::InvalidRemarkID) {
+      Remark = LoopOptRemark::get(Builder.getContext(), RemarkID,
+                                  std::forward<Args>(args)...);
+    } else {
+      // TODO: Remark message should not be added to metadata when remark ID is
+      // available. It will be directly obtained from catalogue when the remark
+      // is being printed. Update when legacy interface is retired.
+      Remark = LoopOptRemark::get(Builder.getContext(), RemarkID,
+                                  OptReportDiag::getMsg(RemarkID),
+                                  std::forward<Args>(args)...);
+    }
     getOrCreateOptReport().addRemark(Remark);
     return *this;
   }

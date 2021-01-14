@@ -11,9 +11,9 @@
 ; RUN: opt -hir-ssa-deconstruction -intel-loop-optreport=low -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-optreport-emitter -hir-cg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 ;
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT:    Remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}
-; OPTREPORT:    Remark: LOOP WAS VECTORIZED
-; OPTREPORT:    Remark: vectorization support: vector length {{.*}}
+; OPTREPORT:    remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}
+; OPTREPORT:    remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT:    remark #15305: vectorization support: vector length {{.*}}
 ; OPTREPORT: LOOP END{{[[:space:]]}}
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT: <Remainder loop for vectorization>
@@ -64,4 +64,4 @@ attributes #0 = { norecurse nounwind writeonly "correctly-rounded-divide-sqrt-fp
 !8 = distinct !{!"llvm.loop.optreport", !9}
 !9 = distinct !{!"intel.loop.optreport", !10}
 !10 = !{!"intel.optreport.remarks", !11}
-!11 = !{!"intel.optreport.remark", !"Loop has been unswitched via %s", !"cmp113"}
+!11 = !{!"intel.optreport.remark", i32 0, !"Loop has been unswitched via %s", !"cmp113"}

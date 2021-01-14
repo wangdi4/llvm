@@ -1,6 +1,6 @@
 //===- LoopOptReportPrintUtils.cpp - Utils to print Loop Reports -*- C++ -*-==//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugLoc.h"
 
@@ -23,6 +24,9 @@ namespace llvm {
 namespace OptReportUtils {
 static int getMDNodeAsInt(const ConstantAsMetadata *CM) {
   return cast<ConstantInt>(CM->getValue())->getValue().getSExtValue();
+}
+static unsigned getMDNodeAsUnsigned(const ConstantAsMetadata *CM) {
+  return cast<ConstantInt>(CM->getValue())->getValue().getZExtValue();
 }
 
 static const unsigned IntentationStep = 4;
@@ -35,19 +39,29 @@ static const unsigned IntentationStep = 4;
 // TODO Alexander: Replace the format string parameter with msg ID.
 //                 Add the support for %u, %f.
 //                 Add unit tests for this function.
-std::string formatRemarkMessage(LoopOptRemark Remark) {
-  // Instead of MDString - this should be the index of the formatted string in
-  // the diagnostic message table.
-  const MDString *R = cast<MDString>(Remark.getOperand(0));
+std::string formatRemarkMessage(LoopOptRemark Remark, unsigned RemarkID) {
+  std::string FormatString;
+  if (RemarkID == OptReportDiag::InvalidRemarkID) {
+    // Valid remark ID was not provided, format string is obtained from metadata
+    // operands (2nd operand).
+    // TODO: Remove this code when all remarks have valid IDs i.e. legacy
+    // interface is retired.
+    const MDString *R = cast<MDString>(Remark.getOperand(1));
+    FormatString = std::string(R->getString());
+  } else {
+    // Obtain format string from message catalogue using valid remark ID.
+    FormatString = std::string(OptReportDiag::getMsg(RemarkID));
+  }
 
-  // Here FormatString should be obtaing by getting a string from message
-  // catalogue.
-  std::string FormatString = std::string(R->getString());
+  // Temporary assert to validate correctness of remark id and remark message.
+  // Should be dropped in future.
+  assert(FormatString == cast<MDString>(Remark.getOperand(1))->getString() &&
+         "Remark messages don't match.");
 
   std::string Msg;
   // First, reserve some space in the string to avoid memory rellocations.
   Msg.reserve(2 * FormatString.length());
-  unsigned CurOpIdx = 1;
+  unsigned CurOpIdx = 2; // 0 -> RemarkID, 1 -> FormatString
   unsigned Idx = 0;
   unsigned FormatStringLength = FormatString.length();
   while (Idx < FormatStringLength) {
@@ -130,7 +144,15 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth,
                  LoopOptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   FOS.indent(IntentationStep * Depth);
-  FOS << "Remark: " << formatRemarkMessage(Remark) << "\n";
+  std::string RemarkPrefixStr;
+  const ConstantAsMetadata *CRemarkID =
+      cast<ConstantAsMetadata>(Remark.getOperand(0));
+  unsigned RemarkID = getMDNodeAsUnsigned(CRemarkID);
+  if (RemarkID == OptReportDiag::InvalidRemarkID)
+    RemarkPrefixStr = "remark: ";
+  else
+    RemarkPrefixStr = "remark #" + std::to_string(RemarkID) + ": ";
+  FOS << RemarkPrefixStr << formatRemarkMessage(Remark, RemarkID) << "\n";
 }
 
 void printOrigin(formatted_raw_ostream &FOS, unsigned Depth,
@@ -138,7 +160,10 @@ void printOrigin(formatted_raw_ostream &FOS, unsigned Depth,
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
   FOS.indent(IntentationStep * Depth);
-  FOS << "<" << formatRemarkMessage(Origin) << ">\n";
+  const ConstantAsMetadata *CRemarkID =
+      cast<ConstantAsMetadata>(Origin.getOperand(0));
+  unsigned RemarkID = getMDNodeAsUnsigned(CRemarkID);
+  FOS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
 }
 
 void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,

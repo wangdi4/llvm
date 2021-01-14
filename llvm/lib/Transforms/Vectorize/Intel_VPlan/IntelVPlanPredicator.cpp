@@ -417,11 +417,59 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
   return BlockIsUniform && (!Cond || !Plan.getVPlanDA()->isDivergent(*Cond));
 }
 
+namespace {
+// The ordering algorithm was taken from the region vectorizer at
+// https://github.com/cdl-saarland/rv/blob/master/src/transform/Linearizer.cpp
+//
+// See also https://compilers.cs.uni-saarland.de/papers/moll_parlin_pldi18.pdf,
+// Figure 3 in particular.
+class LinearizationBlockOrdering {
+  VPDominatorTree *DT;
+  SmallVector<VPBasicBlock *, 32> Blocks;
+  DenseMap<const VPBasicBlock *, int> Indices;
+
+  using rpot_iterator =
+      ReversePostOrderTraversal<VPBasicBlock *>::const_rpo_iterator;
+
+  void processBlockRec(VPBasicBlock *DomBB, rpot_iterator RPOTIt,
+                       rpot_iterator RPOTEnd) {
+    int Id = Blocks.size();
+    Blocks.push_back(DomBB);
+    assert(Indices.count(DomBB) == 0 && "Block must not be processed yet!");
+    Indices[DomBB] = Id;
+
+    auto *DomBBNode = DT->getNode(DomBB);
+    for (auto It = RPOTIt; It != RPOTEnd; ++It) {
+      auto *BB = *It;
+      auto *BBNode = DT->getNode(BB);
+      auto *BBIDom = BBNode->getIDom();
+      if (BBIDom != DomBBNode)
+        continue;
+
+      // No special loop processing because of our loop exits canonicalization.
+      processBlockRec(BB, It, RPOTEnd);
+    }
+  }
+
+public:
+  LinearizationBlockOrdering(
+      VPlan &Plan, const ReversePostOrderTraversal<VPBasicBlock *> &RPOT)
+      : DT(Plan.getDT()) {
+    Blocks.reserve(Plan.size());
+    processBlockRec(*RPOT.begin(), RPOT.begin(), RPOT.end());
+    assert(Blocks.size() == Plan.size() && "Unprocessed block(s)!");
+  }
+
+  using iterator = decltype(Blocks.begin());
+  iterator begin() { return Blocks.begin(); }
+  iterator end() { return Blocks.end(); }
+
+  int getIndex(const VPBasicBlock *BB) { return Indices[BB]; }
+};
+} // namespace
+
 void VPlanPredicator::linearizeRegion() {
-  DenseMap<const VPBasicBlock *, int> BlockIndexInRPOT;
-  int CurrBlockRPOTIndex = 0;
-  for (auto *Block : RPOT)
-    BlockIndexInRPOT[Block] = CurrBlockRPOTIndex++;
+  LinearizationBlockOrdering BlockOrdering(Plan, RPOT);
 
   // Keep track of the edges that were removed during linearization process.
   // Once we meet any divergent condition that is going to be linearized we keep
@@ -435,14 +483,15 @@ void VPlanPredicator::linearizeRegion() {
       RemovedDivergentEdgesMap;
 
   // VPlan entry block is assumed to be unmasked.
-  auto It = ++RPOT.begin();
-  auto End = RPOT.end();
+  auto It = BlockOrdering.begin();
+  ++It;
+  auto End = BlockOrdering.end();
 
-  CurrBlockRPOTIndex = 0;
+  int CurrBlockIndex = 0;
   for (VPBasicBlock *CurrBlock : make_range(It, End)) {
     // We've peeled 0-th iteration, so incrementing in the beginning of the loop
     // is correct.
-    ++CurrBlockRPOTIndex;
+    ++CurrBlockIndex;
 
    // Process incoming edges to the CurrBlock. Once this iterations finishes,
    // CurrBlock's incoming edges are properly set. Also create new basic blocks
@@ -504,13 +553,13 @@ void VPlanPredicator::linearizeRegion() {
       VPBasicBlock *PredSucc = Pred->getSingleSuccessor();
       // Don't go into the blocks that haven't been processed before this one
       // , including itself.
-      while (PredSucc && BlockIndexInRPOT[PredSucc] < CurrBlockRPOTIndex) {
+      while (PredSucc && BlockOrdering.getIndex(PredSucc) < CurrBlockIndex) {
         LastProcessed = PredSucc;
         auto EdgeFormsLinearizedChain =
-            [this, &BlockIndexInRPOT, CurrBlockRPOTIndex](
-                const VPBasicBlock *From, const VPBasicBlock *To) {
+            [this, &BlockOrdering, CurrBlockIndex](const VPBasicBlock *From,
+                                                   const VPBasicBlock *To) {
               return !VPBlockUtils::isBackEdge(From, To, VPLI) &&
-                     BlockIndexInRPOT[To] < CurrBlockRPOTIndex;
+                     BlockOrdering.getIndex(To) < CurrBlockIndex;
             };
         assert(count_if(PredSucc->getSuccessors(),
                         [EdgeFormsLinearizedChain,

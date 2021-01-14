@@ -297,3 +297,39 @@ def tlbid : QF<"tlbid">;
 def tlbout : QF<"tlbout">;
 def verbose_all : QF<"verbose">;
 def guardsym : QF<"guardsym">;
+
+#if INTEL_CUSTOMIZATION
+//=============================================================================
+// Using the flags below will cause a warning to be printed saying that they
+// will be ignored. This is for compatibility with MS LINK.
+//
+//   If the flag doesn't need an extra arguments
+//     def NAME_OF_OPTION : IntelLLDWarnMessage<"NAME_OF_OPTION">
+//
+//   If the flag does need an extra argument
+//     def NAME_OF_OPTION :  IntelLLDWarnMessageArgs<"NAME_OF_OPTION">
+//
+// If the flag has both options (with and without extra arguments) then both
+// forms need to be added.
+//
+// NOTE: These changes are proposed to the community in
+// https://reviews.llvm.org/D94610 . A new patch that removes the Intel marks
+// will be uploaded once the changes land in the community.
+//=============================================================================
+
+// Define the intelLLDWarnMessageGroup group. This group is used to identify
+// all the flags that we want to print the warning message.
+def intelLLDWarnMessageGroup : OptionGroup<"intelLLDWarnMessageGroup">;
+
+// Class for options that won't require extra arguments
+class IntelLLDWarnMessage<string name> : F<name> {
+  OptionGroup Group = intelLLDWarnMessageGroup;
+}
+
+// Class for options that require an extra argument
+class IntelLLDWarnMessageArgs<string name> : QF<name> {
+  OptionGroup Group = intelLLDWarnMessageGroup;
+}
+
+def assemblydebug : IntelLLDWarnMessage<"assemblydebug">;
+#endif // INTEL_CUSTOMIZATION

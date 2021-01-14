@@ -1,6 +1,6 @@
 //===----------- HIRPrefetching.cpp Implements Prefetching class ---------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -393,7 +393,7 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
   // corresponding lval with the rval in the pragma vars until it hits the prev
   // loop
   HLNode *Node = Lp;
-  while (Node = Node->getPrevNode()) {
+  while ((Node = Node->getPrevNode())) {
     if (isa<HLLoop>(Node)) {
       break;
     } else if (auto *Inst = dyn_cast<HLInst>(Node)) {
@@ -581,10 +581,11 @@ bool HIRPrefetching::doPrefetching(
     RegDDRef *StrideRef = Lp->getStrideDDRef();
     int64_t Stride;
     StrideRef->isIntConstant(&Stride);
+    int Distance = PrefetchDist / Stride;
 
     LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                               "Number of spatial prefetches=%d, dist=%d",
-                              NumSpatialPrefetches, PrefetchDist / Stride);
+                              NumSpatialPrefetches, Distance);
   }
 
   HIRInvalidationUtils::invalidateBody(Lp);

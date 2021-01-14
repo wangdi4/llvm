@@ -15,7 +15,6 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   IR/HLSwitch.cpp
   IR/IRRegion.cpp
   IR/RegDDRef.cpp
-  IR/Diag.cpp
   Framework/HIRRegionIdentification.cpp
   Framework/HIRSCCFormation.cpp
   Framework/HIRCreation.cpp

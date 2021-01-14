@@ -35,11 +35,6 @@ static cl::opt<bool> UseOVLSCM(
   cl::desc("Consider cost returned by OVLSCostModel "
            "for optimized gathers and scatters."));
 
-static cl::opt<unsigned> BoolInstsBailOut(
-  "vplan-cost-model-i1-bail-out-limit", cl::init(45), cl::Hidden,
-  cl::desc("Don't vectorize if number of boolean computations in the VPlan "
-           "is higher than the threshold."));
-
 static cl::opt<unsigned> CMGatherScatterThreshold(
   "vplan-cm-gather-scatter-threshold", cl::init(50),
   cl::desc("If gather/scatter cost is more than CMGatherScatterThreshold "
@@ -197,9 +192,6 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
 }
 
 unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
-  if (VPInst->getType()->isIntegerTy(1))
-    ++NumberOfBoolComputations;
-
   unsigned Opcode = VPInst->getOpcode();
   switch (Opcode) {
   case Instruction::Load:
@@ -263,7 +255,6 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
 
   // Scaled PSADBW cost in terms of number of intructions.
   const unsigned PsadbwCost = 1 * VPlanTTIWrapper::Multiplier;
-  NumberOfBoolComputations = 0;
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
@@ -715,7 +706,6 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
 }
 
 unsigned VPlanCostModelProprietary::getSpillFillCost() {
-  NumberOfBoolComputations = 0;
   unsigned Cost = 0;
   // LiveValues map contains the liveness of the given instruction multiplied
   // by its legalization factor.  The map is updated on each VPInstruction in
@@ -759,7 +749,6 @@ unsigned VPlanCostModelProprietary::getSpillFillCost() {
 }
 
 unsigned VPlanCostModelProprietary::getCost() {
-  NumberOfBoolComputations = 0;
   ProcessedOVLSGroups.clear();
   unsigned Cost = VPlanCostModel::getCost();
 
@@ -791,14 +780,6 @@ unsigned VPlanCostModelProprietary::getCost() {
     // regressions.
     if (VF == 32)
       return UnknownCost;
-  }
-
-  LLVM_DEBUG(dbgs() << "Number of i1 calculations: " << NumberOfBoolComputations
-                    << "\n");
-  if (VF != 1 && NumberOfBoolComputations >= BoolInstsBailOut) {
-    LLVM_DEBUG(
-        dbgs() << "Returning UnknownCost due to too many i1 calculations.\n");
-    return UnknownCost;
   }
 
   unsigned BaseCost = Cost;

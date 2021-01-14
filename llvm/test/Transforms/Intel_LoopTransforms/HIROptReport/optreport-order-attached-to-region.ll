@@ -23,13 +23,13 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-optreport-emitter -hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loop completely unrolled
+; OPTREPORT-NEXT:     remark: Loop completely unrolled
 ; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loop completely unrolled
+; OPTREPORT-NEXT:     remark: Loop completely unrolled
 ; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loop completely unrolled
+; OPTREPORT-NEXT:     remark: Loop completely unrolled
 ; OPTREPORT-NEXT: LOOP END
 
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
@@ -40,7 +40,7 @@
 ; CHECK: [[M4]] = distinct !{!"llvm.loop.optreport", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"intel.loop.optreport", [[M6:!.*]], [[M8:!.*]]}
 ; CHECK: [[M6]] = !{!"intel.optreport.remarks", [[M7:!.*]]}
-; CHECK: [[M7]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+; CHECK: [[M7]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
 ; CHECK: [[M8]] = !{!"intel.optreport.next_sibling", [[M9:!.*]]}
 ; CHECK: [[M9]] = distinct !{!"llvm.loop.optreport", [[M11:!.*]]}
 ; CHECK: [[M10:!.*]] = distinct !{!"intel.loop.optreport", [[M6]], [[M11:!.*]]}
