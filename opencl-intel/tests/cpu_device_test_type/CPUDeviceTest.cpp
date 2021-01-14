@@ -761,51 +761,37 @@ void initDpcppAffinity()
 #endif
 }
 
-int CPUDeviceTest_Main()
-{
-	initDpcppAffinity();
+void CPUDeviceTest_Init() {
+  initDpcppAffinity();
 
-	ITaskExecutor* pTaskExecutor = GetTaskExecutor();
-	EXPECT_TRUE(pTaskExecutor!=NULL);
+  ITaskExecutor *pTaskExecutor = GetTaskExecutor();
+  ASSERT_TRUE(pTaskExecutor != NULL);
 
-	// Initialize Task Executor
-	unsigned numThreads = gUseHalfProcessors ? (gNumProcessors/2) : gNumProcessors;
-	int iThreads = pTaskExecutor->Init(NULL, numThreads);
-	EXPECT_TRUE(iThreads>0);
+  // Initialize Task Executor
+  unsigned numThreads =
+      gUseHalfProcessors ? (gNumProcessors / 2) : gNumProcessors;
+  int iThreads = pTaskExecutor->Init(NULL, numThreads);
+  ASSERT_EQ(pTaskExecutor->GetErrorCode(), 0);
+  ASSERT_TRUE(iThreads > 0);
 
-	//Create and Init the device
+  // Create and Init the device
+  static CPUTestLogger log_desc;
 
-	static CPUTestLogger		log_desc;
+  size_t numDevicesInDeviceType = 0;
+  cl_int iRes = clDevGetAvailableDeviceList(0, NULL, &numDevicesInDeviceType);
+  ASSERT_TRUE(CL_DEV_SUCCEEDED(iRes) && numDevicesInDeviceType > 0);
 
-	size_t numDevicesInDeviceType = 0;
-	cl_int iRes = clDevGetAvailableDeviceList(0, NULL, &numDevicesInDeviceType);
-	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
-	if (0 == numDevicesInDeviceType)
-	{
-		return -1;
-	}
+  size_t deviceIdsListSizeRet = 0;
+  unsigned int deviceIdsList[1] = {0};
+  iRes = clDevGetAvailableDeviceList(1, deviceIdsList, &deviceIdsListSizeRet);
+  ASSERT_TRUE(CL_DEV_SUCCEEDED(iRes) && deviceIdsListSizeRet > 0);
 
-	size_t deviceIdsListSizeRet = 0;
-	unsigned int deviceIdsList[1] = {0};
-	iRes = clDevGetAvailableDeviceList(1, deviceIdsList, &deviceIdsListSizeRet);
-	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
-	if (0 == deviceIdsListSizeRet)
-	{
-		printf("\nTest failed (no available devices returned)\n");
-		return -1;
-	}
-
-	gDeviceIdInType = deviceIdsList[0];
-
-	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry, NULL);
-	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
-
-	int rc = RUN_ALL_TESTS();
-        // This is disabled due to shutdown issue and will be fixed by
-        // CMPLRLLVM-20324.
-	//dev_entry->clDevCloseDevice();
-    return rc;
+  gDeviceIdInType = deviceIdsList[0];
+  iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc,
+                                   &dev_entry, NULL);
+  ASSERT_TRUE(CL_DEV_SUCCEEDED(iRes));
 }
+
 #ifndef _WIN32
 void printAffinityMask(affinityMask_t* affinityMask)
 {
@@ -911,16 +897,13 @@ int main(int argc, char* argv[])
         pMask = &affinityMask;
     }
 #endif
-    int rc = CPUDeviceTest_Main();
+    CPUDeviceTest_Init();
+    if (::testing::Test::HasFatalFailure())
+        return -1;
 
-	/* [QA]: move result checking to CPUDeviceTest_Main to avoid additional output in case if running with --gtest_list_tests option
-	if (rc == 0) {
-		printf("\n==============\nTEST SUCCEDDED\n==============\n");
-	}
-	else {
-		printf("\n==============\nTEST FAILED\n==============\n");
-	}
-	*/
-
-	return rc;
+    int rc = RUN_ALL_TESTS();
+    // This is disabled due to shutdown issue and will be fixed by
+    // CMPLRLLVM-20324.
+    //dev_entry->clDevCloseDevice();
+    return rc;
 }

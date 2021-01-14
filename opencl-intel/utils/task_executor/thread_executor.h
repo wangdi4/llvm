@@ -288,6 +288,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		te_wait_result WaitForCompletion() {return TE_WAIT_NOT_SUPPORTED;}		
 		void Close(bool bCancel);
 		ocl_gpa_data* GetGPAData() const;
+                int GetErrorCode() override { return 0; }
 
 	protected:
 		long		m_lRefCount;

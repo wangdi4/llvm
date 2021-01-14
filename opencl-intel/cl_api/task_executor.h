@@ -621,7 +621,10 @@ public:
      * Destroy the in-order debug device queue
      */
     virtual void DestroyDebugDeviceQueue() = 0;
-    
+
+    /// Retrieve error code, e.g. LoadLibraryEx error code.
+    virtual int GetErrorCode() = 0;
+
 protected:
 
     ITaskExecutor() : m_pGPAData(nullptr) { }

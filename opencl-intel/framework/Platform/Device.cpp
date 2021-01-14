@@ -163,7 +163,8 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
 {
     Intel::OpenCL::Utils::OclDynamicLib dlModule(false);    // this is a work-around, because Vtune crashes when one of the libraries is loaded and then unloaded.
     // Load the DA library (First time); dlModule call to unload at destruction (when exiting from this function) BUT Device::InitDevice() is going to load it again before the unload...
-    if (!dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
+    if (dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
+            psDeviceAgentDllPath)) != 0)
     {
         return CL_ERR_DEVICE_INIT_FAIL;
     }
@@ -258,7 +259,8 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
     // Loading again the library in order to increase the reference counter of the library.
     LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
 
-    if (!m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
+    if (m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
+            psDeviceAgentDllPath)) != 0)
     {
         LogErrorA("LoadLibrary(%s) failed", psDeviceAgentDllPath);
         return CL_ERR_DEVICE_INIT_FAIL;

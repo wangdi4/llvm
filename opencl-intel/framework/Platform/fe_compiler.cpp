@@ -77,11 +77,11 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
     INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
-    if ( !m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) )
+    if (m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) != 0)
     {
 #ifdef _WIN32
         const char* path = (GetDriverStorePathToLibrary() + psModuleName).c_str();
-        if ( !m_dlModule.Load(GetFullModuleNameForLoad(path)) )
+        if (m_dlModule.Load(GetFullModuleNameForLoad(path)) != 0)
         {
             LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"), psModuleName, path);
             return CL_COMPILER_NOT_AVAILABLE;

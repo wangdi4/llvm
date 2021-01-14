@@ -95,6 +95,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
         virtual void DestroyDebugDeviceQueue();
 
+        int GetErrorCode() override { return m_err; }
+
     protected:
         // Load TBB library explicitly
         bool LoadTBBLibrary();
@@ -115,6 +117,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
         // Logger
         DECLARE_LOGGER_CLIENT;
+
+        int m_err; // error code
 
     private:
         TBBTaskExecutor(const TBBTaskExecutor&);
