@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,10 +12,16 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "cl_user_logger.h"
+#include "cl_config.h"
+#include "cl_sys_defines.h"
+#include <CL/cl_ext.h>
+#include <algorithm>
 #include <cassert>
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <unordered_set>
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -24,9 +30,6 @@
 #include <syscall.h>
 #include <unistd.h>
 #endif
-#include "cl_config.h"
-#include "cl_sys_defines.h"
-#include "cl_user_logger.h"
 
 using std::ostringstream;
 using std::ends;
@@ -211,8 +214,30 @@ void ApiLogger::EndApiFuncInternal()
     EndApiFuncEpilog();
 }
 
-void ApiLogger::PrintOutputParam(const string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
+void ApiLogger::PrintOutputParam(const string &name, unsigned paramName,
+                                 const void *addr, size_t size, bool bIsPtr2Ptr,
+                                 bool bIsUnsigned)
 {
+    static std::unordered_set<unsigned> stringParams = {
+        // clGetPlatformInfo
+        CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME,
+        CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_ICD_SUFFIX_KHR,
+        // clGetDeviceInfo
+        CL_DEVICE_IL_VERSION, CL_DEVICE_BUILT_IN_KERNELS, CL_DEVICE_NAME,
+        CL_DEVICE_VENDOR, CL_DRIVER_VERSION, CL_DEVICE_PROFILE,
+        CL_DEVICE_VERSION, CL_DEVICE_OPENCL_C_VERSION, CL_DEVICE_EXTENSIONS,
+        CL_DEVICE_IL_VERSION_KHR,
+        // clGetProgramInfo
+        CL_PROGRAM_SOURCE, CL_PROGRAM_IL, CL_PROGRAM_KERNEL_NAMES,
+        CL_PROGRAM_IL_KHR,
+        // clGetProgramBuildInfo
+        CL_PROGRAM_BUILD_OPTIONS, CL_PROGRAM_BUILD_LOG,
+        // clGetKernelInfo
+        CL_KERNEL_FUNCTION_NAME, CL_KERNEL_ATTRIBUTES,
+        // clGetKernelArgInfo
+        CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_NAME
+    };
+
     if (!m_bLogApis)
     {
         return;
@@ -232,7 +257,31 @@ void ApiLogger::PrintOutputParam(const string& name, const void* addr, size_t si
     }
     else
     {
-        m_stream << dec;
+        if (!addr) {
+            m_stream << "nil";
+            return;
+        }
+        if (stringParams.count(paramName)) {
+            m_stream << "\"" << (const char*)addr << "\"";
+            return;
+        }
+        if (size > 8) {
+            size_t sizeTrunc = std::min((size_t)1024, size & (~7));
+            m_stream << "[";
+            for (const char *I = (const char *)addr, *E = I + sizeTrunc; I != E;
+                 I += 8) {
+                if (I != addr)
+                    m_stream << ", ";
+                if (bIsUnsigned)
+                    PrintIntegerOutputParam<cl_ulong>(I);
+                else
+                    PrintIntegerOutputParam<cl_long>(I);
+            }
+            if (sizeTrunc != size)
+                m_stream << ", ...";
+            m_stream << "]";
+            return;
+        }
         switch (size)
         {
         case 1:
@@ -429,6 +478,8 @@ void ApiLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
     {
         m_bFirstApiFuncArg = false;
     }
+    if (!sParamTypeAndName)
+        return;
     m_strStream << sParamTypeAndName << " = ";
 
     // Check if param name is num_events_in_wait_list or num_events.

@@ -269,12 +269,15 @@ public:
     /**
      * Print the value of an output parameter after the function returns
      * @param name          the name of the parameter
+     * @param paramName     enumeration constant that identifies the parameter.
      * @param addr          the address of the parameter
      * @param size          the size of the type the output parameter points to
      * @param bIsPtr2Ptr    whether the parameter's type is a pointer to pointer
      * @param bIsUnsigned   whether the parameter is an unsigned integer type (only relevant when bIsPtr2Ptr is false)
      */
-    void PrintOutputParam(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned = false);
+    void PrintOutputParam(const std::string &name, unsigned paramName,
+                          const void *addr, size_t size, bool bIsPtr2Ptr,
+                          bool bIsUnsigned = false);
 
     /**
      * Print a string by OutputParamsValueProvider
@@ -307,7 +310,7 @@ private:
     {
         if (nullptr != ptr)
         {
-            m_stream << *reinterpret_cast<const T*>(ptr);
+            m_stream << std::hex << "0x" << *reinterpret_cast<const T*>(ptr);
         }
         else
         {
