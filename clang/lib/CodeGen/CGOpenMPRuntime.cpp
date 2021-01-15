@@ -8800,6 +8800,11 @@ public:
         }
       }
 
+#if INTEL_COLLAB
+      // Save the map argument's size of CombinedInfo.  This is used later
+      // to determine if base map is added after call to emitCombinedEntry
+      unsigned long SaveSize = CombinedInfo.BasePointers.size();
+#endif  // INTEL_COLLAB
       // If there is an entry in PartialStruct it means we have a struct with
       // individual members mapped. Emit an extra combined entry.
       if (PartialStruct.Base.isValid())
@@ -8810,7 +8815,10 @@ public:
       if (VarChain) {
         VarChain->push_back(
             std::make_pair(cast_or_null<VarDecl>(M.first), false));
-        for (int I = PartialStruct.Base.isValid() ? 0 : 1,
+        for (int I = PartialStruct.Base.isValid() &&
+                             SaveSize < CombinedInfo.BasePointers.size()
+                         ? 0
+                         : 1,
                  E = CurInfo.BasePointers.size();
              I < E; ++I)
           VarChain->push_back(std::make_pair(nullptr, true));
@@ -9687,7 +9695,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
           continue;
         MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
       }
-
+      // Save the map argument's size of CombinedInfo.  This is used later
+      // to determine if base map is added after call to emitCombinedEntry
+      unsigned long SaveSize = CombinedInfo.BasePointers.size();
       if (PartialStruct.Base.isValid())
         // The partial struct case requires two steps.  The step above generates
         // expressions for each partial piece.  The call to emitCombinedEntry
@@ -9698,7 +9708,10 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
       if (!CI->capturesThis())
         VD = CI->getCapturedVar();
       VarChain.push_back(std::make_pair(VD, false));
-      for (int I = PartialStruct.Base.isValid() ? 0 : 1,
+      for (int I = PartialStruct.Base.isValid() &&
+                           SaveSize < CombinedInfo.BasePointers.size()
+                       ? 0
+                       : 1,
                E = CurInfo.BasePointers.size();
            I < E; ++I)
         VarChain.push_back(std::make_pair(nullptr, true));
@@ -9713,6 +9726,7 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
     MEHandler.generateAllInfo(CombinedInfo, /*NotTargetParams=*/false,
                               &VarChain, MappedVarSet);
   }
+  assert(CombinedInfo.BasePointers.size() == VarChain.size());
   for (int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
     Info->push_back(
         {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
