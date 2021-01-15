@@ -169,6 +169,7 @@ bool clTracingFunctionsEnabledCheckTest();
 bool clTracingArgumentsChangedCheckTest();
 bool clTracingFunctionsDisabledCheckTest();
 void globalVariableSizeQueryTest();
+void enqueueBlockProfilingTest();
 void UniformWorkGroupTest();
 #ifdef _WIN32
 void clDisableMasterJoinTest();

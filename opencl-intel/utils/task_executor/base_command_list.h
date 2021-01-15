@@ -222,11 +222,13 @@ public:
 
     PREPARE_SHARED_PTR(in_order_command_list)
 
-    static SharedPtr<in_order_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
-                                                      const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
-                                                      const CommandListCreationParam& param, bool bIsDebugList = false)
-    {
-        return new in_order_command_list(pTBBExec, device, param, bIsDebugList);
+    static SharedPtr<in_order_command_list> Allocate(
+        TBBTaskExecutor &pTBBExec,
+        const Intel::OpenCL::Utils::SharedPtr<TEDevice> &device,
+        const CommandListCreationParam &param, bool bIsDebugList = false,
+        bool bProfilingEnabled = false) {
+      return new in_order_command_list(pTBBExec, device, param, bIsDebugList,
+                                       bProfilingEnabled);
     }
 
     // This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
@@ -241,8 +243,6 @@ public:
 
     virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
-    virtual bool IsProfilingEnabled() const { return false; }
-
     virtual bool IsMasterJoined() const { return m_bMasterRunning;}  
 
     virtual void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
@@ -253,11 +253,17 @@ protected:
 
 private:
 
-    SharedPtr<IThreadLibTaskGroup>			 m_ndrangeChildrenTaskGroup;
+    SharedPtr<IThreadLibTaskGroup>          m_ndrangeChildrenTaskGroup;
 
-    in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bIsDebugList) :
-        base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(bIsDebugList ? SharedPtr<TbbTaskGroup>(nullptr) : TbbTaskGroup::Allocate())  {}
-
+    in_order_command_list(
+        TBBTaskExecutor &pTBBExec,
+        const Intel::OpenCL::Utils::SharedPtr<TEDevice> &device,
+        const CommandListCreationParam &param, bool bIsDebugList,
+        bool bProfilingEnabled)
+        : base_command_list(pTBBExec, device, param, bProfilingEnabled),
+          m_ndrangeChildrenTaskGroup(bIsDebugList
+                                         ? SharedPtr<TbbTaskGroup>(nullptr)
+                                         : TbbTaskGroup::Allocate()) {}
 };
 
 class out_of_order_command_list : public base_command_list
