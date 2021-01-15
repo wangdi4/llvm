@@ -1185,10 +1185,13 @@ bool VPOParoptTransform::genOCLParallelLoop(
   // Do not partition parallel loop(s) lexically nested in other
   // parallel loop(s). The current partitioning will produce incorrect
   // results for such loops. For the time being, we execute them serially.
+  //
+  // Note that we have to stop looking for outer parallel loop(s)
+  // if during the search we meet a target region.
   if (W->getIsParLoop() &&
       WRegionUtils::getParentRegion(W,
           [](WRegionNode *W) { return W->getIsParLoop(); },
-          [](WRegionNode *W) { return true; }))
+          [](WRegionNode *W) { return !isa<WRNTargetNode>(W); }))
     DoNotPartition = true;
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
