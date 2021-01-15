@@ -1166,7 +1166,6 @@ def SYCLDevice : InheritableAttr {
   let Subjects = SubjectList<[Function]>;
   let LangOpts = [SYCLIsDevice];
   let Documentation = [SYCLDeviceDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 def SYCLKernel : InheritableAttr {
@@ -1184,7 +1183,6 @@ def SYCLSimd : InheritableAttr {
   let Subjects = SubjectList<[Function]>;
   let LangOpts = [SYCLExplicitSIMD];
   let Documentation = [SYCLSimdDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 // Available in SYCL explicit SIMD extension. Binds a file scope private
@@ -1197,7 +1195,6 @@ def SYCLRegisterNum : InheritableAttr {
   // for the host device as well
   let LangOpts = [SYCLExplicitSIMD];
   let Documentation = [SYCLRegisterNumDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 // Used to mark ESIMD kernel pointer parameters originating from accessors.
@@ -1206,8 +1203,7 @@ def SYCLSimdAccessorPtr : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[ParmVar]>;
   let LangOpts = [SYCLExplicitSIMD];
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
+  let Documentation = [SYCLSimdAccessorPtrDocs];
 }
 
 def SYCLScope : Attr {
@@ -1236,7 +1232,6 @@ def SYCLDeviceIndirectlyCallable : InheritableAttr {
   let Subjects = SubjectList<[Function]>;
   let LangOpts = [SYCLIsDevice];
   let Documentation = [SYCLDeviceIndirectlyCallableDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 def SYCLIntelBufferLocation : InheritableAttr {
@@ -1261,7 +1256,6 @@ def SYCLIntelKernelArgsRestrict : InheritableAttr {
   let LangOpts = [ SYCLIsDevice, SYCLIsHost ];
   let Documentation = [ SYCLIntelKernelArgsRestrictDocs ];
   let SimpleHandler = 1;
-  let PragmaAttributeSupport = 0;
 }
 
 def SYCLIntelNumSimdWorkItems : InheritableAttr {
@@ -1271,7 +1265,6 @@ def SYCLIntelNumSimdWorkItems : InheritableAttr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNumSimdWorkItemsAttrDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 def SYCLIntelUseStallEnableClusters : InheritableAttr {
@@ -1286,7 +1279,6 @@ def SYCLIntelUseStallEnableClusters : InheritableAttr {
     }
   }];
   let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
@@ -1297,7 +1289,6 @@ def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelSchedulerTargetFmaxMhzAttrDocs];
-  let PragmaAttributeSupport = 0;
   let AdditionalMembers = [{
     static unsigned getMinValue() {
       return 0;
@@ -1306,7 +1297,6 @@ def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
       return 1024*1024;
     }
   }];
-
 }
 
 def SYCLIntelMaxWorkGroupSize : InheritableAttr {
@@ -1317,7 +1307,6 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
               ExprArgument<"ZDim">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
-  let PragmaAttributeSupport = 0;
   let AdditionalMembers = [{
     ArrayRef<const Expr *> dimensions() const {
       return {getXDim(), getYDim(), getZDim()};
@@ -1342,7 +1331,6 @@ def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 def SYCLIntelNoGlobalWorkOffset : InheritableAttr {
@@ -1352,7 +1340,6 @@ def SYCLIntelNoGlobalWorkOffset : InheritableAttr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNoGlobalWorkOffsetAttrDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 def SYCLIntelLoopFuse : InheritableAttr {
@@ -1433,7 +1420,6 @@ def IntelReqdSubGroupSize: InheritableAttr {
   let Subjects = SubjectList<[Function, CXXMethod], ErrorDiag>;
   let Documentation = [IntelReqdSubGroupSizeDocs];
   let LangOpts = [OpenCL, SYCLIsDevice, SYCLIsHost];
-  let PragmaAttributeSupport = 0;
 }
 
 // This attribute is both a type attribute, and a declaration attribute (for
@@ -2203,7 +2189,6 @@ def SYCLIntelPipeIO : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Var]>;
   let Documentation = [SYCLIntelPipeIOAttrDocs];
-  let PragmaAttributeSupport = 0;
 }
 
 // Variadic integral arguments.
