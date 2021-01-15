@@ -244,6 +244,41 @@ static bool lowerIntelHonorFCmp(Function &F) {
   }
   return Changed;
 }
+
+static bool lowerDirectiveRegionEntryExit(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    auto *Intrin = dyn_cast<IntrinsicInst>(I->getUser());
+    ++I;
+
+    if (!Intrin || !Intrin->hasOperandBundles())
+      continue;
+
+    OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+    StringRef TagName = BU.getTagName();
+
+    // Only handle LoopOpt related tags.
+    // Others can be added, if needed.
+    if (TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") ||
+        TagName.equals("DIR.PRAGMA.BLOCK_LOOP") ||
+        TagName.equals("DIR.PRAGMA.PREFETCH_LOOP") ||
+        TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT") ||
+        TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP") ||
+        TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP")) {
+
+      Intrin->replaceAllUsesWith(UndefValue::get(Intrin->getType()));
+      Intrin->eraseFromParent();
+      Changed = true;
+    }
+  }
+
+  return Changed;
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool lowerIntrinsics(Module &M) {
@@ -271,6 +306,10 @@ static bool lowerIntrinsics(Module &M) {
 
     if (F.getIntrinsicID() == Intrinsic::intel_honor_fcmp)
       Changed |= lowerIntelHonorFCmp(F);
+
+    if (F.getIntrinsicID() == Intrinsic::directive_region_entry ||
+        F.getIntrinsicID() == Intrinsic::directive_region_exit)
+      Changed |= lowerDirectiveRegionEntryExit(F);
 #endif // INTEL_CUSTOMIZATION
 
     switch (F.getIntrinsicID()) {
