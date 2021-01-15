@@ -915,10 +915,10 @@ public:
   bool hasPCONFIG() const { return HasPCONFIG; }
   bool hasSGX() const { return HasSGX; }
 #if INTEL_CUSTOMIZATION
-  bool hasDSB() const { return HasDSB; }
+  bool hasDSB() const override { return HasDSB; }
   // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
   // (even and odd) that run in parallel every lookup
-  unsigned getDSBWindowSize() const { return 32; }
+  unsigned getDSBWindowSize() const override { return 32; }
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
