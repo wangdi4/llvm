@@ -523,7 +523,7 @@ static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
   err = clSetKernelArgMemPointerINTEL(kernel, 2, &value);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
 
-  err = clSetKernelArgMemPointerINTEL(kernel, 3, nullptr);
+  err = clSetKernelArgMemPointerINTEL(kernel, 3, buffer);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
 
   size_t gdim = 1;
@@ -536,6 +536,16 @@ static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
   ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
 
   ASSERT_EQ(*result, 1);
+
+  // Check the handling of null usm pointer won't be affected
+  // by the first enqueue
+  err = clSetKernelArgMemPointerINTEL(kernel, 3, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
+  err =
+      clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL, &e);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+  err = clWaitForEvents(1, &e);
+  ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
 
   err = clMemFreeINTEL(context, buffer);
   EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
