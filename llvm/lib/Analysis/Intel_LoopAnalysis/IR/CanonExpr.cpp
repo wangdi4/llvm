@@ -23,6 +23,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/IR/InstrTypes.h"
 
 using namespace llvm;
 using namespace loopopt;
@@ -1579,6 +1580,24 @@ void CanonExpr::verify(unsigned NestingLevel) const {
          "DefinedAtLevel is invalid!");
   assert(SrcTy && "SrcTy of CanonExpr is null!");
   assert(DestTy && "DestTy of CanonExpr is null!");
+
+  if (SrcTy != DestTy) {
+    Instruction::CastOps CastOp;
+
+    if (isSExt()) {
+      CastOp = Instruction::SExt;
+    } else if (isZExt()) {
+      CastOp = Instruction::ZExt;
+    } else if (isTrunc()) {
+      CastOp = Instruction::Trunc;
+    } else {
+      CastOp = Instruction::BitCast;
+    }
+
+    (void)CastOp;
+    assert(CastInst::castIsValid(CastOp, SrcTy, DestTy) &&
+           "Inconsistent Src/Dest Types");
+  }
 
   // Account for vector types.
   auto ScalSrcTy = SrcTy->getScalarType();

@@ -569,6 +569,19 @@ void PassManagerBuilder::addInstructionCombiningPass(
 #else
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
+  if (RunVPOParopt) {
+    // CMPLRLLVM-25424: temporary workaround for cases, where
+    // the instructions combining pass inserts value definitions
+    // inside OpenMP regions making them live out without proper
+    // handling in the OpenMP clauses.
+    // VPOCFGRestructuring breaks blocks at the OpenMP regions'
+    // boundaries minimizing the probability of illegal instruction
+    // insertion in the instructions combining pass.
+    // We have to move VPO Paropt transformations closer to FE
+    // to stop fiddling with the optimization pipeline.
+    PM.add(createVPOCFGRestructuringPass());
+  }
+
   PM.add(createInstructionCombiningPass(GEPInstOptimizations,
                                         PrepareForLTO && EnableIPArrayTranspose,
                                         EnableFcmpMinMaxCombine));

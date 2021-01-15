@@ -18,8 +18,7 @@
 ; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK:  DO i64 i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:    (<4 x float>*)(@r)[0] = %.vec; Mask = @{%.vec1}
-; FIXME:  The following invalid bitcast needs to be fixed to [<4 x i64> 0]
-; CHECK:     <LVAL-REG> {al:4}(<4 x float>*)(LINEAR float* @r)[bitcast.i64.<4 x i64>(0)]
+; CHECK:     <LVAL-REG> {al:4}(<4 x float>*)(LINEAR float* @r)[<4 x i64> 0]
 ; CHECK:  END LOOP
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -68,8 +67,7 @@ for.end:                                          ; preds = %for.inc
 ; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK:  DO i64 i1 = 96, 97, 1   <DO_LOOP> <novectorize>
 ; CHECK:    %__svml_exp41 = @__svml_exp4(%copy); <fast>
-; FIXME:  The following invalid bitcast needs to be fixed to <4 x double> %copy
-; CHECK:    <RVAL-REG> NON-LINEAR bitcast.double.<4 x double>(%copy)
+; CHECK:    <RVAL-REG> NON-LINEAR <4 x double> %copy
 ; CHECK:  END LOOP
 
 define dso_local void @foo(double* nocapture %arr) local_unnamed_addr #0 {

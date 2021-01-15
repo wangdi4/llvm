@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -23,6 +23,7 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -4482,12 +4483,44 @@ public:
       }
     }
 
+    // Functions marked with callback metadata can take parameters and forward
+    // them to another function. Check these parameters against the type
+    // expected by the function the parameters will be forwarded to.
+    if (F && F->hasMetadata(LLVMContext::MD_callback)) {
+      // Populate the set of abstract calls that will be analyzed with the
+      // parameters passed to this call.
+      SmallVector<const Use *, 4> CallbackUses;
+      AbstractCallSite::getCallbackUses(Call, CallbackUses);
+      for (const Use *U : CallbackUses) {
+        AbstractCallSite ACS(U);
+        assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+
+        Function *TargetFunc = ACS.getCalledFunction();
+        unsigned NumCalleeArgs = ACS.getNumArgOperands();
+        for (unsigned Idx = 0; Idx < NumCalleeArgs; ++Idx) {
+          // If the broker function passes the parameter through to the callee,
+          // get the parameter corresponding to the target function argument and
+          // check whether the types match. If the parameter is not forwarded,
+          // the safety checks will be done when checking parameters passed to
+          // the broker call.
+          Value *Param = ACS.getCallArgOperand(Idx);
+          if (Param) {
+            Argument *FormalVal = TargetFunc->getArg(Idx);
+            // This argument will be processed here, and does not need to be
+            // processed when iterating over the original function call
+            // arguments.
+            SpecialArguments.insert(Param);
+            checkArgTypeMismatch(&Call, TargetFunc, FormalVal, Param);
+          }
+        }
+      }
+    }
+
     // If this is an indirect call site, find out if there is a matching
     // address taken external call.  In this case, the indirect call must
     // be treated like an external call for the purpose of generating
     // the AddressTaken safety check.
     bool HasICMatch = hasICMatch(&Call);
-
     unsigned NextArgNo = 0;
     for (Value *Arg : Call.args()) {
       // Keep track of the argument index we're working with.
