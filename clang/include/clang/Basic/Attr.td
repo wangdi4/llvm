@@ -1322,6 +1322,15 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
     ArrayRef<const Expr *> dimensions() const {
       return {getXDim(), getYDim(), getZDim()};
     }
+    Optional<llvm::APSInt> getXDimVal(ASTContext &Ctx) const {
+      return getXDim()->getIntegerConstantExpr(Ctx);
+    }
+    Optional<llvm::APSInt> getYDimVal(ASTContext &Ctx) const {
+      return getYDim()->getIntegerConstantExpr(Ctx);
+    }
+    Optional<llvm::APSInt> getZDimVal(ASTContext &Ctx) const {
+      return getZDim()->getIntegerConstantExpr(Ctx);
+    }
   }];
   let Documentation = [SYCLIntelMaxWorkGroupSizeAttrDocs];
 }
@@ -2923,6 +2932,15 @@ def ReqdWorkGroupSize : InheritableAttr {
   let AdditionalMembers = [{
     ArrayRef<const Expr *> dimensions() const {
       return {getXDim(), getYDim(), getZDim()};
+    }
+    Optional<llvm::APSInt> getXDimVal(ASTContext &Ctx) const {
+      return getXDim()->getIntegerConstantExpr(Ctx);
+    }
+    Optional<llvm::APSInt> getYDimVal(ASTContext &Ctx) const {
+      return getYDim()->getIntegerConstantExpr(Ctx);
+    }
+    Optional<llvm::APSInt> getZDimVal(ASTContext &Ctx) const {
+      return getZDim()->getIntegerConstantExpr(Ctx);
     }
   }];
   let Documentation = [ReqdWorkGroupSizeAttrDocs];
