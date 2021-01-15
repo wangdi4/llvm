@@ -1580,13 +1580,19 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_flush")
 /// void __kmpc_for_static_fini(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_fini)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_fini")
-/// void __kmpc_for_static_init_4(ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp_int32 * plastiter, kmp_int32 *plower, kmp_int32 *pupper, kmp_int32 *pstride, kmp_int32 incr, kmp_int32 chunk);
+/// void __kmpc_for_static_init_4(ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp_int32 *plastiter, kmp_int32 *plower, kmp_int32 *pupper, kmp_int32 *pstride, kmp_int32 incr, kmp_int32 chunk);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_4)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_4")
-/// void __kmpc_for_static_init_8(ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp_int32 * plastiter, kmp_int64 *plower, kmp_int64 *pupper, kmp_int64 *pstride, kmp_int64 incr, kmp_int64 chunk);
+/// void __kmpc_for_static_init_4u(ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp_int32 *plastiter, kmp_int32 *plower, kmp_int32 *pupper, kmp_int32 *pstride, kmp_int32 incr, kmp_int32 chunk);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_4u)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_4u")
+/// void __kmpc_for_static_init_8(ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp_int32 *plastiter, kmp_int64 *plower, kmp_int64 *pupper, kmp_int64 *pstride, kmp_int64 incr, kmp_int64 chunk);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_8)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_8")
 /// void __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...);
+/// void __kmpc_for_static_init_8u(ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp_int32 *plastiter, kmp_int64 *plower, kmp_int64 *pupper, kmp_int64 *pstride, kmp_int64 incr, kmp_int64 chunk);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_8u)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_8u")
 TLI_DEFINE_ENUM_INTERNAL(kmpc_fork_call)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_fork_call")
 /// kmp_int32 __kmpc_global_thread_num(ident_t * loc);

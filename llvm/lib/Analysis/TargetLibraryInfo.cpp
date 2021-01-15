@@ -3357,6 +3357,7 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_kmpc_for_static_init_4:
+  case LibFunc_kmpc_for_static_init_4u:
     return (NumParams == 9 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
@@ -3369,6 +3370,7 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(8)->isIntegerTy());
 
   case LibFunc_kmpc_for_static_init_8:
+  case LibFunc_kmpc_for_static_init_8u:
     return (NumParams == 9 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
