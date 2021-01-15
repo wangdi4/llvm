@@ -51,7 +51,7 @@ VPlanCallVecDecisions::getVectorVariantForCallParameters(
        I < VPCall->getNumArgOperands(); ++I) {
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(CallArg);
-    if (CallArgShape.isRandom())
+    if (CallArgShape.isRandom() || CallArgShape.isUndefined())
       ParmKinds.push_back(VectorKind::vector());
     else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride())
       ParmKinds.push_back(VectorKind::linear(CallArgShape.getStrideVal()));
