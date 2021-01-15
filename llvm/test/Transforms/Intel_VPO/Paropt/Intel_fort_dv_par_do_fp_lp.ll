@@ -52,13 +52,14 @@ alloca:
 ; Check that the dope vector init call is emitted
 ; CHECK: [[PRIV_DV_CAST:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[PRIV_DV]] to i8*
 ; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[PRIV_DV_CAST]], i8* %{{[^ ]+}})
+; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[SIZE]], 2
 ; CHECK: [[IS_ALLOCATED:%[^ ]+]] = icmp ne i64 [[SIZE]], 0
 ; CHECK: br i1 [[IS_ALLOCATED]], label %[[IF_THEN:[^ ]+]], label %[[IF_CONTINUE:[^, ]+]]
 
 ; CHECK: [[IF_THEN]]:
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[ADDR0:%[^ ]+]] = getelementptr inbounds { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[DATA:%[^ ]+]] = alloca i16, i64 [[SIZE]]
+; CHECK: [[DATA:%[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]]
 ; CHECK: store i16* [[DATA]], i16** [[ADDR0]]
 ; CHECK: br label %[[IF_CONTINUE]]
 

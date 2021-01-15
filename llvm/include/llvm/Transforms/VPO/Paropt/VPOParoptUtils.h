@@ -923,11 +923,11 @@ public:
   ///   @num_elements_gv = common thread_local global i64 0            // (1)
   ///
   ///   %size = call i64 @_f90_dope_vector_init(NewV, OrigV)
+  ///   %num_elements = udiv %size, <element_size>
   ///   if (%size != 0) {                                              // (2)
-  ///     %local_data = alloca <element_type>, %size
+  ///     %local_data = alloca <element_type>, %num_elements
   ///     store %local_data, getelementpointer(NewV, 0, 0)
   ///   }
-  ///   %num_elements = udiv %size, <element_size> ; Only for reduction items
   ///   store i64 %num_elements, i64* @num_elements_gv                 // (3)
   /// \endcode
   /// The emitted code is inserted after the alloca NewV, which is the local
@@ -936,7 +936,7 @@ public:
   /// inserted before \p InsertPt.
   /// If \p CheckOrigAllocationBeforeAllocatingNew is true, then the local data
   /// allocation is guarded by an `if (size != 0)` check (2).
-  /// If \p StoreNumElementsToGlobal is true, then emit store `%num_elements` to
+  /// If \p StoreNumElementsToGlobal is true, then store `%num_elements` to
   /// a thread local global variable `@num_elements_gv` (1), (3).
   static void
   genF90DVInitCode(Item *I, Instruction *InsertPt, DominatorTree *DT,
