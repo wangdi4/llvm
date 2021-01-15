@@ -132,8 +132,8 @@ public:
                           VPlanVLSAnalysis *VLSA, VPlan *MainP, unsigned OrigTC,
                           unsigned PeelTC, unsigned MainLoopVF, unsigned MainLoopUF)
       : VPlanEvaluator(MaskedP, ScalarCst, TLI, TTI, DL, VLSA), MainPlan(MainP),
-        RemainderTC((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF)), PeelTC(PeelTC), MainLoopVF(MainLoopVF),
-        MainLoopUF(MainLoopUF) {
+        RemainderTC((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF)),
+        PeelTC(PeelTC), MainLoopVF(MainLoopVF), MainLoopUF(MainLoopUF) {
     calculateBestVariant();
   }
 
