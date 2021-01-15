@@ -89,6 +89,20 @@ void VPOParoptUtils::genF90DVInitCode(
 
   Instruction *AllocBuilderInsertPt = &*Builder.GetInsertPoint();
 
+  // TODO: OPAQUEPOINTER: We need another way to get the DV struct/element type.
+  auto *DVType = cast<StructType>(SrcV->getType()->getPointerElementType());
+  Type *ElementTy = DVType->getElementType(0)->getPointerElementType();
+
+  // We need to compute the number of elements in the dope vector.  DataSize is
+  // the size in bytes of the data "array" for the dope vector. To get number of
+  // elements, divide by the size of each element in bytes.
+  auto *NumElements = Builder.CreateUDiv(
+      DataSize,
+      Builder.getIntN(DataSize->getType()->getPrimitiveSizeInBits(),
+                      DL.getTypeSizeInBits(ElementTy) / 8),
+      NamePrefix + ".num_elements");
+  I->setF90DVNumElements(NumElements);
+
   // Create a branch to guard memory allocation for local copy of DV's data.
   // if (dv_size != 0) {
   //  ... then allocate space for local copy
@@ -115,28 +129,12 @@ void VPOParoptUtils::genF90DVInitCode(
   auto *Zero = AllocBuilder.getInt32(0);
   auto *Addr0GEP =
       AllocBuilder.CreateInBoundsGEP(DstV, {Zero, Zero}, NamePrefix + ".addr0");
-  Type *ElementTy = Addr0GEP->getType()->getScalarType()->
-      getPointerElementType()->getPointerElementType();
   Value *PointeeData = genPrivatizationAlloca(
-      ElementTy, DataSize, OrigAlignment, &*AllocBuilder.GetInsertPoint(),
+      ElementTy, NumElements, OrigAlignment, &*AllocBuilder.GetInsertPoint(),
       IsTargetSPIRV, NamePrefix + ".data");
   auto *StoreVal = AllocBuilder.CreatePointerBitCastOrAddrSpaceCast(
       PointeeData, cast<GEPOperator>(Addr0GEP)->getResultElementType());
   AllocBuilder.CreateStore(StoreVal, Addr0GEP);
-
-  if (!isa<ReductionItem>(I))
-    return;
-
-  // For reduction, to emit the init and fini loops, we need to compute the
-  // number of elements in the dope vector.  DataSize is the size in
-  // bytes of the data "array" for the dope vector. To get number of elements,
-  // divide by the size of each element in bytes.
-  auto *NumElements = Builder.CreateUDiv(
-      DataSize,
-      Builder.getIntN(DataSize->getType()->getPrimitiveSizeInBits(),
-                      DL.getTypeSizeInBits(ElementTy) / 8),
-      NamePrefix + ".num_elements");
-  I->setF90DVNumElements(NumElements);
 
   if (!StoreNumElementsToGlobal)
     return;

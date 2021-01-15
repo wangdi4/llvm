@@ -44,12 +44,12 @@
 ; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]] to i8*
 ; CHECK: [[ORIG_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* %"foo_$A" to i8*
 ; CHECK: [[PRIV_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[PRIV_DV_CAST]], i8* [[ORIG_DV_CAST]])
+; CHECK: [[NUM_ELEMENTS_1:[^ ]+]] = udiv i64 [[PRIV_DV_ARR_SIZE]], 2
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[PRIV_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca i16, i64 [[PRIV_DV_ARR_SIZE]], align 1
+; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS_1]], align 1
 ; CHECK: store i16* [[PRIV_DV_DATA]], i16** [[PRIV_DV_ADDR0]]
-; CHECK: [[NUM_ELEMENTS_1:[^ ]+]] = udiv i64 [[PRIV_DV_ARR_SIZE]], 2
 
 ; Check that the GEP for the dope vector in the fast-reduction struct is computed:
 

@@ -52,10 +52,11 @@ bb31:                                             ; preds = %alloca
 
 ; Check that the dope vector init call is emitted
 ; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
+; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[SIZE]], 4
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$.0", %"QNCA_a0$i32*$rank1$.0"* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[DATA:%[^ ]+]] = alloca i32, i64 [[SIZE]]
+; CHECK: [[DATA:%[^ ]+]] = alloca i32, i64 [[NUM_ELEMENTS]]
 ; CHECK: store i32* [[DATA]], i32** [[ADDR0]]
 
 ; Check that we call f90_firstprivate_copy function.

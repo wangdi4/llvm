@@ -48,12 +48,12 @@
 ; Check that the dope vector init call is emitted for PRIV_DV.
 ; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$%complex_128bit*$rank2$"* [[PRIV_DV]] to i8*
 ; CHECK: [[PRIV_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[PRIV_DV_CAST]], i8* bitcast (%"QNCA_a0$%complex_128bit*$rank2$"* @{{.*}} to i8*))
+; CHECK: [[NUM_ELEMENTS:[^ ]+]] = udiv i64 [[PRIV_DV_ARR_SIZE]], 16
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[PRIV_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca %complex_128bit, i64 [[PRIV_DV_ARR_SIZE]], align 16
+; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca %complex_128bit, i64 [[NUM_ELEMENTS]], align 16
 ; CHECK: store %complex_128bit* [[PRIV_DV_DATA]], %complex_128bit** [[PRIV_DV_ADDR0]]
-; CHECK: [[NUM_ELEMENTS:[^ ]+]] = udiv i64 [[PRIV_DV_ARR_SIZE]], 16
 ; Check that num_elements is stored to a global so that it can be accessed from the reduction callback.
 ; CHECK: store i64 [[NUM_ELEMENTS]], i64* [[NUM_ELEMENTS_GV]], align 8
 
@@ -69,10 +69,10 @@
 ; CHECK: [[FAST_RED_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$%complex_128bit*$rank2$"* [[FAST_RED_DV]] to i8*
 ; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$%complex_128bit*$rank2$"* [[PRIV_DV]] to i8*
 ; CHECK: [[FAST_RED_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[FAST_RED_DV_CAST]], i8* [[PRIV_DV_CAST]])
-; CHECK: [[FAST_RED_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* [[FAST_RED_DV]], i32 0, i32 0
-; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca %complex_128bit, i64 [[FAST_RED_DV_ARR_SIZE]], align 16
-; CHECK: store %complex_128bit* [[FAST_RED_DV_DATA]], %complex_128bit** [[FAST_RED_DV_ADDR0]]
 ; CHECK: [[NUM_ELEMENTS_1:[^ ]+]] = udiv i64 [[FAST_RED_DV_ARR_SIZE]], 16
+; CHECK: [[FAST_RED_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* [[FAST_RED_DV]], i32 0, i32 0
+; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca %complex_128bit, i64 [[NUM_ELEMENTS_1]], align 16
+; CHECK: store %complex_128bit* [[FAST_RED_DV_DATA]], %complex_128bit** [[FAST_RED_DV_ADDR0]]
 
 ; Check for calls to kmpc_[end_]reduce, and that FAST_RED_DV and Orig (%"complex_alloc_array_reduction_$PSIC_ALL_NC") are used between those calls, but not PRIV_DV.
 ; CHECK: {{[^ ]+}} = call i32 @__kmpc_reduce(%struct.ident_t* {{[^ ,]+}}, i32 {{[^ ,]+}}, i32 1, i32 96, i8* {{[^ ,]+}}, void (i8*, i8*)* @MAIN{{[^ ,]*}}tree_reduce{{[^ ,]*}}, [8 x i32]* {{[^ ,]+}})
