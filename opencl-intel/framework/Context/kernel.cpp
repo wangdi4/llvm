@@ -982,6 +982,8 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
             pSvmPtrArg = BufferPointerArg::Allocate(pSvmBuf.GetPtr(), pValue);
           else
             pSvmPtrArg = SystemPointerArg::Allocate(pValue);
+          if (nullptr == pSvmPtrArg.GetPtr())
+            return CL_OUT_OF_HOST_MEMORY;
           SharedPointerArg *argVal = pSvmPtrArg.GetPtr();
           clArg.SetValue(sizeof(SharedPointerArg *), &argVal);
           clArg.SetSvmObject(pSvmPtrArg);
