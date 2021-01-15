@@ -144,42 +144,69 @@ static bool callHasHighImfPrecisionAttr(CallInst *CI) {
 static bool convertToSinpiOrCospi(CallInst *CI, TargetLibraryInfo &TLI) {
   Value *Arg = CI->getArgOperand(0);
   auto *ArgType = Arg->getType();
-  Value *Expr;
-  ConstantFP *Const;
+  Value *Expr, *FSinCosArg;
+  ConstantFP *Const, *MulConst, *AddConst;
+  bool PatternMatch = false;
 
   if (CI->getNumArgOperands() != 1)
     return false;
 
-  // Argument must be of the form (expr * constant) or *constant * expr).
+  // Sin/cos Argument must be of the form -
+  // 1. Arg = (Expr * Const)
+  // 2. Mul = (MulConst * Expr)
+  //    Arg = Mul + AddConst
   if (match(Arg, m_FMul(m_Value(Expr), m_ConstantFP(Const)))) {
-    Module *M          = CI->getParent()->getModule();
+    IRBuilder<> Builder(CI);
+    // Compute new constant.
+    double ConstOverPi =
+        Const->getValueAPF().convertToFloat() / llvm::numbers::pi;
+    Value *newConst = ConstantFP::get(Const->getType(), ConstOverPi);
+
+    FSinCosArg = Builder.CreateFMulFMF(
+        Expr, newConst, dyn_cast<Instruction>(Arg), Arg->getName() + ".overpi");
+
+    PatternMatch = true;
+  } else if (match(Arg,
+                   m_FAdd(
+                       m_FMul(m_Value(Expr), m_ConstantFP(MulConst)),
+                       m_ConstantFP(AddConst)))) {
+    IRBuilder<> Builder(CI);
+    // Compute new add and mul constants
+    double MulConstOverPi =
+        MulConst->getValueAPF().convertToFloat() / llvm::numbers::pi;
+    Value *newMulConst = ConstantFP::get(MulConst->getType(), MulConstOverPi);
+
+    double AddConstOverPi =
+        AddConst->getValueAPF().convertToFloat() / llvm::numbers::pi;
+    Value *newAddConst = ConstantFP::get(AddConst->getType(), AddConstOverPi);
+
+    Value *OrigFMul = cast<Instruction>(Arg)->getOperand(0);
+    Value *FMul =
+        Builder.CreateFMulFMF(Expr, newMulConst, dyn_cast<Instruction>(OrigFMul),
+                              OrigFMul->getName() + ".overpi");
+    FSinCosArg = Builder.CreateFAddFMF(
+        FMul, newAddConst, dyn_cast<Instruction>(Arg), Arg->getName() + ".overpi");
+
+    PatternMatch = true;
+  }
+
+  // Update orignal sin/cos call instruction.
+  if (PatternMatch) {
+    Module *M = CI->getParent()->getModule();
     Function *origFunc = CI->getCalledFunction();
     FunctionCallee Callee;
 
-    // Compute new constant.
-    double ConstOverPi = Const->getValueAPF().convertToFloat()
-      / llvm::numbers::pi;
-    Value *newConst = ConstantFP::get(Const->getType(), ConstOverPi);
-
-    IRBuilder<> Builder(CI);
-    Value *FMul = Builder.CreateFMulFMF(Expr, newConst,
-      dyn_cast<Instruction>(Arg), Arg->getName() + ".overpi");
-
-    // Update orignal sin/cos call instruction.
     if (isSinf(CI, TLI)) {
       Callee = M->getOrInsertFunction("sinpif", origFunc->getAttributes(),
-          ArgType, ArgType);
-    }
-    else {
+                                      ArgType, ArgType);
+    } else {
       Callee = M->getOrInsertFunction("cospif", origFunc->getAttributes(),
-          ArgType, ArgType);
+                                      ArgType, ArgType);
     }
-
     CI->setCalledFunction(Callee);
-    CI->setArgOperand(0, FMul);
+    CI->setArgOperand(0, FSinCosArg);
     return true;
   }
-
   return false;
 }
 
