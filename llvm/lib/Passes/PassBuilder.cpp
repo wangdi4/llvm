@@ -498,6 +498,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   LicmMssaNoAccForPromotionCap = SetLicmMssaNoAccForPromotionCap;
   CallGraphProfile = true;
   MergeFunctions = false;
+  UniqueLinkageNames = false;
 }
 
 extern cl::opt<bool> EnableConstraintElimination;
@@ -1314,6 +1315,11 @@ ModulePassManager
 PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                                                ThinLTOPhase Phase) {
   ModulePassManager MPM(DebugLogging);
+
+  // Add UniqueInternalLinkageNames Pass which renames internal linkage
+  // symbols with unique names.
+  if (PTO.UniqueLinkageNames)
+    MPM.addPass(UniqueInternalLinkageNamesPass());
 
   // Place pseudo probe instrumentation as the first pass of the pipeline to
   // minimize the impact of optimization changes.
@@ -2354,6 +2360,11 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
          "buildO0DefaultPipeline should only be used with O0");
 
   ModulePassManager MPM(DebugLogging);
+
+  // Add UniqueInternalLinkageNames Pass which renames internal linkage
+  // symbols with unique names.
+  if (PTO.UniqueLinkageNames)
+    MPM.addPass(UniqueInternalLinkageNamesPass());
 
   if (PGOOpt && (PGOOpt->Action == PGOOptions::IRInstr ||
                  PGOOpt->Action == PGOOptions::IRUse))

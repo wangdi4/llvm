@@ -5609,6 +5609,7 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::ppc:
+  case llvm::Triple::ppcle:
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
     return CGF->EmitPPCBuiltinExpr(BuiltinID, E);
