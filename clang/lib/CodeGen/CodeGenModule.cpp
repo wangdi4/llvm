@@ -2343,8 +2343,9 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
     if (auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
       StringRef MainFileName = MainFile->getName();
       if (!MainFileName.empty() &&
-          VD->getStorageClass() == SC_Static && VD->hasGlobalStorage() &&
-          !VD->isLocalVarDecl() && !VD->isStaticDataMember())
+          VD->getStorageClass() == StorageClass::Static &&
+          VD->hasGlobalStorage() && !VD->isLocalVarDecl() &&
+          !VD->isStaticDataMember())
         Out << "_" << GetStableMangledName(MainFileName);
     }
 
@@ -4789,7 +4790,7 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
     Out << '{' << "readwritememory:" << RWA->getType().upper() << '}';
   }
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
-    if (VD->getStorageClass() == SC_Static) {
+    if (VD->getStorageClass() == StorageClass::Static) {
       llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.
       if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
         SARAInt = SARA->getValue()->EvaluateKnownConstInt(getContext());
