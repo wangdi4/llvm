@@ -26,7 +26,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
-
 using namespace llvm;
 
 #define DEBUG_TYPE "loop-delete"
@@ -235,14 +234,6 @@ static bool AllUsesCmpZero(Instruction *I, uint64_t MinVal,
 }
 #endif // INTEL_CUSTOMIZATION
 
-static LoopDeletionResult merge(LoopDeletionResult A, LoopDeletionResult B) {
-  if (A == LoopDeletionResult::Deleted || B == LoopDeletionResult::Deleted)
-    return LoopDeletionResult::Deleted;
-  if (A == LoopDeletionResult::Modified || B == LoopDeletionResult::Modified)
-    return LoopDeletionResult::Modified;
-  return LoopDeletionResult::Unmodified;
-}
-
 /// Determines if a loop is dead.
 ///
 /// This assumes that we've already checked for unique exit and exiting blocks,
@@ -449,26 +440,6 @@ static bool isLoopNeverExecuted(Loop *L) {
   return true;
 }
 
-/// If we can prove the backedge is untaken, remove it.  This destroys the
-/// loop, but leaves the (now trivially loop invariant) control flow and
-/// side effects (if any) in place.
-static LoopDeletionResult
-breakBackedgeIfNotTaken(Loop *L, DominatorTree &DT, ScalarEvolution &SE,
-                        LoopInfo &LI, MemorySSA *MSSA,
-                        OptimizationRemarkEmitter &ORE) {
-  assert(L->isLCSSAForm(DT) && "Expected LCSSA!");
-
-  if (!L->getLoopLatch())
-    return LoopDeletionResult::Unmodified;
-
-  auto *BTC = SE.getBackedgeTakenCount(L);
-  if (!BTC->isZero())
-    return LoopDeletionResult::Unmodified;
-
-  breakLoopBackedge(L, DT, SE, LI, MSSA);
-  return LoopDeletionResult::Deleted;
-}
-
 /// Remove a loop if it is dead.
 ///
 /// A loop is considered dead if it does not impact the observable behavior of
@@ -504,6 +475,7 @@ static LoopDeletionResult deleteLoopIfDead(Loop *L, DominatorTree &DT,
     LLVM_DEBUG(dbgs() << "Loop contains subloops.\n");
     return LoopDeletionResult::Unmodified;
   }
+
 
   BasicBlock *ExitBlock = L->getUniqueExitBlock();
 
@@ -589,14 +561,6 @@ PreservedAnalyses LoopDeletionPass::run(Loop &L, LoopAnalysisManager &AM,
   // but ORE cannot be preserved (see comment before the pass definition).
   OptimizationRemarkEmitter ORE(L.getHeader()->getParent());
   auto Result = deleteLoopIfDead(&L, AR.DT, AR.SE, AR.LI, AR.MSSA, ORE);
-
-  // If we can prove the backedge isn't taken, just break it and be done.  This
-  // leaves the loop structure in place which means it can handle dispatching
-  // to the right exit based on whatever loop invariant structure remains.
-  if (Result != LoopDeletionResult::Deleted)
-    Result = merge(Result, breakBackedgeIfNotTaken(&L, AR.DT, AR.SE, AR.LI,
-                                                   AR.MSSA, ORE));
-
   if (Result == LoopDeletionResult::Unmodified)
     return PreservedAnalyses::all();
 
@@ -655,12 +619,6 @@ bool LoopDeletionLegacyPass::runOnLoop(Loop *L, LPPassManager &LPM) {
   LLVM_DEBUG(L->dump());
 
   LoopDeletionResult Result = deleteLoopIfDead(L, DT, SE, LI, MSSA, ORE);
-
-  // If we can prove the backedge isn't taken, just break it and be done.  This
-  // leaves the loop structure in place which means it can handle dispatching
-  // to the right exit based on whatever loop invariant structure remains.
-  if (Result != LoopDeletionResult::Deleted)
-    Result = merge(Result, breakBackedgeIfNotTaken(L, DT, SE, LI, MSSA, ORE));
 
   if (Result == LoopDeletionResult::Deleted)
     LPM.markLoopAsDeleted(*L);
