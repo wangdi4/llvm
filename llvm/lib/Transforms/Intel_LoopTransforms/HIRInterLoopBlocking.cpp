@@ -199,45 +199,8 @@ public:
   bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
   bool isDone() const { return IsDone; }
 
-  void visit(HLIf *HIf) {
-    markVisited(HIf);
-
-    bool HasLoopAncestors = any_of(
-        std::next(TraversalAncestors.rbegin()), TraversalAncestors.rend(),
-        [](const HLNode *Node) { return isa<HLLoop>(Node); });
-
-    if (!HasLoopAncestors) {
-      SkipNode = HIf;
-    }
-  }
-
-  void visit(HLInst *HInst) {
-    markVisited(HInst);
-
-    const HLLoop *ParentLoop = HInst->getParentLoop();
-
-    if (!ParentLoop) {
-      return;
-    }
-
-    // TODO: consider to remove the check. visit(HLLoop*) is also checking
-    //       the same condition. Revisit when the transformation is enabled.
-    if (ParentLoop->isInnermost() && !isCleanCut(LastSpatialLoop, ParentLoop)) {
-      bailOut();
-      return;
-    }
-
-    // Stop at the call.
-    // Some calls are exceptions.
-    if (HInst->isCallInst() && !isAllowedCallInLoopBody(HInst) &&
-        !isIOCall(HInst)) {
-      stopAndWork(3, ParentLoop);
-    }
-
-    if (isIOCall(HInst)) {
-      HasIOCall = true;
-    }
-  }
+  void visit(HLIf *HIf);
+  void visit(HLInst *HInst);
 
   void visit(HLNode *Node) { markVisited(Node); }
 
@@ -292,26 +255,9 @@ protected:
   }
 
   // A couple of pure functions are allowed in loop bodies.
-  bool isAllowedCallInLoopBody(const HLInst *HInst) const {
+  bool isAllowedCallInLoopBody(const HLInst *HInst) const;
 
-    Intrinsic::ID Id;
-    if (HInst->isIntrinCall(Id) &&
-        (Id == Intrinsic::sin || Id == Intrinsic::exp)) {
-      assert(!HInst->isUnknownAliasingCallInst());
-      return true;
-    }
-
-    return false;
-  }
-
-  inline bool isIOCall(const HLInst *HInst) const {
-    // Sometime CalledFunction is null.
-    //    %call.i10.i = tail call signext i8 %13(%"class.std::ctype"* nonnull
-    //    %9, i8 signext 10)
-    return HInst->isCallInst() && HInst->getCallInst()->getCalledFunction() &&
-           HInst->getCallInst()->getCalledFunction()->getName() ==
-               "for_write_seq_lis";
-  }
+  bool isIOCall(const HLInst *HInst) const;
 
   // Check if PrevLCA is the lowest common ancestor of
   // PrevLoop and current Loop
@@ -335,20 +281,7 @@ protected:
   //   End Loop L3
   //
   // End L1
-  bool isCleanCut(const HLLoop *PrevLoop, const HLLoop *Loop) const {
-    if (!Loop || !PrevLoop || !PrevLCA)
-      return true;
-
-    const HLLoop *CurLCA =
-        HLNodeUtils::getLowestCommonAncestorLoop(PrevLoop, Loop);
-
-    if (CurLCA != PrevLCA &&
-        CurLCA->getNestingLevel() >= PrevLCA->getNestingLevel()) {
-      return false;
-    }
-
-    return true;
-  }
+  bool isCleanCut(const HLLoop *PrevLoop, const HLLoop *Loop) const;
 
   // Returns whether a structural check is passed.
   // Depending on conditions, different subsequent actions
@@ -356,46 +289,7 @@ protected:
   // TODO: Some of the conditions incurs reset(), while
   // others bailout() or nothing.
   // See if breaking this function further can help.
-  bool checkStructure(HLLoop *Loop) {
-
-    // If already blocked or
-    // has any loop blocking related pragma, skip this loop and its
-    // children loops.
-    if (Loop->isBlocked() ||
-        !(Loop->getBlockingPragmaLevelAndFactors()).empty()) {
-
-      LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Not profitable : loop is already "
-                                         "blocked or has blocking pragma\n");
-
-      SkipNode = Loop;
-      reset();
-      return false;
-    }
-
-    if (!Loop->isInnermost()) {
-      // Simply recurse into.
-      return false;
-    }
-
-    if (Loop->getNestingLevel() == 1) {
-      reset();
-      return false;
-    }
-
-    // TODO: do a double check
-    if (Loop->isUnknown()) {
-      stopAndWork(1, nullptr);
-      SkipNode = Loop;
-      return false;
-    }
-
-    if (!isCleanCut(LastSpatialLoop, Loop)) {
-      bailOut();
-      return false;
-    }
-
-    return true;
-  }
+  bool checkStructure(HLLoop *Loop);
 
 protected:
   HIRFramework &HIRF;
@@ -421,6 +315,124 @@ protected:
   // Used for skipping unrelated if-stmt.
   SmallVector<HLNode *, 16> TraversalAncestors;
 };
+
+void CheckerVisitor::visit(HLIf *HIf) {
+  markVisited(HIf);
+
+  bool HasLoopAncestors =
+      any_of(std::next(TraversalAncestors.rbegin()), TraversalAncestors.rend(),
+             [](const HLNode *Node) { return isa<HLLoop>(Node); });
+
+  if (!HasLoopAncestors) {
+    SkipNode = HIf;
+  }
+}
+
+void CheckerVisitor::visit(HLInst *HInst) {
+  markVisited(HInst);
+
+  const HLLoop *ParentLoop = HInst->getParentLoop();
+
+  if (!ParentLoop) {
+    return;
+  }
+
+  // TODO: consider to remove the check. visit(HLLoop*) is also checking
+  //       the same condition. Revisit when the transformation is enabled.
+  if (ParentLoop->isInnermost() && !isCleanCut(LastSpatialLoop, ParentLoop)) {
+    bailOut();
+    return;
+  }
+
+  // Stop at the call.
+  // Some calls are exceptions.
+  if (HInst->isCallInst() && !isAllowedCallInLoopBody(HInst) &&
+      !isIOCall(HInst)) {
+    stopAndWork(3, ParentLoop);
+  }
+
+  if (isIOCall(HInst)) {
+    HasIOCall = true;
+  }
+}
+
+bool CheckerVisitor::isAllowedCallInLoopBody(const HLInst *HInst) const {
+
+  Intrinsic::ID Id;
+  if (HInst->isIntrinCall(Id) &&
+      (Id == Intrinsic::sin || Id == Intrinsic::exp)) {
+    assert(!HInst->isUnknownAliasingCallInst());
+    return true;
+  }
+
+  return false;
+}
+
+bool CheckerVisitor::isIOCall(const HLInst *HInst) const {
+  // Sometime CalledFunction is null.
+  //    %call.i10.i = tail call signext i8 %13(%"class.std::ctype"* nonnull
+  //    %9, i8 signext 10)
+  return HInst->isCallInst() && HInst->getCallInst()->getCalledFunction() &&
+         HInst->getCallInst()->getCalledFunction()->getName() ==
+             "for_write_seq_lis";
+}
+
+bool CheckerVisitor::isCleanCut(const HLLoop *PrevLoop,
+                                const HLLoop *Loop) const {
+  if (!Loop || !PrevLoop || !PrevLCA)
+    return true;
+
+  const HLLoop *CurLCA =
+      HLNodeUtils::getLowestCommonAncestorLoop(PrevLoop, Loop);
+
+  if (CurLCA != PrevLCA &&
+      CurLCA->getNestingLevel() >= PrevLCA->getNestingLevel()) {
+    return false;
+  }
+
+  return true;
+}
+
+bool CheckerVisitor::checkStructure(HLLoop *Loop) {
+
+  // If already blocked or
+  // has any loop blocking related pragma, skip this loop and its
+  // children loops.
+  if (Loop->isBlocked() ||
+      !(Loop->getBlockingPragmaLevelAndFactors()).empty()) {
+
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Not profitable : loop is already "
+                                       "blocked or has blocking pragma\n");
+
+    SkipNode = Loop;
+    reset();
+    return false;
+  }
+
+  if (!Loop->isInnermost()) {
+    // Simply recurse into.
+    return false;
+  }
+
+  if (Loop->getNestingLevel() == 1) {
+    reset();
+    return false;
+  }
+
+  // TODO: do a double check
+  if (Loop->isUnknown()) {
+    stopAndWork(1, nullptr);
+    SkipNode = Loop;
+    return false;
+  }
+
+  if (!isCleanCut(LastSpatialLoop, Loop)) {
+    bailOut();
+    return false;
+  }
+
+  return true;
+}
 
 // Collect a sequence of valid sibling loopnests.
 // See if the internal State changes through INIT, FIRSTHALF, and SECONDHALF.
