@@ -2292,7 +2292,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // are sorted out.
 
   addInstCombinePass(MainFPM); // INTEL
-  MainFPM.addPass(SimplifyCFGPass());
+  MainFPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
   MainFPM.addPass(SCCPPass());
   addInstCombinePass(MainFPM); // INTEL
   MainFPM.addPass(BDCEPass());
@@ -2332,7 +2332,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Add late LTO optimization passes.
   // Delete basic blocks, which optimization passes may have killed.
-  MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(
+      SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true))));
 
   // Drop bodies of available eternally objects to improve GlobalDCE.
   MPM.addPass(EliminateAvailableExternallyPass());

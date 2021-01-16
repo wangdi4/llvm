@@ -1914,7 +1914,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Initial cleanup
   addInstructionCombiningPass(PM);
 #endif // INTEL_CUSTOMIZATION
-  PM.add(createCFGSimplificationPass()); // if-convert
+  PM.add(createCFGSimplificationPass(SimplifyCFGOptions() // if-convert
+                                         .hoistCommonInsts(true)));
   PM.add(createSCCPPass()); // Propagate exposed constants
 #if INTEL_CUSTOMIZATION
   // Clean up again
@@ -1971,7 +1972,8 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
     PM.add(createHotColdSplittingPass());
 
   // Delete basic blocks, which optimization passes may have killed.
-  PM.add(createCFGSimplificationPass());
+  PM.add(
+      createCFGSimplificationPass(SimplifyCFGOptions().hoistCommonInsts(true)));
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll can expose opportunities for optimizing globals and
