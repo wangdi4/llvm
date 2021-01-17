@@ -937,7 +937,7 @@ void VPReductionRecipe::print(raw_ostream &O, const Twine &Indent,
   printAsOperand(O, SlotTracker);
   O << " = ";
   getChainOp()->printAsOperand(O, SlotTracker);
-  O << " + reduce." << Instruction::getOpcodeName(RdxDesc->getRecurrenceBinOp())
+  O << " + reduce." << Instruction::getOpcodeName(RdxDesc->getOpcode())
     << " (";
   getVecOp()->printAsOperand(O, SlotTracker);
   if (getCondOp()) {

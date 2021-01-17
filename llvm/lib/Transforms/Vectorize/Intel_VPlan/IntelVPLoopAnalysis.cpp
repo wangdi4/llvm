@@ -222,7 +222,7 @@ unsigned VPReduction::getReductionOpcode(RecurKind K) {
   case RecurKind::FMax:
     return VPInstruction::FMax;
   default:
-    return RDTempl::getRecurrenceBinOp(K);
+    return RDTempl::getOpcode(K);
   }
 }
 

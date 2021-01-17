@@ -81,10 +81,10 @@ public:
   static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp);
 
   /// Returns the opcode of binary operation corresponding to the RecurKind.
-  static unsigned getRecurrenceBinOp(RecurKind Kind);
+  static unsigned getOpcode(RecurKind Kind);
 
-  unsigned getRecurrenceBinOp() const {
-    return getRecurrenceBinOp(getRecurrenceKind());
+  unsigned getOpcode() const {
+    return getOpcode(getRecurrenceKind());
   }
 
   /// Returns true if the recurrence kind is an integer kind.
@@ -240,9 +240,8 @@ public:
   /// Returns identity corresponding to the RecurrenceKind.
   static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp);
 
-  /// Returns the opcode of binary operation corresponding to the
-  /// RecurrenceKind.
-  static unsigned getRecurrenceBinOp(RecurKind Kind);
+  /// Returns the opcode corresponding to the RecurrenceKind.
+  static unsigned getOpcode(RecurKind Kind);
 #endif
 
   /// Returns true if Phi is a reduction of type Kind and adds it to the
@@ -281,9 +280,7 @@ public:
 #if !INTEL_CUSTOMIZATION
   RecurKind getRecurrenceKind() const { return Kind; }
 
-  unsigned getRecurrenceBinOp() const {
-    return getRecurrenceBinOp(getRecurrenceKind());
-  }
+  unsigned getOpcode() const { return getOpcode(getRecurrenceKind()); }
 
   FastMathFlags getFastMathFlags() const { return FMF; }
 

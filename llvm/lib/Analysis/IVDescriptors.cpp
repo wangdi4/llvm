@@ -820,9 +820,9 @@ Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp) {
 
 /// This function translates the recurrence kind to an LLVM binary operator.
 #if INTEL_CUSTOMIZATION
-unsigned RecurrenceDescriptorData::getRecurrenceBinOp(RecurKind Kind) {
+unsigned RecurrenceDescriptorData::getOpcode(RecurKind Kind) {
 #else
-unsigned RecurrenceDescriptor::getRecurrenceBinOp(RecurKind Kind) {
+unsigned RecurrenceDescriptor::getOpcode(RecurKind Kind) {
 #endif
   switch (Kind) {
   case RecurKind::Add:
@@ -855,7 +855,7 @@ unsigned RecurrenceDescriptor::getRecurrenceBinOp(RecurKind Kind) {
 SmallVector<Instruction *, 4>
 RecurrenceDescriptor::getReductionOpChain(PHINode *Phi, Loop *L) const {
   SmallVector<Instruction *, 4> ReductionOperations;
-  unsigned RedOp = getRecurrenceBinOp(Kind);
+  unsigned RedOp = getOpcode(Kind);
 
   // Search down from the Phi to the LoopExitInstr, looking for instructions
   // with a single user of the correct type for the reduction.
