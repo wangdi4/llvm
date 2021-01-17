@@ -484,14 +484,14 @@ def HLSLocalOrStaticVar : SubsetSubject<Var,
                               [{S->getKind() != Decl::ImplicitParam &&
                                 S->getKind() != Decl::ParmVar &&
                                 S->getKind() != Decl::NonTypeTemplateParm &&
-                                (S->getStorageClass() == StorageClass::Static ||
+                                (S->getStorageClass() == StorageClass::SC_Static ||
                                  S->hasLocalStorage())}],
                               "local variables, static variables">;
 
 def HLSLocalStaticSlaveMemVar : SubsetSubject<Var,
       [{S->getKind() != Decl::ImplicitParam &&
         S->getKind() != Decl::NonTypeTemplateParm &&
-        (S->getStorageClass() == StorageClass::Static ||
+        (S->getStorageClass() == StorageClass::SC_Static ||
          S->hasLocalStorage())}],
          "local variables, static variables, slave memory arguments">;
 
@@ -513,7 +513,7 @@ def ReadWriteMode : Attr {
 }
 
 def HLSLocalStaticVar : SubsetSubject<Var,
-                              [{S->getStorageClass() == StorageClass::Static &&
+                              [{S->getStorageClass() == StorageClass::SC_Static &&
                                 S->getKind() != Decl::ImplicitParam &&
                                 S->getKind() != Decl::ParmVar &&
                                 S->getKind() != Decl::NonTypeTemplateParm}],
