@@ -8556,6 +8556,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
         if (!Member->getType()->isVoidTy()) {
           VPValue *OriginalV = Plan->getVPValue(Member);
           Plan->removeVPValueFor(Member);
+          Plan->addVPValue(Member, VPIG->getVPValue(J));
           OriginalV->replaceAllUsesWith(VPIG->getVPValue(J));
           J++;
         }

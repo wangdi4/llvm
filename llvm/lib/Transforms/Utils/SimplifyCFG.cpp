@@ -897,7 +897,6 @@ static void setBranchWeights(Instruction *I, uint32_t TrueWeight,
 /// also a value comparison with the same value, and if that comparison
 /// determines the outcome of this comparison. If so, simplify TI. This does a
 /// very limited form of jump threading.
-// FIXME: switch to non-permissive DomTreeUpdater::applyUpdates().
 bool SimplifyCFGOpt::SimplifyEqualityComparisonWithOnlyPredecessor(
     Instruction *TI, BasicBlock *Pred, IRBuilder<> &Builder) {
   Value *PredVal = isValueEqualityComparison(Pred->getTerminator());
@@ -1013,14 +1012,14 @@ bool SimplifyCFGOpt::SimplifyEqualityComparisonWithOnlyPredecessor(
   if (!TheRealDest)
     TheRealDest = ThisDef;
 
-  SmallVector<DominatorTree::UpdateType, 2> Updates;
+  SmallSetVector<BasicBlock *, 2> RemovedSuccs;
 
   // Remove PHI node entries for dead edges.
   BasicBlock *CheckEdge = TheRealDest;
   for (BasicBlock *Succ : successors(TIBB))
     if (Succ != CheckEdge) {
+      RemovedSuccs.insert(Succ);
       Succ->removePredecessor(TIBB);
-      Updates.push_back({DominatorTree::Delete, TIBB, Succ});
     } else
       CheckEdge = nullptr;
 
@@ -1033,8 +1032,13 @@ bool SimplifyCFGOpt::SimplifyEqualityComparisonWithOnlyPredecessor(
                     << "\n");
 
   EraseTerminatorAndDCECond(TI);
-  if (DTU)
-    DTU->applyUpdatesPermissive(Updates);
+  if (DTU) {
+    SmallVector<DominatorTree::UpdateType, 2> Updates;
+    Updates.reserve(RemovedSuccs.size());
+    for (auto *RemovedSucc : RemovedSuccs)
+      Updates.push_back({DominatorTree::Delete, TIBB, RemovedSucc});
+    DTU->applyUpdates(Updates);
+  }
   return true;
 }
 
@@ -2800,13 +2804,13 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 /// If we found a conditional branch that goes to two returning blocks,
 /// try to merge them together into one return,
 /// introducing a select if the return values disagree.
-// FIXME: switch to non-permissive DomTreeUpdater::applyUpdates().
 bool SimplifyCFGOpt::SimplifyCondBranchToTwoReturns(BranchInst *BI,
                                                     IRBuilder<> &Builder) {
   auto *BB = BI->getParent();
   assert(BI->isConditional() && "Must be a conditional branch");
   BasicBlock *TrueSucc = BI->getSuccessor(0);
   BasicBlock *FalseSucc = BI->getSuccessor(1);
+  // NOTE: destinations may match, this could be degenerate uncond branch.
   ReturnInst *TrueRet = cast<ReturnInst>(TrueSucc->getTerminator());
   ReturnInst *FalseRet = cast<ReturnInst>(FalseSucc->getTerminator());
 
@@ -2828,8 +2832,11 @@ bool SimplifyCFGOpt::SimplifyCondBranchToTwoReturns(BranchInst *BI,
     Builder.CreateRetVoid();
     EraseTerminatorAndDCECond(BI);
     if (DTU) {
-      DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, TrueSucc},
-                                   {DominatorTree::Delete, BB, FalseSucc}});
+      SmallVector<DominatorTree::UpdateType, 2> Updates;
+      Updates.push_back({DominatorTree::Delete, BB, TrueSucc});
+      if (TrueSucc != FalseSucc)
+        Updates.push_back({DominatorTree::Delete, BB, FalseSucc});
+      DTU->applyUpdates(Updates);
     }
     return true;
   }
@@ -2887,10 +2894,12 @@ bool SimplifyCFGOpt::SimplifyCondBranchToTwoReturns(BranchInst *BI,
                     << *TrueSucc << "\nFALSEBLOCK: " << *FalseSucc);
 
   EraseTerminatorAndDCECond(BI);
-
   if (DTU) {
-    DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, TrueSucc},
-                                 {DominatorTree::Delete, BB, FalseSucc}});
+    SmallVector<DominatorTree::UpdateType, 2> Updates;
+    Updates.push_back({DominatorTree::Delete, BB, TrueSucc});
+    if (TrueSucc != FalseSucc)
+      Updates.push_back({DominatorTree::Delete, BB, FalseSucc});
+    DTU->applyUpdates(Updates);
   }
 
   return true;
@@ -7770,19 +7779,18 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   return false;
 }
 
-// FIXME: switch to non-permissive DomTreeUpdater::applyUpdates().
 bool SimplifyCFGOpt::simplifyIndirectBr(IndirectBrInst *IBI) {
   BasicBlock *BB = IBI->getParent();
   bool Changed = false;
 
   // Eliminate redundant destinations.
-  std::vector<DominatorTree::UpdateType> Updates;
   SmallPtrSet<Value *, 8> Succs;
+  SmallSetVector<BasicBlock *, 8> RemovedSuccs;
   for (unsigned i = 0, e = IBI->getNumDestinations(); i != e; ++i) {
     BasicBlock *Dest = IBI->getDestination(i);
     if (!Dest->hasAddressTaken() || !Succs.insert(Dest).second) {
       if (!Dest->hasAddressTaken())
-        Updates.push_back({DominatorTree::Delete, BB, Dest});
+        RemovedSuccs.insert(Dest);
       Dest->removePredecessor(BB);
       IBI->removeDestination(i);
       --i;
@@ -7791,9 +7799,13 @@ bool SimplifyCFGOpt::simplifyIndirectBr(IndirectBrInst *IBI) {
     }
   }
 
-  if (DTU)
-    DTU->applyUpdatesPermissive(Updates);
-  Updates.clear();
+  if (DTU) {
+    std::vector<DominatorTree::UpdateType> Updates;
+    Updates.reserve(RemovedSuccs.size());
+    for (auto *RemovedSucc : RemovedSuccs)
+      Updates.push_back({DominatorTree::Delete, BB, RemovedSucc});
+    DTU->applyUpdates(Updates);
+  }
 
   if (IBI->getNumDestinations() == 0) {
     // If the indirectbr has no successors, change it to unreachable.
