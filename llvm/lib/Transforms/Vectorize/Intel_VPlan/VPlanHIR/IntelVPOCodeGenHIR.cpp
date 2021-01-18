@@ -2131,12 +2131,15 @@ void VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
       // Allocate an array of RegDDRef * that is big enough to store the values
       // being stored in InterleaveFactor number of stores in the group.
       // Initialize array elements to null and store in VLSGroupStoreMap.
-      StoreValRefs = new RegDDRef *[InterleaveFactor];
+      StoreValRefs =
+          VLSGroupStoreMap
+              .insert(std::make_pair(
+                  Grp, std::make_unique<RegDDRef *[]>(InterleaveFactor)))
+              .first->second.get();
       for (unsigned Index = 0; Index < InterleaveFactor; ++Index)
         StoreValRefs[Index] = nullptr;
-      VLSGroupStoreMap[Grp] = StoreValRefs;
     } else
-      StoreValRefs = (*It).second;
+      StoreValRefs = It->second.get();
 
     // Store the widened store value into StoreValRefs array.
     StoreValRefs[InterleaveIndex] = WStoreValRef;
@@ -2308,12 +2311,15 @@ void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
       // Allocate an array of RegDDRef * that is big enough to store the values
       // being stored in InterleaveFactor number of stores in the group.
       // Initialize array elements to null and store in VLSGroupStoreMap.
-      StoreValRefs = new RegDDRef *[InterleaveFactor];
+      StoreValRefs =
+          VLSGroupStoreMap
+              .insert(std::make_pair(
+                  Grp, std::make_unique<RegDDRef *[]>(InterleaveFactor)))
+              .first->second.get();
       for (unsigned Index = 0; Index < InterleaveFactor; ++Index)
         StoreValRefs[Index] = nullptr;
-      VLSGroupStoreMap[Grp] = StoreValRefs;
     } else
-      StoreValRefs = (*It).second;
+      StoreValRefs = It->second.get();
 
     // Store the widened store value into StoreValRefs array.
     StoreValRefs[InterleaveIndex] = WStoreValRef;
