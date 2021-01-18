@@ -9729,8 +9729,11 @@ private:
     Type *ScalarTy = FirstReducedVal->getType();
     auto *VecTy = FixedVectorType::get(ScalarTy, ReduxWidth);
 
+    RecurKind Kind = RdxTreeInst.getKind();
+    unsigned RdxOpcode = RecurrenceDescriptor::getOpcode(Kind);
     int SplittingRdxCost;
-    switch (RdxTreeInst.getKind()) {
+    int ScalarReduxCost;
+    switch (Kind) {
     case RecurKind::Add:
     case RecurKind::Mul:
     case RecurKind::Or:
@@ -9738,57 +9741,34 @@ private:
     case RecurKind::Xor:
     case RecurKind::FAdd:
     case RecurKind::FMul:
-      SplittingRdxCost =
-          TTI->getArithmeticReductionCost(RdxTreeInst.getOpcode(), VecTy,
-                                          /*IsPairwiseForm=*/false);
+      SplittingRdxCost = TTI->getArithmeticReductionCost(
+          RdxOpcode, VecTy, /*IsPairwiseForm=*/false);
+      ScalarReduxCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy);
       break;
     case RecurKind::SMax:
     case RecurKind::SMin:
     case RecurKind::UMax:
     case RecurKind::UMin: {
       auto *VecCondTy = cast<VectorType>(CmpInst::makeCmpResultType(VecTy));
-      RecurKind Kind = RdxTreeInst.getKind();
       bool IsUnsigned = Kind == RecurKind::UMax || Kind == RecurKind::UMin;
       SplittingRdxCost =
           TTI->getMinMaxReductionCost(VecTy, VecCondTy,
                                       /*IsPairwiseForm=*/false, IsUnsigned);
-      break;
-    }
-    default:
-      llvm_unreachable("Expected arithmetic or min/max reduction operation");
-    }
-
-    int ScalarReduxCost = 0;
-    switch (RdxTreeInst.getKind()) {
-    case RecurKind::Add:
-    case RecurKind::Mul:
-    case RecurKind::Or:
-    case RecurKind::And:
-    case RecurKind::Xor:
-    case RecurKind::FAdd:
-    case RecurKind::FMul:
       ScalarReduxCost =
-          TTI->getArithmeticInstrCost(RdxTreeInst.getOpcode(), ScalarTy);
-      break;
-    case RecurKind::SMax:
-    case RecurKind::SMin:
-    case RecurKind::UMax:
-    case RecurKind::UMin:
-      ScalarReduxCost =
-          TTI->getCmpSelInstrCost(RdxTreeInst.getOpcode(), ScalarTy) +
+          TTI->getCmpSelInstrCost(RdxOpcode, ScalarTy) +
           TTI->getCmpSelInstrCost(Instruction::Select, ScalarTy,
                                   CmpInst::makeCmpResultType(ScalarTy));
       break;
+    }
     default:
       llvm_unreachable("Expected arithmetic or min/max reduction operation");
     }
-    ScalarReduxCost *= (ReduxWidth - 1);
 
+    ScalarReduxCost *= (ReduxWidth - 1);
     LLVM_DEBUG(dbgs() << "SLP: Adding cost "
                       << SplittingRdxCost - ScalarReduxCost
                       << " for reduction that starts with " << *FirstReducedVal
                       << " (It is a splitting reduction)\n");
-
     return SplittingRdxCost - ScalarReduxCost;
   }
 
