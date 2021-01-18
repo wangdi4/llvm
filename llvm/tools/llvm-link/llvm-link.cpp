@@ -205,7 +205,7 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
     }
     if (Verbose)
       errs() << "Linking member '" << ChildName << "' of archive library.\n";
-    if (L.linkInModule(std::move(M))) // INTEL
+    if (L.linkInModule(std::move(M))) //  INTEL
       return nullptr;
   } // end for each child
   ExitOnErr(std::move(Err));
