@@ -417,6 +417,11 @@ private:
   bool calcPointerHeuristics(const BasicBlock *BB);
   bool calcZeroHeuristics(const BasicBlock *BB, const TargetLibraryInfo *TLI);
   bool calcFloatingPointHeuristics(const BasicBlock *BB);
+#if INTEL_CUSTOMIZATION
+  // Calculate probabilities for branches inside an ADIL that may skip inner
+  // loops. Such skips are predicted to be more likely to happen than not.
+  bool calcADILBranchHeuristics(const LoopBlock LoopBB);
+#endif // INTEL_CUSTOMIZATION
   DominatorTree *CurrentDT = nullptr; // INTEL
   bool enableAbnormalDeepLoopHeuristics = false; // INTEL
 };
