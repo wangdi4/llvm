@@ -37,6 +37,7 @@ namespace intel {
     typedef MapVector<Function*, TValueVector> TValuesPerFunctionMap;
     typedef std::map<Value*, unsigned int> TValueToOffsetMap;
     typedef std::set<Value*> TValueSet;
+    typedef SmallPtrSet<Use *, 16> TUseSet;
 
   public:
     static char ID;
@@ -101,6 +102,11 @@ namespace intel {
       return m_valueToOffsetMap[pVal];
     }
 
+    const DenseMap<Instruction *, TUseSet> *getCrossBarrierUses(Function *F) {
+      auto It = m_crossBarrierUses.find(F);
+      return It == m_crossBarrierUses.end() ? nullptr : &It->second;
+    }
+
     /// @brief return true if the base type of the given value is i1
     /// @param pVal pointer to Value
     /// @returns true of the base type is i1
@@ -157,10 +163,12 @@ namespace intel {
     } SPECIAL_VALUE_TYPE;
 
     /// @brief return type of given value Group-B.1, Group-B.2 or None
-    /// @param pVal pointer to Value
+    /// @param pInst pointer to Value
     /// @param isWIRelated true if value depends on WI id, otherwise false
     /// @returns SPECIAL_VALUE_TYPE - speciality type of given value
-    SPECIAL_VALUE_TYPE isSpecialValue(Value *pVal, bool isWIRelated);
+    SPECIAL_VALUE_TYPE isSpecialValue(Instruction *pInst, bool isWIRelated);
+
+    void collectCrossBarrierUses(Instruction *Inst);
 
     /// @brief calculates offsets of all values in Group-A and Group-B.1
     /// @param F function to process its values
@@ -187,6 +195,10 @@ namespace intel {
     ///        by alocating place in special buffer for these values.
     /// @param F function to process its arguments
     void markSpecialArguments(Function &F);
+
+    /// @brief Checks if \p U crosses barrier.
+    bool crossesBarrier(Use &U);
+
   private:
     /// This is barrier utility class
     BarrierUtils m_util;
@@ -221,9 +233,12 @@ namespace intel {
     /// This holds a map between unique entry and buffer data
     TEntryToBufferDataMap m_entryToBufferDataMap;
 
+    /// A map of maps between instructions and their cross-barrier users per
+    /// function
+    DenseMap<Function *, DenseMap<Instruction *, TUseSet>> m_crossBarrierUses;
+
   };
 
 } // namespace intel
 
 #endif // __DATA_PER_VALUE_PASS_H__
-

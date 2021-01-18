@@ -63,10 +63,10 @@ llvm::FunctionPass* createFMASplitterPass();
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
-// This flag enables VPlan for loop vectorization.
-static cl::opt<bool> DisableVPlanVec("disable-vplan-loop-vectorizer",
-                                     cl::init(false), cl::Hidden,
-                                     cl::desc("Disable VPlan Loop Vectorizer"));
+static cl::opt<bool>
+    DisableVPlanCM("disable-ocl-vplan-cost-model",
+                   cl::init(false), cl::Hidden,
+                   cl::desc("Disable cost model for VPlan vectorizer"));
 
 // This flag enables VPlan for OpenCL.
 static cl::opt<bool>
@@ -621,7 +621,7 @@ static void populatePassesPostFailCheck(
         // fastest moving dimension (that maps to get_global_id(0) for LLVM IR
         // in our implementation). The vec/no-vec decision belongs to the
         // programmer.
-        if (!IsSYCL)
+        if (!IsSYCL && !DisableVPlanCM)
           PM.add(createVectorKernelDiscardPass(pConfig));
       } else {
         if (EmitKernelVectorizerSignOn)

@@ -165,6 +165,7 @@ namespace intel {
           }
         }
       }
+      collectCrossBarrierUses(pInst);
       switch ( isSpecialValue(pInst, m_pWIRelatedValue->isWIRelated(pInst)) ) {
         case SPECIAL_VALUE_TYPE_B1:
           // It is a special value, and add it to special value container.
@@ -188,97 +189,83 @@ namespace intel {
     return false;
   }
 
-  DataPerValue::SPECIAL_VALUE_TYPE DataPerValue::isSpecialValue(Value *pVal, bool isWIRelated) {
-    // CSSD100016517: workaround
-    // SPECIAL_VALUE_TYPE_NONE if there are no synchronize instructions
-    if( !m_pSyncInstructions ) return SPECIAL_VALUE_TYPE_NONE;
+  bool DataPerValue::crossesBarrier(Use &U) {
+    Instruction *Inst = cast<Instruction>(U.get());
+    Instruction *User = cast<Instruction>(U.getUser());
+    BasicBlock *ValBB = Inst->getParent();
+    BasicBlock *UserBB = User->getParent();
 
-    //Value "v" is special (cross barrier) if there is
-    //one barrier instruction "i" and one value usage "u" such that:
-    //BB(v) in BB(i)->predecessors and BB(u) in B(i)->successors
-    Instruction *pInst = dyn_cast<Instruction>(pVal);
-    assert( pInst && "trying check if non-instruction is a special value!" );
+    // If Inst and its user reside in the same basic block, and the user isn't
+    // a PHI node, then Inst must dominate its user. And as sync instructions
+    // only exist at the beginning of basic blocks, the def-use of the Inst
+    // doesn't cross barrier.
+    if (UserBB == ValBB && !isa<PHINode>(User))
+      return false;
+
+    // Check if the def-use crosses a barrier
+    if (none_of(*m_pSyncInstructions, [=](Instruction *SyncInst) {
+        BasicBlock *SyncBB = SyncInst->getParent();
+        return m_pDataPerBarrier->getPredecessors(SyncBB).count(ValBB) ||
+               m_pDataPerBarrier->getSuccessors(SyncBB).count(UserBB);}))
+      return false;
+
+    BasicBlock *UseBB;
+    if (PHINode *PHI = dyn_cast<PHINode>(User))
+      UseBB = PHI->getIncomingBlock(U);
+    else
+      UseBB = User->getParent();
+
+    return BarrierUtils::isCrossedByBarrier(*m_pSyncInstructions, UseBB, ValBB);
+  }
+
+  void DataPerValue::collectCrossBarrierUses(Instruction *Inst) {
+    if (!m_pSyncInstructions)
+      return;
+
+    TUseSet UseSet;
+    for (Use &U : Inst->uses()) {
+      Instruction *User = cast<Instruction>(U.getUser());
+
+      if (!crossesBarrier(U))
+        continue;
+
+      // Uses in 'ret' instructions don't belong to either Group-B.1 or
+      // Group-B.2. We don't consider them as special values here, and they
+      // are handled by BarrierPass::fixNonInlineFunction.
+      if (isa<ReturnInst>(User)) {
+        m_crossBarrierReturnedValues.insert(Inst);
+        continue;
+      }
+
+      // The def-use of the instruction crosses barrier, so insert the
+      // users into the set.
+      UseSet.insert(&U);
+    }
+    if (!UseSet.empty()) {
+      Function *F = Inst->getFunction();
+      m_crossBarrierUses[F][Inst] = std::move(UseSet);
+    }
+  }
+
+  DataPerValue::SPECIAL_VALUE_TYPE DataPerValue::isSpecialValue(
+      Instruction *pInst, bool isWIRelated) {
+    // SPECIAL_VALUE_TYPE_NONE if there are no synchronize instructions
+    auto *UserMap = getCrossBarrierUses(pInst->getFunction());
+    if (!UserMap || UserMap->empty())
+      return SPECIAL_VALUE_TYPE_NONE;
+
+    auto InstIt = UserMap->find(pInst);
+    if (InstIt == UserMap->end() || InstIt->second.empty())
+      return SPECIAL_VALUE_TYPE_NONE;
+
     BasicBlock *pValBB = pInst->getParent();
 
     //Value that is not dependent on WI-Id and initialized outside a loop
     //can not be in Group-B.1. If it cross a barrier it will be in Group-B.2
-    bool isNotGroupB1Type = !isWIRelated &&
-      !m_pDataPerBarrier->getPredecessors(pValBB).count(pValBB);
+    bool isGroupB1Type = isWIRelated ||
+      m_pDataPerBarrier->getPredecessors(pValBB).count(pValBB);
 
-    //By default we assume value is not special till prove otherwise
-    SPECIAL_VALUE_TYPE retType = SPECIAL_VALUE_TYPE_NONE;
-
-    //Run over all usages of pVal and check if one crosses a barrier
-    for ( Value::user_iterator ui = pVal->user_begin(), ue = pVal->user_end(); ui != ue; ++ui ) {
-      Instruction *pInstUsage = dyn_cast<Instruction>(*ui);
-      assert( pInstUsage && "usage of pVal is non-instruction!" );
-      BasicBlock *pValUsageBB = pInstUsage->getParent();
-
-      if ( pValUsageBB == pValBB && !isa<PHINode>(pInstUsage) ) {
-        //pVal and pInstUsage has same basic block and pVal apears before pInstUsage
-        //Sync instruction exists only at begin of basic block, thus these values
-        //are not crossed by sync instruction, check next usage of pVal
-        continue;
-      }
-
-      //Run over all sync instructions
-      TInstructionSet::iterator ii = m_pSyncInstructions->begin();
-      TInstructionSet::iterator ie = m_pSyncInstructions->end();
-      for ( ; ii != ie; ++ii ) {
-        Instruction *pSyncInst = *ii;
-        BasicBlock *pSyncBB = pSyncInst->getParent();
-        if ( pSyncBB->getParent() != pValBB->getParent() ) {
-          assert(false && "can we reach sync instructions from other functions?!" );
-          //This sync instructions is from another function
-          continue;
-        }
-        if ( m_pDataPerBarrier->getPredecessors(pSyncBB).count(pValBB) &&
-          m_pDataPerBarrier->getSuccessors(pSyncBB).count(pValUsageBB) ) {
-            //Found value usage "u" and barrier "i" such that
-            //BB(v) in BB(i)->predecessors and BB(u) in B(i)->successors
-
-            if (isa<ReturnInst>(pInstUsage)) {
-              // Return value is saved on special buffer by
-              // BarrierPass::fixNonInlineFunction.
-              // Should not consider it special value at this point!
-              m_crossBarrierReturnedValues.insert(pVal);
-              break;
-            }
-
-            if ( isWIRelated && !m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
-              //pVal depends on work item id and crosses a barrier that is not in a loop
-              return SPECIAL_VALUE_TYPE_B1;
-            }
-
-            if ( m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
-              //pSyncBB is a predecessor of itself
-              //means synchronize instruction is inside a loop
-
-              BasicBlock *pPrevBB = BarrierUtils::findBasicBlockOfUsageInst(pInst, pInstUsage);
-              if ( m_util.isCrossedByBarrier(*m_pSyncInstructions, pPrevBB,
-                                             pValBB) ) {
-                //pVal does not depend on work item id but it is crossed by loop barrier
-                return ( isNotGroupB1Type )? SPECIAL_VALUE_TYPE_B2 : SPECIAL_VALUE_TYPE_B1;
-              }
-              //Current usage of pVal are not crossed by barrier,
-              //skip other barriers and check the next usage of pVal
-              break;
-            }
-            //pVal does not depend on work item id and it is crossed by a non loop barrier
-            //Upgrade retType to be special value of group-B.2
-            if ( isNotGroupB1Type ) {
-              //We can return at this point as we know that isNotGroupB1Type == true!
-              return SPECIAL_VALUE_TYPE_B2;
-            }
-            //But still need to check if it cross other loop barriers
-            retType = SPECIAL_VALUE_TYPE_B2;
-        }
-        assert( ! (m_pDataPerBarrier->getPredecessors(pSyncBB).count(pValUsageBB) &&
-          m_pDataPerBarrier->getSuccessors(pSyncBB).count(pValBB) ) &&
-          "can usage come before value?! (Handle such case)" );
-      }
-    }
-    return retType;
+    return isGroupB1Type ? SPECIAL_VALUE_TYPE_B1 : SPECIAL_VALUE_TYPE_B2;
   }
 
   void DataPerValue::calculateOffsets(Function &F) {
