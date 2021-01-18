@@ -962,6 +962,57 @@ void BranchProbabilityInfo::computeEestimateBlockWeight(
   } while (!BlockWorkList.empty() || !LoopWorkList.empty());
 }
 
+#if INTEL_CUSTOMIZATION
+bool BranchProbabilityInfo::calcADILBranchHeuristics(const LoopBlock LoopBB) {
+  const BasicBlock *BB = LoopBB.getBlock();
+  Loop *L = LoopBB.getLoop();
+  assert(BB && L && "Expected a BasicBlock in a Loop");
+
+  for (const_succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+    const LoopBlock SuccLoopBB = getLoopBlock(*I);
+    const LoopEdge Edge{LoopBB, SuccLoopBB};
+    if (isLoopBackEdge(Edge) || isLoopExitingEdge(Edge))
+      return false;
+  }
+
+  unsigned NumInnerLoopEdges = 0;
+  unsigned NumCurrentLoopEdges = 0;
+  unsigned TotalWeight = 0;
+  SmallVector<uint32_t, 4> SuccWeights;
+
+  for (const_succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+    bool CrossInnerLoop = false;
+    for (Loop *SubLoop : *L)
+      if (CurrentDT->dominates(*I, SubLoop->getHeader())) {
+        CrossInnerLoop = true;
+        break;
+      }
+
+    if (CrossInnerLoop)
+      NumInnerLoopEdges += 1;
+    else
+      NumCurrentLoopEdges += 1;
+
+    unsigned Weight = CrossInnerLoop ? ADIL_TAKEN_WEIGHT : ADIL_NONTAKEN_WEIGHT;
+    SuccWeights.push_back(Weight);
+    TotalWeight += Weight;
+  }
+
+  if (NumInnerLoopEdges == 0 || NumCurrentLoopEdges == 0)
+    return false;
+
+  const unsigned SuccCount = SuccWeights.size();
+  SmallVector<BranchProbability, 4> EdgeProbabilities(
+      SuccCount, BranchProbability::getUnknown());
+
+  for (unsigned Idx = 0; Idx < SuccCount; ++Idx)
+    EdgeProbabilities[Idx] =
+        BranchProbability(SuccWeights[Idx], (uint32_t)TotalWeight);
+  setEdgeProbability(BB, EdgeProbabilities);
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Calculate edge probabilities based on block's estimated weight.
 // Note that gathered weights were not scaled for loops. Thus edges entering
 // and exiting loops requires special processing.
@@ -973,8 +1024,24 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
 
   SmallPtrSet<const BasicBlock *, 8> UnlikelyBlocks;
   uint32_t TC = LBH_TAKEN_WEIGHT / LBH_NONTAKEN_WEIGHT;
-  if (LoopBB.getLoop())
-    computeUnlikelySuccessors(BB, LoopBB.getLoop(), UnlikelyBlocks);
+
+#if INTEL_CUSTOMIZATION
+  bool IsADIL = false;
+  Loop *L = LoopBB.getLoop();
+  if (L) {
+    computeUnlikelySuccessors(BB, L, UnlikelyBlocks);
+
+    if (enableAbnormalDeepLoopHeuristics &&
+        maxLoopDepth(L) >= AbnormalLoopDepthThreshold) {
+      IsADIL = true;
+      // This block may be an if condition skipping inner loops, try
+      // to apply ADILBranchHeuristics.
+      if (UnlikelyBlocks.empty())
+        if (calcADILBranchHeuristics(LoopBB))
+          return true;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Changed to 'true' if at least one successor has estimated weight.
   bool FoundEstimatedWeight = false;
@@ -993,10 +1060,16 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
         // Avoid adjustment of ZERO weight since it should remain unchanged.
         Weight != static_cast<uint32_t>(BlockExecWeight::ZERO)) {
       // Scale down loop exiting weight by trip count.
+#if INTEL_CUSTOMIZATION
+      // If BB is the loop latch of an ADIL, scale less aggressively to avoid
+      // block frequency (based on branch probability) overflow.
+      uint32_t ADILFactor = (IsADIL && L->isLoopLatch(BB)) ? 4 : 1;
       Weight = std::max(
           static_cast<uint32_t>(BlockExecWeight::LOWEST_NON_ZERO),
-          Weight.getValueOr(static_cast<uint32_t>(BlockExecWeight::DEFAULT)) /
+          Weight.getValueOr(static_cast<uint32_t>(BlockExecWeight::DEFAULT) *
+                            ADILFactor) /
               TC);
+#endif // INTEL_CUSTOMIZATION
     }
     bool IsUnlikelyEdge = LoopBB.getLoop() && UnlikelyBlocks.contains(SuccBB);
     if (IsUnlikelyEdge &&
