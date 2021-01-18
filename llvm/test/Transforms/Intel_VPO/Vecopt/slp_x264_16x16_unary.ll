@@ -112,7 +112,7 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i
 ; 8WIDE_PATH_STEERING-NEXT:    [[ARRAYIDX1151:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[ALLOCA]], i64 0, i64 [[I1_I64_0]], i64 5
 ; 8WIDE_PATH_STEERING-NEXT:    [[ARRAYIDX1169:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[ALLOCA]], i64 0, i64 [[I1_I64_0]], i64 7
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP25:%.*]] = extractelement <8 x i32> [[TMP24]], i32 3
-; 8WIDE_PATH_STEERING-NEXT:    [[TMP26:%.*]] = insertelement <8 x i32> undef, i32 [[TMP25]], i32 0
+; 8WIDE_PATH_STEERING-NEXT:    [[TMP26:%.*]] = insertelement <8 x i32> poison, i32 [[TMP25]], i32 0
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP27:%.*]] = extractelement <8 x i32> [[TMP24]], i32 2
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP28:%.*]] = insertelement <8 x i32> [[TMP26]], i32 [[TMP27]], i32 1
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP29:%.*]] = extractelement <8 x i32> [[TMP24]], i32 1
@@ -125,7 +125,7 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP36:%.*]] = extractelement <8 x i32> [[TMP24]], i32 4
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP37:%.*]] = insertelement <8 x i32> [[TMP35]], i32 [[TMP36]], i32 6
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP38:%.*]] = insertelement <8 x i32> [[TMP37]], i32 [[TMP36]], i32 7
-; 8WIDE_PATH_STEERING-NEXT:    [[TMP39:%.*]] = insertelement <8 x i32> undef, i32 [[TMP27]], i32 0
+; 8WIDE_PATH_STEERING-NEXT:    [[TMP39:%.*]] = insertelement <8 x i32> poison, i32 [[TMP27]], i32 0
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP40:%.*]] = insertelement <8 x i32> [[TMP39]], i32 [[TMP25]], i32 1
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP41:%.*]] = insertelement <8 x i32> [[TMP40]], i32 [[TMP31]], i32 2
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP42:%.*]] = insertelement <8 x i32> [[TMP41]], i32 [[TMP29]], i32 3
@@ -138,7 +138,7 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP49:%.*]] = add <8 x i32> [[TMP38]], [[TMP48]]
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP50:%.*]] = sub <8 x i32> [[TMP38]], [[TMP48]]
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP51:%.*]] = shufflevector <8 x i32> [[TMP49]], <8 x i32> [[TMP50]], <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 4, i32 5, i32 6, i32 15>
-; 8WIDE_PATH_STEERING-NEXT:    [[TMP52:%.*]] = insertelement <8 x i32> undef, i32 [[TMP29]], i32 0
+; 8WIDE_PATH_STEERING-NEXT:    [[TMP52:%.*]] = insertelement <8 x i32> poison, i32 [[TMP29]], i32 0
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP53:%.*]] = insertelement <8 x i32> [[TMP52]], i32 [[TMP31]], i32 1
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP54:%.*]] = insertelement <8 x i32> [[TMP53]], i32 [[TMP25]], i32 2
 ; 8WIDE_PATH_STEERING-NEXT:    [[TMP55:%.*]] = insertelement <8 x i32> [[TMP54]], i32 [[TMP27]], i32 3
