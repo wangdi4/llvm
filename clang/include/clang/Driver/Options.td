@@ -726,7 +726,7 @@ def C : Flag<["-"], "C">, Flags<[CC1Option]>, Group<Preprocessor_Group>,
     HelpText<"Include comments in preprocessed output">,
     MarshallingInfoFlag<"PreprocessorOutputOpts.ShowComments">;
 def D : JoinedOrSeparate<["-"], "D">, Group<Preprocessor_Group>,
-    Flags<[CC1Option]>, MetaVarName<"<macro>=<value>">,
+    Flags<[CC1Option, FlangOption, FC1Option]>, MetaVarName<"<macro>=<value>">,
     HelpText<"Define <macro> to <value> (or 1 if <value> omitted)">;
 def E : Flag<["-"], "E">, Flags<[NoXarchOption,CC1Option, FlangOption, FC1Option]>, Group<Action_Group>,
     HelpText<"Only run the preprocessor">;
@@ -830,7 +830,7 @@ def Ttext : JoinedOrSeparate<["-"], "Ttext">, Group<T_Group>,
 def T : JoinedOrSeparate<["-"], "T">, Group<T_Group>,
   MetaVarName<"<script>">, HelpText<"Specify <script> as linker script">;
 def U : JoinedOrSeparate<["-"], "U">, Group<Preprocessor_Group>,
-  Flags<[CC1Option]>, MetaVarName<"<macro>">, HelpText<"Undefine macro <macro>">;
+  Flags<[CC1Option, FlangOption, FC1Option]>, MetaVarName<"<macro>">, HelpText<"Undefine macro <macro>">;
 def V : JoinedOrSeparate<["-"], "V">, Flags<[NoXarchOption, Unsupported]>;
 #if INTEL_CUSTOMIZATION
 def Qoption_COMMA : CommaJoined<["-"], "Qoption,">, Flags<[NoXarchOption]>,
