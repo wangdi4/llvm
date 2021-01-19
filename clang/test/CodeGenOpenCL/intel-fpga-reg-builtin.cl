@@ -15,7 +15,7 @@ union un {
 typedef int myInt;
 
 void foo() {
-// CHECK: define spir_func void @foo()
+// CHECK: define{{.*}}spir_func void @foo()
   int a=123;
   myInt myA = 321;
 // CHECK: store i32 123, i32* %a, align 4

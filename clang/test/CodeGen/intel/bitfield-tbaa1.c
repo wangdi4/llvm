@@ -17,7 +17,7 @@ struct in_t {
 
 int fum(struct in_t *sp) {
     sp->xage = 2;
-// CHECK-LABEL: define i32 @fum
+// CHECK-LABEL: define{{.*}}i32 @fum
 // CHECK:  %xage = getelementptr inbounds %struct.in_t, %struct.in_t* %0, i32 0, i32 3
 // CHECK:  %bf.load = load i16, i16* %xage, align 4, !tbaa [[TAG_6:!.*]]
 // CHECK-DISABLED-NOT: %bf.load = load i16, i16* %xage, align 4, !tbaa{{.*}}
@@ -44,7 +44,7 @@ int fum(struct in_t *sp) {
     return sp->yage1 + sp->zage2 + sp->zage3;
 }
 int fum1(void) {
-// CHECK-LABEL: define i32 @fum1
+// CHECK-LABEL: define{{.*}}i32 @fum1
   typedef struct S {
     unsigned bf : 7;
     int a;

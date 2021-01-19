@@ -24,7 +24,7 @@ int foo(int zc, void *lock) {
 //X64-NEXT: @.str.1 = private unnamed_addr constant [20 x i8] c"__itt_sync_acquired\00", align 1
 //X64-NEXT: @.str.2 = private unnamed_addr constant [19 x i8] c"__itt_sync_destroy\00", align 1
 
-//X64:      define i32 @foo(i32 %zc, i8* %lock) #0 {
+//X64:      define{{.*}}i32 @foo(i32 %zc, i8* %lock) #0 {
 //X64-NEXT: entry:
 //X64-NEXT:   %zc.addr = alloca i32, align 4
 //X64-NEXT:   %lock.addr = alloca i8*, align 8
@@ -76,7 +76,7 @@ int foo(int zc, void *lock) {
 //X86-NEXT: @.str.1 = private unnamed_addr constant [20 x i8] c"__itt_sync_acquired\00", align 1
 //X86-NEXT: @.str.2 = private unnamed_addr constant [19 x i8] c"__itt_sync_destroy\00", align 1
 
-//X86:      define i32 @foo(i32 %zc, i8* %lock) #0 {
+//X86:      define{{.*}}i32 @foo(i32 %zc, i8* %lock) #0 {
 //X86-NEXT: entry:
 //X86-NEXT:   %zc.addr = alloca i32, align 4
 //X86-NEXT:   %lock.addr = alloca i8*, align 4

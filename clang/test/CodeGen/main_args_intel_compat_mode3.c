@@ -16,6 +16,6 @@ typedef struct SB {
 } SB;
 
 
-// CHECK: define i32 @main(%struct.SA* %sa, %struct.SB* %sb)
+// CHECK: define{{.*}}i32 @main(%struct.SA* %sa, %struct.SB* %sb)
 int main(SA *sa, SB *sb) {
 }

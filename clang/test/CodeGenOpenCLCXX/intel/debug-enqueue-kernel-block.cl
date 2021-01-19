@@ -25,7 +25,7 @@ kernel void caller(global int* a)
               ^{callee(a);});
 }
 
-// CHECK: define spir_kernel {{.*}}@caller({{.*}}){{.*}}!dbg [[CALLER:![0-9]+]]{{.*}} {
+// CHECK: define{{.*}}spir_kernel {{.*}}@caller({{.*}}){{.*}}!dbg [[CALLER:![0-9]+]]{{.*}} {
 // CHECK:   load i32 addrspace(1)*, i32 addrspace(1)** %a.addr{{.*}}!dbg [[LINE20:![0-9]+]]
 // CHECK:   load i32 addrspace(1)*, i32 addrspace(1)** %a.addr{{.*}}!dbg [[LINE25:![0-9]+]]
 // CHECK:   store i32 addrspace(1)* %{{[0-9]+}}, i32 addrspace(1)** %block.captured{{.*}}!dbg [[LINE25]]
