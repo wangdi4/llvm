@@ -7,8 +7,8 @@
 int non_tls_var  __attribute__((tls_model("local-dynamic"))); // expected-warning {{'tls_model' attribute only applies to thread-local variables}}
 __thread int tls_var   __attribute__((tls_model("local-dynamic")));
 
-// CHECK-NOT: @non_tls_var = thread_local
-// CHECK: @tls_var = thread_local
+// CHECK-NOT: @non_tls_var = {{.*}}thread_local
+// CHECK: @tls_var = {{.*}}thread_local
 
 int main(void)
 {

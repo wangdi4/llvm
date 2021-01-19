@@ -84,12 +84,12 @@ int foo5() { return 0; }
 __attribute__((ihc_component))
 __attribute__((stall_free))
 void foo6() {}
-// CHECK: define void @_Z4foo6v{{.*}} !stall_free ![[SFTRUE:[0-9]+]]
+// CHECK: define{{.*}}void @_Z4foo6v{{.*}} !stall_free ![[SFTRUE:[0-9]+]]
 
 __attribute__((ihc_component))
 __attribute__((scheduler_target_fmax_mhz(12)))
 void foo7() {}
-// CHECK: define void @_Z4foo7v{{.*}} !scheduler_target_fmax_mhz ![[SPEP:[0-9]+]]
+// CHECK: define{{.*}}void @_Z4foo7v{{.*}} !scheduler_target_fmax_mhz ![[SPEP:[0-9]+]]
 
 //CHECK: [[CFOO1]] = !{!"_Z4foo1iiiiPiS_Ri", i32 undef}
 //CHECK: [[ATFOO1]] = !{!"default", !"default", !"default", !"default", !"mm_slave", !"pointer", !"pointer"}

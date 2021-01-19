@@ -30,7 +30,7 @@ union un {
 typedef int myInt;
 
 void foo() {
-// CHECK: define void @_Z3foov()
+// CHECK: define{{.*}}void @_Z3foov()
   int a=123;
   myInt myA = 321;
 // CHECK: store i32 123, i32* %a, align 4
