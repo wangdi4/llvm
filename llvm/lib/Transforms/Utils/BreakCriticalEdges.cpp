@@ -277,6 +277,16 @@ llvm::SplitCriticalEdge(Instruction *TI, unsigned SuccNum,
       DT->applyUpdates(Updates);
     if (PDT)
       PDT->applyUpdates(Updates);
+#if INTEL_CUSTOMIZATION
+    // Attach DestBB's LoopID to NewBB if we split the backedge.
+    // We keep the LoopID attached to TIBB in case there are multiple
+    // backedges (like in case of switch terminator).
+    if (DT && DT->dominates(DestBB, TIBB))
+      if (auto *LoopID =
+              TIBB->getTerminator()->getMetadata(LLVMContext::MD_loop)) {
+        NewBB->getTerminator()->setMetadata(LLVMContext::MD_loop, LoopID);
+      }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Update LoopInfo if it is around.
