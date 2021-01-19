@@ -21,12 +21,13 @@
 ; CHECK: [[DV_PRIV:%[^ ]+]] = alloca %"QNCA_a0$i32*$rank1$", align 16
 ; CHECK: [[DV_PRIV_CAST:%[^ ]+]] = bitcast %"QNCA_a0$i32*$rank1$"* [[DV_PRIV]] to i8*
 ; CHECK: [[DV_SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[DV_PRIV_CAST]], i8* bitcast (%"QNCA_a0$i32*$rank1$"* @"main_$X" to i8*))
+; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[DV_SIZE]], 4
 ; CHECK: [[IS_ALLOCATED:%[^ ]+]] = icmp ne i64 [[DV_SIZE]], 0
 ; CHECK: br i1 [[IS_ALLOCATED]], label %[[IF_THEN:[^ ]+]], label %[[IF_CONTINUE:[^, ]+]]
 
 ; CHECK: [[IF_THEN]]:
 ; CHECK: [[ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* [[DV_PRIV]], i32 0, i32 0
-; CHECK: [[DATA_ALLOC:%[^ ]+]] = alloca i32, i64 [[DV_SIZE]]
+; CHECK: [[DATA_ALLOC:%[^ ]+]] = alloca i32, i64 [[NUM_ELEMENTS]]
 ; CHECK: store i32* [[DATA_ALLOC]], i32** [[ADDR0]], align 8
 ; CHECK: br label %[[IF_CONTINUE]]
 

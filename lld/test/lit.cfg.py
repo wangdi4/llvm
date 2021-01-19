@@ -28,6 +28,10 @@ config.suffixes = ['.ll', '.s', '.test', '.yaml', '.objtxt']
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
 config.excludes = ['Inputs']
+# INTEL_CUSTOMIZATION
+# Exclude tests for disabled functionality.
+config.excludes.extend(['darwin', 'mach-o', 'MachO', 'MinGW'])
+# end INTEL_CUSTOMIZATION
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)

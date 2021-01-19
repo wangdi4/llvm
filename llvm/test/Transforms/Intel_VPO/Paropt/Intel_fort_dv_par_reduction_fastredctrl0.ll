@@ -52,12 +52,12 @@
 ; CHECK: [[FAST_RED_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]] to i8*
 ; CHECK: [[ORIG_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* %"foo_$A" to i8*
 ; CHECK: [[FAST_RED_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[FAST_RED_DV_CAST]], i8* [[ORIG_DV_CAST]])
+; CHECK: [[NUM_ELEMENTS:[^ ]+]] = udiv i64 [[FAST_RED_DV_ARR_SIZE]], 2
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[FAST_RED_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]], i32 0, i32 0
-; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca i16, i64 [[FAST_RED_DV_ARR_SIZE]], align 1
+; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]], align 1
 ; CHECK: store i16* [[FAST_RED_DV_DATA]], i16** [[FAST_RED_DV_ADDR0]]
-; CHECK: [[NUM_ELEMENTS:[^ ]+]] = udiv i64 [[FAST_RED_DV_ARR_SIZE]], 2
 ; Check that num_elements is stored to a global so that it can be accessed from the reduction callback.
 ; CHECK: store i64 [[NUM_ELEMENTS]], i64* [[NUM_ELEMENTS_GV]], align 8
 

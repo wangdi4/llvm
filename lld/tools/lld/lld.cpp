@@ -55,9 +55,11 @@ enum Flavor {
   Invalid,
   Gnu,       // -flavor gnu
   WinLink,   // -flavor link
+#if !INTEL_CUSTOMIZATION
   Darwin,    // -flavor darwin
   DarwinNew, // -flavor darwinnew
   Wasm,      // -flavor wasm
+#endif // !INTEL_CUSTOMIZATION
 };
 
 LLVM_ATTRIBUTE_NORETURN static void die(const Twine &s) {
@@ -68,10 +70,14 @@ LLVM_ATTRIBUTE_NORETURN static void die(const Twine &s) {
 static Flavor getFlavor(StringRef s) {
   return StringSwitch<Flavor>(s)
       .CasesLower("ld", "ld.lld", "gnu", Gnu)
+#if !INTEL_CUSTOMIZATION
       .CasesLower("wasm", "ld-wasm", Wasm)
+#endif // !INTEL_CUSTOMIZATION
       .CaseLower("link", WinLink)
+#if !INTEL_CUSTOMIZATION
       .CasesLower("ld64", "ld64.lld", "darwin", Darwin)
       .CasesLower("darwinnew", "ld64.lld.darwinnew", DarwinNew)
+#endif // !INTEL_CUSTOMIZATION
       .Default(Invalid);
 }
 
@@ -148,11 +154,21 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
   std::vector<const char *> args(argv, argv + argc);
   switch (parseFlavor(args)) {
   case Gnu:
+#if INTEL_CUSTOMIZATION
+    if (isPETarget(args))
+      die("Unsupported PE target");
+#else // INTEL_CUSTOMIZATION
     if (isPETarget(args))
       return !mingw::link(args, exitEarly, stdoutOS, stderrOS);
+#endif // INTEL_CUSTOMIZATION
     return !elf::link(args, exitEarly, stdoutOS, stderrOS);
   case WinLink:
     return !coff::link(args, exitEarly, stdoutOS, stderrOS);
+#if INTEL_CUSTOMIZATION
+  default:
+    die("lld is a generic driver.\n"
+        "Invoke ld.lld (Unix), lld-link (Windows), instead");
+#else // INTEL_CUSTOMIZATION
   case Darwin:
     return !mach_o::link(args, exitEarly, stdoutOS, stderrOS);
   case DarwinNew:
@@ -163,6 +179,7 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
     die("lld is a generic driver.\n"
         "Invoke ld.lld (Unix), ld64.lld (macOS), lld-link (Windows), wasm-ld"
         " (WebAssembly) instead");
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
