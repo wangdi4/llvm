@@ -16,12 +16,14 @@
 ;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -add-implicit-args -verify -S %s | FileCheck %s
-; RUN: %oclopt -add-implicit-args -local-buffers -prepare-kernel-args -verify -S %s | FileCheck %s
+; RUN: %oclopt -add-implicit-args -local-buffers -prepare-kernel-args -verify -S %s | FileCheck %s --check-prefixes CHECK,CHECK-PKA
 
 ; The test checks that the passes preserve debug info.
 ;
 ; CHECK: @func{{.*}} !dbg ![[DMETA1:[0-9]+]]
+; CHECK-PKA: @__invoke_func_separated_args{{.*}} !dbg
 ; CHECK: @invoke_func{{.*}} !dbg ![[DMETA2:[0-9]+]]
+; CHECK-PKA: call void @__invoke_func_separated_args{{.*}} !dbg
 ; CHECK: ret void, !dbg !{{[0-9]+}}
 ; CHECK-DAG: ![[DMETA1]] = {{.*}}!DISubprogram{{.*}}name: "func"
 ; CHECK-DAG: ![[DMETA2]] = {{.*}}!DISubprogram{{.*}}name: "invoke_func"
