@@ -994,8 +994,12 @@ AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
   if (Locs.first.Ptr > Locs.second.Ptr)
     std::swap(Locs.first, Locs.second);
   auto CacheIt = AAQI.AliasCache.find(Locs);
-  if (CacheIt != AAQI.AliasCache.end())
-    return CacheIt->second;
+  if (CacheIt != AAQI.AliasCache.end()) {
+    // This code exists to skip a second BasicAA call while recursing into
+    // BestAA. Don't make use of assumptions here.
+    const auto &Entry = CacheIt->second;
+    return Entry.isDefinitive() ? Entry.Result : MayAlias;
+  }
 
   AliasResult Alias = aliasCheck(LocA.Ptr, LocA.Size, LocA.AATags, LocB.Ptr,
                                  LocB.Size, LocB.AATags, AAQI);
@@ -1628,42 +1632,20 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   if (!AAQI.NeedLoopCarried) // INTEL
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
-      AAQueryInfo::LocPair Locs(MemoryLocation(PN, PNSize, PNAAInfo),
-                                MemoryLocation(V2, V2Size, V2AAInfo));
-      if (PN > V2)
-        std::swap(Locs.first, Locs.second);
-      // Analyse the PHIs' inputs under the assumption that the PHIs are
-      // NoAlias.
-      // If the PHIs are May/MustAlias there must be (recursively) an input
-      // operand from outside the PHIs' cycle that is MayAlias/MustAlias or
-      // there must be an operation on the PHIs within the PHIs' value cycle
-      // that causes a MayAlias.
-      // Pretend the phis do not alias.
-      AliasResult Alias = NoAlias;
-      AliasResult OrigAliasResult;
-      {
-        // Limited lifetime iterator invalidated by the aliasCheck call below.
-        auto CacheIt = AAQI.AliasCache.find(Locs);
-        assert((CacheIt != AAQI.AliasCache.end()) &&
-               "There must exist an entry for the phi node");
-        OrigAliasResult = CacheIt->second;
-        CacheIt->second = NoAlias;
-      }
-
+      Optional<AliasResult> Alias;
       for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
         AliasResult ThisAlias =
             aliasCheck(PN->getIncomingValue(i), PNSize, PNAAInfo,
                        PN2->getIncomingValueForBlock(PN->getIncomingBlock(i)),
                        V2Size, V2AAInfo, AAQI);
-        Alias = MergeAliasResults(ThisAlias, Alias);
-        if (Alias == MayAlias)
+        if (Alias)
+          *Alias = MergeAliasResults(*Alias, ThisAlias);
+        else
+          Alias = ThisAlias;
+        if (*Alias == MayAlias)
           break;
       }
-
-      // Reset if speculation failed.
-      if (Alias != NoAlias)
-        AAQI.updateResult(Locs, OrigAliasResult);
-      return Alias;
+      return *Alias;
     }
 
   SmallVector<Value *, 4> V1Srcs;
@@ -2145,47 +2127,88 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
                             MemoryLocation(V2, V2Size, V2AAInfo));
   if (V1 > V2)
     std::swap(Locs.first, Locs.second);
-  std::pair<AAQueryInfo::AliasCacheT::iterator, bool> Pair =
-      AAQI.AliasCache.try_emplace(Locs, MayAlias);
-  if (!Pair.second)
-    return Pair.first->second;
+  const auto &Pair = AAQI.AliasCache.try_emplace(
+      Locs, AAQueryInfo::CacheEntry{NoAlias, 0});
+  if (!Pair.second) {
+    auto &Entry = Pair.first->second;
+    if (!Entry.isDefinitive()) {
+      // Remember that we used an assumption.
+      ++Entry.NumAssumptionUses;
+      ++NumAssumptionUses;
+    }
+    return Entry.Result;
+  }
 
-  if (const auto *GV1 = dyn_cast<AddressOperator>(V1)) {
+  int OrigNumAssumptionUses = NumAssumptionUses;
+  unsigned OrigNumAssumptionBasedResults = AssumptionBasedResults.size();
+  AliasResult Result = aliasCheckRecursive(V1, V1Size, V1AAInfo, V2, V2Size,
+                                           V2AAInfo, AAQI, O1, O2);
+
+  auto It = AAQI.AliasCache.find(Locs);
+  assert(It != AAQI.AliasCache.end() && "Must be in cache");
+  auto &Entry = It->second;
+
+  // Check whether a NoAlias assumption has been used, but disproven.
+  bool AssumptionDisproven = Entry.NumAssumptionUses > 0 && Result != NoAlias;
+  if (AssumptionDisproven)
+    Result = MayAlias;
+
+  // This is a definitive result now, when considered as a root query.
+  NumAssumptionUses -= Entry.NumAssumptionUses;
+  Entry.Result = Result;
+  Entry.NumAssumptionUses = -1;
+
+  // If the assumption has been disproven, remove any results that may have
+  // been based on this assumption. Do this after the Entry updates above to
+  // avoid iterator invalidation.
+  if (AssumptionDisproven)
+    while (AssumptionBasedResults.size() > OrigNumAssumptionBasedResults)
+      AAQI.AliasCache.erase(AssumptionBasedResults.pop_back_val());
+
+  // The result may still be based on assumptions higher up in the chain.
+  // Remember it, so it can be purged from the cache later.
+  if (OrigNumAssumptionUses != NumAssumptionUses && Result != MayAlias)
+    AssumptionBasedResults.push_back(Locs);
+  return Result;
+}
+
+AliasResult BasicAAResult::aliasCheckRecursive(
+    const Value *V1, LocationSize V1Size, const AAMDNodes &V1AAInfo,
+    const Value *V2, LocationSize V2Size, const AAMDNodes &V2AAInfo,
+    AAQueryInfo &AAQI, const Value *O1, const Value *O2) {
+  if (const auto *GV1 = dyn_cast<AddressOperator>(V1)) { // INTEL
     AliasResult Result =
         aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2, AAQI);
     if (Result != MayAlias)
-      return AAQI.updateResult(Locs, Result);
+      return Result;
   } else if (const auto *GV2 = dyn_cast<AddressOperator>(V2)) { // INTEL
     AliasResult Result =
         aliasGEP(GV2, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O2, O1, AAQI);
     if (Result != MayAlias)
-      return AAQI.updateResult(Locs, Result);
+      return Result;
   }
 
   if (const PHINode *PN = dyn_cast<PHINode>(V1)) {
     AliasResult Result =
         aliasPHI(PN, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O2, AAQI);
     if (Result != MayAlias)
-      return AAQI.updateResult(Locs, Result);
+      return Result;
   } else if (const PHINode *PN = dyn_cast<PHINode>(V2)) {
     AliasResult Result =
         aliasPHI(PN, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O1, AAQI);
     if (Result != MayAlias)
-      return AAQI.updateResult(Locs, Result);
+      return Result;
   }
 
 #if INTEL_CUSTOMIZATION
   if (AAQI.NeedLoopCarried) {
-    // For loopCarriedAlias we'll stop analysis here. Rather than return
-    // MayAlias, check if any other AA has a better response. Recurse back into
-    // the best AA results we have, potentially with refined memory locations.
-    // We have already ensured that BasicAA has a MayAlias cache result for
-    // these, so any recursion back into BasicAA won't loop.
-    AliasResult Result =
-        getBestAAResults().loopCarriedAlias(Locs.first, Locs.second, AAQI);
-    Pair = AAQI.AliasCache.try_emplace(Locs, Result);
-    assert(!Pair.second && "Entry must have existed");
-    return Pair.first->second = Result;
+    // Stop at this point for loop-carried analysis.
+    // We used to call getBestAAResults() here, because aliasCheck() would
+    // do that at the end, to get results from other AA modules. But in
+    // 0b84afa5, the code was restructured so that the top level caller
+    // needs to call getBestAAResults(), and all recursive calls within
+    // BasicAA will call getBestAAResults.
+    return MayAlias;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2193,31 +2216,29 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     AliasResult Result =
         aliasSelect(S1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O2, AAQI);
     if (Result != MayAlias)
-      return AAQI.updateResult(Locs, Result);
+      return Result;
   } else if (const SelectInst *S2 = dyn_cast<SelectInst>(V2)) {
     AliasResult Result =
         aliasSelect(S2, V2Size, V2AAInfo, V1, V1Size, V1AAInfo, O1, AAQI);
     if (Result != MayAlias)
-      return AAQI.updateResult(Locs, Result);
+      return Result;
   }
 
   // If both pointers are pointing into the same object and one of them
   // accesses the entire object, then the accesses must overlap in some way.
-  if (O1 == O2)
+  if (O1 == O2) {
+    bool NullIsValidLocation = NullPointerIsDefined(&F);
     if (V1Size.isPrecise() && V2Size.isPrecise() &&
         (isObjectSize(O1, V1Size.getValue(), DL, TLI, NullIsValidLocation) ||
          isObjectSize(O2, V2Size.getValue(), DL, TLI, NullIsValidLocation)))
-      return AAQI.updateResult(Locs, PartialAlias);
+      return PartialAlias;
+  }
 
   // Recurse back into the best AA results we have, potentially with refined
   // memory locations. We have already ensured that BasicAA has a MayAlias
   // cache result for these, so any recursion back into BasicAA won't loop.
-  AliasResult Result = getBestAAResults().alias(Locs.first, Locs.second, AAQI);
-  if (Result != MayAlias)
-    return AAQI.updateResult(Locs, Result);
-
-  // MayAlias is already in the cache.
-  return MayAlias;
+  return getBestAAResults().alias(MemoryLocation(V1, V1Size, V1AAInfo),
+                                  MemoryLocation(V2, V2Size, V2AAInfo), AAQI);
 }
 
 #if INTEL_CUSTOMIZATION
