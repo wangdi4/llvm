@@ -332,4 +332,16 @@ class IntelLLDWarnMessageArgs<string name> : QF<name> {
 }
 
 def assemblydebug : IntelLLDWarnMessage<"assemblydebug">;
+def assemblydebug_args : IntelLLDWarnMessageArgs<"assemblydebug">;
+def assemblymodule : IntelLLDWarnMessageArgs<"assemblymodule">;
+def assemblyresource : IntelLLDWarnMessageArgs<"assemblyresource">;
+def clrimagetype : IntelLLDWarnMessageArgs<"clrimagetype">;
+def clrsupportlasterror : IntelLLDWarnMessage<"clrsupportlasterror">;
+def clrsupportlasterror_args : IntelLLDWarnMessageArgs<"clrsupportlasterror">;
+def clrthreadattribute : IntelLLDWarnMessageArgs<"clrthreadattribute">;
+def clrunmanagedcodecheck : IntelLLDWarnMessage<"clrunmanagedcodecheck">;
+def delaysign : IntelLLDWarnMessage<"delaysign">;
+def delaysign_args : IntelLLDWarnMessageArgs<"delaysign">;
+def keycontainer :  IntelLLDWarnMessageArgs<"keycontainer">;
+def keyfile :  IntelLLDWarnMessageArgs<"keyfile">;
 #endif // INTEL_CUSTOMIZATION
