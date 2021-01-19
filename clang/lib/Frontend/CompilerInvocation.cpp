@@ -2837,7 +2837,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // switch default to true.
   Opts.IntelPragmaPrefetch =
       Args.hasFlag(OPT_fintel_pragma_prefetch, OPT_fno_intel_pragma_prefetch,
-                   /*default=*/false);
+                   /*default=*/true);
 #endif // INTEL_CUSTOMIZATION
   Opts.ModuleFeatures = Args.getAllArgValues(OPT_fmodule_feature);
   llvm::sort(Opts.ModuleFeatures);

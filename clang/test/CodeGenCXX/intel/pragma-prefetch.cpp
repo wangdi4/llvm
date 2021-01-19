@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fintel-compatibility \
-// RUN: -fintel-pragma-prefetch -triple x86_64-unknown-linux-gnu %s \
+// RUN: -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s
 //
 // Verify uses of #pragma prefetch
@@ -205,6 +205,63 @@ void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
 // CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
 #pragma prefetch foo6, foo5, foo4, foo3, foo2, foo1
+  for (int i = 1; i < 100; i++) {
+  }
+
+// Verify mix of [no]prefetch with other loop directives.
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo6)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo5)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo4.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo3.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 0)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma prefetch foo6
+#pragma ivdep
+#pragma prefetch foo5
+#pragma loop_count(10)
+#pragma prefetch foo4
+#pragma nofusion
+#pragma prefetch foo3
+#pragma novector
+#pragma noprefetch foo2
+#pragma parallel
+  for (int i = 1; i < 100; i++) {
+  }
+
+// Verify mix of [no]prefetch with other loop directives.
+// CHECK: DIR.PRAGMA.PREFETCH_LOOP
+// CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo6)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 0)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"([100 x float]* %foo5)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo4.addr)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
+// CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
+// CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
+#pragma simd
+#pragma prefetch foo6
+#pragma unroll
+#pragma noprefetch foo5
+#pragma vector
+#pragma prefetch foo4
   for (int i = 1; i < 100; i++) {
   }
 
