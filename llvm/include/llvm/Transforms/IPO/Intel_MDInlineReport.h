@@ -130,10 +130,11 @@ public:
     // to assign to the new instruction. Skip them.
     if (!OldCall->getMetadata(MDInliningReport::CallSiteTag))
       return;
+    if (!NewCall)
+      return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
-    if (NewCall)
-      addCallback(NewCall, NewCall->getMetadata(MDInliningReport::CallSiteTag));
+    addCallback(NewCall, NewCall->getMetadata(MDInliningReport::CallSiteTag));
   }
 
   // Update the 'OldCall' to 'NewCall' in the ActiveInlinedCalls.
