@@ -14208,8 +14208,9 @@ OMPClause *Sema::ActOnOpenMPSimdlenClause(Expr *Len, SourceLocation StartLoc,
     return nullptr;
 #if INTEL_CUSTOMIZATION
   llvm::Triple T = getASTContext().getTargetInfo().getTriple();
-  if (T.getArch() == llvm::Triple::spir64 ||
-      T.getArch() == llvm::Triple::spir) {
+  if ((T.getArch() == llvm::Triple::spir64 ||
+       T.getArch() == llvm::Triple::spir) &&
+      !LangOpts.OpenMPTargetSimd) {
     Diag(StartLoc, diag::warn_omp_simdlen_in_target_spir);
   }
 #endif // INTEL_CUSTOMIZATION

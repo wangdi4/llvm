@@ -13,6 +13,16 @@
 ; CHECKAD2:     warning: ignoring unknown argument '/assemblydebug'
 ; CHECKAD2-NOT: could not open '/assemblydebug'
 
+; Check that the /ASSEMBLYDEBUG: flag is ignored
+; RUN: not lld-link /subsystem:console /ASSEMBLYDEBUG:DISABLE %t.obj 2>&1 | FileCheck -check-prefix=CHECKAD3 -allow-empty %s
+; CHECKAD3:     warning: ignoring unknown argument '/assemblydebug:'
+; CHECKAD3-NOT: could not open '/ASSEMBLYDEBUG:'
+
+; Check that the /assemblydebug: flag is ignored
+; RUN: not lld-link /subsystem:console /assemblydebug:disable %t.obj 2>&1 | FileCheck -check-prefix=CHECKAD4 -allow-empty %s
+; CHECKAD4:     warning: ignoring unknown argument '/assemblydebug:'
+; CHECKAD4-NOT: could not open '/assemblydebug:'
+
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 

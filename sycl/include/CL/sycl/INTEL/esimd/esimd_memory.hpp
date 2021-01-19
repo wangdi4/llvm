@@ -15,6 +15,11 @@
 #include <CL/sycl/INTEL/esimd/detail/esimd_util.hpp>
 #include <CL/sycl/INTEL/esimd/esimd.hpp>
 #include <CL/sycl/INTEL/esimd/esimd_enum.hpp>
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#include <CL/sycl/INTEL/esimd/esimd_view.hpp>
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 #include <CL/sycl/half_type.hpp>
 #include <cstdint>
 
@@ -492,6 +497,12 @@ constexpr bool check_atomic() {
 
   // One source float operand.
   if constexpr (Op == EsimdAtomicOpType::ATOMIC_FMAX ||
+                /* INTEL_CUSTOMIZATION */
+                /* INTEL_FEATURE_ESIMD_EMBARGO */
+                Op == EsimdAtomicOpType::ATOMIC_FADD ||
+                Op == EsimdAtomicOpType::ATOMIC_FSUB ||
+                /* end INTEL_FEATURE_ESIMD_EMBARGO */
+                /* end INTEL_CUSTOMIZATION */
                 Op == EsimdAtomicOpType::ATOMIC_FMIN) {
     if constexpr (NumSrc != 1) {
       static_assert(NumSrc == 1, "One source operand is expected");
@@ -985,6 +996,124 @@ esimd_raw_send_store(simd<T1, n1> msgSrc0, uint32_t exDesc, uint32_t msgDesc,
                                     sfid, exDesc, msgDesc, msgSrc0.data());
 }
 /// @}
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+// Wait for source val to be ready
+inline ESIMD_NODEBUG void esimd_wait(uint16_t val) { __esimd_wait(val); }
+
+// Compute the data size for 2d block load or store.
+template <int NBlocks, int Height, int Width, bool Transposed>
+constexpr int esimd_get_block_2d_data_size() {
+  if (Transposed)
+    return __esimd::getNextPowerOf2<Height>() * Width * NBlocks;
+  return __esimd::getNextPowerOf2<Width>() * Height * NBlocks;
+}
+
+/// @defgroup sycl_esimd_2d_stateless 2D stateless functions
+/// \ingroup sycl_esimd
+/// @{
+/// 2D stateless block load.
+/// \param T is the element data type
+/// \param N is the data size
+/// \param Width is the block width in number of elements
+/// \param Height is the block height
+/// \param NBlks is the number of blocks
+/// \param Transposed is Transposed or not
+/// \param Transformed apply VNNI transform or not
+/// \param L1H is L1 cache hint
+/// \param L3H is L3 chache hint
+/// \param Ptr is surface base address
+/// \param SurfaceWidth is the surface width minus 1 in bytes
+/// \param SurfaceHeight is the surface height minus 1 in rows
+/// \param SurfacePitch is the surface pitch minus 1 in bytes
+/// \param X is zero based X-coordinate of the left upper rectangle corner in
+/// number of elements.
+/// \param Y is zero based Y-coordinate of the left upper rectangle corner in
+/// rows.
+/// \return is a vector of type T and size N, where N is
+///  getNextPowerOf2(Height) * Width * NBlocks, if transposed
+///  getNextPowerOf2(Width) * Height * NBlocks, otherwise
+///
+template <typename T, int Width, int Height = 1, int NBlks = 1,
+          bool Transposed = false, bool Transformed = false,
+          CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
+          int N = esimd_get_block_2d_data_size<NBlks, Height, Width, Transposed>()>
+ESIMD_INLINE simd<T, N>
+esimd_2d_statelss_load(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
+                       unsigned SurfacePitch, int X, int Y) {
+  simd<T, N> oldDst;
+  simd<unsigned int, 16> payload(0);
+  payload.template format<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template select<1, 1>(2) = SurfaceWidth;
+  payload.template select<1, 1>(3) = SurfaceHeight;
+  payload.template select<1, 1>(4) = SurfacePitch;
+  payload.template select<1, 1>(5) = X;
+  payload.template select<1, 1>(6) = Y;
+  payload.template format<uchar>().template select<1, 1>(28) = Width - 1;
+  payload.template format<uchar>().template select<1, 1>(29) = Height - 1;
+  uint exDesc = 0x0;
+  uint desc = 0x28A0403;
+  constexpr uchar execSize = 0x0;
+  constexpr uchar sfid = 0xF;
+  constexpr uchar numSrc0 = 0x1;
+  constexpr uchar numSrc1 = 0x0;
+  constexpr uchar numDst = (N * sizeof(T)) / 64;
+  return esimd_raw_send_load(oldDst, payload, exDesc, desc, execSize, sfid,
+                             numSrc0, numDst);
+}
+
+/// 2D stateless block store.
+/// \param T is the element data type
+/// \param N is the data size
+/// \param Width is the block width in number of elements
+/// \param Height is the block height
+/// \param NBlks is the number of blocks
+/// \param Transposed is Transposed or not
+/// \param Transformed apply VNNI transform or not
+/// \param L1H is L1 cache hint
+/// \param L3H is L3 chache hint
+/// \param Ptr is the surface base address
+/// \param SurfaceWidth is the surface width minus 1 in bytes
+/// \param SurfaceHeight is the surface height minus 1 in rows
+/// \param SurfacePitch is the surface pitch minus 1 in bytes
+/// \param X is zero based X-coordinate of the left upper rectangle corner in
+/// number of elements.
+/// \param Y is zero based Y-coordinate of the left upper rectangle corner in
+/// rows.
+/// \param Data is the data to be stored.
+///
+template <typename T, int Width, int Height = 1,
+          CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
+          int N = esimd_get_block_2d_data_size</*NBlks*/ 1, Height, Width,
+                                     /*Transposed*/ false>()>
+ESIMD_INLINE void
+esimd_2d_statelss_store(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
+                        unsigned SurfacePitch, int X, int Y, simd<T, N> Data) {
+  simd<unsigned int, 16> payload = 0;
+  payload.template format<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
+  payload.template select<1, 1>(2) = SurfaceWidth;
+  payload.template select<1, 1>(3) = SurfaceHeight;
+  payload.template select<1, 1>(4) = SurfacePitch;
+  payload.template select<1, 1>(5) = X;
+  payload.template select<1, 1>(6) = Y;
+  payload.template format<uchar>().template select<1, 1>(28) = Width - 1;
+  payload.template format<uchar>().template select<1, 1>(29) = Height - 1;
+  uint exDesc = 0x0;
+  uint desc = 0x2040407;
+  constexpr uchar execSize = 0x0;
+  constexpr uchar sfid = 0xF;
+  constexpr uchar numSrc0 = 0x1;
+  constexpr uchar numSrc1 = (N * sizeof(T)) / 64;
+  constexpr uchar numDst = 0x0;
+  esimd_raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
+                        numSrc1);
+}
+/// @}
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 } // namespace gpu
 } // namespace INTEL

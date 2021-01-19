@@ -279,6 +279,34 @@ SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<Ty, N>
 __esimd_dp4(sycl::INTEL::gpu::vector_type_t<Ty, N> v1,
             sycl::INTEL::gpu::vector_type_t<Ty, N> v2);
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+template <typename T, typename T1, typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpas(sycl::INTEL::gpu::vector_type_t<T, N> src0,
+             sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+             sycl::INTEL::gpu::vector_type_t<T2, N2> src2, int dpas_info);
+
+template <typename T, typename T1, typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpas2(sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+              sycl::INTEL::gpu::vector_type_t<T2, N2> src2, int dpas_info);
+
+template <typename T, typename T1, typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpasw(sycl::INTEL::gpu::vector_type_t<T, N> src0,
+              sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+              sycl::INTEL::gpu::vector_type_t<T2, N2> src2, int dpas_info);
+
+template <typename T, typename T1, typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpasw2(sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+               sycl::INTEL::gpu::vector_type_t<T2, N2> src2, int dpas_info);
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 #ifndef __SYCL_DEVICE_ONLY__
 
 template <typename T>
@@ -1201,5 +1229,283 @@ __esimd_reduced_smin(sycl::INTEL::gpu::vector_type_t<Ty, N> src1,
                      sycl::INTEL::gpu::vector_type_t<Ty, N> src2) {
   return __esimd_reduced_min<Ty, N>(src1, src2);
 }
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+constexpr uint __esimd_dpas_bits_precision(
+    sycl::INTEL::gpu::EsimdPrecisionType precisionType) {
+  return precisionType == sycl::INTEL::gpu::EsimdPrecisionType::BF16 ||
+                 precisionType == sycl::INTEL::gpu::EsimdPrecisionType::FP16
+             ? 16
+         : precisionType == sycl::INTEL::gpu::EsimdPrecisionType::S8 ||
+                 precisionType == sycl::INTEL::gpu::EsimdPrecisionType::U8
+             ? 8
+         : precisionType == sycl::INTEL::gpu::EsimdPrecisionType::S4 ||
+                 precisionType == sycl::INTEL::gpu::EsimdPrecisionType::U4
+             ? 4
+         : precisionType == sycl::INTEL::gpu::EsimdPrecisionType::S2 ||
+                 precisionType == sycl::INTEL::gpu::EsimdPrecisionType::U2
+             ? 2
+             : 1;
+}
+
+template <sycl::INTEL::gpu::EsimdPrecisionType src1_precision,
+          sycl::INTEL::gpu::EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename RT, typename T1,
+          typename T2, uint SZ, uint N1, uint N2>
+sycl::INTEL::gpu::vector_type_t<RT, SZ>
+__esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
+                   const sycl::INTEL::gpu::vector_type_t<T1, N1> &src1,
+                   const sycl::INTEL::gpu::vector_type_t<T2, N2> &src2) {
+  sycl::INTEL::gpu::vector_type_t<RT, SZ> retv;
+
+  uint sat1 = EsimdEmulSys::SetSatur<T1, is_inttype<RT>::value>::set() ||
+              EsimdEmulSys::SetSatur<T2, is_inttype<RT>::value>::set();
+
+  constexpr uint ops_per_chan =
+      src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 ||
+              src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::FP16 ||
+              src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 ||
+              src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::FP16
+          ? 2
+      : src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::S8 ||
+              src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::U8 ||
+              src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::S8 ||
+              src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::U8
+          ? 4
+          : 8;
+
+  uint V = 0, U = 0, k = 0, temp = 0, src1_ops_per_dword = 0, p = 0;
+
+  constexpr auto src1_el_bits = __esimd_dpas_bits_precision(src1_precision);
+  constexpr auto src2_el_bits = __esimd_dpas_bits_precision(src2_precision);
+
+  uint32_t src1_signed =
+      src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::S2 ||
+              src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::S4 ||
+              src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::S8
+          ? 1
+          : 0;
+
+  uint32_t src2_signed =
+      src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::S2 ||
+              src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::S4 ||
+              src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::S8
+          ? 1
+          : 0;
+
+#if defined(ESIMD_GEN12_7)
+  constexpr bool isPvc = true;
+  constexpr size_t SIMDSize = 16;
+#else
+  constexpr bool isPvc = false;
+  constexpr size_t SIMDSize = 8;
+#endif
+
+  constexpr bool
+      pvcHfDest = isPvc && std::is_same<RT, half>::value,
+      pvcBfDest = isPvc && std::is_same<RT, short>::value,
+      pvcBfOrHfDest = pvcBfDest || pvcHfDest,
+
+      pvcBfDestChecks =
+          pvcBfDest && src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 &&
+          src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16,
+
+      pvcHfDestChecks =
+          pvcHfDest &&
+          ((src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::FP16 &&
+            src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::FP16) ||
+           (src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 &&
+            src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16)),
+
+      destTypeChk = (!pvcBfOrHfDest && is_fp_or_dword_type<RT>::value) ||
+                    (pvcBfOrHfDest && (pvcBfDestChecks || pvcHfDestChecks)),
+
+      srcTypeChk = is_dword_type<T1>::value && is_dword_type<T2>::value,
+
+      destSizeChk = SZ >= /*TODO: ==*/SIMDSize * repeat_count,
+
+      systolicDepthAndRepeatCountChk =
+          systolic_depth == 8 && repeat_count >= 1 && repeat_count <= 8,
+
+      src1CountChk =
+          N1 == ((src1_el_bits * systolic_depth * ops_per_chan * SZ) /
+                 (repeat_count * sizeof(T1) * 8)),
+      src2CountChk =
+          N2 >= ((src2_el_bits * systolic_depth * ops_per_chan * repeat_count) /
+                 (sizeof(T2) * 8))
+      /*TODO: ==; fix PVCIGEMM24*/
+      ;
+
+  if constexpr (!isPvc)
+    static_assert(!pvcBfOrHfDest, "dpas: hfloat and bfloat16 destination "
+                                  "element type is only supported on PVC.");
+  static_assert(destTypeChk, "dpas: unsupported dest and accumulator type.");
+  static_assert(srcTypeChk, "dpas: unsupported src element type.");
+  static_assert(destSizeChk,
+                "dpas: destination size must be SIMDSize x repeat_count.");
+  static_assert(systolicDepthAndRepeatCountChk,
+                "dpas: only systolic_depth = 8 and repeat_count of 1 to 8 are "
+                "supported.");
+  static_assert(src1CountChk, "dpas: invalid size for src1.");
+  static_assert(src2CountChk, "dpas: invalid size for src2.");
+
+  using TmpAccEl = typename std::conditional<
+      pvcBfOrHfDest, float,
+      typename restype_ex<RT, typename restype_ex<T1, T2>::type>::type>::type;
+
+  sycl::INTEL::gpu::vector_type_t<TmpAccEl, SIMDSize> simdAcc;
+
+  for (uint r = 0; r < repeat_count; r++) {
+    V = r;
+    k = 0;
+
+    for (uint n = 0; n < SIMDSize; n++) {
+      if (src0 != nullptr) {
+        auto src0El = src0[0][r * SIMDSize + n];
+
+        if (pvcBfDest) {
+          const auto tmp = (uint32_t)(src0El) << 16;
+          simdAcc[n] = reinterpret_cast<const TmpAccEl &>(tmp);
+        } else
+          simdAcc[n] = src0El;
+      } else
+        simdAcc[n] = 0;
+    }
+
+    for (uint s = 0; s < systolic_depth; s++) {
+      src1_ops_per_dword = 32 / (ops_per_chan * src1_el_bits);
+      // U = s / src1_ops_per_dword;
+      U = s >> uint(log2(src1_ops_per_dword));
+
+      for (uint n = 0; n < SIMDSize; n++) {
+        for (uint d = 0; d < ops_per_chan; d++) {
+          p = d + (s % src1_ops_per_dword) * ops_per_chan;
+          uint32_t extension_temp = false;
+
+          if (src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16) {
+            static_assert(std::is_standard_layout_v<float> &&
+                          sizeof(uint32_t) == sizeof(float));
+            const auto s1 =
+                extract<uint32_t>(src1_el_bits, p * src1_el_bits,
+                                  src1[U * SIMDSize + n], extension_temp)
+                << 16;
+            const auto s2 =
+                extract<uint32_t>(src2_el_bits, d * src2_el_bits,
+                                  src2[V * 8 + k / ops_per_chan], src2_signed)
+                << 16;
+            simdAcc[n] += reinterpret_cast<const float &>(s2) *
+                          reinterpret_cast<const float &>(s1);
+          } else if (src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::FP16) {
+            static_assert(std::is_standard_layout_v<half> &&
+                          sizeof(short) == sizeof(half));
+            const auto s1 =
+                extract<short>(src1_el_bits, p * src1_el_bits,
+                               src1[U * SIMDSize + n], extension_temp);
+            const auto s2 =
+                extract<short>(src2_el_bits, d * src2_el_bits,
+                               src2[V * 8 + k / ops_per_chan], src2_signed);
+            simdAcc[n] += reinterpret_cast<const half &>(s1) *
+                          reinterpret_cast<const half &>(s2);
+          } else {
+            int src = (sizeof(T2) * 8) / (ops_per_chan * src2_el_bits);
+            int off = s % src * (ops_per_chan * src2_el_bits);
+            int src1_tmp = extract<T1>(src1_el_bits, p * src1_el_bits,
+                                       src1[U * SIMDSize + n], src1_signed);
+            int src2_tmp = extract<T2>(src2_el_bits, d * src2_el_bits + off,
+                                       src2[(V * 8 + k / ops_per_chan) / src],
+                                       src2_signed);
+            simdAcc[n] += src1_tmp * src2_tmp;
+          }
+        }
+      }
+
+      k += ops_per_chan;
+
+    } // Systolic phase.
+
+    for (uint n = 0; n < SIMDSize; n++) {
+      if constexpr (pvcBfDest) {
+        // TODO: make abstraction, support saturation, review rounding algo for
+        // corner cases.
+        auto tmpFloat = simdAcc[n];
+        auto tmpUint = reinterpret_cast<uint32_t &>(tmpFloat);
+        if (std::isnormal(tmpFloat) && tmpUint & 1ull << 15 &&
+            (tmpUint & 0x7fff || tmpUint & 1ull << 16)) {
+          tmpUint += 1ull << 16;
+        }
+        retv[r * SIMDSize + n] =
+            static_cast<short>(reinterpret_cast<uint32_t &>(tmpUint) >> 16);
+      } else
+        retv[r * SIMDSize + n] =
+            EsimdEmulSys::satur<RT>::saturate(simdAcc[n], sat1);
+    }
+
+  } // Repeat.
+
+  return retv;
+}
+
+template <sycl::INTEL::gpu::EsimdPrecisionType src1_precision,
+          sycl::INTEL::gpu::EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpas(sycl::INTEL::gpu::vector_type_t<T, N> src0,
+             sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+             sycl::INTEL::gpu::vector_type_t<T2, N2> src2) {
+#ifdef __SYCL_EXPLICIT_SIMD_PLUGIN__
+  return __esimd_dpas_inner<src1_precision, src2_precision, systolic_depth,
+                            repeat_count, T, T1, T2, N, N1, N2>(
+      std::addressof(src0), src1, src2);
+#else  // __SYCL_EXPLICIT_SIMD_PLUGIN__
+  throw cl::sycl::feature_not_supported();
+  return sycl::INTEL::gpu::vector_type_t<T, N>();
+#endif // __SYCL_EXPLICIT_SIMD_PLUGIN__
+}
+
+template <sycl::INTEL::gpu::EsimdPrecisionType src1_precision,
+          sycl::INTEL::gpu::EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpas2(sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+              sycl::INTEL::gpu::vector_type_t<T2, N2> src2) {
+#ifdef __SYCL_EXPLICIT_SIMD_PLUGIN__
+  return __esimd_dpas_inner<src1_precision, src2_precision, systolic_depth,
+                            repeat_count, T, T1, T2, N, N1, N2>(nullptr, src1,
+                                                                src2);
+#else  // __SYCL_EXPLICIT_SIMD_PLUGIN__
+  throw cl::sycl::feature_not_supported();
+  return sycl::INTEL::gpu::vector_type_t<T, N>();
+#endif // __SYCL_EXPLICIT_SIMD_PLUGIN__
+}
+
+template <sycl::INTEL::gpu::EsimdPrecisionType src1_precision,
+          sycl::INTEL::gpu::EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpasw(sycl::INTEL::gpu::vector_type_t<T, N> src0,
+              sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+              sycl::INTEL::gpu::vector_type_t<T2, N2> src2) {
+  throw cl::sycl::feature_not_supported();
+  return sycl::INTEL::gpu::vector_type_t<T, N>();
+}
+
+template <sycl::INTEL::gpu::EsimdPrecisionType src1_precision,
+          sycl::INTEL::gpu::EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+SYCL_EXTERNAL sycl::INTEL::gpu::vector_type_t<T, N>
+__esimd_dpasw2(sycl::INTEL::gpu::vector_type_t<T1, N1> src1,
+               sycl::INTEL::gpu::vector_type_t<T2, N2> src2) {
+  throw cl::sycl::feature_not_supported();
+  return sycl::INTEL::gpu::vector_type_t<T, N>();
+}
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 #endif

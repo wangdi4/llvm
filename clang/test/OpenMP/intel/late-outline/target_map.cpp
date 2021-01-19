@@ -344,5 +344,31 @@ public:
 };
 BOO * obj = new BOO();
 
-
+class synced_ptr {
+public:
+    float* qqq;
+    void sync() {
+        float* ppp;
+  // CHECK: [[T2:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.synced_ptr* %this1, float** %qqq
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(float** %ppp, float** %ppp
+        #pragma omp target  map(qqq, ppp)
+        {
+            qqq = ppp;
+        }
+  // CHECK: [[T3:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
+  // CHECK-SAME: "QUAL.OMP.MAP.TO"(%class.synced_ptr* %this1, float** %qqq
+  // CHECK-SAME: "QUAL.OMP.MAP.TO"(float** %ppp, float** %ppp
+        #pragma omp target enter data map(to: qqq, ppp)
+        {
+            qqq = ppp;
+        }
+    }
+    synced_ptr()  { }
+};
+void foo()
+{
+  synced_ptr sync;
+  sync.sync();
+}
 // end INTEL_COLLAB
