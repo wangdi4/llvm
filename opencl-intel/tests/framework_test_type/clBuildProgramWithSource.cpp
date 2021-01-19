@@ -1,141 +1,102 @@
-#include "CL/cl.h"
-#include "cl_types.h"
-#include <stdio.h>
-#include "FrameworkTest.h"
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2021 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
+#include "CL21.h"
+#include "TestsHelpClasses.h"
+
+class BuildProgramWithSourceTest : public CL21 {};
 
 /**************************************************************************************************
-* clBuildProgram
-* -------------------
-* (1) get device ids
-* (2) create context
-* (3) create binary
-* (4) create program with source
-* (5) build program
-**************************************************************************************************/
+ * clBuildProgram
+ * -------------------
+ * (1) get device ids
+ * (2) create context
+ * (3) create binary
+ * (4) create program with source
+ * (5) build program
+ **************************************************************************************************/
+TEST_F(BuildProgramWithSourceTest, basic) {
+  const char *strings[] = {
+      "__kernel void test_kernel(__global char16* pBuff0, __global char* "
+      "pBuff1, __global char* pBuff2, image2d_t __read_only test_image)"
+      "{"
+      "    size_t id = get_global_id(0);"
+      "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"
+      "}"};
 
-extern cl_device_type gDeviceType;
+  // check if all devices support images
+  cl_bool isImagesSupported;
+  cl_int err = clGetDeviceInfo(m_device, CL_DEVICE_IMAGE_SUPPORT,
+                               sizeof(cl_bool), &isImagesSupported, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)");
+  ASSERT_TRUE(isImagesSupported) << "image is not supported on the device";
 
-bool clBuildProgramWithSourceTest()
-{
-    bool bResult = true;
-    const char *ocl_test_program[] = {\
-    "__kernel void test_kernel(__global char16* pBuff0, __global char* pBuff1, __global char* pBuff2, image2d_t __read_only test_image)"\
-    "{"\
-    "    size_t id = get_global_id(0);"\
-    "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
-    "}"
-    };
+  cl_program program;
+  bool ret = BuildProgramSynch(m_context, 1, (const char **)&strings, nullptr,
+                               "-cl-denorms-are-zero", &program);
+  ASSERT_TRUE(ret) << "BuildProgramSynch failed";
 
-    printf("clBuildProgramFromSourcesTest\n");
+  // get the binary
+  size_t binarySize;
+  err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t),
+                         &binarySize, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)");
+  char *binaries = new char[binarySize];
+  err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(binaries),
+                         &binaries, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetProgramInfo(CL_PROGRAM_BINARIES)");
+  delete[] binaries;
 
-    cl_platform_id platform = 0;
-    cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
-    if (!bResult)
-    {
-        return bResult;
-    }
+  // CSSD100011901
+  cl_kernel kern = clCreateKernel(program, "test_kernel", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel");
+  err = clSetKernelArg(kern, 2, sizeof(cl_mem), nullptr);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg()");
+  err = clSetKernelArg(kern, 3, sizeof(cl_mem), nullptr);
+  ASSERT_OCL_EQ(err, CL_INVALID_ARG_VALUE, "clSetKernelArg(C)");
 
-    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+  // Release objects
+  err = clReleaseKernel(kern);
+  ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
+}
 
-    cl_uint uiNumDevices = 0;
-    // get device(s)
-    iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-        return false;
-    }
+/// This test checks clGetProgramInfo returns valid error code.
+TEST_F(BuildProgramWithSourceTest, buildFail) {
+  const char *strings[] = {"kernel"};
+  cl_int err;
+  cl_program program =
+      clCreateProgramWithSource(m_context, 1, strings, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+  err = clBuildProgram(program, 1, &m_device, nullptr, nullptr, nullptr);
+  ASSERT_OCL_EQ(err, CL_BUILD_PROGRAM_FAILURE, "clBuildProgram");
 
-    std::vector<cl_device_id> devices(uiNumDevices);
-    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-        return false;
-    }
+  // get the binary
+  size_t binarySize;
+  err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t),
+                         &binarySize, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)");
+  ASSERT_OCL_EQ(binarySize, 0, "clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)");
+  char *binaries = new char[binarySize + 1];
+  err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(binaries),
+                         &binaries, nullptr);
+  ASSERT_OCL_EQ(err, CL_INVALID_PROGRAM,
+                "clGetProgramInfo(CL_PROGRAM_BINARIES)");
+  delete[] binaries;
 
-    // check if all devices support images
-    cl_bool isImagesSupported = CL_TRUE;
-    for (unsigned int i = 0; i < uiNumDevices; ++i)
-    {
-        iRet = clGetDeviceInfo(devices[i], CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &isImagesSupported, NULL);
-        bResult = Check("clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
-        if (!bResult)
-        {
-            return bResult;
-        }
-        // We build program on all the devices, so build is expected to fail
-        // if at least one of them doesn't support images.
-        if (isImagesSupported == CL_FALSE) break;
-    }
-
-    // create context
-    cl_context context = clCreateContext(prop, uiNumDevices, &devices[0], NULL, NULL, &iRet);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clCreateContext = %s\n",ClErrTxt(iRet));
-        return false;
-    }
-    printf("context = %p\n", (void*)context);
-
-    cl_program clProg;
-    bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-denorms-are-zero", &clProg);
-    if (!bResult)
-    {
-        clReleaseContext(context);
-        return bResult || isImagesSupported == CL_FALSE;
-    }
-
-
-    if (bResult)
-    {
-        std::vector<size_t> binarySizes(uiNumDevices);
-        // get the binary
-        iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, &binarySizes[0], NULL);
-        bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
-        if (bResult)
-        {
-            size_t sumBinariesSize = 0;
-            char ** pBinaries = new char*[uiNumDevices];
-            for (unsigned int i = 0; i < uiNumDevices; ++i)
-            {
-                pBinaries[i] = new char[binarySizes[i]];
-                sumBinariesSize += binarySizes[i];
-            }
-            iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, NULL);
-            bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
-#if __STORE_BINARY__
-            if (bResult)
-            {
-                FILE * fout;
-                fout = fopen("C:\\dot.bin", "wb");
-                fwrite(pBinaries, 1, sumBinariesSize, fout);
-                fclose(fout);
-            }
-#endif
-            for (unsigned int i = 0; i < uiNumDevices; i++)
-            {
-                delete [](pBinaries[i]);
-            }
-            delete []pBinaries;
-        }
-
-        // CSSD100011901
-        cl_kernel kern = clCreateKernel(clProg, "test_kernel", &iRet);
-        bResult = SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
-        if ( bResult )
-        {
-            iRet = clSetKernelArg(kern, 2, sizeof(cl_mem), NULL);
-            bResult &= Check("clSetKernelArg()", CL_SUCCESS, iRet);
-            iRet = clSetKernelArg(kern, 3, sizeof(cl_mem), NULL);
-            bResult &= Check("clSetKernelArg(C)", CL_INVALID_ARG_VALUE, iRet);
-            clReleaseKernel(kern);
-        }
-    }
-
-    // Release objects
-    clReleaseProgram(clProg);
-    clReleaseContext(context);
-    return bResult;
+  // Release objects
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
 }
