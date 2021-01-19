@@ -6292,12 +6292,25 @@ namespace {
     void VisitMacroQualifiedTypeLoc(MacroQualifiedTypeLoc TL) {
       TL.setExpansionLoc(Chunk.Loc);
     }
+
 #if INTEL_CUSTOMIZATION
     void VisitChannelTypeLoc(ChannelTypeLoc TL) {
       assert(Chunk.Kind == DeclaratorChunk::Channel);
       TL.setKWLoc(Chunk.Loc);
     }
 #endif // INTEL_CUSTOMIZATION
+
+    void VisitVectorTypeLoc(VectorTypeLoc TL) { TL.setNameLoc(Chunk.Loc); }
+    void VisitDependentVectorTypeLoc(DependentVectorTypeLoc TL) {
+      TL.setNameLoc(Chunk.Loc);
+    }
+    void VisitExtVectorTypeLoc(ExtVectorTypeLoc TL) {
+      TL.setNameLoc(Chunk.Loc);
+    }
+    void
+    VisitDependentSizedExtVectorTypeLoc(DependentSizedExtVectorTypeLoc TL) {
+      TL.setNameLoc(Chunk.Loc);
+    }
 
     void VisitTypeLoc(TypeLoc TL) {
       llvm_unreachable("unsupported TypeLoc kind in declarator!");
