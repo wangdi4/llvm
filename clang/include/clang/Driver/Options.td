@@ -2524,7 +2524,9 @@ defm preserve_as_comments : BoolFOption<"preserve-as-comments",
   ResetBy<PosFlag>>;
 defm profile_arcs : BoolFOption<"profile-arcs",
   "CodeGenOpts.EmitGcovArcs", DefaultsToFalse,
-  ChangedBy<PosFlag, [LinkOption]>, ResetBy<NegFlag>>;
+#if INTEL_CUSTOMIZATION
+  ChangedBy<PosFlag, [LinkOption]>, ResetBy<NegFlag>, BothFlags<[CoreOption]>>;
+#endif // INTEL_CUSTOMIZATION
 def framework : Separate<["-"], "framework">, Flags<[LinkerInput]>;
 def frandom_seed_EQ : Joined<["-"], "frandom-seed=">, Group<clang_ignored_f_Group>;
 def freg_struct_return : Flag<["-"], "freg-struct-return">, Group<f_Group>, Flags<[CC1Option]>,
@@ -2706,7 +2708,9 @@ def foptimization_record_passes_EQ : Joined<["-"], "foptimization-record-passes=
 
 defm test_coverage : BoolFOption<"test-coverage",
   "CodeGenOpts.EmitGcovNotes", DefaultsToFalse,
-  ChangedBy<PosFlag>, ResetBy<NegFlag>>;
+#if INTEL_CUSTOMIZATION
+  ChangedBy<PosFlag>, ResetBy<NegFlag>, BothFlags<[CoreOption]>>;
+#endif // INTEL_CUSTOMIZATION
 def fvectorize : Flag<["-"], "fvectorize">, Group<f_Group>,
   HelpText<"Enable the loop vectorization passes">;
 def fno_vectorize : Flag<["-"], "fno-vectorize">, Group<f_Group>;
