@@ -326,15 +326,13 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
                tbb::global_control::max_allowed_parallelism) ==
                gWorker_threads &&
            "Failed to set tbb global_control max_allowed_parallelism");
-
-    // TBB default stack size is 2 MB on 32-bit system or 4 MB on 64-bit system.
-    const size_t TBBDefaultStackSize = tbb::global_control::active_value(
-        tbb::global_control::thread_stack_size);
-    size_t stackSize = (CPU_DEVICE == deviceMode) ? CPU_DEV_MAX_WG_PRIVATE_SIZE
-                                                  : TBBDefaultStackSize;
     if (ulAdditionalRequiredStackSize != 0) {
         // We force stack size of TBB created threads to match required value
-        stackSize += ulAdditionalRequiredStackSize;
+        const size_t TBBDefaultStackSize =
+            (CPU_DEVICE == deviceMode) ? CPU_DEV_MAX_WG_PRIVATE_SIZE
+                                       : ((sizeof(uintptr_t) <= 4 ? 2 : 4) *
+                                          1024 * 1024); // 2 or 4 MBytes
+        size_t stackSize = TBBDefaultStackSize + ulAdditionalRequiredStackSize;
         // align stack size to 4 bytes
         if ((stackSize & 3u) != 0) {
           // check that we can align ulAdditionalRequiredStackSize without
@@ -345,8 +343,6 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
           // clear it and add 4 bytes to cover the loss
           stackSize = (stackSize & (~3u)) + 4u;
         }
-    }
-    if (stackSize != TBBDefaultStackSize) {
         m_tbbStackSize = std::make_unique<tbb::global_control>(
             tbb::global_control::thread_stack_size, stackSize);
         assert(tbb::global_control::active_value(
