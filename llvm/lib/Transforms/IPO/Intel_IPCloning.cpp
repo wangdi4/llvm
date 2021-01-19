@@ -53,7 +53,8 @@ enum IPCloneKind {
   SpecializationClone = 2,
   GenericClone = 3,
   RecProgressionClone = 4,
-  ManyRecCallsClone = 5
+  ManyRecCallsClone = 5,
+  ManyLoopSpecializationClone = 6
 };
 }
 
@@ -144,6 +145,12 @@ static cl::opt<bool> EnableManyRecCallsSplitting("ip-manyreccalls-splitting",
 static cl::opt<bool>
     ForceManyRecCallsSplitting("force-ip-manyreccalls-splitting",
                                cl::init(false), cl::ReallyHidden);
+
+// Mininum number of loops for a Function to be a candidate for "many loops
+// specialization cloning".
+static cl::opt<unsigned> IPSpeCloningMinLoops("ip-spec-cloning-min-loops",
+                                              cl::init(30), cl::ReallyHidden);
+
 
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from
@@ -4455,6 +4462,361 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
 
 // END: Many Recursive Calls Cloning
 
+// BEGIN: Many Loops Specialization Cloning
+
+//
+// Set of clones made during "many loops specialization cloning". We maintain
+// this list so that we don't try to make a clone of the unspecialized
+// version of the cloned function.
+//
+static SmallPtrSet<Function *, 4> ManyLoopClones;
+
+//
+// Return 'true' if 'F' is a candidate for "many loops specialization
+// cloning". In this variant of cloning, we look for an Argument of F
+// which is a pointer to a structure, and one field of the structure
+// is used as a loop bound for many loops in the function. Furthermore,
+// we expect the loop with that bound to index into one or more arrays,
+// and make a clone using the upper bound of the array as a predicted
+// value for the loop bound.
+//
+// If we return 'true', '*IC' is set to a specialization test that can be
+// used to test whether the specialized clone should be executed. '*LIOut'
+// is set to the LoadInst which loads the value of the structure field, and
+// '*TCNumber' is set to the predicted value of the loop trip counts.
+//
+static bool isManyLoopSpecializationCandidate(Function *F,
+                                              Value **IC,
+                                              LoadInst **LIOut,
+                                              unsigned *TCNumber) {
+  //
+  // If 'U' is the trip count for a simple single BasicBlock loop whose
+  // induction variable starts with 1 and increments by 1, return the
+  // predicted value of that trip count using the arrays that are
+  // indexed by the loop induction variable. If 'U' is not such a trip
+  // count, return 0.
+  //
+  auto OneTripCount = [](User *U) -> unsigned {
+    // Check that this is a single block loop.
+    auto IC = dyn_cast<ICmpInst>(U);
+    if (!IC || !IC->hasOneUse()) {
+      LLVM_DEBUG(dbgs() << "No ICmpInst or more than one use.\n");
+      return 0;
+    }
+    auto BI = dyn_cast<BranchInst>(*IC->user_begin());
+    auto BB = BI->getParent();
+    unsigned Count = 0;
+    for (unsigned I = 0, E = BI->getNumSuccessors(); I < E; ++I)
+      if (BI->getSuccessor(I) == BB) {
+        Count = 1;
+        break;
+      }
+    if (!Count) {
+      LLVM_DEBUG(dbgs() << "Did not find single BasicBlock loop\n");
+      return 0;
+    }
+    // Check that the increment value is 1.
+    Value *V0 = IC->getOperand(0) == U ? IC->getOperand(1) :
+        IC->getOperand(0);
+    Value *V1 = nullptr;
+    if (!match(V0, m_Add(m_Value(V1), m_One()))) {
+      LLVM_DEBUG(dbgs() << "Did not find loop increment\n");
+      return 0;
+    }
+    auto PHIN = dyn_cast<PHINode>(V1);
+    if (!PHIN || PHIN->getNumIncomingValues() != 2) {
+      LLVM_DEBUG(dbgs() << "No PHINode or not 2 incoming values\n");
+      return 0;
+    }
+    // Check that the initial value is 1.
+    auto CI = dyn_cast<ConstantInt>(PHIN->getIncomingValue(0));
+    if (!CI || !CI->isOne()) {
+      LLVM_DEBUG(dbgs() << "Simple loop does not start with 1\n");
+      return 0;
+    }
+    if (PHIN->getIncomingValue(1) != V0) {
+      LLVM_DEBUG(dbgs() << "Missing loop induction variable\n");
+      return 0;
+    }
+    unsigned TCN = 0;
+    bool FirstTime = true;
+    // Look for arrays that are indexed by the induction variable.
+    for (User *U : PHIN->users()) {
+      if (U == V0)
+        continue;
+      auto SI0 = dyn_cast<SubscriptInst>(U);
+      if (!SI0) {
+        LLVM_DEBUG(dbgs() << "Induction variable not used in SubscriptInst\n");
+        return 0;
+      }
+      if (SI0->getIndex() != PHIN) {
+        LLVM_DEBUG(dbgs() << "Induction variable does not index "
+                          << "SubscriptInst\n");
+        return 0;
+      }
+      // If the stride is not a constant, we will tolerate this and skip
+      // this case. We don't need this to help all of the loops with
+      // SubscriptInst accesses as long as it helps enough of them.
+      auto CIS0 = dyn_cast<ConstantInt>(SI0->getStride());
+      if (!CIS0 || CIS0->isZero())
+        continue;
+      // Find the stride of array in the the innermost loop.
+      unsigned BaseStride = CIS0->getZExtValue();
+      auto SI1 = dyn_cast<SubscriptInst>(SI0->getPointerOperand());
+      if (!SI1) {
+        LLVM_DEBUG(dbgs() << "Array not at least 2D\n");
+        return 0;
+      }
+      // Find the stride of the array in the next enclosing loop.
+      auto CIS1 = dyn_cast<ConstantInt>(SI1->getStride());
+      if (!CIS1) {
+        LLVM_DEBUG(dbgs() << "Cannot find outer loop stride\n");
+        return 0;
+      }
+      unsigned NextStride = CIS1->getZExtValue();
+      // Divide the former into the latter to get the predicted value.
+      if (NextStride % BaseStride != 0) {
+        LLVM_DEBUG(dbgs() << "Inner loop stride not multiple of "
+                             "outer loop stride\n");
+        return 0;
+      }
+      unsigned TCNL = NextStride / BaseStride;
+      // Allow only a single, consistent predicted value.
+      if (!FirstTime && (TCNL != TCN)) {
+        LLVM_DEBUG(dbgs() << "Conflicting stride value\n");
+        return 0;
+      }
+      TCN = TCNL;
+      FirstTime = false;
+    }
+    return TCN;
+  };
+
+  //
+  // If all of the uses of 'V' represent a consistent trip count value for
+  // a simple loop, return the predicted value for that trip count, and set
+  // '*TripCountCount' to the number of loops encountered. Otherwise, return 0.
+  //
+  auto TripCount = [&OneTripCount](Value *V,
+                                   unsigned *TripCountCount) -> unsigned {
+    unsigned TCN = 0;
+    unsigned Count = 0;
+    for (User *U : V->users()) {
+      unsigned TCNL = OneTripCount(U);
+      if (Count != 0 && (TCNL != TCN))
+        return 0;
+      TCN = TCNL;
+      Count++;
+    }
+    *TripCountCount = Count;
+    return TCN;
+  };
+
+  //
+  // Given 'CI' a call site which we would like to specialize on the Argument
+  // with 'ArgNo', a field of which is accessed with 'GEPI' and 'LI', and
+  // 'TCNumber - 1' is the predicted field value, return a condition test
+  // which tests whether the field value is equal to the predicted value.
+  //
+  auto CondTest = [](CallInst *CI, int ArgNo, GetElementPtrInst *GEPI,
+                     LoadInst *LI, unsigned TCNumber) -> Value * {
+    auto SP = CI->getFunction()->getSubprogram();
+    auto DIL = SP ? DILocation::get(SP->getContext(),
+        CI->getDebugLoc()->getLine(), CI->getDebugLoc()->getColumn(), SP) :
+        nullptr;
+    IRBuilder <> Builder(CI);
+    Value *ArgOut = CI->getArgOperand(ArgNo);
+    Type *Ty = GEPI->getPointerOperand()->getType()->getPointerElementType();
+    Value *GEPINew = Builder.CreateConstGEP2_32(Ty, ArgOut, 0, 1);
+    LoadInst *LINew = Builder.CreateLoad(LI->getType(), GEPINew, "");
+    if (DIL)
+      LINew->setDebugLoc(DIL);
+    auto CI2 = ConstantInt::get(LI->getType(), TCNumber - 1);
+    Value *IC = Builder.CreateICmp(ICmpInst::ICMP_EQ, LINew, CI2, "");
+    return IC;
+  };
+
+  // Main code for isManyLoopSpecializationCandidate().
+
+  LLVM_DEBUG(dbgs() << "MLSC: Testing " << F->getName() << ": ");
+  // Do not clone the fallback case for a function to which we have already
+  // applied many loops specialization cloning.
+  if (ManyLoopClones.count(F)) {
+    LLVM_DEBUG(dbgs() << "Already an MLSC candidate\n");
+    return false;
+  }
+  // This heuristic requires SubscriptInsts, which will only appear in
+  // Fortran Functions.
+  if (!F->isFortran()) {
+    LLVM_DEBUG(dbgs() << "Not a Fortran Function\n");
+    return false;
+  }
+  // Only clone when this is a unique call site.
+  CallInst *CI = uniqueCallSite(*F);
+  if (!CI) {
+    LLVM_DEBUG(dbgs() << "Not a unique call site\n");
+    return false;
+  }
+  if (F->arg_empty()) {
+    LLVM_DEBUG(dbgs() << "No formal args\n");
+    return false;
+  }
+  // Test the arguments of F in turn, choosing the first one that passes
+  // the criteria.
+  LLVM_DEBUG(dbgs() << "\n");
+  for (Argument &Arg : F->args()) {
+    unsigned ArgNo = Arg.getArgNo();
+    // Test some basic arguments. 'onlyReadsMemory' is the most important one,
+    // since we need to test the argument value in the specialization test.
+    const DataLayout &DL = F->getParent()->getDataLayout();
+    if (!Arg.hasNoCaptureAttr() || !Arg.getType()->isPointerTy() ||
+        Arg.getDereferenceableBytes() <
+            DL.getTypeStoreSize(Arg.getType()->getPointerElementType()) ||
+        !Arg.onlyReadsMemory()) {
+      LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                        << "Arg missing required attributes\n");
+      continue;
+    }
+    if (Arg.use_empty()) {
+      LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                        << "Arg has no uses\n");
+      continue;
+    }
+    int ArgUseCount = -1;
+    for (User *U0 : Arg.users()) {
+      ArgUseCount++;
+      // Look for a GEPI of the form GEPI(PointerOperand, 0, 1). We do this
+      // to save compile-time. This could be generalized if it was found a
+      // useful thing to do.
+      auto GEPI = dyn_cast<GetElementPtrInst>(U0);
+      if (!GEPI || GEPI->getPointerOperand() != &Arg || !GEPI->hasOneUse() ||
+          GEPI->getNumIndices() != 2) {
+        LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                          << "ArgUse(" << ArgUseCount << "): "
+                          << "Missing minimal GEPI conditions\n");
+        continue;
+      }
+      auto CIGEPI0 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+      if (!CIGEPI0 || !CIGEPI0->isZero()) {
+        LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                          << "ArgUse(" << ArgUseCount << "): "
+                          << "First GEPI index not 0\n");
+        continue;
+      }
+      auto CIGEPI1 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+      if (!CIGEPI1 || !CIGEPI1->isOne()) {
+        LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                          << "ArgUse(" << ArgUseCount << "): "
+                          << "Second GEPI index not 1\n");
+        continue;
+      }
+      auto LI = dyn_cast<LoadInst>(*GEPI->user_begin());
+      if (!LI) {
+        LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                          << "ArgUse(" << ArgUseCount << "): "
+                          << "GEPI does not feed a LoadInst\n");
+        continue;
+      }
+      int LoadUseCount = -1;
+      for (User *U1 : LI->users()) {
+        LoadUseCount++;
+        // Right now, a SExtInst followed by an increment appears in the cases
+        // we care about. This code below could also be generalized if it were
+        // found to be useful to do so.
+        auto SX = dyn_cast<SExtInst>(U1);
+        if (!SX || !SX->hasOneUse()) {
+          LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                            << "ArgUse(" << ArgUseCount << "): "
+                            << "LoadUse(" << LoadUseCount << "): "
+                            << "Missing SExtInst or more than one use\n");
+          continue;
+        }
+        Value *TCV = *SX->user_begin();
+        if (!match(TCV, m_Add(m_Specific(SX), m_One()))) {
+          LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                            << "ArgUse(" << ArgUseCount << "): "
+                            << "LoadUse(" << LoadUseCount << "): "
+                            << "Missing increment\n");
+          continue;
+        }
+        // Expect to see many loops in the function for which we find the
+        // same trip count based on this value.
+        unsigned TripCountCount = 0;
+        unsigned TCN = TripCount(TCV, &TripCountCount);
+        if (TCN == 0 || TripCountCount < IPSpeCloningMinLoops) {
+          LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                            << "ArgUse(" << ArgUseCount << "): "
+                            << "LoadUse(" << LoadUseCount << "): "
+                            << "Not enough loops\n");
+          continue;
+        }
+        // We found it! Generate the condition test.
+        *IC = CondTest(CI, ArgNo, GEPI, LI, TCN);
+        *LIOut = LI;
+        *TCNumber = TCN;
+        LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                          << "ArgUse(" << ArgUseCount << "): "
+                          << "LoadUse(" << LoadUseCount << "): "
+                          << "FOUND MLSC CANDIDATE\n");
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+//
+// Clone 'F' and create a specialization test of the form:
+//   if (Arg->Field == TCNumber - 1)
+//     foo(...);
+//   else
+//     foo.clone-index(...);
+// Here 'IC' is the specialization test, 'LI' loads the trip count, and
+// 'TCNumber' is the predicted trip count value.
+//
+static void createManyLoopSpecializationClones(Function *F,
+                                               Value *IC,
+                                               LoadInst *LI,
+                                               unsigned TCNumber) {
+  // Clone F.
+  ValueToValueMapTy VMap;
+  Function *NewF = CloneFunction(F, VMap);
+  // Get the unique call site, and split the BasicBlock it is in so we can
+  // put in the specialization test.
+  CallInst *CI = uniqueCallSite(*F);
+  assert(CI && "Expecting unique callsite for F");
+  CallInst *NewCI = cast<CallInst>(CI->clone());
+  NewCI->setCalledFunction(NewF);
+  Instruction *TrueT = nullptr;
+  Instruction *FalseT = nullptr;
+  SplitBlockAndInsertIfThenElse(IC, CI, &TrueT, &FalseT);
+  CI->moveBefore(TrueT);
+  NewCI->insertBefore(FalseT);
+  // If the cloned call has a return value, tie that return value and the
+  // return value of the original together with a PHINode.
+  if (!CI->getType()->isVoidTy()) {
+    BasicBlock *FalseBB = FalseT->getParent();
+    auto BI = cast<BranchInst>(FalseBB->getTerminator());
+    assert(BI->isUnconditional());
+    BasicBlock *TailBB = BI->getSuccessor(0);
+    PHINode *RPHI =
+        PHINode::Create(CI->getType(), 2, ".manyloops.phi", &TailBB->front());
+    RPHI->addIncoming(NewCI, FalseBB);
+    RPHI->setDebugLoc(CI->getDebugLoc());
+    CI->replaceAllUsesWith(RPHI);
+  }
+  // The original Function will be used for the specialized version. Replace
+  // the tested expression by the predicted constant value and get rid of
+  // the extraneous test in the original Function.
+  auto CINew = ConstantInt::get(LI->getType(), TCNumber - 1);
+  LI->replaceAllUsesWith(CINew);
+  auto GEPI = cast<GetElementPtrInst>(LI->getPointerOperand());
+  LI->eraseFromParent();
+  GEPI->eraseFromParent();
+  // Indicate that the cloned Function is not a candidate for cloning itself.
+  ManyLoopClones.insert(NewF);
+}
+
 // Main routine to analyze all calls and clone functions if profitable.
 //
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
@@ -4503,9 +4865,14 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       LLVM_DEBUG(dbgs() << "    Selected generic cloning  "
                         << "\n");
     } else {
+      // Extra data returned from RecProgressionClone testing
       int Start, Inc;
       unsigned ArgPos, Count;
       bool IsByRef, IsCyclic;
+      // Extra data returned from ManyLoopSpecializationClone testing
+      Value *IC = nullptr;
+      LoadInst *LI = nullptr;
+      unsigned TCNumber = 0;
       if (EnableDTrans &&
           isRecProgressionCloneCandidate(F, true, &ArgPos, &Count, &Start, &Inc,
                                          &IsByRef, &IsCyclic)) {
@@ -4548,6 +4915,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
         CloneType = GenericClone;
         LLVM_DEBUG(dbgs() << "    Selected generic cloning (recursive) "
                           << "\n");
+      } else if (EnableDTrans &&
+          isManyLoopSpecializationCandidate(&F, &IC, &LI, &TCNumber)) {
+        CloneType = ManyLoopSpecializationClone;
+        LLVM_DEBUG(dbgs() << "    Selected ManyLoopSpecialization cloning  "
+                          << "\n");
+        createManyLoopSpecializationClones(&F, IC, LI, TCNumber);
+        continue;
       } else {
         CloneType = SpecializationClone;
         LLVM_DEBUG(dbgs() << "    Selected Specialization cloning  "

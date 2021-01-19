@@ -156,7 +156,7 @@ public:
     AU.setPreservesCFG();
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
     if (skipFunction(F))
       return false;
 

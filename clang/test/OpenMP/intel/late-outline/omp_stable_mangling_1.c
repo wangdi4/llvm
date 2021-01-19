@@ -19,8 +19,8 @@ void foo() {
 // CHECK: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.TARGET"()
 // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]])
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[VAR_X]], i32* [[VAR_X]], i64 4, i64 35)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(float* [[VAR_Y]], float* [[VAR_Y]], i64 4, i64 35)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[VAR_X]], i32* [[VAR_X]], i64 4, i64 35
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(float* [[VAR_Y]], float* [[VAR_Y]], i64 4, i64 35
 // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[VAR_Z]]) ]
 #pragma omp target map(x, y)
   {

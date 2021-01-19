@@ -7236,6 +7236,9 @@ public:
   using MapMappersArrayTy = SmallVector<const ValueDecl *, 4>;
   using MapDimArrayTy = SmallVector<uint64_t, 4>;
   using MapNonContiguousArrayTy = SmallVector<MapValuesArrayTy, 4>;
+#if INTEL_COLLAB
+  using MapVarChainsTy = SmallVector<std::pair<const VarDecl *, bool>, 4>;
+#endif // INTEL_COLLAB
 
   /// This structure contains combined information generated for mappable
   /// clauses, including base pointers, pointers, sizes, map types, user-defined
@@ -7255,6 +7258,9 @@ public:
     MapFlagsArrayTy Types;
     MapMappersArrayTy Mappers;
     StructNonContiguousInfo NonContigInfo;
+#if INTEL_COLLAB
+    MapVarChainsTy VarChain;
+#endif // INTEL_COLLAB
 
     /// Append arrays in \a CurInfo.
     void append(MapCombinedInfoTy &CurInfo) {
@@ -7273,6 +7279,9 @@ public:
                                    CurInfo.NonContigInfo.Counts.end());
       NonContigInfo.Strides.append(CurInfo.NonContigInfo.Strides.begin(),
                                     CurInfo.NonContigInfo.Strides.end());
+#if INTEL_COLLAB
+      VarChain.append(CurInfo.VarChain.begin(), CurInfo.VarChain.end());
+#endif // INTEL_COLLAB
     }
   };
 
@@ -8494,10 +8503,6 @@ public:
   /// the device pointers info array.
   void generateAllInfo(
       MapCombinedInfoTy &CombinedInfo, bool NotTargetParams = false,
-#if INTEL_COLLAB
-      llvm::SmallVectorImpl<std::pair<const VarDecl *, bool>> *VarChain =
-      nullptr,
-#endif // INTEL_COLLAB
       const llvm::DenseSet<CanonicalDeclPtr<const Decl>> &SkipVarSet =
           llvm::DenseSet<CanonicalDeclPtr<const Decl>>()) const {
 
@@ -8638,11 +8643,9 @@ public:
               OMP_MAP_RETURN_PARAM |
               (NotTargetParams ? OMP_MAP_NONE : OMP_MAP_TARGET_PARAM));
           UseDevicePtrCombinedInfo.Mappers.push_back(nullptr);
-
 #if INTEL_COLLAB
-          if (VarChain)
-            VarChain->push_back(
-                std::make_pair(cast_or_null<VarDecl>(VD), false));
+          UseDevicePtrCombinedInfo.VarChain.push_back(
+              std::make_pair(cast_or_null<VarDecl>(VD), false));
 #endif  // INTEL_COLLAB
         }
       }
@@ -8715,9 +8718,8 @@ public:
               (NotTargetParams ? OMP_MAP_NONE : OMP_MAP_TARGET_PARAM));
           CombinedInfo.Mappers.push_back(nullptr);
 #if INTEL_COLLAB
-          if (VarChain)
-            VarChain->push_back(
-                std::make_pair(cast_or_null<VarDecl>(VD), false));
+          CombinedInfo.VarChain.push_back(
+              std::make_pair(cast_or_null<VarDecl>(VD), false));
 #endif  // INTEL_COLLAB
         }
       }
@@ -8809,14 +8811,12 @@ public:
                           NotTargetParams);
 
 #if INTEL_COLLAB
-      if (VarChain) {
-        VarChain->push_back(
-            std::make_pair(cast_or_null<VarDecl>(M.first), false));
-        for (int I = PartialStruct.Base.isValid() ? 0 : 1,
-                 E = CurInfo.BasePointers.size();
-             I < E; ++I)
-          VarChain->push_back(std::make_pair(nullptr, true));
-      }
+      CurInfo.VarChain.push_back(
+          std::make_pair(cast_or_null<VarDecl>(M.first), false));
+      for (int I = PartialStruct.Base.isValid() ? 0 : 1,
+               E = CurInfo.BasePointers.size();
+           I < E; ++I)
+        CurInfo.VarChain.push_back(std::make_pair(nullptr, true));
 #endif  // INTEL_COLLAB
       // We need to append the results of this capture to what we already have.
       CombinedInfo.append(CurInfo);
@@ -8884,6 +8884,15 @@ public:
         CurInfo.NonContigInfo.Dims.push_back(0);
         emitCombinedEntry(CombinedInfo, CurInfo.Types, PartialStruct, VD);
       }
+
+#if INTEL_COLLAB
+      CurInfo.VarChain.push_back(
+          std::make_pair(cast_or_null<VarDecl>(M.first), false));
+      for (int I = PartialStruct.Base.isValid() ? 0 : 1,
+               E = CurInfo.BasePointers.size();
+           I < E; ++I)
+        CurInfo.VarChain.push_back(std::make_pair(nullptr, true));
+#endif  // INTEL_COLLAB
 
       // We need to append the results of this capture to what we already have.
       CombinedInfo.append(CurInfo);
@@ -9641,11 +9650,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
   MappableExprsHandler MEHandler(Dir, CGF);
 
   MappableExprsHandler::MapCombinedInfoTy CombinedInfo;
-  llvm::SmallVector<std::pair<const  VarDecl *, bool>, 4> VarChain;
 
   if (!isOpenMPTargetExecutionDirective(Dir.getDirectiveKind())) {
-    MEHandler.generateAllInfo(CombinedInfo, /*NotTargetParams=*/false,
-                              &VarChain);
+    MEHandler.generateAllInfo(CombinedInfo);
   } else {
     llvm::DenseMap<llvm::Value *, llvm::Value *> LambdaPointers;
     llvm::DenseSet<CanonicalDeclPtr<const Decl>> MappedVarSet;
@@ -9699,30 +9706,38 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
       const VarDecl *VD = nullptr;
       if (!CI->capturesThis())
         VD = CI->getCapturedVar();
-      VarChain.push_back(std::make_pair(VD, false));
+      CurInfo.VarChain.push_back(std::make_pair(VD, false));
       for (int I = PartialStruct.Base.isValid() ? 0 : 1,
                E = CurInfo.BasePointers.size();
            I < E; ++I)
-        VarChain.push_back(std::make_pair(nullptr, true));
-      CombinedInfo.BasePointers.append(CurInfo.BasePointers.begin(),
-                                       CurInfo.BasePointers.end());
-      CombinedInfo.Pointers.append(CurInfo.Pointers.begin(),
-                                   CurInfo.Pointers.end());
-      CombinedInfo.Sizes.append(CurInfo.Sizes.begin(), CurInfo.Sizes.end());
-      CombinedInfo.Types.append(CurInfo.Types.begin(),
-                                CurInfo.Types.end());
+        CurInfo.VarChain.push_back(std::make_pair(nullptr, true));
+      CombinedInfo.append(CurInfo);
     }
     MEHandler.generateAllInfo(CombinedInfo, /*NotTargetParams=*/false,
-                              &VarChain, MappedVarSet);
+                              MappedVarSet);
   }
-  for (int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
+  // The informations of offload map name are only built if there is
+  // debug information requested.
+  SmallVector<llvm::Constant *, 4> InfoMap(CombinedInfo.Exprs.size());
+  assert(CombinedInfo.BasePointers.size() == CombinedInfo.Exprs.size());
+  if (CGF.CGM.getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo) {
+    auto fillInfoMap = [&](MappableExprsHandler::MappingExprInfo &MapExpr) {
+      return emitMappingInformation(
+          CGF, CGF.CGM.getOpenMPRuntime().getOMPBuilder(), MapExpr);
+    };
+    llvm::transform(CombinedInfo.Exprs, InfoMap.begin(), fillInfoMap);
+  }
+
+  for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
     Info->push_back(
         {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
          CombinedInfo.Sizes[I],
          llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I]),
          MEHandler.getMapModifiers(CombinedInfo.Types[I]),
-         MEHandler.getMapType(CombinedInfo.Types[I]), VarChain[I].first,
-         VarChain[I].second});
+         MEHandler.getMapType(CombinedInfo.Types[I]),
+         CombinedInfo.VarChain[I].first, CombinedInfo.VarChain[I].second,
+         InfoMap[I] ? InfoMap[I]->stripPointerCasts() : nullptr,
+         CombinedInfo.Mappers[I]});
   }
 }
 #endif // INTEL_COLLAB
@@ -10480,7 +10495,7 @@ void CGOpenMPRuntime::emitTargetCall(
     // weren't referenced within the construct.
 #if INTEL_COLLAB
     MEHandler.generateAllInfo(CombinedInfo, /*NotTargetParams=*/true,
-                              nullptr, MappedVarSet);
+                              MappedVarSet);
 #endif // INTEL_COLLAB
     TargetDataInfo Info;
     // Fill up the arrays and create the arguments.
