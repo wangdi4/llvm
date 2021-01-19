@@ -134,40 +134,9 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
   // Branch - See if we are conditional jumping on constant
   if (auto *BI = dyn_cast<BranchInst>(T)) {
     if (BI->isUnconditional()) return false;  // Can't optimize uncond branch
+
     BasicBlock *Dest1 = BI->getSuccessor(0);
     BasicBlock *Dest2 = BI->getSuccessor(1);
-
-    if (auto *Cond = dyn_cast<ConstantInt>(BI->getCondition())) {
-      // Are we branching on constant?
-      // YES.  Change to unconditional branch...
-      BasicBlock *Destination = Cond->getZExtValue() ? Dest1 : Dest2;
-      BasicBlock *OldDest     = Cond->getZExtValue() ? Dest2 : Dest1;
-
-      // Let the basic block know that we are letting go of it.  Based on this,
-      // it will adjust it's PHI nodes.
-      OldDest->removePredecessor(BB);
-
-      // Replace the conditional branch with an unconditional one.
-      Builder.CreateBr(Destination);
-#if INTEL_CUSTOMIZATION
-      // Remove Loop metadata from the loop branch instruction
-      // to avoid failing the check of LoopOptReport metadata
-      // being dropped accidentally.
-      //
-      // TODO (vzakhari 5/22/2018): there is no good solution for reattaching
-      //       the opt-report metadata currently.  LoopInfo is not available
-      //       and not preserved in this pass, so we can only attach it
-      //       to the Function.  Moreover, we have to be careful in cases,
-      //       where a loop has multiple back edges some of which are being
-      //       constant folded - we can get duplicate opt-reports attached
-      //       to the Function, as a result of the re-attachment.
-      BI->setMetadata(LLVMContext::MD_loop, nullptr);
-#endif  // INTEL_CUSTOMIZATION
-      BI->eraseFromParent();
-      if (DTU)
-        DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, OldDest}});
-      return true;
-    }
 
     if (Dest2 == Dest1) {       // Conditional branch to same location?
       // This branch matches something like this:
@@ -186,6 +155,25 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
         RecursivelyDeleteTriviallyDeadInstructions(Cond, TLI);
       return true;
     }
+
+    if (auto *Cond = dyn_cast<ConstantInt>(BI->getCondition())) {
+      // Are we branching on constant?
+      // YES.  Change to unconditional branch...
+      BasicBlock *Destination = Cond->getZExtValue() ? Dest1 : Dest2;
+      BasicBlock *OldDest = Cond->getZExtValue() ? Dest2 : Dest1;
+
+      // Let the basic block know that we are letting go of it.  Based on this,
+      // it will adjust it's PHI nodes.
+      OldDest->removePredecessor(BB);
+
+      // Replace the conditional branch with an unconditional one.
+      Builder.CreateBr(Destination);
+      BI->eraseFromParent();
+      if (DTU)
+        DTU->applyUpdates({{DominatorTree::Delete, BB, OldDest}});
+      return true;
+    }
+
     return false;
   }
 
