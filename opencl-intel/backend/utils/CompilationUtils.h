@@ -45,6 +45,8 @@ using namespace llvm;
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   DEFINE_EXCEPTION(CompilerException)
+  // exception to signal compiler to emit a "build error" diagnostic.
+  DEFINE_EXCEPTION(UserErrorCompilerException)
 
   namespace OclVersion {
 
@@ -474,6 +476,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string ATTR_KERNEL_CALL_ONCE;
     static const std::string ATTR_KERNEL_UNIFORM_CALL;
     static const std::string ATTR_KERNEL_CONVERGENT_CALL;
+
+    // Indicates that a must vectorize functions failed to vectorize.
+    static const std::string ATTR_FAILED_TO_VECTORIZE;
 
     // Builtin call attribute used to indicate the call may
     // have a vplan style mask.
