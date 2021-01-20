@@ -5979,6 +5979,18 @@ static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
 
   // ([if]cmp X, Y) ? X : Y
   if (TrueVal == CmpLHS && FalseVal == CmpRHS) {
+#if INTEL_CUSTOMIZATION
+    // Vectorizer emits ABS(x-y) as:
+    // %0 = sub nsw %x, %y
+    // %1 = sub nsw %y, %x
+    // %2 = icmp sgt %1, %0
+    // %3 = select %2, %1, %0
+    Value *SubA, *SubB;
+    if ((Pred == ICmpInst::ICMP_SGT || Pred == ICmpInst::ICMP_SGE) &&
+        match(TrueVal, m_NSWSub(m_Value(SubA), m_Value(SubB))))
+      if (match(FalseVal, m_NSWSub(m_Specific(SubB), m_Specific(SubA))))
+        return { SPF_ABS, SPNB_NA, false};
+#endif // INTEL_CUSTOMIZATION
     switch (Pred) {
     default: return {SPF_UNKNOWN, SPNB_NA, false}; // Equality.
     case ICmpInst::ICMP_UGT:
