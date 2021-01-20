@@ -798,27 +798,13 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         //       But take it into account if the available stack frame size is known at RT. I.e.:
         //          GetMaxWorkGroupSize(GetCpuMaxWGSize(), stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
         {
-            size_t maxPrivateMemSize =
-              (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
-              ? m_pCPUConfig->GetForcedPrivateMemSize()
-              : CPU_DEV_MAX_WG_PRIVATE_SIZE;
-            if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
-            {
-                if (m_pCPUConfig->UseAutoMemory())
-                {
-                    maxPrivateMemSize =
-                    (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
-                    ? m_pCPUConfig->GetForcedPrivateMemSize()
-                    : FPGA_DEV_MAX_WG_PRIVATE_SIZE;
-                }
-                ullValue = pKernelProps->GetMaxWorkGroupSize(
-                    FPGA_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
-            }
-            else
-            {
-                ullValue = pKernelProps->GetMaxWorkGroupSize(
-                    m_pCPUConfig->GetCpuMaxWGSize(), maxPrivateMemSize);
-            }
+            size_t maxWGSize =
+                (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
+                    ? FPGA_MAX_WORK_GROUP_SIZE
+                    : m_pCPUConfig->GetCpuMaxWGSize();
+            ullValue = pKernelProps->GetMaxWorkGroupSize(
+                maxWGSize, m_pCPUConfig->GetForcedPrivateMemSize());
+
             // According to OpenCL spec, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
             // query should be less then or equal to CL_KERNEL_WORK_GROUP_SIZE query.
             if (param == CL_DEV_KERNEL_WG_SIZE)
