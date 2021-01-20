@@ -11342,4 +11342,11 @@ def err_function_arg_passing : Error<
       "%select{function argument is not valid function|invalied function "
       "table argument}0">;
 // #endif INTEL_CUSTOMIZATION
+
+// TCB warnings
+def err_tcb_conflicting_attributes : Error<
+  "attributes '%0(\"%2\")' and '%1(\"%2\")' are mutually exclusive">;
+def warn_tcb_enforcement_violation : Warning<
+  "calling %0 is a violation of trusted computing base '%1'">,
+  InGroup<DiagGroup<"tcb-enforcement">>;
 } // end of sema component.
