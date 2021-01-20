@@ -76,6 +76,13 @@ public:
   /// then null is returned.
   MDNode *getLoopID() const;
 #endif  // INTEL_CUSTOMIZATION
+
+  /// Returns true if the instruction is loop invariant.
+  /// I.e., all virtual register operands are defined outside of the loop,
+  /// physical registers aren't accessed explicitly, and there are no side
+  /// effects that aren't captured by the operands or other flags.
+  bool isLoopInvariant(MachineInstr &I) const;
+
   void dump() const;
 
 private:
