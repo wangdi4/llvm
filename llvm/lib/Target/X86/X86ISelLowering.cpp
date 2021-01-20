@@ -39666,10 +39666,14 @@ static SDValue foldShuffleOfHorizOp(SDNode *N, SelectionDAG &DAG) {
       HOp.getOpcode() != X86ISD::HSUB && HOp.getOpcode() != X86ISD::FHSUB)
     return SDValue();
 
-  // unpck(hop,hop) -> permute(hop,hop).
+  // unpcklo(hop(x,y),hop(z,w)) -> permute(hop(x,z)).
+  // unpckhi(hop(x,y),hop(z,w)) -> permute(hop(y,w)).
+  // Don't fold if hop(x,y) == hop(z,w).
   if (Opcode == X86ISD::UNPCKL || Opcode == X86ISD::UNPCKH) {
     SDValue HOp2 = N->getOperand(1);
     if (HOp.getOpcode() != HOp2.getOpcode() || VT.getScalarSizeInBits() != 32)
+      return SDValue();
+    if (HOp == HOp2)
       return SDValue();
     SDLoc DL(HOp);
     unsigned LoHi = Opcode == X86ISD::UNPCKL ? 0 : 1;
