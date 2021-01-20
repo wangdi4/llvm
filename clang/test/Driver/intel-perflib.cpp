@@ -1,6 +1,4 @@
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
-// INTEL TODO: Fix the Windows failures (see CMPLRLLVM-25319)
-// INTEL XFAIL: windows
 /// Covers the Intel performance library options for IPP, MKL, TBB, DAAL
 
 // IPP tests
@@ -49,8 +47,8 @@
 // For SYCL testing, we need to create a dummy fat library as it is needed
 // to trigger the offloading step.
 // RUN: echo "void foo();" > %t_mkl.cpp
-// RUN: %clang -fsycl -c %t_mkl.cpp -o %t_mkl.o
-// RUN: %clang_cl -fsycl -c %t_mkl.cpp -o %t_mkl.obj
+// RUN: %clang -target x86_64-unknown-linux-gnu -fsycl -c %t_mkl.cpp -o %t_mkl.o
+// RUN: %clang_cl --target=x86_64-pc-windows-msvc -fsycl -c %t_mkl.cpp -o %t_mkl.obj
 // RUN: mkdir -p %t_dir/mkl/lib/intel64
 // RUN: llvm-ar cr %t_dir/mkl/lib/intel64/libmkl_sycl.a %t_mkl.o
 // RUN: llvm-ar cr %t_dir/mkl/lib/intel64/mkl_sycl.lib %t_mkl.obj

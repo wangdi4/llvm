@@ -351,7 +351,9 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
     int Dist = Info[I].Dist;
     int Hint = Info[I].Hint;
 
-    if (Dist != -1) {
+    if (Dist == -1) {
+      Dist = DefaultPrefetchDist;
+    } else {
       Dist *= LpStride;
     }
 
@@ -458,7 +460,7 @@ bool HIRPrefetching::doAnalysis(
   }
 
   DenseMap<unsigned, std::pair<int, int>> CandidateVarSBsDistsHints;
-  int DefaultPrefetchDist = -1;
+  int DefaultPrefetchDist = getPrefetchingDist(Lp);
   int DefaultPrefetchHint = 4 - ForceHint;
 
   collectPrefetchPragmaInfo(Lp, CandidateVarSBsDistsHints, DefaultPrefetchDist,
@@ -491,10 +493,6 @@ bool HIRPrefetching::doAnalysis(
     // or before loop or the pragma var in the loop
     if (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB)) {
       std::tie(Dist, Hint) = CandidateVarSBsDistsHints[FirstRefBasePtrSB];
-    }
-
-    if (Dist == -1) {
-      Dist = getPrefetchingDist(Lp);
     }
 
     // When Stride is a non-zero constant, we will go through the RefGroup and

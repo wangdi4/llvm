@@ -382,7 +382,7 @@ public:
   /// Add a pair of old and new call sites.  The 'NewCall' is a clone of
   /// the 'OldCall' produced by InlineFunction().
   void addActiveCallSitePair(Value *OldCall, Value *NewCall) {
-    if (!isClassicIREnabled())
+    if (!isClassicIREnabled() || !NewCall)
       return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
