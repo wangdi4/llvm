@@ -24,7 +24,9 @@ void OutputParamsValueProvider::Print2Logger()
     {
         for (std::vector<ParamInfo>::const_iterator iter = m_outputParamsVec.begin(); iter != m_outputParamsVec.end(); ++iter)
         {
-            m_apiLogger.PrintOutputParam(iter->m_name, iter->m_addr, iter->m_size, iter->m_bIsPtr2Ptr, iter->m_bIsUnsigned);
+            m_apiLogger.PrintOutputParam(
+                iter->m_name, iter->m_paramName, iter->m_addr, iter->m_size,
+                iter->m_bIsPtr2Ptr, iter->m_bIsUnsigned);
         }
         if (nullptr != m_specialPrinter)
         {

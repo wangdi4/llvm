@@ -67,14 +67,37 @@ public:
         m_outputParamsVec.push_back(ParamInfo(name, param, sizeof(T), bIsPtr2Ptr, bIsUnsigned));
     }    
 
+    /**
+     * Add an output parameter which has param_size and param_value.
+     * @param name          the name of the parameter.
+     * @param param_name    an enumeration constant that specifies the
+                            information to query. See param_name of clGet*Info.
+     * @param param_size    size in bytes of memory pointed to by param_value.
+     * @param param_value   pointer to memory where query result is returned.
+     */
+    void AddParamValue(const std::string& name, unsigned param_name,
+                       size_t param_size, const void* param_value)
+    {
+        m_outputParamsVec.push_back(ParamInfo(name, param_name, param_value,
+                                              param_size, false, true));
+    }
+
 private:
 
     struct ParamInfo {
 
-        ParamInfo(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned) : 
-            m_name(name), m_addr(addr), m_size(size), m_bIsPtr2Ptr(bIsPtr2Ptr), m_bIsUnsigned(bIsUnsigned) { }
+        ParamInfo(const std::string& name, const void* addr, size_t size,
+                  bool bIsPtr2Ptr, bool bIsUnsigned) :
+            ParamInfo(name, 0, addr, size, bIsPtr2Ptr, bIsUnsigned) {}
+
+        ParamInfo(const std::string& name, const unsigned paramName,
+                  const void* addr, size_t size, bool bIsPtr2Ptr,
+                  bool bIsUnsigned) :
+            m_name(name), m_paramName(paramName), m_addr(addr), m_size(size),
+            m_bIsPtr2Ptr(bIsPtr2Ptr), m_bIsUnsigned(bIsUnsigned) {}
 
         std::string m_name;
+        const unsigned m_paramName;
         const void* m_addr;
         size_t m_size;
         bool m_bIsPtr2Ptr;

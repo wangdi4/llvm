@@ -459,6 +459,8 @@ cl_int CL_API_CALL clGetPlatformInfo(cl_platform_id platform,
         START_LOG_API(clGetPlatformInfo);
         apiLogger << "cl_platform_id platform" << platform << "cl_platform_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
         CALL_TRACED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformInfo(platform, param_name, param_value_size, param_value, param_value_size_ret),
             clGetPlatformInfo, &platform, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -568,6 +570,8 @@ cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
         START_LOG_API(clGetDeviceInfo);
         apiLogger << "cl_device_id device" << device << "cl_device_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
         CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceInfo(device, param_name, param_value_size, param_value, param_value_size_ret),
             clGetDeviceInfo, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -685,6 +689,8 @@ cl_int CL_API_CALL clGetContextInfo(cl_context      context,
         START_LOG_API(clGetContextInfo);
         apiLogger << "cl_context context" << context << "cl_context_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetContextInfo(context, param_name, param_value_size, param_value, param_value_size_ret),
            clGetContextInfo, &context, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -764,6 +770,8 @@ cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue      command_queue,
         START_LOG_API(clGetCommandQueueInfo);
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_command_queue_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, GetCommandQueueInfo(command_queue, param_name, param_value_size, param_value, param_value_size_ret),
            clGetCommandQueueInfo, &command_queue, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1048,6 +1056,8 @@ cl_int CL_API_CALL clGetMemObjectInfo(cl_mem           memobj,
         START_LOG_API(clGetMemObjectInfo);
         apiLogger << "cl_mem memobj" << memobj << "cl_mem_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetMemObjectInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret),
            clGetMemObjectInfo, &memobj, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1071,6 +1081,8 @@ cl_int CL_API_CALL clGetImageInfo(cl_mem           image,
         START_LOG_API(clGetImageInfo);
         apiLogger << "cl_mem image" << image << "cl_image_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret),
            clGetImageInfo, &image, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1177,6 +1189,8 @@ cl_int CL_API_CALL clGetSamplerInfo(cl_sampler		sampler,
         START_LOG_API(clGetSamplerInfo);
         apiLogger << "cl_sampler sampler" << sampler << "cl_sampler_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetSamplerInfo(sampler, param_name, param_value_size, param_value, param_value_size_ret),
            clGetSamplerInfo, &sampler, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1392,6 +1406,8 @@ cl_int CL_API_CALL clGetProgramInfo(cl_program      program,
         START_LOG_API(clGetProgramInfo);
         apiLogger << "cl_program program" << program << "cl_program_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetProgramInfo(program, param_name, param_value_size, param_value, param_value_size_ret),
            clGetProgramInfo, &program, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1416,6 +1432,8 @@ cl_int CL_API_CALL clGetProgramBuildInfo(cl_program            program,
         START_LOG_API(clGetProgramBuildInfo);
         apiLogger << "cl_program program" << program << "cl_device_id device" << device << "cl_program_build_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetProgramBuildInfo(program, device, param_name, param_value_size, param_value, param_value_size_ret),
            clGetProgramBuildInfo, &program, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1543,6 +1561,8 @@ cl_int CL_API_CALL clGetKernelInfo(cl_kernel      kernel,
         START_LOG_API(clGetKernelInfo);
         apiLogger << "cl_kernel kernel" << kernel << "cl_kernel_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelInfo(kernel, param_name, param_value_size, param_value, param_value_size_ret),
            clGetKernelInfo, &kernel, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1567,6 +1587,8 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(cl_kernel                 kernel,
         START_LOG_API(clGetKernelWorkGroupInfo);
         apiLogger << "cl_kernel kernel" << kernel << "cl_device_id device" << device << "cl_kernel_work_group_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelWorkGroupInfo(kernel, device, param_name, param_value_size, param_value, param_value_size_ret),
            clGetKernelWorkGroupInfo, &kernel, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1608,6 +1630,8 @@ cl_int CL_API_CALL clGetEventInfo(cl_event		event,
         START_LOG_API(clGetEventInfo);
         apiLogger << "cl_event event" << event << "cl_event_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret),
            clGetEventInfo, &event, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -1667,6 +1691,8 @@ cl_int CL_API_CALL clGetEventProfilingInfo(cl_event				event,
         START_LOG_API(clGetEventProfilingInfo);
         apiLogger << "cl_event event" << event << "cl_profiling_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, GetEventProfilingInfo(event, param_name, param_value_size, param_value, param_value_size_ret),
            clGetEventProfilingInfo, &event, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -2509,6 +2535,8 @@ cl_int CL_API_CALL clGetKernelArgInfo(cl_kernel		kernel,
         START_LOG_API(clGetKernelArgInfo);
         apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_indx" << arg_indx << "cl_kernel_arg_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelArgInfo(kernel, arg_indx, param_name, param_value_size, param_value, param_value_size_ret),
            clGetKernelArgInfo, &kernel, &arg_indx, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -2972,6 +3000,8 @@ cl_int CL_API_CALL clGetPipeInfo(cl_mem pipe,
         START_LOG_API(clGetPipeInfo);
         apiLogger << "cl_mem pipe" << pipe << "cl_pipe_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void *param_value" << param_value << "size_t *param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
 	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetPipeInfo(pipe, param_name, param_value_size, param_value, param_value_size_ret),
            clGetPipeInfo, &pipe, &param_name, &param_value_size, &param_value, &param_value_size_ret);
@@ -3165,6 +3195,8 @@ cl_int CL_API_CALL clGetKernelSubGroupInfo(cl_kernel kernel,
                   << "void* param_value" << param_value
                   << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
         CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
                                                                                    input_value_size, input_value,
@@ -3204,6 +3236,8 @@ cl_int CL_API_CALL clGetKernelSubGroupInfoKHR(cl_kernel kernel,
                 << "void* param_value" << param_value
                 << "size_t* param_value_size_ret" << param_value_size_ret;
       OutputParamsValueProvider provider(apiLogger);
+      provider.AddParamValue("param_value", param_name, param_value_size,
+                             param_value);
       provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
       // Intentionally call non-KHR version as we want to re-use it's implementation.
       CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
@@ -3518,6 +3552,10 @@ cl_int CL_API_CALL clGetMemAllocInfoINTEL(cl_context context,
           "size_t param_value_size" << param_value_size_ret <<
           "void* param_value" << param_value_size_ret <<
           "size_t* param_value_size_ret" << param_value_size_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParamValue("param_value", param_name, param_value_size,
+                               param_value);
+        provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
             GetMemAllocInfoINTEL(context, ptr, param_name, param_value_size,
                                  param_value, param_value_size_ret));
