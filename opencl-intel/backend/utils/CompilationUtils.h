@@ -34,6 +34,7 @@
 #include <map>
 
 namespace llvm {
+  class AllocaInst;
   class CallInst;
   class Function;
   class Module;
@@ -185,6 +186,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Moves alloca instructions from FromBB to ToBB
     static void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
+
+    /// @brief Moves alloca instructions and llvm.dbg.declare intrinsic from
+    ///        FromBB to ToBB.
+    static void moveAllocaDbgDeclare(BasicBlock &FromBB, BasicBlock &ToBB);
 
     /// @brief collect built-ins declared in the module that require
     //         relaxation of noduplicate attribute to convergent.
@@ -755,6 +760,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static void
     updateFunctionMetadata(Module *M,
                            DenseMap<Function *, Function *> &FunctionMap);
+
+    /// @brief Check whether instruction is implicit GID.
+    /// @param AI Alloca instruction.
+    /// @return true if the instruction is implicit GID, false otherwise.
+    static bool isImplicitGID(AllocaInst *AI);
   };
 
   class OCLBuiltins {

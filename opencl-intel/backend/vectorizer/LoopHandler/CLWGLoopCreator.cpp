@@ -155,6 +155,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // need to be executed.
   loopRegion WGLoopRegion;
   BasicBlock *newRet = nullptr;
+  const DILocation *RetDILoc;
   if (m_hasSubGroupPath && m_numDim &&
       skimd.VectorizedMaskedKernel.hasValue()) {
     m_maskFn = skimd.VectorizedMaskedKernel.get();
@@ -162,6 +163,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
     // indicator of vectorized masked kernel being used.
     skimd.VectorizedMaskedKernel.set(m_F);
     m_remainderRet = getFunctionData(m_maskFn, m_gidCalls, m_lidCalls);
+    RetDILoc = m_remainderRet->getDebugLoc().get();
 
     m_vectorMaskEntry = &m_maskFn->getEntryBlock();
     m_vectorMaskEntry->setName("masked_kernel_entry");
@@ -174,12 +176,15 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
     // Obtain loops boundaries from early exit call.
     getLoopsBoundaries();
 
+    initializeImplicitGID(m_maskFn);
+
     WGLoopRegion = createVectorAndMaskedRemainderLoops();
 
     newRet = BasicBlock::Create(*m_context, "", m_maskFn);
   } else {
     // Collect get**id and return instructions from the kernels.
     m_remainderRet = getFunctionData(m_F, m_gidCalls, m_lidCalls);
+    RetDILoc = m_remainderRet->getDebugLoc().get();
 
     // Mark scalar kernel entry and create new entry block for boundaries
     // calculation.
@@ -192,6 +197,8 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
 
     // Obtain loops boundaries from early exit call.
     getLoopsBoundaries();
+
+    initializeImplicitGID(m_F);
 
     WGLoopRegion = m_vectorFunc && m_numDim ?
       createVectorAndRemainderLoops() :
@@ -221,7 +228,9 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // that there are no WG loops (m_numDim=0) and WGLoopRegion.m_exit
   // is not empty.
   BranchInst::Create(newRet, WGLoopRegion.m_exit);
-  ReturnInst::Create(*m_context, newRet);
+  auto *RI = ReturnInst::Create(*m_context, newRet);
+  if (RetDILoc)
+    RI->setDebugLoc(DebugLoc(RetDILoc));
 
   // Create conditional jump over the WG loops incase of uniform early exit.
   handleUniformEE(newRet);
@@ -234,6 +243,42 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   return true;
 }
 
+void CLWGLoopCreator::initializeImplicitGID(Function *F) {
+  m_implicitGIDs.clear();
+
+  if (!F->getSubprogram())
+    return;
+
+  // Find implicit GID alloca instructions. Implicit GIDs are in order, e.g.
+  // __ocl_dbg_gid0 is before __ocl_dbg_gid1, due to the way they are inserted.
+  for (Instruction &I : instructions(*F)) {
+    if (auto *AI = dyn_cast<AllocaInst>(&I)) {
+      if (CompilationUtils::isImplicitGID(AI))
+        m_implicitGIDs.push_back(AI);
+    }
+    if (m_implicitGIDs.size() == MAX_OCL_NUM_DIM)
+      break;
+  }
+
+  if (m_implicitGIDs.empty())
+    return;
+
+  // Get initial GID and store to implicit GID.
+  assert((unsigned)m_implicitGIDs.size() == MAX_OCL_NUM_DIM &&
+         "Number of implict GIDs is wrong");
+  // Insert to new entry block.
+  IRBuilder<> Builder(m_newEntry);
+  Builder.SetCurrentDebugLocation(DebugLoc());
+  for (unsigned D = 0; D < m_numDim; ++D) {
+    Builder.CreateStore(m_initGIDs[D], m_implicitGIDs[D], /*isVolatile*/ true);
+  }
+  for (unsigned D = m_numDim; D < MAX_OCL_NUM_DIM; ++D) {
+    unsigned LowerInd = CLWGBoundDecoder::getIndexOfInitGIDAtDim(D);
+    Value *InitGID =
+        ExtractValueInst::Create(m_EECall, LowerInd, "", m_newEntry);
+    Builder.CreateStore(InitGID, m_implicitGIDs[D], /*isVolatile*/ true);
+  }
+}
 
 // if the vector kernel exists than we create the following code:
 //
@@ -617,8 +662,10 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
       ReturnInst *ret, IVecVec &GIDs, IVecVec &LIDs, VVec &initGIDs,
       VVec &loopSizes) {
   assert(kernelEntry && ret && "uninitialized parameters");
-  // Move allocas in the entry kernel entry block to the new entry block.
-  CompilationUtils::moveAlloca(kernelEntry, m_newEntry);
+
+  // Move allocas and llvm.dbg.declare in the entry kernel entry block to the
+  // new entry block.
+  CompilationUtils::moveAllocaDbgDeclare(*kernelEntry, *m_newEntry);
 
   // Inital head and latch are the kernel entry and return block respectively.
   BasicBlock *head = kernelEntry;
@@ -627,8 +674,8 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
   // Erase original return instruction.
   ret->eraseFromParent();
 
-  // Incase of vector kernel the tid generators are incremented by the packet
-  // width. Incase of scalar loop increment by 1.
+  // In case of vector kernel the tid generators are incremented by the packet
+  // width. In case of scalar loop increment by 1.
   Value *dim0IncBy = isVector ? m_constPacket : m_constOne;
   for (unsigned dim =0; dim < m_numDim; ++dim) {
     unsigned resolvedDim = resolveDimension(dim);
@@ -739,12 +786,37 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
       m_lidCallsVec[dim][i] = inst;
     }
   }
+
+  // Find implicit GID alloca instructions in vector kernel and replace them
+  // with corresponding implicit GID in scalar/masked kernel.
+  // Note implicit GIDs are in order, e.g. __ocl_dbg_gid0 is before
+  // __ocl_dbg_gid1, due to the way they are inserted.
+  if (VSP) {
+    size_t NumImplicitGIDs = m_implicitGIDs.size();
+    SmallVector<AllocaInst *, 3> VectorImplicitGIDs;
+    for (Instruction &I : instructions(*m_vectorFunc)) {
+      if (auto *AI = dyn_cast<AllocaInst>(&I)) {
+        if (CompilationUtils::isImplicitGID(AI))
+          VectorImplicitGIDs.push_back(AI);
+      }
+      if (VectorImplicitGIDs.size() == NumImplicitGIDs)
+        break;
+    }
+    assert(VectorImplicitGIDs.size() == NumImplicitGIDs &&
+           "Vector and scalar kernels must have same number of implicit GIDs");
+    for (unsigned D = 0; D < NumImplicitGIDs; ++D) {
+      Instruction *Inst = cast<Instruction>(valueMap[VectorImplicitGIDs[D]]);
+      Inst->replaceAllUsesWith(m_implicitGIDs[D]);
+      Inst->eraseFromParent();
+    }
+  }
+
   m_vectorRet = cast<ReturnInst>(valueMap[m_vectorRet]);
   BasicBlock *vectorEntryBlock =
       dyn_cast<BasicBlock>(valueMap[&*(m_vectorFunc->begin())]);
   // copy stats from vector function to scalar function
   intel::Statistic::copyFunctionStats(*m_vectorFunc, *Fn);
-  // Get hold of the entry to the scalar section in the vectorized function...
+  // Get hold of the entry to the vector section in the vectorized function...
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {
     intel::Statistic::removeFunctionStats(*m_vectorFunc);

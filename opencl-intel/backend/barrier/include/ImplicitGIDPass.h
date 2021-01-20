@@ -37,7 +37,10 @@ namespace intel {
     static char ID;
 
     /// @brief C'tor
-    ImplicitGlobalIdPass();
+    ImplicitGlobalIdPass(bool HandleBarrier);
+
+    /// @brief C'tor
+    ImplicitGlobalIdPass() : ImplicitGlobalIdPass(true) {}
 
     /// @brief D'tor
     ~ImplicitGlobalIdPass() {}
@@ -84,9 +87,9 @@ namespace intel {
     /// @param InsertPoint Instruction insert point
     void insertGIDStore(IRBuilder<> &B, Instruction *InsertPoint);
 
-    /// @brief Gets or create unsigned long debug info tyoe
-    /// returns DIType unsigned long DIType
-    DIType* getOrCreateUlongDIType() const;
+    /// @brief Gets or create Ind debug info tyoe
+    /// returns Ind DIType
+    DIType *getOrCreateIndDIType() const;
 
   private:
     /// This is barrier utility class
@@ -119,7 +122,13 @@ namespace intel {
     /// This holds the GID allocas
     Instruction *m_pGIDAllocas[3];
 
-    /// This holds the unsigned long DIType for GID variables
-    DIType *m_pULongDIType;
+    /// This holds the Ind DIType for GID variables
+    DIType *m_IndDIType;
+
+    /// Handle barrier if true, kernels without barrier otherwise.
+    bool m_handleBarrier;
+
+    /// Skip insertDeclare if true.
+    bool m_skipInsertDbgDeclare;
   };
 }

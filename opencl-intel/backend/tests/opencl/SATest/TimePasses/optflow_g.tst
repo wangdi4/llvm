@@ -3,4 +3,3 @@
 ; CHECK-DAG: Intel OpenCL Vectorizer
 ; CHECK-DAG: Dead Code Elimination
 ; CHECK-DAG: Simplify the CFG
-; CHECK-NOT: CLWGLoopBoundaries

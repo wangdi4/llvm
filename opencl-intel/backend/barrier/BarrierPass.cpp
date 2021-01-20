@@ -648,7 +648,8 @@ namespace intel {
       assert(AI && "container of alloca values has non AllocaInst value!");
 
       // Don't fix implicit GID.
-      if (m_isNativeDBG && m_util.isImplicitGID(AI))
+      using namespace Intel::OpenCL::DeviceBackend;
+      if (m_isNativeDBG && CompilationUtils::isImplicitGID(AI))
         continue;
 
       // Insert new alloca which stores AI's address in special buffer.
@@ -1047,9 +1048,6 @@ namespace intel {
           // currBarrier = id
           IRBuilder<> B(&*pPreSyncBB->begin());
           unsigned NumDimsToZero = getNumDims();
-          assert(
-              (!m_isNativeDBG || NumDimsToZero == MaxNumDims) &&
-              "Debugger requires local/global_id in all dimensions to be valid");
           for (unsigned Dim = 0; Dim < NumDimsToZero; ++Dim) {
             createSetLocalId(Dim, m_Zero, B);
           }
@@ -1300,12 +1298,18 @@ namespace intel {
            BaseGID = Val;
         } else
           BaseGID = m_util.createGetBaseGlobalId(Dim, pOldCall);
-        Value *LID = resolveGetLocalIDCall(pOldCall);
-        //Replace get_global_id(arg) with global_base_id + local_id
-        Name = AppendWithDimension("GlobalID_", Dim);
-        Value *GlobalID =
-            BinaryOperator::CreateAdd(LID, BaseGID, Name, pOldCall);
-        pOldCall->replaceAllUsesWith(GlobalID);
+
+        auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(pFunc);
+        if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()) {
+          pOldCall->replaceAllUsesWith(BaseGID);
+        } else {
+          Value *LID = resolveGetLocalIDCall(pOldCall);
+          // Replace get_global_id(arg) with global_base_id + local_id
+          Name = AppendWithDimension("GlobalID_", Dim);
+          Value *GlobalID =
+              BinaryOperator::CreateAdd(LID, BaseGID, Name, pOldCall);
+          pOldCall->replaceAllUsesWith(GlobalID);
+        }
         m_toRemoveInstructions.push_back(pOldCall);
     }
 
