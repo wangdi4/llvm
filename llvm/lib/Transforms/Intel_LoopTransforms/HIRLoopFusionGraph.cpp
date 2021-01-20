@@ -32,6 +32,9 @@ static cl::opt<bool>
                         cl::desc("Construct profitable edges just because "
                                  "loops are having common trip count"));
 
+static cl::opt<int> NumCases(DEBUG_TYPE "-num-cases", cl::init(-1), cl::Hidden,
+                             cl::desc("Fuse only first N number of edges."));
+
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::fusion;
@@ -228,6 +231,54 @@ public:
   }
 };
 
+static bool canHandleZtt(const HLLoop *Loop1, const HLLoop *Loop2,
+                         unsigned AbsoluteTCDifference) {
+  // Return true right away if ZTTs are equal in both loops.
+  if (HLNodeUtils::areEqualZttConditions(Loop1, Loop2)) {
+    return true;
+  }
+
+  if (!Loop1->hasZtt() || !Loop2->hasZtt() ||
+      Loop1->getNumZttPredicates() != 1 || Loop2->getNumZttPredicates() != 1) {
+    return false;
+  }
+
+  auto PredI1 = Loop1->ztt_pred_begin();
+  auto PredI2 = Loop2->ztt_pred_begin();
+
+  if (*PredI1 != *PredI2) {
+    return false;
+  }
+
+  auto GetSingleCEOrNull = [](const RegDDRef *Ref) -> const CanonExpr * {
+    if (!Ref->isTerminalRef()) {
+      return nullptr;
+    }
+    return Ref->getSingleCanonExpr();
+  };
+
+  auto *Loop1LHS =
+      GetSingleCEOrNull(Loop1->getZttPredicateOperandDDRef(PredI1, true));
+  auto *Loop1RHS =
+      GetSingleCEOrNull(Loop1->getZttPredicateOperandDDRef(PredI1, false));
+  auto *Loop2LHS =
+      GetSingleCEOrNull(Loop2->getZttPredicateOperandDDRef(PredI2, true));
+  auto *Loop2RHS =
+      GetSingleCEOrNull(Loop2->getZttPredicateOperandDDRef(PredI2, false));
+
+  if (!Loop1LHS || !Loop1RHS || !Loop2LHS || !Loop2RHS) {
+    return false;
+  }
+
+  int64_t DistA, DistB;
+  if (!CanonExprUtils::getConstDistance(Loop1LHS, Loop2LHS, &DistA) ||
+      !CanonExprUtils::getConstDistance(Loop1RHS, Loop2RHS, &DistB)) {
+    return false;
+  }
+
+  return std::abs(DistA) + std::abs(DistB) == AbsoluteTCDifference;
+}
+
 static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
                                             const HLLoop *Loop2) {
   if (!Loop1->isDo() || !Loop1->isNormalized() || !Loop2->isDo() ||
@@ -253,6 +304,11 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
   }
 
   if (!HLNodeUtils::postDominates(Loop2, Loop1)) {
+    return 0;
+  }
+
+  // TODO: Allow only loops with special ZTTs for now. This needs to be improved.
+  if (!canHandleZtt(Loop1, Loop2, std::abs(UBDist))) {
     return 0;
   }
 
@@ -1226,6 +1282,16 @@ void FuseGraph::weightedFusion() {
       CollapseRange.clear();
       CollapseRange.insert(NodeV);
       CollapseRange.insert(NodeW); // (NodeV, NodeW) undirected
+    }
+
+    // Handle NumCases option.
+    if (NumCases != -1) {
+      if (NumCases == 0) {
+        LLVM_DEBUG(dbgs() << "Fusion stopped because of the compiler option.");
+        break;
+      }
+
+      NumCases = NumCases - 1;
     }
 
     collapse(Heap, NodeV, CollapseRange);

@@ -5,55 +5,47 @@
 ; This should happend bacause of normalization.
 
 ; BEGIN REGION { }
-;       if (%n > 0)
-;       {
-;          + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-;          |   + DO i2 = 0, 99, 1   <DO_LOOP>
-;          |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-;          |   |   |   (@A)[0][i1][i2][i3] = i1 + i2 + i3;
-;          |   |   + END LOOP
-;          |   + END LOOP
-;          + END LOOP
+;       + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+;       |   + DO i2 = 0, 99, 1   <DO_LOOP>
+;       |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
+;       |   |   |   (@A)[0][i1][i2][i3] = i1 + i2 + i3;
+;       |   |   + END LOOP
+;       |   + END LOOP
+;       + END LOOP
 ;
 ;
-;          + DO i1 = 0, %n + -2, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-;          |   + DO i2 = 0, 99, 1   <DO_LOOP>
-;          |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-;          |   |   |   %0 = (@A)[0][i1][i2][i3];
-;          |   |   |   (@B)[0][i1][i2][i3] = i1 + i2 + i3 + %0;
-;          |   |   + END LOOP
-;          |   + END LOOP
-;          + END LOOP
-;       }
-;       ret ;
+;       + DO i1 = 0, %n + -2, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+;       |   + DO i2 = 0, 99, 1   <DO_LOOP>
+;       |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
+;       |   |   |   %0 = (@A)[0][i1][i2][i3];
+;       |   |   |   (@B)[0][i1][i2][i3] = i1 + i2 + i3 + %0;
+;       |   |   + END LOOP
+;       |   + END LOOP
+;       + END LOOP
 ; END REGION
 
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:           if (%n > 0)
-; CHECK:           {
-; CHECK:              + DO i32 i1 = 0, %n + -2, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK:              | <BLOB> LINEAR i32 %n {sb:[[SB:.*]]}
-; CHECK:              |   + DO i32 i2 = 0, 99, 1   <DO_LOOP>
-; CHECK:              |   |   + DO i32 i3 = 0, 99, 1   <DO_LOOP>
-; CHECK:              |   |   |   (@A)[0][i1][i2][i3] = i1 + i2 + i3;
-; CHECK:              |   |   |   %0 = (@A)[0][i1][i2][i3];
-; CHECK:              |   |   |   (@B)[0][i1][i2][i3] = i1 + i2 + i3 + %0;
-; CHECK:              |   |   + END LOOP
-; CHECK:              |   + END LOOP
-; CHECK:              + END LOOP
+; CHECK:           + DO i32 i1 = 0, %n + -2, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK:           | <BLOB> LINEAR i32 %n {sb:[[SB:.*]]}
+; CHECK:           |   + DO i32 i2 = 0, 99, 1   <DO_LOOP>
+; CHECK:           |   |   + DO i32 i3 = 0, 99, 1   <DO_LOOP>
+; CHECK:           |   |   |   (@A)[0][i1][i2][i3] = i1 + i2 + i3;
+; CHECK:           |   |   |   %0 = (@A)[0][i1][i2][i3];
+; CHECK:           |   |   |   (@B)[0][i1][i2][i3] = i1 + i2 + i3 + %0;
+; CHECK:           |   |   + END LOOP
+; CHECK:           |   + END LOOP
+; CHECK:           + END LOOP
 
-; CHECK:              + LiveIn symbases: [[SB]]
-; CHECK:              + DO i32 i1 = 0, 0, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK:              |   + LiveIn symbases: [[SB]]
-; CHECK:              |   + DO i32 i2 = 0, 99, 1   <DO_LOOP>
-; CHECK:              |       + LiveIn symbases: [[SB]]
-; CHECK:              |   |   + DO i32 i3 = 0, 99, 1   <DO_LOOP>
-; CHECK:              |   |   |   (@A)[0][i1 + %n + -1][i2][i3] = i1 + i2 + i3 + %n + -1;
-; CHECK:              |   |   + END LOOP
-; CHECK:              |   + END LOOP
-; CHECK:              + END LOOP
-; CHECK:           }
-; CHECK:           ret ;
+; CHECK:           + LiveIn symbases: [[SB]]
+; CHECK:           + DO i32 i1 = 0, 0, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK:           |   + LiveIn symbases: [[SB]]
+; CHECK:           |   + DO i32 i2 = 0, 99, 1   <DO_LOOP>
+; CHECK:           |       + LiveIn symbases: [[SB]]
+; CHECK:           |   |   + DO i32 i3 = 0, 99, 1   <DO_LOOP>
+; CHECK:           |   |   |   (@A)[0][i1 + %n + -1][i2][i3] = i1 + i2 + i3 + %n + -1;
+; CHECK:           |   |   + END LOOP
+; CHECK:           |   + END LOOP
+; CHECK:           + END LOOP
 ; CHECK:     END REGION
 
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"
@@ -65,8 +57,7 @@ target triple = "i386-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind
 define dso_local void @foo(i32 %n) local_unnamed_addr #0 {
 entry:
-  %cmp85 = icmp sgt i32 %n, 0
-  br i1 %cmp85, label %for.cond1.preheader.preheader, label %for.cond.cleanup21
+  br label %for.cond1.preheader.preheader
 
 for.cond1.preheader.preheader:                    ; preds = %entry
   br label %for.cond1.preheader
@@ -77,8 +68,7 @@ for.cond1.preheader:                              ; preds = %for.cond1.preheader
 
 for.cond19.preheader:                             ; preds = %for.cond.cleanup3
   %sub = add nsw i32 %n, -1
-  %cmp2081 = icmp sgt i32 %n, 1
-  br i1 %cmp2081, label %for.cond24.preheader.preheader, label %for.cond.cleanup21
+  br label %for.cond24.preheader.preheader
 
 for.cond24.preheader.preheader:                   ; preds = %for.cond19.preheader
   br label %for.cond24.preheader
