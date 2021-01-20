@@ -2763,9 +2763,12 @@ void StructuredFlowChecker::visit(const HLLabel *Label) {
     return;
   }
 
-  if (isa<HLLabel>(Label)) {
-    IsStructured = false;
-  }
+  // Ignore unknown loop header labels as they are still a part of structured
+  // control flow.
+  if (Label->isUnknownLoopHeaderLabel())
+    return;
+
+  IsStructured = false;
 }
 
 void StructuredFlowChecker::visit(const HLGoto *Goto) {
