@@ -855,6 +855,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
         if (isa<PointerType>(PtrTy->getPointerElementType()))
           IsPointerToPointer = true;
+  } else if (ClauseID == QUAL_OMP_HAS_DEVICE_ADDR) {
+    ClauseID = QUAL_OMP_IS_DEVICE_PTR;
   }
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
@@ -1413,6 +1415,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
 
     getDepSource().add(new DepSourceItem(std::move(SrcExprs)));
   } break;
+  case QUAL_OMP_HAS_DEVICE_ADDR:
   case QUAL_OMP_IS_DEVICE_PTR: {
     extractQualOpndList<IsDevicePtrClause>(Args, NumArgs, ClauseInfo,
                                            getIsDevicePtr());
@@ -1668,7 +1671,8 @@ void WRegionNode::getClausesFromOperandBundles(IntrinsicInst *Call) {
     ClauseSpecifier ClauseInfo(ClauseString);
 
 #if INTEL_CUSTOMIZATION
-    if (ClauseInfo.getId() == QUAL_OMP_IS_DEVICE_PTR &&
+    if ((ClauseInfo.getId() == QUAL_OMP_IS_DEVICE_PTR ||
+         ClauseInfo.getId() == QUAL_OMP_HAS_DEVICE_ADDR) &&
         ClauseInfo.getIsF90DopeVector()) {
       // IS.DEVICE.PTR:F90_DV("DV"* %x) is treated as FIRSTPRIVATE("DV"* %x).
       ClauseInfo.setId(QUAL_OMP_FIRSTPRIVATE);
