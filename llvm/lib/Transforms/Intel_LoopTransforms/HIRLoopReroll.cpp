@@ -1911,8 +1911,8 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
 // we only take care of safe reductions. We don't need to
 // delay this check after reroll.
 bool hasLiveOutTempsToBeRemoved(const HLLoop *Loop,
-                                HIRSafeReductionAnalysis *SRA) {
-  if ((!SRA || (SRA->getSafeRedInfoList(Loop)).size() == 0) &&
+                                HIRSafeReductionAnalysis &SRA) {
+  if (((SRA.getSafeRedInfoList(Loop)).size() == 0) &&
       Loop->hasLiveOutTemps()) {
     return true;
   }
@@ -1928,7 +1928,7 @@ bool hasLiveOutTempsToBeRemoved(const HLLoop *Loop,
     const RegDDRef *Lval = HInst->getLvalDDRef();
     unsigned OpCode;
     if (Loop->isLiveOut(Lval->getSymbase()) &&
-        !SRA->isReductionRef(Lval, OpCode)) {
+        !SRA.isReductionRef(Lval, OpCode)) {
       return true;
     }
   }
@@ -1979,7 +1979,7 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
     return false;
   }
 
-  if (hasLiveOutTempsToBeRemoved(Loop, &SRA)) {
+  if (hasLiveOutTempsToBeRemoved(Loop, SRA)) {
     LLVM_DEBUG(dbgs() << "Reroll Factor " << RerollFactor
                       << ". But, Has Live out to be removed. Bail out.\n");
     return false;
