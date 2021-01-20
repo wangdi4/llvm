@@ -41,6 +41,7 @@ static Distro::DistroType DetectOsRelease(llvm::vfs::FileSystem &VFS) {
                     .Case("arch", Distro::ArchLinux)
                     // On SLES, /etc/os-release was introduced in SLES 11.
                     .Case("sles", Distro::OpenSUSE)
+                    .Case("\"sles\"", Distro::OpenSUSE) // INTEL
                     .Case("opensuse", Distro::OpenSUSE)
                     .Case("exherbo", Distro::Exherbo)
                     .Default(Distro::UnknownDistro);

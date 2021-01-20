@@ -166,7 +166,10 @@ std::string Linux::getMultiarchTriple(const Driver &D,
   return TargetTriple.str();
 }
 
-static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
+#if INTEL_CUSTOMIZATION
+static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args,
+                             const Distro &Distro) {
+#endif // INTEL_CUSTOMIZATION
   if (Triple.isMIPS()) {
     if (Triple.isAndroid()) {
       StringRef CPUName;
@@ -197,7 +200,7 @@ static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
   if (Triple.getArch() == llvm::Triple::x86 ||
       Triple.getArch() == llvm::Triple::ppc ||
       Triple.getArch() == llvm::Triple::sparc)
-    return "lib32";
+    return Distro.IsOpenSUSE() ? "lib" : "lib32"; // INTEL
 
   if (Triple.getArch() == llvm::Triple::x86_64 &&
       Triple.getEnvironment() == llvm::Triple::GNUX32)
@@ -308,7 +311,9 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // to the link paths.
   path_list &Paths = getFilePaths();
 
-  const std::string OSLibDir = std::string(getOSLibDir(Triple, Args));
+#if INTEL_CUSTOMIZATION
+  const std::string OSLibDir = std::string(getOSLibDir(Triple, Args, Distro));
+#endif // INTEL_CUSTOMIZATION
   const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
 
   Generic_GCC::AddMultilibPaths(D, SysRoot, OSLibDir, MultiarchTriple, Paths);
