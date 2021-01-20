@@ -1645,6 +1645,9 @@ public:
   // Returns true if both HLIf nodes are equal.
   static bool areEqualConditions(const HLIf *NodeA, const HLIf *NodeB);
 
+  // Returns true if both HLLoops have equal ZTTs.
+  static bool areEqualZttConditions(const HLLoop *NodeA, const HLLoop *NodeB);
+
   // Returns true if both HLSwitches are equal.
   static bool areEqualConditions(const HLSwitch *NodeA, const HLSwitch *NodeB);
 
