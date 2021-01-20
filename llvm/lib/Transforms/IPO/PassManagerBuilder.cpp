@@ -2266,7 +2266,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       }
       PM.add(createHIRLoopInterchangePass());
       PM.add(createHIRGenerateMKLCallPass());
-      PM.add(createHIRInterLoopBlockingPass());
+      if (OptLevel > 2 && IsLTO) {
+        PM.add(createHIRInterLoopBlockingPass());
+      }
       PM.add(createHIRLoopBlockingPass());
       PM.add(createHIRUndoSinkingForPerfectLoopnestPass());
       PM.add(createHIRDeadStoreEliminationPass());

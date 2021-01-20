@@ -93,7 +93,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
                                  cl::Hidden, cl::desc("Disable " OPT_DESC "."));
 
 static cl::opt<int>
@@ -3170,10 +3170,16 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
 
 // Main driver for HIRInterLoopBlocking.
 bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-            HIRDDAnalysis &DDA, StringRef FuncName) {
+            HIRDDAnalysis &DDA, const Function &F) {
   if (DisablePass) {
     return false;
   }
+
+  if (!F.isFortran()) {
+    return false;
+  }
+
+  StringRef FuncName = F.getName();
 
   if (!FilterFunc.empty() && !FuncName.equals(FilterFunc)) {
     return false;
@@ -3258,7 +3264,7 @@ HIRInterLoopBlockingPass::run(llvm::Function &F,
                               llvm::FunctionAnalysisManager &AM) {
   driver(AM.getResult<HIRFrameworkAnalysis>(F),
          AM.getResult<HIRArraySectionAnalysisPass>(F),
-         AM.getResult<HIRDDAnalysisPass>(F), F.getName());
+         AM.getResult<HIRDDAnalysisPass>(F), F);
   return PreservedAnalyses::all();
 }
 
@@ -3285,8 +3291,7 @@ public:
 
     return driver(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                   getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-                  getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                  F.getName());
+                  getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(), F);
   }
 };
 
