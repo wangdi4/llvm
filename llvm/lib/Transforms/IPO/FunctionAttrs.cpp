@@ -1259,7 +1259,7 @@ static bool InstrBreaksNonThrowing(Instruction &I, const SCCNodeSet &SCCNodes) {
       // I is a may-throw call to a function inside our SCC. This doesn't
       // invalidate our current working assumption that the SCC is no-throw; we
       // just have to scan that other function.
-      if (SCCNodes.count(Callee) > 0)
+      if (SCCNodes.contains(Callee))
         return false;
     }
   }
@@ -1279,7 +1279,7 @@ static bool InstrBreaksNoFree(Instruction &I, const SCCNodeSet &SCCNodes) {
   if (Callee->doesNotFreeMemory())
     return false;
 
-  if (SCCNodes.count(Callee) > 0)
+  if (SCCNodes.contains(Callee))
     return false;
 
   return true;
