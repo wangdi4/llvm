@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/EvaluatedExprVisitor.h"
-#include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/EvaluatedExprVisitor.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Basic/TargetInfo.h" // INTEL
+#include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/ScopeInfo.h"
+#include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/StringExtras.h"
 
 using namespace clang;
@@ -597,10 +597,18 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                        LoopHintAttr::PipelineInitiationInterval)
                  .Case("distribute", LoopHintAttr::Distribute)
                  .Default(LoopHintAttr::Vectorize);
-    if (Option == LoopHintAttr::VectorizeWidth ||
-        Option == LoopHintAttr::InterleaveCount ||
-        Option == LoopHintAttr::UnrollCount ||
-        Option == LoopHintAttr::PipelineInitiationInterval) {
+    if (Option == LoopHintAttr::VectorizeWidth) {
+      assert((ValueExpr || (StateLoc && StateLoc->Ident)) &&
+             "Attribute must have a valid value expression or argument.");
+      if (ValueExpr && S.CheckLoopHintExpr(ValueExpr, St->getBeginLoc()))
+        return nullptr;
+      if (StateLoc && StateLoc->Ident && StateLoc->Ident->isStr("scalable"))
+        State = LoopHintAttr::ScalableWidth;
+      else
+        State = LoopHintAttr::FixedWidth;
+    } else if (Option == LoopHintAttr::InterleaveCount ||
+               Option == LoopHintAttr::UnrollCount ||
+               Option == LoopHintAttr::PipelineInitiationInterval) {
       assert(ValueExpr && "Attribute must have a valid value expression.");
       if (S.CheckLoopHintExpr(ValueExpr, St->getBeginLoc()))
         return nullptr;
@@ -1210,6 +1218,8 @@ CheckForIncompatibleAttributes(Sema &S,
         break;
       case LoopHintAttr::Disable:
       case LoopHintAttr::AssumeSafety:
+      case LoopHintAttr::FixedWidth:
+      case LoopHintAttr::ScalableWidth:
         llvm_unreachable("unexpected ivdep state");
       }
     } else if (Option == LoopHintAttr::ForceHyperopt) {
@@ -1263,6 +1273,8 @@ CheckForIncompatibleAttributes(Sema &S,
       case LoopHintAttr::LoopExpr:
       case LoopHintAttr::Full:
       case LoopHintAttr::AssumeSafety:
+      case LoopHintAttr::FixedWidth:
+      case LoopHintAttr::ScalableWidth:
         llvm_unreachable("unexpected loop pragma state");
       }
       if (Option == LoopHintAttr::MinIIAtFmax &&

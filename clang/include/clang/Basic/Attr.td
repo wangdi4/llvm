@@ -4108,12 +4108,15 @@ def LoopHint : Attr {
 // end INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
 // INTEL_CUSTOMIZATION
-                           ["enable", "disable", "numeric", "assume_safety",
-                            "full", "loopexpr"],
-                           ["Enable", "Disable", "Numeric", "AssumeSafety",
-                            "Full", "LoopExpr"]>,
+                           ["enable", "disable", "numeric", "fixed_width",
+                            "scalable_width", "assume_safety", "full",
+                            "loopexpr"],
+                           ["Enable", "Disable", "Numeric", "FixedWidth",
+                            "ScalableWidth", "AssumeSafety", "Full",
+                            "LoopExpr"]>,
               ExprArgument<"Value">, ExprArgument<"LoopExprValue">];
 // end INTEL_CUSTOMIZATION
+
   let AdditionalMembers = [{
   static const char *getOptionName(int Option) {
     switch(Option) {
