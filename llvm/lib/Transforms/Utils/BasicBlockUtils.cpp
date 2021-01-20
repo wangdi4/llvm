@@ -1555,11 +1555,11 @@ BasicBlock *llvm::CreateControlFlowHub(
   SmallVector<DominatorTree::UpdateType, 16> Updates;
   if (DTU) {
     for (auto In : Incoming) {
+      Updates.push_back({DominatorTree::Insert, In, FirstGuardBlock});
       for (auto Succ : successors(In)) {
         if (Outgoing.count(Succ))
           Updates.push_back({DominatorTree::Delete, In, Succ});
       }
-      Updates.push_back({DominatorTree::Insert, In, FirstGuardBlock});
     }
   }
 
