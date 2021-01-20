@@ -3370,13 +3370,16 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VSCALEFPSZ128rr,          X86::VSCALEFPSZ128rm,          0 },
   { X86::VSCALEFPSZ256rr,          X86::VSCALEFPSZ256rm,          0 },
   { X86::VSCALEFPSZrr,             X86::VSCALEFPSZrm,             0 },
-  { X86::VSCALEFSDZrr,             X86::VSCALEFSDZrm,             TB_NO_REVERSE },
+  { X86::VSCALEFSDZrr,             X86::VSCALEFSDZrm,             0 }, // INTEL
+  { X86::VSCALEFSDZrr_Int,         X86::VSCALEFSDZrm_Int,         TB_NO_REVERSE }, // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VSCALEFSHZrr,             X86::VSCALEFSHZrm,             TB_NO_REVERSE },
+  { X86::VSCALEFSHZrr,             X86::VSCALEFSHZrm,             0 },
+  { X86::VSCALEFSHZrr_Int,         X86::VSCALEFSHZrm_Int,         TB_NO_REVERSE },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-  { X86::VSCALEFSSZrr,             X86::VSCALEFSSZrm,             TB_NO_REVERSE },
+  { X86::VSCALEFSSZrr,             X86::VSCALEFSSZrm,             0 }, // INTEL
+  { X86::VSCALEFSSZrr_Int,         X86::VSCALEFSSZrm_Int,         TB_NO_REVERSE }, // INTEL
   { X86::VSHUFF32X4Z256rri,        X86::VSHUFF32X4Z256rmi,        0 },
   { X86::VSHUFF32X4Zrri,           X86::VSHUFF32X4Zrmi,           0 },
   { X86::VSHUFF64X2Z256rri,        X86::VSHUFF64X2Z256rmi,        0 },
@@ -5317,13 +5320,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VSCALEFPSZ128rrkz,          X86::VSCALEFPSZ128rmkz,          0 },
   { X86::VSCALEFPSZ256rrkz,          X86::VSCALEFPSZ256rmkz,          0 },
   { X86::VSCALEFPSZrrkz,             X86::VSCALEFPSZrmkz,             0 },
-  { X86::VSCALEFSDZrrkz,             X86::VSCALEFSDZrmkz,             TB_NO_REVERSE },
+  { X86::VSCALEFSDZrr_Intkz,         X86::VSCALEFSDZrm_Intkz,         TB_NO_REVERSE }, // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VSCALEFSHZrrkz,             X86::VSCALEFSHZrmkz,             TB_NO_REVERSE },
+  { X86::VSCALEFSHZrr_Intkz,         X86::VSCALEFSHZrm_Intkz,         TB_NO_REVERSE },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-  { X86::VSCALEFSSZrrkz,             X86::VSCALEFSSZrmkz,             TB_NO_REVERSE },
+  { X86::VSCALEFSSZrr_Intkz,         X86::VSCALEFSSZrm_Intkz,         TB_NO_REVERSE }, // INTEL
   { X86::VSHUFF32X4Z256rrikz,        X86::VSHUFF32X4Z256rmikz,        0 },
   { X86::VSHUFF32X4Zrrikz,           X86::VSHUFF32X4Zrmikz,           0 },
   { X86::VSHUFF64X2Z256rrikz,        X86::VSHUFF64X2Z256rmikz,        0 },
@@ -6754,13 +6757,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VSCALEFPSZ128rrk,          X86::VSCALEFPSZ128rmk,          0 },
   { X86::VSCALEFPSZ256rrk,          X86::VSCALEFPSZ256rmk,          0 },
   { X86::VSCALEFPSZrrk,             X86::VSCALEFPSZrmk,             0 },
-  { X86::VSCALEFSDZrrk,             X86::VSCALEFSDZrmk,             TB_NO_REVERSE },
+  { X86::VSCALEFSDZrr_Intk,         X86::VSCALEFSDZrm_Intk,         TB_NO_REVERSE }, // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VSCALEFSHZrrk,             X86::VSCALEFSHZrmk,             TB_NO_REVERSE },
+  { X86::VSCALEFSHZrr_Intk,         X86::VSCALEFSHZrm_Intk,         TB_NO_REVERSE },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-  { X86::VSCALEFSSZrrk,             X86::VSCALEFSSZrmk,             TB_NO_REVERSE },
+  { X86::VSCALEFSSZrr_Intk,         X86::VSCALEFSSZrm_Intk,         TB_NO_REVERSE }, // INTEL
   { X86::VSHUFF32X4Z256rrik,        X86::VSHUFF32X4Z256rmik,        0 },
   { X86::VSHUFF32X4Zrrik,           X86::VSHUFF32X4Zrmik,           0 },
   { X86::VSHUFF64X2Z256rrik,        X86::VSHUFF64X2Z256rmik,        0 },
