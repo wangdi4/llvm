@@ -932,9 +932,9 @@ macro(add_llvm_executable name)
 
   if(NOT ARG_NO_INSTALL_RPATH)
     llvm_setup_rpath(${name})
-  else()
+  elseif(NOT "${LLVM_LOCAL_RPATH}" STREQUAL "")
     # Enable BUILD_WITH_INSTALL_RPATH unless CMAKE_BUILD_RPATH is set.
-    if(NOT "${CMAKE_BUILD_RPATH}" STREQUAL "")
+    if("${CMAKE_BUILD_RPATH}" STREQUAL "")
       set_property(TARGET ${name} PROPERTY BUILD_WITH_INSTALL_RPATH ON)
     endif()
 
@@ -2213,7 +2213,7 @@ function(llvm_setup_rpath name)
   endif()
 
   # Enable BUILD_WITH_INSTALL_RPATH unless CMAKE_BUILD_RPATH is set.
-  if(NOT "${CMAKE_BUILD_RPATH}" STREQUAL "")
+  if("${CMAKE_BUILD_RPATH}" STREQUAL "")
     set_property(TARGET ${name} PROPERTY BUILD_WITH_INSTALL_RPATH ON)
   endif()
 
