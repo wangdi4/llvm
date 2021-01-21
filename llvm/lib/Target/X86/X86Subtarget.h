@@ -1220,6 +1220,12 @@ public:
 #if INTEL_CUSTOMIZATION
   void overrideSchedPolicy(MachineSchedPolicy &Policy,
                            unsigned NumRegionInstrs) const override;
+  bool isVEXInstr(MachineInstr &MI) const override;
+  bool isEVEXInstr(MachineInstr &MI) const override;
+  void setLatencyHeuristic(MachineSchedPolicy &Policy,
+                           unsigned NumRegionInstrs,
+                           MachineBasicBlock::iterator B,
+                           MachineBasicBlock::iterator E) const override;
 #endif // INTEL_CUSTOMIZATION
 };
 

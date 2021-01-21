@@ -2914,6 +2914,10 @@ void GenericScheduler::initPolicy(MachineBasicBlock::iterator Begin,
 
   // Allow the subtarget to override default policy.
   MF.getSubtarget().overrideSchedPolicy(RegionPolicy, NumRegionInstrs);
+#if INTEL_CUSTOMIZATION
+  MF.getSubtarget().setLatencyHeuristic(RegionPolicy, NumRegionInstrs,
+                                        Begin, End);
+#endif // INTEL_CUSTOMIZATION
 
   // After subtarget overrides, apply command line options.
   if (!EnableRegPressure) {
