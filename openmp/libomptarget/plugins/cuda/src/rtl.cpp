@@ -65,7 +65,7 @@
   } while (false)
 #endif // OMPTARGET_DEBUG
 
-#include "../../common/elf_common.c"
+#include "elf_common.h"
 
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
