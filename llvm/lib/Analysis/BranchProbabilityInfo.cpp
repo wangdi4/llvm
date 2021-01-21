@@ -1043,6 +1043,12 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
   }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+  SmallPtrSet<const BasicBlock*, 8> LikelyBlocks;
+  if (L)
+    computeLikelySuccessors(BB, L, LikelyBlocks);
+#endif // INTEL_CUSTOMIZATION
+
   // Changed to 'true' if at least one successor has estimated weight.
   bool FoundEstimatedWeight = false;
   SmallVector<uint32_t, 4> SuccWeights;
@@ -1081,6 +1087,17 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
           Weight.getValueOr(static_cast<uint32_t>(BlockExecWeight::DEFAULT)) /
               2);
     }
+#if INTEL_CUSTOMIZATION
+    bool IsLikelyEdge = LoopBB.getLoop() && LikelyBlocks.contains(SuccBB);
+    if (IsLikelyEdge &&
+        Weight != static_cast<uint32_t>(BlockExecWeight::ZERO)) {
+      Weight = std::max(
+          static_cast<uint32_t>(BlockExecWeight::LOWEST_NON_ZERO),
+          Weight.getValueOr(static_cast<uint32_t>(BlockExecWeight::DEFAULT) *
+                            LBH_LIKELY_WEIGHT) /
+              LBH_TAKEN_WEIGHT);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (Weight)
       FoundEstimatedWeight = true;

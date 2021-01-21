@@ -530,8 +530,8 @@ loop.if:                                          ; preds = %loop.while, %then.b
   %i = phi i32 [ %i1, %loop.while ], [ %i0, %entry ]
   %if.cmp = icmp ugt i32 %i, %max
   br i1 %if.cmp, label %loop.while, label %then.body
-; CHECK: edge loop.if -> loop.while probability is 0x3d482789 / 0x80000000 = 47.88%
-; CHECK: edge loop.if -> then.body probability is 0x42b7d877 / 0x80000000 = 52.12%
+; CHECK: edge loop.if -> loop.while probability is 0x3d4828e9 / 0x80000000 = 47.88%
+; CHECK: edge loop.if -> then.body probability is 0x42b7d717 / 0x80000000 = 52.12%
 
 then.body:                                           ; preds = %loop.while
   %addr.x72 = getelementptr inbounds i32, i32* %addr.x, i32 72
