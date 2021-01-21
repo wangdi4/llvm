@@ -422,7 +422,7 @@ static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device) {
   std::vector<ze_command_queue_group_properties_t> groupProperties(groupCount);
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, groupProperties.data());
-  uint32_t groupOrdinal = groupCount;
+  uint32_t groupOrdinal = UINT32_MAX;
   for (uint32_t i = 0; i < groupCount; i++) {
     auto &flags = groupProperties[i].flags;
     if (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
@@ -430,10 +430,38 @@ static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device) {
       break;
     }
   }
-  if (groupOrdinal == groupCount) {
+
+  if (groupOrdinal == UINT32_MAX)
     IDP("Error: no command queues are found\n");
-    return UINT32_MAX;
+
+  return groupOrdinal;
+}
+
+/// Get multi-context command queue group ordinal and number of queues
+static uint32_t getCmdQueueGroupOrdinalCCS(ze_device_handle_t Device,
+                                           uint32_t &NumQueues) {
+  uint32_t groupCount = 0;
+  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
+              &groupCount, nullptr);
+  std::vector<ze_command_queue_group_properties_t> groupProperties(groupCount);
+  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
+              &groupCount, groupProperties.data());
+  uint32_t groupOrdinal = UINT32_MAX;
+  for (uint32_t i = 0; i < groupCount; i++) {
+    auto &flags = groupProperties[i].flags;
+    if (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE &&
+        groupProperties[i].numQueues > 1) {
+      groupOrdinal = i;
+      NumQueues = groupProperties[i].numQueues;
+      IDP("Found multi-context command queue group for deivce " DPxMOD
+          ", ordinal = %" PRIu32 ", number of queues = %" PRIu32 "\n",
+          DPxPTR(Device), groupOrdinal, NumQueues);
+      break;
+    }
   }
+  if (groupOrdinal == UINT32_MAX)
+    IDP("Could not find multi-context command queue group for device " DPxMOD
+        "\n", DPxPTR(Device));
   return groupOrdinal;
 }
 
@@ -458,14 +486,13 @@ static ze_command_list_handle_t createCmdList(
   return cmdList;
 }
 
-/// Create a command list with default ordinal and flags
+/// Create a command list with default flags
 static ze_command_list_handle_t createCmdList(
-    ze_context_handle_t Context, ze_device_handle_t Device,
+    ze_context_handle_t Context, ze_device_handle_t Device, uint32_t Ordinal,
     std::string &DeviceIdStr) {
-  uint32_t ordinal = getCmdQueueGroupOrdinal(Device);
-  return (ordinal == UINT32_MAX)
+  return (Ordinal == UINT32_MAX)
       ? nullptr
-      : createCmdList(Context, Device, ordinal, 0, DeviceIdStr);
+      : createCmdList(Context, Device, Ordinal, 0, DeviceIdStr);
 }
 
 /// Create a command queue with given ordinal and flags
@@ -473,13 +500,14 @@ static ze_command_queue_handle_t createCmdQueue(
     ze_context_handle_t Context,
     ze_device_handle_t Device,
     uint32_t Ordinal,
+    uint32_t Index,
     ze_command_queue_flags_t Flags,
     std::string &DeviceIdStr) {
   ze_command_queue_desc_t cmdQueueDesc = {
     ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
     nullptr, // extension
     Ordinal,
-    0, // index: TODO: when can we use non-zero index?
+    Index,
     Flags, // flags
     ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
     ZE_COMMAND_QUEUE_PRIORITY_NORMAL
@@ -492,14 +520,13 @@ static ze_command_queue_handle_t createCmdQueue(
   return cmdQueue;
 }
 
-/// Create a command queue with default ordinal and flags
+/// Create a command queue with default flags
 static ze_command_queue_handle_t createCmdQueue(
     ze_context_handle_t Context, ze_device_handle_t Device,
-    std::string &DeviceIdStr) {
-  uint32_t ordinal = getCmdQueueGroupOrdinal(Device);
-  return (ordinal == UINT32_MAX)
+    uint32_t Ordinal, uint32_t Index, std::string &DeviceIdStr) {
+  return (Ordinal == UINT32_MAX)
       ? nullptr
-      : createCmdQueue(Context, Device, ordinal, 0, DeviceIdStr);
+      : createCmdQueue(Context, Device, Ordinal, Index, 0, DeviceIdStr);
 }
 
 /// Create a context
@@ -731,32 +758,51 @@ class RTLDeviceInfoTy {
 
 public:
   uint32_t NumDevices = 0;
-  uint32_t SubDeviceLevels = 2;
+  uint32_t SubDeviceLevels = 1; // L0 API does not support recursive queries
   uint32_t NumRootDevices = 0;
   ze_driver_handle_t Driver = nullptr;
   ze_context_handle_t Context = nullptr;
+
   // Events for kernel profiling
   KernelProfileEventsTy ProfileEvents;
+
   std::vector<ze_device_properties_t> DeviceProperties;
   std::vector<ze_device_compute_properties_t> ComputeProperties;
+
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
+
   // Devices' default target allocation kinds
   std::vector<int32_t> AllocKinds;
+
   std::vector<ze_device_handle_t> Devices;
+
   // Subdevice IDs. It maps users' subdevice IDs to internal subdevice IDs
   std::vector<SubDeviceIdsTy> SubDeviceIds;
+
   // Events for synchronization between subdevices.
   std::vector<SubDeviceEventTy> SubDeviceEvents;
+
   // User-friendly form of device ID string
   std::vector<std::string> DeviceIdStr;
+
   // Use per-thread command list/queue
   std::vector<std::vector<ze_command_list_handle_t>> CmdLists;
   std::vector<std::vector<ze_command_queue_handle_t>> CmdQueues;
+
+  // Command queue group ordinals for each device
+  std::vector<uint32_t> CmdQueueGroupOrdinals;
+
+  // Command queue index for each device
+  std::vector<uint32_t> CmdQueueIndices;
+
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
-  std::vector<std::vector<void *>> OwnedMemory; // Memory owned by the plugin
+
+  // Memory owned by the plugin
+  std::vector<std::vector<void *>> OwnedMemory;
+
   std::vector<std::set<void *>> ImplicitArgsDevice;
   std::vector<std::set<void *>> ImplicitArgsHost;
   std::vector<std::set<void *>> ImplicitArgsShared;
@@ -1015,7 +1061,7 @@ public:
     }
     if (!ThreadLocalHandles[DeviceId].CmdList) {
       auto cmdList = createCmdList(Context, Devices[DeviceId],
-                                   DeviceIdStr[DeviceId]);
+          CmdQueueGroupOrdinals[DeviceId], DeviceIdStr[DeviceId]);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdLists[DeviceId].push_back(cmdList);
@@ -1031,7 +1077,8 @@ public:
     }
     if (!ThreadLocalHandles[DeviceId].CmdQueue) {
       auto cmdQueue = createCmdQueue(Context, Devices[DeviceId],
-                                     DeviceIdStr[DeviceId]);
+          CmdQueueGroupOrdinals[DeviceId], CmdQueueIndices[DeviceId],
+          DeviceIdStr[DeviceId]);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdQueues[DeviceId].push_back(cmdQueue);
@@ -1574,8 +1621,24 @@ static int32_t getAllocKinds(uint32_t L0DeviceId) {
     return TARGET_ALLOC_SHARED; // Integrated device
 }
 
-EXTERN
-int32_t __tgt_rtl_number_of_devices() {
+static int32_t appendDeviceProperties(ze_device_handle_t Device) {
+  ze_device_properties_t properties;
+  ze_device_compute_properties_t computeProperties;
+
+  DeviceInfo->Devices.push_back(Device);
+
+  CALL_ZE_RET_FAIL(zeDeviceGetProperties, Device, &properties);
+  DeviceInfo->DeviceProperties.push_back(properties);
+  DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
+  DeviceInfo->AllocKinds.push_back(getAllocKinds(properties.deviceId));
+
+  CALL_ZE_RET_FAIL(zeDeviceGetComputeProperties, Device, &computeProperties);
+  DeviceInfo->ComputeProperties.push_back(computeProperties);
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_number_of_devices() {
   IDP("Looking for Level0 devices...\n");
 
   CALL_ZE_RET_ZERO(zeInit, ZE_INIT_FLAG_GPU_ONLY);
@@ -1612,51 +1675,63 @@ int32_t __tgt_rtl_number_of_devices() {
       CALL_ZE_RET_ZERO(zeDeviceGetProperties, device, &properties);
       IDP("Found a GPU device, Name = %s\n", properties.name);
 
-      ze_device_compute_properties_t computeProperties;
-      CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, device,
-                       &computeProperties);
-
       if (deviceMode == DEVICE_MODE_TOP || deviceMode == DEVICE_MODE_ALL) {
-        DeviceInfo->Devices.push_back(device);
-        DeviceInfo->DeviceProperties.push_back(properties);
-        DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
-        DeviceInfo->AllocKinds.push_back(getAllocKinds(properties.deviceId));
-        DeviceInfo->ComputeProperties.push_back(computeProperties);
+        if (appendDeviceProperties(device) != OFFLOAD_SUCCESS)
+          return 0;
         DeviceInfo->DeviceIdStr.push_back(std::to_string(i));
+        DeviceInfo->CmdQueueGroupOrdinals.push_back(
+            getCmdQueueGroupOrdinal(device));
+        DeviceInfo->CmdQueueIndices.push_back(0);
       }
 
-      // Find subdevices, add them to the device list, mark where thye are.
+      // Find subdevices, add them to the device list, mark where they are.
       // Collect lists of subdevice handles first.
       SubDeviceListsTy subDeviceLists;
       if (getSubDevices(0, device, subDeviceLists) != OFFLOAD_SUCCESS)
         return 0;
-      DeviceInfo->SubDeviceIds.emplace_back(SubDeviceIdsTy());
+      DeviceInfo->SubDeviceIds.emplace_back();
       auto &subDeviceIds = DeviceInfo->SubDeviceIds.back();
 
       // Fill internal data using the list of subdevice handles.
       // Internally, all devices/subdevices are listed as follows for N devices
       // where Subdevices(i,j) is a list of subdevices for device i at level j.
       // [0..N-1][Subdevices(0,0),Subdevices(0,1)]..[Subdevices(N-1,0)..]
-      for (size_t j = 0; j < subDeviceLists.size(); j++) {
-        subDeviceIds.emplace_back(std::vector<int32_t>());
-        for (size_t k = 0; k < subDeviceLists[j].size(); k++) {
-          if ((deviceMode == DEVICE_MODE_SUB && j != 0) ||
-              (deviceMode == DEVICE_MODE_SUBSUB && j != 1))
-            continue;
-          // All other cases require these internal data.
-          auto subDevice = subDeviceLists[j][k];
-          subDeviceIds.back().push_back(DeviceInfo->Devices.size());
-          DeviceInfo->Devices.push_back(subDevice);
-          CALL_ZE_RET_ZERO(zeDeviceGetProperties, subDevice, &properties);
-          DeviceInfo->DeviceProperties.push_back(properties);
-          DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
-          DeviceInfo->AllocKinds.push_back(getAllocKinds(properties.deviceId));
-          CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, subDevice,
-                           &computeProperties);
-          DeviceInfo->ComputeProperties.push_back(computeProperties);
-          DeviceInfo->DeviceIdStr.push_back(std::to_string(i) + "." +
-                                            std::to_string(j) + "." +
-                                            std::to_string(k));
+      // Recursive subdevice query is not supported, so use existing query only
+      // for the first-level subdevice, and use multi-context queue/list for the
+      // second-level subdevice.
+      if (!subDeviceLists.empty()) {
+        // Fill per-device data for subdevice
+        if (deviceMode != DEVICE_MODE_SUBSUB) {
+          subDeviceIds.emplace_back();
+          for (size_t k = 0; k < subDeviceLists[0].size(); k++) {
+            auto subDevice = subDeviceLists[0][k];
+            subDeviceIds.back().push_back(DeviceInfo->Devices.size());
+            if (appendDeviceProperties(subDevice) != OFFLOAD_SUCCESS)
+              return 0;
+            DeviceInfo->DeviceIdStr.push_back(
+                std::to_string(i) + ".0." + std::to_string(k));
+            DeviceInfo->CmdQueueGroupOrdinals.push_back(
+                getCmdQueueGroupOrdinal(subDevice));
+            DeviceInfo->CmdQueueIndices.push_back(0);
+          }
+        }
+        // Fill per-device data for subsubdevice
+        if (deviceMode != DEVICE_MODE_SUB) {
+          subDeviceIds.emplace_back();
+          for (size_t k = 0; k < subDeviceLists[0].size(); k++) {
+            auto subDevice = subDeviceLists[0][k];
+            uint32_t numQueues = 0;
+            uint32_t ordinal = getCmdQueueGroupOrdinalCCS(subDevice, numQueues);
+            for (uint32_t j = 0; j < numQueues; j++) {
+              subDeviceIds.back().push_back(DeviceInfo->Devices.size());
+              if (appendDeviceProperties(subDevice) != OFFLOAD_SUCCESS)
+                return 0;
+              DeviceInfo->DeviceIdStr.push_back(std::to_string(i) + ".1." +
+                  std::to_string(k * numQueues + j));
+              DeviceInfo->CmdQueueGroupOrdinals.push_back(ordinal);
+              DeviceInfo->CmdQueueIndices.push_back(j);
+            }
+          }
         }
       }
     }
@@ -2178,6 +2253,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     copyLock.lock();
     auto context = DeviceInfo->Context;
     auto cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
+                                 DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
                                  DeviceInfo->DeviceIdStr[DeviceId]);
     auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
     if (!cmdList) {
@@ -2249,6 +2325,7 @@ static int32_t retrieveData(
     copyLock.lock();
     auto context = DeviceInfo->Context;
     auto cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
+                                 DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
                                  DeviceInfo->DeviceIdStr[DeviceId]);
     auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
     if (!cmdList) {
@@ -2811,6 +2888,7 @@ static int32_t runTargetTeamRegion(
 
   if (AsyncEvent) {
     cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
+                            DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
                             DeviceInfo->DeviceIdStr[DeviceId]);
     if (!cmdList) {
       IDP("Error: Asynchronous execution failed -- invalid command list\n");
@@ -2953,6 +3031,8 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t DeviceId, bool IsAsync) {
   // TODO: check with MKL team and decide what to do with IsAsync
   ze_command_queue_handle_t cmdQueue =
       createCmdQueue(DeviceInfo->Context, DeviceInfo->Devices[DeviceId],
+                     DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
+                     DeviceInfo->CmdQueueIndices[DeviceId],
                      DeviceInfo->DeviceIdStr[DeviceId]);
   IDP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
      DPxPTR(cmdQueue));
