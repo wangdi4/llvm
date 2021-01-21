@@ -33,6 +33,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/CodeGen/MachineScheduler.h" //INTEL
+#include "MCTargetDesc/X86BaseInfo.h" // INTEL
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -354,7 +355,45 @@ bool X86Subtarget::isPositionIndependent() const {
 #if INTEL_CUSTOMIZATION
 void X86Subtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
                                            unsigned NumRegionInstrs) const {
+  Policy.DisableLatencyHeuristic = false;
   if(!hasAVX512())
     Policy.DisableLatencyHeuristic = true;
+}
+
+bool X86Subtarget::isVEXInstr(MachineInstr &MI) const {
+      auto TSFlags = MI.getDesc().TSFlags;
+      return ((TSFlags & X86II::EncodingMask) & X86II::VEX) != 0;
+}
+
+bool X86Subtarget::isEVEXInstr(MachineInstr &MI) const {
+      auto TSFlags = MI.getDesc().TSFlags;
+      return ((TSFlags & X86II::EncodingMask) & X86II::EVEX) != 0;
+}
+
+void X86Subtarget::setLatencyHeuristic(MachineSchedPolicy &RegionPolicy,
+                                       unsigned NumRegionInstrs,
+                                       MachineBasicBlock::iterator B,
+                                       MachineBasicBlock::iterator E) const {
+  MachineBasicBlock::iterator I = E;
+  unsigned NumRegionVEXInstrs = 0;
+  for (;I != B; --I) {
+    MachineInstr &MI = *std::prev(I);
+    if (!MI.isDebugInstr()) {
+      if (isVEXInstr(MI) || isEVEXInstr(MI))
+        ++NumRegionVEXInstrs;
+    }
+  }
+  if (NumRegionInstrs >= NumRegionVEXInstrs * 1.5)
+    RegionPolicy.DisableLatencyHeuristic |= true;
+
+  LLVM_DEBUG(
+    MachineBasicBlock *MBB = (*B).getParent();
+    MachineFunction *MF = MBB->getParent();
+    dbgs() << MF->getName() << ":" << printMBBReference(*MBB)
+    << " " << MBB->getName() << "\n"
+    << "Inst=" << NumRegionInstrs
+    << " VexInst= " << NumRegionVEXInstrs << "\n"
+    << "DisableLatencyHeuristic = "
+    << RegionPolicy.DisableLatencyHeuristic << "\n");
 }
 #endif // INTEL_CUSTOMIZATION

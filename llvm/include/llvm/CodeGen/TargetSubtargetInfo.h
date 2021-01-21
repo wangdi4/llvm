@@ -24,6 +24,7 @@
 #include "llvm/Support/CodeGen.h"
 #include <memory>
 #include <vector>
+#include "llvm/CodeGen/MachineBasicBlock.h" // INTEL
 
 namespace llvm {
 
@@ -312,6 +313,19 @@ public:
                                            unsigned PhysReg) const {
     return false;
   }
+#if INTEL_CUSTOMIZATION
+  virtual bool isVEXInstr(MachineInstr &MI) const {
+    return false;
+  }
+  virtual bool isEVEXInstr(MachineInstr &MI) const {
+    return false;
+  }
+  virtual void setLatencyHeuristic(MachineSchedPolicy &Policy,
+                                   unsigned NumRegionInstrs,
+                                   MachineBasicBlock::iterator B,
+                                   MachineBasicBlock::iterator E) const {
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm
