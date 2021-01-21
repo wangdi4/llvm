@@ -21,9 +21,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class FPGAEmuBuiltinLibrary : public CPUBuiltinLibrary
 {
 public:
-    FPGAEmuBuiltinLibrary(const Intel::CPUId &cpuId) :
-    CPUBuiltinLibrary(cpuId) { }
-    virtual ~FPGAEmuBuiltinLibrary() { }
+    FPGAEmuBuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId)
+        : CPUBuiltinLibrary(cpuId) {}
+    virtual ~FPGAEmuBuiltinLibrary() {}
 
     virtual void Load() override;
 };

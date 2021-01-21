@@ -433,7 +433,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
 
   // Leaving MArch blank implies using auto-detect
   llvm::StringRef MArch = "";
-  llvm::StringRef MCPU  = m_CpuId.GetCPUName();
+  llvm::StringRef MCPU = m_CpuId->GetCPUName();
 
   llvm::Triple ModuleTriple(pModule->getTargetTriple());
 
@@ -757,7 +757,7 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
 {
     // Check for the limitation: "Images are not supported on Xeon Phi".
-    if (m_CpuId.GetCPU() == CPU_KNL &&
+    if (m_CpuId->GetCPU() == Intel::OpenCL::Utils::CPU_KNL &&
         CompilationUtils::isImagesUsed(*pModule)) {
       pResult->LogS() << "Images are not supported on given device.\n";
       return false;
@@ -771,16 +771,16 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
     // Validate if the vectorized mode valid and supported by the target arch.
     // If not then issue an error and interrupt the build.
 
-    switch (m_CpuId.isTransposeSizeSupported(m_transposeSize)) {
-    case SUPPORTED:
+    switch (m_CpuId->isTransposeSizeSupported(m_transposeSize)) {
+    case Intel::OpenCL::Utils::SUPPORTED:
       return;
 
-    case INVALID:
+    case Intel::OpenCL::Utils::INVALID:
       log << "The specified vectorizer mode (" << m_transposeSize
           << ") is invalid.\n";
       break;
 
-    case UNSUPPORTED:
+    case Intel::OpenCL::Utils::UNSUPPORTED:
       log << "The specified vectorizer mode (" << m_transposeSize
           << ") is not supported by the target architecture.\n";
       break;

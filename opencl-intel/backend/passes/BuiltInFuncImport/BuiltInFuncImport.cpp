@@ -16,7 +16,6 @@
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
-#include "TargetArch.h"
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -33,8 +32,11 @@
 
 #include <string>
 
+#include "cl_cpu_detect.h"
+
 using namespace std;
 using namespace llvm;
+using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 // Add command line to pass CPU prefix to BIImport through oclopt/ocloptimg
 static cl::opt<std::string> OptCPUPrefix(
@@ -100,16 +102,16 @@ namespace intel {
 
     // Get svml calling convention based on cpu perfix
     llvm::CallingConv::ID CC = llvm::CallingConv::C; // default
-    if (m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixSSE(true)) == 0 ||
-        m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixSSE(false)) == 0)
+    if (m_cpuPrefix.compare(CPUDetect::GetCPUPrefixSSE(true)) == 0 ||
+        m_cpuPrefix.compare(CPUDetect::GetCPUPrefixSSE(false)) == 0)
       CC = llvm::CallingConv::Intel_OCL_BI;
-    else if (m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX(true)) == 0 ||
-             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX(false)) == 0 ||
-             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX2(true)) == 0 ||
-             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX2(false)) == 0)
+    else if (m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX(true)) == 0 ||
+             m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX(false)) == 0 ||
+             m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX2(true)) == 0 ||
+             m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX2(false)) == 0)
       CC = llvm::CallingConv::Intel_OCL_BI_AVX;
-    else if (m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX512(true)) == 0 ||
-             m_cpuPrefix.compare(Intel::CPUId::GetCPUPrefixAVX512(false)) == 0)
+    else if (m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX512(true)) == 0 ||
+             m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX512(false)) == 0)
       CC = llvm::CallingConv::Intel_OCL_BI_AVX512;
 
     for (auto &SvmlF : SvmlFunctions) {

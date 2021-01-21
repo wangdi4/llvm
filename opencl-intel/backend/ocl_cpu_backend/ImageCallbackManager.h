@@ -13,7 +13,7 @@
 // License.
 
 #pragma once
-#include "CPUDetect.h"
+#include "cl_cpu_detect.h"
 #include "ICompilerConfig.h"
 #include "ImageCallbackLibrary.h"
 
@@ -50,19 +50,25 @@ public:
     /**
      * Initializes the \see BuiltinsLibrary for the given cpu if it hasn't been loaded before.
      */
-    bool InitLibrary(const ICompilerConfig& config, bool isCpu, Intel::CPUId& cpuId);
+    bool InitLibrary(const ICompilerConfig &config, bool isCpu,
+                     Intel::OpenCL::Utils::CPUDetect *cpuId);
 
     /***
     * Returns the image callback functions per architecture
     ****/
 
-    ImageCallbackFunctions* getCallbackFunctions(const Intel::CPUId&);
+    ImageCallbackFunctions *
+    getCallbackFunctions(const Intel::OpenCL::Utils::CPUDetect *);
 
-private:
-    typedef std::map<Intel::CPUId, ImageCallbackLibrary*> ImageCallbackMap;
+  private:
+    typedef std::map<const Intel::OpenCL::Utils::CPUDetect *,
+                     ImageCallbackLibrary *>
+        ImageCallbackMap;
 
     static ImageCallbackManager* s_pInstance;
     ImageCallbackMap m_ImageCallbackLibs;
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

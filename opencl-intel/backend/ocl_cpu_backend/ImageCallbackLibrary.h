@@ -15,10 +15,10 @@
 #pragma once
 
 #include "BuiltinModules.h"
-#include "CPUDetect.h"
 #include "CPUCompiler.h"
 #include "StaticObjectLoader.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
+#include "cl_cpu_detect.h"
 #include "cl_utils.h"
 
 #include <memory>
@@ -226,24 +226,26 @@ public:
     /**
     *  ctor
     */
-    ImageCallbackLibrary(Intel::CPUId cpuId, CPUCompiler* compiler):
-      m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler)
-    { }
+  ImageCallbackLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId,
+                       CPUCompiler *compiler)
+      : m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler) {}
 
-    /**
-    *  Populates m_ImageFunctions. Should only be called after Load call
-    */
-    void Build();
-    /**
-    *  MIC-specific: serialize library and load it to the device
-    *  Then send address back to the host
-    */
-    bool LoadExecutable();
-    /**
-    *  Returns pointer to object with previously built image function pointers.
-    *  library should already be loaded and built
-    */
-    ImageCallbackFunctions* getImageCallbackFunctions(){ return m_ImageFunctions; }
+  /**
+   *  Populates m_ImageFunctions. Should only be called after Load call
+   */
+  void Build();
+  /**
+   *  MIC-specific: serialize library and load it to the device
+   *  Then send address back to the host
+   */
+  bool LoadExecutable();
+  /**
+   *  Returns pointer to object with previously built image function pointers.
+   *  library should already be loaded and built
+   */
+  ImageCallbackFunctions *getImageCallbackFunctions() {
+    return m_ImageFunctions;
+  }
 
     ~ImageCallbackLibrary();
 
@@ -253,7 +255,7 @@ private:
     std::string getLibraryBasename();
     std::string getLibraryObjectName();
 
-    Intel::CPUId m_CpuId;
+    const Intel::OpenCL::Utils::CPUDetect *m_CpuId;
     // Instance with all function pointers. Owned by this class
     ImageCallbackFunctions* m_ImageFunctions;
     // Pointer to Compiler. Owned by this class.

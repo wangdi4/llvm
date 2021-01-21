@@ -32,6 +32,8 @@
 #define SPIR_TARGET_TRIPLE "spir-unknown-unknown"
 #endif
 
+using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 namespace Utils {
@@ -143,13 +145,13 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
         return CL_DEV_SUCCESS;
 
     bool valid = true;
-    CPUId cpuId = m_programBuilder.GetCompiler()->GetCpuId();
+    CPUDetect *cpuId = m_programBuilder.GetCompiler()->GetCpuId();
 
     // check bitOS
     // get bitOS from ELF header
     CLElfLib::E_EH_MACHINE headerBit = static_cast<CLElfLib::E_EH_MACHINE>(reader.GetElfHeader()->Machine);
-    valid = cpuId.Is64BitOS() ? (headerBit == CLElfLib::EM_X86_64)
-                              : (headerBit == CLElfLib::EM_860);
+    valid = cpuId->Is64BitOS() ? (headerBit == CLElfLib::EM_X86_64)
+                               : (headerBit == CLElfLib::EM_860);
 
     // Check version of binary.
     // If binary doesn't contain section with version - return CL_INVALID_BINARY.
@@ -169,28 +171,29 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
     // check maximum supported instruction
     // get maximum supported instruction from ELF header
     CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
+    Intel::OpenCL::Utils::ECPU cpu = Intel::OpenCL::Utils::CPU_UNKNOWN;
 
-    ECPU cpu = DEVICE_INVALID;
     if (headerFlag == CLElfLib::EH_FLAG_AVX512_ICL){
-        valid &= cpuId.HasAVX512ICL();
-        cpu = CPU_ICL;
+      valid &= cpuId->HasAVX512ICL();
+      cpu = Intel::OpenCL::Utils::CPU_ICL;
     }else if (headerFlag == CLElfLib::EH_FLAG_AVX512_SKX){
-        valid &= cpuId.HasAVX512SKX();
-        cpu = CPU_SKX;
+      valid &= cpuId->HasAVX512SKX();
+      cpu = Intel::OpenCL::Utils::CPU_SKX;
     }else if (headerFlag == CLElfLib::EH_FLAG_AVX2){
-        valid &= cpuId.HasAVX2();
-        cpu = CPU_HASWELL;
+      valid &= cpuId->HasAVX2();
+      cpu = Intel::OpenCL::Utils::CPU_HSW;
     }else if (headerFlag == CLElfLib::EH_FLAG_AVX1){
-        valid &= cpuId.HasAVX1();
-        cpu = CPU_SANDYBRIDGE;
+      valid &= cpuId->HasAVX1();
+      cpu = Intel::OpenCL::Utils::CPU_SNB;
     }else if (headerFlag == CLElfLib::EH_FLAG_SSE4){
-        valid &= (cpuId.HasSSE41()||cpuId.HasSSE42());
-        cpu = CPU_COREI7;
+      valid &= (cpuId->HasSSE41() || cpuId->HasSSE42());
+      cpu = Intel::OpenCL::Utils::CPU_COREI7;
     }else{
         valid=false;
     }
-    if (valid && cpuId.GetCPU() != cpu)
-        m_programBuilder.GetCompiler()->SetBuiltinModules(CPUId::GetCPUName(cpu));
+    if (valid && cpuId->GetCPU() != cpu)
+      m_programBuilder.GetCompiler()->SetBuiltinModules(
+          CPUDetect::GetCPUName(cpu));
     return valid ? CL_DEV_SUCCESS : CL_DEV_INVALID_BINARY;
 }
 }}}

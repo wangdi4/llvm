@@ -13,10 +13,12 @@
 // License.
 
 #pragma once
-#include "CPUDetect.h"
+#include "cl_cpu_detect.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include <map>
 #include <thread>
+
+using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 namespace llvm
 {
@@ -54,16 +56,17 @@ public:
     /**
      * Returns the \see BuiltinsLibrary for the given cpu. Loads it if necessary
      */
-    BuiltinLibrary* GetOrLoadCPULibrary(Intel::CPUId cpuId);
+    BuiltinLibrary *GetOrLoadCPULibrary(const CPUDetect *cpuId);
     /**
-     * Returns the \see BuiltinsLibrary for an EyeQ device, based on the given cpu. Loads it if necessary
+     * Returns the \see BuiltinsLibrary for an EyeQ device, based on the given
+     * cpu. Loads it if necessary
      */
-    BuiltinLibrary* GetOrLoadEyeQLibrary(Intel::CPUId cpuId);
+    BuiltinLibrary *GetOrLoadEyeQLibrary(const CPUDetect *cpuId);
 
     /**
      * Returns the \see BuiltinsLibrary for the FPGA emu. Loads it if necessary
      */
-    BuiltinLibrary* GetOrLoadFPGAEmuLibrary(Intel::CPUId cpuId);
+    BuiltinLibrary *GetOrLoadFPGAEmuLibrary(const CPUDetect *cpuId);
 
     /**
      * Creates the builtins module for the given cpu using the given LLVMContext
@@ -76,13 +79,13 @@ public:
     llvm::Error RegisterCPUBIFunctionsToLLJIT(llvm::orc::LLJIT *LLJIT);
 
 private:
-    template <typename DeviceBuiltinLibrary>
-    BuiltinLibrary* GetOrLoadDeviceLibrary(Intel::CPUId cpuId);
+  template <typename DeviceBuiltinLibrary>
+  BuiltinLibrary *GetOrLoadDeviceLibrary(const CPUDetect *cpuId);
 
-    typedef std::pair<std::thread::id, CPUId> TIdCpuId;
-    typedef std::map<TIdCpuId, BuiltinLibrary*> BuiltinsMap;
-    static BuiltinModuleManager* s_pInstance;
-    BuiltinsMap m_BuiltinLibs;
+  typedef std::pair<std::thread::id, const CPUDetect *> TIdCpuId;
+  typedef std::map<TIdCpuId, BuiltinLibrary *> BuiltinsMap;
+  static BuiltinModuleManager *s_pInstance;
+  BuiltinsMap m_BuiltinLibs;
 };
 
 }}}

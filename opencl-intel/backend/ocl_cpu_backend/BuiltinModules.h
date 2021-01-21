@@ -20,8 +20,8 @@
 #include <assert.h>
 #include <string>
 #include <memory>
+#include "cl_cpu_detect.h"
 #include "cl_dev_backend_api.h"
-#include "CPUDetect.h"
 #include "IDynamicFunctionsResolver.h"
 
 namespace llvm
@@ -45,10 +45,12 @@ public:
 class BuiltinLibrary : public IDynamicFunctionsResolver
 {
 public:
-    BuiltinLibrary(const Intel::CPUId&);
-    virtual ~BuiltinLibrary();
+  BuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *);
+  virtual ~BuiltinLibrary();
 
-    std::unique_ptr<llvm::MemoryBuffer> GetRtlBuffer() const { return std::unique_ptr<llvm::MemoryBuffer>(m_pRtlBuffer); }
+  std::unique_ptr<llvm::MemoryBuffer> GetRtlBuffer() const {
+    return std::unique_ptr<llvm::MemoryBuffer>(m_pRtlBuffer);
+  }
     std::unique_ptr<llvm::MemoryBuffer> GetRtlBufferSvmlShared() const { return std::unique_ptr<llvm::MemoryBuffer>(m_pRtlBufferSvmlShared); }
     llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4> GetRtlBuffersForEyeQEmulationMode() const {
         llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4> Ret;
@@ -58,7 +60,7 @@ public:
         return Ret;
     }
 
-    ECPU GetCPU() const { return m_cpuId.GetCPU();}
+    Intel::OpenCL::Utils::ECPU GetCPU() const { return m_cpuId->GetCPU(); }
 
     virtual void SetContext(const void * /*pContext*/) {
       assert(false && "Set Builtin Library Context Not Implemented");
@@ -76,11 +78,11 @@ public:
     }
 
 protected:
-    const Intel::CPUId   m_cpuId;
-    llvm::MemoryBuffer* m_pRtlBuffer;
-    llvm::MemoryBuffer* m_pRtlBufferSvmlShared;
-    llvm::SmallVector<llvm::MemoryBuffer* , 4> m_RtlBuffersForEyeQEmulationMode;
-    std::string m_builtinLibLog;
+  const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
+  llvm::MemoryBuffer *m_pRtlBuffer;
+  llvm::MemoryBuffer *m_pRtlBufferSvmlShared;
+  llvm::SmallVector<llvm::MemoryBuffer *, 4> m_RtlBuffersForEyeQEmulationMode;
+  std::string m_builtinLibLog;
 };
 
 

@@ -142,7 +142,8 @@ OCL_INITIALIZE_PASS_BEGIN(OCLVecClone, SV_NAME, lv_name,
 OCL_INITIALIZE_PASS_END(OCLVecClone, SV_NAME, lv_name,
                         false /* modififies CFG */, false /* transform pass */)
 
-OCLVecClone::OCLVecClone(const Intel::CPUId *CPUId, bool IsOCL)
+OCLVecClone::OCLVecClone(const Intel::OpenCL::Utils::CPUDetect *CPUId,
+                         bool IsOCL)
     : ModulePass(ID), Impl(CPUId, IsOCL) {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
@@ -154,8 +155,8 @@ bool OCLVecClone::runOnModule(Module &M) {
   return Impl.runImpl(M);
 }
 
-OCLVecCloneImpl::OCLVecCloneImpl(
-    const Intel::CPUId *CPUId, bool IsOCL)
+OCLVecCloneImpl::OCLVecCloneImpl(const Intel::OpenCL::Utils::CPUDetect *CPUId,
+                                 bool IsOCL)
     : VecCloneImpl(), CPUId(CPUId), IsOCL(IsOCL) {
   V_INIT_PRINT;
 }
@@ -972,8 +973,9 @@ bool OCLReqdSubGroupSize::runOnModule(Module &M) {
 }
 } // namespace intel
 
-extern "C" Pass *createOCLVecClonePass(
-    const Intel::CPUId *CPUId, bool IsOCL) {
+extern "C" Pass *
+createOCLVecClonePass(const Intel::OpenCL::Utils::CPUDetect *CPUId,
+                      bool IsOCL) {
   return new intel::OCLVecClone(CPUId, IsOCL);
 }
 

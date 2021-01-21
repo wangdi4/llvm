@@ -79,7 +79,8 @@ void KernelProperties::Serialize(IOutputStream &ost,
   Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
   Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
   Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
-  Serializer::SerialPrimitive(&m_cpuId, ost);
+  Serializer::SerialPrimitive(&m_hasAVX1, ost);
+  Serializer::SerialPrimitive(&m_hasAVX2, ost);
 
   // using unsigned long long int instead of size_t is because that size_t
   // varies in it's size relating to the platform (32/64 bit)
@@ -139,7 +140,8 @@ void KernelProperties::Deserialize(IInputStream &ist,
   Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
   Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
   Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
-  Serializer::DeserialPrimitive(&m_cpuId, ist);
+  Serializer::DeserialPrimitive(&m_hasAVX1, ist);
+  Serializer::DeserialPrimitive(&m_hasAVX2, ist);
 
   // using unsigned long long int instead of size_t is because that size_t
   // varies in it's size relating to the platform (32/64 bit)

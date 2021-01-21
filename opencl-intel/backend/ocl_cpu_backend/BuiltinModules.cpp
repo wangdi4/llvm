@@ -24,12 +24,8 @@ BuiltinModules::BuiltinModules(llvm::SmallVector<llvm::Module*, 2> builtinsModul
 
 BuiltinModules::~BuiltinModules() { }
 
-BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
-    m_cpuId(cpuId),
-    m_pRtlBuffer(nullptr),
-    m_pRtlBufferSvmlShared(nullptr)
-{
-}
+BuiltinLibrary::BuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId)
+    : m_cpuId(cpuId), m_pRtlBuffer(nullptr), m_pRtlBufferSvmlShared(nullptr) {}
 
 BuiltinLibrary::~BuiltinLibrary()
 { }

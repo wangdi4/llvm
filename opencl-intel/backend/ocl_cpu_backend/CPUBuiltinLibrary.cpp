@@ -35,7 +35,7 @@ void CPUBuiltinLibrary::Load() {
   Utils::SystemInfo::GetModuleDirectory(Path, MAX_PATH);
 
   // Klocwork warning - false alarm the Id is always in correct bounds
-  const char* CPUPrefix = m_cpuId.GetCPUPrefix();
+  const char *CPUPrefix = m_cpuId->GetCPUPrefix();
   std::string PathStr(Path);
 
   if (m_useDynamicSvmlLibrary) {

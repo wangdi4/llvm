@@ -18,7 +18,6 @@
 #include "BuiltinLibInfo.h"
 #include "Logger.h"
 #include "SoaAllocaAnalysis.h"
-#include "TargetArch.h"
 #include "VectorizerCommon.h"
 
 #include "llvm/Pass.h"
@@ -35,6 +34,7 @@
 #include <string>
 #include <sstream>
 
+#include "cl_cpu_detect.h"
 namespace intel {
 
 /// @brief Scalarization pass used for converting code in functions
@@ -46,8 +46,9 @@ namespace intel {
 class ScalarizeFunction : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  ScalarizeFunction(Intel::ECPU Cpu = Intel::DEVICE_INVALID,
-                    bool InVPlanPipeline = false);
+  ScalarizeFunction(
+      Intel::OpenCL::Utils::ECPU Cpu = Intel::OpenCL::Utils::CPU_UNKNOWN,
+      bool InVPlanPipeline = false);
   ~ScalarizeFunction();
 
   /// @brief Provides name of pass
@@ -272,7 +273,7 @@ private:
   bool UseScatterGather;
 
   /// @brief cpuid
-  Intel::ECPU m_Cpu;
+  Intel::OpenCL::Utils::ECPU m_Cpu;
 
   /// @brief This holds DataLayout of processed module
   const DataLayout *m_pDL;

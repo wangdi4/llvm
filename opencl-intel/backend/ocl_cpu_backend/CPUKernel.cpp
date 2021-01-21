@@ -51,8 +51,8 @@ CPUKernel::CPUKernel(const std::string& name,
     KernelProperties* pProps) :
     Kernel(name, args, memArgs, pProps)
 {
-    m_hasAVX1 = m_pProps->GetCpuId().HasAVX1();
-    m_hasAVX2 = m_pProps->GetCpuId().HasAVX2();
+  m_hasAVX1 = m_pProps->GetHasAVX1();
+  m_hasAVX2 = m_pProps->GetHasAVX2();
 }
 
 cl_dev_err_code CPUKernel::PrepareThreadState(ICLDevExecutionState& state) const

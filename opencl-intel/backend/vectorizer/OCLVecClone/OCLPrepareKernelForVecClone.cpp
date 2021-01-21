@@ -32,7 +32,6 @@
 #include "OCLPrepareKernelForVecClone.h"
 #include "InitializePasses.h"
 #include "MetadataAPI.h"
-#include "TargetArch.h"
 
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -59,7 +58,7 @@ static cl::opt<IsaEncodingValue> CPUIsaEncodingOverride(
 namespace intel {
 
 OCLPrepareKernelForVecClone::OCLPrepareKernelForVecClone(
-    const Intel::CPUId *CPUId)
+    const Intel::OpenCL::Utils::CPUDetect *CPUId)
     : CPUId(CPUId) {}
 
 OCLPrepareKernelForVecClone::OCLPrepareKernelForVecClone() {}

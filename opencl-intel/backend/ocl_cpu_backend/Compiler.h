@@ -15,7 +15,7 @@
 #pragma once
 
 #include "cl_dev_backend_api.h"
-#include "CPUDetect.h"
+#include "cl_cpu_detect.h"
 #include "ICompilerConfig.h"
 
 #include "llvm/ADT/SmallVector.h"
@@ -176,7 +176,7 @@ public:
         llvm::Module*, const char* pBuildOpts, ProgramBuildResult* pResult,
         std::unique_ptr<llvm::TargetMachine> &targetMachine);
 
-    const CPUId &GetCpuId() const { return m_CpuId; }
+    Intel::OpenCL::Utils::CPUDetect *GetCpuId() const { return m_CpuId; }
 
     // Create execution engine
     virtual void CreateExecutionEngine(llvm::Module* m)  = 0;
@@ -231,9 +231,9 @@ protected:
     // Each host thread should have its own LLVMContext, because it is not
     // thread-safe for multiple threads to access LLVM resources within a
     // single LLVMContext.
-    std::unordered_map<std::thread::id, llvm::LLVMContext*> m_LLVMContexts;
-    llvm::sys::Mutex         m_LLVMContextMutex;
-    Intel::CPUId             m_CpuId;
+    std::unordered_map<std::thread::id, llvm::LLVMContext *> m_LLVMContexts;
+    llvm::sys::Mutex m_LLVMContextMutex;
+    Intel::OpenCL::Utils::CPUDetect *m_CpuId;
     llvm::SmallVector<std::string, 8>
                              m_forcedCpuFeatures;
     ETransposeSize           m_transposeSize;

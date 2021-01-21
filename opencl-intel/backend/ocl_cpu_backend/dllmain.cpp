@@ -26,7 +26,7 @@
 #include "LibraryProgramManager.h"
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
-#include "CPUDetect.h"
+#include "cl_cpu_detect.h"
 #include "cl_disable_sys_dialog.h"
 #include "cl_shutdown.h"
 #include "ocl_mutex.h"
@@ -195,8 +195,6 @@ extern "C"
         DebuggingServiceWrapper::GetInstance().Terminate();
         ServiceFactory::Terminate();
         BackendConfiguration::Terminate();
-
-        Intel::OpenCL::DeviceBackend::Utils::CPUDetect::Release();
     }
 
     LLVM_BACKEND_API ICLDevBackendServiceFactory* GetDeviceBackendFactory()

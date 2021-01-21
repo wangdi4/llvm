@@ -29,8 +29,8 @@ File Name:  BackendWrapper.h
 
 #include "BE_DynamicLib.h"
 #include "BWOptions.h" // the implemented Options classes
-#include "CPUDetect.h"
 #include "Exception.h"
+#include "cl_cpu_detect.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "mem_utils.h"

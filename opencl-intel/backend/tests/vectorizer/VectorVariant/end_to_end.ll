@@ -18,8 +18,8 @@ entry:
 
 ; CHECK-DAG: define void @_ZGVeN4u_test
 ; CHECK-DAG: define void @_ZGVeM4u_test
-; CHECK-DAG: define void @_ZGVbM4_direct
-; CHECK-DAG: define void @_ZGVbN4_direct
+; CHECK-DAG: define void @_ZGV{{[bcde]}}M4_direct
+; CHECK-DAG: define void @_ZGV{{[bcde]}}N4_direct
 
 declare dso_local i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv()
 
@@ -27,7 +27,7 @@ declare i32 @__intel_indirect_call_i32_p0p0f_i32i32f32f(i32 (i32, float)**, ...)
 
 attributes #0 = { "vector-variants"="_ZGVxN4u_test,_ZGVxM4u_test" }
 
-; CHECK: attributes #[[ATTR0]] = { "vector-variants"="_ZGVbM4vv___intel_indirect_call_XXX,_ZGVbN4vv___intel_indirect_call_XXX" }
+; CHECK: attributes #[[ATTR0]] = { "vector-variants"="_ZGV{{[bcde]}}M4vv___intel_indirect_call_XXX,_ZGV{{[bcde]}}N4vv___intel_indirect_call_XXX" }
 
 !opencl.kernels = !{!4}
 

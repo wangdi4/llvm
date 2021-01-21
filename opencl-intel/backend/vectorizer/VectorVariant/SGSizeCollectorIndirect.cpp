@@ -38,7 +38,8 @@ OCL_INITIALIZE_PASS_END(
     SGSizeCollectorIndirect, "sg-size-collector-indirect",
     "Collecting subgroup size information for indirect calls", false, false)
 
-SGSizeCollectorIndirect::SGSizeCollectorIndirect(const Intel::CPUId &CPUId)
+SGSizeCollectorIndirect::SGSizeCollectorIndirect(
+    const Intel::OpenCL::Utils::CPUDetect *CPUId)
     : ModulePass(ID), Impl(CPUId) {
   initializeSGSizeCollectorIndirectPass(*PassRegistry::getPassRegistry());
 }
@@ -46,7 +47,7 @@ SGSizeCollectorIndirect::SGSizeCollectorIndirect(const Intel::CPUId &CPUId)
 bool SGSizeCollectorIndirect::runOnModule(Module &M) { return Impl.runImpl(M); }
 
 SGSizeCollectorIndirectImpl::SGSizeCollectorIndirectImpl(
-    const Intel::CPUId &CPUId)
+    const Intel::OpenCL::Utils::CPUDetect *CPUId)
     : SGSizeCollectorImpl(CPUId) {}
 
 // This pass collects vector lengths from all existing functions and then
@@ -189,7 +190,8 @@ bool SGSizeCollectorIndirectImpl::runImpl(Module &M) {
 }
 
 extern "C" {
-ModulePass *createSGSizeCollectorIndirectPass(const Intel::CPUId &CPUId) {
+ModulePass *createSGSizeCollectorIndirectPass(
+    const Intel::OpenCL::Utils::CPUDetect *CPUId) {
   return new intel::SGSizeCollectorIndirect(CPUId);
 }
 }

@@ -15,16 +15,17 @@
 #pragma once
 
 #include "BuiltinModules.h"
+#include "cl_cpu_detect.h"
 #include "cl_dev_backend_api.h"
-#include "CPUDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class CPUBuiltinLibrary : public BuiltinLibrary
 {
 public:
-    CPUBuiltinLibrary(const Intel::CPUId &cpuId, bool useDynamicSvmlLibrary = true) :
-    BuiltinLibrary(cpuId), m_useDynamicSvmlLibrary(useDynamicSvmlLibrary) { }
+  CPUBuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId,
+                    bool useDynamicSvmlLibrary = true)
+      : BuiltinLibrary(cpuId), m_useDynamicSvmlLibrary(useDynamicSvmlLibrary) {}
 
     virtual void Load() override;
 

@@ -36,8 +36,8 @@ entry:
 
 attributes #0 = { "vector-variants"="_ZGVbM16_bar" }
 
-; CHECK: attributes #[[ATTR0]] = { "vector-variants"="_ZGVbM16_bar,_ZGVbM8_bar,_ZGVbN8_bar,_ZGVbM32_bar,_ZGVbN32_bar" }
-; CHECK: attributes #[[ATTR1]] = { "vector-variants"="_ZGVbM8_foo,_ZGVbN8_foo,_ZGVbM16_foo,_ZGVbN16_foo,_ZGVbM32_foo,_ZGVbN32_foo" }
+; CHECK: attributes #[[ATTR0]] = { "vector-variants"="_ZGVbM16_bar,_ZGV{{[bcde]}}M8_bar,_ZGV{{[bcde]}}N8_bar,_ZGV{{[bcde]}}M32_bar,_ZGV{{[bcde]}}N32_bar" }
+; CHECK: attributes #[[ATTR1]] = { "vector-variants"="_ZGV{{[bcde]}}M8_foo,_ZGV{{[bcde]}}N8_foo,_ZGV{{[bcde]}}M16_foo,_ZGV{{[bcde]}}N16_foo,_ZGV{{[bcde]}}M32_foo,_ZGV{{[bcde]}}N32_foo" }
 ; CHECK-NO-FLAG: attributes #0 = { "vector-variants"="_ZGVbM16_bar" }
 ; CHECK-NO-FLAG-NOT: vector-variants
 

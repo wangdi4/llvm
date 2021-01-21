@@ -20,7 +20,7 @@ namespace intel {
 
 class SGSizeCollectorIndirectImpl : public SGSizeCollectorImpl {
 public:
-  SGSizeCollectorIndirectImpl(const Intel::CPUId &CPUId);
+  SGSizeCollectorIndirectImpl(const Intel::OpenCL::Utils::CPUDetect *CPUId);
 
   bool runImpl(Module &M);
 };
@@ -29,7 +29,8 @@ class SGSizeCollectorIndirect : public ModulePass {
 public:
   static char ID;
 
-  SGSizeCollectorIndirect(const Intel::CPUId &CPUId = Intel::CPUId());
+  SGSizeCollectorIndirect(const Intel::OpenCL::Utils::CPUDetect *CPUId =
+                              Intel::OpenCL::Utils::CPUDetect::GetInstance());
 
 protected:
   bool runOnModule(Module &M) override;

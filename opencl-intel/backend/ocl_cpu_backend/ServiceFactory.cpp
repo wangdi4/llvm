@@ -14,16 +14,14 @@
 
 #include "BackendConfiguration.h"
 #include "CPUCompileService.h"
-#include "CPUDetect.h"
 #include "CPUExecutionService.h"
 #include "ImageCallbackServices.h"
 #include "ServiceFactory.h"
+#include "cl_cpu_detect.h"
 #include "debuggingservicewrapper.h"
 #include "exceptions.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-using Utils::CPUDetect;
 
 ServiceFactory* ServiceFactory::s_pInstance = nullptr;
 

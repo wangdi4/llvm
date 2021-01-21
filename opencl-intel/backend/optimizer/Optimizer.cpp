@@ -13,7 +13,6 @@
 // License.
 
 #include "Optimizer.h"
-#include "CPUDetect.h"
 #include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
@@ -24,6 +23,8 @@
 #include "debuggingservicetype.h"
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
+
+#include "cl_cpu_detect.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
@@ -90,18 +91,18 @@ static cl::opt<bool>
                                 cl::desc("Enable native subgroup functionality"));
 
 using TStringToVFState = Intel::OpenCL::DeviceBackend::TStringToVFState;
+using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
 
-void *createInstToFuncCallPass(const Intel::CPUId *CpuId);
-FunctionPass *createWeightedInstCounter(bool, Intel::CPUId);
-FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId,
+void *createInstToFuncCallPass(const CPUDetect *CpuId);
+FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
+FunctionPass *createScalarizerPass(const CPUDetect *CpuId,
                                    bool InVPlanPipeline);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
-llvm::Pass *createOCLVecClonePass(const Intel::CPUId *CPUID,
-                                  bool IsOCL);
+llvm::Pass *createOCLVecClonePass(const CPUDetect *, bool IsOCL);
 llvm::Pass *createOCLVPOCheckVFPass(const intel::OptimizerConfig &Config,
                                     TStringToVFState &kernelVFStates);
 llvm::Pass *createOCLPostVectPass();
@@ -109,9 +110,9 @@ llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
 llvm::ModulePass* createCreateSimdVariantPropagationPass();
-llvm::ModulePass* createSGSizeCollectorPass(const Intel::CPUId &CPUId);
-llvm::ModulePass* createSGSizeCollectorIndirectPass(const Intel::CPUId &CPUId);
-llvm::ModulePass* createVectorVariantLoweringPass(const Intel::CPUId &CPUId);
+llvm::ModulePass *createSGSizeCollectorPass(const CPUDetect *CPUId);
+llvm::ModulePass *createSGSizeCollectorIndirectPass(const CPUDetect *CPUId);
+llvm::ModulePass *createVectorVariantLoweringPass(const CPUDetect *CPUId);
 llvm::ModulePass* createVectorVariantFillInPass();
 llvm::ModulePass* createUpdateCallAttrsPass();
 llvm::ModulePass* createIndirectCallLoweringPass();
@@ -332,7 +333,7 @@ static void populatePassesPreFailCheck(
       pConfig->GetIRDumpOptionsBefore());
 
   bool HasGatherScatterPrefetch =
-    pConfig->GetCpuId().HasGatherScatterPrefetch();
+      pConfig->GetCpuId()->HasGatherScatterPrefetch();
 
   if (isSPIRV && pConfig->GetRelaxedMath()) {
     PM.add(createAddFastMathPass());
@@ -458,8 +459,9 @@ static void populatePassesPostFailCheck(
     bool EnableInferAS, bool UseVplan, bool IsSYCL, bool IsOMP,
     TStringToVFState &kernelVFStates) {
   bool isProfiling = pConfig->GetProfilingFlag();
-  bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
-  bool HasGatherScatterPrefetch = pConfig->GetCpuId().HasGatherScatterPrefetch();
+  bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
+  bool HasGatherScatterPrefetch =
+      pConfig->GetCpuId()->HasGatherScatterPrefetch();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   DebuggingServiceType debugType =
@@ -513,7 +515,7 @@ static void populatePassesPostFailCheck(
   PM.add(llvm::createBasicAAWrapperPass());
 
   // Should be called before vectorizer!
-  PM.add((llvm::Pass*)createInstToFuncCallPass(&pConfig->GetCpuId()));
+  PM.add((llvm::Pass *)createInstToFuncCallPass(pConfig->GetCpuId()));
 
   PM.add(createDuplicateCalledKernelsPass());
 
@@ -594,7 +596,7 @@ static void populatePassesPostFailCheck(
         // We won't automatically switch vectorization dimension for SYCL.
         if (!IsSYCL)
           PM.add(createChooseVectorizationDimensionModulePass());
-        PM.add(createOCLVecClonePass(&pConfig->GetCpuId(), !IsSYCL && !IsOMP));
+        PM.add(createOCLVecClonePass(pConfig->GetCpuId(), !IsSYCL && !IsOMP));
         PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
 
         PM.add(createVectorVariantFillInPass());
@@ -782,7 +784,7 @@ static void populatePassesPostFailCheck(
 
   if (!pRtlModuleList.empty()) {
     // Inline BI function
-    const char *CPUPrefix = pConfig->GetCpuId().GetCPUPrefix();
+    const char *CPUPrefix = pConfig->GetCpuId()->GetCPUPrefix();
     assert(CPUPrefix && "CPU Prefix should not be null");
     PM.add(createBuiltInImportPass(CPUPrefix));
     if (OptLevel > 0) {
@@ -872,7 +874,7 @@ static void populatePassesPostFailCheck(
     int APFLevel = pConfig->GetAPFLevel();
     // do APF and following cleaning passes only if APF is not disabled
     if (APFLevel != APFLEVEL_0_DISAPF) {
-      if (pConfig->GetCpuId().RequirePrefetch())
+      if (pConfig->GetCpuId()->RequirePrefetch())
         PM.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
       PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
       PM.add(llvm::createInstructionCombiningPass()); // Instruction combining

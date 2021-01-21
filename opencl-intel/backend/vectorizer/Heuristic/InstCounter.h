@@ -17,7 +17,6 @@
 
 #include "BuiltinLibInfo.h"
 #include "PostDominanceFrontier.h"
-#include "TargetArch.h"
 
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
@@ -30,13 +29,16 @@
 
 #include <stdlib.h>
 
+#include "cl_cpu_detect.h"
 using namespace llvm;
 
 namespace intel {
   class WeightedInstCounter : public FunctionPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-      WeightedInstCounter(bool preVec = true, Intel::CPUId cpuId = Intel::CPUId());
+    WeightedInstCounter(bool preVec = true,
+                        Intel::OpenCL::Utils::CPUDetect *cpuId =
+                            Intel::OpenCL::Utils::CPUDetect::GetInstance());
 
     // Provides name of pass
       virtual llvm::StringRef getPassName() const override {
@@ -153,7 +155,7 @@ namespace intel {
     }
 
     // Used to identify Arch support
-    Intel::CPUId m_cpuid;
+    Intel::OpenCL::Utils::CPUDetect *m_cpuid;
 
     // Is this a before or after vectorization pass.
     // Affects debug printing right now, but may count some

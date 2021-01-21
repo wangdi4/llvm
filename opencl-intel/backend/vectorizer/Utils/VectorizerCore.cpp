@@ -41,35 +41,37 @@
 
 using namespace llvm;
 using namespace Intel::MetadataAPI;
+using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 char intel::VectorizerCore::ID = 0;
 
-extern "C" FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId, bool InVPlanPipeline = false);
+extern "C" FunctionPass *createScalarizerPass(const CPUDetect *CpuId,
+                                              bool InVPlanPipeline = false);
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
-extern "C" FunctionPass* createPacketizerPass(const Intel::CPUId&, unsigned int);
+extern "C" FunctionPass *createPacketizerPass(const CPUDetect *, unsigned int);
 extern "C" intel::ChooseVectorizationDimension* createChooseVectorizationDimension();
 extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
 
 extern "C" FunctionPass* createAVX512ResolverPass();
-extern "C" FunctionPass* createX86ResolverPass(Intel::ECPU cpuArch);
+extern "C" FunctionPass *
+createX86ResolverPass(Intel::OpenCL::Utils::ECPU cpuArch);
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
-extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
+extern "C" FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
 extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
 
-
-static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
-  if (CpuId.HasAVX512Core())
+static FunctionPass *createResolverPass(const CPUDetect *CpuId) {
+  if (CpuId->HasAVX512Core())
     return createAVX512ResolverPass();
-  return createX86ResolverPass(CpuId.GetCPU());
+  return createX86ResolverPass(CpuId->GetCPU());
 }
 
-static FunctionPass* createScalarizer(const Intel::CPUId& CpuId) {
+static FunctionPass *createScalarizer(const CPUDetect *CpuId) {
   return createScalarizerPass(CpuId);
 }
 
-static FunctionPass* createPacketizer(const Intel::CPUId& CpuId,
+static FunctionPass *createPacketizer(const CPUDetect *CpuId,
                                       unsigned int vectorizationDimension) {
   return createPacketizerPass(CpuId, vectorizationDimension);
 }
@@ -165,8 +167,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
   // Vector width specified by user is not valid for current arch,
   // fall back to autovectorization mode.
-  if (Intel::SUPPORTED !=
-      m_pConfig->GetCpuId().isTransposeSizeSupported(
+  if (Intel::OpenCL::Utils::SUPPORTED !=
+      m_pConfig->GetCpuId()->isTransposeSizeSupported(
           (ETransposeSize)forcedVecWidth)) {
     forcedVecWidth = 0;
   }

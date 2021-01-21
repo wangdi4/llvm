@@ -18,9 +18,9 @@
 
 #include <assert.h>
 #include <string>
+#include "cl_cpu_detect.h"
 #include "cl_dev_backend_api.h"
 #include "ICLDevBackendKernel.h"
-#include "TargetArch.h"
 #include "Serializer.h"
 #include "ICompilerConfig.h"
 
@@ -242,7 +242,8 @@ public:
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
     void SetVectorizationWidth(size_t VF) { m_vectorizationWidth = VF; }
-    void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
+    void SetHasAVX1(bool hasAVX1) { m_hasAVX1 = hasAVX1; }
+    void SetHasAVX2(bool hasAVX2) { m_hasAVX1 = hasAVX2; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
     void EnableVectorizedWithTail() { m_isVectorizedWithTail = true; }
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
@@ -263,7 +264,8 @@ public:
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
     const size_t* GetHintWGSize()     const { return m_hintWGSize; }
     bool          GetDAZ()            const { return m_DAZ; }
-    const CPUId   &GetCpuId()          const { return m_cpuId; }
+    bool GetHasAVX1() { return m_hasAVX1; }
+    bool GetHasAVX2() { return m_hasAVX1; }
     bool          IsVectorizedWithTail() const { return m_isVectorizedWithTail; }
     // Get size of pointer in bytes
     unsigned int  GetPointerSize()     const { return m_uiSizeT;}
@@ -284,7 +286,8 @@ protected:
     bool m_hasGlobalSync;
     bool m_useNativeSubgroups;
     bool m_DAZ;
-    Intel::CPUId m_cpuId;       // selected cpuId for current kernel codegen
+    bool m_hasAVX1;
+    bool m_hasAVX2;
     unsigned int m_optWGSize;
     size_t m_reqdWGSize[MAX_WORK_DIM];  // Required work-group size that was declared during kernel compilation
     size_t m_hintWGSize[MAX_WORK_DIM];  // Hint to work-group size that was declared during kernel compilation

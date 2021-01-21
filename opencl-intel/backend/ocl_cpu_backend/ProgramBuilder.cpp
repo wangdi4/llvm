@@ -15,6 +15,7 @@
 #define NOMINMAX
 
 #include "cl_types.h"
+#include "cl_cpu_detect.h"
 #include "cpu_dev_limits.h"
 #include "Compiler.h"
 #include "ProgramBuilder.h"
@@ -23,7 +24,6 @@
 #include "Program.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "CPUDetect.h"
 #include "BuiltinModules.h"
 #include "exceptions.h"
 #include "BackendConfiguration.h"
@@ -541,7 +541,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     kernelAttributesStr.pop_back();
   pProps->SetKernelAttributes(kernelAttributesStr);
   pProps->SetDAZ(buildOptions.GetDenormalsZero());
-  pProps->SetCpuId(GetCompiler()->GetCpuId());
+  pProps->SetHasAVX1(GetCompiler()->GetCpuId()->HasAVX1());
+  pProps->SetHasAVX2(GetCompiler()->GetCpuId()->HasAVX2());
   if (HasNoBarrierPath)
     pProps->EnableVectorizedWithTail();
 
@@ -584,7 +585,7 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
     char ModuleName[MAX_PATH];
     Utils::SystemInfo::GetModuleDirectory(ModuleName, MAX_PATH);
     std::string BaseName = std::string(ModuleName) + OCL_LIBRARY_TARGET_NAME;
-    std::string CPUPrefix = Cmplr->GetCpuId().GetCPUPrefix();
+    std::string CPUPrefix = Cmplr->GetCpuId()->GetCPUPrefix();
     std::string RtlFilePath = BaseName + OCL_OUTPUT_EXTENSION;
     std::string ObjectFilePath =
         BaseName + CPUPrefix + OCL_PRECOMPILED_OUTPUT_EXTENSION;

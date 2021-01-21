@@ -136,7 +136,7 @@ entry:
 attributes #4 = { "vector_function_ptrs"="B_foo$SIMDTable()" }
 attributes #5 = { "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(),A_bar2()" }
 
-; CHECK: attributes #[[ATTRS1]] = { "vector-variants"="_ZGVbM8vv_B_foo,_ZGVbN8vv_B_foo" "vector_function_ptrs"="B_foo$SIMDTable(_ZGVbM8vv_B_foo,_ZGVbN8vv_B_foo)" }
-; CHECK: attributes #[[ATTRS2]] = { "vector-variants"="_ZGVbM8vv_A_foo,_ZGVbN8vv_A_foo" "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(_ZGVbM8vv_A_foo,_ZGVbN8vv_A_foo),A_bar2()" }
+; CHECK: attributes #[[ATTRS1]] = { "vector-variants"="_ZGV{{[bcde]}}M8vv_B_foo,_ZGV{{[bcde]}}N8vv_B_foo" "vector_function_ptrs"="B_foo$SIMDTable(_ZGV{{[bcde]}}M8vv_B_foo,_ZGV{{[bcde]}}N8vv_B_foo)" }
+; CHECK: attributes #[[ATTRS2]] = { "vector-variants"="_ZGV{{[bcde]}}M8vv_A_foo,_ZGV{{[bcde]}}N8vv_A_foo" "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(_ZGV{{[bcde]}}M8vv_A_foo,_ZGV{{[bcde]}}N8vv_A_foo),A_bar2()" }
 
 !0 = !{i32 8}

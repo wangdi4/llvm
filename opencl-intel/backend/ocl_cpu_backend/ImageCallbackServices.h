@@ -15,9 +15,9 @@
 #pragma once
 
 #include "cl_dev_backend_api.h"
+#include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include "CompilerConfig.h"
-#include "CPUDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -74,7 +74,7 @@ public:
     void InitializeToTrap(void* arr[], size_t) const;
     void InitializeToTrap(void*&) const;
 
-    Intel::CPUId m_CpuId;
+    Intel::OpenCL::Utils::CPUDetect *m_CpuId;
 };
 
 }}} // namespace

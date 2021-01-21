@@ -60,9 +60,9 @@ ImageCallbackManager* ImageCallbackManager::GetInstance()
     return s_pInstance;
 }
 
-
-bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu, Intel::CPUId& cpuId)
-{
+bool ImageCallbackManager::InitLibrary(const ICompilerConfig &config,
+                                       bool isCpu,
+                                       Intel::OpenCL::Utils::CPUDetect *cpuId) {
   if (!isCpu) {
     // Nothing but CPU is supported
     return true;
@@ -74,7 +74,7 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu
   // Retrieve CPU ID
   cpuId = spCompiler->GetCpuId();
   // KNL is not supported
-  if (cpuId.GetCPU() == CPU_KNL)
+  if (cpuId->GetCPU() == Intel::OpenCL::Utils::CPU_KNL)
     return true;
 
   // Find library for this platform if it has been built earlier
@@ -94,16 +94,14 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu
   return true;
 }
 
-ImageCallbackFunctions* ImageCallbackManager::getCallbackFunctions(const Intel::CPUId &cpuId)
-{
-    ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);
-    if (it ==  m_ImageCallbackLibs.end() )
-    {
-        throw Exceptions::CompilerException("Requested image function for library that hasn't been loaded");
-    }
+ImageCallbackFunctions *ImageCallbackManager::getCallbackFunctions(
+    const Intel::OpenCL::Utils::CPUDetect *cpuId) {
+  ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);
+  if (it == m_ImageCallbackLibs.end()) {
+    throw Exceptions::CompilerException(
+        "Requested image function for library that hasn't been loaded");
+  }
 
-    return m_ImageCallbackLibs[cpuId]->getImageCallbackFunctions();
+  return m_ImageCallbackLibs[cpuId]->getImageCallbackFunctions();
 }
-
-
 }}}

@@ -1541,7 +1541,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
               return CL_DEV_INVALID_VALUE;
             switch (deviceMode) {
             case CPU_DEVICE:
-              name = CPUDetect::GetInstance()->GetCPUBrandString();
+              name = CPUDetect::GetInstance()->GetCPUName().data();
               if (!strcmp("", name)) {
                 name = "Unknown CPU";
               }

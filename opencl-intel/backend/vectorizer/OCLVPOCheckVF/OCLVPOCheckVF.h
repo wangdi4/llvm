@@ -48,7 +48,7 @@ public:
   }
 
 private:
-  const Intel::CPUId &CpuId;
+  const Intel::OpenCL::Utils::CPUDetect *CpuId;
 
   ETransposeSize TransposeSize;
 
@@ -63,10 +63,10 @@ private:
   // TODO: Refactor InstCounter to add sg_emu_size metadata.
   unsigned getAutoEmuSize() {
     // SSE42/AVX -> 4
-    if (!CpuId.HasAVX2())
+    if (!CpuId->HasAVX2())
       return 4;
     // AVX2 -> 8
-    if (!CpuId.HasAVX512Core())
+    if (!CpuId->HasAVX512Core())
       return 8;
     // AVX512 -> 16
     return 16;
