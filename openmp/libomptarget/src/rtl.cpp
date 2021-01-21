@@ -289,9 +289,6 @@ void RTLsTy::LoadRTLs() {
 #endif
 #if INTEL_COLLAB
     R.RTLConstName = Name;
-    // Initialize RTL's OMPT data
-    if (R.init_ompt)
-      R.init_ompt(OmptGlobal);
 #endif  // INTEL_COLLAB
 
     DP("Registering RTL %s supporting %d devices!\n", R.RTLName.c_str(),
@@ -352,6 +349,10 @@ void RTLsTy::LoadRTLs() {
                            run_target_team_nd_region_nowait);
     #undef SET_OPTIONAL_INTERFACE
     #undef SET_OPTIONAL_INTERFACE_FN
+
+    // Initialize RTL's OMPT data
+    if (R.init_ompt)
+      R.init_ompt(OmptGlobal);
 #endif // INTEL_COLLAB
   }
 
