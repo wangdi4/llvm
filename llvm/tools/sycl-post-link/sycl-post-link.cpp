@@ -793,8 +793,10 @@ static string_vector saveResultSymbolsLists(string_vector &ResSymbolsLists) {
     }                                                                          \
   }
 
-static int processOneModule(std::unique_ptr<Module> M,
-                            util::SimpleTable &Table) {
+using TableFiles = std::map<StringRef, string_vector>;
+
+static TableFiles processOneModule(std::unique_ptr<Module> M) {
+  TableFiles TblFiles;
   std::map<StringRef, std::vector<Function *>> GlobalsSet;
 
 #if INTEL_COLLAB
@@ -858,7 +860,7 @@ static int processOneModule(std::unique_ptr<Module> M,
   if (IROutputOnly) {
     // the result is the transformed input LLVMIR file rather than a file table
     saveModule(*M, OutputFilename);
-    return 0;
+    return TblFiles;
   }
   if (DoSplit) {
     splitModule(*M, GlobalsSet, ResultModules);
@@ -874,16 +876,16 @@ static int processOneModule(std::unique_ptr<Module> M,
                               ? saveResultModules(ResultModules)
                               : string_vector{InputFilename};
     // "Code" column is always output
-    Error Err = Table.addColumn(COL_CODE, Files);
-    CHECK_AND_EXIT(Err);
+    std::copy(Files.begin(), Files.end(),
+              std::back_inserter(TblFiles[COL_CODE]));
   }
 
   {
     ImagePropSaveInfo ImgPSInfo = {true, DoSpecConst, SetSpecConstAtRT,
                                    SpecConstsMet, EmitKernelParamInfo};
     string_vector Files = saveDeviceImageProperty(ResultModules, ImgPSInfo);
-    Error Err = Table.addColumn(COL_PROPS, Files);
-    CHECK_AND_EXIT(Err);
+    std::copy(Files.begin(), Files.end(),
+              std::back_inserter(TblFiles[COL_PROPS]));
   }
   if (DoSymGen) {
     // extract symbols per each module
@@ -894,10 +896,10 @@ static int processOneModule(std::unique_ptr<Module> M,
       ResultSymbolsLists.push_back("");
     }
     string_vector Files = saveResultSymbolsLists(ResultSymbolsLists);
-    Error Err = Table.addColumn(COL_SYM, Files);
-    CHECK_AND_EXIT(Err);
+    std::copy(Files.begin(), Files.end(),
+              std::back_inserter(TblFiles[COL_SYM]));
   }
-  return 0;
+  return TblFiles;
 }
 
 int main(int argc, char **argv) {
@@ -1028,13 +1030,28 @@ int main(int argc, char **argv) {
   if (OutputFilename.getNumOccurrences() == 0)
     OutputFilename = (Twine(sys::path::stem(InputFilename)) + ".files").str();
 
-  util::SimpleTable Table;
-  int Res = processOneModule(std::move(M), Table);
-  if (Res)
-    return Res;
+  TableFiles TblFiles = processOneModule(std::move(M));
 
   if (IROutputOnly)
     return 0;
+
+  util::SimpleTable Table;
+  auto addTableColumn = [&Table, &TblFiles](std::string Str) {
+    auto &Files = TblFiles[Str];
+    if (Files.empty())
+      return 0;
+    Error Err = Table.addColumn(Str, Files);
+    CHECK_AND_EXIT(Err);
+    return 0;
+  };
+
+  int Res;
+  if ((Res = addTableColumn(COL_CODE)) != 0)
+    return Res;
+  if ((Res = addTableColumn(COL_PROPS)) != 0)
+    return Res;
+  if ((Res = addTableColumn(COL_SYM)) != 0)
+    return Res;
 
   {
     std::error_code EC;
