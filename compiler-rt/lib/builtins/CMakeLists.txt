@@ -45,7 +45,7 @@ if (COMPILER_RT_STANDALONE_BUILD)
     ON)
 endif()
 
-include(builtin-config-ix
+include(builtin-config-ix)
 
 if(INTEL_CUSTOMIZATION)
   # Need to override the -Werror setting when building this library with the GNU
