@@ -80,6 +80,7 @@ STATISTIC(NumNonNullReturn, "Number of function returns marked nonnull");
 STATISTIC(NumNoRecurse, "Number of functions marked as norecurse");
 STATISTIC(NumNoUnwind, "Number of functions marked as nounwind");
 STATISTIC(NumNoFree, "Number of functions marked as nofree");
+STATISTIC(NumWillReturn, "Number of functions marked as willreturn");
 
 static cl::opt<bool> EnableNonnullArgPropagation(
     "enable-nonnull-arg-prop", cl::init(true), cl::Hidden,
@@ -1439,6 +1440,22 @@ static bool addNoReturnAttrs(const SCCNodeSet &SCCNodes) {
   return Changed;
 }
 
+// Set the willreturn function attribute if possible.
+static bool addWillReturn(const SCCNodeSet &SCCNodes) {
+  bool Changed = false;
+
+  for (Function *F : SCCNodes) {
+    if (!F || !F->onlyReadsMemory() || !F->mustProgress() || F->willReturn())
+      continue;
+
+    F->setWillReturn();
+    NumWillReturn++;
+    Changed = true;
+  }
+
+  return Changed;
+}
+
 static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
   SCCNodesResult Res;
   Res.HasUnknownCall = false;
@@ -1483,6 +1500,7 @@ static bool deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
   Changed |= addArgumentAttrs(Nodes.SCCNodes);
   Changed |= inferConvergent(Nodes.SCCNodes);
   Changed |= addNoReturnAttrs(Nodes.SCCNodes);
+  Changed |= addWillReturn(Nodes.SCCNodes);
 
   // If we have no external nodes participating in the SCC, we can deduce some
   // more precise attributes as well.
