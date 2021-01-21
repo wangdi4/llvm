@@ -5,9 +5,8 @@
 ; outlining. That would guarantee that each map clause's base pointer always
 ; results in a separate parameter after outlining.
 ;
-; This test is idetical to target_map_rename_duplicates_mappers.ll, except that
-; MAP clauses use 4-operand form without mappers support.
-
+; This test is idetical to target_map_rename_duplicates.ll, except that
+; MAP clauses use 6-operand form with mappers support.
 ;
 ; int foo() {
 ;   int yy = 55;
@@ -55,7 +54,7 @@ DIR.OMP.TARGET.1:                                 ; preds = %entry
   br label %DIR.OMP.TARGET.2
 
 DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32* %yy, i32* %yy, i64 0, i64 544), "QUAL.OMP.MAP.TOFROM"(i32* %yy, i32* %yy, i64 0, i64 544), "QUAL.OMP.MAP.TOFROM"(i32* %zz, i32* %zz, i64 0, i64 544), "QUAL.OMP.PRIVATE:WILOCAL"(i32** %yy0.map.ptr.tmp), "QUAL.OMP.PRIVATE:WILOCAL"(i32** %yy1.map.ptr.tmp), "QUAL.OMP.PRIVATE:WILOCAL"(i32** %zz0.map.ptr.tmp), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32* %yy, i32* %yy, i64 0, i64 544, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(i32* %yy, i32* %yy, i64 0, i64 544, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(i32* %zz, i32* %zz, i64 0, i64 544, i8* null, i8* null), "QUAL.OMP.PRIVATE:WILOCAL"(i32** %yy0.map.ptr.tmp), "QUAL.OMP.PRIVATE:WILOCAL"(i32** %yy1.map.ptr.tmp), "QUAL.OMP.PRIVATE:WILOCAL"(i32** %zz0.map.ptr.tmp), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
   br label %DIR.OMP.TARGET.38
 
 DIR.OMP.TARGET.38:                                ; preds = %DIR.OMP.TARGET.2
