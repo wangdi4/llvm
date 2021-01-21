@@ -532,6 +532,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #if INTEL_FEATURE_ISA_RAO_INT
   bool HasRAOINT = false;
 #endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+  bool HasAVXRAOINT = false;
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
   /// Processor support key locker instructions
   bool HasKL = false;
@@ -1035,6 +1038,9 @@ public:
 #if INTEL_FEATURE_ISA_RAO_INT
   bool hasRAOINT() const { return HasRAOINT; }
 #endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+  bool hasAVXRAOINT() const { return HasAVXRAOINT; }
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
   bool hasAVXVNNI() const { return HasAVXVNNI; }
   bool hasAMXTILE() const { return HasAMXTILE; }

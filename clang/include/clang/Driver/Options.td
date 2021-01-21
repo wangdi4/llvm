@@ -4414,6 +4414,10 @@ def mno_avxmovget : Flag<["-"], "mno-avxmovget">, Group<m_x86_Features_Group>;
 def mavx512movget : Flag<["-"], "mavx512movget">, Group<m_x86_Features_Group>;
 def mno_avx512movget : Flag<["-"], "mno-avx512movget">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+def mavxraoint : Flag<["-"], "mavxraoint">, Group<m_x86_Features_Group>;
+def mno_avxraoint : Flag<["-"], "mno-avxraoint">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 def mavxvnni : Flag<["-"], "mavxvnni">, Group<m_x86_Features_Group>;
 def mno_avxvnni : Flag<["-"], "mno-avxvnni">, Group<m_x86_Features_Group>;

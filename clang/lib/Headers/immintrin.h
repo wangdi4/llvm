@@ -544,6 +544,15 @@
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_MOVGET64B */
+
+/* INTEL_FEATURE_ISA_AVX_RAO_INT */
+#if defined(__AVXRAOINT_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXRAOINT__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxraoint/avxraointintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_RAO_INT */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
