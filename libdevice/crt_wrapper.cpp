@@ -1,4 +1,4 @@
-//==--- msvc_wrapper.cpp - wrappers for Microsoft C library functions ------==//
+//==------ crt_wrapper.cpp - wrappers for libc internal functions ----------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,6 +15,7 @@
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
+#if defined(_WIN32)
 // Truncates a wide (16 or 32 bit) string (wstr) into an ASCII string (str).
 // Any non-ASCII characters are replaced by question mark '?'.
 static void __truncate_wchar_char_str(const wchar_t *wstr, char *str,
@@ -43,6 +44,17 @@ void _wassert(const wchar_t *wexpr, const wchar_t *wfile, unsigned line) {
       __spirv_LocalInvocationId_x(), __spirv_LocalInvocationId_y(),
       __spirv_LocalInvocationId_z());
 }
+#else
+DEVICE_EXTERN_C
+void __assert_fail(const char *expr, const char *file, unsigned int line,
+                   const char *func) {
+  __devicelib_assert_fail(
+      expr, file, line, func, __spirv_GlobalInvocationId_x(),
+      __spirv_GlobalInvocationId_y(), __spirv_GlobalInvocationId_z(),
+      __spirv_LocalInvocationId_x(), __spirv_LocalInvocationId_y(),
+      __spirv_LocalInvocationId_z());
+}
+#endif
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
