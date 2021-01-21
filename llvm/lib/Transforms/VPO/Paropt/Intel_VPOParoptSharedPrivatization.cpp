@@ -130,7 +130,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 
   // Returns true if all value V users in given blocks are load instructions
   // or bitcasts/GEPs that are used by the loads.
-  auto allUsersAreLoads = [W](Value *V,
+  auto allUsersAreLoads = [](Value *V,
                               const SmallPtrSetImpl<BasicBlock *> &BBs) {
     // Predicate to check if given value is an instruction from BBs.
     auto IsFromBBs = [&BBs](Value *V) {

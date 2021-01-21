@@ -8002,11 +8002,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(
         if (auto *I = dyn_cast<Instruction>(U.getUser())) {
           if (VPOAnalysisUtils::isOpenMPDirective(I) || isa<LoadInst>(I) ||
               I->isLifetimeStartOrEnd() ||
-              isa<BitCastInst>(I) && all_of(I->uses(), [](Use &U) {
+              (isa<BitCastInst>(I) && all_of(I->uses(), [](Use &U) {
                 if (auto *I = dyn_cast<Instruction>(U.getUser()))
                   return I->isLifetimeStartOrEnd();
                 return false;
-              }))
+              })))
             continue;
 
           if (auto *SI = dyn_cast<StoreInst>(I))
@@ -8921,16 +8921,16 @@ unsigned VPOParoptTransform::getAlignmentCopyIn(Value *V, const DataLayout DL) {
   // Alignment : 1, BaseAlignment:32, Offset:1
   //
   GlobalVariable *GVPtr;
-  if (GVPtr = dyn_cast<GlobalVariable>(V))
+  if ((GVPtr = dyn_cast<GlobalVariable>(V)))
     return GVPtr->getAlignment();
 
   if (auto *BC = dyn_cast<BitCastOperator>(V)) {
     Value *BCOperand = BC->getOperand(0);
-    if (GVPtr = dyn_cast<GlobalVariable>(BCOperand))
+    if ((GVPtr = dyn_cast<GlobalVariable>(BCOperand)))
       return GVPtr->getAlignment();
     if (auto *GEP = dyn_cast<GEPOperator>(BCOperand)) {
       auto *BasePointer = GEP->getPointerOperand()->stripPointerCasts();
-      if (GVPtr = dyn_cast<GlobalVariable>(BasePointer)) {
+      if ((GVPtr = dyn_cast<GlobalVariable>(BasePointer))) {
         unsigned BaseAlignment = GVPtr->getAlignment();
         APInt ConstOffset(64, 0);
         GEP->accumulateConstantOffset(DL, ConstOffset);
@@ -8969,8 +8969,8 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
     const DataLayout NDL=NFn->getParent()->getDataLayout();
     bool FirstArg = true;
 
+    Instruction *Term = nullptr;
     for (auto C : CP.items()) {
-      Instruction *Term;
       if (FirstArg) {
         FirstArg = false;
 
@@ -11396,7 +11396,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   // them up to this target region.
   bool PassedTarget = !HoistCombinedUBBeforeTarget;
 
-  while (P = P->getParent()) {
+  while ((P = P->getParent())) {
 #if INTEL_CUSTOMIZATION
     // We generate explicit stores to the new LB and UB variables.
     // Stores inside target and teams regions are considered to be side-effect
@@ -11455,7 +11455,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       PassedTarget = true;
   }
 
-  if (SetNDRange)
+  if (SetNDRange) {
     if (Use1DRange) {
       assert(HoistCombinedUBBeforeTarget &&
              "Inconsistent use of Use1DRange and HoistCombinedUBBeforeTarget.");
@@ -11468,7 +11468,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     } else
       // Add the original loops' upper bounds to OFFLOAD.NDRANGE clause.
       setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
-
+  }
   return Exiter(true);
 }
 

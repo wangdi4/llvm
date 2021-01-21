@@ -600,7 +600,7 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
   Type *Int8PtrTy = Builder.getInt8PtrTy();
   Value *TaskThunkBasePtr = Builder.CreateBitCast(TaskTWithPrivates, Int8PtrTy,
                                                   ".taskt.withprivates.base");
-  Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, {NewVDataOffset},
+  Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, NewVDataOffset,
                                       OrigName + ".priv.data");
 
   Builder.CreateStore(NewVData, Builder.CreateBitCast(
@@ -1011,13 +1011,13 @@ Value *VPOParoptTransform::computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
   for (FirstprivateItem *FprivI : W->getFpriv().items())
     computeOffsetForItem(FprivI);
 
-  if (W->canHaveLastprivate())
+  if (W->canHaveLastprivate()) {
     for (LastprivateItem *LprivI : W->getLpriv().items())
       if (FirstprivateItem *FprivI = LprivI->getInFirstprivate())
         LprivI->setThunkBufferOffset(FprivI->getThunkBufferOffset());
       else
         computeOffsetForItem(LprivI);
-
+  }
   CurrentOffset->setName("sizeof.taskt.with.privates.and.buffer");
   return CurrentOffset;
 }
@@ -1120,8 +1120,10 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
           KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
 
       Value *NewData =
-          Builder.CreateGEP(TaskThunkBasePtr, {FprivI->getThunkBufferOffset()},
+          Builder.CreateGEP(TaskThunkBasePtr,
+                            FprivI->getThunkBufferOffset(),
                             NamePrefix + ".priv.data");
+
       Value *OrigCast =
           Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
 
