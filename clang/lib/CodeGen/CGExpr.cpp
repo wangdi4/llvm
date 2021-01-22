@@ -587,12 +587,25 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
             Block, llvm::BasicBlock::iterator(Block->back())));
       }
 
+#if INTEL_COLLAB
+      Address LifetimeAllocaAddr =
+          (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice)
+              ? Object
+              : Alloca;
+      if (auto *Size = EmitLifetimeStart(
+              CGM.getDataLayout().getTypeAllocSize(Alloca.getElementType()),
+              LifetimeAllocaAddr.getPointer())) {
+        pushFullExprCleanup<CallLifetimeEnd>(NormalEHLifetimeMarker,
+                                             LifetimeAllocaAddr, Size);
+      }
+#else // INTEL_COLLAB
       if (auto *Size = EmitLifetimeStart(
               CGM.getDataLayout().getTypeAllocSize(Alloca.getElementType()),
               Alloca.getPointer())) {
         pushFullExprCleanup<CallLifetimeEnd>(NormalEHLifetimeMarker, Alloca,
                                              Size);
       }
+#endif // INTEL_COLLAB
 
       if (OldConditional) {
         OutermostConditional = OldConditional;

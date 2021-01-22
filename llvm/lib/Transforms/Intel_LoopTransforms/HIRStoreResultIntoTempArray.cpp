@@ -603,7 +603,7 @@ static bool isLoopnestValid(const HLLoop *Lp) {
 
     const CanonExpr *UpperCE = Lp->getUpperCanonExpr();
 
-    if (!UpperCE->canConvertToStandAloneBlob() ||
+    if (!UpperCE->canConvertToStandAloneBlobOrConstant() ||
         UpperCE->getDenominator() != 1) {
       return false;
     }
@@ -758,7 +758,7 @@ static CanonExpr *getStrideCE(const HLLoop *Lp, uint64_t TypeSize,
 
   while (LoopLevel > Level) {
     CanonExpr *TripCountCE = Lp->getTripCountCanonExpr();
-    TripCountCE->convertToStandAloneBlob();
+    TripCountCE->convertToStandAloneBlobOrConstant();
 
     unsigned TripCountBlobIndex = TripCountCE->getSingleBlobIndex();
 
@@ -838,7 +838,7 @@ RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
 
       CanonExpr *CloneCE = CE->clone();
 
-      CloneCE->convertToStandAloneBlob();
+      CloneCE->convertToStandAloneBlobOrConstant();
 
       CloneCE->addConstant(-Offsets[OffsetId++], true);
 

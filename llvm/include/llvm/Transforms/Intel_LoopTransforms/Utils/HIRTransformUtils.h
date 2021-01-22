@@ -275,8 +275,16 @@ public:
   ///       do i2=64*i1, 64*i1 + N2
   ///          A[i2] = 1
   ///
+  /// When \p AllowExplicitBoundInst is set, the lower bound ref
+  /// gets its own instruction setting a selfblob, allowing normalization
+  /// to succeed when it would normally fail. Before the loop, we will see
+  /// %lb blob being set like so:
+  ///     %lb = 14 * i2;
+  ///   DO i3 = 0, 14 * i2 + %min + -1 * %lb, 1
+  ///
   static void stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
-                        unsigned StripmineSize);
+                        unsigned StripmineSize,
+                        bool AllowExplicitBoundInst = false);
 
   /// Performs complete unroll for \p Loop.
   /// NOTE: Does not handle non-constant lower bounds. For example-

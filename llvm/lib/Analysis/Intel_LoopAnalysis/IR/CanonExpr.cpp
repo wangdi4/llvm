@@ -20,6 +20,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
@@ -1342,7 +1343,8 @@ void CanonExpr::multiplyNumeratorByConstant(int64_t Val, bool Simplify) {
 }
 
 bool CanonExpr::multiplyByConstant(int64_t Val) {
-  if (!canMultiplyNumeratorByConstant(Val) && !convertToStandAloneBlob()) {
+  if (!canMultiplyNumeratorByConstant(Val) &&
+      !convertToStandAloneBlobOrConstant()) {
     return false;
   }
 
@@ -1351,7 +1353,8 @@ bool CanonExpr::multiplyByConstant(int64_t Val) {
 }
 
 bool CanonExpr::multiplyByBlob(unsigned Index) {
-  if (!canMultiplyNumeratorByUnknown() && !convertToStandAloneBlob()) {
+  if (!canMultiplyNumeratorByUnknown() &&
+      !convertToStandAloneBlobOrConstant()) {
     return false;
   }
 
@@ -1415,7 +1418,7 @@ void CanonExpr::multiplyNumeratorByBlob(unsigned Index) {
   }
 }
 
-bool CanonExpr::canConvertToStandAloneBlob() const {
+bool CanonExpr::canConvertToStandAloneBlobOrConstant() const {
 
   // Not applicable to other types.
   if (!getSrcType()->isIntegerTy()) {
@@ -1437,10 +1440,10 @@ bool CanonExpr::canConvertToStandAloneBlob() const {
 // TODO: now it's allowed to convert constants to blobs. This is done to be able
 // to use min/max SCEVs within the HIR. After implementing MIN/MAX operation in
 // RegDDRef this should be changed and asserts should be added.
-bool CanonExpr::convertToStandAloneBlob() {
+bool CanonExpr::convertToStandAloneBlobOrConstant() {
   assert(!isIntConstant() && "Attempt to convert constant to blob!");
 
-  if (!canConvertToStandAloneBlob()) {
+  if (!canConvertToStandAloneBlobOrConstant()) {
     return false;
   }
 
@@ -1494,23 +1497,37 @@ bool CanonExpr::convertToStandAloneBlob() {
   // Set dest type as also the src type.
   setSrcType(getDestType());
 
-  // Set merged blob in the CE.
-  unsigned MergedBlobIndex = getBlobUtils().findOrInsertBlob(MergedBlob);
-  setBlobCoeff(MergedBlobIndex, 1);
+  if (auto *ConstBlob = dyn_cast<SCEVConstant>(MergedBlob)) {
+    // In some cases casting can result in a constant blob. For example
+    // truncating (8 * %t) to i1 type is simplified to zero by scalar evolution.
+    // In such a case, we make CE a constant instead of a blob.
+    Const = ConstBlob->getValue()->getSExtValue();
+
+  } else {
+    // Set merged blob in the CE.
+    unsigned MergedBlobIndex = getBlobUtils().findOrInsertBlob(MergedBlob);
+    setBlobCoeff(MergedBlobIndex, 1);
+  }
 
   return true;
 }
 
-bool CanonExpr::castStandAloneBlob(Type *Ty, bool IsSExt) {
+bool CanonExpr::convertToCastedStandAloneBlobOrConstant(Type *Ty, bool IsSExt) {
   assert(Ty && "Ty is null!");
   assert(getDestType()->isIntegerTy() && Ty->isIntegerTy() && "Invalid cast!");
 
-  if (!convertToStandAloneBlob()) {
+  if (!convertToStandAloneBlobOrConstant()) {
     return false;
   }
 
   // Cast is a no-op.
   if (Ty == getDestType()) {
+    return true;
+  }
+
+  if (isIntConstant()) {
+    setDestType(Ty);
+    simplifyConstantCast();
     return true;
   }
 
@@ -1526,31 +1543,31 @@ bool CanonExpr::castStandAloneBlob(Type *Ty, bool IsSExt) {
   return true;
 }
 
-bool CanonExpr::convertSExtStandAloneBlob(Type *Ty) {
+bool CanonExpr::convertToSExtStandAloneBlobOrConstant(Type *Ty) {
   assert(Ty && "Ty is null!");
   assert((getCanonExprUtils().getTypeSizeInBits(Ty) >
           getCanonExprUtils().getTypeSizeInBits(getDestType())) &&
          "Invalid cast!");
 
-  return castStandAloneBlob(Ty, true);
+  return convertToCastedStandAloneBlobOrConstant(Ty, true);
 }
 
-bool CanonExpr::convertZExtStandAloneBlob(Type *Ty) {
+bool CanonExpr::convertToZExtStandAloneBlobOrConstant(Type *Ty) {
   assert(Ty && "Ty is null!");
   assert((getCanonExprUtils().getTypeSizeInBits(Ty) >
           getCanonExprUtils().getTypeSizeInBits(getDestType())) &&
          "Invalid cast!");
 
-  return castStandAloneBlob(Ty, false);
+  return convertToCastedStandAloneBlobOrConstant(Ty, false);
 }
 
-bool CanonExpr::convertTruncStandAloneBlob(Type *Ty) {
+bool CanonExpr::convertToTruncStandAloneBlobOrConstant(Type *Ty) {
   assert(Ty && "Ty is null!");
   assert((getCanonExprUtils().getTypeSizeInBits(Ty) <
           getCanonExprUtils().getTypeSizeInBits(getDestType())) &&
          "Invalid cast!");
 
-  return castStandAloneBlob(Ty, false);
+  return convertToCastedStandAloneBlobOrConstant(Ty, false);
 }
 
 bool CanonExpr::verifyIVs(unsigned NestingLevel) const {
