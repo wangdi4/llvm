@@ -25,7 +25,7 @@ class OptimizationRemarkEmitter;
 class ReplayInlineAdvisor : public InlineAdvisor {
 public:
   ReplayInlineAdvisor(FunctionAnalysisManager &FAM, LLVMContext &Context,
-                      StringRef RemarksFile);
+                      StringRef RemarksFile, bool EmitRemarks);
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
                                           InliningLoopInfoCache *ILIC = nullptr,
@@ -37,6 +37,7 @@ public:
 private:
   StringSet<> InlineSitesFromRemarks;
   bool HasReplayRemarks = false;
+  bool EmitRemarks = false;
 };
 } // namespace llvm
 #endif // LLVM_ANALYSIS_REPLAYINLINEADVISOR_H

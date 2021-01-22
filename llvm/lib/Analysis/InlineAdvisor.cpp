@@ -50,45 +50,28 @@ static cl::opt<int>
                         cl::desc("Scale to limit the cost of inline deferral"),
                         cl::init(2), cl::Hidden);
 
-namespace {
-class DefaultInlineAdvice : public InlineAdvice {
-public:
-#if INTEL_CUSTOMIZATION
-  DefaultInlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
-                      InlineCost IC, OptimizationRemarkEmitter &ORE)
-      : InlineAdvice(Advisor, CB, ORE, IC.getIsRecommended()), OriginalCB(&CB),
-        IC(IC) {}
+void DefaultInlineAdvice::recordUnsuccessfulInliningImpl(
+    const InlineResult &Result) {
+  using namespace ore;
+  llvm::setInlineRemark(*OriginalCB, std::string(Result.getFailureReason()) +
+                                         "; " + inlineCostStr(IC)); // INTEL
+  ORE.emit([&]() {
+    return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
+           << NV("Callee", Callee) << " will not be inlined into "
+           << NV("Caller", Caller) << ": "
+           << NV("Reason", Result.getFailureReason());
+  });
+}
 
-  InlineCost *getInlineCost() { return &IC; } // INTEL
-#endif // INTEL_CUSTOMIZATION
-
-private:
-  void recordUnsuccessfulInliningImpl(const InlineResult &Result) override {
-    using namespace ore;
-    llvm::setInlineRemark(*OriginalCB, std::string(Result.getFailureReason()) +
-                                           "; " + inlineCostStr(IC)); // INTEL
-    ORE.emit([&]() {
-      return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
-             << NV("Callee", Callee) << " will not be inlined into "
-             << NV("Caller", Caller) << ": "
-             << NV("Reason", Result.getFailureReason());
-    });
-  }
-
-  void recordInliningWithCalleeDeletedImpl() override {
+void DefaultInlineAdvice::recordInliningWithCalleeDeletedImpl() {
+  if (EmitRemarks)
     emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
-  }
+}
 
-  void recordInliningImpl() override {
+void DefaultInlineAdvice::recordInliningImpl() {
+  if (EmitRemarks)
     emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
-  }
-
-private:
-  CallBase *const OriginalCB;
-  InlineCost IC; // INTEL
-};
-
-} // namespace
+}
 
 #if INTEL_CUSTOMIZATION
 llvm::InlineCost static getDefaultInlineAdvice(
@@ -432,10 +415,10 @@ std::string llvm::getCallSiteLocation(DebugLoc DLoc) {
     StringRef Name = DIL->getScope()->getSubprogram()->getLinkageName();
     if (Name.empty())
       Name = DIL->getScope()->getSubprogram()->getName();
-    CallSiteLoc << Name.str() << ":" << llvm::utostr(Offset);
-    if (Discriminator) {
+    CallSiteLoc << Name.str() << ":" << llvm::utostr(Offset) << ":"
+                << llvm::utostr(DIL->getColumn());
+    if (Discriminator)
       CallSiteLoc << "." << llvm::utostr(Discriminator);
-    }
     First = false;
   }
 
@@ -458,11 +441,14 @@ void llvm::addLocationToRemarks(OptimizationRemark &Remark, DebugLoc DLoc) {
     StringRef Name = DIL->getScope()->getSubprogram()->getLinkageName();
     if (Name.empty())
       Name = DIL->getScope()->getSubprogram()->getName();
-    Remark << Name << ":" << ore::NV("Line", Offset);
+    Remark << Name << ":" << ore::NV("Line", Offset) << ":"
+           << ore::NV("Column", DIL->getColumn());
     if (Discriminator)
       Remark << "." << ore::NV("Disc", Discriminator);
     First = false;
   }
+
+  Remark << ";";
 }
 
 void llvm::emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,

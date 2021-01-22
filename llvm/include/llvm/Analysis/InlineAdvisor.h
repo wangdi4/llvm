@@ -125,6 +125,29 @@ private:
   bool Recorded = false;
 };
 
+class DefaultInlineAdvice : public InlineAdvice {
+public:
+#if INTEL_CUSTOMIZATION
+  DefaultInlineAdvice(InlineAdvisor *Advisor, CallBase &CB, InlineCost IC,
+                      OptimizationRemarkEmitter &ORE, // INTEL
+                      bool EmitRemarks = true)
+      : InlineAdvice(Advisor, CB, ORE, IC.getIsRecommended()), // INTEL
+        OriginalCB(&CB), IC(IC), EmitRemarks(EmitRemarks) {}
+
+  InlineCost *getInlineCost() { return  &IC; }
+#endif // INTEL_CUSTOMIZATION
+
+private:
+  void recordUnsuccessfulInliningImpl(const InlineResult &Result) override;
+  void recordInliningWithCalleeDeletedImpl() override;
+  void recordInliningImpl() override;
+
+private:
+  CallBase *const OriginalCB;
+  InlineCost IC; // INTEL
+  bool EmitRemarks;
+};
+
 /// Interface for deciding whether to inline a call site or not.
 class InlineAdvisor {
 public:

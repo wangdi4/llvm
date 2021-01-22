@@ -1970,7 +1970,7 @@ bool SampleProfileLoader::doInitialization(Module &M,
 
   if (FAM && !ProfileInlineReplayFile.empty()) {
     ExternalInlineAdvisor = std::make_unique<ReplayInlineAdvisor>(
-        *FAM, Ctx, ProfileInlineReplayFile);
+        *FAM, Ctx, ProfileInlineReplayFile, /*EmitRemarks=*/false);
     if (!ExternalInlineAdvisor->areReplayRemarksLoaded())
       ExternalInlineAdvisor.reset();
   }
