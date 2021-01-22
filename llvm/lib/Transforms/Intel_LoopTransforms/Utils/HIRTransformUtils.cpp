@@ -765,12 +765,13 @@ void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
 }
 
 void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
-                                  unsigned StripmineSize) {
+                                  unsigned StripmineSize,
+                                  bool AllowExplicitBoundInst) {
   uint64_t TripCount;
   bool IsConstTrip = FirstLoop->isConstTripLoop(&TripCount);
 
   // Caller should call canStripmine before
-  assert(FirstLoop->canStripmine(StripmineSize) &&
+  assert(FirstLoop->canStripmine(StripmineSize, AllowExplicitBoundInst) &&
          "Caller should call canStripmine() first");
 
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
@@ -897,7 +898,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     }
 
     // Normalize
-    bool Result = Lp->normalize();
+    bool Result = Lp->normalize(AllowExplicitBoundInst);
     assert(Result && "Not expecting cannot be normalized");
     (void)Result;
   }
@@ -998,7 +999,7 @@ static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
   if (UpperCE->isIntConstant()) {
     UpperCE->setSrcAndDestType(NewIVType);
 
-  } else if (UpperCE->convertToStandAloneBlob()) {
+  } else if (UpperCE->convertToStandAloneBlobOrConstant()) {
 
     unsigned Index = UpperCE->getSingleBlobIndex();
     UpperCE->getBlobUtils().createCastBlob(

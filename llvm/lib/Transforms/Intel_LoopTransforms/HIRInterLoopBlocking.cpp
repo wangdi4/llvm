@@ -2781,7 +2781,7 @@ private:
     //       when legality is checked, adjusted Loop Bounds are not
     //       available.
     for (auto *CE : make_range(Bounds.begin(), Bounds.end())) {
-      if (!CE->isIntConstant() && !CE->convertToStandAloneBlob()) {
+      if (!CE->isIntConstant() && !CE->convertToStandAloneBlobOrConstant()) {
         return std::make_pair(nullptr, InvalidBlobIndex);
       }
     }

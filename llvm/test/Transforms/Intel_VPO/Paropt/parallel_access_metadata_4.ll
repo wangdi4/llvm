@@ -1,5 +1,9 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S %s | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKPA %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S %s | FileCheck --check-prefixes=CHECK,CHECKIV %s
+; end INTEL_CUSTOMIZATION
 ;
 ; This test checks that paropt pass adds parallel access metadata to loops with
 ; concurrent clause that have non-monotonic property.
@@ -15,9 +19,14 @@
 ; CHECK: store float [[FP1]]{{.*}}, !llvm.access.group ![[AG1:[0-9]+]]
 ; CHECK: br i1 %{{.+}}, label %{{.+}}, label %{{.+}}, !llvm.loop ![[ID1:[0-9]+]]
 
-; CHECK: ![[AG1]] = distinct !{}
-; CHECK: ![[ID1]] = distinct !{![[ID1]], {{.+}}, ![[PA1:[0-9]+]]}
-; CHECK: ![[PA1]] = !{!"llvm.loop.parallel_accesses", ![[AG1]]}
+; CHECKPA-DAG: ![[AG1]] = distinct !{}
+; CHECKPA-DAG: ![[PA1:[0-9]+]] = !{!"llvm.loop.parallel_accesses", ![[AG1]]}
+; CHECKPA-DAG: ![[ID1]] = distinct !{![[ID1]]{{.*}}, ![[PA1]]{{[,\}]}}
+
+; INTEL_CUSTOMIZATION
+; CHECKIV-DAG: ![[IV1:[0-9]+]] = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
+; CHECKIV-DAG: ![[ID1]] = distinct !{![[ID1]]{{.*}}, ![[IV1]]{{[,\}]}}
+; end INTEL_CUSTOMIZATION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

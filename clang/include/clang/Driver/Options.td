@@ -6379,6 +6379,16 @@ def : CLCommaJoined<"no-device-math-lib=">, Alias<no_device_math_lib_EQ>;
 def _SLASH_Qansi_alias : CLFlag<"Qansi-alias">, Alias<fstrict_aliasing>,
   HelpText<"enable use of ANSI aliasing rules optimizations"
           " user asserts that the program adheres to these rules">;
+def _SLASH_Qalign_branch_EQ :  CLCommaJoined<"Qalign-branch=">, Alias<malign_branch_EQ>;
+def : CLCommaJoined<"Qalign-branch:">, Alias<malign_branch_EQ>;
+def _SLASH_Qalign_branch_boundary_EQ : CLJoined<"Qalign-branch-boundary=">,
+  Alias<malign_branch_boundary_EQ>;
+def : CLJoined<"Qalign-branch-boundary:">, Alias<malign_branch_boundary_EQ>;
+def _SLASH_Qbranches_within_32B_boundaries : CLFlag<"Qbranches-within-32B-boundaries">,
+  Alias<mbranches_within_32B_boundaries>;
+def _SLASH_Qpad_max_prefix_size_EQ : CLJoined<"Qpad-max-prefix-size=">,
+  Alias<mpad_max_prefix_size_EQ>;
+def : CLJoined<"Qpad-max-prefix-size:">, Alias<mpad_max_prefix_size_EQ>;
 def _SLASH_Qbuiltin : CLFlag<"Qbuiltin">, Alias<fbuiltin>;
 def _SLASH_fp_EQ : CLJoined<"fp=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;

@@ -68,12 +68,12 @@
 ; CHECK:   br label %[[BAR_DISPATCH_HEADER]]
 ; CHECK: }
 
-; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], !{{[0-9]+}}, [[FOO_LOOP_CM:![0-9]+]], !{{[0-9]+}}}
-; CHECK: [[FOO_LOOP_CM]] = !{!"llvm.loop.intel.loopcount_maximum", i32 1000}
+; CHECK-DAG: [[FOO_LOOP_CM:![0-9]+]] = !{!"llvm.loop.intel.loopcount_maximum", i32 1000}
+; CHECK-DAG: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]]{{.*}}, [[FOO_LOOP_CM]]{{[,\}]}}
 ;
-; CHECK: [[BAR_LOOP_MD]] = distinct !{[[BAR_LOOP_MD]], !{{[0-9]+}}, [[BAR_LOOP_CM:![0-9]+]], [[BAR_LOOP_CA:![0-9]+]]}
-; CHECK: [[BAR_LOOP_CM]] = !{!"llvm.loop.intel.loopcount_maximum", i32 25}
-; CHECK: [[BAR_LOOP_CA]] = !{!"llvm.loop.intel.loopcount_average", i32 25}
+; CHECK-DAG: [[BAR_LOOP_CM:![0-9]+]] = !{!"llvm.loop.intel.loopcount_maximum", i32 25}
+; CHECK-DAG: [[BAR_LOOP_CA:![0-9]+]] = !{!"llvm.loop.intel.loopcount_average", i32 25}
+; CHECK-DAG: [[BAR_LOOP_MD]] = distinct !{[[BAR_LOOP_MD]]{{.*}}, [[BAR_LOOP_CM]], [[BAR_LOOP_CA]]{{[,\}]}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

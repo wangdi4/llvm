@@ -454,29 +454,33 @@ public:
   bool isUnitaryBlob() const;
 
   /// Returns true if CanonExpr can be converted into a stand alone blob.
-  bool canConvertToStandAloneBlob() const;
+  bool canConvertToStandAloneBlobOrConstant() const;
 
   /// Merges all the blobs and the constant/denominator into a single compound
   /// blob. If the src/dest types are different the cast is merged into the blob
   /// too. Return value indicates whether conversion was performed.
-  bool convertToStandAloneBlob();
+  ///
+  /// Note: It is possible for the utility to return a constant instead of a
+  /// blob as in some cases casts (like truncation to i1 type) can be simplified
+  /// to constant.
+  bool convertToStandAloneBlobOrConstant();
 
   // Converts CE to standalone blob and applies appropriate cast on top. Return
   // value indicates whether conversion was performed. Cast operation is ignored
   // if old and new types are same.
-  bool castStandAloneBlob(Type *Ty, bool IsSExt);
+  bool convertToCastedStandAloneBlobOrConstant(Type *Ty, bool IsSExt);
 
   /// Converts CE to a standalone blob and sign extends it to Ty. Return value
   /// indicates whether conversion was performed.
-  bool convertSExtStandAloneBlob(Type *Ty);
+  bool convertToSExtStandAloneBlobOrConstant(Type *Ty);
 
   /// Converts CE to a standalone blob and zero extends it to Ty. Return value
   /// indicates whether conversion was performed.
-  bool convertZExtStandAloneBlob(Type *Ty);
+  bool convertToZExtStandAloneBlobOrConstant(Type *Ty);
 
   /// Converts CE to a standalone blob and truncates it to Ty. Return value
   /// indicates whether conversion was performed.
-  bool convertTruncStandAloneBlob(Type *Ty);
+  bool convertToTruncStandAloneBlobOrConstant(Type *Ty);
 
   /// Returns true if this canon expr looks something like (1 * %t) i.e. a
   /// single blob with a coefficient of 1. Please note that there is an

@@ -473,7 +473,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp,
     }
 
     // UBCE can be converted to StandAloneBlob
-    if (!UBCE->canConvertToStandAloneBlob()) {
+    if (!UBCE->canConvertToStandAloneBlobOrConstant()) {
       return false;
     }
   }

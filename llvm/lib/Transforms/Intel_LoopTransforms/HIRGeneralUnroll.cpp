@@ -383,7 +383,7 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
 
   // We can skip ztt because if the trip count is zero, normalized upper bound
   // will be a big positive number and go through default switch case which does
-  // nothing
+  // nothing.
   auto &HNU = RemainderLoop->getHLNodeUtils();
   auto &DDRU = HNU.getDDRefUtils();
 

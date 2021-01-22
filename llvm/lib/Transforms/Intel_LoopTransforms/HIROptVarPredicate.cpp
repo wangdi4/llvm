@@ -817,8 +817,10 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
 
   // Blobyfy everything to make it compatible with min/max scev operations.
   // TODO: revisit this part after implementation of MIN/MAX DDRefs.
-  if ((!LowerCE->isIntConstant() && !LowerCE->convertToStandAloneBlob()) ||
-      (!UpperCE->isIntConstant() && !UpperCE->convertToStandAloneBlob())) {
+  if ((!LowerCE->isIntConstant() &&
+       !LowerCE->convertToStandAloneBlobOrConstant()) ||
+      (!UpperCE->isIntConstant() &&
+       !UpperCE->convertToStandAloneBlobOrConstant())) {
     return false;
   }
 
@@ -878,7 +880,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     LLVM_DEBUG(dbgs() << "\n");
 
     if (!SplitPoint->isIntConstant() &&
-        !SplitPoint->convertToStandAloneBlob()) {
+        !SplitPoint->convertToStandAloneBlobOrConstant()) {
       // This is mostly due to IVs in the split point.
       // TODO: implement min/max ddrefs
       LLVM_DEBUG(
