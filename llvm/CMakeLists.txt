@@ -1094,6 +1094,11 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
 # end INTEL_FEATURE_ESIMD_EMBARGO
+
+# INTEL_FEATURE_ISA_RAO_INT
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_RAO_INT)
+# end INTEL_FEATURE_ISA_RAO_INT
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

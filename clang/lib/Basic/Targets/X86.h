@@ -236,6 +236,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_MOVGET64B
   bool HasMOVGET64B = false;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+#if INTEL_FEATURE_ISA_RAO_INT
+  bool HasRAOINT = false;
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
   bool HasKL = false;      // For key locker
   bool HasWIDEKL = false; // For wide key locker

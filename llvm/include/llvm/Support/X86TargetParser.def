@@ -297,6 +297,9 @@ X86_FEATURE       (GPRMOVGET,     "gprmovget")
 #if INTEL_FEATURE_ISA_MOVGET64B
 X86_FEATURE       (MOVGET64B,     "movget64b")
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+#if INTEL_FEATURE_ISA_RAO_INT
+X86_FEATURE       (RAOINT,        "raoint")
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 X86_FEATURE       (AVXVNNI,         "avxvnni")
 // These features aren't really CPU features, but the frontend can set them.

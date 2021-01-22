@@ -480,6 +480,11 @@ def FeatureMOVGET64B : SubtargetFeature<"movget64b", "HasMOVGET64B", "true",
                                         "Support MOVGET64B instructions",
                                         [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+#if INTEL_FEATURE_ISA_RAO_INT
+def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",
+                                     "Support RAO-INT instructions",
+                                     []>;
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
