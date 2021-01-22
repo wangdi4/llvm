@@ -1302,6 +1302,10 @@ static Constant *tryToMergePartialOverlappingStores(
 static bool eliminateDeadStores(BasicBlock &BB, AliasAnalysis *AA,
                                 MemoryDependenceResults *MD, DominatorTree *DT,
                                 const TargetLibraryInfo *TLI) {
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << "DSE-classic on: " << BB.getParent()->getName());
+#endif // INTEL_CUSTOMIZATION
+
   const DataLayout &DL = BB.getModule()->getDataLayout();
   bool MadeChange = false;
 
@@ -2475,6 +2479,9 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
                                   const TargetLibraryInfo &TLI) {
   bool MadeChange = false;
 
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << "DSE-SSA on: " << F.getName());
+#endif // INTEL_CUSTOMIZATION
   DSEState State = DSEState::get(F, AA, MSSA, DT, PDT, TLI);
   // For each store:
   for (unsigned I = 0; I < State.MemDefs.size(); I++) {
@@ -2643,6 +2650,16 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
 //===----------------------------------------------------------------------===//
 // DSE Pass
 //===----------------------------------------------------------------------===//
+
+#if INTEL_CUSTOMIZATION
+// Add UseSSA parameter (default = true)
+DSEPass::DSEPass(bool UseSSA) {
+  // If EnableMemorySSA is false (from command line flag), do not override it.
+  if (!UseSSA)
+    EnableMemorySSA = false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
   AliasAnalysis &AA = AM.getResult<AAManager>(F);
   const TargetLibraryInfo &TLI = AM.getResult<TargetLibraryAnalysis>(F);
@@ -2687,9 +2704,16 @@ class DSELegacyPass : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  DSELegacyPass() : FunctionPass(ID) {
+#if INTEL_CUSTOMIZATION
+  // Add UseSSA parameter.
+  DSELegacyPass(bool UseSSA = true) : FunctionPass(ID) {
+    // If EnableMemorySSA is false (from command line flag), do not
+    // override it.
+    if (!UseSSA)
+      EnableMemorySSA = UseSSA;
     initializeDSELegacyPassPass(*PassRegistry::getPassRegistry());
   }
+#endif // INTEL_CUSTOMIZATION
 
   bool runOnFunction(Function &F) override {
     if (skipFunction(F))
@@ -2760,6 +2784,9 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DSELegacyPass, "dse", "Dead Store Elimination", false,
                     false)
 
-FunctionPass *llvm::createDeadStoreEliminationPass() {
-  return new DSELegacyPass();
+#if INTEL_CUSTOMIZATION
+// Added UseSSA parameter, default true
+FunctionPass *llvm::createDeadStoreEliminationPass(bool UseSSA) {
+  return new DSELegacyPass(UseSSA);
+#endif // INTEL_CUSTOMIZATION
 }
