@@ -28,8 +28,7 @@
 #include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Metadata.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 using namespace Intel::MetadataAPI;
 
@@ -295,19 +294,26 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   void CompilationUtils::moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB) {
-    Instruction *loc = ToBB->getFirstNonPHI();
-    assert(loc && "At least one non-PHI insruction is expected in ToBB");
-    // TODO: refactor using
-    // void Instruction::moveBefore(BasicBlock &BB,
-    //     SymbolTableList< Instruction >::iterator I)
-    // and
-    // iterator BasicBlock::getFirstInsertionPt ()
-    // after an LLVM upgrate
-    for (BasicBlock::iterator I = FromBB->begin(), E = FromBB->end(); I != E;) {
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(I++)) {
-        AI->moveBefore(loc);
-      }
+    auto InsertionPt = ToBB->getFirstInsertionPt();
+    SmallVector<Instruction *, 4> ToMove;
+    for (auto &I : *FromBB) {
+      if (isa<AllocaInst>(&I))
+        ToMove.push_back(&I);
     }
+    for (auto *I : ToMove)
+      I->moveBefore(*ToBB, InsertionPt);
+  }
+
+  void CompilationUtils::moveAllocaDbgDeclare(BasicBlock &FromBB,
+                                              BasicBlock &ToBB) {
+    auto InsertionPt = ToBB.getFirstInsertionPt();
+    SmallVector<Instruction *, 4> ToMove;
+    for (auto &I : FromBB) {
+      if (isa<AllocaInst>(&I) || isa<DbgDeclareInst>(&I))
+        ToMove.push_back(&I);
+    }
+    for (auto *I : ToMove)
+      I->moveBefore(ToBB, InsertionPt);
   }
 
   void CompilationUtils::getAllSyncBuiltinsDclsForNoDuplicateRelax(
@@ -2040,5 +2046,16 @@ void CompilationUtils::updateFunctionMetadata(
       updateMetadataTreeWithNewFuncs(M, FunctionMap, MDNodeOp, Visited);
     }
   }
+}
+
+bool CompilationUtils::isImplicitGID(AllocaInst *AI) {
+  StringRef Name = AI->getName();
+  static const std::vector<StringRef> ImplicitGIDs = {
+      "__ocl_dbg_gid0", "__ocl_dbg_gid1", "__ocl_dbg_gid2"};
+  for (auto &GID : ImplicitGIDs) {
+    if (Name.equals(GID))
+      return true;
+  }
+  return false;
 }
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

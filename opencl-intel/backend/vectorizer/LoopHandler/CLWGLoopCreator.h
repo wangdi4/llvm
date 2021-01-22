@@ -252,6 +252,9 @@ private:
   /// and resolveDimension(0) = 1. Since now dim 1 is the innermost loop.
   unsigned int resolveDimension(unsigned int dim);
 
+  /// Find implicit GID alloca instructions and store initial GIDs to them.
+  void initializeImplicitGID(Function *F);
+
   ///@brief size_t type.
   Type *m_indTy;
 
@@ -340,6 +343,9 @@ private:
 
   ///@breif whether current function has subgroup path.
   bool m_hasSubGroupPath;
+
+  ///@brief implicit GIDs in scalar/masked kernel.
+  SmallVector<AllocaInst *, 3> m_implicitGIDs;
 };// CLWGLoopCreator
 } //namespace
 

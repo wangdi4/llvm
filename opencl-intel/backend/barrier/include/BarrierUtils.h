@@ -225,11 +225,6 @@ namespace intel {
     static bool isCrossedByBarrier(const TInstructionSet &SyncInstructions,
                                    BasicBlock *ValUsageBB, BasicBlock *ValBB);
 
-    /// @brief Check whether instruction is implicit GID.
-    /// @param AI Alloca instruction.
-    /// @return true if the instruction is implicit GID, false otherwise.
-    bool isImplicitGID(AllocaInst *AI);
-
     /// @brief Find dummybarrier - dummybarrier region.
     /// @param F Function.
     inst_range findDummyRegion(Function &F);
