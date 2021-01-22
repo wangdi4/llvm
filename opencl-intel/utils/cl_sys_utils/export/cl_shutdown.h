@@ -79,8 +79,15 @@ namespace Intel { namespace OpenCL { namespace Utils {
     };
 
     // Return TRUE if global shutdown finished 
-    inline bool IsShutdownMode()    { return (UseShutdownHandler::EXIT_DONE == UseShutdownHandler::shutdown_mode); }
-
+    // Setting it to false as a workaround as context shutdown is not really executed on linux. So
+    // it does not enter real shutdown mode.
+    inline bool IsShutdownMode() {
+#ifdef _WIN32
+       return (UseShutdownHandler::EXIT_DONE == UseShutdownHandler::shutdown_mode);
+#else
+       return false;
+#endif
+    }
     // Return TRUE if global shutdown started or finished
     inline bool IsShuttingDown()    { return (UseShutdownHandler::shutdown_mode > UseShutdownHandler::WORKING); }    
 
