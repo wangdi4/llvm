@@ -106,8 +106,7 @@ llvm::InlineCost static getDefaultInlineAdvice(
                          ILIC, WPI);                                   // INTEL
   };
   return llvm::shouldInline(CB, GetInlineCost, ORE,
-                            Params.EnableDeferral.hasValue() &&
-                                Params.EnableDeferral.getValue());
+                            Params.EnableDeferral.getValueOr(false));
 }
 
 #if INTEL_CUSTOMIZATION
