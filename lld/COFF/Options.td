@@ -342,6 +342,15 @@ def clrthreadattribute : IntelLLDWarnMessageArgs<"clrthreadattribute">;
 def clrunmanagedcodecheck : IntelLLDWarnMessage<"clrunmanagedcodecheck">;
 def delaysign : IntelLLDWarnMessage<"delaysign">;
 def delaysign_args : IntelLLDWarnMessageArgs<"delaysign">;
-def keycontainer :  IntelLLDWarnMessageArgs<"keycontainer">;
-def keyfile :  IntelLLDWarnMessageArgs<"keyfile">;
+def keycontainer : IntelLLDWarnMessageArgs<"keycontainer">;
+def keyfile : IntelLLDWarnMessageArgs<"keyfile">;
+def mapinfo : IntelLLDWarnMessageArgs<"mapinfo">;
+def midl : IntelLLDWarnMessageArgs<"midl">;
+def noassembly : IntelLLDWarnMessage<"noassembly">;
+def release : IntelLLDWarnMessage<"release">;
+def winmddelaysign: IntelLLDWarnMessage<"winmddelaysign">;
+def winmddelaysign_args : IntelLLDWarnMessageArgs<"winmddelaysign">;
+def winmdfile : IntelLLDWarnMessageArgs<"winmdfile">;
+def winmdkeycontainer : IntelLLDWarnMessageArgs<"winmdkeycontainer">;
+def winmdkeyfile : IntelLLDWarnMessageArgs<"winmdkeyfile">;
 #endif // INTEL_CUSTOMIZATION

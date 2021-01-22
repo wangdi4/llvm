@@ -158,17 +158,36 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
   if (!Group || Group->size() <= 1)
     return Cost;
 
-  if (ProcessedOVLSGroups.count(Group) != 0) {
-    // Group cost has already been assigned.
-    LLVM_DEBUG(dbgs() << "Group cost for ";
-               VPInst->printWithoutAnalyses(dbgs());
-               dbgs() << " has already been taken into account.\n");
-    return ProcessedOVLSGroups[Group] ? 0 : Cost;
-  }
-
   /// OptVLSInterface costs are not scaled up yet.
   unsigned VLSGroupCost =
     VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, *VLSCM);
+
+  if (ProcessedOVLSGroups.count(Group) != 0) {
+    if (!ProcessedOVLSGroups[Group]) {
+      LLVM_DEBUG(dbgs() << "TTI cost of memrefs in the Group containing ";
+                 VPInst->printWithoutAnalyses(dbgs());
+                 dbgs() << " is less than its OVLS Group cost.\n");
+      return Cost;
+    }
+
+    assert(is_contained(Group->getMemrefVec(), Group->getInsertPoint()) &&
+           "OVLS Group's insertion point is not a member of the Group.");
+
+    if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
+        VPInst) {
+      LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
+               VPInst->printWithoutAnalyses(dbgs());
+               dbgs() << '\n');
+      return VLSGroupCost;
+    }
+
+    LLVM_DEBUG(dbgs() << "Group cost for ";
+               VPInst->printWithoutAnalyses(dbgs());
+               dbgs() << " has already been taken into account.\n");
+
+    return 0;
+  }
+
   unsigned TTIGroupCost = 0;
   for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
     TTIGroupCost += VPlanCostModel::getLoadStoreCost(
@@ -186,7 +205,7 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
   LLVM_DEBUG(dbgs() << "Reduced cost for ";
              VPInst->printWithoutAnalyses(dbgs());
              dbgs() << " from " << Cost << " (TTI group cost " << TTIGroupCost
-                    << " to group cost " << VLSGroupCost << '\n');
+                    << " to group cost " << VLSGroupCost << ")\n");
   ProcessedOVLSGroups[Group] = true;
   return VLSGroupCost;
 }
@@ -749,7 +768,6 @@ unsigned VPlanCostModelProprietary::getSpillFillCost() {
 }
 
 unsigned VPlanCostModelProprietary::getCost() {
-  ProcessedOVLSGroups.clear();
   unsigned Cost = VPlanCostModel::getCost();
 
   // Array ref which needs to be aligned via loop peeling, if any.
@@ -847,13 +865,6 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
       OS << "Block Vector spill/fill approximate cost "
         "(not included into total cost): " << VecSpillFillCost << '\n';
   }
-
-  // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.
-  // TODO: The code should be revisited once the assumption is changed.
-  // Clearing before Instruction traversal is required to allow Instruction
-  // dumping function to print out correct Costs and not required for CM to
-  // work properly.
-  ProcessedOVLSGroups.clear();
 
   for (const VPInstruction &VPInst : *VPBB)
     printForVPInstruction(OS, &VPInst);
