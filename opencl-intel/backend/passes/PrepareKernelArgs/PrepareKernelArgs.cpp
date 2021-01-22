@@ -26,6 +26,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <sstream>
 #include <memory>
@@ -99,11 +100,23 @@ namespace intel{
     // Create a new function
     Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
     pNewF->setCallingConv(pFunc->getCallingConv());
-    pNewF->copyMetadata(pFunc, 0);
 
-    // pFunc is expected to be inlined anyway,
-    // so no need to duplicate DISubprogram.
-    pFunc->setSubprogram(nullptr);
+    ValueToValueMapTy VMap;
+    DISubprogram *SP = pFunc->getSubprogram();
+    if (SP) {
+      auto &MD = VMap.MD();
+      MD[SP->getUnit()].reset(SP->getUnit());
+      MD[SP->getType()].reset(SP->getType());
+      MD[SP->getFile()].reset(SP->getFile());
+    }
+    // Duplicate the metadata that is attached to the wrapped function.
+    // Subprograms that were already mapped to themselves won't be
+    // duplicated.
+    SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
+    pFunc->getAllMetadata(MDs);
+    for (auto MD : MDs) {
+      pNewF->addMetadata(MD.first, *MapMetadata(MD.second, VMap));
+    }
 
     return pNewF;
   }
@@ -415,8 +428,8 @@ namespace intel{
     // inlinable function call in a function with debug info
     // must have a !dbg location
     if (DISubprogram *SP = WrappedKernel->getSubprogram())
-      call->setDebugLoc(
-          DILocation::get(*m_pLLVMContext, SP->getScopeLine(), 0, SP));
+      call->setDebugLoc(DILocation::get(*m_pLLVMContext, SP->getScopeLine(), 0,
+                                        pWrapper->getSubprogram()));
     call->setCallingConv(WrappedKernel->getCallingConv());
 
     // Preserve debug info for a kernel return instruction
@@ -427,7 +440,10 @@ namespace intel{
       if (!isa<ReturnInst>(Term))
         continue;
 
-      WrapperRet->setDebugLoc(Term->getDebugLoc());
+      if (Term->getDebugLoc())
+        WrapperRet->setDebugLoc(DILocation::get(*m_pLLVMContext,
+                                                Term->getDebugLoc()->getLine(),
+                                                0, pWrapper->getSubprogram()));
       break;
     }
   }

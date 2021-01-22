@@ -556,9 +556,11 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
             *puiBinSizeRet = 0;
             return CL_SUCCESS;
         }
-        // In every other case, we have nothing intelligent to return
-        // Todo: see what I should return here
-        return CL_INVALID_OPERATION;
+        // CL_INVALID_PROGRAM_EXECUTABLE might be more appropriate if m_state is
+        // DEVICE_PROGRAM_COMPILE_FAILED. However, CL_INVALID_PROGRAM_EXECUTABLE
+        // is only allowed for query of CL_PROGRAM_NUM_KERNELS and
+        // CL_PROGRAM_KERNEL_NAMES.
+        return CL_INVALID_PROGRAM;
     }
 }
 
