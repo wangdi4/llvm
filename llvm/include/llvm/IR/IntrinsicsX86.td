@@ -6982,6 +6982,31 @@ let TargetPrefix = "x86" in {
                 Intrinsic<[llvm_i64_ty], [llvm_ptr_ty], [IntrReadMem]>;
 }
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+
+#if INTEL_FEATURE_ISA_RAO_INT
+let TargetPrefix = "x86" in {
+// AADD intrinsics
+def int_x86_aadd32 : GCCBuiltin<"__builtin_ia32_aadd32">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty],[]>;
+def int_x86_aadd64 : GCCBuiltin<"__builtin_ia32_aadd64">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty],[]>;
+// AAND intrinsics
+def int_x86_aand32 : GCCBuiltin<"__builtin_ia32_aand32">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], []>;
+def int_x86_aand64 : GCCBuiltin<"__builtin_ia32_aand64">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty], []>;
+// AOR intrinsics
+def int_x86_aor32 : GCCBuiltin<"__builtin_ia32_aor32">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], []>;
+def int_x86_aor64 : GCCBuiltin<"__builtin_ia32_aor64">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty], []>;
+// AXOR intrinsics
+def int_x86_axor32 : GCCBuiltin<"__builtin_ia32_axor32">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], []>;
+def int_x86_axor64 : GCCBuiltin<"__builtin_ia32_axor64">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty], []>;
+}
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // UINTR - User Level Interrupt

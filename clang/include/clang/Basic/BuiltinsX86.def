@@ -2403,6 +2403,13 @@ TARGET_BUILTIN(__builtin_ia32_movget32, "UiUiC*", "n", "gprmovget")
 #if INTEL_FEATURE_ISA_MOVGET64B
 TARGET_BUILTIN(__builtin_ia32_movget64b32, "UiV16UiC*", "nV:512:", "movget64b")
 #endif // INTEL_FEATURE_ISA_MOVGET64B
+
+#if INTEL_FEATURE_ISA_RAO_INT
+TARGET_BUILTIN(__builtin_ia32_aadd32, "vv*Si", "n", "raoint")
+TARGET_BUILTIN(__builtin_ia32_aand32, "vv*Si", "n", "raoint")
+TARGET_BUILTIN(__builtin_ia32_aor32, "vv*Si", "n", "raoint")
+TARGET_BUILTIN(__builtin_ia32_axor32, "vv*Si", "n", "raoint")
+#endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 TARGET_HEADER_BUILTIN(_InterlockedAnd64,         "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(_InterlockedDecrement64,   "WiWiD*",   "nh", "intrin.h", ALL_MS_LANGUAGES, "")
