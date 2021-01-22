@@ -1032,7 +1032,8 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
                 isa<ConstantInt>(Args[3]))) {
       bool AggrStartsNewStyleMapChain =
           (!CS.getIsMapChainLink() && !CS.getIsMapAggrHead() &&
-           !CS.getIsMapAggr() && Args.size() == 4);
+           !CS.getIsMapAggr() &&
+           (Args.size() == 4 || Args.size() == 6));
 
       if (CS.getIsMapAggrHead() || AggrStartsNewStyleMapChain) {
         // This bundle starts a new chain.
