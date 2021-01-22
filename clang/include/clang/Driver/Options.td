@@ -1130,6 +1130,8 @@ def debug_EQ : Joined<["-"], "debug=">, Group<intel_debug_Group>,
   Flags<[NoXarchOption]>, HelpText<"Enable debug information. Valid args: "
   "none, all, full, minimal">;
 def debug_Separate : Separate<["-"], "debug">, Alias<debug_EQ>;
+def mdebug_line_version_EQ : Joined<["-"], "mdebug-line-version=">,
+  HelpText<"Set debug line version used when generating debug information">;
 #endif // INTEL_CUSTOMIZATION
 def dependency_file : Separate<["-"], "dependency-file">, Flags<[CC1Option]>,
   HelpText<"Filename (or -) to write dependency output to">,

@@ -196,6 +196,12 @@
 # end INTEL_FEATURE_ISA_MOVGET64B
 # === New ISA features section end ===
 
+# === New ESIMD section begin ===
+# INTEL_FEATURE_ESIMD_EMBARGO
+@ESIMD_EMBARGO:SECRET@
+# end INTEL_FEATURE_ESIMD_EMBARGO
+# === New ESIMD section end ===
+
 # INTEL_FEATURE_BIENDIAN
 # New Biendian feature
 # === New Biendian feature section begin ===

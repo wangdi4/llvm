@@ -16,6 +16,10 @@
 
 #ifdef _WIN32
 
+#if !defined (MSVC_VER) && defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-qual"
+#endif
 #include "pdb.h"
 #include <windows.h>
 #include <stdlib.h>
@@ -681,7 +685,6 @@ static dgi_bool pdb_write_type_or_id(TPI*  handle, const char * buf, unsigned lo
             fprintf(stderr, "Could not create type in TypesQueryTiForCVRecordEx\n");
             process_error();
        
-        
             dump_record((unsigned char *)buf);
         }
         pdb_close();

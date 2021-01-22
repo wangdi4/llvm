@@ -4505,12 +4505,22 @@ public:
           // the broker call.
           Value *Param = ACS.getCallArgOperand(Idx);
           if (Param) {
-            Argument *FormalVal = TargetFunc->getArg(Idx);
-            // This argument will be processed here, and does not need to be
-            // processed when iterating over the original function call
-            // arguments.
+            // This argument will be processed here because it is being
+            // forwarded to a call made by the callback routine. Mark it as a
+            // "special argument" so that it is not processed when iterating
+            // over the original function call arguments.
             SpecialArguments.insert(Param);
-            checkArgTypeMismatch(&Call, TargetFunc, FormalVal, Param);
+            if (TargetFunc && Idx < TargetFunc->arg_size()) {
+              Argument *FormalVal = TargetFunc->getArg(Idx);
+              checkArgTypeMismatch(&Call, TargetFunc, FormalVal, Param);
+            } else if (isValueOfInterest(Param)) {
+              LLVM_DEBUG(dbgs()
+                         << "dtrans-safety: Unhandled use -- "
+                         << "Value passed to callback function that uses an "
+                            "indirect function call\n"
+                         << *Param << "\n");
+              setValueTypeInfoSafetyData(Param, dtrans::UnhandledUse);
+            }
           }
         }
       }

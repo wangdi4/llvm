@@ -6168,9 +6168,9 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     case X86::VRSQRT28SSZr:
     case X86::VRSQRT28SSZrk:
     case X86::VRSQRT28SSZrkz:
-    case X86::VSCALEFSSZrr:
-    case X86::VSCALEFSSZrrk:
-    case X86::VSCALEFSSZrrkz:
+    case X86::VSCALEFSSZrr_Int: // INTEL
+    case X86::VSCALEFSSZrr_Intk: // INTEL
+    case X86::VSCALEFSSZrr_Intkz:// INTEL
       return false;
     default:
       return true;
@@ -6275,9 +6275,9 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     case X86::VRSQRT28SDZr:
     case X86::VRSQRT28SDZrk:
     case X86::VRSQRT28SDZrkz:
-    case X86::VSCALEFSDZrr:
-    case X86::VSCALEFSDZrrk:
-    case X86::VSCALEFSDZrrkz:
+    case X86::VSCALEFSDZrr_Int: // INTEL
+    case X86::VSCALEFSDZrr_Intk: // INTEL
+    case X86::VSCALEFSDZrr_Intkz: // INTEL
       return false;
     default:
       return true;

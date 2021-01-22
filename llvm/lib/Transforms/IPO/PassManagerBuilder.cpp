@@ -1409,7 +1409,12 @@ void PassManagerBuilder::populateModulePassManager(
     }
   }
 
-  MPM.add(createWarnMissedTransformationsPass());
+#if INTEL_CUSTOMIZATION
+  // Postpone warnings to LTO link phase. Most transformations which process
+  // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
+  if (!PrepareForLTO)
+    MPM.add(createWarnMissedTransformationsPass());
+#endif // INTEL_CUSTOMIZATION
 
   // After vectorization and unrolling, assume intrinsics may tell us more
   // about pointer alignments.
@@ -2263,7 +2268,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       }
       PM.add(createHIRLoopInterchangePass());
       PM.add(createHIRGenerateMKLCallPass());
-      PM.add(createHIRInterLoopBlockingPass());
+      if (OptLevel > 2 && IsLTO) {
+        PM.add(createHIRInterLoopBlockingPass());
+      }
       PM.add(createHIRLoopBlockingPass());
       PM.add(createHIRUndoSinkingForPerfectLoopnestPass());
       PM.add(createHIRDeadStoreEliminationPass());

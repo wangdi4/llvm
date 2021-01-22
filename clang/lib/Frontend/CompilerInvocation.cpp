@@ -2568,6 +2568,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Opts.OpenCLChannel = 0;
     }
   }
+  Opts.OpenMPTargetSimd = Args.hasArg(OPT_fopenmp_target_simd);
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.

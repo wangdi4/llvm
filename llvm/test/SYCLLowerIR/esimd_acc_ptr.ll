@@ -1,3 +1,8 @@
+; INTEL_CUSTOMIZATION
+; # Temporarily disable this for CMPLRLLVM-25711.
+; UNSUPPORTED: true
+; end INTEL_CUSTOMIZATION
+;
 ; RUN: opt -LowerESIMD -S < %s | FileCheck %s
 
 ; This test checks that LowerESIMD pass correctly interpretes the

@@ -462,6 +462,17 @@ __esimd_raw_send_store(uint8_t modifier, uint8_t execSize,
                        uint8_t numSrc0, uint8_t sfid, uint32_t exDesc,
                        uint32_t msgDesc,
                        sycl::INTEL::gpu::vector_type_t<Ty1, N1> msgSrc0);
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+// Wait for val to be ready
+template <typename T = void>
+SYCL_EXTERNAL void __esimd_wait(uint16_t val);
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 #ifndef __SYCL_DEVICE_ONLY__
 
 template <typename Ty, int N, int NumBlk, sycl::INTEL::gpu::CacheHint L1H,
@@ -1055,5 +1066,15 @@ __esimd_raw_send_store(uint8_t modifier, uint8_t execSize,
                        sycl::INTEL::gpu::vector_type_t<Ty1, N1> msgSrc0) {
   throw cl::sycl::feature_not_supported();
 }
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+// Wait for val to be ready
+template <typename T>
+SYCL_EXTERNAL void __esimd_wait(uint16_t val) {}
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 #endif // __SYCL_DEVICE_ONLY__

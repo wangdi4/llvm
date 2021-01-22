@@ -1459,10 +1459,11 @@ static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
     Instruction *NewCall = dyn_cast<Instruction>(VMI->second);
     if (!NewCall)
       continue;
+    auto *NewCallBase = dyn_cast<CallBase>(VMI->second);
     if (IR && IR->isClassicIREnabled())
-      IR->addActiveCallSitePair(&I, NewCall);
+      IR->addActiveCallSitePair(&I, NewCallBase);
     if (MDIR && MDIR->isMDIREnabled())
-      MDIR->addActiveCallSitePair(&I, NewCall);
+      MDIR->addActiveCallSitePair(&I, NewCallBase);
     if (!IFI.CG && !II)
       IFI.InlinedCalls.push_back(NewCall);
   }

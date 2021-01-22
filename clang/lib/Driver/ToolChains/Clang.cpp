@@ -4252,6 +4252,11 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
                    options::OPT_gno_intel_opencl_builtin_types,
                    false))
       CmdArgs.push_back("-gintel-opencl-builtin-types");
+  if (const Arg *A = Args.getLastArg(options::OPT_mdebug_line_version_EQ)) {
+    StringRef Value = A->getValue();
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(Args.MakeArgString("-debug-line-version=" + Twine(Value)));
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 

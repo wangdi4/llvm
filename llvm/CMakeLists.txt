@@ -1089,6 +1089,11 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVGET64B)
 # end INTEL_FEATURE_ISA_MOVGET64B
+
+# INTEL_FEATURE_ESIMD_EMBARGO
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
+# end INTEL_FEATURE_ESIMD_EMBARGO
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
