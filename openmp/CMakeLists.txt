@@ -90,6 +90,17 @@ option(OPENMP_ENABLE_LIBOMPTARGET "Enable building libomptarget for offloading."
        ${ENABLE_LIBOMPTARGET})
 option(OPENMP_ENABLE_LIBOMPTARGET_PROFILING "Enable time profiling for libomptarget."
        ${ENABLE_LIBOMPTARGET})
+if (INTEL_CUSTOMIZATION)
+  # Disable profiling, if building as part of llvm with shared libraries.
+  # Due to libomptarget build location (see LIBOMPTARGET_LIBRARY_DIR)
+  # being inconsistent with llvm component libraries' build locations
+  # the default rpath setting does not convey proper resolution
+  # for LLVMSupport dependency.
+  # This is a workaround to an existing llorg issue.
+  if (NOT OPENMP_STANDALONE_BUILD AND BUILD_SHARED_LIBS)
+    set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
+  endif()
+endif(INTEL_CUSTOMIZATION)
 if (OPENMP_ENABLE_LIBOMPTARGET)
   # Check that the library can actually be built.
   if (APPLE OR WIN32)
