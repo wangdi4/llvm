@@ -749,7 +749,7 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM) const {
 // TODO: Investigate the cost/benefit of tail call elimination on debugging.
 FunctionPassManager
 PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
-                                                   ThinLTOPhase Phase) {
+                                                   ThinOrFullLTOPhase Phase) {
 
   FunctionPassManager FPM(DebugLogging);
 
@@ -826,7 +826,7 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // inaccurate. The normal unroller doesn't pay attention to forced full unroll
   // attributes so we need to make sure and allow the full unroll pass to pay
   // attention to it.
-  if (Phase != ThinLTOPhase::PreLink || !PGOOpt ||
+  if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink || !PGOOpt ||
       PGOOpt->Action != PGOOptions::SampleUse)
     LPM2.addPass(LoopFullUnrollPass(Level.getSpeedupLevel(),
                                     /* OnlyWhenForced= */ !PTO.LoopUnrolling,
@@ -890,7 +890,7 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
 FunctionPassManager
 PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
-                                                 ThinLTOPhase Phase) {
+                                                 ThinOrFullLTOPhase Phase) {
   assert(Level != OptimizationLevel::O0 && "Must request optimizations!");
 
   // The O1 pipeline has a separate pipeline creation function to simplify
@@ -1015,7 +1015,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // inaccurate. The normal unroller doesn't pay attention to forced full unroll
   // attributes so we need to make sure and allow the full unroll pass to pay
   // attention to it.
-  if (Phase != ThinLTOPhase::PreLink || !PGOOpt ||
+  if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink || !PGOOpt ||
       PGOOpt->Action != PGOOptions::SampleUse)
     LPM2.addPass(LoopFullUnrollPass(Level.getSpeedupLevel(),
                                     /* OnlyWhenForced= */ !PTO.LoopUnrolling,
@@ -1236,11 +1236,10 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
   return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel());
 }
 
-ModuleInlinerWrapperPass
-PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
-                                  bool MandatoryOnly) {
+ModuleInlinerWrapperPass PassBuilder::buildInlinerPipeline(
+    OptimizationLevel Level, ThinOrFullLTOPhase Phase, bool MandatoryOnly) {
   InlineParams IP = getInlineParamsFromOptLevel(Level);
-  if (Phase == PassBuilder::ThinLTOPhase::PreLink && PGOOpt &&
+  if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
 
@@ -1306,7 +1305,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
 
 ModulePassManager
 PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
-                                               ThinLTOPhase Phase) {
+                                               ThinOrFullLTOPhase Phase) {
   ModulePassManager MPM(DebugLogging);
 
   // Add UniqueInternalLinkageNames Pass which renames internal linkage
@@ -1317,7 +1316,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Place pseudo probe instrumentation as the first pass of the pipeline to
   // minimize the impact of optimization changes.
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
-      Phase != ThinLTOPhase::PostLink)
+      Phase != ThinOrFullLTOPhase::ThinLTOPostLink)
     MPM.addPass(SampleProfileProbePass(TM));
 
   bool HasSampleProfile = PGOOpt && (PGOOpt->Action == PGOOptions::SampleUse);
@@ -1327,11 +1326,11 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // no need to load the profile again in PostLink.
   bool LoadSampleProfile =
       HasSampleProfile &&
-      !(FlattenedProfileUsed && Phase == ThinLTOPhase::PostLink);
+      !(FlattenedProfileUsed && Phase == ThinOrFullLTOPhase::ThinLTOPostLink);
 
 #if INTEL_CUSTOMIZATION
   InlineParams IP = getInlineParamsFromOptLevel(Level);
-  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
+  if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
   InlinerPass InlPass;
@@ -1352,7 +1351,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // command line. E.g. for flattened profiles where we will not be reloading
   // the sample profile in the ThinLTO backend, we ideally shouldn't have to
   // provide the sample profile file.
-  if (Phase == ThinLTOPhase::PostLink && !LoadSampleProfile)
+  if (Phase == ThinOrFullLTOPhase::ThinLTOPostLink && !LoadSampleProfile)
     MPM.addPass(PGOIndirectCallPromotion(true /* InLTO */, HasSampleProfile));
 
   // Do basic inference of function attributes from known properties of system
@@ -1385,20 +1384,19 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     // Annotate sample profile right after early FPM to ensure freshness of
     // the debug info.
     MPM.addPass(SampleProfileLoaderPass(PGOOpt->ProfileFile,
-                                        PGOOpt->ProfileRemappingFile,
-                                        Phase == ThinLTOPhase::PreLink));
+                                        PGOOpt->ProfileRemappingFile, Phase));
     // Cache ProfileSummaryAnalysis once to avoid the potential need to insert
     // RequireAnalysisPass for PSI before subsequent non-module passes.
     MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
     // Do not invoke ICP in the ThinLTOPrelink phase as it makes it hard
     // for the profile annotation to be accurate in the ThinLTO backend.
-    if (Phase != ThinLTOPhase::PreLink)
+    if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink)
       // We perform early indirect call promotion here, before globalopt.
       // This is important for the ThinLTO backend phase because otherwise
       // imported available_externally functions look unreferenced and are
       // removed.
-      MPM.addPass(PGOIndirectCallPromotion(Phase == ThinLTOPhase::PostLink,
-                                           true /* SamplePGO */));
+      MPM.addPass(PGOIndirectCallPromotion(
+          Phase == ThinOrFullLTOPhase::ThinLTOPostLink, true /* SamplePGO */));
   }
 
   if (AttributorRun & AttributorRunOption::MODULE)
@@ -1407,7 +1405,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Lower type metadata and the type.test intrinsic in the ThinLTO
   // post link pipeline after ICP. This is to enable usage of the type
   // tests in ICP sequences.
-  if (Phase == ThinLTOPhase::PostLink)
+  if (Phase == ThinOrFullLTOPhase::ThinLTOPostLink)
     MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
 
   for (auto &C : PipelineEarlySimplificationEPCallbacks)
@@ -1451,7 +1449,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM)));
 
   // Add all the requested passes for instrumentation PGO, if requested.
-  if (PGOOpt && Phase != ThinLTOPhase::PostLink &&
+  if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       (PGOOpt->Action == PGOOptions::IRInstr ||
        PGOOpt->Action == PGOOptions::IRUse)) {
     addPGOInstrPasses(MPM, Level,
@@ -1460,7 +1458,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                       PGOOpt->ProfileRemappingFile);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
-  if (PGOOpt && Phase != ThinLTOPhase::PostLink &&
+  if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       PGOOpt->CSAction == PGOOptions::CSIRInstr)
     MPM.addPass(PGOInstrumentationGenCreateVar(PGOOpt->CSProfileGenFile));
 
@@ -1477,7 +1475,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/true));
   MPM.addPass(buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/false));
 
-  if (EnableMemProfiler && Phase != ThinLTOPhase::PreLink) {
+  if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
     MPM.addPass(ModuleMemProfilerPass());
   }
@@ -1755,7 +1753,9 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
 
   // Add the core simplification pipeline.
-  MPM.addPass(buildModuleSimplificationPipeline(Level, ThinLTOPhase::None));
+  MPM.addPass(buildModuleSimplificationPipeline(
+      Level, LTOPreLink ? ThinOrFullLTOPhase::FullLTOPreLink
+                        : ThinOrFullLTOPhase::None));
 
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPreLink));
@@ -1792,7 +1792,8 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
   // If we are planning to perform ThinLTO later, we don't bloat the code with
   // unrolling/vectorization/... now. Just simplify the module as much as we
   // can.
-  MPM.addPass(buildModuleSimplificationPipeline(Level, ThinLTOPhase::PreLink));
+  MPM.addPass(buildModuleSimplificationPipeline(
+      Level, ThinOrFullLTOPhase::ThinLTOPreLink));
 
   // Run partial inlining pass to partially inline functions that have
   // large bodies.
@@ -1855,7 +1856,8 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
   MPM.addPass(ForceFunctionAttrsPass());
 
   // Add the core simplification pipeline.
-  MPM.addPass(buildModuleSimplificationPipeline(Level, ThinLTOPhase::PostLink));
+  MPM.addPass(buildModuleSimplificationPipeline(
+      Level, ThinOrFullLTOPhase::ThinLTOPostLink));
 
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(Level));
@@ -1918,7 +1920,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     // Load sample profile before running the LTO optimization pipeline.
     MPM.addPass(SampleProfileLoaderPass(PGOOpt->ProfileFile,
                                         PGOOpt->ProfileRemappingFile,
-                                        false /* ThinLTOPhase::PreLink */));
+                                        ThinOrFullLTOPhase::FullLTOPostLink));
     // Cache ProfileSummaryAnalysis once to avoid the potential need to insert
     // RequireAnalysisPass for PSI before subsequent non-module passes.
     MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
