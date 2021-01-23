@@ -167,8 +167,9 @@ private:
   getNewExitingBlocks(BasicBlock *OldExitingBB, BasicBlock *ExitBB) const;
 
   // Adds an unconditional branch from the current insertion point to \p ToBB
-  // if the last inserted instruction is not an unconditional branch.
-  void generateBranchIfRequired(BasicBlock *ToBB);
+  // if the last inserted instruction is not a terminator inst.
+  // Returns true if the branch was inserted.
+  bool generateBranchIfRequired(BasicBlock *ToBB);
 
   // Set the metadata for the instruction using the passed in MDNodes.
   static void setMetadata(Value *Val, const RegDDRef *Ref);
@@ -1262,9 +1263,13 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
   // current insertion point is at end of region, add jump to successor
   // and we are done
   if (RegionSuccessor) {
-    addOldToNewExitBlockEntry(Reg->getExitBBlock(), RegionSuccessor,
-                              Builder.GetInsertBlock());
-    generateBranchIfRequired(RegionSuccessor);
+    // In some cases the normal region exit is optimized away. For example,
+    // an early exit might become unconditional exit of the region after
+    // optimizations. It is important to check this before doing the mapping.
+    if (generateBranchIfRequired(RegionSuccessor)) {
+      addOldToNewExitBlockEntry(Reg->getExitBBlock(), RegionSuccessor,
+                                Builder.GetInsertBlock());
+    }
 
   } else if (Reg->isFunctionLevel()) {
     // It is possible that the function exiting statements for function level
@@ -1331,12 +1336,15 @@ Value *CGVisitor::generateAllPredicates(HLIf *HIf) {
   return CurPred;
 }
 
-void CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
+bool CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
   auto InsertBB = Builder.GetInsertBlock();
 
   if (InsertBB->empty() || !(InsertBB->back().isTerminator())) {
     Builder.CreateBr(ToBB);
+    return true;
   }
+
+  return false;
 }
 
 Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
