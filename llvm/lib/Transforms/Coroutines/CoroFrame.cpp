@@ -1540,6 +1540,7 @@ static void rewritePHIs(BasicBlock &BB) {
         // unwind destination that needs to be handle specially.
         (void) CS;
         assert(CS->getUnwindDest() == &BB);
+        (void)CS;
         rewritePHIsForCleanupPad(&BB, CleanupPad);
         return;
       }
