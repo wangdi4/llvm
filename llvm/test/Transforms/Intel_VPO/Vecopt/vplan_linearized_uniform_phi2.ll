@@ -131,12 +131,9 @@ define void @test2(i32 *%a, i32 %b) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB3]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_UNIFORM_PHI_BB6:%.*]] = phi  [ i1 [[VP_BB1_UNIFORM]], [[BB4]] ],  [ i1 [[VP_BB1_UNIFORM_PHI_BB4]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BB1_UNIFORM_PHI_BB6:%.*]] = phi  [ i1 [[VP_BB1_UNIFORM]], [[BB4]] ],  [ i1 [[VP_BB1_UNIFORM_PHI_BB4]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_VARYING_PHI_BB6:%.*]] = phi  [ i1 false, [[BB4]] ],  [ i1 [[VP_BB2_VARYING]], [[BB3]] ]
-; FIXME: This is a use of VP_BB1_UNIFORM_PHI_BB6_ACTIVE before it's defined.
-; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = or i1 [[VP_BB2_VARYING_PHI_BB6]] i1 [[VP_BB1_UNIFORM_PHI_BB6_ACTIVE:%.*]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_ACTIVE_LANE:%.*]] = active-lane i1 [[VP0]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_BB1_UNIFORM_PHI_BB6_ACTIVE]] = lane-extract i1 [[VP_BB1_UNIFORM_PHI_BB6]] i1 [[VP_ACTIVE_LANE]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = or i1 [[VP_BB2_VARYING_PHI_BB6]] i1 [[VP_BB1_UNIFORM_PHI_BB6]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]

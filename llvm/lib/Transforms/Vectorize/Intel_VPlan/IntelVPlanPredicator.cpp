@@ -517,8 +517,11 @@ void VPlanPredicator::linearizeRegion() {
       // For now, just mark phis as blend to avoid phis in the middle of the
       // generated BB.
       if (UniformEdges.size() == 1 &&
-          CurrBlock->getSinglePredecessor()->getSingleSuccessor())
-        BlocksToBlendProcess.insert(CurrBlock);
+          CurrBlock->getSinglePredecessor()->getSingleSuccessor()) {
+        for (auto &Phi : CurrBlock->getVPPhis()) {
+          PhisToBlendProcess[CurrBlock].push_back(&Phi);
+        }
+      }
 
       // No more fixups needed, al predecessors are uniform edges that we didn't
       // touch.
@@ -607,7 +610,9 @@ void VPlanPredicator::linearizeRegion() {
                    }) &&
            "Uniform edge has been removed!");
 
-    BlocksToBlendProcess.insert(CurrBlock);
+    for (auto &Phi : CurrBlock->getVPPhis()) {
+      PhisToBlendProcess[CurrBlock].push_back(&Phi);
+    }
   }
 }
 
@@ -650,10 +655,11 @@ class PhiToBlendUpdater {
       MergePhiMaps;
 
 public:
-  PhiToBlendUpdater(VPBasicBlock *Block)
+  PhiToBlendUpdater(VPBasicBlock *Block, ArrayRef<VPPHINode *> Phis)
       : VPDomTree(*Block->getParent()->getDT()),
         VPPostDomTree(*Block->getParent()->getPDT()),
-        VPLI(Block->getParent()->getVPLoopInfo()), Block(Block) {}
+        VPLI(Block->getParent()->getVPLoopInfo()), Block(Block),
+        Phis(Phis.begin(), Phis.end()) {}
 
   void processSingleIncomingValuePhis() {
     assert(Phis[0]->getNumIncomingValues() == 1 &&
@@ -801,11 +807,8 @@ public:
   }
 
   void run() {
-    if (Block->getVPPhis().empty())
+    if (Phis.empty())
       return;
-
-    for (VPPHINode &Phi : Block->getVPPhis())
-      Phis.push_back(&Phi);
 
     if (Phis[0]->getNumIncomingValues() == 1) {
       // LLVM IR CG merges (reuses) several VPBasicBlocks so we can't leave a
@@ -822,7 +825,7 @@ public:
       return;
     }
 
-    auto &SomePhi = cast<VPPHINode>(*Block->begin());
+    auto &SomePhi = *Phis[0];
     for (auto *PredicateBlock : SomePhi.blocks())
       DefBlocks.insert(PredicateBlock);
 
@@ -982,10 +985,7 @@ public:
 
 void VPlanPredicator::transformPhisToBlends() {
   for (VPBasicBlock *Block : RPOT) {
-    if (BlocksToBlendProcess.count(Block) == 0)
-      continue;
-
-    PhiToBlendUpdater Updater(Block);
+    PhiToBlendUpdater Updater(Block, PhisToBlendProcess[Block]);
     Updater.run();
   }
 }

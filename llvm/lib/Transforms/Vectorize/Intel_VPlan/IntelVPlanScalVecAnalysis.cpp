@@ -223,6 +223,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       SetSVAKindForArgOperands(VPCall, SVAKind::FirstScalar);
       break;
     }
+    case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
+      // Ther are no way to specify uniformity/linearity/etc. in the current
+      // DPC++ spec.
+      setSVAKindForInst(Inst, SVAKind::Vector);
+      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
+      break;
+    }
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
       // Call that will be vectorized using matching SIMD vector variant.
       // Argument nature is decided based on VectorVariant's properties.

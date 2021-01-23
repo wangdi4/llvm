@@ -2923,39 +2923,10 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(
 
 static void eraseIdenticalZttLoops(SmallVectorImpl<const HLLoop *> &ZttLoops,
                                    const HLLoop *RefZttLoop) {
-  for (auto It = ZttLoops.begin(); It != ZttLoops.end();) {
-    auto *ZttLoop = *It;
-
-    if (ZttLoop->getNumZttPredicates() != RefZttLoop->getNumZttPredicates()) {
-      ++It;
-      continue;
-    }
-
-    bool AreEqual = true;
-    for (auto PredIt1 = ZttLoop->ztt_pred_begin(),
-              PredIt2 = RefZttLoop->ztt_pred_begin(),
-              E = ZttLoop->ztt_pred_end();
-         PredIt1 != E; ++PredIt1, ++PredIt2) {
-
-      if ((*PredIt1 != *PredIt2) ||
-          !DDRefUtils::areEqual(
-              ZttLoop->getZttPredicateOperandDDRef(PredIt1, true),
-              RefZttLoop->getZttPredicateOperandDDRef(PredIt2, true)) ||
-          !DDRefUtils::areEqual(
-              ZttLoop->getZttPredicateOperandDDRef(PredIt1, false),
-              RefZttLoop->getZttPredicateOperandDDRef(PredIt2, false))) {
-
-        AreEqual = false;
-        break;
-      }
-    }
-
-    if (AreEqual) {
-      It = ZttLoops.erase(It);
-    } else {
-      ++It;
-    }
-  }
+  auto Iter = remove_if(ZttLoops, [RefZttLoop](const HLLoop *Loop) {
+    return HLNodeUtils::areEqualZttConditions(RefZttLoop, Loop);
+  });
+  ZttLoops.erase(Iter, ZttLoops.end());
 }
 
 const HLNode *HLNodeUtils::getCommonDominatingParent(
@@ -4548,28 +4519,84 @@ HLNode *HLNodeUtils::getLexicalLowestCommonAncestorParent(HLNode *Node1,
       static_cast<const HLNode *>(Node1), static_cast<const HLNode *>(Node2)));
 }
 
-bool HLNodeUtils::areEqualConditions(const HLIf *NodeA, const HLIf *NodeB) {
-  if (NodeA->getNumPredicates() != NodeB->getNumPredicates()) {
+struct PredicateTraits {
+  static unsigned getNumPredicates(const HLIf *If) {
+    return If->getNumPredicates();
+  }
+
+  static HLIf::const_pred_iterator pred_begin(const HLIf *If) {
+    return If->pred_begin();
+  }
+
+  static HLIf::const_pred_iterator pred_end(const HLIf *If) {
+    return If->pred_end();
+  }
+
+  static const RegDDRef *
+  getPredicateOperandDDRef(const HLIf *If, HLIf::const_pred_iterator CPredI,
+                           bool IsLHS) {
+    return If->getPredicateOperandDDRef(CPredI, IsLHS);
+  }
+};
+
+struct ZttPredicateTraits {
+  static unsigned getNumPredicates(const HLLoop *Loop) {
+    return Loop->hasZtt() ? Loop->getNumZttPredicates() : 0;
+  }
+
+  static HLLoop::const_ztt_pred_iterator pred_begin(const HLLoop *Loop) {
+    return Loop->ztt_pred_begin();
+  }
+
+  static HLLoop::const_ztt_pred_iterator pred_end(const HLLoop *Loop) {
+    return Loop->ztt_pred_end();
+  }
+
+  static const RegDDRef *
+  getPredicateOperandDDRef(const HLLoop *Loop,
+                           HLLoop::const_ztt_pred_iterator CPredI, bool IsLHS) {
+    return Loop->getZttPredicateOperandDDRef(CPredI, IsLHS);
+  }
+};
+
+template <typename T, typename PT>
+static bool areEqualConditionsImpl(const T *NodeA, const T *NodeB) {
+  auto NumPredicates = PT::getNumPredicates(NodeA);
+
+  if (PT::getNumPredicates(NodeA) != PT::getNumPredicates(NodeB)) {
     return false;
   }
 
-  for (auto IA = NodeA->pred_begin(), EA = NodeA->pred_end(),
-            IB = NodeB->pred_begin();
+  if (NumPredicates == 0) {
+    return true;
+  }
+
+  for (auto IA = PT::pred_begin(NodeA), EA = PT::pred_end(NodeA),
+            IB = PT::pred_begin(NodeB);
        IA != EA; ++IA, ++IB) {
 
     if (*IA != *IB) {
       return false;
     }
 
-    if (!DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, true),
-                              NodeB->getPredicateOperandDDRef(IB, true)) ||
-        !DDRefUtils::areEqual(NodeA->getPredicateOperandDDRef(IA, false),
-                              NodeB->getPredicateOperandDDRef(IB, false))) {
+    if (!DDRefUtils::areEqual(PT::getPredicateOperandDDRef(NodeA, IA, true),
+                              PT::getPredicateOperandDDRef(NodeB, IB, true)) ||
+        !DDRefUtils::areEqual(PT::getPredicateOperandDDRef(NodeA, IA, false),
+                              PT::getPredicateOperandDDRef(NodeB, IB, false))) {
       return false;
     }
   }
 
   return true;
+}
+
+bool HLNodeUtils::areEqualConditions(const HLIf *NodeA, const HLIf *NodeB) {
+  return areEqualConditionsImpl<const HLIf, PredicateTraits>(NodeA, NodeB);
+}
+
+bool HLNodeUtils::areEqualZttConditions(const HLLoop *NodeA,
+                                        const HLLoop *NodeB) {
+  return areEqualConditionsImpl<const HLLoop, ZttPredicateTraits>(NodeA, NodeB);
 }
 
 bool HLNodeUtils::areEqualConditions(const HLSwitch *NodeA,
