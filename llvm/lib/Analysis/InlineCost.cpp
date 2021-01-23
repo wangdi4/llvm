@@ -2929,9 +2929,9 @@ InlineCost llvm::getInlineCost(
     return InlineCost::getAlways("empty function", Reason);    // INTEL
 
 #if INTEL_CUSTOMIZATION
-  return llvm::InlineCost::get(CA.getCost(),
-    CA.getThreshold(), nullptr, Reason,
-    CA.getEarlyExitCost(), CA.getEarlyExitThreshold());
+  return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
+      ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
+      CA.getEarlyExitThreshold());
 #endif // INTEL_CUSTOMIZATION
 }
 

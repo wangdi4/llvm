@@ -66,9 +66,16 @@ ReplayInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   Function &Caller = *CB.getCaller();
   auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
 
-  if (InlineSitesFromRemarks.empty())
-    return std::make_unique<DefaultInlineAdvice>(this, CB, InlineCost::getNever("???"), ORE, // INTEL
-                                                 EmitRemarks);
+#if INTEL_CUSTOMIZATION
+  if (InlineSitesFromRemarks.empty()) {
+    InlineCost LIC = InlineCost::getNever("nothing found in replay");
+    auto UP = std::make_unique<DefaultInlineAdvice>(this, CB, LIC,
+        ORE, EmitRemarks);
+    if (IC)
+      *IC = UP->getInlineCost();
+    return UP;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   std::string CallSiteLoc = getCallSiteLocation(CB.getDebugLoc());
   StringRef Callee = CB.getCalledFunction()->getName();
@@ -77,13 +84,18 @@ ReplayInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
 
 #if INTEL_CUSTOMIZATION
   if (Iter != InlineSitesFromRemarks.end()) {
-    return std::make_unique<DefaultInlineAdvice>(
-        this, CB, llvm::InlineCost::getAlways("found in replay"), ORE,
+    InlineCost LIC = llvm::InlineCost::getAlways("found in replay");
+    auto UP = std::make_unique<DefaultInlineAdvice>(this, CB, LIC, ORE,
         EmitRemarks);
+    if (IC)
+      *IC = UP->getInlineCost();
+    return UP;
   }
-
-  return std::make_unique<DefaultInlineAdvice>(
-      this, CB, llvm::InlineCost::getNever("temp"), ORE,
+  InlineCost LIC = llvm::InlineCost::getNever("nothing found in replay");
+  auto UP = std::make_unique<DefaultInlineAdvice>(this, CB, LIC, ORE,
       EmitRemarks);
+  if (IC)
+    *IC = UP->getInlineCost();
+  return UP;
 #endif // INTEL_CUSTOMIZATION
 }
