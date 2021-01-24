@@ -150,14 +150,6 @@ endif()
 
 add_common_options(pi_level_zero)
 
-# INTEL_CUSTOMIZATION
-# This is temporary. It is for the experimental global offset support.
-# It should be removed when dlopen/dlsym are no longer used.
-if(UNIX)
-    target_link_libraries(pi_level_zero PUBLIC dl)
-endif()
-# end INTEL_CUSTOMIZATION
-
 install(TARGETS pi_level_zero
     LIBRARY DESTINATION "lib" COMPONENT pi_level_zero
     RUNTIME DESTINATION "bin" COMPONENT pi_level_zero)
