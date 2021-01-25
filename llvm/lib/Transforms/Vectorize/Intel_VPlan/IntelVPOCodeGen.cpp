@@ -2069,7 +2069,12 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
       cast<PointerType>(ScalarAddress->getType())->getAddressSpace();
   Value *GroupPtr = Builder.CreateBitCast(
       ScalarAddress, GroupType->getPointerTo(AddressSpace), "groupPtr");
-  Align Alignment = getOriginalLoadStoreAlignment(Leader);
+
+  // The alignment for the wide load needs to be set using the group's first
+  // memory(lowest offset) reference.
+  const VPInstruction *FirstGroupInst =
+      (cast<VPVLSClientMemref>(Group->getFirstMemref()))->getInstruction();
+  Align Alignment = getOriginalLoadStoreAlignment(FirstGroupInst);
 
   Instruction *GroupLoad;
   if (MaskValue) {
