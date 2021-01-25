@@ -2895,11 +2895,15 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 
+  case LibFunc_intel_sinpi: // INTEL
+  case LibFunc_intel_cospi: // INTEL
   case LibFunc_sinpi:
   case LibFunc_cospi:
     return (NumParams == 1 && FTy.getReturnType()->isDoubleTy() &&
             FTy.getReturnType() == FTy.getParamType(0));
 
+  case LibFunc_intel_sinpif: // INTEL
+  case LibFunc_intel_cospif: // INTEL
   case LibFunc_sinpif:
   case LibFunc_cospif:
     return (NumParams == 1 && FTy.getReturnType()->isFloatTy() &&

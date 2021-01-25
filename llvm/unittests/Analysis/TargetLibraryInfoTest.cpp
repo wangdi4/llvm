@@ -148,6 +148,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @coshf(float)\n"
       "declare x86_fp80 @coshl(x86_fp80)\n"
       "declare x86_fp80 @cosl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @cospi(double)\n"
+      "declare float @cospif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i8* @ctermid(i8*)\n"
       "declare double @exp(double)\n"
       "declare double @exp2(double)\n"
@@ -301,6 +305,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @sinhf(float)\n"
       "declare x86_fp80 @sinhl(x86_fp80)\n"
       "declare x86_fp80 @sinl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @sinpi(double)\n"
+      "declare float @sinpif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @snprintf(i8*, i64, i8*, ...)\n"
       "declare i32 @sprintf(i8*, i8*, ...)\n"
 #if INTEL_CUSTOMIZATION
