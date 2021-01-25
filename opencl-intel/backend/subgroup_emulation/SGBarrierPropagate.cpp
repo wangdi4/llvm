@@ -37,7 +37,8 @@ bool SGBarrierPropagate::runOnModule(Module &M) {
 
   const FuncSet &SyncFunctions = Helper.getAllSyncFunctions();
   for (auto *F : SyncFunctions) {
-    // Skip the calls in vectorized kernel.
+    // Skip the functions called in vectorized kernel or not called by any
+    // kernel.
     if (!SizeAnalysis->hasEmuSize(F))
       continue;
     if (FunctionAdded.insert(F))
@@ -53,9 +54,13 @@ bool SGBarrierPropagate::runOnModule(Module &M) {
       CallInst *CI = dyn_cast<CallInst>(U);
       if (!CI)
         continue;
+      auto *PF = CI->getFunction();
+      // Skip the functions called in vectorized kernel or not called by any
+      // kernel.
+      if (!SizeAnalysis->hasEmuSize(PF))
+        continue;
       Helper.insertBarrierBefore(CI);
       Helper.insertDummyBarrierAfter(CI);
-      auto *PF = CI->getFunction();
       if (FunctionAdded.insert(PF))
         WorkList.push_back(PF);
     }

@@ -26,6 +26,16 @@ entry:
   ret void
 }
 
+define void @foo() {
+; CHECK-LABEL: define void @foo
+entry:
+; CHECK-NOT: call void @_Z17sub_group_barrierj(i32 1)
+  call void @direct_sync_func(i32 1)
+; CHECK: call void @direct_sync_func(i32 1)
+; CHECK-NOT: call void @dummy_sg_barrier()
+  ret void
+}
+
 declare void @_Z17sub_group_barrierj(i32)
 
 !opencl.kernels = !{!0}
