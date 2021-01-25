@@ -166,6 +166,13 @@ void VPLoopEntity::printLinkedValues(raw_ostream &OS) const {
 
 VPLoopEntity::~VPLoopEntity() {}
 
+VPPrivate::~VPPrivate() {
+  for (auto &AliasMapIt : aliases())
+    // Drop references to alias instruction if it is not attached to VPlan CFG.
+    if (!AliasMapIt.second->getParent())
+      AliasMapIt.second->dropAllReferences();
+}
+
 static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
                                         const VPLoop &Loop) {
   auto Iter = llvm::find_if(Instr->operands(), [&Loop](const VPValue *Operand) {
