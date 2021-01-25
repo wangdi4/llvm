@@ -2263,7 +2263,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRNonZeroSinkingForPerfectLoopnestPass());
       PM.add(createHIRPragmaLoopBlockingPass());
       PM.add(createHIRLoopDistributionForLoopNestPass());
-      if (OptLevel > 2) {
+      if (OptLevel > 2 && IsLTO) {
         PM.add(createHIRCrossLoopArrayContractionLegacyPass());
       }
       PM.add(createHIRLoopInterchangePass());

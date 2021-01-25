@@ -1054,7 +1054,7 @@ void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
 void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 
-static void promoteBlobs(RegDDRef *Ref, unsigned Level, int Increment) {
+static void promoteDemoteBlobs(RegDDRef *Ref, unsigned Level, int Increment) {
   if (Ref->isSelfBlob()) {
     unsigned DefLevel = Ref->getSingleCanonExpr()->getDefinedAtLevel();
 
@@ -1103,7 +1103,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
     // When we replace outer loop by first iteration, the definition level
     // of blobs defined inside this loop reduces by 1.
     // The use of these blobs in inner loop refs need to be updated.
-    promoteBlobs(Ref, Level, -1);
+    promoteDemoteBlobs(Ref, Level, -1);
 
     // When IV is substituted in inner loop, temps in merged ref need to be
     // marked as livein to that loop.
@@ -2329,9 +2329,20 @@ void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
 }
 
 void HLLoop::promoteNestingLevel(unsigned StartLevel) {
+  SmallVector<const RegDDRef *, 32> LVals;
+
+  // Use pre-header lval to make body def levels consistent.
+  for (auto &Node : make_range(pre_begin(), pre_end())) {
+    auto &Inst = cast<HLInst>(Node);
+    if (Inst.hasLval()) {
+      LVals.push_back(Inst.getLvalDDRef());
+    }
+  }
+
   ForEach<RegDDRef>::visitRange(child_begin(), child_end(), [&](RegDDRef *Ref) {
     Ref->promoteIVs(StartLevel);
-    promoteBlobs(Ref, StartLevel, 1);
-    Ref->makeConsistent({}, StartLevel + 1);
+    promoteDemoteBlobs(Ref, StartLevel, 1);
+
+    Ref->makeConsistent(LVals, StartLevel + 1);
   });
 }
