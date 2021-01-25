@@ -5,9 +5,9 @@ endif()
 
 if(INTEL_CUSTOMIZATION)
 # Clang libomp is not built under xmain (we use Intel libomp).
-set(deps omptarget-nvptx omptarget)
+set(deps omptarget)
 else(INTEL_CUSTOMIZATION)
-set(deps omptarget-nvptx omptarget omp)
+set(deps omptarget omp)
 endif(INTEL_CUSTOMIZATION)
 if(LIBOMPTARGET_NVPTX_ENABLE_BCLIB)
   set(deps ${deps} omptarget-nvptx-bc)
