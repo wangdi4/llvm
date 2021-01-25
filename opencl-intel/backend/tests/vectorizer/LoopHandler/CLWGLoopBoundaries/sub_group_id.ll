@@ -8,7 +8,7 @@ target triple = "x86_64-pc-linux"
 
 declare void @foo(i32)
 
-define void @test_get_sub_group_local_id() local_unnamed_addr {
+define void @test_get_sub_group_local_id() local_unnamed_addr !no_barrier_path !{i1 true} {
 ; CHECK-LABEL: define void @test_get_sub_group_local_id
 ; CHECK: %cmp = icmp eq i32 %0, 0
 ; CHECK: br i1 %cmp, label %if.then, label %exit
@@ -25,7 +25,7 @@ exit:
   ret void
 }
 
-define void @test_get_sub_group_id() local_unnamed_addr {
+define void @test_get_sub_group_id() local_unnamed_addr !no_barrier_path !{i1 true} {
 ; CHECK-LABEL: define void @test_get_sub_group_id
 ; CHECK: %cmp = icmp eq i32 %0, 0
 ; CHECK: br i1 %cmp, label %if.then, label %exit

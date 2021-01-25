@@ -1120,21 +1120,21 @@ bool CLWGLoopBoundaries::isEarlyExitSucc(BasicBlock *BB){
 }
 
 bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
-  for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e; ++it)
-    switch (it->getOpcode()) {
+  for (Instruction &Inst : *BB)
+    switch (Inst.getOpcode()) {
     // Store has side effect.
     case Instruction::Store:
       return true;
     // For calls ask the runtime object.
     case Instruction::Call: {
-      std::string name =
-          (cast<CallInst>(it))->getCalledFunction()->getName().str();
+      Function *Callee = cast<CallInst>(Inst).getCalledFunction();
+      if (!Callee)
+        return true; // Indirect calls may have side effect.
+      std::string name = Callee->getName().str();
       if (!m_clRtServices->hasNoSideEffect(name))
         return true;
       break;
     }
-    default:
-      break;
     }
 
   return false;
