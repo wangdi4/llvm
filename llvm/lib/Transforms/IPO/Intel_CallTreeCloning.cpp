@@ -161,7 +161,7 @@ static cl::opt<unsigned>
 
 // Maximum number of direct callsites allowed for CallTreeClone
 static cl::opt<unsigned> CTCloningMaxDirectCallSiteCount(
-    PASS_NAME_STR "-max-direct-callsites", cl::init(5704), cl::ReallyHidden,
+    PASS_NAME_STR "-max-direct-callsites", cl::init(6145), cl::ReallyHidden,
     cl::desc("maximum allowed number of direct callsites in linked module"));
 
 // Allows to specify "seed" functions and their parameter sets profitable to
