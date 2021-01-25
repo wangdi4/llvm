@@ -987,7 +987,7 @@ public:
     /// Different operators have different numbers of tokens in their name,
     /// up to three. Any remaining source locations in this array will be
     /// set to an invalid value for operators with fewer than three tokens.
-    unsigned SymbolLocations[3];
+    SourceLocation SymbolLocations[3];
   };
 
   /// Anonymous union that holds extra data associated with the
@@ -1050,7 +1050,6 @@ public:
 
   /// Determine what kind of name we have.
   UnqualifiedIdKind getKind() const { return Kind; }
-  void setKind(UnqualifiedIdKind kind) { Kind = kind; }
 
   /// Specify that this unqualified-id was parsed as an identifier.
   ///
@@ -1166,6 +1165,16 @@ public:
     StartLocation = EndLocation = TemplateLoc;
   }
 
+  /// Specify that this unqualified-id is an implicit 'self'
+  /// parameter.
+  ///
+  /// \param Id the identifier.
+  void setImplicitSelfParam(const IdentifierInfo *Id) {
+    Kind = UnqualifiedIdKind::IK_ImplicitSelfParam;
+    Identifier = const_cast<IdentifierInfo *>(Id);
+    StartLocation = EndLocation = SourceLocation();
+  }
+
   /// Return the source range that covers this unqualified-id.
   SourceRange getSourceRange() const LLVM_READONLY {
     return SourceRange(StartLocation, EndLocation);
@@ -1182,6 +1191,8 @@ typedef SmallVector<Token, 4> CachedTokens;
 ///
 /// This is intended to be a small value object.
 struct DeclaratorChunk {
+  DeclaratorChunk() {};
+
   enum {
 #if INTEL_CUSTOMIZATION
     Pointer, Reference, Array, Function, BlockPointer, MemberPointer, Paren, Pipe, Channel
@@ -1206,19 +1217,19 @@ struct DeclaratorChunk {
     unsigned TypeQuals : 5;
 
     /// The location of the const-qualifier, if any.
-    unsigned ConstQualLoc;
+    SourceLocation ConstQualLoc;
 
     /// The location of the volatile-qualifier, if any.
-    unsigned VolatileQualLoc;
+    SourceLocation VolatileQualLoc;
 
     /// The location of the restrict-qualifier, if any.
-    unsigned RestrictQualLoc;
+    SourceLocation RestrictQualLoc;
 
     /// The location of the _Atomic-qualifier, if any.
-    unsigned AtomicQualLoc;
+    SourceLocation AtomicQualLoc;
 
     /// The location of the __unaligned-qualifier, if any.
-    unsigned UnalignedQualLoc;
+    SourceLocation UnalignedQualLoc;
 
     void destroy() {
     }
@@ -1313,13 +1324,13 @@ struct DeclaratorChunk {
     unsigned HasTrailingReturnType : 1;
 
     /// The location of the left parenthesis in the source.
-    unsigned LParenLoc;
+    SourceLocation LParenLoc;
 
     /// When isVariadic is true, the location of the ellipsis in the source.
-    unsigned EllipsisLoc;
+    SourceLocation EllipsisLoc;
 
     /// The location of the right parenthesis in the source.
-    unsigned RParenLoc;
+    SourceLocation RParenLoc;
 
     /// NumParams - This is the number of formal parameters specified by the
     /// declarator.
@@ -1333,17 +1344,17 @@ struct DeclaratorChunk {
     /// The location of the ref-qualifier, if any.
     ///
     /// If this is an invalid location, there is no ref-qualifier.
-    unsigned RefQualifierLoc;
+    SourceLocation RefQualifierLoc;
 
     /// The location of the 'mutable' qualifer in a lambda-declarator, if
     /// any.
-    unsigned MutableLoc;
+    SourceLocation MutableLoc;
 
     /// The beginning location of the exception specification, if any.
-    unsigned ExceptionSpecLocBeg;
+    SourceLocation ExceptionSpecLocBeg;
 
     /// The end location of the exception specification, if any.
-    unsigned ExceptionSpecLocEnd;
+    SourceLocation ExceptionSpecLocEnd;
 
     /// Params - This is a pointer to a new[]'d array of ParamInfo objects that
     /// describe the parameters specified by this function declarator.  null if
@@ -1382,7 +1393,7 @@ struct DeclaratorChunk {
 
     /// If HasTrailingReturnType is true, this is the location of the trailing
     /// return type.
-    unsigned TrailingReturnTypeLoc;
+    SourceLocation TrailingReturnTypeLoc;
 
     /// Reset the parameter list to having zero parameters.
     ///
@@ -1430,24 +1441,18 @@ struct DeclaratorChunk {
     /// by the parameter type definitions.
     bool isKNRPrototype() const { return !hasPrototype && NumParams != 0; }
 
-    SourceLocation getLParenLoc() const {
-      return SourceLocation::getFromRawEncoding(LParenLoc);
-    }
+    SourceLocation getLParenLoc() const { return LParenLoc; }
 
-    SourceLocation getEllipsisLoc() const {
-      return SourceLocation::getFromRawEncoding(EllipsisLoc);
-    }
+    SourceLocation getEllipsisLoc() const { return EllipsisLoc; }
 
-    SourceLocation getRParenLoc() const {
-      return SourceLocation::getFromRawEncoding(RParenLoc);
-    }
+    SourceLocation getRParenLoc() const { return RParenLoc; }
 
     SourceLocation getExceptionSpecLocBeg() const {
-      return SourceLocation::getFromRawEncoding(ExceptionSpecLocBeg);
+      return ExceptionSpecLocBeg;
     }
 
     SourceLocation getExceptionSpecLocEnd() const {
-      return SourceLocation::getFromRawEncoding(ExceptionSpecLocEnd);
+      return ExceptionSpecLocEnd;
     }
 
     SourceRange getExceptionSpecRange() const {
@@ -1455,9 +1460,7 @@ struct DeclaratorChunk {
     }
 
     /// Retrieve the location of the ref-qualifier, if any.
-    SourceLocation getRefQualifierLoc() const {
-      return SourceLocation::getFromRawEncoding(RefQualifierLoc);
-    }
+    SourceLocation getRefQualifierLoc() const { return RefQualifierLoc; }
 
     /// Retrieve the location of the 'const' qualifier.
     SourceLocation getConstQualifierLoc() const {
@@ -1478,9 +1481,7 @@ struct DeclaratorChunk {
     }
 
     /// Retrieve the location of the 'mutable' qualifier, if any.
-    SourceLocation getMutableLoc() const {
-      return SourceLocation::getFromRawEncoding(MutableLoc);
-    }
+    SourceLocation getMutableLoc() const { return MutableLoc; }
 
     /// Determine whether this function declaration contains a
     /// ref-qualifier.
@@ -1527,7 +1528,7 @@ struct DeclaratorChunk {
     /// Get the trailing-return-type location for this function declarator.
     SourceLocation getTrailingReturnTypeLoc() const {
       assert(HasTrailingReturnType);
-      return SourceLocation::getFromRawEncoding(TrailingReturnTypeLoc);
+      return TrailingReturnTypeLoc;
     }
   };
 
@@ -1544,7 +1545,7 @@ struct DeclaratorChunk {
     /// The type qualifiers: const/volatile/restrict/__unaligned/_Atomic.
     unsigned TypeQuals : 5;
     /// Location of the '*' token.
-    unsigned StarLoc;
+    SourceLocation StarLoc;
     // CXXScopeSpec has a constructor, so it can't be a direct member.
     // So we need some pointer-aligned storage and a bit of trickery.
     alignas(CXXScopeSpec) char ScopeMem[sizeof(CXXScopeSpec)];
@@ -1619,12 +1620,13 @@ struct DeclaratorChunk {
     DeclaratorChunk I;
     I.Kind                = Pointer;
     I.Loc                 = Loc;
+    new (&I.Ptr) PointerTypeInfo;
     I.Ptr.TypeQuals       = TypeQuals;
-    I.Ptr.ConstQualLoc    = ConstQualLoc.getRawEncoding();
-    I.Ptr.VolatileQualLoc = VolatileQualLoc.getRawEncoding();
-    I.Ptr.RestrictQualLoc = RestrictQualLoc.getRawEncoding();
-    I.Ptr.AtomicQualLoc   = AtomicQualLoc.getRawEncoding();
-    I.Ptr.UnalignedQualLoc = UnalignedQualLoc.getRawEncoding();
+    I.Ptr.ConstQualLoc    = ConstQualLoc;
+    I.Ptr.VolatileQualLoc = VolatileQualLoc;
+    I.Ptr.RestrictQualLoc = RestrictQualLoc;
+    I.Ptr.AtomicQualLoc   = AtomicQualLoc;
+    I.Ptr.UnalignedQualLoc = UnalignedQualLoc;
     return I;
   }
 
@@ -1722,7 +1724,8 @@ struct DeclaratorChunk {
     I.Kind          = MemberPointer;
     I.Loc           = SS.getBeginLoc();
     I.EndLoc = EndLoc;
-    I.Mem.StarLoc = StarLoc.getRawEncoding();
+    new (&I.Mem) MemberPointerTypeInfo;
+    I.Mem.StarLoc = StarLoc;
     I.Mem.TypeQuals = TypeQuals;
     new (I.Mem.ScopeMem) CXXScopeSpec(SS);
     return I;
