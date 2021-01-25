@@ -591,8 +591,8 @@ void PrintIRInstrumentation::registerCallbacks(
 template <typename IRUnitT>
 ChangeReporter<IRUnitT>::~ChangeReporter<IRUnitT>() {}
 template <typename IRUnitT>
-TextChangeReporter<IRUnitT>::TextChangeReporter()
-    : ChangeReporter<IRUnitT>(), Out(dbgs()) {}
+TextChangeReporter<IRUnitT>::TextChangeReporter(bool Verbose)
+    : ChangeReporter<IRUnitT>(Verbose), Out(dbgs()) {}
 template <typename IRUnitT>
 void TextChangeReporter<IRUnitT>::handleInitialIR(Any) {}
 template <typename IRUnitT>
@@ -928,7 +928,14 @@ void VerifyInstrumentation::registerCallbacks(
 StandardInstrumentations::StandardInstrumentations(bool DebugLogging,
                                                    bool VerifyEach)
     : PrintPass(DebugLogging), OptNone(DebugLogging),
-      PrintChangedIR(PrintChanged != PrintChangedQuiet), Verify(DebugLogging),
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      PrintChangedIR(PrintChanged != PrintChangedQuiet),
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      PrintChangedIR(false),
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      Verify(DebugLogging),
+#endif // INTEL_CUSTOMIZATION
       VerifyEach(VerifyEach) {}
 
 void StandardInstrumentations::registerCallbacks(
