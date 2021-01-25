@@ -2238,6 +2238,13 @@ void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
         CanonExpr *CE = WMemRef->getDimensionIndex(1);
         CE->addConstant(-LdStInterleaveIndex, true /* IsMathAdd */);
       }
+
+      // The alignment of the wide memory reference needs to be adjusted to be
+      // the same as that of the first memory(lowest offset) reference in the
+      // group.
+      const VPLoadStoreInst *FirstGrpInst = cast<VPLoadStoreInst>(
+          cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getInstruction());
+      WMemRef->setAlignment(FirstGrpInst->getAlignment().value());
     }
 
     // Set memory ref's bitcast dest type to a pointer to <VF * InterleaveFactor
