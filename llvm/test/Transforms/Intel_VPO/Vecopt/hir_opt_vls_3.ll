@@ -19,7 +19,6 @@
 ; c0, a1, b1, c2, a2, b2, c2, a3, b3, c3> and do a wide store. Testing struct
 ; field accesses. Test also checks that TBAA metadata is updated appropriately.
 ;
-; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 ; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=1 -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 ;
 ; CHECK: DO i1 = 0, 99, 4
