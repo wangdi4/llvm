@@ -1088,7 +1088,8 @@ void CanonExpr::promoteIVs(unsigned StartLevel) {
   assert(isValidLoopLevel(StartLevel) && "Invalid StartLevel");
 
   if (IVCoeffs.back().Coeff != 0) {
-    IVCoeffs.push_back(IVCoeffs.back());
+    BlobIndexToCoeff IV = IVCoeffs.back();
+    IVCoeffs.push_back(IV);
   }
 
   for (int I = IVCoeffs.size() - 1, E = StartLevel - 1; I > E; --I) {

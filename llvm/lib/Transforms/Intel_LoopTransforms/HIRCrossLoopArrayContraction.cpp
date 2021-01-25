@@ -20,6 +20,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -97,7 +98,7 @@ public:
     Var.If = nullptr;
   }
 
-  void invalidate(HLLoop *Lp) {
+  static void invalidate(HLLoop *Lp) {
     HIRInvalidationUtils::invalidateLoopNestBody(Lp);
   }
 
@@ -172,8 +173,12 @@ struct TopSortComparator {
 };
 
 static unsigned computeDependencyMaxTopSortNumber(
-    const HLLoop *Loop, ArrayRef<const HLLoop *> IgnoreLoops, DDGraph &DDG) {
-  using Gatherer = DDRefGatherer<DDRef, TerminalRefs | MemRefs | FakeRefs>;
+    const HLLoop *Loop, SmallPtrSetImpl<RegDDRef *> &IgnoreRefs, DDGraph &DDG) {
+  assert(llvm::all_of(IgnoreRefs,
+                      [](const RegDDRef *Ref) { return Ref->isMemRef(); }) &&
+         "Only MemRefs are expected in IgnoreRefs");
+
+  using Gatherer = DDRefGatherer<RegDDRef, TerminalRefs | MemRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
   Gatherer::gather(Loop, Refs);
 
@@ -181,24 +186,21 @@ static unsigned computeDependencyMaxTopSortNumber(
   unsigned LoopMaxTopSortNumber = Loop->getMaxTopSortNum();
 
   for (auto *Ref : Refs) {
+    bool IgnoreSrcRef = IgnoreRefs.count(dyn_cast<RegDDRef>(Ref));
+
     for (auto &Edge : DDG.outgoing(Ref)) {
       if (!Edge->isFlow() && !Edge->isOutput()) {
+        continue;
+      }
+
+      // May do cast<> because IgnoreRefs contain only mem refs.
+      if (IgnoreSrcRef && IgnoreRefs.count(cast<RegDDRef>(Edge->getSink()))) {
         continue;
       }
 
       HLNode *SinkNode = Edge->getSink()->getHLDDNode();
       auto TopSortNumber = SinkNode->getTopSortNum();
       if (TopSortNumber <= LoopMaxTopSortNumber) {
-        continue;
-      }
-
-      bool SinkIsInIgnoreLoop =
-          std::any_of(IgnoreLoops.begin(), IgnoreLoops.end(),
-                      [&](const HLLoop *IgnoreLoop) {
-                        return HLNodeUtils::contains(IgnoreLoop, SinkNode);
-                      });
-
-      if (SinkIsInIgnoreLoop) {
         continue;
       }
 
@@ -292,6 +294,18 @@ static void promoteSectionIVs(ArraySectionInfo &Info, unsigned StartLevel) {
   }
 }
 
+// Compute a number of outer dimensions to contract between two array sections
+// described by \p InfoA and \p InfoB.
+//
+// Dimensions may be contracted if dimensions with the same number are
+// accessed by the same index and within the same bounds. The function assumes
+// dimension bounds are already checked to be equal.
+//             4  3  2  1
+// For ex.: %A[i][j][k][m]
+//          %A[i][j][m][k]
+//
+// The function will return 2 because dimensions 3 and 4 are accessed with
+// [i][j] in both cases.
 static unsigned computeNumDimsContracted(const ArraySectionInfo &InfoA,
                                          const ArraySectionInfo &InfoB) {
   assert(InfoA.getNumDimensions() == InfoB.getNumDimensions() &&
@@ -316,6 +330,9 @@ static unsigned computeNumDimsContracted(const ArraySectionInfo &InfoA,
   return Dim;
 }
 
+// Computes direction vector for a pair of sections \p InfoA and \p InfoB.
+// It results in (=) or (*) for each used IV. The function is used to determine
+// the nesting level where loop fusion is possible.
 static DirectionVector computeDirectionVector(const ArraySectionInfo &InfoA,
                                               const ArraySectionInfo &InfoB,
                                               unsigned StartLevel) {
@@ -375,7 +392,72 @@ static DirectionVector computeDirectionVector(const ArraySectionInfo &InfoA,
   return DV;
 }
 
+static void removeDeadStores(HLLoop *Loop, SparseBitVector<> Bases) {
+  LLVM_DEBUG(dbgs() << "Unused bases: ";
+             auto &BU = Loop->getBlobUtils(); for (auto Bit
+                                                   : Bases) {
+               BU.printBlob(dbgs(), BU.getBlob(Bit));
+               dbgs() << " ";
+             } dbgs() << "\n";);
+
+  ForEach<HLInst>::visit(Loop, [&](HLInst *Inst) {
+    auto *LVal = Inst->getLvalDDRef();
+    if (!LVal || !LVal->isMemRef() ||
+        !Bases.test(LVal->getBasePtrBlobIndex())) {
+      return;
+    }
+
+    HLNodeUtils::remove(Inst);
+  });
+
+  HLNodeUtils::removeRedundantNodes(Loop);
+}
+
+static SparseBitVector<> getDefBases(const ArraySectionAnalysisResult &ASAR,
+                                        SparseBitVector<> &BasePtrIndices) {
+  SparseBitVector<> Output;
+  for (unsigned BasePtr : BasePtrIndices) {
+    if (ASAR.get(BasePtr)->isDef()) {
+      Output.set(BasePtr);
+    }
+  }
+  return Output;
+}
+
+class BaseUses {
+  SmallDenseMap<unsigned, unsigned> Uses;
+
+public:
+  void add(const SparseBitVector<> &Bases) {
+    for (auto Bit : Bases) {
+      ++Uses[Bit];
+    }
+  }
+
+  void remove(const SparseBitVector<> &Bases) {
+    for (auto Bit : Bases) {
+      --Uses[Bit];
+    }
+  }
+
+  SparseBitVector<> getUnused(const SparseBitVector<> &Bases) {
+    SparseBitVector<> UnusedBases;
+    for (auto Bit : Bases) {
+      auto I = Uses.find(Bit);
+      if (I == Uses.end() || I->second == 0) {
+        UnusedBases.set(Bit);
+      }
+    }
+    return UnusedBases;
+  }
+};
+
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
+  if (!Reg.isFunctionLevel()) {
+    LLVM_DEBUG(dbgs() << "Skipping non-function region.\n");
+    return false;
+  }
+
   // Find array contraction candidates.
   SmallVector<RegDDRef *, 32> Refs;
   DDRefGathererLambda<RegDDRef>::gather(&Reg, Refs, [](const RegDDRef *Ref) {
@@ -383,49 +465,167 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
            Ref->getNumDimensions() >= 5 && Ref->hasIV();
   });
 
+  // Keep set of interesting references to ignore DD between them.
+  SmallPtrSet<RegDDRef *, 32> RefsSet(Refs.begin(), Refs.end());
+
   // Get their loops and Base pointers.
-  std::map<HLLoop *, SparseBitVector<>, TopSortComparator> LoopToSymbase;
+  std::map<HLLoop *, SparseBitVector<>, TopSortComparator> LoopToBasePtr;
   for (auto *Ref : Refs) {
     unsigned ParentLoopLevel = getRefMinLevel(Ref);
     HLLoop *ParentLoop =
         Ref->getHLDDNode()->getParentLoopAtLevel(ParentLoopLevel);
 
-    LoopToSymbase[ParentLoop].set(Ref->getSymbase());
+    LoopToBasePtr[ParentLoop].set(Ref->getBasePtrBlobIndex());
   }
 
   DDGraph DDG = DDA.getGraph(&Reg);
 
-  for (auto DefPair : LoopToSymbase) {
+  for (auto DefPair : LoopToBasePtr) {
     auto *DefLp = DefPair.first;
 
     LLVM_DEBUG(dbgs() << "\nTaking Def-loop <" << DefLp->getNumber() << ">\n");
 
-    SmallVector<const HLLoop *, 4> IgnoreLoops;
+    auto &DefASAR = ASA.getOrCompute(DefLp);
+    auto DefBases = getDefBases(DefASAR, DefPair.second);
 
-    if (DefLp->hasLiveOutTemps()) {
-      // Can't move loops with temp live-outs.
-      LLVM_DEBUG(dbgs() << "[SKIP] Def loop has live-outs.\n");
+    if (DefBases.empty()) {
+      LLVM_DEBUG(dbgs() << "+ Loop has no interesting defs\n");
       continue;
     }
 
-    auto &DefASAR = ASA.getOrCompute(DefLp);
-
     unsigned LoopDependencyLimits =
-        computeDependencyMaxTopSortNumber(DefLp, {}, DDG);
+        computeDependencyMaxTopSortNumber(DefLp, RefsSet, DDG);
 
-    LLVM_DEBUG(dbgs() << "LoopDependencyLimit: " << LoopDependencyLimits
+    LLVM_DEBUG(dbgs() << "+ LoopDependencyLimit: " << LoopDependencyLimits
                       << "\n");
 
-    for (auto UsePair : make_range(std::next(LoopToSymbase.find(DefLp)),
-                                   LoopToSymbase.end())) {
+    BaseUses DefUses;
+    SmallVector<HLLoop *, 2> DefKillLoops;
+
+    for (auto UsePair : make_range(std::next(LoopToBasePtr.find(DefLp)),
+                                   LoopToBasePtr.end())) {
       HLLoop *UseLp = UsePair.first;
       LLVM_DEBUG(dbgs() << "\t* Trying Use-loop <" << UseLp->getNumber()
                         << ">\n");
 
       // Check if there are common array sections.
-      auto CommonSymbases = DefPair.second & UsePair.second;
-      if (CommonSymbases.empty()) {
+      auto CommonBases = DefBases & UsePair.second;
+      if (CommonBases.empty()) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] No common array uses.\n");
+        continue;
+      }
+
+      DefUses.add(CommonBases);
+
+      // Check if DEF loop dominates USE loop.
+      if (!HLNodeUtils::dominates(DefLp, UseLp)) {
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Def-loop does not dominate Use-loop.\n");
+        continue;
+      }
+
+      auto &UseASAR = ASA.getOrCompute(UseLp);
+
+      bool OutputDependencyFound = false;
+      bool FlowDependencyFound = false;
+
+      bool CommonArraySectionsAreEqual = true;
+      unsigned NumDimsContracted = -1u;
+      unsigned FusionLevel = MaxLoopNestLevel + 1;
+
+      for (auto BaseIndex : CommonBases) {
+        auto *DefSection = DefASAR.get(BaseIndex);
+        auto *UseSection = UseASAR.get(BaseIndex);
+
+        CommonArraySectionsAreEqual =
+            CommonArraySectionsAreEqual && DefSection->equals(*UseSection);
+
+        if (!CommonArraySectionsAreEqual) {
+          LLVM_DEBUG(dbgs()
+                     << "\t+ Incompatible array section found for base ptr: ");
+          LLVM_DEBUG(DefLp->getBlobUtils().printBlob(
+              dbgs(), DefLp->getBlobUtils().getBlob(BaseIndex)));
+          LLVM_DEBUG(dbgs() << ":\n");
+          LLVM_DEBUG(dbgs() << "\tDef-loop: ");
+          LLVM_DEBUG(DefSection->dump());
+          LLVM_DEBUG(dbgs() << "\tUse-loop: ");
+          LLVM_DEBUG(UseSection->dump());
+        }
+
+        if (DefSection->isDef() && UseSection->isDef()) {
+          OutputDependencyFound = true;
+
+          LLVM_DEBUG(dbgs() << "\t+ Output dependency found: ");
+          LLVM_DEBUG(DefLp->getBlobUtils().printBlob(
+              dbgs(), DefLp->getBlobUtils().getBlob(BaseIndex)));
+          LLVM_DEBUG(dbgs() << "\n");
+          break;
+        }
+
+        if (!DefSection->isDef() || !UseSection->isUse()) {
+          LLVM_DEBUG(dbgs()
+                     << "\t+ Only flow dependencies are expected\n");
+          break;
+        }
+
+        FlowDependencyFound = true;
+
+        ArraySectionInfo TmpDefSection;
+        if (DefLp->getNestingLevel() != UseLp->getNestingLevel()) {
+          TmpDefSection = DefSection->clone();
+          promoteSectionIVs(TmpDefSection, DefLp->getNestingLevel());
+          DefSection = &TmpDefSection;
+        }
+
+        // Note: use a single number of dimensions to contract for all arrays.
+        // We can extend this to "per array" if needed.
+        NumDimsContracted =
+            std::min(NumDimsContracted,
+                     computeNumDimsContracted(*DefSection, *UseSection));
+
+        auto DV = computeDirectionVector(*DefSection, *UseSection,
+                                         UseLp->getNestingLevel());
+
+        unsigned CurFusionLevel = 0;
+        while (CurFusionLevel < MaxLoopNestLevel &&
+               DV[CurFusionLevel] == DVKind::EQ) {
+          ++CurFusionLevel;
+        }
+
+        FusionLevel = std::min(FusionLevel, CurFusionLevel);
+      }
+
+      if (!CommonArraySectionsAreEqual) {
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Incompatible array sections found.\n");
+        continue;
+      }
+
+      if (OutputDependencyFound) {
+        // Do not count bases that are defined in the use-loop.
+        DefUses.remove(DefBases & getDefBases(UseASAR, UsePair.second));
+        DefKillLoops.push_back(UseLp);
+        continue;
+      }
+
+      // Check if the value is killed by other def loop.
+      bool DefLoopKilled = llvm::any_of(DefKillLoops, [&](const HLLoop *Loop) {
+        return HLNodeUtils::dominates(Loop, UseLp);
+      });
+
+      if (DefLoopKilled) {
+        // Do not count this as a USE and continue with other use loops.
+        LLVM_DEBUG(
+            dbgs() << "\t[SKIP] Def loop is killed by another def-loop\n");
+        DefUses.remove(CommonBases);
+        continue;
+      }
+
+      if (!FlowDependencyFound) {
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Not a candidate\n");
+        continue;
+      }
+
+      if (CommonBases != DefBases) {
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Unused defs found.\n");
         continue;
       }
 
@@ -438,80 +638,17 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
-      // Check if DEF loop dominates USE loop.
-      if (!HLNodeUtils::dominates(DefLp, UsePair.first)) {
-        LLVM_DEBUG(dbgs() << "\t[SKIP] Def-loop does not dominate Use-loop.\n");
-        continue;
-      }
-
       // Check move DD legality.
-      if (UsePair.first->getTopSortNum() >= LoopDependencyLimits) {
+      if (UseLp->getMaxTopSortNum() >= LoopDependencyLimits) {
         LLVM_DEBUG(
-            dbgs() << "\t[SKIP] Can not move here because of DD legality.\n");
+            dbgs() << "\t[STOP] Can not move here because of DD legality.\n");
 
         // No reasons to look further for use-loops because they are all placed
         // lexically after the current one.
         break;
       }
 
-      auto &UseASAR = ASA.getOrCompute(UsePair.first);
-
-      bool CommonArraySectionsAreEqual = true;
-      unsigned NumDimsContracted = 0;
-      unsigned FusionLevel = MaxLoopNestLevel + 1;
-
-      for (auto Bit : CommonSymbases) {
-        auto *DefSection = DefASAR.get(Bit);
-        auto *UseSection = UseASAR.get(Bit);
-
-        if (!DefSection->isDef() || !UseSection->isUse() ||
-            !DefSection->equals(*UseSection)) {
-          CommonArraySectionsAreEqual = false;
-
-          LLVM_DEBUG(dbgs()
-                     << "\tIncompatible array section found for base ptr: ");
-          LLVM_DEBUG(DefLp->getBlobUtils().printBlob(
-              dbgs(), DefLp->getBlobUtils().getBlob(Bit)));
-          LLVM_DEBUG(dbgs() << ":\n");
-          LLVM_DEBUG(dbgs() << "\tDef-loop: ");
-          LLVM_DEBUG(DefSection->dump());
-          LLVM_DEBUG(dbgs() << "\tUse-loop: ");
-          LLVM_DEBUG(UseSection->dump());
-
-          break;
-        }
-
-        ArraySectionInfo TmpDefSection;
-        if (DefLp->getNestingLevel() != UseLp->getNestingLevel()) {
-          TmpDefSection = DefSection->clone();
-          promoteSectionIVs(TmpDefSection, DefLp->getNestingLevel());
-          DefSection = &TmpDefSection;
-        }
-
-        NumDimsContracted =
-            std::max(NumDimsContracted,
-                     computeNumDimsContracted(*DefSection, *UseSection));
-
-        auto DV = computeDirectionVector(
-            *DefSection, *UseSection, UseLp->getNestingLevel());
-
-        unsigned CurFusionLevel = 0;
-        while (CurFusionLevel < MaxLoopNestLevel &&
-               DV[CurFusionLevel] == DVKind::EQ) {
-          ++CurFusionLevel;
-        }
-
-        FusionLevel = std::min(FusionLevel, CurFusionLevel);
-      }
-
-      LLVM_DEBUG(dbgs() << "\tCommonArraySectionsAreEqual: "
-                        << CommonArraySectionsAreEqual << "\n");
-      if (!CommonArraySectionsAreEqual) {
-        LLVM_DEBUG(dbgs() << "\t[SKIP] Incompatible array sections found.\n");
-        continue;
-      }
-
-      Optimizations.emplace_back(UsePair.first);
+      Optimizations.emplace_back(UseLp);
       HLLoop *UseLoopClone = Optimizations.back().getOptimized();
 
       // TODO: here is a place to clone loop with array contraction.
@@ -542,13 +679,15 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       HLNodeUtils::remove(DefLoopClone);
 
-      IgnoreLoops.push_back(UsePair.first);
-
-      // Recompute limits
-      LoopDependencyLimits =
-          computeDependencyMaxTopSortNumber(DefLp, IgnoreLoops, DDG);
-
+      DefUses.remove(CommonBases);
       LLVM_DEBUG(dbgs() << "\t[OK] DEF->USE Loops Merged\n");
+    }
+
+    // Remove array definitions if there is no usages.
+    auto UnusedBases = DefUses.getUnused(DefPair.second);
+    if (!UnusedBases.empty()) {
+      removeDeadStores(DefLp, UnusedBases);
+      LLVM_DEBUG(dbgs() << "[DEAD] Interesting DEF stores removed\n");
     }
   }
 
@@ -588,5 +727,9 @@ bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
 PreservedAnalyses
 HIRCrossLoopArrayContractionPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
+  HIRCrossLoopArrayContraction(AM.getResult<HIRFrameworkAnalysis>(F),
+                               AM.getResult<HIRDDAnalysisPass>(F),
+                               AM.getResult<HIRArraySectionAnalysisPass>(F))
+      .run();
   return PreservedAnalyses::all();
 }

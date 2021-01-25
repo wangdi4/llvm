@@ -1,4 +1,5 @@
-//===-HIRStoreResultIntoTempArray.cpp Implements Store Result Into Temp Array class --===//
+//===-HIRStoreResultIntoTempArray.cpp Implements Store Result Into Temp Array
+// class --===//
 //
 // Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
@@ -404,9 +405,12 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
         return false;
       } else {
         int64_t Dist = 0;
-        if (!(CanonExprUtils::getConstIterationDistance(CE1, CE2, Level,
-                                                        &Dist) ||
-              CanonExprUtils::areEqual(CE1, CE2, true))) {
+
+        // For example, in the third loop of bwaves, at loop level 2, CE1 =
+        // LINEAR i64 i2 + 2 and CE2 = LINEAR zext.i32.i64(i2 + 3), so we need
+        // to use relaxed mode to get the iteration distance
+        if (!CanonExprUtils::getConstIterationDistance(CE1, CE2, Level, &Dist,
+                                                       true)) {
           return false;
         }
       }
@@ -1373,9 +1377,8 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2,
         return false;
       } else {
         int64_t Dist = 0;
-        if (!(CanonExprUtils::getConstIterationDistance(CE1, CE2, Level,
-                                                        &Dist) ||
-              CanonExprUtils::areEqual(CE1, CE2, true))) {
+        if (!CanonExprUtils::getConstIterationDistance(CE1, CE2, Level, &Dist,
+                                                       true)) {
           return false;
         }
       }
