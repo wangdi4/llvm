@@ -127,11 +127,15 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
        "Size (B)", "RefCount", "Declaration");
   for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
     SourceInfo Info(HostTargetMap.HstPtrName);
-    INFO(Device.DeviceID, DPxMOD " " DPxMOD " %-8lu %-8ld %s at %s:%d:%d\n",
+#if INTEL_CUSTOMIZATION
+    INFO(Device.DeviceID,
+         DPxMOD " " DPxMOD " %-8lu %-8" PRIu64 " %s at %s:%d:%d\n",
          DPxPTR(HostTargetMap.HstPtrBegin), DPxPTR(HostTargetMap.TgtPtrBegin),
          (long unsigned)(HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin),
          HostTargetMap.getRefCount(), Info.getName(), Info.getFilename(),
          Info.getLine(), Info.getColumn());
+#endif // INTEL_CUSTOMIZATION
+
   }
 }
 
@@ -165,9 +169,11 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
       type = "alloc";
     else
       type = "use_address";
-
-    INFO(DeviceId, "%s(%s)[%ld] %s\n", type,
+#if INTEL_CUSTOMIZATION
+    INFO(DeviceId, "%s(%s)[%" PRId64 "] %s\n", type,
          getNameFromMapping(varName).c_str(), ArgSizes[i], implicit);
+#endif // INTEL_CUSTOMIZATION
+
   }
 }
 
