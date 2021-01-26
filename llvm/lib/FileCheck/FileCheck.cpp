@@ -2334,7 +2334,6 @@ bool FileCheckString::CheckNot(const SourceMgr &SM, StringRef Buffer,
     PrintMatch(false, SM, Prefix, Pat->getLoc(), *Pat, 1, Buffer, Pos, MatchLen,
                Req, Diags);
     DirectiveFail = true;
-    continue;
   }
 
   return DirectiveFail;

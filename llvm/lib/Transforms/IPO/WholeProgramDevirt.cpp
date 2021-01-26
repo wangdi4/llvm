@@ -496,7 +496,7 @@ CallSiteInfo &VTableSlotInfo::findCallSiteInfo(CallBase &CB) {
   auto *CBType = dyn_cast<IntegerType>(CB.getType());
   if (!CBType || CBType->getBitWidth() > 64 || CB.arg_empty())
     return CSInfo;
-  for (auto &&Arg : make_range(CB.arg_begin() + 1, CB.arg_end())) {
+  for (auto &&Arg : drop_begin(CB.args(), 1)) {
     auto *CI = dyn_cast<ConstantInt>(Arg);
     if (!CI || CI->getBitWidth() > 64)
       return CSInfo;
@@ -3300,6 +3300,4 @@ void DevirtIndex::run() {
   if (PrintSummaryDevirt)
     for (const auto &DT : DevirtTargets)
       errs() << "Devirtualized call to " << DT << "\n";
-
-  return;
 }
