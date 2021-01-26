@@ -1354,7 +1354,8 @@ bool VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
   Value *CmpInst =
       Builder.CreateICmpNE(GlobLoad, Builder.getInt1(0), "cmp"); //     (4)
 
-  SplitBlockAndInsertIfThen(CmpInst, InsertPt, false, nullptr, nullptr, nullptr,
+  SplitBlockAndInsertIfThen(CmpInst, InsertPt, false, nullptr, // INTEL
+                            (DomTreeUpdater *)nullptr, nullptr, // INTEL
                             NewExitBB); //                              (5)
 
   StringRef ClauseString =
