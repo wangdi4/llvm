@@ -98,9 +98,8 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-SSE2-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-AVX2-LABEL:  HIR Cost Model for VPlan foo.23 with VF = 8:
-; VPLAN-HIR-CM-AVX2-NEXT:  Total VPlan Cost: 13000
-; VPLAN-HIR-CM-AVX2-NEXT:  VPlan Base Cost before adjustments: 13000
+; VPLAN-HIR-CM-AVX2-LABEL:  Cost Model for VPlan HIR foo.23 with VF = 8:
+; VPLAN-HIR-CM-AVX2-NEXT:  Total Cost: 13000
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -126,9 +125,8 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-HIR-CM-SSE2-LABEL:  HIR Cost Model for VPlan foo.23 with VF = 8:
-; VPLAN-HIR-CM-SSE2-NEXT:  Total VPlan Cost: 81000
-; VPLAN-HIR-CM-SSE2-NEXT:  VPlan Base Cost before adjustments: 81000
+; VPLAN-HIR-CM-SSE2-LABEL:  Cost Model for VPlan HIR foo.23 with VF = 8:
+; VPLAN-HIR-CM-SSE2-NEXT:  Total Cost: 81000
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-SSE2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0

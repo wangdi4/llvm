@@ -16,10 +16,10 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
 define dso_local void @foo() {
-; CHECK-LABEL:  HIR Cost Model for VPlan foo.42 with VF = 8:
-; CHECK-NEXT:  Total VPlan Cost: 140000
-; CHECK-NEXT:  VPlan Base Cost before adjustments: 84000
-; CHECK-NEXT:  Total VPlan spill/fill cost: +56000
+; CHECK-LABEL:  Cost Model for VPlan HIR foo.42 with VF = 8:
+; CHECK-NEXT:  Total Cost: 140000
+; CHECK-NEXT:  Base Cost: 84000
+; CHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 56000
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0

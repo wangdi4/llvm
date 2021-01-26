@@ -27,6 +27,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanCallVecDecisions.cpp
   Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
+  Intel_VPlan/IntelVPlanCostModelHeuristics.cpp
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
   Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp
   Intel_VPlan/IntelVPlanDriver.cpp

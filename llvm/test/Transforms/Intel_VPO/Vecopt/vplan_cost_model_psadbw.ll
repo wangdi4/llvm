@@ -11,10 +11,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; basic case of psadbw pattern.  should not be vectorized.
 define dso_local i32 @_Z3foov(i32 %t) {
 ;
-; CHECK-LABEL:  HIR Cost Model for VPlan _Z3foov.19 with VF = 1:
-; CHECK-NEXT:  Total VPlan Cost: 0
-; CHECK-NEXT:  VPlan Base Cost before adjustments: 11000
-; CHECK-NEXT:  PSADBW pattern adjustment: -13000
+; CHECK-LABEL:  Cost Model for VPlan HIR _Z3foov.19 with VF = 1:
+; CHECK-NEXT:  Total Cost: 0
+; CHECK-NEXT:  Base Cost: 11000
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 11000
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -75,10 +75,10 @@ for.body:                                         ; preds = %for.body, %entry
 ; should not be vectorized.
 define dso_local i32 @_Z3goov() {
 ;
-; CHECK-LABEL:  HIR Cost Model for VPlan _Z3goov.60 with VF = 1:
-; CHECK-NEXT:  Total VPlan Cost: 0
-; CHECK-NEXT:  VPlan Base Cost before adjustments: 52000
-; CHECK-NEXT:  PSADBW pattern adjustment: -53000
+; CHECK-LABEL:  Cost Model for VPlan HIR _Z3goov.60 with VF = 1:
+; CHECK-NEXT:  Total Cost: 0
+; CHECK-NEXT:  Base Cost: 52000
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 52000
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -228,9 +228,8 @@ for.end:                                          ; preds = %for.body
 ; full unroll case: trip count is known and it is 8 or 16. No SLP is possible.
 ; vectorization should not be blocked for such case.
 define dso_local i32 @_Z3toov(i32 %t) {
-; CHECK-LABEL:  HIR Cost Model for VPlan _Z3toov.19 with VF = 1:
-; CHECK-NEXT:  Total VPlan Cost: 11000
-; CHECK-NEXT:  VPlan Base Cost before adjustments: 11000
+; CHECK-LABEL:  Cost Model for VPlan HIR _Z3toov.19 with VF = 1:
+; CHECK-NEXT:  Total Cost: 11000
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -291,10 +290,10 @@ for.body:                                         ; preds = %for.body, %entry
 ; to trigger.  The loop is fully unrolled by after VPlan but before SLP.
 ; Should not be vectorized.
 define dso_local i32 @full_unroll_with_slp(i32 %t) {
-; CHECK-LABEL:  HIR Cost Model for VPlan full_unroll_with_slp.52 with VF = 1:
-; CHECK-NEXT:  Total VPlan Cost: 0
-; CHECK-NEXT:  VPlan Base Cost before adjustments: 38000
-; CHECK-NEXT:  PSADBW pattern adjustment: -55000
+; CHECK-LABEL:  Cost Model for VPlan HIR full_unroll_with_slp.52 with VF = 1:
+; CHECK-NEXT:  Total Cost: 0
+; CHECK-NEXT:  Base Cost: 38000
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 38000
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
