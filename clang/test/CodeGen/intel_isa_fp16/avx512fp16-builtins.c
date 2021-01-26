@@ -314,21 +314,21 @@ __m256h test_mm512_castph512_ph256(__m512h __a)
 __m256h test_mm256_castph128_ph256(__m128h __a)
 {
   // CHECK-LABEL: test_mm256_castph128_ph256
-  // CHECK: shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  // CHECK: shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
   return _mm256_castph128_ph256(__a);
 }
 
 __m512h test_mm512_castph128_ph512(__m128h __a)
 {
   // CHECK-LABEL: test_mm512_castph128_ph512
-  // CHECK: shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  // CHECK: shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
   return _mm512_castph128_ph512(__a);
 }
 
 __m512h test_mm512_castph256_ph512(__m256h __a)
 {
   // CHECK-LABEL: test_mm512_castph256_ph512
-  // CHECK: shufflevector <16 x half> %{{.*}}, <16 x half> %{{.*}}, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  // CHECK: shufflevector <16 x half> %{{.*}}, <16 x half> %{{.*}}, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
   return _mm512_castph256_ph512(__a);
 }
 
@@ -4404,11 +4404,11 @@ __m128h test_mm_maskz_fmul_round_sch(__mmask8 __U, __m128h __A, __m128h __B) {
 
 _Float16 test_mm512_reduce_add_ph(__m512h __W){
   // CHECK-LABEL: @test_mm512_reduce_add_ph
-  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   // CHECK: %{{.*}} = fadd <16 x half> %{{.*}}, %{{.*}}
-  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 0, i32 1>
-  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 0, i32 1>
+  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 2, i32 3>
   // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
   // CHECK: %{{.*}} = shufflevector <2 x double> %{{.*}}, <2 x double> %{{.*}}, <2 x i32> <i32 1, i32 0>
   // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
@@ -4422,11 +4422,11 @@ _Float16 test_mm512_reduce_add_ph(__m512h __W){
 
 _Float16 test_mm512_reduce_mul_ph(__m512h __W){
   // CHECK-LABEL: @test_mm512_reduce_mul_ph
-  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   // CHECK:  %{{.*}} = fmul <16 x half> %{{.*}}, %{{.*}}
-  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 0, i32 1>
-  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 0, i32 1>
+  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 2, i32 3>
   // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
   // CHECK:  %{{.*}} = shufflevector <2 x double> %{{.*}}, <2 x double> %{{.*}}, <2 x i32> <i32 1, i32 0>
   // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
