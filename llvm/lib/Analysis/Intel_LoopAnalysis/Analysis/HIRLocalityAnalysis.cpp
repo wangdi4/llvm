@@ -773,7 +773,10 @@ void HIRLoopLocality::populateTemporalLocalityGroups(
 
   MemRefGatherer::gatherRange(Begin, End, MemRefMap);
 
-  MemRefGatherer::sort(MemRefMap);
+  // No sorting needed for equality groups.
+  if (ReuseThreshold != 0) {
+    MemRefGatherer::sort(MemRefMap);
+  }
 
   DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
                           std::bind(isTemporalMatch, std::placeholders::_1,

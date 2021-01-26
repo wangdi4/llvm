@@ -260,25 +260,14 @@ overlapsWithAnotherGroup(HIRDDAnalysis &HDDA,
     return MaxRefSizePair;
   };
 
-  auto GetRefGroupTopSortNumRange = [](HIRLoopLocality::RefGroupTy &Group) {
-    std::pair<unsigned, unsigned> TopSortNumRange = {UINT_MAX, 0};
-
-    for (auto *Ref : Group) {
-      unsigned TopSortNum = Ref->getHLDDNode()->getTopSortNum();
-      TopSortNumRange.first = std::min(TopSortNumRange.first, TopSortNum);
-      TopSortNumRange.second = std::max(TopSortNumRange.second, TopSortNum);
-    }
-    return TopSortNumRange;
-  };
-
   uint64_t MaxRefSize;
   const RegDDRef *MaxRef = nullptr;
 
   std::tie(MaxRefSize, MaxRef) = GetMaxRefSize(RefGroup);
 
-  unsigned MinTopSortNum;
-  unsigned MaxTopSortNum;
-  std::tie(MinTopSortNum, MaxTopSortNum) = GetRefGroupTopSortNumRange(RefGroup);
+  // Refs are arranged in reverse topological order.
+  unsigned MinTopSortNum = RefGroup.back()->getHLDDNode()->getTopSortNum();
+  unsigned MaxTopSortNum = RefGroup.front()->getHLDDNode()->getTopSortNum();
 
   for (auto &TmpRefGroup : EqualityGroups) {
     auto *CurRef = TmpRefGroup.front();
@@ -291,10 +280,11 @@ overlapsWithAnotherGroup(HIRDDAnalysis &HDDA,
       continue;
     }
 
-    unsigned TmpMinTopSortNum;
-    unsigned TmpMaxTopSortNum;
-    std::tie(TmpMinTopSortNum, TmpMaxTopSortNum) =
-        GetRefGroupTopSortNumRange(TmpRefGroup);
+    // Refs are arranged in reverse topological order.
+    unsigned TmpMinTopSortNum =
+        TmpRefGroup.back()->getHLDDNode()->getTopSortNum();
+    unsigned TmpMaxTopSortNum =
+        TmpRefGroup.front()->getHLDDNode()->getTopSortNum();
 
     if (MinTopSortNum > TmpMaxTopSortNum || MaxTopSortNum < TmpMinTopSortNum) {
       continue;
@@ -602,11 +592,6 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
 }
 
 bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
-  auto CompareRefPairTOPODesc = [](const RegDDRef *Ref0, const RegDDRef *Ref1) {
-    return Ref0->getHLDDNode()->getTopSortNum() >
-           Ref1->getHLDDNode()->getTopSortNum();
-  };
-
   // It isn't worth optimizing incoming single bblock regions.
   if (Region.isLoopMaterializationCandidate()) {
     return false;
@@ -615,6 +600,15 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
   if (!doCollection(Region, Lp, IsRegion)) {
     LLVM_DEBUG(dbgs() << "Failed collection\n";);
     return false;
+  }
+
+  // Refs returned by populateEqualityGroups() are in lexical order within the
+  // group. We neet to reverse them as they are processed in reverse lexical
+  // order. This needs to be done before calling overlapsWithAnotherGroup()
+  // below
+  // TODO: Is it worth changing the setup so reversal is not required?
+  for (auto &RefGroup : EqualityGroups) {
+    std::reverse(RefGroup.begin(), RefGroup.end());
   }
 
   bool Result = false;
@@ -630,8 +624,6 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         continue;
       }
     }
-
-    llvm::sort(RefGroup.begin(), RefGroup.end(), CompareRefPairTOPODesc);
 
     LLVM_DEBUG({
       printRefGroupTy(RefGroup, "RefGroup: ");
