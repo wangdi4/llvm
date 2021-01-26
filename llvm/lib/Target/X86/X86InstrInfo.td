@@ -1187,6 +1187,9 @@ def HasMOVGET64B : Predicate<"Subtarget->hasMOVGET64B()">;
 #if INTEL_FEATURE_ISA_RAO_INT
 def HasRAOINT : Predicate<"Subtarget->hasRAOINT()">;
 #endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+def HasAVXRAOINT : Predicate<"Subtarget->hasAVXRAOINT()">;
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;

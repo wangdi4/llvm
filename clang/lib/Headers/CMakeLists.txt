@@ -263,6 +263,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/raoint/raointintrin.h
   )
 # end INTEL_FEATURE_ISA_RAO_INT
+# INTEL_FEATURE_ISA_AVX_RAO_INT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_RAO_INT
+  Intel_Headers/avxraoint/avxraointintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_RAO_INT
 # end INTEL_CUSTOMIZATION
 
 set(files

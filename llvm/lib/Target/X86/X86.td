@@ -485,6 +485,11 @@ def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",
                                      "Support RAO-INT instructions",
                                      []>;
 #endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+def FeatureAVXRAOINT : SubtargetFeature<"avxraoint", "HasAVXRAOINT", "true",
+                                        "Support AVX-RAO-INT instructions",
+                                        [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
