@@ -1967,7 +1967,7 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
 
 void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
                                          const llvm::Triple &T,
-                                         PreprocessorOptions &PPOpts,
+                                         std::vector<std::string> &Includes,
                                          LangStandard::Kind LangStd) {
   // Set some properties which depend solely on the input kind; it would be nice
   // to move these to the language standard, and have the driver resolve the
@@ -2074,8 +2074,13 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     Opts.NativeHalfArgsAndReturns = 1;
     Opts.OpenCLCPlusPlus = Opts.CPlusPlus;
     // Include default header file for OpenCL.
-    if (Opts.IncludeDefaultHeader && !Opts.DeclareOpenCLBuiltins) {
-      PPOpts.Includes.push_back("opencl-c.h");
+    if (Opts.IncludeDefaultHeader) {
+      if (Opts.DeclareOpenCLBuiltins) {
+        // Only include base header file for builtin types and constants.
+        Includes.push_back("opencl-c-base.h");
+      } else {
+        Includes.push_back("opencl-c.h");
+      }
     }
   }
 
@@ -2232,8 +2237,8 @@ static const StringRef GetInputKindName(InputKind IK) {
 }
 
 static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
-                          const TargetOptions &TargetOpts,
-                          PreprocessorOptions &PPOpts,
+                          const llvm::Triple &T,
+                          std::vector<std::string> &Includes,
                           DiagnosticsEngine &Diags) {
   // FIXME: Cleanup per-file based stuff.
   LangStandard::Kind LangStd = LangStandard::lang_unspecified;
@@ -2353,8 +2358,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.DeclareSPIRVBuiltins = Args.hasArg(OPT_fdeclare_spirv_builtins);
 
-  llvm::Triple T(TargetOpts.Triple);
-  CompilerInvocation::setLangDefaults(Opts, IK, T, PPOpts, LangStd);
+  CompilerInvocation::setLangDefaults(Opts, IK, T, Includes, LangStd);
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   if (Opts.IntelCompat)
@@ -2763,7 +2767,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Diags.Report(diag::err_drv_argument_not_allowed_with)
           << A->getSpelling() << "-fdefault-calling-conv";
     else {
-      llvm::Triple T(TargetOpts.Triple);
       if (T.getArch() != llvm::Triple::x86)
         Diags.Report(diag::err_drv_argument_not_allowed_with)
             << A->getSpelling() << T.getTriple();
@@ -2821,12 +2824,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_stable_file_id);
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-  if (Opts.OpenMPLateOutline) {
-    llvm::Triple T(TargetOpts.Triple);
-
-    if (T.isSPIR())
+  if (Opts.OpenMPLateOutline && T.isSPIR())
       Opts.UseAutoOpenCLAddrSpaceForOpenMP = true;
-  }
 #endif  // INTEL_COLLAB
 
   // Check if -fopenmp-simd is specified.
@@ -2860,8 +2859,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       // Add unsupported host targets here:
       case llvm::Triple::nvptx:
       case llvm::Triple::nvptx64:
-        Diags.Report(diag::err_drv_omp_host_target_not_supported)
-            << TargetOpts.Triple;
+        Diags.Report(diag::err_drv_omp_host_target_not_supported) << T.str();
         break;
       }
     }
@@ -3315,8 +3313,8 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   } else {
     // Other LangOpts are only initialized when the input is not AST or LLVM IR.
     // FIXME: Should we really be calling this for an Language::Asm input?
-    ParseLangArgs(LangOpts, Args, DashX, Res.getTargetOpts(),
-                  Res.getPreprocessorOpts(), Diags);
+    ParseLangArgs(LangOpts, Args, DashX, T, Res.getPreprocessorOpts().Includes,
+                  Diags);
     if (Res.getFrontendOpts().ProgramAction == frontend::RewriteObjC)
       LangOpts.ObjCExceptions = 1;
     if (T.isOSDarwin() && DashX.isPreprocessed()) {
