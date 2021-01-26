@@ -10,9 +10,9 @@
 #include <CL/__spirv/spirv_types.hpp>
 #include <CL/sycl/detail/defines.hpp>
 #include <CL/sycl/detail/export.hpp>
+#include <CL/sycl/detail/stl_type_traits.hpp> // INTEL
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
 
 // Convergent attribute
 #ifdef __SYCL_DEVICE_ONLY__
@@ -91,6 +91,12 @@ extern SYCL_EXTERNAL TempRetT __spirv_ImageSampleExplicitLod(SampledType,
   extern SYCL_EXTERNAL Type __spirv_AtomicUMin(                                \
       AS Type *P, __spv::Scope::Flag S, __spv::MemorySemanticsMask::Flag O,    \
       Type V);
+/* INTEL_CUSTOMIZATION */
+#define __SPIRV_ATOMIC_FMIN(AS, Type)                                          \
+  extern SYCL_EXTERNAL Type __spirv_AtomicFMinEXT(                             \
+      AS Type *P, __spv::Scope::Flag S, __spv::MemorySemanticsMask::Flag O,    \
+      Type V);
+/* end INTEL_CUSTOMIZATION */
 #define __SPIRV_ATOMIC_SMAX(AS, Type)                                          \
   extern SYCL_EXTERNAL Type __spirv_AtomicSMax(                                \
       AS Type *P, __spv::Scope::Flag S, __spv::MemorySemanticsMask::Flag O,    \
@@ -99,6 +105,12 @@ extern SYCL_EXTERNAL TempRetT __spirv_ImageSampleExplicitLod(SampledType,
   extern SYCL_EXTERNAL Type __spirv_AtomicUMax(                                \
       AS Type *P, __spv::Scope::Flag S, __spv::MemorySemanticsMask::Flag O,    \
       Type V);
+/* INTEL_CUSTOMIZATION */
+#define __SPIRV_ATOMIC_FMAX(AS, Type)                                          \
+  extern SYCL_EXTERNAL Type __spirv_AtomicFMaxEXT(                             \
+      AS Type *P, __spv::Scope::Flag S, __spv::MemorySemanticsMask::Flag O,    \
+      Type V);
+/* end INTEL_CUSTOMIZATION */
 #define __SPIRV_ATOMIC_AND(AS, Type)                                           \
   extern SYCL_EXTERNAL Type __spirv_AtomicAnd(                                 \
       AS Type *P, __spv::Scope::Flag S, __spv::MemorySemanticsMask::Flag O,    \
@@ -114,6 +126,8 @@ extern SYCL_EXTERNAL TempRetT __spirv_ImageSampleExplicitLod(SampledType,
 
 #define __SPIRV_ATOMIC_FLOAT(AS, Type)                                         \
   __SPIRV_ATOMIC_FADD(AS, Type)                                                \
+  __SPIRV_ATOMIC_FMIN(AS, Type) /* INTEL */                                    \
+  __SPIRV_ATOMIC_FMAX(AS, Type) /* INTEL */                                    \
   __SPIRV_ATOMIC_LOAD(AS, Type)                                                \
   __SPIRV_ATOMIC_STORE(AS, Type)                                               \
   __SPIRV_ATOMIC_EXCHANGE(AS, Type)
@@ -137,23 +151,34 @@ extern SYCL_EXTERNAL TempRetT __spirv_ImageSampleExplicitLod(SampledType,
   __SPIRV_ATOMIC_UMIN(AS, Type)                                                \
   __SPIRV_ATOMIC_UMAX(AS, Type)
 
+/* INTEL_CUSTOMIZATION */
 // Helper atomic operations which select correct signed/unsigned version
-// of atomic min/max based on the signed-ness of the type
+// of atomic min/max based on the type
 #define __SPIRV_ATOMIC_MINMAX(AS, Op)                                          \
   template <typename T>                                                        \
-  typename std::enable_if<std::is_signed<T>::value, T>::type                   \
+  typename sycl::detail::enable_if_t<                                          \
+      std::is_integral<T>::value && std::is_signed<T>::value, T>               \
       __spirv_Atomic##Op(AS T *Ptr, __spv::Scope::Flag Memory,                 \
                          __spv::MemorySemanticsMask::Flag Semantics,           \
                          T Value) {                                            \
     return __spirv_AtomicS##Op(Ptr, Memory, Semantics, Value);                 \
   }                                                                            \
   template <typename T>                                                        \
-  typename std::enable_if<!std::is_signed<T>::value, T>::type                  \
+  typename sycl::detail::enable_if_t<                                          \
+      std::is_integral<T>::value && !std::is_signed<T>::value, T>              \
       __spirv_Atomic##Op(AS T *Ptr, __spv::Scope::Flag Memory,                 \
                          __spv::MemorySemanticsMask::Flag Semantics,           \
                          T Value) {                                            \
     return __spirv_AtomicU##Op(Ptr, Memory, Semantics, Value);                 \
+  }                                                                            \
+  template <typename T>                                                        \
+  typename sycl::detail::enable_if_t<std::is_floating_point<T>::value, T>      \
+      __spirv_Atomic##Op(AS T *Ptr, __spv::Scope::Flag Memory,                 \
+                         __spv::MemorySemanticsMask::Flag Semantics,           \
+                         T Value) {                                            \
+    return __spirv_AtomicF##Op##EXT(Ptr, Memory, Semantics, Value);            \
   }
+/* end INTEL_CUSTOMIZATION */
 
 #define __SPIRV_ATOMICS(macro, Arg)                                            \
   macro(__attribute__((opencl_global)), Arg)                                   \
