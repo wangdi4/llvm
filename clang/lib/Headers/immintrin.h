@@ -553,6 +553,19 @@
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_RAO_INT */
+
+/* INTEL_FEATURE_ISA_AVX_RAO_FP */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVXRAOFP_SUPPORTED__)
+ * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
+ * defined(__AVXRAOFP__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVXRAOFP__) && defined(__AVX512FP16__)
+#include <avxraofp/avxraofpintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_RAO_FP */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
