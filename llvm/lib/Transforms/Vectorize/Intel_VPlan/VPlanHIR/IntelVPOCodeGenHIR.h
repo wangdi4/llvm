@@ -82,10 +82,6 @@ public:
     VPValWideRefMap.clear();
     SCEVWideRefMap.clear();
     VLSGroupLoadMap.clear();
-
-    for (auto StMap : VLSGroupStoreMap)
-      delete StMap.second;
-
     VLSGroupStoreMap.clear();
   }
 
@@ -614,7 +610,8 @@ private:
 
   // Map of store OVLSGroup and the vector of values(RegDDRefs) being stored
   // into memrefs in this group.
-  SmallDenseMap<const OVLSGroup *, RegDDRef **> VLSGroupStoreMap;
+  SmallDenseMap<const OVLSGroup *, std::unique_ptr<RegDDRef *[]>>
+      VLSGroupStoreMap;
 
   // The insertion points for reduction initializer and reduction last value
   // compute instructions.

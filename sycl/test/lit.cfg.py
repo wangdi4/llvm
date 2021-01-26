@@ -122,6 +122,9 @@ config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
+if triple == 'nvptx64-nvidia-cuda-sycldevice':
+    config.available_features.add('cuda')
+
 # INTEL_CUSTOMIZATION
 # Needed for disable some test in case of use of particular linker
 # Check if the default linker is set in the ICS options
