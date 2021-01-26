@@ -263,7 +263,7 @@ public:
   /// which are unique to a single temporal locality group. This can prove
   /// legality of transformation for the client without looking at DD edges
   /// essentially saving compile time.
-  //
+  ///
   /// Function also accumulates fake refs otherwise the info in
   /// UniqueGroupSymbases might be wrong.
   static void populateTemporalLocalityGroups(
@@ -283,6 +283,7 @@ public:
   /// Populates \p TemporalGroups with memref groups which represent equivalent
   /// addresses like A[i] and (i32*)A[i]. Bitcast destination type may be
   /// ignored.
+  /// NOTE: Refs within a group are sorted in lexical order.
   static void
   populateEqualityGroups(HLContainerTy::const_iterator Begin,
                          HLContainerTy::const_iterator End,
