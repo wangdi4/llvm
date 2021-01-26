@@ -8606,4 +8606,33 @@ multiclass VMOVGET_rm {
 
 defm VMOVGET : VMOVGET_rm;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+multiclass AVX_RAOINT_BASE<bits<8> Opcode, string OpcodeStr> {
+  def Dmr : I<Opcode, MRMDestMem, (outs), (ins i128mem:$dst, VR128:$src),
+              !strconcat(OpcodeStr, "d\t{$src, $dst|$dst, $src}"),
+              [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"d128")
+                addr:$dst, VR128:$src)]>, VEX;
+  def DYmr : I<Opcode, MRMDestMem, (outs), (ins i256mem:$dst, VR256:$src),
+              !strconcat(OpcodeStr, "d\t{$src, $dst|$dst, $src}"),
+              [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"d256")
+                addr:$dst, VR256:$src)]>, VEX, VEX_L;
+  def Qmr : I<Opcode, MRMDestMem, (outs), (ins i128mem:$dst, VR128:$src),
+              !strconcat(OpcodeStr, "q\t{$src, $dst|$dst, $src}"),
+              [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"q128")
+                addr:$dst, VR128:$src)]>, VEX, VEX_W;
+  def QYmr : I<Opcode, MRMDestMem, (outs), (ins i256mem:$dst, VR256:$src),
+              !strconcat(OpcodeStr, "q\t{$src, $dst|$dst, $src}"),
+              [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"q256")
+                addr:$dst, VR256:$src)]>, VEX, VEX_L, VEX_W;
+}
+
+
+let Predicates = [HasAVXRAOINT] in {
+  defm VPAADD : AVX_RAOINT_BASE<0xfc, "vpaadd">, T8PS;
+  defm VPAAND : AVX_RAOINT_BASE<0xfc, "vpaand">, T8PD;
+  defm VPAOR  : AVX_RAOINT_BASE<0xfc, "vpaor">, T8XD;
+  defm VPAXOR : AVX_RAOINT_BASE<0xfc, "vpaxor">, T8XS;
+}
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION

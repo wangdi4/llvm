@@ -7007,6 +7007,43 @@ def int_x86_axor64 : GCCBuiltin<"__builtin_ia32_axor64">,
         Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty], []>;
 }
 #endif // INTEL_FEATURE_ISA_RAO_INT
+
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+let TargetPrefix = "x86" in {
+def int_x86_vpaaddd128 : GCCBuiltin<"__builtin_ia32_vpaaddd128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i32_ty], []>;
+def int_x86_vpaaddd256 : GCCBuiltin<"__builtin_ia32_vpaaddd256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v8i32_ty], []>;
+def int_x86_vpaaddq128 : GCCBuiltin<"__builtin_ia32_vpaaddq128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v2i64_ty], []>;
+def int_x86_vpaaddq256 : GCCBuiltin<"__builtin_ia32_vpaaddq256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i64_ty], []>;
+def int_x86_vpaandd128 : GCCBuiltin<"__builtin_ia32_vpaandd128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i32_ty], []>;
+def int_x86_vpaandd256 : GCCBuiltin<"__builtin_ia32_vpaandd256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v8i32_ty], []>;
+def int_x86_vpaandq128 : GCCBuiltin<"__builtin_ia32_vpaandq128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v2i64_ty], []>;
+def int_x86_vpaandq256 : GCCBuiltin<"__builtin_ia32_vpaandq256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i64_ty], []>;
+def int_x86_vpaord128 : GCCBuiltin<"__builtin_ia32_vpaord128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i32_ty], []>;
+def int_x86_vpaord256 : GCCBuiltin<"__builtin_ia32_vpaord256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v8i32_ty], []>;
+def int_x86_vpaorq128 : GCCBuiltin<"__builtin_ia32_vpaorq128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v2i64_ty], []>;
+def int_x86_vpaorq256 : GCCBuiltin<"__builtin_ia32_vpaorq256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i64_ty], []>;
+def int_x86_vpaxord128 : GCCBuiltin<"__builtin_ia32_vpaxord128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i32_ty], []>;
+def int_x86_vpaxord256 : GCCBuiltin<"__builtin_ia32_vpaxord256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v8i32_ty], []>;
+def int_x86_vpaxorq128 : GCCBuiltin<"__builtin_ia32_vpaxorq128">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v2i64_ty], []>;
+def int_x86_vpaxorq256 : GCCBuiltin<"__builtin_ia32_vpaxorq256">,
+      Intrinsic<[], [llvm_ptr_ty, llvm_v4i64_ty], []>;
+}
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // UINTR - User Level Interrupt
