@@ -288,17 +288,18 @@ private:
   AliasResult aliasPHI(const PHINode *PN, LocationSize PNSize,
                        const AAMDNodes &PNAAInfo, const Value *V2,
                        LocationSize V2Size, const AAMDNodes &V2AAInfo,
-                       AAQueryInfo &AAQI);
+                       const Value *UnderV2, AAQueryInfo &AAQI);
 
   AliasResult aliasSelect(const SelectInst *SI, LocationSize SISize,
                           const AAMDNodes &SIAAInfo, const Value *V2,
                           LocationSize V2Size, const AAMDNodes &V2AAInfo,
-                          AAQueryInfo &AAQI);
+                          const Value *UnderV2, AAQueryInfo &AAQI);
 
   AliasResult aliasCheck(const Value *V1, LocationSize V1Size,
                          const AAMDNodes &V1AATag, const Value *V2,
                          LocationSize V2Size, const AAMDNodes &V2AATag,
-                         AAQueryInfo &AAQI);
+                         AAQueryInfo &AAQI, const Value *O1 = nullptr,
+                         const Value *O2 = nullptr);
 
   const Value* getBaseValue(const Value *V1); // INTEL
 
