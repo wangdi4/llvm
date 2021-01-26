@@ -303,9 +303,31 @@ BasicBlock *splitBlockBefore(BasicBlock *Old, Instruction *SplitPt,
 /// no other analyses. In particular, it does not preserve LoopSimplify
 /// (because it's complicated to handle the case where one of the edges being
 /// split is an exit of a loop with other exits).
+///
+/// FIXME: deprecated, switch to the DomTreeUpdater-based one.
+BasicBlock *SplitBlockPredecessors(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
+                                   const char *Suffix, DominatorTree *DT,
+                                   LoopInfo *LI = nullptr,
+                                   MemorySSAUpdater *MSSAU = nullptr,
+                                   bool PreserveLCSSA = false);
+
+/// This method introduces at least one new basic block into the function and
+/// moves some of the predecessors of BB to be predecessors of the new block.
+/// The new predecessors are indicated by the Preds array. The new block is
+/// given a suffix of 'Suffix'. Returns new basic block to which predecessors
+/// from Preds are now pointing.
+///
+/// If BB is a landingpad block then additional basicblock might be introduced.
+/// It will have Suffix+".split_lp". See SplitLandingPadPredecessors for more
+/// details on this case.
+///
+/// This currently updates the LLVM IR, DominatorTree, LoopInfo, and LCCSA but
+/// no other analyses. In particular, it does not preserve LoopSimplify
+/// (because it's complicated to handle the case where one of the edges being
+/// split is an exit of a loop with other exits).
 BasicBlock *SplitBlockPredecessors(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
                                    const char *Suffix,
-                                   DominatorTree *DT = nullptr,
+                                   DomTreeUpdater *DTU = nullptr,
                                    LoopInfo *LI = nullptr,
                                    MemorySSAUpdater *MSSAU = nullptr,
                                    bool PreserveLCSSA = false);
@@ -321,12 +343,34 @@ BasicBlock *SplitBlockPredecessors(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
 /// no other analyses. In particular, it does not preserve LoopSimplify
 /// (because it's complicated to handle the case where one of the edges being
 /// split is an exit of a loop with other exits).
+///
+/// FIXME: deprecated, switch to the DomTreeUpdater-based one.
+void SplitLandingPadPredecessors(BasicBlock *OrigBB,
+                                 ArrayRef<BasicBlock *> Preds,
+                                 const char *Suffix, const char *Suffix2,
+                                 SmallVectorImpl<BasicBlock *> &NewBBs,
+                                 DominatorTree *DT, LoopInfo *LI = nullptr,
+                                 MemorySSAUpdater *MSSAU = nullptr,
+                                 bool PreserveLCSSA = false);
+
+/// This method transforms the landing pad, OrigBB, by introducing two new basic
+/// blocks into the function. One of those new basic blocks gets the
+/// predecessors listed in Preds. The other basic block gets the remaining
+/// predecessors of OrigBB. The landingpad instruction OrigBB is clone into both
+/// of the new basic blocks. The new blocks are given the suffixes 'Suffix1' and
+/// 'Suffix2', and are returned in the NewBBs vector.
+///
+/// This currently updates the LLVM IR, DominatorTree, LoopInfo, and LCCSA but
+/// no other analyses. In particular, it does not preserve LoopSimplify
+/// (because it's complicated to handle the case where one of the edges being
+/// split is an exit of a loop with other exits).
 void SplitLandingPadPredecessors(
     BasicBlock *OrigBB, ArrayRef<BasicBlock *> Preds, const char *Suffix,
     const char *Suffix2, SmallVectorImpl<BasicBlock *> &NewBBs,
-    DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
+    DomTreeUpdater *DTU = nullptr, LoopInfo *LI = nullptr,
     MemorySSAUpdater *MSSAU = nullptr, bool PreserveLCSSA = false);
 
+#if INTEL_CUSTOMIZATION
 /// This method splits the edge from Preds to an EHPad in OrigBB, by inserting a
 /// basic block before OrigBB. All edges from Preds basic blocks, go into the
 /// new BB created. This method currently handles only cleanuppad instructions.
@@ -337,9 +381,11 @@ void SplitLandingPadPredecessors(
 /// analyses. It might not preserve LoopSimplify.
 void SplitEHPadPredecessors(BasicBlock *OrigBB, ArrayRef<BasicBlock *> Preds,
                             const char *Suffix, BasicBlock *&NewBB,
+                            DomTreeUpdater *DTU = nullptr,
                             DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
                             MemorySSAUpdater *MSSAU = nullptr,
                             bool PreserveLCSSA = false);
+#endif // INTEL_CUSTOMIZATION
 
 /// This method duplicates the specified return instruction into a predecessor
 /// which ends in an unconditional branch. If the return instruction returns a
