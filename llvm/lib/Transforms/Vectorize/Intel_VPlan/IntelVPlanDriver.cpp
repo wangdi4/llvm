@@ -384,7 +384,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                     << "\n");
 
   VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, VF, UF, &LVL,
-                      &VLSA, Plan);
+                      &VLSA, Plan, FatalErrorHandler);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
   // Run VLS analysis before IR for the current loop is modified.
@@ -790,12 +790,15 @@ INITIALIZE_PASS_END(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
 char VPlanDriver::ID = 0;
 
 #if INTEL_CUSTOMIZATION
-VPlanDriver::VPlanDriver() : FunctionPass(ID) {
+VPlanDriver::VPlanDriver(FatalErrorHandlerTy FatalErrorHandler)
+    : FunctionPass(ID), FatalErrorHandler(FatalErrorHandler) {
   initializeVPlanDriverPass(*PassRegistry::getPassRegistry());
 }
 #endif // INTEL_CUSTOMIZATION
 
-Pass *llvm::createVPlanDriverPass() { return new VPlanDriver(); }
+Pass *llvm::createVPlanDriverPass(FatalErrorHandlerTy FatalErrorHandler) {
+  return new VPlanDriver(FatalErrorHandler);
+}
 
 void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 
@@ -853,7 +856,7 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 
   return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
-                      TTI, TLI, nullptr, nullptr);
+                      TTI, TLI, nullptr, nullptr, FatalErrorHandler);
 }
 
 PreservedAnalyses VPlanDriverPass::run(Function &F,
@@ -885,7 +888,7 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   };
 
   if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
-                    TLI, nullptr, nullptr))
+                    TLI, nullptr, nullptr, nullptr))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -900,7 +903,8 @@ bool VPlanDriverImpl::runImpl(
     std::function<const LoopAccessInfo &(Loop &)> GetLAA,
     OptimizationRemarkEmitter *ORE, OptReportVerbosity::Level Verbosity,
     WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI) {
+    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
+    FatalErrorHandlerTy FatalErrorHandler) {
 
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
@@ -918,6 +922,7 @@ bool VPlanDriverImpl::runImpl(
   this->TTI = TTI;
   this->TLI = TLI;
   this->WR = WR;
+  this->FatalErrorHandler = FatalErrorHandler;
 
   LORBuilder.setup(Fn.getContext(), Verbosity);
   bool ModifiedFunc = processFunction(Fn);
@@ -1016,7 +1021,7 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 
   return Impl.runImpl(Fn, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity,
-                      WR, TTI, TLI);
+                      WR, TTI, TLI, nullptr);
 }
 
 PreservedAnalyses VPlanDriverHIRPass::run(Function &F,
@@ -1031,7 +1036,7 @@ PreservedAnalyses VPlanDriverHIRPass::run(Function &F,
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
 
   Impl.runImpl(F, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
-               TLI);
+               TLI, nullptr);
   return PreservedAnalyses::all();
 }
 
@@ -1040,7 +1045,8 @@ bool VPlanDriverHIRImpl::runImpl(
     loopopt::HIRLoopStatistics *HIRLoopStats, loopopt::HIRDDAnalysis *DDA,
     loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
     OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
-    TargetTransformInfo *TTI, TargetLibraryInfo *TLI) {
+    TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+    FatalErrorHandlerTy FatalErrorHandler) {
   LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
                     << "\n");
   this->HIRF = HIRF;

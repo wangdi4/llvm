@@ -14,8 +14,11 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_H
 #define LLVM_TRANSFORMS_VECTORIZE_H
 
+#include <functional> // INTEL
+
 namespace llvm {
 class BasicBlock;
+class Function;
 class Pass;
 
 //===----------------------------------------------------------------------===//
@@ -104,6 +107,8 @@ struct VectorizeConfig {
   VectorizeConfig();
 };
 
+using FatalErrorHandlerTy = std::function<void (llvm::Function *F)>;  // INTEL
+
 //===----------------------------------------------------------------------===//
 //
 // LoopVectorize - Create a loop vectorization pass.
@@ -159,7 +164,7 @@ Pass *createMathLibraryFunctionsReplacementPass(bool isOCL);
 //
 // VPlan LLVM-IR Vectorizer - Create a VPlan Driver pass for LLVM-IR.
 //
-Pass *createVPlanDriverPass();
+Pass *createVPlanDriverPass(FatalErrorHandlerTy FatalErrorHandler = nullptr);
 
 //===----------------------------------------------------------------------===//
 //
