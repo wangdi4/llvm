@@ -4513,7 +4513,7 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       // Generate llvm.assume call for the specified value.
       IRBuilder<> Builder(GetAlignedBlock()->getTerminator());
       auto &DL = F->getParent()->getDataLayout();
-      CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
+      CallInst *Call = Builder.CreateAlignmentAssumptionOld(DL, Ptr, Align);
 
       // And then add it to the assumption cache.
       AC->registerAssumption(Call);

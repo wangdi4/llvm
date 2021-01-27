@@ -134,7 +134,7 @@ void HandlePragmaVectorAligned::processAlignedLoop(const Loop *L) {
       Value *Invariant = Base->getValue();
       int Align = TTI->getRegisterBitWidth(true) / 8;
       IRBuilder<> Builder(Preheader->getTerminator());
-      Builder.CreateAlignmentAssumption(*DL, Invariant, Align);
+      Builder.CreateAlignmentAssumptionOld(*DL, Invariant, Align);
     }
   }
 }
