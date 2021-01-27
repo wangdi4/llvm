@@ -677,17 +677,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Support for #pragma redefine_extname (Sun compatibility)
   Builder.defineMacro("__PRAGMA_REDEFINE_EXTNAME", "1");
 
-#if INTEL_CUSTOMIZATION
-  // Version string for xmain: cq374831
-  if (LangOpts.IntelCompat)
-    Builder.defineMacro("__VERSION__", "\"" +
-                      Twine(getXMainFullCPPVersion()) + "\"");
-  else
-#endif // INTEL_CUSTOMIZATION
   // Previously this macro was set to a string aiming to achieve compatibility
   // with GCC 4.2.1. Now, just return the full Clang version
-  Builder.defineMacro("__VERSION__", "\"" +
-                      Twine(getClangFullCPPVersion()) + "\"");
+  Builder.defineMacro("__VERSION__",
+                      "\"" + Twine(getClangFullVersion()) + "\""); // INTEL
 
   // Initialize language-specific preprocessor defines.
 
