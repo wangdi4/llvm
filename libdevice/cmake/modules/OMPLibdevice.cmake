@@ -1,7 +1,7 @@
 # INTEL_COLLAB
 set(binary_dir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 if (WIN32)
-  set(omp_compile_opts -Qiopenmp)
+  set(omp_compile_opts -Qiopenmp --driver-mode=cl)
   set(omp_target_opts -Qopenmp-targets=spir64)
   set(objext .obj)
   set(cmplr_obj_out -c -Fo)
@@ -19,6 +19,7 @@ set(clang_opts -fdeclare-spirv-builtins -O1)
 if (INTEL_CUSTOMIZATION)
   # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
   #        the same way icx does.
+  list(APPEND omp_compile_opts --intel)
   set(new_clang_opts)
   foreach(o ${clang_opts})
     list(APPEND new_clang_opts -Xclang ${o})
@@ -45,13 +46,25 @@ set(omplib_spvs)
 function(add_obj_file src dst)
   cmake_parse_arguments(ARG "" "" "DEPENDS" ${ARGN})
 
-  if (INTEL_CUSTOMIZATION)
-    # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
-    #        the same way icx does.
-    set(cmplr $<TARGET_FILE:icx>)
-  else(INTEL_CUSTOMIZATION)
-    set(cmplr $<TARGET_FILE:clang>)
-  endif(INTEL_CUSTOMIZATION)
+  set(cmplr $<TARGET_FILE:clang>)
+
+  if (WIN32)
+    # Build object files with /Zl on Windows to get rid
+    # of default libraries dependency. Anyway, the object
+    # files are empty for the host part.
+    # Note that /Zl only works in 'cl' driver mode.
+    #
+    # We cannot use check_c[xx]_compiler_flags() functions for /Zl,
+    # because the linker fail for the test example compiled with /Zl.
+    # Try to set /Zl unconditionally for the time being.
+    #   check_c_compiler_flag("/Zl" LIBDEVICE_C_SUPPORTS_ZL)
+    #   check_cxx_compiler_flag("/Zl" LIBDEVICE_CXX_SUPPORTS_ZL)
+    set(LIBDEVICE_C_SUPPORTS_ZL TRUE)
+    set(LIBDEVICE_CXX_SUPPORTS_ZL TRUE)
+    if (LIBDEVICE_C_SUPPORTS_ZL AND LIBDEVICE_CXX_SUPPORTS_ZL)
+      list(APPEND omp_compile_opts /Zl)
+    endif()
+  endif(WIN32)
 
   add_custom_command(OUTPUT ${dst}
     COMMAND ${cmplr} ${omp_compile_opts} ${clang_opts}
@@ -72,13 +85,7 @@ endfunction()
 function(add_spv_file src dst)
   cmake_parse_arguments(ARG "" "" "DEPENDS" ${ARGN})
 
-  if (INTEL_CUSTOMIZATION)
-    # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
-    #        the same way icx does.
-    set(cmplr $<TARGET_FILE:icx>)
-  else(INTEL_CUSTOMIZATION)
-    set(cmplr $<TARGET_FILE:clang>)
-  endif(INTEL_CUSTOMIZATION)
+  set(cmplr $<TARGET_FILE:clang>)
   set(llvm_spirv $<TARGET_FILE:llvm-spirv>)
   set(clang_offload_bundler $<TARGET_FILE:clang-offload-bundler>)
 
