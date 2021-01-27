@@ -1992,6 +1992,11 @@ EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
   return (void *) context;
 }
 
+EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
+  auto cldevice = DeviceInfo->deviceIDs[DeviceId];
+  return (void *)cldevice;
+}
+
 EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
   auto context = DeviceInfo->getContext(DeviceId);
   return (void *)context;
