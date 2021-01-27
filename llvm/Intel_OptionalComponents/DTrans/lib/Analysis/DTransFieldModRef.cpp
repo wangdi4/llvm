@@ -235,12 +235,53 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
   // modified or referenced by the call.
   ModRefInfo MRI = ModRefInfo::NoModRef;
   SmallPtrSet<Function *, 16> Visited;
-  unionModRefInfo(MRI, Call->getCalledFunction(), StTy, FieldNum,
-                  /*Indirect=*/true, Visited);
+  unionModRefInfo(MRI, Call, StTy, FieldNum, /*Indirect=*/true, Visited);
   DEBUG_WITH_TYPE(DTRANS_FMR_QUERIES,
-                  dbgs() << "Result: " << ModRefInfoToString(MRI) << "\n");
+                  dbgs() << "Result: " << ModRefInfoToString(MRI) << " ["
+                         << *StTy << "@" << FieldNum << "]\n");
 
   return MRI;
+}
+
+// Update the \p Status value to add Mod or Ref (or both) based on the
+// behavior that \p Call may have on field number \p FieldNum of StructureType
+// \p StTy.
+//
+// When \p Indirect is set, also include the functions that read or write values
+// within the indirect array pointed to by a pointer field.
+// \p Visited is used to store the functions that have been already by visited
+// during the current query.
+// \p Indent is used for the debug traces.
+void FieldModRefResult::unionModRefInfo(ModRefInfo &Status,
+                                        const CallBase *Call,
+                                        llvm::StructType *StTy,
+                                        unsigned FieldNum, bool Indirect,
+                                        SmallPtrSetImpl<Function *> &Visited,
+                                        unsigned Indent) {
+
+  if (Call->isIndirectCall())
+    return;
+
+  Function *Callee = Call->getCalledFunction();
+  assert(Callee && "unexpected indirect call");
+
+  // A call to a broker function needs to merge in the behavior of the functions
+  // that will be called as callbacks.
+  if (Callee->hasMetadata(LLVMContext::MD_callback)) {
+    SmallVector<const Use *, 4> CallbackUses;
+    AbstractCallSite::getCallbackUses(*Call, CallbackUses);
+    for (const Use *U : CallbackUses) {
+      AbstractCallSite ACS(U);
+      Function *TargetFunc = ACS.getCalledFunction();
+      unionModRefInfo(Status, TargetFunc, StTy, FieldNum, Indirect, Visited,
+                      FieldNum);
+      // No need to continue, once the worst case is encountered.
+      if (isModAndRefSet(Status))
+        return;
+    }
+  }
+
+  unionModRefInfo(Status, Callee, StTy, FieldNum, Indirect, Visited, Indent);
 }
 
 // Update the \p Status value to add Mod or Ref (or both) based on the
@@ -287,27 +328,22 @@ void FieldModRefResult::unionModRefInfo(ModRefInfo &Status, Function *F,
   // without caching results because we don't expect many queries to be made
   // from LoopOpt. If this changes to be an AliasAnalysis result, this may need
   // to be changed.
-  SmallPtrSet<Function *, 16> ToCheck;
-  for (auto &I : instructions(F)) {
+  for (auto &I : instructions(F))
     if (auto *Call = dyn_cast<CallBase>(&I)) {
-      // We only need to check direct calls here, because any field accessible
-      // by an indirect function call has been disqualified as a candidate.
-      if (Function *Callee = Call->getCalledFunction())
-        ToCheck.insert(Callee);
+      unionModRefInfo(Status, Call, StTy, FNum, Indirect, Visited, Indent + 2);
+      // No need to continue, once the worst case is encountered.
+      if (isModAndRefSet(Status))
+        return;
     }
-  }
 
-  // Also check the functions that can be called based on an input parameter
-  // that corresponds to the address of a function.
+  // Check for indirect calls made to functions that are passed in as arguments.
   auto It = FunctionToCalleeSet.find(F);
   if (It != FunctionToCalleeSet.end())
-    ToCheck.insert(It->second.begin(), It->second.end());
-
-  for (auto *Callee : ToCheck) {
-    unionModRefInfo(Status, Callee, StTy, FNum, Indirect, Visited, Indent + 2);
-    if (isModAndRefSet(Status))
-      return;
-  }
+    for (auto *F : It->second) {
+      unionModRefInfo(Status, F, StTy, FNum, Indirect, Visited, Indent + 2);
+      if (isModAndRefSet(Status))
+        return;
+    }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1391,17 +1427,18 @@ void DTransModRefAnalyzer::printQueryResults(Module &M,
         Calls.push_back(Call);
     }
 
+    const int MaxResultLen = 10;
     for (auto *Call : Calls)
       for (auto *I : MemInst) {
-        dbgs() << "FieldModRefQuery Begin:\n  Function: " << F.getName()
-               << "\n";
-        dbgs() << "  Instruction: " << *I << "\n";
-        dbgs() << "  Call       : " << *Call << "\n";
         MemoryLocation Loc = MemoryLocation::get(I);
         ModRefInfo LocResult = Result.getModRefInfo(Call, Loc);
+        StringRef Result = ModRefInfoToString(LocResult);
 
-        dbgs() << "  Result     : " << ModRefInfoToString(LocResult) << "\n";
-        dbgs() << "FieldModRefQuery End\n\n";
+        // Print test inputs and results on one line to allow LIT tests to match
+        // specific queries.
+        dbgs() << "FieldModRefQuery: - " << Result;
+        dbgs().indent(MaxResultLen - Result.size() > 0 ? MaxResultLen - Result.size() : 0);
+        dbgs()  << " : [" << F.getName() << "] " << *I << " -- " << *Call << "\n";
       }
   }
 }

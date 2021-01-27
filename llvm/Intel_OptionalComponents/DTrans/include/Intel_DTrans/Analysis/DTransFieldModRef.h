@@ -83,6 +83,11 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
+  void unionModRefInfo(ModRefInfo &Status, const CallBase *Call,
+                       llvm::StructType *StTy, unsigned FieldNum, bool Indirect,
+                       SmallPtrSetImpl<Function *> &Visited,
+                       unsigned Indent = 0);
+
   void unionModRefInfo(ModRefInfo &Status, Function *F, llvm::StructType *StTy,
                        unsigned FNum, bool Indirect,
                        SmallPtrSetImpl<Function *> &Visited,
