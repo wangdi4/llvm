@@ -1,4 +1,5 @@
 ; RUN: %oclopt %s -enable-direct-function-call-vectorization -sg-size-collector -S | FileCheck %s
+; RUN: %oclopt %s -sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
 
 define void @bar() #0 {
 ; CHECK: define void @bar() #[[ATTR0:[0-9]+]] {
@@ -37,6 +38,8 @@ attributes #0 = { "vector-variants"="_ZGVbM16_bar" }
 
 ; CHECK: attributes #[[ATTR0]] = { "vector-variants"="_ZGVbM16_bar,_ZGVbM8_bar,_ZGVbN8_bar,_ZGVbM32_bar,_ZGVbN32_bar" }
 ; CHECK: attributes #[[ATTR1]] = { "vector-variants"="_ZGVbM8_foo,_ZGVbN8_foo,_ZGVbM16_foo,_ZGVbN16_foo,_ZGVbM32_foo,_ZGVbN32_foo" }
+; CHECK-NO-FLAG: attributes #0 = { "vector-variants"="_ZGVbM16_bar" }
+; CHECK-NO-FLAG-NOT: vector-variants
 
 !0 = !{i32 8}
 !1 = !{i32 16}
