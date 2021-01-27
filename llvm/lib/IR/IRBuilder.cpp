@@ -558,6 +558,13 @@ Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
 }
 #endif // INTEL_CUSTOMIZATION
 
+Instruction *IRBuilderBase::CreateNoAliasScopeDeclaration(Value *Scope) {
+  Module *M = BB->getModule();
+  auto *FnIntrinsic = Intrinsic::getDeclaration(
+      M, Intrinsic::experimental_noalias_scope_decl, {});
+  return createCallHelper(FnIntrinsic, {Scope}, this);
+}
+
 /// Create a call to a Masked Load intrinsic.
 /// \p Ptr       - base pointer for the load
 /// \p Alignment - alignment of the source location
