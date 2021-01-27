@@ -3013,12 +3013,13 @@ EXTERN void __tgt_rtl_add_build_options(
     options += std::string(LinkOptions) + " ";
 }
 
-EXTERN bool __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
+EXTERN int32_t __tgt_rtl_is_supported_device(int32_t DeviceId,
+                                             void *DeviceType) {
   if (!DeviceType)
     return true;
 
   uint64_t deviceArch = DeviceInfo->DeviceArchs[DeviceId];
-  bool ret = (uint64_t)(deviceArch & (uint64_t)DeviceType) == deviceArch;
+  int32_t ret = (uint64_t)(deviceArch & (uint64_t)DeviceType) == deviceArch;
   IDP("Device %" PRIu32 " does%s match the requested device types " DPxMOD "\n",
       DeviceId, ret ? "" : " not", DPxPTR(DeviceType));
   return ret;
