@@ -100,6 +100,11 @@ static cl::opt<bool> SwitchToOffload(
     "switch-to-offload", cl::Hidden, cl::init(false),
     cl::desc("switch to offload mode (default = false)"));
 
+// Enables the emission of tgt_push_code_location calls.
+static cl::opt<bool> PushCodeLocation(
+    "vpo-paropt-enable-push-code-location", cl::Hidden, cl::init(true),
+    cl::desc("Emit calls to __tgt_push_code_location()"));
+
 // If module M has a StructType of name Name, and element types ElementTypes,
 // return it.
 StructType *VPOParoptUtils::getStructTypeWithNameAndElementsFromModule(
@@ -857,10 +862,11 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
   CallInst *Call = genCall(Name, ReturnTy, FnArgs, FnArgTypes, InsertPt);
   // TODO: Disable this extra call for code-location once ident_t sent
   // via the mapper APIs provides enough information, and is stable.
-  CallInst *CallPushCodeLocation = genTgtPushCodeLocation(InsertPt, Call);
-  LLVM_DEBUG(dbgs() << "\nGenerating: " << *CallPushCodeLocation << "\n");
-  (void)CallPushCodeLocation;
-
+  if(PushCodeLocation) {
+    CallInst *CallPushCodeLocation = genTgtPushCodeLocation(InsertPt, Call);
+    LLVM_DEBUG(dbgs() << "\nGenerating: " << *CallPushCodeLocation << "\n");
+    (void)CallPushCodeLocation;
+  }
   return Call;
 }
 
