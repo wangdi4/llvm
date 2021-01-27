@@ -81,6 +81,7 @@ std::shared_ptr<VPlan> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Find the upper bound of the current loop. For now, the masked loop will
   // have the same upper bound as the scalar loop.
   VPBasicBlock *Latch = TopVPLoop->getLoopLatch();
+  assert(Latch && "Latch is expected to exist.");
   VPBranchInst *Term = Latch->getTerminator();
   VPInstruction *CondBit = cast<VPInstruction>(Latch->getCondBit());
   assert(*CondBit->users().begin() == Term && "CondBit has only one user.");

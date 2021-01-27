@@ -63,10 +63,11 @@ VPlanCallVecDecisions::getVectorVariantForCallParameters(
       llvm_unreachable("Invalid parameter kind");
   }
 
+  Function *F = VPCall->getCalledFunction();
+  assert(F && "Function is expected here.");
   return std::make_unique<VectorVariant>(
              VectorVariant::ISAClass::OTHER, Masked, VF, ParmKinds,
-             VPCall->getCalledFunction()->getName().str(),
-             "" /* Alias not needed */);
+             F->getName().str(), "" /* Alias not needed */);
 }
 
 llvm::Optional<std::pair<std::unique_ptr<VectorVariant>, unsigned>>
