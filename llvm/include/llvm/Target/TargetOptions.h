@@ -129,6 +129,7 @@ namespace llvm {
           IntelAdvancedOptim(false),               // INTEL
           IntelLibIRCAllowed(false),               // INTEL
           X87Precision(0),                         // INTEL
+          DoFMAOpt(true),                          // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
           DisableIntegratedAS(false), RelaxELFRelocations(false),
@@ -215,6 +216,9 @@ namespace llvm {
     /// The value can be 0, 32, 64 and 80.
     /// 0 means we don't change the precision.
     unsigned X87Precision : 8;
+
+    /// DoFMAOpt - Enable the global FMA opt.
+    unsigned DoFMAOpt : 1;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is

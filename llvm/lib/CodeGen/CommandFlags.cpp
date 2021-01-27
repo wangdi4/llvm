@@ -92,6 +92,7 @@ CGOPT(bool, EnableAddrsig)
 #if INTEL_CUSTOMIZATION
 CGOPT(bool, EnableIntelAdvancedOpts)
 CGOPT(int, X87Precision)
+CGOPT(bool, DoFMAOpt)
 #endif // INTEL_CUSTOMIZATION
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableMachineFunctionSplitter)
@@ -446,6 +447,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       "x87-precision", cl::desc("Set X87 internal precision"),
       cl::init(0));
   CGBINDOPT(X87Precision);
+
+  /// This internal switch can be used to turn off the Global FMA optimization.
+  static cl::opt<bool> DoFMAOpt("do-x86-global-fma",
+                                cl::desc("Enable the global FMA opt."),
+                                cl::init(true), cl::Hidden);
+  CGBINDOPT(DoFMAOpt);
 #endif // INTEL_CUSTOMIZATION
 
   static cl::opt<bool> EmitCallSiteInfo(
@@ -582,6 +589,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
   Options.X87Precision = getX87Precision();
+  Options.DoFMAOpt = getDoFMAOpt();
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
