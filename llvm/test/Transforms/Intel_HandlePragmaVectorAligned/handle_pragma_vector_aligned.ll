@@ -10,8 +10,17 @@ entry:
   br i1 %cmp7, label %for.body.preheader, label %for.cond.cleanup
 
 ; CHECK-LABEL: for.body.preheader:
-; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(float* %P1, i64 16) ]
-; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(float* %P2, i64 16) ]
+;
+; CHECK-NEXT:    [[PTRINT:%.*]] = ptrtoint float* %P1 to i64
+; CHECK-NEXT:    [[MASKEDPTR:%.*]] = and i64 [[PTRINT]], 15
+; CHECK-NEXT:    [[MASKCOND:%.*]] = icmp eq i64 [[MASKEDPTR]], 0
+; CHECK-NEXT:    call void @llvm.assume(i1 [[MASKCOND]])
+;
+; CHECK-NEXT:    [[PTRINT1:%.*]] = ptrtoint float* %P2 to i64
+; CHECK-NEXT:    [[MASKEDPTR2:%.*]] = and i64 [[PTRINT1]], 15
+; CHECK-NEXT:    [[MASKCOND3:%.*]] = icmp eq i64 [[MASKEDPTR2]], 0
+; CHECK-NEXT:    call void @llvm.assume(i1 [[MASKCOND3]])
+;
 ; CHECK-NEXT:    br label %for.body
 for.body.preheader:
   br label %for.body
