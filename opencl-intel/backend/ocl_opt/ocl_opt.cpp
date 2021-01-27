@@ -472,7 +472,9 @@ int main(int argc, char **argv) {
   initializeAtomicExpandPass(Registry);
   initializeRewriteSymbolsLegacyPassPass(Registry);
   initializeWinEHPreparePass(Registry);
-  initializeDwarfEHPreparePass(Registry);
+#if INTEL_CUSTOMIZATION
+  initializeDwarfEHPrepareLegacyPassPass(Registry);
+#endif // INTEL_CUSTOMIZATION
   initializeSafeStackLegacyPassPass(Registry);
   initializeSjLjEHPreparePass(Registry);
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
