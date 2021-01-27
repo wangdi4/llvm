@@ -1370,7 +1370,7 @@ static bool isSafeToHoistInvoke(BasicBlock *BB1, BasicBlock *BB2,
   return true;
 }
 
-static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I);
+static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValueMayBeModified = false);
 
 /// Given a conditional branch that goes to BB1 and BB2, hoist any common code
 /// in the two blocks up into the branch block. The caller of this function
@@ -6808,20 +6808,25 @@ static void RemoveSwitchAfterSelectConversion(SwitchInst *SI, PHINode *PHI,
                                               Value *SelectValue,
                                               IRBuilder<> &Builder,
                                               DomTreeUpdater *DTU) {
+  std::vector<DominatorTree::UpdateType> Updates;
+
   BasicBlock *SelectBB = SI->getParent();
+  BasicBlock *DestBB = PHI->getParent();
+
+  if (!is_contained(predecessors(DestBB), SelectBB))
+    Updates.push_back({DominatorTree::Insert, SelectBB, DestBB});
+  Builder.CreateBr(DestBB);
+
+  // Remove the switch.
+
   while (PHI->getBasicBlockIndex(SelectBB) >= 0)
     PHI->removeIncomingValue(SelectBB);
   PHI->addIncoming(SelectValue, SelectBB);
 
-  Builder.CreateBr(PHI->getParent());
-
-  std::vector<DominatorTree::UpdateType> Updates;
-
-  // Remove the switch.
   for (unsigned i = 0, e = SI->getNumSuccessors(); i < e; ++i) {
     BasicBlock *Succ = SI->getSuccessor(i);
 
-    if (Succ == PHI->getParent())
+    if (Succ == DestBB)
       continue;
     Succ->removePredecessor(SelectBB);
     Updates.push_back({DominatorTree::Delete, SelectBB, Succ});
@@ -8103,7 +8108,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
 }
 
 /// Check if passing a value to an instruction will cause undefined behavior.
-static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
+static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValueMayBeModified) {
   Constant *C = dyn_cast<Constant>(V);
   if (!C)
     return false;
@@ -8126,8 +8131,11 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
 
     // Look through GEPs. A load from a GEP derived from NULL is still undefined
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Use))
-      if (GEP->getPointerOperand() == I)
-        return passingValueIsAlwaysUndefined(V, GEP);
+      if (GEP->getPointerOperand() == I) {
+        if (!GEP->isInBounds() || !GEP->hasAllZeroIndices())
+          PtrValueMayBeModified = true;
+        return passingValueIsAlwaysUndefined(V, GEP, PtrValueMayBeModified);
+      }
 
 #if INTEL_CUSTOMIZATION
     if (auto *SI = dyn_cast<AddressInst>(Use))
@@ -8137,7 +8145,7 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
 
     // Look through bitcasts.
     if (BitCastInst *BC = dyn_cast<BitCastInst>(Use))
-      return passingValueIsAlwaysUndefined(V, BC);
+      return passingValueIsAlwaysUndefined(V, BC, PtrValueMayBeModified);
 
     // Load from null is undefined.
     if (LoadInst *LI = dyn_cast<LoadInst>(Use))
@@ -8152,10 +8160,35 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
                                       SI->getPointerAddressSpace())) &&
                SI->getPointerOperand() == I;
 
-    // A call to null is undefined.
-    if (auto *CB = dyn_cast<CallBase>(Use))
-      return !NullPointerIsDefined(CB->getFunction()) &&
-             CB->getCalledOperand() == I;
+    if (auto *CB = dyn_cast<CallBase>(Use)) {
+      if (C->isNullValue() && NullPointerIsDefined(CB->getFunction()))
+        return false;
+      // A call to null is undefined.
+      if (CB->getCalledOperand() == I)
+        return true;
+
+      if (C->isNullValue()) {
+        for (const llvm::Use &Arg : CB->args())
+          if (Arg == I) {
+            unsigned ArgIdx = CB->getArgOperandNo(&Arg);
+            if (CB->paramHasAttr(ArgIdx, Attribute::NonNull) &&
+                CB->paramHasAttr(ArgIdx, Attribute::NoUndef)) {
+              // Passing null to a nonnnull+noundef argument is undefined.
+              return !PtrValueMayBeModified;
+            }
+          }
+      } else if (isa<UndefValue>(C)) {
+        // Passing undef to a noundef argument is undefined.
+        for (const llvm::Use &Arg : CB->args())
+          if (Arg == I) {
+            unsigned ArgIdx = CB->getArgOperandNo(&Arg);
+            if (CB->paramHasAttr(ArgIdx, Attribute::NoUndef)) {
+              // Passing undef to a noundef argument is undefined.
+              return true;
+            }
+          }
+      }
+    }
   }
   return false;
 }
