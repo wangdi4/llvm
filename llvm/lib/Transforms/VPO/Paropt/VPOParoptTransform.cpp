@@ -3119,6 +3119,14 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 //
 void VPOParoptTransform::genLprivFini(Item *I, Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
+#if INTEL_CUSTOMIZATION
+  if (I->getIsF90DopeVector()) {
+    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt,
+                                                isTargetSPIRV());
+    return;
+  }
+
+#endif // INTEL_CUSTOMIZATION
   // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
          "genLprivFini: Expect isOMPItemLocalVAR().");
@@ -3134,14 +3142,6 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (LprivI->getIsByRef())
     OldV = new LoadInst(NewV->getType(), OldV, "", InsertPt);
-
-#if INTEL_CUSTOMIZATION
-  if (LprivI->getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt,
-                                                isTargetSPIRV());
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (Function *CpAssn = LprivI->getCopyAssign()) {
     genPrivatizationInitOrFini(LprivI, CpAssn, FK_CopyAssign, OldV, NewV,
