@@ -4404,11 +4404,11 @@ __m128h test_mm_maskz_fmul_round_sch(__mmask8 __U, __m128h __A, __m128h __B) {
 
 _Float16 test_mm512_reduce_add_ph(__m512h __W){
   // CHECK-LABEL: @test_mm512_reduce_add_ph
-  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK: %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   // CHECK: %{{.*}} = fadd <16 x half> %{{.*}}, %{{.*}}
-  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 0, i32 1>
-  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 0, i32 1>
+  // CHECK: %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 2, i32 3>
   // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
   // CHECK: %{{.*}} = shufflevector <2 x double> %{{.*}}, <2 x double> %{{.*}}, <2 x i32> <i32 1, i32 0>
   // CHECK: %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
@@ -4422,11 +4422,11 @@ _Float16 test_mm512_reduce_add_ph(__m512h __W){
 
 _Float16 test_mm512_reduce_mul_ph(__m512h __W){
   // CHECK-LABEL: @test_mm512_reduce_mul_ph
-  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <8 x double> %{{.*}}, <8 x double> poison, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
   // CHECK:  %{{.*}} = fmul <16 x half> %{{.*}}, %{{.*}}
-  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 0, i32 1>
-  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 0, i32 1>
+  // CHECK:  %{{.*}} = shufflevector <4 x double> %{{.*}}, <4 x double> poison, <2 x i32> <i32 2, i32 3>
   // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
   // CHECK:  %{{.*}} = shufflevector <2 x double> %{{.*}}, <2 x double> %{{.*}}, <2 x i32> <i32 1, i32 0>
   // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}

@@ -3582,11 +3582,11 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
     break;
   case Intrinsic::vector_reduce_fmax:
     assert(!Acc && "Unexpected initial value");
-    Ret = Builder.CreateFPMaxReduce(VecValue, /*NoNan*/ false);
+    Ret = Builder.CreateFPMaxReduce(VecValue);
     break;
   case Intrinsic::vector_reduce_fmin:
     assert(!Acc && "Unexpected initial value");
-    Ret = Builder.CreateFPMinReduce(VecValue, /*NoNaN*/ false);
+    Ret = Builder.CreateFPMinReduce(VecValue);
     break;
   default:
     llvm_unreachable("unsupported reduction");

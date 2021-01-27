@@ -47,6 +47,11 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "instcombine"
 
+/// FIXME: Enabled by default until the pattern is supported well.
+static cl::opt<bool> EnableUnsafeSelectTransform(
+    "instcombine-unsafe-select-transform", cl::init(true),
+    cl::desc("Enable poison-unsafe select to and/or transform"));
+
 static Value *createMinMax(InstCombiner::BuilderTy &Builder,
                            SelectPatternFlavor SPF, Value *A, Value *B) {
   CmpInst::Predicate Pred = getMinMaxPred(SPF);
@@ -1121,15 +1126,16 @@ static Instruction *canonicalizeAbsNabs(SelectInst &Sel, ICmpInst &Cmp,
       SPF != SelectPatternFlavor::SPF_NABS)
     return nullptr;
 
-  bool IntMinIsPoison = match(RHS, m_NSWNeg(m_Specific(LHS)));
+  // Note that NSW flag can only be propagated for normal, non-negated abs!
+  bool IntMinIsPoison = SPF == SelectPatternFlavor::SPF_ABS &&
+                        match(RHS, m_NSWNeg(m_Specific(LHS)));
   Constant *IntMinIsPoisonC =
       ConstantInt::get(Type::getInt1Ty(Sel.getContext()), IntMinIsPoison);
   Instruction *Abs =
       IC.Builder.CreateBinaryIntrinsic(Intrinsic::abs, LHS, IntMinIsPoisonC);
 
   if (SPF == SelectPatternFlavor::SPF_NABS)
-    return IntMinIsPoison ? BinaryOperator::CreateNSWNeg(Abs)
-                          : BinaryOperator::CreateNeg(Abs);
+    return BinaryOperator::CreateNeg(Abs); // Always without NSW flag!
 
   return IC.replaceInstUsesWith(Sel, Abs);
 }
@@ -2632,58 +2638,47 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   if (Instruction *I = canonicalizeScalarSelectOfVecs(SI, *this))
     return I;
 
-#if INTEL_CUSTOMIZATION
-  // Canonicalize a one-use integer compare with a non-canonical predicate by
-  // inverting the predicate and swapping the select operands. This matches a
-  // compare canonicalization for conditional branches.
-  // TODO: Should we do the same for FP compares?
   CmpInst::Predicate Pred;
-  if (match(CondVal, m_OneUse(m_ICmp(Pred, m_Value(), m_Value()))) &&
-      !isCanonicalPredicate(Pred)) {
-    // Swap true/false values and condition.
-    CmpInst *Cond = cast<CmpInst>(CondVal);
-    Cond->setPredicate(CmpInst::getInversePredicate(Pred));
-    SI.swapValues();
-    SI.swapProfMetadata();
-    Worklist.push(Cond);
-    return &SI;
-  }
-#endif  // INTEL_CUSTOMIZATION
 
   if (SelType->isIntOrIntVectorTy(1) &&
       TrueVal->getType() == CondVal->getType()) {
-    if (match(TrueVal, m_One())) {
+    if (EnableUnsafeSelectTransform && match(TrueVal, m_One())) {
       // Change: A = select B, true, C --> A = or B, C
       return BinaryOperator::CreateOr(CondVal, FalseVal);
     }
-    if (match(TrueVal, m_Zero())) {
-      // Change: A = select B, false, C --> A = and !B, C
-      Value *NotCond = Builder.CreateNot(CondVal, "not." + CondVal->getName());
-      return BinaryOperator::CreateAnd(NotCond, FalseVal);
-    }
-    if (match(FalseVal, m_Zero())) {
+    if (EnableUnsafeSelectTransform && match(FalseVal, m_Zero())) {
       // Change: A = select B, C, false --> A = and B, C
       return BinaryOperator::CreateAnd(CondVal, TrueVal);
     }
-    if (match(FalseVal, m_One())) {
-      // Change: A = select B, C, true --> A = or !B, C
+
+    // select a, false, b -> select !a, b, false
+    if (match(TrueVal, m_Zero())) {
       Value *NotCond = Builder.CreateNot(CondVal, "not." + CondVal->getName());
-      return BinaryOperator::CreateOr(NotCond, TrueVal);
+      return SelectInst::Create(NotCond, FalseVal,
+                                ConstantInt::getFalse(SelType));
+    }
+    // select a, b, true -> select !a, true, b
+    if (match(FalseVal, m_One())) {
+      Value *NotCond = Builder.CreateNot(CondVal, "not." + CondVal->getName());
+      return SelectInst::Create(NotCond, ConstantInt::getTrue(SelType),
+                                TrueVal);
     }
 
-    // select a, a, b  -> a | b
-    // select a, b, a  -> a & b
+    // select a, a, b -> select a, true, b
     if (CondVal == TrueVal)
-      return BinaryOperator::CreateOr(CondVal, FalseVal);
+      return replaceOperand(SI, 1, ConstantInt::getTrue(SelType));
+    // select a, b, a -> select a, b, false
     if (CondVal == FalseVal)
-      return BinaryOperator::CreateAnd(CondVal, TrueVal);
+      return replaceOperand(SI, 2, ConstantInt::getFalse(SelType));
 
-    // select a, ~a, b -> (~a) & b
-    // select a, b, ~a -> (~a) | b
+    // select a, !a, b -> select !a, b, false
     if (match(TrueVal, m_Not(m_Specific(CondVal))))
-      return BinaryOperator::CreateAnd(TrueVal, FalseVal);
+      return SelectInst::Create(TrueVal, FalseVal,
+                                ConstantInt::getFalse(SelType));
+    // select a, b, !a -> select !a, true, b
     if (match(FalseVal, m_Not(m_Specific(CondVal))))
-      return BinaryOperator::CreateOr(TrueVal, FalseVal);
+      return SelectInst::Create(FalseVal, ConstantInt::getTrue(SelType),
+                                TrueVal);
   }
 
   // Selecting between two integer or vector splat integer constants?
@@ -2692,7 +2687,10 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   // select i1 %c, <2 x i8> <1, 1>, <2 x i8> <0, 0>
   // because that may need 3 instructions to splat the condition value:
   // extend, insertelement, shufflevector.
-  if (SelType->isIntOrIntVectorTy() &&
+  //
+  // Do not handle i1 TrueVal and FalseVal otherwise would result in
+  // zext/sext i1 to i1.
+  if (SelType->isIntOrIntVectorTy() && !SelType->isIntOrIntVectorTy(1) &&
       CondVal->getType()->isVectorTy() == SelType->isVectorTy()) {
     // select C, 1, 0 -> zext C to int
     if (match(TrueVal, m_One()) && match(FalseVal, m_Zero()))
@@ -3061,7 +3059,8 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   }
 
   Value *NotCond;
-  if (match(CondVal, m_Not(m_Value(NotCond)))) {
+  if (match(CondVal, m_Not(m_Value(NotCond))) &&
+      !InstCombiner::shouldAvoidAbsorbingNotIntoSelect(SI)) {
     replaceOperand(SI, 0, NotCond);
     SI.swapValues();
     SI.swapProfMetadata();

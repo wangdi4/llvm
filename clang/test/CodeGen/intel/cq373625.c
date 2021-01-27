@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
 
 char buf[10];
-// CHECK: [[BUF:@.+]] = global [10 x i8] zeroinitializer
+// CHECK: [[BUF:@.+]] = {{.*}}global [10 x i8] zeroinitializer
 // CHECK: [[FMT:@.+]] = private unnamed_addr constant [9 x i8] c"foo: %d\0A\00"
 // CHECK-LABEL: @foo(
 int foo(int a) {

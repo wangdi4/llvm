@@ -21,6 +21,8 @@ set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
 )
 
+include_directories(${LIBOMPTARGET_LLVM_MAIN_INCLUDE_DIR})
+
 # Build libomptarget library with libdl dependency. Add LLVMSupport
 # dependency if building in-tree with profiling enabled.
 if(OPENMP_STANDALONE_BUILD OR (NOT OPENMP_ENABLE_LIBOMPTARGET_PROFILING))
@@ -82,6 +84,11 @@ if(INTEL_CUSTOMIZATION)
     libomptarget_add_resource_file(omptarget)
   endif()
 endif(INTEL_CUSTOMIZATION)
+# libomptarget needs to be set separately because add_llvm_library doesn't
+# conform with location configuration of its parent scope.
+set_target_properties(omptarget
+  PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
 
 # Install libomptarget under the lib destination folder.
 if(INTEL_COLLAB)

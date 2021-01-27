@@ -43,48 +43,41 @@ void VPReduction::dump(raw_ostream &OS) const {
   default:
     OS << "unknown";
     break;
-  case RK_IntegerAdd:
-  case RK_FloatAdd:
+  case RecurKind::Add:
+  case RecurKind::FAdd:
     OS << "(+)";
     break;
-  case RK_IntegerMult:
-  case RK_FloatMult:
+  case RecurKind::Mul:
+  case RecurKind::FMul:
     OS << "(*)";
     break;
-  case RK_IntegerOr:
+  case RecurKind::Or:
     OS << "(|)";
     break;
-  case RK_IntegerAnd:
+  case RecurKind::And:
     OS << "(&)";
     break;
-  case RK_IntegerXor:
+  case RecurKind::Xor:
     OS << "(^)";
     break;
-  case RK_IntegerMinMax:
-  case RK_FloatMinMax:
-    switch (getMinMaxRecurrenceKind()) {
-    default:
-      OS << "unknown";
-      break;
-    case MRK_UIntMin:
-      OS << "(UIntMin)";
-      break;
-    case MRK_UIntMax:
-      OS << "(UIntMax)";
-      break;
-    case MRK_SIntMin:
-      OS << "(SIntMin)";
-      break;
-    case MRK_SIntMax:
-      OS << "(SIntMax)";
-      break;
-    case MRK_FloatMin:
-      OS << "(FloatMin)";
-      break;
-    case MRK_FloatMax:
-      OS << "(FloatMax)";
-      break;
-    }
+  case RecurKind::UMin:
+    OS << "(UIntMin)";
+    break;
+  case RecurKind::UMax:
+    OS << "(UIntMax)";
+    break;
+  case RecurKind::SMin:
+    OS << "(SIntMin)";
+    break;
+  case RecurKind::SMax:
+    OS << "(SIntMax)";
+    break;
+  case RecurKind::FMin:
+    OS << "(FloatMin)";
+    break;
+  case RecurKind::FMax:
+    OS << "(FloatMax)";
+    break;
   }
   if (getRecurrenceStartValue()) {
     OS << " Start: ";
@@ -214,30 +207,22 @@ static bool isTrivialBitcast(VPInstruction *VPI) {
   return true;
 }
 
-unsigned VPReduction::getReductionOpcode(RecurrenceKind K,
-                                         MinMaxRecurrenceKind MK) {
+unsigned VPReduction::getReductionOpcode(RecurKind K) {
   switch (K) {
-  case RecurrenceKind::RK_IntegerMinMax:
-  case RecurrenceKind::RK_FloatMinMax:
-    switch (MK) {
-    default:
-      llvm_unreachable("Unknown recurrence kind");
-      return Instruction::BinaryOpsEnd;
-    case MRK_UIntMin:
-      return VPInstruction::UMin;
-    case MRK_UIntMax:
-      return VPInstruction::UMax;
-    case MRK_SIntMin:
-      return VPInstruction::SMin;
-    case MRK_SIntMax:
-      return VPInstruction::SMax;
-    case MRK_FloatMin:
-      return VPInstruction::FMin;
-    case MRK_FloatMax:
-      return VPInstruction::FMax;
-    }
+  case RecurKind::UMin:
+    return VPInstruction::UMin;
+  case RecurKind::UMax:
+    return VPInstruction::UMax;
+  case RecurKind::SMin:
+    return VPInstruction::SMin;
+  case RecurKind::SMax:
+    return VPInstruction::SMax;
+  case RecurKind::FMin:
+    return VPInstruction::FMin;
+  case RecurKind::FMax:
+    return VPInstruction::FMax;
   default:
-    return RDTempl::getRecurrenceBinOp(K);
+    return RDTempl::getOpcode(K);
   }
 }
 
@@ -307,12 +292,14 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
   DuplicateInductionPHIs.clear();
 }
 
-VPReduction *VPLoopEntityList::addReduction(
-    VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
-    RecurrenceKind Kind, FastMathFlags FMF, MinMaxRecurrenceKind MKind,
-    Type *RedTy, bool Signed, VPValue *AI, bool ValidMemOnly) {
-  VPReduction *Red = new VPReduction(Incoming, Exit, Kind, FMF, MKind, RedTy,
-                                     Signed, ValidMemOnly);
+VPReduction *VPLoopEntityList::addReduction(VPInstruction *Instr,
+                                            VPValue *Incoming,
+                                            VPInstruction *Exit, RecurKind Kind,
+                                            FastMathFlags FMF, Type *RedTy,
+                                            bool Signed, VPValue *AI,
+                                            bool ValidMemOnly) {
+  VPReduction *Red =
+      new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
@@ -381,20 +368,23 @@ void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
 /// Returns identity corresponding to the RecurrenceKind.
 VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   switch (Red->getRecurrenceKind()) {
-  case RecurrenceKind::RK_IntegerXor:
-  case RecurrenceKind::RK_IntegerAdd:
-  case RecurrenceKind::RK_IntegerOr:
-  case RecurrenceKind::RK_IntegerMult:
-  case RecurrenceKind::RK_IntegerAnd:
-  case RecurrenceKind::RK_FloatMult:
-  case RecurrenceKind::RK_FloatAdd: {
-    Constant *C = VPReduction::getRecurrenceIdentity(
-        Red->getRecurrenceKind(), Red->getMinMaxRecurrenceKind(),
-        Red->getRecurrenceType());
+  case RecurKind::Xor:
+  case RecurKind::Add:
+  case RecurKind::Or:
+  case RecurKind::Mul:
+  case RecurKind::And:
+  case RecurKind::FMul:
+  case RecurKind::FAdd: {
+    Constant *C = VPReduction::getRecurrenceIdentity(Red->getRecurrenceKind(),
+                                                     Red->getRecurrenceType());
     return Plan.getVPConstant(C);
   }
-  case RecurrenceKind::RK_IntegerMinMax:
-  case RecurrenceKind::RK_FloatMinMax:
+  case RecurKind::SMin:
+  case RecurKind::SMax:
+  case RecurKind::UMin:
+  case RecurKind::UMax:
+  case RecurKind::FMin:
+  case RecurKind::FMax:
     return Red->getRecurrenceStartValue();
   default:
     llvm_unreachable("Unknown recurrence kind");
@@ -427,20 +417,19 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
 // comparison predicate and kind of reduction (MIN or MAX).
 //
 bool VPLoopEntityList::isMinMaxLastItem(const VPReduction &Red) const {
-  if (Red.getRecurrenceKind() != RecurrenceKind::RK_IntegerMinMax &&
-      Red.getRecurrenceKind() != RecurrenceKind::RK_FloatMinMax)
+  if (!Red.isMinMax())
     return false;
 
   bool IsMin;
-  switch (Red.getMinMaxRecurrenceKind()) {
-  case MinMaxRecurrenceKind::MRK_UIntMin:
-  case MinMaxRecurrenceKind::MRK_SIntMin:
-  case MinMaxRecurrenceKind::MRK_FloatMin:
+  switch (Red.getRecurrenceKind()) {
+  case RecurKind::SMin:
+  case RecurKind::UMin:
+  case RecurKind::FMin:
     IsMin = true;
     break;
-  case MinMaxRecurrenceKind::MRK_UIntMax:
-  case MinMaxRecurrenceKind::MRK_SIntMax:
-  case MinMaxRecurrenceKind::MRK_FloatMax:
+  case RecurKind::SMax:
+  case RecurKind::UMax:
+  case RecurKind::FMax:
     IsMin = false;
     break;
   default:
@@ -1194,7 +1183,7 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   }
 
   if (LinkPhi == nullptr)
-    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, MK, RT, Signed,
+    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
                              AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);

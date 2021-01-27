@@ -8,6 +8,6 @@ kernel void k1(read_only pipe int p1 __attribute__((depth(10))),
                __global int* pi) {
 }
 
-// CHECK: define spir_kernel void @k1{{[^!]+}}
+// CHECK: define{{.*}}spir_kernel void @k1{{[^!]+}}
 // CHECK: !kernel_arg_pipe_depth ![[MD:[0-9]+]]
 // CHECK: ![[MD]] = !{i32 10, i32 25, i32 0, i32 0, i32 0}

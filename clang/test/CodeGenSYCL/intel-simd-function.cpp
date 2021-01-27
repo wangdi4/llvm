@@ -220,12 +220,12 @@ constexpr auto makeSimdFunction() noexcept {
         detail::makeSimdFunctionImpl<F, T...>(L()));
 }
 
-//CHECK: define spir_func i32 @_Z3fooif
+//CHECK: define{{.*}}spir_func i32 @_Z3fooif
 SYCL_EXTERNAL int foo(int i, float f) {return (int)f+i+1;}
 
 using namespace cl::sycl::intel;
 
-//CHECK: define {{.*}}_Z3barv
+//CHECK: define{{.*}}_Z3barv
 SYCL_EXTERNAL auto bar()
 {
   auto foo_simd = makeSimdFunction<foo, int_list<4, 8>,
@@ -235,7 +235,7 @@ SYCL_EXTERNAL auto bar()
 }
 
 // Call operator
-//CHECK: define {{.*}}i32 {{.*}}_EEEclEOiOf
+//CHECK: define{{.*}}i32 {{.*}}_EEEclEOiOf
 //CHECK-SAME: class{{.*}}SimdFunction{{.*}}* {{[^,]*}} %this
 //CHECK-SAME: i32 [[AS4:addrspace\(4\)]]* align 4 dereferenceable(4) %args
 //CHECK-SAME: float [[AS4]]* align 4 dereferenceable(4) %args
@@ -258,12 +258,12 @@ SYCL_EXTERNAL auto bar()
 //CHECK-SAME: [[C1]], i32 [[L1]], float [[L3]]) #[[CALL:[0-9]+]]
 
 // makeSimdFunctionImpl
-//CHECK: define {{.*}}makeSimdFunctionImpl{{.*}}i4
+//CHECK: define{{.*}}makeSimdFunctionImpl{{.*}}i4
 //CHECK: @{{.*}}@_Z3fooif) #[[UNMASK4:[0-9]+]]
 //CHECK: @__intel_create_simd_variant_0{{.*}}@_Z3fooif) #[[MASK4:[0-9]+]]
 
 // makeSimdFunctionImpl
-//CHECK: define {{.*}}makeSimdFunctionImpl{{.*}}i8
+//CHECK: define{{.*}}makeSimdFunctionImpl{{.*}}i8
 //CHECK: @__intel_create_simd_variant_0{{.*}}@_Z3fooif) #[[UNMASK8:[0-9]+]]
 //CHECK: @__intel_create_simd_variant_0{{.*}}@_Z3fooif) #[[MASK8:[0-9]+]]
 

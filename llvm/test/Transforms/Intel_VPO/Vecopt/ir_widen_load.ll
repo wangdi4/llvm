@@ -68,8 +68,8 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK: vector.body
 ; CHECK:  %[[WIDE_LOAD:.*]] = load <4 x i64>, <4 x i64>*
 ; CHECK:  %[[TMP0:.*]] = load i64, i64* %C
-; CHECK:  %[[TMP1:.*]] = insertelement <4 x i64> undef, i64 %[[TMP0]], i32 0
-; CHECK:  %[[SPLAT:.*]] = shufflevector <4 x i64> %[[TMP1]], <4 x i64> undef, <4 x i32> zeroinitializer
+; CHECK:  %[[TMP1:.*]] = insertelement <4 x i64> poison, i64 %[[TMP0]], i32 0
+; CHECK:  %[[SPLAT:.*]] = shufflevector <4 x i64> %[[TMP1]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK:  add <4 x i64> %[[WIDE_LOAD]], %[[SPLAT]]
 ; CHECK: br {{.*}} label %for.end
 

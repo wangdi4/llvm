@@ -247,7 +247,6 @@ define void @test_scatter_v2i32_data_index(<2 x i32> %a1, i32* %base, <2 x i32> 
   ret void
 }
 
-; INTEL_CUSTOMIZATION
 define void @test_mscatter_v17f32(float* %base, <17 x i32> %index, <17 x float> %val)
 ; WIDEN_SKX-LABEL: test_mscatter_v17f32:
 ; WIDEN_SKX:       # %bb.0:
@@ -551,7 +550,6 @@ define <17 x float> @test_mgather_v17f32(float* %base, <17 x i32> %index)
 
 declare <17 x float> @llvm.masked.gather.v17f32.v17p0f32(<17 x float*>, i32 immarg, <17 x i1>, <17 x float>)
 declare void @llvm.masked.scatter.v17f32.v17p0f32(<17 x float> , <17 x float*> , i32 , <17 x i1>)
-; end INTEL_CUSTOMIZATION
 
 declare <2 x double> @llvm.masked.gather.v2f64.v2p0f64(<2 x double*>, i32, <2 x i1>, <2 x double>)
 declare void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double>, <2 x double*>, i32, <2 x i1>)

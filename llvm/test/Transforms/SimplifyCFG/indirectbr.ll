@@ -1,6 +1,6 @@
-; RUN: opt -S -simplifycfg < %s | FileCheck %s
+; RUN: opt -S -simplifycfg -simplifycfg-require-and-preserve-domtree=1 < %s | FileCheck %s
 ; INTEL
-; RUN: opt < %s -S -convert-to-subscript | opt -S -simplifycfg | FileCheck %s
+; RUN: opt < %s -S -convert-to-subscript | opt -S -simplifycfg -simplifycfg-require-and-preserve-domtree=1 | FileCheck %s
 
 ; SimplifyCFG should eliminate redundant indirectbr edges.
 

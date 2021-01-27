@@ -12,7 +12,7 @@ struct State {
 // CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{params:384}{cache-size:0}
 // CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{params:384}{cache-size:127}
 
-// CHECK: define void @{{.*}}(float* %A, i32* %B, [[STRUCT]]* %C, [[STRUCT]]*{{.*}}%D)
+// CHECK: define{{.*}}void @{{.*}}(float* %A, i32* %B, [[STRUCT]]* %C, [[STRUCT]]*{{.*}}%D)
 void foo(float *A, int *B, State *C, State &D) {
   float *x;
   int *y;

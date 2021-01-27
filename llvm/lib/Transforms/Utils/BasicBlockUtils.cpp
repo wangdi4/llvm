@@ -139,9 +139,10 @@ bool llvm::EliminateUnreachableBlocks(Function &F, DomTreeUpdater *DTU,
   return !DeadBlocks.empty();
 }
 
-void llvm::FoldSingleEntryPHINodes(BasicBlock *BB,
+bool llvm::FoldSingleEntryPHINodes(BasicBlock *BB,
                                    MemoryDependenceResults *MemDep) {
-  if (!isa<PHINode>(BB->begin())) return;
+  if (!isa<PHINode>(BB->begin()))
+    return false;
 
   while (PHINode *PN = dyn_cast<PHINode>(BB->begin())) {
     if (PN->getIncomingValue(0) != PN)
@@ -154,6 +155,7 @@ void llvm::FoldSingleEntryPHINodes(BasicBlock *BB,
 
     PN->eraseFromParent();
   }
+  return true;
 }
 
 bool llvm::DeleteDeadPHIs(BasicBlock *BB, const TargetLibraryInfo *TLI,
@@ -501,14 +503,16 @@ void llvm::ReplaceInstWithInst(Instruction *From, Instruction *To) {
 }
 
 BasicBlock *llvm::SplitEdge(BasicBlock *BB, BasicBlock *Succ, DominatorTree *DT,
-                            LoopInfo *LI, MemorySSAUpdater *MSSAU) {
+                            LoopInfo *LI, MemorySSAUpdater *MSSAU,
+                            const Twine &BBName) {
   unsigned SuccNum = GetSuccessorNumber(BB, Succ);
 
   // If this is a critical edge, let SplitCriticalEdge do it.
   Instruction *LatchTerm = BB->getTerminator();
   if (SplitCriticalEdge(
           LatchTerm, SuccNum,
-          CriticalEdgeSplittingOptions(DT, LI, MSSAU).setPreserveLCSSA()))
+          CriticalEdgeSplittingOptions(DT, LI, MSSAU).setPreserveLCSSA(),
+          BBName))
     return LatchTerm->getSuccessor(SuccNum);
 
   // If the edge isn't critical, then BB has a single successor or Succ has a
@@ -518,14 +522,15 @@ BasicBlock *llvm::SplitEdge(BasicBlock *BB, BasicBlock *Succ, DominatorTree *DT,
     // block.
     assert(SP == BB && "CFG broken");
     SP = nullptr;
-    return SplitBlock(Succ, &Succ->front(), DT, LI, MSSAU, "", /*Before=*/true);
+    return SplitBlock(Succ, &Succ->front(), DT, LI, MSSAU, BBName,
+                      /*Before=*/true);
   }
 
   // Otherwise, if BB has a single successor, split it at the bottom of the
   // block.
   assert(BB->getTerminator()->getNumSuccessors() == 1 &&
          "Should have a single succ!");
-  return SplitBlock(BB, BB->getTerminator(), DT, LI, MSSAU);
+  return SplitBlock(BB, BB->getTerminator(), DT, LI, MSSAU, BBName);
 }
 
 unsigned

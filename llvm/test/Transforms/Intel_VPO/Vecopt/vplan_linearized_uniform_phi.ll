@@ -87,8 +87,8 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; CG-NEXT:    [[CTTZ0:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP4]], i1 false)
 ; CG-NEXT:    [[TMP5:%.*]] = extractelement <2 x i64> [[PREDBLEND0]], i2 [[CTTZ0]]
 ; CG-NEXT:    [[TMP6:%.*]] = add i64 [[TMP5]], 1
-; CG-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <2 x i64> undef, i64 [[TMP6]], i32 0
-; CG-NEXT:    [[BROADCAST_SPLAT30:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT20]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CG-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CG-NEXT:    [[BROADCAST_SPLAT30:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT20]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CG-NEXT:    [[PREDBLEND40:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> [[BROADCAST_SPLAT30]], <2 x i64> <i64 -1, i64 -1>
 ; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI10]]
 ; CG-NEXT:    [[TMP7:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*

@@ -119,6 +119,8 @@ config.available_features.add('host')
 triple=lit_config.params.get('SYCL_TRIPLE', 'spir64-unknown-linux-sycldevice')
 lit_config.note("Triple: {}".format(triple))
 config.substitutions.append( ('%sycl_triple',  triple ) )
+if triple == 'nvptx64-nvidia-cuda-sycldevice':
+    config.available_features.add('cuda')
 
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')

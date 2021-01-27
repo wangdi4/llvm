@@ -19,15 +19,16 @@ define void @TestFPExtF16_F128() nounwind strictfp {
 ; X64-SSE-NEXT:    popq %rax
 ; X64-SSE-NEXT:    retq
 ;
-; X64-AVX512-LABEL: TestFPExtF16_F128:
-; X64-AVX512:       # %bb.0: # %entry
-; X64-AVX512-NEXT:    pushq %rax
-; X64-AVX512-NEXT:    vmovsh {{.*}}(%rip), %xmm0
-; X64-AVX512-NEXT:    callq __extendhftf2
-; X64-AVX512-NEXT:    vmovaps %xmm0, {{.*}}(%rip)
-; X64-AVX512-NEXT:    popq %rax
-; X64-AVX512-NEXT:    retq
-;
+; X64-LABEL: TestFPExtF16_F128:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    movq vf16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovsh (%rax), %xmm0
+; X64-NEXT:    callq __extendhftf2@PLT
+; X64-NEXT:    movq vf128@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps %xmm0, (%rax)
+; X64-NEXT:    popq %rax
+; X64-NEXT:    retq
 ; X86-LABEL: TestFPExtF16_F128:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    pushl %esi
@@ -69,15 +70,16 @@ define void @TestFPTruncF128_F16() nounwind strictfp {
 ; X64-SSE-NEXT:    popq %rax
 ; X64-SSE-NEXT:    retq
 ;
-; X64-AVX512-LABEL: TestFPTruncF128_F16:
-; X64-AVX512:       # %bb.0: # %entry
-; X64-AVX512-NEXT:    pushq %rax
-; X64-AVX512-NEXT:    vmovaps {{.*}}(%rip), %xmm0
-; X64-AVX512-NEXT:    callq __trunctfhf2
-; X64-AVX512-NEXT:    vmovsh %xmm0, {{.*}}(%rip)
-; X64-AVX512-NEXT:    popq %rax
-; X64-AVX512-NEXT:    retq
-;
+; X64-LABEL: TestFPTruncF128_F16:
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    movq vf128@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovaps (%rax), %xmm0
+; X64-NEXT:    callq __trunctfhf2@PLT
+; X64-NEXT:    movq vf16@{{.*}}(%rip), %rax
+; X64-NEXT:    vmovsh %xmm0, (%rax)
+; X64-NEXT:    popq %rax
+; X64-NEXT:    retq
 ; X86-LABEL: TestFPTruncF128_F16:
 ; X86:       # %bb.0: # %entry
 ; X86-NEXT:    subl $12, %esp

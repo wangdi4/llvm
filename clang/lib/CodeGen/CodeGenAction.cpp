@@ -1148,74 +1148,70 @@ namespace {
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenAction::ExecuteAction() {
-  // If this is an IR file, we have to treat it specially.
-  if (getCurrentFileKind().getLanguage() == Language::LLVM_IR) {
-    BackendAction BA = static_cast<BackendAction>(Act);
-    CompilerInstance &CI = getCompilerInstance();
-    auto &CodeGenOpts = CI.getCodeGenOpts();
-    auto &Diagnostics = CI.getDiagnostics();
-    std::unique_ptr<raw_pwrite_stream> OS =
-        GetOutputStream(CI, getCurrentFile(), BA);
-    if (BA != Backend_EmitNothing && !OS)
-      return;
-
-    SourceManager &SM = CI.getSourceManager();
-    FileID FID = SM.getMainFileID();
-    Optional<MemoryBufferRef> MainFile = SM.getBufferOrNone(FID);
-    if (!MainFile)
-      return;
-
-    TheModule = loadModule(*MainFile);
-    if (!TheModule)
-      return;
-
-    const TargetOptions &TargetOpts = CI.getTargetOpts();
-    if (TheModule->getTargetTriple() != TargetOpts.Triple) {
-      Diagnostics.Report(SourceLocation(),
-                         diag::warn_fe_override_module)
-          << TargetOpts.Triple;
-      TheModule->setTargetTriple(TargetOpts.Triple);
-    }
-
-#if !INTEL_PRODUCT_RELEASE
-    EmbedBitcode(TheModule.get(), CodeGenOpts, *MainFile);
-#endif // !INTEL_PRODUCT_RELEASE
-
-    LLVMContext &Ctx = TheModule->getContext();
-    Ctx.setInlineAsmDiagnosticHandler(BitcodeInlineAsmDiagHandler,
-                                      &Diagnostics);
-
-    // Set clang diagnostic handler. To do this we need to create a fake
-    // BackendConsumer.
-    BackendConsumer Result(BA, CI.getDiagnostics(), CI.getHeaderSearchOpts(),
-                           CI.getPreprocessorOpts(), CI.getCodeGenOpts(),
-                           CI.getTargetOpts(), CI.getLangOpts(),
-                           std::move(LinkModules), *VMContext, nullptr);
-    // PR44896: Force DiscardValueNames as false. DiscardValueNames cannot be
-    // true here because the valued names are needed for reading textual IR.
-    Ctx.setDiscardValueNames(false);
-
-    OptRecordFileRAII ORF(*this, Ctx, Result); // INTEL
-
-    EmitBackendOutput(Diagnostics, CI.getHeaderSearchOpts(), CodeGenOpts,
-                      TargetOpts, CI.getLangOpts(),
-                      CI.getTarget().getDataLayout(), TheModule.get(), BA,
-                      std::move(OS));
-
-#if !INTEL_CUSTOMIZATION
-    if (OptRecordFile)
-      OptRecordFile->keep();
-
-    // This code is now in the destructor of OptRecordFileRAII.
-#endif // INTEL_CUSTOMIZATION
+  if (getCurrentFileKind().getLanguage() != Language::LLVM_IR) {
+#if INTEL_CUSTOMIZATION
+    OptRecordFileRAII ORF(*this, *VMContext, *BEConsumer);
+#endif //INTEL_CUSTOMIZATION
+    this->ASTFrontendAction::ExecuteAction();
     return;
   }
 
-  // Otherwise follow the normal AST path.
-#if INTEL_CUSTOMIZATION
-  OptRecordFileRAII ORF(*this, *VMContext, *BEConsumer);
-#endif //INTEL_CUSTOMIZATION
-  this->ASTFrontendAction::ExecuteAction();
+  // If this is an IR file, we have to treat it specially.
+  BackendAction BA = static_cast<BackendAction>(Act);
+  CompilerInstance &CI = getCompilerInstance();
+  auto &CodeGenOpts = CI.getCodeGenOpts();
+  auto &Diagnostics = CI.getDiagnostics();
+  std::unique_ptr<raw_pwrite_stream> OS =
+      GetOutputStream(CI, getCurrentFile(), BA);
+  if (BA != Backend_EmitNothing && !OS)
+    return;
+
+  SourceManager &SM = CI.getSourceManager();
+  FileID FID = SM.getMainFileID();
+  Optional<MemoryBufferRef> MainFile = SM.getBufferOrNone(FID);
+  if (!MainFile)
+    return;
+
+  TheModule = loadModule(*MainFile);
+  if (!TheModule)
+    return;
+
+  const TargetOptions &TargetOpts = CI.getTargetOpts();
+  if (TheModule->getTargetTriple() != TargetOpts.Triple) {
+    Diagnostics.Report(SourceLocation(), diag::warn_fe_override_module)
+        << TargetOpts.Triple;
+    TheModule->setTargetTriple(TargetOpts.Triple);
+  }
+
+#if !INTEL_PRODUCT_RELEASE
+  EmbedBitcode(TheModule.get(), CodeGenOpts, *MainFile);
+#endif // !INTEL_PRODUCT_RELEASE
+
+  LLVMContext &Ctx = TheModule->getContext();
+  Ctx.setInlineAsmDiagnosticHandler(BitcodeInlineAsmDiagHandler, &Diagnostics);
+
+  // Set clang diagnostic handler. To do this we need to create a fake
+  // BackendConsumer.
+  BackendConsumer Result(BA, CI.getDiagnostics(), CI.getHeaderSearchOpts(),
+                         CI.getPreprocessorOpts(), CI.getCodeGenOpts(),
+                         CI.getTargetOpts(), CI.getLangOpts(),
+                         std::move(LinkModules), *VMContext, nullptr);
+  // PR44896: Force DiscardValueNames as false. DiscardValueNames cannot be
+  // true here because the valued names are needed for reading textual IR.
+  Ctx.setDiscardValueNames(false);
+  OptRecordFileRAII ORF(*this, Ctx, Result); // INTEL
+
+  EmitBackendOutput(Diagnostics, CI.getHeaderSearchOpts(), CodeGenOpts,
+                    TargetOpts, CI.getLangOpts(),
+                    CI.getTarget().getDataLayout(), TheModule.get(), BA,
+                    std::move(OS));
+
+#if !INTEL_CUSTOMIZATION
+  if (OptRecordFile)
+    OptRecordFile->keep();
+
+  // This code is now in the destructor of OptRecordFileRAII.
+#endif // INTEL_CUSTOMIZATION
 }
 
 //

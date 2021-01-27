@@ -255,7 +255,7 @@ void MCObjectStreamer::emitValueImpl(const MCExpr *Value, unsigned Size,
 }
 
 MCSymbol *MCObjectStreamer::emitCFILabel() {
-  MCSymbol *Label = getContext().createTempSymbol("cfi", true);
+  MCSymbol *Label = getContext().createTempSymbol("cfi");
   emitLabel(Label);
   return Label;
 }

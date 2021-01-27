@@ -227,7 +227,6 @@ public:
     Descriptor.setExit(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
     Descriptor.setKind(RD.getRecurrenceKind());
-    Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
     Descriptor.setAllocaInst(nullptr);
@@ -252,7 +251,6 @@ public:
     // Exit is not set here, it is determined based on some analyses in Phase 2
     Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
-    Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
     assertIsSingleElementAlloca(CurValue.second.second);
@@ -274,8 +272,7 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(AllocaInst);
     Descriptor.setExit(nullptr);
-    Descriptor.setKind(CurValue.second.first);
-    Descriptor.setMinMaxKind(CurValue.second.second);
+    Descriptor.setKind(CurValue.second);
     Descriptor.setRecType(nullptr);
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(AllocaInst);

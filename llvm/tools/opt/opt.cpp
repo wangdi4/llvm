@@ -492,6 +492,23 @@ struct TimeTracerRAII {
 // TODO: use a codegen version of PassRegistry.def/PassBuilder::is*Pass() once
 // it exists.
 static bool shouldPinPassToLegacyPM(StringRef Pass) {
+  std::vector<StringRef> PassNameExactToIgnore = {
+      "nvvm-reflect",
+      "nvvm-intr-range",
+      "amdgpu-simplifylib",
+      "amdgpu-usenative",
+      "amdgpu-promote-alloca",
+      "amdgpu-promote-alloca-to-vector",
+      "amdgpu-lower-kernel-attributes",
+      "amdgpu-propagate-attributes-early",
+      "amdgpu-propagate-attributes-late",
+      "amdgpu-unify-metadata",
+      "amdgpu-printf-runtime-binding",
+      "amdgpu-always-inline"};
+  for (const auto &P : PassNameExactToIgnore)
+    if (Pass == P)
+      return false;
+
   std::vector<StringRef> PassNamePrefix = {
       "x86-",  "xcore-", "wasm-",    "systemz-", "ppc-",   "nvvm-",   "nvptx-",
       "mips-", "lanai-", "hexagon-", "bpf-",     "avr-",   "thumb2-", "arm-",
@@ -504,7 +521,6 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
                                           "unreachableblockelim",
                                           "verify-safepoint-ir",
                                           "divergence",
-                                          "infer-address-spaces",
                                           "atomic-expand",
                                           "hardware-loops",
                                           "type-promotion",
@@ -578,7 +594,7 @@ int main(int argc, char **argv) {
   initializeAtomicExpandPass(Registry);
   initializeRewriteSymbolsLegacyPassPass(Registry);
   initializeWinEHPreparePass(Registry);
-  initializeDwarfEHPreparePass(Registry);
+  initializeDwarfEHPrepareLegacyPassPass(Registry);
   initializeSafeStackLegacyPassPass(Registry);
   initializeSjLjEHPreparePass(Registry);
   initializePreISelIntrinsicLoweringLegacyPassPass(Registry);

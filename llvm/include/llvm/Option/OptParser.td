@@ -101,6 +101,7 @@ class Option<list<string> prefixes, string name, OptionKind kind> {
   code DefaultValue = ?;
   code ImpliedValue = ?;
   code ImpliedCheck = "false";
+  code ShouldParse = "true";
   bit ShouldAlwaysEmit = false;
   code NormalizerRetTy = ?;
   code NormalizedValuesScope = "";
@@ -146,7 +147,7 @@ class ValuesCode<code valuecode> { code ValuesCode = valuecode; }
 
 class ImpliedByAnyOf<list<Option> options, code value = "true"> {
   code ImpliedCheck = !foldl("false", options, accumulator, option,
-                             !strconcat(accumulator, " || ", !cast<string>(option.KeyPath)));
+                             !strconcat(accumulator, " || ", option.KeyPath));
   code ImpliedValue = value;
 }
 
@@ -165,6 +166,12 @@ class MarshallingInfoStringInt<code keypath, code defaultvalue="0", code type="u
   : MarshallingInfo<keypath, defaultvalue> {
   code Normalizer = "normalizeStringIntegral<"#type#">";
   code Denormalizer = "denormalizeString";
+}
+
+class MarshallingInfoStringVector<code keypath>
+  : MarshallingInfo<keypath, "std::vector<std::string>({})"> {
+  code Normalizer = "normalizeStringVector";
+  code Denormalizer = "denormalizeStringVector";
 }
 
 class MarshallingInfoFlag<code keypath, code defaultvalue = "false">
@@ -196,6 +203,7 @@ class MarshallingInfoBooleanFlag<code keypath, code defaultvalue, code value, co
 
 // Mixins for additional marshalling attributes.
 
+class ShouldParseIf<code condition> { code ShouldParse = condition; }
 class AlwaysEmit { bit ShouldAlwaysEmit = true; }
 class Normalizer<code normalizer> { code Normalizer = normalizer; }
 class Denormalizer<code denormalizer> { code Denormalizer = denormalizer; }

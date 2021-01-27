@@ -355,7 +355,15 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
 class AAQueryInfo {
 public:
   using LocPair = std::pair<MemoryLocation, MemoryLocation>;
-  using AliasCacheT = SmallDenseMap<LocPair, AliasResult, 8>;
+  struct CacheEntry {
+    AliasResult Result;
+    /// Number of times a NoAlias assumption has been used.
+    /// 0 for assumptions that have not been used, -1 for definitive results.
+    int NumAssumptionUses;
+    /// Whether this is a definitive (non-assumption) result.
+    bool isDefinitive() const { return NumAssumptionUses < 0; }
+  };
+  using AliasCacheT = SmallDenseMap<LocPair, CacheEntry, 8>;
   AliasCacheT AliasCache;
 
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
@@ -369,12 +377,6 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   AAQueryInfo() : AliasCache(), IsCapturedCache() {}
-
-  AliasResult updateResult(const LocPair &Locs, AliasResult Result) {
-    auto It = AliasCache.find(Locs);
-    assert(It != AliasCache.end() && "Entry must have existed");
-    return It->second = Result;
-  }
 };
 
 class BatchAAResults;
@@ -1315,8 +1317,10 @@ public:
 /// Return true if this pointer is returned by a noalias function.
 bool isNoAliasCall(const Value *V);
 
+#if INTEL_CUSTOMIZATION
 /// Return true if this is an argument with the noalias attribute.
-bool isNoAliasArgument(const Value *V);
+bool isNoAliasOrByValArgument(const Value *V);
+#endif // INTEL_CUSTOMIZATION
 
 /// Return true if this pointer refers to a distinct and identifiable object.
 /// This returns true for:

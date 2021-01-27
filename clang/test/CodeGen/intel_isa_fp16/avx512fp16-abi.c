@@ -6,7 +6,7 @@ struct half1 {
 };
 
 struct half1 h1(_Float16 a) {
-// CHECK: define half @h1
+// CHECK: define{{.*}}half @h1
   struct half1 x;
   x.a = a;
   return x;
@@ -18,7 +18,7 @@ struct half2 {
 };
 
 struct half2 h2(_Float16 a, _Float16 b) {
-// CHECK: define <2 x half> @h2
+// CHECK: define{{.*}}<2 x half> @h2
   struct half2 x;
   x.a = a;
   x.b = b;
@@ -32,7 +32,7 @@ struct half3 {
 };
 
 struct half3 h3(_Float16 a, _Float16 b, _Float16 c) {
-// CHECK: define <3 x half> @h3
+// CHECK: define{{.*}}<3 x half> @h3
   struct half3 x;
   x.a = a;
   x.b = b;
@@ -48,7 +48,7 @@ struct half4 {
 };
 
 struct half4 h4(_Float16 a, _Float16 b, _Float16 c, _Float16 d) {
-// CHECK: define <4 x half> @h4
+// CHECK: define{{.*}}<4 x half> @h4
   struct half4 x;
   x.a = a;
   x.b = b;
@@ -77,7 +77,7 @@ struct floathalf2 {
 };
 
 struct floathalf2 fh2(float a, _Float16 b, _Float16 c) {
-// CHECK: define double @fh2
+// CHECK: define{{.*}}double @fh2
   struct floathalf2 x;
   x.a = a;
   x.b = b;
@@ -91,7 +91,7 @@ struct halffloat {
 };
 
 struct halffloat hf(_Float16 a, float b) {
-// CHECK: define double @hf
+// CHECK: define{{.*}}double @hf
   struct halffloat x;
   x.a = a;
   x.b = b;
@@ -105,7 +105,7 @@ struct half2float {
 };
 
 struct half2float h2f(_Float16 a, _Float16 b, float c) {
-// CHECK: define double @h2f
+// CHECK: define{{.*}}double @h2f
   struct half2float x;
   x.a = a;
   x.b = b;

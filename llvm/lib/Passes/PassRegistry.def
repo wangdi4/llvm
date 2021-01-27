@@ -143,7 +143,7 @@ MODULE_PASS("name-anon-globals", NameAnonGlobalPass())
 MODULE_PASS("no-op-module", NoOpModulePass())
 MODULE_PASS("optimize-dyn-casts", OptimizeDynamicCastsPass())
 MODULE_PASS("objc-arc", ObjCARCOptPass())
-MODULE_PASS("objc-arc-apelim", ObjCARCOptPass())
+MODULE_PASS("objc-arc-apelim", ObjCARCAPElimPass())
 MODULE_PASS("objc-arc-contract", ObjCARCContractPass())
 MODULE_PASS("partial-inliner", PartialInlinerPass())
 MODULE_PASS("pgo-icall-prom", PGOIndirectCallPromotion())
@@ -338,6 +338,9 @@ FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
 FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false, /* UseDTrans = */ false)) // INTEL
 FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())
+#if !INTEL_COLLAB
+FUNCTION_PASS("infer-address-spaces", InferAddressSpacesPass())
+#endif // !INTEL_COLLAB
 FUNCTION_PASS("instcombine", InstCombinePass())
 FUNCTION_PASS("instcount", InstCountPass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())

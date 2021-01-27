@@ -55,10 +55,8 @@ static cl::opt<unsigned>
 #endif // INTEL_CUSTOMIZATION
 
 MCSymbol *mcdwarf::emitListsTableHeaderStart(MCStreamer &S) {
-  MCSymbol *Start =
-      S.getContext().createTempSymbol("debug_list_header_start", true, true);
-  MCSymbol *End =
-      S.getContext().createTempSymbol("debug_list_header_end", true, true);
+  MCSymbol *Start = S.getContext().createTempSymbol("debug_list_header_start");
+  MCSymbol *End = S.getContext().createTempSymbol("debug_list_header_end");
   auto DwarfFormat = S.getContext().getDwarfFormat();
   if (DwarfFormat == dwarf::DWARF64) {
     S.AddComment("DWARF64 mark");
@@ -1158,7 +1156,7 @@ static MCSymbol *emitGenDwarfRanges(MCStreamer *MCOS) {
     MCSymbol *EndSymbol = mcdwarf::emitListsTableHeaderStart(*MCOS);
     MCOS->AddComment("Offset entry count");
     MCOS->emitInt32(0);
-    RangesSymbol = context.createTempSymbol("debug_rnglist0_start", true, true);
+    RangesSymbol = context.createTempSymbol("debug_rnglist0_start");
     MCOS->emitLabel(RangesSymbol);
     for (MCSection *Sec : Sections) {
       const MCSymbol *StartSymbol = Sec->getBeginSymbol();
@@ -1175,7 +1173,7 @@ static MCSymbol *emitGenDwarfRanges(MCStreamer *MCOS) {
     MCOS->emitLabel(EndSymbol);
   } else {
     MCOS->SwitchSection(context.getObjectFileInfo()->getDwarfRangesSection());
-    RangesSymbol = context.createTempSymbol("debug_ranges_start", true, true);
+    RangesSymbol = context.createTempSymbol("debug_ranges_start");
     MCOS->emitLabel(RangesSymbol);
     for (MCSection *Sec : Sections) {
       const MCSymbol *StartSymbol = Sec->getBeginSymbol();

@@ -1402,7 +1402,7 @@ static void handlePreferredName(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!TSI)
     TSI = S.Context.getTrivialTypeSourceInfo(T, AL.getLoc());
 
-  if (!T.hasQualifiers() && T->getAs<TypedefType>()) {
+  if (!T.hasQualifiers() && T->isTypedefNameType()) {
     // Find the template name, if this type names a template specialization.
     const TemplateDecl *Template = nullptr;
     if (const auto *CTSD = dyn_cast_or_null<ClassTemplateSpecializationDecl>(
@@ -3000,8 +3000,7 @@ static bool checkForDuplicateAttribute(Sema &S, Decl *D,
 // Checks correctness of mutual usage of different work_group_size attributes:
 // reqd_work_group_size, work_group_size_hint, max_work_group_size,
 // max_global_work_dim
-static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
-                                     const ParsedAttr &Attr) {
+static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &Attr) {
   /// Returns the usigned constant integer value represented by
   /// given expression.
   auto getExprValue = [](const Expr *E, ASTContext &Ctx) {
@@ -3945,23 +3944,17 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 #endif // INTEL_CUSTOMIZATION
 
   if (WorkGroupAttr *ExistingAttr = D->getAttr<WorkGroupAttr>()) {
-    Optional<llvm::APSInt> XDimVal =
-        XDimExpr->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> YDimVal =
-        YDimExpr->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> ZDimVal =
-        ZDimExpr->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> ExistingXDimVal =
-        ExistingAttr->getXDim()->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> ExistingYDimVal =
-        ExistingAttr->getYDim()->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> ExistingZDimVal =
-        ExistingAttr->getZDim()->getIntegerConstantExpr(S.getASTContext());
+    ASTContext &Ctx = S.getASTContext();
+    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> ExistingXDimVal = ExistingAttr->getXDimVal(Ctx);
+    Optional<llvm::APSInt> ExistingYDimVal = ExistingAttr->getYDimVal(Ctx);
+    Optional<llvm::APSInt> ExistingZDimVal = ExistingAttr->getZDimVal(Ctx);
 
     // Compare attribute arguments value and warn for a mismatch.
-    if (!((ExistingXDimVal->getZExtValue() == XDimVal->getZExtValue()) &&
-          (ExistingYDimVal->getZExtValue() == YDimVal->getZExtValue()) &&
-          (ExistingZDimVal->getZExtValue() == ZDimVal->getZExtValue()))) {
+    if (ExistingXDimVal != XDimVal || ExistingYDimVal != YDimVal ||
+        ExistingZDimVal != ZDimVal) {
       S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
       S.Diag(ExistingAttr->getLocation(), diag::note_conflicting_attribute);
     }
@@ -4938,6 +4931,26 @@ static void handleCallbackAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
   D->addAttr(::new (S.Context) CallbackAttr(
       S.Context, AL, EncodingIndices.data(), EncodingIndices.size()));
+}
+
+static bool isFunctionLike(const Type &T) {
+  // Check for explicit function types.
+  // 'called_once' is only supported in Objective-C and it has
+  // function pointers and block pointers.
+  return T.isFunctionPointerType() || T.isBlockPointerType();
+}
+
+/// Handle 'called_once' attribute.
+static void handleCalledOnceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  // 'called_once' only applies to parameters representing functions.
+  QualType T = cast<ParmVarDecl>(D)->getType();
+
+  if (!isFunctionLike(*T)) {
+    S.Diag(AL.getLoc(), diag::err_called_once_attribute_wrong_type);
+    return;
+  }
+
+  D->addAttr(::new (S.Context) CalledOnceAttr(S.Context, AL));
 }
 
 static void handleTransparentUnionAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -9573,6 +9586,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_Callback:
     handleCallbackAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_CalledOnce:
+    handleCalledOnceAttr(S, D, AL);
     break;
   case ParsedAttr::AT_CUDAGlobal:
     handleGlobalAttr(S, D, AL);

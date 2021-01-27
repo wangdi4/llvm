@@ -8,8 +8,8 @@ int corners[27] = {1,0,1,0,0,0,1,0,1, 0,0,0,0,0,0,0,0,0, 1,0,1,0,0,0,1,0,1};
 
 #pragma omp declare target (faces, edges, corners)
 
-// CHECK: @faces = target_declare global
-// CHECK: @edges = target_declare global
-// CHECK: @corners = target_declare global
+// CHECK: @faces = {{.*}}target_declare global
+// CHECK: @edges = {{.*}}target_declare global
+// CHECK: @corners = {{.*}}target_declare global
 
 // end INTEL_COLLAB

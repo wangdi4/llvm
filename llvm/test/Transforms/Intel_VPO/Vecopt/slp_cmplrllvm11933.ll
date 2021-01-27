@@ -85,7 +85,7 @@ entry:
   %arrayidx36 = getelementptr inbounds float, float* %_bb, i64 %idxprom35
 
 ; CHECK:       [[TMP5:%.*]] = load float, float* %arrayidx36, align 4
-; CHECK-NEXT:  [[TMP6:%.*]] = insertelement <2 x float> undef, float [[N:%.*]], i32 0
+; CHECK-NEXT:  [[TMP6:%.*]] = insertelement <2 x float> poison, float [[N:%.*]], i32 0
 ; CHECK-NEXT:  [[TMP7:%.*]] = insertelement <2 x float> [[TMP6]], float [[TMP5]], i32 1
 ; CHECK-NEXT:  [[TMP8:%.*]] = fmul fast <2 x float> [[TMP7]], [[TMP3]]
 ; CHECK-NEXT:  [[TMP9:%.*]] = fsub fast <2 x float> [[TMP8]], [[TMP4]]
@@ -106,7 +106,7 @@ entry:
   %arrayidx52 = getelementptr inbounds float, float* %_bb, i64 %idxprom51
 
 ; CHECK:       [[TMP10:%.*]] = load float, float* %arrayidx52, align 4
-; CHECK-NEXT:  [[TMP11:%.*]] = insertelement <2 x float> undef, float [[TMP10]], i32 0
+; CHECK-NEXT:  [[TMP11:%.*]] = insertelement <2 x float> poison, float [[TMP10]], i32 0
 ; CHECK-NEXT:  [[TMP12:%.*]] = insertelement <2 x float> [[TMP11]], float [[N1:%.*]], i32 1
 ; CHECK-NEXT:  [[TMP13:%.*]] = fmul fast <2 x float> [[TMP12]], [[TMP3]]
 ; CHECK-NEXT:  [[TMP14:%.*]] = fsub fast <2 x float> [[TMP13]], [[TMP4]]

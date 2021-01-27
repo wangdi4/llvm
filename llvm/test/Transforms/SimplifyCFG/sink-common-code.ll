@@ -1,6 +1,6 @@
 ; INTEL: The Intel customization to set -phi-node-folding-threshold to 1 causes
 ;        this test to fail, so explicitly set it to the community default of 2.
-; RUN: opt < %s -simplifycfg -sink-common-insts -phi-node-folding-threshold=2 -S | FileCheck -enable-var-scope %s ;INTEL
+; RUN: opt < %s -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -sink-common-insts -phi-node-folding-threshold=2 -S | FileCheck -enable-var-scope %s ;INTEL
 ; RUN: opt < %s -passes='simplify-cfg<sink-common-insts>' -phi-node-folding-threshold=2 -S | FileCheck -enable-var-scope %s ;INTEL
 
 define zeroext i1 @test1(i1 zeroext %flag, i32 %blksA, i32 %blksB, i32 %nblks) {

@@ -245,6 +245,17 @@ public:
                                                                            Pred,
                                                                    Constant *C);
 
+  static bool shouldAvoidAbsorbingNotIntoSelect(const SelectInst &SI) {
+    // a ? b : false and a ? true : b are the canonical form of logical and/or.
+    // This includes !a ? b : false and !a ? true : b. Absorbing the not into
+    // the select by swapping operands would break recognition of this pattern
+    // in other analyses, so don't do that.
+    return match(&SI, PatternMatch::m_LogicalAnd(PatternMatch::m_Value(),
+                                                 PatternMatch::m_Value())) ||
+           match(&SI, PatternMatch::m_LogicalOr(PatternMatch::m_Value(),
+                                                PatternMatch::m_Value()));
+  }
+
   /// Return true if the specified value is free to invert (apply ~ to).
   /// This happens in cases where the ~ can be eliminated.  If WillInvertAllUses
   /// is true, work under the assumption that the caller intends to remove all
@@ -284,21 +295,27 @@ public:
   }
 
   /// Given i1 V, can every user of V be freely adapted if V is changed to !V ?
-#if INTEL_CUSTOMIZATION
+  /// InstCombine's canonicalizeICmpPredicate() must be kept in sync with this
+  /// fn.
   ///
   /// See also: isFreeToInvert()
-  static inline bool canFreelyInvertAllUsersOf(Value *V, Value *IgnoredUser) {
+  static bool canFreelyInvertAllUsersOf(Value *V, Value *IgnoredUser) {
     // Look at every user of V.
-    for (User *U : V->users()) {
-      if (U == IgnoredUser)
+    for (Use &U : V->uses()) {
+      if (U.getUser() == IgnoredUser)
         continue; // Don't consider this user.
 
-      auto *I = cast<Instruction>(U);
+      auto *I = cast<Instruction>(U.getUser());
       switch (I->getOpcode()) {
       case Instruction::Select:
+        if (U.getOperandNo() != 0) // Only if the value is used as select cond.
+          return false;
+        if (shouldAvoidAbsorbingNotIntoSelect(*cast<SelectInst>(I)))
+          return false;
+        break;
       case Instruction::Br:
+        assert(U.getOperandNo() == 0 && "Must be branching on that value.");
         break; // Free to invert by swapping true/false values/destinations.
-#endif // INTEL_CUSTOMIZATION
       case Instruction::Xor: // Can invert 'xor' if it's a 'not', by ignoring
                              // it.
         if (!match(I, m_Not(PatternMatch::m_Value())))

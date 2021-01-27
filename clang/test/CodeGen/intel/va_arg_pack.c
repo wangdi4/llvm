@@ -14,7 +14,7 @@ static __forceinline int myprintf(const char* format, ...) {
   // WIN-NOT: define {{.*}} @myprintf
   // everything inside main.
   // WIN: define dso_local i32 @main()
-  // LIN: define i32 @main()
+  // LIN: define dso_local i32 @main()
   // IDs for the foo/foo2 variable.
   // WIN: [[FOO2:%[0-9]]] = load i32, i32* %foo2
   // WIN: [[FOO:%[0-9]]] = load i32, i32* %foo

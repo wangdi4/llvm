@@ -726,7 +726,7 @@ def C : Flag<["-"], "C">, Flags<[CC1Option]>, Group<Preprocessor_Group>,
     HelpText<"Include comments in preprocessed output">,
     MarshallingInfoFlag<"PreprocessorOutputOpts.ShowComments">;
 def D : JoinedOrSeparate<["-"], "D">, Group<Preprocessor_Group>,
-    Flags<[CC1Option]>, MetaVarName<"<macro>=<value>">,
+    Flags<[CC1Option, FlangOption, FC1Option]>, MetaVarName<"<macro>=<value>">,
     HelpText<"Define <macro> to <value> (or 1 if <value> omitted)">;
 def E : Flag<["-"], "E">, Flags<[NoXarchOption,CC1Option, FlangOption, FC1Option]>, Group<Action_Group>,
     HelpText<"Only run the preprocessor">;
@@ -774,7 +774,8 @@ def MP : Flag<["-"], "MP">, Group<M_Group>, Flags<[CC1Option]>,
 def MQ : JoinedOrSeparate<["-"], "MQ">, Group<M_Group>, Flags<[CC1Option]>,
     HelpText<"Specify name of main file output to quote in depfile">;
 def MT : JoinedOrSeparate<["-"], "MT">, Group<M_Group>, Flags<[CC1Option]>,
-    HelpText<"Specify name of main file output in depfile">;
+    HelpText<"Specify name of main file output in depfile">,
+    MarshallingInfoStringVector<"DependencyOutputOpts.Targets">;
 def MV : Flag<["-"], "MV">, Group<M_Group>, Flags<[CC1Option]>,
     HelpText<"Use NMake/Jom format for the depfile">,
     MarshallingInfoFlag<"DependencyOutputOpts.OutputFormat", "DependencyOutputFormat::Make">,
@@ -830,7 +831,7 @@ def Ttext : JoinedOrSeparate<["-"], "Ttext">, Group<T_Group>,
 def T : JoinedOrSeparate<["-"], "T">, Group<T_Group>,
   MetaVarName<"<script>">, HelpText<"Specify <script> as linker script">;
 def U : JoinedOrSeparate<["-"], "U">, Group<Preprocessor_Group>,
-  Flags<[CC1Option]>, MetaVarName<"<macro>">, HelpText<"Undefine macro <macro>">;
+  Flags<[CC1Option, FlangOption, FC1Option]>, MetaVarName<"<macro>">, HelpText<"Undefine macro <macro>">;
 def V : JoinedOrSeparate<["-"], "V">, Flags<[NoXarchOption, Unsupported]>;
 #if INTEL_CUSTOMIZATION
 def Qoption_COMMA : CommaJoined<["-"], "Qoption,">, Flags<[NoXarchOption]>,
@@ -865,7 +866,8 @@ def Wp_COMMA : CommaJoined<["-"], "Wp,">,
   MetaVarName<"<arg>">, Group<Preprocessor_Group>;
 def Wundef_prefix_EQ : CommaJoined<["-"], "Wundef-prefix=">, Group<W_value_Group>,
   Flags<[CC1Option, CoreOption, HelpHidden]>, MetaVarName<"<arg>">,
-  HelpText<"Enable warnings for undefined macros with a prefix in the comma separated list <arg>">;
+  HelpText<"Enable warnings for undefined macros with a prefix in the comma separated list <arg>">,
+  MarshallingInfoStringVector<"DiagnosticOpts->UndefPrefixes">;
 def Wwrite_strings : Flag<["-"], "Wwrite-strings">, Group<W_Group>, Flags<[CC1Option, HelpHidden]>;
 def Wno_write_strings : Flag<["-"], "Wno-write-strings">, Group<W_Group>, Flags<[CC1Option, HelpHidden]>;
 def W_Joined : Joined<["-"], "W">, Group<W_Group>, Flags<[CC1Option, CoreOption]>,
@@ -1014,7 +1016,7 @@ def current__version : JoinedOrSeparate<["-"], "current_version">;
 def cxx_isystem : JoinedOrSeparate<["-"], "cxx-isystem">, Group<clang_i_Group>,
   HelpText<"Add directory to the C++ SYSTEM include search path">, Flags<[CC1Option]>,
   MetaVarName<"<directory>">;
-def c : Flag<["-"], "c">, Flags<[NoXarchOption]>, Group<Action_Group>,
+def c : Flag<["-"], "c">, Flags<[NoXarchOption, FlangOption]>, Group<Action_Group>,
   HelpText<"Only run preprocess, compile, and assemble steps">;
 def fconvergent_functions : Flag<["-"], "fconvergent-functions">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Assume functions may be convergent">;
@@ -1384,7 +1386,7 @@ def fansi_escape_codes : Flag<["-"], "fansi-escape-codes">, Group<f_Group>,
   MarshallingInfoFlag<"DiagnosticOpts->UseANSIEscapeCodes">;
 def fcomment_block_commands : CommaJoined<["-"], "fcomment-block-commands=">, Group<f_clang_Group>, Flags<[CC1Option]>,
   HelpText<"Treat each comma separated argument in <arg> as a documentation comment block command">,
-  MetaVarName<"<arg>">;
+  MetaVarName<"<arg>">, MarshallingInfoStringVector<"LangOpts->CommentOpts.BlockCommandNames">;
 def fparse_all_comments : Flag<["-"], "fparse-all-comments">, Group<f_clang_Group>, Flags<[CC1Option]>,
   MarshallingInfoFlag<"LangOpts->CommentOpts.ParseAllComments">;
 def frecord_command_line : Flag<["-"], "frecord-command-line">,
@@ -1584,7 +1586,8 @@ def fno_sanitize_EQ : CommaJoined<["-"], "fno-sanitize=">, Group<f_clang_Group>,
                       Flags<[CoreOption, NoXarchOption]>;
 def fsanitize_blacklist : Joined<["-"], "fsanitize-blacklist=">,
                           Group<f_clang_Group>,
-                          HelpText<"Path to blacklist file for sanitizers">;
+                          HelpText<"Path to blacklist file for sanitizers">,
+                          MarshallingInfoStringVector<"LangOpts->SanitizerBlacklistFiles">;
 def fsanitize_system_blacklist : Joined<["-"], "fsanitize-system-blacklist=">,
   HelpText<"Path to system blacklist file for sanitizers">,
   Flags<[CC1Option]>;
@@ -1602,13 +1605,15 @@ def fno_sanitize_coverage
                "Sanitizers">, Values<"func,bb,edge,indirect-calls,trace-bb,trace-cmp,trace-div,trace-gep,8bit-counters,trace-pc,trace-pc-guard,no-prune,inline-8bit-counters,inline-bool-flag">;
 def fsanitize_coverage_allowlist : Joined<["-"], "fsanitize-coverage-allowlist=">,
     Group<f_clang_Group>, Flags<[CoreOption, NoXarchOption]>,
-    HelpText<"Restrict sanitizer coverage instrumentation exclusively to modules and functions that match the provided special case list, except the blocked ones">;
+    HelpText<"Restrict sanitizer coverage instrumentation exclusively to modules and functions that match the provided special case list, except the blocked ones">,
+    MarshallingInfoStringVector<"CodeGenOpts.SanitizeCoverageAllowlistFiles">;
 def : Joined<["-"], "fsanitize-coverage-whitelist=">,
   Group<f_clang_Group>, Flags<[CoreOption, HelpHidden]>, Alias<fsanitize_coverage_allowlist>,
   HelpText<"Deprecated, use -fsanitize-coverage-allowlist= instead">;
 def fsanitize_coverage_blocklist : Joined<["-"], "fsanitize-coverage-blocklist=">,
     Group<f_clang_Group>, Flags<[CoreOption, NoXarchOption]>,
-    HelpText<"Disable sanitizer coverage instrumentation for modules and functions that match the provided special case list, even the allowed ones">;
+    HelpText<"Disable sanitizer coverage instrumentation for modules and functions that match the provided special case list, even the allowed ones">,
+    MarshallingInfoStringVector<"CodeGenOpts.SanitizeCoverageBlocklistFiles">;
 def : Joined<["-"], "fsanitize-coverage-blacklist=">,
   Group<f_clang_Group>, Flags<[CoreOption, HelpHidden]>, Alias<fsanitize_coverage_blocklist>,
   HelpText<"Deprecated, use -fsanitize-coverage-blocklist= instead">;
@@ -1813,7 +1818,8 @@ defm delete_null_pointer_checks : BoolFOption<"delete-null-pointer-checks",
 
 def frewrite_map_file : Separate<["-"], "frewrite-map-file">,
                         Group<f_Group>,
-                        Flags<[ NoXarchOption, CC1Option ]>;
+                        Flags<[ NoXarchOption, CC1Option ]>,
+                        MarshallingInfoStringVector<"CodeGenOpts.RewriteMapFiles">;
 def frewrite_map_file_EQ : Joined<["-"], "frewrite-map-file=">,
                            Group<f_Group>,
                            Flags<[NoXarchOption]>;
@@ -1862,11 +1868,10 @@ def fexperimental_strict_floating_point : Flag<["-"], "fexperimental-strict-floa
   MarshallingInfoFlag<"LangOpts->ExpStrictFP">;
 def finput_charset_EQ : Joined<["-"], "finput-charset=">, Group<f_Group>;
 def fexec_charset_EQ : Joined<["-"], "fexec-charset=">, Group<f_Group>;
-#if INTEL_CUSTOMIZATION
-def finstrument_functions : Flag<["-"], "finstrument-functions">,
-  Group<f_Group>, Flags<[CC1Option]>, HelpText<"Generate calls "
-  "to instrument function entry and exit">,
+def finstrument_functions : Flag<["-"], "finstrument-functions">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Generate calls to instrument function entry and exit">,
   MarshallingInfoFlag<"CodeGenOpts.InstrumentFunctions">;
+#if INTEL_CUSTOMIZATION
 def fno_instrument_functions : Flag<["-"], "fno-instrument-functions">,
   Group<f_Group>, Flags<[NoXarchOption]>;
 def fma : Flag<["-"], "fma">, Alias<ffp_contract>, AliasArgs<["fast"]>,
@@ -1902,15 +1907,18 @@ def fxray_instruction_threshold_ :
 def fxray_always_instrument :
   JoinedOrSeparate<["-"], "fxray-always-instrument=">,
   Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"DEPRECATED: Filename defining the whitelist for imbuing the 'always instrument' XRay attribute.">;
+  HelpText<"DEPRECATED: Filename defining the whitelist for imbuing the 'always instrument' XRay attribute.">,
+  MarshallingInfoStringVector<"LangOpts->XRayAlwaysInstrumentFiles">;
 def fxray_never_instrument :
   JoinedOrSeparate<["-"], "fxray-never-instrument=">,
   Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"DEPRECATED: Filename defining the whitelist for imbuing the 'never instrument' XRay attribute.">;
+  HelpText<"DEPRECATED: Filename defining the whitelist for imbuing the 'never instrument' XRay attribute.">,
+  MarshallingInfoStringVector<"LangOpts->XRayNeverInstrumentFiles">;
 def fxray_attr_list :
   JoinedOrSeparate<["-"], "fxray-attr-list=">,
   Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Filename defining the list of functions/types for imbuing XRay attributes.">;
+  HelpText<"Filename defining the list of functions/types for imbuing XRay attributes.">,
+  MarshallingInfoStringVector<"LangOpts->XRayAttrListFiles">;
 def fxray_modes :
   JoinedOrSeparate<["-"], "fxray-modes=">,
   Group<f_Group>, Flags<[CC1Option]>,
@@ -2070,7 +2078,7 @@ def fmodules_search_all : Flag <["-"], "fmodules-search-all">, Group<f_Group>,
 def fbuild_session_timestamp : Joined<["-"], "fbuild-session-timestamp=">,
   Group<i_Group>, Flags<[CC1Option]>, MetaVarName<"<time since Epoch in seconds>">,
   HelpText<"Time when the current build session started">,
-  MarshallingInfoStringInt<"HeaderSearchOpts->BuildSessionTimestamp">;
+  MarshallingInfoStringInt<"HeaderSearchOpts->BuildSessionTimestamp", "0", "uint64_t">;
 def fbuild_session_file : Joined<["-"], "fbuild-session-file=">,
   Group<i_Group>, MetaVarName<"<file>">,
   HelpText<"Use the last modification time of <file> as the build session timestamp">;
@@ -2167,7 +2175,8 @@ def fsystem_module : Flag<["-"], "fsystem-module">, Flags<[CC1Option]>,
   MarshallingInfoFlag<"FrontendOpts.IsSystemModule">;
 def fmodule_map_file : Joined<["-"], "fmodule-map-file=">,
   Group<f_Group>, Flags<[NoXarchOption,CC1Option]>, MetaVarName<"<file>">,
-  HelpText<"Load this module map file">;
+  HelpText<"Load this module map file">,
+  MarshallingInfoStringVector<"FrontendOpts.ModuleMapFiles">;
 def fmodule_file : Joined<["-"], "fmodule-file=">,
   Group<i_Group>, Flags<[NoXarchOption,CC1Option]>, MetaVarName<"[<name>=]<file>">,
   HelpText<"Specify the mapping of module name to precompiled module file, or load a module file if name is omitted.">;
@@ -2509,14 +2518,15 @@ def fplugin_EQ : Joined<["-"], "fplugin=">, Group<f_Group>, Flags<[NoXarchOption
   HelpText<"Load the named plugin (dynamic shared object)">;
 def fpass_plugin_EQ : Joined<["-"], "fpass-plugin=">,
   Group<f_Group>, Flags<[CC1Option]>, MetaVarName<"<dsopath>">,
-  HelpText<"Load pass plugin from a dynamic shared object file (only with new pass manager).">;
+  HelpText<"Load pass plugin from a dynamic shared object file (only with new pass manager).">,
+  MarshallingInfoStringVector<"CodeGenOpts.PassPlugins">;
 defm preserve_as_comments : BoolFOption<"preserve-as-comments",
   "CodeGenOpts.PreserveAsmComments", DefaultsToTrue,
   ChangedBy<NegFlag, [], "Do not preserve comments in inline assembly">,
   ResetBy<PosFlag>>;
-#if INTEL_CUSTOMIZATION
 defm profile_arcs : BoolFOption<"profile-arcs",
   "CodeGenOpts.EmitGcovArcs", DefaultsToFalse,
+#if INTEL_CUSTOMIZATION
   ChangedBy<PosFlag, [LinkOption]>, ResetBy<NegFlag>, BothFlags<[CoreOption]>>;
 #endif // INTEL_CUSTOMIZATION
 def framework : Separate<["-"], "framework">, Flags<[LinkerInput]>;
@@ -2698,9 +2708,9 @@ def foptimization_record_passes_EQ : Joined<["-"], "foptimization-record-passes=
   HelpText<"Only include passes which match a specified regular expression in the generated optimization record (by default, include all passes)">,
   MetaVarName<"<regex>">;
 
-#if INTEL_CUSTOMIZATION
 defm test_coverage : BoolFOption<"test-coverage",
   "CodeGenOpts.EmitGcovNotes", DefaultsToFalse,
+#if INTEL_CUSTOMIZATION
   ChangedBy<PosFlag>, ResetBy<NegFlag>, BothFlags<[CoreOption]>>;
 #endif // INTEL_CUSTOMIZATION
 def fvectorize : Flag<["-"], "fvectorize">, Group<f_Group>,
@@ -2997,9 +3007,10 @@ def : Flag<["-"], "grecord-gcc-switches">, Alias<grecord_command_line>;
 def : Flag<["-"], "gno-record-gcc-switches">, Alias<gno_record_command_line>;
 def gstrict_dwarf : Flag<["-"], "gstrict-dwarf">, Group<g_flags_Group>;
 def gno_strict_dwarf : Flag<["-"], "gno-strict-dwarf">, Group<g_flags_Group>;
-defm column_info : BoolGOption<"column-info",
+defm column_info : BoolCC1Option<"column-info",
   "CodeGenOpts.DebugColumnInfo", DefaultsToTrue,
-  ChangedBy<NegFlag>, ResetBy<PosFlag>, BothFlags<[CoreOption]>>;
+  ChangedBy<NegFlag>, ResetBy<PosFlag>, BothFlags<[CoreOption]>, "g">,
+  Group<g_flags_Group>;
 def gsplit_dwarf : Flag<["-"], "gsplit-dwarf">, Group<g_flags_Group>;
 def gsplit_dwarf_EQ : Joined<["-"], "gsplit-dwarf=">, Group<g_flags_Group>,
   HelpText<"Set DWARF fission mode to either 'split' or 'single'">,
@@ -3046,7 +3057,8 @@ def iframeworkwithsysroot : JoinedOrSeparate<["-"], "iframeworkwithsysroot">,
            "absolute paths are relative to -isysroot">,
   MetaVarName<"<directory>">, Flags<[CC1Option]>;
 def imacros : JoinedOrSeparate<["-", "--"], "imacros">, Group<clang_i_Group>, Flags<[CC1Option]>,
-  HelpText<"Include macros from file before parsing">, MetaVarName<"<file>">;
+  HelpText<"Include macros from file before parsing">, MetaVarName<"<file>">,
+  MarshallingInfoStringVector<"PreprocessorOpts->MacroIncludes">;
 def image__base : Separate<["-"], "image_base">;
 def include_ : JoinedOrSeparate<["-", "--"], "include">, Group<clang_i_Group>, EnumName<"include">,
     MetaVarName<"<file>">, HelpText<"Include file before parsing">, Flags<[CC1Option]>;
@@ -3215,7 +3227,8 @@ def mkernel : Flag<["-"], "mkernel">, Group<m_Group>;
 def mlinker_version_EQ : Joined<["-"], "mlinker-version=">,
   Flags<[NoXarchOption]>;
 def mllvm : Separate<["-"], "mllvm">, Flags<[CC1Option,CC1AsOption,CoreOption]>,
-  HelpText<"Additional arguments to forward to LLVM's option processing">;
+  HelpText<"Additional arguments to forward to LLVM's option processing">,
+  MarshallingInfoStringVector<"FrontendOpts.LLVMArgs">;
 def mmacosx_version_min_EQ : Joined<["-"], "mmacosx-version-min=">,
   Group<m_Group>, HelpText<"Set Mac OS X deployment target">;
 def mmacos_version_min_EQ : Joined<["-"], "mmacos-version-min=">,
@@ -3553,7 +3566,8 @@ def mno_implicit_float : Flag<["-"], "mno-implicit-float">, Group<m_Group>,
   HelpText<"Don't generate implicit floating point instructions">;
 def mimplicit_float : Flag<["-"], "mimplicit-float">, Group<m_Group>;
 def mrecip : Flag<["-"], "mrecip">, Group<m_Group>;
-def mrecip_EQ : CommaJoined<["-"], "mrecip=">, Group<m_Group>, Flags<[CC1Option]>;
+def mrecip_EQ : CommaJoined<["-"], "mrecip=">, Group<m_Group>, Flags<[CC1Option]>,
+  MarshallingInfoStringVector<"CodeGenOpts.Reciprocals">;
 def mprefer_vector_width_EQ : Joined<["-"], "mprefer-vector-width=">, Group<m_Group>, Flags<[CC1Option]>,
   HelpText<"Specifies preferred vector width for auto-vectorization. Defaults to 'none' which allows target specific decisions.">,
   MarshallingInfoString<"CodeGenOpts.PreferVectorWidth">;
@@ -4662,11 +4676,9 @@ defm inline_small_functions : BooleanFFlag<"inline-small-functions">,
 defm ipa_cp : BooleanFFlag<"ipa-cp">,
     Group<clang_ignored_gcc_optimization_f_Group>;
 defm ivopts : BooleanFFlag<"ivopts">, Group<clang_ignored_gcc_optimization_f_Group>;
-def fsemantic_interposition : Flag<["-"], "fsemantic-interposition">, Group<f_Group>, Flags<[CC1Option]>,
-  MarshallingInfoFlag<"LangOpts->SemanticInterposition">;
-// An explicit -fno-semantic-interposition infers dso_local.
-def fno_semantic_interposition: Flag<["-"], "fno-semantic-interposition">, Group<f_Group>, Flags<[CC1Option]>,
-  MarshallingInfoFlag<"LangOpts->ExplicitNoSemanticInterposition">;
+defm semantic_interposition : BoolFOption<"semantic-interposition",
+  "LangOpts->SemanticInterposition", DefaultsToFalse,
+  ChangedBy<PosFlag>, ResetBy<NegFlag>>;
 defm non_call_exceptions : BooleanFFlag<"non-call-exceptions">, Group<clang_ignored_f_Group>;
 defm peel_loops : BooleanFFlag<"peel-loops">, Group<clang_ignored_gcc_optimization_f_Group>;
 #if INTEL_CUSTOMIZATION
@@ -4799,7 +4811,9 @@ defm sycl : BoolOption<"sycl",
   BothFlags<[CoreOption], " SYCL kernels compilation for device">, "f">,
   Group<sycl_Group>;
 def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption]>,
-  HelpText<"SYCL language standard to compile for.">, Values<"2017, 121, 1.2.1, sycl-1.2.1">;
+  HelpText<"SYCL language standard to compile for.">, Values<"2020,2017,121,1.2.1,sycl-1.2.1">,
+  NormalizedValues<["SYCL_2020", "SYCL_2017", "SYCL_2017", "SYCL_2017", "SYCL_2017"]>, NormalizedValuesScope<"LangOptions">,
+  MarshallingInfoString<"LangOpts->SYCLVersion", "SYCL_None">, ShouldParseIf<fsycl.KeyPath>, AutoNormalizeEnum;
 def fsycl_esimd : Flag<["-"], "fsycl-explicit-simd">, Group<sycl_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption]>,
   HelpText<"Enable SYCL explicit SIMD extension">;
 def fno_sycl_esimd : Flag<["-"], "fno-sycl-explicit-simd">, Group<sycl_Group>,
@@ -4851,7 +4865,8 @@ def tune_cpu : Separate<["-"], "tune-cpu">,
   HelpText<"Tune for a specific cpu type">,
   MarshallingInfoString<"TargetOpts->TuneCPU">;
 def target_feature : Separate<["-"], "target-feature">,
-  HelpText<"Target specific attributes">;
+  HelpText<"Target specific attributes">,
+  MarshallingInfoStringVector<"TargetOpts->FeaturesAsWritten">;
 def triple : Separate<["-"], "triple">,
   HelpText<"Specify target triple (e.g. i686-apple-darwin9)">,
   MarshallingInfoString<"TargetOpts->Triple", "llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple())">,
@@ -5054,7 +5069,8 @@ def debug_info_macro : Flag<["-"], "debug-info-macro">,
   HelpText<"Emit macro debug information">,
   MarshallingInfoFlag<"CodeGenOpts.MacroDebugInfo">;
 def default_function_attr : Separate<["-"], "default-function-attr">,
-  HelpText<"Apply given attribute to all functions">;
+  HelpText<"Apply given attribute to all functions">,
+  MarshallingInfoStringVector<"CodeGenOpts.DefaultFunctionAttrs">;
 def dwarf_version_EQ : Joined<["-"], "dwarf-version=">,
   MarshallingInfoStringInt<"CodeGenOpts.DwarfVersion">;
 def debugger_tuning_EQ : Joined<["-"], "debugger-tuning=">,
@@ -5242,9 +5258,11 @@ def vectorize_slp : Flag<["-"], "vectorize-slp">,
   HelpText<"Run the SLP vectorization passes">,
   MarshallingInfoFlag<"CodeGenOpts.VectorizeSLP">;
 def dependent_lib : Joined<["--"], "dependent-lib=">,
-  HelpText<"Add dependent library">;
+  HelpText<"Add dependent library">,
+  MarshallingInfoStringVector<"CodeGenOpts.DependentLibraries">;
 def linker_option : Joined<["--"], "linker-option=">,
-  HelpText<"Add linker option">;
+  HelpText<"Add linker option">,
+  MarshallingInfoStringVector<"CodeGenOpts.LinkerOptions">;
 def fsanitize_coverage_type : Joined<["-"], "fsanitize-coverage-type=">,
                               HelpText<"Sanitizer coverage type">,
                               MarshallingInfoStringInt<"CodeGenOpts.SanitizeCoverageType">;
@@ -5322,10 +5340,10 @@ def flto_visibility_public_std:
     Flag<["-"], "flto-visibility-public-std">,
     HelpText<"Use public LTO visibility for classes in std and stdext namespaces">,
     MarshallingInfoFlag<"CodeGenOpts.LTOVisibilityPublicStd">;
-defm lto_unit : BoolFOption<"lto-unit",
+defm lto_unit : BoolCC1Option<"lto-unit",
   "CodeGenOpts.LTOUnit", DefaultsToFalse,
   ChangedBy<PosFlag, [], "Emit IR to support LTO unit features (CFI, whole program vtable opt)">,
-  ResetBy<NegFlag>>;
+  ResetBy<NegFlag>, BothFlags<[]>, "f">;
 defm debug_pass_manager : BoolOption<"debug-pass-manager",
   "CodeGenOpts.DebugPassManager", DefaultsToFalse,
   ChangedBy<PosFlag, [], "Prints debug information for the new pass manager">,
@@ -5406,7 +5424,8 @@ def fcaret_diagnostics_max_lines :
 def verify_EQ : CommaJoined<["-"], "verify=">,
   MetaVarName<"<prefixes>">,
   HelpText<"Verify diagnostic output using comment directives that start with"
-           " prefixes in the comma-separated sequence <prefixes>">;
+           " prefixes in the comma-separated sequence <prefixes>">,
+  MarshallingInfoStringVector<"DiagnosticOpts->VerifyPrefixes">;
 def verify : Flag<["-"], "verify">,
   HelpText<"Equivalent to -verify=expected">;
 def verify_ignore_unexpected : Flag<["-"], "verify-ignore-unexpected">,
@@ -5427,7 +5446,8 @@ def cc1as : Flag<["-"], "cc1as">;
 
 def ast_merge : Separate<["-"], "ast-merge">,
   MetaVarName<"<ast file>">,
-  HelpText<"Merge the given AST file into the translation unit being compiled.">;
+  HelpText<"Merge the given AST file into the translation unit being compiled.">,
+  MarshallingInfoStringVector<"FrontendOpts.ASTMergeFiles">;
 def aux_target_cpu : Separate<["-"], "aux-target-cpu">,
   HelpText<"Target a specific auxiliary cpu type">;
 def aux_target_feature : Separate<["-"], "aux-target-feature">,
@@ -5498,11 +5518,13 @@ def fmodule_map_file_home_is_cwd : Flag<["-"], "fmodule-map-file-home-is-cwd">,
   MarshallingInfoFlag<"HeaderSearchOpts->ModuleMapFileHomeIsCwd">;
 def fmodule_feature : Separate<["-"], "fmodule-feature">,
   MetaVarName<"<feature>">,
-  HelpText<"Enable <feature> in module map requires declarations">;
+  HelpText<"Enable <feature> in module map requires declarations">,
+  MarshallingInfoStringVector<"LangOpts->ModuleFeatures">;
 def fmodules_embed_file_EQ : Joined<["-"], "fmodules-embed-file=">,
   MetaVarName<"<file>">,
   HelpText<"Embed the contents of the specified file into the module file "
-           "being compiled.">;
+           "being compiled.">,
+  MarshallingInfoStringVector<"FrontendOpts.ModulesEmbedFiles">;
 def fmodules_embed_all_files : Joined<["-"], "fmodules-embed-all-files">,
   HelpText<"Embed the contents of all files read by this compilation into "
            "the produced module file.">,
@@ -5606,8 +5628,6 @@ def emit_llvm_only : Flag<["-"], "emit-llvm-only">,
   HelpText<"Build ASTs and convert to LLVM, discarding output">;
 def emit_codegen_only : Flag<["-"], "emit-codegen-only">,
   HelpText<"Generate machine code, but discard output">;
-def emit_obj : Flag<["-"], "emit-obj">,
-  HelpText<"Emit native object files">;
 def rewrite_test : Flag<["-"], "rewrite-test">,
   HelpText<"Rewriter playground">;
 def rewrite_macros : Flag<["-"], "rewrite-macros">,
@@ -5755,6 +5775,9 @@ def pic_level : Separate<["-"], "pic-level">,
 def pic_is_pie : Flag<["-"], "pic-is-pie">,
   HelpText<"File is for a position independent executable">,
   MarshallingInfoFlag<"LangOpts->PIE">;
+def fhalf_no_semantic_interposition : Flag<["-"], "fhalf-no-semantic-interposition">,
+  HelpText<"Like -fno-semantic-interposition but don't use local aliases">,
+  MarshallingInfoFlag<"LangOpts->HalfNoSemanticInterposition">;
 def fno_validate_pch : Flag<["-"], "fno-validate-pch">,
   HelpText<"Disable validation of precompiled headers">,
   MarshallingInfoFlag<"PreprocessorOpts->DisablePCHValidation">;
@@ -5806,10 +5829,10 @@ def fconstexpr_steps : Separate<["-"], "fconstexpr-steps">,
 def fbracket_depth : Separate<["-"], "fbracket-depth">,
   HelpText<"Maximum nesting level for parentheses, brackets, and braces">,
   MarshallingInfoStringInt<"LangOpts->BracketDepth", "256">;
-defm const_strings : BoolFOption<"const-strings",
+defm const_strings : BoolCC1Option<"const-strings",
   "LangOpts->ConstStrings", DefaultsToFalse,
   ChangedBy<PosFlag, [], "Use">, ResetBy<NegFlag, [], "Don't use">,
-  BothFlags<[], " a const qualified type for string literals in C and ObjC">>;
+  BothFlags<[], " a const qualified type for string literals in C and ObjC">, "f">;
 def fno_bitfield_type_align : Flag<["-"], "fno-bitfield-type-align">,
   HelpText<"Ignore bit-field types when aligning structures">,
   MarshallingInfoFlag<"LangOpts->NoBitFieldTypeAlign">;
@@ -5936,10 +5959,10 @@ def fwchar_type_EQ : Joined<["-"], "fwchar-type=">,
   HelpText<"Select underlying type for wchar_t">, Values<"char,short,int">,
   NormalizedValues<["1", "2", "4"]>,
   MarshallingInfoString<"LangOpts->WCharSize", "0">, AutoNormalizeEnum;
-defm signed_wchar : BoolFOption<"signed-wchar",
+defm signed_wchar : BoolCC1Option<"signed-wchar",
   "LangOpts->WCharIsSigned", DefaultsToTrue,
   ChangedBy<NegFlag, [], "Use an unsigned">, ResetBy<PosFlag, [], "Use a signed">,
-  BothFlags<[], " type for wchar_t">>;
+  BothFlags<[], " type for wchar_t">, "f">;
 def fcompatibility_qualified_id_block_param_type_checking : Flag<["-"], "fcompatibility-qualified-id-block-type-checking">,
   HelpText<"Allow using blocks with parameters of more specific type than "
            "the type system guarantees when a parameter is qualified id">,
@@ -6016,7 +6039,8 @@ def disable_pragma_debug_crash : Flag<["-"], "disable-pragma-debug-crash">,
 //===----------------------------------------------------------------------===//
 
 def cl_ext_EQ : CommaJoined<["-"], "cl-ext=">,
-  HelpText<"OpenCL only. Enable or disable OpenCL extensions. The argument is a comma-separated sequence of one or more extension names, each prefixed by '+' or '-'.">;
+  HelpText<"OpenCL only. Enable or disable OpenCL extensions. The argument is a comma-separated sequence of one or more extension names, each prefixed by '+' or '-'.">,
+  MarshallingInfoStringVector<"TargetOpts->OpenCLExtensionsAsWritten">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
@@ -6079,6 +6103,18 @@ def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
   HelpText<"Experimental flag enabling standard optimization in the front-end.">;
 
 } // let Flags = [CC1Option, NoDriverOption]
+
+//===----------------------------------------------------------------------===//
+// Frontend Options - cc1 + fc1
+//===----------------------------------------------------------------------===//
+let Flags = [CC1Option, FC1Option, NoDriverOption] in {
+let Group = Action_Group in {
+
+def emit_obj : Flag<["-"], "emit-obj">,
+  HelpText<"Emit native object files">;
+
+} // let Group = Action_Group
+} // let Flags = [CC1Option, FC1Option, NoDriverOption]
 
 //===----------------------------------------------------------------------===//
 // cc1as-only Options

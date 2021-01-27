@@ -65,6 +65,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
         if (CMAKE_SYSTEM_NAME MATCHES "Linux")
           target_link_libraries(omptarget.rtl.opencl PRIVATE
             dl
+            ${OPENMP_PTHREAD_LIB}
             "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
         elseif (NOT CMAKE_SYSTEM_NAME MATCHES "Windows")
           message(FATAL_ERROR "Missing platfrom support.")

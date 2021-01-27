@@ -192,7 +192,8 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   QualType FunctionTy = C.getFunctionType(C.VoidTy, llvm::None, EPI);
   FunctionDecl *FD = FunctionDecl::Create(
       C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
-      FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy), SC_Static);
+      FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy),
+      StorageClass::SC_Static);
 
   QualType ObjPtrTy = C.getPointerType(Ty);
 
@@ -295,7 +296,8 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
   QualType FunctionTy = C.getFunctionType(C.VoidTy, llvm::None, EPI);
   FunctionDecl *FD = FunctionDecl::Create(
       C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
-      FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy), SC_Static);
+      FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy),
+      StorageClass::SC_Static);
 
   QualType ObjPtrTy = C.getPointerType(Ty);
 

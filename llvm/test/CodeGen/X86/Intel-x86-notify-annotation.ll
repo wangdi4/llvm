@@ -130,12 +130,12 @@ declare dso_local void @bar(i8*, i8*, i8*)
 ;X64-NEXT:         .byte   0
 ;X64-NEXT:         .short  257
 ;X64-NEXT:         .short  5
-;X64-NEXT:         .long   .Ltmp1-itt_notify_tab
-;X64-NEXT:         .long   .Ltmp2-.Ltmp1
-;X64-NEXT:         .long   .Ltmp2-itt_notify_tab
-;X64-NEXT:         .long   .Ltmp3-.Ltmp2
+;X64-NEXT:         .long   .Lnotify_strings0-itt_notify_tab
+;X64-NEXT:         .long   .Lnotify_exprs0-.Lnotify_strings0
+;X64-NEXT:         .long   .Lnotify_exprs0-itt_notify_tab
+;X64-NEXT:         .long   .Litt_notify_tab_end0-.Lnotify_exprs0
 ;X64-NEXT:         .p2align        2
-;X64-NEXT: .Ltmp0:
+;X64-NEXT: .Lnotify_entries0:
 ;X64-NEXT:         .quad   .Lnotify_nzc0
 ;X64-NEXT:         .long   .Lnotify_nzc_probe0-.Lnotify_nzc0
 ;X64-NEXT:         .long   0
@@ -156,7 +156,7 @@ declare dso_local void @bar(i8*, i8*, i8*)
 ;X64-NEXT:         .long   .Lnotify_zc_probe1-.Lnotify_zc1
 ;X64-NEXT:         .long   75
 ;X64-NEXT:         .long   8
-;X64-NEXT: .Ltmp1:
+;X64-NEXT: .Lnotify_strings0:
 ;X64-NEXT:         .ascii  "__itt_sync_acquired"
 ;X64-NEXT:         .byte   0
 ;X64-NEXT:         .ascii  "__itt_sync_create"
@@ -167,13 +167,13 @@ declare dso_local void @bar(i8*, i8*, i8*)
 ;X64-NEXT:         .byte   0
 ;X64-NEXT:         .ascii  "__itt_sync_destroy"
 ;X64-NEXT:         .byte   0
-;X64-NEXT: .Ltmp2:
+;X64-NEXT: .Lnotify_exprs0:
 ;X64-NEXT:         .short  20481
 ;X64-NEXT:         .short  20481
 ;X64-NEXT:         .short  20481
 ;X64-NEXT:         .short  20481
 ;X64-NEXT:         .short  20993
-;X64-NEXT: .Ltmp3:
+;X64-NEXT: .Litt_notify_tab_end0:
 ;X64-NEXT: .Lsec_end0:
 
 
@@ -242,12 +242,12 @@ declare dso_local void @bar(i8*, i8*, i8*)
 ;X64Win-NEXT:         .byte   0
 ;X64Win-NEXT:         .short  257
 ;X64Win-NEXT:         .short  5
-;X64Win-NEXT:         .long   .Ltmp1-itt_notify_tab
-;X64Win-NEXT:         .long   .Ltmp2-.Ltmp1
-;X64Win-NEXT:         .long   .Ltmp2-itt_notify_tab
-;X64Win-NEXT:         .long   .Ltmp3-.Ltmp2
+;X64Win-NEXT:         .long   .Lnotify_strings0-itt_notify_tab
+;X64Win-NEXT:         .long   .Lnotify_exprs0-.Lnotify_strings0
+;X64Win-NEXT:         .long   .Lnotify_exprs0-itt_notify_tab
+;X64Win-NEXT:         .long   .Litt_notify_tab_end0-.Lnotify_exprs0
 ;X64Win-NEXT:         .p2align        2
-;X64Win-NEXT: .Ltmp0:
+;X64Win-NEXT: .Lnotify_entries0:
 ;X64Win-NEXT:         .quad   .Lnotify_nzc0
 ;X64Win-NEXT:         .long   .Lnotify_nzc_probe0-.Lnotify_nzc0
 ;X64Win-NEXT:         .long   0
@@ -268,7 +268,7 @@ declare dso_local void @bar(i8*, i8*, i8*)
 ;X64Win-NEXT:         .long   .Lnotify_zc_probe1-.Lnotify_zc1
 ;X64Win-NEXT:         .long   75
 ;X64Win-NEXT:         .long   8
-;X64Win-NEXT: .Ltmp1:
+;X64Win-NEXT: .Lnotify_strings0:
 ;X64Win-NEXT:         .ascii  "__itt_sync_acquired"
 ;X64Win-NEXT:         .byte   0
 ;X64Win-NEXT:         .ascii  "__itt_sync_create"
@@ -279,11 +279,11 @@ declare dso_local void @bar(i8*, i8*, i8*)
 ;X64Win-NEXT:         .byte   0
 ;X64Win-NEXT:         .ascii  "__itt_sync_destroy"
 ;X64Win-NEXT:         .byte   0
-;X64Win-NEXT: .Ltmp2:
+;X64Win-NEXT: .Lnotify_exprs0:
 ;X64Win-NEXT:         .short  20481
 ;X64Win-NEXT:         .short  20481
 ;X64Win-NEXT:         .short  20481
 ;X64Win-NEXT:         .short  20737
 ;X64Win-NEXT:         .short  22529
-;X64Win-NEXT: .Ltmp3:
+;X64Win-NEXT: .Litt_notify_tab_end0:
 ;X64Win-NEXT: .Lsec_end0:

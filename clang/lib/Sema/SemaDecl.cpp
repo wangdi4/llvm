@@ -3220,18 +3220,10 @@ static void checkDimensionsAndSetDiagnostics(Sema &S, FunctionDecl *New,
   if (!NewDeclAttr || !OldDeclAttr)
     return;
 
-  /// Returns the usigned constant integer value represented by
-  /// given expression.
-  auto getExprValue = [](const Expr *E, ASTContext &Ctx) {
-    return E->getIntegerConstantExpr(Ctx)->getZExtValue();
-  };
-
-  if ((getExprValue(NewDeclAttr->getXDim(), S.getASTContext()) !=
-       getExprValue(OldDeclAttr->getXDim(), S.getASTContext())) ||
-      (getExprValue(NewDeclAttr->getYDim(), S.getASTContext()) !=
-       getExprValue(OldDeclAttr->getYDim(), S.getASTContext())) ||
-      (getExprValue(NewDeclAttr->getZDim(), S.getASTContext()) !=
-       getExprValue(OldDeclAttr->getZDim(), S.getASTContext()))) {
+  ASTContext &Ctx = S.getASTContext();
+  if (NewDeclAttr->getXDimVal(Ctx) != OldDeclAttr->getXDimVal(Ctx) ||
+      NewDeclAttr->getYDimVal(Ctx) != OldDeclAttr->getYDimVal(Ctx) ||
+      NewDeclAttr->getZDimVal(Ctx) != OldDeclAttr->getZDimVal(Ctx)) {
     S.Diag(New->getLocation(), diag::err_conflicting_sycl_function_attributes)
         << OldDeclAttr << NewDeclAttr;
     S.Diag(New->getLocation(), diag::warn_duplicate_attribute) << OldDeclAttr;
@@ -6857,14 +6849,16 @@ static bool diagnoseOpenCLTypes(Scope *S, Sema &Se, Declarator &D,
   }
 
   // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
-  QualType NR = R;
-  while (NR->isPointerType()) {
-    if (NR->isFunctionPointerType()) {
-      Se.Diag(D.getIdentifierLoc(), diag::err_opencl_function_pointer);
-      D.setInvalidType();
-      return false;
+  if (!Se.getOpenCLOptions().isEnabled("__cl_clang_function_pointers")) {
+    QualType NR = R;
+    while (NR->isPointerType() || NR->isMemberFunctionPointerType()) {
+      if (NR->isFunctionPointerType() || NR->isMemberFunctionPointerType()) {
+        Se.Diag(D.getIdentifierLoc(), diag::err_opencl_function_pointer);
+        D.setInvalidType();
+        return false;
+      }
+      NR = NR->getPointeeType();
     }
-    NR = NR->getPointeeType();
   }
 
   if (!Se.getOpenCLOptions().isEnabled("cl_khr_fp16")) {
@@ -6935,17 +6929,18 @@ static FunctionDecl *createOCLBuiltinDecl(ASTContext &Context, DeclContext *DC,
   QualType FTy =
       Context.getFunctionType(RetTy, ArgTys, FunctionProtoType::ExtProtoInfo());
 
-  auto *FD =
-      FunctionDecl::Create(Context, DC, SourceLocation(), SourceLocation(),
-                           &Context.Idents.get(Name), FTy, nullptr, SC_Extern,
-                           false, true, ConstexprSpecKind::Unspecified);
+  auto *FD = FunctionDecl::Create(Context, DC, SourceLocation(),
+                                  SourceLocation(), &Context.Idents.get(Name),
+                                  FTy, nullptr, StorageClass::SC_Extern, false,
+                                  true, ConstexprSpecKind::Unspecified);
 
   if (const FunctionProtoType *FT = dyn_cast<FunctionProtoType>(FTy)) {
     SmallVector<ParmVarDecl *, 16> Params;
     for (unsigned I = 0, E = FT->getNumParams(); I != E; ++I) {
-      ParmVarDecl *Param = ParmVarDecl::Create(
-          Context, FD, SourceLocation(), SourceLocation(), nullptr,
-          FT->getParamType(I), /*TInfo=*/nullptr, SC_None, nullptr);
+      ParmVarDecl *Param =
+          ParmVarDecl::Create(Context, FD, SourceLocation(), SourceLocation(),
+                              nullptr, FT->getParamType(I), /*TInfo=*/nullptr,
+                              StorageClass::SC_None, nullptr);
       Param->setScopeInfo(0, I);
       Params.push_back(Param);
     }

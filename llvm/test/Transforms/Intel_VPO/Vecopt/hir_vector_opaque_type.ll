@@ -15,8 +15,8 @@
 ; VPVAL: <RVAL-REG> LINEAR <2 x %struct.OType*> %b
 
 ; Check broadcast pattern is generated for the opaque type memref after HIR-CG.
-; CHECK:       [[SPLATINSERT:%.*]] = insertelement <2 x %struct.OType*> undef, %struct.OType* %b, i32 0
-; CHECK-NEXT:  [[SPLAT:%.*]] = shufflevector <2 x %struct.OType*> [[SPLATINSERT]], <2 x %struct.OType*> undef, <2 x i32> zeroinitializer
+; CHECK:       [[SPLATINSERT:%.*]] = insertelement <2 x %struct.OType*> poison, %struct.OType* %b, i32 0
+; CHECK-NEXT:  [[SPLAT:%.*]] = shufflevector <2 x %struct.OType*> [[SPLATINSERT]], <2 x %struct.OType*> poison, <2 x i32> zeroinitializer
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

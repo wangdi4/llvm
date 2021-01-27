@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "../lib/Transforms/Vectorize/VPlan.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "gtest/gtest.h"
@@ -368,7 +369,7 @@ TEST(VPRecipeTest, CastVPInstructionToVPUser) {
   EXPECT_TRUE(isa<VPUser>(&Recipe));
   VPRecipeBase *BaseR = &Recipe;
   EXPECT_TRUE(isa<VPUser>(BaseR));
-  EXPECT_EQ(&Recipe, BaseR->toVPUser());
+  EXPECT_EQ(&Recipe, BaseR);
 }
 
 TEST(VPRecipeTest, CastVPWidenRecipeToVPUser) {
@@ -386,11 +387,11 @@ TEST(VPRecipeTest, CastVPWidenRecipeToVPUser) {
   EXPECT_TRUE(isa<VPUser>(&WidenR));
   VPRecipeBase *WidenRBase = &WidenR;
   EXPECT_TRUE(isa<VPUser>(WidenRBase));
-  EXPECT_EQ(&WidenR, WidenRBase->toVPUser());
+  EXPECT_EQ(&WidenR, WidenRBase);
   delete AI;
 }
 
-TEST(VPRecipeTest, CastVPWidenCallRecipeToVPUser) {
+TEST(VPRecipeTest, CastVPWidenCallRecipeToVPUserAndVPDef) {
   LLVMContext C;
 
   IntegerType *Int32 = IntegerType::get(C, 32);
@@ -405,11 +406,16 @@ TEST(VPRecipeTest, CastVPWidenCallRecipeToVPUser) {
   EXPECT_TRUE(isa<VPUser>(&Recipe));
   VPRecipeBase *BaseR = &Recipe;
   EXPECT_TRUE(isa<VPUser>(BaseR));
-  EXPECT_EQ(&Recipe, BaseR->toVPUser());
+  EXPECT_EQ(&Recipe, BaseR);
+
+  VPValue *VPV = &Recipe;
+  EXPECT_TRUE(isa<VPRecipeBase>(VPV->getDef()));
+  EXPECT_EQ(&Recipe, dyn_cast<VPRecipeBase>(VPV->getDef()));
+
   delete Call;
 }
 
-TEST(VPRecipeTest, CastVPWidenSelectRecipeToVPUser) {
+TEST(VPRecipeTest, CastVPWidenSelectRecipeToVPUserAndVPDef) {
   LLVMContext C;
 
   IntegerType *Int1 = IntegerType::get(C, 1);
@@ -428,11 +434,16 @@ TEST(VPRecipeTest, CastVPWidenSelectRecipeToVPUser) {
   EXPECT_TRUE(isa<VPUser>(&WidenSelectR));
   VPRecipeBase *BaseR = &WidenSelectR;
   EXPECT_TRUE(isa<VPUser>(BaseR));
-  EXPECT_EQ(&WidenSelectR, BaseR->toVPUser());
+  EXPECT_EQ(&WidenSelectR, BaseR);
+
+  VPValue *VPV = &WidenSelectR;
+  EXPECT_TRUE(isa<VPRecipeBase>(VPV->getDef()));
+  EXPECT_EQ(&WidenSelectR, dyn_cast<VPRecipeBase>(VPV->getDef()));
+
   delete SelectI;
 }
 
-TEST(VPRecipeTest, CastVPWidenGEPRecipeToVPUser) {
+TEST(VPRecipeTest, CastVPWidenGEPRecipeToVPUserAndVPDef) {
   LLVMContext C;
 
   IntegerType *Int32 = IntegerType::get(C, 32);
@@ -448,7 +459,12 @@ TEST(VPRecipeTest, CastVPWidenGEPRecipeToVPUser) {
   EXPECT_TRUE(isa<VPUser>(&Recipe));
   VPRecipeBase *BaseR = &Recipe;
   EXPECT_TRUE(isa<VPUser>(BaseR));
-  EXPECT_EQ(&Recipe, BaseR->toVPUser());
+  EXPECT_EQ(&Recipe, BaseR);
+
+  VPValue *VPV = &Recipe;
+  EXPECT_TRUE(isa<VPRecipeBase>(VPV->getDef()));
+  EXPECT_EQ(&Recipe, dyn_cast<VPRecipeBase>(VPV->getDef()));
+
   delete GEP;
 }
 
@@ -474,11 +490,12 @@ TEST(VPRecipeTest, CastVPInterleaveRecipeToVPUser) {
 
   VPValue Addr;
   VPValue Mask;
-  VPInterleaveRecipe Recipe(nullptr, &Addr, {}, &Mask);
+  InterleaveGroup<Instruction> IG(4, false, Align(4));
+  VPInterleaveRecipe Recipe(&IG, &Addr, {}, &Mask);
   EXPECT_TRUE(isa<VPUser>(&Recipe));
   VPRecipeBase *BaseR = &Recipe;
   EXPECT_TRUE(isa<VPUser>(BaseR));
-  EXPECT_EQ(&Recipe, BaseR->toVPUser());
+  EXPECT_EQ(&Recipe, BaseR);
 }
 
 TEST(VPRecipeTest, CastVPReplicateRecipeToVPUser) {
@@ -505,10 +522,10 @@ TEST(VPRecipeTest, CastVPBranchOnMaskRecipeToVPUser) {
   EXPECT_TRUE(isa<VPUser>(&Recipe));
   VPRecipeBase *BaseR = &Recipe;
   EXPECT_TRUE(isa<VPUser>(BaseR));
-  EXPECT_EQ(&Recipe, BaseR->toVPUser());
+  EXPECT_EQ(&Recipe, BaseR);
 }
 
-TEST(VPRecipeTest, CastVPWidenMemoryInstructionRecipeToVPUser) {
+TEST(VPRecipeTest, CastVPWidenMemoryInstructionRecipeToVPUserAndVPDef) {
   LLVMContext C;
 
   IntegerType *Int32 = IntegerType::get(C, 32);
@@ -521,7 +538,12 @@ TEST(VPRecipeTest, CastVPWidenMemoryInstructionRecipeToVPUser) {
   EXPECT_TRUE(isa<VPUser>(&Recipe));
   VPRecipeBase *BaseR = &Recipe;
   EXPECT_TRUE(isa<VPUser>(BaseR));
-  EXPECT_EQ(&Recipe, BaseR->toVPUser());
+  EXPECT_EQ(&Recipe, BaseR);
+
+  VPValue *VPV = Recipe.getVPValue();
+  EXPECT_TRUE(isa<VPRecipeBase>(VPV->getDef()));
+  EXPECT_EQ(&Recipe, dyn_cast<VPRecipeBase>(VPV->getDef()));
+
   delete Load;
 }
 
@@ -538,11 +560,16 @@ TEST(VPRecipeTest, CastVPReductionRecipeToVPUser) {
   EXPECT_TRUE(isa<VPUser>(BaseR));
 }
 
-struct VPDoubleValueDef : public VPUser, public VPDef {
-  VPDoubleValueDef(ArrayRef<VPValue *> Operands) : VPUser(Operands), VPDef() {
+struct VPDoubleValueDef : public VPRecipeBase, public VPUser {
+  VPDoubleValueDef(ArrayRef<VPValue *> Operands)
+      : VPRecipeBase(99), VPUser(Operands) {
     new VPValue(nullptr, this);
     new VPValue(nullptr, this);
   }
+
+  void execute(struct VPTransformState &State) override{};
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override {}
 };
 
 TEST(VPDoubleValueDefTest, traverseUseLists) {

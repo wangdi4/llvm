@@ -3,7 +3,7 @@
 // RUN: %clang_cc1 %s -emit-llvm -o - -triple x86_64-darwin-apple | FileCheck %s
 
 
-// CHECK-LABEL: define void @test_float_builtins
+// CHECK-LABEL: define{{.*}}void @test_float_builtins
 void test_float_builtins(float F, double D, long double LD) {
   volatile int res;
   res = __builtin_isinff(F);

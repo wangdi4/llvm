@@ -12,8 +12,8 @@ kernel void t2(global __attribute__((buffer_location("DDR"))) int a[],
                QDR float b[5],
                global int *c) {}
 
-// CHECK: define spir_kernel void @t1{{[^!]+}}
+// CHECK: define{{.*}}spir_kernel void @t1{{[^!]+}}
 // CHECK: !kernel_arg_buffer_location ![[MD:[0-9]+]]
-// CHECK: define spir_kernel void @t2{{[^!]+}}
+// CHECK: define{{.*}}spir_kernel void @t2{{[^!]+}}
 // CHECK: !kernel_arg_buffer_location ![[MD]]
 // CHECK: ![[MD]] = !{!"DDR", !"QDR", !""}

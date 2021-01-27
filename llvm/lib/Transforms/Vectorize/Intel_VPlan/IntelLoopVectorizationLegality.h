@@ -52,8 +52,7 @@ public:
   using ExplicitReductionList =
       MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
   using InMemoryReductionList =
-      MapVector<Value *, std::pair<RecurrenceDescriptor::RecurrenceKind,
-                                   RecurrenceDescriptor::MinMaxRecurrenceKind>>;
+      MapVector<Value *, RecurKind>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -207,13 +206,13 @@ public:
   void addReductionAdd(Value *V);
   void addReductionMult(Value *V);
   void addReductionAnd(Value *V) {
-    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerAnd);
+    return parseExplicitReduction(V, RecurKind::And);
   }
   void addReductionXor(Value *V) {
-    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerXor);
+    return parseExplicitReduction(V, RecurKind::Xor);
   }
   void addReductionOr(Value *V) {
-    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerOr);
+    return parseExplicitReduction(V, RecurKind::Or);
   }
 
   bool isExplicitReductionPhi(PHINode *Phi);
@@ -314,15 +313,11 @@ public:
 private:
   // Find pattern inside the loop for matching the explicit
   // reduction variable \p V.
-  void parseExplicitReduction(Value *V,
-                              RecurrenceDescriptor::RecurrenceKind Kind,
-                              RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
-                                  RecurrenceDescriptor::MRK_Invalid);
+  void parseExplicitReduction(Value *V, RecurKind Kind);
   /// Parsing Min/Max reduction patterns.
-  void parseMinMaxReduction(Value *V, RecurrenceDescriptor::RecurrenceKind Kind,
-                            RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
+  void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.
-  void parseBinOpReduction(Value *V, RecurrenceDescriptor::RecurrenceKind Kind);
+  void parseBinOpReduction(Value *V, RecurKind Kind);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,

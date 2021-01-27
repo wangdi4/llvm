@@ -28,8 +28,8 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:    br i1 [[CMP_ZERO0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  vector.ph:
-; LLVMIR-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> undef, i32* [[IP0]], i32 0
-; LLVMIR-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT0]], <2 x i32*> undef, <2 x i32> zeroinitializer
+; LLVMIR-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i32 0
+; LLVMIR-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT0]], <2 x i32*> poison, <2 x i32> zeroinitializer
 ; LLVMIR-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  vector.body:
