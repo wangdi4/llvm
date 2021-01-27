@@ -3354,7 +3354,7 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
 ///
 /// Pseudocode of the codegen:
 /// \code
-///   bool dispatch = __tgt_is_device_available(dnum, nullptr)
+///   i32 dispatch = __tgt_is_device_available(dnum, nullptr)
 ///   if (dispatch == true)
 ///      foo_variant(<args>);
 ///   else
@@ -3373,7 +3373,7 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
 ///    %0 = load i32, i32* @dnum, align 4
 ///    %1 = sext i32 %0 to i64
 ///    %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
-///    %dispatch = icmp ne i32 %call1, 0                                   (2)
+///    %dispatch = icmp ne i32 %call, 0                                    (2)
 ///    br i1 %dispatch, label %variant.call, label %base.call              (3)
 ///
 ///  variant.call:                                                         (4)
@@ -3528,7 +3528,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   CallInst *IsDeviceAvailable =
       VPOParoptUtils::genTgtIsDeviceAvailable(DeviceNum, DeviceType, InsertPt);
   IsDeviceAvailable->setName("available"); //                               (1)
-  Value *Available = // the dispatch condition
+  Value *Available =                       // the dispatch condition
       Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "dispatch"); //    (2)
 
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();

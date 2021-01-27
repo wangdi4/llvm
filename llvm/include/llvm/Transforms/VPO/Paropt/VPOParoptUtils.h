@@ -1454,7 +1454,7 @@ public:
 
   /// Generate a call to
   /// \code
-  ///    bool __tgt_is_device_available(int device_num, void *device_type)
+  ///    i32 __tgt_is_device_available(int device_num, void *device_type)
   /// \endcode
   /// \p DeviceType is a void* argument that carries device type info. In the
   /// current implementation only device architectures in enum DeviceArch are
