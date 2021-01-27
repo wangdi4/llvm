@@ -72,13 +72,24 @@
 #define CPU_MIN_VECTOR_SIZE             16
 #define CPU_MAX_PRINTF_BUFFER_SIZE      1024*1024
 
-// Maximum memory size that could be allocated for a WG that is executed by a
-// thread.
-#define CPU_DEV_MAX_WG_PRIVATE_SIZE     (8 * 1024 * 1024)
+// Base stack size used for stack outside kernel. It covers the stack size that
+// a TBB worker thread already uses before launching a kernel.
+#define CPU_DEV_BASE_STACK_SIZE         (64 * 1024)
+
+// Maximum memory size that could be allocated for private variables of a WG
+// that is executed by a thread.
+// We'd like TBB worker thread stack size to be 8MB, which is the sum of
+// CPU_DEV_BASE_STACK_SIZE, CPU_DEV_LCL_MEM_SIZE and
+// CPU_DEV_MAX_WG_PRIVATE_SIZE. Default stack size of master thread is also 8MB
+// on linux.
+// Refer to TBB worker thread stack size calculation in TBBTaskExecutor::Init.
+#define CPU_DEV_MAX_WG_PRIVATE_SIZE \
+    (8 * 1024 * 1024 - CPU_DEV_BASE_STACK_SIZE - CPU_DEV_LCL_MEM_SIZE)
 
 // Maximum private memory size that could be allocated for WG execution for
 // FPGA, total 8MB/WG. Only used when auto memory allocation is enabled.
-#define FPGA_DEV_MAX_WG_PRIVATE_SIZE    (8 * 1024 * 1024)
+#define FPGA_DEV_MAX_WG_PRIVATE_SIZE \
+    (8 * 1024 * 1024 - CPU_DEV_BASE_STACK_SIZE - FPGA_DEV_LCL_MEM_SIZE)
 
 // Maximum memory size that could be allocated for WG execution. This is the
 // sum of WG Private memory size + Kernel parameters size (twice to cover the
@@ -89,7 +100,7 @@
   (FPGA_MAX_WORK_GROUP_SIZE*MAX_WI_DIM_POW_OF_2*sizeof(size_t)))
 
 // Default stack size for kernel execution
-#define CPU_DEV_STACK_DEFAULT_SIZE  (4*1024*1024)
+#define CPU_DEV_STACK_DEFAULT_SIZE  (8*1024*1024 - CPU_DEV_BASE_STACK_SIZE)
 // Extra stack size for execution of builtins and third-party functions
 #define CPU_DEV_STACK_EXTRA_SIZE (1024*1024)
 

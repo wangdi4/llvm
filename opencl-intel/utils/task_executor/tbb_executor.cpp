@@ -326,28 +326,28 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
                tbb::global_control::max_allowed_parallelism) ==
                gWorker_threads &&
            "Failed to set tbb global_control max_allowed_parallelism");
-    if (ulAdditionalRequiredStackSize != 0) {
-        // We force stack size of TBB created threads to match required value
-        const size_t TBBDefaultStackSize =
-            (CPU_DEVICE == deviceMode) ? CPU_DEV_MAX_WG_PRIVATE_SIZE
-                                       : ((sizeof(uintptr_t) <= 4 ? 2 : 4) *
-                                          1024 * 1024); // 2 or 4 MBytes
-        size_t stackSize = TBBDefaultStackSize + ulAdditionalRequiredStackSize;
-        // align stack size to 4 bytes
-        if ((stackSize & 3u) != 0) {
-          // check that we can align ulAdditionalRequiredStackSize without
-          // overflowing of size_t
-          assert((((size_t)-1) - 4u >= (stackSize & (~3u))) &&
-                 "ulAdditionalRequiedStackSize is too big");
-          // if last 2 bits are non-zero
-          // clear it and add 4 bytes to cover the loss
-          stackSize = (stackSize & (~3u)) + 4u;
-        }
-        m_tbbStackSize = std::make_unique<tbb::global_control>(
-            tbb::global_control::thread_stack_size, stackSize);
-        assert(tbb::global_control::active_value(
-                   tbb::global_control::thread_stack_size) == stackSize &&
-               "Failed to set tbb global_control thread_stack_size");
+
+    // Set stack size.
+    size_t stackSize = CPU_DEV_BASE_STACK_SIZE + ulAdditionalRequiredStackSize;
+    // Align stack size to 4 bytes.
+    if ((stackSize & 3u) != 0) {
+      // check that we can align stackSize without overflowing of size_t
+      assert((((size_t)-1) - 4u >= (stackSize & (~3u))) &&
+             "stackSize is too big");
+      // if last 2 bits are non-zero clear it and add 4 bytes to cover the loss.
+      stackSize = (stackSize & (~3u)) + 4u;
+    }
+    // We force stack size of TBB created threads to match required value.
+    m_tbbStackSize = std::make_unique<tbb::global_control>(
+        tbb::global_control::thread_stack_size, stackSize);
+    // This might not be successful if multiple instances of OCL RT are created
+    // in the same process, only the first setting is successful.
+    size_t activeStackSize = tbb::global_control::active_value(
+        tbb::global_control::thread_stack_size);
+    if (activeStackSize != stackSize) {
+      LOG_ERROR(
+          TEXT("Failed to set tbb thread_stack_size, actual %zu, expected %zu"),
+          activeStackSize, stackSize);
     }
 
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA);
