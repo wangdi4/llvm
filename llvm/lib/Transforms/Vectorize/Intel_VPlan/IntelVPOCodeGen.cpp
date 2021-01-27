@@ -1064,10 +1064,13 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     // TODO: Update the following assertion when we implement function pointers
     // for OpenMP.
-    assert(!VPCall->isIntelIndirectCall() ||
-           VPCall->getVectorizationScenario() ==
-                   VPCallInstruction::CallVecScenariosTy::VectorVariant &&
-               "Intel indirect call should have vector-variants!");
+    if (VPCall->isIntelIndirectCall() &&
+        VPCall->getVectorizationScenario() !=
+            VPCallInstruction::CallVecScenariosTy::VectorVariant)
+      if (FatalErrorHandler)
+        FatalErrorHandler(UnderlyingCI->getParent()->getParent());
+      else
+        llvm_unreachable("Intel indirect call should have vector-variants!");
 
     // Handle lifetime_start/end intrinsics operating on private-memory.
     // We use the following mechanism to handle the intrinsic:
