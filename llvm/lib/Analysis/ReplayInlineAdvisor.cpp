@@ -58,8 +58,8 @@ ReplayInlineAdvisor::ReplayInlineAdvisor(FunctionAnalysisManager &FAM,
 
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
-ReplayInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                               WholeProgramInfo *WPI, InlineCost **IC) {
+ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                   WholeProgramInfo *WPI, InlineCost **IC) {
 #endif // INTEL_CUSTOMIZATION
   assert(HasReplayRemarks);
 

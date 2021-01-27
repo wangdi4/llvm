@@ -979,7 +979,12 @@ SampleProfileLoader::findFunctionSamples(const Instruction &Inst) const {
 
 bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
   if (ExternalInlineAdvisor) {
-    auto Advice = ExternalInlineAdvisor->getAdvice(CB);
+#if INTEL_CUSTOMIZATION
+    InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
+    InlineCost *IC = nullptr;
+    auto Advice = ExternalInlineAdvisor->getAdvice(CB, ILIC, nullptr, &IC);
+    delete ILIC;
+#endif // INTEL_CUSTOMIZATION
     if (!Advice->isInliningRecommended()) {
       Advice->recordUnattemptedInlining();
       return false;

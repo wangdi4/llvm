@@ -111,11 +111,11 @@ llvm::InlineCost static getDefaultInlineAdvice(
 
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
-DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                WholeProgramInfo *WPI, InlineCost **IC) {
+DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                    WholeProgramInfo *WPI, InlineCost **IC) {
   InlineCost MIC = getDefaultInlineAdvice(CB, FAM, Params, ILIC, WPI);
   auto UP = std::make_unique<DefaultInlineAdvice>(
-      this, CB, MIC, // INTEL
+      this, CB, MIC,
       FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller()));
   *IC = UP->getInlineCost();
   return UP;
@@ -123,11 +123,12 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
 #endif // INTEL_CUSTOMIZATION
 
 InlineAdvice::InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
+                           InlineCost IC,    // INTEL
                            OptimizationRemarkEmitter &ORE,
                            bool IsInliningRecommended)
     : Advisor(Advisor), Caller(CB.getCaller()), Callee(CB.getCalledFunction()),
       DLoc(CB.getDebugLoc()), Block(CB.getParent()), ORE(ORE),
-      IsInliningRecommended(IsInliningRecommended) {}
+      IsInliningRecommended(IsInliningRecommended), IC(IC) {} // INTEL
 
 void InlineAdvisor::markFunctionAsDeleted(Function *F) {
   assert((!DeletedFunctions.count(F)) &&
@@ -155,9 +156,6 @@ bool InlineAdvisorAnalysis::Result::tryCreate(InlineParams Params,
   switch (Mode) {
   case InliningAdvisorMode::Default:
     Advisor.reset(new DefaultInlineAdvisor(FAM, Params));
-    break;
-  case InliningAdvisorMode::MandatoryOnly:
-    Advisor.reset(new MandatoryInlineAdvisor(FAM));
     break;
   case InliningAdvisorMode::Development:
 #ifdef LLVM_HAVE_TF_API
@@ -471,33 +469,34 @@ void llvm::emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,
 
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
-MandatoryInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                  WholeProgramInfo *WPI, InlineCost **IC) {
-#endif // INTEL_CUSTOMIZATION
+InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                  WholeProgramInfo *WPI, InlineCost **IC,
+                                  bool Advice) {
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
-  auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
-#if INTEL_CUSTOMIZATION
-  auto MIK = MandatoryInlineAdvisor::getMandatoryKind(CB, FAM, ORE);
-  bool Advice = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
-  bool IsAlways = Advice && (&Caller != &Callee);
-  InlineCost MIC = IsAlways ?
-      llvm::InlineCost::getAlways("always inline", InlrAlwaysInline) :
-      MandatoryInliningKind::Never == MIK ? 
-      llvm::InlineCost::getNever("never inline", NinlrNeverInline) :
-      llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
+  auto &ORE = getCallerORE(CB); 
+  auto MIK = InlineAdvisor::getMandatoryKind(CB, FAM, ORE);
+  bool AdviceT = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
+  bool IsAlways = AdviceT && (&Caller != &Callee);
+  InlineCost MIC =
+      IsAlways
+          ? llvm::InlineCost::getAlways("always inline", InlrAlwaysInline)
+          : MandatoryInliningKind::Never == MIK
+                ? llvm::InlineCost::getNever("never inline", NinlrNeverInline)
+                : llvm::InlineCost::getNever("not mandatory",
+                                             NinlrNotMandatory);
   if (IsAlways)
     MIC.setIsRecommended(true);
-  auto UP = std::make_unique<DefaultInlineAdvice>(nullptr, CB, MIC, ORE);
+  auto UP =
+      std::make_unique<InlineAdvice>(this, CB, MIC, ORE, Advice);
   *IC = UP->getInlineCost();
   return UP;
-#endif // INTEL_CUSTOMIZATION
 }
+#endif // INTEL_CUSTOMIZATION
 
-MandatoryInlineAdvisor::MandatoryInliningKind
-MandatoryInlineAdvisor::getMandatoryKind(CallBase &CB,
-                                         FunctionAnalysisManager &FAM,
-                                         OptimizationRemarkEmitter &ORE) {
+InlineAdvisor::MandatoryInliningKind
+InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
+                                OptimizationRemarkEmitter &ORE) {
   auto &Callee = *CB.getCalledFunction();
 
   auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
@@ -516,4 +515,26 @@ MandatoryInlineAdvisor::getMandatoryKind(CallBase &CB,
       return MandatoryInliningKind::Never;
   }
   return MandatoryInliningKind::NotMandatory;
+}
+
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                         WholeProgramInfo *WPI, InlineCost **IC,
+                         bool MandatoryOnly) {
+#endif // INTEL_CUSTOMIZATION
+  if (!MandatoryOnly)
+#if INTEL_CUSTOMIZATION
+    return getAdviceImpl(CB, ILIC, WPI, IC);
+#endif // INTEL_CUSTOMIZATION
+  bool Advice = CB.getCaller() != CB.getCalledFunction() &&
+                MandatoryInliningKind::Always ==
+                    getMandatoryKind(CB, FAM, getCallerORE(CB));
+#if INTEL_CUSTOMIZATION
+  return getMandatoryAdvice(CB, ILIC, WPI, IC, Advice);
+#endif // INTEL_CUSTOMIZATION
+}
+
+OptimizationRemarkEmitter &InlineAdvisor::getCallerORE(CallBase &CB) {
+  return FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller());
 }

@@ -1238,8 +1238,9 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
   return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel());
 }
 
-ModuleInlinerWrapperPass PassBuilder::buildInlinerPipeline(
-    OptimizationLevel Level, ThinOrFullLTOPhase Phase, bool MandatoryOnly) {
+ModuleInlinerWrapperPass
+PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
+                                  ThinOrFullLTOPhase Phase) {
   InlineParams IP = getInlineParamsFromOptLevel(Level);
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -1248,13 +1249,9 @@ ModuleInlinerWrapperPass PassBuilder::buildInlinerPipeline(
   if (PGOOpt)
     IP.EnableDeferral = EnablePGOInlineDeferral;
 
-  ModuleInlinerWrapperPass MIWP(
-      IP, DebugLogging,
-      (MandatoryOnly ? InliningAdvisorMode::MandatoryOnly : UseInlineAdvisor),
-      MaxDevirtIterations);
-
-  if (MandatoryOnly)
-    return MIWP;
+  ModuleInlinerWrapperPass MIWP(IP, DebugLogging,
+                                PerformMandatoryInliningsFirst,
+                                UseInlineAdvisor, MaxDevirtIterations);
 
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
@@ -1473,9 +1470,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(InlineListsPass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (PerformMandatoryInliningsFirst)
-    MPM.addPass(buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/true));
-  MPM.addPass(buildInlinerPipeline(Level, Phase, /*MandatoryOnly=*/false));
+  MPM.addPass(buildInlinerPipeline(Level, Phase));
 
   if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
@@ -2174,9 +2169,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(AggInlinerPass());
   }
 
-  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level),
-                                       DebugLogging,
-                                       InliningAdvisorMode::MandatoryOnly));
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
   // valuable as the inliner doesn't currently care whether it is inlining an

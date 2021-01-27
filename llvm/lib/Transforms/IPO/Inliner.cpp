@@ -904,7 +904,7 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass() {
+InlinerPass::InlinerPass(bool OnlyMandatory): OnlyMandatory(OnlyMandatory) {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
 }
@@ -932,7 +932,8 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
     // duration of the inliner pass, and thus the lifetime of the owned advisor.
     // The one we would get from the MAM can be invalidated as a result of the
     // inliner's activity.
-    OwnedDefaultAdvisor.emplace(FAM, getInlineParams());
+    OwnedDefaultAdvisor =
+        std::make_unique<DefaultInlineAdvisor>(FAM, getInlineParams());
     return *OwnedDefaultAdvisor;
   }
   assert(IAA->getAdvisor() &&
@@ -1132,8 +1133,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         setInlineRemark(*CB, "recursive SCC split");
         continue;
       }
-      InlineCost *IC = nullptr; // INTEL
-      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &IC); // INTEL
+#if INTEL_CUSTOMIZATION
+      InlineCost *IC = nullptr;
+      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &IC, OnlyMandatory);
+#endif // INTEL_CUSTOMIZATION
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
@@ -1384,6 +1387,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
 ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
                                                    bool Debugging,
+                                                   bool MandatoryFirst,
                                                    InliningAdvisorMode Mode,
                                                    unsigned MaxDevirtIterations)
     : Params(Params), Mode(Mode), MaxDevirtIterations(MaxDevirtIterations),
@@ -1393,6 +1397,8 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
+  if (MandatoryFirst)
+    PM.addPass(InlinerPass(/*OnlyMandatory*/ true));
   PM.addPass(InlinerPass());
 }
 

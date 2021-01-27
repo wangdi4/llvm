@@ -111,12 +111,14 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
-  InlinerPass(); // INTEL
-  ~InlinerPass();
-  InlinerPass(InlinerPass &&Arg)
 #if INTEL_CUSTOMIZATION
-      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)),
-        Report(std::move(Arg.Report)), MDReport(std::move(Arg.MDReport)) {}
+  InlinerPass(bool OnlyMandatory = false);
+#endif // INTEL_CUSTOMIZATION
+  ~InlinerPass();
+#if INTEL_CUSTOMIZATION
+  InlinerPass(InlinerPass &&Arg)
+      : OnlyMandatory(false), Report(std::move(Arg.Report)),
+        MDReport(std::move(Arg.MDReport)) {}
 #endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
@@ -131,7 +133,8 @@ private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             FunctionAnalysisManager &FAM, Module &M);
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
-  Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
+  std::unique_ptr<DefaultInlineAdvisor> OwnedDefaultAdvisor;
+  const bool OnlyMandatory;
 
   // INTEL The inline report
   InlineReport *Report; // INTEL
@@ -149,6 +152,7 @@ class ModuleInlinerWrapperPass
 public:
   ModuleInlinerWrapperPass(
       InlineParams Params = getInlineParams(), bool Debugging = false,
+      bool MandatoryFirst = true,
       InliningAdvisorMode Mode = InliningAdvisorMode::Default,
       unsigned MaxDevirtIterations = 0);
   ModuleInlinerWrapperPass(ModuleInlinerWrapperPass &&Arg) = default;
