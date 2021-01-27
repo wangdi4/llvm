@@ -174,8 +174,8 @@ private:
 
   /// Computes and returns unroll factor for the loop using cost model. Returns
   /// 0 as an invalid unroll factor.
-  unsigned computeUnrollFactor(const HLLoop *HLoop,
-                               bool HasEnablingPragma) const;
+  unsigned computeUnrollFactor(const HLLoop *HLoop, bool HasEnablingPragma,
+                               bool &RequiresAdditionalRefinement) const;
 
   /// Returns true if we can attempt to unroll this loop.
   bool isApplicable(const HLLoop *Loop) const;
@@ -441,8 +441,9 @@ static void markDoNotUnroll(HLLoop *Lp) {
   }
 }
 
-unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
-                                               bool HasEnablingPragma) const {
+unsigned HIRGeneralUnroll::computeUnrollFactor(
+    const HLLoop *HLoop, bool HasEnablingPragma,
+    bool &RequiresAdditionalRefinement) const {
 
   unsigned UnrollFactor;
   uint64_t TripCount;
@@ -478,18 +479,19 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     return 0;
   }
 
-  bool IsInnerLoop =
-      ((HLoop->getNestingLevel() > 1) || (HLoop->getLLVMLoopDepth() > 1));
+  unsigned LoopDepth =
+      std::max(HLoop->getNestingLevel(), HLoop->getLLVMLoopDepth());
+  bool IsUnknown = HLoop->isUnknown();
 
   // Add penalty for inner loops with liveouts to account for increase in
   // register pressure.
-  if (IsInnerLoop && NumLiveouts != 0) {
+  if (LoopDepth > 1 && NumLiveouts != 0) {
     // Number of exits complicate the CFG by adding additional edges. If there are
     // values liveout these exits, it will make life difficult for register
     // allocation.
     // Normal exit is ignored for DO loops but accounted for unknown loops
     // because its explicit backedge is cloned.
-    unsigned ExitCost = (HLoop->isUnknown()) ? NumExits : (NumExits - 1);
+    unsigned ExitCost = IsUnknown ? NumExits : (NumExits - 1);
 
     // Account for number of liveouts in non-DO loops.
     unsigned LiveoutCost = (HLoop->isDo()) ? 0 : NumLiveouts;
@@ -546,10 +548,13 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
     return 0;
   }
 
+  bool HasTemporalLocality = false;
+
   // If loop has temporal reuse, unrolling with higher factor can expose more
   // redundant loads/stores.
-  if ((NumExits == 1) || HIRLoopLocality::hasTemporalReuseLocality(
-                             HLoop, MaxUnrollFactor - 1, true)) {
+  if ((NumExits == 1) ||
+      (HasTemporalLocality = HIRLoopLocality::hasTemporalReuseLocality(
+           HLoop, MaxUnrollFactor - 1, true))) {
     UnrollFactor = MaxUnrollFactor;
   } else {
     // Multi-exit loops have a higher chance of having a low trip count as they
@@ -563,6 +568,16 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   }
 
   assert(UnrollFactor >= 2 && "Unexpected unroll factor!");
+
+  if (!HasEnablingPragma) {
+    // Perform additional profitability check for unknown loops and deeply
+    // nested multi-exit loops with liveouts. This is because unrolling has
+    // higher cost for them.
+    if (IsUnknown || (!HasTemporalLocality && LoopDepth > 2 && NumExits > 1 &&
+                      NumLiveouts != 0)) {
+      RequiresAdditionalRefinement = true;
+    }
+  }
 
   return UnrollFactor;
 }
@@ -623,12 +638,15 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     }
   }
 
+  bool RequiresAdditionalRefinement = false;
+
   // Determine unroll factor of the loop.
-  if ((*UnrollFactor = computeUnrollFactor(Loop, HasEnablingPragma)) == 0) {
+  if ((*UnrollFactor = computeUnrollFactor(
+           Loop, HasEnablingPragma, RequiresAdditionalRefinement)) == 0) {
     return false;
   }
 
-  if (!HasEnablingPragma &&
+  if (RequiresAdditionalRefinement &&
       ((*UnrollFactor =
             refineUnrollFactorUsingReuseAnalysis(Loop, *UnrollFactor)) == 0)) {
     return false;
@@ -736,13 +754,6 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
 
 unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
     const HLLoop *Loop, unsigned CurUnrollFactor) const {
-  // Profitability for unknown loops is tighter than do loops because unlike do
-  // loops we cannot save bottom test computation for unknown loops.
-  // TODO: add similar model for do loops?
-  if (!Loop->isUnknown()) {
-    return CurUnrollFactor;
-  }
-
   ReuseAnalyzer RA(Loop);
 
   RA.analyze();
