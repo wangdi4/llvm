@@ -40,11 +40,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "global-fma"
 
-/// This internal switch can be used to turn off the Global FMA optimization.
-static cl::opt<bool> DoFMAOpt("do-x86-global-fma",
-                              cl::desc("Enable the global FMA opt."),
-                              cl::init(true), cl::Hidden);
-
 /// The internal switch that is used to re-define FMA heuristics.
 static cl::opt<unsigned> FMAControl("x86-global-fma-control",
                                     cl::desc("FMA heuristics control."),
@@ -1068,7 +1063,7 @@ void X86FMABasicBlock::print(raw_ostream &OS) const {
 /// Loop over all of the basic blocks, performing the FMA optimization for
 /// each block separately.
 bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
-  if (!DoFMAOpt || skipFunction(MFunc.getFunction()))
+  if (!MFunc.getTarget().Options.DoFMAOpt || skipFunction(MFunc.getFunction()))
     return false;
 
   MF = &MFunc;

@@ -130,6 +130,8 @@ bool getEnableIntelAdvancedOpts();
 bool getEnableFtzDaz();
 
 int getX87Precision();
+
+bool getDoFMAOpt();
 #endif // INTEL_CUSTOMIZATION
 
 bool getEmitCallSiteInfo();
