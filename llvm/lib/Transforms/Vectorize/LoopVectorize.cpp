@@ -1394,7 +1394,7 @@ public:
   /// Save vectorization decision \p W and \p Cost taken by the cost model for
   /// instruction \p I and vector width \p VF.
   void setWideningDecision(Instruction *I, ElementCount VF, InstWidening W,
-                           unsigned Cost) {
+                           InstructionCost Cost) {
     assert(VF.isVector() && "Expected VF >=2");
     WideningDecisions[std::make_pair(I, VF)] = std::make_pair(W, Cost);
   }
@@ -1402,7 +1402,8 @@ public:
   /// Save vectorization decision \p W and \p Cost taken by the cost model for
   /// interleaving group \p Grp and vector width \p VF.
   void setWideningDecision(const InterleaveGroup<Instruction> *Grp,
-                           ElementCount VF, InstWidening W, unsigned Cost) {
+                           ElementCount VF, InstWidening W,
+                           InstructionCost Cost) {
     assert(VF.isVector() && "Expected VF >=2");
     /// Broadcast this decicion to all instructions inside the group.
     /// But the cost will be assigned to one instruction only.
@@ -1435,7 +1436,7 @@ public:
 
   /// Return the vectorization cost for the given instruction \p I and vector
   /// width \p VF.
-  unsigned getWideningCost(Instruction *I, ElementCount VF) {
+  InstructionCost getWideningCost(Instruction *I, ElementCount VF) {
     assert(VF.isVector() && "Expected VF >=2");
     std::pair<Instruction *, ElementCount> InstOnVF = std::make_pair(I, VF);
     assert(WideningDecisions.find(InstOnVF) != WideningDecisions.end() &&
@@ -1613,15 +1614,15 @@ public:
   /// Estimate cost of an intrinsic call instruction CI if it were vectorized
   /// with factor VF.  Return the cost of the instruction, including
   /// scalarization overhead if it's needed.
-  unsigned getVectorIntrinsicCost(CallInst *CI, ElementCount VF);
+  InstructionCost getVectorIntrinsicCost(CallInst *CI, ElementCount VF);
 
   /// Estimate cost of a call instruction CI if it were vectorized with factor
   /// VF. Return the cost of the instruction, including scalarization overhead
   /// if it's needed. The flag NeedToScalarize shows if the call needs to be
   /// scalarized -
   /// i.e. either vector version isn't available, or is too expensive.
-  unsigned getVectorCallCost(CallInst *CI, ElementCount VF,
-                             bool &NeedToScalarize);
+  InstructionCost getVectorCallCost(CallInst *CI, ElementCount VF,
+                                    bool &NeedToScalarize);
 
   /// Invalidates decisions already taken by the cost model.
   void invalidateCostModelingDecisions() {
@@ -1664,30 +1665,30 @@ private:
                                      Type *&VectorTy);
 
   /// Calculate vectorization cost of memory instruction \p I.
-  unsigned getMemoryInstructionCost(Instruction *I, ElementCount VF);
+  InstructionCost getMemoryInstructionCost(Instruction *I, ElementCount VF);
 
   /// The cost computation for scalarized memory instruction.
-  unsigned getMemInstScalarizationCost(Instruction *I, ElementCount VF);
+  InstructionCost getMemInstScalarizationCost(Instruction *I, ElementCount VF);
 
   /// The cost computation for interleaving group of memory instructions.
-  unsigned getInterleaveGroupCost(Instruction *I, ElementCount VF);
+  InstructionCost getInterleaveGroupCost(Instruction *I, ElementCount VF);
 
   /// The cost computation for Gather/Scatter instruction.
-  unsigned getGatherScatterCost(Instruction *I, ElementCount VF);
+  InstructionCost getGatherScatterCost(Instruction *I, ElementCount VF);
 
   /// The cost computation for widening instruction \p I with consecutive
   /// memory access.
-  unsigned getConsecutiveMemOpCost(Instruction *I, ElementCount VF);
+  InstructionCost getConsecutiveMemOpCost(Instruction *I, ElementCount VF);
 
   /// The cost calculation for Load/Store instruction \p I with uniform pointer -
   /// Load: scalar load + broadcast.
   /// Store: scalar store + (loop invariant value stored? 0 : extract of last
   /// element)
-  unsigned getUniformMemOpCost(Instruction *I, ElementCount VF);
+  InstructionCost getUniformMemOpCost(Instruction *I, ElementCount VF);
 
   /// Estimate the overhead of scalarizing an instruction. This is a
   /// convenience wrapper for the type-based getScalarizationOverhead API.
-  unsigned getScalarizationOverhead(Instruction *I, ElementCount VF);
+  InstructionCost getScalarizationOverhead(Instruction *I, ElementCount VF);
 
   /// Returns whether the instruction is a load or store and will be a emitted
   /// as a vector operation.
@@ -1775,7 +1776,7 @@ private:
   /// Keeps cost model vectorization decision and cost for instructions.
   /// Right now it is used for memory instructions only.
   using DecisionList = DenseMap<std::pair<Instruction *, ElementCount>,
-                                std::pair<InstWidening, unsigned>>;
+                                std::pair<InstWidening, InstructionCost>>;
 
   DecisionList WideningDecisions;
 
@@ -3710,9 +3711,9 @@ static void cse(BasicBlock *BB) {
   }
 }
 
-unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
-                                                       ElementCount VF,
-                                                       bool &NeedToScalarize) {
+InstructionCost
+LoopVectorizationCostModel::getVectorCallCost(CallInst *CI, ElementCount VF,
+                                              bool &NeedToScalarize) {
   assert(!VF.isScalable() && "scalable vectors not yet supported.");
   Function *F = CI->getCalledFunction();
   Type *ScalarRetTy = CI->getType();
@@ -3724,8 +3725,8 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   // to be vectors, so we need to extract individual elements from there,
   // execute VF scalar calls, and then gather the result into the vector return
   // value.
-  unsigned ScalarCallCost = TTI.getCallInstrCost(F, ScalarRetTy, ScalarTys,
-                                                 TTI::TCK_RecipThroughput);
+  InstructionCost ScalarCallCost =
+      TTI.getCallInstrCost(F, ScalarRetTy, ScalarTys, TTI::TCK_RecipThroughput);
   if (VF.isScalar())
     return ScalarCallCost;
 
@@ -3736,9 +3737,10 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
 
   // Compute costs of unpacking argument values for the scalar calls and
   // packing the return values to a vector.
-  unsigned ScalarizationCost = getScalarizationOverhead(CI, VF);
+  InstructionCost ScalarizationCost = getScalarizationOverhead(CI, VF);
 
-  unsigned Cost = ScalarCallCost * VF.getKnownMinValue() + ScalarizationCost;
+  InstructionCost Cost =
+      ScalarCallCost * VF.getKnownMinValue() + ScalarizationCost;
 
   // If we can't emit a vector call for this function, then the currently found
   // cost is the cost we need to return.
@@ -3765,17 +3767,18 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
 #endif
 
   // If the corresponding vector cost is cheaper, return its cost.
-  unsigned VectorCallCost = TTI.getCallInstrCost(nullptr, RetTy, Tys,
-                                                 TTI::TCK_RecipThroughput);
+  InstructionCost VectorCallCost =
+      TTI.getCallInstrCost(nullptr, RetTy, Tys, TTI::TCK_RecipThroughput);
   if (VectorCallCost < Cost) {
     NeedToScalarize = false;
-    return VectorCallCost;
+    Cost = VectorCallCost;
   }
   return Cost;
 }
 
-unsigned LoopVectorizationCostModel::getVectorIntrinsicCost(CallInst *CI,
-                                                            ElementCount VF) {
+InstructionCost
+LoopVectorizationCostModel::getVectorIntrinsicCost(CallInst *CI,
+                                                   ElementCount VF) {
   Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
   assert(ID && "Expected intrinsic call!");
 
@@ -4904,11 +4907,13 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &I, VPValue *Def,
   // version of the instruction.
   // Is it beneficial to perform intrinsic call compared to lib call?
   bool NeedToScalarize = false;
-  unsigned CallCost = Cost->getVectorCallCost(CI, VF, NeedToScalarize);
-  bool UseVectorIntrinsic =
-      ID && Cost->getVectorIntrinsicCost(CI, VF) <= CallCost;
+  InstructionCost CallCost = Cost->getVectorCallCost(CI, VF, NeedToScalarize);
+  InstructionCost IntrinsicCost = ID ? Cost->getVectorIntrinsicCost(CI, VF) : 0;
+  bool UseVectorIntrinsic = ID && IntrinsicCost <= CallCost;
   assert((UseVectorIntrinsic || !NeedToScalarize) &&
          "Instruction should be scalarized elsewhere.");
+  assert(IntrinsicCost.isValid() && CallCost.isValid() &&
+         "Cannot have invalid costs while widening");
 
   for (unsigned Part = 0; Part < UF; ++Part) {
     SmallVector<Value *, 4> Args;
@@ -6683,7 +6688,7 @@ static bool isStrideMul(Instruction *I, LoopVectorizationLegality *Legal) {
          Legal->hasStride(I->getOperand(1));
 }
 
-unsigned
+InstructionCost
 LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
                                                         ElementCount VF) {
   assert(VF.isVector() &&
@@ -6701,7 +6706,7 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
   const SCEV *PtrSCEV = getAddressAccessSCEV(Ptr, Legal, PSE, TheLoop);
 
   // Get the cost of the scalar memory instruction and address computation.
-  unsigned Cost =
+  InstructionCost Cost =
       VF.getKnownMinValue() * TTI.getAddressComputationCost(PtrTy, SE, PtrSCEV);
 
   // Don't pass *I here, since it is scalar but will actually be part of a
@@ -6730,8 +6735,9 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
   return Cost;
 }
 
-unsigned LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
-                                                             ElementCount VF) {
+InstructionCost
+LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
+                                                    ElementCount VF) {
   Type *ValTy = getMemInstValueType(I);
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   Value *Ptr = getLoadStorePointerOperand(I);
@@ -6742,7 +6748,7 @@ unsigned LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
   assert((ConsecutiveStride == 1 || ConsecutiveStride == -1) &&
          "Stride should be 1 or -1 for consecutive memory access");
   const Align Alignment = getLoadStoreAlignment(I);
-  unsigned Cost = 0;
+  InstructionCost Cost = 0;
   if (Legal->isMaskRequired(I))
     Cost += TTI.getMaskedMemoryOpCost(I->getOpcode(), VectorTy, Alignment, AS,
                                       CostKind);
@@ -6756,8 +6762,9 @@ unsigned LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
   return Cost;
 }
 
-unsigned LoopVectorizationCostModel::getUniformMemOpCost(Instruction *I,
-                                                         ElementCount VF) {
+InstructionCost
+LoopVectorizationCostModel::getUniformMemOpCost(Instruction *I,
+                                                ElementCount VF) {
   assert(Legal->isUniformMemOp(*I));
 
   Type *ValTy = getMemInstValueType(I);
@@ -6783,8 +6790,9 @@ unsigned LoopVectorizationCostModel::getUniformMemOpCost(Instruction *I,
                                        VF.getKnownMinValue() - 1));
 }
 
-unsigned LoopVectorizationCostModel::getGatherScatterCost(Instruction *I,
-                                                          ElementCount VF) {
+InstructionCost
+LoopVectorizationCostModel::getGatherScatterCost(Instruction *I,
+                                                 ElementCount VF) {
   Type *ValTy = getMemInstValueType(I);
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   const Align Alignment = getLoadStoreAlignment(I);
@@ -6796,8 +6804,9 @@ unsigned LoopVectorizationCostModel::getGatherScatterCost(Instruction *I,
              TargetTransformInfo::TCK_RecipThroughput, I);
 }
 
-unsigned LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
-                                                            ElementCount VF) {
+InstructionCost
+LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
+                                                   ElementCount VF) {
   Type *ValTy = getMemInstValueType(I);
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   unsigned AS = getLoadStoreAddressSpace(I);
@@ -6821,7 +6830,7 @@ unsigned LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
   // Calculate the cost of the whole interleaved group.
   bool UseMaskForGaps =
       Group->requiresScalarEpilogue() && !isScalarEpilogueAllowed();
-  unsigned Cost = TTI.getInterleavedMemoryOpCost(
+  InstructionCost Cost = TTI.getInterleavedMemoryOpCost(
       I->getOpcode(), WideVecTy, Group->getFactor(), Indices, Group->getAlign(),
       AS, TTI::TCK_RecipThroughput, Legal->isMaskRequired(I), UseMaskForGaps);
 
@@ -6835,8 +6844,9 @@ unsigned LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
   return Cost;
 }
 
-unsigned LoopVectorizationCostModel::getMemoryInstructionCost(Instruction *I,
-                                                              ElementCount VF) {
+InstructionCost
+LoopVectorizationCostModel::getMemoryInstructionCost(Instruction *I,
+                                                     ElementCount VF) {
   // Calculate scalar cost only. Vectorization cost should be ready at this
   // moment.
   if (VF.isScalar()) {
@@ -6882,15 +6892,16 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I,
   return VectorizationCostTy(C, TypeNotScalarized);
 }
 
-unsigned LoopVectorizationCostModel::getScalarizationOverhead(Instruction *I,
-                                                              ElementCount VF) {
+InstructionCost
+LoopVectorizationCostModel::getScalarizationOverhead(Instruction *I,
+                                                     ElementCount VF) {
 
   assert(!VF.isScalable() &&
          "cannot compute scalarization overhead for scalable vectorization");
   if (VF.isScalar())
     return 0;
 
-  unsigned Cost = 0;
+  InstructionCost Cost = 0;
   Type *RetTy = ToVectorTy(I->getType(), VF);
   if (!RetTy->isVoidTy() &&
       (!isa<LoadInst>(I) || !TTI.supportsEfficientVectorElementLoadStore()))
@@ -6939,14 +6950,14 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
         // relying on instcombine to remove them.
         // Load: Scalar load + broadcast
         // Store: Scalar store + isLoopInvariantStoreValue ? 0 : extract
-        unsigned Cost = getUniformMemOpCost(&I, VF);
+        InstructionCost Cost = getUniformMemOpCost(&I, VF);
         setWideningDecision(&I, VF, CM_Scalarize, Cost);
         continue;
       }
 
       // We assume that widening is the best solution when possible.
       if (memoryInstructionCanBeWidened(&I, VF)) {
-        unsigned Cost = getConsecutiveMemOpCost(&I, VF);
+        InstructionCost Cost = getConsecutiveMemOpCost(&I, VF);
         int ConsecutiveStride =
                Legal->isConsecutivePtr(getLoadStorePointerOperand(&I));
         assert((ConsecutiveStride == 1 || ConsecutiveStride == -1) &&
@@ -6958,7 +6969,7 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
       }
 
       // Choose between Interleaving, Gather/Scatter or Scalarization.
-      unsigned InterleaveCost = std::numeric_limits<unsigned>::max();
+      InstructionCost InterleaveCost = std::numeric_limits<int>::max();
       unsigned NumAccesses = 1;
       if (isAccessInterleaved(&I)) {
         auto Group = getInterleavedAccessGroup(&I);
@@ -6973,17 +6984,17 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
           InterleaveCost = getInterleaveGroupCost(&I, VF);
       }
 
-      unsigned GatherScatterCost =
+      InstructionCost GatherScatterCost =
           isLegalGatherOrScatter(&I)
               ? getGatherScatterCost(&I, VF) * NumAccesses
-              : std::numeric_limits<unsigned>::max();
+              : std::numeric_limits<int>::max();
 
-      unsigned ScalarizationCost =
+      InstructionCost ScalarizationCost =
           getMemInstScalarizationCost(&I, VF) * NumAccesses;
 
       // Choose better solution for the current VF,
       // write down this decision and use it during vectorization.
-      unsigned Cost;
+      InstructionCost Cost;
       InstWidening Decision;
       if (InterleaveCost <= GatherScatterCost &&
           InterleaveCost < ScalarizationCost) {
@@ -7148,7 +7159,7 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
     // probability of executing the predicated block. If the instruction is not
     // predicated, we fall through to the next case.
     if (VF.isVector() && isScalarWithPredication(I)) {
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
 
       // These instructions have a non-void type, so account for the phi nodes
       // that we will create. This cost is likely to be zero. The phi node
@@ -7340,9 +7351,11 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
   case Instruction::Call: {
     bool NeedToScalarize;
     CallInst *CI = cast<CallInst>(I);
-    unsigned CallCost = getVectorCallCost(CI, VF, NeedToScalarize);
-    if (getVectorIntrinsicIDForCall(CI, TLI))
-      return std::min(CallCost, getVectorIntrinsicCost(CI, VF));
+    InstructionCost CallCost = getVectorCallCost(CI, VF, NeedToScalarize);
+    if (getVectorIntrinsicIDForCall(CI, TLI)) {
+      InstructionCost IntrinsicCost = getVectorIntrinsicCost(CI, VF);
+      return std::min(CallCost, IntrinsicCost);
+    }
     return CallCost;
   }
   case Instruction::ExtractValue:
@@ -8258,9 +8271,11 @@ VPWidenCallRecipe *VPRecipeBuilder::tryToWidenCall(CallInst *CI, VFRange &Range,
     // version of the instruction.
     // Is it beneficial to perform intrinsic call compared to lib call?
     bool NeedToScalarize = false;
-    unsigned CallCost = CM.getVectorCallCost(CI, VF, NeedToScalarize);
-    bool UseVectorIntrinsic =
-        ID && CM.getVectorIntrinsicCost(CI, VF) <= CallCost;
+    InstructionCost CallCost = CM.getVectorCallCost(CI, VF, NeedToScalarize);
+    InstructionCost IntrinsicCost = ID ? CM.getVectorIntrinsicCost(CI, VF) : 0;
+    bool UseVectorIntrinsic = ID && IntrinsicCost <= CallCost;
+    assert(IntrinsicCost.isValid() && CallCost.isValid() &&
+           "Cannot have invalid costs while widening");
     return UseVectorIntrinsic || !NeedToScalarize;
   };
 
