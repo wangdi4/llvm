@@ -568,6 +568,7 @@ void TemplateSpecializationTypeLoc::initializeArgLocs(ASTContext &Context,
     case TemplateArgument::Integral:
     case TemplateArgument::Declaration:
     case TemplateArgument::NullPtr:
+    case TemplateArgument::UncommonValue:
       ArgInfos[i] = TemplateArgumentLocInfo();
       break;
 

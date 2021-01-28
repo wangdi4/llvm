@@ -9032,6 +9032,10 @@ class HorizontalReduction {
       case RecurKind::FMul:
         return Builder.CreateBinOp((Instruction::BinaryOps)RdxOpcode, LHS, RHS,
                                    Name);
+      case RecurKind::FMax:
+        return Builder.CreateBinaryIntrinsic(Intrinsic::maxnum, LHS, RHS);
+      case RecurKind::FMin:
+        return Builder.CreateBinaryIntrinsic(Intrinsic::minnum, LHS, RHS);
 
       case RecurKind::SMax: {
         Value *Cmp = Builder.CreateICmpSGT(LHS, RHS, Name);
@@ -9069,8 +9073,8 @@ class HorizontalReduction {
       return IsLeafValue || Kind != RecurKind::None;
     }
 
-    /// Return true if this operation is any kind of minimum or maximum.
-    bool isMinMax() const {
+    /// Return true if this operation is a cmp+select idiom.
+    bool isCmpSel() const {
       assert(Kind != RecurKind::None && "Expected reduction operation.");
       return RecurrenceDescriptor::isIntMinMaxRecurrenceKind(Kind);
     }
@@ -9081,14 +9085,14 @@ class HorizontalReduction {
       // We allow calling this before 'Kind' is set, so handle that specially.
       if (Kind == RecurKind::None)
         return 0;
-      return isMinMax() ? 1 : 0;
+      return isCmpSel() ? 1 : 0;
     }
 
     /// Total number of operands in the reduction operation.
     unsigned getNumberOfOperands() const {
       assert(Kind != RecurKind::None && !!*this &&
              "Expected reduction operation.");
-      return isMinMax() ? 3 : 2;
+      return isCmpSel() ? 3 : 2;
     }
 
     /// Checks if the instruction is in basic block \p BB.
@@ -9096,7 +9100,7 @@ class HorizontalReduction {
     bool hasSameParent(Instruction *I, BasicBlock *BB, bool IsRedOp) const {
       assert(Kind != RecurKind::None && !!*this &&
              "Expected reduction operation.");
-      if (IsRedOp && isMinMax()) {
+      if (IsRedOp && isCmpSel()) {
         auto *Cmp = cast<Instruction>(cast<SelectInst>(I)->getCondition());
         return I->getParent() == BB && Cmp && Cmp->getParent() == BB;
       }
@@ -9109,7 +9113,7 @@ class HorizontalReduction {
              "Expected reduction operation.");
       // SelectInst must be used twice while the condition op must have single
       // use only.
-      if (isMinMax())
+      if (isCmpSel())
         return I->hasNUses(2) &&
                (!IsReductionOp ||
                 cast<SelectInst>(I)->getCondition()->hasOneUse());
@@ -9122,7 +9126,7 @@ class HorizontalReduction {
     void initReductionOps(ReductionOpsListType &ReductionOps) {
       assert(Kind != RecurKind::None && !!*this &&
              "Expected reduction operation.");
-      if (isMinMax())
+      if (isCmpSel())
         ReductionOps.assign(2, ReductionOpsType());
       else
         ReductionOps.assign(1, ReductionOpsType());
@@ -9131,7 +9135,7 @@ class HorizontalReduction {
     /// Add all reduction operations for the reduction instruction \p I.
     void addReductionOps(Instruction *I, ReductionOpsListType &ReductionOps) {
       assert(Kind != RecurKind::None && "Expected reduction operation.");
-      if (isMinMax()) {
+      if (isCmpSel()) {
         ReductionOps[0].emplace_back(cast<SelectInst>(I)->getCondition());
         ReductionOps[1].emplace_back(I);
       } else {
@@ -9144,6 +9148,15 @@ class HorizontalReduction {
       assert(Kind != RecurKind::None && "Expected reduction operation.");
       if (RecurrenceDescriptor::isIntMinMaxRecurrenceKind(Kind))
         return true;
+
+      if (Kind == RecurKind::FMax || Kind == RecurKind::FMin) {
+        // FP min/max are associative except for NaN and -0.0. We do not
+        // have to rule out -0.0 here because the intrinsic semantics do not
+        // specify a fixed result for it.
+        // TODO: This is artificially restricted to fast because the code that
+        //       creates reductions assumes/produces fast ops.
+        return I->getFastMathFlags().isFast();
+      }
 
       return I->isAssociative();
     }
@@ -9253,6 +9266,11 @@ class HorizontalReduction {
       return OperationData(RecurKind::FAdd);
     if (match(I, m_FMul(m_Value(), m_Value())))
       return OperationData(RecurKind::FMul);
+
+    if (match(I, m_Intrinsic<Intrinsic::maxnum>(m_Value(), m_Value())))
+      return OperationData(RecurKind::FMax);
+    if (match(I, m_Intrinsic<Intrinsic::minnum>(m_Value(), m_Value())))
+      return OperationData(RecurKind::FMin);
 
     if (match(I, m_SMax(m_Value(), m_Value())))
       return OperationData(RecurKind::SMax);
@@ -9574,10 +9592,10 @@ public:
       DebugLoc Loc = cast<Instruction>(ReducedVals[i])->getDebugLoc();
       Value *VectorizedRoot = V.vectorizeTree(ExternallyUsedValues);
 
-      // Emit a reduction. For min/max, the root is a select, but the insertion
+      // Emit a reduction. If the root is a select (min/max idiom), the insert
       // point is the compare condition of that select.
       Instruction *RdxRootInst = cast<Instruction>(ReductionRoot);
-      if (RdxTreeInst.isMinMax())
+      if (RdxTreeInst.isCmpSel())
         Builder.SetInsertPoint(getCmpForMinMaxReduction(RdxRootInst));
       else
         Builder.SetInsertPoint(RdxRootInst);
@@ -9619,7 +9637,7 @@ public:
       // select, we also have to RAUW for the compare instruction feeding the
       // reduction root. That's because the original compare may have extra uses
       // besides the final select of the reduction.
-      if (RdxTreeInst.isMinMax()) {
+      if (RdxTreeInst.isCmpSel()) {
         if (auto *VecSelect = dyn_cast<SelectInst>(VectorizedTree)) {
           Instruction *ScalarCmp =
               getCmpForMinMaxReduction(cast<Instruction>(ReductionRoot));
@@ -9650,12 +9668,10 @@ private:
   int getReductionCost(TargetTransformInfo *TTI, Value *FirstReducedVal,
                        unsigned ReduxWidth) {
     Type *ScalarTy = FirstReducedVal->getType();
-    auto *VecTy = FixedVectorType::get(ScalarTy, ReduxWidth);
+    FixedVectorType *VectorTy = FixedVectorType::get(ScalarTy, ReduxWidth);
 
     RecurKind Kind = RdxTreeInst.getKind();
-    unsigned RdxOpcode = RecurrenceDescriptor::getOpcode(Kind);
-    int SplittingRdxCost;
-    int ScalarReduxCost;
+    int VectorCost, ScalarCost;
     switch (Kind) {
     case RecurKind::Add:
     case RecurKind::Mul:
@@ -9663,22 +9679,36 @@ private:
     case RecurKind::And:
     case RecurKind::Xor:
     case RecurKind::FAdd:
-    case RecurKind::FMul:
-      SplittingRdxCost = TTI->getArithmeticReductionCost(
-          RdxOpcode, VecTy, /*IsPairwiseForm=*/false);
-      ScalarReduxCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy);
+    case RecurKind::FMul: {
+      unsigned RdxOpcode = RecurrenceDescriptor::getOpcode(Kind);
+      VectorCost = TTI->getArithmeticReductionCost(RdxOpcode, VectorTy,
+                                                      /*IsPairwiseForm=*/false);
+      ScalarCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy);
       break;
+    }
+    case RecurKind::FMax:
+    case RecurKind::FMin: {
+      auto *VecCondTy = cast<VectorType>(CmpInst::makeCmpResultType(VectorTy));
+      VectorCost =
+          TTI->getMinMaxReductionCost(VectorTy, VecCondTy,
+                                      /*pairwise=*/false, /*unsigned=*/false);
+      ScalarCost =
+          TTI->getCmpSelInstrCost(Instruction::FCmp, ScalarTy) +
+          TTI->getCmpSelInstrCost(Instruction::Select, ScalarTy,
+                                  CmpInst::makeCmpResultType(ScalarTy));
+      break;
+    }
     case RecurKind::SMax:
     case RecurKind::SMin:
     case RecurKind::UMax:
     case RecurKind::UMin: {
-      auto *VecCondTy = cast<VectorType>(CmpInst::makeCmpResultType(VecTy));
+      auto *VecCondTy = cast<VectorType>(CmpInst::makeCmpResultType(VectorTy));
       bool IsUnsigned = Kind == RecurKind::UMax || Kind == RecurKind::UMin;
-      SplittingRdxCost =
-          TTI->getMinMaxReductionCost(VecTy, VecCondTy,
+      VectorCost =
+          TTI->getMinMaxReductionCost(VectorTy, VecCondTy,
                                       /*IsPairwiseForm=*/false, IsUnsigned);
-      ScalarReduxCost =
-          TTI->getCmpSelInstrCost(RdxOpcode, ScalarTy) +
+      ScalarCost =
+          TTI->getCmpSelInstrCost(Instruction::ICmp, ScalarTy) +
           TTI->getCmpSelInstrCost(Instruction::Select, ScalarTy,
                                   CmpInst::makeCmpResultType(ScalarTy));
       break;
@@ -9687,12 +9717,12 @@ private:
       llvm_unreachable("Expected arithmetic or min/max reduction operation");
     }
 
-    ScalarReduxCost *= (ReduxWidth - 1);
-    LLVM_DEBUG(dbgs() << "SLP: Adding cost "
-                      << SplittingRdxCost - ScalarReduxCost
+    // Scalar cost is repeated for N-1 elements.
+    ScalarCost *= (ReduxWidth - 1);
+    LLVM_DEBUG(dbgs() << "SLP: Adding cost " << VectorCost - ScalarCost
                       << " for reduction that starts with " << *FirstReducedVal
                       << " (It is a splitting reduction)\n");
-    return SplittingRdxCost - ScalarReduxCost;
+    return VectorCost - ScalarCost;
   }
 
   /// Emit a horizontal reduction of the vectorized value.
@@ -9899,6 +9929,16 @@ static Value *getReductionValue(const DominatorTree *DT, PHINode *P,
   return nullptr;
 }
 
+static bool matchRdxBop(Instruction *I, Value *&V0, Value *&V1) {
+  if (match(I, m_BinOp(m_Value(V0), m_Value(V1))))
+    return true;
+  if (match(I, m_Intrinsic<Intrinsic::maxnum>(m_Value(V0), m_Value(V1))))
+    return true;
+  if (match(I, m_Intrinsic<Intrinsic::minnum>(m_Value(V0), m_Value(V1))))
+    return true;
+  return false;
+}
+
 /// Attempt to reduce a horizontal reduction.
 /// If it is legal to match a horizontal reduction feeding the phi node \a P
 /// with reduction operators \a Root (or one of its operands) in a basic block
@@ -9939,7 +9979,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
     unsigned Level;
     std::tie(Inst, Level) = Stack.pop_back_val();
     Value *B0, *B1;
-    bool IsBinop = match(Inst, m_BinOp(m_Value(B0), m_Value(B1)));
+    bool IsBinop = matchRdxBop(Inst, B0, B1);
     bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
     if (IsBinop || IsSelect) {
       HorizontalReduction HorRdx;
