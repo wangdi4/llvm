@@ -2976,20 +2976,12 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
   // If we are emitting code for a target, the entry is already initialized,
   // only has to be registered.
   if (CGM.getLangOpts().OpenMPIsDevice) {
-    if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum)) {
-      unsigned DiagID = CGM.getDiags().getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "Unable to find target region on line '%0' in the device code.");
-      CGM.getDiags().Report(DiagID) << LineNum;
-#if INTEL_COLLAB
-      return -1;
-#else
-      return;
-#endif // INTEL_COLLAB
-    }
+    // This could happen if the device compilation is invoked standalone.
+    if (!hasTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum))
+      initializeTargetRegionEntryInfo(DeviceID, FileID, ParentName, LineNum,
+                                      OffloadingEntriesNum);
     auto &Entry =
         OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
-    assert(Entry.isValid() && "Entry not initialized!");
     Entry.setAddress(Addr);
     Entry.setID(ID);
     Entry.setFlags(Flags);
@@ -3064,9 +3056,10 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
                                      OMPTargetGlobalVarEntryKind Flags,
                                      llvm::GlobalValue::LinkageTypes Linkage) {
   if (CGM.getLangOpts().OpenMPIsDevice) {
+    // This could happen if the device compilation is invoked standalone.
+    if (!hasDeviceGlobalVarEntryInfo(VarName))
+      initializeDeviceGlobalVarEntryInfo(VarName, Flags, OffloadingEntriesNum);
     auto &Entry = OffloadEntriesDeviceGlobalVar[VarName];
-    assert(Entry.isValid() && Entry.getFlags() == Flags &&
-           "Entry not initialized!");
     assert((!Entry.getAddress() || Entry.getAddress() == Addr) &&
            "Resetting with the new address.");
     if (Entry.getAddress() && hasDeviceGlobalVarEntryInfo(VarName)) {
