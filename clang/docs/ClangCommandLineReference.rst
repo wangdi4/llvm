@@ -3341,6 +3341,12 @@ X86
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx512pf, -mno-avx512pf
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX512_RAO_INT
+.. option:: -mavx512raoint, -mno-avx512raoint
+
+.. end INTEL_FEATURE_ISA_AVX512_RAO_INT
+.. end INTEL_CUSTOMIZATION
 .. option:: -mavx512vbmi, -mno-avx512vbmi
 
 .. option:: -mavx512vbmi2, -mno-avx512vbmi2

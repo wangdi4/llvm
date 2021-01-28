@@ -905,6 +905,21 @@ def X86Vmpsadbw : SDNode<"X86ISD::MPSADBW",
                                               SDTCVecEltisVT<1, i8>,
                                               SDTCisSameSizeAs<0,1>,
                                               SDTCisSameAs<1,2>, SDTCisVT<3, i8>]>>;
+
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+def RAOINT_Store : SDTypeProfile<0, 3, [SDTCisPtrTy<0>,
+                                 SDTCisInt<1>, SDTCisVec<1>,
+                                 SDTCisVec<2>, SDTCisSameNumEltsAs<1, 2>]>;
+
+def X86vpaadd : SDNode<"X86ISD::VPAADD", RAOINT_Store,
+                  [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+def X86vpaand : SDNode<"X86ISD::VPAAND", RAOINT_Store,
+                  [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+def X86vpaor  : SDNode<"X86ISD::VPAOR" , RAOINT_Store,
+                  [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+def X86vpaxor : SDNode<"X86ISD::VPAXOR", RAOINT_Store,
+                  [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments

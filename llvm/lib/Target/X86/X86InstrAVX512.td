@@ -14631,4 +14631,39 @@ multiclass avx512_vmovget_all {
 
 defm VMOVGET : avx512_vmovget_all;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+#if INTEL_FEATURE_ISA_AVX_RAO_INT
+multiclass avxrao_mask_int<string OpcodeStr, X86VectorVTInfo VTInfo,
+                           SDNode OpNode> {
+    def mr  : I<0xfc, MRMDestMem, (outs),
+                (ins VTInfo.MemOp:$dst, VTInfo.RC:$src),
+                OpcodeStr#"\t{$src, $dst|$dst, $src}",
+                [(!cast<Intrinsic>("int_x86_"#OpcodeStr#VTInfo.Size)
+                 addr:$dst, VTInfo.RC:$src)]>, EVEX;
+
+    def mrk : I<0xfc, MRMDestMem, (outs),
+                (ins VTInfo.MemOp:$dst, VTInfo.KRCWM:$mask, VTInfo.RC:$src),
+                OpcodeStr#"\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
+                [(OpNode addr:$dst, (VTInfo.VT VTInfo.RC:$src), VTInfo.KRCWM:$mask)]>,
+                EVEX_K, EVEX;
+}
+
+multiclass avxraoint_base<string OpcodeStr, SDNode OpNode> {
+  let Predicates = [HasAVX512, HasAVX512RAOINT] in {
+    defm DZ : avxrao_mask_int<OpcodeStr#"d", v16i32_info, OpNode>, EVEX_V512;
+    defm QZ : avxrao_mask_int<OpcodeStr#"q", v8i64_info, OpNode>, VEX_W, EVEX_V512;
+  }
+  let Predicates = [HasVLX, HasAVX512RAOINT] in {
+    defm DZ256 : avxrao_mask_int<OpcodeStr#"d", v8i32x_info, OpNode>, EVEX_V256;
+    defm QZ256 : avxrao_mask_int<OpcodeStr#"q", v4i64x_info, OpNode>, VEX_W, EVEX_V256;
+    defm DZ128 : avxrao_mask_int<OpcodeStr#"d", v4i32x_info, OpNode>, EVEX_V128;
+    defm QZ128 : avxrao_mask_int<OpcodeStr#"q", v2i64x_info, OpNode>, VEX_W, EVEX_V128;
+  }
+}
+
+defm VPAADD : avxraoint_base<"vpaadd", X86vpaadd>, T8PS;
+defm VPAAND : avxraoint_base<"vpaand", X86vpaand>, T8PD;
+defm VPAOR  : avxraoint_base<"vpaor", X86vpaor>, T8XD;
+defm VPAXOR : avxraoint_base<"vpaxor", X86vpaxor>, T8XS;
+
+#endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION

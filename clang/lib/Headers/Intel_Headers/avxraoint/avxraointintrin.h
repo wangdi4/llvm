@@ -34,82 +34,100 @@
 #define __DEFAULT_FN_ATTRS256                                                  \
   __attribute__((__always_inline__, __nodebug__, __target__("avxraoint"), __min_vector_width__(256)))
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaaddd_epi32(__m128i *__A,
+/* Below intrinsics defined in avx512vlraointintrin.h can be used for AVX_RAO_INT */
+/// \fn void _mm_vpaadd_epi32(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaadd_epi32(__m256i *__A, __m256i __B)
+/// \fn void _mm_vpaadd_epi64(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaadd_epi64(__m256i *__A, __m256i __B)
+/// \fn void _mm_vpaand_epi32(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaand_epi32(__m256i *__A, __m256i __B)
+/// \fn void _mm_vpaand_epi64(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaand_epi64(__m256i *__A, __m256i __B)
+/// \fn void _mm_vpaor_epi32(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaor_epi32(__m256i *__A, __m256i __B)
+/// \fn void _mm_vpaor_epi64(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaor_epi64(__m256i *__A, __m256i __B)
+/// \fn void _mm_vpaxor_epi32(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaxor_epi32(__m256i *__A, __m256i __B)
+/// \fn void _mm_vpaxor_epi64(__m128i *__A, __m128i __B)
+/// \fn void _mm256_vpaxor_epi64(__m256i *__A, __m256i __B)
+
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaadd_avx_epi32(__m128i *__A,
                                                                __m128i __B) {
   __builtin_ia32_vpaaddd128((__v4si *)__A, (__v4si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaaddd_epi32(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaadd_avx_epi32(__m256i *__A,
                                                                   __m256i __B) {
   __builtin_ia32_vpaaddd256((__v8si *)__A, (__v8si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaaddq_epi64(__m128i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaadd_avx_epi64(__m128i *__A,
                                                                __m128i __B) {
   __builtin_ia32_vpaaddq128((__v2di *)__A, (__v2di)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaaddq_epi64(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaadd_avx_epi64(__m256i *__A,
                                                                   __m256i __B) {
   __builtin_ia32_vpaaddq256((__v4di *)__A, (__v4di)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaandd_epi32(__m128i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaand_avx_epi32(__m128i *__A,
                                                                __m128i __B) {
   __builtin_ia32_vpaandd128((__v4si *)__A, (__v4si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaandd_epi32(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaand_avx_epi32(__m256i *__A,
                                                                   __m256i __B) {
   __builtin_ia32_vpaandd256((__v8si *)__A, (__v8si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaandq_epi64(__m128i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaand_avx_epi64(__m128i *__A,
                                                                __m128i __B) {
   __builtin_ia32_vpaandq128((__v2di *)__A, (__v2di)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaandq_epi64(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaand_avx_epi64(__m256i *__A,
                                                                   __m256i __B) {
   __builtin_ia32_vpaandq256((__v4di *)__A, (__v4di)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaord_epi32(__m128i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaor_avx_epi32(__m128i *__A,
                                                               __m128i __B) {
   __builtin_ia32_vpaord128((__v4si *)__A, (__v4si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaord_epi32(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaor_avx_epi32(__m256i *__A,
                                                                  __m256i __B) {
   __builtin_ia32_vpaord256((__v8si *)__A, (__v8si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaorq_epi64(__m128i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaor_avx_epi64(__m128i *__A,
                                                               __m128i __B) {
   __builtin_ia32_vpaorq128((__v2di *)__A, (__v2di)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaorq_epi64(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaor_avx_epi64(__m256i *__A,
                                                                  __m256i __B) {
   __builtin_ia32_vpaorq256((__v4di *)__A, (__v4di)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaxord_epi32(__m128i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaxor_avx_epi32(__m128i *__A,
                                                                __m128i __B) {
   __builtin_ia32_vpaxord128((__v4si *)__A, (__v4si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaxord_epi32(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaxor_avx_epi32(__m256i *__A,
                                                                   __m256i __B) {
   __builtin_ia32_vpaxord256((__v8si *)__A, (__v8si)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaxorq_epi64(__m128i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS128 _mm_vpaxor_avx_epi64(__m128i *__A,
                                                                __m128i __B) {
   __builtin_ia32_vpaxorq128((__v2di *)__A, (__v2di)__B);
 }
 
-static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaxorq_epi64(__m256i *__A,
+static __inline__ void __DEFAULT_FN_ATTRS256 _mm256_vpaxor_avx_epi64(__m256i *__A,
                                                                   __m256i __B) {
   __builtin_ia32_vpaxorq256((__v4di *)__A, (__v4di)__B);
 }
