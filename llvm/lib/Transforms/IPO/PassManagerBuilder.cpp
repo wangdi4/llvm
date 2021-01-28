@@ -820,6 +820,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
     // This ends the loop pass pipelines.
   }
+
   // Break up allocas that may now be splittable after loop unrolling.
   MPM.add(createSROAPass());
 
@@ -1260,6 +1261,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDPCPPKernelAnalysisPass());
       MPM.add(createDPCPPKernelVecClonePass());
     }
+
     // In LTO mode, loopopt needs to run in link phase along with community
     // vectorizer and unroll after it until they are phased out.
     if (!PrepareForLTO || !isLoopOptEnabled()) {
