@@ -793,8 +793,10 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
       for (BasicBlock &BB : F)
         for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E;) {
           Instruction *Inst = &*I++;
-          if (isInstructionTriviallyDead(Inst))
+          if (isInstructionTriviallyDead(Inst)) {
+            salvageDebugInfo(*Inst);
             BB.getInstList().erase(Inst);
+          }
         }
     }
   }

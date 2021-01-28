@@ -2234,7 +2234,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       if (RunLoopOpts == LoopOptMode::Full) {
         PM.add(createHIRLoopConcatenationPass());
         PM.add(createHIRPMSymbolicTripCountCompleteUnrollLegacyPass());
-        PM.add(createHIRLMMPass(true));
       }
       PM.add(createHIRArrayTransposePass());
     }
@@ -2250,13 +2249,16 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
         PM.add(createHIRConditionalTempSinkingPass());
         PM.add(createHIROptPredicatePass(OptLevel == 3, true));
         if (OptLevel > 2) {
+          PM.add(createHIRLMMPass(true));
           PM.add(createHIRStoreResultIntoTempArrayPass());
         }
         PM.add(createHIRAosToSoaPass());
         PM.add(createHIRRuntimeDDPass());
         PM.add(createHIRMVForConstUBPass());
-        PM.add(createHIRRowWiseMVPass());
-        PM.add(createHIRSumWindowReusePass());
+        if (OptLevel > 2 && IsLTO) {
+          PM.add(createHIRRowWiseMVPass());
+          PM.add(createHIRSumWindowReusePass());
+        }
       }
 
       PM.add(createHIRSinkingForPerfectLoopnestPass());
