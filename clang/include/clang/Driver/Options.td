@@ -4795,9 +4795,9 @@ def fno_sycl_esimd : Flag<["-"], "fno-sycl-explicit-simd">, Group<sycl_Group>,
 defm sycl_early_optimizations : OptOutFFlag<"sycl-early-optimizations", "Enable", "Disable", " standard optimization pipeline for SYCL device compiler", [CoreOption]>;
 #if INTEL_CUSTOMIZATION
 def fsycl_enable_function_pointers : Flag<["-"],
-  "fsycl-enable-function-pointers">, Flags<[CoreOption, HelpHidden]>,
-  HelpText<"Enables function pointers and support for virtual functions for "
-  "DPC++ kernels and device functions.">;
+  "fsycl-enable-function-pointers">, Flags<[CoreOption]>,
+  HelpText<"Experimental Feature: Enables function pointers and support for "
+  "virtual functions for DPC++ kernels and device functions.">;
 #endif // INTEL_CUSTOMIZATION
 def fsycl_dead_args_optimization : Flag<["-"], "fsycl-dead-args-optimization">,
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Enables "
