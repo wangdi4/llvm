@@ -647,6 +647,23 @@ static bool isSimple(Instruction *I) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// \returns True if VL contains a pattern that is determined to be lowered
+/// after SLP vectorizer. Vectorizing such instructions effectively blocks these
+/// optimizations if it is not consistent across lanes.
+static bool hasLateLoweringPattern(ArrayRef<Value *> VL) {
+
+  // Detect x/sqrt(x) pattern.
+  auto IsXFDivBySqrtX = [](Value *V) -> bool {
+    Value *X;
+    return match(
+        V, m_FDiv(m_Value(X), m_Intrinsic<Intrinsic::sqrt>(m_Deferred(X))));
+  };
+
+  return llvm::any_of(VL, IsXFDivBySqrtX) && !llvm::all_of(VL, IsXFDivBySqrtX);
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace llvm {
 
 static void inversePermutation(ArrayRef<unsigned> Indices,
@@ -4441,6 +4458,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
     return;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (hasLateLoweringPattern(VL)) {
+    LLVM_DEBUG(dbgs() << "SLP: Gathering due to late lowering pattern.\n");
+    newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // We now know that this is a vector of instructions of the same type from
   // the same block.
