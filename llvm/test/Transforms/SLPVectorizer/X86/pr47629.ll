@@ -24,8 +24,8 @@
 ; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+sse2     | FileCheck %s --check-prefixes=CHECK,XMAINSSE
 ; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx      | FileCheck %s --check-prefixes=CHECK,XMAINAVX
 ; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx2     | FileCheck %s --check-prefixes=CHECK,XMAINAVX2
-; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=CHECK,AVX512F
-; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=CHECK,AVX512
+; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=CHECK,XMAINAVX512F
+; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=CHECK,XMAINAVX512
 ; end INTEL_CUSTOMIZATION
 
 define void @gather_load(i32* noalias nocapture %0, i32* noalias nocapture readonly %1) {
@@ -226,6 +226,42 @@ define void @gather_load_2(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX2-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
 ; XMAINAVX2-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
+;
+; XMAINAVX512F-LABEL: @gather_load_2(
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = load i32, i32* [[TMP3]], align 4, [[TBAA0:!tbaa !.*]]
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 10
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = load i32, i32* [[TMP5]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 3
+; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
+; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP9]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP6]], i32 1
+; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP8]], i32 2
+; XMAINAVX512F-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i32 3
+; XMAINAVX512F-NEXT:    [[TMP15:%.*]] = add nsw <4 x i32> [[TMP14]], <i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512F-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
+; XMAINAVX512F-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    ret void
+;
+; XMAINAVX512-LABEL: @gather_load_2(
+; XMAINAVX512-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
+; XMAINAVX512-NEXT:    [[TMP4:%.*]] = load i32, i32* [[TMP3]], align 4, [[TBAA0:!tbaa !.*]]
+; XMAINAVX512-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 10
+; XMAINAVX512-NEXT:    [[TMP6:%.*]] = load i32, i32* [[TMP5]], align 4, [[TBAA0]]
+; XMAINAVX512-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 3
+; XMAINAVX512-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, [[TBAA0]]
+; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
+; XMAINAVX512-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP9]], align 4, [[TBAA0]]
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
+; XMAINAVX512-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP6]], i32 1
+; XMAINAVX512-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP8]], i32 2
+; XMAINAVX512-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i32 3
+; XMAINAVX512-NEXT:    [[TMP15:%.*]] = add nsw <4 x i32> [[TMP14]], <i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
+; XMAINAVX512-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, [[TBAA0]]
+; XMAINAVX512-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
   %3 = getelementptr inbounds i32, i32* %1, i64 1
@@ -539,6 +575,61 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX2-NEXT:    [[TMP27:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
 ; XMAINAVX2-NEXT:    store <8 x i32> [[TMP26]], <8 x i32>* [[TMP27]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
+;
+; XMAINAVX512F-LABEL: @gather_load_3(
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP1:%.*]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 11
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = load i32, i32* [[TMP4]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 4
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = load i32, i32* [[TMP6]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 15
+; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP8]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> undef, i32 [[TMP3]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> [[TMP10]], i32 [[TMP5]], i32 1
+; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP7]], i32 2
+; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i32 3
+; XMAINAVX512F-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[TMP13]], <i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512F-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i32, i32* [[TMP0:%.*]], i64 4
+; XMAINAVX512F-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0]] to <4 x i32>*
+; XMAINAVX512F-NEXT:    store <4 x i32> [[TMP14]], <4 x i32>* [[TMP16]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP17:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 18
+; XMAINAVX512F-NEXT:    [[TMP18:%.*]] = load i32, i32* [[TMP17]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP19:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
+; XMAINAVX512F-NEXT:    [[TMP20:%.*]] = load i32, i32* [[TMP19]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP21:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
+; XMAINAVX512F-NEXT:    [[TMP22:%.*]] = load i32, i32* [[TMP21]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP23:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
+; XMAINAVX512F-NEXT:    [[TMP24:%.*]] = load i32, i32* [[TMP23]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP25:%.*]] = insertelement <4 x i32> undef, i32 [[TMP18]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP26:%.*]] = insertelement <4 x i32> [[TMP25]], i32 [[TMP20]], i32 1
+; XMAINAVX512F-NEXT:    [[TMP27:%.*]] = insertelement <4 x i32> [[TMP26]], i32 [[TMP22]], i32 2
+; XMAINAVX512F-NEXT:    [[TMP28:%.*]] = insertelement <4 x i32> [[TMP27]], i32 [[TMP24]], i32 3
+; XMAINAVX512F-NEXT:    [[TMP29:%.*]] = add <4 x i32> [[TMP28]], <i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512F-NEXT:    [[TMP30:%.*]] = bitcast i32* [[TMP15]] to <4 x i32>*
+; XMAINAVX512F-NEXT:    store <4 x i32> [[TMP29]], <4 x i32>* [[TMP30]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    ret void
+;
+; XMAINAVX512-LABEL: @gather_load_3(
+; XMAINAVX512-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 11
+; XMAINAVX512-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 4
+; XMAINAVX512-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 15
+; XMAINAVX512-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 18
+; XMAINAVX512-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
+; XMAINAVX512-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
+; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
+; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x i32*> undef, i32* [[TMP1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x i32*> [[TMP10]], i32* [[TMP3]], i32 1
+; XMAINAVX512-NEXT:    [[TMP12:%.*]] = insertelement <8 x i32*> [[TMP11]], i32* [[TMP4]], i32 2
+; XMAINAVX512-NEXT:    [[TMP13:%.*]] = insertelement <8 x i32*> [[TMP12]], i32* [[TMP5]], i32 3
+; XMAINAVX512-NEXT:    [[TMP14:%.*]] = insertelement <8 x i32*> [[TMP13]], i32* [[TMP6]], i32 4
+; XMAINAVX512-NEXT:    [[TMP15:%.*]] = insertelement <8 x i32*> [[TMP14]], i32* [[TMP7]], i32 5
+; XMAINAVX512-NEXT:    [[TMP16:%.*]] = insertelement <8 x i32*> [[TMP15]], i32* [[TMP8]], i32 6
+; XMAINAVX512-NEXT:    [[TMP17:%.*]] = insertelement <8 x i32*> [[TMP16]], i32* [[TMP9]], i32 7
+; XMAINAVX512-NEXT:    [[TMP18:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP17]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef), [[TBAA0]]
+; XMAINAVX512-NEXT:    [[TMP19:%.*]] = add <8 x i32> [[TMP18]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512-NEXT:    [[TMP20:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
+; XMAINAVX512-NEXT:    store <8 x i32> [[TMP19]], <8 x i32>* [[TMP20]], align 4, [[TBAA0]]
+; XMAINAVX512-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
   %3 = load i32, i32* %1, align 4, !tbaa !2
@@ -869,6 +960,61 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; XMAINAVX2-NEXT:    [[TMP10:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
 ; XMAINAVX2-NEXT:    store <8 x i32> [[TMP9]], <8 x i32>* [[TMP10]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
+;
+; XMAINAVX512F-LABEL: @gather_load_4(
+; XMAINAVX512F-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, i32* [[T1:%.*]], i64 11
+; XMAINAVX512F-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 4
+; XMAINAVX512F-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 15
+; XMAINAVX512F-NEXT:    [[T17:%.*]] = getelementptr inbounds i32, i32* [[T0:%.*]], i64 4
+; XMAINAVX512F-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 18
+; XMAINAVX512F-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 9
+; XMAINAVX512F-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 6
+; XMAINAVX512F-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
+; XMAINAVX512F-NEXT:    [[T3:%.*]] = load i32, i32* [[T1]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[T7:%.*]] = load i32, i32* [[T6]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[T11:%.*]] = load i32, i32* [[T10]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[T15:%.*]] = load i32, i32* [[T14]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[T19:%.*]] = load i32, i32* [[T18]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> undef, i32 [[T3]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP2:%.*]] = insertelement <4 x i32> [[TMP1]], i32 [[T7]], i32 1
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32> [[TMP2]], i32 [[T11]], i32 2
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = insertelement <4 x i32> [[TMP3]], i32 [[T15]], i32 3
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = add <4 x i32> [[TMP4]], <i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = insertelement <4 x i32> undef, i32 [[T19]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = insertelement <4 x i32> [[TMP6]], i32 [[T23]], i32 1
+; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = insertelement <4 x i32> [[TMP7]], i32 [[T27]], i32 2
+; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = insertelement <4 x i32> [[TMP8]], i32 [[T31]], i32 3
+; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = add <4 x i32> [[TMP9]], <i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = bitcast i32* [[T0]] to <4 x i32>*
+; XMAINAVX512F-NEXT:    store <4 x i32> [[TMP5]], <4 x i32>* [[TMP11]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = bitcast i32* [[T17]] to <4 x i32>*
+; XMAINAVX512F-NEXT:    store <4 x i32> [[TMP10]], <4 x i32>* [[TMP12]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    ret void
+;
+; XMAINAVX512-LABEL: @gather_load_4(
+; XMAINAVX512-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, i32* [[T1:%.*]], i64 11
+; XMAINAVX512-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 4
+; XMAINAVX512-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 15
+; XMAINAVX512-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 18
+; XMAINAVX512-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 9
+; XMAINAVX512-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 6
+; XMAINAVX512-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
+; XMAINAVX512-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32*> undef, i32* [[T1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32*> [[TMP1]], i32* [[T6]], i32 1
+; XMAINAVX512-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32*> [[TMP2]], i32* [[T10]], i32 2
+; XMAINAVX512-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32*> [[TMP3]], i32* [[T14]], i32 3
+; XMAINAVX512-NEXT:    [[TMP5:%.*]] = insertelement <8 x i32*> [[TMP4]], i32* [[T18]], i32 4
+; XMAINAVX512-NEXT:    [[TMP6:%.*]] = insertelement <8 x i32*> [[TMP5]], i32* [[T22]], i32 5
+; XMAINAVX512-NEXT:    [[TMP7:%.*]] = insertelement <8 x i32*> [[TMP6]], i32* [[T26]], i32 6
+; XMAINAVX512-NEXT:    [[TMP8:%.*]] = insertelement <8 x i32*> [[TMP7]], i32* [[T30]], i32 7
+; XMAINAVX512-NEXT:    [[TMP9:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP8]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef), [[TBAA0]]
+; XMAINAVX512-NEXT:    [[TMP10:%.*]] = add <8 x i32> [[TMP9]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
+; XMAINAVX512-NEXT:    store <8 x i32> [[TMP10]], <8 x i32>* [[TMP11]], align 4, [[TBAA0]]
+; XMAINAVX512-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
   %t5 = getelementptr inbounds i32, i32* %t0, i64 1
@@ -1210,6 +1356,56 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX2-NEXT:    [[TMP51:%.*]] = bitcast float* [[TMP0:%.*]] to <8 x float>*
 ; XMAINAVX2-NEXT:    store <8 x float> [[TMP50]], <8 x float>* [[TMP51]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
+;
+; XMAINAVX512F-LABEL: @gather_load_div(
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 10
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 3
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 14
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 17
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
+; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
+; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
+; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> undef, float* [[TMP1]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
+; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = insertelement <8 x float*> [[TMP11]], float* [[TMP4]], i32 2
+; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = insertelement <8 x float*> [[TMP12]], float* [[TMP5]], i32 3
+; XMAINAVX512F-NEXT:    [[TMP14:%.*]] = insertelement <8 x float*> [[TMP13]], float* [[TMP6]], i32 4
+; XMAINAVX512F-NEXT:    [[TMP15:%.*]] = insertelement <8 x float*> [[TMP14]], float* [[TMP7]], i32 5
+; XMAINAVX512F-NEXT:    [[TMP16:%.*]] = insertelement <8 x float*> [[TMP15]], float* [[TMP8]], i32 6
+; XMAINAVX512F-NEXT:    [[TMP17:%.*]] = insertelement <8 x float*> [[TMP16]], float* [[TMP9]], i32 7
+; XMAINAVX512F-NEXT:    [[TMP18:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP17]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP19:%.*]] = shufflevector <8 x float*> [[TMP10]], <8 x float*> undef, <8 x i32> zeroinitializer
+; XMAINAVX512F-NEXT:    [[TMP20:%.*]] = getelementptr float, <8 x float*> [[TMP19]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
+; XMAINAVX512F-NEXT:    [[TMP21:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP20]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP22:%.*]] = fdiv <8 x float> [[TMP18]], [[TMP21]]
+; XMAINAVX512F-NEXT:    [[TMP23:%.*]] = bitcast float* [[TMP0:%.*]] to <8 x float>*
+; XMAINAVX512F-NEXT:    store <8 x float> [[TMP22]], <8 x float>* [[TMP23]], align 4, [[TBAA0]]
+; XMAINAVX512F-NEXT:    ret void
+;
+; XMAINAVX512-LABEL: @gather_load_div(
+; XMAINAVX512-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 10
+; XMAINAVX512-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 3
+; XMAINAVX512-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 14
+; XMAINAVX512-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 17
+; XMAINAVX512-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
+; XMAINAVX512-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
+; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
+; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> undef, float* [[TMP1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
+; XMAINAVX512-NEXT:    [[TMP12:%.*]] = insertelement <8 x float*> [[TMP11]], float* [[TMP4]], i32 2
+; XMAINAVX512-NEXT:    [[TMP13:%.*]] = insertelement <8 x float*> [[TMP12]], float* [[TMP5]], i32 3
+; XMAINAVX512-NEXT:    [[TMP14:%.*]] = insertelement <8 x float*> [[TMP13]], float* [[TMP6]], i32 4
+; XMAINAVX512-NEXT:    [[TMP15:%.*]] = insertelement <8 x float*> [[TMP14]], float* [[TMP7]], i32 5
+; XMAINAVX512-NEXT:    [[TMP16:%.*]] = insertelement <8 x float*> [[TMP15]], float* [[TMP8]], i32 6
+; XMAINAVX512-NEXT:    [[TMP17:%.*]] = insertelement <8 x float*> [[TMP16]], float* [[TMP9]], i32 7
+; XMAINAVX512-NEXT:    [[TMP18:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP17]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), [[TBAA0]]
+; XMAINAVX512-NEXT:    [[TMP19:%.*]] = shufflevector <8 x float*> [[TMP10]], <8 x float*> undef, <8 x i32> zeroinitializer
+; XMAINAVX512-NEXT:    [[TMP20:%.*]] = getelementptr float, <8 x float*> [[TMP19]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
+; XMAINAVX512-NEXT:    [[TMP21:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP20]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), [[TBAA0]]
+; XMAINAVX512-NEXT:    [[TMP22:%.*]] = fdiv <8 x float> [[TMP18]], [[TMP21]]
+; XMAINAVX512-NEXT:    [[TMP23:%.*]] = bitcast float* [[TMP0:%.*]] to <8 x float>*
+; XMAINAVX512-NEXT:    store <8 x float> [[TMP22]], <8 x float>* [[TMP23]], align 4, [[TBAA0]]
+; XMAINAVX512-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
   %3 = load float, float* %1, align 4, !tbaa !2

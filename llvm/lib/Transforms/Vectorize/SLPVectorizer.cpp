@@ -4970,9 +4970,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
 #if INTEL_CUSTOMIZATION
         // We might want to issue gather load only if split load fails.
-        // Do not consider to issue gather for vectors less then 4 elements.
+        // Do not consider to issue gather for vectors of 4 elements or less.
         if (CompatibilitySLPMode ||
-            (VL.size() >= 4 &&
+            (VL.size() > 4 &&
              TTI->isLegalMaskedGather(FixedVectorType::get(ScalarTy, VL.size()),
                                       DL->getABITypeAlign(ScalarTy))))
           CandidateForGatherLoad = true;
