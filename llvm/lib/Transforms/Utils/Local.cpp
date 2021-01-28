@@ -1804,6 +1804,14 @@ DIExpression *llvm::salvageDebugInfoImpl(Instruction &I,
     if (CI->isNoopCast(DL))
       return SrcDIExpr;
 
+#if INTEL_CUSTOMIZATION
+    // LLVM does not currently support encoding DWARF address space opcodes
+    // into DIExpression. But for cases where the address space is flat
+    // we can still salvage the debug information value.
+    if (isa<AddrSpaceCastInst>(CI))
+      return SrcDIExpr;
+#endif // INTEL_CUSTOMIZATION
+
     Type *Type = CI->getType();
     // Casts other than Trunc, SExt, or ZExt to scalar types cannot be salvaged.
     if (Type->isVectorTy() ||
