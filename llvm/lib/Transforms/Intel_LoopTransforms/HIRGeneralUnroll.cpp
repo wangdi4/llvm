@@ -441,6 +441,11 @@ static void markDoNotUnroll(HLLoop *Lp) {
   }
 }
 
+/// Function is considered complicated if it has too many bblocks.
+static bool functionIsTooComplicated(const HLLoop *Lp) {
+  return Lp->getHLNodeUtils().getFunction().size() > 2700;
+}
+
 unsigned HIRGeneralUnroll::computeUnrollFactor(
     const HLLoop *HLoop, bool HasEnablingPragma,
     bool &RequiresAdditionalRefinement) const {
@@ -467,7 +472,6 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
     return 0;
   }
 
-  unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
   unsigned NumExits = HLoop->getNumExits();
   unsigned NumLiveouts = HLoop->getNumLiveOutTemps();
 
@@ -481,6 +485,13 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
 
   unsigned LoopDepth =
       std::max(HLoop->getNestingLevel(), HLoop->getLLVMLoopDepth());
+
+  // Skip unrolling inner do-multi-exit loops if the function is already complicated.
+  if (LoopDepth > 1 && HLoop->isDoMultiExit() && functionIsTooComplicated(HLoop)) {
+    return 0;
+  }
+
+  unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
   bool IsUnknown = HLoop->isUnknown();
 
   // Add penalty for inner loops with liveouts to account for increase in
