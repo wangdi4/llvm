@@ -2078,16 +2078,20 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
 
   // OpenCL has some additional defaults.
   if (Opts.OpenCL) {
+#if INTEL_CUSTOMIZATION
     Opts.AltiVec = 0;
     Opts.ZVector = 0;
     Opts.setDefaultFPContractMode(LangOptions::FPM_On);
     Opts.NativeHalfType = 1;
     Opts.NativeHalfArgsAndReturns = 1;
     Opts.OpenCLCPlusPlus = Opts.CPlusPlus;
+    // Community is currently implementing -fdeclare-opencl-builtins feature. Now
+    // -finclude-default-header and -fdeclare-opencl-builtins don't cowork in xmain.
     // Include default header file for OpenCL.
     if (Opts.IncludeDefaultHeader && !Opts.DeclareOpenCLBuiltins) {
       Includes.push_back("opencl-c.h");
     }
+#endif // INTEL_CUSTOMIZATION
   }
 
   Opts.HIP = IK.getLanguage() == Language::HIP;
