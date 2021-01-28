@@ -322,7 +322,7 @@ public:
       X87PrecisionInit = setX87Precision(F, X87Precision);
 
     // This pass only works for X87 precision control when OptLevel is -O0.
-    if (TM->getOptLevel() == CodeGenOpt::None)
+    if (skipFunction(F) || TM->getOptLevel() == CodeGenOpt::None)
       return X87PrecisionInit;
 
     bool ProcInit = insertProcInitCall(F);
