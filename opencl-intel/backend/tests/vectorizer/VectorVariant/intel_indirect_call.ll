@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -indirect-call-lowering -S | FileCheck %s
+; RUN: %oclopt %s -indirect-call-lowering -S | FileCheck %s
 
 %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" = type { %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" }
 %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" = type { [1 x i64] }

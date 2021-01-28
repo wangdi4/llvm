@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -sg-size-collector-indirect -S | FileCheck %s
+; RUN: %oclopt %s -sg-size-collector-indirect -S | FileCheck %s
 
 %"class.cl::sycl::intel::SimdFunction" = type { %"struct.std::array" }
 %"struct.std::array" = type { [2 x i32 (i32, float)*] }

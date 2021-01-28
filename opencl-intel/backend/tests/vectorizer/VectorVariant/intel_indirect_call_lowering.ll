@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -indirect-call-lowering -S | FileCheck %s
+; RUN: %oclopt %s -indirect-call-lowering -S | FileCheck %s
 
 %"class._ZTSN2cl4sycl5intel18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedES7_S7_EEEE.cl::sycl::intel::function_ref_tuned" = type { %"struct._ZTSSt5arrayIPFiiiELm4EE.std::array" }
 %"struct._ZTSSt5arrayIPFiiiELm4EE.std::array" = type { [4 x i32 (i32, i32)*] }
