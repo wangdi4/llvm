@@ -1181,10 +1181,10 @@ QualType Sema::getCurrentThisType() {
   }
 
   if (ThisTy.isNull() && isLambdaCallOperator(CurContext) &&
-      inTemplateInstantiation()) {
-
-    assert(isa<CXXRecordDecl>(DC) &&
-           "Trying to get 'this' type from static method?");
+#if INTEL_CUSTOMIZATION
+      // Temporary solution, expect resolution from llorg pulldown Feb 2021.
+      inTemplateInstantiation() && isa<CXXRecordDecl>(DC)) {
+#endif // INTEL_CUSTOMIZATION
 
     // This is a lambda call operator that is being instantiated as a default
     // initializer. DC must point to the enclosing class type, so we can recover
