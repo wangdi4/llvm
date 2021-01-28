@@ -98,6 +98,8 @@ public:
     if (VF != 1)
       HeuristicsPipeline.push_back(
         std::make_unique<VPlanCostModelHeuristics::HeuristicSLP>(this));
+    HeuristicsPipeline.push_back(
+      std::make_unique<VPlanCostModelHeuristics::HeuristicSpillFill>(this));
   }
 #else
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
