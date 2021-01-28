@@ -842,21 +842,14 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   } else {
 
     // Case 2
-
-    bool AllocaFound = false;
-    unsigned ParmIdx = 0;
-
-    for (; ParmIdx < VectorParmMap.size(); ParmIdx++) {
-      Value *ParmVal = VectorParmMap[ParmIdx]->VectorParm;
-      if (ParmVal == Alloca)
-        AllocaFound = true;
-    }
-
-    if (AllocaFound) {
+    auto AllocaIt = llvm::find_if(VectorParmMap, [Alloca](ParmRef *Entry) {
+      return Entry->VectorParm == Alloca;
+    });
+    if (AllocaIt != VectorParmMap.end()) {
       // There's already a vector alloca created for the return, which is the
       // same one used for the parameter. E.g., we're returning the updated
       // parameter.
-      return VectorParmMap[ParmIdx]->VectorParmCast;
+      return (*AllocaIt)->VectorParmCast;
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
