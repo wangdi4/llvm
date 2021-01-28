@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -vector-variant-lowering -sg-size-collector -sg-size-collector-indirect -vector-variant-isa-override=MIC -ocl-vecclone -ocl-vec-clone-isa-encoding-override=AVX512Core -vector-variant-fillin -update-call-attrs -S | FileCheck %s
+; RUN: %oclopt %s -enable-direct-function-call-vectorization -vector-variant-lowering -sg-size-collector -sg-size-collector-indirect -vector-variant-isa-override=MIC -ocl-vecclone -ocl-vec-clone-isa-encoding-override=AVX512Core -vector-variant-fillin -update-call-attrs -S | FileCheck %s
 
 define void @test(i32 addrspace(1)* noalias %a) !kernel_has_sub_groups !12 !ocl_recommended_vector_length !13 {
 entry:

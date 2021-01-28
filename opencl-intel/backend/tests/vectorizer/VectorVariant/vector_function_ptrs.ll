@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -sg-size-collector-indirect -S | FileCheck %s
+; RUN: %oclopt %s -sg-size-collector-indirect -S | FileCheck %s
 
 %class.S1B.B = type { %class.S1A.A }
 %class.S1A.A = type { i32 (...)** }

@@ -54,7 +54,7 @@ bool UpdateCallAttrs::runOnModule(Module &M) {
         continue;
 
       Function *Fn = Call.getCalledFunction();
-      if (!Fn->hasFnAttribute("vector-variants"))
+      if (!Fn || !Fn->hasFnAttribute("vector-variants"))
         continue;
 
       // Update attributes.

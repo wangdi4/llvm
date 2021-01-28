@@ -27,12 +27,12 @@
 using namespace llvm;
 using namespace Intel::MetadataAPI;
 
-bool EnableVectorVariantPasses = false;
-static cl::opt<bool, true> EnableVectorVariantPassesOpt(
-    "enable-vector-variant-passes", cl::location(EnableVectorVariantPasses),
+bool EnableDirectFunctionCallVectorization = false;
+static cl::opt<bool, true> EnableDirectFunctionCallVectorizationOpt(
+    "enable-direct-function-call-vectorization", cl::location(EnableDirectFunctionCallVectorization),
     cl::Hidden,
     cl::desc(
-        "Enable vector-variant/vector_function_ptrs attributes processting."));
+        "Enable direct function call vectorization"));
 
 namespace intel {
 
@@ -58,7 +58,7 @@ SGSizeCollectorImpl::SGSizeCollectorImpl(const Intel::CPUId &CPUId)
 //
 // Example:
 //
-//   define void @kernel() !intel_reqd_sub_group_size !0 {
+//   define void @kernel() !ocl_recommended_vector_length !0 {
 //   entry:
 //     call void @foo()
 //     ret void
@@ -72,7 +72,7 @@ SGSizeCollectorImpl::SGSizeCollectorImpl(const Intel::CPUId &CPUId)
 //   attributes #0 = { "vector-variants"="_ZGVbM8_foo,_ZGVbN8_foo" }
 //
 bool SGSizeCollectorImpl::runImpl(Module &M) {
-  if (!EnableVectorVariantPasses)
+  if (!EnableDirectFunctionCallVectorization)
     return false;
 
   bool Modified = false;

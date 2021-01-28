@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -instnamer -vector-variant-fillin -S | FileCheck %s
+; RUN: %oclopt %s -instnamer -vector-variant-fillin -S | FileCheck %s
 
 %"class.cl::sycl::intel::SimdFunction" = type { %"struct.std::array" }
 %"struct.std::array" = type { [2 x i32 (i32, float)*] }

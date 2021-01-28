@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-vector-variant-passes -vector-variant-lowering -vector-variant-isa-override=AVX2 -S | FileCheck %s
+; RUN: %oclopt %s -vector-variant-lowering -vector-variant-isa-override=AVX2 -S | FileCheck %s
 
 define void @bar(i32, float) {
 entry:
