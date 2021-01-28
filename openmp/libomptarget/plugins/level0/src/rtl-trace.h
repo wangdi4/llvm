@@ -240,6 +240,19 @@ TRACE_FN_DEF(zeContextDestroy)(
   return rc;
 }
 
+TRACE_FN_DEF(zeDeviceCanAccessPeer)(
+    ze_device_handle_t hDevice,
+    ze_device_handle_t hPeerDevice,
+    ze_bool_t *value) {
+  auto rc = zeDeviceCanAccessPeer(hDevice, hPeerDevice, value);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(hPeerDevice);
+  TRACE_FN_ARG_PTR(value);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeDeviceGet)(
     ze_driver_handle_t hDriver,
     uint32_t *pCount,

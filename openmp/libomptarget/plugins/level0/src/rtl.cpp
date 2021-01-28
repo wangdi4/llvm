@@ -2371,6 +2371,34 @@ EXTERN int32_t __tgt_rtl_data_retrieve_nowait(
   return retrieveData(DeviceId, HstPtr, TgtPtr, Size, AsyncEvent);
 }
 
+EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
+  ze_bool_t ret = false;
+  ze_result_t rc;
+
+  CALL_ZE(rc, zeDeviceCanAccessPeer, DeviceInfo->Devices[DstId],
+          DeviceInfo->Devices[SrcId], &ret);
+  if (rc == ZE_RESULT_SUCCESS && ret)
+    return 1;
+
+  return 0;
+}
+
+EXTERN int32_t __tgt_rtl_data_exchange(
+    int32_t SrcId, void *SrcPtr, int32_t DstId, void *DstPtr, int64_t Size) {
+  auto cmdList = DeviceInfo->getCmdList(DstId);
+  auto cmdQueue = DeviceInfo->getCmdQueue(DstId);
+
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, DstPtr, SrcPtr, Size,
+                   nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+                   nullptr);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+
+  return OFFLOAD_SUCCESS;
+}
+
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
 #if !SUBDEVICE_USE_ROOT_MEMORY
   if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {

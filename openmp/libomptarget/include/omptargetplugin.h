@@ -40,6 +40,9 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image);
 // Return an integer other than zero if the data can be exchaned from SrcDevId
 // to DstDevId. If it is data exchangable, the device plugin should provide
 // function to move data from source device to destination device directly.
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 int32_t __tgt_rtl_is_data_exchangable(int32_t SrcDevId, int32_t DstDevId);
 
 // Initialize the requires flags for the device.
@@ -116,6 +119,9 @@ int32_t __tgt_rtl_data_retrieve_async(int32_t ID, void *HostPtr,
 // its address. This operation does not need to copy data back to host and then
 // from host to another device. In case of success, return zero. Otherwise,
 // return an error code.
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 int32_t __tgt_rtl_data_exchange(int32_t SrcID, void *SrcPtr, int32_t DstID,
                                 void *DstPtr, int64_t Size);
 
