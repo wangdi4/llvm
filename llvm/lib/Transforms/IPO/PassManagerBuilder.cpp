@@ -779,7 +779,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
       MPM.add(createLoopSimplifyCFGPass());
     }
     // Rotate Loop - disable header duplication at -Oz
-    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
+    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
     // TODO: Investigate promotion cap for O1.
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
     if (EnableSimpleLoopUnswitch)
@@ -820,7 +820,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
     // This ends the loop pass pipelines.
   }
-
   // Break up allocas that may now be splittable after loop unrolling.
   MPM.add(createSROAPass());
 
@@ -1253,7 +1252,7 @@ void PassManagerBuilder::populateModulePassManager(
     // Re-rotate loops in all our loop nests. These may have fallout out of
     // rotated form due to GVN or other transformations, and the vectorizer
     // relies on the rotated form. Disable header duplication at -Oz.
-    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
+    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
 
 #if INTEL_CUSTOMIZATION
     if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
@@ -1261,7 +1260,6 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDPCPPKernelAnalysisPass());
       MPM.add(createDPCPPKernelVecClonePass());
     }
-
     // In LTO mode, loopopt needs to run in link phase along with community
     // vectorizer and unroll after it until they are phased out.
     if (!PrepareForLTO || !isLoopOptEnabled()) {
