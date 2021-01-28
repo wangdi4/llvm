@@ -146,7 +146,6 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
                                           std::unique_ptr<MemoryBuffer> Buffer,
                                           LLVMContext &Context) {
   std::unique_ptr<Module> Result(new Module("ArchiveModule", Context));
-  Linker L(*Result); // INTEL
   StringRef ArchiveName = Buffer->getBufferIdentifier();
   if (Verbose)
     errs() << "Reading library archive file '" << ArchiveName
@@ -154,6 +153,7 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
   Error Err = Error::success();
   object::Archive Archive(*Buffer, Err);
   ExitOnErr(std::move(Err));
+  Linker L(*Result);
   for (const object::Archive::Child &C : Archive.children(Err)) {
     Expected<StringRef> Ename = C.getName();
     if (Error E = Ename.takeError()) {
@@ -187,14 +187,12 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
       return nullptr;
     }
 
-#if INTEL_CUSTOMIZATION
     std::unique_ptr<Module> M;
     if (DisableLazyLoad)
       M = parseIR(MemBuf.get(), ParseErr, Context);
     else
       M = getLazyIRModule(MemoryBuffer::getMemBuffer(MemBuf.get(), false),
                           ParseErr, Context);
-#endif // INTEL_CUSTOMIZATION
 
     if (!M.get()) {
       errs() << Argv0 << ": ";
@@ -205,7 +203,7 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
     }
     if (Verbose)
       errs() << "Linking member '" << ChildName << "' of archive library.\n";
-    if (L.linkInModule(std::move(M))) //  INTEL
+    if (L.linkInModule(std::move(M)))
       return nullptr;
   } // end for each child
   ExitOnErr(std::move(Err));
