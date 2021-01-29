@@ -17,7 +17,6 @@
 #include "base_command_list.hpp"
 #include "cl_shared_ptr.hpp"
 #include "cl_user_logger.h"
-#include "cpu_dev_limits.h"
 #include "task_group.hpp"
 #include "tbb_execution_schedulers.h"
 
@@ -329,9 +328,7 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
     if (ulAdditionalRequiredStackSize != 0) {
         // We force stack size of TBB created threads to match required value
         const size_t TBBDefaultStackSize =
-            (CPU_DEVICE == deviceMode) ? CPU_DEV_MAX_WG_PRIVATE_SIZE
-                                       : ((sizeof(uintptr_t) <= 4 ? 2 : 4) *
-                                          1024 * 1024); // 2 or 4 MBytes
+            (sizeof(uintptr_t) <= 4 ? 2 : 4) * 1024 * 1024; // 2 or 4 MBytes
         size_t stackSize = TBBDefaultStackSize + ulAdditionalRequiredStackSize;
         // align stack size to 4 bytes
         if ((stackSize & 3u) != 0) {

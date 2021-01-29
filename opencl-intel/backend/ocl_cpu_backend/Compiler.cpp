@@ -431,6 +431,15 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
     TargetOpts.AllowFPOpFusion = llvm::FPOpFusion::Standard;
   }
 
+  // CMPLRLLVM-25714:
+  // When -cl-fast-relaxed-math is enabled, Codegen's fast fp-model is too
+  // aggressive for OpenCL, leading to "fdiv fast" precision loss (violates
+  // the OpenCL Spec).
+  // Disabling Codegen's -do-x86-global-fma optimization in this situation
+  // could improve the precision.
+  if (CompilationUtils::getFastRelaxedMathFlagFromMetadata(pModule))
+    TargetOpts.DoFMAOpt = false;
+
   llvm::CodeGenOpt::Level CGOptLevel =
     m_disableOptimization ? llvm::CodeGenOpt::None : llvm::CodeGenOpt::Default;
 

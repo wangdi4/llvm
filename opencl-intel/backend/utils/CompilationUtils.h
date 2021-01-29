@@ -653,6 +653,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// for -cl-opt-disable flag
     static bool getOptDisableFlagFromMetadata(Module *M);
 
+    /// getFastRelaxedMathFlagFromMetadata - check opencl.compiler.options
+    /// for -cl-fast-relaxed-math flag
+    static bool getFastRelaxedMathFlagFromMetadata(Module *M);
+
     /// generatedFromOCLCPP - check that IR was generated from OCL C++
     /// from "!spirv.Source" named metadata
     static bool generatedFromOCLCPP(const Module &M);
