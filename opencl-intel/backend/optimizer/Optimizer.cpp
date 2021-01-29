@@ -522,6 +522,15 @@ static void populatePassesPostFailCheck(
 
   PM.add(createDuplicateCalledKernelsPass());
 
+  if (debugType == Simulator) {
+    // DebugInfo pass must run before KernelAnalysis and Barrier pass when
+    // debugging with simulator. DebugInfo inserts get_global_id call to
+    // un-inlined callee, and KernelAnalysis will set no_barrier_path to false
+    // for caller kernel. The kernel will be handled in Barrier instead of
+    // LoopCreator pass.
+    PM.add(createDebugInfoPass());
+  }
+
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(createKernelAnalysisPass());
@@ -677,10 +686,7 @@ static void populatePassesPostFailCheck(
 
   // The debugType enum and isProfiling flag are mutually exclusive, with
   // precedence given to debugType.
-  if (debugType == Simulator) {
-    // DebugInfo pass must run before Barrier pass when debugging with simulator
-    PM.add(createDebugInfoPass());
-  } else if (isProfiling) {
+  if (isProfiling) {
     PM.add(createProfilingInfoPass());
   }
 

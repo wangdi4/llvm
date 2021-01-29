@@ -95,7 +95,29 @@ cl_ulong GetLocalMemorySize(const CPUDeviceConfig &config)
 {
     static cl_ulong localMemSize = 0;
     if (0 == localMemSize)
-        localMemSize = config.GetForcedLocalMemSize();
+    {
+        // check config for forced local mem size
+        if (config.GetForcedLocalMemSize() != 0)
+        {
+            localMemSize =  config.GetForcedLocalMemSize();
+        }
+        // fallback to default local memory size
+        else
+        {
+            switch (config.GetDeviceMode())
+            {
+                case CPU_DEVICE:
+                case EYEQ_EMU_DEVICE:
+                    localMemSize = CPU_DEV_LCL_MEM_SIZE;
+                    break;
+                case FPGA_EMU_DEVICE:
+                    localMemSize = FPGA_DEV_LCL_MEM_SIZE;
+                    break;
+                default:
+                    return CL_DEV_INVALID_VALUE;
+            }
+        }
+    }
     return localMemSize;
 }
 cl_ulong GetMaxMemAllocSize(const CPUDeviceConfig &config, bool* isForced = nullptr)

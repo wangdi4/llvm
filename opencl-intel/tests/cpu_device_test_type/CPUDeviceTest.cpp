@@ -22,7 +22,6 @@
 //  CPUDeviceTest.cpp
 ///////////////////////////////////////////////////////////
 
-#include "cl_config.h"
 #include "cl_sys_info.h"
 #include "cl_utils.h"
 #include "common_utils.h"
@@ -41,7 +40,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tbb/global_control.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -763,7 +761,7 @@ void initDpcppAffinity()
 #endif
 }
 
-void CPUDeviceTest_Init(Intel::OpenCL::Utils::BasicCLConfigWrapper *config) {
+void CPUDeviceTest_Init() {
   initDpcppAffinity();
 
   ITaskExecutor *pTaskExecutor = GetTaskExecutor();
@@ -772,17 +770,9 @@ void CPUDeviceTest_Init(Intel::OpenCL::Utils::BasicCLConfigWrapper *config) {
   // Initialize Task Executor
   unsigned numThreads =
       gUseHalfProcessors ? (gNumProcessors / 2) : gNumProcessors;
-  size_t additionalStackSize = config->GetForcedLocalMemSize() +
-      config->GetForcedPrivateMemSize();
-  int iThreads =
-      pTaskExecutor->Init(nullptr, numThreads, nullptr, additionalStackSize);
+  int iThreads = pTaskExecutor->Init(NULL, numThreads);
   ASSERT_EQ(pTaskExecutor->GetErrorCode(), 0);
   ASSERT_TRUE(iThreads > 0);
-
-  // Check TBB stack size
-  size_t stackSize = tbb::global_control::active_value(
-      tbb::global_control::thread_stack_size);
-  ASSERT_EQ(stackSize, (size_t)(8 * 1024 * 1024));
 
   // Create and Init the device
   static CPUTestLogger log_desc;
@@ -907,10 +897,7 @@ int main(int argc, char* argv[])
         pMask = &affinityMask;
     }
 #endif
-    using namespace Intel::OpenCL::Utils;
-    BasicCLConfigWrapper *config = new BasicCLConfigWrapper();
-    config->Initialize(GetConfigFilePath());
-    CPUDeviceTest_Init(config);
+    CPUDeviceTest_Init();
     if (::testing::Test::HasFatalFailure())
         return -1;
 
@@ -918,6 +905,5 @@ int main(int argc, char* argv[])
     // This is disabled due to shutdown issue and will be fixed by
     // CMPLRLLVM-20324.
     //dev_entry->clDevCloseDevice();
-    delete config;
     return rc;
 }

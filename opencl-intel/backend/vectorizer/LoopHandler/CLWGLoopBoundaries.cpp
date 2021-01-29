@@ -689,6 +689,12 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
   // In that case the bound will be f_inverse(Uniform).
   while (Instruction *tidInst = dyn_cast<Instruction>(tid)) {
     bool isFirstOperandUniform = isUniform(tidInst->getOperand(0));
+    if (tidInst->getNumOperands() == 2) {
+      // If both operands are non-uniform, TID calls will be placed into the
+      // boundary function. However they can't be resolved outside of WG loop.
+      if (!isFirstOperandUniform && !isUniform(tidInst->getOperand(1)))
+        return false;
+    }
     switch (tidInst->getOpcode()) {
       case Instruction::Trunc: {
         originalType = (*bound)->getType();

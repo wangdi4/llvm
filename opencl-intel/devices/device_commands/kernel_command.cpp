@@ -142,6 +142,8 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
     m_bIsDebugMode = pKernel->GetKernelProporties()->HasDebugInfo();
     if (m_bIsDebugMode)
     {
+        static Utils::OclNonReentrantSpinMutex lock;
+        Utils::OclAutoMutex mutex(&lock);
         // indeed BE is supposed to force this flag, but we force it ourselves just to make sure
         flags = CLK_ENQUEUE_FLAGS_WAIT_KERNEL;
         m_childrenTaskGroup = pDebugList->GetNDRangeChildrenTaskGroup();

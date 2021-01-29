@@ -21,7 +21,6 @@
 #pragma once
 
 #include "task_executor.h"
-#include "cl_config.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_object_pool.h"
 
@@ -51,23 +50,15 @@ public:
 
     TaskExecutorTester()
     {
-        m_config = nullptr;
         if (NULL == m_pTaskExecutor)
         {
             m_pTaskExecutor = Intel::OpenCL::TaskExecutor::GetTaskExecutor();
-            m_config = new Intel::OpenCL::Utils::BasicCLConfigWrapper();
-            m_config->Initialize(GetConfigFilePath());
-            size_t additionalStackSize = m_config->GetForcedLocalMemSize() +
-                m_config->GetForcedPrivateMemSize();
-            m_pTaskExecutor->Init(NULL, TE_AUTO_THREADS, NULL,
-                                  additionalStackSize);
+            m_pTaskExecutor->Init(NULL, TE_AUTO_THREADS, NULL);            
         }
     }
 
     ~TaskExecutorTester()
     {
-        if (m_config)
-            delete m_config;
     }
 
     ITaskExecutor* GetTaskExecutor() { return m_pTaskExecutor; }
@@ -94,7 +85,6 @@ public:
 
 private:
 
-    Intel::OpenCL::Utils::BasicCLConfigWrapper *m_config;
     static ITaskExecutor* m_pTaskExecutor;
     WGContextPool m_wgContextPool;
 
