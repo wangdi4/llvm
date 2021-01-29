@@ -495,7 +495,12 @@ public:
     *this = f_op2;
   }
 
+  template <int disable = 1>
   constexpr ac_fixed(double d) {
+    static_assert (disable != 1, "ac_fixed is limited to use with native "
+        "float type. It cannot be constructed from a native double type. "
+        "Please update your program to use float in operations involving "
+        "ac_fixed.");
     Ulong s = __builtin_bit_cast(Ulong, d);
     bool sign = (bool)((s >> 63) & 1);
     Ulong biased_exponent =

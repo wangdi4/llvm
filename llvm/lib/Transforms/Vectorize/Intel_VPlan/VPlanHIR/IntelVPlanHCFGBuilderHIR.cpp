@@ -1053,6 +1053,8 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(ID->getStart());
     Descriptor.setStep(ID->getStep());
+    Descriptor.setStartVal(ID->getStartVal());
+    Descriptor.setEndVal(ID->getEndVal());
     Descriptor.setAllocaInst(nullptr);
   }
 };

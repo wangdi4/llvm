@@ -147,7 +147,8 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
         auto *One = ConstantInt::getSigned(Call->getType(), 1);
         return VPIRBuilder.create<VPInductionInit>(
             Call->getName(), getOrCreateVPOperand(Zero),
-            getOrCreateVPOperand(One), Instruction::Add);
+            getOrCreateVPOperand(One), nullptr /* StartVal */,
+            nullptr /* EndVal */, Instruction::Add);
       }
     }
   }

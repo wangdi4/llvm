@@ -1,6 +1,6 @@
 //===------- Intel_InlineCost.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -173,6 +173,16 @@ static cl::opt<unsigned> ProfInstrumentHotCount(
 static cl::opt<bool> NewDoubleCallSiteInliningHeuristics(
     "new-double-callsite-inlining-heuristics", cl::init(false),
     cl::ReallyHidden);
+
+// Maximum number of basic blocks allowed for inner specially handled
+// double callsite external Functions.
+static cl::opt<unsigned> MaxBBInnerDoubleExternalFxn(
+    "max-bb-inner-double-external-fxn", cl::init(10), cl::ReallyHidden);
+
+// Maximum number of basic blocks allowed for outer specially handled
+// double callsite external Functions.
+static cl::opt<unsigned> MaxBBOuterDoubleExternalFxn(
+    "max-bb-outer-double-external-fxn", cl::init(30), cl::ReallyHidden);
 
 // worthInliningForFusion()
 // Number of successive callsites need to be inlined to benefit
@@ -1735,18 +1745,57 @@ extern Optional<InlineResult> intelWorthNotInlining(
 //
 
 //
-// Return true if 'F' has exactly two callsites
+// Return 'true' if the attributes indicate that 'CB' was discovered to be
+// a worthy double callsite while testing another callsite.
 //
-static bool isDoubleCallSite(Function *F) {
+static bool hasWorthyDoubleCallSiteAttribute(CallBase &CB) {
+  return CB.hasFnAttr("inline-doubleext2");
+}
+
+//
+// Return true if the caller of 'CB' has exactly two callsites or if 'CB'
+// is marked as a worthy double callsite.
+//
+static bool isDoubleCallSite(CallBase &CB) {
   unsigned int count = 0;
+  if (hasWorthyDoubleCallSiteAttribute(CB))
+    return true;
+  Function *F = CB.getCalledFunction();
   for (User *U : F->users()) {
-    auto CB = dyn_cast<CallBase>(U);
-    if (!CB || CB->getCalledFunction() != F)
+    auto CBB = dyn_cast<CallBase>(U);
+    if (!CBB || CBB->getCalledFunction() != F)
       continue;
     if (++count > 2)
       return false;
   }
   return count == 2;
+}
+
+//
+// Return 'true' if 'CB's callee has exactly two callsites in the same
+// caller, and no other uses. If so, set '*CB0' and '*CB1' to those two
+// callsites.
+//
+static bool hasTwoCallSitesInSameCaller(CallBase &CB,
+                                        CallBase **CB0, CallBase **CB1) {
+  // Look for 2 calls of the callee in the caller.
+  unsigned Count = 0;
+  Function *Caller = CB.getCaller();
+  Function *Callee = CB.getCalledFunction();
+  for (User *U : Callee->users())
+    if (auto CBB = dyn_cast<CallBase>(U)) {
+      if (CBB->getCaller() == Caller) {
+        if (++Count > 2)
+          return false;
+        if (Count == 1)
+          *CB0 = CBB;
+        else
+          *CB1 = CBB;
+      }
+    }
+  if (Count != 2)
+    return false;
+  return true;
 }
 
 //
@@ -1759,25 +1808,14 @@ static bool isDoubleCallSite(Function *F) {
 //  (3) That loop's basic blocks must have a relatively large successor count
 //
 static bool worthyDoubleCallSite1(CallBase &CB, InliningLoopInfoCache &ILIC) {
-  Function *Caller = CB.getCaller();
-  Function *Callee = CB.getCalledFunction();
+  CallBase *CB0 = nullptr;
+  CallBase *CB1 = nullptr;
   // Look for 2 calls of the callee in the caller.
-  unsigned count = 0;
-  for (Use &U : Callee->uses()) {
-    if (auto CBB = dyn_cast<CallBase>(U.getUser())) {
-      if (CBB && (CBB->getCaller() == Caller)) {
-        if (++count > 2) {
-          return false;
-        }
-      }
-    }
-  }
-  if (count != 2) {
+  if (!hasTwoCallSitesInSameCaller(CB, &CB0, &CB1))
     return false;
-  }
   // Look for a single top level loop in the callee.
-  LoopInfo *LI = ILIC.getLI(Callee);
-  count = 0;
+  LoopInfo *LI = ILIC.getLI(CB.getCalledFunction());
+  unsigned count = 0;
   const Loop *L = nullptr;
   for (auto LB = LI->begin(), LE = LI->end(); LB != LE; ++LB) {
     L = *LB;
@@ -1913,6 +1951,205 @@ static bool worthyDoubleInternalCallSite(CallBase &CB,
 }
 
 //
+// Return 'true' if 'CB' and another callsite with the same caller and callee
+// as well as two callsites which have 'CB's caller as their callee should
+// be qualified for inlining as double callsites.
+//
+// For example:
+//     define myouter
+//        call myinner
+//        call myinner
+//     define myoutercaller0
+//        call myouter
+//     define myoutercaller1
+//        call myouter
+// If we return 'true', the two calls to myinner and the two calls to myouter
+// will be selected for inlining.
+//
+// Special heuristics are employed to qualify both the inner and outer
+// callsites for inlining.
+//
+// For the inner callsites, we look for a pair of callsites to a Function with
+// exactly 9 arguments, which we break into groups of 3 (triads).
+// The actual arguments in Triad 0 should all match pairwise.
+// Those in Triad 1 should be related by the formula: Arg1 = Arg0 + ...
+// Those in Triad 2 should be AllocInsts which are stored a floating-point
+// value of 0 only once, and appear otherwise only in bitcasts to lifetime
+// intrinsics or loads. Furthermore, myouter should have only 1 basic block
+// and myinner should have no more than 'MaxBBInnerDoubleExternalFxn' basic
+// blocks.
+//
+// For the outer callsites, their callers should have OpenMP directives
+// and no more than 'MaxBBOuterDoubleExternalFxn' basic blocks.
+//
+static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
+
+  //
+  // Return 'true' if the first three arguments of 'CB0' and 'CB1' match.
+  //
+  auto TestTriad0 = [](CallBase *CB0, CallBase *CB1) -> bool {
+    for (unsigned I = 0; I < 3; ++I)
+      if (CB0->getArgOperand(I) != CB1->getArgOperand(I))
+        return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if the middle three arguments of 'CB0' and 'CB1' have
+  // the form 'Arg1 = Arg0 + ...'.
+  //
+  auto TestTriad1 = [](CallBase *CB0, CallBase *CB1) -> bool {
+    for (unsigned I = 3; I < 6; ++I) {
+      auto CBA = dyn_cast<LoadInst>(CB0->getArgOperand(I));
+      Value *CBB = CB1->getArgOperand(I);
+      if (!CBA) {
+        CBA = dyn_cast<LoadInst>(CBB);
+        if (!CBA)
+          return false;
+        CBB = CB0->getArgOperand(I);
+      }
+      Value *LD = nullptr;
+      if (!match(CBB, m_FAdd(m_Specific(CBA), m_Value(LD))))
+        return false;
+    }
+    return true;
+  };
+
+  //
+  // Return 'true' if 'TV' is an AllocaInst whose use in a CallBase matches
+  // the 'ArgNo' argument of 'CB', and which is stored a floating point 0 in
+  // a StoreInst, and whose only other uses are bitcasts that feed lifetime
+  // intrinsics or LoadInsts.
+  //
+  auto MatchesSZP = [](CallBase *CB, Value *TV, unsigned ArgNo) -> bool {
+    unsigned CallBaseCount = 0;
+    unsigned StoreInstCount = 0;
+    auto AI = dyn_cast<AllocaInst>(TV);
+    if (!AI)
+      return false;
+    for (User *U : AI->users()) {
+      if (auto CBI = dyn_cast<CallBase>(U)) {
+        if (CBI != CB || TV != CB->getArgOperand(ArgNo) || CallBaseCount > 0)
+          return false;
+        ++CallBaseCount;
+        continue;
+      }
+      if (auto BCI = dyn_cast<BitCastInst>(U)) {
+        for (auto UU : BCI->users()) {
+          auto ICB = dyn_cast<CallBase>(UU);
+          if (!ICB)
+            return false;
+          if (!ICB->isLifetimeStartOrEnd())
+            return false;
+        }
+        continue;
+      }
+      if (isa<LoadInst>(U))
+        continue;
+      if (auto SI = dyn_cast<StoreInst>(U)) {
+        auto CFP = dyn_cast<ConstantFP>(SI->getValueOperand());
+        if (!CFP || !CFP->isZero() || StoreInstCount > 0)
+          return false;
+        ++StoreInstCount;
+        continue;
+      }
+      return false;
+    }
+    return CallBaseCount == 1 && StoreInstCount == 1;
+  };
+
+  //
+  // Return 'true' if the last three arguments of 'CB0' and 'CB1' all
+  // match the pattern specified by 'MatchesSZP' above.
+  //
+  auto TestTriad2 = [&MatchesSZP](CallBase *CB0, CallBase *CB1) -> bool {
+    for (unsigned I = 6; I < 9; ++I) {
+      if (!MatchesSZP(CB0, CB0->getArgOperand(I), I))
+        return false;
+      if (!MatchesSZP(CB1, CB1->getArgOperand(I), I))
+        return false;
+    }
+    return true;
+  };
+
+  //
+  // Return 'true' if 'F' has only two callsites and no other uses and, if so,
+  // set '*CB0' and '*CB1' to those uses.
+  //
+  auto HasOnlyTwoCallSites = [](Function &F,
+                                CallBase **CB0, CallBase **CB1) -> bool {
+    unsigned Count = 0;
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        return false;
+      if (++Count > 2)
+        return false;
+      if (!*CB0)
+        *CB0 = CB;
+      else
+        *CB1 = CB;
+    }
+    return Count == 2;
+  };
+
+  //
+  // Return 'true' if 'CB' has an OpenMp directive and no more than 'MaxBBs'
+  // basic blocks.
+  //
+  auto IsWorthyUpperCallSite = [](CallBase &CB, unsigned MaxBBs) -> bool {
+    Function *Caller = CB.getCaller();
+    return vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller)
+        && Caller->size() <= MaxBBs;
+  };
+
+  //
+  // Main code for worthyDoubleExternalCallSite1
+  //
+  CallBase *CB0 = nullptr;
+  CallBase *CB1 = nullptr;
+  //
+  // Check if we have already qualified this callsite. It makes sense to
+  // qualify the four callsites as a group, as we want all of them or none
+  // of them. Furthermore if inlining is performed before all of the
+  // callsites are qualified, the properties being qualified can change.
+  // For example, if one of a pair of double callsites is inlined, the
+  // remaining callsite is a single callsite rather than a double callsite.
+  //
+  if (CB.hasFnAttr("inline-doubleext2"))
+    return true;
+  if (!PrepareForLTO)
+    return false;
+  // Qualifications for the two inner callsites
+  if (!hasTwoCallSitesInSameCaller(CB, &CB0, &CB1))
+    return false;
+  Function *Caller = CB.getCaller();
+  if (Caller->size() != 1)
+    return false;
+  if (CB0->arg_size() != 9 || CB1->arg_size() != 9)
+    return false;
+  if (!TestTriad0(CB0, CB1) || !TestTriad1(CB0, CB1) || !TestTriad2(CB0, CB1))
+    return false;
+  if (CB.getCalledFunction()->size() > MaxBBInnerDoubleExternalFxn)
+    return false;
+  // Qualificatuions for the two outer callsites
+  CallBase *CCB0 = nullptr;
+  CallBase *CCB1 = nullptr;
+  if (!HasOnlyTwoCallSites(*Caller, &CCB0, &CCB1))
+    return false;
+  if (!IsWorthyUpperCallSite(*CCB0, MaxBBOuterDoubleExternalFxn))
+    return false;
+  if (!IsWorthyUpperCallSite(*CCB1, MaxBBOuterDoubleExternalFxn))
+    return false;
+  // Qualify all callsites at once by setting the same attribute on all of them.
+  CB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
+  CB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
+  CCB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
+  CCB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
+  return true;
+}
+
+//
 // Return 'true' if 'CB' worth inlining, given that it is a double callsite
 // with external linkage.
 //
@@ -1922,7 +2159,7 @@ static bool worthyDoubleInternalCallSite(CallBase &CB,
 //   (3) No calls to functions other than the called function
 //       (except intrinsics added by using -g)
 //
-static bool worthyDoubleExternalCallSite(CallBase &CB) {
+static bool worthyDoubleExternalCallSite2(CallBase &CB) {
   Function *Caller = CB.getCaller();
   if (!NewDoubleCallSiteInliningHeuristics)
     return false;
@@ -1952,6 +2189,27 @@ static bool worthyDoubleExternalCallSite(CallBase &CB) {
     }
   }
   return true;
+}
+
+//
+// Return 'true' if 'CB' worth inlining, given that it is a double callsite
+// with external linkage. If we need to use the big bonus to actually get
+// the callsites to inline, set '*UseBigBonus'. (NOTE: It might be useful
+// to use a single big bonus consistently, but that should be tested in
+// its own change set.)
+//
+static bool worthyDoubleExternalCallSite(CallBase &CB,
+                                         bool PrepareForLTO,
+                                         bool *UseBigBonus) {
+  if (worthyDoubleExternalCallSite1(CB, PrepareForLTO)) {
+    *UseBigBonus = true;
+    return true;
+  }
+  if (worthyDoubleExternalCallSite2(CB)) {
+    *UseBigBonus = false;
+    return true;
+  }
+  return false;
 }
 
 //
@@ -3137,7 +3395,7 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
     YesReasonVector.push_back(InlrHotProfile);
     return -InlineConstants::InliningHeuristicBonus;
   }
-  if (isDoubleCallSite(F)) {
+  if (isDoubleCallSite(CB)) {
     // If there are two calls of the function, the cost of inlining it may
     // drop, but less dramatically.
     if (F->hasLocalLinkage() || F->hasLinkOnceODRLinkage()) {
@@ -3146,8 +3404,11 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
         return -InlineConstants::SecondToLastCallToStaticBonus;
       }
     }
-    if (worthyDoubleExternalCallSite(CB)) {
+    bool UseBigBonus = false;
+    if (worthyDoubleExternalCallSite(CB, PrepareForLTO, &UseBigBonus)) {
       YesReasonVector.push_back(InlrDoubleNonLocalCall);
+      if (UseBigBonus)
+        return -InlineConstants::InliningHeuristicBonus;
       return -InlineConstants::SecondToLastCallToStaticBonus;
     }
   }

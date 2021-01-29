@@ -136,6 +136,16 @@ void VPInduction::dump(raw_ostream &OS) const {
     OS << " Step: ";
     Step->printAsOperand(OS);
   }
+  OS << " StartVal: ";
+  if (StartVal)
+    StartVal->printAsOperand(OS);
+  else
+    OS << "?";
+  OS << " EndVal: ";
+  if (EndVal)
+    EndVal->printAsOperand(OS);
+  else
+    OS << "?";
   if (getInductionBinOp()) {
     OS << " BinOp: ";
     getInductionBinOp()->print(OS);
@@ -331,12 +341,15 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
 VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
                                             VPValue *Incoming,
                                             InductionKind Kind, VPValue *Step,
+                                            VPValue *StartVal,
+                                            VPValue *EndVal,
                                             VPInstruction *InductionOp,
                                             unsigned int Opc, VPValue *AI,
                                             bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
   VPInduction *Ind =
-      new VPInduction(Incoming, Kind, Step, InductionOp, ValidMemOnly, Opc);
+      new VPInduction(Incoming, Kind, Step, StartVal, EndVal,
+                      InductionOp, ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
   linkValue(InductionMap, Ind, Start);
   if (InductionOp) {
@@ -757,7 +770,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       Name = PhiN ? PhiN->getName() : "";
     }
     VPInstruction *Init = Builder.create<VPInductionInit>(
-        Name + ".ind.init", Start, Induction->getStep(), Opc);
+        Name + ".ind.init", Start, Induction->getStep(),
+        Induction->getStartVal(), Induction->getEndVal(), Opc);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
     VPInstruction *InitStep = Builder.create<VPInductionInitStep>(
         Name + ".ind.init.step", Induction->getStep(), Opc);
@@ -1597,8 +1611,8 @@ void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPInduction *VPInd =
-      LE->addInduction(StartPhi, Start, K, Step, InductionOp, IndOpcode,
-                       AllocaInst, ValidMemOnly);
+      LE->addInduction(StartPhi, Start, K, Step, StartVal, EndVal,
+                       InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
 }

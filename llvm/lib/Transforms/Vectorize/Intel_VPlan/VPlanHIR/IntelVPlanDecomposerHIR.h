@@ -42,17 +42,24 @@ public:
     // Incoming (starting) value of induction. Can be null, in that case the
     // initial value can be obtained from the phi that uses the UpdateInstr.
     VPValue *Start;
+    // Constant lower/upper bound of induction; nullptr otherwise.
+    VPValue *StartVal = nullptr;
+    VPValue *EndVal = nullptr;
 
   public:
     explicit VPInductionHIR(VPInstruction *Instr, VPValue *Stride,
-                            VPValue *Incoming)
-        : UpdateInstr(Instr), Step(Stride), Start(Incoming) {}
+                            VPValue *Incoming, VPValue *StartVal,
+                            VPValue *EndVal)
+        : UpdateInstr(Instr), Step(Stride), Start(Incoming),
+          StartVal(StartVal), EndVal(EndVal) {}
 
     VPInductionHIR() = delete;
 
     VPInstruction *getUpdateInstr() { return UpdateInstr; }
     VPValue *getStep() { return Step; }
     VPValue *getStart() { return Start; }
+    VPValue *getStartVal() { return StartVal; }
+    VPValue *getEndVal() { return EndVal; }
   };
   typedef SmallVector<std::unique_ptr<VPInductionHIR>, 2> VPInductionHIRList;
   typedef DenseMap<const loopopt::HLLoop *, std::unique_ptr<VPInductionHIRList>>

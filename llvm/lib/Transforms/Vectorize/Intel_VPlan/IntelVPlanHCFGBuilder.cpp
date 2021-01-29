@@ -178,6 +178,7 @@ public:
 
   void
   convertEntityDescriptors(LoopVectorizationLegality *Legal,
+                           ScalarEvolution *SE,
                            VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts);
 
   using VPlanLoopCFGBuilder::getOrCreateVPOperand;
@@ -283,7 +284,8 @@ public:
 // Conversion functor for auto-recognized inductions
 class InductionListCvt : public VPEntityConverterBase {
 public:
-  InductionListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+  InductionListCvt(PlainCFGBuilder &Bld, VPlan *Plan, ScalarEvolution *SE) :
+      VPEntityConverterBase(Bld), Plan(Plan), SE(SE) {}
 
   void operator()(InductionDescr &Descriptor,
                   const InductionList::value_type &CurValue) {
@@ -318,8 +320,48 @@ public:
       Descriptor.setInductionOp(nullptr);
       Descriptor.setKindAndOpcodeFromTy(IndTy);
     }
+
+    // Compute lower/upper range for IV.
+    VPValue *StartVal = nullptr;
+    VPValue *EndVal = nullptr;
+    Value *PhiOp0 = CurValue.first->getOperand(0);
+    Value *PhiOp1 = CurValue.first->getOperand(1);
+    if (SE->isSCEVable(PhiOp0->getType()) &&
+        SE->isSCEVable(PhiOp1->getType())) {
+      const SCEV *Start = SE->getSCEV(PhiOp0);
+      const SCEV *UpdateExpr = SE->getSCEV(PhiOp1);
+      if (!isa<SCEVAddRecExpr>(UpdateExpr))
+        std::swap(Start, UpdateExpr);
+      // Update for induction should be SCEVAddRecExpr since importing is
+      // based from LLVM's InductionDescriptor, but check just in case. No
+      // harm in just not setting the lower/upper range of iv.
+      if (const SCEVAddRecExpr *AddRecExpr =
+          dyn_cast<SCEVAddRecExpr>(UpdateExpr)) {
+        const Loop *L = AddRecExpr->getLoop();
+        uint64_t TripCount = SE->getSmallConstantMaxTripCount(L);
+        Type *ConstantTy = CurValue.first->getType();
+        int64_t LowerVal;
+        if (const SCEVConstant *Lower = dyn_cast<SCEVConstant>(Start)) {
+          LowerVal = Lower->getValue()->getSExtValue();
+          StartVal =
+              Plan->getVPConstant(ConstantInt::get(ConstantTy, LowerVal));
+        }
+        if (StartVal && TripCount && isa<SCEVConstant>(Step)) {
+          int64_t StrideVal =
+              cast<SCEVConstant>(Step)->getValue()->getSExtValue();
+          int64_t UpperVal = LowerVal + StrideVal * TripCount;
+          EndVal = Plan->getVPConstant(ConstantInt::get(ConstantTy, UpperVal));
+        }
+      }
+    }
+    Descriptor.setStartVal(StartVal);
+    Descriptor.setEndVal(EndVal);
     Descriptor.setAllocaInst(nullptr);
   }
+
+private:
+  VPlan *Plan;
+  ScalarEvolution *SE;
 };
 
 // Conversion functor for explcit linears
@@ -501,6 +543,7 @@ using PrivatesConverter  = VPLoopEntitiesConverter<PrivateDescr, Loop, Loop2VPLo
 /// Convert incoming loop entities to the VPlan format.
 void PlainCFGBuilder::convertEntityDescriptors(
     VPOVectorizationLegality *Legal,
+    ScalarEvolution *SE,
     VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts) {
 
   using InductionList = VPOVectorizationLegality::InductionList;
@@ -518,7 +561,7 @@ void PlainCFGBuilder::convertEntityDescriptors(
 
   const InductionList *IL = Legal->getInductionVars();
   iterator_range<InductionList::const_iterator> InducRange(IL->begin(), IL->end());
-  InductionListCvt InducListCvt(*this);
+  InductionListCvt InducListCvt(*this, Plan, SE);
 
   const LinearListTy *LL = Legal->getLinears();
   iterator_range<LinearListTy::const_iterator> LinearRange(LL->begin(), LL->end());
@@ -600,7 +643,7 @@ void VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   PCFGBuilder.buildCFG();
   // Converting loop enities.
-  PCFGBuilder.convertEntityDescriptors(Legal, Cvts);
+  PCFGBuilder.convertEntityDescriptors(Legal, SE, Cvts);
 }
 
 void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {

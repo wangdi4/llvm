@@ -163,17 +163,22 @@ class VPInduction
 
 public:
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
-              VPInstruction *InductionOp, bool IsMemOnly = false,
+              VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
+              bool IsMemOnly = false,
               unsigned int Opc = Instruction::BinaryOpsEnd)
       : VPLoopEntity(Induction, IsMemOnly),
         InductionDescriptorTempl(Start, K, InductionOp), Step(Step),
-        IndOpcode(Opc) {
+        StartVal(StartVal), EndVal(EndVal), IndOpcode(Opc) {
     assert((getInductionBinOp() || IndOpcode != Instruction::BinaryOpsEnd) &&
            "Induction opcode should be set");
   }
 
   /// Return stride
   VPValue *getStep() const { return Step; }
+
+  /// Return lower/upper range of values for induction
+  VPValue *getStartVal() const { return StartVal; }
+  VPValue *getEndVal() const { return EndVal; }
 
   /// Return true if the induction needs a close-form generation at the
   /// beginning of the loop body. These cases are: explicit linears w/o
@@ -212,6 +217,8 @@ public:
 #endif
 private:
   VPValue *Step;
+  VPValue *StartVal;
+  VPValue *EndVal;
   unsigned int IndOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
 };
@@ -350,6 +357,7 @@ public:
   /// \p Incoming, stride \p Step, and alloca-instruction \p AI.
   VPInduction *addInduction(VPInstruction *Start, VPValue *Incoming,
                             InductionKind K, VPValue *Step,
+                            VPValue *StartVal, VPValue *EndVal,
                             VPInstruction *InductionOp, unsigned int Opc,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
 
@@ -826,6 +834,8 @@ public:
   InductionKind getKind() const { return K; }
   VPValue *getStart() const { return Start; }
   VPValue *getStep() const { return Step; }
+  VPValue *getStartVal() const { return StartVal; }
+  VPValue *getEndVal() const { return EndVal; }
   VPInstruction *getInductionOp() const { return InductionOp; }
   unsigned getIndOpcode() const { return IndOpcode; }
 
@@ -833,6 +843,8 @@ public:
   void setKind(InductionKind V) { K = V; }
   void setStart(VPValue *V) { Start = V; }
   void setStep(VPValue *V) { Step = V; }
+  void setStartVal(VPValue *V) { StartVal = V; }
+  void setEndVal(VPValue *V) { EndVal = V; }
   void setInductionOp(VPInstruction *V) { InductionOp = V; }
   void setIndOpcode(unsigned V) { IndOpcode = V; }
   void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
@@ -869,6 +881,8 @@ public:
     K = InductionKind::IK_NoInduction;
     Start = nullptr;
     Step = nullptr;
+    StartVal = nullptr;
+    EndVal = nullptr;
     InductionOp = nullptr;
     IndOpcode = Instruction::BinaryOpsEnd;
     IsExplicitInduction = false;
@@ -903,6 +917,8 @@ private:
   InductionKind K = InductionKind::IK_NoInduction;
   VPValue *Start = nullptr;
   VPValue *Step = nullptr;
+  VPValue *StartVal = nullptr;
+  VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;
   SmallVector<VPInstruction *, 4> UpdateVPInsts; // TODO: unpopulated
   unsigned IndOpcode = Instruction::BinaryOpsEnd;
