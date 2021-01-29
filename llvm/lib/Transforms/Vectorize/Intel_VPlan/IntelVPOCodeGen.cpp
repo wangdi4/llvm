@@ -3670,9 +3670,19 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   if (VecAllocaPrefAlignment >= OrigAlignment || V->isSOALayout()) {
     // Use widened alloca if preferred alignment can accommodate original
     // alloca's alignment or if we're using SOALayout.
-    AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
-        VecTyForAlloca, nullptr, VarName);
-    WidenedPrivArr->setAlignment(VecAllocaPrefAlignment);
+    Value *WidenedPrivArr =
+        Builder.CreateAlloca(VecTyForAlloca, nullptr, VarName);
+    cast<AllocaInst>(WidenedPrivArr)->setAlignment(VecAllocaPrefAlignment);
+    // If address space of widened alloca and private's data type don't match,
+    // then emit an explicit addrspacecast. This casted value represents the
+    // wide memory corresponding to the loop private variable.
+    unsigned OrigAddrSpace = V->getType()->getPointerAddressSpace();
+    if (WidenedPrivArr->getType()->getPointerAddressSpace() != OrigAddrSpace) {
+      // Generate a cast from VecTyForAlloca* to VecTyForAlloca addrspace(x)*.
+      Type *DestPtrTy = VecTyForAlloca->getPointerTo(OrigAddrSpace);
+      WidenedPrivArr = Builder.CreateAddrSpaceCast(WidenedPrivArr, DestPtrTy,
+                                                   VarName + ".ascast");
+    }
 
     LoopPrivateVPWidenMap[V] = WidenedPrivArr;
     if (V->isSOALayout())
