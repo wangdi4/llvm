@@ -612,7 +612,10 @@ static void populatePassesPostFailCheck(
         PM.add(createLCSSAPass());
         PM.add(createLICMPass());
         PM.add(createVPOCFGRestructuringPass());
-        PM.add(createVPlanDriverPass());
+        PM.add(createVPlanDriverPass(
+            [](Function *F) {
+              F->addFnAttr(CompilationUtils::ATTR_FAILED_TO_VECTORIZE);
+            }));
         PM.add(createOCLPostVectPass());
 
         // Final cleaning up
@@ -979,6 +982,13 @@ void Optimizer::Optimize() {
   }
 
   m_PostFailCheckPM.run(*m_pModule);
+
+  // if not all must vec functions have been vectorized.
+  // Serves as a safe guard to not execute the code below that
+  // might be added in the future.
+  if (hasFailedToVectorizerMustVec()) {
+    return;
+  }
 }
 
 const TStringToVFState& Optimizer::GetKernelVFStates() const {
@@ -1000,6 +1010,11 @@ bool Optimizer::hasRecursion() {
 bool Optimizer::hasFpgaPipeDynamicAccess() {
   return !GetInvalidFunctions(
       InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS).empty();
+}
+
+bool Optimizer::hasFailedToVectorizerMustVec() {
+  return !GetInvalidFunctions(
+    InvalidFunctionType::FAILED_TO_VECTORIZE_MUST_VEC_FUNCTION).empty();
 }
 
 bool Optimizer::hasFPGAChannelsWithDepthIgnored() {
@@ -1043,10 +1058,22 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
     case FPGA_PIPE_DYNAMIC_ACCESS:
       Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&
         KMD.FpgaPipeDynamicAccess.get();
+      break;
+    case FAILED_TO_VECTORIZE_MUST_VEC_FUNCTION:
+      Invalid = F.hasFnAttribute(CompilationUtils::ATTR_FAILED_TO_VECTORIZE);
+      break;
     }
 
     if (Invalid) {
-      Res.push_back(std::string(F.getName()));
+      std::string Message;
+      llvm::raw_string_ostream MStr(Message);
+      MStr << std::string(F.getName());
+      if (auto SP = F.getSubprogram()) {
+        MStr << " at ";
+        MStr << "file: " << SP->getFilename () << ", line:" << SP->getLine();
+      }
+      MStr.str();
+      Res.push_back(Message);
     }
   }
 

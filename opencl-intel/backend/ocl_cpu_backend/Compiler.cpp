@@ -109,6 +109,19 @@ static void LogHasFpgaPipeDynamicAccess(llvm::raw_ostream& logs,
     }
 }
 
+static void LogHasFailedToVectorizeMustVecFunctions(
+    llvm::raw_ostream& logs,
+    const std::vector<std::string>& functions)
+{
+    // So far this is the only reason to observe vectorization being failed.
+    logs << "Error: failed to match a vector variant for an indirect "
+         << "call in function(s):\n";
+
+    for (const auto& f : functions)
+    {
+      logs << f << "\n";
+    }
+}
 
 static bool LogKernelVFState(llvm::raw_ostream &logs,
                              const TStringToVFState &state)
@@ -582,8 +595,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
           pResult->LogS(), optimizer.GetInvalidFunctions(
               Optimizer::InvalidFunctionType::RECURSION));
 
-      throw Exceptions::CompilerException( "Recursive call detected.",
-                                            CL_DEV_INVALID_BINARY);
+      throw Exceptions::UserErrorCompilerException( "Recursive call detected.",
+                                                   CL_DEV_INVALID_BINARY);
     }
 
     if (optimizer.hasFpgaPipeDynamicAccess())
@@ -592,9 +605,19 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
           pResult->LogS(), optimizer.GetInvalidFunctions(
               Optimizer::InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS));
 
-      throw Exceptions::CompilerException(
+      throw Exceptions::UserErrorCompilerException(
           "Dynamic access to FPGA pipe or channel detected.",
           CL_DEV_INVALID_BINARY);
+    }
+
+    if (optimizer.hasFailedToVectorizerMustVec()) {
+      Utils::LogHasFailedToVectorizeMustVecFunctions(
+        pResult->LogS(), optimizer.GetInvalidFunctions(
+          Optimizer::InvalidFunctionType::FAILED_TO_VECTORIZE_MUST_VEC_FUNCTION));
+
+      throw Exceptions::UserErrorCompilerException(
+        "Failed to match vector variant for an indirect function call.",
+        CL_DEV_INVALID_BINARY);
     }
 
     if (optimizer.hasFPGAChannelsWithDepthIgnored())
