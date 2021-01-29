@@ -647,9 +647,18 @@ cl_err_code    Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice>& devi
     case CL_KERNEL_COMPILE_WORK_GROUP_SIZE:
         clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE_REQUIRED, 0, nullptr, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
-    case CL_KERNEL_LOCAL_MEM_SIZE:
-        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, 0, nullptr, szParamValueSize, pParamValue, pszParamValueSizeRet);
-        break;
+    case CL_KERNEL_LOCAL_MEM_SIZE: {
+      clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(
+          clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, 0, nullptr,
+          szParamValueSize, pParamValue, pszParamValueSizeRet);
+      if (clErr == CL_DEV_SUCCESS && m_totalLocalSize && pParamValue) {
+        size_t impliciteLocalSize = *(size_t *)pParamValue;
+        impliciteLocalSize += m_totalLocalSize;
+        MEMCPY_S(pParamValue, szParamValueSize, &impliciteLocalSize,
+                 sizeof(impliciteLocalSize));
+      }
+      break;
+    }
     case CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE:
         clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE, 0, nullptr, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
