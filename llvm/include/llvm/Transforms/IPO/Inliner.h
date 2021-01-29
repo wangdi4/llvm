@@ -117,7 +117,7 @@ public:
   ~InlinerPass();
 #if INTEL_CUSTOMIZATION
   InlinerPass(InlinerPass &&Arg)
-      : OnlyMandatory(false), Report(std::move(Arg.Report)),
+      : OnlyMandatory(Arg.OnlyMandatory), Report(std::move(Arg.Report)),
         MDReport(std::move(Arg.MDReport)) {}
 #endif // INTEL_CUSTOMIZATION
 
