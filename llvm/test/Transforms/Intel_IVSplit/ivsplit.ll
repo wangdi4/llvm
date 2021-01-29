@@ -42,11 +42,12 @@ define void @ivsplit_test(i32 %l1, i32 %l2, i32 %u1, i32 %u2) local_unnamed_addr
 ; CHECK: %iv-inner-reload-var = load i64, i64* %iv-split-var
 ; CHECK: sub nsw i64 %iv-inner-reload-var, %indvars.iv
 ; IV is being reloaded at exit BB for following use
-; CHECK: for.cond4.for.end_crit_edge.us.split:
+; CHECK: for.cond4.for.end_crit_edge.us:
 ; CHECK-NEXT: %iv-reload-var = load i64, i64* %iv-split-var
 ; Merge orignal and reloaded IV for IV increment
 ; CHECK: for.inc24.us:
-; CHECK-NEXT: %indvars.iv.next46 = add nsw i64 %indvars.iv45, 1
+; CHECK-NEXT: %iv-split-phi = phi i64 [ %iv-reload-var, %for.cond4.for.end_crit_edge.us ], [ %indvars.iv45, %for.body.us ]
+; CHECK: %indvars.iv.next46 = add nsw i64 %iv-split-phi, 1
 entry:
   %cmp41 = icmp slt i32 %l1, %u1
   %cmp539 = icmp slt i32 %l2, %u2

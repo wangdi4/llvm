@@ -294,7 +294,9 @@ void IVSplit::spillIV(Loop * L, IRBuilder<> &Builder) {
 
 void IVSplit::reloadIV(Loop * L, IRBuilder<> &Builder) {
   assert(ReloadFrom);
-  ReloadBB = SplitEdge(ReloadFrom, ReloadTo, DT, LI);
+  ReloadBB = ReloadTo->hasNPredecessors(1)
+                 ? ReloadTo
+                 : SplitEdge(ReloadFrom, ReloadTo, DT, LI);
   Instruction *InsertPt = &*(ReloadBB->getFirstInsertionPt());
   Builder.SetInsertPoint(InsertPt);
   // Insert IVs reloading
@@ -312,11 +314,11 @@ void IVSplit::reloadIV(Loop * L, IRBuilder<> &Builder) {
       Use &IVUse = IUser.getUse();
       IUser++;
       auto UserBB = Inst->getParent();
-      // If ReloadTo has single predecessor, all the instructions move from
-      // ReloadTo to the new BB (ReloadBB).
-      // we can't update the uses inside ReloadTo at this point since there
+      // We can't update the uses inside ReloadTo at this point since there
       // can be multiple predecessors for ReloadTo and we need to insert phi
       // firstly and then update the uses, which is the work of updateIVUser.
+      // But if ReloadTo has only one predecessor, ReloadTo would be used as
+      // ReloadBB without splitting.
       if (UserBB == ReloadBB) {
         LLVM_DEBUG(dbgs() << "Update bottom IV user in Inst: "
                           << *Inst << "\n");
