@@ -21,6 +21,11 @@ set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
 )
 
+if(INTEL_CUSTOMIZATION)
+  # Disable profiling to avoid creation of libomptarget with so version.
+  set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING FALSE)
+endif(INTEL_CUSTOMIZATION)
+
 # Build libomptarget library with libdl dependency. Add LLVMSupport
 # dependency if building in-tree with profiling enabled.
 if(OPENMP_STANDALONE_BUILD OR (NOT OPENMP_ENABLE_LIBOMPTARGET_PROFILING))
