@@ -22,7 +22,6 @@
 #include "cl_sys_info.h"
 #include "common_utils.h"
 #include "task_executor.h"
-#define TBB_PREVIEW_NUMA_SUPPORT 1
 #include <tbb/info.h>
 
 extern cl_device_type gDeviceType;

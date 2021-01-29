@@ -31,7 +31,6 @@ endif(NOT WIN32)
 link_directories( ${TBB_LIB_DIR} )
 
 add_definitions(-DTASK_EXECUTOR_EXPORTS
-                -DTBB_PREVIEW_NUMA_SUPPORT=1
                 -D__TBB_EXECUTOR__
                 -D__TBB_EXTRA_DEBUG
                 -D__TBB_NO_IMPLICIT_LINKAGE=1

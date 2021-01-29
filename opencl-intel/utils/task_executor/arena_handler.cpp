@@ -78,12 +78,10 @@ void ArenaHandler::Init(
     LOG_INFO(TEXT("Calling to task_arena::initialize(%d, %d)"), uiMaxNumThreads, uiReservedPlacesForMasters);
     if (uiLevel == 0)
         m_arena.initialize( uiMaxNumThreads, uiReservedPlacesForMasters );
-#if __TBB_NUMA_SUPPORT
     else
         m_arena.initialize(
             tbb::task_arena::constraints(numaNode, uiMaxNumThreads),
             uiReservedPlacesForMasters);
-#endif
     StartMonitoring();
 }
 
@@ -438,11 +436,6 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
     // If TBB NUMA is enabled, we need to report entry at the top level for
     // tasks (e.g. AffinitizeThreads) in main arena and at the low level for
     // tasks (e.g. NDRange) in low-level arenas.
-#if !__TBB_NUMA_SUPPORT
-    // report entry to user - need be done only at the lowest level
-    reportEntry = reportEntry &&
-                  (curr_arena_level == (m_deviceDescriptor.uiNumOfLevels-1));
-#endif
     if (reportEntry)
     {
         tls->enter_tried_to_report = true;
