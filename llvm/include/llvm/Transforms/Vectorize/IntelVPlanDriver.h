@@ -18,6 +18,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/Transforms/Vectorize.h" // INTEL
 
 namespace llvm {
 namespace vpo {
@@ -39,6 +40,7 @@ private:
   std::function<const LoopAccessInfo &(Loop &)> *GetLAA;
   OptimizationRemarkEmitter *ORE;
   LoopOptReportBuilder LORBuilder;
+  FatalErrorHandlerTy FatalErrorHandler;
 
 #if INTEL_CUSTOMIZATION
   template <class Loop>
@@ -117,7 +119,8 @@ public:
                OptimizationRemarkEmitter *ORE,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI);
+               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
+               FatalErrorHandlerTy FatalErrorHandler);
 };
 
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
@@ -129,13 +132,14 @@ public:
 
 class VPlanDriver : public FunctionPass {
   VPlanDriverImpl Impl;
+  FatalErrorHandlerTy FatalErrorHandler; // INTEL
 
 protected:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  VPlanDriver(); // INTEL
+  VPlanDriver(FatalErrorHandlerTy FatalErrorHandler = nullptr); // INTEL
 
   bool runOnFunction(Function &Fn) override;
 };
@@ -164,7 +168,8 @@ public:
                loopopt::HIRDDAnalysis *DDA,
                loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
-               TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
+               TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+               FatalErrorHandlerTy FatalErrorHandler);
 };
 
 class VPlanDriverHIRPass : public PassInfoMixin<VPlanDriverHIRPass> {

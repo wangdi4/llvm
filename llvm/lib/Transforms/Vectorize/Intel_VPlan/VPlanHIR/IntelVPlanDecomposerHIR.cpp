@@ -61,10 +61,10 @@ VPValue *VPDecomposerHIR::combineDecompDefs(VPValue *LHS, VPValue *RHS,
 
 // Create a VPConstant for an integer coefficient.
 VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
-  assert((Ty->isIntegerTy() || Ty->isPointerTy()) &&
-         "Expected integer or pointer type for coefficient.");
+  assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
+         "Expected scalar/vector integer or pointer type for coefficient.");
   // Null value for pointer types needs special treatment
-  if (Coeff == 0 && Ty->isPointerTy())
+  if (Coeff == 0 && Ty->isPtrOrPtrVectorTy())
     return Plan->getVPConstant(Constant::getNullValue(Ty));
 
   return Plan->getVPConstant(ConstantInt::getSigned(Ty, Coeff));

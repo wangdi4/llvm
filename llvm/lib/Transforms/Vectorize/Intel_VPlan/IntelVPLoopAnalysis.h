@@ -222,6 +222,11 @@ class VPPrivate : public VPLoopEntity {
   friend class VPLoopEntityList;
 
 public:
+  // Explicit destructor to drop references to alias VPInstructions. This is
+  // needed to avoid memory leak in cases where aliases are not lowered into
+  // instructions in VPlan CFG.
+  ~VPPrivate();
+
   // The assignment instruction.
   // This is currently public to suppress an xmain self-build error.
   VPInstruction *FinalInst;

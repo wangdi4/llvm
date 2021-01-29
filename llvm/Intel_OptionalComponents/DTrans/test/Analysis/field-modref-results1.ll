@@ -160,100 +160,17 @@ define i32 @main() {
 declare i8* @malloc(i64)
 declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 
-; CHECK: FieldModRefQuery Begin:
-; CHECK: Function: test01process
-; CHECK: Instruction:   %scalar_field_value = load i32, i32* %scalar_field_addr
-; CHECK: Call       :   call void @test01readers1(%struct.test01* %in)
-; CHECK:   Result     : Ref
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %array_begin = load i32*, i32** %array_field_addr
-; CHECK:   Call       :   call void @test01readers1(%struct.test01* %in)
-; CHECK:   Result     : Ref
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %scalar_field_value = load i32, i32* %scalar_field_addr
-; CHECK:   Call       :   call void @test01readers2(%struct.test01* %in)
-; CHECK:   Result     : Ref
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %array_begin = load i32*, i32** %array_field_addr
-; CHECK:   Call       :   call void @test01readers2(%struct.test01* %in)
-; CHECK:   Result     : Ref
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %scalar_field_value = load i32, i32* %scalar_field_addr
-; CHECK:   Call       :   call void @test01readers3(%struct.test01* %in)
-; CHECK:   Result     : NoModRef
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %array_begin = load i32*, i32** %array_field_addr
-; CHECK:   Call       :   call void @test01readers3(%struct.test01* %in)
-; CHECK:   Result     : Ref
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %scalar_field_value = load i32, i32* %scalar_field_addr
-; CHECK:   Call       :   call void @test01writers1(%struct.test01* %in)
-; CHECK:   Result     : Mod
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %array_begin = load i32*, i32** %array_field_addr
-; CHECK:   Call       :   call void @test01writers1(%struct.test01* %in)
-; CHECK:   Result     : Mod
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %scalar_field_value = load i32, i32* %scalar_field_addr
-; CHECK:   Call       :   call void @test01writers2(%struct.test01* %in)
-; CHECK:   Result     : NoModRef
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %array_begin = load i32*, i32** %array_field_addr
-; CHECK:   Call       :   call void @test01writers2(%struct.test01* %in)
-; CHECK:   Result     : ModRef
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %scalar_field_value = load i32, i32* %scalar_field_addr
-; CHECK:   Call       :   call void @test01none()
-; CHECK:   Result     : NoModRef
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test01process
-; CHECK:   Instruction:   %array_begin = load i32*, i32** %array_field_addr
-; CHECK:   Call       :   call void @test01none()
-; CHECK:   Result     : NoModRef
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test02process
-; CHECK:   Instruction:   %st = load %struct.test02**, %struct.test02*** %ptr_field_addr
-; CHECK:   Call       :   call void @test01none()
-; CHECK:   Result     : ModRef
-; CHECK: FieldModRefQuery End
-
-; CHECK: FieldModRefQuery Begin:
-; CHECK:   Function: test02process
-; CHECK:   Instruction:   %glob_val = load i32, i32* @glob1
-; CHECK:   Call       :   call void @test01none()
-; CHECK:   Result     : ModRef
-; CHECK: FieldModRefQuery End
+; CHECK: FieldModRefQuery: - Ref        : [test01process]   %scalar_field_value = load i32, i32* %scalar_field_addr, align 4 --   call void @test01readers1(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - Ref        : [test01process]   %array_begin = load i32*, i32** %array_field_addr, align 8 --   call void @test01readers1(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - Ref        : [test01process]   %scalar_field_value = load i32, i32* %scalar_field_addr, align 4 --   call void @test01readers2(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - Ref        : [test01process]   %array_begin = load i32*, i32** %array_field_addr, align 8 --   call void @test01readers2(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - NoModRef   : [test01process]   %scalar_field_value = load i32, i32* %scalar_field_addr, align 4 --   call void @test01readers3(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - Ref        : [test01process]   %array_begin = load i32*, i32** %array_field_addr, align 8 --   call void @test01readers3(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - Mod        : [test01process]   %scalar_field_value = load i32, i32* %scalar_field_addr, align 4 --   call void @test01writers1(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - Mod        : [test01process]   %array_begin = load i32*, i32** %array_field_addr, align 8 --   call void @test01writers1(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - NoModRef   : [test01process]   %scalar_field_value = load i32, i32* %scalar_field_addr, align 4 --   call void @test01writers2(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - ModRef     : [test01process]   %array_begin = load i32*, i32** %array_field_addr, align 8 --   call void @test01writers2(%struct.test01* %in)
+; CHECK: FieldModRefQuery: - NoModRef   : [test01process]   %scalar_field_value = load i32, i32* %scalar_field_addr, align 4 --   call void @test01none()
+; CHECK: FieldModRefQuery: - NoModRef   : [test01process]   %array_begin = load i32*, i32** %array_field_addr, align 8 --   call void @test01none()
+; CHECK: FieldModRefQuery: - ModRef     : [test02process]   %st = load %struct.test02**, %struct.test02*** %ptr_field_addr, align 8 --   call void @test01none()
+; CHECK: FieldModRefQuery: - ModRef     : [test02process]   %glob_val = load i32, i32* @glob1, align 4 --   call void @test01none()

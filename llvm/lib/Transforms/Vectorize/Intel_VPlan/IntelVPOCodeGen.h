@@ -24,6 +24,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Vectorize.h"
 
 extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
@@ -51,12 +52,14 @@ public:
              TargetLibraryInfo *TLI,
              unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
-             const VPlan *Plan)
+             const VPlan *Plan,
+             FatalErrorHandlerTy FatalErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI),
         Legal(LVL), VLSA(VLSA),
         VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        PreferredPeeling(Plan->getPreferredPeeling(VF)) {}
+        PreferredPeeling(Plan->getPreferredPeeling(VF)),
+        FatalErrorHandler(FatalErrorHandler) {}
 
   ~VPOCodeGen() {}
 
@@ -626,6 +629,8 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
   SmallDenseMap<const OVLSGroup *, Instruction *> VLSGroupLoadMap;
+
+  FatalErrorHandlerTy FatalErrorHandler;
 };
 
 } // namespace vpo
