@@ -1,6 +1,6 @@
 //===------ HIRTransformUtils.h ---------------------------- --*- C++ -*---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -389,6 +389,7 @@ public:
   static bool doOptVarPredicate(HLLoop *Loop,
                                 SmallVectorImpl<HLLoop *> &OutLoops,
                                 SmallPtrSetImpl<HLNode *> &NodesToInvalidate);
+
   /// Set \p Ref to be \p Blob with \p BlobIndex
   /// The ref should be a single canon expr.
   /// Notice that makeConsistent over Ref is NOT called.
@@ -401,6 +402,29 @@ public:
   /// replaced by the new one in this case. Note: This utility does not
   /// invalidate analyses.
   static HLDDNode *replaceOperand(RegDDRef *OldRef, RegDDRef *NewRef);
+
+  /// Contract a single high-dimension memref into its equivalent low-dimension
+  /// memref counterpart.
+  ///  example [BEFORE]
+  ///  ..
+  ///    A[1][2][i][j][k] = .
+  ///  ..
+  ///
+  /// when information is provided to specify that dimensions 1, 2, and 3 are
+  /// to be contracted, the memref will become:
+  ///
+  ///  example [AFTER]
+  ///  ..
+  ///    AA[1][2] = .
+  ///  ..
+  ///
+  static bool
+  contractMemRef(RegDDRef *ToContractRef,               /* INPUT */
+                 SmallSet<unsigned, 4> &PreservedDims,  /* Dims preserved */
+                 SmallSet<unsigned, 4> &ToContractDims, /* Dims to contract */
+                 HLRegion &Reg,
+                 RegDDRef *&AfterContractRef /* Ref after contraction */,
+                 unsigned &AfterSB /* After contraction ref's sybmase */);
 };
 
 } // End namespace loopopt

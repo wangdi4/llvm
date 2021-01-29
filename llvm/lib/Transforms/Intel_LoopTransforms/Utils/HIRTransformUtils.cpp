@@ -1,6 +1,6 @@
 //===--- HIRTransformUtils.cpp  -------------------------------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -14,10 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRArrayContractionUtils.h"
 
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
@@ -43,6 +46,7 @@ using namespace llvm::loopopt::reversal;
 using namespace llvm::loopopt::lmm;
 using namespace llvm::loopopt::dse;
 using namespace llvm::loopopt::arrayscalarization;
+using namespace llvm::loopopt::arraycontractionutils;
 
 static cl::opt<bool> DisableConstantPropagation(
     "hir-transform-utils-disable-constprop", cl::init(false), cl::Hidden,
@@ -1869,4 +1873,16 @@ HLDDNode *HIRTransformUtils::replaceOperand(RegDDRef *OldRef,
   Node->replaceOperandDDRef(OldRef, NewRef);
 
   return Node;
+}
+
+bool HIRTransformUtils::contractMemRef(RegDDRef *ToContractRef,
+                                       SmallSet<unsigned, 4> &PreservedDims,
+                                       SmallSet<unsigned, 4> &ToContractDims,
+                                       HLRegion &Reg,
+                                       RegDDRef *&AfterContractRef,
+                                       unsigned &AfterSB) {
+
+  return HIRArrayContractionUtil::contractMemRef(ToContractRef, PreservedDims,
+                                                 ToContractDims, Reg,
+                                                 AfterContractRef, AfterSB);
 }

@@ -1,4 +1,4 @@
-; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
@@ -39,30 +39,32 @@
 ; |   }
 ; + END LOOP
 
-; CHECK: BEGIN REGION { modified }
-; CHECK:       + UNKNOWN LOOP i1
+; *** Region after HIR-CrossLoop Array Contraction Transformation ***
+
+;        BEGIN REGION { modified }
+;              + UNKNOWN LOOP i1
 ;              |   <i1 = 0>
 ;              |   do.body:
 ;              |
-; CHECK:       |   + DO i2 = 0, 99, 1   <DO_LOOP>
-; CHECK:       |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-; CHECK:       |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
-; CHECK:       |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
-; CHECK:       |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
-; CHECK:       |   |   |   |   |   |   (%A)[0][i2][i3][i4][i5][i6] = i5 + i6;
-; CHECK:       |   |   |   |   |   + END LOOP
-; CHECK:       |   |   |   |   + END LOOP
+;              |   + DO i2 = 0, 99, 1   <DO_LOOP>
+;              |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
+;              |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
+;              |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
+;              |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
+;              |   |   |   |   |   |   (%A)[0][i2][i3][i4][i5][i6] = i5 + i6;
+;              |   |   |   |   |   + END LOOP
+;              |   |   |   |   + END LOOP
 ;              |   |   |   |
 ;              |   |   |   |
-; CHECK:       |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
-; CHECK:       |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
-; CHECK:       |   |   |   |   |   |   %4 = (%A)[0][i2][i3][i4][i6][i5];
-; CHECK:       |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %4 + 1;
-; CHECK:       |   |   |   |   |   + END LOOP
-; CHECK:       |   |   |   |   + END LOOP
-; CHECK:       |   |   |   + END LOOP
-; CHECK:       |   |   + END LOOP
-; CHECK:       |   + END LOOP
+;              |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
+;              |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
+;              |   |   |   |   |   |   %4 = (%A)[0][i2][i3][i4][i6][i5];
+;              |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %4 + 1;
+;              |   |   |   |   |   + END LOOP
+;              |   |   |   |   + END LOOP
+;              |   |   |   + END LOOP
+;              |   |   + END LOOP
+;              |   + END LOOP
 ;              |
 ;              |   if ((%b)[0] != 0)
 ;              |   {
@@ -73,7 +75,43 @@
 ;
 ;              @llvm.lifetime.end.p0i8(400000000,  &((i8*)(%A)[0]));
 ;              ret ;
-; CHECK: END REGION
+;        END REGION
+
+; *** Region after HIR-CrossLoop Transformation with Array Contraction ***
+
+; CHECK:     BEGIN REGION { modified }
+;                  + UNKNOWN LOOP i1
+;                  |   <i1 = 0>
+;                  |   do.body:
+;                  |
+; CHECK:           |   + DO i2 = 0, 99, 1   <DO_LOOP>
+; CHECK:           |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
+; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
+; CHECK:           |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
+; CHECK:           |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
+; CHECK:           |   |   |   |   |   |   (%ContractedArray)[i5][i6] = i5 + i6;
+; CHECK:           |   |   |   |   |   + END LOOP
+; CHECK:           |   |   |   |   + END LOOP
+;                  |   |   |   |
+;                  |   |   |   |
+; CHECK:           |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
+; CHECK:           |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
+; CHECK:           |   |   |   |   |   |   %4 = (%ContractedArray)[i6][i5];
+; CHECK:           |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %4 + 1;
+; CHECK:           |   |   |   |   |   + END LOOP
+; CHECK:           |   |   |   |   + END LOOP
+; CHECK:           |   |   |   + END LOOP
+; CHECK:           |   |   + END LOOP
+; CHECK:           |   + END LOOP
+;
+; CHECK:           + END LOOP
+;
+;                  @llvm.lifetime.end.p0i8(400000000,  &((i8*)(%A)[0]));
+;                  ret ;
+; CHECK:     END REGION
+
+
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
