@@ -1069,6 +1069,7 @@ bool MachineSinking::hasStoreBetween(MachineBasicBlock *From,
         HasStoreCache[BlockPair] = true;
         return true;
       }
+
       for (MachineInstr &I : *BB) {
         // Treat as alias conservatively for a call or an ordered memory
         // operation.
