@@ -72,9 +72,11 @@
 #define CPU_MIN_VECTOR_SIZE             16
 #define CPU_MAX_PRINTF_BUFFER_SIZE      1024*1024
 
-// Maximum memory size that could be allocated for a WG that is executed by a
-// thread.
-#define CPU_DEV_MAX_WG_PRIVATE_SIZE     (8 * 1024 * 1024)
+// Minimum memory size allocate for single WI instance
+#define CPU_DEV_MIN_WI_PRIVATE_SIZE     (1024*sizeof(size_t))
+// Maximum memory size that could be allocated for WG execution allow max 64
+// concurrent WG that utilize full "barrier" buffer, total 512kB/WG
+#define CPU_DEV_MAX_WG_PRIVATE_SIZE     (CPU_DEV_MIN_WI_PRIVATE_SIZE*64)
 
 // Maximum private memory size that could be allocated for WG execution for
 // FPGA, total 8MB/WG. Only used when auto memory allocation is enabled.
