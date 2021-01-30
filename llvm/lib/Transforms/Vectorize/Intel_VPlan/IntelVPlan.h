@@ -336,6 +336,7 @@ class VPInstruction : public VPUser,
   friend class VPBasicBlock;
   friend class VPBranchInst;
   friend class VPBuilder;
+  friend class VPlanTTICostModel;
   friend class VPlanCostModel;
   friend class VPlanDivergenceAnalysis;
   friend class VPlanValueTrackingLLVM;

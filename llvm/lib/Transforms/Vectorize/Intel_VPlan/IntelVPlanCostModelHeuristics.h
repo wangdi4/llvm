@@ -24,7 +24,7 @@ namespace llvm {
 
 namespace vpo {
 
-class VPlanCostModel;
+class VPlanTTICostModel;
 
 namespace VPlanCostModelHeuristics {
 // The base class to inherit from the Cost Model heuristics that we apply on
@@ -35,12 +35,12 @@ class HeuristicBase {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 protected:
-  VPlanCostModel *CM;
+  VPlanTTICostModel *CM;
   // Some utility stuff that is referenced within heuristics quite frequently.
   const VPlanVector *Plan;
   unsigned VF;
   unsigned UnknownCost;
-  HeuristicBase(VPlanCostModel *CM, std::string Name);
+  HeuristicBase(VPlanTTICostModel *CM, std::string Name);
 
 public:
   virtual ~HeuristicBase() = default;
@@ -120,7 +120,7 @@ class HeuristicSLP : public HeuristicBase {
     SmallVectorImpl<const loopopt::RegDDRef*> const &HIRMemrefs,
     unsigned PatternSize);
 public:
-  HeuristicSLP(VPlanCostModel *CM) : HeuristicBase(CM, "SLP breaking") {};
+  HeuristicSLP(VPlanTTICostModel *CM) : HeuristicBase(CM, "SLP breaking") {};
   unsigned applyOnPlan(unsigned Cost) const final;
 };
 
@@ -129,7 +129,7 @@ public:
 // unmodified Cost otherwise.
 class HeuristicSearchLoop : public HeuristicBase {
 public:
-  HeuristicSearchLoop(VPlanCostModel *CM) :
+  HeuristicSearchLoop(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "SearchLoop Idiom") {};
   unsigned applyOnPlan(unsigned Cost) const final;
 };
@@ -149,7 +149,8 @@ class HeuristicSpillFill : public HeuristicBase {
                       LiveValuesTy &LiveValues,
                       bool VectorRegsPressure) const;
 public:
-  HeuristicSpillFill(VPlanCostModel *CM) : HeuristicBase(CM, "Spill/Fill") {};
+  HeuristicSpillFill(VPlanTTICostModel *CM) :
+    HeuristicBase(CM, "Spill/Fill") {};
   unsigned applyOnPlan(unsigned Cost) const final;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getAttrString(const VPBasicBlock *VPBB) const final {
@@ -184,7 +185,7 @@ class HeuristicGatherScatter : public HeuristicBase {
   unsigned operator()(const VPInstruction *VPInst) const;
   unsigned operator()(const VPBasicBlock *VPBlock) const;
 public:
-  HeuristicGatherScatter(VPlanCostModel *CM) :
+  HeuristicGatherScatter(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Gather/Scatter") {};
   unsigned applyOnPlan(unsigned Cost) const final;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -224,7 +225,8 @@ class HeuristicPsadbw : public HeuristicBase {
     const VPInstruction *SelInst,
     SmallPtrSetImpl<const VPInstruction*> &CurrPsadbwPatternInsts) const;
 public:
-  HeuristicPsadbw(VPlanCostModel *CM) : HeuristicBase(CM, "psadbw pattern") {};
+  HeuristicPsadbw(VPlanTTICostModel *CM) :
+    HeuristicBase(CM, "psadbw pattern") {};
   // TODO:
   // The method should return Cost of psadbw instruction instead of zero.
   unsigned applyOnPlan(unsigned Cost) const final;
