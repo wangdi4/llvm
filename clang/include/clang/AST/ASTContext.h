@@ -2849,8 +2849,8 @@ public:
   /// for destruction.
   template <typename T> void addDestruction(T *Ptr) const {
     if (!std::is_trivially_destructible<T>::value) {
-      auto DestroyPtr = [](void *V) { static_cast<T *>(V)->~T(); }; // INTEL
-      AddDeallocation(DestroyPtr, Ptr); // INTEL
+      auto DestroyPtr = [](void *V) { static_cast<T *>(V)->~T(); };
+      AddDeallocation(DestroyPtr, Ptr);
     }
   }
 
