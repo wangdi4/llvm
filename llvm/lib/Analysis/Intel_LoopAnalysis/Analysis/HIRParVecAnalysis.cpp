@@ -164,6 +164,18 @@ public:
   void postVisit(HLNode *Node) {}
 };
 
+// Dumps bail-out messages when idiom recognition fails.
+struct MatchFail {
+  MatchFail(const char *IdiomName) : IdiomName(IdiomName) {}
+  bool operator()(StringRef Reason) {
+    LLVM_DEBUG(dbgs() << '[' << IdiomName << "] Skipped: " << Reason << '\n');
+    return false;
+  }
+
+private:
+  const char *IdiomName;
+};
+
 } // unnamed namespace
 
 void ParVecVisitor::postVisit(HLLoop *Loop) {
@@ -704,13 +716,12 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
              MinMaxInst->dump());
 
   SmallPtrSet<HLInst *, 2> LinkedInstr;
+  MatchFail Mismatch("MinMax+Index");
 
   for (DDEdge *E : DDG.outgoing(Lval)) {
     if (E->isOutput()) {
-      if (E->getSink() != Lval) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency\n");
-        return false;
-      }
+      if (E->getSink() != Lval)
+        return Mismatch("dependency");
     } else {
       assert(E->isFlow() && "Flow edge expected");
 
@@ -725,52 +736,34 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
       LLVM_DEBUG(dbgs() << "[MinMax+Index] Depends on:"; SinkNode->dump());
 
       // Node should be at top level.
-      if (SinkNode->getParent() != Loop) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: in another loop\n");
-        return false;
-      }
+      if (SinkNode->getParent() != Loop)
+        return Mismatch("in another loop");
 
       // Only backward edges are allowed.
-      if (SinkNode->getTopSortNum() > Node->getTopSortNum()) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: incorrect nodes order\n");
-        return false;
-      }
+      if (SinkNode->getTopSortNum() > Node->getTopSortNum())
+        return Mismatch("incorrect nodes order");
 
       auto *Select = dyn_cast<HLInst>(SinkNode);
-      if (!Select || !isa<SelectInst>(Select->getLLVMInstruction())) {
-        LLVM_DEBUG(
-            dbgs()
-            << "[MinMax+Index] Skipped: dependency on non-select node\n");
-        return false;
-      }
+      if (!Select || !isa<SelectInst>(Select->getLLVMInstruction()))
+        return Mismatch("dependency on non-select node");
 
       auto *SelectLval = Select->getLvalDDRef();
-      if (!SelectLval->isTerminalRef()) {
-        LLVM_DEBUG(
-            dbgs() << "[MinMax+Index] Skipped: dependency on non-terminal\n");
-        return false;
-      }
+      if (!SelectLval->isTerminalRef())
+        return Mismatch("dependency on non-terminal");
 
       auto *SelectOp1 = Select->getOperandDDRef(1);
       auto *SelectOp2 = Select->getOperandDDRef(2);
 
       // To make sure that SinkRef is the ref that occurs in the comparison, not
       // some blob embedded in the 3rd or 4th operand.
-      if (SinkRef != SelectOp1 && SinkRef != SelectOp2) {
-        LLVM_DEBUG(
-            dbgs()
-            << "[MinMax+Index] Skipped: dependency on comparison operand\n");
-        return false;
-      }
+      if (SinkRef != SelectOp1 && SinkRef != SelectOp2)
+        return Mismatch("dependency on comparison operand");
 
       // This verifies that the two comparison operations are identical.
       if ((Select->getPredicate() != Pred) ||
           !DDRefUtils::areEqual(SelectOp1, Operand1) ||
-          !DDRefUtils::areEqual(SelectOp2, Operand2)) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency on not the "
-                             "same comparison\n");
-        return false;
-      }
+          !DDRefUtils::areEqual(SelectOp2, Operand2))
+        return Mismatch("dependency on not the same comparison");
 
       if (DisableNonLinearMMIndexes) {
         // Non-linear indexes are disabled. Check for we have assignment of a
@@ -782,63 +775,42 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
         // + END LOOP
         const RegDDRef *Rhs = LvalEqualsThirdOp ? Select->getOperandDDRef(4)
                                                 : Select->getOperandDDRef(3);
-        if (!Rhs->isLinear()) {
-          LLVM_DEBUG(dbgs()
-                     << "[MinMax+Index] Skipped: nonlinear rhs disabled\n");
-          return false;
-        }
-        if (!Rhs->isTerminalRef()) {
-          LLVM_DEBUG(
-              dbgs()
-              << "[MinMax+Index] Skipped: nonlinear rhs disabled (nonterm)\n");
-          return false;
-        }
-        if (Rhs->getSrcType() != Rhs->getDestType()) {
+        if (!Rhs->isLinear())
+          return Mismatch("nonlinear rhs disabled");
+
+        if (!Rhs->isTerminalRef())
+          return Mismatch("nonlinear rhs disabled (nonterm)");
+
+        if (Rhs->getSrcType() != Rhs->getDestType())
           // TODO: Currently, linears are usually promoted to 64-bit even in
           // source code they are 32-bit. Then in IR we have their truncation
           // 64->32 bit before using them. Our DA does not have capability to
           // promote vector shape through that truncation so we have to bail out
           // here. We need to improve linearity analysis in DA.
-          //
-          LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: nonlinear rhs disabled "
-                               "(conversion)\n");
-          return false;
-        }
-        if (Rhs->getSingleCanonExpr()->getDenominator() != 1) {
+          return Mismatch("nonlinear rhs disabled (conversion)");
+
+        if (Rhs->getSingleCanonExpr()->getDenominator() != 1)
           // Loopopt can declare as linear e.g. i1/3. But we need a monotonic
           // sequence so bail out on any denominator.
-          LLVM_DEBUG(
-              dbgs()
-              << "[MinMax+Index] Skipped: nonlinear rhs disabled (denom)\n");
-          return false;
-        }
+          return Mismatch("nonlinear rhs disabled (denom)");
       }
 
       // This verifies that temp occurs in the rval in the same position as the
       // minmax temp.
       if (LvalEqualsThirdOp) {
-        if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(3))) {
-          LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency on "
-                               "not-same-order select\n");
-          return false;
-        }
-      } else if (!DDRefUtils::areEqual(SelectLval,
-                                       Select->getOperandDDRef(4))) {
-        LLVM_DEBUG(
-            dbgs()
-            << "[MinMax+Index] Skipped: dependency on not-same-order select\n");
-        return false;
-      }
-      // Need to check whether SinkLVal does not have other dependencies in the
-      // loop.
+        if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(3)))
+          return Mismatch("dependency on not-same-order select");
+      } else if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(4)))
+        return Mismatch("dependency on not-same-order select");
+
+      // Need to check whether SinkLVal does not have other dependencies in
+      // the loop.
       for (DDEdge *SinkLvalEdge : DDG.outgoing(SelectLval)) {
         auto SinkOtherNode = SinkLvalEdge->getSink()->getHLDDNode();
-        if (SinkOtherNode != SinkNode && SinkOtherNode->getParent() == Loop) {
+        if (SinkOtherNode != SinkNode && SinkOtherNode->getParent() == Loop)
           // TODO: Check wether we can allow dependencies between any of
           // gathered instructions (moving this check to out of the loop).
-          LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: other dependency\n");
-          return false;
-        }
+          return Mismatch("other dependency");
       }
 
       // Add HInst as recognized temp.
