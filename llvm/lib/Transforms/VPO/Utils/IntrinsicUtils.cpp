@@ -418,23 +418,22 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
     BM.clear();
     BM.resize(N);
     for (int I = 0; I < N; I++) {
-      LoadInst *LIA = dyn_cast<LoadInst>(Insns[I]);
-      StoreInst *STA = dyn_cast<StoreInst>(Insns[I]);
-      assert((LIA || STA) && "Expect load/store instruction");
+      assert((isa<LoadInst>(Insns[I]) || isa<StoreInst>(Insns[I])) &&
+             "Expect load/store instruction");
       for (int J = I + 1; J < N; J++) {
-        LoadInst *LIB = dyn_cast<LoadInst>(Insns[J]);
-        StoreInst *STB = dyn_cast<StoreInst>(Insns[J]);
-        assert((LIB || STB) && "Expect load/store instruction");
-        if (LIA && LIB)
+        assert((isa<LoadInst>(Insns[J]) || isa<StoreInst>(Insns[J])) &&
+               "Expect load/store instruction");
+        if (isa<LoadInst>(Insns[I]) && isa<LoadInst>(Insns[J]))
           continue;
-        Value *V1, *V2;
-        V1 = LIA ? LIA->getPointerOperand() : STA->getPointerOperand();
-        V2 = LIB ? LIB->getPointerOperand() : STB->getPointerOperand();
-        // If the size is UnknownSize, the alias result is valid for
-        // loop carried case. We have to make conservative assumption
-        // since the information may be used by the loop optimizations.
-        if (!AA->isNoAlias(V1, MemoryLocation::UnknownSize, V2,
-                           MemoryLocation::UnknownSize))
+        auto LocA = MemoryLocation::get(Insns[I]).getWithNewSize(
+            LocationSize::beforeOrAfterPointer());
+        auto LocB = MemoryLocation::get(Insns[J]).getWithNewSize(
+            LocationSize::beforeOrAfterPointer());
+        // TODO: Even with unknown size, the alias result is not quite valid
+        // for loop carried case; it is possible for the pointers to vary in
+        // such a way that they never alias in any one iteration but still
+        // alias across different iterations.
+        if (!AA->isNoAlias(LocA, LocB))
           BM.bitSet(J, I);
       }
     }
