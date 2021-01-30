@@ -24,8 +24,9 @@ class OptimizationRemarkEmitter;
 /// previous build to guide current inlining. This is useful for inliner tuning.
 class ReplayInlineAdvisor : public InlineAdvisor {
 public:
-  ReplayInlineAdvisor(FunctionAnalysisManager &FAM, LLVMContext &Context,
-                      StringRef RemarksFile, bool EmitRemarks);
+  ReplayInlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+                      LLVMContext &Context, StringRef RemarksFile,
+                      bool EmitRemarks);
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,

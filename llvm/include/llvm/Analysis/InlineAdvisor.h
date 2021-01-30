@@ -12,6 +12,7 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include <memory>
 #include <unordered_set>
 
@@ -72,10 +73,7 @@ public:
   /// behavior by implementing the corresponding record*Impl.
   ///
   /// Call after inlining succeeded, and did not result in deleting the callee.
-  void recordInlining() {
-    markRecorded();
-    recordInliningImpl();
-  }
+  void recordInlining();
 
   /// Call after inlining succeeded, and resulted in deleting the callee.
   void recordInliningWithCalleeDeleted();
@@ -121,6 +119,7 @@ private:
     assert(!Recorded && "Recording should happen exactly once");
     Recorded = true;
   }
+  void recordInlineStatsIfNeeded();
 
   bool Recorded = false;
   InlineCost IC; // INTEL
@@ -153,7 +152,7 @@ private:
 class InlineAdvisor {
 public:
   InlineAdvisor(InlineAdvisor &&) = delete;
-  virtual ~InlineAdvisor() { freeDeletedFunctions(); }
+  virtual ~InlineAdvisor();
 
   /// Get an InlineAdvice containing a recommendation on whether to
   /// inline or not. \p CB is assumed to be a direct call. \p FAM is assumed to
@@ -178,7 +177,7 @@ public:
   virtual void onPassExit() {}
 
 protected:
-  InlineAdvisor(FunctionAnalysisManager &FAM) : FAM(FAM) {}
+  InlineAdvisor(Module &M, FunctionAnalysisManager &FAM);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
@@ -188,7 +187,9 @@ protected:
                      WholeProgramInfo *WPI, InlineCost **IC, bool Advice);
 #endif // INTEL_CUSTOMIZATION
 
+  Module &M;
   FunctionAnalysisManager &FAM;
+  std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
   /// We may want to defer deleting functions to after the inlining for a whole
   /// module has finished. This allows us to reliably use function pointers as
@@ -222,8 +223,9 @@ private:
 /// reusable as-is for inliner pass test scenarios, as well as for regular use.
 class DefaultInlineAdvisor : public InlineAdvisor {
 public:
-  DefaultInlineAdvisor(FunctionAnalysisManager &FAM, InlineParams Params)
-      : InlineAdvisor(FAM), Params(Params) {}
+  DefaultInlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+                       InlineParams Params)
+      : InlineAdvisor(M, FAM), Params(Params) {}
 
 private:
 #if INTEL_CUSTOMIZATION
