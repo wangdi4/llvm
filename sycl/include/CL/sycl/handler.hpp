@@ -763,6 +763,8 @@ private:
     using NameT =
         typename detail::get_kernel_name_t<KernelName, KernelType>::name;
 
+    // Range rounding can be turned on if needed
+#ifdef SYCL_ENABLE_PARALLEL_FOR_RANGE_ROUNDING
     // FIXME Remove this ifndef once rounding of execution range works well with
     // ESIMD compilation flow.
 #ifndef __SYCL_EXPLICIT_SIMD__
@@ -832,6 +834,7 @@ private:
 #endif
     } else
 #endif // __SYCL_EXPLICIT_SIMD__
+#endif // SYCL_ENABLE_PARALLEL_FOR_RANGE_ROUNDING
     {
 #ifdef __SYCL_DEVICE_ONLY__
       (void)NumWorkItems;
