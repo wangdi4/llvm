@@ -113,7 +113,9 @@ class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
 #if INTEL_CUSTOMIZATION
   InlinerPass(bool OnlyMandatory = false);
+#endif // INTEL_CUSTOMIZATION
   ~InlinerPass();
+#if INTEL_CUSTOMIZATION
   InlinerPass(InlinerPass &&Arg)
       : OnlyMandatory(Arg.OnlyMandatory), Report(std::move(Arg.Report)),
         MDReport(std::move(Arg.MDReport)) {}
@@ -130,6 +132,7 @@ public:
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             FunctionAnalysisManager &FAM, Module &M);
+  std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
   std::unique_ptr<DefaultInlineAdvisor> OwnedDefaultAdvisor;
   const bool OnlyMandatory;
 
