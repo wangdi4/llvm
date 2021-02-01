@@ -974,7 +974,6 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI) {
     std::array<FMANode *, 3u> Ops;
     FMATerm *MemTerm = IsMem ? createMemoryTerm(VT, &MI) : nullptr;
     switch (OpcodeKind) {
-    default: llvm_unreachable("Unexpected opcode kind!");
     case FMAOpcodesInfo::MULOpc: // op1 * op2 + 0
       Ops[0] = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
       Ops[1] =
