@@ -686,7 +686,11 @@ unsigned VPlanCostModel::getCostForVF(
     if (ID == Intrinsic::not_intrinsic &&
         VPCall->getVectorizationScenario() ==
             VPCallInstruction::CallVecScenariosTy::LibraryFunc) {
-      ID = getIntrinsicForSVMLCall(VPCall);
+      // Filter out SVML function calls, we currently allow some OCL builtins to
+      // be vectorized via LibraryFunc scenario too.
+      if (isSVMLFunction(TLI, VPCall->getCalledFunction()->getName(),
+                         VPCall->getVectorLibraryFunc()))
+        ID = getIntrinsicForSVMLCall(VPCall);
     }
 
     if (ID == Intrinsic::not_intrinsic)
