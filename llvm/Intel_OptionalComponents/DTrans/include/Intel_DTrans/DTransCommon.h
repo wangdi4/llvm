@@ -1,6 +1,6 @@
 //===------------------ DTransCommon.h - Shared DTrans code ---------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -35,6 +35,7 @@
 #include "Intel_DTrans/Transforms/DynClone.h"
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Transforms/MemInitTrimDown.h"
+#include "Intel_DTrans/Transforms/MemManageTrans.h"
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
@@ -77,6 +78,7 @@ void initializeDTransSOAToAOSPrepareWrapperPass(PassRegistry&);
 void initializeDTransAnnotatorCleanerWrapperPass(PassRegistry&);
 void initializeDTransWeakAlignWrapperPass(PassRegistry&);
 void initializeDTransMemInitTrimDownWrapperPass(PassRegistry&);
+void initializeDTransMemManageTransWrapperPass(PassRegistry&);
 void initializeDTransTransposeWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondWrapperPass(PassRegistry&);
 

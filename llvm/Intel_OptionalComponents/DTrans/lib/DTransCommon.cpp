@@ -1,6 +1,6 @@
 //===----------------- DTransCommon.cpp - Shared DTrans code --------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -35,6 +35,11 @@ static cl::opt<bool> EnableMemInitTrimDown("enable-dtrans-meminittrimdown",
                                     cl::init(true), cl::Hidden,
                                     cl::desc("Enable DTrans MemInitTrimDown"));
 
+// Initial Memory management transformation.
+static cl::opt<bool> EnableMemManageTrans("enable-dtrans-memmanagetrans",
+                                  cl::init(true), cl::Hidden,
+                                  cl::desc("Enable DTrans MemoryManageTrans"));
+
 // SOA-to-AOS Prepare transformation.
 static cl::opt<bool> EnableSOAToAOSPrepare("enable-dtrans-soatoaos-prepare",
                                     cl::init(true), cl::Hidden,
@@ -64,6 +69,7 @@ enum DumpModuleDTransValues {
   commutecond,
   soatoaosprepare,
   soatoaos,
+  memmanagetrans,
   weakalign,
   deletefield,
   meminittrimdown,
@@ -81,6 +87,7 @@ static const char *DumpModuleDTransNames[] = {"Early",
                                               "CommuteCond",
                                               "SOAToAOSPrepare",
                                               "SOAToAOS",
+                                              "MemManageTrans",
                                               "WeakAlign",
                                               "DeleteField",
                                               "MemInitTrimDown",
@@ -104,6 +111,8 @@ static cl::list<DumpModuleDTransValues> DumpModuleBeforeDTrans(
         clEnumVal(soatoaosprepare,
                   "Dump LLVM Module before SOA-to-AOS Prepare pass"),
         clEnumVal(soatoaos, "Dump LLVM Module before SOA-to-AOS pass"),
+        clEnumVal(memmanagetrans,
+                  "Dump LLVM Module before MemManageTrans pass"),
         clEnumVal(weakalign, "Dump LLVM Module before WeakAlign pass"),
         clEnumVal(deletefield, "Dump LLVM Module before DeleteField pass"),
         clEnumVal(meminittrimdown,
@@ -134,6 +143,8 @@ static cl::list<DumpModuleDTransValues> DumpModuleAfterDTrans(
         clEnumVal(soatoaosprepare,
                   "Dump LLVM Module after SOA-to-AOS Prepare pass"),
         clEnumVal(soatoaos, "Dump LLVM Module after SOA-to-AOS pass"),
+        clEnumVal(memmanagetrans,
+                  "Dump LLVM Module after MemManageTrans pass"),
         clEnumVal(weakalign, "Dump LLVM Module after WeakAlign pass"),
         clEnumVal(deletefield, "Dump LLVM Module after DeleteField pass"),
         clEnumVal(meminittrimdown,
@@ -191,6 +202,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnnotatorCleanerWrapperPass(PR);
   initializeDTransWeakAlignWrapperPass(PR);
   initializeDTransMemInitTrimDownWrapperPass(PR);
+  initializeDTransMemManageTransWrapperPass(PR);
   initializeDTransTransposeWrapperPass(PR);
   initializeDTransCommuteCondWrapperPass(PR);
 
@@ -237,6 +249,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     addPass(MPM, soatoaosprepare, dtrans::SOAToAOSPreparePass());
   if (EnableSOAToAOS)
     addPass(MPM, soatoaos, dtrans::SOAToAOSPass());
+  if (EnableMemManageTrans)
+    addPass(MPM, memmanagetrans, dtrans::MemManageTransPass());
   addPass(MPM, weakalign, dtrans::WeakAlignPass());
   if (EnableDeleteFields)
     addPass(MPM, deletefield, dtrans::DeleteFieldPass());
@@ -285,6 +299,8 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
     addPass(PM, soatoaosprepare, createDTransSOAToAOSPrepareWrapperPass());
   if (EnableSOAToAOS)
     addPass(PM, soatoaos, createDTransSOAToAOSWrapperPass());
+  if (EnableMemManageTrans)
+    addPass(PM, memmanagetrans, createDTransMemManageTransWrapperPass());
   addPass(PM, weakalign, createDTransWeakAlignWrapperPass());
   if (EnableDeleteFields)
     addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
@@ -347,6 +363,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransDynCloneWrapperPass();
   (void)llvm::createDTransWeakAlignWrapperPass();
   (void)llvm::createDTransMemInitTrimDownWrapperPass();
+  (void)llvm::createDTransMemManageTransWrapperPass();
   (void)llvm::createDTransTransposeWrapperPass();
   (void)llvm::createDTransCommuteCondWrapperPass();
 

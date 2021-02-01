@@ -628,7 +628,8 @@ EXTERN void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
 }
 
 #if INTEL_COLLAB
-EXTERN bool __tgt_is_device_available(int64_t device_num, void *device_type) {
+EXTERN int32_t __tgt_is_device_available(int64_t device_num,
+                                         void *device_type) {
   if (IsOffloadDisabled())
     return false;
 

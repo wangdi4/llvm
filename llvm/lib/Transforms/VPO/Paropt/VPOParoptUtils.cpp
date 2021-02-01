@@ -1019,7 +1019,7 @@ CallInst *VPOParoptUtils::genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
 }
 
 // Generate a call to
-//   bool __tgt_is_device_available(int64_t device_num, void *device_type)
+//   int32_t __tgt_is_device_available(int64_t device_num, void *device_type)
 CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
                                                   Value *DeviceType,
                                                   Instruction *InsertPt) {
