@@ -642,7 +642,7 @@ TEST(FrameworkTestType, Test_passBuildOptionByEnvTest) {
 }
 #endif
 
-TEST(FrameworkTestType, DISABLED_Test_UniformWorkGroupTest)
+TEST(FrameworkTestType, Test_UniformWorkGroupTest)
 {
     UniformWorkGroupTest();
 }

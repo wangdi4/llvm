@@ -66,6 +66,9 @@ void UniformWorkGroupTest() {
                                   local_work_size, 0, NULL, NULL);
     EXPECT_OCL_EQ(enqueue_result[i], iRet, clEnqueueNDRangeKernel);
 
+    iRet = clFinish(queue);
+    ASSERT_OCL_SUCCESS(iRet, clFinish);
+
     iRet = clReleaseKernel(kernel);
     ASSERT_OCL_SUCCESS(iRet, clReleaseKernel);
   }
