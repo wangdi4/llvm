@@ -481,6 +481,12 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
   bool IsInnerLoop =
       ((HLoop->getNestingLevel() > 1) || (HLoop->getLLVMLoopDepth() > 1));
 
+  // Do not unroll inner multi-exit loops in 'qsort' type functions.
+  if (IsInnerLoop && (NumExits > 1) && (NumLiveouts != 0) &&
+      HLoop->getHLNodeUtils().getFunction().hasFnAttribute("is-qsort")) {
+    return 0;
+  }
+
   // Add penalty for inner loops with liveouts to account for increase in
   // register pressure.
   if (IsInnerLoop && NumLiveouts != 0) {
