@@ -2296,26 +2296,31 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
                 auto it = m_OclKernelEventMap.find(kernelName);
                 if (it != m_OclKernelEventMap.end())
                 {
-                    cl_event prevClEvent = *it->second;
+                    cl_event prevClEvent = it->second;
                     SharedPtr<OclEvent> prevEvent =
                         m_pEventsManager->GetEventClass<OclEvent>(prevClEvent);
-                    if (prevEvent && CL_COMPLETE != prevEvent->GetEventExecState())
+                    if (prevEvent &&
+                        CL_COMPLETE != prevEvent->GetEventExecState())
                     {
                         EventListToWait.push_back(prevClEvent);
                     }
                     // Update the map replacing old with a newer one.
                     m_OclKernelEventMap.erase(kernelName);
                 }
-                m_OclKernelEventMap.insert(std::make_pair(kernelName, trackerEvent));
+
+                errVal = pNDRangeKernelCmd->EnqueueSelf(
+                    false /*never blocking*/, EventListToWait.size(),
+                    EventListToWait.empty() ? nullptr : &EventListToWait[0],
+                    trackerEvent, apiLogger);
+                m_OclKernelEventMap.insert(
+                    std::make_pair(kernelName, *trackerEvent));
             }
-            errVal = pNDRangeKernelCmd->EnqueueSelf(
-                false/*never blocking*/, EventListToWait.size(),
-                EventListToWait.empty() ? nullptr : &EventListToWait[0],
-                trackerEvent, apiLogger);
-            // Set call back which will erase this tracker kernel-event pair from this map
-            // when the event status is changed to CL_COMPLETE.
-            SetEventCallback(*trackerEvent, CL_COMPLETE, (eventCallbackFn)callbackForKernelEventMap,
-                &m_OclKernelEventMap);
+
+            // Set call back which will erase this tracker kernel-event pair
+            // from this map when the event status is changed to CL_COMPLETE.
+            SetEventCallback(*trackerEvent, CL_COMPLETE,
+                             (eventCallbackFn)callbackForKernelEventMap,
+                             &m_OclKernelEventMap);
             updatedEventList = true;
         }
     }
@@ -4288,12 +4293,12 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags)
  */
 void callbackForKernelEventMap(cl_event pEvent, cl_int returnStatus, void *data) {
     OclAutoMutex mu(&KernelEventMutex);
-    std::map<std::string, cl_event *>* kernelevent_map =
-        (std::map<std::string, cl_event *>*)data;
+    std::map<std::string, cl_event> *kernelevent_map =
+        (std::map<std::string, cl_event> *)data;
     assert(kernelevent_map && "Kernel-event map should not be null.");
     for (auto it = kernelevent_map->begin(); it != kernelevent_map->end(); it++)
     {
-       if (pEvent == *(it->second))
+       if (pEvent == it->second)
        {
            kernelevent_map->erase(it->first);
            break;
