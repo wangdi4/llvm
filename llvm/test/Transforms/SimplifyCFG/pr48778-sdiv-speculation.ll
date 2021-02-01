@@ -11,7 +11,7 @@ define i32 @test(i1 %cmp) {
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[CMP2]], i32 1, i32 0
 ; CHECK-NEXT:    br label [[ELSE]]
 ; CHECK:       else:
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 0, [[TMP0:%.*]] ], [ [[SPEC_SELECT]], [[IF]] ]
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[SPEC_SELECT]], [[IF]] ], [ 0, [[TMP0:%.*]] ]
 ; CHECK-NEXT:    ret i32 [[MERGE]]
 ;
   br i1 %cmp, label %if, label %else

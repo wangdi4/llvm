@@ -1071,7 +1071,7 @@ int main(int argc, char **argv) {
            << " ignored without -" << OmpOffloadEntriesSymbol.ArgStr << "\n";
 
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
-      !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic) {
+      !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic && !DoSplitEsimd) {
 #else  // INTEL_COLLAB
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo && !DoSplitEsimd) {
 #endif // INTEL_COLLAB
