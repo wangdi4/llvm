@@ -742,7 +742,7 @@ unsigned VPlanCostModel::applyHeuristics(unsigned Cost) {
          "Heuristics do not expect UnknownCost on input.");
 
   for (auto &H : heuristics()) {
-    Cost = H(Cost);
+    Cost = H.applyOnPlan(Cost);
     // Once any heuristics in the pipeline returns Unknown cost
     // return it immediately.
     if (Cost == UnknownCost) {
@@ -805,7 +805,7 @@ void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
     OS << "Base Cost: " << TTICost << '\n';
     Cost = TTICost;
     for (auto &H : heuristics()) {
-      unsigned HCost = H(Cost);
+      unsigned HCost = H.applyOnPlan(Cost);
       if (HCost > Cost)
         OS << "Extra cost due to " << H.getName() << " heuristic is "
            << HCost - Cost << '\n';
