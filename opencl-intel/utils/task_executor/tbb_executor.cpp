@@ -359,7 +359,6 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
 
 void TBBTaskExecutor::InitTBBNuma()
 {
-#if __TBB_NUMA_SUPPORT
     std::string envCPUPlaces;
     cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(envCPUPlaces,
                                                       "DPCPP_CPU_PLACES");
@@ -372,7 +371,6 @@ void TBBTaskExecutor::InitTBBNuma()
       // two NUMA nodes.
       m_tbbNumaEnabled = nodesCount > 1;
     }
-#endif
 }
 
 void TBBTaskExecutor::Finalize()
