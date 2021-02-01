@@ -49,7 +49,7 @@ CPUCompileService::CPUCompileService(const ICompilerConfig& config)
     :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config)
 {
     m_backendFactory = CPUDeviceBackendFactory::GetInstance();
-    LibraryProgramManager::getInstance().createProgram(
+    LibraryProgramManager::getInstance()->createProgram(
         static_cast<CPUDeviceBackendFactory *>(m_backendFactory),
         m_programBuilder);
 }

@@ -267,7 +267,7 @@ bool ImageCallbackLibrary::LoadExecutable()
 ImageCallbackFunctions::ImageCallbackFunctions(){
     // Reuse LLJIT from library program because precompiled image callback
     // objects and library objects are in the same .o file.
-    Program *P = LibraryProgramManager::getInstance().getProgram();
+    Program *P = LibraryProgramManager::getInstance()->getProgram();
     assert(P && "Invalid library program");
     m_LLJIT = P->GetLLJIT();
     assert(m_LLJIT && "Invalid LLJIT from library program");
