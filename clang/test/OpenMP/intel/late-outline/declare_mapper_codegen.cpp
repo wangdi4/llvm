@@ -88,16 +88,16 @@ void foo(int a){
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TASK"() ]
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
-//CK0-NO-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 33, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
-//CK0-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 33, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-NO-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 1, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 1, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
   #pragma omp target enter data map(mapper(id),to: c)
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
 //CK0-SAME: "QUAL.OMP.SHARED"(%class.C* %c)
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
-//CK0-NO-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 33, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
-//CK0-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 33, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-NO-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 1, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 1, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
   #pragma omp target enter data map(mapper(id),to: c) nowait
 //CK0: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TASK"() ]
@@ -105,23 +105,23 @@ void foo(int a){
 
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.EXIT.DATA
-//CK0-NO-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 34,  i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
-//CK0-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 34,  [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-NO-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 2,  i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 2,  [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
   #pragma omp target exit data map(mapper(id),from: c)
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET.EXIT.DATA"() ]
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
 //CK0-SAME: "QUAL.OMP.SHARED"(%class.C* %c)
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.EXIT.DATA
-//CK0-NO-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 34, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
-//CK0-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 34, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-NO-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 2, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 2, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
   #pragma omp target exit data map(mapper(id),from: c) nowait
 //CK0: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET.EXIT.DATA"() ]
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TASK"() ]
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.UPDATE
-//CK0-NO-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 33, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
-//CK0-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 33, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-NO-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 1, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-DB: "QUAL.OMP.MAP.TO"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 1, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
   #pragma omp target update to(mapper(id): c)
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
 
@@ -129,8 +129,8 @@ void foo(int a){
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
 //CK0-SAME: "QUAL.OMP.SHARED"(%class.C* %c)
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.UPDATE
-//CK0-NO-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 34, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
-//CK0-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 34, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-NO-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 2, i8* null, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
+//CK0-DB: "QUAL.OMP.MAP.FROM"(%class.C* %c, %class.C* %c, i64 {{.*}}, i64 2, [{{[0-9]+}} x i8]* @0, void (i8*, i8*, i8*, i64, i64)* @.omp_mapper._ZTS1C.id
   #pragma omp target update from(mapper(id): c) nowait
 //CK0: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TASK"() ]
