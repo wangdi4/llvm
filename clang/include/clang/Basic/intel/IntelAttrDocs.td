@@ -8,49 +8,6 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-def MaxGlobalWorkDimDocs : Documentation {
-  let Category = DocCatFunction;
-  let Content = [{
-This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
-See section *Omit Hardware that Generates and Dispatches Kernel IDs*.
-
-The ``max_global_work_dim(0)`` kernel attribute instructs the Intel FPGA SDK
-for OpenCL Offline compiler to omit logic that generates and dispatches global,
-local and group IDs into the compiler kernel. Semantically, the
-``max_global_work_dim(0)`` kernel attribute specifies that the global work
-dimension of the kernel is zero. Setting this kernel attribute means that the
-kernel does not use any global, local, or group IDs. The presence of this
-attribute in the kernel code serves as a guarantee to the offline compiler that
-the kernel is a single work-item kernel.
-
-Example usage:
-
-.. code-block:: c
-
-  channel int chan_in;
-  channel int chan_out;
-
-  __attribute__((max_global_work_dim(0)))
-  __kernel void plusK(int N, int k) {
-    for (int i = 0; i < N; ++i) {
-      int data_in = read_channel_intel(chan_in);
-      write_channel_intel(chan_out, data_in + k);
-    }
-  }
-
-If your current kernel implementation has multiple work-items but does not use
-global, local, or group IDs, you can use the ``max_global_work_dim(0)`` kernel
-attribute if you modify the kernel code accordingly:
-
-1. Wrap the kernel body in a ``for`` loop that iterates as many times as the
-   number of work-items.
-
-2. Launch the modified kernel with only one work-item.
-
-.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
-  }];
-}
-
 def NumComputeUnitsDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{

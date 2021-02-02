@@ -175,16 +175,6 @@ def OpenCLBufferLocation : Attr {
   let LangOpts = [OpenCL];
 }
 
-def MaxWorkGroupSize : InheritableAttr {
-  let Spellings = [GNU<"max_work_group_size">];
-  let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
-              UnsignedArgument<"ZDim">];
-  let Subjects = SubjectList<[Function]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-}
-
 def NumComputeUnits : InheritableAttr {
   let Spellings = [GNU<"num_compute_units">];
   let LangOpts = [OpenCL];
@@ -201,14 +191,6 @@ def NumSimdWorkItems : InheritableAttr {
 // FIXME: Add documentation
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
-}
-
-def MaxGlobalWorkDim : InheritableAttr {
-  let Spellings = [GNU<"max_global_work_dim">];
-  let LangOpts = [OpenCL];
-  let Args = [UnsignedArgument<"MaxGlobalWorkDimValue">];
-  let Subjects = SubjectList<[Function]>;
-  let Documentation = [MaxGlobalWorkDimDocs];
 }
 
 def Autorun : InheritableAttr {
