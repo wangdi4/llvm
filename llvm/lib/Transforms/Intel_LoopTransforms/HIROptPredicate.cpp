@@ -1674,7 +1674,7 @@ public:
     initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
@@ -1684,7 +1684,7 @@ public:
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
     if (skipFunction(F)) {
       return false;
     }

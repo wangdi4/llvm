@@ -157,9 +157,9 @@ public:
       : HIRTransformPass(ID), OptLevel(OptLevel), IsPreVec(IsPreVec),
         PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-  bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F) override;
 };
 
 } // namespace loopopt

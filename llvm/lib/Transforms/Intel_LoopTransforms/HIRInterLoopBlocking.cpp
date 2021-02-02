@@ -221,6 +221,7 @@ public:
 
   bool hasIOCall() const { return HasIOCall; }
 
+  virtual ~CheckerVisitor() {};
 public:
   HLNode *SkipNode;
   bool IsDone;
