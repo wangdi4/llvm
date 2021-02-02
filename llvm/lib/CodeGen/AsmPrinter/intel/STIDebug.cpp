@@ -743,20 +743,20 @@ public:
 
   AsmPrinter* ASM() const;
 
-  virtual void emitInt8(int32_t value);
-  virtual void emitInt16(int32_t value);
-  virtual void emitInt32(int32_t value);
-  virtual void emitString(StringRef string);
-  virtual void emitBytes(size_t size, const char* data);
-  virtual void emitFill(size_t size, const uint8_t byte);
-  virtual void emitComment(StringRef comment);
-  virtual void emitLabel(MCSymbol *symbol);
-  virtual void emitValue(const MCExpr *value, unsigned int sizeInBytes);
+  virtual void emitInt8(int32_t value) override;
+  virtual void emitInt16(int32_t value) override;
+  virtual void emitInt32(int32_t value) override;
+  virtual void emitString(StringRef string) override;
+  virtual void emitBytes(size_t size, const char* data) override;
+  virtual void emitFill(size_t size, const uint8_t byte) override;
+  virtual void emitComment(StringRef comment) override;
+  virtual void emitLabel(MCSymbol *symbol) override;
+  virtual void emitValue(const MCExpr *value, unsigned int sizeInBytes)override;
 
-  virtual void idBegin(const STIType* type);
-  virtual void idEnd(const STIType* type);
-  virtual void typeBegin(const STIType* type);
-  virtual void typeEnd(const STIType* type);
+  virtual void idBegin(const STIType* type) override;
+  virtual void idEnd(const STIType* type) override;
+  virtual void typeBegin(const STIType* type) override;
+  virtual void typeEnd(const STIType* type) override;
 
 private:
   AsmPrinter* _asmPrinter;
@@ -838,20 +838,20 @@ public:
 
   static STIPdbWriter* create();
 
-  virtual void emitInt8(int32_t value);
-  virtual void emitInt16(int32_t value);
-  virtual void emitInt32(int32_t value);
-  virtual void emitString(StringRef string);
-  virtual void emitBytes(size_t size, const char* data);
-  virtual void emitFill(size_t size, const uint8_t byte);
-  virtual void emitComment(StringRef comment);
-  virtual void emitLabel(MCSymbol *symbol);
-  virtual void emitValue(const MCExpr *value, unsigned int sizeInBytes);
+  virtual void emitInt8(int32_t value) override;
+  virtual void emitInt16(int32_t value) override;
+  virtual void emitInt32(int32_t value) override;
+  virtual void emitString(StringRef string) override;
+  virtual void emitBytes(size_t size, const char* data) override;
+  virtual void emitFill(size_t size, const uint8_t byte) override;
+  virtual void emitComment(StringRef comment) override;
+  virtual void emitLabel(MCSymbol *symbol) override;
+  virtual void emitValue(const MCExpr *value, unsigned int sizeInBytes) override;
 
-  virtual void idBegin(const STIType* type);
-  virtual void idEnd(const STIType* type);
-  virtual void typeBegin(const STIType* type);
-  virtual void typeEnd(const STIType* type);
+  virtual void idBegin(const STIType* type) override;
+  virtual void idEnd(const STIType* type) override;
+  virtual void typeBegin(const STIType* type) override;
+  virtual void typeEnd(const STIType* type) override;
 
 private:
   std::vector<char> _buffer;
@@ -1052,13 +1052,13 @@ public:
   STIDebugImpl(AsmPrinter *asmPrinter);
   virtual ~STIDebugImpl();
 
-  void setSymbolSize(const MCSymbol *Symbol, uint64_t size);
+  void setSymbolSize(const MCSymbol *Symbol, uint64_t size) override;
   void beginModule();
-  void endModule();
-  void beginFunction(const MachineFunction *MF);
-  void endFunction(const MachineFunction *MF);
-  void beginInstruction(const MachineInstr *MI);
-  void endInstruction();
+  void endModule() override;
+  void beginFunction(const MachineFunction *MF) override;
+  void endFunction(const MachineFunction *MF) override;
+  void beginInstruction(const MachineInstr *MI) override;
+  void endInstruction() override;
 
 protected:
   AsmPrinter *ASM();
