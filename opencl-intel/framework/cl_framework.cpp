@@ -1347,18 +1347,24 @@ cl_int CL_API_CALL clBuildProgram(cl_program           program,
 					  void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data),
 					  void *               user_data)
 {
+    std::string Options(options ? options : "");
+    if (const char *env = getenv("OPENCL_PROGRAM_COMPILE_OPTIONS")) {
+        Options += ' ';
+        Options += env;
+    }
+    const char* BuildOptions = Options.c_str();
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clBuildProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id * device_list" << device_list << "const char * options";
-        apiLogger.PrintCStringVal(options) << "void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data)" << pfn_notify << "void * user_data" << user_data;
-	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data),
-           clBuildProgram, &program, &num_devices, &device_list, &options, &pfn_notify, &user_data);
+        apiLogger.PrintCStringVal(BuildOptions) << "void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data)" << pfn_notify << "void * user_data" << user_data;
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, BuildOptions, pfn_notify, user_data),
+           clBuildProgram, &program, &num_devices, &device_list, &BuildOptions, &pfn_notify, &user_data);
     }
     else
     {
-        CALL_TRACED_API(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data),
-            clBuildProgram, &program, &num_devices, &device_list, &options, &pfn_notify, &user_data);
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, BuildOptions, pfn_notify, user_data),
+            clBuildProgram, &program, &num_devices, &device_list, &BuildOptions, &pfn_notify, &user_data);
     }
 }
 SET_ALIAS(clBuildProgram);
@@ -2668,20 +2674,26 @@ cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
                                     void *user_data)
 {
+    std::string Options(options ? options : "");
+    if (const char *env = getenv("OPENCL_PROGRAM_COMPILE_OPTIONS")) {
+        Options += ' ';
+        Options += env;
+    }
+    const char* BuildOptions = Options.c_str();
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCompileProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id *device_list" << device_list << "const char *options";
-        apiLogger.PrintCStringVal(options) << "cl_uint num_input_headers" << num_input_headers << "const cl_program *input_headers" << input_headers << "const char **header_include_names" << header_include_names << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data;
-        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
+        apiLogger.PrintCStringVal(BuildOptions) << "cl_uint num_input_headers" << num_input_headers << "const cl_program *input_headers" << input_headers << "const char **header_include_names" << header_include_names << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data;
+        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, BuildOptions,
             num_input_headers, input_headers, header_include_names, pfn_notify, user_data),
-            clCompileProgram, &program, &num_devices, &device_list, &options, &num_input_headers, &input_headers, &header_include_names, &pfn_notify, &user_data);
+            clCompileProgram, &program, &num_devices, &device_list, &BuildOptions, &num_input_headers, &input_headers, &header_include_names, &pfn_notify, &user_data);
     }
     else
     {
-        CALL_TRACED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, BuildOptions,
             num_input_headers, input_headers, header_include_names, pfn_notify, user_data),
-            clCompileProgram, &program, &num_devices, &device_list, &options, &num_input_headers, &input_headers, &header_include_names, &pfn_notify, &user_data);
+            clCompileProgram, &program, &num_devices, &device_list, &BuildOptions, &num_input_headers, &input_headers, &header_include_names, &pfn_notify, &user_data);
     }
 }
 SET_ALIAS(clCompileProgram);

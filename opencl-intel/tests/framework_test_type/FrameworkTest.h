@@ -170,6 +170,9 @@ bool clTracingArgumentsChangedCheckTest();
 bool clTracingFunctionsDisabledCheckTest();
 void globalVariableSizeQueryTest();
 void enqueueBlockProfilingTest();
+#ifndef _WIN32
+void passBuildOptionByEnvTest();
+#endif
 void UniformWorkGroupTest();
 #ifdef _WIN32
 void clDisableMasterJoinTest();
