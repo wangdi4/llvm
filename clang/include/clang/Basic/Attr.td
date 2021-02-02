@@ -1245,6 +1245,15 @@ def SYCLDeviceIndirectlyCallable : InheritableAttr {
   let Documentation = [SYCLDeviceIndirectlyCallableDocs];
 }
 
+// INTEL_CUSTOMIZATION
+def SYCLUnmasked: InheritableAttr {
+  let Spellings = [ CXX11<"intel", "unmasked"> ];
+  let Subjects = SubjectList<[Function, CXXMethod]>;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Documentation = [SYCLUnmaskedDocs];
+}
+// end INTEL_CUSTOMIZATION
+
 def SYCLIntelBufferLocation : InheritableAttr {
   // No spelling, as this attribute can't be created in the source code.
   let Spellings = [];

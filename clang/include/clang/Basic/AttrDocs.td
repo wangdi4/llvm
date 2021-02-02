@@ -2698,6 +2698,28 @@ function pointer for the specified function.
   }];
 }
 
+// INTEL_CUSTOMIZATION
+def SYCLUnmaskedDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+This attribute can only be applied to functions or methods and indicates that
+the function must be treated as unmasked function.
+
+All work items are active on the entrance to unmasked function with
+the same work-group and sub-group index, as in caller, even if some execution
+mask was applied on the call site. After function completion the caller mask is
+reestablished.
+
+To achieve the effect described above, unmasked function must be invoked within
+`non_uniform_sub_group::invoke_unmasked()` API.
+
+Unmasked function may not be invoked directly by user's function.
+
+See Unmasked functions proposal in sycl/doc/extensions/FIXME for details.
+}];
+}
+// end INTEL_CUSTOMIZATION
+
 def SYCLDeviceDocs : Documentation {
   let Category = DocCatFunction;
   let Heading = "sycl_device";

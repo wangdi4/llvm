@@ -1278,6 +1278,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       if (FD->hasAttr<SYCLDeviceIndirectlyCallableAttr>())
         Fn->addFnAttr("referenced-indirectly");
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().SYCLIsDevice)
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+      if (FD->hasAttr<SYCLUnmaskedAttr>())
+        Fn->addFnAttr("unmasked");
+#endif // INTEL_CUSTOMIZATION
+
   llvm::BasicBlock *EntryBB = createBasicBlock("entry", CurFn);
 
   // Create a marker to make it easy to insert allocas into the entryblock
