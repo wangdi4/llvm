@@ -2379,9 +2379,6 @@ GlobalVariable *VPOParoptUtils::genLocStrfromDebugLoc(Function *F,
       break;
     case SRC_LOC_NONE:
       break;
-    default:
-      llvm_unreachable("genLocStrfromDebugLoc: unhandled source location mode");
-      break;
     }
   }
   LocString = (";" + Path + File + ";" + FnName + ";" + Twine(SLine) + ";" +

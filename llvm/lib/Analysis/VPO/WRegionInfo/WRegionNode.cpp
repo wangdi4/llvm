@@ -672,21 +672,25 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
     break;
   case QUAL_OMP_READ_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_READ:
     setAtomicKind(WRNAtomicRead);
     break;
   case QUAL_OMP_WRITE_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_WRITE:
     setAtomicKind(WRNAtomicWrite);
     break;
   case QUAL_OMP_UPDATE_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_UPDATE:
     setAtomicKind(WRNAtomicUpdate);
     break;
   case QUAL_OMP_CAPTURE_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_CAPTURE:
     setAtomicKind(WRNAtomicCapture);
     break;
@@ -1555,7 +1559,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_INREDUCTION_MIN:
   case QUAL_OMP_INREDUCTION_UDR:
     IsInReduction = true;
-    // FALLTHROUGH
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_REDUCTION_ADD:
   case QUAL_OMP_REDUCTION_SUB:
   case QUAL_OMP_REDUCTION_MUL:

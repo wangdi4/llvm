@@ -85,8 +85,8 @@ namespace vpo {
 ///     2. a nonconst version used by parsing and other code
 // 20171023: Also use this for WRNLoopInfo's getter fns
 #define DEFINE_GETTER(CLAUSETYPE, GETTER, CLAUSEOBJ)       \
-   const CLAUSETYPE &GETTER() const { return CLAUSEOBJ; }  \
-         CLAUSETYPE &GETTER()       { return CLAUSEOBJ; }
+   const CLAUSETYPE &GETTER() const override { return CLAUSEOBJ; }  \
+         CLAUSETYPE &GETTER()       override { return CLAUSEOBJ; }
 
 /// Loop information associated with loop-type constructs
 class WRNLoopInfo {
@@ -264,10 +264,10 @@ public:
   WRNParallelNode(BasicBlock *BB);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setNumThreads(EXPR E) { NumThreads = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
-  void setProcBind(WRNProcBindKind P) { ProcBind = P; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setNumThreads(EXPR E) override { NumThreads = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setProcBind(WRNProcBindKind P) override { ProcBind = P; }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   void setNumWorkers(int N) { NumWorkers = N; }
@@ -283,24 +283,24 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(CopyinClause,       getCopyin,   Copyin)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getNumThreads() const { return NumThreads; }
-  WRNDefaultKind getDefault() const { return Default; }
-  WRNProcBindKind getProcBind() const { return ProcBind; }
-  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getNumThreads() const override { return NumThreads; }
+  WRNDefaultKind getDefault() const override { return Default; }
+  WRNProcBindKind getProcBind() const override { return ProcBind; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
-  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+  void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
   }
-  void addCancellationPointAlloca(AllocaInst *I) {
+  void addCancellationPointAlloca(AllocaInst *I) override {
     CancellationPointAllocas.push_back(I);
   }
-  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const override {
     return DirectlyUsedNonPointerValues;
   }
-  void addDirectlyUsedNonPointerValue(Value *V) {
+  void addDirectlyUsedNonPointerValue(Value *V) override {
     DirectlyUsedNonPointerValues.push_back(V);
   }
 #if INTEL_CUSTOMIZATION
@@ -311,7 +311,7 @@ public:
 #endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -367,18 +367,18 @@ public:
 #endif //INTEL_CUSTOMIZATION
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setNumThreads(EXPR E) { NumThreads = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
-  void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setCollapse(int N) { Collapse = N; }
-  void setOrdered(int N) { Ordered = N; }
-  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setNumThreads(EXPR E) override{ NumThreads = E; }
+  void setDefault(WRNDefaultKind D) override{ Default = D; }
+  void setProcBind(WRNProcBindKind P) override{ ProcBind = P; }
+  void setCollapse(int N) override { Collapse = N; }
+  void setOrdered(int N) override { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
 
 #if INTEL_CUSTOMIZATION
-  void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
-  void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
-  void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
+  void setEntryHLNode(loopopt::HLNode *E) override { EntryHLNode = E; }
+  void setExitHLNode(loopopt::HLNode *X) override { ExitHLNode = X; }
+  void setHLLoop(loopopt::HLLoop *L) override { HLp = L; }
 #if INTEL_FEATURE_CSA
   void setNumWorkers(int N) { NumWorkers = N; }
   void setPipelineDepth(int P) { PipelineDepth = P; }
@@ -402,40 +402,40 @@ public:
 #endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getNumThreads() const { return NumThreads; }
-  WRNDefaultKind getDefault() const { return Default; }
-  WRNProcBindKind getProcBind() const { return ProcBind; }
-  int getCollapse() const { return Collapse; }
-  int getOrdered() const { return Ordered; }
-  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
-  void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
-  const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getNumThreads() const override { return NumThreads; }
+  WRNDefaultKind getDefault() const override { return Default; }
+  WRNProcBindKind getProcBind() const override { return ProcBind; }
+  int getCollapse() const override { return Collapse; }
+  int getOrdered() const override { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
+  void addOrderedTripCount(Value *TC) override { OrderedTripCounts.push_back(TC); }
+  const SmallVectorImpl<Value *> &getOrderedTripCounts() const override {
     return OrderedTripCounts;
   }
-  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
-  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+  void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
   }
-  void addCancellationPointAlloca(AllocaInst *I) {
+  void addCancellationPointAlloca(AllocaInst *I) override {
     CancellationPointAllocas.push_back(I);
   }
-  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const override {
     return DirectlyUsedNonPointerValues;
   }
-  void addDirectlyUsedNonPointerValue(Value *V) {
+  void addDirectlyUsedNonPointerValue(Value *V) override {
     DirectlyUsedNonPointerValues.push_back(V);
   }
 
 #if INTEL_CUSTOMIZATION
-  loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
-  loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
-  loopopt::HLLoop *getHLLoop() const { return HLp; }
+  loopopt::HLNode *getEntryHLNode() const override { return EntryHLNode; }
+  loopopt::HLNode *getExitHLNode() const override { return ExitHLNode; }
+  loopopt::HLLoop *getHLLoop() const override  { return HLp; }
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                                           unsigned Verbosity=1) const;
+                                           unsigned Verbosity=1) const override;
 #if INTEL_FEATURE_CSA
   int getNumWorkers() const { return NumWorkers; }
   int getPipelineDepth() const { return PipelineDepth; }
@@ -443,7 +443,7 @@ public:
 #endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -479,10 +479,10 @@ public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setNumThreads(EXPR E) { NumThreads = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
-  void setProcBind(WRNProcBindKind P) { ProcBind = P; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setNumThreads(EXPR E) override { NumThreads = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setProcBind(WRNProcBindKind P) override { ProcBind = P; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -494,29 +494,29 @@ public:
   DEFINE_GETTER(CopyinClause,       getCopyin,   Copyin)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getNumThreads() const { return NumThreads; }
-  WRNDefaultKind getDefault() const { return Default; }
-  WRNProcBindKind getProcBind() const { return ProcBind; }
-  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getNumThreads() const override { return NumThreads; }
+  WRNDefaultKind getDefault() const override  { return Default; }
+  WRNProcBindKind getProcBind() const override { return ProcBind; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
-  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+  void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
   }
-  void addCancellationPointAlloca(AllocaInst *I) {
+  void addCancellationPointAlloca(AllocaInst *I) override {
     CancellationPointAllocas.push_back(I);
   }
-  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const override {
     return DirectlyUsedNonPointerValues;
   }
-  void addDirectlyUsedNonPointerValue(Value *V) {
+  void addDirectlyUsedNonPointerValue(Value *V) override {
     DirectlyUsedNonPointerValues.push_back(V);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -547,10 +547,10 @@ public:
   WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setNumThreads(EXPR E) { NumThreads = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
-  void setProcBind(WRNProcBindKind P) { ProcBind = P; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setNumThreads(EXPR E) override { NumThreads = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setProcBind(WRNProcBindKind P) override { ProcBind = P; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -562,13 +562,13 @@ public:
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getNumThreads() const { return NumThreads; }
-  WRNDefaultKind getDefault() const { return Default; }
-  WRNProcBindKind getProcBind() const { return ProcBind; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getNumThreads() const override { return NumThreads; }
+  WRNDefaultKind getDefault() const override { return Default; }
+  WRNProcBindKind getProcBind() const override { return ProcBind; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -595,9 +595,9 @@ public:
   WRNTeamsNode(BasicBlock *BB);
 
 protected:
-  void setThreadLimit(EXPR E) { ThreadLimit = E; }
-  void setNumTeams(EXPR E) { NumTeams = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
+  void setThreadLimit(EXPR E) override { ThreadLimit = E; }
+  void setNumTeams(EXPR E) override { NumTeams = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -606,12 +606,13 @@ public:
   DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
 
-  EXPR getThreadLimit() const { return ThreadLimit; }
-  EXPR getNumTeams() const { return NumTeams; }
-  WRNDefaultKind getDefault() const { return Default; }
+  EXPR getThreadLimit() const override { return ThreadLimit; }
+  EXPR getNumTeams() const override  { return NumTeams; }
+  WRNDefaultKind getDefault() const override { return Default; }
 
-  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+  void printExtra(formatted_raw_ostream &OS,
+                  unsigned Depth,
+                  unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -652,13 +653,13 @@ public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setNumThreads(EXPR E) { NumThreads = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
-  void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setCollapse(int N) { Collapse = N; }
-  void setOrdered(int N) { Ordered = N; }
-  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setNumThreads(EXPR E) override { NumThreads = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setProcBind(WRNProcBindKind P) override { ProcBind = P; }
+  void setCollapse(int N) override { Collapse = N; }
+  void setOrdered(int N) override { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,       Shared)
@@ -673,30 +674,30 @@ public:
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getNumThreads() const { return NumThreads; }
-  WRNDefaultKind getDefault() const { return Default; }
-  WRNProcBindKind getProcBind() const { return ProcBind; }
-  int getCollapse() const { return Collapse; }
-  int getOrdered() const { return Ordered; }
-  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getNumThreads() const override { return NumThreads; }
+  WRNDefaultKind getDefault() const override { return Default; }
+  WRNProcBindKind getProcBind() const override { return ProcBind; }
+  int getCollapse() const override { return Collapse; }
+  int getOrdered() const override { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
-  void setTreatDistributeParLoopAsDistribute(bool Flag) {
+  void setTreatDistributeParLoopAsDistribute(bool Flag) override {
     TreatDistributeParLoopAsDistribute = Flag;
   }
-  bool getTreatDistributeParLoopAsDistribute() const {
+  bool getTreatDistributeParLoopAsDistribute() const override {
     return TreatDistributeParLoopAsDistribute;
   }
 
-  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const override {
     return DirectlyUsedNonPointerValues;
   }
-  void addDirectlyUsedNonPointerValue(Value *V) {
+  void addDirectlyUsedNonPointerValue(Value *V) override {
     DirectlyUsedNonPointerValues.push_back(V);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -733,14 +734,14 @@ public:
   WRNTargetNode(BasicBlock *BB);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setDevice(EXPR E) { Device = E; }
-  void setNowait(bool Flag) { Nowait = Flag; }
-  void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) {
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setDevice(EXPR E) override { Device = E; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
+  void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) override {
     Defaultmap[C] = B;
   }
-  void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
-  void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) {
+  void setOffloadEntryIdx(int Idx) override { OffloadEntryIdx = Idx; }
+  void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) override {
     assert(UncollapsedNDRange.empty() &&
            "Uncollapsed NDRange must be set only once.");
     UncollapsedNDRange.insert(
@@ -757,51 +758,51 @@ public:
 
   // ParLoopNdInfoAlloca is set by transformation rather than parsing, so
   // setter is public instead of protected
-  void setParLoopNdInfoAlloca(AllocaInst *AI) { ParLoopNdInfoAlloca = AI; }
-  AllocaInst *getParLoopNdInfoAlloca() const { return ParLoopNdInfoAlloca; }
-  EXPR getIf() const { return IfExpr; }
-  EXPR getDevice() const { return Device; }
-  bool getNowait() const { return Nowait; }
-  WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const {
+  void setParLoopNdInfoAlloca(AllocaInst *AI) override { ParLoopNdInfoAlloca = AI; }
+  AllocaInst *getParLoopNdInfoAlloca() const override { return ParLoopNdInfoAlloca; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getDevice() const override { return Device; }
+  bool getNowait() const override { return Nowait; }
+  WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const override {
     return Defaultmap[C];
   }
-  int getOffloadEntryIdx() const { return OffloadEntryIdx; }
-  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+  int getOffloadEntryIdx() const override { return OffloadEntryIdx; }
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const override {
     return DirectlyUsedNonPointerValues;
   }
-  void addDirectlyUsedNonPointerValue(Value *V) {
+  void addDirectlyUsedNonPointerValue(Value *V) override {
     DirectlyUsedNonPointerValues.push_back(V);
   }
 
-  const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
+  const SmallVectorImpl<Value *> &getUncollapsedNDRange() const override {
     return UncollapsedNDRange;
   }
 
-  void setSPIRVSIMDWidth(unsigned Width) {
+  void setSPIRVSIMDWidth(unsigned Width) override {
     SPIRVSIMDWidth = Width;
   }
 
-  unsigned getSPIRVSIMDWidth() const {
+  unsigned getSPIRVSIMDWidth() const override {
     return SPIRVSIMDWidth;
   }
 
-  void resetUncollapsedNDRangeDimensions() {
+  void resetUncollapsedNDRangeDimensions() override {
     UncollapsedNDRange.clear();
   }
 
-  void setNDRangeDistributeDim(uint8_t Dim) {
+  void setNDRangeDistributeDim(uint8_t Dim) override {
     assert(Dim != 0 && "Dim is 0 by default.");
     assert(NDRangeDistributeDim == 0 &&
            "NDRangeDistributeDim must be set only once.");
     NDRangeDistributeDim = Dim;
   }
 
-  uint8_t getNDRangeDistributeDim() const {
+  uint8_t getNDRangeDistributeDim() const override {
     return NDRangeDistributeDim;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -827,19 +828,19 @@ public:
   WRNTargetDataNode(BasicBlock *BB);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setDevice(EXPR E) { Device = E; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setDevice(EXPR E) override { Device = E; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getDevice() const { return Device; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getDevice() const override { return Device; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -864,21 +865,21 @@ public:
   WRNTargetEnterDataNode(BasicBlock *BB);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setDevice(EXPR E) { Device = E; }
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setDevice(EXPR E) override { Device = E; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getDevice() const { return Device; }
-  bool getNowait() const { return Nowait; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getDevice() const override { return Device; }
+  bool getNowait() const override { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -903,21 +904,21 @@ public:
   WRNTargetExitDataNode(BasicBlock *BB);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setDevice(EXPR E) { Device = E; }
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setDevice(EXPR E) override { Device = E; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getDevice() const { return Device; }
-  bool getNowait() const { return Nowait; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getDevice() const override { return Device; }
+  bool getNowait() const override { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -942,21 +943,21 @@ public:
   WRNTargetUpdateNode(BasicBlock *BB);
 
 protected:
-  void setIf(EXPR E) { IfExpr = E; }
-  void setDevice(EXPR E) { Device = E; }
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setDevice(EXPR E) override { Device = E; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
-  EXPR getIf() const { return IfExpr; }
-  EXPR getDevice() const { return Device; }
-  bool getNowait() const { return Nowait; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getDevice() const override { return Device; }
+  bool getNowait() const override { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -980,18 +981,18 @@ public:
   WRNTargetVariantNode(BasicBlock *BB);
 
 protected:
-  void setDevice(EXPR E) { Device = E; }
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setDevice(EXPR E) override { Device = E; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
-  EXPR getDevice() const { return Device; }
-  bool getNowait() const { return Nowait; }
+  EXPR getDevice() const override { return Device; }
+  bool getNowait() const override { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1040,14 +1041,14 @@ public:
   WRNTaskNode(BasicBlock *BB);
 
 protected:
-  void setFinal(EXPR E) { Final = E; }
-  void setIf(EXPR E) { IfExpr = E; }
-  void setPriority(EXPR E) { Priority = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
-  void setUntied(bool B) { Untied = B; }
-  void setMergeable(bool B) { Mergeable = B; }
-  void setIsTargetTask(bool B) { IsTargetTask = B; }
-  void setTaskFlag(unsigned F) { TaskFlag = F; }
+  void setFinal(EXPR E) override { Final = E; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setPriority(EXPR E) override { Priority = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setUntied(bool B) override { Untied = B; }
+  void setMergeable(bool B) override { Mergeable = B; }
+  void setIsTargetTask(bool B) override { IsTargetTask = B; }
+  void setTaskFlag(unsigned F) override { TaskFlag = F; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -1057,27 +1058,27 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(DependClause,       getDepend,   Depend)
 
-  EXPR getFinal() const { return Final; }
-  EXPR getIf() const { return IfExpr; }
-  EXPR getPriority() const { return Priority; }
-  WRNDefaultKind getDefault() const { return Default; }
-  bool getUntied() const { return Untied; }
-  bool getMergeable() const { return Mergeable; }
-  bool getIsTargetTask() const { return IsTargetTask; }
-  unsigned getTaskFlag() const { return TaskFlag; }
-  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+  EXPR getFinal() const override { return Final; }
+  EXPR getIf() const override { return IfExpr; }
+  EXPR getPriority() const override { return Priority; }
+  WRNDefaultKind getDefault() const override { return Default; }
+  bool getUntied() const override { return Untied; }
+  bool getMergeable() const override { return Mergeable; }
+  bool getIsTargetTask() const override { return IsTargetTask; }
+  unsigned getTaskFlag() const override { return TaskFlag; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
-  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+  void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const  override {
     return CancellationPointAllocas;
   }
-  void addCancellationPointAlloca(AllocaInst *I) {
+  void addCancellationPointAlloca(AllocaInst *I) override {
     CancellationPointAllocas.push_back(I);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1122,11 +1123,11 @@ public:
   WRNTaskloopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setGrainsize(EXPR E) { Grainsize = E; }
-  void setNumTasks(EXPR E) { NumTasks = E; }
-  void setSchedCode(int N) { SchedCode = N; }
-  void setCollapse(int N) { Collapse = N; }
-  void setNogroup(bool B) { Nogroup = B; }
+  void setGrainsize(EXPR E) override { Grainsize = E; }
+  void setNumTasks(EXPR E) override { NumTasks = E; }
+  void setSchedCode(int N) override { SchedCode = N; }
+  void setCollapse(int N) override { Collapse = N; }
+  void setNogroup(bool B) override { Nogroup = B; }
 
   // Defined in parent class WRNTaskNode
   //   void setFinal(EXPR E) { Final = E; }
@@ -1141,11 +1142,11 @@ public:
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
-  EXPR getGrainsize() const { return Grainsize; }
-  EXPR getNumTasks() const { return NumTasks; }
-  int getSchedCode() const { return SchedCode; }
-  int getCollapse() const { return Collapse; }
-  bool getNogroup() const { return Nogroup; }
+  EXPR getGrainsize() const override { return Grainsize; }
+  EXPR getNumTasks() const override { return NumTasks; }
+  int getSchedCode() const override { return SchedCode; }
+  int getCollapse() const override { return Collapse; }
+  bool getNogroup() const override { return Nogroup; }
 
   // Defined in parent class WRNTaskNode
   //   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -1206,18 +1207,18 @@ public:
   WRNVecLoopNode(BasicBlock *BB, LoopInfo *L);
 #endif //INTEL_CUSTOMIZATION
 
-  void setIf(EXPR E) { IfExpr = E; }
-  void setSimdlen(int N) { Simdlen = N; }
-  void setSafelen(int N) { Safelen = N; }
-  void setCollapse(int N) { Collapse = N; }
-  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+  void setIf(EXPR E) override { IfExpr = E; }
+  void setSimdlen(int N) override { Simdlen = N; }
+  void setSafelen(int N) override { Safelen = N; }
+  void setCollapse(int N)  override { Collapse = N; }
+  void setLoopOrder(WRNLoopOrderKind LO)  override { LoopOrder = LO; }
 
 #if INTEL_CUSTOMIZATION
-  void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
-  void setHasVectorAlways(bool Flag) { HasVectorAlways = Flag; }
-  void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
-  void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
-  void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
+  void setIsAutoVec(bool Flag)  override{ IsAutoVec = Flag; }
+  void setHasVectorAlways(bool Flag)  override{ HasVectorAlways = Flag; }
+  void setEntryHLNode(loopopt::HLNode *E)  override{ EntryHLNode = E; }
+  void setExitHLNode(loopopt::HLNode *X)  override{ ExitHLNode = X; }
+  void setHLLoop(loopopt::HLLoop *L)  override { HLp = L; }
 #endif //INTEL_CUSTOMIZATION
 
   DEFINE_GETTER(PrivateClause,     getPriv,    Priv)
@@ -1229,28 +1230,28 @@ public:
   DEFINE_GETTER(UniformClause,     getUniform, Uniform)
   DEFINE_GETTER(WRNLoopInfo,       getWRNLoopInfo, WRNLI)
 
-  EXPR getIf() const { return IfExpr; }
-  int getSimdlen() const { return Simdlen; }
-  int getSafelen() const { return Safelen; }
-  int getCollapse() const { return Collapse; }
-  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
+  EXPR getIf() const override { return IfExpr; }
+  int getSimdlen() const override{ return Simdlen; }
+  int getSafelen() const override{ return Safelen; }
+  int getCollapse() const override{ return Collapse; }
+  WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
 
 #if INTEL_CUSTOMIZATION
-  bool getIsAutoVec() const { return IsAutoVec; }
-  bool getHasVectorAlways() const { return HasVectorAlways; }
-  loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
-  loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
-  loopopt::HLLoop *getHLLoop() const { return HLp; }
+  bool getIsAutoVec() const override{ return IsAutoVec; }
+  bool getHasVectorAlways() const override{ return HasVectorAlways; }
+  loopopt::HLNode *getEntryHLNode() const override{ return EntryHLNode; }
+  loopopt::HLNode *getExitHLNode() const override{ return ExitHLNode; }
+  loopopt::HLLoop *getHLLoop() const override{ return HLp; }
   bool isOmpSIMDLoop() const { return !getIsAutoVec(); }
   bool isValidHIRSIMDRegion() const;
 #endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
 #if INTEL_CUSTOMIZATION
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                                           unsigned Verbosity=1) const;
+                                           unsigned Verbosity=1) const override;
 
   template <class LoopType> LoopType *getTheLoop() const {
     llvm_unreachable("Unsupported LoopType");
@@ -1300,10 +1301,10 @@ public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setCollapse(int N) { Collapse = N; }
-  void setOrdered(int N) { Ordered = N; }
-  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setCollapse(int N) override { Collapse = N; }
+  void setOrdered(int N) override { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) override{ LoopOrder = LO; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
@@ -1320,28 +1321,28 @@ public:
 #endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
-  int getCollapse() const { return Collapse; }
-  int getOrdered() const { return Ordered; }
-  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
-  bool getNowait() const { return Nowait; }
+  int getCollapse() const override{ return Collapse; }
+  int getOrdered() const override { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
+  bool getNowait() const override { return Nowait; }
 
-  void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
-  const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
+  void addOrderedTripCount(Value *TC) override { OrderedTripCounts.push_back(TC); }
+  const SmallVectorImpl<Value *> &getOrderedTripCounts() const override {
     return OrderedTripCounts;
   }
-  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const override{
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
-  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+  void addCancellationPoint(Instruction *I) override{ CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
   }
-  void addCancellationPointAlloca(AllocaInst *I) {
+  void addCancellationPointAlloca(AllocaInst *I) override {
     CancellationPointAllocas.push_back(I);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1370,7 +1371,7 @@ public:
   WRNSectionsNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
@@ -1381,20 +1382,20 @@ public:
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
-  bool getNowait() const { return Nowait; }
-  const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
+  bool getNowait() const override { return Nowait; }
+  const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) { CancellationPoints.push_back(I); }
-  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const {
+  void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
+  const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const override {
     return CancellationPointAllocas;
   }
-  void addCancellationPointAlloca(AllocaInst *I) {
+  void addCancellationPointAlloca(AllocaInst *I) override {
     CancellationPointAllocas.push_back(I);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1433,14 +1434,14 @@ public:
   WRNWorkshareNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setNowait(bool Flag) override  { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
-  bool getNowait() const { return Nowait; }
+  bool getNowait() const override  { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1466,7 +1467,7 @@ public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setCollapse(int N) { Collapse = N; }
+  void setCollapse(int N) override  { Collapse = N; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
@@ -1476,10 +1477,10 @@ public:
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
-  int getCollapse() const { return Collapse; }
+  int getCollapse() const override  { return Collapse; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1500,18 +1501,18 @@ private:
   bool HasSeqCstClause;
 
 protected:
-  void setAtomicKind(WRNAtomicKind AK) { AtomicKind = AK; }
-  void setHasSeqCstClause(bool SC) { HasSeqCstClause = SC; }
+  void setAtomicKind(WRNAtomicKind AK) override  { AtomicKind = AK; }
+  void setHasSeqCstClause(bool SC) override { HasSeqCstClause = SC; }
 
 public:
   WRNAtomicNode(BasicBlock *BB);
   WRNAtomicNode(WRNAtomicNode *W);
 
-  WRNAtomicKind getAtomicKind() const { return AtomicKind; }
-  bool getHasSeqCstClause() const { return HasSeqCstClause; }
+  WRNAtomicKind getAtomicKind() const override { return AtomicKind; }
+  bool getHasSeqCstClause() const override { return HasSeqCstClause; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1568,16 +1569,16 @@ public:
 
 protected:
   void setIsCancellationPoint(bool IsCP) { IsCancellationPoint = IsCP; }
-  void setCancelKind(WRNCancelKind CK) { CancelKind = CK; }
-  void setIf(EXPR E) { IfExpr = E; }
+  void setCancelKind(WRNCancelKind CK) override  { CancelKind = CK; }
+  void setIf(EXPR E) override { IfExpr = E; }
 
 public:
   bool getIsCancellationPoint() const { return IsCancellationPoint; }
-  WRNCancelKind getCancelKind() const { return CancelKind; }
-  EXPR getIf() const { return IfExpr; }
+  WRNCancelKind getCancelKind() const override  { return CancelKind; }
+  EXPR getIf() const override   { return IfExpr; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1625,25 +1626,25 @@ public:
   WRNOrderedNode(BasicBlock *BB);
 
 protected:
-  void setIsDoacross(bool Flag) { IsDoacross = Flag; }
-  void setIsSIMD(bool Flag) { assertDoacrossFalse(); IsSIMD = Flag; }
-  void setIsThreads(bool Flag) { assertDoacrossFalse(); IsThreads = Flag; }
+  void setIsDoacross(bool Flag) override { IsDoacross = Flag; }
+  void setIsSIMD(bool Flag) override { assertDoacrossFalse(); IsSIMD = Flag; }
+  void setIsThreads(bool Flag) override  { assertDoacrossFalse(); IsThreads = Flag; }
 
 public:
-  bool getIsDoacross() const {  return IsDoacross; }
-  bool getIsSIMD() const { return !IsDoacross && IsSIMD; }
-  bool getIsThreads() const { return !IsDoacross && (IsThreads || !IsSIMD); }
+  bool getIsDoacross() const override {  return IsDoacross; }
+  bool getIsSIMD() const override { return !IsDoacross && IsSIMD; }
+  bool getIsThreads() const override { return !IsDoacross && (IsThreads || !IsSIMD); }
 
-  const DepSinkClause &getDepSink() const {assertDoacrossTrue();
+  const DepSinkClause &getDepSink() const override {assertDoacrossTrue();
                                            return DepSink; }
-  DepSinkClause &getDepSink() { assertDoacrossTrue(); return DepSink; }
+  DepSinkClause &getDepSink() override { assertDoacrossTrue(); return DepSink; }
 
-  const DepSourceClause &getDepSource() const {assertDoacrossTrue();
+  const DepSourceClause &getDepSource() const override  {assertDoacrossTrue();
                                            return DepSource; }
-  DepSourceClause &getDepSource() { assertDoacrossTrue(); return DepSource; }
+  DepSourceClause &getDepSource() override { assertDoacrossTrue(); return DepSource; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1668,7 +1669,7 @@ public:
   WRNSingleNode(BasicBlock *BB);
 
 protected:
-  void setNowait(bool Flag) { Nowait = Flag; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
@@ -1676,10 +1677,10 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(CopyprivateClause,  getCpriv,    Cpriv)
 
-  bool getNowait() const { return Nowait; }
+  bool getNowait() const override { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1700,15 +1701,15 @@ private:
   // TODO: Add HINT
 
 protected:
-  void setUserLockName(StringRef LN) { UserLockName = LN; }
+  void setUserLockName(StringRef LN) override { UserLockName = LN; }
 
 public:
   WRNCriticalNode(BasicBlock *BB);
 
-  StringRef getUserLockName() const { return UserLockName.str(); }
+  StringRef getUserLockName() const override { return UserLockName.str(); }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                             unsigned Verbosity=1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1792,9 +1793,9 @@ public:
   WRNGenericLoopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setLoopBind(WRNLoopBindKind LB) { LoopBind = LB; }
-  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
-  void setCollapse(int N) { Collapse = N; }
+  void setLoopBind(WRNLoopBindKind LB) override { LoopBind = LB; }
+  void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
+  void setCollapse(int N) override { Collapse = N; }
 
 public:
   DEFINE_GETTER(SharedClause, getShared, Shared)
@@ -1804,17 +1805,17 @@ public:
   DEFINE_GETTER(ReductionClause, getRed, Reduction)
   DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
 
-  int getCollapse() const { return Collapse; }
+  int getCollapse() const override { return Collapse; }
 
-  WRNLoopBindKind getLoopBind() const { return LoopBind; }
-  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
+  WRNLoopBindKind getLoopBind() const override { return LoopBind; }
+  WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
   bool mapLoopScheme();
 
   int getMappedDir() const { return MappedDir; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
-                  unsigned Verbosity = 1) const;
+                  unsigned Verbosity = 1) const override ;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
