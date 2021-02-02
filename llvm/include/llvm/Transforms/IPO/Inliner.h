@@ -14,11 +14,11 @@
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/ADT/SmallSet.h"    // INTEL
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
-#include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include <utility>
 
 namespace llvm {
