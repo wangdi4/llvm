@@ -1672,7 +1672,7 @@ public:
   }
 
 protected:
-  virtual VPSubscriptInst *cloneImpl() const {
+  virtual VPSubscriptInst *cloneImpl() const override {
     VPSubscriptInst *Cloned = new VPSubscriptInst(*this);
     return Cloned;
   }
@@ -1789,7 +1789,7 @@ public:
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  virtual VPLoadStoreInst *cloneImpl() const {
+  virtual VPLoadStoreInst *cloneImpl() const override {
     SmallVector<VPValue *, 2> Ops;
     for (auto &O : operands())
       Ops.push_back(O);
@@ -1842,7 +1842,7 @@ public:
   }
 
 protected:
-  virtual VPHIRCopyInst *cloneImpl() const {
+  virtual VPHIRCopyInst *cloneImpl() const override {
     VPHIRCopyInst *Cloned = new VPHIRCopyInst(getOperand(0));
     Cloned->setOriginPhiId(getOriginPhiId());
     return Cloned;

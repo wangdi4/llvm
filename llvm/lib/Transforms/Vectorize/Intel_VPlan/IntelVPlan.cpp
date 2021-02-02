@@ -696,7 +696,6 @@ void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
       break;
     case VPAnalysisID::DA:
     case VPAnalysisID::VLS:
-    default:
       llvm_unreachable("Add invalidation support for analysis.");
     }
   }
@@ -1154,8 +1153,6 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
     O << " [UnmaskedWiden]";
     break;
   }
-  default:
-    llvm_unreachable("Unexpected VecScenario.");
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
