@@ -2341,10 +2341,16 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     legacy::PassManagerBase &PM, bool IsLTO) const {
-  // We should never get here if proprietary options are disabled,
-  // but it's a release-mode feature so we can't just assert.
-  if (DisableIntelProprietaryOpts)
+  // Do not run loop optimization passes, if proprietary optimizations
+  // are disabled. There are some mandatory clean-up actions that still need
+  // to be performed.
+  if (DisableIntelProprietaryOpts) {
+    // CMPLRLLVM-25935: clean-up VPO directives for targets with
+    //                  LLVM IR emission enabled (hence, with proprietary
+    //                  optimizations disabled).
+    PM.add(createVPODirectiveCleanupPass());
     return;
+  }
 
   if (RunVPOOpt && RunVecClone) {
     PM.add(createVecClonePass());
