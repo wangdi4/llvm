@@ -772,22 +772,6 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (const MaxWorkGroupSizeAttr *A = FD->getAttr<MaxWorkGroupSizeAttr>()) {
-    llvm::Metadata *attrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
-    Fn->setMetadata("max_work_group_size",
-                    llvm::MDNode::get(Context, attrMDArgs));
-  }
-
-  if (const MaxGlobalWorkDimAttr *A = FD->getAttr<MaxGlobalWorkDimAttr>()) {
-    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
-        Builder.getInt32(A->getMaxGlobalWorkDimValue()))};
-    Fn->setMetadata("max_global_work_dim",
-                    llvm::MDNode::get(Context, attrMDArgs));
-  }
-
   if (FD->hasAttr<AutorunAttr>()) {
     llvm::Metadata *attrMDArgs[] = {
         llvm::ConstantAsMetadata::get(Builder.getTrue())};

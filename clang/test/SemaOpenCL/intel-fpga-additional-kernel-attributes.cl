@@ -2,22 +2,22 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga -fsyntax-only -verify %s
 
 __attribute__((max_global_work_dim(0)))
-__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
+__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used with value 0}}
 __kernel void kernel_1a() {
 }
 
-__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
+__attribute__((max_work_group_size(1024, 1, 1))) //OK
 __attribute__((max_global_work_dim(0)))
 __kernel void kernel_1b() {
 }
 
-__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
+__attribute__((reqd_work_group_size(16,16,16))) //OK
 __attribute__((max_global_work_dim(0)))
 __kernel void kernel_2a() {
 }
 
 __attribute__((max_global_work_dim(0)))
-__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used and equals to 0}}
+__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used with value 0}}
 __kernel void kernel_2b() {
 }
 
@@ -78,7 +78,7 @@ __attribute__((stall_free)) //expected-error{{'stall_free' attribute only applie
 __attribute__((autorun)) //expected-warning{{'autorun' attribute only applies to functions}}
 constant int i = 10;
 
-__attribute__((max_global_work_dim(4))) //expected-error{{'max_global_work_dim' attribute must be in range from 0 to 3}}
+__attribute__((max_global_work_dim(4))) //expected-error{{'max_global_work_dim' attribute requires integer constant between 0 and 3 inclusive}}
 __kernel void kernel_5a() {
 }
 
@@ -150,7 +150,7 @@ __attribute__((scheduler_target_fmax_mhz(0)))
 __kernel void kernel_7e() {
 }
 
-__attribute__((max_work_group_size(1, -1, 1))) // expected-error{{'max_work_group_size' attribute requires a non-negative integral compile time constant expression}}
+__attribute__((max_work_group_size(1, -1, 1))) // expected-warning{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
 __kernel void kernel_8a() {}
 
 __attribute__((num_simd_work_items(-1))) // expected-error{{'num_simd_work_items' attribute requires a non-negative integral compile time constant expression}}

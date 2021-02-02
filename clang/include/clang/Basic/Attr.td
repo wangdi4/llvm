@@ -1321,11 +1321,12 @@ def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
 
 def SYCLIntelMaxWorkGroupSize : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","max_work_group_size">,
+                   GNU<"max_work_group_size">, //INTEL
                    CXX11<"intel","max_work_group_size">];
   let Args = [ExprArgument<"XDim">,
               ExprArgument<"YDim">,
               ExprArgument<"ZDim">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let AdditionalMembers = [{
     ArrayRef<const Expr *> dimensions() const {
@@ -1346,9 +1347,10 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
 
 def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","max_global_work_dim">,
+                   GNU<"max_global_work_dim">, //INTEL
                    CXX11<"intel","max_global_work_dim">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
 }
