@@ -1092,6 +1092,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_RAO_INT)
 # end INTEL_FEATURE_ISA_AVX_RAO_INT
+# INTEL_FEATURE_ISA_AVX_RAO_FP
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_RAO_FP)
+# end INTEL_FEATURE_ISA_AVX_RAO_FP
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

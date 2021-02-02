@@ -3361,6 +3361,10 @@ X86
 .. option:: -mavx512vpopcntdq, -mno-avx512vpopcntdq
 
 .. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX_RAO_FP
+.. option:: -mavxraofp, -mno-avxraofp
+
+.. end INTEL_FEATURE_ISA_AVX_RAO_FP
 .. INTEL_FEATURE_ISA_AVX_RAO_INT
 .. option:: -mavxraoint, -mno-avxraoint
 

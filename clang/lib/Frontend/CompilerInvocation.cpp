@@ -2759,7 +2759,7 @@ void CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   // switch default to true.
   Opts.IntelPragmaPrefetch =
       Args.hasFlag(OPT_fintel_pragma_prefetch, OPT_fno_intel_pragma_prefetch,
-                   /*default=*/false);
+                   /*default=*/true);
 #endif // INTEL_CUSTOMIZATION
   Opts.XLPragmaPack = Args.hasArg(OPT_fxl_pragma_pack);
   Opts.ModuleFeatures = Args.getAllArgValues(OPT_fmodule_feature);

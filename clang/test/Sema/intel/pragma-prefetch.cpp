@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -fintel-pragma-prefetch -fintel-compatibility %s
+// RUN: %clang_cc1 -verify -fintel-compatibility %s
 //
 // Test semantic warnings related to #pragma [no]prefetch
 void prefetch() {

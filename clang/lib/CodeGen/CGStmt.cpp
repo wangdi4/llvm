@@ -896,23 +896,20 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
 CodeGenFunction::IntelPrefetchExprHandler::IntelPrefetchExprHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
     : CGF(CGF) {
-  decltype(Attrs)::iterator AttrItr =
-      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
-        return A->getKind() == attr::IntelPrefetch;
-      });
 
-  if (AttrItr == std::end(Attrs))
+  auto PrefetchAttrs = llvm::make_filter_range(Attrs,
+      [] (const Attr *A) { return A->getKind() == attr::IntelPrefetch; });
+  if (PrefetchAttrs.empty())
     return;
-
   SmallVector<llvm::OperandBundleDef, 8> OpBundles;
-  for (auto End = std::end(Attrs); AttrItr != End; ++AttrItr) {
-    if (OpBundles.empty())
-      OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.PREFETCH_LOOP",
-                                                 ArrayRef<llvm::Value *>{}));
-    const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(*AttrItr);
+  for (const auto *PreAttr : PrefetchAttrs) {
+    const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(PreAttr);
     bool IsNoPrefetchLoop = (IPA->getSemanticSpelling() ==
                              IntelPrefetchAttr::Pragma_noprefetch);
     llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+    if (OpBundles.empty())
+      OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.PREFETCH_LOOP",
+                                                 ArrayRef<llvm::Value *>{}));
     OpBundles.push_back(llvm::OperandBundleDef(
         "QUAL.PRAGMA.ENABLE",
          llvm::ConstantInt::get(Int32Ty, IsNoPrefetchLoop ? 0 : 1)));
