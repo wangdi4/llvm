@@ -356,8 +356,9 @@ struct RTLFlagsTy {
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
   uint64_t UseSVM : 1;
+  uint64_t UseBuffer : 1;
   // Add new flags here
-  uint64_t Reserved : 56;
+  uint64_t Reserved : 55;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -367,6 +368,7 @@ struct RTLFlagsTy {
       UseDriverGroupSizes(0),
       EnableSimd(0),
       UseSVM(1), // TODO: Set it to 0 when MKL is ready.
+      UseBuffer(0),
       Reserved(0) {}
 };
 
@@ -423,6 +425,7 @@ public:
   std::mutex *Mutexes;
   std::mutex *ProfileLocks;
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
+  std::vector<std::set<void *>> ClMemBuffers;
 
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -627,6 +630,12 @@ public:
         Flags.UseSVM = 0;
     }
 
+    // Read LIBOMPTARGET_OPENCL_USE_BUFFER
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_USE_BUFFER"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseBuffer = 1;
+    }
+
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
     if ((env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE"))) {
@@ -745,6 +754,9 @@ public:
 
   /// Initialize program data on device
   int32_t initProgramData(int32_t DeviceId);
+
+  /// Allocate cl_mem data
+  void *allocDataClMem(int32_t DeviceId, size_t Size);
 };
 
 #ifdef _WIN32
@@ -1201,6 +1213,22 @@ void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
   OffloadTables[DeviceId].clear();
 }
 
+void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
+  cl_mem ret = nullptr;
+  cl_int rc;
+
+  CALL_CL_RVRC(ret, clCreateBuffer, rc, getContext(DeviceId),
+               CL_MEM_READ_WRITE, Size, nullptr);
+  if (rc != CL_SUCCESS)
+    return nullptr;
+
+  std::unique_lock<std::mutex> lock(Mutexes[DeviceId]);
+  ClMemBuffers[DeviceId].insert((void *)ret);
+
+  IDP("Allocated cl_mem data " DPxMOD "\n", DPxPTR(ret));
+  return (void *)ret;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1376,6 +1404,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->numDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->numDevices);
   DeviceInfo->Buffers.resize(DeviceInfo->numDevices);
+  DeviceInfo->ClMemBuffers.resize(DeviceInfo->numDevices);
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->numDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->numDevices);
   DeviceInfo->Names.resize(DeviceInfo->numDevices);
@@ -2180,9 +2209,11 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
 }
 
 // Allocation was initiated by user (omp_target_alloc)
-EXTERN
-void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
-                                void *hst_ptr) {
+EXTERN void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
+                                       void *hst_ptr) {
+  if (DeviceInfo->Flags.UseBuffer)
+    return DeviceInfo->allocDataClMem(device_id, size);
+
   return dataAlloc(device_id, size, hst_ptr, hst_ptr, 1);
 }
 
@@ -2203,6 +2234,25 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   AsyncDataTy *async_data = nullptr;
   if (async_event && ((AsyncEventTy *)async_event)->handler) {
     async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
+  }
+
+  if (DeviceInfo->Flags.UseBuffer) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
+    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
+      cl_event event;
+      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
+                       0, size, hst_ptr, 0, nullptr, &event);
+      if (async_data) {
+        CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_data);
+      } else {
+        CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+        if (DeviceInfo->Flags.EnableProfile)
+          DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+      }
+
+      return OFFLOAD_SUCCESS;
+    }
   }
 
   if (!DeviceInfo->Flags.UseSVM) {
@@ -2325,6 +2375,25 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
   }
 
+  if (DeviceInfo->Flags.UseBuffer) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
+    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
+      cl_event event;
+      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
+                       0, size, hst_ptr, 0, nullptr, &event);
+      if (async_data) {
+        CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_data);
+      } else {
+        CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+        if (DeviceInfo->Flags.EnableProfile)
+          DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+      }
+
+      return OFFLOAD_SUCCESS;
+    }
+  }
+
   if (!DeviceInfo->Flags.UseSVM) {
     if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clEnqueueMemcpyId)) {
       IDP("Error: Extension %s is not supported\n",
@@ -2434,6 +2503,16 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   auto &buffers = DeviceInfo->Buffers[DeviceId];
 
   DeviceInfo->Mutexes[DeviceId].lock();
+
+  // Deallocate cl_mem data
+  if (DeviceInfo->Flags.UseBuffer) {
+    auto &clMemBuffers = DeviceInfo->ClMemBuffers[DeviceId];
+    if (clMemBuffers.count(TgtPtr) > 0) {
+      clMemBuffers.erase(TgtPtr);
+      CALL_CL_RET_FAIL(clReleaseMemObject, (cl_mem)TgtPtr);
+      return OFFLOAD_SUCCESS;
+    }
+  }
 
   // Retrieve base pointer and erase buffer information
   bool hasBufferInfo = false;
@@ -2832,8 +2911,13 @@ static inline int32_t run_target_team_nd_region(
       CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(arg), &arg);
       ArgType = "Scalar";
     } else {
+      ArgType = "Pointer";
       void *ptr = (void *)((intptr_t)tgt_args[i] + offset);
-      if (DeviceInfo->Flags.UseSVM) {
+      if (DeviceInfo->Flags.UseBuffer &&
+          DeviceInfo->ClMemBuffers[device_id].count(ptr) > 0) {
+        CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(cl_mem), &ptr);
+        ArgType = "ClMem";
+      } else if (DeviceInfo->Flags.UseSVM) {
         CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptr);
       } else {
         if (!DeviceInfo->isExtensionFunctionEnabled(
@@ -2846,7 +2930,6 @@ static inline int32_t run_target_team_nd_region(
         CALL_CL_EXT_RET_FAIL(
             device_id, clSetKernelArgMemPointer, *kernel, i, ptr);
       }
-      ArgType = "Pointer";
     }
     IDP("Kernel %s Arg %d set successfully\n", ArgType, i);
     (void)ArgType;

@@ -626,7 +626,7 @@ struct RTLFlagsTy {
       EnableTargetGlobals(0),
       LinkLibDevice(0), // TODO: change it to 1 when L0 issue is resolved
       UseHostMemForUSM(0),
-      UseMemoryPool(0),
+      UseMemoryPool(1),
       UseDriverGroupSizes(0),
       Reserved(0) {}
 };
@@ -946,8 +946,8 @@ public:
 
     // Memory pool
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_MEMORY_POOL")) {
-      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
-        Flags.UseMemoryPool = 1;
+      if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.UseMemoryPool = 0;
     }
 
     // Target image dump
