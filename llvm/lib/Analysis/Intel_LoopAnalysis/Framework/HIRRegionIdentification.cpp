@@ -63,11 +63,11 @@ static cl::opt<bool> CreateFunctionLevelRegion(
     cl::desc("force HIR to create a single function level region instead of "
              "creating regions for individual loopnests"));
 
-static cl::opt<std::string> CreateFunctionLevelRegionFilterFunc(
+static cl::list<std::string> CreateFunctionLevelRegionFilterFunc(
     "hir-create-function-level-region"
     "-filter-func",
-    cl::ReallyHidden,
-    cl::desc("force HIR to create a single region for the given function."));
+    cl::desc("force HIR to create a single region for the given function."),
+    cl::CommaSeparated, cl::ReallyHidden);
 
 static cl::opt<bool> DisableFusionRegions(
     "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
@@ -2409,8 +2409,14 @@ void HIRRegionIdentification::runImpl(Function &F) {
   // a function-level region.
   bool BuildFunctionRegion = false;
   if (!CreateFunctionLevelRegionFilterFunc.empty()) {
-    BuildFunctionRegion =
-        F.getName().equals(CreateFunctionLevelRegionFilterFunc);
+    // A comma-separated list of names can be given. e.g. =foo,bar
+    for (auto &Name :
+         std::vector<std::string>(CreateFunctionLevelRegionFilterFunc)) {
+      if (F.getName().equals(Name)) {
+        BuildFunctionRegion = true;
+        break;
+      }
+    }
   } else {
     BuildFunctionRegion = CreateFunctionLevelRegion;
   }
