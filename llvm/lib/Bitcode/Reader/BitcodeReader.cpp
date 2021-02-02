@@ -177,10 +177,7 @@ static Expected<std::string> readIdentificationBlock(BitstreamCursor &Stream) {
   // Read all the records.
   SmallVector<uint64_t, 64> Record;
 
-#if INTEL_CUSTOMIZATION
   std::string ProducerIdentification;
-  unsigned epoch = 0xFFFFFFFF;
-#endif // INTEL_CUSTOMIZATION
 
   while (true) {
     BitstreamEntry Entry;
@@ -194,19 +191,6 @@ static Expected<std::string> readIdentificationBlock(BitstreamCursor &Stream) {
     case BitstreamEntry::Error:
       return error("Malformed block");
     case BitstreamEntry::EndBlock:
-#if INTEL_CUSTOMIZATION
-      // If we identified this as an Intel-specific epoch, make sure we also
-      // have an Intel producer string.
-      if (epoch & bitc::INTEL_EPOCH_MASK) {
-        if (ProducerIdentification.find("Intel") != 0)
-          return error("The bitcode file uses an Intel epoch ID but was not "
-                       "produced by an Intel product.\n(Producer: '" +
-                       Twine(ProducerIdentification) + "' Reader: '" +
-                       Twine(DPCPP_BITCODE_PRODUCER_STR) + "')");
-      } else if (epoch == 0xFFFFFFFF) {
-        return "No epoch ID was found in the bitcode identification block";
-      }
-#endif // INTEL_CUSTOMIZATION
       return ProducerIdentification;
     case BitstreamEntry::Record:
       // The interesting case.
@@ -225,23 +209,11 @@ static Expected<std::string> readIdentificationBlock(BitstreamCursor &Stream) {
       convertToString(Record, 0, ProducerIdentification);
       break;
     case bitc::IDENTIFICATION_CODE_EPOCH: { // EPOCH: [epoch#]
-      epoch = (unsigned)Record[0];
-#if INTEL_CUSTOMIZATION
-      if (epoch != bitc::BITCODE_CURRENT_INTEL_EPOCH &&
-          epoch != bitc::BITCODE_CURRENT_EPOCH) {
-        // TODO: Warn if non-Intel bitcode?
-        // Note: When the Intel-epoch is updated, we will add code here
-        //       to read and upgrade bitcode from older epochs.
-        unsigned BaseEpoch = epoch & ~bitc::INTEL_EPOCH_MASK;
-        unsigned IntelSubEpoch =
-            (epoch & bitc::INTEL_EPOCH_MASK) >> bitc::INTEL_EPOCH_OFFSET;
-        return error(Twine("Incompatible epoch: Bitcode '") +
-                     Twine(IntelSubEpoch) + ":" + Twine(BaseEpoch) +
-                     "' vs current: '" + Twine(bitc::CURRENT_INTEL_SUBEPOCH) +
-                     ":" + Twine(bitc::BITCODE_CURRENT_EPOCH) + "'" +
-                     "\n(Producer: '" + Twine(ProducerIdentification) +
-                     "' Reader: '" + Twine(DPCPP_BITCODE_PRODUCER_STR) + "')");
-#endif // INTEL_CUSTOMIZATION
+      unsigned epoch = (unsigned)Record[0];
+      if (epoch != bitc::BITCODE_CURRENT_EPOCH) {
+        return error(
+          Twine("Incompatible epoch: Bitcode '") + Twine(epoch) +
+          "' vs current: '" + Twine(bitc::BITCODE_CURRENT_EPOCH) + "'");
       }
     }
     }
