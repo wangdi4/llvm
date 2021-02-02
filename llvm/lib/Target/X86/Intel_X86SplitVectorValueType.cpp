@@ -773,11 +773,13 @@ void X86SplitVectorValueType::createShufVecInstToSplit(Instruction *I,
   Instruction *NI0 = new ShuffleVectorInst(
       I, UndefValue::get(VTy),
       ConstantDataVector::get(VTy->getContext(), MaskVec));
+  NI0->setDebugLoc(I->getDebugLoc());
 
   std::iota(MaskVec.begin(), MaskVec.end(), NumElmts / 2);
   Instruction *NI1 = new ShuffleVectorInst(
       I, UndefValue::get(VTy),
       ConstantDataVector::get(VTy->getContext(), MaskVec));
+  NI1->setDebugLoc(I->getDebugLoc());
 
   setInstName(I, NI0, NI1);
 
@@ -823,6 +825,7 @@ void X86SplitVectorValueType::createShufVecInstToFuse(Instruction *I,
   NI = new ShuffleVectorInst(
       InstMap[I][0], InstMap[I][1],
       ConstantDataVector::get(VTy->getContext(), MaskVec));
+  NI->setDebugLoc(I->getDebugLoc());
   NI->setName("fused");
   InsertInst(UI, NI).run();
 
