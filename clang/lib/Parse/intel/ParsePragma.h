@@ -13,7 +13,7 @@
 class PragmaInlineHandler: public PragmaHandler {
   public:
     explicit PragmaInlineHandler(const char *name) : PragmaHandler(name) {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer, Token &FirstTok);
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer, Token &FirstTok) override;
 };
 
 // #pragma block_loop
@@ -21,7 +21,7 @@ class PragmaBlockLoopHandler : public PragmaHandler {
   public:
     PragmaBlockLoopHandler(const char *name) : PragmaHandler(name) {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                              Token &Tok);
+                              Token &Tok) override;
 };
 
 // #pragma noblock_loop
@@ -29,7 +29,7 @@ class PragmaNoBlockLoopHandler : public PragmaHandler {
   public:
     PragmaNoBlockLoopHandler(const char *name) : PragmaHandler(name) {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                              Token &Tok);
+                              Token &Tok) override;
 };
 
 // #pragma prefetch
@@ -37,7 +37,7 @@ class PragmaPrefetchHandler : public PragmaHandler {
   public:
     PragmaPrefetchHandler(const char *name) : PragmaHandler(name) {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                              Token &Tok);
+                              Token &Tok) override;
 };
 
 // #pragma noprefetch
@@ -45,6 +45,6 @@ class PragmaNoPrefetchHandler : public PragmaHandler {
   public:
     PragmaNoPrefetchHandler(const char *name) : PragmaHandler(name) {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                              Token &Tok);
+                              Token &Tok) override;
 };
 #endif // INTEL_CUSTOMIZATION

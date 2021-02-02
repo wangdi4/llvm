@@ -247,72 +247,72 @@ struct PragmaUnrollHintHandler : public PragmaHandler {
 struct PragmaLoopCoalesceHandler : public PragmaHandler {
   PragmaLoopCoalesceHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaIIHandler : public PragmaHandler {
   PragmaIIHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaMaxConcurrencyHandler : public PragmaHandler {
   PragmaMaxConcurrencyHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaMaxInterleavingHandler : public PragmaHandler {
   PragmaMaxInterleavingHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaLoopFuseHandler : public PragmaHandler {
   explicit PragmaLoopFuseHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaIVDepHandler : public PragmaHandler {
   PragmaIVDepHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaHLSConstArgHandler : public PragmaHandler {
   PragmaHLSConstArgHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaHLSNoArgHandler : public PragmaHandler {
   PragmaHLSNoArgHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaDistributePointHandler : public PragmaHandler {
   PragmaDistributePointHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaNoFusionHandler : public PragmaHandler {
   PragmaNoFusionHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaFusionHandler : public PragmaHandler {
   PragmaFusionHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaNoVectorHandler : public PragmaHandler {
   PragmaNoVectorHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaVectorHandler : public PragmaHandler {
   PragmaVectorHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 struct PragmaLoopCountHandler : public PragmaHandler {
   PragmaLoopCountHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
-                    Token &Tok);
+                    Token &Tok) override;
 };
 #endif // INTEL_CUSTOMIZATION
 
