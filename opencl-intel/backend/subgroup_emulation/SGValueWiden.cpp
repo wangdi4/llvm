@@ -69,6 +69,8 @@ bool SGValueWiden::runOnModule(Module &M) {
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
 
   for (auto *Fn : FunctionsToBeWidened) {
+    LLVM_DEBUG(dbgs() << "Adding vector-variants for " << Fn->getName()
+                      << "\n");
     // Add vector-variants attribute.
     unsigned EmuSize = *SizeAnalysis->getEmuSizes(Fn).begin();
     std::string Buffer;
@@ -150,10 +152,7 @@ bool SGValueWiden::runOnModule(Module &M) {
     if (WideFn->isDeclaration())
       continue;
     runOnFunction(*WideFn, SizeAnalysis->getEmuSizes(Fn));
-    // If the function should be emulated, then it must directly /
-    // indirectly call sub-group built-ins. It's meaningless to
-    // preserve these scalar functions.
-    Fn->deleteBody();
+
     auto It = find(KernelRange, Fn);
     if (It != Kernels.end()) {
       Kernels.erase(It);
@@ -173,8 +172,29 @@ bool SGValueWiden::runOnModule(Module &M) {
   for (auto *I : InstsToBeRemoved)
     I->eraseFromParent();
 
+  // If the function should be emulated, then it must directly / indirectly call
+  // sub-group built-ins (FIXME: This is not true ATM, since we also emulate the
+  // functions which only call WG barrier once the kernel emulated). It's
+  // meaningless to preserve these scalar functions.
+  FuncVec FunctionToRemove;
+  FuncSet FunctionAdded;
   for (Function *Fn : FunctionsToBeWidened)
-    Fn->removeFnAttr("vector-variants");
+    FunctionToRemove.push_back(Fn);
+
+  while (!FunctionToRemove.empty()) {
+    Function *F = FunctionToRemove.pop_back_val();
+    if (FunctionAdded.insert(F)) {
+      for (User *U : F->users()) {
+        CallInst *CI = cast<CallInst>(U);
+        FunctionToRemove.push_back(CI->getFunction());
+      }
+    }
+    // Explicitly drop all referneces here, then we can remove these functions
+    // out of order.
+    F->dropAllReferences();
+  }
+  for (auto *F : FunctionAdded)
+    F->eraseFromParent();
 
   return true;
 }
