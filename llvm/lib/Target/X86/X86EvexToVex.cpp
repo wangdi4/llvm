@@ -182,6 +182,25 @@ static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc,
   case X86::VMOVGETZ256rm:
     return ST->hasAVXMOVGET();
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+  case X86::VPAADDDZ128mr:
+  case X86::VPAADDDZ256mr:
+  case X86::VPAADDQZ128mr:
+  case X86::VPAADDQZ256mr:
+  case X86::VPAANDDZ128mr:
+  case X86::VPAANDDZ256mr:
+  case X86::VPAANDQZ128mr:
+  case X86::VPAANDQZ256mr:
+  case X86::VPAORDZ128mr:
+  case X86::VPAORDZ256mr:
+  case X86::VPAORQZ128mr:
+  case X86::VPAORQZ256mr:
+  case X86::VPAXORDZ128mr:
+  case X86::VPAXORDZ256mr:
+  case X86::VPAXORQZ128mr:
+  case X86::VPAXORQZ256mr:
+    return ST->hasAVXRAOINT();
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
 #endif // INTEL_CUSTOMIZATION
   case X86::VALIGNDZ128rri:
   case X86::VALIGNDZ128rmi:

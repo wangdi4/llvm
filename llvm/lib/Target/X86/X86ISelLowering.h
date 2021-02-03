@@ -621,7 +621,7 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     VPCOMPRESS,
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-    MPSADBW,// INTEL
+    MPSADBW,
 #endif // INTEL_CUSTOMIZATION
 
     // Compress and expand.
@@ -903,6 +903,12 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     VPCOMPRESS_STORE,
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+    VPAADD,
+    VPAAND,
+    VPAOR,
+    VPAXOR,
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 
     // Key locker nodes that produce flags.

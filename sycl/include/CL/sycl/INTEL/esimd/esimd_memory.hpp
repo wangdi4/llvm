@@ -817,7 +817,7 @@ media_block_store(AccessorTy acc, unsigned x, unsigned y, simd<T, m * n> vals) {
 
 #ifndef __SYCL_DEVICE_ONLY__
 
-SYCL_EXTERNAL void slm_init(uint32_t size) {}
+inline void slm_init(uint32_t size) {}
 
 #endif
 
@@ -1001,7 +1001,7 @@ esimd_raw_send_store(simd<T1, n1> msgSrc0, uint32_t exDesc, uint32_t msgDesc,
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 // Wait for source val to be ready
-inline ESIMD_NODEBUG void esimd_wait(uint16_t val) { __esimd_wait(val); }
+ESIMD_INLINE ESIMD_NODEBUG void esimd_wait(uint16_t val) { __esimd_wait(val); }
 
 // Compute the data size for 2d block load or store.
 template <int NBlocks, int Height, int Width, bool Transposed>

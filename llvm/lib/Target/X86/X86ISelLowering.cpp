@@ -5421,6 +5421,40 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       return true;
     }
 #endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+    case Intrinsic::x86_mask_vpaaddd128:
+    case Intrinsic::x86_mask_vpaaddd256:
+    case Intrinsic::x86_mask_vpaaddd512:
+    case Intrinsic::x86_mask_vpaandd128:
+    case Intrinsic::x86_mask_vpaandd256:
+    case Intrinsic::x86_mask_vpaandd512:
+    case Intrinsic::x86_mask_vpaord128:
+    case Intrinsic::x86_mask_vpaord256:
+    case Intrinsic::x86_mask_vpaord512:
+    case Intrinsic::x86_mask_vpaxord128:
+    case Intrinsic::x86_mask_vpaxord256:
+    case Intrinsic::x86_mask_vpaxord512:
+    case Intrinsic::x86_mask_vpaaddq128:
+    case Intrinsic::x86_mask_vpaaddq256:
+    case Intrinsic::x86_mask_vpaaddq512:
+    case Intrinsic::x86_mask_vpaandq128:
+    case Intrinsic::x86_mask_vpaandq256:
+    case Intrinsic::x86_mask_vpaandq512:
+    case Intrinsic::x86_mask_vpaorq128:
+    case Intrinsic::x86_mask_vpaorq256:
+    case Intrinsic::x86_mask_vpaorq512:
+    case Intrinsic::x86_mask_vpaxorq128:
+    case Intrinsic::x86_mask_vpaxorq256:
+    case Intrinsic::x86_mask_vpaxorq512: {
+      Info.opc = ISD::INTRINSIC_VOID;
+      Info.ptrVal = I.getArgOperand(0);
+      Info.memVT = MVT::getVT(I.getArgOperand(1)->getType());
+      Info.align = Align(Info.memVT.getScalarSizeInBits() / 8);
+      // FIXME: Should we set these flags?
+      Info.flags |= MachineMemOperand::MOStore | MachineMemOperand::MOLoad;
+      return true;
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
 #endif // INTEL_CUSTOMIZATION
     case Intrinsic::x86_aesenc128kl:
     case Intrinsic::x86_aesdec128kl:
@@ -27295,6 +27329,86 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), SetCC,
                          Operation.getValue(1));
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+    case Intrinsic::x86_mask_vpaaddd128:
+    case Intrinsic::x86_mask_vpaaddd256:
+    case Intrinsic::x86_mask_vpaaddd512:
+    case Intrinsic::x86_mask_vpaandd128:
+    case Intrinsic::x86_mask_vpaandd256:
+    case Intrinsic::x86_mask_vpaandd512:
+    case Intrinsic::x86_mask_vpaord128:
+    case Intrinsic::x86_mask_vpaord256:
+    case Intrinsic::x86_mask_vpaord512:
+    case Intrinsic::x86_mask_vpaxord128:
+    case Intrinsic::x86_mask_vpaxord256:
+    case Intrinsic::x86_mask_vpaxord512:
+    case Intrinsic::x86_mask_vpaaddq128:
+    case Intrinsic::x86_mask_vpaaddq256:
+    case Intrinsic::x86_mask_vpaaddq512:
+    case Intrinsic::x86_mask_vpaandq128:
+    case Intrinsic::x86_mask_vpaandq256:
+    case Intrinsic::x86_mask_vpaandq512:
+    case Intrinsic::x86_mask_vpaorq128:
+    case Intrinsic::x86_mask_vpaorq256:
+    case Intrinsic::x86_mask_vpaorq512:
+    case Intrinsic::x86_mask_vpaxorq128:
+    case Intrinsic::x86_mask_vpaxorq256:
+    case Intrinsic::x86_mask_vpaxorq512: {
+      SDLoc dl(Op);
+      SDVTList VTs = DAG.getVTList(MVT::Other);
+      SDValue Chain = Op.getOperand(0);
+      SDValue DstSrc = Op.getOperand(2);
+      SDValue Src = Op.getOperand(3);
+      SDValue Mask = Op.getOperand(4);
+
+      MemIntrinsicSDNode *MemIntr = cast<MemIntrinsicSDNode>(Op);
+      MachineMemOperand *MMO = MemIntr->getMemOperand();
+      EVT MemVT = MemIntr->getMemoryVT();
+
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, MemVT.getVectorNumElements());
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      unsigned Opc;
+      switch (IntNo) {
+      case Intrinsic::x86_mask_vpaaddd128:
+      case Intrinsic::x86_mask_vpaaddd256:
+      case Intrinsic::x86_mask_vpaaddd512:
+      case Intrinsic::x86_mask_vpaaddq128:
+      case Intrinsic::x86_mask_vpaaddq256:
+      case Intrinsic::x86_mask_vpaaddq512:
+        Opc = X86ISD::VPAADD;
+        break;
+      case Intrinsic::x86_mask_vpaandd128:
+      case Intrinsic::x86_mask_vpaandd256:
+      case Intrinsic::x86_mask_vpaandd512:
+      case Intrinsic::x86_mask_vpaandq128:
+      case Intrinsic::x86_mask_vpaandq256:
+      case Intrinsic::x86_mask_vpaandq512:
+        Opc = X86ISD::VPAAND;
+        break;
+      case Intrinsic::x86_mask_vpaord128:
+      case Intrinsic::x86_mask_vpaord256:
+      case Intrinsic::x86_mask_vpaord512:
+      case Intrinsic::x86_mask_vpaorq128:
+      case Intrinsic::x86_mask_vpaorq256:
+      case Intrinsic::x86_mask_vpaorq512:
+        Opc = X86ISD::VPAOR;
+        break;
+      case Intrinsic::x86_mask_vpaxord128:
+      case Intrinsic::x86_mask_vpaxord256:
+      case Intrinsic::x86_mask_vpaxord512:
+      case Intrinsic::x86_mask_vpaxorq128:
+      case Intrinsic::x86_mask_vpaxorq256:
+      case Intrinsic::x86_mask_vpaxorq512:
+        Opc = X86ISD::VPAXOR;
+        break;
+      default: llvm_unreachable("Impossible intrinsic");
+      }
+      return DAG.getMemIntrinsicNode(Opc, dl, VTs, {Chain, DstSrc, Src, VMask},
+                                     MemVT, MMO);
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#endif // INTEL_CUSTOMIZATION
     }
     return SDValue();
   }
@@ -32481,6 +32595,12 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(VPCOMPRESS_STORE)
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
   NODE_NAME_CASE(MPSADBW)
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  NODE_NAME_CASE(VPAADD)
+  NODE_NAME_CASE(VPAAND)
+  NODE_NAME_CASE(VPAOR)
+  NODE_NAME_CASE(VPAXOR)
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(AESENC128KL)
   NODE_NAME_CASE(AESDEC128KL)

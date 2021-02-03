@@ -63,6 +63,12 @@ static cl::opt<bool> CreateFunctionLevelRegion(
     cl::desc("force HIR to create a single function level region instead of "
              "creating regions for individual loopnests"));
 
+static cl::opt<std::string> CreateFunctionLevelRegionFilterFunc(
+    "hir-create-function-level-region"
+    "-filter-func",
+    cl::ReallyHidden,
+    cl::desc("force HIR to create a single region for the given function."));
+
 static cl::opt<bool> DisableFusionRegions(
     "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
     cl::desc("Disable HIR to create regions for multiple loops"
@@ -2397,7 +2403,19 @@ void HIRRegionIdentification::runImpl(Function &F) {
     return;
   }
 
-  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate() ||
+  // -hir-create-function-level-region-filter-function
+  // overrides -hir-create-function-level-region.
+  // Whenever it is given, only that function is get formed of
+  // a function-level region.
+  bool BuildFunctionRegion = false;
+  if (!CreateFunctionLevelRegionFilterFunc.empty()) {
+    BuildFunctionRegion =
+        F.getName().equals(CreateFunctionLevelRegionFilterFunc);
+  } else {
+    BuildFunctionRegion = CreateFunctionLevelRegion;
+  }
+
+  if (BuildFunctionRegion || isLoopConcatenationCandidate() ||
       F.hasFnAttribute("may_have_huge_local_malloc")) {
     if (canFormFunctionLevelRegion(F)) {
       createFunctionLevelRegion(F);

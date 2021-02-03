@@ -354,8 +354,8 @@ public:
   /// Returns true if instruction was folded, along with the new instruction.
   /// If the instruction is null, it folded into a self-assignment (no-op).
   /// \p Invalidate indicates that we need to invalidate the parent loop/region
-  static std::pair<bool, HLInst*> constantFoldInst(HLInst *Inst, bool Invalidate);
-
+  static std::pair<bool, HLInst *> constantFoldInst(HLInst *Inst,
+                                                    bool Invalidate);
 
   /// Conduct Array Scalarization for all memrefs provided in a set of symbases.
   ///
@@ -393,8 +393,7 @@ public:
   /// The ref should be a single canon expr.
   /// Notice that makeConsistent over Ref is NOT called.
   /// It is user's responisbility.
-  static void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
-                               unsigned BlobIndex);
+  static void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob, unsigned BlobIndex);
 
   /// Replaces \p OldRef in its HLDDNode by \p NewRef. It returns the node where
   /// the replacement was performed. This may be different than the original

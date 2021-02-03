@@ -60,6 +60,37 @@ bool DDUtils::anyEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop) {
   return false;
 }
 
+bool DDUtils::countEdgeToLoop(DDGraph DDG, const DDRef *Ref, HLLoop *Loop,
+                              unsigned &LvalCnt, unsigned &RvalCnt) {
+  unsigned LvalCount = 0, RvalCount = 0;
+  DDRef *DDref = const_cast<DDRef *>(Ref);
+
+  for (auto I1 = DDG.outgoing_edges_begin(DDref),
+            E1 = DDG.outgoing_edges_end(DDref);
+       I1 != E1; ++I1) {
+
+    DDRef *DDRefSink = (*I1)->getSink();
+    if (DDRefSink->getLexicalParentLoop() == Loop) {
+      DDRefSink->isLval() ? ++LvalCount : ++RvalCount;
+    }
+  }
+
+  for (auto I1 = DDG.incoming_edges_begin(DDref),
+            E1 = DDG.incoming_edges_end(DDref);
+       I1 != E1; ++I1) {
+
+    DDRef *DDRefSrc = (*I1)->getSrc();
+    HLLoop *ParentLoop = DDRefSrc->getLexicalParentLoop();
+    if (ParentLoop == Loop) {
+      DDRefSrc->isLval() ? ++LvalCount : ++RvalCount;
+    }
+  }
+
+  LvalCnt += LvalCount;
+  RvalCnt += RvalCount;
+  return (LvalCount + RvalCount > 0);
+}
+
 namespace {
 
 inline void reportFail(const char *Banner) {
@@ -646,9 +677,9 @@ static void updateSinkedRvalLiveinsLiveouts(unsigned RvalSymbase,
 
 // \p IsPreLoop indicates whether the sinked instruction appeared before or
 // after the loop before sinking.
-static void updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
-                                               HLInst *SinkedInst,
-                                               bool IsPreLoop) {
+void DDUtils::updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
+                                                 HLInst *SinkedInst,
+                                                 bool IsPreLoop) {
 
   // Mark lval terminal ref in the sinked instruction as liveout to the
   // innermost loop if it is liveout of the parent loop. Here's an example where
@@ -700,7 +731,7 @@ static void updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
   }
 }
 
-static void gatherTempRegDDRefSymbases(
+void DDUtils::gatherTempRegDDRefSymbases(
     const SmallVectorImpl<HLInst *> &Insts,
     InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases) {
 
