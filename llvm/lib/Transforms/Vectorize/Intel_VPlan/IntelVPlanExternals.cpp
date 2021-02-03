@@ -195,8 +195,6 @@ void VPLiveInOutCreator::createInOutsReductions(
   ScalarInOutList &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Red : VPLEntityList->vpreductions()) {
-    if (Red->getIsMemOnly())
-      continue;
     VPReductionInit *RedInit = nullptr;
     VPReductionFinal *RedFinal = nullptr;
     VPExternalUse *RedFinalExternalUse = nullptr;
@@ -213,18 +211,14 @@ void VPLiveInOutCreator::createInOutsReductions(
     if (!RedFinalExternalUse) {
       // No external use can be possible for some auto-generated reductions,
       // e.g. fake linear index for min/max+index idiom or for reductions that
-      // are not used outside of the loop. Then we don't need to create an
-      // external use except when it's non-index minmax reduction and it's used
-      // to calculate index. In such cases we need to keep it's value after
-      // peel/main loop.
-      if (!Red->isMinMax() || isa<VPIndexReduction>(Red))
-        continue;
-      if (!VPLEntityList->getMinMaxIndex(Red))
-        continue;
-      // In those cases we create a fake external use, with symbase equal to
-      // symbase of start value.
+      // are not used outside of the loop or in-memory reductions.
+      // Then we create a fake external use, with symbase equal to symbase of
+      // start value.
+      // TODO: We don't need to create an external use in cases when it's a fake
+      // linear index. In other cases we need to keep it's value after peel/main
+      // loop.
       if (auto ExtDef = dyn_cast<VPExternalDef>(StartV))
-        if (auto VBlob = dyn_cast<VPBlob>(ExtDef->getOperandHIR())) {
+        if (auto VBlob = dyn_cast_or_null<VPBlob>(ExtDef->getOperandHIR())) {
           RedFinalExternalUse =
               ExtVals.getOrCreateVPExternalUseForDDRef(VBlob->getBlob());
           RedFinalExternalUse->addOperand(RedFinal);

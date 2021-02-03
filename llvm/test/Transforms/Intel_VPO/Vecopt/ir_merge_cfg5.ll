@@ -38,7 +38,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:       [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_X]]
-; CHECK-NEXT:       [DA: Uni] float [[VP_X_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP_LOAD]] float [[X_PROMOTED0:%.*]]
+; CHECK-NEXT:       [DA: Uni] float [[VP_X_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP_LOAD]] float live-in1
 ; CHECK-NEXT:       [DA: Uni] store float [[VP_X_RED_FINAL]] float* [[X0:%.*]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
@@ -49,17 +49,21 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]], [[BB6]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP0:%.*]] = phi-merge  [ i64 live-out0, [[BB6]] ],  [ i64 0, [[BB1]] ]
+; CHECK-NEXT:       [DA: Uni] float [[VP1:%.*]] = phi-merge  [ float live-out1, [[BB6]] ],  [ float [[X_PROMOTED0:%.*]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = re-use-loop for.body, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_QUAL_LIST_END_20:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
+; CHECK-NEXT:         {float [[X_PROMOTED0]] in {  [[ADD70:%.*]] = phi float [ [[X_PROMOTED0]], [[DIR_QUAL_LIST_END_20]] ], [ [[ADD0:%.*]], [[FOR_BODY0]] ]} -> float [[VP1]] }
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[FOR_END0]], label [[FOR_BODY0]], !llvm.loop !0} -> label [[BB7]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
+; CHECK-NEXT:       [DA: Uni] float [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[ADD0]] = fadd float [[ADD70]], [[A_LOAD0:%.*]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB8]], [[BB6]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB8]] ],  [ i64 live-out0, [[BB6]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB8]] ],  [ i64 live-out0, [[BB6]] ]
+; CHECK-NEXT:     [DA: Uni] float [[VP3:%.*]] = phi-merge  [ float [[VP_ORIG_LIVEOUT_1]], [[BB8]] ],  [ float live-out1, [[BB6]] ]
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB7]]
@@ -67,6 +71,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   no underlying for float [[VP_X_RED_FINAL]]
 ;
 entry:
   %x = alloca float, align 4
