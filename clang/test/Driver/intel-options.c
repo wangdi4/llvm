@@ -49,6 +49,8 @@
 
 // -Qcommon
 // RUN: %clang_cl -### -c -Qcommon %s 2>&1 | FileCheck -check-prefix CHECK-QCOMMON %s
+// RUN: %clang_cl -### -c -Qcommon- %s 2>&1 | FileCheck -check-prefix CHECK-QCOMMON-OFF %s
+// CHECK-QCOMMON-OFF-NOT: "-fcommon"
 // CHECK-QCOMMON: "-fcommon"
 
 // Behavior with -ipo/Qipo option
