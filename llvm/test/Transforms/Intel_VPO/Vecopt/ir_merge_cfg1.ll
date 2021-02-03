@@ -6,6 +6,7 @@
 define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ;
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
+; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

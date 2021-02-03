@@ -25,6 +25,7 @@
 
 define void @foo(i64 %n1, i64 %n2, i64 %n3) {
 ; CHECK-LABEL:  VPlan after importing plain CFG
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:   [[VP0:%.*]] = {%n3}
 ; CHECK-DAG:   [[VP1:%.*]] = {@longarr}

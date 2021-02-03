@@ -10,6 +10,7 @@
 define float @load_store_reduction_add(float* nocapture %a) {
 ; Check that reduction is imported as VPReduction.
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: load_store_reduction_add:for.body
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list

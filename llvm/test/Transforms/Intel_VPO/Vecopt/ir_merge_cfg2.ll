@@ -5,6 +5,7 @@
 ;
 define void @foo2(i64 %N) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
+; CHECK-NEXT:  VPlan IR for: foo2:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

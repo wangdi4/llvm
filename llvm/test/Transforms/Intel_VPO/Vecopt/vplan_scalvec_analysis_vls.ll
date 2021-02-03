@@ -15,6 +15,7 @@ define void @foo(i32* nocapture %ary) {
 ;    ary[i + 1] = t1;
 ;  }
 ; SVA-IR-LABEL:  VPlan after ScalVec analysis:
+; SVA-IR-NEXT:  VPlan IR for: foo:for.body
 ; SVA-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:

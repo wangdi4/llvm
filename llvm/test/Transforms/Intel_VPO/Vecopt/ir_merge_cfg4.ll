@@ -6,6 +6,7 @@
 define float @expl_reduction_add(float* nocapture %a) {
 ;
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
+; CHECK-NEXT:  VPlan IR for: expl_reduction_add:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

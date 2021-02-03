@@ -6,6 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @linear_iv_test(i32* nocapture %k) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: linear_iv_test:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

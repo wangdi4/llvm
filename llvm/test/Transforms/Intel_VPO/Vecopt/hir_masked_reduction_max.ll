@@ -32,6 +32,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: ifmax1:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%tmax.015}
 ; CHECK-DAG:     [[VP1:%.*]] = {@C}

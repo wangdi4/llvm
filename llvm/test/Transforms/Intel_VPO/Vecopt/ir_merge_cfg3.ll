@@ -5,6 +5,7 @@
 ;
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i64 %N) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
+; CHECK-NEXT:  VPlan IR for: fp_iv_loop:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

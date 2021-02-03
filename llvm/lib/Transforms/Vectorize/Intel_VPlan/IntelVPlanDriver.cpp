@@ -270,9 +270,13 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   BasicBlock *Header = Lp->getHeader();
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
+  std::string VPlanName = "";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  VPlanName = std::string(Fn.getName()) + ":" + std::string(Lp->getName());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, &SE)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, &SE)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -1107,8 +1111,14 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // Find any DDRefs in loop pre-header that are aliases to the descriptor
   // variables
   HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), HLoop);
+  std::string VPlanName = "";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Lp->getNumber() is not used here because it returns HLNode number, not
+  // just HLLoop number, thus it may be unstable to be captured in lit tests.
+  VPlanName = std::string(Fn.getName()) + ":HIR";
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.

@@ -8,6 +8,7 @@
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-LABEL:  VPlan after live in/out lists creation
+; CHECK-NEXT:  VPlan IR for: load_store_reduction_add:for.body
 ; CHECK-NEXT:  Live-in values:
 ; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:  ID: 1 Value: float [[X_PROMOTED0:%.*]]

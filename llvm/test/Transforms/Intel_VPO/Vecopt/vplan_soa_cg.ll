@@ -4,6 +4,7 @@
 ; RUN: -vplan-print-after-transformed-soa-geps -S %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL:  VPlan after Dump Transformed SOA GEPs:
+; CHECK-NEXT:  VPlan IR for: test_memref_transform:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

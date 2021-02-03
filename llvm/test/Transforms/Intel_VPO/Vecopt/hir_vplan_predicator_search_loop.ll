@@ -17,6 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocapture readnone %b, i8 signext %val) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predication and linearization:
+; CHECK-NEXT:  VPlan IR for: _Z3fooiPKaPaa:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%val}
 ; CHECK-DAG:     [[VP1:%.*]] = {%a}

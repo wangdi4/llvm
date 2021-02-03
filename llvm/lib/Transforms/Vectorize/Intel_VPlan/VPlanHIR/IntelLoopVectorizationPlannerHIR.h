@@ -45,6 +45,7 @@ private:
   std::shared_ptr<VPlan>
   buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
                     VPExternalValues &Ext,
+                    std::string VPlanName,
                     ScalarEvolution *SE = nullptr) override;
 
   void emitVecSpecifics(VPlan *Plan) override {
