@@ -541,7 +541,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_add_fetch_explicit_8:
   case AtomicExpr::AO__atomic_add_fetch_explicit_16:
     PostOp = llvm::Instruction::Add;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_add_explicit:
   case AtomicExpr::AO__atomic_fetch_add_explicit_1:
   case AtomicExpr::AO__atomic_fetch_add_explicit_2:
@@ -557,7 +557,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
   case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
     PostOp = llvm::Instruction::Sub;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_sub_explicit:
   case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
   case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
@@ -573,7 +573,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_and_fetch_explicit_8:
   case AtomicExpr::AO__atomic_and_fetch_explicit_16:
     PostOp = llvm::Instruction::And;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_and_explicit:
   case AtomicExpr::AO__atomic_fetch_and_explicit_1:
   case AtomicExpr::AO__atomic_fetch_and_explicit_2:
@@ -589,7 +589,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
   case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
     PostOp = llvm::Instruction::And; // The NOT is special cased below
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_nand_explicit:
   case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
   case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
@@ -605,7 +605,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_or_fetch_explicit_8:
   case AtomicExpr::AO__atomic_or_fetch_explicit_16:
     PostOp = llvm::Instruction::Or;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_or_explicit:
   case AtomicExpr::AO__atomic_fetch_or_explicit_1:
   case AtomicExpr::AO__atomic_fetch_or_explicit_2:
@@ -621,7 +621,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
   case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
     PostOp = llvm::Instruction::Xor;
-    // Fall through.
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_fetch_xor_explicit:
   case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
   case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
@@ -994,6 +994,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   case AtomicExpr::AO__atomic_store_explicit_8:
   case AtomicExpr::AO__atomic_store_explicit_16:
     Val1 = EmitValToTemp(*this, E->getVal1());
+    LLVM_FALLTHROUGH;
   case AtomicExpr::AO__atomic_load_explicit:
   case AtomicExpr::AO__atomic_load_explicit_1:
   case AtomicExpr::AO__atomic_load_explicit_2:

@@ -955,9 +955,9 @@ StringRef to_string(ParamMappingResult R) {
     return "constant";
   case Params_unprocessed:
     return "unproc";
-  default:
-    return "unknown";
   }
+  return "unknown";
+
 }
 
 // Print a std::set of DCGNode *
@@ -1268,7 +1268,7 @@ public:
 class CTCDebugCostModel : public CTCCostModel {
 public:
   template <typename It> CTCDebugCostModel(It Beg, It End);
-  virtual SetOfParamIndSets assess(Function &F);
+  virtual SetOfParamIndSets assess(Function &F) override;
 
 #ifndef NDEBUG
   std::string toString(void) const {
@@ -1306,7 +1306,7 @@ public:
   //     }
   //   }
   // }
-  virtual SetOfParamIndSets assess(Function &F);
+  virtual SetOfParamIndSets assess(Function &F) override;
 
 protected:
   /// Retrieves some statistics about given function \p F and fills in the

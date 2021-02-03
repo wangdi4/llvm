@@ -5645,6 +5645,7 @@ void Parser::ParseTypeQualifierListOpt(
       // CQ381345: OpenCL is not supported in Intel compatibility mode.
       assert (!getLangOpts().IntelCompat &&
               "OpenCL is not supported in Intel compatibility mode.");
+      LLVM_FALLTHROUGH;
 #endif // INTEL_CUSTOMIZATION
     case tok::kw_private:
       if (!getLangOpts().OpenCL)
