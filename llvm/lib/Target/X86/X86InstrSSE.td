@@ -8637,12 +8637,13 @@ let Predicates = [HasAVXRAOINT, NoVLX_Or_NoRAOINT] in {
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 
 #if INTEL_FEATURE_ISA_AVX_RAO_FP
-multiclass AVX_RAO_FP_BASE<bits<8> Opcode, string OpcodeStr> {
-  def mr : I<Opcode, MRMDestMem, (outs), (ins f128mem:$dst, VR128:$src),
+multiclass AVX_RAO_FP_BASE<bits<8> Opcode, string OpcodeStr,
+                  X86MemOperand MemOp128, X86MemOperand MemOp256> {
+  def mr : I<Opcode, MRMDestMem, (outs), (ins MemOp128:$dst, VR128:$src),
               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
               [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"128")
                 addr:$dst, VR128:$src)]>, VEX;
-  def Ymr : I<Opcode, MRMDestMem, (outs), (ins f256mem:$dst, VR256:$src),
+  def Ymr : I<Opcode, MRMDestMem, (outs), (ins MemOp256:$dst, VR256:$src),
               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
               [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"256")
                 addr:$dst, VR256:$src)]>, VEX, VEX_L;
@@ -8654,13 +8655,13 @@ class AVX_RAO_FP_BASE2<bits<8> Opcode, string OpcodeStr, X86MemOperand MemOp> :
               [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"128")
                 addr:$dst, VR128:$src)]>, VEX, VEX_LIG;
 
-let Predicates = [HasAVXRAOFP] in {
-  defm VAADDPBF16 : AVX_RAO_FP_BASE<0x94, "vaaddpbf16">, T8PD;
-  defm VAADDPD    : AVX_RAO_FP_BASE<0x84, "vaaddpd">, T8PD, VEX_W;
-  defm VAADDPH    : AVX_RAO_FP_BASE<0x94, "vaaddph">, T8PS;
-  defm VAADDPS    : AVX_RAO_FP_BASE<0x84, "vaaddps">, T8PS;
+let Predicates = [HasAVXRAOFP, NoVLX_Or_NoRAOFP] in {
+  defm VAADDPBF16 : AVX_RAO_FP_BASE<0x94, "vaaddpbf16", i128mem, i256mem>, T8PD;
+  defm VAADDPD    : AVX_RAO_FP_BASE<0x84, "vaaddpd", f128mem, f256mem>, T8PD, VEX_W;
+  defm VAADDPH    : AVX_RAO_FP_BASE<0x94, "vaaddph", f128mem, f256mem>, T8PS;
+  defm VAADDPS    : AVX_RAO_FP_BASE<0x84, "vaaddps", f128mem, f256mem>, T8PS;
 
-  def VAADDSBF16mr : AVX_RAO_FP_BASE2<0x94, "vaaddsbf16", f16mem>, T8XD;
+  def VAADDSBF16mr : AVX_RAO_FP_BASE2<0x94, "vaaddsbf16", i16mem>, T8XD;
   def VAADDSDmr    : AVX_RAO_FP_BASE2<0x84, "vaaddsd", f64mem>, T8XD, VEX_W;
   def VAADDSHmr    : AVX_RAO_FP_BASE2<0x94, "vaaddsh", f16mem>, T8XS;
   def VAADDSSmr    : AVX_RAO_FP_BASE2<0x84, "vaaddss", f32mem>, T8XS;

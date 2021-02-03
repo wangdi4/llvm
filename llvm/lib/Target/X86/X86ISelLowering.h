@@ -909,6 +909,9 @@ namespace llvm {
     VPAOR,
     VPAXOR,
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+    VAADDF,
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // INTEL_CUSTOMIZATION
 
     // Key locker nodes that produce flags.

@@ -201,6 +201,21 @@ static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc,
   case X86::VPAXORQZ256mr:
     return ST->hasAVXRAOINT();
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+  case X86::VAADDPDZ128mr:
+  case X86::VAADDPDZ256mr:
+  case X86::VAADDPSZ128mr:
+  case X86::VAADDPSZ256mr:
+  case X86::VAADDPHZ128mr:
+  case X86::VAADDPHZ256mr:
+  case X86::VAADDPBF16Z128mr:
+  case X86::VAADDPBF16Z256mr:
+  case X86::VAADDSDZ128mr:
+  case X86::VAADDSSZ128mr:
+  case X86::VAADDSHZ128mr:
+  case X86::VAADDSBF16Z128mr:
+    return ST->hasAVXRAOFP();
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // INTEL_CUSTOMIZATION
   case X86::VALIGNDZ128rri:
   case X86::VALIGNDZ128rmi:
