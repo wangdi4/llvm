@@ -4342,10 +4342,7 @@ static void writeIdentificationBlock(BitstreamWriter &Stream) {
   Abbv->Add(BitCodeAbbrevOp(bitc::IDENTIFICATION_CODE_EPOCH));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
   auto EpochAbbrev = Stream.EmitAbbrev(std::move(Abbv));
-#if INTEL_CUSTOMIZATION
-  constexpr std::array<unsigned, 1> Vals = {
-      {bitc::BITCODE_CURRENT_INTEL_EPOCH}};
-#endif // INTEL_CUSTOMIZATION
+  constexpr std::array<unsigned, 1> Vals = {{bitc::BITCODE_CURRENT_EPOCH}};
   Stream.EmitRecord(bitc::IDENTIFICATION_CODE_EPOCH, Vals, EpochAbbrev);
   Stream.ExitBlock();
 }
