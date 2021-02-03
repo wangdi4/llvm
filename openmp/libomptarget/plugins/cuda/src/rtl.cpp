@@ -587,7 +587,7 @@ public:
       DeviceData[DeviceId].BlocksPerGrid = EnvTeamLimit;
     }
 
-    INFO(DeviceId,
+    INFO(OMP_INFOTYPE_PLUGIN_KERNEL, DeviceId,
          "Device supports up to %d CUDA blocks and %d threads with a "
          "warp size of %d\n",
          DeviceData[DeviceId].BlocksPerGrid,
@@ -1011,7 +1011,7 @@ public:
       CudaBlocksPerGrid = TeamNum;
     }
 
-    INFO(DeviceId,
+    INFO(OMP_INFOTYPE_PLUGIN_KERNEL, DeviceId,
          "Launching kernel %s with %d blocks and %d threads in %s "
          "mode\n",
          (getOffloadEntry(DeviceId, TgtEntryPtr))

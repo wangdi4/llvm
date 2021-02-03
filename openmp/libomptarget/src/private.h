@@ -124,16 +124,16 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
     return;
 
   SourceInfo Kernel(Loc);
-  INFO(Device.DeviceID,
+  INFO(OMP_INFOTYPE_ALL, Device.DeviceID,
        "OpenMP Host-Device pointer mappings after block at %s:%d:%d:\n",
        Kernel.getFilename(), Kernel.getLine(), Kernel.getColumn());
-  INFO(Device.DeviceID, "%-18s %-18s %s %s %s\n", "Host Ptr", "Target Ptr",
-       "Size (B)", "RefCount", "Declaration");
+  INFO(OMP_INFOTYPE_ALL, Device.DeviceID, "%-18s %-18s %s %s %s\n", "Host Ptr",
+       "Target Ptr", "Size (B)", "RefCount", "Declaration");
   for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
     SourceInfo Info(HostTargetMap.HstPtrName);
 #if INTEL_CUSTOMIZATION
-    INFO(Device.DeviceID,
-         DPxMOD " " DPxMOD " %-8lu %-8" PRIu64 " %s at %s:%d:%d\n",
+    INFO(OMP_INFOTYPE_ALL, Device.DeviceID,
+         DPxMOD " " DPxMOD " %-8lu %-8ld %s at %s:%d:%d\n",
          DPxPTR(HostTargetMap.HstPtrBegin), DPxPTR(HostTargetMap.TgtPtrBegin),
          (long unsigned)(HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin),
          HostTargetMap.getRefCount(), Info.getName(), Info.getFilename(),
@@ -151,8 +151,9 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
                      const int64_t *ArgTypes, const map_var_info_t *ArgNames,
                      const char *RegionType) {
   SourceInfo info(Loc);
-  INFO(DeviceId, "%s at %s:%d:%d with %d arguments:\n", RegionType,
-       info.getFilename(), info.getLine(), info.getColumn(), ArgNum);
+  INFO(OMP_INFOTYPE_ALL, DeviceId, "%s at %s:%d:%d with %d arguments:\n",
+       RegionType, info.getFilename(), info.getLine(), info.getColumn(),
+       ArgNum);
 
   for (int32_t i = 0; i < ArgNum; ++i) {
     const map_var_info_t varName = (ArgNames) ? ArgNames[i] : nullptr;
@@ -169,12 +170,12 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
       type = "private";
     else if (ArgTypes[i] & OMP_TGT_MAPTYPE_LITERAL)
       type = "firstprivate";
-    else if (ArgTypes[i] & OMP_TGT_MAPTYPE_TARGET_PARAM && ArgSizes[i] != 0)
+    else if (ArgSizes[i] != 0)
       type = "alloc";
     else
       type = "use_address";
 #if INTEL_CUSTOMIZATION
-    INFO(DeviceId, "%s(%s)[%" PRId64 "] %s\n", type,
+    INFO(OMP_INFOTYPE_ALL, DeviceId, "%s(%s)[%ld] %s\n", type,
          getNameFromMapping(varName).c_str(), ArgSizes[i], implicit);
 #endif // INTEL_CUSTOMIZATION
 
