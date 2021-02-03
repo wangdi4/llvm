@@ -3082,7 +3082,14 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
   if (VPValue *PrivPtr = const_cast<VPValue *>(
           getVPValuePrivateMemoryPtr(VPCall->getOperand(1)))) {
     if (LoopPrivateVPWidenMap.count(PrivPtr)) {
-      AllocaInst *AI = cast<AllocaInst>(LoopPrivateVPWidenMap[PrivPtr]);
+      Value *WidePriv = LoopPrivateVPWidenMap[PrivPtr];
+      AllocaInst *AI = dyn_cast<AllocaInst>(WidePriv);
+      if (!AI) {
+        assert(isa<AddrSpaceCastInst>(WidePriv) &&
+               "Expected alloca or addrspacecast instruction.");
+        AI = cast<AllocaInst>(
+            cast<AddrSpaceCastInst>(WidePriv)->getPointerOperand());
+      }
       ConstantInt *Size = Builder.getInt64(-1);
       if (!cast<VPConstantInt>(VPCall->getOperand(0))->isMinusOne()) {
         const DataLayout &DL =
