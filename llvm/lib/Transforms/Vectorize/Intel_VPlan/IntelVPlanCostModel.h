@@ -41,9 +41,9 @@ class VPInstruction;
 #if INTEL_CUSTOMIZATION
 class VPlanVLSCostModel : public OVLSCostModel {
 public:
-  explicit VPlanVLSCostModel(const VPlanCostModel &VPCM,
+  explicit VPlanVLSCostModel(unsigned VF,
                              const TargetTransformInfo &TTI, LLVMContext &Cntx)
-      : OVLSCostModel(TTI, Cntx), VPCM(VPCM) {}
+      : OVLSCostModel(TTI, Cntx), VF(VF) {}
   /// Generic function to get a cost of OVLSInstruction. Internally it has
   /// dispatch functionality to return cost for OVLSShuffle
   virtual uint64_t getInstructionCost(const OVLSInstruction *I) const final;
@@ -52,7 +52,7 @@ public:
   virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Memref) const final;
 
 protected:
-  const VPlanCostModel &VPCM;
+  unsigned VF;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -60,7 +60,6 @@ class VPlanCostModel {
 #if INTEL_CUSTOMIZATION
   // To access getMemInstValueType.
   friend class VPlanVLSAnalysisHIR;
-  friend class VPlanVLSCostModel;
   // To access Plan, VF and others.
   friend class VPlanCostModelHeuristics::HeuristicBase;
   // To access VPTTI, getCost(), DL and others.
@@ -77,12 +76,6 @@ public:
                  VPlanVLSAnalysis *VLSA)
     : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VLSA(VLSA) {
     VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
-    if (VLSA)
-      // FIXME: Really ugly to get LLVMContext from VLSA, which may not
-      // even exist, but so far there's no other simple way to pass it here.
-      // Unlike LLVM IR VPBB has no LLVMContext, because Type is not yet
-      // implemented
-      VLSCM = std::make_shared<VPlanVLSCostModel>(*this, *TTI, VLSA->getContext());
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
