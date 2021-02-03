@@ -2373,14 +2373,13 @@ AnalysisKey BasicAA::Key;
 
 BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   auto &XOL = AM.getResult<XmainOptLevelAnalysis>(F); // INTEL
-  return BasicAAResult(F.getParent()->getDataLayout(),
-                       F,
-                       AM.getResult<TargetLibraryAnalysis>(F),
-                       AM.getResult<AssumptionAnalysis>(F),
-                       &AM.getResult<DominatorTreeAnalysis>(F),
-                       AM.getCachedResult<LoopAnalysis>(F),
-                       AM.getCachedResult<PhiValuesAnalysis>(F), // INTEL
-                       XOL.getOptLevel());                       // INTEL
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
+  auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
+  auto *LI = AM.getCachedResult<LoopAnalysis>(F);
+  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F);
+  return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT, LI, PV,
+                       XOL.getOptLevel()); // INTEL
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
