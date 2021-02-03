@@ -3932,6 +3932,10 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     MachineOperand &MO = NewMI->getOperand(2);
     MO.setReg(VirtReg);
     MO.setIsKill(true);
+  } else if (RC->getID() == X86::TILECFGRegClassID) {
+    unsigned Opc = X86::PSTTILECFG;
+    addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc)), FrameIdx)
+        .addReg(SrcReg, getKillRegState(isKill));
   } else {
     unsigned Alignment = std::max<uint32_t>(TRI->getSpillSize(*RC), 16);
     bool isAligned =
@@ -3960,6 +3964,10 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     MachineOperand &MO = NewMI->getOperand(3);
     MO.setReg(VirtReg);
     MO.setIsKill(true);
+  } else if (RC->getID() == X86::TILECFGRegClassID) {
+    unsigned Opc = X86::PLDTILECFG;
+    addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc), DestReg),
+                      FrameIdx);
   } else {
     const MachineFunction &MF = *MBB.getParent();
     unsigned Alignment = std::max<uint32_t>(TRI->getSpillSize(*RC), 16);
