@@ -74,6 +74,38 @@ __attribute__((stall_free(0))) //expected-error{{'stall_free' attribute takes no
 __kernel void kernel_4i(int a) {
 }
 
+//expected-warning@+2{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
+//expected-error@+1{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
+__attribute__((reqd_work_group_size(-10, 10, 10)))
+__attribute__((autorun))
+__kernel void kernel_4j() {}
+
+__attribute__((reqd_work_group_size(10.f, 10, 10))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
+__attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
+__kernel void kernel_4k() {
+}
+
+__attribute__((reqd_work_group_size(0, 32, 32))) //expected-error{{'reqd_work_group_size' attribute must be greater than 0}}
+__attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
+__kernel void kernel_4l() {
+}
+
+__attribute__((reqd_work_group_size(6))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
+__attribute__((autorun))
+__kernel void kernel_4m() {
+}
+
+__attribute__((reqd_work_group_size())) //expected-error{{'reqd_work_group_size' attribute takes at least 1 argument}}
+__attribute__((autorun))  //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
+__kernel void kernel_4n() {
+}
+
+int foo();
+__attribute__((reqd_work_group_size(foo() + 32, foo() + 32, foo() + 32))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
+__attribute__((autorun))  //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
+__kernel void kernel_4o() {
+}
+
 __attribute__((stall_free)) //expected-error{{'stall_free' attribute only applies to functions}}
 __attribute__((autorun)) //expected-warning{{'autorun' attribute only applies to functions}}
 constant int i = 10;
@@ -151,10 +183,83 @@ __kernel void kernel_7e() {
 }
 
 __attribute__((max_work_group_size(1, -1, 1))) // expected-warning{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
-__kernel void kernel_8a() {}
+__kernel void kernel_8a() {
+}
 
-__attribute__((num_simd_work_items(-1))) // expected-error{{'num_simd_work_items' attribute requires a non-negative integral compile time constant expression}}
-__kernel void kernel_8b() {}
+__attribute__((num_simd_work_items(-1))) // expected-error{{'num_simd_work_items' attribute requires a positive integral compile time constant expression}}
+__kernel void kernel_8b() {
+}
+
+__attribute__((num_simd_work_items(4)))
+__attribute__((reqd_work_group_size(64, 64, 64))) //OK
+__kernel void kernel_8c() {
+}
+
+__attribute__((reqd_work_group_size(64, 64, 64))) //OK
+__attribute__((num_simd_work_items(4)))
+__kernel void kernel_8d() {
+}
+
+__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute conflicts with ''reqd_work_group_size'' attribute}}
+__attribute__((reqd_work_group_size(5, 5, 5))) //expected-note{{conflicting attribute is here}}
+__kernel void kernel_8e() {
+}
+
+__attribute__((reqd_work_group_size(5, 5, 5))) //expected-note{{conflicting attribute is here}}
+__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute conflicts with 'reqd_work_group_size' attribute}}
+__kernel void kernel_8f() {
+}
+
+__attribute__((reqd_work_group_size(5.f, 5, 5))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
+__attribute__((num_simd_work_items(3.f))) //expected-error{{'num_simd_work_items' attribute requires an integer constant}}
+__kernel void kernel_8g() {
+}
+
+__attribute__((num_simd_work_items(-3))) //expected-error{{'num_simd_work_items' attribute requires a positive integral compile time constant expression}}
+__attribute__((reqd_work_group_size(-5, 5, 5))) //expected-warning{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
+__kernel void kernel_8h() {
+}
+
+__attribute__((num_simd_work_items(1.2f))) //expected-error{{'num_simd_work_items' attribute requires an integer constant}}
+__kernel void kernel_8i() {
+}
+
+__attribute__((num_simd_work_items(4)))
+__attribute__((reqd_work_group_size(0, 64, 64))) //expected-error{{'reqd_work_group_size' attribute must be greater than 0}}
+__kernel void kernel_8j() {
+}
+
+__attribute__((num_simd_work_items(6)))
+__attribute__((reqd_work_group_size())) //expected-error{{'reqd_work_group_size' attribute takes at least 1 argument}}
+__kernel void kernel_8k() {
+}
+
+int foo1();
+__attribute__((reqd_work_group_size(foo1() + 64, foo1() + 64, foo1() + 64))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
+__attribute__((num_simd_work_items(4)))
+__kernel void kernel_8l() {
+}
+
+__attribute__((max_work_group_size(5.f, 5, 5))) //expected-error{{'max_work_group_size' attribute requires an integer constant}}
+__kernel void kernel_8m() {
+}
+
+__attribute__((max_work_group_size(-5, 5, 5))) //expected-warning{{implicit conversion changes signedness: 'int' to 'unsigned long long'}}
+__kernel void kernel_8n() {
+}
+
+__attribute__((max_work_group_size(0, 64, 64))) //expected-error{{'max_work_group_size' attribute must be greater than 0}}
+__kernel void kernel_8o() {
+}
+
+__attribute__((max_work_group_size())) //expected-error{{'max_work_group_size' attribute requires exactly 3 arguments}}
+__kernel void kernel_8p() {
+}
+
+int foo2();
+__attribute__((max_work_group_size(foo2() + 64, foo2() + 64, foo2() + 64))) //expected-error{{'max_work_group_size' attribute requires an integer constant}}
+__kernel void kernel_4q() {
+}
 
 __attribute__((max_work_group_size(1, 1, 1)))
 void fun_8b() {} // expected-error{{attribute 'max_work_group_size' can only be applied to an OpenCL kernel function}}

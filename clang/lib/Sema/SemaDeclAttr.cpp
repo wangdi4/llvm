@@ -3041,50 +3041,6 @@ static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
       NumComputeUnits[2]));
 }
 
-static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  if (D->isInvalidDecl())
-    return;
-
-  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr;
-    return;
-  }
-
-  uint32_t NumSimdWorkItems;
-  const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0,
-                           /*StrictlyUnsigned=*/true))
-    return;
-  if (NumSimdWorkItems == 0) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
-        << Attr << E->getSourceRange();
-    return;
-  }
-
-  if (ReqdWorkGroupSizeAttr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
-    Optional<llvm::APSInt> XDimVal =
-        A->getXDim()->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> YDimVal =
-        A->getYDim()->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> ZDimVal =
-        A->getZDim()->getIntegerConstantExpr(S.getASTContext());
-
-    if (A &&
-        !(XDimVal->getZExtValue() % NumSimdWorkItems == 0 ||
-          YDimVal->getZExtValue() % NumSimdWorkItems == 0 ||
-          ZDimVal->getZExtValue() % NumSimdWorkItems == 0)) {
-      S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
-          << Attr << A->getSpelling();
-      return;
-    }
-  }
-
-  D->addAttr(::new (S.Context) NumSimdWorkItemsAttr(
-      S.Context, Attr, NumSimdWorkItems));
-}
-
 static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
@@ -3101,12 +3057,10 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
   if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
-    Optional<llvm::APSInt> XDimVal =
-        A->getXDim()->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> YDimVal =
-        A->getYDim()->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> ZDimVal =
-        A->getZDim()->getIntegerConstantExpr(S.getASTContext());
+    ASTContext &Ctx = S.getASTContext();
+    Optional<llvm::APSInt> XDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> YDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> ZDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
 
     if (N % XDimVal->getZExtValue() != 0 ||
         N % YDimVal->getZExtValue() != 0 ||
@@ -3839,19 +3793,35 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
 #if INTEL_CUSTOMIZATION
+  ASTContext &Ctx = S.getASTContext();
+
   if (D->hasAttr<AutorunAttr>()) {
     long long int N = 1ll << 32ll;
-    Optional<llvm::APSInt> XDimVal =
-        XDimExpr->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> YDimVal =
-        YDimExpr->getIntegerConstantExpr(S.getASTContext());
-    Optional<llvm::APSInt> ZDimVal =
-        ZDimExpr->getIntegerConstantExpr(S.getASTContext());
+    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
 
     if ((N % XDimVal->getZExtValue()) != 0 ||
         (N % YDimVal->getZExtValue()) != 0 ||
         (N % ZDimVal->getZExtValue()) != 0) {
       S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      return;
+    }
+  }
+
+  if (const auto *A = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
+    Optional<llvm::APSInt> NumSimdWorkItems =
+        A->getValue()->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
+
+    if (!(XDimVal->getExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
+          YDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
+          ZDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0)) {
+      S.Diag(A->getLocation(), diag::err_conflicting_sycl_function_attributes)
+          << A << AL;
+      S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
       return;
     }
   }
@@ -3924,8 +3894,8 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 // Handles num_simd_work_items.
-static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
-                                           const ParsedAttr &Attr) { // INTEL
+static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
   if (D->isInvalidDecl())
     return;
 
@@ -3934,9 +3904,43 @@ static void handleSYCLNumSimdWorkItemsAttr(Sema &S, Decl *D,         // INTEL
   if (D->getAttr<SYCLIntelNumSimdWorkItemsAttr>())
     S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute) << Attr;
 
-  if (checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#if INTEL_CUSTOMIZATION
+  if (Attr.getSyntax() != AttributeCommonInfo::AS_GNU &&
+      checkDeprecatedSYCLAttributeSpelling(S, Attr))
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
         << "'intel::num_simd_work_items'";
+
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+    return;
+
+  if (Attr.getSyntax() == AttributeCommonInfo::AS_GNU &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+    ASTContext &Ctx = S.getASTContext();
+
+    if (!E->isValueDependent()) {
+      Optional<llvm::APSInt> NumSimdWorkItems = E->getIntegerConstantExpr(Ctx);
+      Optional<llvm::APSInt> XDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
+      Optional<llvm::APSInt> YDimVal = A->getYDim()->getIntegerConstantExpr(Ctx);
+      Optional<llvm::APSInt> ZDimVal = A->getZDim()->getIntegerConstantExpr(Ctx);
+
+      if (!(XDimVal->getExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
+            YDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
+            ZDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0)) {
+        S.Diag(Attr.getLoc(), diag::err_conflicting_sycl_function_attributes)
+            << Attr << A->getSpelling();
+        S.Diag(A->getLocation(), diag::note_conflicting_attribute);
+        return;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(D, Attr,
                                                                      E);
@@ -9661,7 +9665,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSubGroupSize(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelNumSimdWorkItems:
-    handleSYCLNumSimdWorkItemsAttr(S, D, AL); // INTEL
+    handleNumSimdWorkItemsAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelSchedulerTargetFmaxMhz:
     handleSchedulerTargetFmaxMhzAttr(S, D, AL);
@@ -9981,9 +9985,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_NumComputeUnits:
     handleNumComputeUnitsAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_NumSimdWorkItems:
-    handleNumSimdWorkItemsAttr(S, D, AL);
-    break;
   case ParsedAttr::AT_OpenCLBlocking:
     handleOpenCLBlockingAttr(S, D, AL);
     break;
@@ -10214,7 +10215,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     } else if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
-    } else if (const auto *A = D->getAttr<NumSimdWorkItemsAttr>()) {
+    } else if (const auto *A = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<NumComputeUnitsAttr>()) {

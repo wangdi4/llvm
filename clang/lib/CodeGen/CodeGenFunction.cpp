@@ -792,13 +792,6 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
     Fn->setMetadata("num_compute_units",
                     llvm::MDNode::get(Context, attrMDArgs));
   }
-
-  if (const NumSimdWorkItemsAttr *A = FD->getAttr<NumSimdWorkItemsAttr>()) {
-    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
-        Builder.getInt32(A->getNumSimdWorkItems()))};
-    Fn->setMetadata("num_simd_work_items",
-                    llvm::MDNode::get(Context, attrMDArgs));
-  }
 #endif // INTEL_CUSTOMIZATION
 
   if (const IntelReqdSubGroupSizeAttr *A =

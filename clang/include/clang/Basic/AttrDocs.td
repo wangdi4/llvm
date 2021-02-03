@@ -2224,8 +2224,23 @@ function, and no effect otherwise.
 
 def SYCLIntelNumSimdWorkItemsAttrDocs : Documentation {
   let Category = DocCatFunction;
-  let Heading = "intel::num_simd_work_items";
+// INTEL_CUSTOMIZATION
+  let Heading = "num_simd_work_items";
   let Content = [{
+This attribute can be used in both OpenCL and SYCL.
+
+OpenCL documentation:
+
+In OpenCL C, this attribute is available in GNU spelling
+(``__attribute__((num_simd_work_items()))``) and documented in
+`Intel FPGA SDK for OpenCL Programming Guide`_.
+See section *Specifying Number of SIMD Work-Items*.
+
+.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+
+SYCL documentation:
+
+// end INTEL_CUSTOMIZATION
 Applies to a device function/lambda function. Indicates the number of work
 items that should be processed in parallel. Valid values are positive integers.
 If ``intel::num_simd_work_items`` is applied to a function called from a
