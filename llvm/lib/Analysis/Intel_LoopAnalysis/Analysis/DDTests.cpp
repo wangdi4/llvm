@@ -5842,8 +5842,6 @@ void DirectionVector::print(raw_ostream &OS, bool ShowLevelDetail) const {
     case DVKind::NONE:
       OS << "0";
       break;
-    default:
-      break;
     } // end:switch
     if (II != Levels) {
       OS << " ";
