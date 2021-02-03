@@ -17,8 +17,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
-#include <set>
-
 #define DEBUG_TYPE "IndirectCallLowering"
 
 using namespace llvm;
@@ -46,7 +44,7 @@ bool IndirectCallLowering::runOnModule(Module &M) {
 
   bool Modified = false;
 
-  std::set<CallInst *> RemoveLater;
+  DenseSet<CallInst *> RemoveLater;
 
   // Process all call instructions.
   for (auto &Fn : M) {

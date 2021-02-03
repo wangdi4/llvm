@@ -10,14 +10,12 @@
 
 #include "CreateSimdVariantPropagation.h"
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-
-#include <map>
-#include <set>
 
 #define DEBUG_TYPE "CreateSimdVariantPropagation"
 
@@ -46,7 +44,7 @@ bool CreateSimdVariantPropagation::runOnModule(Module &M) {
 
   bool Modified = false;
 
-  std::map<Function *, std::set<std::string>> VariantsToAdd;
+  DenseMap<Function *, SmallSet<std::string, 4>> VariantsToAdd;
 
   // Process all variant creation call instructions.
   for (auto &F : M) {

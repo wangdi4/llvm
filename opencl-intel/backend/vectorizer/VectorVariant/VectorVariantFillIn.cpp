@@ -15,8 +15,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
-#include <set>
-
 #define DEBUG_TYPE "VectorVariantFillIn"
 
 using namespace llvm;
@@ -60,8 +58,8 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
     return false;
 
   bool Modified = false;
-  std::set<CallInst *> InstToRemove;
-  std::set<GlobalVariable *> UpdatedGV;
+  DenseSet<CallInst *> InstToRemove;
+  DenseSet<GlobalVariable *> UpdatedGV;
 
   for (auto &Fn : M) {
     if (Fn.hasFnAttribute("vector_function_ptrs")) {
