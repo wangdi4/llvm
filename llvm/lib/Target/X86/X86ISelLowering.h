@@ -1509,6 +1509,9 @@ namespace llvm {
     bool shouldInsertFencesForAtomic(const Instruction *I) const override;
 #endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
+
+    Align getPrefLoopAlignment(MachineLoop *ML) const override;
+
   protected:
     std::pair<const TargetRegisterClass *, uint8_t>
     findRepresentativeClass(const TargetRegisterInfo *TRI,
