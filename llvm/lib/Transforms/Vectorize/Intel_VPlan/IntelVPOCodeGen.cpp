@@ -2929,8 +2929,7 @@ void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
              VPCallInstruction::CallVecScenariosTy::VectorVariant &&
          "vectorizeVecVariant called for mismatched scenario.");
   if (VPCall->isIntelIndirectCall()) {
-    IndirectCallCodeGenerator IndirectCall(this, LI, VF, State, MaskValue, Plan,
-                                           NewLoop);
+    IndirectCallCodeGenerator IndirectCall(this, LI, VF, State, MaskValue, Plan);
     IndirectCall.vectorize(VPCall);
     return;
   }

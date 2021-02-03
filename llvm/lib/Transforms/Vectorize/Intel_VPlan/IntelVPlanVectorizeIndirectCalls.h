@@ -25,9 +25,9 @@ class IndirectCallCodeGenerator {
 public:
   IndirectCallCodeGenerator(VPOCodeGen *CodeGen, LoopInfo *LI, unsigned VF,
                             VPTransformState *State, Value *MaskValue,
-                            const VPlan *Plan, Loop *NewLoop)
+                            const VPlan *Plan)
       : CodeGen(CodeGen), LI(LI), VF(VF), State(State), MaskValue(MaskValue),
-        Plan(Plan), CurVectorizedLoop(NewLoop){};
+        Plan(Plan){};
 
   /// Returns true if the indirect call was vectorized
   bool vectorize(VPCallInstruction *VPCallInst);
@@ -39,7 +39,6 @@ private:
   VPTransformState *State = nullptr;
   Value *MaskValue = nullptr;
   const VPlan *Plan = nullptr;
-  Loop *CurVectorizedLoop = nullptr;
 
   // Keeps the call arguments.
   SmallVector<Value *, 4> CallArgs;
