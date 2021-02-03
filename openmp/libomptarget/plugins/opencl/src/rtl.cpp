@@ -2496,6 +2496,24 @@ __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                         nullptr);
 }
 
+EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
+  // Only support this case. We don't have any documented OpenCL behavior for
+  // cross-device data transfer.
+  if (SrcId == DstId)
+    return 1;
+
+  return 0;
+}
+
+EXTERN int32_t __tgt_rtl_data_exchange(
+    int32_t SrcId, void *SrcPtr, int32_t DstId, void *DstPtr, int64_t Size) {
+  if (SrcId != DstId)
+    return OFFLOAD_FAIL;
+
+  // This is OK for same-device copy with SVM or USM extension.
+  return __tgt_rtl_data_submit(DstId, DstPtr, SrcPtr, Size);
+}
+
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   void *base = TgtPtr;
 
