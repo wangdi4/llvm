@@ -1074,12 +1074,12 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // for OpenMP.
     if (VPCall->isIntelIndirectCall() &&
         VPCall->getVectorizationScenario() !=
-            VPCallInstruction::CallVecScenariosTy::VectorVariant)
+        VPCallInstruction::CallVecScenariosTy::VectorVariant) {
       if (FatalErrorHandler)
         FatalErrorHandler(UnderlyingCI->getParent()->getParent());
       else
         llvm_unreachable("Intel indirect call should have vector-variants!");
-
+    }
     // Handle lifetime_start/end intrinsics operating on private-memory.
     // We use the following mechanism to handle the intrinsic:
     // If the array-private is widened (AOS/SOA) and not serialized, do not

@@ -492,12 +492,12 @@ void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
 
   auto GetCallSiteAndArgNum =
       [](const Use *U) -> Optional<std::pair<CallBase *, unsigned>> {
-    if (auto *Call = dyn_cast<CallBase>(U->getUser()))
+    if (auto *Call = dyn_cast<CallBase>(U->getUser())) {
       if (Call->isArgOperand(U))
         return std::make_pair(Call, Call->getDataOperandNo(U));
       else
         return None;
-
+    }
     // If the use is a constant cast expression which itself has only one use,
     // we look through the constant cast expression to identify the Call.
     if (auto *CE = dyn_cast<ConstantExpr>(U->getUser()))
