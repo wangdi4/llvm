@@ -5533,7 +5533,7 @@ bool SimplifyCFGOpt::isDedicatedLoopExit(BasicBlock *CleanupBB) {
     return BB;
   };
 
-  if (!Options.NeedCanonicalLoop || !LoopHeaders)
+  if (!Options.NeedCanonicalLoop || LoopHeaders.empty())
     return false;
   for (BasicBlock *Pred : predecessors(CleanupBB)) {
     BasicBlock *NormalSucc = GetNormalSucc(Pred, CleanupBB);
@@ -5541,7 +5541,7 @@ bool SimplifyCFGOpt::isDedicatedLoopExit(BasicBlock *CleanupBB) {
       return false;
     bool BackEdgeFound = false;
     for (BasicBlock *B : successors(NormalSucc))
-      if (LoopHeaders->count(B)) {
+      if (is_contained(LoopHeaders, B)) {
         BackEdgeFound = true;
         break;
       }
