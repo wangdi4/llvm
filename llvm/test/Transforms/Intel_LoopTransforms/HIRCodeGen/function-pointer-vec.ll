@@ -6,7 +6,7 @@
 ; CHECK: |   (<2 x %struct.TypHeader* (%struct.TypHeader*)*>*)(@EvTab)[0][i1] = @CantEval;
 ; CHECK: + END LOOP
 
-; CHECK: bitcast %struct.TypHeader* (%struct.TypHeader*)** %arrayIdx to <2 x %struct.TypHeader* (%struct.TypHeader*)*>*
+; CHECK: bitcast %struct.TypHeader* (%struct.TypHeader*)** %{{.*}} to <2 x %struct.TypHeader* (%struct.TypHeader*)*>*
 ; CHECK: store <2 x %struct.TypHeader* (%struct.TypHeader*)*> <%struct.TypHeader* (%struct.TypHeader*)* @CantEval, %struct.TypHeader* (%struct.TypHeader*)* @CantEval>
 
 

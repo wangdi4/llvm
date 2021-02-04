@@ -363,9 +363,7 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
 
   case Intrinsic::intel_subscript: {
     // Do not unlink intrinsic
-    Value * Offset[] = {EmitSubsOffset(&Builder, DL, CI)};
-    CI->replaceAllUsesWith(Builder.CreateInBoundsGEP(
-        cast<SubscriptInst>(CI)->getPointerOperand(), Offset));
+    CI->replaceAllUsesWith(EmitSubsValue(&Builder, DL, CI));
     break;
   }
 #endif // INTEL_CUSTOMIZATION
