@@ -184,8 +184,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
     # link OpenCL image callback library (adding also intrinsic BI IR )
     add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt
       COMMENT "Linking ${OUTPUT_FILE}_noopt"
-      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
-      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
+      COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/sub_group_block_assume_uniform.ll
+      DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll ${CL_BUILTIN_SOURCE_DIR}/GENERIC/sub_group_block_assume_uniform.ll
       VERBATIM
       )
     # link shared rtl and particular BI rtl
