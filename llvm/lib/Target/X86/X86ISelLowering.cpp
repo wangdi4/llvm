@@ -49671,6 +49671,11 @@ static SDValue combineFMinNumFMaxNum(SDNode *N, SelectionDAG &DAG,
   EVT VT = N->getValueType(0);
   if (!((Subtarget.hasSSE1() && VT == MVT::f32) ||
         (Subtarget.hasSSE2() && VT == MVT::f64) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+        (Subtarget.hasFP16() && VT == MVT::f16) ||
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
         (VT.isVector() && TLI.isTypeLegal(VT))))
     return SDValue();
 
