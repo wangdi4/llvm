@@ -277,8 +277,6 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       setSVAKindForInst(Inst, SVAKind::Vector);
       break;
     }
-    default:
-      llvm_unreachable("Unknown vectorization scenario.");
     }
 
     // Last operand of call is called value, which should be left as scalar.

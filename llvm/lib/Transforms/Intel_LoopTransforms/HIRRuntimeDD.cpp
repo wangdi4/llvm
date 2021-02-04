@@ -546,9 +546,9 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "SIMD Loop";
   case UNKNOWN_MIN_MAX:
     return "Could not find MIN and MAX bounds";
-  default:
-    llvm_unreachable("Unexpected give up reason");
   }
+  llvm_unreachable("Unexpected give up reason");
+
 }
 #endif
 

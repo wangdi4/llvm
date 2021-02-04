@@ -360,8 +360,6 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         break;
       case FnAction::AssertIfEncountered:
         assert(false && "Case hasn't been ported from OpenCL");
-      default:
-        llvm_unreachable("Unexpected Action");
       };
     }
   }

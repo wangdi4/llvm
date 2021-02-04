@@ -734,7 +734,7 @@ private:
     case Instruction::GetElementPtr:
     case VPInstruction::Subscript:
     case Instruction::SExt:
-    case Instruction::Trunc:;
+    case Instruction::Trunc:
     case Instruction::ZExt:
       return true;
     default:
