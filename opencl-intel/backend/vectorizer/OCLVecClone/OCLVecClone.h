@@ -28,6 +28,7 @@ class OCLVecCloneImpl : public VecCloneImpl {
 private:
   // Configuration options
   const Intel::CPUId *CPUId;
+  bool IsOCL;
 
   const ChooseVectorizationDimensionModulePass *DimChooser;
 
@@ -56,7 +57,7 @@ private:
   };
 
 public:
-  OCLVecCloneImpl(const Intel::CPUId *CPUId);
+  OCLVecCloneImpl(const Intel::CPUId *CPUId, bool IsOCL);
 
   OCLVecCloneImpl();
 
@@ -74,7 +75,7 @@ protected:
 public:
   static char ID;
 
-  OCLVecClone(const Intel::CPUId *CPUId);
+  OCLVecClone(const Intel::CPUId *CPUId, bool IsOCL);
 
   OCLVecClone();
 
