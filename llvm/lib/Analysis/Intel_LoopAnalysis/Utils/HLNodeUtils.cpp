@@ -4512,6 +4512,8 @@ HLNodeUtils::getLexicalLowestCommonAncestorParent(const HLNode *Node1,
     Parent = Parent->getParent();
   }
 
+  assert(Parent && "Common parent cannot be null, it should be region node at "
+                   "the very least!");
   return Parent;
 }
 
