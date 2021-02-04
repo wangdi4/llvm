@@ -367,10 +367,19 @@ class PrivateItem : public Item
       // PRIVATE nonPOD Args are: var, ctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
+
+      // Make sure WRegion parsing doesn't crash while handling
+      // PRIVATE:NONPODs with "i8* null" constructor/destructors.
+      // (An example of when the ctor/dtor can be "i8* null" is found during
+      // device compilation for directives outside of a TARGET region.)
       V = cast<Value>(Args[1]);
-      Constructor = cast<Function>(V);
+      Constructor = dyn_cast<Function>(V);
+      assert(Constructor || isa<ConstantPointerNull>(V) &&
+             "Constructor must be a function pointer or null");
       V = cast<Value>(Args[2]);
-      Destructor = cast<Function>(V);
+      Destructor = dyn_cast<Function>(V);
+      assert(Destructor || isa<ConstantPointerNull>(V) &&
+             "Destructor must be a function pointer or null");
     }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
@@ -434,9 +443,13 @@ class FirstprivateItem : public Item
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
       V = cast<Value>(Args[1]);
-      CopyConstructor = cast<Function>(V);
+      CopyConstructor = dyn_cast<Function>(V);
+      assert(CopyConstructor || isa<ConstantPointerNull>(V) &&
+             "CopyConstructor must be a function pointer or null");
       V = cast<Value>(Args[2]);
-      Destructor = cast<Function>(V);
+      Destructor = dyn_cast<Function>(V);
+      assert(Destructor || isa<ConstantPointerNull>(V) &&
+             "Destructor must be a function pointer or null");
     }
     void setInLastprivate(LastprivateItem *LI) { InLastprivate = LI; }
     void setInMap(MapItem *MI) { InMap = MI; }
@@ -495,20 +508,24 @@ class LastprivateItem : public Item
       // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
-      if (Constant *C = dyn_cast<Constant>(Args[1])) {
-        // If a nonpod var is both lastprivate and firstprivate, the ctor in
-        // the lastprivate OperanBundle is "i8* null" from clang. This is
-        // because the var will not be initialized with a default constructor,
-        // but rather with the copy-constructor from its firstprivate clause.
-        // In this case, we stay with Constructor=nullptr.
-        if (!(C->isNullValue())) {
-          Constructor = cast<Function>(C);
-        }
-      }
+
+      // If a nonpod var is both lastprivate and firstprivate, the ctor in
+      // the lastprivate OperanBundle is "i8* null" from clang. This is
+      // because the var will not be initialized with a default constructor,
+      // but rather with the copy-constructor from its firstprivate clause.
+      // In this case, we stay with Constructor=nullptr.
+      V = cast<Value>(Args[1]);
+      Constructor = dyn_cast<Function>(V);
+      assert(Constructor || isa<ConstantPointerNull>(V) &&
+             "Constructor must be a function pointer or null");
       V = cast<Value>(Args[2]);
-      CopyAssign = cast<Function>(V);
+      CopyAssign = dyn_cast<Function>(V);
+      assert(CopyAssign || isa<ConstantPointerNull>(V) &&
+             "CopyAssign must be a function pointer or null");
       V = cast<Value>(Args[3]);
-      Destructor = cast<Function>(V);
+      Destructor = dyn_cast<Function>(V);
+      assert(Destructor || isa<ConstantPointerNull>(V) &&
+             "Destructor must be a function pointer or null");
     }
     void setIsConditional(bool B) override { IsConditional = B; }
     void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
