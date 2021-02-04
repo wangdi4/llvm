@@ -426,6 +426,20 @@ static uint8_t getBaserelType(const coff_relocation &rel) {
   case AMD64:
     if (rel.Type == IMAGE_REL_AMD64_ADDR64)
       return IMAGE_REL_BASED_DIR64;
+#if INTEL_CUSTOMIZATION
+    // If the address relocation is AMD64_ADDR32, then the
+    // relocation needs to include the full delta for
+    // the value offset (HIGHLOW). This change set is in
+    // discussion with the lld community:
+    //
+    //   https://bugs.llvm.org/show_bug.cgi?id=49068
+    //
+    // If the community accepts the changes then another
+    // patch will be submitted to remove the INTEL_CUSTOMIZATION
+    // tags.
+    if (rel.Type == IMAGE_REL_AMD64_ADDR32)
+      return IMAGE_REL_BASED_HIGHLOW;
+#endif // INTEL_CUSTOMIZATION
     return IMAGE_REL_BASED_ABSOLUTE;
   case I386:
     if (rel.Type == IMAGE_REL_I386_DIR32)
