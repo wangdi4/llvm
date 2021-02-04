@@ -152,8 +152,6 @@ def warn_opencl_attribute_only_for_global_address_space : Warning<
   "%0 attribute can be aplied only for parameters that reside "
   "in global address space, attribute ignored">,
   InGroup<IgnoredAttributes>;
-def err_opencl_attributes_conflict : Error<
-  "%0 attribute conflicts with '%1' attribute">;
 def err_opencl_missing_actual_channel_type : Error<
   "missing actual type specifier for channel">;
 def err_intel_opencl_attribute_argument_type : Error<
