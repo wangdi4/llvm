@@ -184,15 +184,6 @@ def NumComputeUnits : InheritableAttr {
   let Documentation = [NumComputeUnitsDocs];
 }
 
-def NumSimdWorkItems : InheritableAttr {
-  let Spellings = [GNU<"num_simd_work_items">];
-  let Args = [UnsignedArgument<"NumSimdWorkItems">];
-  let Subjects = SubjectList<[Function]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-}
-
 def Autorun : InheritableAttr {
   let Spellings = [GNU<"autorun">];
   let LangOpts = [OpenCL];

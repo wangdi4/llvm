@@ -1287,9 +1287,10 @@ def SYCLIntelKernelArgsRestrict : InheritableAttr {
 
 def SYCLIntelNumSimdWorkItems : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","num_simd_work_items">,
+                   GNU<"num_simd_work_items">, //INTEL
                    CXX11<"intel","num_simd_work_items">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNumSimdWorkItemsAttrDocs];
 }
