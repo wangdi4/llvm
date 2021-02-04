@@ -355,6 +355,10 @@ if (NOT WIN32)
       COMPONENT sycl-headers-extras)
 endif()
 
+if (SYCL_ENABLE_XPTI_TRACING)
+  set(XPTIFW_LIBS xptifw)
+endif()
+
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain
   DEPENDS ${SYCL_RT_LIBS}
@@ -372,10 +376,10 @@ add_custom_target( sycl-toolchain
           llvm-objcopy
           sycl-post-link
           sycl-ls
+          ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
           sycl-config-file
 # end INTEL_CUSTOMIZATION
-  COMMENT "Building SYCL compiler toolchain..."
 )
 
 # Check if opencl-aot tool is enabled.
@@ -443,6 +447,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      pi_opencl
      pi_level_zero
      libsycldevice
+     ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components
      # under the existing if(INTEL_CUSTOMIZATION)
