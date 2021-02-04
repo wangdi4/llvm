@@ -902,19 +902,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     }
   }
 
-  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPInBoundsHelper =
-      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
-        return Builder.CreateInBoundsGEP(BasePtr, IndexV, "arrayIdx");
-      };
-
-  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPHelper =
-      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
-        return Builder.CreateGEP(BasePtr, IndexV, "arrayIdx");
-      };
-
-  auto CreateGEP =
-      Ref->isInBounds() ? CreateGEPInBoundsHelper : CreateGEPHelper;
-
   auto &DL = HIRF.getDataLayout();
   Value *GEPVal = BaseV;
 
@@ -926,7 +913,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     // GEP is not needed.
   } else {
     assert(DimNum && "No dimensions");
-    SmallVector<Value *, 4> IndexV;
 
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
@@ -935,52 +921,31 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       auto *LowerVal = visitCanonExpr(Ref->getDimensionLower(DimNum));
       auto *StrideVal = visitCanonExpr(Ref->getDimensionStride(DimNum));
 
-      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
+      // TODO: add isExact field to the dimension info and pass it to the
+      // EmitSubsValue.
 
       // Create a GEP offset that corresponds to the current dimension.
-      Value *OffsetVal = emitBaseOffset(&Builder, DL, GEPElementTy, GEPVal,
-                                        LowerVal, IndexVal, StrideVal);
+      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
+      GEPVal = EmitSubsValue(&Builder, DL, GEPElementTy, GEPVal, LowerVal,
+                             IndexVal, StrideVal, Ref->isInBounds(), true);
 
-      // Adding an index to the GEP will change the result type to the element
-      // of an aggregate:
-      //   getelementptr [10 x float]*, 0    -> [10 x float]
-      //   getelementptr [10 x float]*, 0, 0 -> float
-      //
-      // For non-array dimensions instead of adding offset as a new index,
-      // another GEP should be created:
-      //
-      //   %p[0][i][j][k]
-      //        /   |   \
-      //      %vs1 %vs2 [10 x float];    %vs1, %vs2 - variable strides
-      //
-      //   %0 = getelementptr [10 x float]* %p, 0
-      //   %1 = getelementptr [10 x float]* %0, %offset1
-      //   %2 = getelementptr [10 x float]* %1, %offset2, %k
-      //
-      // The following check emits the indices for the previous dimension if the
-      // current dimension is not an array type.
-      if (!Ref->isDimensionLLVMArray(DimNum) && !IndexV.empty()) {
-        GEPVal = CreateGEP(GEPVal, IndexV);
-        IndexV.clear();
-      }
-
-      IndexV.push_back(OffsetVal);
-
-      // Push back indices for dimensions's trailing offsets.
+      // Emit gep for dimension struct access.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
-
       if (!Offsets.empty()) {
         // Structure fields are always i32 type.
         auto I32Ty = Type::getInt32Ty(F.getContext());
+
+        // Add first zero index to dereference the pointer.
+        SmallVector<Value *, 4> IndexV{ConstantInt::get(I32Ty, 0)};
 
         for (auto OffsetVal : Offsets) {
           auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
           IndexV.push_back(OffsetIndex);
         }
+
+        GEPVal = Builder.CreateInBoundsGEP(GEPVal, IndexV);
       }
     }
-
-    GEPVal = CreateGEP(GEPVal, IndexV);
   }
 
   if (GEPVal->getType()->isVectorTy() && isa<PointerType>(BitCastDestTy)) {

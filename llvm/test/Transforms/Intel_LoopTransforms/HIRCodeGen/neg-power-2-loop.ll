@@ -4,7 +4,7 @@
 ; Verify that multiplication with -65536 turns into a shift and subtract.
 
 ; CHECK: [[SHL:%.*]] = shl i32 {{%.*}}, 16
-; CHECK: %6 = sub i32 0, [[SHL]]
+; CHECK: = sub i32 0, [[SHL]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

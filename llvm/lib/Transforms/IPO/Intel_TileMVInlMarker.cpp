@@ -493,8 +493,6 @@ bool TileMVInlMarker::processLoop(Function &F, Loop &L) {
         return processLoopCaseFoundPHI(F, Item, BOV);
       case TS_FoundBoth:
         return processLoopCaseFoundBoth(F, Item, BOV);
-      default:
-        assert(false && "No default case");
       }
     }
     return false;

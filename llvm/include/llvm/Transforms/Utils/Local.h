@@ -241,6 +241,8 @@ CallInst *createCallMatchingInvoke(InvokeInst *II);
 void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
 
 #if INTEL_CUSTOMIZATION
+namespace {
+
 template <typename IRBuilderTy>
 Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
                       Value *BasePtr, Value *Lower, Value *Index,
@@ -252,8 +254,10 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   Type *OffsetTy = DL.getIndexType(BasePtr->getType());
 
   // Perform scalar/vector division of stride by sizeof(element).
-  {
+  if (ElTy) {
     unsigned ElementSize = DL.getTypeStoreSize(ElTy);
+    assert(ElementSize != 0 && "Element size should never be zero.");
+
     // Stride is known to be divisible by ElementSize exactly.
     Stride = Builder->CreateExactSDiv(
         Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
@@ -308,21 +312,99 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   return Builder->CreateNSWMul(Builder->CreateSExt(Stride, OffsetTy),
                                Builder->CreateSExt(Diff, OffsetTy));
 }
+}
 
-/// Given a llvm.intel.subscript instruction, emit the code necessary to
-/// compute the offset from the base pointer (without adding in the base
-/// pointer). Return the result as a signed integer of intptr size.
+/// Given an llvm.intel.subscript instruction, emit the code representing the
+/// computed address.
 template <typename IRBuilderTy>
-Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
+Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
+                     Value *BasePtr, Value *Lower, Value *Index, Value *Stride,
+                     bool InBounds, bool IsExact) {
+  ConstantInt *ConstStride = dyn_cast<ConstantInt>(Stride);
+
+  // Emit base pointer right away if the stride is known zero.
+  if (ConstStride && ConstStride->isZero()) {
+    return BasePtr;
+  }
+
+  // Try to clarify IsExact flag.
+  if (!IsExact && ConstStride) {
+    APInt ElementSize(ConstStride->getBitWidth(), DL.getTypeStoreSize(ElTy));
+    APInt Q, R;
+    APInt::sdivrem(ConstStride->getValue(), ElementSize, Q, R);
+    IsExact = R.isNullValue();
+  }
+
+  Type *BasePtrTy = BasePtr->getType();
+
+  if (IsExact) {
+    // Emit offset in terms of elements.
+    Value *ElementOffset =
+        emitBaseOffset(Builder, DL, ElTy, BasePtr, Lower, Index, Stride);
+
+    // If addressing for the same type - use single index, prepend zero
+    // otherwise.
+    unsigned IndexLevel = 1;
+    Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
+    while (BaseElTy != ElTy) {
+      ++IndexLevel;
+      BaseElTy = BaseElTy->isPointerTy() ? BaseElTy->getPointerElementType()
+                                         : BaseElTy->getArrayElementType();
+    }
+
+    // Do not create GEP instruction if the Offset is known zero and no type
+    // change is needed.
+    ConstantInt *ConstOffset = dyn_cast<ConstantInt>(ElementOffset);
+    if (ConstOffset && ConstOffset->isZero() && IndexLevel == 1) {
+      return BasePtr;
+    }
+
+    SmallVector<Value *, 2> Offsets(
+        IndexLevel - 1, ConstantInt::get(ElementOffset->getType(), 0));
+    Offsets.push_back(ElementOffset);
+
+    return InBounds ? Builder->CreateInBoundsGEP(BasePtr, Offsets)
+                    : Builder->CreateGEP(BasePtr, Offsets);
+  }
+
+  /// The following scheme uses intermediate "bitcast to i8*" to support
+  /// polymorphic types. After shifting the base pointer to a computed number of
+  /// bytes the pointer is casted to the ElTy* type.
+
+  Type *I8Ty = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
+  Type *DestType = ElTy->getPointerTo(BasePtrTy->getPointerAddressSpace());
+  if (BasePtrTy->isVectorTy()) {
+    I8Ty = VectorType::get(I8Ty, cast<VectorType>(BasePtrTy));
+    DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
+  }
+
+  Value *BasePtrI8 =
+      Builder->CreateBitCast(BasePtr, I8Ty);
+
+  Value *ByteOffset =
+      emitBaseOffset(Builder, DL, nullptr, BasePtr, Lower, Index, Stride);
+
+  Value *NewBasePtr = InBounds
+                          ? Builder->CreateInBoundsGEP(BasePtrI8, ByteOffset)
+                          : Builder->CreateGEP(BasePtrI8, ByteOffset);
+
+  return Builder->CreateBitCast(NewBasePtr, DestType);
+}
+
+template <typename IRBuilderTy>
+Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
   SubscriptInst *CI = cast<SubscriptInst>(Subs);
 
-  // Extract element
+  // Extract element type.
   Type *ElemTy = CI->getType()
                      ->getScalarType() // Element of <vector of pointers>
                      ->getPointerElementType();
 
-  return emitBaseOffset(Builder, DL, ElemTy, CI->getPointerOperand(),
-                        CI->getLowerBound(), CI->getIndex(), CI->getStride());
+  // TODO: add isExact flag to the llvm.intel.subscript and pass it to the
+  // function below.
+  return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(),
+                       CI->getLowerBound(), CI->getIndex(), CI->getStride(),
+                       true, true);
 }
 #endif // INTEL_CUSTOMIZATION
 

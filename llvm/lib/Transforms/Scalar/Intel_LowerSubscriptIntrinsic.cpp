@@ -73,9 +73,7 @@ static bool lowerIntrinsics(Function &F) {
         continue;
 
       IRBuilder<> Builder(CI);
-      Value *Offset[] = {EmitSubsOffset(&Builder, DL, CI)};
-      CI->replaceAllUsesWith(
-          Builder.CreateInBoundsGEP(CI->getPointerOperand(), Offset));
+      CI->replaceAllUsesWith(EmitSubsValue(&Builder, DL, CI));
       salvageDebugInfo(*CI);
       CI->eraseFromParent();
 

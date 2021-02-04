@@ -17,7 +17,7 @@
 ; CHECK:  %[[ARRIDX:.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr2, i64 0, i64 %1
 ; CHECK:  %[[BITCAST:.*]] = bitcast i32* %[[ARRIDX]] to <4 x i32>*
 ; CHECK:  %{{.*}} = load <4 x i32>, <4 x i32>* %[[BITCAST]], align 4, !tbaa ![[TBAA:.*]]
-; CHECK:  %[[ARRIDX1:.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %3
+; CHECK:  %[[ARRIDX1:.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %4
 ; CHECK:  %[[BITCAST1:.*]] = bitcast i32* %[[ARRIDX1]] to <4 x i32>*
 ; CHECK:  store <4 x i32> {{.*}}, <4 x i32>* %[[BITCAST1]], align 4, !tbaa ![[TBAA]]
 ; CHECK: ![[TBAA]] = !{![[TBAA1:.*]], !{{.*}}

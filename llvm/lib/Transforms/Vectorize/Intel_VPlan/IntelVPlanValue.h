@@ -563,7 +563,7 @@ public:
   VPExternalDef &operator=(const VPExternalDef &) const = delete;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printAsOperand(raw_ostream &OS) const {
+  void printAsOperand(raw_ostream &OS) const override {
     if (getUnderlyingValue())
       getUnderlyingValue()->printAsOperand(OS);
     else {
