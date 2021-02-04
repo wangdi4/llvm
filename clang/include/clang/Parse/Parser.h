@@ -762,6 +762,9 @@ private:
   StmtResult HandlePragmaCaptured();
 
 #if INTEL_CUSTOMIZATION
+  /// Skips tokens for ignored OpenMP directives. Returns true if skipped.
+  bool isIgnoredOpenMPDirective();
+
   /// Skip OpenMP directives not supported on target.
   void skipUnsupportedTargetDirectives();
 
