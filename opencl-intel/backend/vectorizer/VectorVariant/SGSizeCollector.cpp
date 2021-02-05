@@ -13,14 +13,12 @@
 #include "LoopHandler/CLWGBoundDecoder.h"
 #include "MetadataAPI.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-
-#include <map>
-#include <set>
 
 #define DEBUG_TYPE "SGSizeCollector"
 
@@ -78,7 +76,7 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
   bool Modified = false;
 
   CallGraph CG(M);
-  std::map<Function *, std::set<int>> SGSizes;
+  DenseMap<Function *, SmallSet<int, 4>> SGSizes;
 
   // Collect vector length information from the existing functions.
   for (auto &F : M) {
@@ -96,7 +94,7 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
           continue;
         }
 
-        std::set<int> &Set = SGSizes[Fn];
+        auto &Set = SGSizes[Fn];
         if (Set.count(VecLength)) {
           It = It.skipChildren();
           continue;
@@ -109,7 +107,7 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
   }
 
   auto KernelsList = KernelList(M).getList();
-  std::set<Function *> Kernels(KernelsList.begin(), KernelsList.end());
+  DenseSet<Function *> Kernels(KernelsList.begin(), KernelsList.end());
 
   // Update vector length information accordingly to the call graph.
   for (auto It : SGSizes) {
@@ -119,7 +117,7 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
       continue;
 
     StringRef VarsStr;
-    std::set<unsigned> ExistingVars;
+    DenseSet<unsigned> ExistingVars;
     if (F->hasFnAttribute("vector-variants")) {
 
       Attribute Attr = F->getFnAttribute("vector-variants");
