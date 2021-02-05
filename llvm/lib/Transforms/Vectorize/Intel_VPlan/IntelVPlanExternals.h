@@ -175,6 +175,17 @@ public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
 
+  ~VPExternalValues() {
+    // Release memory allocated for VPExternalDefs tracked in VPExternalDefsHIR.
+    // Temporary list to collect the pointers is needed to avoid invalid access
+    // error while iterating the FoldingSet.
+    SmallVector<const VPExternalDef *, 16> TmpExtDefList(
+        getVPExternalDefsHIR().begin(), getVPExternalDefsHIR().end());
+    VPExternalDefsHIR.clear();
+    for (auto *ExtDef : TmpExtDefList)
+      delete ExtDef;
+  }
+
   const DataLayout *getDataLayout() const { return DL; }
   LLVMContext *getLLVMContext(void) const { return Context; }
 
