@@ -912,8 +912,6 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
   case LoopResourceBound::Unknown:
     OS << "Unknown Bound \n";
     break;
-  default:
-    llvm_unreachable("Unexpected loop resource bound type!");
   }
 }
 
