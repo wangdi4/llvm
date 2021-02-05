@@ -1368,8 +1368,6 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
           uint32_t extension_temp = false;
 
           if (src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16) {
-            static_assert(std::is_standard_layout_v<float> &&
-                          sizeof(uint32_t) == sizeof(float));
             const auto s1 =
                 extract<uint32_t>(src1_el_bits, p * src1_el_bits,
                                   src1[U * SIMDSize + n], extension_temp)
@@ -1381,8 +1379,6 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
             simdAcc[n] += reinterpret_cast<const float &>(s2) *
                           reinterpret_cast<const float &>(s1);
           } else if (src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::FP16) {
-            static_assert(std::is_standard_layout_v<half> &&
-                          sizeof(short) == sizeof(half));
             const auto s1 =
                 extract<short>(src1_el_bits, p * src1_el_bits,
                                src1[U * SIMDSize + n], extension_temp);
