@@ -574,7 +574,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addPreserved<AAResultsWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
