@@ -5464,6 +5464,33 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       return true;
     }
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+    // FIXME: Same with AVX512_RAO_INT
+    case Intrinsic::x86_mask_vaaddpd128:
+    case Intrinsic::x86_mask_vaaddpd256:
+    case Intrinsic::x86_mask_vaaddpd512:
+    case Intrinsic::x86_mask_vaaddps128:
+    case Intrinsic::x86_mask_vaaddps256:
+    case Intrinsic::x86_mask_vaaddps512:
+    case Intrinsic::x86_mask_vaaddph128:
+    case Intrinsic::x86_mask_vaaddph256:
+    case Intrinsic::x86_mask_vaaddph512:
+    case Intrinsic::x86_mask_vaaddpbf16128:
+    case Intrinsic::x86_mask_vaaddpbf16256:
+    case Intrinsic::x86_mask_vaaddpbf16512:
+    case Intrinsic::x86_mask_vaaddsd128:
+    case Intrinsic::x86_mask_vaaddss128:
+    case Intrinsic::x86_mask_vaaddsh128:
+    case Intrinsic::x86_mask_vaaddsbf16128: {
+      Info.opc = ISD::INTRINSIC_VOID;
+      Info.ptrVal = I.getArgOperand(0);
+      Info.memVT = MVT::getVT(I.getArgOperand(1)->getType());
+      Info.align = Align(Info.memVT.getScalarSizeInBits() / 8);
+      // FIXME: Should we set these flags?
+      Info.flags |= MachineMemOperand::MOStore | MachineMemOperand::MOLoad;
+      return true;
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // INTEL_CUSTOMIZATION
     case Intrinsic::x86_aesenc128kl:
     case Intrinsic::x86_aesdec128kl:
@@ -27339,6 +27366,39 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
                          Operation.getValue(1));
     }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+    case Intrinsic::x86_mask_vaaddpd128:
+    case Intrinsic::x86_mask_vaaddpd256:
+    case Intrinsic::x86_mask_vaaddpd512:
+    case Intrinsic::x86_mask_vaaddps128:
+    case Intrinsic::x86_mask_vaaddps256:
+    case Intrinsic::x86_mask_vaaddps512:
+    case Intrinsic::x86_mask_vaaddph128:
+    case Intrinsic::x86_mask_vaaddph256:
+    case Intrinsic::x86_mask_vaaddph512:
+    case Intrinsic::x86_mask_vaaddpbf16128:
+    case Intrinsic::x86_mask_vaaddpbf16256:
+    case Intrinsic::x86_mask_vaaddpbf16512:
+    case Intrinsic::x86_mask_vaaddsd128:
+    case Intrinsic::x86_mask_vaaddss128:
+    case Intrinsic::x86_mask_vaaddsh128:
+    case Intrinsic::x86_mask_vaaddsbf16128: {
+      SDLoc dl(Op);
+      SDVTList VTs = DAG.getVTList(MVT::Other);
+      SDValue Chain = Op.getOperand(0);
+      SDValue DstSrc = Op.getOperand(2);
+      SDValue Src = Op.getOperand(3);
+      SDValue Mask = Op.getOperand(4);
+      MemIntrinsicSDNode *MemIntr = cast<MemIntrinsicSDNode>(Op);
+      MachineMemOperand *MMO = MemIntr->getMemOperand();
+      EVT MemVT = MemIntr->getMemoryVT();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, MemVT.getVectorNumElements());
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      unsigned Opc = X86ISD::VAADDF;
+      return DAG.getMemIntrinsicNode(Opc, dl, VTs, {Chain, DstSrc, Src, VMask},
+                                     MemVT, MMO);
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #if INTEL_FEATURE_ISA_AVX512_RAO_INT
     case Intrinsic::x86_mask_vpaaddd128:
     case Intrinsic::x86_mask_vpaaddd256:
@@ -27377,6 +27437,7 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
 
       MVT MaskVT = MVT::getVectorVT(MVT::i1, MemVT.getVectorNumElements());
       SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      // FIXME: Same with AVX512_RAO_FP except the following switch case.
       unsigned Opc;
       switch (IntNo) {
       case Intrinsic::x86_mask_vpaaddd128:
@@ -32604,12 +32665,15 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(VPCOMPRESS_STORE)
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
   NODE_NAME_CASE(MPSADBW)
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
   NODE_NAME_CASE(VPAADD)
   NODE_NAME_CASE(VPAAND)
   NODE_NAME_CASE(VPAOR)
   NODE_NAME_CASE(VPAXOR)
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+  NODE_NAME_CASE(VAADDF)
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(AESENC128KL)
   NODE_NAME_CASE(AESDEC128KL)
