@@ -16,8 +16,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
-#include <set>
-
 #define DEBUG_TYPE "SGSizeCollectorIndirect"
 
 using namespace llvm;
@@ -75,7 +73,7 @@ bool SGSizeCollectorIndirectImpl::runImpl(Module &M) {
   bool Modified = false;
 
   // Collect all possible vector lengths.
-  std::set<int> VecLengths;
+  DenseSet<int> VecLengths;
   for (auto &Fn : M) {
     int VecLength;
     if (!hasVecLength(&Fn, VecLength))
