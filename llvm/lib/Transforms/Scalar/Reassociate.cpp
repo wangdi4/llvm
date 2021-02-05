@@ -69,6 +69,13 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "reassociate"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EarlyExitBoolExpr("reassoc-early-exit-for-boolean-expr", cl::init(true),
+                      cl::Hidden, cl::desc("Exit early from reassociation pass "
+                                           "when data type is boolean."));
+#endif // INTEL_CUSTOMIZATION
+
 STATISTIC(NumChanged, "Number of insts reassociated");
 STATISTIC(NumAnnihil, "Number of expr tree annihilated");
 STATISTIC(NumFactor , "Number of multiplies factored");
@@ -2188,6 +2195,18 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
       I = NI;
     }
 
+#if INTEL_CUSTOMIZATION
+  // Do not reassociate boolean (i1) expressions.  We want to preserve the
+  // original order of evaluation for short-circuited comparisons that
+  // SimplifyCFG has folded to AND/OR expressions.  If the expression
+  // is not further optimized, it is likely to be transformed back to a
+  // short-circuited form for code gen, and the source order may have been
+  // optimized for the most likely conditions.
+  // Perform this check here if EarlyExitBoolExpr is set
+  if (EarlyExitBoolExpr && (I->getType()->isIntegerTy(1)))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   // Commute binary operators, to canonicalize the order of their operands.
   // This can potentially expose more CSE opportunities, and makes writing other
   // transformations simpler.
@@ -2208,7 +2227,8 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
   // is not further optimized, it is likely to be transformed back to a
   // short-circuited form for code gen, and the source order may have been
   // optimized for the most likely conditions.
-  if (I->getType()->isIntegerTy(1))
+  // Perform this check here if EarlyExitBoolExpr is not set // INTEL
+  if (!EarlyExitBoolExpr && (I->getType()->isIntegerTy(1))) // INTEL
     return;
 
   // If this is a bitwise or instruction of operands
