@@ -224,103 +224,94 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
   return new HIRDeadStoreEliminationLegacyPass();
 }
 
-// Check whether the DDRefs in other groups have the same symbase as the
-// current DDRef group and then check the distance between each other. If
-// the distance is less than the size of current DDRef, return true and
-// skip this case. If false, then send this DDRef group to process in dead
-// store elimination. The following is an example
-// A[i]   = .
-// A[i+1] = .
-// A[i]   = .
+// Returns true if there is an intervening load between \p StoreRef and \p
+// PostDomStoreRef which aliases with the store. For example-
+//
+// A[i] =
+//      = B[i]
+// A[i] =
 static bool
-overlapsWithAnotherGroup(HIRDDAnalysis &HDDA,
-                         HIRLoopLocality::RefGroupTy &RefGroup,
-                         HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
-  auto *FirstRef = RefGroup.front();
+foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
+                     const RegDDRef *PostDomStoreRef,
+                     HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
 
-  // A[0] and (i32*)A[0] are put in the same group. We need to take the max size
-  // to check overlap correctly and also return the memref with largest size.
-  auto GetMaxRefSize = [](HIRLoopLocality::RefGroupTy &Group) {
-    uint64_t Size = 0;
-    const RegDDRef *MaxRef = nullptr;
+  assert((PostDomStoreRef->getDestTypeSizeInBytes() >=
+          StoreRef->getDestTypeSizeInBytes()) &&
+         "Post-dominating ref's size cannot be smaller than the other ref!");
 
-    for (auto *Ref : Group) {
-      // Can happen for fake refs with opaque destination types.
-      uint64_t RefSize = Ref->getDestType()->isSized()
-                             ? Ref->getDestTypeSizeInBytes()
-                             : UINT64_MAX;
-      // Use >= here to avoid case when RefSize is 0 and MaxRef can be nullptr.
-      if (RefSize >= Size) {
-        Size = RefSize;
-        MaxRef = Ref;
-      }
-    }
-
-    std::pair<uint64_t, const RegDDRef *> MaxRefSizePair = {Size, MaxRef};
-    return MaxRefSizePair;
-  };
-
-  uint64_t MaxRefSize;
-  const RegDDRef *MaxRef = nullptr;
-
-  std::tie(MaxRefSize, MaxRef) = GetMaxRefSize(RefGroup);
-
-  // Refs are arranged in reverse topological order.
-  unsigned MinTopSortNum = RefGroup.back()->getHLDDNode()->getTopSortNum();
-  unsigned MaxTopSortNum = RefGroup.front()->getHLDDNode()->getTopSortNum();
+  unsigned StoreSymbase = StoreRef->getSymbase();
+  unsigned MinTopSortNum = StoreRef->getHLDDNode()->getTopSortNum();
+  unsigned MaxTopSortNum = PostDomStoreRef->getHLDDNode()->getTopSortNum();
 
   for (auto &TmpRefGroup : EqualityGroups) {
-    auto *CurRef = TmpRefGroup.front();
 
-    if (FirstRef == CurRef) {
+    if (TmpRefGroup.front()->getSymbase() != StoreSymbase) {
       continue;
     }
 
-    if (CurRef->getSymbase() != FirstRef->getSymbase()) {
-      continue;
-    }
+    // Refs are ordered in reverse lexical order.
+    for (auto *TmpRef : TmpRefGroup) {
 
-    // Refs are arranged in reverse topological order.
-    unsigned TmpMinTopSortNum =
-        TmpRefGroup.back()->getHLDDNode()->getTopSortNum();
-    unsigned TmpMaxTopSortNum =
-        TmpRefGroup.front()->getHLDDNode()->getTopSortNum();
+      // Don't need to analyze same group as this is done in the caller.
+      if (TmpRef == PostDomStoreRef) {
+        break;
+      }
 
-    if (MinTopSortNum > TmpMaxTopSortNum || MaxTopSortNum < TmpMinTopSortNum) {
-      continue;
-    }
+      unsigned TmpTopSortNum = TmpRef->getHLDDNode()->getTopSortNum();
 
-    uint64_t CurMaxRefSize;
-    const RegDDRef *CurMaxRef = nullptr;
-    std::tie(CurMaxRefSize, CurMaxRef) = GetMaxRefSize(TmpRefGroup);
-    int64_t Distance;
-
-    if (!DDRefUtils::getConstByteDistance(FirstRef, CurRef, &Distance)) {
-      if (!HDDA.doRefsAlias(MaxRef, CurMaxRef)) {
+      // We can ignore refs which are lexically after PostDomStoreRef.
+      if (TmpTopSortNum > MaxTopSortNum) {
         continue;
       }
-      return true;
-    }
 
-    if (Distance <= 0) {
-      // Handles this case-
-      //
-      // %A is i8* type
-      // FirstRef - (i16*)(%A)[0]
-      // CurRef - (%A)[1]
-      //
-      if ((uint64_t)(-Distance) < MaxRefSize) {
+      // We have already reached lexically before StoreRef. Others refs in the
+      // group don't need to be analyzed.
+      if (TmpTopSortNum <= MinTopSortNum) {
+        break;
+      }
+
+      int64_t Distance;
+
+      if (!DDRefUtils::getConstByteDistance(PostDomStoreRef, TmpRef,
+                                            &Distance)) {
+        // Check aliasing with both refs as the result may be different based on
+        // metadata attached to refs.
+        if (!HDDA.doRefsAlias(PostDomStoreRef, TmpRef) &&
+            !HDDA.doRefsAlias(StoreRef, TmpRef)) {
+          continue;
+        }
         return true;
       }
 
-    } else if ((uint64_t)Distance < CurMaxRefSize) {
-      // Handles this case-
-      //
-      // %A is i8* type
-      // FirstRef - (%A)[1]
-      // CurRef - (i16*)(%A)[0]
-      //
-      return true;
+      if (TmpRef->isFake()) {
+        return true;
+      }
+
+      // Only intervening loads are a problem, stored can be ignored.
+      if (TmpRef->isLval()) {
+        continue;
+      }
+
+      if (Distance <= 0) {
+        // Handles this case-
+        //
+        // %A is i8* type
+        // PostDomStoreRef - (i16*)(%A)[0]
+        // TmpRef - (%A)[1]
+        //
+        if ((uint64_t)(-Distance) < PostDomStoreRef->getDestTypeSizeInBytes()) {
+          return true;
+        }
+
+      } else if ((uint64_t)Distance < TmpRef->getDestTypeSizeInBytes()) {
+        // Handles this case-
+        //
+        // %A is i8* type
+        // PostDomStoreRef - (%A)[1]
+        // TmpRef - (i16*)(%A)[0]
+        //
+        return true;
+      }
     }
   }
   return false;
@@ -547,7 +538,8 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
     dbgs() << "\n";
   });
 
-  if (Ref->isRval() || !Ref->accessesAlloca() || Ref->isFake()) {
+  if (Ref->isRval() || !Ref->accessesAlloca() || Ref->isFake() ||
+      !UniqueGroupSymbases.count(Ref->getSymbase())) {
     return false;
   }
 
@@ -604,7 +596,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
 
   // Refs returned by populateEqualityGroups() are in lexical order within the
   // group. We neet to reverse them as they are processed in reverse lexical
-  // order. This needs to be done before calling overlapsWithAnotherGroup()
+  // order. This needs to be done before calling foundInterveningLoad()
   // below
   // TODO: Is it worth changing the setup so reversal is not required?
   for (auto &RefGroup : EqualityGroups) {
@@ -619,12 +611,6 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
       continue;
     }
 
-    if (!UniqueGroupSymbases.count(Ref->getSymbase())) {
-      if (overlapsWithAnotherGroup(HDDA, RefGroup, EqualityGroups)) {
-        continue;
-      }
-    }
-
     LLVM_DEBUG({
       printRefGroupTy(RefGroup, "RefGroup: ");
       dbgs() << "Ref: ";
@@ -637,6 +623,8 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
       Result = doSingleItemGroup(Region, RefGroup) || Result;
       continue;
     }
+
+    bool IsUniqueSymbase = UniqueGroupSymbases.count(Ref->getSymbase());
 
     // For each store, check whether it post dominates another store and there
     // is no load interleaving between these two stores.
@@ -673,6 +661,13 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         if (!isValidParentChain(PostDomDDNode, PrevDDNode, PostDomRef)) {
           ++I;
           continue;
+        }
+
+        // If there is aliasing load between the two stores, give up on current
+        // PostDomRef.
+        if (!IsUniqueSymbase &&
+            foundInterveningLoad(HDDA, PrevRef, PostDomRef, EqualityGroups)) {
+          break;
         }
 
         // Delete the StoreInst on PrevRef, possibly even the entire loop.
