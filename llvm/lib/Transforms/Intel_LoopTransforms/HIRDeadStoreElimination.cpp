@@ -225,7 +225,7 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
 }
 
 // Returns true if there is an intervening load between \p StoreRef and \p
-// PostDomStoreRef which aliases with the store. For example-
+// PostDomStoreRef which aliases with \p StoreRef. For example-
 //
 // A[i] =
 //      = B[i]
@@ -243,72 +243,73 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
   unsigned MinTopSortNum = StoreRef->getHLDDNode()->getTopSortNum();
   unsigned MaxTopSortNum = PostDomStoreRef->getHLDDNode()->getTopSortNum();
 
-  for (auto &TmpRefGroup : EqualityGroups) {
+  for (auto &LoadRefGroup : EqualityGroups) {
 
-    if (TmpRefGroup.front()->getSymbase() != StoreSymbase) {
+    if (LoadRefGroup.front()->getSymbase() != StoreSymbase) {
       continue;
     }
 
     // Refs are ordered in reverse lexical order.
-    for (auto *TmpRef : TmpRefGroup) {
+    for (auto *LoadRef : LoadRefGroup) {
 
       // Don't need to analyze same group as this is done in the caller.
-      if (TmpRef == PostDomStoreRef) {
+      if (LoadRef == PostDomStoreRef) {
         break;
       }
 
-      unsigned TmpTopSortNum = TmpRef->getHLDDNode()->getTopSortNum();
+      unsigned LoadTopSortNum = LoadRef->getHLDDNode()->getTopSortNum();
 
       // We can ignore refs which are lexically after PostDomStoreRef.
-      if (TmpTopSortNum > MaxTopSortNum) {
+      if (LoadTopSortNum > MaxTopSortNum) {
         continue;
       }
 
       // We have already reached lexically before StoreRef. Others refs in the
       // group don't need to be analyzed.
-      if (TmpTopSortNum <= MinTopSortNum) {
+      if (LoadTopSortNum <= MinTopSortNum) {
         break;
       }
 
       int64_t Distance;
 
-      if (!DDRefUtils::getConstByteDistance(PostDomStoreRef, TmpRef,
-                                            &Distance)) {
-        // Check aliasing with both refs as the result may be different based on
-        // metadata attached to refs.
-        if (!HDDA.doRefsAlias(PostDomStoreRef, TmpRef) &&
-            !HDDA.doRefsAlias(StoreRef, TmpRef)) {
+      bool IsFake = LoadRef->isFake();
+
+      // Only intervening loads are a problem, stored can be ignored.
+      // Fake stores cannot be ignored as they can be either reads or writes in
+      // the callee.
+      if (!IsFake && LoadRef->isLval()) {
+        continue;
+      }
+
+      if (!DDRefUtils::getConstByteDistance(StoreRef, LoadRef, &Distance)) {
+        if (!HDDA.doRefsAlias(StoreRef, LoadRef)) {
           continue;
         }
         return true;
       }
 
-      if (TmpRef->isFake()) {
+      // Access pattern of fake refs is not known so distance cannot be used.
+      if (IsFake) {
         return true;
-      }
-
-      // Only intervening loads are a problem, stored can be ignored.
-      if (TmpRef->isLval()) {
-        continue;
       }
 
       if (Distance <= 0) {
         // Handles this case-
         //
         // %A is i8* type
-        // PostDomStoreRef - (i16*)(%A)[0]
-        // TmpRef - (%A)[1]
+        // StoreRef - (i16*)(%A)[0]
+        // LoadRef - (%A)[1]
         //
-        if ((uint64_t)(-Distance) < PostDomStoreRef->getDestTypeSizeInBytes()) {
+        if ((uint64_t)(-Distance) < StoreRef->getDestTypeSizeInBytes()) {
           return true;
         }
 
-      } else if ((uint64_t)Distance < TmpRef->getDestTypeSizeInBytes()) {
+      } else if ((uint64_t)Distance < LoadRef->getDestTypeSizeInBytes()) {
         // Handles this case-
         //
         // %A is i8* type
-        // PostDomStoreRef - (%A)[1]
-        // TmpRef - (i16*)(%A)[0]
+        // StoreRef - (%A)[1]
+        // LoadRef - (i16*)(%A)[0]
         //
         return true;
       }
