@@ -344,15 +344,15 @@ LTOCodeGenerator::compileOptimized() {
   return std::move(*BufferOrErr);
 }
 
-bool LTOCodeGenerator::compile_to_file(const char **Name, bool DisableVerify) {
-  if (!optimize(DisableVerify))
+bool LTOCodeGenerator::compile_to_file(const char **Name) {
+  if (!optimize())
     return false;
 
   return compileOptimizedToFile(Name);
 }
 
-std::unique_ptr<MemoryBuffer> LTOCodeGenerator::compile(bool DisableVerify) {
-  if (!optimize(DisableVerify))
+std::unique_ptr<MemoryBuffer> LTOCodeGenerator::compile() {
+  if (!optimize())
     return nullptr;
 
   return compileOptimized();
@@ -545,7 +545,7 @@ void LTOCodeGenerator::finishOptimizationRemarks() {
 }
 
 /// Optimize merged modules using various IPO passes
-bool LTOCodeGenerator::optimize(bool DisableVerify) {
+bool LTOCodeGenerator::optimize() {
   if (!this->determineTarget())
     return false;
 
