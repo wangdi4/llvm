@@ -1289,7 +1289,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i64 = OclBuiltinImpl<sub_g
 OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u8 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v16u8 ], 0,
   [{
     __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
-    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(UCHAR_MAX), vmask, (__m128i) $Arg0VarName));
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8((char)UCHAR_MAX), vmask, (__m128i) $Arg0VarName));
 
     unsigned short mask = 0x01;
 
@@ -1347,7 +1347,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i16 = OclBuiltinImpl<sub_g
 OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v16u16 ], 0,
   [{
     __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
-    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(USHRT_MAX), vmask, (__m256i) $Arg0VarName);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16((short)USHRT_MAX), vmask, (__m256i) $Arg0VarName);
 
     unsigned short mask = 0x01;
     const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
@@ -1521,7 +1521,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8i16 = OclBuiltinImpl<sub_gr
 OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8u16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [ v8u16 ], 0,
   [{
     __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
-    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(USHRT_MAX), vmask, (__m128i) $Arg0VarName);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16((short)USHRT_MAX), vmask, (__m128i) $Arg0VarName);
 
     unsigned short mask = 0x01;
     const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
@@ -2588,7 +2588,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16f64 = OclBuiltinImpl<sub_gr
 OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16u8 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v16u8 ], 0,
   [{
     __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
-    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8(UCHAR_MAX), vmask, (__m128i)$Arg0VarName));
+    $Arg0Type masked_data = as_$Arg0Type(_mm_mask_mov_epi8(_mm_set1_epi8((char)UCHAR_MAX), vmask, (__m128i)$Arg0VarName));
 
     unsigned short mask = 1;
 
@@ -2634,7 +2634,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16i8 = OclBuiltinImpl<sub_gr
 OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv16u16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v16u16 ], 0,
   [{
     __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_ps(), _MM_CMPINT_NE);
-    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16(USHRT_MAX), vmask, (__m256i)$Arg0VarName);
+    __m256i masked_data = _mm256_mask_mov_epi16(_mm256_set1_epi16((short)USHRT_MAX), vmask, (__m256i)$Arg0VarName);
 
     const __m256i rotate_mask = _mm256_setr_epi16(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
     unsigned short mask = 1;
@@ -2835,7 +2835,7 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8ui8 = OclBuiltinImpl<sub_gr
 OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8u16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [ v8u16 ], 0,
   [{
     __mmask8 vmask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
-    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16(USHRT_MAX), vmask, (__m128i)$Arg0VarName);
+    __m128i masked_data = _mm_mask_mov_epi16(_mm_set1_epi16((short)USHRT_MAX), vmask, (__m128i)$Arg0VarName);
 
     const __m128i rotate_mask = _mm_setr_epi16(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
