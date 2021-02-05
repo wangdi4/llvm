@@ -959,7 +959,7 @@ public:
 
   /// Create a call to llvm.intel.subscript.
   Instruction *CreateSubscript(unsigned Rank, Value *LowerBound, Value *Stride,
-                               Value *Ptr, Value *Index);
+                               Value *Ptr, Value *Index, bool IsExact = true);
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a call to llvm.vscale, multiplied by \p Scaling. The type of VScale

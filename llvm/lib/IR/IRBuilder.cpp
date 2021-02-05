@@ -529,7 +529,7 @@ Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
 // Intrinsic generated for structured address computations.
 Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
                                             Value *Stride, Value *Ptr,
-                                            Value *Index) {
+                                            Value *Index, bool IsExact) {
 
   // First element is reserved for return type.
   Type *Types[5] = {nullptr, LowerBound->getType(), Stride->getType(),
@@ -551,7 +551,10 @@ Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
 
   Module *M = BB->getParent()->getParent();
   Function *FnSubscript =
-      Intrinsic::getDeclaration(M, Intrinsic::intel_subscript, Types);
+      Intrinsic::getDeclaration(M,
+                                IsExact ? Intrinsic::intel_subscript
+                                        : Intrinsic::intel_subscript_nonexact,
+                                Types);
 
   Instruction *Ret = createCallHelper(FnSubscript, Ops, this);
   return Ret;

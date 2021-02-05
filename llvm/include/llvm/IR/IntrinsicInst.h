@@ -880,7 +880,8 @@ public:
   public:
     static bool classof(const IntrinsicInst *I) {
       return I->getIntrinsicID() == Intrinsic::intel_fakeload ||
-             I->getIntrinsicID() == Intrinsic::intel_subscript;
+             I->getIntrinsicID() == Intrinsic::intel_subscript ||
+             I->getIntrinsicID() == Intrinsic::intel_subscript_nonexact;
     }
     static bool classof(const Value *V) {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
@@ -906,10 +907,15 @@ public:
   class SubscriptInst : public AddressInst {
   public:
     static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::intel_subscript;
+      return I->getIntrinsicID() == Intrinsic::intel_subscript ||
+             I->getIntrinsicID() == Intrinsic::intel_subscript_nonexact;
     }
     static bool classof(const Value *V) {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+
+    bool isExact() const {
+      return getIntrinsicID() != Intrinsic::intel_subscript_nonexact;
     }
 
     // Returns the rank in the subscript call arguments plus a rank of the
