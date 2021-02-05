@@ -176,13 +176,10 @@ void IndirectCallCodeGenerator::generateCodeForNonUniformIndirectCall(
   NextBB = CurrentBB->getNextNode();
   IndirectCallLoopEntryBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "indirect.call.loop.entry", CurFunc, NextBB);
-  CurVectorizedLoop->addBasicBlockToLoop(IndirectCallLoopEntryBB, *LI);
   VectorIndirectCallBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "vector.indirect.call", CurFunc, NextBB);
-  CurVectorizedLoop->addBasicBlockToLoop(VectorIndirectCallBB, *LI);
   IndirectCallLoopLatchBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "indirect.call.loop.latch", CurFunc, NextBB);
-  CurVectorizedLoop->addBasicBlockToLoop(IndirectCallLoopLatchBB, *LI);
   IndirectCallLoopExitBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "indirect.call.loop.exit", CurFunc, NextBB);
 
@@ -347,6 +344,5 @@ void IndirectCallCodeGenerator::fillIndirectCallLoopExitBB(
   CodeGen->addToWidenMap(VPCallInst, IndirectCallReturnLCSSAPhi);
   UnreachableInst *Terminator = State->Builder.CreateUnreachable();
   State->Builder.SetInsertPoint(Terminator);
-  CurVectorizedLoop->addBasicBlockToLoop(IndirectCallLoopExitBB, *LI);
   State->CFG.PrevBB = IndirectCallLoopExitBB;
 }

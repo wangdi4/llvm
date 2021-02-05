@@ -377,8 +377,24 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
 
-  InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
+  if (EnableDeviceSimdCodeGen &&
+      WRegionUtils::containsWRNsWith(
+          W, [](WRegionNode *W) { return isa<WRNVecLoopNode>(W); }))
+    // When W contains a SIMD directive (and SIMD device codegen is enabled),
+    // we don't run InferAddrSpaces as it can cause mismatches in the Values
+    // on the clause list, and those used in the region. e.g.
+    //    Before                           |        After
+    // ------------------------------------+------------------------------
+    //  %x1 = addrspacecast i32* %x        | %x1 = addrspacecast i32* %x
+    //            to i32 addrspace(4)*     |          to i32 addrspace(4)*
+    //                                     |
+    //  ...["SIMD",...,"PRIVATE"(%x1)      | ...["SIMD",...,"PRIVATE"(%x1)
+    //                                     |
+    //  store i32 0, i32 addrspace(4)* %x1 | store i32 0, i32* %x
+    //                                     |
+    return NFn;
 
+  InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
   return NFn;
 }
 

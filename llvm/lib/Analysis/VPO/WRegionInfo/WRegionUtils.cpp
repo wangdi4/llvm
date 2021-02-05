@@ -884,6 +884,28 @@ bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
   return false;
 }
 
+// Returns true iff W contains a WRN for which Predicate is true.
+bool WRegionUtils::containsWRNsWith(
+    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate) {
+  if (!W->hasChildren())
+    return false;
+
+  SmallVector<WRegionNode *, 32> ContainedWRNs{W->wrn_child_begin(),
+                                               W->wrn_child_end()};
+  while (!ContainedWRNs.empty()) {
+    auto *W = ContainedWRNs.pop_back_val();
+
+    if (Predicate(W))
+      return true;
+
+    if (!W->hasChildren())
+      continue;
+
+    ContainedWRNs.append(W->wrn_child_begin(), W->wrn_child_end());
+  }
+  return false;
+}
+
 WRNVecLoopNode *WRegionUtils::getEnclosedSimdForSameLoop(WRegionNode *W,
                                                          unsigned Idx) {
   assert(W->getIsOmpLoop() && "Expected a loop-type WRN");

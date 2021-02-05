@@ -14631,6 +14631,7 @@ multiclass avx512_vmovget_all {
 
 defm VMOVGET : avx512_vmovget_all;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
+
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 multiclass avxrao_mask_int<string OpcodeStr, X86VectorVTInfo VTInfo,
                            SDNode OpNode> {
@@ -14639,7 +14640,6 @@ multiclass avxrao_mask_int<string OpcodeStr, X86VectorVTInfo VTInfo,
                 OpcodeStr#"\t{$src, $dst|$dst, $src}",
                 [(!cast<Intrinsic>("int_x86_"#OpcodeStr#VTInfo.Size)
                  addr:$dst, VTInfo.RC:$src)]>, EVEX;
-
     def mrk : I<0xfc, MRMDestMem, (outs),
                 (ins VTInfo.MemOp:$dst, VTInfo.KRCWM:$mask, VTInfo.RC:$src),
                 OpcodeStr#"\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
@@ -14666,4 +14666,52 @@ defm VPAOR  : avxraoint_base<"vpaor", X86vpaor>, T8XD;
 defm VPAXOR : avxraoint_base<"vpaxor", X86vpaxor>, T8XS;
 
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
+
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+multiclass avx512raofp_base<bits<8> OpCode, string OpcodeStr,
+                X86VectorVTInfo VTInfo, X86MemOperand MemOp> {
+    def mr  : I<OpCode, MRMDestMem, (outs),
+                (ins MemOp:$dst, VTInfo.RC:$src),
+                OpcodeStr#"\t{$src, $dst|$dst, $src}",
+                [(!cast<Intrinsic>("int_x86_"#OpcodeStr#VTInfo.Size)
+                 addr:$dst, VTInfo.RC:$src)]>, EVEX;
+    def mrk : I<OpCode, MRMDestMem, (outs),
+                (ins MemOp:$dst, VTInfo.KRCWM:$mask, VTInfo.RC:$src),
+                OpcodeStr#"\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
+                [(X86vaaddf addr:$dst, (VTInfo.VT VTInfo.RC:$src), VTInfo.KRCWM:$mask)]>,
+                EVEX_K, EVEX;
+}
+
+multiclass avx512raofp_packed<bits<8> OpCode, string OpcodeStr,
+                           AVX512VLVectorVTInfo VTInfo> {
+  let Predicates = [HasAVX512RAOFP] in
+    defm Z : avx512raofp_base<OpCode, OpcodeStr, VTInfo.info512,
+                       VTInfo.info512.MemOp>, EVEX_V512;
+
+  let Predicates = [HasVLX, HasAVX512RAOFP] in {
+    defm Z256 : avx512raofp_base<OpCode, OpcodeStr, VTInfo.info256,
+                                 VTInfo.info256.MemOp>, EVEX_V256;
+    defm Z128 : avx512raofp_base<OpCode, OpcodeStr, VTInfo.info128,
+                                 VTInfo.info128.MemOp>, EVEX_V128;
+  }
+}
+
+multiclass avx512raofp_single<bits<8> OpCode, string OpcodeStr,
+                          AVX512VLVectorVTInfo VTInfo> {
+  let Predicates = [HasAVX512RAOFP] in
+    defm Z128 : avx512raofp_base<OpCode, OpcodeStr, VTInfo.info128,
+                VTInfo.info128.ScalarMemOp>, VEX_LIG,
+                EVEX_CD8<VTInfo.info128.EltSize, CD8VT1>;
+}
+
+defm VAADDPD    : avx512raofp_packed<0x84, "vaaddpd", avx512vl_f64_info>, T8PD, VEX_W;
+defm VAADDPS    : avx512raofp_packed<0x84, "vaaddps", avx512vl_f32_info>, T8PS;
+defm VAADDPH    : avx512raofp_packed<0x94, "vaaddph", avx512vl_f16_info>, T8PS;
+defm VAADDPBF16 : avx512raofp_packed<0x94, "vaaddpbf16", avx512vl_i16_info>, T8PD;
+
+defm VAADDSD    : avx512raofp_single<0x84, "vaaddsd", avx512vl_f64_info>, T8XD, VEX_W;
+defm VAADDSS    : avx512raofp_single<0x84, "vaaddss", avx512vl_f32_info>, T8XS;
+defm VAADDSH    : avx512raofp_single<0x94, "vaaddsh", avx512vl_f16_info>, T8XS;
+defm VAADDSBF16 : avx512raofp_single<0x94, "vaaddsbf16", avx512vl_i16_info>, T8XD;
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // INTEL_CUSTOMIZATION
