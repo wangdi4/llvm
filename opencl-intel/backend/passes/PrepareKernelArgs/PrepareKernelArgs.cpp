@@ -26,7 +26,6 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <sstream>
 #include <memory>
@@ -100,23 +99,11 @@ namespace intel{
     // Create a new function
     Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
     pNewF->setCallingConv(pFunc->getCallingConv());
+    pNewF->copyMetadata(pFunc, 0);
 
-    ValueToValueMapTy VMap;
-    DISubprogram *SP = pFunc->getSubprogram();
-    if (SP) {
-      auto &MD = VMap.MD();
-      MD[SP->getUnit()].reset(SP->getUnit());
-      MD[SP->getType()].reset(SP->getType());
-      MD[SP->getFile()].reset(SP->getFile());
-    }
-    // Duplicate the metadata that is attached to the wrapped function.
-    // Subprograms that were already mapped to themselves won't be
-    // duplicated.
-    SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
-    pFunc->getAllMetadata(MDs);
-    for (auto MD : MDs) {
-      pNewF->addMetadata(MD.first, *MapMetadata(MD.second, VMap));
-    }
+    // pFunc is expected to be inlined anyway,
+    // so no need to duplicate DISubprogram.
+    pFunc->setSubprogram(nullptr);
 
     return pNewF;
   }
@@ -428,8 +415,8 @@ namespace intel{
     // inlinable function call in a function with debug info
     // must have a !dbg location
     if (DISubprogram *SP = WrappedKernel->getSubprogram())
-      call->setDebugLoc(DILocation::get(*m_pLLVMContext, SP->getScopeLine(), 0,
-                                        pWrapper->getSubprogram()));
+      call->setDebugLoc(
+          DILocation::get(*m_pLLVMContext, SP->getScopeLine(), 0, SP));
     call->setCallingConv(WrappedKernel->getCallingConv());
 
     // Preserve debug info for a kernel return instruction
@@ -439,11 +426,7 @@ namespace intel{
       assert(Term && "Ill-formed BasicBlock");
       if (!isa<ReturnInst>(Term))
         continue;
-
-      if (Term->getDebugLoc())
-        WrapperRet->setDebugLoc(DILocation::get(*m_pLLVMContext,
-                                                Term->getDebugLoc()->getLine(),
-                                                0, pWrapper->getSubprogram()));
+      WrapperRet->setDebugLoc(Term->getDebugLoc());
       break;
     }
   }
@@ -495,12 +478,11 @@ namespace intel{
     // Change name of old function
     pFunc->setName("__" + pFunc->getName() + "_separated_args");
 
-    // Make sure old function always inlined when OptNone is absent
+    // Make sure the old function is always inlined, and the wrapper will keep the
+    // old function's debug info
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
-    if (!pFunc->hasOptNone()){
-      pFunc->removeFnAttr(llvm::Attribute::NoInline);
-      pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
-    }
+    pFunc->removeFnAttr(llvm::Attribute::NoInline);
+    pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
 
     createWrapperBody(pWrapper, pFunc);
 

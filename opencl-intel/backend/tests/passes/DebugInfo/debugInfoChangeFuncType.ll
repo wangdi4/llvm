@@ -21,10 +21,10 @@
 ; The test checks that the passes preserve debug info.
 ;
 ; CHECK: @func{{.*}} !dbg ![[DMETA1:[0-9]+]]
-; CHECK-PKA: @__invoke_func_separated_args{{.*}} !dbg
+; CHECK-PKA: @__invoke_func_separated_args{{.*}} #[[ATTR:[0-9]+]]
 ; CHECK: @invoke_func{{.*}} !dbg ![[DMETA2:[0-9]+]]
-; CHECK-PKA: call void @__invoke_func_separated_args{{.*}} !dbg
 ; CHECK: ret void, !dbg !{{[0-9]+}}
+; CHECK-PKA: attributes #[[ATTR]] = { alwaysinline
 ; CHECK-DAG: ![[DMETA1]] = {{.*}}!DISubprogram{{.*}}name: "func"
 ; CHECK-DAG: ![[DMETA2]] = {{.*}}!DISubprogram{{.*}}name: "invoke_func"
 
