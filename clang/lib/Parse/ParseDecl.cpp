@@ -5216,8 +5216,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
-      getTargetInfo().getSupportedOpenCLOpts().
-         isEnabled("cl_intel_channels");
+           getActions().getOpenCLOptions().isEnabled("cl_intel_channels");
 #endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
@@ -5755,7 +5754,7 @@ void Parser::ParseDeclarator(Declarator &D) {
 
 #if INTEL_CUSTOMIZATION
 static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
-                               const TargetInfo &Target, DeclaratorContext TheContext) {
+                               Sema &Actions, DeclaratorContext TheContext) {
 #endif // INTEL_CUSTOMIZATION
   if (Kind == tok::star || Kind == tok::caret)
     return true;
@@ -5765,7 +5764,7 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&
-      Target.getSupportedOpenCLOpts().isEnabled("cl_intel_channels"))
+      Actions.getOpenCLOptions().isEnabled("cl_intel_channels"))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
@@ -5905,7 +5904,7 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
 
 #if INTEL_CUSTOMIZATION
   // Not a pointer, C++ reference, or block.
-  if (!isPtrOperatorToken(Kind, getLangOpts(), getTargetInfo(),
+  if (!isPtrOperatorToken(Kind, getLangOpts(), getActions(),
                           D.getContext())) {
     if (DirectDeclParser)
       (this->*DirectDeclParser)(D);
@@ -6134,7 +6133,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
           D.getDeclSpec().getTypeSpecType() != TST_auto)) {
       SourceLocation EllipsisLoc = ConsumeToken();
 #if INTEL_CUSTOMIZATION
-      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), getTargetInfo(),
+      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), getActions(),
                              D.getContext())) {
 #endif // INTEL_CUSTOMIZATION
         // The ellipsis was put in the wrong place. Recover, and explain to

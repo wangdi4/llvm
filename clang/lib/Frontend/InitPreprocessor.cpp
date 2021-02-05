@@ -1192,10 +1192,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
   // OpenCL definitions.
   if (LangOpts.OpenCL) {
-#define OPENCLEXT(Ext)                                                         \
-  if (TI.getSupportedOpenCLOpts().isSupported(#Ext, LangOpts))                 \
-    Builder.defineMacro(#Ext);
-#include "clang/Basic/OpenCLExtensions.def"
+    TI.getOpenCLFeatureDefines(LangOpts, Builder);
 
     if (TI.getTriple().isSPIR())
 #if INTEL_CUSTOMIZATION
