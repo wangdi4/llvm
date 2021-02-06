@@ -22,6 +22,7 @@ namespace vpo {
 
 class VPlanVector;
 class VPInstruction;
+class VPlanCostModel;
 class VPlanValueTracking;
 class VPLoadStoreInst;
 
@@ -119,9 +120,9 @@ public:
   virtual int getCost(VPInstruction *Mrf, int VF, Align Alignment) = 0;
 };
 
-/// A simple dummy implementation of VPlanPeelingCostModel interface. It uses a
-/// reasonable but very simple heuristic. In future, it is expected to be
-/// replaced with a more precise TTI-based cost model.
+/// A simple (but reasonable) implementation of VPlanPeelingCostModel. It
+/// assumes that profit from aligning any single store is 50% higher than
+/// aligning any load. The profits don't depend on actual memory access types.
 class VPlanPeelingCostModelSimple final : public VPlanPeelingCostModel {
 public:
   VPlanPeelingCostModelSimple(const DataLayout &DL) : DL(&DL) {}
@@ -130,6 +131,18 @@ public:
 
 private:
   const DataLayout *DL;
+};
+
+/// An implementation of VPlanPeelingCostModel based on general vectorizer cost
+/// model. It is the most precise cost model for peeling analysis.
+class VPlanPeelingCostModelGeneral final : public VPlanPeelingCostModel {
+public:
+  VPlanPeelingCostModelGeneral(VPlanCostModel &CM) : CM(&CM) {}
+
+  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+
+private:
+  VPlanCostModel *CM;
 };
 
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot

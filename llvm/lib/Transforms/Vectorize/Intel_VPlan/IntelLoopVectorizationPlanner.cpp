@@ -84,6 +84,11 @@ static cl::opt<bool>
 static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
+static cl::opt<bool> EnableGeneralPeelingCostModel(
+    "vplan-enable-general-peeling-cost-model", cl::init(false),
+    cl::desc("Use more advanced general cost model instead of a simple one for "
+             "peeling decisions"));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -350,7 +355,6 @@ void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
   std::map<VPlanNonMasked *, VPlanPeelingAnalysis> VPPACache;
-  VPlanPeelingCostModelSimple CM(*DL);
 
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
@@ -363,11 +367,22 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
     if (Found == VPPACache.end()) {
       VPlanPeelingAnalysis VPPA(*(Plan->getVPSE()), *(Plan->getVPVT()), *DL);
       VPPA.collectMemrefs(*Plan);
-      std::tie(Found, std::ignore) = VPPACache.emplace(Plan, std::move(VPPA));
+      Found = VPPACache.emplace(Plan, std::move(VPPA)).first;
     }
 
-    Plan->setPreferredPeeling(VF,
-                              Found->second.selectBestPeelingVariant(VF, CM));
+    VPlanPeelingAnalysis &VPPA = Found->second;
+
+    std::unique_ptr<VPlanPeelingVariant> BestPeeling;
+    if (EnableGeneralPeelingCostModel) {
+      VPlanCostModel GeneralCM(Plan, VF, TTI, TLI, DL, VLSA);
+      VPlanPeelingCostModelGeneral PeelingCM(GeneralCM);
+      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM);
+    } else {
+      VPlanPeelingCostModelSimple PeelingCM(*DL);
+      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM);
+    }
+
+    Plan->setPreferredPeeling(VF, std::move(BestPeeling));
   }
 }
 
