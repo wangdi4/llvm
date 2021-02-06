@@ -10,6 +10,7 @@
 define void @test_uni_inner(i64 *%p) {
 ;
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  VPlan IR for: test_uni_inner:simd.header
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:

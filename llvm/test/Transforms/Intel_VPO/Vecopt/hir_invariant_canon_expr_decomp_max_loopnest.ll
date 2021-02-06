@@ -41,6 +41,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @foo(i32 %n, i32* nocapture %A, i32 %C) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {2 * %C}
 ; CHECK-DAG:     [[VP1:%.*]] = {sext.i32.i64(%n) + -1}

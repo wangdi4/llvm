@@ -32,6 +32,7 @@
 
 define dso_local i32 @main(i32 %add) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: main:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%0}
 ; CHECK-DAG:     [[VP1:%.*]] = {@s}

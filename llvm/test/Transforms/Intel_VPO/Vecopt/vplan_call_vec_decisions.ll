@@ -12,6 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
+; CALLVECDEC-NEXT:  VPlan IR for: foo:omp.inner.for.body
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
@@ -71,6 +72,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
+; SVA-NEXT:  VPlan IR for: foo:omp.inner.for.body
 ; SVA-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
@@ -191,6 +193,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32 %N) {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=128:
+; CALLVECDEC-NEXT:  VPlan IR for: foo_pumping:omp.inner.for.body
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
@@ -226,6 +229,7 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:  Id: 0   no underlying for i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
+; SVA-NEXT:  VPlan IR for: foo_pumping:omp.inner.for.body
 ; SVA-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:
@@ -303,6 +307,7 @@ declare void @unmasked_scalar(i1, i64) #6
 declare void @unmasked_vector(<2 x i1>, <2 x i64>)
 define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* nocapture %B, i32 %N) {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=2:
+; CALLVECDEC-NEXT:  VPlan IR for: foo_unmasked_call_in_dpcpp:header
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
@@ -344,6 +349,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; CALLVECDEC-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
+; SVA-NEXT:  VPlan IR for: foo_unmasked_call_in_dpcpp:header
 ; SVA-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-EMPTY:

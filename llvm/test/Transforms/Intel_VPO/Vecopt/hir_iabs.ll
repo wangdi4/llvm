@@ -8,6 +8,7 @@
 ;
 define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predication and linearization:
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%larr}
 ; CHECK-NEXT:  External Defs End:

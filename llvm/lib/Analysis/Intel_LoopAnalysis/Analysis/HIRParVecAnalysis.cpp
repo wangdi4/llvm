@@ -645,20 +645,24 @@ public:
   void visit(HLSwitch *Switch) {}
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
+  bool tryMinMaxIdiom(HLDDNode *Node);
 };
 
-void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
-  auto MinMaxInst = dyn_cast<HLInst>(Node);
-  if (!MinMaxInst)
-    return;
+// Checks if the given Node is the beginning of Min/Max idiom. If the search
+// succeeds, then the Node and its linked instructions are added in IdiomList.
+bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
+  auto HInst = dyn_cast<HLInst>(Node);
+  if (!HInst)
+    return false;
 
+  HLInst *MinMaxInst = dyn_cast<HLInst>(Node);
   // First hunt for min/max pattern
   if (!MinMaxInst->isMinOrMax())
-    return;
+    return false;
 
   // If the instruction is safe reduction then it can't be idiom.
   if (SRAnalysis.getSafeRedInfo(MinMaxInst))
-    return;
+    return false;
 
   // Get operands and predicate
   const RegDDRef *Operand1 = MinMaxInst->getOperandDDRef(1);
@@ -670,13 +674,13 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   PredicateTy Pred = MinMaxInst->getPredicate();
 
   if (!Lval->isTerminalRef())
-    return;
+    return false;
 
   bool LvalEqualsThirdOp = DDRefUtils::areEqual(Lval, Operand3);
 
   // Lval should be involved in minmax idiom.
   if (!LvalEqualsThirdOp && !DDRefUtils::areEqual(Lval, Operand4))
-    return;
+    return false;
 
   // Supposing the MinMaxInst is in the form
   //  mm = (mm OP b) ? mm : b;
@@ -705,7 +709,7 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
     if (E->isOutput()) {
       if (E->getSink() != Lval) {
         LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency\n");
-        return;
+        return false;
       }
     } else {
       assert(E->isFlow() && "Flow edge expected");
@@ -723,13 +727,13 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
       // Node should be at top level.
       if (SinkNode->getParent() != Loop) {
         LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: in another loop\n");
-        return;
+        return false;
       }
 
       // Only backward edges are allowed.
       if (SinkNode->getTopSortNum() > Node->getTopSortNum()) {
         LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: incorrect nodes order\n");
-        return;
+        return false;
       }
 
       auto *Select = dyn_cast<HLInst>(SinkNode);
@@ -737,14 +741,14 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
         LLVM_DEBUG(
             dbgs()
             << "[MinMax+Index] Skipped: dependency on non-select node\n");
-        return;
+        return false;
       }
 
       auto *SelectLval = Select->getLvalDDRef();
       if (!SelectLval->isTerminalRef()) {
         LLVM_DEBUG(
             dbgs() << "[MinMax+Index] Skipped: dependency on non-terminal\n");
-        return;
+        return false;
       }
 
       auto *SelectOp1 = Select->getOperandDDRef(1);
@@ -756,7 +760,7 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
         LLVM_DEBUG(
             dbgs()
             << "[MinMax+Index] Skipped: dependency on comparison operand\n");
-        return;
+        return false;
       }
 
       // This verifies that the two comparison operations are identical.
@@ -765,7 +769,7 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
           !DDRefUtils::areEqual(SelectOp2, Operand2)) {
         LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency on not the "
                              "same comparison\n");
-        return;
+        return false;
       }
 
       if (DisableNonLinearMMIndexes) {
@@ -781,13 +785,13 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
         if (!Rhs->isLinear()) {
           LLVM_DEBUG(dbgs()
                      << "[MinMax+Index] Skipped: nonlinear rhs disabled\n");
-          return;
+          return false;
         }
         if (!Rhs->isTerminalRef()) {
           LLVM_DEBUG(
               dbgs()
               << "[MinMax+Index] Skipped: nonlinear rhs disabled (nonterm)\n");
-          return;
+          return false;
         }
         if (Rhs->getSrcType() != Rhs->getDestType()) {
           // TODO: Currently, linears are usually promoted to 64-bit even in
@@ -798,7 +802,7 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
           //
           LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: nonlinear rhs disabled "
                                "(conversion)\n");
-          return;
+          return false;
         }
         if (Rhs->getSingleCanonExpr()->getDenominator() != 1) {
           // Loopopt can declare as linear e.g. i1/3. But we need a monotonic
@@ -806,7 +810,7 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
           LLVM_DEBUG(
               dbgs()
               << "[MinMax+Index] Skipped: nonlinear rhs disabled (denom)\n");
-          return;
+          return false;
         }
       }
 
@@ -816,14 +820,14 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
         if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(3))) {
           LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency on "
                                "not-same-order select\n");
-          return;
+          return false;
         }
       } else if (!DDRefUtils::areEqual(SelectLval,
                                        Select->getOperandDDRef(4))) {
         LLVM_DEBUG(
             dbgs()
             << "[MinMax+Index] Skipped: dependency on not-same-order select\n");
-        return;
+        return false;
       }
       // Need to check whether SinkLVal does not have other dependencies in the
       // loop.
@@ -833,7 +837,7 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
           // TODO: Check wether we can allow dependencies between any of
           // gathered instructions (moving this check to out of the loop).
           LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: other dependency\n");
-          return;
+          return false;
         }
       }
 
@@ -848,7 +852,17 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
       IdiomList.addLinked(MinMaxInst, Linked, HIRVectorIdioms::MMFirstLastLoc);
     }
     LLVM_DEBUG(dbgs() << "[MinMax+Index] Accepted\n");
+    return true;
   }
+  return false;
+}
+
+void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
+
+  if (tryMinMaxIdiom(Node))
+    return;
+
+  return;
 }
 
 void HIRVectorIdiomAnalysis::gatherIdioms(HIRVectorIdioms &IList,

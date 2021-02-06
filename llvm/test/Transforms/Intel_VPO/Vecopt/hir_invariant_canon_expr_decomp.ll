@@ -24,6 +24,7 @@
 
 define dso_local void @foo(i64 %n1, i64 %n2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:   [[VP0:%.*]] = {(%n1 * %n2)}
 ; CHECK-DAG:   [[VP1:%.*]] = {%n1 + %n2}

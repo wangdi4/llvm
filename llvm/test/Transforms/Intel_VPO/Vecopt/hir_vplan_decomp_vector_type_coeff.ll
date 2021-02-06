@@ -27,6 +27,7 @@
 ; Function Attrs: nofree nounwind uwtable
 define dso_local void @do_add_pd(<8 x i1> %cond) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: do_add_pd:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@ddest_zmm}
 ; CHECK-DAG:     [[VP1:%.*]] = {@dsrc1}

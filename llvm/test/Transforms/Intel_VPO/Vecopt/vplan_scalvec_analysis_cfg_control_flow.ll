@@ -13,6 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32* nocapture readonly %c, i32 %N) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  VPlan IR for: divControlFlow:omp.inner.for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -129,6 +130,7 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.33
 ; Function Attrs: nounwind uwtable
 define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32* nocapture readonly %c, i32 %N, i64 %key) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  VPlan IR for: uniControlFlow:omp.inner.for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:

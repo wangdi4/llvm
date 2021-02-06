@@ -33,6 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind uwtable
 define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noalias nocapture %c, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predication and linearization:
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

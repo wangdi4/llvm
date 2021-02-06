@@ -7,6 +7,7 @@
 
 define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%p1}
 ; CHECK-DAG:     [[VP1:%.*]] = {%p2}

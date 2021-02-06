@@ -39,6 +39,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [101 x float]* nocapture %a, i1 zeroext %vec) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: _Z3foollPlPA101_fb:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%ret.021}
 ; CHECK-DAG:     [[VP1:%.*]] = {%m + -1}

@@ -2186,13 +2186,14 @@ AliasResult BasicAAResult::aliasCheckRecursive(
 
 #if INTEL_CUSTOMIZATION
   if (AAQI.NeedLoopCarried) {
-    // Stop at this point for loop-carried analysis.
-    // We used to call getBestAAResults() here, because aliasCheck() would
-    // do that at the end, to get results from other AA modules. But in
-    // 0b84afa5, the code was restructured so that the top level caller
-    // needs to call getBestAAResults(), and all recursive calls within
-    // BasicAA will call getBestAAResults.
-    return MayAlias;
+    // For loopCarriedAlias we'll stop analysis here. Rather than return
+    // MayAlias, check if any other AA has a better response. Recurse back into
+    // the best AA results we have, potentially with refined memory locations.
+    // We have already ensured that BasicAA has a MayAlias cache result for
+    // these, so any recursion back into BasicAA won't loop.
+    return getBestAAResults().loopCarriedAlias(
+                                   MemoryLocation(V1, V1Size, V1AAInfo),
+                                   MemoryLocation(V2, V2Size, V2AAInfo), AAQI);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2226,11 +2227,7 @@ AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
                                             const MemoryLocation &LocB,
                                             AAQueryInfo &AAQI) {
   assert(AAQI.NeedLoopCarried && "Unexpectedly missing dynamic query flag");
-  AliasResult Alias = aliasCheck(LocA.Ptr, LocA.Size, LocA.AATags, LocB.Ptr,
-                                 LocB.Size, LocB.AATags, AAQI);
-
-  VisitedPhiBBs.clear();
-  return Alias;
+  return alias(LocA, LocB, AAQI);
 }
 #endif // INTEL_CUSTOMIZATION
 

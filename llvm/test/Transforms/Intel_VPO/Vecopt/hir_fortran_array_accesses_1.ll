@@ -10,6 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noalias nocapture readonly %"interp_$M", double* noalias %"interp_$U", i32* noalias %"interp_$N") local_unnamed_addr {
 ; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
+; VPLAN-IR-NEXT:  VPlan IR for: interp1:HIR
 ; VPLAN-IR-NEXT:  External Defs Start:
 ; VPLAN-IR-DAG:     [[VP0:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
 ; VPLAN-IR-DAG:     [[VP1:%.*]] = {%"interp_$Z"}
@@ -158,6 +159,7 @@ bb77:                                             ; preds = %bb77.loopexit, %all
 
 define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noalias nocapture readonly %"interp_$M", double* noalias %"interp_$U", i32* noalias %"interp_$N") local_unnamed_addr {
 ; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
+; VPLAN-IR-NEXT:  VPlan IR for: interp2:HIR
 ; VPLAN-IR-NEXT:  External Defs Start:
 ; VPLAN-IR-DAG:     [[VP0:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
 ; VPLAN-IR-DAG:     [[VP1:%.*]] = {%"interp_$U"}

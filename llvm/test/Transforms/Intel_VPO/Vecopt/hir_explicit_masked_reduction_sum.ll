@@ -34,6 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local float @ifsum1(i32 %N) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: ifsum1:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%tsum.015}
 ; CHECK-DAG:     [[VP1:%.*]] = {@B}

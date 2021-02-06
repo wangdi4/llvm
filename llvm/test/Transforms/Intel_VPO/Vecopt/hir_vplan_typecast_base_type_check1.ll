@@ -41,6 +41,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i32 %factor) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:    [[VP3:%.*]] = {zext.i32.i64([[TMP0:%.*]]) + -1}
 ; CHECK-DAG:    [[VP0:%.*]] = {@c}

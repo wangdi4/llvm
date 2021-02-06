@@ -16,6 +16,7 @@ declare void @llvm.directive.region.exit(token) #4
 
 define void @_ZGVbN4_direct() #1 {
 ; CHECK-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
+; CHECK-NEXT:  VPlan IR for: _ZGVbN4_direct:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

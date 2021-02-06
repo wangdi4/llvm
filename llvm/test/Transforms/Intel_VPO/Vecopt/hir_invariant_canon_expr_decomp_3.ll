@@ -25,6 +25,7 @@
 
 define dso_local void @foo(i64 %n1) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:   [[VP0:%.*]] = {%n1 * i1}
 ; CHECK-DAG:   [[VP1:%.*]] = {@arr}

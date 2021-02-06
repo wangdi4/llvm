@@ -1205,15 +1205,15 @@ bool UnrollHelper::shouldCreateNewLvalTemp(unsigned LvalSymbase) const {
     return false;
   }
 
+  // Create new mapping for temps defined in outer loops.
+  if (!CurOrigLoop->isInnermost()) {
+    return true;
+  }
+
   // Do not rename temps in loopnest reductions.
   // These are the only allowed livein temps for unroll & jam.
   if (OrigTopLevelLoop->isLiveIn(LvalSymbase)) {
     return false;
-  }
-
-  // Create new mapping for temps defined in outer loops.
-  if (!CurOrigLoop->isInnermost()) {
-    return true;
   }
 
   // If the temp is liveout of innermost loop we should create a mapping as

@@ -11,6 +11,7 @@
 define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after initial VPlan for VF=4:
+; CHECK-NEXT:  VPlan IR for: _Z3fooPii:omp.inner.for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

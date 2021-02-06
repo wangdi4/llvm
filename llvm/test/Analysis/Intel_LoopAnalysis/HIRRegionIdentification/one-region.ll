@@ -13,6 +13,9 @@
 ; RUN: opt < %s -analyze -hir-region-identification -hir-create-function-level-region -hir-create-function-level-region-filter-func=bar -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREG3
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-output 2>&1 -hir-create-function-level-region -hir-create-function-level-region-filter-func=bar -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREG3
 
+; RUN: opt < %s -analyze -hir-region-identification -disable-hir-create-fusion-regions -hir-create-function-level-region-filter-func=foo,bar | FileCheck %s --check-prefix=ONEREG4
+; RUN: opt < %s -passes="print<hir-region-identification>" -disable-hir-create-fusion-regions -disable-output 2>&1 -hir-create-function-level-region-filter-func=foo,bar | FileCheck %s --check-prefix=ONEREG4
+
 ; Verify the behavior of -hir-create-function-level-region -hir-create-function-level-region-filter-func.
 
 
@@ -48,6 +51,10 @@
 ; One region regardless of name, only with -hir-create-function-level-region
 ; ONEREGALL: Region 1
 ; ONEREGALL-NOT: Region 2
+
+; A right name in multiple names, one region
+; ONEREG4: Region 1
+; ONEREG4-NOT: Region 2
 
 
 source_filename = "enclosed-simple.c"

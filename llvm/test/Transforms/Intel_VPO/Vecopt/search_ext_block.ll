@@ -9,6 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree noinline norecurse nounwind uwtable
 define dso_local i64 @foo([100 x i8]* nocapture readonly %arr, i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%i1}
 ; CHECK-DAG:     [[VP1:%.*]] = {%arr}
