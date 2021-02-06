@@ -79,6 +79,7 @@ public:
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
+                              std::string VPlanName,
                               ScalarEvolution *SE = nullptr);
 
   /// On VPlan construction, each instruction marked for predication by Legal
@@ -177,6 +178,7 @@ protected:
   virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                    unsigned &EndRangeVF,
                                                    VPExternalValues &Ext,
+                                                   std::string VPlanName,
                                                    ScalarEvolution *SE = nullptr);
 
   /// Transform to emit explict uniform Vector loop iv.

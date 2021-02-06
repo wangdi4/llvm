@@ -5,6 +5,7 @@
 ;
 define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after initial VPlan transforms:
+; CHECK-NEXT:  VPlan IR for: main:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%x4.sroa.0.140}
 ; CHECK-DAG:     [[VP1:%.*]] = {%u0}

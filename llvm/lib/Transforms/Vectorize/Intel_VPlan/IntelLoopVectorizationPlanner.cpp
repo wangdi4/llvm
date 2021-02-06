@@ -218,6 +218,7 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL,
+                                                      std::string VPlanName,
                                                       ScalarEvolution *SE) {
   ++VPlanOrderNumber;
   unsigned MinVF, MaxVF;
@@ -294,7 +295,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals, SE);
+      buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals, VPlanName, SE);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
     if (!canProcessVPlan(*Plan.get())) {
@@ -720,10 +721,11 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
     unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
-    ScalarEvolution *SE) {
+    std::string VPlanName, ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
+  Plan->setName(VPlanName);
 
   if (EnableSOAAnalysis)
     // Enable SOA-analysis.

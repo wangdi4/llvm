@@ -76,6 +76,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

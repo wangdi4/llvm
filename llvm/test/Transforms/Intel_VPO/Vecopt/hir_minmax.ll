@@ -9,6 +9,7 @@
 ;
 define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: getmax:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%max.012}
 ; CHECK-DAG:     [[VP1:%.*]] = {%larr}
@@ -77,6 +78,7 @@ for.end:                                          ; preds = %for.body
 
 define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: getmin:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%min.012}
 ; CHECK-DAG:     [[VP1:%.*]] = {%larr}

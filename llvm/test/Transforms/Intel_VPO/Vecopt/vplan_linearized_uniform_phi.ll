@@ -5,6 +5,7 @@
 
 define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-LABEL:  VPlan after predication and linearization:
+; VPLAN-NEXT:  VPlan IR for: foo:header
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
@@ -189,6 +190,7 @@ exit:
 ; the same now that blends with undef are optimized inside predicator.
 define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-LABEL:  VPlan after predication and linearization:
+; VPLAN-NEXT:  VPlan IR for: uniform_with_undef:header
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; VPLAN-EMPTY:

@@ -35,6 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: make_simple_name:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%spec.select}
 ; CHECK-DAG:     [[VP1:%.*]] = {-1 * %name + %spec.select + -1}

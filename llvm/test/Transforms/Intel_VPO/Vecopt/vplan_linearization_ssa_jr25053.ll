@@ -4,6 +4,7 @@
 
 define void @jira_cmplrllvm_25053(i32* %a, i32 %b)  {
 ; CHECK-LABEL:  VPlan after predication and linearization:
+; CHECK-NEXT:  VPlan IR for: jira_cmplrllvm_25053:header
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

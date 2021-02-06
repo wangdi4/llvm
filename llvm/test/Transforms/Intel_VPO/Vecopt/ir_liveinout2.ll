@@ -19,6 +19,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ;
 ; CHECK-LABEL:  VPlan after live in/out lists creation
+; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:  Live-in values:
 ; CHECK-NEXT:  ID: 0 Value: i32 %Init
 ; CHECK-NEXT:  ID: 1 Value: i64 0

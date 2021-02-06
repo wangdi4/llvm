@@ -15,6 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
+; VPLAN-IR-NEXT:  VPlan IR for: foo:HIR
 ; VPLAN-IR-NEXT:  External Defs Start:
 ; VPLAN-IR-DAG:     [[VP0:%.*]] = {%arr}
 ; VPLAN-IR-NEXT:  External Defs End:

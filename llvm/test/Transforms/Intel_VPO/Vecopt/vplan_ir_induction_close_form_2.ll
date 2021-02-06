@@ -5,6 +5,7 @@
 
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i64 %N, i64 %c) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list

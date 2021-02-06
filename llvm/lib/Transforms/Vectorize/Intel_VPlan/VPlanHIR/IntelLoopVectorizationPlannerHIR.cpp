@@ -83,10 +83,11 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
 
 std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
     unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
-    ScalarEvolution *SE) {
+    std::string VPlanName, ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
+  Plan->setName(VPlanName);
 
   // Disable SOA-analysis for HIR.
   Plan->disableSOAAnalysis();
