@@ -23,6 +23,18 @@ code add_g_fp32 = [{
       if (oldValueInt == retValInt) return oldValue;
     }
   }];
+code add_g_fp64 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      long oldValueInt = *((long*)&oldValue);
+      $ReturnType addValue = oldValue + $Arg1VarName;
+      long addInt = *((long*)&addValue);
+      if (oldValueInt == addInt) return oldValue;
+      long retValInt = __sync_val_compare_and_swap((long*)$Arg0VarName, oldValueInt, addInt);
+      if (oldValueInt == retValInt) return oldValue;
+    }
+  }];
 code sub_g = [{
     return __sync_fetch_and_sub($Arg0VarName, $Arg1VarName);
   }];
@@ -103,6 +115,18 @@ code max_g_fp32 = [{
       if (retValInt == oldValueInt) return oldValue;
     }
   }];
+  code max_g_fp64 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      long oldValueInt = *((long*)&oldValue);
+      $ReturnType max = fmax(oldValue, $Arg1VarName);
+      long maxInt = *((long*)&max);
+      if (oldValueInt == maxInt) return oldValue;
+      long retValInt = __sync_val_compare_and_swap((long*)$Arg0VarName, oldValueInt, maxInt);
+      if (retValInt == oldValueInt) return oldValue;
+    }
+  }];
 code max_l_fp = [{
     local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
     $ReturnType oldValue = *tmp;
@@ -133,6 +157,18 @@ code min_g_fp32 = [{
       int minInt = *((int*)&min);
       if (oldValueInt == minInt)  return oldValue;
       int retValInt = __sync_val_compare_and_swap((int *)$Arg0VarName, oldValueInt, minInt);
+      if (retValInt == oldValueInt) return oldValue;
+    }
+  }];
+code min_g_fp64 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      long oldValueInt = *((long*) &oldValue);
+      $ReturnType min = fmin(oldValue, $Arg1VarName);
+      long minInt = *((long*)&min);
+      if (oldValueInt == minInt)  return oldValue;
+      long retValInt = __sync_val_compare_and_swap((long *)$Arg0VarName, oldValueInt, minInt);
       if (retValInt == oldValueInt) return oldValue;
     }
   }];
@@ -228,15 +264,18 @@ OclBuiltinImpl atom_dec_vl    = OclBuiltinImpl<atom_dec_vol_local, [v1i32, v1u32
 OclBuiltinImpl atom_dec_l     = OclBuiltinImpl<atom_dec_local, [v1i32, v1u32, v1i64, v1u64], 0, dec_l>;
 // add
 OclBuiltinImpl atomic_add_g   = OclBuiltinImpl<atomic_add_global, [v1i32, v1u32], 0, add_g>;
-OclBuiltinImpl atomic_add_l   = OclBuiltinImpl<atomic_add_local, [v1i32, v1u32, v1f32], 0, add_l>;
+OclBuiltinImpl atomic_add_l   = OclBuiltinImpl<atomic_add_local, [v1i32, v1u32, v1f32, v1f64], 0, add_l>;
 OclBuiltinImpl atom_add_vg    = OclBuiltinImpl<atom_add_vol_global, [v1i32, v1u32, v1i64, v1u64], 0, add_g>;
 OclBuiltinImpl atom_add_g     = OclBuiltinImpl<atom_add_global, [v1i32, v1u32, v1i64, v1u64], 0, add_g>;
-OclBuiltinImpl atom_add_vl    = OclBuiltinImpl<atom_add_vol_local, [v1i32, v1u32, v1f32, v1i64, v1u64], 0, add_l>;
-OclBuiltinImpl atom_add_l     = OclBuiltinImpl<atom_add_local, [v1i32, v1u32, v1f32, v1i64, v1u64], 0, add_l>;
+OclBuiltinImpl atom_add_vl    = OclBuiltinImpl<atom_add_vol_local, [v1i32, v1u32, v1f32, v1f64, v1i64, v1u64], 0, add_l>;
+OclBuiltinImpl atom_add_l     = OclBuiltinImpl<atom_add_local, [v1i32, v1u32, v1f32, v1f64, v1i64, v1u64], 0, add_l>;
 
 OclBuiltinImpl atomic_add_gf   = OclBuiltinImpl<atomic_add_global, [v1f32], 0, add_g_fp32>;
 OclBuiltinImpl atom_add_vgf    = OclBuiltinImpl<atom_add_vol_global, [v1f32], 0, add_g_fp32>;
 OclBuiltinImpl atom_add_gf     = OclBuiltinImpl<atom_add_global, [v1f32], 0, add_g_fp32>;
+OclBuiltinImpl atomic_add_gf64   = OclBuiltinImpl<atomic_add_global, [v1f64], 0, add_g_fp64>;
+OclBuiltinImpl atom_add_vgf64    = OclBuiltinImpl<atom_add_vol_global, [v1f64], 0, add_g_fp64>;
+OclBuiltinImpl atom_add_gf64     = OclBuiltinImpl<atom_add_global, [v1f64], 0, add_g_fp64>;
 // sub
 OclBuiltinImpl atomic_sub_g   = OclBuiltinImpl<atomic_sub_global, [v1i32, v1u32], 0, sub_g>;
 OclBuiltinImpl atomic_sub_l   = OclBuiltinImpl<atomic_sub_local, [v1i32, v1u32], 0, sub_l>;
@@ -273,7 +312,8 @@ OclBuiltinImpl atom_max_vl    = OclBuiltinImpl<atom_max_vol_local, [v1i32, v1u32
 OclBuiltinImpl atom_max_l     = OclBuiltinImpl<atom_max_local, [v1i32, v1u32, v1i64, v1u64], 0, max_l>;
 
 OclBuiltinImpl atomic_max_gf  = OclBuiltinImpl<atomic_max_global, [v1f32], 0, max_g_fp32>;
-OclBuiltinImpl atomic_max_lf  = OclBuiltinImpl<atomic_max_local, [v1f32], 0, max_l_fp>;
+OclBuiltinImpl atomic_max_gf64  = OclBuiltinImpl<atomic_max_global, [v1f64], 0, max_g_fp64>;
+OclBuiltinImpl atomic_max_lf  = OclBuiltinImpl<atomic_max_local, [v1f32, v1f64], 0, max_l_fp>;
 // min
 OclBuiltinImpl atomic_min_g   = OclBuiltinImpl<atomic_min_global, [v1i32, v1u32], 0, min_g>;
 OclBuiltinImpl atomic_min_l   = OclBuiltinImpl<atomic_min_local, [v1i32, v1u32], 0, min_l>;
@@ -283,7 +323,8 @@ OclBuiltinImpl atom_min_vl    = OclBuiltinImpl<atom_min_vol_local, [v1i32, v1u32
 OclBuiltinImpl atom_min_l     = OclBuiltinImpl<atom_min_local, [v1i32, v1u32, v1i64, v1u64], 0, min_l>;
 
 OclBuiltinImpl atomic_min_gf  = OclBuiltinImpl<atomic_min_global, [v1f32], 0, min_g_fp32>;
-OclBuiltinImpl atomic_min_lf  = OclBuiltinImpl<atomic_min_local, [v1f32], 0, min_l_fp>;
+OclBuiltinImpl atomic_min_gf64  = OclBuiltinImpl<atomic_min_global, [v1f64], 0, min_g_fp64>;
+OclBuiltinImpl atomic_min_lf  = OclBuiltinImpl<atomic_min_local, [v1f32, v1f64], 0, min_l_fp>;
 // and
 OclBuiltinImpl atomic_and_g   = OclBuiltinImpl<atomic_and_global, [v1i32, v1u32], 0, and_g>;
 OclBuiltinImpl atomic_and_l   = OclBuiltinImpl<atomic_and_local, [v1i32, v1u32], 0, and_l>;
