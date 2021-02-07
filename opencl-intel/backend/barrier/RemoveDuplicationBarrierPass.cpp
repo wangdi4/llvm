@@ -91,20 +91,6 @@ namespace intel {
             //toRemoveInstructions.push_back(pNextInst);
             continue;
           }
-          if ( SYNC_TYPE_FIBER == typeNextInst ) {
-            //any-fiber : remove the fiber instruction
-            toRemoveInstructions.push_back(pNextInst);
-            continue;
-          }
-          if ( SYNC_TYPE_FIBER == typeInst ) {
-            //fiber-barrier : remove the fiber instruction
-            assert( SYNC_TYPE_BARRIER == typeNextInst &&
-              "pNextInst must be a barrier at this point!" );
-            toRemoveInstructions.push_back(pInst);
-            pInst = pNextInst;
-            continue;
-          }
-          //barrier-barrier : remove the fiber instruction
           assert( SYNC_TYPE_BARRIER == typeInst && SYNC_TYPE_BARRIER == typeNextInst &&
             "pInst and pNextInst must be barriers at this point!" );
           ConstantInt *pBarrierValue = dyn_cast<ConstantInt>(pNextCallInst->getArgOperand(0));

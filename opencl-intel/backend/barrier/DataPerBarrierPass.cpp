@@ -29,8 +29,6 @@ namespace intel {
   void DataPerBarrier::InitSynchronizeData() {
     //Internal Data used to calculate user Analysis Data
     unsigned int currentAvailableID = 0;
-    //Set hasFiber to false till we find a fiber
-    m_hasFiber = false;
 
     //Find all synchronize instructions
     TInstructionVector &syncInstructions =
@@ -45,12 +43,6 @@ namespace intel {
         SYNC_TYPE type = m_util.getSynchronizeType(pInst);
         assert( SYNC_TYPE_NONE != type && "Sync list contains non sync instruction!" );
 
-        if ( SYNC_TYPE_FIBER == type ) {
-          //Module is using fiber instruction
-          //TODO: do we need this information per Function?
-          m_hasFiber = true;
-        }
-
         //Save id and type of current sync instruction
         m_dataPerBarrierMap[pInst].m_id = currentAvailableID++;
         m_dataPerBarrierMap[pInst].m_type = type;
@@ -63,7 +55,7 @@ namespace intel {
 
   bool DataPerBarrier::runOnFunction(Function &F) {
     if ( m_syncsPerFuncMap.count(&F) == 0 ) {
-      //Function has no barrir/fiber/dummy barrier instruction, simply return.
+      //Function has no barrir/dummy barrier instruction, simply return.
       return false;
     }
 
@@ -144,7 +136,6 @@ namespace intel {
     std::vector<BasicBlock*> basicBlocksToHandle;
     TBasicBlockSet basicBlocksAddedForHandle;
 
-    barrierRelated.m_hasFiberRelated = false;
     barrierPerdecessors.clear();
     basicBlocksToHandle.push_back(pBB);
 
@@ -163,10 +154,6 @@ namespace intel {
         if ( barrierBBSet.count(pInst) ) {
           //This predecessor basic block conatins a barrier
           barrierPerdecessors.insert(pInst);
-          if( m_dataPerBarrierMap[pInst].m_type == SYNC_TYPE_FIBER ) {
-            //predecessor is a fiber instruction update barrier related data
-            barrierRelated.m_hasFiberRelated = true;
-          }
         } else {
           //Add it to the basicBlocksToHandle to calculate its predecessors
           basicBlocksToHandle.push_back(pred_bb);
@@ -244,7 +231,6 @@ namespace intel {
       BasicBlock *pBBB = pInst->getParent();
       //Print barrier basic block name
       OS << "+" << pBBB->getName() << "\n";
-      OS << "has fiber instruction as predecessors: " << iii->second.m_hasFiberRelated << "\n";
       const TInstructionSet &iiVec = iii->second.m_relatedBarriers;
       for ( TInstructionSet::const_iterator ii = iiVec.begin(), ie = iiVec.end();  ii != ie; ++ii ) {
         Instruction *pInstPred = *ii;

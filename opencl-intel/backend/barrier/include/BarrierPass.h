@@ -38,7 +38,7 @@ namespace intel {
   ///              related to WI-Id or initialized inside a loop
   ///   Group-B.2 : Value crossed barrier but does not suit Group-B.2
   /// Synchronize instructions
-  ///   barrier(), fiber() and dummyBarrier() instructions.
+  ///   barrier() and dummyBarrier() instructions.
   /// Get LID/GID instructions
   ///   get_local_id() will be replaced with get_new_local_id()
   ///   get_global_id() will be replaced with get_new_global_id()

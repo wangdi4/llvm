@@ -57,31 +57,10 @@ namespace intel {
     m_getSGSizeFunc = nullptr;
     m_getBaseGIDFunc = 0;
     m_getLocalSizeFunc = 0;
-
-    //No need to clear these values, each get clears them first
-    //m_syncInstructions.clear();
-    //m_syncBasicBlocks.clear();
-    //m_syncFunctions.clear();
-    //m_kernelFunctions.clear();
-
     m_bSyncDataInitialized = false;
-    //No need to clear these values,
-    //initializing indecator to false assure clear them first
-    //m_barriers.clear();
-    //m_dummyBarriers.clear();
-    //m_fibers.clear();
-
     m_bLIDInitialized = false;
     m_bGIDInitialized = false;
-    //No need to clear these values,
-    //initializing indecator to false assure clear them first
-    //m_getLIDInstructions.clear();
-    //m_getGIDInstructions.clear();
-
     m_bNonInlinedCallsInitialized = false;
-    //No need to clear these values,
-    //initializing indecator to false assure clear them first
-    //m_functionsWithNonInlinedCalls.clear();
   }
 
   BasicBlock* BarrierUtils::findBasicBlockOfUsageInst(Value *pVal, Instruction *pUserInst) {
@@ -122,10 +101,6 @@ namespace intel {
       //It is a dummyBarrier instruction
       return SYNC_TYPE_DUMMY_BARRIER;
     }
-    if ( m_fibers.count(pInst) ) {
-      //It is a fiber instruction
-      return SYNC_TYPE_FIBER;
-    }
     return SYNC_TYPE_NONE;
   }
 
@@ -148,11 +123,6 @@ namespace intel {
     //Insert all dummyBarrier instructions
     for ( TInstructionSet::iterator ii = m_dummyBarriers.begin(),
       ie = m_dummyBarriers.end(); ii != ie; ++ii ) {
-        m_syncInstructions.push_back(*ii);
-    }
-    //Insert all fiber instructions
-    for ( TInstructionSet::iterator ii = m_fibers.begin(),
-      ie = m_fibers.end(); ii != ie; ++ii ) {
         m_syncInstructions.push_back(*ii);
     }
 
@@ -511,7 +481,6 @@ namespace intel {
     //Clear old collected data!
     m_barriers.clear();
     m_dummyBarriers.clear();
-    m_fibers.clear();
 
     //Find all calls to barrier()
     findAllUsesOfFunc(CompilationUtils::mangledBarrier(), m_barriers);
@@ -522,8 +491,6 @@ namespace intel {
       CompilationUtils::BARRIER_WITH_SCOPE), m_barriers);
     //Find all calls to dummyBarrier()
     findAllUsesOfFunc(DUMMY_BARRIER_FUNC_NAME, m_dummyBarriers);
-    //Find all calls to fiber()
-    findAllUsesOfFunc(FIBER_FUNC_NAME, m_fibers);
 
     m_bSyncDataInitialized = true;
   }

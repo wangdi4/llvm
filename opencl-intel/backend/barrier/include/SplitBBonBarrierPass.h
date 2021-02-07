@@ -25,7 +25,7 @@ using namespace llvm;
 namespace intel {
 
   /// @brief SplitBBonBarrier pass is a module pass used to assure
-  /// barrier/fiber instructions appears only at the begining of basic block
+  /// barrier instructions appears only at the begining of basic block
   /// and not more than once in each basic block
   class SplitBBonBarrier : public ModulePass {
 
