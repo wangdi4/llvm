@@ -94,7 +94,7 @@ define <4 x half> @minnum_intrinsic_nnan_fmf_f432(<4 x half> %a, <4 x half> %b) 
 define half @minnum_intrinsic_nnan_attr_f16(half %a, half %b) #0 {
 ; CHECK-LABEL: minnum_intrinsic_nnan_attr_f16:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vminsh %xmm1, %xmm0, %xmm0 # encoding: [0x62,0xf5,0x7e,0x08,0x5f,0xc1]
+; CHECK-NEXT:    vminsh %xmm1, %xmm0, %xmm0 # encoding: [0x62,0xf5,0x7e,0x08,0x5d,0xc1]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %r = tail call half @llvm.minnum.f16(half %a, half %b)
   ret half %r
