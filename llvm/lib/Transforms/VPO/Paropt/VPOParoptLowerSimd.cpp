@@ -946,9 +946,9 @@ static Value *translateLLVMInst(Instruction *Inst) {
       return RepI;
     } break;
     case Intrinsic::masked_scatter: {
-      auto PtrV = CallOp->getArgOperand(0);
-      auto MaskV = CallOp->getArgOperand(2);
-      auto DataV = CallOp->getArgOperand(3);
+      auto DataV = CallOp->getArgOperand(0);
+      auto PtrV = CallOp->getArgOperand(1);
+      auto MaskV = CallOp->getArgOperand(3);
       auto DTy = DataV->getType();
       assert(PtrV->getType()->isVectorTy() && DTy->isVectorTy());
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
