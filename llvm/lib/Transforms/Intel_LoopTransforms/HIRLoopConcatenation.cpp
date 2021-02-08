@@ -1463,13 +1463,13 @@ public:
         *PassRegistry::getPassRegistry());
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
     if (skipFunction(F)) {
       LLVM_DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
       return false;
