@@ -8,7 +8,7 @@
 ; CHECK: LINEAR zext.i32.i64(%N + 1)
 ; CHECK: (i64*)(%0)[2] = %3;
 ; CHECK: (i64*)(LINEAR double* %0{def@1})[i64 2]
-; CHECK-DAG: (i64*)(%0)[2] --> (i64*)(%0)[%N + 1] FLOW (* *)
+; CHECK-DAG: (i64*)(%0)[2] --> (i64*)(%0)[2] OUTPUT (* *) (? ?)
 
 ; # Source Code
 ; #define ee_u32 unsigned int

@@ -17,8 +17,6 @@
 
 ; We should determine that there is a dependence through memory across the
 ; outer loop.
-; CHECK-DAG: (%A.024)[i2 + 10] --> (%B.025)[i2 + 10] FLOW (*
-; CHECK-DAG: (%B.025)[i2 + 10] --> (%A.024)[i2 + 10] ANTI (*
 ; Verify that we find an output dependence via the outer loop for the store.
 ; CHECK-DAG: (%A.024)[i2 + 10] --> (%A.024)[i2 + 10] OUTPUT (*
 

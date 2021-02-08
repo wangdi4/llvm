@@ -39,8 +39,7 @@
 ; END REGION
 
 ; CHECK-LABEL: DD graph for function foo:
-; CHECK-DAG: (%B)[i2 + -1] --> (%A)[i2] ANTI (* 0)
-; CHECK-DAG: (%A)[i2] --> (%B)[i2 + -1] FLOW (* 0)
+; CHECK-DAG: (%A)[i2] --> (%A)[i2] OUTPUT (* =) (? 0)
 
 define void @foo(float** noalias nocapture readonly %Ap, float** noalias nocapture readonly %Bp) {
 entry:
@@ -104,9 +103,6 @@ for.body6:                                        ; preds = %for.body, %for.body
 ; END REGION
 
 
-; CHECK-LABEL: DD graph for function bar:
-; CHECK-DAG: (%B)[1024 * i1 + i2 + -1] --> (%A)[1024 * i1 + i2] ANTI (* 0)
-; CHECK-DAG: (%A)[1024 * i1 + i2] --> (%B)[1024 * i1 + i2 + -1] FLOW (* 0)
 
 define void @bar(float** noalias nocapture readonly %Ap, float** noalias nocapture readonly %Bp) {
 entry:

@@ -10,7 +10,7 @@
 ; CHECK-NEXT: Alias Set Tracker: 2 alias sets for 2 pointer values.
 
 ; LOOPCARRIED: Alias sets for function 'f':
-; LOOPCARRIED-NEXT: Alias Set Tracker: 1 alias sets for 2 pointer values.
+; LOOPCARRIED-NEXT: Alias Set Tracker: 2 alias sets for 2 pointer values.
 
 define float @f() {
 entry:

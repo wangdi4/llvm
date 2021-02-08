@@ -18,7 +18,7 @@
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-framework>" -aa-pipeline=basic-aa -hir-details -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-DAG: {{\(NON-LINEAR float\* %first.*\[i64 0\].*}} {sb:[[Base1:[0-9]+]]}
-; CHECK-DAG: {{\(NON-LINEAR float\* %first.*\[i64 1\].*}} {sb:[[Base1]]}
+; CHECK-DAG: {{\(NON-LINEAR float\* %first.*\[i64 1\].*}} inbounds {sb:[[Base1:[0-9]+]]}
 
 define void @foo(float** %A, i32 %n) {
 entry:

@@ -29,12 +29,12 @@ define void @params(i32* noalias %par0, i32* noalias %par1) {
 ; "isGEPBaseAtNegativeOffset" in BasicAA for a better description.)
 ; Verify the AST-based analysis:
 ; AST-LABEL: function 'global':
-; AST-DAG: 2 alias sets for 3 pointer values
-; AST-DAG: alias, Mod Pointers: (i32* %p0, LocationSize::precise(4)), (i32* @gv, LocationSize::precise(4))
+; AST-DAG: 3 alias sets for 3 pointer values
+; AST-DAG: alias, Mod Pointers: (i32* %p0, LocationSize::precise(4))
 ; AST-DAG: alias, Mod Pointers: (i32* %p1, LocationSize::precise(4))
 ; ...and also the pairwise analysis:
 ; CHECK-LABEL: Function: global:
-; CHECK-DAG: MayAlias: i32* %p0, i32* @gv
+; CHECK-DAG: NoAlias: i32* %p0, i32* @gv
 ; CHECK-DAG: NoAlias: i32* %p0, i32* %p1
 
 declare i32* @random.i32(i32* %ptr)
@@ -53,9 +53,9 @@ define void @global(i32* %random) {
 ; for the infamous pointer swapping example. (NoAlias would be correct
 ; for ::alias, but not for ::loopCarriedAlias.)
 ; AST-LABEL: function 'bug42143':
-; AST-DAG: alias, Mod/Ref Pointers: (float* %p, LocationSize::precise(4)), (float* %q, LocationSize::precise(4))
+; AST-DAG: alias, Ref Pointers: (float* %p, LocationSize::precise(4))
 ; CHECK-LABEL: Function: bug42143:
-; CHECK-DAG: MayAlias: float* %p, float* %q
+; CHECK-DAG: NoAlias: float* %p, float* %q
 define float @bug42143() {
 entry:
   %g = alloca float, align 4
