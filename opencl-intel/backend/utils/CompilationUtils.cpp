@@ -836,19 +836,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
-  bool CompilationUtils::getFastRelaxedMathFlagFromMetadata(Module *M) {
-    if (llvm::NamedMDNode *CompileOptsNamed =
-            M->getNamedMetadata("opencl.compiler.options")) {
-
-      llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
-          cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
-
-      for (llvm::MDString *Opt : CompileOpts) {
-        if (Opt->getString() == "-cl-fast-relaxed-math") {
-          return true;
-        }
-      }
-    }
+  bool CompilationUtils::hasFDivWithFastFlag(Module *M) {
+    for (Function &F : *M)
+      for (BasicBlock &B : F)
+        for (Instruction &I : B)
+          if (I.getOpcode() == Instruction::FDiv && I.isFast())
+            return true;
 
     return false;
   }

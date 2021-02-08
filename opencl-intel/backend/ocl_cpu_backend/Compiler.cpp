@@ -449,8 +449,9 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   // aggressive for OpenCL, leading to "fdiv fast" precision loss (violates
   // the OpenCL Spec).
   // Disabling Codegen's -do-x86-global-fma optimization in this situation
-  // could improve the precision.
-  if (CompilationUtils::getFastRelaxedMathFlagFromMetadata(pModule))
+  // could improve the precision (Only apply this for OpenCL program).
+  if (!CompilationUtils::generatedFromOCLCPP(*pModule) &&
+      CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
 
   llvm::CodeGenOpt::Level CGOptLevel =
