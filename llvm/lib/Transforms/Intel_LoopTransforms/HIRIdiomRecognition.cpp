@@ -669,7 +669,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   HLIf *SmallTripCountCheck = nullptr;
 
   if (!Candidates.empty()) {
-    if (SmallTripCountCheck = createTripCountCheck(Loop)) {
+    if ((SmallTripCountCheck = createTripCountCheck(Loop))) {
       OrigLoopClone = Loop->clone();
     }
 

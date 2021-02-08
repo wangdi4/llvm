@@ -86,15 +86,11 @@ class MemManageTransImpl {
 public:
   MemManageTransImpl(Module &M, const DataLayout &DL,
                      DTransAnalysisInfo &DTInfo)
-      : M(M), DL(DL), DTInfo(DTInfo){};
+      {};
 
   bool run(void);
 
 private:
-  Module &M;
-  const DataLayout &DL;
-  DTransAnalysisInfo &DTInfo;
-
   constexpr static int MaxNumCandidates = 1;
 };
 
