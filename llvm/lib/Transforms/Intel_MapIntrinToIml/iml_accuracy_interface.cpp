@@ -96,6 +96,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <cstdio>
+#include "llvm/Support/Compiler.h"
 
 #include "llvm/Transforms/Intel_MapIntrinToIml/search.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/messaging.h"
@@ -667,11 +668,17 @@ static int attrExternal2InternalAttr(
             break;
 
         case c_attribute_accurate_bits_32:  aname = "c_attribute_accurate_bits_32"; attr_chosen = 1;
+          LLVM_FALLTHROUGH;
         case c_attribute_accurate_bits_64:  if(!attr_chosen){aname = "c_attribute_accurate_bits_64"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_accurate_bits_80:  if(!attr_chosen){aname = "c_attribute_accurate_bits_80"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_accurate_bits_128: if(!attr_chosen){aname = "c_attribute_accurate_bits_128"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_accurate_bits:     if(!attr_chosen){aname = "c_attribute_accurate_bits"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_absolute_error:    if(!attr_chosen){aname = "c_attribute_absolute_error"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_relative_error:    if(!attr_chosen){aname = "c_attribute_relative_error"; attr_chosen = 1;}
 
             internal_attribute->attribute_value.f = (float)atof(external_attribute->value);
@@ -684,10 +691,15 @@ static int attrExternal2InternalAttr(
             break;
 
         case c_attribute_bitwise_consistency:  aname =  "c_attribute_bitwise_consistency"; attr_chosen = 1;
+          LLVM_FALLTHROUGH;
         case c_attribute_force_dynamic:        if(!attr_chosen){aname =  "c_attribute_force_dynamic"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_use_svml:             if(!attr_chosen){aname =  "c_attribute_use_svml"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_valid_status_bits:    if(!attr_chosen){aname =  "c_attribute_valid_status_bits"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_zmm_low:              if(!attr_chosen){aname =  "c_attribute_zmm_low"; attr_chosen = 1;}
+          LLVM_FALLTHROUGH;
         case c_attribute_fusa:                 if(!attr_chosen){aname =  "c_attribute_fusa"; attr_chosen = 1;}
             internal_attribute->attribute_value.i = (!strcmp(external_attribute->value,"true"))?1:0; //assuming false even if garbage input
             PRN_MSG("%-32s: \tattribute %s = %d \n", "attrExternal2InternalAttr", aname, internal_attribute->attribute_value.i);
@@ -852,7 +864,7 @@ static int attrUpdateFuncDescription(
                 PRN_MSG("%-32s: [warning] internal_attribute ignored due to function precision mismatch\n","attrUpdateFuncDescription");
                 break;
             }
-
+            LLVM_FALLTHROUGH;
 
         case c_attribute_accurate_bits: // proceed with general scheme for accurate bits
             // store number of accurate bits for future processing
@@ -865,6 +877,7 @@ static int attrUpdateFuncDescription(
             internal_attribute->attribute_value.f = attrBits2Ulps( internal_attribute->attribute_value.f, working_precision );
             PRN_MSG("%-32s: %.1g accurate bits converted to %g ulp value\n","attrUpdateFuncDescription",function_description->accurate_bits,internal_attribute->attribute_value.f);
 
+            LLVM_FALLTHROUGH;
         case c_attribute_relative_error: // proceed with relative error
             // Guard against changing accuracy in case
             // c_attribute_bitwise_consistency was previously
@@ -965,6 +978,7 @@ static int attrUpdateFuncDescription(
             // store requested absolute error value for possible future
             // processing. here we ignore this internal_attribute
             function_description->absolute_error = error_value;
+            LLVM_FALLTHROUGH;
 
         case c_attribute_use_svml:
             function_description->use_svml_allowed = internal_attribute->attribute_value.i;

@@ -382,9 +382,9 @@ int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
     return QUAL_OMP_WRITE;
   case WRNAtomicCapture:
     return QUAL_OMP_CAPTURE;
-  default:
-    llvm_unreachable("Unsupported Atomic Kind");
   }
+  llvm_unreachable("Unsupported Atomic Kind");
+
 }
 
 // gets the induction variable of the OMP loop.

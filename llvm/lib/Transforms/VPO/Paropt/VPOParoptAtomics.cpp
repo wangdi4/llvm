@@ -78,8 +78,6 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
     case WRNAtomicCapture:
       handled = handleAtomicCapture(AtomicNode, IdentTy, TidPtr, IsTargetSPIRV);
       break;
-    default:
-      llvm_unreachable("Unexpected Atomic Kind");
     }
   }
 
