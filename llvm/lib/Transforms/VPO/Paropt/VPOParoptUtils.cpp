@@ -5284,10 +5284,8 @@ Function *VPOParoptUtils::genOutlineFunction(
     for (auto *Item : W.getFpriv().items()) {
       TgtClauseArgs.insert(std::make_pair(Item->getOrig(), false));
     }
-    // Get is_device_ptr arguments
-    for (auto *Item : W.getIsDevicePtr().items()) {
-      TgtClauseArgs.insert(std::make_pair(Item->getOrig(), false));
-    }
+    assert(W.getIsDevicePtr().items().empty() &&
+           "is_device_ptr() clause must have been removed.");
   }
 
   // Fix "escaping" EH edges that go outside the region, and dead predecessors.

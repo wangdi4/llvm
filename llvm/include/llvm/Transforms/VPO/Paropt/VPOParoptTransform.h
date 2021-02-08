@@ -1043,9 +1043,6 @@ private:
   /// Reset the expression value in Subdevice clause to be empty.
   void resetValueInSubdeviceClause(WRegionNode* W);
 
-  /// Reset the expression value in IsDevicePtr clause to be empty.
-  void resetValueInIsDevicePtrClause(WRegionNode *W);
-
   /// Set the value in num_teams, thread_limit and num_threads
   /// clauses to be empty.
   void resetValueInNumTeamsAndThreadsClause(WRegionNode *W);

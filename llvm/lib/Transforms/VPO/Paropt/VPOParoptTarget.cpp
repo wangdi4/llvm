@@ -1077,7 +1077,6 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   resetValueInOmpClauseGeneric(W, W->getIf());
   resetValueInOmpClauseGeneric(W, W->getDevice());
   resetValueInSubdeviceClause(W);
-  resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
 
@@ -1308,20 +1307,6 @@ void VPOParoptTransform::resetValueInSubdeviceClause(WRegionNode* W) {
     resetValueInOmpClauseGeneric(W, SubdeviceI->getStart());
     resetValueInOmpClauseGeneric(W, SubdeviceI->getLength());
     resetValueInOmpClauseGeneric(W, SubdeviceI->getStride());
-}
-
-// Reset the expression value in IsDevicePtr clause to be empty.
-void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
-  if (!W->canHaveIsDevicePtr())
-    return;
-
-  IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
-  if (IDevicePtrClause.empty())
-    return;
-
-  for (auto *I : IDevicePtrClause.items()) {
-    resetValueInOmpClauseGeneric(W, I->getOrig());
-  }
 }
 
 // Returns the corresponding flag for a given map clause modifier.
@@ -1914,14 +1899,16 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 /// Convert 'IS_DEVICE_PTR' clauses in \p W to MAP, and
 /// 'IS_DEVICE_PTR:PTR_TO_PTR' clauses to MAP + PRIVATE.
 ///
+/// Note that 'HAS_DEVICE_ADDR' is parsed as 'IS_DEVICE_PTR'
+/// so they are also transformed as shown below.
+///
 /// \code
 /// (A)
 /// --------------------------------------+------------------------------------
 ///         Before                        |      After
 /// --------------------------------------+------------------------------------
 ///                                       |
-/// "IS.DEVICE.PTR" (i32* %a.load)        | "IS_DEVICE_PTR(i32* %a.load)
-///                                      (1) "MAP"(i32* %a.load, PARAM|LITERAL)
+/// "IS.DEVICE.PTR"(i32* %a.load)        (1) "MAP"(i32* %a.load, PARAM|LITERAL)
 ///                                       |
 ///
 /// (B)
@@ -1930,9 +1917,8 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 /// --------------------------------------+------------------------------------
 ///                                      (2) %a.load = load i32*, i32** %a
 ///                                       |
-/// "IS.DEVICE.PTR:PTR_TO_PTR" (i32** %a) | "IS_DEVICE_PTR:PTR_TO_PTR(i32** %a)
-///                                      (3) "MAP"(i32* %a.load, PARAM|LITERAL)
-///                                      (4) "PRIVATE(i32** %a)
+/// "IS.DEVICE.PTR:PTR_TO_PTR"(i32** %a) (3) "MAP"(i32* %a.load, PARAM|LITERAL)
+///                                      (4) "PRIVATE"(i32** %a)
 ///                                       |
 ///                                      (5) store i32* %a.load, i32** %a
 ///                                       |
@@ -1945,17 +1931,21 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
 ///                                      (6) %a.cast1 = bitcast cptr* %a to i8**
 ///                                      (2) %a.load = load i*, i8** %a.cast1
 ///                                       |
-/// "IS.DEVICE.PTR:CPTR" (cptr* %a)       | "IS_DEVICE_PTR:CPTR(cptr* %a)
-///                                      (3) "MAP"(i8* %a.load, PARAM|LITERAL)
-///                                      (4) "PRIVATE(i32** %a)
+/// "IS.DEVICE.PTR:CPTR"(cptr* %a)       (3) "MAP"(i8* %a.load, PARAM|LITERAL)
+///                                      (4) "PRIVATE"(i32** %a)
 ///                                       |
 ///                                      (7) %a.cast2 = bitcast cptr* %a to i8**
 ///                                      (5) store i8* %a.load, i8** %a
 ///                                       |
+///
+/// (D)
+/// --------------------------------------+------------------------------------
+///         Before                        |      After
+/// --------------------------------------+------------------------------------
+/// "IS.DEVICE.PTR:F90_DV" (DV* %a)      (8) "FIRSTPRIVATE"(DV* %a)
+///                                       |
 #endif // INTEL_CUSTOMIZATION
 /// \endcode
-/// Note that (1), (3) and (4) are not added to the IR, just the data structures
-/// in \p W.
 bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
   assert(W && "Null WRegionNode.");
 
@@ -1966,20 +1956,44 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
   if (IDPC.empty())
     return false;
 
+  StringRef MapClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_MAP_TO);
+  StringRef FPrivateClauseName =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_FIRSTPRIVATE);
+  StringRef PrivateClauseName =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+  using ClauseBundleTy = SmallVector<Value *, 4>;
+  SmallVector<std::pair<StringRef, ClauseBundleTy>, 8> NewClauses;
+
   const DataLayout &DL = F->getParent()->getDataLayout();
   uint64_t Size = DL.getPointerSizeInBits() / 8;
   uint64_t MapType = TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL;
-  auto *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);
+  Value *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);
+  Value *MapTypeVal =
+      ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
 
   MapClause &MapC = W->getMap();
+  FirstprivateClause &FirstprivateC = W->getFpriv();
 
-  auto addMapForValue = [&MapC, &MapSize, &MapType](Value *V) {
+  auto addMapForValue = [&](Value *V) {
     MapAggrTy *MapAggr = new MapAggrTy(V, V, MapSize, MapType);
     MapItem *MapI = new MapItem(MapAggr);
     MapI->setOrig(V);
     MapC.add(MapI);
-  };
 
+    // FIXME: create 6-operand MAP clause with the variable name
+    //        and the null mapper.
+    NewClauses.push_back({MapClauseName,
+                          ClauseBundleTy({V, V, MapSize, MapTypeVal})});
+  };
+#if INTEL_CUSTOMIZATION
+  auto addFirstprivateForValue = [&](Value *V) {
+    FirstprivateC.add(new FirstprivateItem(V));
+    NewClauses.push_back({FPrivateClauseName, ClauseBundleTy({V})});
+    LLVM_DEBUG(dbgs() << "addFirstprivateForValue: Converted 'IS_DEVICE_PTR(";
+               V->printAsOperand(dbgs()); dbgs() << ")' to 'FIRSTPRIVATE(";
+               V->printAsOperand(dbgs()); dbgs() << "\n");
+  };
+#endif // INTEL_CUSTOMIZATION
   bool Changed = false;
   bool SeenOperandsWithModifiers = false;
 
@@ -1990,6 +2004,10 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
     }
 #if INTEL_CUSTOMIZATION
     if (IDPI->getIsCptr()) {
+      SeenOperandsWithModifiers = true;
+      return;
+    }
+    if (IDPI->getIsF90DopeVector()) {
       SeenOperandsWithModifiers = true;
       return;
     }
@@ -2005,8 +2023,37 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
 
   // (A) First, handle all "IS_DEVICE_PTR" clauses without PTR_TO_PTR modifiers.
   std::for_each(IDPC.items().begin(), IDPC.items().end(), addMapIfNoModifier);
-  if (!SeenOperandsWithModifiers)
+
+  // Utility to update directive call, if any changes for is_device_ptr
+  // clauses were made.
+  auto UpdateIRIfChanged = [&]() {
+    if (Changed) {
+      for (IsDevicePtrItem *IDPI : IDPC.items())
+        IDPI->setOrig(nullptr);
+      CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
+      EntryCI = VPOUtils::removeOpenMPClausesFromCall(
+          EntryCI,
+          {QUAL_OMP_IS_DEVICE_PTR,
+           // has_device_addr() clause is parsed into IsDevicePtrItem.
+           // We have to delete all has_device_addr() clauses
+           // from the directive call, since they are "lowered" in this
+           // function as well.
+           QUAL_OMP_HAS_DEVICE_ADDR});
+
+      SmallVector<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd;
+      for (auto &C : NewClauses)
+        OpBundlesToAdd.emplace_back(C.first, C.second);
+
+      EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
+      W->setEntryDirective(EntryCI);
+    }
+
+    W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
     return Changed;
+  };
+
+  if (!SeenOperandsWithModifiers)
+    return UpdateIRIfChanged();
 
   // (B) Handle clauses with PTR_TO_PTR modifiers next.
 
@@ -2025,9 +2072,7 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
   IRBuilder<> StoreBuilder(StoreBB->getTerminator());
   PrivateClause &PC = W->getPriv();
 
-  auto addMapAndPrivateForIDP = [&addMapForValue, &PC, &LoadBuilder,
-                                 &StoreBuilder](
-                                    IsDevicePtrItem *IDPI, Type *LoadedValType,
+  auto addMapAndPrivateForIDP = [&](IsDevicePtrItem *IDPI, Type *LoadedValType,
                                     Value *LoadSrc, Value *StoreDst) {
     Value *IDP = IDPI->getOrig();
     Value *IDPLoad = LoadBuilder.CreateLoad(LoadedValType, LoadSrc, //  (2)
@@ -2040,6 +2085,8 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
                IDPLoad->printAsOperand(dbgs());
                dbgs() << ", TGT_PARAM | TGT_LITERAL) PRIVATE(";
                IDP->printAsOperand(dbgs()); dbgs() << ")'.\n");
+
+    NewClauses.push_back({PrivateClauseName, ClauseBundleTy({IDP})});
     return true;
   };
 
@@ -2061,6 +2108,11 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
       continue;
     }
 
+    if (IDPI->getIsF90DopeVector()) {
+      Changed = true;
+      addFirstprivateForValue(IDP); //                                  (8)
+      continue;
+    }
 #endif // INTEL_CUSTOMIZATION
     if (!IDPI->getIsPointerToPointer()) // Already handled above
       continue;
@@ -2070,7 +2122,8 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
         IDPI, IDP->getType()->getPointerElementType(), IDP,
         IDP);
   }
-  return Changed;
+
+  return UpdateIRIfChanged();
 }
 
 // For the following code:
