@@ -1495,21 +1495,10 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
   // Get the highest outermost ancestor of given InnermostLoop
   // that can make a perfect loop nest.
-  bool IsNearPerfect = false;
   const HLLoop *HighestAncestor =
-      HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop,
-                                                        IsNearPerfect);
+      HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop);
 
-  // Sink-pass is run before, so all near-perfect would have been perfect by
-  // now.
-  // If it is still IsNearPerfect, sinking pass was not able to
-  // enable a perfect loop nest. Just bail out.
   StringRef Func = HIRF.getFunction().getName();
-  if (IsNearPerfect) {
-    printDiag(NO_PERFECTNEST, Func);
-    return nullptr;
-  }
-
   if (!HighestAncestor) {
     // Blocking is not applied to depth-1 loop nest.
     printDiag(INNERMOST_LOOP_NO_DO_LOOP, Func, InnermostLoop);
@@ -1517,12 +1506,8 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
     return nullptr;
   }
 
-  if (HighestAncestor == InnermostLoop) {
-    // Blocking is not applied to depth-1 loop nest.
-    printDiag(INNERMOST_LOOP_ONLY, Func);
-
-    return nullptr;
-  }
+  assert(HLNodeUtils::isPerfectLoopNest(HighestAncestor) &&
+         "Expected Perfect LoopNest!");
 
   if (HighestAncestor->isMVFallBack()) {
     printDiag(MULTIVERSIONED_FALLBACK_LOOP, Func, HighestAncestor);
@@ -1889,6 +1874,9 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   InnermostLoop->setIsUndoSinkingCandidate(false);
+
+  // Remove preheader/postexit before creating outer by-strip loops
+  OutermostLoop->extractPreheaderAndPostexit();
 
   // Stripmine
   HLLoop *NewOutermostLoop =

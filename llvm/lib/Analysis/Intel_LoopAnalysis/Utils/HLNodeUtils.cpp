@@ -3387,12 +3387,10 @@ HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
   switch (Pred) {
   case PredicateTy::ICMP_SLT: // <
     EqualOffset = -1;
-    LLVM_FALLTHROUGH;
   case PredicateTy::ICMP_SLE: // <=
     break;
   case PredicateTy::ICMP_SGT: // >
     EqualOffset = -1;
-    LLVM_FALLTHROUGH;
   case PredicateTy::ICMP_SGE: // >=
     std::swap(Lhs, Rhs);
     break;
@@ -4006,64 +4004,19 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
 }
 
 const HLLoop *
-HLNodeUtils::getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop,
-                                                  bool &IsNearPerfect) {
+HLNodeUtils::getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop) {
 
   assert(InnermostLoop);
 
-  // Inspect InnermostLoop
-  if (!InnermostLoop->isDo())
-    return nullptr;
+  auto *ParLoop = InnermostLoop->getParentLoop();
+  const HLLoop *OutermostLoop = nullptr;
 
-  // nullptr is returned for 1-level nest
-  // because isPerfectLoopNest returns false
-  // for innermost loop.
-  const HLLoop *ParentLoop = InnermostLoop->getParentLoop();
-  if (!ParentLoop)
-    return nullptr;
-
-  // TODO: triangluar is not allowed for now.
-  if (InnermostLoop->isTriangularLoop())
-    return nullptr;
-
-  auto IsNonHLInst = [](const HLNode &Node) { return !isa<HLInst>(&Node); };
-
-  // Pre- and Post- loops are allowed around innermost by being NearPerfect
-  // PreHeader and PostExits are not explicitly checked here, because
-  // they do have only inst by definition.
-  bool NonInstExist = std::any_of(ParentLoop->child_begin(),
-                                  InnermostLoop->getIterator(), IsNonHLInst) ||
-                      std::any_of(std::next(InnermostLoop->getIterator()),
-                                  ParentLoop->child_end(), IsNonHLInst);
-  if (NonInstExist) {
-    return InnermostLoop;
+  while (ParLoop && isPerfectLoopNest(ParLoop)) {
+    OutermostLoop = ParLoop;
+    ParLoop = ParLoop->getParentLoop();
   }
 
-  IsNearPerfect =
-      std::distance(ParentLoop->child_begin(), InnermostLoop->getIterator()) ||
-      std::distance(std::next(InnermostLoop->getIterator()),
-                    ParentLoop->child_end()) ||
-      InnermostLoop->hasPreheader() || InnermostLoop->hasPostexit();
-
-  // Scan from Innermost's ParentLoop and make sure no inter-loop HLNodes
-  const HLLoop *PrevLp = InnermostLoop;
-  const HLLoop *Lp = ParentLoop;
-  while (!(Lp->hasPreheader()) && !(Lp->hasPostexit()) &&
-         !(Lp->isTriangularLoop()) && Lp->isDo()) {
-    const HLLoop *ParLp = Lp->getParentLoop();
-    if (!ParLp) {
-      return Lp;
-    }
-
-    if (Lp != ParLp->getFirstChild() || Lp != ParLp->getLastChild()) {
-      return Lp;
-    }
-
-    PrevLp = Lp;
-    Lp = ParLp;
-  }
-
-  return PrevLp;
+  return OutermostLoop;
 }
 
 /// Checks to see if MemRef has first 2 dimensionssize == tripcount, has
@@ -4512,8 +4465,6 @@ HLNodeUtils::getLexicalLowestCommonAncestorParent(const HLNode *Node1,
     Parent = Parent->getParent();
   }
 
-  assert(Parent && "Common parent cannot be null, it should be region node at "
-                   "the very least!");
   return Parent;
 }
 
