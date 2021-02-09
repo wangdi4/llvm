@@ -62,7 +62,7 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   uint32_t ElemSize = I->getType().getElementSize();
   Type *ElemType = Type::getIntNTy(getContext(), ElemSize);
   if (isa<OVLSLoad>(I) || isa<OVLSStore>(I)) {
-    VectorType *VecTy = FixedVectorType::get(ElemType, VPCM.VF);
+    VectorType *VecTy = FixedVectorType::get(ElemType, VF);
     return TTI.getMemoryOpCost(
         isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load, VecTy,
         // FIXME: Next values are not used in getMemoryOpCost(), however
@@ -83,7 +83,7 @@ uint64_t
 VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
   const auto *VPMemref = dyn_cast<VPVLSClientMemref>(&Memref);
   assert(VPMemref && "Wrong type of OVLSMemref is used.");
-  Type *VecTy = getWidenedType(VPMemref->getInstruction()->getType(), VPCM.VF);
+  Type *VecTy = getWidenedType(VPMemref->getInstruction()->getType(), VF);
   // FIXME: Without proper decomposition it's impossible to call
   // getLoadStoreCost(), because opcode may not be valid in the VPInstruction.
   // Assume load instruction for non-memref opcode, because store instruction
