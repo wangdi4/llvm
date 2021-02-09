@@ -95,7 +95,7 @@ endif(INTEL_INCLUDE_DTRANS)
 
 # This is to fix the error (unused private field) with xmain self build about
 # the PeelTC data member of class VPlanRemainderEvaluator.
-if (HOST_WINNT AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+if ((HOST_LINUX OR HOST_WINNT) AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-private-field")
 endif()
 
