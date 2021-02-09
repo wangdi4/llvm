@@ -158,11 +158,11 @@ static cl::opt<bool>
                           cl::desc("Reverse the order in which the operands "
                                    "are visited while building the tree"));
 
-// Enable use of llvm.masked.gather intrinsic.
-static cl::opt<bool>
-    EnableMaskedGatherLoad("slp-enable-gather-load", cl::init(true),
-                          cl::Hidden,
-                          cl::desc("Enable use of llvm.masked.gather"));
+// A minimal vector size (in elements) considered for masked gather load.
+static cl::opt<unsigned> MinGatherLoadSize(
+    "slp-min-gather-load-size", cl::init(8), cl::Hidden,
+    cl::desc("Do not use llvm.masked.gather for vectors having "
+             "less than this number of elements."));
 
 // Split-loads is a simplified form of Variable-Width SLP.
 // It allows shorter vector-lengths loads which are then combined
@@ -4963,9 +4963,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
 #if INTEL_CUSTOMIZATION
         // We might want to issue gather load only if split load fails.
-        // Do not consider to issue gather for vectors of 4 elements or less.
+        // Do not consider to issue gather for vectors having
+        // less then MinGatherLoadSize elements.
         if (CompatibilitySLPMode ||
-            (VL.size() > 4 &&
+            (VL.size() >= MinGatherLoadSize &&
              TTI->isLegalMaskedGather(FixedVectorType::get(ScalarTy, VL.size()),
                                       DL->getABITypeAlign(ScalarTy))))
           CandidateForGatherLoad = true;
@@ -5055,7 +5056,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           return;
         }
       }
-      if (EnableMaskedGatherLoad && CandidateForGatherLoad) {
+      if (CandidateForGatherLoad) {
           SmallVector<int, 4> OpDirection(VL.size(), 0);
 #endif // INTEL_CUSTOMIZATION
         // Vectorizing non-consecutive loads with `llvm.masked.gather`.
