@@ -1130,6 +1130,9 @@ public:
   /// Get kernel indirect access flags
   ze_kernel_indirect_access_flags_t getKernelIndirectAccessFlags(
       ze_kernel_handle_t Kernel, uint32_t DeviceId);
+
+  /// Enqueue copy command
+  int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, void *Src, size_t Size);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -1408,17 +1411,7 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
     return OFFLOAD_SUCCESS;
   }
 
-  auto cmdList = getCmdList(DeviceId);
-  auto cmdQueue = getCmdQueue(DeviceId);
-  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, dataPtr, &hostData,
-                   sizeof(hostData), nullptr, 0, nullptr);
-  CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                   nullptr);
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-  CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
-
-  return OFFLOAD_SUCCESS;
+  return enqueueMemCopy(DeviceId, dataPtr, &hostData, sizeof(hostData));
 }
 
 /// Add implicit arguments
@@ -1457,6 +1450,23 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
     flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
 
   return flags;
+}
+
+/// Enqueue memory copy
+int32_t RTLDeviceInfoTy::enqueueMemCopy(
+    int32_t DeviceId, void *Dst, void *Src, size_t Size) {
+  auto cmdList = getCmdList(DeviceId);
+  auto cmdQueue = getCmdQueue(DeviceId);
+
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dst, Src, Size,
+                   nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+                   nullptr);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+
+  return OFFLOAD_SUCCESS;
 }
 
 static void dumpImageToFile(
@@ -1930,7 +1940,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   entries.resize(numEntries);
   kernels.resize(numEntries);
 
+  // FIXME: table loading does not work at all on XeLP.
+  // Enable it after CMPLRLIBS-33285 is fixed.
   if (DeviceInfo->Flags.EnableTargetGlobals &&
+      DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
       !DeviceInfo->loadOffloadTable(DeviceId, numEntries))
     IDP("Warning: offload table loading failed.\n");
 
@@ -3206,8 +3219,10 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   }
 
   int64_t TableSizeVal = 0;
-  __tgt_rtl_data_retrieve(DeviceId, &TableSizeVal,
-                          OffloadTableSizeVarAddr, sizeof(int64_t));
+  auto rc = enqueueMemCopy(DeviceId, &TableSizeVal, OffloadTableSizeVarAddr,
+                           sizeof(int64_t));
+  if (rc != OFFLOAD_SUCCESS)
+    return false;
   size_t TableSize = (size_t)TableSizeVal;
 
   if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
@@ -3234,8 +3249,11 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   }
 
   OffloadTables[DeviceId].resize(DeviceNumEntries);
-  __tgt_rtl_data_retrieve(DeviceId, OffloadTables[DeviceId].data(),
-                          OffloadTableVarAddr, TableSize);
+  rc = enqueueMemCopy(DeviceId, OffloadTables[DeviceId].data(),
+                      OffloadTableVarAddr, TableSize);
+  if (rc != OFFLOAD_SUCCESS)
+    return false;
+
   std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
 
   size_t I = 0;
@@ -3252,10 +3270,16 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
       IDP("Warning: offload entry (%zu) with 0 size.\n", I);
       break;
     }
+    if (NameTgtAddr == nullptr) {
+      IDP("Warning: offload entry (%zu) with invalid name.\n", I);
+      break;
+    }
 
     Entry.Base.name = new char[NameSize];
-    __tgt_rtl_data_retrieve(DeviceId, Entry.Base.name,
-                            NameTgtAddr, NameSize);
+    rc = enqueueMemCopy(DeviceId, Entry.Base.name, NameTgtAddr, NameSize);
+    if (rc != OFFLOAD_SUCCESS)
+      break;
+
     if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
       IDP("Warning: offload entry's name has wrong size.\n");
       break;
