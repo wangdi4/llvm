@@ -551,6 +551,19 @@ void DeadArgumentEliminationPass::SurveyFunction(const Function &F) {
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-25906: For now, exclude vector variants, as the variant
+  // encoding requires the clones to be made based on the original
+  // function signature.  In the future, we may be able to modify the
+  // vector variants on the fly while doing this optimization.
+  if (F.hasFnAttribute("vector-variants")) {
+    LLVM_DEBUG(dbgs() << "DeadArgumentEliminationPass - " << F.getName()
+                      << " has vector variants\n");
+    MarkLive(F);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   unsigned RetCount = NumRetVals(&F);
 
   // Assume all return values are dead
