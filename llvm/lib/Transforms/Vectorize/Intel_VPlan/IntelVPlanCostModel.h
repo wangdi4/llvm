@@ -73,7 +73,7 @@ public:
                  const TargetTransformInfo *TTI,
                  const TargetLibraryInfo *TLI,
                  const DataLayout *DL,
-                 VPlanVLSAnalysis *VLSA)
+                 VPlanVLSAnalysis *VLSA = nullptr)
     : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VLSA(VLSA) {
     VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
 
@@ -126,7 +126,6 @@ protected:
     HeuristicsPipeline;
 #if INTEL_CUSTOMIZATION
   VPlanVLSAnalysis *VLSA;
-  std::shared_ptr<VPlanVLSCostModel> VLSCM;
 #endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
