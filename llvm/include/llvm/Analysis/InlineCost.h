@@ -124,6 +124,7 @@ typedef enum {
    InlrDoubleNonLocalCall,
    InlrVectorBonus,
    InlrAggInline,
+   InlrDTransInline,
    InlrForFusion,
    InlrDeeplyNestedIfs,
    InlrAddressComputations,
