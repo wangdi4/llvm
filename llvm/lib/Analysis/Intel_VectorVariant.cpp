@@ -230,9 +230,8 @@ int VectorVariant::matchParameters(VectorVariant &Other, int &MaxArg,
   // which represents some available variant.
   std::vector<VectorKind> OtherParms = Other.getParameters();
 
-  // TODO: Remove after fixing CMPLRLLVM-25487
-  //assert(Parameters.size() == OtherParms.size() &&
-  //       "Number of parameters do not match");
+  assert(Parameters.size() == OtherParms.size() &&
+         "Number of parameters do not match");
 
   Function *F = M->getFunction(BaseName);
   assert(F && "Function not found in module");
