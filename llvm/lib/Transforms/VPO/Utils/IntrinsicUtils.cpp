@@ -298,6 +298,28 @@ VPOUtils::removeOperandBundlesFromCall(CallInst *CI,
       });
 }
 
+// Creates a clone of CI without the operand bundles representing OpenMP
+// clauses specified in ClauseIds.
+CallInst *VPOUtils::removeOpenMPClausesFromCall(CallInst *CI,
+                                                ArrayRef<int> ClauseIds) {
+  return IntrinsicUtils::removeOperandBundlesFromCall(
+      CI, [&ClauseIds](const OperandBundleDef &Bundle) {
+        return std::any_of(
+            ClauseIds.begin(), ClauseIds.end(),
+            [&Bundle](int Id) {
+              StringRef Name = Bundle.getTag();
+              // We cannot construct ClauseInfo with a Name
+              // not corresponding to an OpenMP clause, so
+              // we have to check the Name, first.
+              if (!VPOAnalysisUtils::isOpenMPClause(Name))
+                return false;
+
+              ClauseSpecifier ClauseInfo(Name);
+              return ClauseInfo.getId() == Id;
+            });
+      });
+}
+
 // "Privatizes" an Instruction by adding it to a supported entry
 // directive clause.
 // If the Instruction is already used in a directive, nothing is done.
