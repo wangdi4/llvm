@@ -132,7 +132,7 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
   for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
     SourceInfo Info(HostTargetMap.HstPtrName);
 #if INTEL_CUSTOMIZATION
-    INFO(Device.DeviceID,
+    INFO(OMP_INFOTYPE_ALL, Device.DeviceID,
          DPxMOD " " DPxMOD " %-8lu %-8" PRIu64 " %s at %s:%d:%d\n",
          DPxPTR(HostTargetMap.HstPtrBegin), DPxPTR(HostTargetMap.TgtPtrBegin),
          (long unsigned)(HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin),
@@ -175,7 +175,7 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
     else
       type = "use_address";
 #if INTEL_CUSTOMIZATION
-    INFO(DeviceId, "%s(%s)[%" PRId64 "] %s\n", type,
+    INFO(OMP_INFOTYPE_ALL, DeviceId, "%s(%s)[%" PRId64 "] %s\n", type,
          getNameFromMapping(varName).c_str(), ArgSizes[i], implicit);
 #endif // INTEL_CUSTOMIZATION
 
