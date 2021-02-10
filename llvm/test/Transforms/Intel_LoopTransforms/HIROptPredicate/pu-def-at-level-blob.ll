@@ -36,12 +36,12 @@
 
 ; CHECK: %1 = (%0)[0];
 ; CHECK-NEXT: <LVAL-REG> NON-LINEAR i32 %1 {sb:8}
-; CHECK-NEXT: <RVAL-REG> {al:4}(NON-LINEAR i32* %0)[i64 0] inbounds  {sb:17}
+; CHECK-NEXT: <RVAL-REG> {al:4}(NON-LINEAR i32* %0)[i64 0] inbounds  {sb:16}
 ; CHECK-NEXT:    <BLOB> NON-LINEAR i32* %0 {sb:6}
 
 ; CHECK: %1 = (%0)[0];
 ; CHECK-NEXT: <LVAL-REG> NON-LINEAR i32 %1 {sb:8}
-; CHECK-NEXT: <RVAL-REG> {al:4}(LINEAR i32* %0{def@1})[i64 0] inbounds  {sb:17}
+; CHECK-NEXT: <RVAL-REG> {al:4}(LINEAR i32* %0{def@1})[i64 0] inbounds  {sb:16}
 ; CHECK-NEXT:    <BLOB> LINEAR i32* %0{def@1} {sb:6}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
