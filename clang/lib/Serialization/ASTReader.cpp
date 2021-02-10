@@ -7902,13 +7902,16 @@ void ASTReader::InitializeSema(Sema &S) {
   for (const std::string &Ext:
        ContextObj->getTargetInfo().getTargetOpts().OpenCLExtensionsAsWritten) {
     OpenCLOptions& OCLFeatures = SemaObj->OpenCLFeatures;
-    OCLFeatures.support(Ext);
+    bool IsPrefixed = (Ext[0] == '+' || Ext[0] == '-');
+    std::string Name = IsPrefixed ? Ext.substr(1) : Ext;
+    bool V = IsPrefixed ? Ext[0] == '+' : true;
+    OCLFeatures.support(Name, V);
     // If we specify via -cl-ext that an *extension* is supported, it doesn't
     // mean that it is enabled. Corresponding pragma must be used to enable it.
     // But if we specify via -cl-ext that a *core feature* is not supported we
     // need to disable it, because pragma is ignored for core features.
     const unsigned OCLVersion = SemaObj->getLangOpts().OpenCLVersion;
-    OCLFeatures.toggleCoreFeatureIsEnabled(Ext, OCLVersion);
+    OCLFeatures.toggleCoreFeatureIsEnabled(Name, OCLVersion, V);
   }
 #endif // INTEL_CUSTOMIZATION
 

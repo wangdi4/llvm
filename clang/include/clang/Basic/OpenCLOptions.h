@@ -143,20 +143,6 @@ public:
   bool isSupportedExtension(llvm::StringRef Ext, const LangOptions &LO) const;
 
 #if INTEL_CUSTOMIZATION
-  llvm::StringRef split(llvm::StringRef Ext, bool& V) {
-    switch (Ext[0]) {
-    case '+':
-      V = true;
-      Ext = Ext.drop_front();
-      break;
-    case '-':
-      V = false;
-      Ext = Ext.drop_front();
-      break;
-    }
-    return Ext;
-  }
-
   void enableAll(bool On = true) {
     for (llvm::StringMap<OpenCLOptionInfo>::iterator I = OptMap.begin(),
                                                      E = OptMap.end();
@@ -165,12 +151,12 @@ public:
   }
 
   /// \brief Enable or disable OpenCL core features only, ignoring extensions
-  /// \param Ext name of the feature optionally prefixed with '+' or '-'
-  /// \param V used when \p Ext is not prefixed by '+' or '-'
+  /// \param Ext name of the extension (not prefixed with '+' or '-')
+  /// \param V value to set for a extension
   void toggleCoreFeatureIsEnabled(llvm::StringRef Ext, unsigned CLVer,
                                   bool V = true) {
     assert(!Ext.empty() && "Extension is empty.");
-    Ext = split(Ext, V);
+    assert(Ext[0] != '+' && Ext[0] != '-');
     if (Ext.equals("all")) {
       for (auto &I : OptMap)
         if (isCore(I.getKey(), CLVer))
