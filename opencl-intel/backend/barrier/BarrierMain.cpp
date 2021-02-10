@@ -17,6 +17,7 @@
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -24,6 +25,10 @@
 using namespace llvm;
 
 extern bool EnableSubGroupEmulation;
+
+static cl::opt<bool> EnableReducingCrossBarrierValues(
+    "enable-reducing-cross-barrier-values",
+    cl::init(true), cl::Hidden);
 
 extern "C" {
   FunctionPass* createPhiCanon();
@@ -34,14 +39,12 @@ extern "C" {
   void* createRemoveDuplicationBarrierPass();
   void* createSplitBBonBarrierPass();
   Pass *createImplicitGIDPass(bool HandleBarrier);
-  //void* createDataPerBarrierPass();
-  //void* createWIRelatedValuePass();
-  //void* createDataPerValuePass();
   void* createReplaceScalarWithMaskPass();
   void *createBarrierPass(bool isNativeDebug, bool useTLSGlobals);
   Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
   Pass *createResolveSubGroupWICallPass(bool ResolveSGBarrier);
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
+  FunctionPass *createReduceCrossBarrierValuesPass();
 
   // subgroup emulation passes
   Pass *createSGBarrierPropagatePass();
@@ -119,6 +122,12 @@ namespace intel {
 
     barrierModulePM.add((ModulePass*)createSplitBBonBarrierPass());
 
+    if (m_optLevel > 0 && EnableReducingCrossBarrierValues) {
+      barrierModulePM.add(createReduceCrossBarrierValuesPass());
+#ifdef _DEBUG
+      barrierModulePM.add(createVerifierPass());
+#endif
+    }
     Pass *pBarrierPass =
         (ModulePass *)createBarrierPass(m_debugType == Native, m_useTLSGlobals);
     barrierModulePM.add((ModulePass*)pBarrierPass);
