@@ -198,7 +198,7 @@ bool EnableSOAAnalysis = false;
 } // namespace vpo
 } // namespace llvm
 
-static unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
+unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
   auto ForcedLoopVFIter = llvm::find_if(ForceLoopVF, [](const ForceVFTy &Pair) {
     return Pair.first == VPlanOrderNumber;
   });
@@ -216,12 +216,7 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
-                                                      const DataLayout *DL,
-                                                      std::string VPlanName,
-                                                      ScalarEvolution *SE) {
-  ++VPlanOrderNumber;
-  unsigned MinVF, MaxVF;
+int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
   unsigned ForcedVF = getForcedVF(WRLp);
 
 #if INTEL_CUSTOMIZATION
@@ -234,6 +229,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   if (ForcedVF == 1 || Safelen == 1) {
     LLVM_DEBUG(dbgs() << "LVP: The forced VF or safelen specified by user is "
                          "1, VPlans need not be constructed.\n");
+    VFs.push_back(0);
     return 0;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -246,21 +242,27 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
              "safelen is set on a non-OMP SIMD loop.");
       LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
                            "via `#pragma omp simd`\n");
+      VFs.push_back(0);
       return 0;
     }
 #endif // INTEL_CUSTOMIZATION
-    MinVF = ForcedVF;
-    MaxVF = ForcedVF;
+    VFs.push_back(ForcedVF);
+#if INTEL_CUSTOMIZATION
+    LLVM_DEBUG(dbgs() << "LVP: MinVF: " << ForcedVF << " MaxVF: " << ForcedVF
+                      << "\n");
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_CUSTOMIZATION
   } else if (VPlanConstrStressTest) {
     // If we are only stress testing VPlan construction, force VPlan
     // construction for just VF 1. This avoids any divide by zero errors in the
     // min/max VF computation.
-    MinVF = 1;
-    MaxVF = 1;
+    VFs.push_back(1);
 #endif // INTEL_CUSTOMIZATION
+  } else if (MD != nullptr) {
+    extractVFsFromMetadata(MD, Safelen);
   } else {
-    unsigned MinWidthInBits, MaxWidthInBits;
+    unsigned MinWidthInBits, MaxWidthInBits, MinVF, MaxVF;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
     const unsigned MinVectorWidth = TTI->getMinVectorRegisterBitWidth();
     const unsigned MaxVectorWidth = TTI->getRegisterBitWidth(true /* Vector */);
@@ -280,66 +282,83 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     // We won't be able to fill the entire register, but it
     // still might be profitable.
     MinVF = std::min(MinVF, Safelen);
-  }
-
 #if INTEL_CUSTOMIZATION
-  LLVM_DEBUG(dbgs() << "LVP: MinVF: " << MinVF << " MaxVF: " << MaxVF << "\n");
+    LLVM_DEBUG(dbgs() << "LVP: MinVF: " << MinVF << " MaxVF: " << MaxVF
+                      << "\n");
 #endif // INTEL_CUSTOMIZATION
 
-  unsigned StartRangeVF = MinVF;
-  unsigned EndRangeVF = MaxVF + 1;
+    if (MinVF > MaxVF) {
+      VFs.push_back(0);
+      return 0;
+    }
+    for (unsigned VF = MinVF; VF <= MaxVF; VF *= 2)
+      VFs.push_back(VF);
+#if INTEL_CUSTOMIZATION
+  }
+  // TODO: add information about specified vector lengths in opt-report
+  DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_lengths",
+                  dbgs() << "LVP: Specified vectorlengths: ");
+  DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_lengths",
+                  for (unsigned VF
+                       : getVectorFactors()) dbgs()
+                      << VF << " ";
+                  dbgs() << "\n";);
+#endif // INTEL_CUSTOMIZATION
+  return 1;
+}
+
+unsigned LoopVectorizationPlanner::buildInitialVPlans(MDNode *MD,
+                                                      LLVMContext *Context,
+                                                      const DataLayout *DL,
+                                                      std::string VPlanName,
+                                                      ScalarEvolution *SE) {
+  ++VPlanOrderNumber;
+  setDefaultVectorFactors(MD);
+  if (VFs[0] == 0)
+    return 0;
 
   Externals = std::make_unique<VPExternalValues>(Context, DL);
   UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
 
-  unsigned i = 0;
-  for (; StartRangeVF < EndRangeVF; ++i) {
-    // TODO: revisit when we build multiple VPlans.
-    std::shared_ptr<VPlanVector> Plan = buildInitialVPlan(
-        StartRangeVF, EndRangeVF, *Externals, *UnlinkedVPInsts, VPlanName, SE);
-
-    // Check legality of VPlan before proceeding with other transforms/analyses.
-    if (!canProcessVPlan(*Plan.get())) {
-      LLVM_DEBUG(
-          dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
-      return 0;
-    }
-
-    // TODO: Implement computeScalarVPlanCost()
-
-    // Run initial set of vectorization specific transforms on plain VPlan CFG
-    // obtained from CFGBuilder. Includes the following set of transforms -
-    // 1. emitVPEntityInstrs
-    // 2. emitVecSpecifics
-    runInitialVecSpecificTransforms(Plan.get());
-
-    createLiveInOutLists(*Plan.get());
-
-    // CFG canonicalization transform (merge loop exits).
-    doLoopMassaging(Plan.get());
-
-    printAndVerifyAfterInitialTransforms(Plan.get());
-
-    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
-    Plan->setVPlanDA(std::move(VPDA));
-    Plan->computeDT();
-    Plan->computePDT();
-    Plan->computeDA();
-
-    // TODO: Insert initial run of SVA here for any new users before CM & CG.
-
-    for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
-      VPlans[TmpVF] = {Plan, nullptr};
-
-    StartRangeVF = EndRangeVF;
-    EndRangeVF = MaxVF + 1;
+  // TODO: revisit when we build multiple VPlans.
+  std::shared_ptr<VPlanVector> Plan = buildInitialVPlan(*Externals, *UnlinkedVPInsts,
+                                                        VPlanName, SE);
+  // Check legality of VPlan before proceeding with other transforms/analyses.
+  if (!canProcessVPlan(*Plan.get())) {
+    LLVM_DEBUG(dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
+    return 0;
   }
+
+  // TODO: Implement computeScalarVPlanCost()
+
+  // Run initial set of vectorization specific transforms on plain VPlan CFG
+  // obtained from CFGBuilder. Includes the following set of transforms -
+  // 1. emitVPEntityInstrs
+  // 2. emitVecSpecifics
+  runInitialVecSpecificTransforms(Plan.get());
+
+  createLiveInOutLists(*Plan.get());
+
+  // CFG canonicalization transform (merge loop exits).
+  doLoopMassaging(Plan.get());
+
+  printAndVerifyAfterInitialTransforms(Plan.get());
+
+  auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+  Plan->setVPlanDA(std::move(VPDA));
+  Plan->computeDT();
+  Plan->computePDT();
+  Plan->computeDA();
+
+  // TODO: Insert initial run of SVA here for any new users before CM & CG.
+  for (unsigned TmpVF : VFs)
+    VPlans[TmpVF] = {Plan, nullptr};
 
   // Always capture scalar VPlan to handle cases where vectorization
   // is not possible with VF > 1 (such as when forced VF greater than TC).
-  VPlans[1] = VPlans[MinVF];
+  VPlans[1] = VPlans[VFs[0] /*MinVF*/];
 
-  return i;
+  return 1;
 }
 
 void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
@@ -398,6 +417,38 @@ unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
   return VPlanForceUF;
 }
 
+void LoopVectorizationPlanner::extractVFsFromMetadata(MDNode *MD,
+                                                      unsigned Safelen) {
+  SmallVector<unsigned, 5> TmpVFs;
+  for (unsigned I = 1; I < (MD->getNumOperands()); I++) {
+    ConstantInt *IntMD = mdconst::extract<ConstantInt>(MD->getOperand(I));
+    if (IntMD->getZExtValue() <= Safelen)
+      TmpVFs.push_back(IntMD->getZExtValue());
+  }
+
+  llvm::sort(TmpVFs);
+  auto NewEnd = std::unique(TmpVFs.begin(), TmpVFs.end());
+  TmpVFs.erase(NewEnd, TmpVFs.end());
+
+  unsigned I = 0;
+  if(TmpVFs.size() > 1)
+    if (TmpVFs[0] <= 1)
+      I = 1;
+  if(TmpVFs.size() > 2)
+    if (TmpVFs[1] <= 1)
+      I = 2;
+  for (; I < TmpVFs.size(); I++) {
+    // TODO: replace assert with call to the ErrorHandler when ErrorHandler is
+    // implemented.
+    assert((isPowerOf2_64(TmpVFs[I]) || TmpVFs[I] == 0) &&
+           "Value specified in llvm.loop.vector.vectorlength metadata must be "
+           "power of 2!");
+    VFs.push_back(TmpVFs[I]);
+  }
+}
+
+ArrayRef<unsigned> LoopVectorizationPlanner::getVectorFactors() { return VFs; }
+
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns VF which corresponds to the best VPlan (could be VF = 1).
 template <typename CostModelTy>
@@ -424,8 +475,8 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 
     if (BestVF * UF > TripCount) {
       LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because ForcedVF("
-                 << ForcedVF << ") * UF(" << UF << ") > TripCount("
-                 << TripCount << ")\n");
+                        << ForcedVF << ") * UF(" << UF << ") > TripCount("
+                        << TripCount << ")\n");
       return 1;
     }
 
@@ -437,10 +488,6 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
                       << ", selecting it.\n");
   }
 
-  // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
-  // buildInitialVPlan.
-  // TODO: Add options to set MinVF and MaxVF.
-  const unsigned MaxVF = 32;
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL);
   unsigned ScalarIterationCost = ScalarCM.getCost();
   ScalarIterationCost =
@@ -451,11 +498,8 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   BestVF = 1;
   if (ForcedVF > 0) {
     BestVF = ForcedVF;
-    for (unsigned VF = 2; VF <= MaxVF; VF *= 2) {
-      (void)VF;
-      assert((!hasVPlanForVF(VF) || VF == ForcedVF) &&
-             "VPlan should not exists for VF other than ForcedVF.");
-    }
+    assert((VFs.size() == 1 && VFs[0] == ForcedVF && hasVPlanForVF(VFs[0])) &&
+           "Expected only one forced VF and non-null VPlan");
   }
 
   // FIXME: Currently, unroll is not in VPlan, so set it to 1.
@@ -487,10 +531,8 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // Please note that best peeling variant is expected to be selected up to
   // this moment.  Now we check whether the best peeling is profitable VS no
   // peeling.
-  for (unsigned VF = 2; VF <= MaxVF; VF *= 2) {
-    if (!hasVPlanForVF(VF))
-      continue;
-
+  for (unsigned VF : getVectorFactors()) {
+    assert(hasVPlanForVF(VF) && "expected non-null VPlan");
     if (TripCount < VF * UF)
       continue; // FIXME: Consider masked low trip later.
 
@@ -570,10 +612,9 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // Corner case: all available VPlans have UMAX cost.
   // With 'vector always' we have to vectorize with some VF, so select first
   // available VF.
-  if (BestVF == 1 && IsVectorAlways)
-    for (BestVF = 2; BestVF <= MaxVF; BestVF *= 2)
-      if (hasVPlanForVF(BestVF))
-        break;
+  if (BestVF == 1 && IsVectorAlways) {
+    BestVF = VFs[0];
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Delete all other VPlans.
@@ -749,7 +790,7 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
+    VPExternalValues &Ext,
     VPUnlinkedInstructions &UnlinkedVPInsts, std::string VPlanName,
     ScalarEvolution *SE) {
   // Create new empty VPlan. At this stage we want to create only NonMasked

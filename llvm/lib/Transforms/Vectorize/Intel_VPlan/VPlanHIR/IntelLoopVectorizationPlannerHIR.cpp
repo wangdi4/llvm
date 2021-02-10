@@ -82,8 +82,8 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
 }
 
 std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
-    VPUnlinkedInstructions &UVPI, std::string VPlanName, ScalarEvolution *SE) {
+    VPExternalValues &Ext, VPUnlinkedInstructions &UVPI, std::string VPlanName,
+    ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlanVector> SharedPlan =
       std::make_shared<VPlanNonMasked>(Ext, UVPI);

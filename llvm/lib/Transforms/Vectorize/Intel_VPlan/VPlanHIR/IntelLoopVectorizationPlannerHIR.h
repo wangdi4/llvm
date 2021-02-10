@@ -43,8 +43,7 @@ private:
   HIRVectorizationLegality *HIRLegality;
 
   std::shared_ptr<VPlanVector>
-  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
-                    VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
+  buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
                     std::string VPlanName,
                     ScalarEvolution *SE = nullptr) override;
 

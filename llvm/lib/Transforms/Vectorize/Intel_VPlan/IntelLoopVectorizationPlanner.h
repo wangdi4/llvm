@@ -78,9 +78,10 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
-                              std::string VPlanName,
+  unsigned buildInitialVPlans(MDNode *MD, LLVMContext *Context,
+                              const DataLayout *DL, std::string VPlanName,
                               ScalarEvolution *SE = nullptr);
+
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
@@ -122,6 +123,12 @@ public:
   /// \Returns the selected vectorization factor.
   template <typename CostModelTy = VPlanCostModel>
   unsigned selectBestPlan(void);
+
+  /// Extracts VFs from "llvm.loop.vector.vectorlength" metadata
+  void extractVFsFromMetadata(MDNode *MD, unsigned SafeLen);
+
+  /// Returns vector of allowed VFs
+  ArrayRef<unsigned> getVectorFactors();
 
   /// Predicate all unique non-scalar VPlans
   void predicate(void);
@@ -182,10 +189,16 @@ protected:
   // TODO: If this function becomes more complicated, move common code to base
   // class.
   virtual std::shared_ptr<VPlanVector>
-  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
-                    VPExternalValues &Ext,
+  buildInitialVPlan(VPExternalValues &Ext,
                     VPUnlinkedInstructions &UnlinkedVPInsts,
                     std::string VPlanName, ScalarEvolution *SE = nullptr);
+
+  /// If FoorcedVF if specified, puts it into vector of VFs. Else if
+  /// "llvm.loop.vector.vectorlength" metadata is specified, fills vector of VFs
+  /// with values from metadata. Else if "llvm.loop.vector.vectorlength"
+  /// metadata is not specified, defines MinVF and MaxVF and fills vector of VFs
+  /// with default vector values between MinVF and MaxVF.
+  int setDefaultVectorFactors(MDNode *MD);
 
   /// Transform to emit explict uniform Vector loop iv.
   virtual void emitVecSpecifics(VPlanVector *Plan);
@@ -246,6 +259,7 @@ protected:
       return nullptr;
     }
   };
+  SmallVector<unsigned, 5> VFs;
   unsigned BestVF = 0;
   unsigned BestUF = 0;
 
