@@ -1500,12 +1500,12 @@ public:
     return isValid();
   }
 
-  bool enterUnion(const CXXRecordDecl *RD, FieldDecl *FD) {
+  bool enterUnion(const CXXRecordDecl *RD, FieldDecl *FD) override {
     ++UnionCount;
     return true;
   }
 
-  bool leaveUnion(const CXXRecordDecl *RD, FieldDecl *FD) {
+  bool leaveUnion(const CXXRecordDecl *RD, FieldDecl *FD) override {
     --UnionCount;
     return true;
   }
@@ -3513,9 +3513,9 @@ static const char *paramKind2Str(KernelParamKind K) {
     CASE(std_layout);
     CASE(sampler);
     CASE(pointer);
-  default:
-    return "<ERROR>";
   }
+  return "<ERROR>";
+
 #undef CASE
 }
 

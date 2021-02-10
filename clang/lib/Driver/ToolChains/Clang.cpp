@@ -9139,8 +9139,6 @@ void FileTableTform::ConstructJob(Compilation &C, const JobAction &JA,
       addArgs(CmdArgs, TCArgs, {Arg});
       break;
     }
-    default:
-      llvm_unreachable("unknown file table transformation kind");
     }
   }
   // 2) add output option

@@ -406,8 +406,6 @@ static void collectKernelModuleMap(
         // the map key is not significant here
         ResKernelModuleMap["<GLOBAL>"].push_back(&F);
         break;
-      default:
-        llvm_unreachable("unknown scope");
       }
     }
   }
