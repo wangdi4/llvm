@@ -479,47 +479,7 @@ public:
 
   HLLoop *getOutermostLoop() const { return PrevLCA; }
 
-  void visit(HLLoop *Loop) {
-    markVisited(Loop);
-
-    if (!checkStructure(Loop)) {
-      return;
-    }
-
-    if (!analyzeProfitablity(Loop)) {
-      stopAndWork(2, Loop);
-      SkipNode = Loop;
-      return;
-    }
-
-    InnermostLoops.push_back(Loop);
-    LastSpatialLoop = Loop;
-    if (!FirstSpatialLoop) {
-      FirstSpatialLoop = Loop;
-    } else {
-
-      HLLoop *LCA =
-          HLNodeUtils::getLowestCommonAncestorLoop(FirstSpatialLoop, Loop);
-      if (!LCA) {
-        SkipNode = Loop;
-        reset();
-        return;
-      }
-
-      if (PrevLCA && PrevLCA != LCA) {
-        // Fail and no transformation
-        // In theory, [FirstSpatialLoop, previous LastSpatialLoop] could
-        // be a valid candidate. But, we don't care about that, but just
-        // stop here.
-        bailOut();
-      } else {
-        PrevLCA = LCA;
-      }
-    }
-
-    SkipNode = Loop;
-  }
-
+  void visit(HLLoop *Loop);
   void visit(HLIf *HIf) { CheckerVisitor::visit(HIf); }
   void visit(HLInst *HInst) { CheckerVisitor::visit(HInst); }
   void visit(HLNode *Node) { CheckerVisitor::visit(Node); }
@@ -527,31 +487,7 @@ public:
 private:
   // Stop navigation and check/work on current
   // [FirstSpatialLoop, LastSpatialLoop] so far.
-  bool stopAndWork(int CallSiteLoc, const HLLoop *StopLoop = nullptr) override {
-
-    if (InnermostLoops.size() <= 1) {
-      reset();
-      return false;
-    }
-
-    if (!isCleanCut(LastSpatialLoop, StopLoop)) {
-      bailOut();
-      return false;
-    }
-
-    IsProfitable = State == SECONDHALF;
-
-    LLVM_DEBUG(dbgs() << CallSiteLoc << " ";
-               dbgs() << "Profitable ?: " << Func << ": ";
-               dbgs() << IsProfitable << "\n";
-               dbgs() << "State: " << State << "\n"; for (auto *Loop
-                                                          : InnermostLoops) {
-                 dbgs() << Loop->getNumber() << " ";
-               } dbgs() << "\n");
-
-    setDone(true);
-    return true;
-  }
+  bool stopAndWork(int CallSiteLoc, const HLLoop *StopLoop = nullptr) override;
 
   // See if any element of Cur is found in History.
   bool intersects(const BasePtrIndexSetTy &Cur,
@@ -568,87 +504,7 @@ protected:
   // eg.) For an array, A[], being read(written) for a while,
   // then begin written(read) for a while across a sequence
   // of spatial loops.
-  bool analyzeProfitablity(const HLLoop *Loop) {
-
-    BasePtrIndexSetTy CurDefSet;
-    BasePtrIndexSetTy CurUseSet;
-
-    const ArraySectionAnalysisResult &Res = HASA.getOrCompute(Loop);
-
-    // Collect information for the current innermost loop
-    for (auto BaseIndex : Res.knownBaseIndices()) {
-      const ArraySectionInfo *Info = Res.get(BaseIndex);
-      if (!Info)
-        return false;
-
-      if (Info->isDef())
-        CurDefSet.insert(BaseIndex);
-      else
-        CurUseSet.insert(BaseIndex);
-    }
-
-    // Convert: Def --> Use, Use --> Def
-    bool ConvertFromUseToDef = intersects(CurDefSet, UseHistory);
-    bool ConvertFromDefToUse = intersects(CurUseSet, DefHistory);
-
-    // Maintain: Def --> Def, Use --> Use
-    bool MaintainedAsDef = intersects(CurDefSet, DefHistory);
-    bool MaintainedAsUse = intersects(CurUseSet, UseHistory);
-    (void)MaintainedAsDef;
-    (void)MaintainedAsUse;
-
-    if (ConvertFromUseToDef != ConvertFromDefToUse) {
-      LLVM_DEBUG(dbgs() << "analyzeProfitablity: " << Loop->getNumber()
-                        << "\n");
-      LLVM_DEBUG(dbgs() << "ConvertFromUseToDef: " << ConvertFromUseToDef
-                        << "\n");
-      LLVM_DEBUG(dbgs() << "ConvertFromDefToUse: " << ConvertFromDefToUse
-                        << "\n");
-      LLVM_DEBUG(dbgs() << "MaintainedAsDef: " << MaintainedAsDef << "\n");
-      LLVM_DEBUG(dbgs() << "MaintainedAsUse: " << MaintainedAsUse << "\n");
-
-      return false;
-    }
-
-    // Some uses are converted to defs, and some defs
-    // continue to be defs (or vice versa).
-    // Example:
-    // CurDefSet = {13 15 25 26 27}
-    // UseHistory = {10 13 14}
-    // CurUseSet = {16 17 18 19}
-    // DefHistory = {15 16 17}
-    // "15" is MaintainedAsDef, while "13" is ConvertFromUseToDef.
-    // We just bail out. In the future, more refinements can come.
-    // How many are Converted vs. Maintained could be used as a criteria.
-    if ((ConvertFromUseToDef && MaintainedAsDef) ||
-        (ConvertFromDefToUse && MaintainedAsUse)) {
-      LLVM_DEBUG_PROFIT_REPORT(
-          dbgs() << "Not profitable due to sustained Defs or Uses.\n");
-      return false;
-    }
-
-    if (ConvertFromUseToDef) {
-      if (State != FIRSTHALF) {
-        LLVM_DEBUG(dbgs() << "State: " << State << "\n");
-        return false;
-      }
-
-      // swap Use and DefHistory
-      UseHistory.clear();
-      DefHistory.clear();
-      State = SECONDHALF;
-    } else if (State == INIT) {
-      State = FIRSTHALF;
-    }
-
-    // Update history
-    std::for_each(CurDefSet.begin(), CurDefSet.end(),
-                  [&](unsigned Index) { DefHistory.insert(Index); });
-    std::for_each(CurUseSet.begin(), CurUseSet.end(),
-                  [&](unsigned Index) { UseHistory.insert(Index); });
-
-    return true;
-  }
+  bool analyzeProfitablity(const HLLoop *Loop);
 
   void reset() override {
 
@@ -671,6 +527,155 @@ protected:
 
   SmallVector<HLLoop *, 32> InnermostLoops;
 };
+
+void ProfitabilityChecker::visit(HLLoop *Loop) {
+  markVisited(Loop);
+
+  if (!checkStructure(Loop)) {
+    return;
+  }
+
+  if (!analyzeProfitablity(Loop)) {
+    stopAndWork(2, Loop);
+    SkipNode = Loop;
+    return;
+  }
+
+  InnermostLoops.push_back(Loop);
+  LastSpatialLoop = Loop;
+  if (!FirstSpatialLoop) {
+    FirstSpatialLoop = Loop;
+  } else {
+
+    HLLoop *LCA =
+        HLNodeUtils::getLowestCommonAncestorLoop(FirstSpatialLoop, Loop);
+    if (!LCA) {
+      SkipNode = Loop;
+      reset();
+      return;
+    }
+
+    if (PrevLCA && PrevLCA != LCA) {
+      // Fail and no transformation
+      // In theory, [FirstSpatialLoop, previous LastSpatialLoop] could
+      // be a valid candidate. But, we don't care about that, but just
+      // stop here.
+      bailOut();
+    } else {
+      PrevLCA = LCA;
+    }
+  }
+
+  SkipNode = Loop;
+}
+
+bool ProfitabilityChecker::stopAndWork(int CallSiteLoc,
+                                       const HLLoop *StopLoop) {
+
+  if (InnermostLoops.size() <= 1) {
+    reset();
+    return false;
+  }
+
+  if (!isCleanCut(LastSpatialLoop, StopLoop)) {
+    bailOut();
+    return false;
+  }
+
+  IsProfitable = State == SECONDHALF;
+
+  LLVM_DEBUG(dbgs() << CallSiteLoc << " ";
+             dbgs() << "Profitable ?: " << Func << ": ";
+             dbgs() << IsProfitable << "\n";
+             dbgs() << "State: " << State << "\n"; for (auto *Loop
+                                                        : InnermostLoops) {
+               dbgs() << Loop->getNumber() << " ";
+             } dbgs() << "\n");
+
+  setDone(true);
+  return true;
+}
+
+bool ProfitabilityChecker::analyzeProfitablity(const HLLoop *Loop) {
+
+  BasePtrIndexSetTy CurDefSet;
+  BasePtrIndexSetTy CurUseSet;
+
+  const ArraySectionAnalysisResult &Res = HASA.getOrCompute(Loop);
+
+  // Collect information for the current innermost loop
+  for (auto BaseIndex : Res.knownBaseIndices()) {
+    const ArraySectionInfo *Info = Res.get(BaseIndex);
+    if (!Info)
+      return false;
+
+    if (Info->isDef())
+      CurDefSet.insert(BaseIndex);
+    else
+      CurUseSet.insert(BaseIndex);
+  }
+
+  // Convert: Def --> Use, Use --> Def
+  bool ConvertFromUseToDef = intersects(CurDefSet, UseHistory);
+  bool ConvertFromDefToUse = intersects(CurUseSet, DefHistory);
+
+  // Maintain: Def --> Def, Use --> Use
+  bool MaintainedAsDef = intersects(CurDefSet, DefHistory);
+  bool MaintainedAsUse = intersects(CurUseSet, UseHistory);
+  (void)MaintainedAsDef;
+  (void)MaintainedAsUse;
+
+  if (ConvertFromUseToDef != ConvertFromDefToUse) {
+    LLVM_DEBUG(dbgs() << "analyzeProfitablity: " << Loop->getNumber() << "\n");
+    LLVM_DEBUG(dbgs() << "ConvertFromUseToDef: " << ConvertFromUseToDef
+                      << "\n");
+    LLVM_DEBUG(dbgs() << "ConvertFromDefToUse: " << ConvertFromDefToUse
+                      << "\n");
+    LLVM_DEBUG(dbgs() << "MaintainedAsDef: " << MaintainedAsDef << "\n");
+    LLVM_DEBUG(dbgs() << "MaintainedAsUse: " << MaintainedAsUse << "\n");
+
+    return false;
+  }
+
+  // Some uses are converted to defs, and some defs
+  // continue to be defs (or vice versa).
+  // Example:
+  // CurDefSet = {13 15 25 26 27}
+  // UseHistory = {10 13 14}
+  // CurUseSet = {16 17 18 19}
+  // DefHistory = {15 16 17}
+  // "15" is MaintainedAsDef, while "13" is ConvertFromUseToDef.
+  // We just bail out. In the future, more refinements can come.
+  // How many are Converted vs. Maintained could be used as a criteria.
+  if ((ConvertFromUseToDef && MaintainedAsDef) ||
+      (ConvertFromDefToUse && MaintainedAsUse)) {
+    LLVM_DEBUG_PROFIT_REPORT(
+        dbgs() << "Not profitable due to sustained Defs or Uses.\n");
+    return false;
+  }
+
+  if (ConvertFromUseToDef) {
+    if (State != FIRSTHALF) {
+      LLVM_DEBUG(dbgs() << "State: " << State << "\n");
+      return false;
+    }
+
+    // swap Use and DefHistory
+    UseHistory.clear();
+    DefHistory.clear();
+    State = SECONDHALF;
+  } else if (State == INIT) {
+    State = FIRSTHALF;
+  }
+
+  // Update history
+  std::for_each(CurDefSet.begin(), CurDefSet.end(),
+                [&](unsigned Index) { DefHistory.insert(Index); });
+  std::for_each(CurUseSet.begin(), CurUseSet.end(),
+                [&](unsigned Index) { UseHistory.insert(Index); });
+
+  return true;
+}
 
 // Per-dimension information
 // Records the matching loop to a dimension as an offset of levels from
