@@ -454,6 +454,8 @@ defvar cplusplus = LangOpts<"CPlusPlus">;
 defvar c99 = LangOpts<"C99">;
 defvar lang_std = LangOpts<"LangStd">;
 defvar open_cl = LangOpts<"OpenCL">;
+defvar render_script = LangOpts<"RenderScript">;
+defvar hip = LangOpts<"HIP">;
 defvar gnu_mode = LangOpts<"GNUMode">;
 
 defvar std = !strconcat("LangStandard::getLangStandardForKind(", lang_std.KeyPath, ")");
@@ -1059,8 +1061,11 @@ defm hip_new_launch_api : BoolFOption<"hip-new-launch-api",
   LangOpts<"HIPUseNewLaunchAPI">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Use">, NegFlag<SetFalse, [], "Don't use">,
   BothFlags<[], " new kernel launching API for HIP">>;
-defm gpu_allow_device_init : OptInFFlag<"gpu-allow-device-init",
-  "Allow", "Don't allow", " device side init function in HIP">;
+defm gpu_allow_device_init : BoolFOption<"gpu-allow-device-init",
+  LangOpts<"GPUAllowDeviceInit">, DefaultFalse,
+  PosFlag<SetTrue, [CC1Option], "Allow">, NegFlag<SetFalse, [], "Don't allow">,
+  BothFlags<[], " device side init function in HIP">>,
+  ShouldParseIf<hip.KeyPath>;
 defm gpu_defer_diag : BoolFOption<"gpu-defer-diag",
   LangOpts<"GPUDeferDiag">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Defer">, NegFlag<SetFalse, [], "Don't defer">,
@@ -1072,7 +1077,9 @@ defm gpu_exclude_wrong_side_overloads : BoolFOption<"gpu-exclude-wrong-side-over
   BothFlags<[HelpHidden], " in overloading resolution for CUDA/HIP">>;
 def gpu_max_threads_per_block_EQ : Joined<["--"], "gpu-max-threads-per-block=">,
   Flags<[CC1Option]>,
-  HelpText<"Default max threads per block for kernel launch bounds for HIP">;
+  HelpText<"Default max threads per block for kernel launch bounds for HIP">,
+  MarshallingInfoStringInt<LangOpts<"GPUMaxThreadsPerBlock">, "256">,
+  ShouldParseIf<hip.KeyPath>;
 def gpu_instrument_lib_EQ : Joined<["--"], "gpu-instrument-lib=">,
   HelpText<"Instrument device library for HIP, which is a LLVM bitcode containing "
   "__cyg_profile_func_enter and __cyg_profile_func_exit">;
@@ -1311,7 +1318,7 @@ defm profile_arcs : BoolFOption<"profile-arcs",
 defm test_coverage : BoolFOption<"test-coverage",
   CodeGenOpts<"EmitGcovNotes">, DefaultFalse,
 #if INTEL_CUSTOMIZATION
-  PosFlag<SetTrue, [CC1Option]>, NegFlag<SetFalse>>, BothFlags<[CoreOption]>;
+  PosFlag<SetTrue, [CC1Option]>, NegFlag<SetFalse>, BothFlags<[CoreOption]>>;
 #endif // INTEL_CUSTOMIZATION
 def fprofile_filter_files_EQ : Joined<["-"], "fprofile-filter-files=">,
     Group<f_Group>, Flags<[CC1Option, CoreOption]>,
@@ -5941,9 +5948,13 @@ def vtordisp_mode_EQ : Joined<["-"], "vtordisp-mode=">,
   HelpText<"Control vtordisp placement on win32 targets">,
   MarshallingInfoStringInt<LangOpts<"VtorDispMode">, "1">;
 def fnative_half_type: Flag<["-"], "fnative-half-type">,
-  HelpText<"Use the native half type for __fp16 instead of promoting to float">;
+  HelpText<"Use the native half type for __fp16 instead of promoting to float">,
+  MarshallingInfoFlag<LangOpts<"NativeHalfType">>,
+  ImpliedByAnyOf<[open_cl.KeyPath, render_script.KeyPath]>;
 def fnative_half_arguments_and_returns : Flag<["-"], "fnative-half-arguments-and-returns">,
-  HelpText<"Use the native __fp16 type for arguments and returns (and skip ABI-specific lowering)">;
+  HelpText<"Use the native __fp16 type for arguments and returns (and skip ABI-specific lowering)">,
+  MarshallingInfoFlag<LangOpts<"NativeHalfArgsAndReturns">>,
+  ImpliedByAnyOf<[open_cl.KeyPath, render_script.KeyPath]>;
 def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-returns">,
   HelpText<"Allow function arguments and returns of type half">;
 // if INTEL_CUSTOMIZATION
