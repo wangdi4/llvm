@@ -30,7 +30,7 @@ public:
         *PassRegistry::getPassRegistry());
   }
 
-  bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F) override;
 };
 } // anonymous namespace
 
