@@ -1963,7 +1963,12 @@ bool SampleProfileLoader::doInitialization(Module &M,
   Reader = std::move(ReaderOrErr.get());
   Reader->setSkipFlatProf(LTOPhase == ThinOrFullLTOPhase::ThinLTOPostLink);
   Reader->collectFuncsFrom(M);
-  ProfileIsValid = (Reader->read() == sampleprof_error::success);
+  if (std::error_code EC = Reader->read()) {
+    std::string Msg = "profile reading failed: " + EC.message();
+    Ctx.diagnose(DiagnosticInfoSampleProfile(Filename, Msg));
+    return false;
+  }
+
   PSL = Reader->getProfileSymbolList();
 
   // While profile-sample-accurate is on, ignore symbol list.
@@ -2016,8 +2021,6 @@ ModulePass *llvm::createSampleProfileLoaderPass(StringRef Name) {
 
 bool SampleProfileLoader::runOnModule(Module &M, ModuleAnalysisManager *AM,
                                       ProfileSummaryInfo *_PSI, CallGraph *CG) {
-  if (!ProfileIsValid)
-    return false;
   GUIDToFuncNameMapper Mapper(M, *Reader, GUIDToFuncNameMap);
 
   PSI = _PSI;
