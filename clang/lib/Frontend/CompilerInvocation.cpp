@@ -403,9 +403,11 @@ static T extractMaskValue(T KeyPath) {
             MERGER(KEYPATH, static_cast<decltype(KEYPATH)>(*MaybeValue));      \
   }
 
+static const StringRef GetInputKindName(InputKind IK);
+
 static void FixupInvocation(CompilerInvocation &Invocation,
-                            DiagnosticsEngine &Diags,
-                            const InputArgList &Args) {
+                            DiagnosticsEngine &Diags, const InputArgList &Args,
+                            InputKind IK) {
   LangOptions &LangOpts = *Invocation.getLangOpts();
   CodeGenOptions &CodeGenOpts = Invocation.getCodeGenOpts();
   TargetOptions &TargetOpts = Invocation.getTargetOpts();
@@ -440,6 +442,10 @@ static void FixupInvocation(CompilerInvocation &Invocation,
         << A->getAsString(Args) << A->getValue();
     LangOpts.NewAlignOverride = 0;
   }
+
+  if (Args.hasArg(OPT_fgnu89_inline) && LangOpts.CPlusPlus)
+    Diags.Report(diag::err_drv_argument_not_allowed_with)
+        << "-fgnu89-inline" << GetInputKindName(IK);
 
   if (Arg *A = Args.getLastArg(OPT_fdefault_calling_conv_EQ)) {
     auto DefaultCC = LangOpts.getDefaultCallingConv();
@@ -2049,6 +2055,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
   }
 
   const LangStandard &Std = LangStandard::getLangStandardForKind(LangStd);
+  Opts.LangStd = LangStd;
   Opts.LineComment = Std.hasLineComments();
   Opts.C99 = Std.isC99();
   Opts.C11 = Std.isC11();
@@ -2060,9 +2067,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
   Opts.CPlusPlus17 = Std.isCPlusPlus17();
   Opts.CPlusPlus20 = Std.isCPlusPlus20();
   Opts.CPlusPlus2b = Std.isCPlusPlus2b();
-  Opts.Digraphs = Std.hasDigraphs();
   Opts.GNUMode = Std.isGNUMode();
-  Opts.GNUInline = !Opts.C99 && !Opts.CPlusPlus;
   Opts.GNUCVersion = 0;
   Opts.HexFloats = Std.hasHexFloats();
   Opts.ImplicitInt = Std.hasImplicitInt();
@@ -2132,7 +2137,6 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
   // C++ has wchar_t keyword.
   Opts.WChar = Opts.CPlusPlus;
 
-  Opts.GNUKeywords = Opts.GNUMode;
   Opts.CXXOperatorNames = Opts.CPlusPlus;
 
   Opts.AlignedAllocation = Opts.CPlusPlus17;
@@ -2490,16 +2494,6 @@ void CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
         << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
   }
 
-  // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
-  // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
-  // while a subset (the non-C++ GNU keywords) is provided by GCC's
-  // '-fgnu-keywords'. Clang conflates the two for simplicity under the single
-  // name, as it doesn't seem a useful distinction.
-  Opts.GNUKeywords = Args.hasFlag(OPT_fgnu_keywords, OPT_fno_gnu_keywords,
-                                  Opts.GNUKeywords);
-
-  Opts.Digraphs = Args.hasFlag(OPT_fdigraphs, OPT_fno_digraphs, Opts.Digraphs);
-
   if (Args.hasArg(OPT_fno_operator_names))
     Opts.CXXOperatorNames = 0;
 
@@ -2580,14 +2574,6 @@ void CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
           << A->getAsString(Args) << A->getValue();
     }
     Opts.GNUCVersion = Major * 100 * 100 + Minor * 100 + Patch;
-  }
-
-  if (Args.hasArg(OPT_fgnu89_inline)) {
-    if (Opts.CPlusPlus)
-      Diags.Report(diag::err_drv_argument_not_allowed_with)
-        << "-fgnu89-inline" << GetInputKindName(IK);
-    else
-      Opts.GNUInline = 1;
   }
 
   if (Args.hasArg(OPT_ftrapv)) {
@@ -3344,7 +3330,7 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   Res.getCodeGenOpts().Argv0 = Argv0;
   Res.getCodeGenOpts().CommandLineArgs = CommandLineArgs;
 
-  FixupInvocation(Res, Diags, Args);
+  FixupInvocation(Res, Diags, Args, DashX);
 
   return Success;
 }
