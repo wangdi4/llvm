@@ -112,6 +112,16 @@ static cl::opt<unsigned>
                          cl::desc("Forced inlining opt level"));
 
 //
+// Options controlling exceoptions for dynamic allocas
+//
+
+// Use this to control how large a dynamic alloca char array can be before
+// its presence inhibits the inlining of the Function into other Functions.
+static cl::opt<unsigned> DynAllocaMaxCharArraySize(
+    "inlining-dyn-alloca-max-char-array-size", cl::init(4096), cl::ReallyHidden,
+    cl::desc("Maximum size of char array which is dynamic alloca exception"));
+
+//
 // Options controlling the recognition of a huge function
 //
 
@@ -561,6 +571,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
       return false;
     if (I.isArrayAllocation())
       return false;
+    if (vpo::VPOAnalysisUtils::seenOnJumpToEndIfClause(&I))
+      return true;
     StoreInst *SingleStore = nullptr;
     bool CallOrLoadSeen = false;
     for (User *U : I.users()) {
@@ -619,6 +631,14 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         return true;
     if (IsSimpleAlloca(I))
       return true;
+    // Tolerate a dynamic alloca representing a character array. This can
+    // be generalized if we find it useful.
+    if (DTransInlineHeuristics)
+       if (auto PTy = dyn_cast<PointerType>(I.getType()))
+         if (auto ATy = dyn_cast<ArrayType>(PTy->getElementType()))
+           if (ATy->getElementType()->isIntegerTy(8) &&
+               ATy->getNumElements() <= DynAllocaMaxCharArraySize)
+             return true;
   }
   return false;
 }

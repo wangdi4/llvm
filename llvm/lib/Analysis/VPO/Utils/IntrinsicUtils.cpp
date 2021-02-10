@@ -178,4 +178,66 @@ bool VPOAnalysisUtils::mayHaveOpenmpDirective(Function &F) {
 bool VPOAnalysisUtils::skipFunctionForOpenmp(Function &F) {
   return !mayHaveOpenmpDirective(F);
 }
+
+/// Returns true if \p V is an operand to a "QUAL.OMP.JUMP.TO.END.IF" clause.
+///
+/// An example of such \p V is `%t`:
+/// \code
+///   %t = alloca i1
+///   %1 = begin_region[... "QUAL.OMP.JUMP.TO.END.IF"(i1* %t)]
+///   %t.load = load volatile i1, i1* %t
+///   %cmp = icmp ne i1 %.load, false
+///   br i1 %cmp, %END, %CONTINUE
+///
+///   CONTINUE:
+///   ...
+///
+///   END:
+///   end_region(%1)
+/// \endcode
+bool VPOAnalysisUtils::seenOnJumpToEndIfClause(Value *V) {
+  // A "JUMP.TO.END.IF" operand is an alloca of type I1.
+  auto *AI = dyn_cast_or_null<AllocaInst>(V);
+  if (!AI)
+    return false;
+
+  Type *AllocTy = AI->getAllocatedType();
+  if (!AllocTy->isIntegerTy(1))
+    return false;
+
+  // Find a directive that may potentially have V as a jump-to-end-if operand.
+  auto findFirstPotentialDirectiveUserOfV = [&V]() -> CallInst * {
+    for (User *U : V->users()) {
+      if (!isa<CallInst>(U) && !isa<LoadInst>(U) && !isa<CastInst>(U))
+        // Jump-to-end-if operands cannot have uses other than these.
+        return nullptr;
+
+      if (CallInst *CI = dyn_cast<CallInst>(U))
+        if (VPOAnalysisUtils::isOpenMPDirective(CI) &&
+            CI->getNumOperandBundles() > 0)
+          return CI;
+    }
+    return nullptr;
+  };
+
+  CallInst *CI = findFirstPotentialDirectiveUserOfV();
+  if (!CI)
+    return false;
+
+  StringRef JumpToEndIfClauseString =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_JUMP_TO_END_IF);
+
+  for (unsigned I = 0; I < CI->getNumOperandBundles(); ++I) {
+    OperandBundleUse BU = CI->getOperandBundleAt(I);
+    if (BU.getTagName() != JumpToEndIfClauseString)
+      continue;
+
+    assert(BU.Inputs.size() == 1 && "Expected a single operand in a "
+                                    "'QUAL.OMP.JUMP.TO.END.IF' bundle.");
+    Value *JumpToEndIfOpnd = BU.Inputs[0];
+    if (JumpToEndIfOpnd == V)
+      return true;
+  }
+  return false;
+}
 #endif // INTEL_COLLAB
