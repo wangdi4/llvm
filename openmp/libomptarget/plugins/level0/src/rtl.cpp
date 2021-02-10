@@ -329,7 +329,7 @@ class RTLProfileTy {
     double HostTime = 0.0;
     double DeviceTime = 0.0; // Not used for now
   };
-  std::thread::id ThreadId;
+  int ThreadId;
   std::map<std::string, TimeTy> Data;
   uint64_t TimestampFreq = 0;
   uint64_t TimestampMax = 0;
@@ -340,7 +340,7 @@ public:
   static int64_t Multiplier;
 
   RTLProfileTy(const ze_device_properties_t &DeviceProperties) {
-    ThreadId = std::this_thread::get_id();
+    ThreadId = __kmpc_global_thread_num(nullptr);
     TimestampFreq = DeviceProperties.timerResolution;
     auto validBits = DeviceProperties.kernelTimestampValidBits;
     if (validBits > 0 && validBits < 64)
@@ -351,26 +351,66 @@ public:
               validBits);
   }
 
+  std::string alignLeft(size_t Width, std::string Str) {
+    if (Str.size() < Width)
+      return Str + std::string(Width - Str.size(), ' ');
+    return Str;
+  }
+
   void printData(const char *DeviceId, const char *DeviceName) {
-    std::ostringstream o;
-    o << ThreadId;
-    fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%s) %s"
-            ", Thread %s\n", DeviceId, DeviceName, o.str().c_str());
+    std::string profileSep(80, '=');
+    std::string lineSep(80, '-');
+
+    fprintf(stderr, "%s\n", profileSep.c_str());
+
+    fprintf(stderr, "LIBOMPTARGET_PLUGIN_PROFILE(%s) for OMP DEVICE(%s) %s"
+            ", Thread %" PRId32 "\n", GETNAME(TARGET_NAME), DeviceId,
+            DeviceName, ThreadId);
     const char *unit = (Multiplier == MSEC_PER_SEC) ? "msec" : "usec";
-    fprintf(stderr, "-- Name: Host Time (%s), Device Time (%s)\n", unit, unit);
+
+    fprintf(stderr, "%s\n", lineSep.c_str());
+
+    std::string kernelPrefix("Kernel ");
+    size_t maxKeyLength = kernelPrefix.size() + 3;
+    for (const auto &d : Data)
+      if (d.first.substr(0, kernelPrefix.size()) != kernelPrefix &&
+          maxKeyLength < d.first.size())
+        maxKeyLength = d.first.size();
+
+    // Print kernel key and name
+    int kernelId = 0;
+    for (const auto &d: Data) {
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
+        fprintf(stderr, "-- %s: %s\n",
+                alignLeft(maxKeyLength, kernelPrefix +
+                          std::to_string(kernelId++)).c_str(),
+                d.first.substr(kernelPrefix.size()).c_str());
+    }
+
+    fprintf(stderr, "%s\n", lineSep.c_str());
+
+    fprintf(stderr, "-- %s:     Host Time (%s)   Device Time (%s)\n",
+            alignLeft(maxKeyLength, "Name").c_str(), unit, unit);
+
     double hostTotal = 0.0;
     double deviceTotal = 0.0;
+    kernelId = 0;
     for (const auto &d : Data) {
       double hostTime = d.second.HostTime * Multiplier;
-      double deviceTime = (d.first.find("Kernel#") == std::string::npos)
-                              ? hostTime // device time is not available
-                              : d.second.DeviceTime * Multiplier;
-      fprintf(stderr, "-- %s: %.6f, %.6f\n", d.first.c_str(), hostTime,
-              deviceTime);
+      double deviceTime = hostTime;
+      std::string key(d.first);
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix) {
+        deviceTime = d.second.DeviceTime * Multiplier;
+        key = kernelPrefix + std::to_string(kernelId++);
+      }
+      fprintf(stderr, "-- %s: %20.3f %20.3f\n",
+              alignLeft(maxKeyLength, key).c_str(), hostTime, deviceTime);
       hostTotal += hostTime;
       deviceTotal += deviceTime;
     }
-    fprintf(stderr, "-- Total: %.6f, %.6f\n", hostTotal, deviceTotal);
+    fprintf(stderr, "-- %s: %20.3f %20.3f\n",
+            alignLeft(maxKeyLength, "Total").c_str(), hostTotal, deviceTotal);
+    fprintf(stderr, "%s\n", profileSep.c_str());
   }
 
   void update(const char *Name, double Elapsed) {
@@ -1881,7 +1921,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   auto context = DeviceInfo->Context;
   auto device = DeviceInfo->Devices[DeviceId];
 
-  ScopedTimerTy tmModuleBuild(DeviceId, "ModuleBuild");
+  ScopedTimerTy tmModuleCompile(DeviceId, "Compiling");
 
   auto &modules = DeviceInfo->FuncGblEntries[DeviceId].Modules;
   auto mainModule = createModule(context, device, imageSize,
@@ -1893,6 +1933,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   }
 
   modules.push_back(mainModule);
+
+  tmModuleCompile.stop();
 
 #if ENABLE_LIBDEVICE_LINKING
   std::vector<const char *> deviceLibNames {
@@ -1911,6 +1953,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       modules.push_back(deviceLibModule);
     }
   }
+
+  ScopedTimerTy tmModuleLink(DeviceId, "Linking");
 
   if (DeviceInfo->Flags.LinkLibDevice) {
     int32_t rc;
@@ -1931,9 +1975,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     }
     CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
   }
-#endif // ENABLE_LIBDEVICE_LINKING
 
-  tmModuleBuild.stop();
+  tmModuleLink.stop();
+#endif // ENABLE_LIBDEVICE_LINKING
 
   auto &entries = DeviceInfo->FuncGblEntries[DeviceId].Entries;
   auto &kernels = DeviceInfo->FuncGblEntries[DeviceId].Kernels;
@@ -1942,10 +1986,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
   // FIXME: table loading does not work at all on XeLP.
   // Enable it after CMPLRLIBS-33285 is fixed.
+  ScopedTimerTy tmOffloadEntriesInit(DeviceId, "OffloadEntriesInit");
   if (DeviceInfo->Flags.EnableTargetGlobals &&
       DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeLP &&
       !DeviceInfo->loadOffloadTable(DeviceId, numEntries))
     IDP("Warning: offload table loading failed.\n");
+  tmOffloadEntriesInit.stop();
 
   for (uint32_t i = 0; i < numEntries; i++) {
     auto size = Image->EntriesBegin[i].size;
@@ -2743,7 +2789,7 @@ static int32_t runTargetTeamRegionSub(
   }
 
   ze_event_handle_t profileEvent = nullptr;
-  std::string tmName("Kernel#");
+  std::string tmName("Kernel ");
   tmName = tmName + rootEntries[kernelId].name;
   std::vector<ScopedTimerTy> tmKernels;
 
@@ -2868,7 +2914,7 @@ static int32_t runTargetTeamRegion(
     REPORT("Failed to invoke deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
-  std::string tmName("Kernel#");
+  std::string tmName("Kernel ");
   size_t kernelNameSize = 0;
   CALL_ZE_RET_FAIL(zeKernelGetName, kernel, &kernelNameSize, nullptr);
   std::vector<char> kernelName(kernelNameSize);
