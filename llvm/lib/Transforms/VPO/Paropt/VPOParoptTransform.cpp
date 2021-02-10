@@ -1927,6 +1927,7 @@ bool VPOParoptTransform::paroptTransforms() {
           // functions with target regions from being deleted by LTO.
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
+          Changed |= addMapAndPrivateForIsDevicePtr(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           if (isTargetSPIRV() && !hasParentTarget(W) &&
               !isFunctionOpenMPTargetDeclare())
@@ -1934,7 +1935,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= constructNDRangeInfo(W);
-          Changed |= addMapAndPrivateForIsDevicePtr(W);
           Changed |= promoteClauseArgumentUses(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
@@ -7201,11 +7201,9 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
       Changed |= rename(UdpI->getOrig(), true);
   }
 
-  if (W->canHaveIsDevicePtr()) {
-    IsDevicePtrClause &IdpClause = W->getIsDevicePtr();
-    for (IsDevicePtrItem *IdpI : IdpClause.items())
-      Changed |= rename(IdpI->getOrig(), true);
-  }
+  // is_device_ptr() clauses must have been transformed into
+  // map[+private], but W->getIsDevicePtr().items().empty()
+  // is still not empty. Just do nothing for these items.
 
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
 
@@ -10625,9 +10623,9 @@ bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
     for (LinearItem *LrI : W->getLinear().items())
       rename(LrI);
 
-  if (W->canHaveIsDevicePtr())
-    for (IsDevicePtrItem *DPtrI : W->getIsDevicePtr().items())
-      rename(DPtrI);
+  // is_device_ptr() clauses must have been transformed into
+  // map[+private], but W->getIsDevicePtr().items().empty()
+  // is still not empty. Just do nothing for these items.
 
   if (W->canHaveMap()) {
     for (MapItem *MapI : W->getMap().items()) {

@@ -1674,16 +1674,6 @@ void WRegionNode::getClausesFromOperandBundles(IntrinsicInst *Call) {
     // Extract clause properties
     ClauseSpecifier ClauseInfo(ClauseString);
 
-#if INTEL_CUSTOMIZATION
-    if ((ClauseInfo.getId() == QUAL_OMP_IS_DEVICE_PTR ||
-         ClauseInfo.getId() == QUAL_OMP_HAS_DEVICE_ADDR) &&
-        ClauseInfo.getIsF90DopeVector()) {
-      // IS.DEVICE.PTR:F90_DV("DV"* %x) is treated as FIRSTPRIVATE("DV"* %x).
-      ClauseInfo.setId(QUAL_OMP_FIRSTPRIVATE);
-      ClauseInfo.setIsF90DopeVector(false);
-    }
-
-#endif // INTEL_CUSTOMIZATION
     // Get the argument list from the current OperandBundle
     ArrayRef<llvm::Use> Args = BU.Inputs;
     unsigned NumArgs = Args.size(); // BU.Inputs.size()

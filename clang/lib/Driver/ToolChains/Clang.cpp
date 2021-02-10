@@ -5965,10 +5965,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
-  // Setting -disable-cpudispatch-ifuncs as default for xmain Linux
-  if (D.IsIntelMode() && !(D.IsCLMode()))
-    CmdArgs.push_back("-disable-cpudispatch-ifuncs");
-
   //-fiopenmp-offload is default
   if (Args.hasArg(options::OPT_fiopenmp) &&
       Args.hasFlag(options::OPT_fno_iopenmp_offload,

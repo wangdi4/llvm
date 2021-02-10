@@ -76,6 +76,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/InitializePasses.h"
@@ -102,6 +103,10 @@ STATISTIC(NumHIRDeadRegularStoreEliminated,
 // Count for local dead store:
 STATISTIC(NumHIRDeadLocalStoreEliminated,
           "Number of Local Dead Stores Eliminated");
+
+// Count for loads eliminated using forward substitution:
+STATISTIC(NumHIRForwardSubstitutedLoads,
+          "Number of loads eliminated using forward substitution");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static void printRefGroupTy(RefGroupTy &Group, std::string Msg = "",
@@ -233,6 +238,7 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
 static bool
 foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
                      const RegDDRef *PostDomStoreRef,
+                     SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads,
                      HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
 
   assert((PostDomStoreRef->getDestTypeSizeInBytes() >=
@@ -242,6 +248,10 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
   unsigned StoreSymbase = StoreRef->getSymbase();
   unsigned MinTopSortNum = StoreRef->getHLDDNode()->getTopSortNum();
   unsigned MaxTopSortNum = PostDomStoreRef->getHLDDNode()->getTopSortNum();
+  unsigned MaxSubstitutibleLoadTopSortNum =
+      !SubstitutibleLoads.empty()
+          ? SubstitutibleLoads[0]->getHLDDNode()->getTopSortNum()
+          : 0;
 
   for (auto &LoadRefGroup : EqualityGroups) {
 
@@ -274,10 +284,13 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
 
       bool IsFake = LoadRef->isFake();
 
-      // Only intervening loads are a problem, stored can be ignored.
+      // In the absence of substitutible loads, only intervening loads are a
+      // problem and stores can be ignored. In the presence of substitutible
+      // loads, aliasing stores between StoreRef and loads are also a problem.
       // Fake stores cannot be ignored as they can be either reads or writes in
       // the callee.
-      if (!IsFake && LoadRef->isLval()) {
+      if (!IsFake && LoadRef->isLval() &&
+          (LoadTopSortNum >= MaxSubstitutibleLoadTopSortNum)) {
         continue;
       }
 
@@ -584,6 +597,95 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
   return true;
 }
 
+// Somtimes we can eliminate the store by forward substituting its RHS into
+// loads. For example-
+//
+// A[0] = 0;
+// %t = A[0];
+// A[0] = 5;
+//
+// Can be optimized to-
+//
+// %t = 0;
+// A[0] = 5;
+//
+// This function returns true if the collected loads can be substituted.
+// Loads are collected in reverse lexical order.
+static bool
+canSubstituteLoads(const HLRegion &Region, const RegDDRef *StoreRef,
+                   SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads) {
+  if (SubstitutibleLoads.empty()) {
+    return true;
+  }
+
+  // Give up if load and store are not identical which can happen due to
+  // bitcasts.
+  if (!DDRefUtils::areEqual(StoreRef, SubstitutibleLoads[0])) {
+    return false;
+  }
+
+  const HLInst *SInst = cast<HLInst>(StoreRef->getHLDDNode());
+
+  // Only handle store instructions which is the common case, for simplicity.
+  if (!isa<StoreInst>(SInst->getLLVMInstruction())) {
+    return false;
+  }
+
+  auto *StoreRHS = SInst->getRvalDDRef();
+
+  // Forward substituting a load requires additional aliasing checks so give up
+  // for now.
+  if (StoreRHS->isMemRef()) {
+    return false;
+  }
+
+  // Check if store can be legally substituted.
+  const HLLoop *ParLoop = SInst->getLexicalParentLoop();
+
+  // Check if it is structurally legal to substitute the StoreRHS into loads.
+  unsigned Symbase = StoreRHS->getSymbase();
+  bool IsRegionInvariant =
+      ((Symbase == ConstantSymbase) || Region.isLiveIn(Symbase));
+
+  // Non-linear RHS can also be handled by checking for invalidating definitions
+  // between the store and loads but it can increase the live-range of the
+  // non-linear temps thereby increasing register pressure and nullify the
+  // benefit of eliminating load/store.
+  // TODO: Try extending in a separate changeset.
+  if (!IsRegionInvariant &&
+      (!ParLoop || !StoreRHS->isLinearAtLevel(ParLoop->getNestingLevel()))) {
+    return false;
+  }
+
+  for (auto *LoadRef : SubstitutibleLoads) {
+    auto *LoadNode = LoadRef->getHLDDNode();
+    if ((ParLoop != LoadNode->getLexicalParentLoop()) ||
+        !HLNodeUtils::dominates(SInst, LoadNode)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static void
+removeDeadStore(const HLDDNode *StoreNode,
+                SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads) {
+  auto *StoreRHS = StoreNode->getRvalDDRef();
+
+  for (auto *LoadRef : SubstitutibleLoads) {
+    HIRTransformUtils::replaceOperand(const_cast<RegDDRef *>(LoadRef),
+                                      StoreRHS->clone());
+  }
+
+  auto *StoreParent = StoreNode->getParent();
+  HLNodeUtils::remove(const_cast<HLDDNode *>(StoreNode));
+  HLNodeUtils::removeRedundantNodes(StoreParent, true);
+
+  ++NumHIRDeadRegularStoreEliminated;
+  NumHIRForwardSubstitutedLoads += SubstitutibleLoads.size();
+}
+
 bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
   // It isn't worth optimizing incoming single bblock regions.
   if (Region.isLoopMaterializationCandidate()) {
@@ -605,6 +707,8 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
   }
 
   bool Result = false;
+  SmallPtrSet<const HLLoop *, 8> OptimizedLoops;
+
   for (auto &RefGroup : EqualityGroups) {
     auto *Ref = RefGroup.front();
 
@@ -627,8 +731,28 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
 
     bool IsUniqueSymbase = UniqueGroupSymbases.count(Ref->getSymbase());
 
-    // For each store, check whether it post dominates another store and there
-    // is no load interleaving between these two stores.
+    // For each store, check whether it post dominates another store and
+    // eliminate the dominated store if-
+    //
+    // 1) There are no aliasing loads in between these two stores.
+    //
+    // Example with i8* type %A-
+    //       %A[0] =
+    // (i16*)%A[0] =
+    //
+    // Or,
+    //
+    // 2) All the intermediate loads are identical to the lexically first store
+    // and can be forward substituted by its RHS.
+    //
+    // Example-
+    // %A[0] = 0;
+    //       = %A[0]
+    //       = %A[0]
+    // %A[0] =
+    //
+    // Forward substitution is performed in this case.
+    //
     for (unsigned Index = 0; Index != RefGroup.size(); ++Index) {
       auto *PostDomRef = RefGroup[Index];
       // Skip any load/fake/masked ref.
@@ -637,16 +761,32 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         continue;
       }
 
+      SmallVector<const RegDDRef *, 4> SubstitutibleLoads;
       const HLDDNode *PostDomDDNode = PostDomRef->getHLDDNode();
+
       for (unsigned I = Index + 1; I != RefGroup.size();) {
         auto *PrevRef = RefGroup[I];
 
-        // Skip if we encounter a load or fake ref in between two stores.
+        // Skip if we encounter a fake ref in between two stores.
         // Also skip if the PostDomRef's size is smaller than PrevRef as it does
         // not make PrevRef completely dead.
-        if (PrevRef->isRval() || PrevRef->isFake() ||
-            PrevRef->getDestTypeSizeInBytes() >
-                PostDomRef->getDestTypeSizeInBytes()) {
+        if (PrevRef->isFake() || PrevRef->getDestTypeSizeInBytes() >
+                                     PostDomRef->getDestTypeSizeInBytes()) {
+          break;
+        }
+
+        // Refer to comments on canSubstituteLoads() for explanation.
+        if (PrevRef->isRval()) {
+          if (SubstitutibleLoads.empty() ||
+              // Give up if the loads are not identical which can happen
+              // due to bitcasts.
+              DDRefUtils::areEqual(PrevRef, SubstitutibleLoads[0])) {
+            SubstitutibleLoads.push_back(PrevRef);
+            ++I;
+            continue;
+          }
+          break;
+        } else if (!canSubstituteLoads(Region, PrevRef, SubstitutibleLoads)) {
           break;
         }
 
@@ -667,23 +807,30 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         // If there is aliasing load between the two stores, give up on current
         // PostDomRef.
         if (!IsUniqueSymbase &&
-            foundInterveningLoad(HDDA, PrevRef, PostDomRef, EqualityGroups)) {
+            foundInterveningLoad(HDDA, PrevRef, PostDomRef, SubstitutibleLoads,
+                                 EqualityGroups)) {
           break;
         }
 
-        // Delete the StoreInst on PrevRef, possibly even the entire loop.
-        if (auto *PrevLoop = PrevDDNode->getLexicalParentLoop()) {
-          HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(PrevLoop);
+        // After complete unroll, we may optimize multiple stores from the same
+        // loop so postpone the invalidation.
+        if (auto *ParLoop = PrevDDNode->getLexicalParentLoop()) {
+          OptimizedLoops.insert(ParLoop);
         }
 
-        auto *PrevParent = PrevDDNode->getParent();
-        HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
-        HLNodeUtils::removeRedundantNodes(PrevParent, true);
-        ++NumHIRDeadRegularStoreEliminated;
-        Result = true;
+        // Delete the StoreInst on PrevRef, possibly even the entire loop.
+        removeDeadStore(PrevDDNode, SubstitutibleLoads);
 
-        // Remove Index I from collection and continue to iterate.
-        RefGroup.erase(RefGroup.begin() + I);
+        // Remove Store and SubstitutibleLoads from collection and continue to
+        // iterate.
+        unsigned NumLoads = SubstitutibleLoads.size();
+        auto BegIt = RefGroup.begin() + I - NumLoads;
+        auto EndIt = RefGroup.begin() + I + 1;
+        RefGroup.erase(BegIt, EndIt);
+        SubstitutibleLoads.clear();
+
+        I -= NumLoads;
+        Result = true;
       }
     }
   }
@@ -692,6 +839,12 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
 
   if (!Result) {
     return false;
+  }
+
+  for (auto *Lp : OptimizedLoops) {
+    if (Lp->isAttached()) {
+      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+    }
   }
 
   Region.setGenCode();

@@ -70,6 +70,7 @@ const char *precisionEnumToString(PrecisionEnum Value) {
 struct ImfFuncInfo {
   PrecisionEnum Precision = High;
   bool FuSa = false;
+  const char *ISASet;
 
   ImfFuncInfo setPrecision(PrecisionEnum Value) const {
     ImfFuncInfo Ret(*this);
@@ -83,6 +84,12 @@ struct ImfFuncInfo {
     return Ret;
   }
 
+  ImfFuncInfo setISASet(const char *Value) const {
+    ImfFuncInfo Ret(*this);
+    Ret.ISASet = Value;
+    return Ret;
+  }
+
   ImfAttrListWrapper createImfAttrList() const {
     ImfAttr *Tail = nullptr;
 
@@ -90,15 +97,33 @@ struct ImfFuncInfo {
 
     if (FuSa)
       Tail = createImfAttr("fusa", "true", Tail);
+    if (ISASet)
+      Tail = createImfAttr("isa-set", ISASet, Tail);
 
     return std::move(ImfAttrListWrapper(Tail));
   }
 };
 
-static StringRef getLibraryFunctionName(const char *BaseName,
-                                        const ImfFuncInfo &Attrs) {
-  return get_library_function_name(BaseName,
-                                   Attrs.createImfAttrList().getImfAttrList());
+/// Wrapper for libiml_attr's get_library_function_name. Search for a variant of
+/// function specified in \p BaseName with constraints \p Attrs. Returns the
+/// function name for IA-32 and Intel 64 architectures in a pair.
+static std::pair<StringRef, StringRef>
+getLibraryFunctionName(const char *BaseName, const ImfFuncInfo &Attrs) {
+  return std::make_pair(
+      get_library_function_name(BaseName,
+                                Attrs.createImfAttrList().getImfAttrList(),
+                                llvm::Triple::x86),
+      get_library_function_name(BaseName,
+                                Attrs.createImfAttrList().getImfAttrList(),
+                                llvm::Triple::x86_64));
+}
+
+// Helper function to build a pair of function names to compare with the pair
+// returned by getLibraryFunctionName in tests. This is needed to force the
+// compiler to build a pair of StringRefs, instead of const char *.
+static std::pair<StringRef, StringRef> makeFuncNamePair(StringRef IA32Name,
+                                                        StringRef Intel64Name) {
+  return std::make_pair(IA32Name, Intel64Name);
 }
 
 TEST_F(ImlAttrTest, FuSaTest) {
@@ -106,10 +131,35 @@ TEST_F(ImlAttrTest, FuSaTest) {
 
   ImfFuncInfo InfoFuSa = InfoNoFuSa.setFuSa(true);
 
-  EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoNoFuSa), "fmaxf");
-  EXPECT_EQ(getLibraryFunctionName("logf", InfoNoFuSa), "logf");
-  EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoFuSa), "");
-  EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa), "logf");
+  EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoNoFuSa),
+            makeFuncNamePair("fmaxf", "fmaxf"));
+  EXPECT_EQ(getLibraryFunctionName("logf", InfoNoFuSa),
+            makeFuncNamePair("logf", "logf"));
+  EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoFuSa),
+            makeFuncNamePair("", ""));
+  EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa),
+            makeFuncNamePair("logf", "logf"));
+}
+
+TEST_F(ImlAttrTest, ISASetTest) {
+  ImfFuncInfo Default;
+
+  ImfFuncInfo SSE42 = Default.setISASet("sse42");
+  ImfFuncInfo AVX = Default.setISASet("avx");
+  ImfFuncInfo AVX2 = Default.setISASet("avx2");
+  ImfFuncInfo AVX512ZMMLow = Default.setISASet("coreavx512zmmlow");
+  ImfFuncInfo AVX512ZMMHigh = Default.setISASet("coreavx512");
+
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf4", SSE42),
+            makeFuncNamePair("__svml_sinf4_ha", "__svml_sinf4_ha"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX),
+            makeFuncNamePair("__svml_sinf8_ha_g9", "__svml_sinf8_ha_e9"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX2),
+            makeFuncNamePair("__svml_sinf8_ha_s9", "__svml_sinf8_ha_l9"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX512ZMMLow),
+            makeFuncNamePair("__svml_sinf8_ha_s9", "__svml_sinf8_ha_l9"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX512ZMMHigh),
+            makeFuncNamePair("__svml_sinf8_ha_x0", "__svml_sinf8_ha_z0"));
 }
 
 } // namespace

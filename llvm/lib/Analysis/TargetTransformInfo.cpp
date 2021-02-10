@@ -1059,6 +1059,10 @@ int TargetTransformInfo::getMatchingVectorVariant(
     const Module *M) const {
   return TTIImpl->getMatchingVectorVariant(ForCall, Variants, M);
 }
+
+const char *TargetTransformInfo::getISASetForIMLFunctions() const {
+  return TTIImpl->getISASetForIMLFunctions();
+}
 #endif // INTEL_CUSTOMIZATION
 
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(

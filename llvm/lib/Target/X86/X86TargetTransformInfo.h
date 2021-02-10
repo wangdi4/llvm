@@ -256,6 +256,7 @@ public:
       VectorVariant &ForCall,
       SmallVectorImpl<VectorVariant> &Variants,
       const Module *M) const;
+  const char *getISASetForIMLFunctions() const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);

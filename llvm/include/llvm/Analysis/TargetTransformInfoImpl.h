@@ -698,6 +698,8 @@ public:
 
   bool needsStructuredCFG() const { return false; }
 
+  const char *getISASetForIMLFunctions() const { return "all"; }
+
 #endif
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAddrSpace, unsigned DestAddrSpace,
