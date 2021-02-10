@@ -11,12 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h" // INTEL
-#include "llvm/Analysis/ObjCARCRVAttr.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
@@ -610,13 +609,8 @@ bool Instruction::mayWriteToMemory() const {
     return true;
   case Instruction::Call:
   case Instruction::Invoke:
-  case Instruction::CallBr: {
-    if (!cast<CallBase>(this)->onlyReadsMemory())
-      return true;
-    if (auto *CB = dyn_cast<CallBase>(this))
-      return objcarc::hasRetainRVOrClaimRVAttr(CB);
-    return false;
-  }
+  case Instruction::CallBr:
+    return !cast<CallBase>(this)->onlyReadsMemory();
   case Instruction::Load:
     return !cast<LoadInst>(this)->isUnordered();
   }
