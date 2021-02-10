@@ -1324,6 +1324,11 @@ public:
       VectorVariant &ForCall,
       SmallVectorImpl<VectorVariant> &Variants,
       const Module *M) const;
+
+  /// Returns the appropriate "isa-set" attribute to be used in libiml_attr
+  /// for selecting math library function variants. Returns "all" if no
+  /// specific ISA can be inferred from information available in the Subtarget.
+  const char *getISASetForIMLFunctions() const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -1741,6 +1746,7 @@ public:
       SmallVectorImpl<VectorVariant> &Variants,
       const Module *M) const = 0;
   virtual bool needsStructuredCFG() const = 0;
+  virtual const char *getISASetForIMLFunctions() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                           unsigned SrcAddrSpace,
@@ -2319,6 +2325,9 @@ public:
     return Impl.needsStructuredCFG();
   }
 
+  const char *getISASetForIMLFunctions() const override {
+    return Impl.getISASetForIMLFunctions();
+  }
 #endif // INTEL_CUSTOMIZATION
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAddrSpace, unsigned DestAddrSpace,

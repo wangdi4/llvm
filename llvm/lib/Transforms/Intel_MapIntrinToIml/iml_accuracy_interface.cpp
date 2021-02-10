@@ -98,6 +98,7 @@
 #include <cstdio>
 #include "llvm/Support/Compiler.h"
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/search.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/messaging.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/iml_attr_private.h"
@@ -249,8 +250,6 @@ typedef enum
     SUPPORTED_CPUS_NUMBER
 } SupportedCpusEnum;
 
-#if defined IML_DEBUG
-// Note: this list is assumed unsorted
 static const char* valid_configurations_names[SUPPORTED_CPUS_NUMBER] =
 {
     "all", "x87", "sse", "sse2", "sse3", "ssse3", "sse41", "sse42", "avx", "avx2", "micavx512", "coreavx512", "coreavx512zmmlow"
@@ -264,77 +263,9 @@ static const char* attrGetConfigName(SupportedCpusEnum c)
         return valid_configurations_names[c_cpu_all];
     return valid_configurations_names[c];
 }
-#endif
 
 //TODO: replace bits from immintrin.h into something else
 #include <immintrin.h>
-
-#if 0
-//TODO: support cpu features from LLVM in this interface instead of using immintrin.h
-static SupportedCpusEnum attrLibFeatureFlagToTTABIndex(unsigned long long features)
-{
-    SupportedCpusEnum new_value;
-
-    #define LIBIML_ATTR_COREAVX512                  (_FEATURE_AVX512F  | \
-                                                     _FEATURE_AVX512CD | \
-                                                     _FEATURE_AVX512DQ | \
-                                                     _FEATURE_AVX512BW | \
-                                                     _FEATURE_AVX512VL )
-
-    #define LIBIML_ATTR_MICAVX512                   (_FEATURE_AVX512F  | \
-                                                     _FEATURE_AVX512ER | \
-                                                     _FEATURE_AVX512PF | \
-                                                     _FEATURE_AVX512CD )
-
-    #define LIBIML_ATTR_AVX2                        (_FEATURE_FMA       | \
-                                                     _FEATURE_LZCNT     | \
-                                                     _FEATURE_BMI       | \
-                                                     _FEATURE_AVX2      )
-
-    if ( (LIBIML_ATTR_COREAVX512 & features) == LIBIML_ATTR_COREAVX512) {
-        new_value = c_cpu_coreavx512;
-    }
-    else if ( (LIBIML_ATTR_MICAVX512 & features) == LIBIML_ATTR_MICAVX512) {
-        new_value = c_cpu_micavx512;
-    }
-    else if ( (LIBIML_ATTR_AVX2 & features) == LIBIML_ATTR_AVX2) {
-        new_value = c_cpu_avx2;
-    }
-    else if ( (_FEATURE_AVX & features) == _FEATURE_AVX) {
-        new_value = c_cpu_avx;
-    }
-    else if ( (_FEATURE_SSE4_2 & features) == _FEATURE_SSE4_2) {
-        new_value = c_cpu_sse42;
-    }
-    else if ( (_FEATURE_SSE4_1 & features) == _FEATURE_SSE4_1) {
-        new_value = c_cpu_sse41;
-    }
-    else if ( (_FEATURE_SSSE3 & features) == _FEATURE_SSSE3) {
-        new_value = c_cpu_ssse3;
-    }
-    else if ( (_FEATURE_SSE3 & features) == _FEATURE_SSE3) {
-        new_value = c_cpu_sse3;
-    }
-    else if ( (_FEATURE_SSE2 & features) == _FEATURE_SSE2) {
-        new_value = c_cpu_sse2;
-    }
-    else if ( (_FEATURE_SSE & features) == _FEATURE_SSE) {
-        new_value = c_cpu_sse;
-    }
-    else if ( (_FEATURE_FPU & features) == _FEATURE_FPU) {
-        new_value = c_cpu_x87;
-    }
-    else if (features == 0) {
-        new_value = c_cpu_all;
-    }
-    else
-    {
-        new_value = c_cpu_unsupported;
-    }
-
-    return new_value;
-}
-#endif
 
 // This structure contains all possible information
 // on the function. It replaces text specification with
@@ -631,7 +562,6 @@ static int attrExternal2InternalAttr(
     const char* aname = NULL;
     (void)aname;
     int attr_chosen = 0;
-    unsigned long long int tmp;
 
     // search internal_attribute name within allowed names
     flag = IML_ATTR_get_name_index(external_attribute->name, valid_attributes_names, SUPPORTED_ATTRIBUTES_NUMBER);
@@ -645,19 +575,23 @@ static int attrExternal2InternalAttr(
     switch(internal_attribute->attribute_name)
     {
         case c_attribute_configuration: aname = "c_attribute_configuration";
-    #if (defined LIBIML_ATTR_IN_WIN)
-            sscanf(external_attribute->value, "%I64u", &tmp);
-    #else
-            sscanf(external_attribute->value, "%llu", &tmp);
-    #endif
-            //flag = attrLibFeatureFlagToTTABIndex(tmp);
-            flag = 0; //TODO: support cpu feature lookup so that target specific flags can be set.
-            if (flag < 0)
+            // The original libiml_attr uses bit flags stored in an integer to
+            // represent available CPU features. Xmain instead uses a string
+            // to specify level of CPU features (e.g. "coreavx512zmmlow").
+            internal_attribute->attribute_value.i = c_cpu_unsupported;
+            for (int i = 0; i < SUPPORTED_CPUS_NUMBER; i++)
+            {
+                if (!strcmp(external_attribute->value, valid_configurations_names[i]))
+                {
+                  internal_attribute->attribute_value.i = i;
+                  break;
+                }
+            }
+            if (internal_attribute->attribute_value.i < 0)
             {
               PRN_MSG("%-32s: [failure] configuration value \"%s\" wasn't properly converted\n", "attrExternal2InternalAttr", external_attribute->value);
             }
 
-            internal_attribute->attribute_value.i = flag;
             PRN_MSG("%-32s: \tattribute %s = %d \n", "attrExternal2InternalAttr", aname, internal_attribute->attribute_value.i);
             if (flag >= 0)
             {
@@ -1405,7 +1339,7 @@ static int svmlMatchFuncDescriptions(
 }
 
 
-static int svmlGetListForBaseName(const char * func_base_name, FunctionDescriptionType ** functions_list_to_fill)
+static int svmlGetListForBaseName(const char * func_base_name, FunctionDescriptionType ** functions_list_to_fill, llvm::Triple::ArchType arch)
 {
     const FunctionDescriptionType * FunctionDescription_table_ptr;
     int svml_functions_num;
@@ -1417,7 +1351,6 @@ static int svmlGetListForBaseName(const char * func_base_name, FunctionDescripti
         //#pragma message "IA32 LIBIMLATTR TABLE LOADED"
     };
 #endif
-#if 0
     static const FunctionDescriptionType FunctionDescription_table64[] = {
 #if defined LRB
         #include "iml_table_svml_knc.inc"
@@ -1427,30 +1360,25 @@ static int svmlGetListForBaseName(const char * func_base_name, FunctionDescripti
         //#pragma message "EFI2 LIBIMLATTR TABLE LOADED"
 #endif
     };
-#endif
 
 #if !defined LRB
 //TODO: here we are using some compiler internal functionality
 //      to keep our code standalone we should not be doing this.
 //      The only other way around is to receive target arch as yet
 //      another attribute...
-//TODO for xmain: cpu_info keeps track of target architecture specific features in icc.
-//This needs to be changed to use an appropriate LLVM mechanism such as the Target Triple.
-//See MapIntrinToIml.cpp for usage.
-/*
-    if (cpu_info::em64t_target())
+    switch (arch)
     {
-#endif
-        FunctionDescription_table_ptr = FunctionDescription_table64;
-        svml_functions_num = sizeof(FunctionDescription_table64) / sizeof(FunctionDescriptionType);
-#if !defined LRB
+        case llvm::Triple::x86:
+            FunctionDescription_table_ptr = FunctionDescription_table32;
+            svml_functions_num = sizeof(FunctionDescription_table32) / sizeof(FunctionDescriptionType);
+            break;
+        case llvm::Triple::x86_64:
+            FunctionDescription_table_ptr = FunctionDescription_table64;
+            svml_functions_num = sizeof(FunctionDescription_table64) / sizeof(FunctionDescriptionType);
+            break;
+        default:
+            llvm_unreachable("SVML library only supports Intel architectures");
     }
-    else
-    {
-*/
-        FunctionDescription_table_ptr = FunctionDescription_table32;
-        svml_functions_num = sizeof(FunctionDescription_table32) / sizeof(FunctionDescriptionType);
-//    }
 #endif
 
     // read the table and locate a sub-array of function descriptions
@@ -1491,7 +1419,8 @@ static int svmlGetListForBaseName(const char * func_base_name, FunctionDescripti
 //******************************************************************************************/
 //******************************************************************************************/
 const char* get_library_function_name(const char* func_base_name,
-                                      const ImfAttr* external_attributes)
+                                      const ImfAttr* external_attributes,
+                                      llvm::Triple::ArchType arch)
 {
     int i;
     int is_svml = 0;
@@ -1537,7 +1466,7 @@ const char* get_library_function_name(const char* func_base_name,
     else
     {
         // read the table and locate an array of function descriptions
-        function_description_compiler_variants_num = svmlGetListForBaseName(func_base_name, &function_description_compiler_variant);
+        function_description_compiler_variants_num = svmlGetListForBaseName(func_base_name, &function_description_compiler_variant, arch);
 
         if (function_description_compiler_variants_num < 1)
         {
@@ -1578,7 +1507,7 @@ const char* get_library_function_name(const char* func_base_name,
         strncat(new_name, func_base_name, 100);
         strcat(new_name, "1");
         PRN_MSG("%-32s: old basename: %s, looking for changed basename %s in SVML table\n", "get_library_function_name", func_base_name, new_name);
-        function_description_compiler_variants_num = svmlGetListForBaseName((const char *)new_name, &function_description_compiler_variant);
+        function_description_compiler_variants_num = svmlGetListForBaseName((const char *)new_name, &function_description_compiler_variant, arch);
 
         if (function_description_compiler_variants_num < 1)
         {
@@ -1739,7 +1668,8 @@ bool is_libm_function(const char *name) {
 int may_i_use_inline_implementation(
                                 const char* func_base_name,
                                 const ImfAttr* external_attributes_user,
-                                const ImfAttr* external_attributes_compiler)
+                                const ImfAttr* external_attributes_compiler,
+                                llvm::Triple::ArchType arch)
 {
     // =========================================================================
     // =========================================================================
@@ -1809,7 +1739,7 @@ int may_i_use_inline_implementation(
         else
         {
             // read the table and locate an array of function descriptions
-            function_description_compiler_variants_num = svmlGetListForBaseName(func_base_name, &function_description_compiler_variant);
+            function_description_compiler_variants_num = svmlGetListForBaseName(func_base_name, &function_description_compiler_variant, arch);
 
             if(function_description_compiler_variants_num > 0)
             {
