@@ -161,24 +161,68 @@ struct ProfileDataTy {
 
   std::map<std::string, TimingsTy> data;
 
+  std::string alignLeft(size_t Width, std::string Str) {
+    if (Str.size() < Width)
+      return Str + std::string(Width - Str.size(), ' ');
+    return Str;
+  }
+
   void printData(int32_t deviceId, int32_t threadId, const char *deviceName,
                  int64_t resolution) {
-    fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s, "
-            "Thread %" PRId32 "\n", deviceId, deviceName, threadId);
-    const char *units = resolution == 1000 ? "msec" : "usec";
-    fprintf(stderr, "-- Name:\tHost Time (%s)\tDevice Time (%s)\n",
-            units, units);
-    double host_total = 0.0;
-    double device_total = 0.0;
-    for (const auto &d : data) {
-      double host_time = 1e-9 * d.second.host * resolution;
-      double device_time = 1e-9 * d.second.device * resolution;
-      fprintf(stderr, "-- %s:\t%.3f\t%.3f\n", d.first.c_str(),
-              host_time, device_time);
-      host_total += host_time;
-      device_total += device_time;
+    std::string profileSep(80, '=');
+    std::string lineSep(80, '-');
+
+    fprintf(stderr, "%s\n", profileSep.c_str());
+
+    fprintf(stderr, "LIBOMPTARGET_PLUGIN_PROFILE(%s) for OMP DEVICE(%" PRId32
+            ") %s, Thread %" PRId32 "\n", GETNAME(TARGET_NAME), deviceId,
+            deviceName, threadId);
+
+    fprintf(stderr, "%s\n", lineSep.c_str());
+
+    const char *unit = resolution == 1000 ? "msec" : "usec";
+
+    std::string kernelPrefix("Kernel ");
+    size_t maxKeyLength = kernelPrefix.size() + 3;
+    for (const auto &d : data)
+      if (d.first.substr(0, kernelPrefix.size()) != kernelPrefix &&
+          maxKeyLength < d.first.size())
+        maxKeyLength = d.first.size();
+
+    // Print kernel key and name
+    int kernelId = 0;
+    for (const auto &d: data) {
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
+        fprintf(stderr, "-- %s: %s\n",
+                alignLeft(maxKeyLength, kernelPrefix +
+                          std::to_string(kernelId++)).c_str(),
+                d.first.substr(kernelPrefix.size()).c_str());
     }
-    fprintf(stderr, "-- Total:\t%.3f\t%.3f\n", host_total, device_total);
+
+    fprintf(stderr, "%s\n", lineSep.c_str());
+
+    fprintf(stderr, "-- %s:     Host Time (%s)   Device Time (%s)\n",
+            alignLeft(maxKeyLength, "Name").c_str(), unit, unit);
+
+    double hostTotal = 0.0;
+    double deviceTotal = 0.0;
+    kernelId = 0;
+    for (const auto &d : data) {
+      double hostTime = 1e-9 * d.second.host * resolution;
+      double deviceTime = 1e-9 * d.second.device * resolution;
+      std::string key(d.first);
+
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
+        key = kernelPrefix + std::to_string(kernelId++);
+
+      fprintf(stderr, "-- %s: %20.3f %20.3f\n",
+              alignLeft(maxKeyLength, key).c_str(), hostTime, deviceTime);
+      hostTotal += hostTime;
+      deviceTotal += deviceTime;
+    }
+    fprintf(stderr, "-- %s: %20.3f %20.3f\n",
+            alignLeft(maxKeyLength, "Total").c_str(), hostTotal, deviceTotal);
+    fprintf(stderr, "%s\n", profileSep.c_str());
   }
 
   // for non-event profile
@@ -1746,7 +1790,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   std::vector<cl_kernel> &kernels =
       DeviceInfo->FuncGblEntries[device_id].Kernels;
 
-  ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
+  ProfileIntervalTy EntriesTimer("OffloadEntriesInit", device_id);
   EntriesTimer.start();
   // FIXME: table loading does not work at all on XeLP.
   // Enable it after CMPLRLIBS-33285 is fixed.
@@ -1913,19 +1957,19 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
       const char *event_name;
       switch (cmd) {
       case CL_COMMAND_NDRANGE_KERNEL:
-        event_name = "EXEC-ASYNC";
+        event_name = "KernelAsync";
         break;
       case CL_COMMAND_SVM_MEMCPY:
-        event_name = "DATA-ASYNC";
+        event_name = "DataAsync";
         break;
       case CL_COMMAND_READ_BUFFER:
-        event_name = "DATA-ASYNC-READ";
+        event_name = "DataReadAsync";
         break;
       case CL_COMMAND_WRITE_BUFFER:
-        event_name = "DATA-ASYNC-WRITE";
+        event_name = "DataWriteAsync";
         break;
       default:
-        event_name = "OTHERS-ASYNC";
+        event_name = "OthersAsync";
       }
       DeviceInfo->getProfiles(async_data->DeviceId).update(event_name, event);
     }
@@ -2106,6 +2150,9 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
   auto context = DeviceInfo->getContext(DeviceId);
   size_t allocSize = meaningfulSize + meaningfulOffset;
 
+  ProfileIntervalTy dataAllocTimer("DataAlloc", DeviceId);
+  dataAllocTimer.start();
+
   if (DeviceInfo->Flags.UseSVM) {
     CALL_CL_RV(base, clSVMAlloc, context, CL_MEM_READ_WRITE, allocSize, 0);
   } else {
@@ -2145,6 +2192,8 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
     DeviceInfo->Mutexes[DeviceId].unlock();
   }
 
+  dataAllocTimer.stop();
+
   return ret;
 }
 
@@ -2155,6 +2204,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
   cl_int rc;
   void *mem = nullptr;
   auto &mutex = DeviceInfo->Mutexes[device_id];
+  ProfileIntervalTy dataAllocTimer("DataAlloc", device_id);
+  dataAllocTimer.start();
 
   switch (kind) {
   case TARGET_ALLOC_DEVICE:
@@ -2203,6 +2254,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
   mutex.lock();
   DeviceInfo->ImplicitArgs[device_id][0].insert(mem);
   mutex.unlock();
+
+  dataAllocTimer.stop();
 
   return mem;
 }
@@ -2259,7 +2312,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       } else {
         CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
         if (DeviceInfo->Flags.EnableProfile)
-          DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+          DeviceInfo->getProfiles(device_id).update("DataWrite", event);
       }
 
       return OFFLOAD_SUCCESS;
@@ -2281,7 +2334,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     } else {
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+        DeviceInfo->getProfiles(device_id).update("DataWrite", event);
     }
     return OFFLOAD_SUCCESS;
   }
@@ -2296,7 +2349,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
-      ProfileIntervalTy SubmitTime("DATA-WRITE", device_id);
+      ProfileIntervalTy SubmitTime("DataWrite", device_id);
       SubmitTime.start();
 
       CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
@@ -2318,7 +2371,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
                        size, 0, nullptr, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+        DeviceInfo->getProfiles(device_id).update("DataWrite", event);
     }
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
@@ -2345,7 +2398,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       CALL_CL_RET_FAIL(clReleaseMemObject, mem);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+        DeviceInfo->getProfiles(device_id).update("DataWrite", event);
     }
   }
   }
@@ -2398,7 +2451,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       } else {
         CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
         if (DeviceInfo->Flags.EnableProfile)
-          DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+          DeviceInfo->getProfiles(device_id).update("DataRead", event);
       }
 
       return OFFLOAD_SUCCESS;
@@ -2420,7 +2473,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     } else {
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+        DeviceInfo->getProfiles(device_id).update("DataRead", event);
     }
     return OFFLOAD_SUCCESS;
   }
@@ -2435,7 +2488,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
-      ProfileIntervalTy RetrieveTime("DATA-READ", device_id);
+      ProfileIntervalTy RetrieveTime("DataRead", device_id);
       RetrieveTime.start();
 
       CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
@@ -2457,7 +2510,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
                        size, 0, nullptr, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+        DeviceInfo->getProfiles(device_id).update("DataRead", event);
     }
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
@@ -2484,7 +2537,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       CALL_CL_RET_FAIL(clReleaseMemObject, mem);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+        DeviceInfo->getProfiles(device_id).update("DataRead", event);
     }
   }
   }
@@ -3073,7 +3126,7 @@ static inline int32_t run_target_team_nd_region(
       size_t buf_size;
       CALL_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME, 0,
                        nullptr, &buf_size);
-      std::string kernel_name("EXEC-");
+      std::string kernel_name("Kernel ");
       if (buf_size > 0) {
         buf.resize(buf_size);
         CALL_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
