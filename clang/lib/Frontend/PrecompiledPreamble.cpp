@@ -502,12 +502,12 @@ std::size_t PrecompiledPreamble::getSize() const {
 }
 
 bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
-                                   const llvm::MemoryBuffer *MainFileBuffer,
+                                   const llvm::MemoryBufferRef &MainFileBuffer,
                                    PreambleBounds Bounds,
-                                   llvm::vfs::FileSystem *VFS) const {
+                                   llvm::vfs::FileSystem &VFS) const {
 
   assert(
-      Bounds.Size <= MainFileBuffer->getBufferSize() &&
+      Bounds.Size <= MainFileBuffer.getBufferSize() &&
       "Buffer is too large. Bounds were calculated from a different buffer?");
 
   auto PreambleInvocation = std::make_shared<CompilerInvocation>(Invocation);
@@ -521,7 +521,7 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
   if (PreambleBytes.size() != Bounds.Size ||
       PreambleEndsAtStartOfLine != Bounds.PreambleEndsAtStartOfLine ||
       !std::equal(PreambleBytes.begin(), PreambleBytes.end(),
-                  MainFileBuffer->getBuffer().begin()))
+                  MainFileBuffer.getBuffer().begin()))
     return false;
   // The preamble has not changed. We may be able to re-use the precompiled
   // preamble.
@@ -533,14 +533,14 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
   llvm::StringSet<> OverriddenAbsPaths; // Either by buffers or files.
   for (const auto &R : PreprocessorOpts.RemappedFiles) {
     llvm::vfs::Status Status;
-    if (!moveOnNoError(VFS->status(R.second), Status)) {
+    if (!moveOnNoError(VFS.status(R.second), Status)) {
       // If we can't stat the file we're remapping to, assume that something
       // horrible happened.
       return false;
     }
     // If a mapped file was previously missing, then it has changed.
     llvm::SmallString<128> MappedPath(R.first);
-    if (!VFS->makeAbsolute(MappedPath))
+    if (!VFS.makeAbsolute(MappedPath))
       OverriddenAbsPaths.insert(MappedPath);
 
     OverriddenFiles[Status.getUniqueID()] = PreambleFileHash::createForFile(
@@ -553,13 +553,13 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
     const PrecompiledPreamble::PreambleFileHash PreambleHash =
         PreambleFileHash::createForMemoryBuffer(RB.second->getMemBufferRef());
     llvm::vfs::Status Status;
-    if (moveOnNoError(VFS->status(RB.first), Status))
+    if (moveOnNoError(VFS.status(RB.first), Status))
       OverriddenFiles[Status.getUniqueID()] = PreambleHash;
     else
       OverridenFileBuffers[RB.first] = PreambleHash;
 
     llvm::SmallString<128> MappedPath(RB.first);
-    if (!VFS->makeAbsolute(MappedPath))
+    if (!VFS.makeAbsolute(MappedPath))
       OverriddenAbsPaths.insert(MappedPath);
   }
 
@@ -575,7 +575,7 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
     }
 
     llvm::vfs::Status Status;
-    if (!moveOnNoError(VFS->status(F.first()), Status)) {
+    if (!moveOnNoError(VFS.status(F.first()), Status)) {
       // If the file's buffer is not remapped and we can't stat it,
       // assume that something horrible happened.
       return false;
@@ -604,7 +604,7 @@ bool PrecompiledPreamble::CanReuse(const CompilerInvocation &Invocation,
       return false;
     // If a file previously recorded as missing exists as a regular file, then
     // consider the preamble out-of-date.
-    if (auto Status = VFS->status(F.getKey())) {
+    if (auto Status = VFS.status(F.getKey())) {
       if (Status->isRegularFile())
         return false;
     }
