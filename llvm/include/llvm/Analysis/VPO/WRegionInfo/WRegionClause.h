@@ -379,7 +379,7 @@ class PrivateItem : public Item
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
         OS << "NONPOD(";
         printOrig(OS, PrintType);
@@ -451,7 +451,7 @@ class FirstprivateItem : public Item
     void setIsPointer(bool Val) { IsPointer = Val; }
     bool getIsPointer() const { return IsPointer; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
         OS << "NONPOD(";
         printOrig(OS, PrintType);
@@ -510,20 +510,20 @@ class LastprivateItem : public Item
       V = cast<Value>(Args[3]);
       Destructor = cast<Function>(V);
     }
-    void setIsConditional(bool B) { IsConditional = B; }
+    void setIsConditional(bool B) override { IsConditional = B; }
     void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setCopyAssign(RDECL Cpy) { CopyAssign = Cpy;         }
     void setDestructor(RDECL Dtor) { Destructor  = Dtor; }
-    bool getIsConditional() const { return IsConditional; }
+    bool getIsConditional() const override { return IsConditional; }
     FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
     AllocateItem *getInAllocate() const { return InAllocate; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getCopyAssign() const { return CopyAssign; }
     RDECL getDestructor() const { return Destructor; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
         OS << "NONPOD(";
         printOrig(OS, PrintType);
@@ -772,7 +772,7 @@ public:
 
     // Don't use the default print() from the base class "Item", because
     // we need to print the Reduction operation too.
-    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
       OS << "(" << getOpName() << ": ";
       printOrig(OS, PrintType);
       if (getIsArraySection()) {
@@ -850,7 +850,7 @@ class LinearItem : public Item
     bool getIsIV() const { return IsIV; }
 
     // Specialized print() to output the stride as well
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsIV())
         OS << "IV";
       OS << "(";
@@ -1087,7 +1087,7 @@ public:
     return !ArrSecInfo.getArraySectionDims().empty();
   };
 
-  void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+  void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
     if (getIsMapChain()) {
       OS << "CHAIN(" ;
       for (unsigned I=0; I < MapChain.size(); ++I) {

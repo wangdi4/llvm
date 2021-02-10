@@ -701,7 +701,7 @@ bool HIRSpecialLoopInterchange::sinkForPerfectLoopnest(HLLoop *OuterLp,
 
   // Check the [OuterLp, InnerLp] formed loonest is near perfect,
   // except code in preheader of InnerLp.
-  auto CheckLoopNestSanity = [this](HLLoop *InnerLp) -> bool {
+  auto CheckLoopNestSanity = [](HLLoop *InnerLp) -> bool {
     // Check InnerLp:
     if (!InnerLp->hasPreheader() || InnerLp->hasPostexit()) {
       LLVM_DEBUG(dbgs() << "Expect InnerLp have only non-empty preheader\n";);

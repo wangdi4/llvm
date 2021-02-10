@@ -38,6 +38,12 @@ define dso_local spir_kernel void @test_masked_store(<8 x i32>* nonnull %ptr) {
   ret void
 }
 
+define dso_local spir_kernel void @test_masked_scatter(<8 x i32 addrspace(1)*> %ptr) {
+; CHECK: call void @llvm.genx.svm.scatter.v8i1.v8p1i32.v8i32(<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 0, <8 x i32 addrspace(1)*> %ptr, <8 x i32> zeroinitializer)
+  call void @llvm.masked.scatter.v8i32.v8p4i32(<8 x i32> zeroinitializer, <8 x i32 addrspace(1)*> %ptr, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+  ret void
+}
+
 define dso_local spir_kernel i32 @test_svm_gather(i32 addrspace(1)* %ptr) {
 ; CHECK: [[PTR_CAST:%.*]] = bitcast i32 addrspace(1)* %ptr to <1 x i32 addrspace(1)*>
 ; CHECK-NEXT: [[GATHER:%.*]] = call <1 x i32> @llvm.genx.svm.gather.v1i32.v1i1.v1p1i32(<1 x i1> <i1 true>, i32 0, <1 x i32 addrspace(1)*> [[PTR_CAST]], <1 x i32> undef)
@@ -63,6 +69,13 @@ define dso_local spir_kernel <8 x float>  @test_generic_as_infer(float addrspace
   ret <8 x float> %load
 }
 
+define dso_local spir_kernel <8 x float>  @test_math_lowering(<8 x float> %a0) {
+  %b0 = call fast <8 x float> @llvm.sqrt.v8f32(<8 x float> %a0)
+; CHECK: [[SQRT:%.*]] =  call <8 x float> @llvm.genx.ieee.sqrt.v8f32(<8 x float> %a0)
+  ret <8 x float> %b0
+}
 
+declare <8 x float> @llvm.sqrt.v8f32(<8 x float>)
 declare void @llvm.masked.store.v8i32.p0v8i32(<8 x i32>, <8 x i32>*, i32 immarg, <8 x i1>) #1
 declare void @llvm.masked.store.v8i32.p3v8i32(<8 x i32>, <8 x i32> addrspace(3)*, i32 immarg, <8 x i1>) #1
+declare void @llvm.masked.scatter.v8i32.v8p4i32(<8 x i32>, <8 x i32 addrspace(1)*>, i32 immarg, <8 x i1>)

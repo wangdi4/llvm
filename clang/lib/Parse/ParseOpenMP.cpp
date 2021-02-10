@@ -2300,6 +2300,71 @@ void Parser::skipUnsupportedTargetDirectives() {
     }
   }
 }
+
+/// Check if this is the start of an OpenMP pragma that needs to be ignored.
+/// If so skip it and return true so callers can try again to get the
+/// statement.
+bool Parser::isIgnoredOpenMPDirective() {
+  if (Tok.isNot(tok::annot_pragma_openmp))
+    return false;
+
+  TentativeParsingAction TPA(*this);
+  SourceLocation Loc = ConsumeAnnotationToken();
+  OpenMPDirectiveKind DKind = parseOpenMPDirectiveKind(*this);
+  bool DisallowedDirective = false;
+  auto InSimdSubset = isAllowedInSimdSubset(DKind);
+  auto InTBBSubset = isAllowedInTBBSubset(DKind);
+  bool Skipped = false;
+
+  if (getLangOpts().OpenMPSimdOnly || getLangOpts().OpenMPTBBOnly) {
+    // If any subset flags are used the directive must be covered here
+    if (getLangOpts().OpenMPSimdOnly && InSimdSubset) {
+      // SIMD subset
+    } else if (getLangOpts().OpenMPTBBOnly && InTBBSubset) {
+      // TBB subset
+    } else {
+      // Not in any of the subsets
+      DisallowedDirective = true;
+    }
+  }
+  if ((InSimdSubset && getLangOpts().OpenMPSimdDisabled) ||
+      (InTBBSubset && getLangOpts().OpenMPTBBDisabled)) {
+    DisallowedDirective = true;
+  }
+  if (getLangOpts().OpenMPLateOutline && DKind == OMPD_scan) {
+    Diag(Tok, diag::warn_pragma_omp_unimplemented)
+        << getOpenMPDirectiveName(DKind);
+    Skipped = true;
+  } else if (DisallowedDirective) {
+    if (!Diags.isIgnored(diag::warn_pragma_omp_ignored, Loc)) {
+      Diag(Tok, diag::warn_pragma_omp_ignored);
+      Diags.setSeverity(diag::warn_pragma_omp_ignored, diag::Severity::Ignored,
+                        SourceLocation());
+    }
+    Skipped = true;
+  } else if (getLangOpts().OpenMPIsDevice &&
+             !getLangOpts().OMPTargetTriples.empty()) {
+    llvm::Triple T = getTargetInfo().getTriple();
+    if (T.getArch() == llvm::Triple::spir64 ||
+        T.getArch() == llvm::Triple::spir) {
+      if (!isAllowedInSPIRSubset(DKind)) {
+        Diag(Tok, diag::warn_pragma_omp_ignored_for_target)
+            << getOpenMPDirectiveName(DKind) << T.getArchName();
+        Diags.OptReportHandler.AddIgnoredPragma(Actions.getCurFunctionDecl(),
+                                                getOpenMPDirectiveName(DKind),
+                                                getCurToken().getLocation());
+        Skipped = true;
+      }
+    }
+  }
+  if (Skipped) {
+    SkipUntil(tok::annot_pragma_openmp_end);
+    TPA.Commit();
+    return true;
+  }
+  TPA.Revert();
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Parsing of declarative or executable OpenMP directives.
@@ -2360,57 +2425,6 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   DeclarationNameInfo DirName;
   StmtResult Directive = StmtError();
   bool HasAssociatedStatement = true;
-
-#if INTEL_CUSTOMIZATION
-  bool DisallowedDirective = false;
-  auto InSimdSubset = isAllowedInSimdSubset(DKind);
-  auto InTBBSubset = isAllowedInTBBSubset(DKind);
-  if (getLangOpts().OpenMPSimdOnly || getLangOpts().OpenMPTBBOnly) {
-    // If any subset flags are used the directive must be covered here  
-    if (getLangOpts().OpenMPSimdOnly && InSimdSubset) {
-      // SIMD subset
-    } else if (getLangOpts().OpenMPTBBOnly && InTBBSubset) {
-      // TBB subset
-    } else {
-      // Not in any of the subsets
-      DisallowedDirective = true;
-    }
-  }
-  if ((InSimdSubset && getLangOpts().OpenMPSimdDisabled) ||
-      (InTBBSubset && getLangOpts().OpenMPTBBDisabled)) {
-    DisallowedDirective = true;
-  }
-  if (getLangOpts().OpenMPLateOutline && DKind == OMPD_scan) {
-    Diag(Tok, diag::warn_pragma_omp_unimplemented)
-        << getOpenMPDirectiveName(DKind);
-    SkipUntil(tok::annot_pragma_openmp_end);
-    return Directive;
-  }
-  if (DisallowedDirective) {
-    if (!Diags.isIgnored(diag::warn_pragma_omp_ignored, Loc)) {
-      Diag(Tok, diag::warn_pragma_omp_ignored);
-      Diags.setSeverity(diag::warn_pragma_omp_ignored,
-                        diag::Severity::Ignored, SourceLocation());
-    }
-    SkipUntil(tok::annot_pragma_openmp_end);
-    return Directive;
-  }
-  if (getLangOpts().OpenMPIsDevice && !getLangOpts().OMPTargetTriples.empty()) {
-    llvm::Triple T = getTargetInfo().getTriple();
-    if (T.getArch() == llvm::Triple::spir64 ||
-        T.getArch() == llvm::Triple::spir) {
-      if (!isAllowedInSPIRSubset(DKind)) {
-        Diag(Tok, diag::warn_pragma_omp_ignored_for_target)
-            << getOpenMPDirectiveName(DKind) << T.getArchName();
-        Diags.OptReportHandler.AddIgnoredPragma(
-            Actions.getCurFunctionDecl(), getOpenMPDirectiveName(DKind),
-            getCurToken().getLocation());
-        SkipUntil(tok::annot_pragma_openmp_end);
-        return Directive;
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
 
   switch (DKind) {
   case OMPD_threadprivate: {

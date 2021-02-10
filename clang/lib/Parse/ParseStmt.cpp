@@ -417,11 +417,14 @@ Retry:
   case tok::annot_pragma_prefetch:
     ProhibitAttributes(Attrs);
     return ParsePragmaPrefetch(Stmts, StmtCtx, TrailingElseLoc, Attrs);
-#endif // INTEL_CUSTOMIZATION
 
-  case tok::annot_pragma_openmp:
+  case tok::annot_pragma_openmp: {
     ProhibitAttributes(Attrs);
+    if (isIgnoredOpenMPDirective())
+      goto Retry;
     return ParseOpenMPDeclarativeOrExecutableDirective(StmtCtx);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_ms_pointers_to_members:
     ProhibitAttributes(Attrs);
@@ -1140,6 +1143,12 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       HandlePragmaUnused();
       continue;
     }
+
+#if INTEL_CUSTOMIZATION
+    // Consume an OpenMP pragma that we should ignore.
+    if (isIgnoredOpenMPDirective())
+      continue;
+#endif // INTEL_CUSTOMIZATION
 
     if (ConsumeNullStmt(Stmts))
       continue;

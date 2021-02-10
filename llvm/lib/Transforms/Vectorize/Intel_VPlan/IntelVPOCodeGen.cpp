@@ -1074,12 +1074,12 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // for OpenMP.
     if (VPCall->isIntelIndirectCall() &&
         VPCall->getVectorizationScenario() !=
-            VPCallInstruction::CallVecScenariosTy::VectorVariant)
+        VPCallInstruction::CallVecScenariosTy::VectorVariant) {
       if (FatalErrorHandler)
         FatalErrorHandler(UnderlyingCI->getParent()->getParent());
       else
         llvm_unreachable("Intel indirect call should have vector-variants!");
-
+    }
     // Handle lifetime_start/end intrinsics operating on private-memory.
     // We use the following mechanism to handle the intrinsic:
     // If the array-private is widened (AOS/SOA) and not serialized, do not
@@ -3082,7 +3082,14 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
   if (VPValue *PrivPtr = const_cast<VPValue *>(
           getVPValuePrivateMemoryPtr(VPCall->getOperand(1)))) {
     if (LoopPrivateVPWidenMap.count(PrivPtr)) {
-      AllocaInst *AI = cast<AllocaInst>(LoopPrivateVPWidenMap[PrivPtr]);
+      Value *WidePriv = LoopPrivateVPWidenMap[PrivPtr];
+      AllocaInst *AI = dyn_cast<AllocaInst>(WidePriv);
+      if (!AI) {
+        assert(isa<AddrSpaceCastInst>(WidePriv) &&
+               "Expected alloca or addrspacecast instruction.");
+        AI = cast<AllocaInst>(
+            cast<AddrSpaceCastInst>(WidePriv)->getPointerOperand());
+      }
       ConstantInt *Size = Builder.getInt64(-1);
       if (!cast<VPConstantInt>(VPCall->getOperand(0))->isMinusOne()) {
         const DataLayout &DL =

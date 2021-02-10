@@ -724,6 +724,73 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
   return RepI;
 }
 
+// These two tables are used to change llvm math intrinsic names (left column)
+// to the genx intrinsic (right column).
+//
+// f32 mapping
+std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
+//  Basic functions
+    //{Intrinsic::fma,        NA}, // llvm fma is supported by BE
+    {Intrinsic::maxnum,       GenXIntrinsic::genx_fmax},
+    {Intrinsic::minnum,       GenXIntrinsic::genx_fmin},
+
+//  Exponential functions
+    {Intrinsic::exp,          GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::exp2,         GenXIntrinsic::genx_exp},
+    {Intrinsic::log,          GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log2,         GenXIntrinsic::genx_log},
+    {Intrinsic::log10,        GenXIntrinsic::not_genx_intrinsic},
+
+//  Power functions
+    {Intrinsic::pow,          GenXIntrinsic::genx_pow},
+    {Intrinsic::sqrt,         GenXIntrinsic::genx_ieee_sqrt},
+
+//  Trig & hyperbolic functions
+    {Intrinsic::sin,          GenXIntrinsic::genx_sin},
+    {Intrinsic::cos,          GenXIntrinsic::genx_cos},
+
+//  Rounding functions
+    {Intrinsic::ceil,         GenXIntrinsic::genx_rnde},
+    {Intrinsic::floor,        GenXIntrinsic::genx_rndd},
+    {Intrinsic::trunc,        GenXIntrinsic::genx_rndz},
+    {Intrinsic::round,        GenXIntrinsic::genx_rnde},
+
+//  Floating-point manipulation functions
+    {Intrinsic::copysign,     GenXIntrinsic::not_genx_intrinsic},
+};
+
+// f64 mapping
+std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath64 = {
+//  Basic functions
+    {Intrinsic::fma,          GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::maxnum,       GenXIntrinsic::genx_fmax},
+    {Intrinsic::minnum,       GenXIntrinsic::genx_fmin},
+
+//  Exponential functions
+    {Intrinsic::exp,          GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::exp2,         GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log,          GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log2,         GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log10,        GenXIntrinsic::not_genx_intrinsic},
+
+//  Power functions
+    {Intrinsic::pow,          GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::sqrt,         GenXIntrinsic::genx_ieee_sqrt},
+
+//  Trig & hyperbolic functions
+    {Intrinsic::sin,          GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::cos,          GenXIntrinsic::not_genx_intrinsic},
+
+//  Rounding functions
+    {Intrinsic::ceil,         GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::floor,        GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::trunc,        GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::round,        GenXIntrinsic::not_genx_intrinsic},
+
+//  Floating-point manipulation functions
+    {Intrinsic::copysign,     GenXIntrinsic::not_genx_intrinsic}
+};
+
 static Value *translateLLVMInst(Instruction *Inst) {
   LLVMContext &CTX = Inst->getContext();
   IRBuilder<> Builder(Inst);
@@ -946,9 +1013,9 @@ static Value *translateLLVMInst(Instruction *Inst) {
       return RepI;
     } break;
     case Intrinsic::masked_scatter: {
-      auto PtrV = CallOp->getArgOperand(0);
-      auto MaskV = CallOp->getArgOperand(2);
-      auto DataV = CallOp->getArgOperand(3);
+      auto DataV = CallOp->getArgOperand(0);
+      auto PtrV = CallOp->getArgOperand(1);
+      auto MaskV = CallOp->getArgOperand(3);
       auto DTy = DataV->getType();
       assert(PtrV->getType()->isVectorTy() && DTy->isVectorTy());
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
@@ -993,8 +1060,41 @@ static Value *translateLLVMInst(Instruction *Inst) {
     case Intrinsic::vector_reduce_xor:
     case Intrinsic::vector_reduce_or:
       return translateReduceOpIntrinsic(CallOp);
-    default:
-      break;
+    default: {
+      auto DTy = CallOp->getType()->getScalarType();
+      GenXIntrinsic::ID GID = GenXIntrinsic::not_genx_intrinsic;
+      // find the intrinsic mapping
+      if (DTy->isFloatTy()) {
+        auto Map = GenXMath32.find(ID);
+        if (Map != GenXMath32.end()) {
+          GID = Map->second;
+          if (GID == GenXIntrinsic::not_genx_intrinsic) {
+            Twine Msg("unable to lower llvm math intrinsic");
+            llvm::report_fatal_error(Msg, false /*no crash diag*/);
+          }
+        }
+      }
+      else if (DTy->isDoubleTy()) {
+        auto Map = GenXMath32.find(ID);
+        if (Map != GenXMath64.end()) {
+          GID = Map->second;
+          if (GID == GenXIntrinsic::not_genx_intrinsic) {
+            Twine Msg("unable to lower llvm math intrinsic");
+            llvm::report_fatal_error(Msg, false /*no crash diag*/);
+          }
+        }
+      }
+      // do the conversion
+      if (GID != GenXIntrinsic::not_genx_intrinsic) {
+        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+            CallOp->getModule(), GID, {CallOp->getType()});
+        SmallVector<Value*, 2> ValueOperands(CallOp->arg_operands());
+        Value* RepI = IntrinsicInst::Create(NewFDecl, ValueOperands,
+                                            CallOp->getName(), CallOp);
+        CallOp->replaceAllUsesWith(RepI);
+        return RepI;
+      }
+    } break;
     }
     return CallOp;
   }

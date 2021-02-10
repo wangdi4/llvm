@@ -3550,8 +3550,8 @@ GlobalWorkOffsetFunctionType piFindGlobalWorkOffsetSymbol() {
   }
   ze_result_t (*PfnSetGlobalWorkOffset)(ze_kernel_handle_t, uint32_t, uint32_t,
                                         uint32_t);
-  *(void **)(&PfnSetGlobalWorkOffset) =
-      GetProcAddress((HMODULE)zeLibHandle, "zeKernelSetGlobalOffsetExp");
+  *(void **)(&PfnSetGlobalWorkOffset) = reinterpret_cast<void *>(
+      GetProcAddress((HMODULE)zeLibHandle, "zeKernelSetGlobalOffsetExp"));
 
   if (PfnSetGlobalWorkOffset == NULL) {
     zePrint("Error while opening symbol\n");

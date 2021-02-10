@@ -587,6 +587,17 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
   }
   addIntelLib("-lirc", TC, CmdArgs, Args);
 }
+
+// By default, libimf is linked in to match libm.  If a user specifies
+// -static-intel or -shared-intel, link according to those behaviors.
+static void addIntelLibimf(const ToolChain &TC, ArgStringList &CmdArgs,
+                           const ArgList &Args) {
+  if (Args.hasArg(options::OPT_static_intel, options::OPT_shared_intel)) {
+    addIntelLib("-limf", TC, CmdArgs, Args);
+    return;
+  }
+  CmdArgs.push_back("-limf");
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
@@ -950,7 +961,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // Add -limf before -lm, it will be linked in the same manner as -lm so
     // don't add with addIntelLib
     if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
-      CmdArgs.push_back("-limf");
+      addIntelLibimf(ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
@@ -959,7 +970,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
            (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
     if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
-      CmdArgs.push_back("-limf");
+      addIntelLibimf(ToolChain, CmdArgs, Args);
     CmdArgs.push_back("-lm");
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {

@@ -1979,6 +1979,14 @@ void DevirtModule::multiversionVCallSite(VirtualCallSite &VCallSite,
     DefaultTarget->CallInstruction->eraseFromParent();
     DefaultTarget->TargetBasicBlock->eraseFromParent();
   }
+
+  // Cleanup the data since it isn't needed anymore
+  for (auto *TargetInfo : TargetsVector)
+    delete TargetInfo;
+
+  delete DefaultTarget;
+
+  TargetsVector.clear();
 }
 
 // This function will go through each virtual function call site and

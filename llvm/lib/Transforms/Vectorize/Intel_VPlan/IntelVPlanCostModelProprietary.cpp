@@ -131,16 +131,28 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
   unsigned Cost =
     VPlanCostModel::getLoadStoreCost(VPInst, Alignment, VF);
 
-  if (!UseOVLSCM || !VLSCM || !UseVLSCost || VF == 1)
+  if (!UseOVLSCM || !VLSA || !UseVLSCost || VF == 1)
     return Cost;
 
   OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst);
   if (!Group || Group->size() <= 1)
     return Cost;
 
+  // FIXME: Really ugly to get LLVMContext from VLSA, which may not
+  // even exist, but so far there's no other simple way to pass it here.
+  // Unlike LLVM IR VPBB has no LLVMContext, because Type is not yet
+  // implemented.
+  //
+  // FIXME: OVLSCostModel abstructions need to be revisitted as
+  // VPlanVLSCostModel::getInstructionCost() implementation requires external
+  // VF to form Vector Type of OVLSInstruction, whereas
+  // OVLSTTICostModel::getInstructionCost() implementation fetches number of
+  // elements using I->getType().
+  //
+  VPlanVLSCostModel VLSCM(VF, VPTTI->getTTI(), VLSA->getContext());
   /// OptVLSInterface costs are not scaled up yet.
   unsigned VLSGroupCost =
-    VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, *VLSCM);
+    VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, VLSCM);
 
   if (ProcessedOVLSGroups.count(Group) != 0) {
     if (!ProcessedOVLSGroups[Group]) {

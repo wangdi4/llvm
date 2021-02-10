@@ -1019,8 +1019,9 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     return OFFLOAD_SUCCESS;
   }
 
-  CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queues[deviceId], CL_TRUE, dataPtr,
-                   &hostData, sizeof(hostData), 0, nullptr, nullptr);
+  CALL_CL_EXT_RET_FAIL(deviceId, clEnqueueMemcpy, Queues[deviceId], CL_TRUE,
+                       dataPtr, &hostData, sizeof(hostData), 0, nullptr,
+                       nullptr);
 #endif // INTEL_CUSTOMIZATION
 
   return OFFLOAD_SUCCESS;
@@ -1112,8 +1113,9 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   }
 
   int64_t TableSizeVal = 0;
-  __tgt_rtl_data_retrieve(DeviceId, &TableSizeVal,
-                          OffloadTableSizeVarAddr, sizeof(int64_t));
+  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpy, Queues[DeviceId], CL_TRUE,
+                  &TableSizeVal, OffloadTableSizeVarAddr, sizeof(int64_t),
+                  0, nullptr, nullptr);
   size_t TableSize = (size_t)TableSizeVal;
 
   if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
@@ -1140,8 +1142,9 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   }
 
   OffloadTables[DeviceId].resize(DeviceNumEntries);
-  __tgt_rtl_data_retrieve(DeviceId, OffloadTables[DeviceId].data(),
-                          OffloadTableVarAddr, TableSize);
+  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpy, Queues[DeviceId], CL_TRUE,
+                  OffloadTables[DeviceId].data(), OffloadTableVarAddr,
+                  TableSize, 0, nullptr, nullptr);
   std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
 
   size_t I = 0;
@@ -1158,10 +1161,15 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
       IDP("Warning: offload entry (%zu) with 0 size.\n", I);
       break;
     }
+    if (NameTgtAddr == nullptr) {
+      IDP("Warning: offload entry (%zu) with invalid name.\n", I);
+      break;
+    }
 
     Entry.Base.name = new char[NameSize];
-    __tgt_rtl_data_retrieve(DeviceId, Entry.Base.name,
-                            NameTgtAddr, NameSize);
+    CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpy, Queues[DeviceId], CL_TRUE,
+                    Entry.Base.name, NameTgtAddr, NameSize, 0, nullptr,
+                    nullptr);
     if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
       IDP("Warning: offload entry's name has wrong size.\n");
       break;
@@ -1740,7 +1748,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
   EntriesTimer.start();
-  if (!DeviceInfo->loadOffloadTable(device_id, NumEntries))
+  // FIXME: table loading does not work at all on XeLP.
+  // Enable it after CMPLRLIBS-33285 is fixed.
+  if (DeviceInfo->DeviceArchs[device_id] != DeviceArch_XeLP &&
+      !DeviceInfo->loadOffloadTable(device_id, NumEntries))
     IDP("Warning: offload table loading failed.\n");
   EntriesTimer.stop();
 

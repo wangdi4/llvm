@@ -1498,7 +1498,7 @@ public:
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 
   /// Returns the lexical lowest common ancestor parent of Node1 and Node2.
-  /// Returns null if there is no such parent.
+  /// Returns region node in the absence of any other common parent.
   static const HLNode *
   getLexicalLowestCommonAncestorParent(const HLNode *Node1,
                                        const HLNode *Node2);
