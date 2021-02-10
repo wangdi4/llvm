@@ -47,7 +47,7 @@ public:
   // Applies the heuristic on the current VPlan to calculate new adjusted Cost.
   // This is the only required for each heuristics method to implement as it is
   // invoked for each heuristic from within VPlan Cost Model.
-  virtual unsigned operator()(unsigned Cost) const = 0;
+  virtual unsigned applyOnPlan(unsigned Cost) const = 0;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getName() const {
@@ -60,7 +60,7 @@ public:
   }
   // Returns attribute string to dump additionally to each VPBasicBlock
   // in CM debug dumps.
-  virtual std::string getAttrString(const VPBasicBlock *VPInst) const {
+  virtual std::string getAttrString(const VPBasicBlock *VPBlock) const {
     return "";
   }
   // Implements debug dump output for Heuristic entities.
@@ -121,7 +121,7 @@ class HeuristicSLP : public HeuristicBase {
     unsigned PatternSize);
 public:
   HeuristicSLP(VPlanCostModel *CM) : HeuristicBase(CM, "SLP breaking") {};
-  unsigned operator()(unsigned Cost) const final;
+  unsigned applyOnPlan(unsigned Cost) const final;
 };
 
 // Heurstic that searches for Search Loop idioms within VPlan.
@@ -131,7 +131,7 @@ class HeuristicSearchLoop : public HeuristicBase {
 public:
   HeuristicSearchLoop(VPlanCostModel *CM) :
     HeuristicBase(CM, "SearchLoop Idiom") {};
-  unsigned operator()(unsigned Cost) const final;
+  unsigned applyOnPlan(unsigned Cost) const final;
 };
 
 // Heurstic that calculates Spill/Fill cost.
@@ -141,7 +141,7 @@ public:
 class HeuristicSpillFill : public HeuristicBase {
   // LiveValues map contains the liveness of the given instruction multiplied
   // by its legalization factor.  The map contains LiveOut values for the
-  // block on input of private operator()(Block, LiveValues, VectorRegsPressure)
+  // block on input of private applyOnPlan(Block, LiveValues, VectorRegsPressure)
   // and the map is updated by this method and contains LiveIn values after the
   // call.
   using LiveValuesTy = DenseMap<const VPInstruction*, int>;
@@ -150,7 +150,7 @@ class HeuristicSpillFill : public HeuristicBase {
                       bool VectorRegsPressure) const;
 public:
   HeuristicSpillFill(VPlanCostModel *CM) : HeuristicBase(CM, "Spill/Fill") {};
-  unsigned operator()(unsigned Cost) const final;
+  unsigned applyOnPlan(unsigned Cost) const final;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getAttrString(const VPBasicBlock *VPBB) const final {
     LiveValuesTy LiveValues;
@@ -186,7 +186,7 @@ class HeuristicGatherScatter : public HeuristicBase {
 public:
   HeuristicGatherScatter(VPlanCostModel *CM) :
     HeuristicBase(CM, "Gather/Scatter") {};
-  unsigned operator()(unsigned Cost) const final;
+  unsigned applyOnPlan(unsigned Cost) const final;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getAttrString(const VPInstruction *VPInst) const final {
     if ((*this)(VPInst) > 0)
@@ -227,7 +227,7 @@ public:
   HeuristicPsadbw(VPlanCostModel *CM) : HeuristicBase(CM, "psadbw pattern") {};
   // TODO:
   // The method should return Cost of psadbw instruction instead of zero.
-  unsigned operator()(unsigned Cost) const final;
+  unsigned applyOnPlan(unsigned Cost) const final;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getAttrString(const VPInstruction *VPInst) const final {
     if (PsadbwPatternInsts.count(VPInst) > 0)
