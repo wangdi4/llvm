@@ -1311,7 +1311,7 @@ Pass *llvm::createLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
 Pass *llvm::createSimpleLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
                                        bool ForgetAllSCEV) {
   return createLoopUnrollPass(OptLevel, OnlyWhenForced, ForgetAllSCEV, -1, -1,
-                              0, 0, 0, 0);
+                              0, 0, 0, 1);
 }
 
 PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
@@ -1350,7 +1350,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                                  OnlyWhenForced, ForgetSCEV, /*Count*/ None,
                                  /*Threshold*/ None, /*AllowPartial*/ false,
                                  /*Runtime*/ false, /*UpperBound*/ false,
-                                 /*AllowPeeling*/ false,
+                                 /*AllowPeeling*/ true,
                                  /*AllowProfileBasedPeeling*/ false,
                                  /*FullUnrollMaxCount*/ None) !=
                  LoopUnrollResult::Unmodified;
