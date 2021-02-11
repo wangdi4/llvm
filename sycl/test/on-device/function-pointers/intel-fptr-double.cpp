@@ -14,9 +14,9 @@
 #include <iostream>
 #include <vector>
 
-[[intel::device_indirectly_callable]] int add(int A, int B) { return A + B; }
+[[intel::device_indirectly_callable]] double add(int A, int B) { return A + B; }
 
-[[intel::device_indirectly_callable]] int sub(int A, int B) { return A - B; }
+[[intel::device_indirectly_callable]] double sub(int A, int B) { return A - B; }
 
 using namespace cl::sycl::INTEL;
 
@@ -34,12 +34,12 @@ template <auto F> auto make_function_ref() {
 
 int main() {
   const int Size = 100;
-  std::vector<long> A(Size, 1);
+  std::vector<double> A(Size);
   std::vector<long> B(Size, 2);
 
   cl::sycl::queue Q;
 
-  cl::sycl::buffer<long> BufA(A.data(), cl::sycl::range<1>(Size));
+  cl::sycl::buffer<double> BufA(A.data(), cl::sycl::range<1>(Size));
   cl::sycl::buffer<long> BufB(B.data(), cl::sycl::range<1>(Size));
 
   cl::sycl::buffer<wrapper_type> BufC(cl::sycl::range<1>(2));
@@ -53,14 +53,13 @@ int main() {
      });
    }).wait();
   Q.submit([&](cl::sycl::handler &CGH) {
-    auto AccA =
-        BufA.template get_access<cl::sycl::access::mode::read_write>(CGH);
+    auto AccA = BufA.template get_access<cl::sycl::access::mode::write>(CGH);
     auto AccB = BufB.template get_access<cl::sycl::access::mode::read>(CGH);
     auto AccC = BufC.template get_access<cl::sycl::access::mode::read>(CGH);
     CGH.parallel_for<class K>(
         cl::sycl::range<1>(Size), [=
     ](cl::sycl::id<1> Index) [[intel::reqd_sub_group_size(8)]] {
-          AccA[Index] = AccC[Index % 2](AccA[Index], AccB[Index]);
+          AccA[Index] = AccC[Index % 2](1, AccB[Index]);
         });
   });
 

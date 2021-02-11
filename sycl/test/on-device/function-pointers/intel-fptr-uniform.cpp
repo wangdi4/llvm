@@ -20,8 +20,8 @@
 
 using namespace cl::sycl::INTEL;
 
-using masked_variant = masked(varying, varying);
-using unmasked_variant = unmasked(uniform, uniform);
+using masked_variant = masked(varying, uniform);
+using unmasked_variant = unmasked(varying, uniform);
 using sg_sizes = int_list<4, 8>;
 
 using wrapper_type = function_ref_tuned<decltype(add), sg_sizes, masked_variant,
@@ -35,12 +35,10 @@ template <auto F> auto make_function_ref() {
 int main() {
   const int Size = 100;
   std::vector<long> A(Size, 1);
-  std::vector<long> B(Size, 2);
 
   cl::sycl::queue Q;
 
   cl::sycl::buffer<long> BufA(A.data(), cl::sycl::range<1>(Size));
-  cl::sycl::buffer<long> BufB(B.data(), cl::sycl::range<1>(Size));
 
   cl::sycl::buffer<wrapper_type> BufC(cl::sycl::range<1>(2));
 
@@ -55,12 +53,11 @@ int main() {
   Q.submit([&](cl::sycl::handler &CGH) {
     auto AccA =
         BufA.template get_access<cl::sycl::access::mode::read_write>(CGH);
-    auto AccB = BufB.template get_access<cl::sycl::access::mode::read>(CGH);
     auto AccC = BufC.template get_access<cl::sycl::access::mode::read>(CGH);
     CGH.parallel_for<class K>(
         cl::sycl::range<1>(Size), [=
     ](cl::sycl::id<1> Index) [[intel::reqd_sub_group_size(8)]] {
-          AccA[Index] = AccC[Index % 2](AccA[Index], AccB[Index]);
+          AccA[Index] = AccC[Index % 2](AccA[Index], 2);
         });
   });
 

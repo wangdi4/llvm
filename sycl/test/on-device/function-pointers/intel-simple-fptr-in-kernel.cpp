@@ -8,7 +8,6 @@
 // CHECK: Test PASSED.
 
 #include <CL/sycl.hpp>
-#include <CL/sycl/INTEL/function_ref_tuned.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -17,20 +16,6 @@
 [[intel::device_indirectly_callable]] int add(int A, int B) { return A + B; }
 
 [[intel::device_indirectly_callable]] int sub(int A, int B) { return A - B; }
-
-using namespace cl::sycl::INTEL;
-
-using masked_variant = masked(varying, varying);
-using unmasked_variant = unmasked(uniform, uniform);
-using sg_sizes = int_list<4, 8>;
-
-using wrapper_type = function_ref_tuned<decltype(add), sg_sizes, masked_variant,
-                                        unmasked_variant>;
-
-template <auto F> auto make_function_ref() {
-  return make_function_ref_tuned<F, sg_sizes, masked_variant,
-                                 unmasked_variant>();
-}
 
 int main() {
   const int Size = 100;
@@ -42,26 +27,19 @@ int main() {
   cl::sycl::buffer<long> BufA(A.data(), cl::sycl::range<1>(Size));
   cl::sycl::buffer<long> BufB(B.data(), cl::sycl::range<1>(Size));
 
-  cl::sycl::buffer<wrapper_type> BufC(cl::sycl::range<1>(2));
-
-  Q.submit([&](cl::sycl::handler &CGH) {
-     auto AccC =
-         BufC.template get_access<cl::sycl::access::mode::discard_write>(CGH);
-     CGH.single_task<class Init>([=]() {
-       AccC[0] = make_function_ref<add>();
-       AccC[1] = make_function_ref<sub>();
-     });
-   }).wait();
   Q.submit([&](cl::sycl::handler &CGH) {
     auto AccA =
         BufA.template get_access<cl::sycl::access::mode::read_write>(CGH);
     auto AccB = BufB.template get_access<cl::sycl::access::mode::read>(CGH);
-    auto AccC = BufC.template get_access<cl::sycl::access::mode::read>(CGH);
-    CGH.parallel_for<class K>(
-        cl::sycl::range<1>(Size), [=
-    ](cl::sycl::id<1> Index) [[intel::reqd_sub_group_size(8)]] {
-          AccA[Index] = AccC[Index % 2](AccA[Index], AccB[Index]);
-        });
+    CGH.parallel_for<class K>(cl::sycl::range<1>(Size),
+                              [=](cl::sycl::id<1> Index) {
+                                int (*Fptr)(int, int) = nullptr;
+                                if (Index % 2 == 0)
+                                  Fptr = add;
+                                else
+                                  Fptr = sub;
+                                AccA[Index] = Fptr(AccA[Index], AccB[Index]);
+                              });
   });
 
   auto HostAcc = BufA.get_access<cl::sycl::access::mode::read>();
