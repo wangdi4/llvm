@@ -148,7 +148,7 @@ bool HeuristicSLP::ProcessSLPHIRMemrefs(
   return PatternFound;
 }
 
-unsigned HeuristicSLP::operator()(unsigned Cost) const {
+unsigned HeuristicSLP::applyOnPlan(unsigned Cost) const {
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
   // Gather all Store and Load Memrefs since SLP starts pattern search on
@@ -169,8 +169,7 @@ unsigned HeuristicSLP::operator()(unsigned Cost) const {
   return Cost;
 }
 
-unsigned HeuristicSearchLoop::operator()(
-  unsigned Cost) const {
+unsigned HeuristicSearchLoop::applyOnPlan(unsigned Cost) const {
   // Array ref which needs to be aligned via loop peeling, if any.
   RegDDRef *PeelArrayRef = nullptr;
   switch (VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef)) {
@@ -414,8 +413,7 @@ unsigned HeuristicSpillFill::operator()(
     (StoreCost + LoadCost);
 }
 
-unsigned HeuristicSpillFill::operator()(
-  unsigned Cost) const {
+unsigned HeuristicSpillFill::applyOnPlan(unsigned Cost) const {
   // LiveValues map contains the liveness of the given instruction multiplied
   // by its legalization factor.  The map is updated on each VPInstruction in
   // the loop below.
@@ -457,8 +455,7 @@ unsigned HeuristicSpillFill::operator()(
   return Cost;
 }
 
-unsigned HeuristicGatherScatter::operator()(
-  unsigned Cost) const {
+unsigned HeuristicGatherScatter::applyOnPlan(unsigned Cost) const {
   unsigned GSCost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
@@ -537,8 +534,7 @@ bool HeuristicPsadbw::checkPsadwbPattern(
 }
 
 // Does all neccesary target checks and return corrected VPlan Cost.
-unsigned HeuristicPsadbw::operator()(
-  unsigned Cost) const {
+unsigned HeuristicPsadbw::applyOnPlan(unsigned Cost) const {
   unsigned PatternCost = 0;
 
   // Scaled PSADBW cost in terms of number of intructions.
