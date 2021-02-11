@@ -3258,6 +3258,10 @@ static bool preferInlineAggressive(CallBase &CB) {
   return CB.hasFnAttr("prefer-inline-aggressive");
 }
 
+static bool preferInlineDtrans(CallBase &CB) {
+  return CB.hasFnAttr("prefer-inline-dtrans");
+}
+
 //
 // Return 'true' if 'CB' is worth inlining because it appears in a small
 // application. We allow more inlining in small applications because the
@@ -3466,6 +3470,10 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   }
   if (preferInlineAggressive(CB)) {
     YesReasonVector.push_back(InlrAggInline);
+    return -InlineConstants::InliningHeuristicBonus;
+  }
+  if (preferInlineDtrans(CB)) {
+    YesReasonVector.push_back(InlrDTransInline);
     return -InlineConstants::InliningHeuristicBonus;
   }
   if (worthInliningForSmallApp(CB, CalleeTTI, *ILIC, WPI, LinkForLTO,

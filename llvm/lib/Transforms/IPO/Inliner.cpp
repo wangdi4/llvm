@@ -63,6 +63,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/MemManageInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h" // INTEL
 #endif // INTEL_INCLUDE_DTRANS
@@ -400,6 +401,54 @@ static void collectDtransFuncs(Module &M) {
   for (Function *F: MemInitFuncs)
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
+
+  // MEMMANAGETRANS:
+  // Force inlining for all inner functions of Allocator.
+  std::set<Function *> MemManageInlineMethods;
+  // Suppress inlining for interface functions, StringAllocator
+  // functions and StringObject functions.
+  SmallSet<Function *, 16> MemManageNoInlineMethods;
+  for (auto *Str : M.getIdentifiedStructTypes()) {
+    dtrans::MemManageCandidateInfo MemManageInfo(M);
+    if (!MemManageInfo.isCandidateType(Str))
+      continue;
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+      dbgs() << "MemManageTrans considering candidate: ";
+      Str->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
+    if (!MemManageInfo.collectMemberFunctions(false)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+        dbgs() << "  Failed: member functions collections.\n";
+      });
+      continue;
+    }
+    if (!MemManageInlineMethods.empty() || !MemManageNoInlineMethods.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+        dbgs() << "  Failed: More than one candidate found.\n";
+      });
+      MemManageInlineMethods.clear();
+      MemManageNoInlineMethods.clear();
+      break;
+    }
+    if (!MemManageInfo.collectInlineNoInlineMethods(&MemManageInlineMethods,
+                                               &MemManageNoInlineMethods)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+        dbgs() << "  Failed: Heuristics\n";
+      });
+      MemManageInlineMethods.clear();
+      MemManageNoInlineMethods.clear();
+      break;
+    }
+  }
+  // Suppress inlining.
+  for (Function *F: MemManageNoInlineMethods)
+    if (!IsEmptyFunction(F))
+      F->addFnAttr("noinline-dtrans");
+  // Force inlining.
+  for (Function *F: MemManageInlineMethods)
+    F->addFnAttr("prefer-inline-dtrans");
+
 #endif // INTEL_INCLUDE_DTRANS
 }
 #endif // INTEL_CUSTOMIZATION
