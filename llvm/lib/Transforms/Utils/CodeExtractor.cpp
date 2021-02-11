@@ -1053,6 +1053,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::UWTable:
       case Attribute::NoCfCheck:
       case Attribute::MustProgress:
+      case Attribute::NoProfile:
         break;
       }
 

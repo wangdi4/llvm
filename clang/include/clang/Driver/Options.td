@@ -1313,7 +1313,7 @@ def fno_profile_use : Flag<["-"], "fno-profile-use">,
 defm profile_arcs : BoolFOption<"profile-arcs",
   CodeGenOpts<"EmitGcovArcs">, DefaultFalse,
 #if INTEL_CUSTOMIZATION
-  PosFlag<SetTrue, [CC1Option, LinkOption]>, NegFlag<SetFalse>>, BothFlags<[CoreOption]>;
+  PosFlag<SetTrue, [CC1Option, LinkOption]>, NegFlag<SetFalse>, BothFlags<[CoreOption]>>;
 #endif // INTEL_CUSTOMIZATION
 defm test_coverage : BoolFOption<"test-coverage",
   CodeGenOpts<"EmitGcovNotes">, DefaultFalse,
@@ -1341,6 +1341,10 @@ defm pseudo_probe_for_profiling : BoolFOption<"pseudo-probe-for-profiling",
 def forder_file_instrumentation : Flag<["-"], "forder-file-instrumentation">,
     Group<f_Group>, Flags<[CC1Option, CoreOption]>,
     HelpText<"Generate instrumented code to collect order file into default.profraw file (overridden by '=' form of option or LLVM_PROFILE_FILE env var)">;
+def fprofile_list_EQ : Joined<["-"], "fprofile-list=">,
+    Group<f_Group>, Flags<[CC1Option, CoreOption]>,
+    HelpText<"Filename defining the list of functions/files to instrument">,
+    MarshallingInfoStringVector<LangOpts<"ProfileListFiles">>;
 
 defm addrsig : BoolFOption<"addrsig",
   CodeGenOpts<"Addrsig">, DefaultFalse,
