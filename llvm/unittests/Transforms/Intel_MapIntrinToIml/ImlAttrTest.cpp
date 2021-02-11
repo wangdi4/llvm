@@ -126,6 +126,8 @@ static std::pair<StringRef, StringRef> makeFuncNamePair(StringRef IA32Name,
   return std::make_pair(IA32Name, Intel64Name);
 }
 
+#if 0
+// Disable this test until CMPLRLLVM-26200 is resolved.
 TEST_F(ImlAttrTest, FuSaTest) {
   ImfFuncInfo InfoNoFuSa;
 
@@ -140,6 +142,7 @@ TEST_F(ImlAttrTest, FuSaTest) {
   EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa),
             makeFuncNamePair("logf", "logf"));
 }
+#endif
 
 TEST_F(ImlAttrTest, ISASetTest) {
   ImfFuncInfo Default;
