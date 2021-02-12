@@ -174,7 +174,9 @@ void enqueueBlockProfilingTest();
 void passBuildOptionByEnvTest();
 #endif
 void UniformWorkGroupTest();
+#ifndef _WIN32
 void clKernelLocalMemSizeQueryTest();
+#endif
 #ifdef _WIN32
 void clDisableMasterJoinTest();
 #endif
