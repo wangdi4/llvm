@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019 Intel Corporation.
+// Copyright 2019-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -201,6 +201,10 @@ private:
   OwningModuleContainer OwnedModules;
   llvm::SmallVector<std::string, 1> ArgvLLD;
 
+  // An optional ObjectCache to be notified of compiled objects and used to
+  // perform lookup of pre-compiled code to avoid re-compilation.
+  llvm::ObjectCache *ObjCache;
+
   llvm::Function *FindFunctionNamedInModulePtrSet(llvm::StringRef FnName,
                                                   ModulePtrSet::iterator I,
                                                   ModulePtrSet::iterator E);
@@ -237,6 +241,8 @@ public:
   llvm::GlobalVariable *
   FindGlobalVariableNamed(llvm::StringRef Name,
                           bool AllowInternal = false) override;
+
+  static bool isObjectFromLLDJIT(llvm::StringRef ObjBuf);
 
   /// Sets the object manager that LLDJIT should use to avoid compilation.
   void setObjectCache(llvm::ObjectCache *Manager) override;

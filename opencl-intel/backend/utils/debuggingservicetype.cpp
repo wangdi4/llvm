@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -23,6 +23,28 @@ using Intel::OpenCL::DeviceBackend::CompilationUtils;
 
 namespace intel {
 
+DebuggingServiceType getUserDefinedDebuggingServiceType() {
+    DebuggingServiceType serviceType = None;
+#if _WIN32
+    // User can set environment variable to define the service type:
+    // 0 = simulator, 1 = native
+    const char *val = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
+    if (val) {
+        if (std::string(val) == "0")
+            serviceType = Simulator;
+        else if (std::string(val) == "1")
+            serviceType = Native;
+    }
+#else
+    // CL_CONFIG_DBG_ENABLE == 1 implies Simulator debugging
+    const char* val = getenv("CL_CONFIG_DBG_ENABLE");
+    if (val && std::string(val) == "1") {
+        serviceType = Simulator;
+    }
+#endif
+    return serviceType;
+}
+
 DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
                                              llvm::Module *M,
                                              bool useNativeDebugger) {
@@ -37,25 +59,16 @@ DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
         serviceType = Native;
     else
         serviceType = Simulator;
-
-    // Allow the environment variable to override the flag choice.
-    const char *val = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
-    if (val) {
-        if (std::string(val) == "1")
-            serviceType = Native;
-        else
-            serviceType = Simulator;
-    }
 #else
     // CL_CONFIG_DBG_ENABLE != 1 or unset implies native (GDB) debugging.
     serviceType = Native;
-
-    // CL_CONFIG_DBG_ENABLE == 1 implies Simulator debugging
-    const char* val = getenv("CL_CONFIG_DBG_ENABLE");
-    if (val && std::string(val) == "1") {
-        serviceType = Simulator;
-    }
 #endif
+
+    // Allow the environment variable to override the flag choice.
+    DebuggingServiceType userOverride = getUserDefinedDebuggingServiceType();
+    if (userOverride != None) {
+        serviceType = userOverride;
+    }
 
     return serviceType;
 }
