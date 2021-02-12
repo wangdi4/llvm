@@ -43,7 +43,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::ATTR_KERNEL_UNIFORM_CALL = "kernel-uniform-call";
   const std::string CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL = "kernel-convergent-call";
 
-  const std::string CompilationUtils::ATTR_FAILED_TO_VECTORIZE = "failed-to-vectorize";
+  const std::string CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE = "vector-variant-failure";
+  const std::string CompilationUtils::ATTR_VALUE_FAILED_TO_VECTORIZE =
+      "failed to match a vector variant for an indirect call";
+  const std::string CompilationUtils::ATTR_VALUE_FAILED_TO_LOWER_INDIRECT_CALL =
+      "failed to find a masked vector variant for an indirect call";
 
   const std::string CompilationUtils::ATTR_HAS_VPLAN_MASK = "has-vplan-mask";
 

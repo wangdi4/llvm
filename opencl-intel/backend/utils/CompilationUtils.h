@@ -477,8 +477,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string ATTR_KERNEL_UNIFORM_CALL;
     static const std::string ATTR_KERNEL_CONVERGENT_CALL;
 
+    // Indicates that function's code is invalid because of an issue with
+    // vector-variant attributes. Below are possible reasons of this.
+    static const std::string ATTR_VECTOR_VARIANT_FAILURE;
+
     // Indicates that a must vectorize functions failed to vectorize.
-    static const std::string ATTR_FAILED_TO_VECTORIZE;
+    static const std::string ATTR_VALUE_FAILED_TO_VECTORIZE;
+
+    // Indicates that there is no acceptable (masked) vector-variants to lower
+    // an indirect call in scalar context.
+    static const std::string ATTR_VALUE_FAILED_TO_LOWER_INDIRECT_CALL;
 
     // Builtin call attribute used to indicate the call may
     // have a vplan style mask.

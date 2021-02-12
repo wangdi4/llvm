@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "IndirectCallLowering.h"
+#include "CompilationUtils.h"
 
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -20,6 +21,7 @@
 #define DEBUG_TYPE "IndirectCallLowering"
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 extern bool EnableVectorVariantPasses;
 
@@ -75,7 +77,16 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       for (Index = 0; Index < Variants.size(); Index++)
         if (VectorVariant(Variants[Index]).isMasked())
           break;
-      assert(Index < Variants.size() && "Expected at least one masked variant");
+
+      // We expect here at least one masked vector-variant.
+      // In other case code generation can't be done correctly.
+      if (Index >= Variants.size()) {
+        // Final function's code will be incorrect, so let's mark it as
+        // an invalid one.
+        Fn.addFnAttr(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE,
+                     CompilationUtils::ATTR_VALUE_FAILED_TO_LOWER_INDIRECT_CALL);
+        continue;
+      }
 
       VectorVariant Variant(Variants[Index]);
       unsigned VecLen = Variant.getVlen();
