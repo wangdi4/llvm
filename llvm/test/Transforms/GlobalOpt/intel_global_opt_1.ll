@@ -1,12 +1,11 @@
 ; RUN: opt < %s  -anders-aa -domtree -loops -loop-simplify -lcssa -basic-aa -aa -nonltoglobalopt  -S | FileCheck %s
 ; RUN: opt < %s  -passes="require<anders-aa>,function(require<aa>,nonltoglobalopt)" -aa-pipeline=anders-aa -S | FileCheck %s
-; The compiler should replace the global variable @p with the local
-; variable %p thus the store to @p can be eliminated.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @foo.p = internal unnamed_addr global i32* null, align 8
+@foo_r.p = internal unnamed_addr global i32* null, align 8
 
 ; The compiler expects that @bar.p still exists as a global after
 ; global opt due to the setjmp call in @bar.
@@ -18,6 +17,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define void @foo(i32 %n, i32* %a) #0 {
+; The compiler should replace the global variable @p with the local
+; variable %p thus the store to @p can be eliminated.
 ; CHECK-LABEL: @foo(
 ; CHECK: alloca
 entry:
@@ -50,8 +51,6 @@ for.cond.for.end_crit_edge:                       ; preds = %for.body
 for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry
   ret void
 }
-
-
 
 ; The intel-GlobalOpt should abort if the ReturnsTwice functions such as setjmp are present.
 ; NOTE: This is a negative test that makes sure a transformation doesn't happen. It's easy
@@ -93,6 +92,43 @@ for.body:                                         ; preds = %for.body, %for.body
 for.cond.for.end_crit_edge:                       ; preds = %for.body
   %scevgep = getelementptr i32, i32* %bar.p.promoted, i64 %2
   store i32* %scevgep, i32** @bar.p, align 8
+  br label %for.end
+
+for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry
+  ret void
+}
+
+; This cases should be avoided because of possible recursion.
+; Function Attrs: nounwind uwtable
+define void @foo_recurse(i32 %n, i32* %a) #0 {
+; CHECK-LABEL: @foo_recurse(
+; CHECK-NOT: alloca
+entry:
+  store i32* %a, i32** @foo_r.p, align 8, !tbaa !1
+  %cmp.4 = icmp sgt i32 %n, 0
+  br i1 %cmp.4, label %for.body.lr.ph, label %for.end
+
+for.body.lr.ph:                                   ; preds = %entry
+  %0 = add i32 %n, -1
+  %1 = zext i32 %0 to i64
+  br label %for.body
+
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
+  %incdec.ptr6 = phi i32* [ %a, %for.body.lr.ph ], [ %incdec.ptr, %for.body ]
+  %i.05 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
+  %2 = load i32, i32* %incdec.ptr6, align 4, !tbaa !5
+  %add = add nsw i32 %2, %i.05
+  call void @foo(i32 %2, i32* %incdec.ptr6) #1
+  store i32 %add, i32* %incdec.ptr6, align 4, !tbaa !5
+  %incdec.ptr = getelementptr inbounds i32, i32* %incdec.ptr6, i64 1
+  %inc = add nuw nsw i32 %i.05, 1
+  %exitcond = icmp eq i32 %inc, %n
+  br i1 %exitcond, label %for.cond.for.end_crit_edge, label %for.body
+
+for.cond.for.end_crit_edge:                       ; preds = %for.body
+  %3 = add nuw nsw i64 %1, 1
+  %scevgep = getelementptr i32, i32* %a, i64 %3
+  store i32* %scevgep, i32** @foo_r.p, align 8, !tbaa !1
   br label %for.end
 
 for.end:                                          ; preds = %for.cond.for.end_crit_edge, %entry
