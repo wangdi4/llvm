@@ -579,6 +579,7 @@ void LTO::addModuleToGlobalRes(ArrayRef<InputFile::Symbol> Syms,
     GlobalRes.VisibleOutsideSummary |=
         (Res.VisibleToRegularObj || Sym.isUsed() || !InSummary);
     GlobalRes.ResolvedByLinker |= Res.ResolvedByLinker;               // INTEL
+    GlobalRes.ExportDynamic |= Res.ExportDynamic;
   }
 }
 
@@ -983,6 +984,9 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     if (Res.second.VisibleOutsideSummary && Res.second.Prevailing)
       GUIDPreservedSymbols.insert(GUID);
 
+    if (Res.second.ExportDynamic)
+      DynamicExportSymbols.insert(GUID);
+
     GUIDPrevailingResolutions[GUID] =
         Res.second.Prevailing ? PrevailingType::Yes : PrevailingType::No;
 
@@ -1098,7 +1102,8 @@ Error LTO::runRegularLTO(AddStreamFn AddStream) {
   // If allowed, upgrade public vcall visibility metadata to linkage unit
   // visibility before whole program devirtualization in the optimizer.
   updateVCallVisibilityInModule(*RegularLTO.CombinedModule,
-                                Conf.HasWholeProgramVisibility);
+                                Conf.HasWholeProgramVisibility,
+                                DynamicExportSymbols);
 
   if (Conf.PreOptModuleHook &&
       !Conf.PreOptModuleHook(0, *RegularLTO.CombinedModule))
@@ -1446,7 +1451,8 @@ Error LTO::runThinLTO(AddStreamFn AddStream, NativeObjectCache Cache,
   // If allowed, upgrade public vcall visibility to linkage unit visibility in
   // the summaries before whole program devirtualization below.
   updateVCallVisibilityInIndex(ThinLTO.CombinedIndex,
-                               Conf.HasWholeProgramVisibility);
+                               Conf.HasWholeProgramVisibility,
+                               DynamicExportSymbols);
 
   // Perform index-based WPD. This will return immediately if there are
   // no index entries in the typeIdMetadata map (e.g. if we are instead
