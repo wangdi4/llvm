@@ -8,7 +8,7 @@
 ; RUN: opt -analyze -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
 
 ; CHECK-DAG: {{.*%p.*\[.*}} {sb:[[Base1:[0-9]+]]}
-; CHECK-DAG: {{.*%q.*\[.*}} {sb:[[Base1:[0-9]+]]}
+; CHECK-DAG: {{.*%q.*\[.*}} {sb:[[Base1]]}
 
 define float @f() {
 entry:
