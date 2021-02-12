@@ -65,10 +65,17 @@ static cl::opt<bool>
 // can be combined, allowing only changed IRs for certain passes on certain
 // functions to be reported in different formats, with the rest being
 // reported as filtered out.  The -print-before-changed option will print
-// the IR as it was before each pass that changed it.
-static cl::opt<bool> PrintChanged("print-changed",
-                                  cl::desc("Print changed IRs"),
-                                  cl::init(false), cl::Hidden);
+// the IR as it was before each pass that changed it.  The optional
+// value of quiet will only report when the IR changes, suppressing
+// all other messages, including the initial IR.
+enum ChangePrinter { NoChangePrinter, PrintChangedVerbose, PrintChangedQuiet };
+static cl::opt<ChangePrinter> PrintChanged(
+    "print-changed", cl::desc("Print changed IRs"), cl::Hidden,
+    cl::ValueOptional, cl::init(NoChangePrinter),
+    cl::values(clEnumValN(PrintChangedQuiet, "quiet", "Run in quiet mode"),
+               // Sentinel value for unspecified option.
+               clEnumValN(PrintChangedVerbose, "", "")));
+
 // An option that supports the -print-changed option.  See
 // the description for -print-changed for an explanation of the use
 // of this option.  Note that this option has no effect without -print-changed.
@@ -288,7 +295,8 @@ void ChangeReporter<IRUnitT>::saveIRBeforePass(Any IR, StringRef PassID) {
   // Is this the initial IR?
   if (InitialIR) {
     InitialIR = false;
-    handleInitialIR(IR);
+    if (VerboseMode)
+      handleInitialIR(IR);
   }
 
   // Save the IR representation on the stack.
@@ -312,11 +320,13 @@ void ChangeReporter<IRUnitT>::handleIRAfterPass(Any IR, StringRef PassID) {
   if (Name == "")
     Name = " (module)";
 
-  if (isIgnored(PassID))
-    handleIgnored(PassID, Name);
-  else if (!isInteresting(IR, PassID))
-    handleFiltered(PassID, Name);
-  else {
+  if (isIgnored(PassID)) {
+    if (VerboseMode)
+      handleIgnored(PassID, Name);
+  } else if (!isInteresting(IR, PassID)) {
+    if (VerboseMode)
+      handleFiltered(PassID, Name);
+  } else {
     // Get the before rep from the stack
     IRUnitT &Before = BeforeStack.back();
     // Create the after rep
@@ -324,9 +334,10 @@ void ChangeReporter<IRUnitT>::handleIRAfterPass(Any IR, StringRef PassID) {
     generateIRRepresentation(IR, PassID, After);
 
     // Was there a change in IR?
-    if (same(Before, After))
-      omitAfter(PassID, Name);
-    else
+    if (same(Before, After)) {
+      if (VerboseMode)
+        omitAfter(PassID, Name);
+    } else
       handleAfter(PassID, Name, Before, After, IR);
   }
   BeforeStack.pop_back();
@@ -340,7 +351,8 @@ void ChangeReporter<IRUnitT>::handleInvalidatedPass(StringRef PassID) {
   // a pass for a filtered function is invalidated since we do not
   // get the IR in the call.  Also, the output is just alternate
   // forms of the banner anyway.
-  handleInvalidated(PassID);
+  if (VerboseMode)
+    handleInvalidated(PassID);
   BeforeStack.pop_back();
 }
 
@@ -361,8 +373,8 @@ void ChangeReporter<IRUnitT>::registerRequiredCallbacks(
 }
 
 template <typename IRUnitT>
-TextChangeReporter<IRUnitT>::TextChangeReporter()
-    : ChangeReporter<IRUnitT>(), Out(dbgs()) {}
+TextChangeReporter<IRUnitT>::TextChangeReporter(bool Verbose)
+    : ChangeReporter<IRUnitT>(Verbose), Out(dbgs()) {}
 
 template <typename IRUnitT>
 void TextChangeReporter<IRUnitT>::handleInitialIR(Any IR) {
@@ -404,7 +416,7 @@ void TextChangeReporter<IRUnitT>::handleIgnored(StringRef PassID,
 IRChangedPrinter::~IRChangedPrinter() {}
 
 void IRChangedPrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
-  if (PrintChanged)
+  if (PrintChanged != NoChangePrinter)
     TextChangeReporter<std::string>::registerRequiredCallbacks(PIC);
 }
 
@@ -490,7 +502,6 @@ void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
 
   SmallString<20> Banner = formatv("*** IR Dump Before {0} ***", PassID);
   unwrapAndPrint(dbgs(), IR, Banner, forcePrintModuleIR());
-  return;
 }
 
 void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
@@ -580,8 +591,8 @@ void PrintIRInstrumentation::registerCallbacks(
 template <typename IRUnitT>
 ChangeReporter<IRUnitT>::~ChangeReporter<IRUnitT>() {}
 template <typename IRUnitT>
-TextChangeReporter<IRUnitT>::TextChangeReporter()
-    : ChangeReporter<IRUnitT>(), Out(dbgs()) {}
+TextChangeReporter<IRUnitT>::TextChangeReporter(bool Verbose)
+    : ChangeReporter<IRUnitT>(Verbose), Out(dbgs()) {}
 template <typename IRUnitT>
 void TextChangeReporter<IRUnitT>::handleInitialIR(Any) {}
 template <typename IRUnitT>
@@ -913,6 +924,19 @@ void VerifyInstrumentation::registerCallbacks(
         }
       });
 }
+
+StandardInstrumentations::StandardInstrumentations(bool DebugLogging,
+                                                   bool VerifyEach)
+    : PrintPass(DebugLogging), OptNone(DebugLogging),
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      PrintChangedIR(PrintChanged != PrintChangedQuiet),
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      PrintChangedIR(false),
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      Verify(DebugLogging),
+#endif // INTEL_CUSTOMIZATION
+      VerifyEach(VerifyEach) {}
 
 void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {

@@ -49,10 +49,10 @@ void throw(void *obj) {
   // WEBASSEMBLY64: call void @llvm.wasm.throw(i32 0, i8* %{{.*}})
 }
 
-void rethrow_in_catch(void) {
-  return __builtin_wasm_rethrow_in_catch();
-  // WEBASSEMBLY32: call void @llvm.wasm.rethrow.in.catch()
-  // WEBASSEMBLY64: call void @llvm.wasm.rethrow.in.catch()
+void rethrow(void) {
+  return __builtin_wasm_rethrow();
+  // WEBASSEMBLY32: call void @llvm.wasm.rethrow()
+  // WEBASSEMBLY64: call void @llvm.wasm.rethrow()
 }
 
 int memory_atomic_wait32(int *addr, int expected, long long timeout) {
@@ -973,6 +973,42 @@ u64x2 widen_low_u_i32x4_i64x2(u32x4 x) {
 u64x2 widen_high_u_i32x4_i64x2(u32x4 x) {
   return __builtin_wasm_widen_high_u_i32x4_i64x2(x);
   // WEBASSEMBLY: call <2 x i64> @llvm.wasm.widen.high.unsigned(<4 x i32> %x)
+  // WEBASSEMBLY: ret
+}
+
+f64x2 convert_low_s_i32x4_f64x2(i32x4 x) {
+  return __builtin_wasm_convert_low_s_i32x4_f64x2(x);
+  // WEBASSEMBLY: call <2 x double> @llvm.wasm.convert.low.signed(<4 x i32> %x)
+  // WEBASSEMBLY: ret
+}
+
+f64x2 convert_low_u_i32x4_f64x2(u32x4 x) {
+  return __builtin_wasm_convert_low_u_i32x4_f64x2(x);
+  // WEBASSEMBLY: call <2 x double> @llvm.wasm.convert.low.unsigned(<4 x i32> %x)
+  // WEBASSEMBLY: ret
+}
+
+i32x4 trunc_saturate_zero_s_f64x2_i32x4(f64x2 x) {
+  return __builtin_wasm_trunc_saturate_zero_s_f64x2_i32x4(x);
+  // WEBASSEMBLY: call <4 x i32> @llvm.wasm.trunc.saturate.zero.signed(<2 x double> %x)
+  // WEBASSEMBLY: ret
+}
+
+u32x4 trunc_saturate_zero_u_f64x2_i32x4(f64x2 x) {
+  return __builtin_wasm_trunc_saturate_zero_u_f64x2_i32x4(x);
+  // WEBASSEMBLY: call <4 x i32> @llvm.wasm.trunc.saturate.zero.unsigned(<2 x double> %x)
+  // WEBASSEMBLY: ret
+}
+
+f32x4 wasm_demote_zero_f64x2_f32x4(f64x2 x) {
+  return __builtin_wasm_demote_zero_f64x2_f32x4(x);
+  // WEBASSEMBLY: call <4 x float> @llvm.wasm.demote.zero(<2 x double> %x)
+  // WEBASSEMBLY: ret
+}
+
+f64x2 wasm_promote_low_f32x4_f64x2(f32x4 x) {
+  return __builtin_wasm_promote_low_f32x4_f64x2(x);
+  // WEBASSEMBLY: call <2 x double> @llvm.wasm.promote.low(<4 x float> %x)
   // WEBASSEMBLY: ret
 }
 

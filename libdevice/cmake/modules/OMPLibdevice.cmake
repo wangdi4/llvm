@@ -112,12 +112,12 @@ endfunction()
 # Standard functionality.
 if (WIN32)
   add_obj_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/msvc_wrapper.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/crt_wrapper.cpp
     ${binary_dir}/libomp-msvc${objext}
     DEPENDS wrapper.h device.h)
 else(WIN32)
   add_obj_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/glibc_wrapper.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/crt_wrapper.cpp
     ${binary_dir}/libomp-glibc${objext}
     DEPENDS wrapper.h device.h)
 endif(WIN32)

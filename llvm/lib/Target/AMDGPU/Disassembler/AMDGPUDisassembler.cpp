@@ -545,9 +545,8 @@ DecodeStatus AMDGPUDisassembler::convertMIMGInst(MCInst &MI) const {
     DstSize = (DstSize + 1) / 2;
   }
 
-  // FIXME: Add tfe support
   if (MI.getOperand(TFEIdx).getImm())
-    return MCDisassembler::Success;
+    DstSize += 1;
 
   if (DstSize == Info->VDataDwords && AddrSize == Info->VAddrDwords)
     return MCDisassembler::Success;
@@ -997,8 +996,8 @@ unsigned AMDGPUDisassembler::getTtmpClassId(const OpWidthTy Width) const {
 int AMDGPUDisassembler::getTTmpIdx(unsigned Val) const {
   using namespace AMDGPU::EncValues;
 
-  unsigned TTmpMin = isGFX9Plus() ? TTMP_GFX9_GFX10_MIN : TTMP_VI_MIN;
-  unsigned TTmpMax = isGFX9Plus() ? TTMP_GFX9_GFX10_MAX : TTMP_VI_MAX;
+  unsigned TTmpMin = isGFX9Plus() ? TTMP_GFX9PLUS_MIN : TTMP_VI_MIN;
+  unsigned TTmpMax = isGFX9Plus() ? TTMP_GFX9PLUS_MAX : TTMP_VI_MAX;
 
   return (TTmpMin <= Val && Val <= TTmpMax)? Val - TTmpMin : -1;
 }
@@ -1578,11 +1577,10 @@ bool AMDGPUSymbolizer::tryAddingSymbolicOperand(MCInst &Inst,
   if (!Symbols)
     return false;
 
-  auto Result = std::find_if(Symbols->begin(), Symbols->end(),
-                             [Value](const SymbolInfoTy& Val) {
-                                return Val.Addr == static_cast<uint64_t>(Value)
-                                    && Val.Type == ELF::STT_NOTYPE;
-                             });
+  auto Result = llvm::find_if(*Symbols, [Value](const SymbolInfoTy &Val) {
+    return Val.Addr == static_cast<uint64_t>(Value) &&
+           Val.Type == ELF::STT_NOTYPE;
+  });
   if (Result != Symbols->end()) {
     auto *Sym = Ctx.getOrCreateSymbol(Result->Name);
     const auto *Add = MCSymbolRefExpr::create(Sym, Ctx);

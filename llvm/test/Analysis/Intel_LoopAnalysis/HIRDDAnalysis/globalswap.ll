@@ -15,8 +15,6 @@
 ; Verify dependences between the load and store via the outer loop are found.
 ; TODO: it is possible to prove that there are no dependencies across the inner
 ;       loop. This test doesn't check for that.
-; CHECK-DAG: (%B.026)[i2] --> (%A.028.out)[i2] FLOW (*
-; CHECK-DAG: (%A.028.out)[i2] --> (%B.026)[i2] ANTI (*
 ; Verify that we find an output dependence via the outer loop for the store.
 ; CHECK-DAG: (%B.026)[i2] --> (%B.026)[i2] OUTPUT (*
 

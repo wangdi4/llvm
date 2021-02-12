@@ -1776,6 +1776,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   // Finally, take the target-specific inlining threshold multiplier into
   // account.
   Threshold *= TTI.getInliningThresholdMultiplier();
+  Threshold += TTI.adjustInliningThreshold(&Call);
 
   SingleBBBonus = Threshold * SingleBBBonusPercent / 100;
   VectorBonus = Threshold * VectorBonusPercent / 100;
@@ -2929,9 +2930,9 @@ InlineCost llvm::getInlineCost(
     return InlineCost::getAlways("empty function", Reason);    // INTEL
 
 #if INTEL_CUSTOMIZATION
-  return llvm::InlineCost::get(CA.getCost(),
-    CA.getThreshold(), nullptr, Reason,
-    CA.getEarlyExitCost(), CA.getEarlyExitThreshold());
+  return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
+      ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
+      CA.getEarlyExitThreshold());
 #endif // INTEL_CUSTOMIZATION
 }
 

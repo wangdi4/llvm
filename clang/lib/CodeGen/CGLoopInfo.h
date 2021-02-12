@@ -135,6 +135,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.vectorize.width metadata.
   unsigned VectorizeWidth;
 
+  // Value for llvm.loop.vectorize.scalable.enable
+  LVEnableState VectorizeScalable;
+
   /// Value for llvm.loop.interleave.count metadata.
   unsigned InterleaveCount;
 
@@ -515,6 +518,10 @@ public:
 
   /// Set the vectorize width for the next loop pushed.
   void setVectorizeWidth(unsigned W) { StagedAttrs.VectorizeWidth = W; }
+
+  void setVectorizeScalable(const LoopAttributes::LVEnableState &State) {
+    StagedAttrs.VectorizeScalable = State;
+  }
 
   /// Set the interleave count for the next loop pushed.
   void setInterleaveCount(unsigned C) { StagedAttrs.InterleaveCount = C; }

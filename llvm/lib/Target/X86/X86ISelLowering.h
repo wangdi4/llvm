@@ -1512,6 +1512,9 @@ namespace llvm {
     bool shouldInsertFencesForAtomic(const Instruction *I) const override;
 #endif // INTEL_FEATURE_ISA_RAO_INT
 #endif // INTEL_CUSTOMIZATION
+
+    Align getPrefLoopAlignment(MachineLoop *ML) const override;
+
   protected:
     std::pair<const TargetRegisterClass *, uint8_t>
     findRepresentativeClass(const TargetRegisterInfo *TRI,
@@ -1609,6 +1612,7 @@ namespace llvm {
     SDValue LowerUINT_TO_FP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerFP_TO_INT_SAT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerLRINT_LLRINT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSETCCCARRY(SDValue Op, SelectionDAG &DAG) const;

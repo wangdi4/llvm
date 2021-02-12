@@ -369,6 +369,7 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
 #endif // INTEL_CUSTOMIZATION
 
   case Intrinsic::assume:
+  case Intrinsic::experimental_noalias_scope_decl:
   case Intrinsic::var_annotation:
     break;   // Strip out these intrinsics
 

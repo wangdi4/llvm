@@ -507,8 +507,9 @@ def err_decomp_decl_not_alone : Error<
 def err_decomp_decl_requires_init : Error<
   "decomposition declaration %0 requires an initializer">;
 def err_decomp_decl_wrong_number_bindings : Error<
-  "type %0 decomposes into %2 elements, but %select{only |}3%1 "
-  "names were provided">;
+  "type %0 decomposes into %3 %plural{1:element|:elements}2, but "
+  "%select{%plural{0:no|:only %1}1|%1}4 "
+  "%plural{1:name was|:names were}1 provided">;
 def err_decomp_decl_unbindable_type : Error<
   "cannot decompose %select{union|non-class, non-array}1 type %2">;
 def err_decomp_decl_multiple_bases_with_members : Error<
@@ -891,6 +892,8 @@ def err_pragma_options_align_mac68k_target_unsupported : Error<
 def warn_pragma_pack_invalid_alignment : Warning<
   "expected #pragma pack parameter to be '1', '2', '4', '8', or '16'">,
   InGroup<IgnoredPragmas>;
+def err_pragma_pack_invalid_alignment : Error<
+  warn_pragma_pack_invalid_alignment.Text>;
 def warn_pragma_pack_non_default_at_include : Warning<
   "non-default #pragma pack value changes the alignment of struct or union "
   "members in the included file">, InGroup<PragmaPackSuspiciousInclude>,
@@ -924,6 +927,8 @@ def warn_cxx_ms_struct :
   Warning<"ms_struct may not produce Microsoft-compatible layouts for classes "
           "with base classes or virtual functions">,
   DefaultError, InGroup<IncompatibleMSStruct>;
+def err_pragma_pack_identifer_not_supported : Error<
+  "specifying an identifier within `#pragma pack` is not supported on this target">;
 def err_section_conflict : Error<"%0 causes a section type conflict with %1">;
 def err_no_base_classes : Error<"invalid use of '__super', %0 has no base classes">;
 def err_invalid_super_scope : Error<"invalid use of '__super', "
@@ -3320,7 +3325,7 @@ def warn_attribute_dllexport_explicit_instantiation_def : Warning<
   "'dllexport' attribute ignored on explicit instantiation definition">,
   InGroup<IgnoredAttributes>;
 def warn_invalid_initializer_from_system_header : Warning<
-  "invalid constructor form class in system header, should not be explicit">,
+  "invalid constructor from class in system header, should not be explicit">,
   InGroup<DiagGroup<"invalid-initializer-from-system-header">>;
 def note_used_in_initialization_here : Note<"used in initialization here">;
 def err_attribute_dll_member_of_dll_class : Error<
@@ -7697,7 +7702,7 @@ def err_no_typeid_with_fno_rtti : Error<
 def err_no_dynamic_cast_with_fno_rtti : Error<
   "use of dynamic_cast requires -frtti">;
 def warn_no_dynamic_cast_with_rtti_disabled: Warning<
-  "dynamic_cast will not work since RTTI data is disabled by " 
+  "dynamic_cast will not work since RTTI data is disabled by "
   "%select{-fno-rtti-data|/GR-}0">, InGroup<RTTI>;
 def warn_no_typeid_with_rtti_disabled: Warning<
   "typeid will not work since RTTI data is disabled by "
@@ -7713,8 +7718,7 @@ def warn_condition_is_assignment : Warning<"using the result of an "
   InGroup<Parentheses>;
 def warn_free_nonheap_object
   : Warning<"attempt to call %0 on non-heap object %1">,
-    InGroup<DiagGroup<"free-nonheap-object">>,
-    DefaultIgnore; // FIXME: add to -Wall after sufficient testing
+    InGroup<FreeNonHeapObject>;
 
 // Completely identical except off by default.
 def warn_condition_is_idiomatic_assignment : Warning<"using the result "
@@ -7907,21 +7911,11 @@ def ext_typecheck_convert_incompatible_pointer_sign : ExtWarn<
   "|%diff{sending $ to parameter of type $|"
   "sending to parameter of different type}0,1"
   "|%diff{casting $ to type $|casting between types}0,1}2"
-  " converts between pointers to integer types with different sign">,
+  " converts between pointers to integer types %select{with different sign|"
+  "where one is of the unique plain 'char' type and the other is not}3">,
   InGroup<DiagGroup<"pointer-sign">>;
-def err_typecheck_convert_incompatible_pointer_sign : Error<
-  "%select{%diff{assigning to $ from $|assigning to different types}0,1"
-  "|%diff{passing $ to parameter of type $|"
-  "passing to parameter of different type}0,1"
-  "|%diff{returning $ from a function with result type $|"
-  "returning from function with different return type}0,1"
-  "|%diff{converting $ to type $|converting between types}0,1"
-  "|%diff{initializing $ with an expression of type $|"
-  "initializing with expression of different type}0,1"
-  "|%diff{sending $ to parameter of type $|"
-  "sending to parameter of different type}0,1"
-  "|%diff{casting $ to type $|casting between types}0,1}2"
-  " converts between pointers to integer types with different sign">;
+def err_typecheck_convert_incompatible_pointer_sign :
+  Error<ext_typecheck_convert_incompatible_pointer_sign.Text>;
 def ext_typecheck_convert_incompatible_pointer : ExtWarn<
   "incompatible pointer types "
   "%select{%diff{assigning to $ from $|assigning to different types}0,1"
@@ -11281,7 +11275,7 @@ def err_sycl_function_attribute_mismatch : Error<
   "SYCL kernel without %0 attribute can't call a function with this attribute">;
 def err_sycl_x_y_z_arguments_must_be_one : Error<
   "%0 X-, Y- and Z- sizes must be 1 when %1 attribute is used with value 0">;
-def err_sycl_attibute_cannot_be_applied_here
+def err_sycl_attribute_internal_function
     : Error<"%0 attribute cannot be applied to a "
             "static function or function in an anonymous namespace">;
 def err_sycl_compiletime_property_duplication : Error<
@@ -11348,4 +11342,11 @@ def err_function_arg_passing : Error<
       "%select{function argument is not valid function|invalied function "
       "table argument}0">;
 // #endif INTEL_CUSTOMIZATION
+
+// TCB warnings
+def err_tcb_conflicting_attributes : Error<
+  "attributes '%0(\"%2\")' and '%1(\"%2\")' are mutually exclusive">;
+def warn_tcb_enforcement_violation : Warning<
+  "calling %0 is a violation of trusted computing base '%1'">,
+  InGroup<DiagGroup<"tcb-enforcement">>;
 } // end of sema component.

@@ -49,12 +49,12 @@ void foo_close_one(int arg)
   // CHECK: [[L3:%[0-9]+]] =  mul nuw i64 [[L1]], 4
   // CHECK: [[ARR:%.+]] = getelementptr inbounds float, float* [[VLA]], i64 0
   // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.TO:CLOSE"(float* [[VLA]], float* [[ARR]], i64 [[L3]], i64 1057
+  // CHECK-SAME: "QUAL.OMP.MAP.TO:CLOSE"(float* [[VLA]], float* [[ARR]], i64 [[L3]], i64 1025
   // CHECK:  region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
   #pragma omp target enter data map(close, to: lb)
   {++arg;}
   // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.TO:ALWAYS.CLOSE"(float* %vla, {{.*}} 1061
+  // CHECK-SAME: "QUAL.OMP.MAP.TO:ALWAYS.CLOSE"(float* %vla, {{.*}} 1029
   // CHECK:  region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
   #pragma omp target enter data map(always close, to: lb)
   {++arg;}
@@ -72,7 +72,7 @@ void B::start()
 {
   // CHECK: [[L8:%[0-9]+]] = sdiv exact i64
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.B* %this1, double** %zoo, i64 [[L8]], i64 32
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.B* %this1, double** %zoo, i64 [[L8]], i64 0
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(double** %zoo, double* %arrayidx, i64 136, i64 281474976710675
   // CHECK-SAME: "QUAL.OMP.MAP.FROM:CHAIN"(double** %xoo, double* %arrayidx4, i64 48, i64 281474976710674
   #pragma omp target map(tofrom: zoo[7:17]) map(from: xoo[1:6])
@@ -101,7 +101,7 @@ void map_with_overlap_elems() {
 // CHECK: [[L16:%[0-9]+]] = getelementptr i32*, i32** %ptr1, i64 1
 // CHECK: [[L22:%[0-9]+]] = sdiv exact i64
 // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, {{.*}}, i64 32
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, {{.*}}, i64 0
 // CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, i64 [[L8]], i64 281474976710657
 // CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, i32** [[L9]], i64 [[L15]], i64 281474976710657
 // CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, i32** [[L16]], i64 [[L22]], i64 281474976710657

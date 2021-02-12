@@ -784,11 +784,10 @@ void MCDwarfLineAddr::Encode(MCContext &Context, MCDwarfLineTableParams Params,
   }
 }
 
-bool MCDwarfLineAddr::FixedEncode(MCContext &Context,
-                                  MCDwarfLineTableParams Params,
-                                  int64_t LineDelta, uint64_t AddrDelta,
-                                  raw_ostream &OS,
-                                  uint32_t *Offset, uint32_t *Size) {
+std::tuple<uint32_t, uint32_t, bool>
+MCDwarfLineAddr::fixedEncode(MCContext &Context, int64_t LineDelta,
+                             uint64_t AddrDelta, raw_ostream &OS) {
+  uint32_t Offset, Size;
   if (LineDelta != INT64_MAX) {
     OS << char(dwarf::DW_LNS_advance_line);
     encodeSLEB128(LineDelta, OS);
@@ -808,15 +807,15 @@ bool MCDwarfLineAddr::FixedEncode(MCContext &Context,
     encodeULEB128(1 + AddrSize, OS);
     OS << char(dwarf::DW_LNE_set_address);
     // Generate fixup for the address.
-    *Offset = OS.tell();
-    *Size = AddrSize;
+    Offset = OS.tell();
+    Size = AddrSize;
     SetDelta = false;
     OS.write_zeros(AddrSize);
   } else {
     OS << char(dwarf::DW_LNS_fixed_advance_pc);
     // Generate fixup for 2-bytes address delta.
-    *Offset = OS.tell();
-    *Size = 2;
+    Offset = OS.tell();
+    Size = 2;
     SetDelta = true;
     OS << char(0);
     OS << char(0);
@@ -830,7 +829,7 @@ bool MCDwarfLineAddr::FixedEncode(MCContext &Context,
     OS << char(dwarf::DW_LNS_copy);
   }
 
-  return SetDelta;
+  return std::make_tuple(Offset, Size, SetDelta);
 }
 
 // Utility function to write a tuple for .debug_abbrev.

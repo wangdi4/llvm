@@ -7,19 +7,18 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/RISCVAsmBackend.h"
+#include "MCTargetDesc/RISCVBaseInfo.h"
 #include "MCTargetDesc/RISCVInstPrinter.h"
 #include "MCTargetDesc/RISCVMCExpr.h"
 #include "MCTargetDesc/RISCVMCTargetDesc.h"
+#include "MCTargetDesc/RISCVMatInt.h"
 #include "MCTargetDesc/RISCVTargetStreamer.h"
 #include "TargetInfo/RISCVTargetInfo.h"
-#include "Utils/RISCVBaseInfo.h"
-#include "Utils/RISCVMatInt.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
@@ -2314,27 +2313,27 @@ std::unique_ptr<RISCVOperand> RISCVAsmParser::defaultMaskRegOp() const {
 bool RISCVAsmParser::validateInstruction(MCInst &Inst,
                                          OperandVector &Operands) {
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
-  unsigned TargetFlags =
-      (MCID.TSFlags >> RISCVII::ConstraintOffset) & RISCVII::ConstraintMask;
-  if (TargetFlags == RISCVII::NoConstraint)
+  unsigned Constraints =
+      (MCID.TSFlags & RISCVII::ConstraintMask) >> RISCVII::ConstraintShift;
+  if (Constraints == RISCVII::NoConstraint)
     return false;
 
   unsigned DestReg = Inst.getOperand(0).getReg();
   // Operands[1] will be the first operand, DestReg.
   SMLoc Loc = Operands[1]->getStartLoc();
-  if (TargetFlags & RISCVII::VS2Constraint) {
+  if (Constraints & RISCVII::VS2Constraint) {
     unsigned CheckReg = Inst.getOperand(1).getReg();
     if (DestReg == CheckReg)
       return Error(Loc, "The destination vector register group cannot overlap"
                         " the source vector register group.");
   }
-  if ((TargetFlags & RISCVII::VS1Constraint) && (Inst.getOperand(2).isReg())) {
+  if ((Constraints & RISCVII::VS1Constraint) && (Inst.getOperand(2).isReg())) {
     unsigned CheckReg = Inst.getOperand(2).getReg();
     if (DestReg == CheckReg)
       return Error(Loc, "The destination vector register group cannot overlap"
                         " the source vector register group.");
   }
-  if ((TargetFlags & RISCVII::VMConstraint) && (DestReg == RISCV::V0)) {
+  if ((Constraints & RISCVII::VMConstraint) && (DestReg == RISCV::V0)) {
     // vadc, vsbc are special cases. These instructions have no mask register.
     // The destination register could not be V0.
     unsigned Opcode = Inst.getOpcode();

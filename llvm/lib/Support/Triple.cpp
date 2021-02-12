@@ -277,6 +277,7 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case IntelFPGA: return "intelfpga";
   case IntelEyeQ: return "inteleyeq";
 #endif // INTEL_CUSTOMIZATION
+  case GNUILP32: return "gnu_ilp32";
   case Itanium: return "itanium";
   case MSVC: return "msvc";
   case MacABI: return "macabi";
@@ -600,31 +601,32 @@ static Triple::OSType parseOS(StringRef OSName) {
 
 static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
   return StringSwitch<Triple::EnvironmentType>(EnvironmentName)
-    .StartsWith("eabihf", Triple::EABIHF)
-    .StartsWith("eabi", Triple::EABI)
-    .StartsWith("gnuabin32", Triple::GNUABIN32)
-    .StartsWith("gnuabi64", Triple::GNUABI64)
-    .StartsWith("gnueabihf", Triple::GNUEABIHF)
-    .StartsWith("gnueabi", Triple::GNUEABI)
-    .StartsWith("gnux32", Triple::GNUX32)
-    .StartsWith("code16", Triple::CODE16)
-    .StartsWith("gnu", Triple::GNU)
-    .StartsWith("android", Triple::Android)
-    .StartsWith("musleabihf", Triple::MuslEABIHF)
-    .StartsWith("musleabi", Triple::MuslEABI)
-    .StartsWith("musl", Triple::Musl)
-    .StartsWith("msvc", Triple::MSVC)
-    .StartsWith("itanium", Triple::Itanium)
-    .StartsWith("cygnus", Triple::Cygnus)
-    .StartsWith("coreclr", Triple::CoreCLR)
+      .StartsWith("eabihf", Triple::EABIHF)
+      .StartsWith("eabi", Triple::EABI)
+      .StartsWith("gnuabin32", Triple::GNUABIN32)
+      .StartsWith("gnuabi64", Triple::GNUABI64)
+      .StartsWith("gnueabihf", Triple::GNUEABIHF)
+      .StartsWith("gnueabi", Triple::GNUEABI)
+      .StartsWith("gnux32", Triple::GNUX32)
+      .StartsWith("gnu_ilp32", Triple::GNUILP32)
+      .StartsWith("code16", Triple::CODE16)
+      .StartsWith("gnu", Triple::GNU)
+      .StartsWith("android", Triple::Android)
+      .StartsWith("musleabihf", Triple::MuslEABIHF)
+      .StartsWith("musleabi", Triple::MuslEABI)
+      .StartsWith("musl", Triple::Musl)
+      .StartsWith("msvc", Triple::MSVC)
+      .StartsWith("itanium", Triple::Itanium)
+      .StartsWith("cygnus", Triple::Cygnus)
+      .StartsWith("coreclr", Triple::CoreCLR)
 #if INTEL_CUSTOMIZATION
-    .StartsWith("intelfpga", Triple::IntelFPGA)
-    .StartsWith("inteleyeq", Triple::IntelEyeQ)
+      .StartsWith("intelfpga", Triple::IntelFPGA)
+      .StartsWith("inteleyeq", Triple::IntelEyeQ)
 #endif // INTEL_CUSTOMIZATION
-    .StartsWith("simulator", Triple::Simulator)
-    .StartsWith("sycldevice", Triple::SYCLDevice)
-    .StartsWith("macabi", Triple::MacABI)
-    .Default(Triple::UnknownEnvironment);
+      .StartsWith("simulator", Triple::Simulator)
+      .StartsWith("sycldevice", Triple::SYCLDevice)
+      .StartsWith("macabi", Triple::MacABI)
+      .Default(Triple::UnknownEnvironment);
 }
 
 static Triple::ObjectFormatType parseFormat(StringRef EnvironmentName) {
@@ -1132,7 +1134,7 @@ StringRef Triple::getOSAndEnvironmentName() const {
 }
 
 static unsigned EatNumber(StringRef &Str) {
-  assert(!Str.empty() && Str[0] >= '0' && Str[0] <= '9' && "Not a number");
+  assert(!Str.empty() && isDigit(Str[0]) && "Not a number");
   unsigned Result = 0;
 
   do {
@@ -1141,7 +1143,7 @@ static unsigned EatNumber(StringRef &Str) {
 
     // Eat the digit.
     Str = Str.substr(1);
-  } while (!Str.empty() && Str[0] >= '0' && Str[0] <= '9');
+  } while (!Str.empty() && isDigit(Str[0]));
 
   return Result;
 }

@@ -12,8 +12,7 @@
 ;    }
 ;
 ; Verify dependences between the load and store are found.
-; CHECK-DAG: (i64*)(%cond)[i1 + 1] --> (i64*)(%cond3)[i1] FLOW (*
-; CHECK-DAG: (i64*)(%cond3)[i1] --> (i64*)(%cond)[i1 + 1] ANTI (*
+; CHECK-DAG: %cond3 --> %cond3 FLOW (=) (0)
 
 @Ag = external dso_local local_unnamed_addr global [129 x double], align 16
 @Bg = external dso_local local_unnamed_addr global [129 x double], align 16

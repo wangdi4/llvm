@@ -134,14 +134,33 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
   // Branch - See if we are conditional jumping on constant
   if (auto *BI = dyn_cast<BranchInst>(T)) {
     if (BI->isUnconditional()) return false;  // Can't optimize uncond branch
+
     BasicBlock *Dest1 = BI->getSuccessor(0);
     BasicBlock *Dest2 = BI->getSuccessor(1);
+
+    if (Dest2 == Dest1) {       // Conditional branch to same location?
+      // This branch matches something like this:
+      //     br bool %cond, label %Dest, label %Dest
+      // and changes it into:  br label %Dest
+
+      // Let the basic block know that we are letting go of one copy of it.
+      assert(BI->getParent() && "Terminator not inserted in block!");
+      Dest1->removePredecessor(BI->getParent());
+
+      // Replace the conditional branch with an unconditional one.
+      Builder.CreateBr(Dest1);
+      Value *Cond = BI->getCondition();
+      BI->eraseFromParent();
+      if (DeleteDeadConditions)
+        RecursivelyDeleteTriviallyDeadInstructions(Cond, TLI);
+      return true;
+    }
 
     if (auto *Cond = dyn_cast<ConstantInt>(BI->getCondition())) {
       // Are we branching on constant?
       // YES.  Change to unconditional branch...
       BasicBlock *Destination = Cond->getZExtValue() ? Dest1 : Dest2;
-      BasicBlock *OldDest     = Cond->getZExtValue() ? Dest2 : Dest1;
+      BasicBlock *OldDest = Cond->getZExtValue() ? Dest2 : Dest1;
 
       // Let the basic block know that we are letting go of it.  Based on this,
       // it will adjust it's PHI nodes.
@@ -165,27 +184,10 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
 #endif  // INTEL_CUSTOMIZATION
       BI->eraseFromParent();
       if (DTU)
-        DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, OldDest}});
+        DTU->applyUpdates({{DominatorTree::Delete, BB, OldDest}});
       return true;
     }
 
-    if (Dest2 == Dest1) {       // Conditional branch to same location?
-      // This branch matches something like this:
-      //     br bool %cond, label %Dest, label %Dest
-      // and changes it into:  br label %Dest
-
-      // Let the basic block know that we are letting go of one copy of it.
-      assert(BI->getParent() && "Terminator not inserted in block!");
-      Dest1->removePredecessor(BI->getParent());
-
-      // Replace the conditional branch with an unconditional one.
-      Builder.CreateBr(Dest1);
-      Value *Cond = BI->getCondition();
-      BI->eraseFromParent();
-      if (DeleteDeadConditions)
-        RecursivelyDeleteTriviallyDeadInstructions(Cond, TLI);
-      return true;
-    }
     return false;
   }
 
@@ -243,9 +245,6 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
         i = SI->removeCase(i);
         e = SI->case_end();
         Changed = true;
-        if (DTU)
-          DTU->applyUpdatesPermissive(
-              {{DominatorTree::Delete, ParentBB, DefaultDest}});
         continue;
       }
 
@@ -271,19 +270,19 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       // Insert the new branch.
       Builder.CreateBr(TheOnlyDest);
       BasicBlock *BB = SI->getParent();
-      std::vector <DominatorTree::UpdateType> Updates;
-      if (DTU)
-        Updates.reserve(SI->getNumSuccessors() - 1);
+
+      SmallSetVector<BasicBlock *, 8> RemovedSuccessors;
 
       // Remove entries from PHI nodes which we no longer branch to...
+      BasicBlock *SuccToKeep = TheOnlyDest;
       for (BasicBlock *Succ : successors(SI)) {
+        if (DTU && Succ != TheOnlyDest)
+          RemovedSuccessors.insert(Succ);
         // Found case matching a constant operand?
-        if (Succ == TheOnlyDest) {
-          TheOnlyDest = nullptr; // Don't modify the first branch to TheOnlyDest
+        if (Succ == SuccToKeep) {
+          SuccToKeep = nullptr; // Don't modify the first branch to TheOnlyDest
         } else {
           Succ->removePredecessor(BB);
-          if (DTU)
-            Updates.push_back({DominatorTree::Delete, BB, Succ});
         }
       }
 
@@ -292,8 +291,13 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       SI->eraseFromParent();
       if (DeleteDeadConditions)
         RecursivelyDeleteTriviallyDeadInstructions(Cond, TLI);
-      if (DTU)
-        DTU->applyUpdatesPermissive(Updates);
+      if (DTU) {
+        std::vector<DominatorTree::UpdateType> Updates;
+        Updates.reserve(RemovedSuccessors.size());
+        for (auto *RemovedSuccessor : RemovedSuccessors)
+          Updates.push_back({DominatorTree::Delete, BB, RemovedSuccessor});
+        DTU->applyUpdates(Updates);
+      }
       return true;
     }
 
@@ -339,22 +343,20 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
     if (auto *BA =
           dyn_cast<BlockAddress>(IBI->getAddress()->stripPointerCasts())) {
       BasicBlock *TheOnlyDest = BA->getBasicBlock();
-      std::vector <DominatorTree::UpdateType> Updates;
-      if (DTU)
-        Updates.reserve(IBI->getNumDestinations() - 1);
+      SmallSetVector<BasicBlock *, 8> RemovedSuccessors;
 
       // Insert the new branch.
       Builder.CreateBr(TheOnlyDest);
 
+      BasicBlock *SuccToKeep = TheOnlyDest;
       for (unsigned i = 0, e = IBI->getNumDestinations(); i != e; ++i) {
-        if (IBI->getDestination(i) == TheOnlyDest) {
-          TheOnlyDest = nullptr;
+        BasicBlock *DestBB = IBI->getDestination(i);
+        if (DTU && DestBB != TheOnlyDest)
+          RemovedSuccessors.insert(DestBB);
+        if (IBI->getDestination(i) == SuccToKeep) {
+          SuccToKeep = nullptr;
         } else {
-          BasicBlock *ParentBB = IBI->getParent();
-          BasicBlock *DestBB = IBI->getDestination(i);
-          DestBB->removePredecessor(ParentBB);
-          if (DTU)
-            Updates.push_back({DominatorTree::Delete, ParentBB, DestBB});
+          DestBB->removePredecessor(BB);
         }
       }
       Value *Address = IBI->getAddress();
@@ -371,13 +373,18 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       // If we didn't find our destination in the IBI successor list, then we
       // have undefined behavior.  Replace the unconditional branch with an
       // 'unreachable' instruction.
-      if (TheOnlyDest) {
+      if (SuccToKeep) {
         BB->getTerminator()->eraseFromParent();
         new UnreachableInst(BB->getContext(), BB);
       }
 
-      if (DTU)
-        DTU->applyUpdatesPermissive(Updates);
+      if (DTU) {
+        std::vector<DominatorTree::UpdateType> Updates;
+        Updates.reserve(RemovedSuccessors.size());
+        for (auto *RemovedSuccessor : RemovedSuccessors)
+          Updates.push_back({DominatorTree::Delete, BB, RemovedSuccessor});
+        DTU->applyUpdates(Updates);
+      }
       return true;
     }
   }
@@ -742,13 +749,13 @@ void llvm::MergeBasicBlockIntoOnlyPred(BasicBlock *DestBB,
   SmallVector<DominatorTree::UpdateType, 32> Updates;
 
   if (DTU) {
-    Updates.push_back({DominatorTree::Delete, PredBB, DestBB});
     for (auto I = pred_begin(PredBB), E = pred_end(PredBB); I != E; ++I) {
-      Updates.push_back({DominatorTree::Delete, *I, PredBB});
       // This predecessor of PredBB may already have DestBB as a successor.
       if (!llvm::is_contained(successors(*I), DestBB))
         Updates.push_back({DominatorTree::Insert, *I, DestBB});
+      Updates.push_back({DominatorTree::Delete, *I, PredBB});
     }
+    Updates.push_back({DominatorTree::Delete, PredBB, DestBB});
   }
 
   // Zap anything that took the address of DestBB.  Not doing this will give the
@@ -1053,14 +1060,16 @@ bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
 
   SmallVector<DominatorTree::UpdateType, 32> Updates;
   if (DTU) {
-    Updates.push_back({DominatorTree::Delete, BB, Succ});
     // All predecessors of BB will be moved to Succ.
-    for (auto I = pred_begin(BB), E = pred_end(BB); I != E; ++I) {
-      Updates.push_back({DominatorTree::Delete, *I, BB});
+    SmallSetVector<BasicBlock *, 8> Predecessors(pred_begin(BB), pred_end(BB));
+    Updates.reserve(Updates.size() + 2 * Predecessors.size());
+    for (auto *Predecessor : Predecessors) {
       // This predecessor of BB may already have Succ as a successor.
-      if (!llvm::is_contained(successors(*I), Succ))
-        Updates.push_back({DominatorTree::Insert, *I, Succ});
+      if (!llvm::is_contained(successors(Predecessor), Succ))
+        Updates.push_back({DominatorTree::Insert, Predecessor, Succ});
+      Updates.push_back({DominatorTree::Delete, Predecessor, BB});
     }
+    Updates.push_back({DominatorTree::Delete, BB, Succ});
   }
 
   if (isa<PHINode>(Succ->begin())) {
@@ -1116,7 +1125,7 @@ bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
                            "applying corresponding DTU updates.");
 
   if (DTU) {
-    DTU->applyUpdatesPermissive(Updates);
+    DTU->applyUpdates(Updates);
     DTU->deleteBB(BB);
   } else {
     BB->eraseFromParent(); // Delete the old basic block.
@@ -2038,19 +2047,18 @@ unsigned llvm::changeToUnreachable(Instruction *I, bool UseLLVMTrap,
                                    bool PreserveLCSSA, DomTreeUpdater *DTU,
                                    MemorySSAUpdater *MSSAU) {
   BasicBlock *BB = I->getParent();
-  std::vector <DominatorTree::UpdateType> Updates;
 
   if (MSSAU)
     MSSAU->changeToUnreachable(I);
 
+  SmallSetVector<BasicBlock *, 8> UniqueSuccessors;
+
   // Loop over all of the successors, removing BB's entry from any PHI
   // nodes.
-  if (DTU)
-    Updates.reserve(BB->getTerminator()->getNumSuccessors());
   for (BasicBlock *Successor : successors(BB)) {
     Successor->removePredecessor(BB, PreserveLCSSA);
     if (DTU)
-      Updates.push_back({DominatorTree::Delete, BB, Successor});
+      UniqueSuccessors.insert(Successor);
   }
   // Insert a call to llvm.trap right before this.  This turns the undefined
   // behavior into a hard fail instead of falling through into random code.
@@ -2072,8 +2080,13 @@ unsigned llvm::changeToUnreachable(Instruction *I, bool UseLLVMTrap,
     BB->getInstList().erase(BBI++);
     ++NumInstrsRemoved;
   }
-  if (DTU)
-    DTU->applyUpdatesPermissive(Updates);
+  if (DTU) {
+    SmallVector<DominatorTree::UpdateType, 8> Updates;
+    Updates.reserve(UniqueSuccessors.size());
+    for (BasicBlock *UniqueSuccessor : UniqueSuccessors)
+      Updates.push_back({DominatorTree::Delete, BB, UniqueSuccessor});
+    DTU->applyUpdates(Updates);
+  }
   return NumInstrsRemoved;
 }
 
@@ -2119,7 +2132,7 @@ void llvm::changeToCall(InvokeInst *II, DomTreeUpdater *DTU) {
   UnwindDestBB->removePredecessor(BB);
   II->eraseFromParent();
   if (DTU)
-    DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, UnwindDestBB}});
+    DTU->applyUpdates({{DominatorTree::Delete, BB, UnwindDestBB}});
 }
 
 BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
@@ -2277,8 +2290,7 @@ static bool markAliveBlocks(Function &F,
           UnwindDestBB->removePredecessor(II->getParent());
           II->eraseFromParent();
           if (DTU)
-            DTU->applyUpdatesPermissive(
-                {{DominatorTree::Delete, BB, UnwindDestBB}});
+            DTU->applyUpdates({{DominatorTree::Delete, BB, UnwindDestBB}});
         } else
           changeToCall(II, DTU);
         Changed = true;
@@ -2307,6 +2319,7 @@ static bool markAliveBlocks(Function &F,
         }
       };
 
+      SmallMapVector<BasicBlock *, int, 8> NumPerSuccessorCases;
       // Set of unique CatchPads.
       SmallDenseMap<CatchPadInst *, detail::DenseSetEmpty, 4,
                     CatchPadDenseMapInfo, detail::DenseSetPair<CatchPadInst *>>
@@ -2316,14 +2329,22 @@ static bool markAliveBlocks(Function &F,
                                              E = CatchSwitch->handler_end();
            I != E; ++I) {
         BasicBlock *HandlerBB = *I;
+        ++NumPerSuccessorCases[HandlerBB];
         auto *CatchPad = cast<CatchPadInst>(HandlerBB->getFirstNonPHI());
         if (!HandlerSet.insert({CatchPad, Empty}).second) {
+          --NumPerSuccessorCases[HandlerBB];
           CatchSwitch->removeHandler(I);
           --I;
           --E;
           Changed = true;
         }
       }
+      std::vector<DominatorTree::UpdateType> Updates;
+      for (const std::pair<BasicBlock *, int> &I : NumPerSuccessorCases)
+        if (I.second == 0)
+          Updates.push_back({DominatorTree::Delete, BB, I.first});
+      if (DTU)
+        DTU->applyUpdates(Updates);
     }
 
     Changed |= ConstantFoldTerminator(BB, true, nullptr, DTU);
@@ -2367,7 +2388,7 @@ void llvm::removeUnwindEdge(BasicBlock *BB, DomTreeUpdater *DTU) {
   TI->replaceAllUsesWith(NewTI);
   TI->eraseFromParent();
   if (DTU)
-    DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, UnwindDest}});
+    DTU->applyUpdates({{DominatorTree::Delete, BB, UnwindDest}});
 }
 
 /// removeUnreachableBlocks - Remove blocks that are not reachable, even
@@ -2383,28 +2404,39 @@ bool llvm::removeUnreachableBlocks(Function &F, DomTreeUpdater *DTU,
     return Changed;
 
   assert(Reachable.size() < F.size());
-  NumRemoved += F.size() - Reachable.size();
 
-  SmallSetVector<BasicBlock *, 8> DeadBlockSet;
+  // Are there any blocks left to actually delete?
+  SmallSetVector<BasicBlock *, 8> BlocksToRemove;
   for (BasicBlock &BB : F) {
     // Skip reachable basic blocks
     if (Reachable.count(&BB))
       continue;
-    DeadBlockSet.insert(&BB);
+    // Skip already-deleted blocks
+    if (DTU && DTU->isBBPendingDeletion(&BB))
+      continue;
+    BlocksToRemove.insert(&BB);
   }
 
-  if (MSSAU)
-    MSSAU->removeBlocks(DeadBlockSet);
+  if (BlocksToRemove.empty())
+    return Changed;
 
-  // Loop over all of the basic blocks that are not reachable, dropping all of
+  Changed = true;
+  NumRemoved += BlocksToRemove.size();
+
+  if (MSSAU)
+    MSSAU->removeBlocks(BlocksToRemove);
+
+  // Loop over all of the basic blocks that are up for removal, dropping all of
   // their internal references. Update DTU if available.
   std::vector<DominatorTree::UpdateType> Updates;
-  for (auto *BB : DeadBlockSet) {
+  for (auto *BB : BlocksToRemove) {
+    SmallSetVector<BasicBlock *, 8> UniqueSuccessors;
     for (BasicBlock *Successor : successors(BB)) {
-      if (!DeadBlockSet.count(Successor))
+      // Only remove references to BB in reachable successors of BB.
+      if (Reachable.count(Successor))
         Successor->removePredecessor(BB);
       if (DTU)
-        Updates.push_back({DominatorTree::Delete, BB, Successor});
+        UniqueSuccessors.insert(Successor);
     }
     BB->dropAllReferences();
     if (DTU) {
@@ -2418,27 +2450,22 @@ bool llvm::removeUnreachableBlocks(Function &F, DomTreeUpdater *DTU,
       new UnreachableInst(BB->getContext(), BB);
       assert(succ_empty(BB) && "The successor list of BB isn't empty before "
                                "applying corresponding DTU updates.");
+      Updates.reserve(Updates.size() + UniqueSuccessors.size());
+      for (auto *UniqueSuccessor : UniqueSuccessors)
+        Updates.push_back({DominatorTree::Delete, BB, UniqueSuccessor});
     }
   }
 
   if (DTU) {
-    DTU->applyUpdatesPermissive(Updates);
-    bool Deleted = false;
-    for (auto *BB : DeadBlockSet) {
-      if (DTU->isBBPendingDeletion(BB))
-        --NumRemoved;
-      else
-        Deleted = true;
+    DTU->applyUpdates(Updates);
+    for (auto *BB : BlocksToRemove)
       DTU->deleteBB(BB);
-    }
-    if (!Deleted)
-      return false;
   } else {
-    for (auto *BB : DeadBlockSet)
+    for (auto *BB : BlocksToRemove)
       BB->eraseFromParent();
   }
 
-  return true;
+  return Changed;
 }
 
 void llvm::combineMetadata(Instruction *K, const Instruction *J,

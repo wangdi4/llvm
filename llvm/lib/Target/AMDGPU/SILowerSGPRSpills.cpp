@@ -16,7 +16,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPU.h"
-#include "AMDGPUSubtarget.h"
+#include "GCNSubtarget.h"
+#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
@@ -264,11 +265,10 @@ static bool lowerShiftReservedVGPR(MachineFunction &MF,
 
   // Find saved info about the pre-reserved register.
   const auto *ReservedVGPRInfoItr =
-      std::find_if(FuncInfo->getSGPRSpillVGPRs().begin(),
-                   FuncInfo->getSGPRSpillVGPRs().end(),
-                   [PreReservedVGPR](const auto &SpillRegInfo) {
-                     return SpillRegInfo.VGPR == PreReservedVGPR;
-                   });
+      llvm::find_if(FuncInfo->getSGPRSpillVGPRs(),
+                    [PreReservedVGPR](const auto &SpillRegInfo) {
+                      return SpillRegInfo.VGPR == PreReservedVGPR;
+                    });
 
   assert(ReservedVGPRInfoItr != FuncInfo->getSGPRSpillVGPRs().end());
   auto Index =

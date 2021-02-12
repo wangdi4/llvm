@@ -335,6 +335,8 @@ public:
 
   /// Returns an ArrayRef of the values defined by the VPDef.
   ArrayRef<VPValue *> definedValues() { return DefinedValues; }
+  /// Returns an ArrayRef of the values defined by the VPDef.
+  ArrayRef<VPValue *> definedValues() const { return DefinedValues; }
 
   /// Returns the number of values defined by the VPDef.
   unsigned getNumDefinedValues() const { return DefinedValues.size(); }
@@ -343,6 +345,17 @@ public:
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPDefID() const { return SubclassID; }
+
+  /// Dump the VPDef to stderr (for debugging).
+  void dump() const;
+
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Each concrete VPDef prints itself.
+  virtual void print(raw_ostream &O, const Twine &Indent,
+                     VPSlotTracker &SlotTracker) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 class VPlan;
@@ -364,7 +377,7 @@ class VPSlotTracker {
   void assignSlots(const VPlan &Plan);
 
 public:
-  VPSlotTracker(const VPlan *Plan) {
+  VPSlotTracker(const VPlan *Plan = nullptr) {
     if (Plan)
       assignSlots(*Plan);
   }

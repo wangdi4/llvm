@@ -432,7 +432,7 @@ static void DoInitialMatch(const SCEV *S, Loop *L,
   // Handle a multiplication by -1 (negation) if it didn't fold.
   if (const SCEVMulExpr *Mul = dyn_cast<SCEVMulExpr>(S))
     if (Mul->getOperand(0)->isAllOnesValue()) {
-      SmallVector<const SCEV *, 4> Ops(Mul->op_begin()+1, Mul->op_end());
+      SmallVector<const SCEV *, 4> Ops(drop_begin(Mul->operands()));
       const SCEV *NewMul = SE.getMulExpr(Ops);
 
       SmallVector<const SCEV *, 4> MyGood;
@@ -493,11 +493,10 @@ bool Formula::isCanonical(const Loop &L) const {
   // If ScaledReg is not a recurrent expr, or it is but its loop is not current
   // loop, meanwhile BaseRegs contains a recurrent expr reg related with current
   // loop, we want to swap the reg in BaseRegs with ScaledReg.
-  auto I =
-      find_if(make_range(BaseRegs.begin(), BaseRegs.end()), [&](const SCEV *S) {
-        return isa<const SCEVAddRecExpr>(S) &&
-               (cast<SCEVAddRecExpr>(S)->getLoop() == &L);
-      });
+  auto I = find_if(BaseRegs, [&](const SCEV *S) {
+    return isa<const SCEVAddRecExpr>(S) &&
+           (cast<SCEVAddRecExpr>(S)->getLoop() == &L);
+  });
   return I == BaseRegs.end();
 }
 
@@ -526,11 +525,10 @@ void Formula::canonicalize(const Loop &L) {
   // reg with ScaledReg.
   const SCEVAddRecExpr *SAR = dyn_cast<const SCEVAddRecExpr>(ScaledReg);
   if (!SAR || SAR->getLoop() != &L) {
-    auto I = find_if(make_range(BaseRegs.begin(), BaseRegs.end()),
-                     [&](const SCEV *S) {
-                       return isa<const SCEVAddRecExpr>(S) &&
-                              (cast<SCEVAddRecExpr>(S)->getLoop() == &L);
-                     });
+    auto I = find_if(BaseRegs, [&](const SCEV *S) {
+      return isa<const SCEVAddRecExpr>(S) &&
+             (cast<SCEVAddRecExpr>(S)->getLoop() == &L);
+    });
     if (I != BaseRegs.end())
       std::swap(ScaledReg, *I);
   }

@@ -282,6 +282,14 @@ protected:
                       CCAssignFn &AssignFnFixed,
                       CCAssignFn &AssignFnVarArg) const;
 
+  /// Check whether parameters to a call that are passed in callee saved
+  /// registers are the same as from the calling function.  This needs to be
+  /// checked for tail call eligibility.
+  bool parametersInCSRMatch(const MachineRegisterInfo &MRI,
+                            const uint32_t *CallerPreservedMask,
+                            const SmallVectorImpl<CCValAssign> &ArgLocs,
+                            const SmallVectorImpl<ArgInfo> &OutVals) const;
+
   /// \returns True if the calling convention for a callee and its caller pass
   /// results in the same way. Typically used for tail call eligibility checks.
   ///
@@ -358,8 +366,8 @@ public:
   /// described by \p Outs can fit into the return registers. If false
   /// is returned, an sret-demotion is performed.
   virtual bool canLowerReturn(MachineFunction &MF, CallingConv::ID CallConv,
-                              SmallVectorImpl<BaseArgInfo> &Outs, bool IsVarArg,
-                              LLVMContext &Context) const {
+                              SmallVectorImpl<BaseArgInfo> &Outs,
+                              bool IsVarArg) const {
     return true;
   }
 

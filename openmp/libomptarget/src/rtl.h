@@ -161,69 +161,6 @@ struct RTLInfoTy {
   // It is easier to enforce thread-safety at the libomptarget level,
   // so that developers of new RTLs do not have to worry about it.
   std::mutex Mtx;
-
-  // The existence of the mutex above makes RTLInfoTy non-copyable.
-  // We need to provide a copy constructor explicitly.
-  RTLInfoTy() = default;
-
-  RTLInfoTy(const RTLInfoTy &r) {
-    Idx = r.Idx;
-    NumberOfDevices = r.NumberOfDevices;
-    LibraryHandler = r.LibraryHandler;
-#ifdef OMPTARGET_DEBUG
-    RTLName = r.RTLName;
-#endif
-#if INTEL_COLLAB
-    RTLConstName = r.RTLConstName;
-#endif  // INTEL_COLLAB
-    is_valid_binary = r.is_valid_binary;
-    is_data_exchangable = r.is_data_exchangable;
-    number_of_devices = r.number_of_devices;
-    init_device = r.init_device;
-    load_binary = r.load_binary;
-    data_alloc = r.data_alloc;
-    data_submit = r.data_submit;
-    data_submit_async = r.data_submit_async;
-    data_retrieve = r.data_retrieve;
-    data_retrieve_async = r.data_retrieve_async;
-    data_exchange = r.data_exchange;
-    data_exchange_async = r.data_exchange_async;
-    data_delete = r.data_delete;
-    run_region = r.run_region;
-    run_region_async = r.run_region_async;
-    run_team_region = r.run_team_region;
-    run_team_region_async = r.run_team_region_async;
-    init_requires = r.init_requires;
-#if INTEL_COLLAB
-    data_submit_nowait = r.data_submit_nowait;
-    data_retrieve_nowait = r.data_retrieve_nowait;
-    manifest_data_for_region = r.manifest_data_for_region;
-    data_alloc_base = r.data_alloc_base;
-    data_alloc_user = r.data_alloc_user;
-    get_device_name = r.get_device_name;
-    run_team_nd_region = r.run_team_nd_region;
-    run_team_nd_region_nowait = r.run_team_nd_region_nowait;
-    run_region_nowait = r.run_region_nowait;
-    run_team_region_nowait = r.run_team_region_nowait;
-    create_offload_queue = r.create_offload_queue;
-    get_platform_handle = r.get_platform_handle;
-    get_device_handle = r.get_device_handle;
-    get_context_handle = r.get_context_handle;
-    release_offload_queue = r.release_offload_queue;
-    data_alloc_managed = r.data_alloc_managed;
-    is_device_accessible_ptr = r.is_device_accessible_ptr;
-    data_alloc_explicit = r.data_alloc_explicit;
-    init_ompt = r.init_ompt;
-    get_data_alloc_info = r.get_data_alloc_info;
-    push_subdevice = r.push_subdevice;
-    pop_subdevice = r.pop_subdevice;
-    add_build_options = r.add_build_options;
-    is_supported_device = r.is_supported_device;
-    deinit = r.deinit;
-#endif // INTEL_COLLAB
-    isUsed = r.isUsed;
-    synchronize = r.synchronize;
-  }
 };
 
 /// RTLs identified in the system.

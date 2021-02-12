@@ -413,14 +413,14 @@ class VPBlockBase {
 
   /// Remove \p Predecessor from the predecessors of this block.
   void removePredecessor(VPBlockBase *Predecessor) {
-    auto Pos = std::find(Predecessors.begin(), Predecessors.end(), Predecessor);
+    auto Pos = find(Predecessors, Predecessor);
     assert(Pos && "Predecessor does not exist");
     Predecessors.erase(Pos);
   }
 
   /// Remove \p Successor from the successors of this block.
   void removeSuccessor(VPBlockBase *Successor) {
-    auto Pos = std::find(Successors.begin(), Successors.end(), Successor);
+    auto Pos = find(Successors, Successor);
     assert(Pos && "Successor does not exist");
     Successors.erase(Pos);
   }
@@ -649,17 +649,6 @@ public:
   /// this VPRecipe, thereby "executing" the VPlan.
   virtual void execute(struct VPTransformState &State) = 0;
 
-#if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Each recipe prints itself.
-  virtual void print(raw_ostream &O, const Twine &Indent,
-                     VPSlotTracker &SlotTracker) const = 0;
-
-  /// Dump the recipe to stderr (for debugging).
-  void dump() const;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
-
   /// Insert an unlinked recipe into a basic block immediately before
   /// the specified recipe.
   void insertBefore(VPRecipeBase *InsertPos);
@@ -671,6 +660,11 @@ public:
   /// Unlink this recipe from its current VPBasicBlock and insert it into
   /// the VPBasicBlock that MovePos lives in, right after MovePos.
   void moveAfter(VPRecipeBase *MovePos);
+
+  /// Unlink this recipe and insert into BB before I.
+  ///
+  /// \pre I is a valid iterator into BB.
+  void moveBefore(VPBasicBlock &BB, iplist<VPRecipeBase>::iterator I);
 
   /// This method unlinks 'this' from the containing basic block, but does not
   /// delete it.
@@ -782,13 +776,12 @@ public:
 
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Print the Recipe.
+  /// Print the VPInstruction to \p O.
   void print(raw_ostream &O, const Twine &Indent,
              VPSlotTracker &SlotTracker) const override;
 
-  /// Print the VPInstruction.
-  void print(raw_ostream &O) const;
-  void print(raw_ostream &O, VPSlotTracker &SlotTracker) const;
+  /// Print the VPInstruction to dbgs() (for debugging).
+  void dump() const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -998,10 +991,24 @@ public:
 };
 
 /// A recipe for handling all phi nodes except for integer and FP inductions.
-class VPWidenPHIRecipe : public VPRecipeBase {
+/// For reduction PHIs, RdxDesc must point to the corresponding recurrence
+/// descriptor and the start value is the first operand of the recipe.
+class VPWidenPHIRecipe : public VPRecipeBase, public VPUser {
   PHINode *Phi;
 
+  /// Descriptor for a reduction PHI.
+  RecurrenceDescriptor *RdxDesc = nullptr;
+
 public:
+  /// Create a new VPWidenPHIRecipe for the reduction \p Phi described by \p
+  /// RdxDesc.
+  VPWidenPHIRecipe(PHINode *Phi, RecurrenceDescriptor &RdxDesc, VPValue &Start)
+      : VPWidenPHIRecipe(Phi) {
+    this->RdxDesc = &RdxDesc;
+    addOperand(&Start);
+  }
+
+  /// Create a VPWidenPHIRecipe for \p Phi
   VPWidenPHIRecipe(PHINode *Phi) : VPRecipeBase(VPWidenPHISC), Phi(Phi) {
     new VPValue(Phi, this);
   }
@@ -1022,6 +1029,11 @@ public:
              VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+
+  /// Returns the start value of the phi, if it is a reduction.
+  VPValue *getStartValue() {
+    return getNumOperands() == 0 ? nullptr : getOperand(0);
+  }
 };
 
 /// A recipe for vectorizing a phi-node as a sequence of mask-based select
@@ -1274,7 +1286,7 @@ public:
              VPSlotTracker &SlotTracker) const override {
     O << " +\n" << Indent << "\"BRANCH-ON-MASK ";
     if (VPValue *Mask = getMask())
-      Mask->print(O, SlotTracker);
+      Mask->printAsOperand(O, SlotTracker);
     else
       O << " All-One";
     O << "\\l\"";

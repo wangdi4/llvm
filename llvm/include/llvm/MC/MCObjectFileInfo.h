@@ -424,9 +424,7 @@ public:
   // XCOFF specific sections
   MCSection *getTOCBaseSection() const { return TOCBaseSection; }
 
-  MCSection *getEHFrameSection() {
-    return EHFrameSection;
-  }
+  MCSection *getEHFrameSection() const { return EHFrameSection; }
 
 #if INTEL_CUSTOMIZATION
   MCSection *getOptReportSection() const { return OptReportSection; }
