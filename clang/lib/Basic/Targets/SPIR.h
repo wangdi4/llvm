@@ -116,6 +116,12 @@ public:
       UseAutoOpenCLAddrSpaceForOpenMP = true;
       AddrSpaceMap = &SPIRAddrSpaceDefIsGenMap;
     }
+    if (Opts.OpenMPLateOutline && Opts.OpenMPUseLLVMAtomic) {
+      if (getTriple().getArch() == llvm::Triple::spir)
+        MaxAtomicInlineWidth = 32;
+      else if (getTriple().getArch() == llvm::Triple::spir64)
+        MaxAtomicInlineWidth = 64;
+    }
   }
 
   llvm::Optional<LangAS> getConstantAddressSpace() const override {
