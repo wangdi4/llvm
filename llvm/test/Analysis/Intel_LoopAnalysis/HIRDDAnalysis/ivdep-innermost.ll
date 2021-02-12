@@ -12,7 +12,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-dd-test-assume-no-loop-carried-dep=1 -analyze | FileCheck %s
 ; RUN: opt -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-dd-test-assume-no-loop-carried-dep=1 -disable-output 2>&1 < %s | FileCheck %s
 ;
-
 ; CHECK-DAG: (%M)[i1] --> (%A)[i1] ANTI (=) (0)
 ; CHECK-DAG: (%B)[%0] --> (%A)[i1] ANTI (=) (0)
 ;

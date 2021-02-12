@@ -1,11 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-lmm -hir-loop-reroll -print-before=hir-loop-reroll -print-after=hir-loop-reroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,hir-lmm,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
-
 ; Verify reroll does not cause a transformation but ends quietly. From atg_CMPLRLLVM-20518.c.
-
 ; *** IR Dump Before HIR Loop Reroll ***
 ; CHECK:Function: main
-
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK:                %limm = (%i2)[0][2][1];
 ; CHECK:                %limm256 = (%i2)[0][5][4];
@@ -335,12 +332,9 @@
 ; CHECK:                (%i2)[0][5][4] = %limm256;
 ; CHECK:                (%i2)[0][33][1] = %limm255;
 ; CHECK:       END REGION
-
 ; Reroll does not cause a transformation but ends quietly.
-
 ; *** IR Dump After HIR Loop Reroll ***
 ; CHECK:Function: main
-
 ; CHECK:        BEGIN REGION { modified }
 ; CHECK:                 %limm = (%i2)[0][2][1];
 ; CHECK:                 %limm256 = (%i2)[0][5][4];
@@ -382,16 +376,13 @@
 ; CHECK:                 (%i2)[0][14][1] = %limm332;
 ; CHECK:                 (%i2)[0][15][4] = %limm330;
 ; CHECK:         END REGION
-
 ;Module Before HIR
 ; ModuleID = 'cycle.c'
 source_filename = "cycle.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
-
 @.str = private unnamed_addr constant [15 x i8] c"%u %u %u %u %u\00", align 1
 @.str.1 = private unnamed_addr constant [10 x i8] c"res = %u\0A\00", align 1
-
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
@@ -442,13 +433,11 @@ entry:
   %call7 = call i32 (i8*, ...) @__isoc99_scanf(i8* getelementptr inbounds ([15 x i8], [15 x i8]* @.str, i64 0, i64 0), i32* nonnull %id4, i32* nonnull %y, i32* nonnull %o, i32* nonnull %j6, i32* nonnull %jy3)
   store i32 1, i32* %id4, align 4, !tbaa !2
   br label %for.body
-
 for.cond.loopexit:                                ; preds = %for.inc70
   %add64.lcssa.lcssa = phi i32 [ %add64.lcssa, %for.inc70 ]
   store i32 %add64.lcssa.lcssa, i32* %y, align 4, !tbaa !2
   %cmp = icmp ult i32 %10, 91
   br i1 %cmp, label %for.body, label %for.end73
-
 for.body:                                         ; preds = %entry, %for.cond.loopexit
   %p4.0100 = phi i32* [ %o, %entry ], [ %y, %for.cond.loopexit ]
   %10 = phi i32 [ 1, %entry ], [ %add, %for.cond.loopexit ]
@@ -477,7 +466,6 @@ for.body:                                         ; preds = %entry, %for.cond.lo
   %sub36 = add i32 %sub35.neg, %15
   store i32 %sub36, i32* %arrayidx9, align 4, !tbaa !6
   br label %for.cond43.preheader
-
 for.cond43.preheader:                             ; preds = %for.body, %for.inc70
   %y.promoted = phi i32 [ %14, %for.body ], [ %add64.lcssa, %for.inc70 ]
   %indvars.iv103 = phi i64 [ 32, %for.body ], [ %indvars.iv.next104, %for.inc70 ]
@@ -485,7 +473,6 @@ for.cond43.preheader:                             ; preds = %for.body, %for.inc7
   %17 = trunc i64 %indvars.iv103 to i32
   %18 = add i32 %17, -2
   br label %for.body45
-
 for.body45:                                       ; preds = %for.cond43.preheader, %for.body45
   %indvars.iv = phi i64 [ 1, %for.cond43.preheader ], [ %indvars.iv.next, %for.body45 ]
   %add64101 = phi i32 [ %y.promoted, %for.cond43.preheader ], [ %add64, %for.body45 ]
@@ -503,13 +490,11 @@ for.body45:                                       ; preds = %for.cond43.preheade
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp44 = icmp ult i64 %indvars.iv, 3
   br i1 %cmp44, label %for.body45, label %for.inc70
-
 for.inc70:                                        ; preds = %for.body45
   %add64.lcssa = phi i32 [ %add64, %for.body45 ]
   %indvars.iv.next104 = add nsw i64 %indvars.iv103, -1
   %cmp41 = icmp ugt i64 %indvars.iv.next104, 1
   br i1 %cmp41, label %for.cond43.preheader, label %for.cond.loopexit
-
 for.end73:                                        ; preds = %for.cond.loopexit
   %add.lcssa = phi i32 [ %add, %for.cond.loopexit ]
   %add28.lcssa = phi i32 [ %add28, %for.cond.loopexit ]
@@ -539,36 +524,26 @@ for.end73:                                        ; preds = %for.cond.loopexit
   call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #5
   ret i32 0
 }
-
 ; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
-
 ; Function Attrs: argmemonly nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #2
-
 declare dso_local i32 @init(...) local_unnamed_addr #3
-
 ; Function Attrs: nofree nounwind
 declare dso_local i32 @__isoc99_scanf(i8* nocapture readonly, ...) local_unnamed_addr #4
-
 declare dso_local i32 @checkSum(...) local_unnamed_addr #3
-
 ; Function Attrs: nofree nounwind
 declare dso_local i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #4
-
 ; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
-
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind willreturn }
 attributes #2 = { argmemonly nounwind willreturn writeonly }
 attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #4 = { nofree nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #5 = { nounwind }
-
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}
-
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
 !2 = !{!3, !3, i64 0}
