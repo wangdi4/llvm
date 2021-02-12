@@ -448,6 +448,9 @@ public:
 
     /// Returns end loop directive instruction if it exists.
     static Instruction *getEndLoopDirective(const Loop &Lp);
+
+    // Returns true if V is an operand to a "QUAL.OMP.JUMP.TO.END.IF" clause.
+    static bool seenOnJumpToEndIfClause(Value *V);
 };
 
 } // End vpo namespace
