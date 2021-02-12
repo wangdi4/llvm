@@ -3233,9 +3233,10 @@ void InnerLoopVectorizer::emitMemRuntimeChecks(Loop *L, BasicBlock *Bypass) {
 
   Instruction *FirstCheckInst;
   Instruction *MemRuntimeCheck;
-  std::tie(FirstCheckInst, MemRuntimeCheck) =
-      addRuntimeChecks(MemCheckBlock->getTerminator(), OrigLoop,
-                       RtPtrChecking.getChecks(), RtPtrChecking.getSE());
+  SCEVExpander Exp(*PSE.getSE(), MemCheckBlock->getModule()->getDataLayout(),
+                   "induction");
+  std::tie(FirstCheckInst, MemRuntimeCheck) = addRuntimeChecks(
+      MemCheckBlock->getTerminator(), OrigLoop, RtPtrChecking.getChecks(), Exp);
   assert(MemRuntimeCheck && "no RT checks generated although RtPtrChecking "
                             "claimed checks are required");
   CondBranch->setCondition(MemRuntimeCheck);
@@ -8943,7 +8944,7 @@ void LoopVectorizationPlanner::adjustRecipesForInLoopReductions(
                          ? RecipeBuilder.createBlockInMask(R->getParent(), Plan)
                          : nullptr;
       VPReductionRecipe *RedRecipe = new VPReductionRecipe(
-          &RdxDesc, R, ChainOp, VecOp, CondOp, Legal->hasFunNoNaNAttr(), TTI);
+          &RdxDesc, R, ChainOp, VecOp, CondOp, TTI);
       WidenRecipe->getVPValue()->replaceAllUsesWith(RedRecipe);
       Plan->removeVPValueFor(R);
       Plan->addVPValue(R, RedRecipe);

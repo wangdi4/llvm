@@ -8626,7 +8626,8 @@ bool LLParser::parseFunctionSummary(std::string Name, GlobalValue::GUID GUID,
 
   StringRef ModulePath;
   GlobalValueSummary::GVFlags GVFlags = GlobalValueSummary::GVFlags(
-      /*Linkage=*/GlobalValue::ExternalLinkage, /*NotEligibleToImport=*/false,
+      GlobalValue::ExternalLinkage, GlobalValue::DefaultVisibility,
+      /*NotEligibleToImport=*/false,
       /*Live=*/false, /*IsLocal=*/false, /*CanAutoHide=*/false);
   unsigned InstCount;
   std::vector<FunctionSummary::EdgeTy> Calls;
@@ -8702,7 +8703,8 @@ bool LLParser::parseVariableSummary(std::string Name, GlobalValue::GUID GUID,
 
   StringRef ModulePath;
   GlobalValueSummary::GVFlags GVFlags = GlobalValueSummary::GVFlags(
-      /*Linkage=*/GlobalValue::ExternalLinkage, /*NotEligibleToImport=*/false,
+      GlobalValue::ExternalLinkage, GlobalValue::DefaultVisibility,
+      /*NotEligibleToImport=*/false,
       /*Live=*/false, /*IsLocal=*/false, /*CanAutoHide=*/false);
   GlobalVarSummary::GVarFlags GVarFlags(/*ReadOnly*/ false,
                                         /* WriteOnly */ false,
@@ -8760,7 +8762,8 @@ bool LLParser::parseAliasSummary(std::string Name, GlobalValue::GUID GUID,
 
   StringRef ModulePath;
   GlobalValueSummary::GVFlags GVFlags = GlobalValueSummary::GVFlags(
-      /*Linkage=*/GlobalValue::ExternalLinkage, /*NotEligibleToImport=*/false,
+      GlobalValue::ExternalLinkage, GlobalValue::DefaultVisibility,
+      /*NotEligibleToImport=*/false,
       /*Live=*/false, /*IsLocal=*/false, /*CanAutoHide=*/false);
   if (parseToken(lltok::colon, "expected ':' here") ||
       parseToken(lltok::lparen, "expected '(' here") ||
@@ -9448,8 +9451,9 @@ bool LLParser::parseVFuncId(FunctionSummary::VFuncId &VFuncId,
 
 /// GVFlags
 ///   ::= 'flags' ':' '(' 'linkage' ':' OptionalLinkageAux ','
-///         'notEligibleToImport' ':' Flag ',' 'live' ':' Flag ','
-///         'dsoLocal' ':' Flag ',' 'canAutoHide' ':' Flag ')'
+///         'visibility' ':' Flag 'notEligibleToImport' ':' Flag ','
+///         'live' ':' Flag ',' 'dsoLocal' ':' Flag ','
+///         'canAutoHide' ':' Flag ',' ')'
 bool LLParser::parseGVFlags(GlobalValueSummary::GVFlags &GVFlags) {
   assert(Lex.getKind() == lltok::kw_flags);
   Lex.Lex();
@@ -9469,6 +9473,13 @@ bool LLParser::parseGVFlags(GlobalValueSummary::GVFlags &GVFlags) {
       GVFlags.Linkage = parseOptionalLinkageAux(Lex.getKind(), HasLinkage);
       assert(HasLinkage && "Linkage not optional in summary entry");
       Lex.Lex();
+      break;
+    case lltok::kw_visibility:
+      Lex.Lex();
+      if (parseToken(lltok::colon, "expected ':'"))
+        return true;
+      parseOptionalVisibility(Flag);
+      GVFlags.Visibility = Flag;
       break;
     case lltok::kw_notEligibleToImport:
       Lex.Lex();

@@ -204,6 +204,7 @@ void llvm::computeLTOCacheKey(
 
   auto AddUsedThings = [&](GlobalValueSummary *GS) {
     if (!GS) return;
+    AddUnsigned(GS->getVisibility());
     AddUnsigned(GS->isLive());
     AddUnsigned(GS->canAutoHide());
     for (const ValueInfo &VI : GS->refs()) {
@@ -316,12 +317,16 @@ void llvm::computeLTOCacheKey(
 }
 
 static void thinLTOResolvePrevailingGUID(
-    ValueInfo VI, DenseSet<GlobalValueSummary *> &GlobalInvolvedWithAlias,
+    const Config &C, ValueInfo VI,
+    DenseSet<GlobalValueSummary *> &GlobalInvolvedWithAlias,
     function_ref<bool(GlobalValue::GUID, const GlobalValueSummary *)>
         isPrevailing,
     function_ref<void(StringRef, GlobalValue::GUID, GlobalValue::LinkageTypes)>
         recordNewLinkage,
     const DenseSet<GlobalValue::GUID> &GUIDPreservedSymbols) {
+  GlobalValue::VisibilityTypes Visibility =
+      C.VisibilityScheme == Config::ELF ? VI.getELFVisibility()
+                                        : GlobalValue::DefaultVisibility;
   for (auto &S : VI.getSummaryList()) {
     GlobalValue::LinkageTypes OriginalLinkage = S->linkage();
     // Ignore local and appending linkage values since the linker
@@ -353,13 +358,32 @@ static void thinLTOResolvePrevailingGUID(
         S->setCanAutoHide(VI.canAutoHide() &&
                           !GUIDPreservedSymbols.count(VI.getGUID()));
       }
+      if (C.VisibilityScheme == Config::FromPrevailing)
+        Visibility = S->getVisibility();
     }
     // Alias and aliasee can't be turned into available_externally.
     else if (!isa<AliasSummary>(S.get()) &&
              !GlobalInvolvedWithAlias.count(S.get()))
       S->setLinkage(GlobalValue::AvailableExternallyLinkage);
+
+    // For ELF, set visibility to the computed visibility from summaries. We
+    // don't track visibility from declarations so this may be more relaxed than
+    // the most constraining one.
+    if (C.VisibilityScheme == Config::ELF)
+      S->setVisibility(Visibility);
+
     if (S->linkage() != OriginalLinkage)
       recordNewLinkage(S->modulePath(), VI.getGUID(), S->linkage());
+  }
+
+  if (C.VisibilityScheme == Config::FromPrevailing) {
+    for (auto &S : VI.getSummaryList()) {
+      GlobalValue::LinkageTypes OriginalLinkage = S->linkage();
+      if (GlobalValue::isLocalLinkage(OriginalLinkage) ||
+          GlobalValue::isAppendingLinkage(S->linkage()))
+        continue;
+      S->setVisibility(Visibility);
+    }
   }
 }
 
@@ -370,7 +394,7 @@ static void thinLTOResolvePrevailingGUID(
 // referencing them because of the import. We make sure we always emit at least
 // one copy.
 void llvm::thinLTOResolvePrevailingInIndex(
-    ModuleSummaryIndex &Index,
+    const Config &C, ModuleSummaryIndex &Index,
     function_ref<bool(GlobalValue::GUID, const GlobalValueSummary *)>
         isPrevailing,
     function_ref<void(StringRef, GlobalValue::GUID, GlobalValue::LinkageTypes)>
@@ -386,9 +410,9 @@ void llvm::thinLTOResolvePrevailingInIndex(
         GlobalInvolvedWithAlias.insert(&AS->getAliasee());
 
   for (auto &I : Index)
-    thinLTOResolvePrevailingGUID(Index.getValueInfo(I), GlobalInvolvedWithAlias,
-                                 isPrevailing, recordNewLinkage,
-                                 GUIDPreservedSymbols);
+    thinLTOResolvePrevailingGUID(C, Index.getValueInfo(I),
+                                 GlobalInvolvedWithAlias, isPrevailing,
+                                 recordNewLinkage, GUIDPreservedSymbols);
 }
 
 static bool isWeakObjectWithRWAccess(GlobalValueSummary *GVS) {
@@ -589,8 +613,11 @@ Error LTO::add(std::unique_ptr<InputFile> Input,
   if (Conf.ResolutionFile)
     writeToResolutionFile(*Conf.ResolutionFile, Input.get(), Res);
 
-  if (RegularLTO.CombinedModule->getTargetTriple().empty())
+  if (RegularLTO.CombinedModule->getTargetTriple().empty()) {
     RegularLTO.CombinedModule->setTargetTriple(Input->getTargetTriple());
+    if (Triple(Input->getTargetTriple()).isOSBinFormatELF())
+      Conf.VisibilityScheme = Config::ELF;
+  }
 
   const SymbolResolution *ResI = Res.begin();
   for (unsigned I = 0; I != Input->Mods.size(); ++I)
@@ -1478,7 +1505,7 @@ Error LTO::runThinLTO(AddStreamFn AddStream, NativeObjectCache Cache,
                               GlobalValue::LinkageTypes NewLinkage) {
     ResolvedODR[ModuleIdentifier][GUID] = NewLinkage;
   };
-  thinLTOResolvePrevailingInIndex(ThinLTO.CombinedIndex, isPrevailing,
+  thinLTOResolvePrevailingInIndex(Conf, ThinLTO.CombinedIndex, isPrevailing,
                                   recordNewLinkage, GUIDPreservedSymbols);
 
   generateParamAccessSummary(ThinLTO.CombinedIndex);
