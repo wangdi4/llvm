@@ -160,18 +160,18 @@ set(LIBOMPTARGET_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_subdirectory(${LIBOMPTARGET_SRC_DIR})
 
 # Definitions for testing, for reuse when testing libomptarget-nvptx.
-if(OPENMP_STANDALONE_BUILD)
-  set(LIBOMPTARGET_OPENMP_HEADER_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/../runtime/src" CACHE STRING
-    "Path to folder containing omp.h")
-  set(LIBOMPTARGET_OPENMP_HOST_RTL_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/../runtime/src" CACHE STRING
-    "Path to folder containing libomp.so")
-else()
-  set(LIBOMPTARGET_OPENMP_HEADER_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/../runtime/src")
-  if (INTEL_CUSTOMIZATION)
-    set(LIBOMPTARGET_OPENMP_HEADER_FOLDER ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER})
-    set(LIBOMPTARGET_OPENMP_HOST_RTL_FOLDER ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER})
-  endif(INTEL_CUSTOMIZATION)
-endif()
+if (INTEL_CUSTOMIZATION)
+  if (OPENMP_STANDALONE_BUILD)
+    message(FATAL_ERROR
+      "Standalone OpenMP build is not supported in xmain yet.")
+  endif()
+  set(LIBOMP_INCLUDE_DIR ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER})
+  set(LIBOMP_LIBRARY_DIR ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER})
+endif(INTEL_CUSTOMIZATION)
+set(LIBOMPTARGET_OPENMP_HEADER_FOLDER "${LIBOMP_INCLUDE_DIR}" CACHE STRING
+  "Path to folder containing omp.h")
+set(LIBOMPTARGET_OPENMP_HOST_RTL_FOLDER "${LIBOMP_LIBRARY_DIR}" CACHE STRING
+  "Path to folder containing libomp.so, and libLLVMSupport.so with profiling enabled")
 
 
 # Build offloading plugins and device RTLs if they are available.
