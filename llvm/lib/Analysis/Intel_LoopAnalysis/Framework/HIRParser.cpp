@@ -1470,22 +1470,28 @@ bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
 }
 
 bool HIRParser::isEssential(const Instruction *Inst) const {
-  bool Ret = false;
-
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
-  if (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst) &&
-      (cast<CallInst>(Inst)->getIntrinsicID() != Intrinsic::ssa_copy)) {
-    Ret = true;
-  } else if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
-    Ret = true;
-  } else if (isRegionLiveOut(Inst)) {
-    Ret = true;
-  } else if (!ScopedSE.isSCEVable(Inst->getType())) {
-    Ret = true;
+
+  auto *Call = dyn_cast<CallInst>(Inst);
+
+  if (Call && Call->mayHaveSideEffects()) {
+    return true;
   }
 
-  return Ret;
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+    return true;
+  }
+
+  if (isRegionLiveOut(Inst)) {
+    return true;
+  }
+
+  if (!ScopedSE.isSCEVable(Inst->getType())) {
+    return true;
+  }
+
+  return false;
 }
 
 int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
