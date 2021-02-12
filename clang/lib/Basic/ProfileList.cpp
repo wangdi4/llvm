@@ -84,6 +84,7 @@ static StringRef getSectionName(CodeGenOptions::ProfileInstrKind Kind) {
   default:
     return "";
   }
+  llvm_unreachable("Unhandled CodeGenOptions::ProfileInstrKind enum");
 }
 
 llvm::Optional<bool>
