@@ -226,8 +226,8 @@ define void @indbrtest7() {
 ; CHECK-NEXT:    br label [[XLAB5X:%.*]]
 ; CHECK:       xlab8x:
 ; CHECK-NEXT:    [[XVALUEX:%.*]] = call i32 @xselectorx()
-; CHECK-NEXT:    [[XBLKX_X:%.*]] = getelementptr [9 x i8*], [9 x i8*]* @xblkx.bbs, i32 0, i32 [[XVALUEX]]
-; CHECK-NEXT:    [[XBLKX_LOAD:%.*]] = load i8*, i8** [[XBLKX_X]], align 8
+; INTEL
+; CHECK:         [[XBLKX_LOAD:%.*]] = load i8*, i8**
 ; CHECK-NEXT:    indirectbr i8* [[XBLKX_LOAD]], [label [[XLAB4X:%.*]], label %v2j]
 ; CHECK:       v2j:
 ; CHECK-NEXT:    [[XUNUSEDX:%.*]] = call i32 @xactionx()

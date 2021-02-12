@@ -448,8 +448,10 @@
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: AAManager
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: BasicAA
+; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: XmainOptLevelAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TypeBasedAA
+; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: StdContainerAA
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TargetIRAnalysis
