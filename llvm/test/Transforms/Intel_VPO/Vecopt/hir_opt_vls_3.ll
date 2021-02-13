@@ -31,9 +31,8 @@
 ; CHECK: END LOOP
 ; Check TBAA metadata on the wide store after hir-cg
 ; CHECK: region.{{.*}}:
-; CHECK: %[[ARRAYIDX0:.*]] = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %{{.*}}
-; CHECK:  %[[ARRAYIDX:.*]] = getelementptr inbounds %struct.S1, %struct.S1* %[[ARRAYIDX0]], i32 0, i32 0
-; CHECK:   %[[BITCAST:.*]] = bitcast i64* %[[ARRAYIDX]] to <12 x i64>*
+; CHECK: %[[ARRAYIDX:.*]] = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %{{.*}}, i32 0
+; CHECK:  %[[BITCAST:.*]] = bitcast i64* %[[ARRAYIDX]] to <12 x i64>*
 ; CHECK: store <12 x i64> %{{.*}}., <12 x i64>* %[[BITCAST]], align 8, !tbaa ![[TBAA:.*]]
 ; CHECK: ![[TBAA1:.*]] = !{!"long", !{{.*}}, i64 0}
 ; CHECK: ![[TBAA]] = !{![[TBAA1]], ![[TBAA1]], i64 0}

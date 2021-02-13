@@ -932,11 +932,26 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       // Emit gep for dimension struct access.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
       if (!Offsets.empty()) {
+        // Add first zero index to dereference the pointer.
+        auto *OffsetTy = DL.getIndexType(GEPVal->getType());
+        SmallVector<Value *, 8> IndexV{ConstantInt::get(OffsetTy, 0)};
+
+        // Try to merge Struct Offset GEP into previous GEP.
+        auto *GepBase = dyn_cast<GetElementPtrInst>(GEPVal);
+        if (GepBase) {
+          IndexV.resize(GepBase->getNumOperands() - 1);
+          for (int I = 1, E = GepBase->getNumOperands(); I < E; ++I) {
+            IndexV[I - 1] = GepBase->getOperand(I);
+          }
+
+          GEPVal = GepBase->getPointerOperand();
+          if (GepBase->use_empty()) {
+            GepBase->eraseFromParent();
+          }
+        }
+
         // Structure fields are always i32 type.
         auto I32Ty = Type::getInt32Ty(F.getContext());
-
-        // Add first zero index to dereference the pointer.
-        SmallVector<Value *, 4> IndexV{ConstantInt::get(I32Ty, 0)};
 
         for (auto OffsetVal : Offsets) {
           auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);

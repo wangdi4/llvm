@@ -9,7 +9,7 @@
 ; CHECK: + END LOOP
 
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S -instcombine | FileCheck -check-prefix=CHECK-CG %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
 
 ; Verify that CG generates the correct GEP for the reference.
 
