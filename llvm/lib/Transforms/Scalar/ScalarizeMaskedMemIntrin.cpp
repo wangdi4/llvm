@@ -619,7 +619,6 @@ static void scalarizeMaskedScatter(CallInst *CI, DomTreeUpdater *DTU,
 
   IRBuilder<> Builder(CI->getContext());
   Instruction *InsertPt = CI;
-  BasicBlock *IfBlock = CI->getParent();
   Builder.SetInsertPoint(InsertPt);
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
@@ -690,7 +689,6 @@ static void scalarizeMaskedScatter(CallInst *CI, DomTreeUpdater *DTU,
     // Create "else" block, fill it in the next iteration
     BasicBlock *NewIfBlock = ThenTerm->getSuccessor(0);
     NewIfBlock->setName("else");
-    IfBlock = NewIfBlock;
 
     Builder.SetInsertPoint(NewIfBlock, NewIfBlock->begin());
   }
