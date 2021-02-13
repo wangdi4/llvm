@@ -1472,15 +1472,10 @@ public:
                                 bool *IsNearPerfect = nullptr);
 
   /// Returns the loop at the outermost level, that makes
-  /// a perfect or near-perfect loop nest in the range,
-  /// [returned loop, InnermostLoop].
-  /// \p IsNearPerfect is set to true, when the resulting
-  /// loopnest is a near-perfect loop.
+  /// a perfect loop nest. Near Perfect loopnests are ignored.
   /// If the InnermostLoop is also the outermost loop it returns false
-  /// to conform to the logic of isPerfectLoopNest.
   static const HLLoop *
-  getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop,
-                                       bool &IsNearPerfect);
+  getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop);
 
   /// Collects the diagonal instructions corresponding to the initialization
   /// of the identity matrix in the loop
