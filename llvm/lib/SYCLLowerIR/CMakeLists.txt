@@ -18,10 +18,17 @@ if (NOT TARGET LLVMGenXIntrinsics)
 
     message(STATUS "vc-intrinsics are missing. Will try to download them from ${LLVMGenXIntrinsics_GIT_REPO} ") #INTEL_CUSTOMIZATION
     include(FetchContent)
-    FetchContent_Declare(vc-intrinsics
-      GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
-      GIT_TAG        80211c5bd0504fe8ddfbc9a32122df7ebc38dffb
-    )
+    if(INTEL_CUSTOMIZATION)
+      FetchContent_Declare(vc-intrinsics
+        GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
+        GIT_TAG        80211c5bd0504fe8ddfbc9a32122df7ebc38dffb
+      )
+    else(INTEL_CUSTOMIZATION)
+      FetchContent_Declare(vc-intrinsics
+        GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
+        GIT_TAG        77974f5a32e19475125531483bede9ee23935257
+      )
+    endif(INTEL_CUSTOMIZATION)
     FetchContent_MakeAvailable(vc-intrinsics)
     FetchContent_GetProperties(vc-intrinsics)
 
