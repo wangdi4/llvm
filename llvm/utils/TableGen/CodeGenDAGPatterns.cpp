@@ -2648,6 +2648,8 @@ static bool OnlyOnRHSOfCommutative(TreePatternNode *N) {
     return true;
   if (N->isLeaf() && isa<IntInit>(N->getLeafValue()))
     return true;
+  if (isImmAllOnesAllZerosMatch(N))
+    return true;
   return false;
 }
 
