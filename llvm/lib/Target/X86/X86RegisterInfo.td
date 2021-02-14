@@ -782,9 +782,3 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
-
-def TILECFG : RegisterClass<"X86", [untyped], 512, (add TMMCFG)> {
-  let CopyCost = -1;  // Don't allow copying of tile config registers.
-  let isAllocatable = 1;
-  let Size = 512;
-}
