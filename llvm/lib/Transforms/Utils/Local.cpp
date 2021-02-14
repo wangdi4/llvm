@@ -2147,16 +2147,17 @@ BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
 #if INTEL_CUSTOMIZATION
                                                    BasicBlock *UnwindEdge,
                                                    InlineReport *IR,
-                                                   InlineReportBuilder *MDIR) {
+                                                   InlineReportBuilder *MDIR,
+                                                   DomTreeUpdater *DTU) {
 #endif // INTEL_CUSTOMIZATION
   BasicBlock *BB = CI->getParent();
 
   // Convert this function call into an invoke instruction.  First, split the
   // basic block.
-  BasicBlock *Split =
-      BB->splitBasicBlock(CI->getIterator(), CI->getName() + ".noexc");
+  BasicBlock *Split = SplitBlock(BB, CI, DTU, /*LI=*/nullptr, /*MSSAU*/ nullptr,
+                                 CI->getName() + ".noexc");
 
-  // Delete the unconditional branch inserted by splitBasicBlock
+  // Delete the unconditional branch inserted by SplitBlock
   BB->getInstList().pop_back();
 
   // Create the new invoke instruction.
@@ -2182,6 +2183,9 @@ BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
   if (MDIR && MDIR->isMDIREnabled())
     MDIR->updateActiveCallSiteTarget(CI, II);
 #endif // INTEL_CUSTOMIZATION
+
+  if (DTU)
+    DTU->applyUpdates({{DominatorTree::Insert, BB, UnwindEdge}});
 
   // Make sure that anything using the call now uses the invoke!  This also
   // updates the CallGraph if present, because it uses a WeakTrackingVH.

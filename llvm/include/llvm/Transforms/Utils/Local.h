@@ -525,7 +525,8 @@ BasicBlock *changeToInvokeAndSplitBasicBlock(CallInst *CI,
 #if INTEL_CUSTOMIZATION
                                              BasicBlock *UnwindEdge,
                                              InlineReport *IR,
-                                             InlineReportBuilder *MDIR);
+                                             InlineReportBuilder *MDIR,
+                                             DomTreeUpdater *DTU = nullptr);
 #endif // INTEL_CUSTOMIZATION
 
 /// Replace 'BB's terminator with one that does not have an unwind successor

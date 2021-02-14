@@ -91,7 +91,7 @@ IRBuilder<> *EscapeEnumerator::Next() {
   for (unsigned I = Calls.size(); I != 0;) {
     CallInst *CI = cast<CallInst>(Calls[--I]);
 #if INTEL_CUSTOMIZATION
-    changeToInvokeAndSplitBasicBlock(CI, CleanupBB, nullptr, nullptr);
+    changeToInvokeAndSplitBasicBlock(CI, CleanupBB, nullptr, nullptr, DTU);
 #endif // INTEL_CUSTOMIZATION
   }
 
