@@ -342,8 +342,8 @@ static void AddPredecessorToBlock(BasicBlock *Succ, BasicBlock *NewPred,
 /// which is assumed to be safe to speculate. TCC_Free means cheap,
 /// TCC_Basic means less cheap, and TCC_Expensive means prohibitively
 /// expensive.
-static unsigned computeSpeculationCost(const User *I,
-                                       const TargetTransformInfo &TTI) {
+static InstructionCost computeSpeculationCost(const User *I,
+                                              const TargetTransformInfo &TTI) {
   assert(isSafeToSpeculativelyExecute(I) &&
          "Instruction is not safe to speculatively execute!");
   return TTI.getUserCost(I, TargetTransformInfo::TCK_SizeAndLatency);
@@ -368,11 +368,10 @@ static unsigned computeSpeculationCost(const User *I,
 /// "if condition" as accepted by GetIfConditon(), return true if the
 /// specified value dominates or can dominate the conditional branch.
 ///
-/// If AggressiveInsts is non-null, and if V does not dominate conditional
-/// branch (which means they are defined in the conditional part),
-/// we check to see if V (which must be an instruction) and its recursive
-/// operands have a combined cost lower than CostRemaining and are
-/// non-trapping.  If both are true, the instruction is inserted into the
+/// If AggressiveInsts is non-null, and if V does not dominate BB, we check to
+/// see if V (which must be an instruction) and its recursive operands
+/// that do not dominate BB have a combined cost lower than Budget and
+/// are non-trapping.  If both are true, the instruction is inserted into the
 /// set and true is returned.
 ///
 /// The cost for most non-trapping instructions is defined as 1 except for
@@ -384,7 +383,8 @@ static unsigned computeSpeculationCost(const User *I,
 static bool
 CanDominateConditionalBranch(Value *V, BasicBlock *BB,
                              SmallPtrSetImpl<Instruction *> &AggressiveInsts,
-                             int &BudgetRemaining,
+                             InstructionCost &Cost,
+                             InstructionCost Budget,
                              const TargetTransformInfo &TTI,
                              unsigned Depth = 0) {
   // It is possible to hit a zero-cost cycle (phi/gep instructions for example),
@@ -428,7 +428,7 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
   if (!isSafeToSpeculativelyExecute(I))
     return false;
 
-  BudgetRemaining -= computeSpeculationCost(I, TTI);
+  Cost += computeSpeculationCost(I, TTI);
 
   // Allow exactly one instruction to be speculated regardless of its cost
   // (as long as it is safe to do so).
@@ -436,15 +436,16 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
   // or other expensive operation. The speculation of an expensive instruction
   // is expected to be undone in CodeGenPrepare if the speculation has not
   // enabled further IR optimizations.
-  if (BudgetRemaining < 0 &&
-      (!SpeculateOneExpensiveInst || !AggressiveInsts.empty() || Depth > 0))
+  if (Cost > Budget &&
+      (!SpeculateOneExpensiveInst || !AggressiveInsts.empty() || Depth > 0 ||
+       !Cost.isValid()))
     return false;
 
   // Okay, we can only really hoist these out if their operands do
   // not take us over the cost threshold.
   for (User::op_iterator i = I->op_begin(), e = I->op_end(); i != e; ++i)
-    if (!CanDominateConditionalBranch(*i, BB, AggressiveInsts,
-                                      BudgetRemaining, TTI, Depth + 1))
+    if (!CanDominateConditionalBranch(*i, BB, AggressiveInsts, Cost, Budget, TTI,
+                             Depth + 1))
       return false;
   // Okay, it's safe to do this!  Remember this instruction.
   AggressiveInsts.insert(I);
@@ -2144,7 +2145,7 @@ static Value *isSafeToSpeculateStore(Instruction *I, BasicBlock *BrBB,
 static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
                                            BasicBlock *EndBB,
                                            unsigned &SpeculatedInstructions,
-                                           int &BudgetRemaining,
+                                           InstructionCost &Cost,
                                            const TargetTransformInfo &TTI) {
 #ifndef INTEL_CUSTOMIZATION
   TargetTransformInfo::TargetCostKind CostKind =
@@ -2162,9 +2163,8 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
     if (ThenV == OrigV)
       continue;
 #ifndef INTEL_CUSTOMIZATION
-    BudgetRemaining -=
-        TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
-                               CmpInst::BAD_ICMP_PREDICATE, CostKind);
+    Cost += TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
+                                   CmpInst::BAD_ICMP_PREDICATE, CostKind);
 #endif
 
     // Don't convert to selects if we could remove undefined behavior instead.
@@ -2181,9 +2181,9 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
     if ((ThenCE && !isSafeToSpeculativelyExecute(ThenCE)) ||
         (OrigCE && !isSafeToSpeculativelyExecute(OrigCE)))
       return false;
-    unsigned OrigCost = OrigCE ? computeSpeculationCost(OrigCE, TTI) : 0;
-    unsigned ThenCost = ThenCE ? computeSpeculationCost(ThenCE, TTI) : 0;
-    unsigned MaxCost =
+    InstructionCost OrigCost = OrigCE ? computeSpeculationCost(OrigCE, TTI) : 0;
+    InstructionCost ThenCost = ThenCE ? computeSpeculationCost(ThenCE, TTI) : 0;
+    InstructionCost MaxCost =
         2 * PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
     if (OrigCost + ThenCost > MaxCost)
       return false;
@@ -2246,8 +2246,6 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
   BasicBlock *BB = BI->getParent();
   BasicBlock *EndBB = ThenBB->getTerminator()->getSuccessor(0);
-  int BudgetRemaining =
-    PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
 
   // If ThenBB is actually on the false edge of the conditional branch, remember
   // to swap the select operands later.
@@ -2336,11 +2334,12 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   // Check that we can insert the selects and that it's not too expensive to do
   // so.
   bool Convert = SpeculatedStore != nullptr;
+  InstructionCost Cost = 0;
   Convert |= validateAndCostRequiredSelects(BB, ThenBB, EndBB,
                                             SpeculatedInstructions,
-                                            BudgetRemaining, TTI);
+                                            Cost, TTI);
 #ifndef INTEL_CUSTOMIZATION
-  if (BudgetRemaining < 0)
+  if (!Convert || Cost > Budget)
     return false;
 #endif
   if (!Convert)
@@ -2612,8 +2611,9 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // instructions.  While we are at it, keep track of the instructions
     // that need to be moved to the conditional block.
     SmallPtrSet<Instruction *, 4> AggressiveInsts;
-    int BudgetRemaining =
-        TwoEntryPHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
+    InstructionCost Cost = 0;
+    InstructionCost Budget =
+      TwoEntryPHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
 
     bool CanBeSimplified = true;
     unsigned NumPhis = 0;
@@ -2631,9 +2631,9 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
       if (TrueVal != FalseVal) {
         if (!CanDominateConditionalBranch(TrueVal, BB, AggressiveInsts,
-                                          BudgetRemaining, TTI) ||
+                                          Cost, Budget, TTI) ||
             !CanDominateConditionalBranch(FalseVal, BB, AggressiveInsts,
-                                          BudgetRemaining, TTI)) {
+                                          Cost, Budget, TTI)) {
           CanBeSimplified = false;
           break;
         }
@@ -4313,7 +4313,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
     // transformation.
     if (TTI) {
       Type *Ty = BI->getCondition()->getType();
-      unsigned Cost = TTI->getArithmeticInstrCost(Opc, Ty, CostKind);
+      InstructionCost Cost = TTI->getArithmeticInstrCost(Opc, Ty, CostKind);
       if (InvertPredCond && (!PBI->getCondition()->hasOneUse() ||
           !isa<CmpInst>(PBI->getCondition())))
         Cost += TTI->getArithmeticInstrCost(Instruction::Xor, Ty, CostKind);
@@ -4447,7 +4447,8 @@ static bool mergeConditionalStoreToAddress(
     // Heuristic: if the block can be if-converted/phi-folded and the
     // instructions inside are all cheap (arithmetic/GEPs), it's worthwhile to
     // thread this store.
-    int BudgetRemaining =
+    InstructionCost Cost = 0;
+    InstructionCost Budget =
         PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
     for (auto &I : BB->instructionsWithoutDebug()) {
       // Consider terminator instruction to be free.
@@ -4463,11 +4464,11 @@ static bool mergeConditionalStoreToAddress(
         return false; // Not in white-list - not worthwhile folding.
       // And finally, if this is a non-free instruction that we are okay
       // speculating, ensure that we consider the speculation budget.
-      BudgetRemaining -= TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
-      if (BudgetRemaining < 0)
+      Cost += TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
+      if (Cost > Budget)
         return false; // Eagerly refuse to fold as soon as we're out of budget.
     }
-    assert(BudgetRemaining >= 0 &&
+    assert(Cost <= Budget &&
            "When we run out of budget we will eagerly return from within the "
            "per-instruction loop.");
     return true;
