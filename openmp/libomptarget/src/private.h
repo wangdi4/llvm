@@ -122,7 +122,7 @@ int __kmpc_get_target_offload(void) __attribute__((weak));
 ////////////////////////////////////////////////////////////////////////////////
 /// dump a table of all the host-target pointer pairs on failure
 static inline void dumpTargetPointerMappings(const ident_t *Loc,
-                                             const DeviceTy &Device) {
+                                             DeviceTy &Device) {
   if (Device.HostDataToTargetMap.empty())
     return;
 
@@ -132,6 +132,7 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
        Kernel.getFilename(), Kernel.getLine(), Kernel.getColumn());
   INFO(OMP_INFOTYPE_ALL, Device.DeviceID, "%-18s %-18s %s %s %s\n", "Host Ptr",
        "Target Ptr", "Size (B)", "RefCount", "Declaration");
+  Device.DataMapMtx.lock();
   for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
     SourceInfo Info(HostTargetMap.HstPtrName);
 #if INTEL_CUSTOMIZATION
@@ -144,6 +145,7 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
 #endif // INTEL_CUSTOMIZATION
 
   }
+  Device.DataMapMtx.unlock();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
