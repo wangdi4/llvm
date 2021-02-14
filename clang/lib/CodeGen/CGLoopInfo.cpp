@@ -1343,49 +1343,26 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
   // emitted
   // For attribute nofusion:
   // 'llvm.loop.fusion.disable' metadata will be emitted
-  for (const auto *Attr : Attrs) {
-    const SYCLIntelFPGAIVDepAttr *IntelFPGAIVDep =
-      dyn_cast<SYCLIntelFPGAIVDepAttr>(Attr);
-    const SYCLIntelFPGAIIAttr *IntelFPGAII =
-      dyn_cast<SYCLIntelFPGAIIAttr>(Attr);
-    const SYCLIntelFPGAMaxConcurrencyAttr *IntelFPGAMaxConcurrency =
-      dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(Attr);
-
-    const SYCLIntelFPGALoopCoalesceAttr *IntelFPGALoopCoalesce =
-        dyn_cast<SYCLIntelFPGALoopCoalesceAttr>(Attr);
-    const SYCLIntelFPGADisableLoopPipeliningAttr
-        *IntelFPGADisableLoopPipelining =
-            dyn_cast<SYCLIntelFPGADisableLoopPipeliningAttr>(Attr);
-    const SYCLIntelFPGAMaxInterleavingAttr *IntelFPGAMaxInterleaving =
-        dyn_cast<SYCLIntelFPGAMaxInterleavingAttr>(Attr);
-    const SYCLIntelFPGASpeculatedIterationsAttr *IntelFPGASpeculatedIterations =
-        dyn_cast<SYCLIntelFPGASpeculatedIterationsAttr>(Attr);
-    const SYCLIntelFPGANofusionAttr *IntelFPGANofusion =
-        dyn_cast<SYCLIntelFPGANofusionAttr>(Attr);
-
-    if (!IntelFPGAIVDep && !IntelFPGAII && !IntelFPGAMaxConcurrency &&
-        !IntelFPGALoopCoalesce && !IntelFPGADisableLoopPipelining &&
-        !IntelFPGAMaxInterleaving && !IntelFPGASpeculatedIterations &&
-        !IntelFPGANofusion)
-      continue;
-
-    if (IntelFPGAIVDep)
+  for (const auto *A : Attrs) {
+    if (const auto *IntelFPGAIVDep = dyn_cast<SYCLIntelFPGAIVDepAttr>(A))
       addSYCLIVDepInfo(Header->getContext(), IntelFPGAIVDep->getSafelenValue(),
                        IntelFPGAIVDep->getArrayDecl());
 
-    if (IntelFPGAII)
+    if (const auto *IntelFPGAII = dyn_cast<SYCLIntelFPGAIIAttr>(A))
       setSYCLIInterval(IntelFPGAII->getIntervalExpr()
                            ->getIntegerConstantExpr(Ctx)
                            ->getSExtValue());
 
-    if (IntelFPGAMaxConcurrency) {
+    if (const auto *IntelFPGAMaxConcurrency =
+            dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(A)) {
       setSYCLMaxConcurrencyEnable();
       setSYCLMaxConcurrencyNThreads(IntelFPGAMaxConcurrency->getNThreadsExpr()
                                         ->getIntegerConstantExpr(Ctx)
                                         ->getSExtValue());
     }
 
-    if (IntelFPGALoopCoalesce) {
+    if (const auto *IntelFPGALoopCoalesce =
+            dyn_cast<SYCLIntelFPGALoopCoalesceAttr>(A)) {
       if (auto *LCE = IntelFPGALoopCoalesce->getNExpr())
         setSYCLLoopCoalesceNLevels(
             LCE->getIntegerConstantExpr(Ctx)->getSExtValue());
@@ -1393,18 +1370,19 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setSYCLLoopCoalesceEnable();
     }
 
-    if (IntelFPGADisableLoopPipelining) {
+    if (isa<SYCLIntelFPGADisableLoopPipeliningAttr>(A))
       setSYCLLoopPipeliningDisable();
-    }
 
-    if (IntelFPGAMaxInterleaving) {
+    if (const auto *IntelFPGAMaxInterleaving =
+            dyn_cast<SYCLIntelFPGAMaxInterleavingAttr>(A)) {
       setSYCLMaxInterleavingEnable();
       setSYCLMaxInterleavingNInvocations(IntelFPGAMaxInterleaving->getNExpr()
                                              ->getIntegerConstantExpr(Ctx)
                                              ->getSExtValue());
     }
 
-    if (IntelFPGASpeculatedIterations) {
+    if (const auto *IntelFPGASpeculatedIterations =
+            dyn_cast<SYCLIntelFPGASpeculatedIterationsAttr>(A)) {
       setSYCLSpeculatedIterationsEnable();
       setSYCLSpeculatedIterationsNIterations(
           IntelFPGASpeculatedIterations->getNExpr()
@@ -1412,7 +1390,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
               ->getSExtValue());
     }
 
-    if (IntelFPGANofusion)
+    if (isa<SYCLIntelFPGANofusionAttr>(A))
       setSYCLNofusionEnable();
   }
 
