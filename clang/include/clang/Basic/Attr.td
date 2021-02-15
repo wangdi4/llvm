@@ -1879,10 +1879,11 @@ def SYCLIntelFPGAIVDep : Attr {
   let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
 }
 
-def SYCLIntelFPGAII : Attr {
+def SYCLIntelFPGAInitiationInterval : StmtAttr {
   let Spellings = [CXX11<"intelfpga","ii">,
                    Pragma<"", "ii">, //INTEL
-                   CXX11<"intel","ii">];
+                   CXX11<"intel","ii">,
+                   CXX11<"intel", "initiation_interval">];
   let Args = [ExprArgument<"IntervalExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
@@ -1896,7 +1897,7 @@ def SYCLIntelFPGAII : Attr {
     }
     // end INTEL_CUSTOMIZATION
   }];
-  let Documentation = [SYCLIntelFPGAIIAttrDocs];
+  let Documentation = [SYCLIntelFPGAInitiationIntervalAttrDocs];
 }
 
 def SYCLIntelFPGAMaxConcurrency : Attr {

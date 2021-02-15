@@ -2877,24 +2877,27 @@ Note: this version of the attribute is not fully supported by the backend yet.
   }];
 }
 
-def SYCLIntelFPGAIIAttrDocs : Documentation {
+def SYCLIntelFPGAInitiationIntervalAttrDocs : Documentation {
   let Category = DocCatVariable;
-  let Heading = "intel::ii";
+  let Heading = "intel::initiation_interval";
   let Content = [{
 This attribute applies to a loop. Indicates that the loop should be pipelined
 with an initiation interval of N. N must be a positive integer. Cannot be
 applied multiple times to the same loop.
 
+The ``[[intel::ii]]`` attribute spelling is a deprecated synonym for
+``[[intel::initiation_interval]]`` and will be removed in the future.
+
 .. code-block:: c++
 
   void foo() {
     int var = 0;
-    [[intel::ii(4)]] for (int i = 0; i < 10; ++i) var++;
+    [[intel::initiation_interval(4)]] for (int i = 0; i < 10; ++i) var++;
   }
 
   template<int N>
   void bar() {
-    [[intel::ii(N)]] for(;;) { }
+    [[intel::initiation_interval(N)]] for(;;) { }
   }
 
   }];
