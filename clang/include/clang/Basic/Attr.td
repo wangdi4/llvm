@@ -1301,11 +1301,6 @@ def SYCLIntelUseStallEnableClusters : InheritableAttr {
                    Clang<"use_stall_enable_clusters">]; //INTEL
   let LangOpts = [SYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "stall_enable";
-    }
-  }];
   let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
 }
 
@@ -1426,9 +1421,6 @@ def LoopUnrollHint : InheritableAttr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "loop_unroll";
-    }
     std::string getDiagnosticName(const PrintingPolicy &Policy) const {
       std::string ValueName;
       llvm::raw_string_ostream OS(ValueName);
@@ -1853,9 +1845,6 @@ def SYCLIntelFPGAIVDep : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "ivdep";
-    }
     bool isDependent() const {
       return (getSafelenExpr() &&
               getSafelenExpr()->isInstantiationDependent()) ||
@@ -1898,9 +1887,6 @@ def SYCLIntelFPGAII : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "ii";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
@@ -1921,9 +1907,6 @@ def SYCLIntelFPGAMaxConcurrency : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "max_concurrency";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_concurrency" << getNThreadsExpr();
@@ -1941,9 +1924,6 @@ def SYCLIntelFPGALoopCoalesce : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "loop_coalesce";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma loop_coalesce" << getNExpr();
@@ -1960,9 +1940,6 @@ def SYCLIntelFPGADisableLoopPipelining : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "disable_loop_pipelining";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
@@ -1983,9 +1960,6 @@ def SYCLIntelFPGAMaxInterleaving : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "max_interleaving";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_interleaving" << getNExpr();
@@ -2003,9 +1977,6 @@ def SYCLIntelFPGASpeculatedIterations : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "speculated_iterations";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma speculated_iterations" << getNExpr();
@@ -2019,11 +1990,6 @@ def SYCLIntelFPGANofusion : Attr {
   let Spellings = [CXX11<"intel","nofusion">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let HasCustomTypeTransform = 1;
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "nofusion";
-    }
-  }];
   let Documentation = [SYCLIntelFPGANofusionAttrDocs];
 }
 
