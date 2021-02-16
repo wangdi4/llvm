@@ -2470,6 +2470,10 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     Opts.ZVector = 0;
     Opts.setDefaultFPContractMode(LangOptions::FPM_On);
     Opts.OpenCLCPlusPlus = Opts.CPlusPlus;
+    Opts.OpenCLPipe = Opts.OpenCLCPlusPlus || Opts.OpenCLVersion == 200;
+    Opts.OpenCLGenericAddressSpace =
+        Opts.OpenCLCPlusPlus || Opts.OpenCLVersion == 200;
+
     // Community is currently implementing -fdeclare-opencl-builtins feature. Now
     // -finclude-default-header and -fdeclare-opencl-builtins don't cowork in xmain.
     // Include default header file for OpenCL.
