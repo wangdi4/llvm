@@ -224,17 +224,16 @@ public:
 #else
 /* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(/*LowerBound=*/Offset, Stride, UpperBound,
-                                  [&](const sycl::id<Dims> &ID) {
-                                    sycl::item<Dims, /*Offset=*/true> Item =
-                                        IDBuilder::createItem<Dims, true>(
-                                            Range, ID, Offset);
+    [&](const sycl::id<Dims> &ID) {
+      sycl::item<Dims, /*Offset=*/true> Item =
+          IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
-                                    if (StoreLocation) {
-                                      store_id(&ID);
-                                      store_item(&Item);
-                                    }
-                                    MKernel(ID);
-                                  });
+      if (StoreLocation) {
+        store_id(&ID);
+        store_item(&Item);
+      }
+      MKernel(ID);
+    });
 #endif // INTEL
   }
 
@@ -291,10 +290,8 @@ public:
 /* INTEL_CUSTOMIZATION */
 #if !DPCPP_HOST_DEVICE_SERIAL
     ParallelFor(Range, [Range, Offset, this](sycl::id<Dims> ID) {
-      ID += Offset;
 #else
 /* end INTEL_CUSTOMIZATION */
-    detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> &ID) {
     detail::NDLoop<Dims>::iterate(/*LowerBound=*/Offset, Stride, UpperBound,
                                   [&](const sycl::id<Dims> &ID) {
 #endif // INTEL
