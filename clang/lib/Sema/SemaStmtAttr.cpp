@@ -124,9 +124,15 @@ static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
 }
 
 template <typename FPGALoopAttrT>
-static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
+static Attr *handleIntelFPGALoopAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
   if(S.LangOpts.SYCLIsHost)
     return nullptr;
+
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
 
   unsigned NumArgs = A.getNumArgs();
 #if INTEL_CUSTOMIZATION
@@ -161,9 +167,15 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
 
 template <>
 Attr *handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
-    Sema &S, const ParsedAttr &A) {
+    Sema &S, Stmt *St, const ParsedAttr &A) {
   if (S.LangOpts.SYCLIsHost)
     return nullptr;
+
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
 
   unsigned NumArgs = A.getNumArgs();
 #if INTEL_CUSTOMIZATION
@@ -332,7 +344,13 @@ CheckRedundantSYCLIntelFPGAIVDepAttrs(Sema &S, ArrayRef<const Attr *> Attrs) {
   }
 }
 
-static Attr *handleIntelFPGAIVDepAttr(Sema &S, const ParsedAttr &A) {
+static Attr *handleIntelFPGAIVDepAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
+
   unsigned NumArgs = A.getNumArgs();
   if (NumArgs > 2) {
     S.Diag(A.getLoc(), diag::err_attribute_too_many_arguments) << A << 2;
@@ -358,9 +376,16 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-static Attr *handleIntelFPGANofusionAttr(Sema &S, const ParsedAttr &A) {
+static Attr *handleIntelFPGANofusionAttr(Sema &S, Stmt *St,
+                                         const ParsedAttr &A) {
   if (S.LangOpts.SYCLIsHost)
     return nullptr;
+
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
 
   unsigned NumArgs = A.getNumArgs();
   if (NumArgs > 0) {
@@ -1525,8 +1550,17 @@ static Attr *handleLoopUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
   Expr *E = NumArgs ? A.getArgAsExpr(0) : nullptr;
   if (A.getParsedKind() == ParsedAttr::AT_OpenCLUnrollHint)
     return S.BuildOpenCLLoopUnrollHintAttr(A, E);
-  else if (A.getParsedKind() == ParsedAttr::AT_LoopUnrollHint)
+  else if (A.getParsedKind() == ParsedAttr::AT_LoopUnrollHint) {
+    // FIXME: this should be hoisted up to the top level, but can't be placed
+    // there until the opencl attribute has its parsing error converted into a
+    // semantic error. See: Parser::ParseOpenCLUnrollHintAttribute().
+    if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+      S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+          << A << "'for', 'while', and 'do' statements";
+      return nullptr;
+    }
     return S.BuildLoopUnrollHintAttr(A, E);
+  }
 
   return nullptr;
 }
@@ -1558,20 +1592,22 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_LoopHint:
     return handleLoopHintAttr(S, St, A, Range);
   case ParsedAttr::AT_SYCLIntelFPGAIVDep:
-    return handleIntelFPGAIVDepAttr(S, A);
+    return handleIntelFPGAIVDepAttr(S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGAInitiationInterval:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGAInitiationIntervalAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGAInitiationIntervalAttr>(S, St,
+                                                                        A);
   case ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGALoopCoalesce:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGALoopCoalesceAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGALoopCoalesceAttr>(S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGADisableLoopPipelining:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(S,
-                                                                           A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
+        S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxInterleavingAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxInterleavingAttr>(S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(S, St,
+                                                                          A);
   case ParsedAttr::AT_OpenCLUnrollHint:
   case ParsedAttr::AT_LoopUnrollHint:
     return handleLoopUnrollHint(S, St, A, Range);
@@ -1584,7 +1620,7 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_Unlikely:
     return handleUnlikely(S, St, A, Range);
   case ParsedAttr::AT_SYCLIntelFPGANofusion:
-    return handleIntelFPGANofusionAttr(S, A);
+    return handleIntelFPGANofusionAttr(S, St, A);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute
