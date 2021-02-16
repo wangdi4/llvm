@@ -708,7 +708,7 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
 #endif // INTEL_CUSTOMIZATION
 }
 void PassManagerBuilder::addFunctionSimplificationPasses(
-    legacy::PassManagerBase &MPM) {
+    legacy::PassManagerBase &MPM) const {
   // Start of function pass.
 #if INTEL_CUSTOMIZATION
   // Propagate TBAA information before SROA so that we can remove mid-function
@@ -2048,25 +2048,17 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
   // assetion failure as the feature matures.
   if (RunVPOParopt && (RunVec || EnableDeviceSimd)) {
     if (EnableDeviceSimd) {
-      PM.add(createLoopSimplifyPass());
-      PM.add(createLowerSwitchPass(true /*Only for SIMD loops*/));
-      // Add LCSSA pass before VPlan driver
-      PM.add(createLCSSAPass());
-      PM.add(createLICMPass());
+      addFunctionSimplificationPasses(PM);
 
-      // VPO CFG restructuring pass makes sure that the directives of #pragma omp
-      // simd ordered are in a separate block. For this reason,
-      // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
-      // Restructuring.
-      PM.add(createVPOCFGRestructuringPass());
-      PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+      // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
+      // SIMD loops
+      addVPOPassesPreOrPostLoopOpt(PM, false /* IsPostLoopOptPass */);
 
-      // Code extractor might add new instructions in the entry block.
-      // If the entry block has a directive, than we have to split
-      // the entry block. VPlan assumes that the directives are in
-      // single-entry single-exit basic blocks.
-      PM.add(createVPOCFGRestructuringPass());
-      PM.add(createVPlanDriverPass());
+      addLoopOptPasses(PM, false /*IsLTO*/);
+
+      // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
+      // vectorized after createVPlanDriverHIRPass
+      addVPOPassesPreOrPostLoopOpt(PM, true /* IsPostLoopOptPass */);
     }
 
     PM.add(createVPODirectiveCleanupPass());

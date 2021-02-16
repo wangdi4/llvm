@@ -224,7 +224,7 @@ private:
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
-  void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
+  void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM) const;
 #if INTEL_CUSTOMIZATION
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM) const;
 #endif // INTEL_CUSTOMIZATION
