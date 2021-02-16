@@ -192,5 +192,6 @@ let Predicates = [InIceCodeMode] in {
     def LOAD_TICKLE_GPA : I<0x01, MRM_CA, (outs), (ins), "load_tickle_gpa", []>;
     def STORE_TICKLE_GPA : I<0x01, MRM_CB, (outs), (ins), "store_tickle_gpa", []>;
   }
+  def FLUSH_IFU : I<0x01, MRM_D4, (outs), (ins), "flush_ifu", []>, XS;
 }
 // end INTEL_FEATURE_ICECODE

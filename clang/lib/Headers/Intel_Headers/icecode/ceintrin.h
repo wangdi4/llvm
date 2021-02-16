@@ -308,8 +308,8 @@ _ce_portin24(unsigned long long rdx) {
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_portout24(unsigned long long rdx, int eax) {
-  __asm__ __volatile__ ("portout24" :: "a"(eax), "d"(rdx));
+_ce_portout24(int value, unsigned long long port) {
+  __asm__ __volatile__ ("portout24" :: "a"(value), "d"(port));
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
@@ -323,6 +323,7 @@ _ce_store_tickle_gpa(unsigned long long addr) {
 }
 
 #define _ce_set_tracker(imm) __builtin_ia32_icecode_set_tracker(imm)
+#define _ce_flush_ifu() __asm__ __volatile__ ("flush_ifu")
 
 #undef __DEFAULT_FN_ATTRS
 
