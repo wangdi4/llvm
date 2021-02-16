@@ -320,6 +320,7 @@ FUNCTION_PASS("correlated-propagation", CorrelatedValuePropagationPass())
 FUNCTION_PASS("dce", DCEPass())
 FUNCTION_PASS("div-rem-pairs", DivRemPairsPass())
 FUNCTION_PASS("dse", DSEPass())
+FUNCTION_PASS("dopevectorhoist", DopeVectorHoistPass()) // INTEL
 FUNCTION_PASS("dot-cfg", CFGPrinterPass())
 FUNCTION_PASS("dot-cfg-only", CFGOnlyPrinterPass())
 FUNCTION_PASS("early-cse", EarlyCSEPass(/*UseMemorySSA=*/false))

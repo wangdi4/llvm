@@ -164,6 +164,7 @@
 ; CHECK-NEXT:       Memory Dependence Analysis
 ; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Global Value Numbering
+; CHECK-NEXT:       DopeVector Hoist
 ; CHECK-NEXT:       Phi Values Analysis
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Function Alias Analysis Results

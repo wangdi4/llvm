@@ -138,6 +138,7 @@
 ; CHECK-O2-NEXT: Running pass: GVN on foo
 ; CHECK-O2-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
+; CHECK-O2-NEXT: Running pass: DopeVectorHoistPass on foo         ;INTEL
 ; CHECK-O2-NEXT: Running pass: MemCpyOptPass on foo
 ; CHECK-O2-NEXT: Running pass: DSEPass on foo
 ; Running analysis: PostDominatorTreeAnalysis on foo   ;INTEL PostDom has moved, cannot make check work

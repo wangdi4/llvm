@@ -34,6 +34,7 @@
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"    // INTEL
+#include "llvm/Analysis/Intel_WP.h"           // INTEL
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -462,6 +463,7 @@ struct LCSSAWrapperPass : public FunctionPass {
     AU.addPreserved<BasicAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<SCEVAAWrapperPass>();
     AU.addPreserved<BranchProbabilityInfoWrapperPass>();
@@ -515,5 +517,6 @@ PreservedAnalyses LCSSAPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<BranchProbabilityAnalysis>();
   PA.preserve<MemorySSAAnalysis>();
   PA.preserve<AndersensAA>();  // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
   return PA;
 }

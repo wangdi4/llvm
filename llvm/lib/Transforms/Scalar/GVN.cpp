@@ -34,6 +34,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h" // INTEL
+#include "llvm/Analysis/Intel_WP.h"        // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
@@ -674,6 +675,7 @@ PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<GlobalsAA>();
   PA.preserve<TargetLibraryAnalysis>();
   PA.preserve<AndersensAA>();            // INTEL
+  PA.preserve<WholeProgramAnalysis>();   // INTEL
   if (MSSA)
     PA.preserve<MemorySSAAnalysis>();
   if (LI)
@@ -3114,6 +3116,7 @@ public:
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addPreserved<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
