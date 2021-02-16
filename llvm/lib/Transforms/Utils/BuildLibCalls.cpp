@@ -174,16 +174,6 @@ static bool setRetAndArgsNoUndef(Function &F) {
   return setRetNoUndef(F) | setArgsNoUndef(F);
 }
 
-static bool setRetNonNull(Function &F) {
-  assert(F.getReturnType()->isPointerTy() &&
-         "nonnull applies only to pointers");
-  if (F.hasAttribute(AttributeList::ReturnIndex, Attribute::NonNull))
-    return false;
-  F.addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
-  ++NumNonNull;
-  return true;
-}
-
 static bool setReturnedArg(Function &F, unsigned ArgNo) {
   if (F.hasParamAttribute(ArgNo, Attribute::Returned))
     return false;
@@ -1074,21 +1064,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     return Changed;
-  case LibFunc_Znwj: // new(unsigned int)
-  case LibFunc_Znwm: // new(unsigned long)
-  case LibFunc_Znaj: // new[](unsigned int)
-  case LibFunc_Znam: // new[](unsigned long)
-  case LibFunc_msvc_new_int: // new(unsigned int)
-  case LibFunc_msvc_new_longlong: // new(unsigned long long)
-  case LibFunc_msvc_new_array_int: // new[](unsigned int)
-  case LibFunc_msvc_new_array_longlong: // new[](unsigned long long)
-    Changed |= setOnlyAccessesInaccessibleMemory(F);
-    // Operator new always returns a nonnull noalias pointer
-    Changed |= setRetNoUndef(F);
-    Changed |= setRetNonNull(F);
-    Changed |= setRetDoesNotAlias(F);
-    Changed |= setWillReturn(F);
-    return Changed;
   // TODO: add LibFunc entries for:
   // case LibFunc_memset_pattern4:
   // case LibFunc_memset_pattern8:
@@ -1298,7 +1273,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ctype_b_loc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_ctype_get_mb_cur_max:
     Changed |= setDoesNotAccessMemory(F);
@@ -1307,16 +1281,13 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ctype_tolower_loc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_ctype_toupper_loc:
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_cxa_allocate_exception:
     Changed |= setRetDoesNotAlias(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_cxa_bad_typeid:
     Changed |= setDoesNotReturn(F);
@@ -1336,7 +1307,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_cxa_get_exception_ptr:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_cxa_rethrow:
     return Changed;
@@ -1353,7 +1323,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_errno_location:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_fxstat:
     Changed |= setDoesNotThrow(F);
@@ -1652,14 +1621,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZNKSt9bad_alloc4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc:
     return Changed;
   case LibFunc_ZNKSt9exception4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_ZNSi10_M_extractIdEERSiRT_:
     return Changed;
@@ -2267,7 +2234,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_localeconv:
     Changed |= setDoesNotThrow(F);
-    Changed |= setRetNonNull(F);
     return Changed;
   case LibFunc_localtime:
     Changed |= setDoesNotThrow(F);
