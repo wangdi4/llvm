@@ -739,7 +739,7 @@ option(LLVM_ENABLE_PLUGINS "Enable plugin support" ${LLVM_ENABLE_PLUGINS_default
 # We want to keep the legacy pass manager enabled by default even
 # after the community changes the default here.
 set(ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER FALSE CACHE BOOL # INTEL
-  "Enable the experimental new pass manager by default.")
+"Enable the new pass manager by default.")
 #end INTEL_CUSTOMIZATION
 
 include(HandleLLVMOptions)
