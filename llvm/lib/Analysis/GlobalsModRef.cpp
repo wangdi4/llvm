@@ -379,10 +379,14 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
       if (Readers)
         Readers->insert(LI->getParent()->getParent());
     } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+      auto *BitCastOp = dyn_cast<BitCastOperator>(SI->getOperand(1)); // INTEL
       if (V == SI->getOperand(1)) {
         if (Writers)
           Writers->insert(SI->getParent()->getParent());
-      } else if (SI->getOperand(1) != OkayStoreDest) {
+#if INTEL_CUSTOMIZATION
+      } else if (SI->getOperand(1) != OkayStoreDest &&
+                 (!BitCastOp || (BitCastOp->getOperand(0) != OkayStoreDest))) {
+#endif               // INTEL_CUSTOMIZATION
         return true; // Storing the pointer
       }
     } else if (Operator::getOpcode(I) == Instruction::GetElementPtr) {
@@ -448,6 +452,17 @@ bool GlobalsAAResult::AnalyzeIndirectGlobalMemory(GlobalVariable *GV) {
   // Walk the user list of the global.  If we find anything other than a direct
   // load or store, bail out.
   for (User *U : GV->users()) {
+#if INTEL_CUSTOMIZATION
+    // Sometime during instcombine, getPointerAlignment() is called on GV which
+    // creates an unused 'ptrtoint(GV)' expression which confuses GlobalsAA.
+    // This check ignores such uses.
+    if (isa<Constant>(U) && U->user_empty())
+      continue;
+
+    auto *BitCastOp = dyn_cast<BitCastOperator>(U);
+    if (BitCastOp && BitCastOp->hasOneUse())
+      U = *(BitCastOp->user_begin());
+#endif // INTEL_CUSTOMIZATION
     if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       // The pointer loaded from the global can only be used in simple ways:
       // we allow addressing of it and loading storing to it.  We do *not* allow
@@ -929,6 +944,20 @@ AliasResult GlobalsAAResult::alias(const MemoryLocation &LocA,
   if (!GV2)
     GV2 = AllocsForIndirectGlobals.lookup(UV2);
 
+#if INTEL_CUSTOMIZATION
+  // This check takes care of the case where one of them is an indirect global
+  // while the other is some other global whose address is taken. We should be
+  // able to disambiguate between them as indirect globals are known to access
+  // specific heap memory.
+  // This logic should not suffer from problems described in the link below due
+  // to which the option EnableUnsafeGlobalsModRefAliasResults was added-
+  // https://lists.llvm.org/pipermail/llvm-dev/2015-July/087966.html
+  if (!GV1) {
+    GV1 = dyn_cast<GlobalValue>(UV1);
+  } else if (!GV2) {
+    GV2 = dyn_cast<GlobalValue>(UV2);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Now that we know whether the two pointers are related to indirect globals,
   // use this to disambiguate the pointers. If the pointers are based on
   // different indirect globals they cannot alias.
