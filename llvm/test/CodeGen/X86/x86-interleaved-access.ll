@@ -1742,17 +1742,20 @@ define void @splat4_v8f32_load_store(<8 x float>* %s, <32 x float>* %d) {
 ; AVX2-LABEL: splat4_v8f32_load_store:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vmovups (%rdi), %ymm0 ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,0,0,4,4,4,4] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm2 = ymm0[1,1,1,1,5,5,5,5] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm3 = ymm0[2,2,2,2,6,6,6,6] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[3,3,3,3,7,7,7,7] ;INTEL
-; AVX2-NEXT:    vinsertf128 $1, %xmm2, %ymm1, %ymm4 ;INTEL
-; AVX2-NEXT:    vmovups %ymm4, (%rsi) ;INTEL
-; AVX2-NEXT:    vinsertf128 $1, %xmm0, %ymm3, %ymm4 ;INTEL
-; AVX2-NEXT:    vmovups %ymm4, 32(%rsi) ;INTEL
-; AVX2-NEXT:    vperm2f128 {{.*#+}} ymm1 = ymm1[2,3],ymm2[2,3] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
+; AVX2-NEXT:    vmovups (%rdi), %xmm2 ;INTEL
+; AVX2-NEXT:    vbroadcastss %xmm2, %xmm3 ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} xmm4 = xmm2[1,1,1,1] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} xmm5 = xmm2[2,2,2,2] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} xmm2 = xmm2[3,3,3,3] ;INTEL
+; AVX2-NEXT:    vmovups %xmm4, 16(%rsi) ;INTEL
+; AVX2-NEXT:    vmovups %xmm3, (%rsi) ;INTEL
+; AVX2-NEXT:    vmovups %xmm2, 48(%rsi) ;INTEL
+; AVX2-NEXT:    vmovups %xmm5, 32(%rsi) ;INTEL
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm1, 64(%rsi) ;INTEL
-; AVX2-NEXT:    vperm2f128 {{.*#+}} ymm0 = ymm3[2,3],ymm0[2,3] ;INTEL
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm0, 96(%rsi) ;INTEL
 ; AVX2-NEXT:    vzeroupper ;INTEL
 ; AVX2-NEXT:    retq
@@ -1764,7 +1767,7 @@ define void @splat4_v8f32_load_store(<8 x float>* %s, <32 x float>* %d) {
 ; AVX512-NEXT:    vpermilps {{.*#+}} ymm2 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
 ; AVX512-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,1] ;INTEL
 ; AVX512-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
-; AVX512-NEXT:    vmovddup %xmm0, %xmm4 # xmm4 = xmm0[0,0] ;INTEL
+; AVX512-NEXT:    vmovddup {{.*#+}} xmm4 = xmm0[0,0] ;INTEL
 ; AVX512-NEXT:    vpermilpd {{.*#+}} xmm5 = xmm0[1,1] ;INTEL
 ; AVX512-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4 ;INTEL
 ; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1 ;INTEL
@@ -1805,17 +1808,20 @@ define void @splat4_v8i32_load_store(<8 x i32>* %s, <32 x i32>* %d) {
 ; AVX2-LABEL: splat4_v8i32_load_store:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vmovups (%rdi), %ymm0 ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,0,0,4,4,4,4] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm2 = ymm0[1,1,1,1,5,5,5,5] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm3 = ymm0[2,2,2,2,6,6,6,6] ;INTEL
-; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[3,3,3,3,7,7,7,7] ;INTEL
-; AVX2-NEXT:    vinsertf128 $1, %xmm2, %ymm1, %ymm4 ;INTEL
-; AVX2-NEXT:    vmovups %ymm4, (%rsi) ;INTEL
-; AVX2-NEXT:    vinsertf128 $1, %xmm0, %ymm3, %ymm4 ;INTEL
-; AVX2-NEXT:    vmovups %ymm4, 32(%rsi) ;INTEL
-; AVX2-NEXT:    vperm2f128 {{.*#+}} ymm1 = ymm1[2,3],ymm2[2,3] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
+; AVX2-NEXT:    vmovddup {{.*#+}} xmm2 = xmm1[0,0] ;INTEL
+; AVX2-NEXT:    vmovups (%rdi), %xmm3 ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} xmm4 = xmm3[1,1,1,1] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
+; AVX2-NEXT:    vmovddup {{.*#+}} xmm5 = xmm0[0,0] ;INTEL
+; AVX2-NEXT:    vpermilps {{.*#+}} xmm3 = xmm3[3,3,3,3] ;INTEL
+; AVX2-NEXT:    vinsertf128 $1, %xmm4, %ymm2, %ymm2 ;INTEL
+; AVX2-NEXT:    vmovups %ymm2, (%rsi) ;INTEL
+; AVX2-NEXT:    vinsertf128 $1, %xmm3, %ymm5, %ymm2 ;INTEL
+; AVX2-NEXT:    vmovups %ymm2, 32(%rsi) ;INTEL
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm1, 64(%rsi) ;INTEL
-; AVX2-NEXT:    vperm2f128 {{.*#+}} ymm0 = ymm3[2,3],ymm0[2,3] ;INTEL
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm0, 96(%rsi) ;INTEL
 ; AVX2-NEXT:    vzeroupper ;INTEL
 ; AVX2-NEXT:    retq
