@@ -423,8 +423,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
   // They are meant for intermediate analysis/transforms and will be deleted
   // before CG. Do not account the cost of serializing them.
   if (VPTTI->getIntrinsicInstrCost(
-          IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(1)),
-          TTI::TCK_RecipThroughput) == 0)
+          IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) == 0)
     return 0;
 
   switch (VS) {
@@ -436,8 +435,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       return UnknownCost;
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
       return VPTTI->getIntrinsicInstrCost(
-          IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(1)),
-          TTI::TCK_RecipThroughput);
+          IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput);
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // For a serialized call, such as: float call @foo(double arg1, int arg2)
       // calculate the cost of vectorized code that way:
@@ -467,8 +465,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
               }) +
           // The cost of VF calls to the scalar function.
           VF * VPTTI->getIntrinsicInstrCost(
-                   IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(1)),
-                   TTI::TCK_RecipThroughput) +
+                   IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) +
           // The cost of 'vectorizing' function's result if any.
           (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy()
                ? getInsertExtractElementsCost(Instruction::InsertElement,
@@ -495,8 +492,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       break;
   }
   return VPTTI->getIntrinsicInstrCost(
-      IntrinsicCostAttributes(ID, CB, ElementCount::getFixed(VF)),
-      TTI::TCK_RecipThroughput);
+      IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput);
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
