@@ -177,6 +177,9 @@ private:
   /// used in vector context after vectorization.
   bool needVectorCode(VPValue *V) { return true; }
 
+  /// Check that value  was vectorized with use of serialization
+  bool isSerialized(VPValue *V) const;
+
   /// Emit a bypass check to see if the vector trip count is nonzero.
   void emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass);
 

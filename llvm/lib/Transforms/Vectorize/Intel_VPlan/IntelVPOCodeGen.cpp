@@ -724,21 +724,39 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // For consecutive load/store we create a scalar GEP.
     // TODO: Extend support for private pointers and VLS-based unit-stride
     // optimization.
-    auto isVectorizableLoadStoreFrom = [](const VPValue *V,
-                                          const VPValue *Ptr) -> bool {
-      if (getLoadStorePointerOperand(V) != Ptr)
-        return false;
-
-      return isVectorizableLoadStore(V);
+    VPGEPInstruction *GEP = cast<VPGEPInstruction>(VPInst);
+    auto IsAddrSpaceCast = [](VPValue *V) -> bool {
+      auto *I = dyn_cast<VPInstruction>(V);
+      return I && I->getOpcode() == Instruction::AddrSpaceCast;
     };
 
-    VPGEPInstruction *GEP = cast<VPGEPInstruction>(VPInst);
+    auto SkipAddrSpaceCasts = [IsAddrSpaceCast](VPValue *V) {
+      while (IsAddrSpaceCast(V))
+        V = cast<VPInstruction>(V)->getOperand(0);
+      return V;
+    };
 
-    if ((all_of(GEP->users(),
-                [&](VPUser *U) -> bool {
-                  return isVectorizableLoadStoreFrom(U, GEP);
-                }) &&
-         isVPValueConsecutivePtrStride(GEP, Plan) && VPlanUseDAForUnitStride) ||
+    // Check for load/stores users and addrspace casts with their users.
+    // Check if vectorizable laod/store uses GEP's result or address space cast
+    // as pointer operand.
+    // TODO: When CG would rely completely on SVA, this traversal with a
+    // worklist can be removed.
+    SmallVector<VPUser *, 16> Worklist(GEP->user_begin(), GEP->user_end());
+    bool CanBeScalar = true;
+    while (!Worklist.empty() && CanBeScalar) {
+      auto *UserI = cast<VPInstruction>(Worklist.pop_back_val());
+      if (IsAddrSpaceCast(UserI)) {
+        Worklist.insert(Worklist.end(), UserI->user_begin(), UserI->user_end());
+        continue;
+      } else if (isVectorizableLoadStore(UserI))
+          if (SkipAddrSpaceCasts(getLoadStorePointerOperand(UserI)) == GEP)
+            continue;
+
+      CanBeScalar = false;
+    }
+
+    if ((CanBeScalar && isVPValueConsecutivePtrStride(GEP, Plan) &&
+         VPlanUseDAForUnitStride) ||
         isSOAUnitStride(GEP, Plan)) {
       SmallVector<Value *, 6> ScalarOperands;
       for (unsigned Op = 0; Op < GEP->getNumOperands(); ++Op) {
@@ -1704,6 +1722,13 @@ void VPOCodeGen::vectorizeCast(
   if (IsBitCastInst && IsNonSerializedAllocaPointer &&
       IsOnlyUsedInLifetimeIntrinsics) {
     WidenedOp = LoopPrivateVPWidenMap[VPInst->getOperand(0)];
+    WidenedTy = VPInst->getType();
+    IsScalarized = true;
+  } else if (!IsBitCastInst && VPScalarMap.count(VPInst->getOperand(0)) &&
+             !isSerialized(VPInst->getOperand(0))) {
+    // For addrspace cast check if operand is a scalar already
+    // TODO: Replace with proper SVA check
+    WidenedOp = getScalarValue(VPInst->getOperand(0), 0 /* Lane */);
     WidenedTy = VPInst->getType();
     IsScalarized = true;
   } else {
@@ -3435,6 +3460,15 @@ void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
         std::make_pair(cast<Instruction>(SerialInst), Cmp));
     LLVM_DEBUG(dbgs() << "LVCG: SerialInst: "; SerialInst->dump());
   }
+}
+
+bool VPOCodeGen::isSerialized(VPValue *V) const {
+  auto It = VPScalarMap.find(V);
+  if (It != VPScalarMap.end()) {
+    const auto &LaneMap = It->second;
+    return LaneMap.count(1 /* Lane */);
+  }
+  return false;
 }
 
 void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
