@@ -336,3 +336,7 @@
 // CHECK: store_tickle_gpa
 // CHECK: encoding: [0x0f,0x01,0xcb]
           store_tickle_gpa
+
+// CHECK: flush_ifu
+// CHECK: encoding: [0xf3,0x0f,0x01,0xd4]
+          flush_ifu
