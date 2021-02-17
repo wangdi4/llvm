@@ -1923,6 +1923,51 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
   return (PredBB == AllocaBB);
 }
 
+// Returns true if \p StoreRef is a store which looks like a candidate for
+// memset/memcpy and has no use within the region.
+static bool isMemIdiomStore(const RegDDRef *StoreRef) {
+  // Non-alloca stores are unlikely to be optimized away by LLVM passes.
+  // TODO: Treat noalias pointers like alloca for profitability.
+  if (!StoreRef->isLval() || StoreRef->accessesAlloca()) {
+    return false;
+  }
+
+  auto *Inst = cast<HLInst>(StoreRef->getHLDDNode());
+
+  if (!isa<StoreInst>(Inst->getLLVMInstruction())) {
+    return false;
+  }
+
+  auto *ParentLoop = Inst->getParentLoop();
+
+  // Approximate check to determine whether there is a use of store inside
+  // region after the current loop without actually traversing the HIR.
+  // TODO: extend check to perfect loopnests.
+  if (!ParentLoop->isInnermost() || ParentLoop->hasPostexit() ||
+      (ParentLoop != ParentLoop->getParentRegion()->getLastChild())) {
+    return false;
+  }
+
+  unsigned Level = ParentLoop->getNestingLevel();
+
+  bool IsNegStride = false;
+  if (!StoreRef->isUnitStride(Level, IsNegStride)) {
+    return false;
+  }
+
+  auto *Rval = Inst->getRvalDDRef();
+
+  if (Rval->isMemRef()) {
+    // memcpy idiom:
+    // A[i1] = B[i1];
+    return Rval->isUnitStride(Level, IsNegStride);
+  }
+
+  // Common memset idiom:
+  // A[i1] = 0;
+  return Rval->isZero();
+}
+
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
     const RegDDRef *Ref, bool AddToVisitedSet, bool CanSimplifySubs,
     unsigned NumAddressSimplifications) {
@@ -2002,6 +2047,11 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
         // unique occurences but that skews the cost model too much so we only
         // double the saving.
         GEPSavings += (2 * UniqueOccurences * BaseCost);
+
+      } else if (HCU.IsPreVec && isMemIdiomStore(Ref)) {
+        // Add extra cost for memset/memcpy like stores in pre-vec pass so that
+        // the loops are left for idiom recognition/vectorizer pass to process.
+        GEPCost += (UniqueOccurences * BaseCost);
       }
 
       if (IsMemRef) {
