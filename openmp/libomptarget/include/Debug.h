@@ -54,9 +54,17 @@ enum OpenMPInfoType : uint32_t {
   // Enable every flag.
   OMP_INFOTYPE_ALL = 0xffffffff,
 };
+#if INTEL_CUSTOMIZATION
+
+#ifdef _WIN32
+#define __ATTRIBUTE__(X)
+#else
+#define __ATTRIBUTE__(X)  __attribute__((X))
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 
 // Add __attribute__((used)) to work around a bug in gcc 5/6.
-static inline uint32_t __attribute__((used)) getInfoLevel() {
+static inline uint32_t __ATTRIBUTE__(used) getInfoLevel() { // INTEL
   static uint32_t InfoLevel = 0;
   static std::once_flag Flag{};
   std::call_once(Flag, []() {
@@ -68,7 +76,7 @@ static inline uint32_t __attribute__((used)) getInfoLevel() {
 }
 
 // Add __attribute__((used)) to work around a bug in gcc 5/6.
-static inline uint32_t __attribute__((used)) getDebugLevel() {
+static inline uint32_t __ATTRIBUTE__(used) getDebugLevel() { // INTEL
   static uint32_t DebugLevel = 0;
   static std::once_flag Flag{};
   std::call_once(Flag, []() {
