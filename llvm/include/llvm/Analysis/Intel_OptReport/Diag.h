@@ -43,7 +43,7 @@ class OptReportDiag {
   /// 15552 and below from ICC, the rest is xmain-specific.
   static const unsigned VecEnd = 15557;
   /// Loop-report ID used in ASM/OBJ starts at 25481.
-  static const unsigned LoopBegin = 25481;
+  static const unsigned LoopBegin = 25422;
   /// Loop-report ID used in ASM/OBJ ends at 25531.
   static const unsigned LoopEnd = 25531;
 

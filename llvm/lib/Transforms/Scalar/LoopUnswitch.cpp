@@ -296,6 +296,17 @@ namespace {
 
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
+static unsigned getOptReportLine(Value *Val) {
+  auto *Inst = dyn_cast<Instruction>(Val);
+  if (!Inst)
+    return 0;
+
+  auto Loc = Inst->getDebugLoc();
+  return Loc ? Loc->getLine() : 0;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Analyze loop. Check its size, calculate is it possible to unswitch
 // it. Returns true if we can unswitch this loop.
 bool LUAnalysisCache::countLoop(const Loop *L, const TargetTransformInfo &TTI,
@@ -1396,9 +1407,9 @@ void LoopUnswitch::unswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                     << " blocks] in Function "
                     << L->getHeader()->getParent()->getName()
                     << " on cond: " << *Val << " == " << *Cond << "\n");
-  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,           // INTEL
-                                "Loop has been unswitched via %s", // INTEL
-                                Cond->getName());                  // INTEL
+  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,         // INTEL
+                                25422u,                          // INTEL
+                                AtLine(getOptReportLine(Cond))); // INTEL
 
   // We are going to make essential changes to CFG. This may invalidate cached
   // information for L or one of its parent loops in SCEV.
@@ -1700,9 +1711,9 @@ void LoopUnswitch::unswitchNontrivialCondition(
     ParentLoop->addBasicBlockToLoop(NewBlocks[0], *LI);
   }
 
-  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,           // INTEL
-                                "Loop has been unswitched via %s", // INTEL
-                                LIC->getName());                   // INTEL
+  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,        // INTEL
+                                25422u,                         // INTEL
+                                AtLine(getOptReportLine(LIC))); // INTEL
 
   for (unsigned EBI = 0, EBE = ExitBlocks.size(); EBI != EBE; ++EBI) {
     BasicBlock *NewExit = cast<BasicBlock>(VMap[ExitBlocks[EBI]]);
