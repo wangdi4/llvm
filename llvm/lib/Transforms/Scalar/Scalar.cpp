@@ -124,6 +124,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeFloat2IntLegacyPassPass(Registry);
   initializeLoopDistributeLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
+  initializeDopeVectorHoistWrapperPass(Registry);
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
   initializeFunctionRecognizerLegacyPassPass(Registry);
   initializeNontemporalStoreWrapperPassPass(Registry);

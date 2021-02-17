@@ -53,6 +53,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"        // INTEL
+#include "llvm/Analysis/Intel_WP.h"               // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
@@ -782,6 +783,7 @@ namespace {
       AU.addPreserved<AAResultsWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();      // INTEL
       AU.addPreserved<ScalarEvolutionWrapperPass>();
       AU.addPreserved<SCEVAAWrapperPass>();
       AU.addPreservedID(LCSSAID);
@@ -889,6 +891,7 @@ PreservedAnalyses LoopSimplifyPass::run(Function &F,
   // handled via ValueHandle callbacks w/in BPI.
   PA.preserve<BranchProbabilityAnalysis>();
   PA.preserve<AndersensAA>();                // INTEL
+  PA.preserve<WholeProgramAnalysis>();       // INTEL
   return PA;
 }
 

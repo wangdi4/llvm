@@ -47,6 +47,7 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GuardUtils.h"
+#include "llvm/Analysis/Intel_WP.h"        // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -263,6 +264,7 @@ struct LegacyLICMPass : public LoopPass {
     LazyBlockFrequencyInfoPass::getLazyBFIAnalysisUsage(AU);
     AU.addPreserved<LazyBlockFrequencyInfoPass>();
     AU.addPreserved<LazyBranchProbabilityInfoPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
   }
 
 private:
@@ -288,6 +290,7 @@ PreservedAnalyses LICMPass::run(Loop &L, LoopAnalysisManager &AM,
   PA.preserve<LoopAnalysis>();
   if (AR.MSSA)
     PA.preserve<MemorySSAAnalysis>();
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
 
   return PA;
 }

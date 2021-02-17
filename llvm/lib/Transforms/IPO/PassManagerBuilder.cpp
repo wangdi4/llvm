@@ -68,6 +68,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
+#include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -1870,6 +1871,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
   PM.add(NewGVN ? createNewGVNPass()
                 : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
+  PM.add(createDopeVectorHoistWrapperPass());  // INTEL
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.

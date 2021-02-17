@@ -399,11 +399,9 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
                      ->getScalarType() // Element of <vector of pointers>
                      ->getPointerElementType();
 
-  // TODO: add isExact flag to the llvm.intel.subscript and pass it to the
-  // function below.
   return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(),
                        CI->getLowerBound(), CI->getIndex(), CI->getStride(),
-                       true, true);
+                       true, CI->isExact());
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -275,6 +275,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
+#include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h"
 #include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
@@ -2307,6 +2308,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MainFPM.addPass(NewGVNPass());
   else
     MainFPM.addPass(GVN());
+
+  MainFPM.addPass(DopeVectorHoistPass()); // INTEL
 
   // Remove dead memcpy()'s.
   MainFPM.addPass(MemCpyOptPass());

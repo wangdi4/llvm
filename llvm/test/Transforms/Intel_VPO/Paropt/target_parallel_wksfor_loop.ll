@@ -1,5 +1,7 @@
-; RUN: opt < %s -switch-to-offload -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload  -S | FileCheck %s
+; RUN: opt < %s -switch-to-offload -vpo-paropt -S | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
+; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload -S | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
+; RUN: opt < %s -switch-to-offload -vpo-paropt -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
+; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
 ;
 ; #include <iostream>
 ; int main()
@@ -42,8 +44,13 @@
 ;    std::cout << " passed " << std::endl;
 ; }
 ;
-; CHECK: %{{.*}} = call spir_func i64 @_Z14get_local_sizej(i32 0)
-; CHECK: %{{.*}} = call spir_func i64 @_Z12get_local_idj(i32 0)
+; ALL: %{{.*}} = call spir_func i64 @_Z14get_local_sizej(i32 0)
+; ALL: %{{.*}} = call spir_func i64 @_Z12get_local_idj(i32 0)
+; Check for the emission of implicit barrier for "#pragma omp for".
+; DEFAULT: call spir_func void @__kmpc_barrier()
+; NO_BARRIER-NOT: call{{.*}}@__kmpc_barrier
+
+
 ;
 ; ModuleID = 'target_parallel_wksfor_loop.cpp'
 source_filename = "target_parallel_wksfor_loop.cpp"

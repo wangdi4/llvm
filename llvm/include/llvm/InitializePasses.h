@@ -550,6 +550,8 @@ void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
 void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
 // Mark callsites for aggressive inlining
 void initializeAggInlinerLegacyPassPass(PassRegistry&);
+// Hoist base addresses of Dope Vector
+void initializeDopeVectorHoistWrapperPass(PassRegistry&);
 // Converting annotation attribute to function attribute
 void initializeParseAnnotateAttributesLegacyPass(PassRegistry&);
 // HIR Passes

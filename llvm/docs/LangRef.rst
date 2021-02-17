@@ -21624,247 +21624,48 @@ Syntax:
     declare <ty>* @llvm.intel.subscript...(i8 <rank>, <ty> <lb>,
         <ty> <stride>, <ty>* <base>, <ty> <index>) norecurse readnone speculatable
 
+    declare <ty>* @llvm.intel.subscript.nonexact...(i8 <rank>, <ty> <lb>,
+            <ty> <stride>, <ty>* <base>, <ty> <index>) norecurse readnone speculatable
+
 .. _subscript_node_overview:
 
 Overview:
 """""""""
 
-Intrinsic models a single index into multidimensional array whose shape might not
-be known at compile-time. Its returned value points to some multi-dimensional
-object. ``rank`` argument specifies the number of dimensions pointed to
-by return value.
+The intrinsic models a single index into multidimensional array whose shape
+might not be known at compile-time. It returns a pointer to a sub-element of
+a multi-dimensional object pointed by ``base`` with offset specified
+by a combination of ``stride``, ``lb`` and ``index``.
 
-If ``base`` points to some element of an array of ``rank``, then returned value
-points to some element of that array or one byte past last element of an array.
+The intrinsic requires that the stride be exactly divisible by the size of an
+element type, otherwise it returns a poison value. There is 'nonexact' variant
+that has a defined behaviour but provide less optimization opportunities.
 
-If ``base`` points to some element ``x`` of an array of ``rank + 1``, then
-returned value points to some element of ``x`` or one byte past last element of
-``x``.
-
-This is an overloaded intrinsic corresponding to ``getelementptr`` instruction
-computing address inside array objects, which may have variable extents in
-several dimensions, like C99 variable length arrays or Fortran arrays.
-
-Consider simplified view of LLVM types::
-
-    <ty> ::= [ N x <ty> ]       ; array type, N is constant
-        | { <ty1>, <ty2>, ... } ; structure type depending on list of types,
-                                ;   potentially empty
-        |  <ty>*                ; pointer type
-        | ... other types
-
-Type system is static and does not represent C99 length arrays, which may have
-run-time dependent array size.
-
-``getelementptr`` instruction computes addresses in a structured way for static
-LLVM types using the following recursive definition:
-
-.. _subscript_node_gep_definition:
-
-.. code-block:: llvm
-
-    ; Array type case. First index is zero.
-    ; If <ind2> has inrange attribute,
-    ; then the following relations should hold
-    ;   0 <= <ind2> < N
-    getelementptr [ N x <ty> ],
-                  [ N x <ty> ]* <ptrval>,
-                  <ty1> 0, <ty2> <ind2>, ...remaining args =>
-        getelementptr
-            <ty>,
-            <ty>* (<ptrval> +
-                  ; <ind2> * sizeof(<ty>)) == index_offset([ N x <ty> ], <ind2>)
-                  ; Reason for new terminology will become clear below.
-                  index_offset([ N x <ty> ], <ind2>)),
-            i32 0, remaining args...
-
-    ; Structure type case. First index is zero.
-    getelementptr { <fty1>, <fty2> ... },
-                  { <fty1>, <fty2> ... }* <ptrval>,
-                  <ty1> 0,
-                  ; <const_ind> should be compile-time constant
-                  <ty2> <const_ind>,
-                  ...remaining args =>
-        getelementptr
-            <fty<const_ind> >, ; const_ind'th element of list { <fty1>, ... }
-            <fty<const_ind> >* (<ptrval> +
-                   ; offsetof depends on layout specification
-                   offsetof({ <fty1>, ... }, fty<const_ind>)),
-            i32 0, remaining args...
-
-    ; Case of first index is nonzero.
-    ;
-    ; If <ind1> has inrange attribute, then getelementptr's result is within
-    ; bounds of some object, whose element is pointed to by <ptrval>.
-    ;
-    ; That object is implicit to the instruction.
-    getelementptr <ty>,
-                  <ty>* <ptrval>,
-                  <ty1> <ind1>, ...remaining args =>
-        getelementptr
-            <ty>,
-            <ty>* (<ptrval> +
-                ; stride(<ty>) == sizeof(<ty>)
-                ; Reason for new terminology will become clear below.
-                <ind1> * stride(<ty>)),
-            i32 0, remaining args...
-
-    ; Case of single zero offset.
-    getelementptr <ty>, <ty>* <ptrval>, <ty1> 0 => <ptrval>
-
-    ; otherwise getelementptr is undefined
-
-Structured address computations have at least 3 advantages.
-    1. Exact data layout is abstracted away in ``getelementptr`` instruction
-       (but data layout is used in some optimizations of ``getelementptr``);
-    2. inrange attribute could be provided for indexes (support is incomplete
-       at the time of writing).
-    3. ``based on`` relation from :ref:`Pointer Aliasing Rules <pointeraliasing>`
-       treats ``getelementptr`` instruction in a special way and provides
-       more guarantees compared to, for example, ``inttoptr`` instruction.
-
-If these attributes are important for transformations, then type system
-extension is desirable (at least hypothetically) for run-time dependent types::
-
-    ; lower_bound, upper_bound and step can be run-time values.
-    ; [lower_bound, upper_bound) is normal range for indexes
-    ;
-    ; step is negative or positive value
-    ;
-    ; static arrays [ N x <ty> ] are presented as [ 0 : N : 1 x <ty> ]
-    <ty> ::= ...
-        [ lower_bound : upper_bound : step x <ty> ]
-
-To specify hypothetical extension of ``getelementptr`` one needs auxiliary
-functions already referred to in the ``getelementptr``'s definition above:
-
-.. code-block:: llvm
-
-    ; layout specific definition
-    stride [ lb : ub : s x <ty> ] => (ub - lb) * s * stride(<ty>)
-    ; Remaining cases are treated in an original way
-    ; taking into account
-    ;  1. updated definition for array;
-    ;  2. target's layout for structures.
-    stride { <fty1>, <fty2> ... } => sizeof { <fty1>, <fty2> ... }
-
-    ; layout specific definition
-    index_offset [ lb : ub : s x <ty> ], <ty1> <ind> =>
-        (<ind> - lb) * s * stride(<ty>)
-
-    ; rank of array type
-    ; [ N x <ty> ] is considered a subcase of [ lb : ub : s x <ty> ]
-    rank [ lb : ub : s x <ty> ] => 1 + (rank <ty>)
-    ; remaining cases
-    rank <ty> => 0
-
-Updated definition of ``getelementptr``:
-
-.. code-block:: llvm
-
-    ; Array type case. First index is zero.
-    ; If <ind2> has inrange attribute,
-    ; then the following relations should hold
-    ;   lb <= <ind2> < ub
-    getelementptr [ lb : ub : s x <ty> ],
-                  [ lb : ub : s x <ty> ]* <ptrval>,
-                  <ty1> 0, <ty2> <ind2>, ...remaining args =>
-        getelementptr
-            <ty>,
-            <ty>* (<ptrval> +
-                   index_offset ([ lb : ub : s x <ty> ], <ind2>)),
-            i32 0, remaining args...
-
-    ; Definition for remaining cases does not change.
-
-Several notes follow:
-    1.  It is not expected that type's parameters are provided in type objects,
-        because it contradicts static nature of LLVM type system. To keep
-        address computations structured, one needs to provide sufficient
-        information about values of ``lower_bound``, ``upper_bound`` and
-        ``step`` type parameters to address computations.
-    2. If run-time parameters are not provided inside structures, then
-       ``offsetof`` will be compile-time constant.
-    3. To compute address one needs only ``stride(<ty>)`` and
-       ``lower_bound`` of ``<ty>``. ``upper_bound`` could be kept
-       implicit.
-    4. ``<rank>`` argument specifies rank of the returned value.
-
-``llvm.intel.subscript`` provides means to compute structured
-addresses for updated ``getelementptr`` definition without LLVM type system
-extension while preserving layout independence and keeping inrange attribute.
-
-.. code-block:: llvm
-
-    ; Array type case. First index is zero.
-    ; If <ind2> has inrange attribute,
-    ; then the following relations should hold
-    ;   lb <= <ind2> < ub
-    getelementptr [ lb : ub : s x <ty> ],
-                  [ lb : ub : s x <ty> ]* <ptrval>,
-                  <ty1> 0, <ty2> <ind2>, ...remaining args =>
-        getelementptr
-            <ty>,
-            <ty>*
-            ; <ty'> is <ty> with all arrays specifications removed,
-            ; because <ty> cannot be represented directly
-            call <ty'>* @llvm.intel.subscript...(
-                ; There is no implicit dimension from first index
-                i8 rank <ty>,
-                ; <tya> and <tylb> should be wide enough to represent
-                ; all values if interpreted as signed integers
-                <tylb> lb,
-                <tya> stride(<ty>),
-                <ty'> <ptrval>, <ty2> <ind2>),
-            i32 0, remaining args...
-
-    ; Case of first index is nonzero.
-    ;
-    ; If <ind1> has inrange attribute, then getelementptr's result is within
-    ; bounds of some object, whose element is pointed to by <ptrval>.
-    ;
-    ; That object is implicit to the instruction.
-    getelementptr <ty>,
-                  <ty>* <ptrval>,
-                  <ty1> <ind1>, ...remaining args =>
-        getelementptr
-            <ty>,
-            <ty>*
-            ; <ty'> is <ty> with all arrays specifications removed,
-            call <ty'>* @llvm.intel.subscript...(
-                ; There is an implicit dimension from first index,
-                ; but this case is consdered like adjustments in
-                ; implicit dimension, which do not change rank.
-                i8 rank <ty>,
-                0, stride(<ty>), <ty'> <ptrval>, <ty1> <ind1>),
-            i32 0, remaining args...
-
-    ; Definition for remaining cases does not change.
+To access an element of a multi-dimensional array, multiple
+llvm.intel.subscript calls are chained in sequence.
+See the in :ref:`example  <subscript_node_example>` below.
 
 Arguments:
 """"""""""
 
-Arguments ``stride`` and ``lb`` describe a shape of an array object,
-these arguments correspond to type argument of ``getelementptr`` instruction.
+``rank`` argument specifies the number of dimensions pointed to by return
+value.
 
-Argument ``rank`` argument describes a rank of the returned value.
+``lb`` (lower bound) argument specifies the index of the first element in
+the indexed dimension. It can be scalar 32-bit or 64-bit signed integer.
+This argument is treated as signed value where relevant.
+
+``stride`` specifies a size of the indexed dimension in bytes.
 
 ``base`` argument corresponds to ``ptrval`` argument of ``getelementptr``
-instruction. It should point to complete type.
+instruction.
 
 ``index`` argument corresponds to single ``ind`` argument of ``getelementptr``
 instruction. It can be a scalar or vector integer value of any width. This
 argument is treated as signed value where relevant.
 
-To access an element of a multi-dimensional array, multiple
-llvm.intel.subscript calls with single ``index`` values are chained in
-sequence.  See the in :ref:`example  <subscript_node_example>` below
-and recursive definition of
-``getelementptr`` in :ref:`Overview <subscript_node_overview>` section.
-
-``lb`` specifies ``lower_bound`` for ``index`` argument, it can be scalar
-32-bit or 64-bit signed integer. This argument is treated as signed value where
-relevant.
+``lb`` and ``index`` are in terms of elements as index argument
+of ``getelementptr``, however ``stride`` is in terms of bytes.
 
 ``stride`` and ``index`` argument can be of vector type. If both are vector
 values, then vector length should be the same.
@@ -21884,13 +21685,6 @@ same values in each element (splat).
 
 Every property should hold for each vector lane.
 
-``stride`` is in terms of bytes. If ``base`` is a pointer to type ``Type``,
-then ``stride`` should be exactly divisible by size of ``Type``,
-otherwise behaviour is undefined.
-
-``lb`` and ``index`` are in terms of elements as
-index argument of ``getelementptr``.
-
 Sequence of intrinsics representing single access to multi-dimensional arrays,
 should have equal ``stride`` argument corresponding to equal ``rank``.
 
@@ -21899,7 +21693,8 @@ Semantics:
 
 This is an overloaded intrinsic corresponding to ``getelementptr`` instruction
 computing address inside array objects, which may have variable extents in
-several dimensions, like C99 variable length arrays or Fortran arrays.
+several dimensions, like C99 variable length arrays or Fortran arrays. See the
+`Subscript intrinsic for addressing dynamic multi-dimensional arrays <Intel/Subscript.html>`_.
 
 ``index`` argument should be within the range of the corresponding dimension of
 multidimensional array, or should point to one byte past last element in the given
@@ -21913,9 +21708,6 @@ dimension is undefined.
 
 These invariants on ``index`` should be preserved by transformation passes and
 most transformations can safely treat intrinsic as a pure function.
-
-How this intrinsic is converted to pointer arithmetic is described in
-:ref:`Lowering <subscript_node_lowering>` section.
 
 Some properties which may be useful for optimization passes:
 
@@ -21973,7 +21765,7 @@ Following equivalence changes type::
     %elem_ptr = tail call double* @llvm.intel.subscript...(
         i8 rank, i32 %lb, i32 %stride, double* %base, i32 %ind)
     ; is equivalent to
-    %ind1 = sub.nsw i32 %ind, %lb
+    %ind1 = sub nsw i32 %ind, %lb
     %elem_ptr = tail call double* @llvm.intel.subscript...(
         i8 rank, i32 0, i32 %stride, double* %base, i32 %ind1)
 
@@ -21983,7 +21775,6 @@ See ``getelementptr`` :ref:`description <subscript_node_gep_definition>`.
 
 Returned pointer value is ``based on`` pointer value of ``base`` argument as
 specified in :ref:`Pointer Aliasing Rules <pointeraliasing>` section.
-
 
 Def-use chains of intrinsics corresponding to a single multi-dimensional access
 should have non-increasing ranks traversing from def to use.
@@ -22012,14 +21803,14 @@ is lowered to ``sub``, ``sext``, ``mul`` and ``getelementptr`` instructions:
 
 .. code-block:: llvm
 
-    %i1  = sub.nsw i32 %ind, %lb
+    %i1  = sub nsw i32 %ind, %lb
     %i2  = sext i32 %i1 to i64 ; i64 is used as offset_t integer type,
                                ; which should represent all possible
                                ; address offsets in a 0th address
                                ; space.
     %s   = sext i32 %stride to i64
     %s1  = ashr exact %s, 3    ; sizeof(double) == 2^3
-    %mul = mul.nsw i64 %i2, %s1
+    %mul = mul nsw i64 %i2, %s1
     %ptr = getelementptr double, double* %base, i64 %mul
 
 1. Types and values of arguments ``lb`` and ``index`` are converted with
@@ -22033,6 +21824,24 @@ is lowered to ``sub``, ``sext``, ``mul`` and ``getelementptr`` instructions:
 5. Values computed on step 4 are multiplied with no-signed-wrap semantics.
 6. Result of step 5 is used as an index of ``getelementptr`` instruction,
    whose ``base`` argument is a ``base`` argument of intrinsic.
+
+A call to '``llvm.intel.subscript.nonexact...``'
+
+.. code-block:: llvm
+
+    %ptr = tail call double* @llvm.intel.subscript.nonexact...(
+        i8 rank, i64 %lb, i64 %stride, double* %base, i64 %ind)
+
+is lowered to instructions:
+
+.. code-block:: llvm
+
+    %i1  = sub nsw i64 %ind, %lb
+    %offset = mul nsw i64 %i1, %stride
+    %i8ptr = bitcast double* %base to i8*
+    %ptr0 = getelementptr double, i8* %i8ptr, i64 %offset
+    %ptr = bitcast i8* %ptr0 to double*
+
 
 .. _subscript_node_example:
 

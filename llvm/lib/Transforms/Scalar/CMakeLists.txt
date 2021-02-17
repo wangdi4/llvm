@@ -23,6 +23,7 @@ add_llvm_component_library(LLVMScalarOpts
   InferAddressSpaces.cpp
   InstSimplifyPass.cpp
 # INTEL_CUSTOMIZATION
+  Intel_DopeVectorHoist.cpp
   Intel_FunctionRecognizer.cpp
   Intel_GlobalOpt.cpp
   Intel_HandlePragmaVectorAligned.cpp
