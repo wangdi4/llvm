@@ -114,7 +114,9 @@ public:
 /// various points in the program.
 class ArrayUse {
   typedef ValueMap<const Value *, std::unique_ptr<ArrayUseInfo>> ArrayMapTy;
+#ifndef NDEBUG
   Function &F;
+#endif
   LoopInfo &LI;
   ScalarEvolution &SE;
   std::unique_ptr<ArrayMapTy> ArrayUseMap;
