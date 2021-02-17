@@ -140,6 +140,13 @@ static cl::opt<bool> EmitTargetFPCtorDtors(
     cl::desc("Enable emission of constructors/destructors for firstprivate "
              "operands on target constructs, during target compilation."));
 
+static cl::opt<bool> EmitWksLoopsImplicitBarrierForTarget(
+    "vpo-paropt-emit-wks-loops-implicit-barrier-for-target", cl::Hidden,
+    cl::init(true),
+    cl::desc(
+        "Emit implicit barrier after worksharing loops/sections during target "
+        "compilation."));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -2161,6 +2168,25 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genFirstPrivatizationCode(W);
               if (!W->getIsDistribute())
                 Changed |= genReductionCode(W);
+              if (!W->getIsDistribute() && !W->getNowait() &&
+                  EmitWksLoopsImplicitBarrierForTarget) {
+                constexpr bool IsTargetSPIRV = true;
+                // For target compilation, genReductionCode code can modify the
+                // region in a way that createEmptyPrivFiniBB cannot find the
+                // ZTT in some cases (like `ocl_target_for_arrsecred.ll`). So,
+                // for now, HonorZTT needs to be set to false while invoking it
+                // to get the insertion point for the implicit barrier.
+                // TODO: Check if the createEmptyPrivFiniBB() needs to be
+                // updated, or the call to it inside genBarrier() needs to pass
+                // `!isTargetSPIRV()` for HonorZTT. Keeping InsertBefore
+                // computation here for now to narrow down the scope of the
+                // change.
+                BasicBlock *NewBB =
+                    createEmptyPrivFiniBB(W, /*HonorZTT=*/!IsTargetSPIRV);
+                Instruction *InsertBefore = NewBB->getTerminator();
+                Changed |= genBarrier(W, /*Explicit=*/false, IsTargetSPIRV,
+                                      InsertBefore);
+              }
             }
           } else {
 #if INTEL_CUSTOMIZATION
