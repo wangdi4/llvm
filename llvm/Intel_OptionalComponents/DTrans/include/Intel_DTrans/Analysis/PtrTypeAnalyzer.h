@@ -163,7 +163,12 @@ public:
   typedef SmallPtrSetImpl<DTransType *> &PointerTypeAliasSetRef;
   typedef SmallPtrSetImpl<DTransType *> const &PointerTypeAliasSetConstRef;
 
-  ValueTypeInfo(Value *V) : V(V) {}
+  ValueTypeInfo(Value *V)
+#ifndef NDEBUG
+      : V(V)
+#endif
+  {
+  }
 
   // @param Kind        - Indicates whether this modification is for the
   //                      'declared' type set or the 'usage' type set. An item
@@ -330,9 +335,10 @@ private:
   bool addElementPointeeImpl(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
                              const PointeeLoc &Loc);
 
+#ifndef NDEBUG
   // The value object this type information is for.
   Value *V = nullptr;
-
+#endif
   // Keep a set of values for the type aliases and element-of types for both the
   // 'declared' type and the 'usage' type.
   PointerTypeAliasSet PointerTypeAliases[2];

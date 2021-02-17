@@ -82,7 +82,10 @@ public:
                      uint64_t ArrayLength, uint64_t ElementSize,
                      llvm::Type *ElementType)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
-        ElementSize(ElementSize), ElementType(ElementType), IsValid(false),
+#ifndef NDEBUG
+        ElementSize(ElementSize),
+#endif
+        ElementType(ElementType), IsValid(false),
         IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
@@ -749,8 +752,10 @@ private:
   // the same length in all dimensions)
   uint64_t ArrayLength;
 
+#ifndef NDEBUG
   // Size of one element in the array, in bytes.
   uint64_t ElementSize;
+#endif
 
   // Element type in the array
   llvm::Type *ElementType;
