@@ -745,7 +745,8 @@ static void translateUnPackMask(CallInst &CI) {
   llvm::Value *TransCI = Builder.CreateZExt(
       Arg0, llvm::FixedVectorType::get(llvm::Type::getInt16Ty(Context), N));
   TransCI->takeName(&CI);
-  cast<llvm::Instruction>(TransCI)->setDebugLoc(CI.getDebugLoc());
+  if (llvm::Instruction *TransCInst = dyn_cast<llvm::Instruction>(TransCI))
+    TransCInst->setDebugLoc(CI.getDebugLoc());
   CI.replaceAllUsesWith(TransCI);
 }
 
