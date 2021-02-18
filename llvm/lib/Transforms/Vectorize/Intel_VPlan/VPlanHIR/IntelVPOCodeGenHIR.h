@@ -219,8 +219,7 @@ public:
   // however, if the last vector has fewer elements, it will be padded with
   // undefs. This function mimics the interface in VectorUtils.cpp modified to
   // work with HIR. Vector values are concatenated and masked using Mask.
-  RegDDRef *concatenateVectors(RegDDRef **VecsArray, int64_t NumVecs,
-                               RegDDRef *Mask);
+  RegDDRef *concatenateVectors(ArrayRef<RegDDRef *> VecsArray, RegDDRef *Mask);
 
   // Given the LvalRef of a load instruction belonging to an interleaved group,
   // and the result of the corresponding wide interleaved load WLoadRes,
@@ -248,7 +247,7 @@ public:
   //     %interleaved.vec = shuffle %R_G.vec, undef,
   //                                 <0, 4, 1, 5, 2, 6, 3, 7>
   //     store <8 x i32> %interleaved.vec, Pic[2*i]
-  HLInst *createInterleavedStore(RegDDRef **StoreVals, RegDDRef *WStorePtrRef,
+  HLInst *createInterleavedStore(ArrayRef<RegDDRef *> StoreVals, RegDDRef *WStorePtrRef,
                                  int64_t InterleaveFactor, RegDDRef *Mask);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
@@ -610,8 +609,7 @@ private:
 
   // Map of store OVLSGroup and the vector of values(RegDDRefs) being stored
   // into memrefs in this group.
-  SmallDenseMap<const OVLSGroup *, std::unique_ptr<RegDDRef *[]>>
-      VLSGroupStoreMap;
+  SmallDenseMap<const OVLSGroup *, SmallVector<RegDDRef *, 2>> VLSGroupStoreMap;
 
   // The insertion points for reduction initializer and reduction last value
   // compute instructions.
