@@ -686,7 +686,7 @@ class DDTest {
   bool testSIV(const CanonExpr *Src, const CanonExpr *Dst, unsigned &Level,
                Dependences &Result, Constraint &NewConstraint,
                const CanonExpr *&SplitIter, const HLLoop *SrcParentLoop,
-               const HLLoop *DstParentLoop, bool ForFusion);
+               const HLLoop *DstParentLoop, bool &TestMore, bool ForFusion);
 
   /// testRDIV - Tests the RDIV subscript pair (Src and Dst) for dependence.
   /// Things of the form [c1 + a1*i] and [c2 + a2*j]

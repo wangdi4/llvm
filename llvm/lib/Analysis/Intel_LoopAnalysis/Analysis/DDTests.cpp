@@ -704,7 +704,6 @@ void DDTest::Constraint::dump(raw_ostream &OS) const {
 }
 #endif
 
-
 // Updates X with the intersection
 // of the Constraints X and Y. Returns true if X has changed.
 // Corresponds to Figure 4 from the paper
@@ -801,8 +800,7 @@ bool DDTest::intersectConstraints(Constraint *X, const Constraint *Y) {
         return false;
       if (!C1B2_C2B1->isIntConstant(&Xtop) ||
           !A1B2_A2B1->isIntConstant(&Xbot) ||
-          !C1A2_C2A1->isIntConstant(&Ytop) ||
-          !A2B1_A1B2->isIntConstant(&Ybot))
+          !C1A2_C2A1->isIntConstant(&Ytop) || !A2B1_A1B2->isIntConstant(&Ybot))
         return false;
       if (!Xbot || !Ybot)
         return false;
@@ -868,7 +866,6 @@ bool DDTest::intersectConstraints(Constraint *X, const Constraint *Y) {
   llvm_unreachable("shouldn't reach the end of Constraint intersection");
   return false;
 }
-
 
 // DependenceAnalysis methods
 // For debugging purposes. Dumps a dependence to OS.
@@ -1896,6 +1893,26 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
     return true;
   }
 
+  // There is a bug in this algorithm.
+  // Suppress this section of code for now and use Banerjee's Inequalities
+  // instead The algorithm can be fixed as follows but will experiment in the
+  // future if needed
+  //
+  // Right before testing for less than and before saving TU,TL
+  // Swap the TL and TU if it's range is less than 0
+  // TL and TU represents the range of IV that can overlap, in normalized form
+
+  //  if (TU.slt(0)) {
+  //    APInt tmp = TU;
+  //    TU = -TL;
+  //    TL = -tmp;
+  //    LLVM_DEBUG (dbgs() << "\nSwapped TL TU=" << TL << " " << TU << "\n");
+  //  }
+
+  return false;
+
+#if 0
+
   // explore directions
   DVKind NewDirection = DVKind::NONE;
 
@@ -1997,6 +2014,8 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   if (Result.DV[Level].Direction == DVKind::NONE)
     ++ExactSIVindependence;
   return Result.DV[Level].Direction == DVKind::NONE;
+
+#endif
 }
 
 // Return true if the divisor evenly divides the dividend.
@@ -2611,7 +2630,7 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
                      unsigned &Level, Dependences &Result,
                      Constraint &NewConstraint, const CanonExpr *&SplitIter,
                      const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop,
-                     bool ForFusion) {
+                     bool &TestMore, bool ForFusion) {
 
   LLVM_DEBUG(dbgs() << "\n Test SIV \n");
   LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
@@ -2622,15 +2641,19 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
   const HLLoop *SrcLoop = getLoop(Src, SrcParentLoop);
   const HLLoop *DstLoop = getLoop(Dst, DstParentLoop);
 
+  TestMore = false;
+
   if (SrcLoop && DstLoop) {
     const CanonExpr *SrcConst = getInvariant(Src);
     const CanonExpr *DstConst = getInvariant(Dst);
     const CanonExpr *SrcCoeff = getCoeff(Src);
     const CanonExpr *DstCoeff = getCoeff(Dst);
     const HLLoop *CurLoop = SrcLoop;
-    assert((SrcLoop == DstLoop || ForFusion) && "both loops in SIV should be same");
+    assert((SrcLoop == DstLoop || ForFusion) &&
+           "both loops in SIV should be same");
     Level = mapSrcLoop(CurLoop);
     bool Disproven;
+    bool ExactTestDone = true;
 
     if (CanonExprUtils::areEqual(SrcCoeff, DstCoeff, true)) {
       Disproven = strongSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop, Level,
@@ -2642,12 +2665,20 @@ bool DDTest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
     } else {
       Disproven = exactSIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
                                Level, Result, NewConstraint);
+
+      ExactTestDone = Disproven;
     }
 
-    return Disproven ||
-           gcdMIVtest(Src, Dst, SrcParentLoop, DstParentLoop, Result) ||
-           symbolicRDIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst, CurLoop,
-                            CurLoop);
+    Disproven = (Disproven ||
+                 gcdMIVtest(Src, Dst, SrcParentLoop, DstParentLoop, Result) ||
+                 symbolicRDIVtest(SrcCoeff, DstCoeff, SrcConst, DstConst,
+                                  CurLoop, CurLoop));
+
+    if (!ExactTestDone && !Disproven) {
+      TestMore = true;
+    }
+
+    return Disproven;
   }
 
   if (SrcLoop) {
@@ -3792,7 +3823,8 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
     //       (@s)[0][i3 + nx * i2 + nx * ny * i1].
     // Skip [0] since it doesn't influence the delinearization.
     if (SrcDDRef->accessesGlobalVar() && DstDDRef->accessesGlobalVar()) {
-      assert(Pair[1].Src->isZero() && Pair[1].Dst->isZero() && "First subscript must be zero");
+      assert(Pair[1].Src->isZero() && Pair[1].Dst->isZero() &&
+             "First subscript must be zero");
       HasGlobalBaseValue = true;
       AuxTy = Pair[1].Src->getSrcType();
     } else {
@@ -3862,7 +3894,6 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
 
   return true;
 }
-
 
 //===----------------------------------------------------------------------===//
 // Constraint manipulation for Delta test.
@@ -3991,7 +4022,7 @@ bool DDTest::propagateDistance(const CanonExpr *&Src, const CanonExpr *&Dst,
   if (!D->multiplyByConstant(0 - Coeff))
     return false;
   if (Index != InvalidBlobIndex && !D->multiplyByBlob(Index))
-      return false;
+    return false;
   if (D->numBlobs() > 1)
     return false;
   if (D->hasBlob()) {
@@ -4159,7 +4190,7 @@ bool DDTest::propagateLine(const CanonExpr *&OrigSrc, const CanonExpr *&OrigDst,
     if (Coeff != 0)
       Consistent = false;
   }
-  
+
   OrigSrc = NewSrc;
   OrigDst = NewDst;
   LLVM_DEBUG(dbgs() << "\n\tnew Src = "; Src->dump();
@@ -4891,10 +4922,18 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
         LLVM_DEBUG(dbgs() << ", SIV\n");
         unsigned Level;
         const CanonExpr *SplitIter = nullptr;
+        bool TestMore;
+
         if (testSIV(Pair[SI].Src, Pair[SI].Dst, Level, Result, NewConstraint,
-                    SplitIter, SrcLoop, DstLoop, ForFusion)) {
+                    SplitIter, SrcLoop, DstLoop, TestMore, ForFusion)) {
           return nullptr;
         }
+        if (TestMore &&
+            banerjeeMIVtest(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops,
+                            Result, SrcLoop, DstLoop)) {
+          return nullptr;
+        }
+
         break;
       }
 
@@ -4962,7 +5001,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-// Delta test
+  // Delta test
   if (Coupled.count()) {
     // test coupled subscript groups
     LLVM_DEBUG(dbgs() << "\nstarting on coupled subscripts\n");
@@ -4988,6 +5027,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       LLVM_DEBUG(dbgs() << "}\n");
       while (Sivs.any()) {
         bool Changed = false;
+        bool TestMore;
         for (int SJ = Sivs.find_first(); SJ >= 0; SJ = Sivs.find_next(SJ)) {
           LLVM_DEBUG(dbgs() << "testing subscript " << SJ << ", SIV\n");
           // SJ is an SIV subscript that's part of the current coupled group
@@ -4995,8 +5035,14 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
           const CanonExpr *SplitIter = nullptr;
           LLVM_DEBUG(dbgs() << "SIV\n");
           if (testSIV(Pair[SJ].Src, Pair[SJ].Dst, Level, Result, NewConstraint,
-                      SplitIter, SrcLoop, DstLoop, ForFusion))
+                      SplitIter, SrcLoop, DstLoop, TestMore, ForFusion))
             return nullptr;
+
+          if (TestMore &&
+              banerjeeMIVtest(Pair[SI].Src, Pair[SI].Dst, InputDV,
+                              Pair[SI].Loops, Result, SrcLoop, DstLoop)) {
+            return nullptr;
+          }
           ConstrainedLevels.set(Level);
           if (intersectConstraints(&Constraints[Level], &NewConstraint)) {
             if (Constraints[Level].isEmpty()) {
@@ -5060,8 +5106,8 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       for (int SJ = Mivs.find_first(); SJ >= 0; SJ = Mivs.find_next(SJ)) {
         if (Pair[SJ].Classification == Subscript::MIV) {
           LLVM_DEBUG(dbgs() << "MIV test\n");
-          if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, InputDV, Pair[SJ].Loops, Result,
-                      SrcLoop, DstLoop))
+          if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, InputDV, Pair[SJ].Loops,
+                      Result, SrcLoop, DstLoop))
             return nullptr;
         } else
           llvm_unreachable("expected only MIV subscripts at this point");
@@ -5077,7 +5123,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
       }
     }
   }
-
 
   // Make sure the Scalar flags are set correctly.
   // Note: getDirection(level):  [level-1] is used inside the function
@@ -5773,7 +5818,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
         BackwardDV[II - 1] = Result->getDirection(II);
       }
       if ((!IsDstRval || !IsSrcRval) && (DstNum > SrcNum) && !IsTemp &&
-          (SrcLevels != Levels) && BackwardDV[Levels - 1] == DVKind::LE) {
+          BackwardDV[Levels - 1] == DVKind::LE) {
         setDVForLE(ForwardDV, BackwardDV, *Result, Levels);
       }
     }
