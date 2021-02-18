@@ -604,7 +604,6 @@ int main(int argc, char **argv) {
   initializeWriteBitcodePassPass(Registry);
   initializeHardwareLoopsPass(Registry);
   initializeTypePromotionPass(Registry);
-  initializeReplaceWithVeclibLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeIntel_DPCPPKernelTransforms(Registry);
   initializeIntel_LoopAnalysis(Registry);
