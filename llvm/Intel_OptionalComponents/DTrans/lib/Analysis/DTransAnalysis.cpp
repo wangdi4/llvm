@@ -10101,6 +10101,7 @@ private:
           FieldBaseTy = FieldBaseTy->getPointerElementType();
         dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
         if (!FieldTI->testSafetyData(Data)) {
+          (void)BaseTy;
           LLVM_DEBUG({
             dbgs()
                 << "dtrans-safety: Cascading pointer carried safety condition: "
