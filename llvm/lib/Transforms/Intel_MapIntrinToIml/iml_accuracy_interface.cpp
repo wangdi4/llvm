@@ -255,6 +255,7 @@ static const char* valid_configurations_names[SUPPORTED_CPUS_NUMBER] =
     "all", "x87", "sse", "sse2", "sse3", "ssse3", "sse41", "sse42", "avx", "avx2", "micavx512", "coreavx512", "coreavx512zmmlow"
 };
 
+#if defined IML_DEBUG
 static const char* attrGetConfigName(SupportedCpusEnum c)
 {
     if(c == c_cpu_unsupported)
@@ -263,7 +264,7 @@ static const char* attrGetConfigName(SupportedCpusEnum c)
         return valid_configurations_names[c_cpu_all];
     return valid_configurations_names[c];
 }
-
+#endif
 //TODO: replace bits from immintrin.h into something else
 #include <immintrin.h>
 
