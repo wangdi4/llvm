@@ -7,6 +7,8 @@ set(LLVM_LINK_COMPONENTS
   X86
   Exegesis
   Core
+  Support
+  CodeGen
   )
 
 add_llvm_library(LLVMExegesisX86
@@ -17,6 +19,7 @@ add_llvm_library(LLVMExegesisX86
 
   DEPENDS
   intrinsics_gen
+  X86CommonTableGen
   )
 
 # INTEL_CUSTOMIZATION
