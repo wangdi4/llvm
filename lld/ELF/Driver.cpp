@@ -1127,11 +1127,21 @@ static void readConfigs(opt::InputArgList &args) {
   config->zWxneeded = hasZOption(args, "wxneeded");
   setUnresolvedSymbolPolicy(args);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Handle -plugin-opt=fintel-advanced-optim
   if (args.hasArg(OPT_plugin_opt_intel_advanced_optim))
     config->intelAdvancedOptim = true;
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (opt::Arg *arg = args.getLastArg(OPT_eb, OPT_el)) {
+    if (arg->getOption().matches(OPT_eb))
+      config->optEB = true;
+    else
+      config->optEL = true;
+  }
+
+>>>>>>> eea34aae2e74e9b6fbdd5b95f479bc7f397bf387
   for (opt::Arg *arg : args.filtered(OPT_z)) {
     std::pair<StringRef, StringRef> option =
         StringRef(arg->getValue()).split('=');

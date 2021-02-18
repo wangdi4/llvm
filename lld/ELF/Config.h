@@ -190,6 +190,8 @@ struct Configuration {
   bool nostdlib;
   bool oFormatBinary;
   bool omagic;
+  bool optEB = false;
+  bool optEL = false;
   bool optimizeBBJumps;
   bool optRemarksWithHotness;
   bool picThunk;
