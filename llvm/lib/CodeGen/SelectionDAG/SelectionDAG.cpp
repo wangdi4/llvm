@@ -2452,7 +2452,9 @@ bool SelectionDAG::isSplatValue(SDValue V, const APInt &DemandedElts,
     return true;
   case ISD::ADD:
   case ISD::SUB:
-  case ISD::AND: {
+  case ISD::AND: 
+  case ISD::XOR:
+  case ISD::OR: {
     APInt UndefLHS, UndefRHS;
     SDValue LHS = V.getOperand(0);
     SDValue RHS = V.getOperand(1);

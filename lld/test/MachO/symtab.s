@@ -11,7 +11,7 @@
 # CHECK-NEXT:   Symbol {
 # CHECK-NEXT:     Name: _local
 # CHECK-NEXT:     Type: Section (0xE)
-# CHECK-NEXT:     Section: __data (0x4)
+# CHECK-NEXT:     Section: __data
 # CHECK-NEXT:     RefType: UndefinedNonLazy (0x0)
 # CHECK-NEXT:     Flags [ (0x0)
 # CHECK-NEXT:     ]
@@ -20,7 +20,7 @@
 # CHECK-NEXT:   Symbol {
 # CHECK-NEXT:     Name: __dyld_private
 # CHECK-NEXT:     Type: Section (0xE)
-# CHECK-NEXT:     Section: __data (0x4)
+# CHECK-NEXT:     Section: __data
 # CHECK-NEXT:     RefType: UndefinedNonLazy (0x0)
 # CHECK-NEXT:     Flags [ (0x0)
 # CHECK-NEXT:     ]
@@ -40,7 +40,7 @@
 # CHECK-NEXT:     Name: _external
 # CHECK-NEXT:     Extern
 # CHECK-NEXT:     Type: Section (0xE)
-# CHECK-NEXT:     Section: __data (0x4)
+# CHECK-NEXT:     Section: __data
 # CHECK-NEXT:     RefType: UndefinedNonLazy (0x0)
 # CHECK-NEXT:     Flags [ (0x0)
 # CHECK-NEXT:     ]

@@ -503,7 +503,7 @@ public:
                               bool InvariantCond, VPTransformState &State);
 
   /// Fix the vectorized code, taking care of header phi's, live-outs, and more.
-  void fixVectorizedLoop();
+  void fixVectorizedLoop(VPTransformState &State);
 
   // Return true if any runtime check is added.
   bool areSafetyChecksAdded() { return AddedSafetyChecks; }
@@ -568,6 +568,10 @@ public:
     VectorLoopValueMap.setVectorValue(Scalar, Part, Vector);
   }
 
+  void resetVectorValue(Value *Scalar, unsigned Part, Value *Vector) {
+    VectorLoopValueMap.resetVectorValue(Scalar, Part, Vector);
+  }
+
   void setScalarValue(Value *Scalar, const VPIteration &Instance, Value *V) {
     VectorLoopValueMap.setScalarValue(Scalar, Instance, V);
   }
@@ -607,7 +611,7 @@ public:
   void setDebugLocFromInst(IRBuilder<> &B, const Value *Ptr);
 
   /// Fix the non-induction PHIs in the OrigPHIsToFix vector.
-  void fixNonInductionPHIs(void);
+  void fixNonInductionPHIs(VPTransformState &State);
 
   /// Create a broadcast instruction. This method generates a broadcast
   /// instruction (shuffle) for loop invariant values and for the induction
@@ -638,15 +642,15 @@ protected:
                                    Value *Step, Instruction *DL);
 
   /// Handle all cross-iteration phis in the header.
-  void fixCrossIterationPHIs();
+  void fixCrossIterationPHIs(VPTransformState &State);
 
   /// Fix a first-order recurrence. This is the second phase of vectorizing
   /// this phi node.
-  void fixFirstOrderRecurrence(PHINode *Phi);
+  void fixFirstOrderRecurrence(PHINode *Phi, VPTransformState &State);
 
   /// Fix a reduction cross-iteration phi. This is the second phase of
   /// vectorizing this phi node.
-  void fixReduction(PHINode *Phi);
+  void fixReduction(PHINode *Phi, VPTransformState &State);
 
   /// Clear NSW/NUW flags from reduction instructions if necessary.
   void clearReductionWrapFlags(RecurrenceDescriptor &RdxDesc);
@@ -656,7 +660,7 @@ protected:
   /// block as exiting edges from the scalar epilogue loop (if present) are
   /// already in place, and we exit the vector loop exclusively to the middle
   /// block.
-  void fixLCSSAPHIs();
+  void fixLCSSAPHIs(VPTransformState &State);
 
   /// Iteratively sink the scalarized operands of a predicated instruction into
   /// the block that was created for it.
@@ -3994,7 +3998,7 @@ void InnerLoopVectorizer::truncateToMinimalBitwidths() {
   }
 }
 
-void InnerLoopVectorizer::fixVectorizedLoop() {
+void InnerLoopVectorizer::fixVectorizedLoop(VPTransformState &State) {
   // Insert truncates and extends for any truncated instructions as hints to
   // InstCombine.
   if (VF.isVector())
@@ -4004,14 +4008,14 @@ void InnerLoopVectorizer::fixVectorizedLoop() {
   if (OrigPHIsToFix.size()) {
     assert(EnableVPlanNativePath &&
            "Unexpected non-induction PHIs for fixup in non VPlan-native path");
-    fixNonInductionPHIs();
+    fixNonInductionPHIs(State);
   }
 
   // At this point every instruction in the original loop is widened to a
   // vector form. Now we need to fix the recurrences in the loop. These PHI
   // nodes are currently empty because we did not want to introduce cycles.
   // This is the second stage of vectorizing recurrences.
-  fixCrossIterationPHIs();
+  fixCrossIterationPHIs(State);
 
   // Forget the original basic block.
   PSE.getSE()->forgetLoop(OrigLoop);
@@ -4022,7 +4026,7 @@ void InnerLoopVectorizer::fixVectorizedLoop() {
                  getOrCreateVectorTripCount(LI->getLoopFor(LoopVectorBody)),
                  IVEndValues[Entry.first], LoopMiddleBlock);
 
-  fixLCSSAPHIs();
+  fixLCSSAPHIs(State);
   for (Instruction *PI : PredicatedInstructions)
     sinkScalarOperands(&*PI);
 
@@ -4047,7 +4051,7 @@ void InnerLoopVectorizer::fixVectorizedLoop() {
       LI->getLoopFor(LoopScalarBody), VF.getKnownMinValue() * UF);
 }
 
-void InnerLoopVectorizer::fixCrossIterationPHIs() {
+void InnerLoopVectorizer::fixCrossIterationPHIs(VPTransformState &State) {
   // In order to support recurrences we need to be able to vectorize Phi nodes.
   // Phi nodes have cycles, so we need to vectorize them in two stages. This is
   // stage #2: We now need to fix the recurrences by adding incoming edges to
@@ -4057,13 +4061,14 @@ void InnerLoopVectorizer::fixCrossIterationPHIs() {
   for (PHINode &Phi : OrigLoop->getHeader()->phis()) {
     // Handle first-order recurrences and reductions that need to be fixed.
     if (Legal->isFirstOrderRecurrence(&Phi))
-      fixFirstOrderRecurrence(&Phi);
+      fixFirstOrderRecurrence(&Phi, State);
     else if (Legal->isReductionVariable(&Phi))
-      fixReduction(&Phi);
+      fixReduction(&Phi, State);
   }
 }
 
-void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi) {
+void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi,
+                                                  VPTransformState &State) {
   // This is the second phase of vectorizing first-order recurrences. An
   // overview of the transformation is described below. Suppose we have the
   // following loop.
@@ -4131,10 +4136,11 @@ void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi) {
         Builder.getInt32(VF.getKnownMinValue() - 1), "vector.recur.init");
   }
 
+  VPValue *PhiDef = State.Plan->getVPValue(Phi);
+  VPValue *PreviousDef = State.Plan->getVPValue(Previous);
   // We constructed a temporary phi node in the first phase of vectorization.
   // This phi node will eventually be deleted.
-  Builder.SetInsertPoint(
-      cast<Instruction>(VectorLoopValueMap.getVectorValue(Phi, 0)));
+  Builder.SetInsertPoint(cast<Instruction>(State.get(PhiDef, 0)));
 
   // Create a phi node for the new recurrence. The current value will either be
   // the initial value inserted into a vector or loop-varying vector value.
@@ -4143,7 +4149,7 @@ void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi) {
 
   // Get the vectorized previous value of the last part UF - 1. It appears last
   // among all unrolled iterations, due to the order of their construction.
-  Value *PreviousLastPart = getOrCreateVectorValue(Previous, UF - 1);
+  Value *PreviousLastPart = State.get(PreviousDef, UF - 1);
 
   // Find and set the insertion point after the previous value if it is an
   // instruction.
@@ -4181,15 +4187,15 @@ void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi) {
 
   // Shuffle the current and previous vector and update the vector parts.
   for (unsigned Part = 0; Part < UF; ++Part) {
-    Value *PreviousPart = getOrCreateVectorValue(Previous, Part);
-    Value *PhiPart = VectorLoopValueMap.getVectorValue(Phi, Part);
+    Value *PreviousPart = State.get(PreviousDef, Part);
+    Value *PhiPart = State.get(PhiDef, Part);
     auto *Shuffle =
         VF.isVector()
             ? Builder.CreateShuffleVector(Incoming, PreviousPart, ShuffleMask)
             : Incoming;
     PhiPart->replaceAllUsesWith(Shuffle);
     cast<Instruction>(PhiPart)->eraseFromParent();
-    VectorLoopValueMap.resetVectorValue(Phi, Part, Shuffle);
+    State.reset(PhiDef, Phi, Shuffle, Part);
     Incoming = PreviousPart;
   }
 
@@ -4220,7 +4226,7 @@ void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi) {
   // `Incoming`. This is analogous to the vectorized case above: extracting the
   // second last element when VF > 1.
   else if (UF > 1)
-    ExtractForPhiUsedOutsideLoop = getOrCreateVectorValue(Previous, UF - 2);
+    ExtractForPhiUsedOutsideLoop = State.get(PreviousDef, UF - 2);
 
   // Fix the initial value of the original recurrence in the scalar loop.
   Builder.SetInsertPoint(&*LoopScalarPreHeader->begin());
@@ -4248,7 +4254,7 @@ void InnerLoopVectorizer::fixFirstOrderRecurrence(PHINode *Phi) {
       LCSSAPhi.addIncoming(ExtractForPhiUsedOutsideLoop, LoopMiddleBlock);
 }
 
-void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
+void InnerLoopVectorizer::fixReduction(PHINode *Phi, VPTransformState &State) {
   // Get it's reduction variable descriptor.
   assert(Legal->isReductionVariable(Phi) &&
          "Unable to find the reduction variable");
@@ -4260,8 +4266,9 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
   setDebugLocFromInst(Builder, ReductionStartValue);
   bool IsInLoopReductionPhi = Cost->isInLoopReduction(Phi);
 
+  VPValue *LoopExitInstDef = State.Plan->getVPValue(LoopExitInst);
   // This is the vector-clone of the value that leaves the loop.
-  Type *VecTy = getOrCreateVectorValue(LoopExitInst, 0)->getType();
+  Type *VecTy = State.get(LoopExitInstDef, 0)->getType();
 
   // Wrap flags are in general invalid after vectorization, clear them.
   clearReductionWrapFlags(RdxDesc);
@@ -4274,8 +4281,8 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
   Value *LoopVal = Phi->getIncomingValueForBlock(Latch);
 
   for (unsigned Part = 0; Part < UF; ++Part) {
-    Value *VecRdxPhi = getOrCreateVectorValue(Phi, Part);
-    Value *Val = getOrCreateVectorValue(LoopVal, Part);
+    Value *VecRdxPhi = State.get(State.Plan->getVPValue(Phi), Part);
+    Value *Val = State.get(State.Plan->getVPValue(LoopVal), Part);
     cast<PHINode>(VecRdxPhi)
       ->addIncoming(Val, LI->getLoopFor(LoopVectorBody)->getLoopLatch());
   }
@@ -4294,8 +4301,7 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
   // be predicated, and does not need to be handled here.
   if (Cost->foldTailByMasking() && !IsInLoopReductionPhi) {
     for (unsigned Part = 0; Part < UF; ++Part) {
-      Value *VecLoopExitInst =
-          VectorLoopValueMap.getVectorValue(LoopExitInst, Part);
+      Value *VecLoopExitInst = State.get(LoopExitInstDef, Part);
       Value *Sel = nullptr;
       for (User *U : VecLoopExitInst->users()) {
         if (isa<SelectInst>(U)) {
@@ -4305,7 +4311,7 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
           assert(isa<PHINode>(U) && "Reduction exit must feed Phi's or select");
       }
       assert(Sel && "Reduction exit feeds no select");
-      VectorLoopValueMap.resetVectorValue(LoopExitInst, Part, Sel);
+      State.reset(LoopExitInstDef, LoopExitInst, Sel, Part);
 
       // If the target can create a predicated operator for the reduction at no
       // extra cost in the loop (for example a predicated vadd), it can be
@@ -4317,7 +4323,8 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
           TTI->preferPredicatedReductionSelect(
               RdxDesc.getOpcode(), Phi->getType(),
               TargetTransformInfo::ReductionFlags())) {
-        auto *VecRdxPhi = cast<PHINode>(getOrCreateVectorValue(Phi, Part));
+        auto *VecRdxPhi =
+            cast<PHINode>(State.get(State.Plan->getVPValue(Phi), Part));
         VecRdxPhi->setIncomingValueForBlock(
             LI->getLoopFor(LoopVectorBody)->getLoopLatch(), Sel);
       }
@@ -4335,7 +4342,7 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
         LI->getLoopFor(LoopVectorBody)->getLoopLatch()->getTerminator());
     VectorParts RdxParts(UF);
     for (unsigned Part = 0; Part < UF; ++Part) {
-      RdxParts[Part] = VectorLoopValueMap.getVectorValue(LoopExitInst, Part);
+      RdxParts[Part] = State.get(LoopExitInstDef, Part);
       Value *Trunc = Builder.CreateTrunc(RdxParts[Part], RdxVecTy);
       Value *Extnd = RdxDesc.isSigned() ? Builder.CreateSExt(Trunc, VecTy)
                                         : Builder.CreateZExt(Trunc, VecTy);
@@ -4351,12 +4358,12 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
     Builder.SetInsertPoint(&*LoopMiddleBlock->getFirstInsertionPt());
     for (unsigned Part = 0; Part < UF; ++Part) {
       RdxParts[Part] = Builder.CreateTrunc(RdxParts[Part], RdxVecTy);
-      VectorLoopValueMap.resetVectorValue(LoopExitInst, Part, RdxParts[Part]);
+      State.reset(LoopExitInstDef, LoopExitInst, RdxParts[Part], Part);
     }
   }
 
   // Reduce all of the unrolled parts into a single vector.
-  Value *ReducedPartRdx = VectorLoopValueMap.getVectorValue(LoopExitInst, 0);
+  Value *ReducedPartRdx = State.get(LoopExitInstDef, 0);
   unsigned Op = RecurrenceDescriptor::getOpcode(RK);
 
   // The middle block terminator has already been assigned a DebugLoc here (the
@@ -4372,7 +4379,7 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
     IRBuilderBase::FastMathFlagGuard FMFG(Builder);
     Builder.setFastMathFlags(RdxDesc.getFastMathFlags());
     for (unsigned Part = 1; Part < UF; ++Part) {
-      Value *RdxPart = VectorLoopValueMap.getVectorValue(LoopExitInst, Part);
+      Value *RdxPart = State.get(LoopExitInstDef, Part);
       if (Op != Instruction::ICmp && Op != Instruction::FCmp) {
         ReducedPartRdx = Builder.CreateBinOp(
             (Instruction::BinaryOps)Op, RdxPart, ReducedPartRdx, "bin.rdx");
@@ -4456,7 +4463,7 @@ void InnerLoopVectorizer::clearReductionWrapFlags(
   }
 }
 
-void InnerLoopVectorizer::fixLCSSAPHIs() {
+void InnerLoopVectorizer::fixLCSSAPHIs(VPTransformState &State) {
   for (PHINode &LCSSAPhi : LoopExitBlock->phis()) {
     if (LCSSAPhi.getBasicBlockIndex(LoopMiddleBlock) != -1)
       // Some phis were already hand updated by the reduction and recurrence
@@ -4477,7 +4484,10 @@ void InnerLoopVectorizer::fixLCSSAPHIs() {
     // extracted from the vectorized loop.
     Builder.SetInsertPoint(LoopMiddleBlock->getTerminator());
     Value *lastIncomingValue =
-        getOrCreateScalarValue(IncomingValue, VPIteration(UF - 1, LastLane));
+        OrigLoop->isLoopInvariant(IncomingValue)
+            ? IncomingValue
+            : State.get(State.Plan->getVPValue(IncomingValue),
+                        VPIteration(UF - 1, LastLane));
     LCSSAPhi.addIncoming(lastIncomingValue, LoopMiddleBlock);
   }
 }
@@ -4546,10 +4556,10 @@ void InnerLoopVectorizer::sinkScalarOperands(Instruction *PredInst) {
   } while (Changed);
 }
 
-void InnerLoopVectorizer::fixNonInductionPHIs() {
+void InnerLoopVectorizer::fixNonInductionPHIs(VPTransformState &State) {
   for (PHINode *OrigPhi : OrigPHIsToFix) {
     PHINode *NewPhi =
-        cast<PHINode>(VectorLoopValueMap.getVectorValue(OrigPhi, 0));
+        cast<PHINode>(State.get(State.Plan->getVPValue(OrigPhi), 0));
     unsigned NumIncomingValues = OrigPhi->getNumIncomingValues();
 
     SmallVector<BasicBlock *, 2> ScalarBBPredecessors(
@@ -7813,14 +7823,12 @@ void LoopVectorizationPlanner::executePlan(InnerLoopVectorizer &ILV,
   VPCallbackILV CallbackILV(ILV);
 
   assert(BestVF.hasValue() && "Vectorization Factor is missing");
+  assert(VPlans.size() == 1 && "Not a single VPlan to execute.");
 
-  VPTransformState State{*BestVF,
-                         BestUF,
-                         LI,
-                         DT,
-                         ILV.Builder,
-                         ILV.VectorLoopValueMap,
-                         &ILV,
+  VPTransformState State{*BestVF,     BestUF,
+                         LI,          DT,
+                         ILV.Builder, ILV.VectorLoopValueMap,
+                         &ILV,        VPlans.front().get(),
                          CallbackILV};
   State.CFG.PrevBB = ILV.createVectorizedLoopSkeleton();
   State.TripCount = ILV.getOrCreateTripCount(nullptr);
@@ -7837,12 +7845,11 @@ void LoopVectorizationPlanner::executePlan(InnerLoopVectorizer &ILV,
   //===------------------------------------------------===//
 
   // 2. Copy and widen instructions from the old loop into the new loop.
-  assert(VPlans.size() == 1 && "Not a single VPlan to execute.");
   VPlans.front()->execute(&State);
 
   // 3. Fix the vectorized code: take care of header phi's, live-outs,
   //    predication, updating analyses.
-  ILV.fixVectorizedLoop();
+  ILV.fixVectorizedLoop(State);
 
   ILV.printDebugTracesAtEnd();
 }
@@ -9326,6 +9333,12 @@ void VPTransformState::set(VPValue *Def, Value *IRDef, Value *V,
                            unsigned Part) {
   set(Def, V, Part);
   ILV->setVectorValue(IRDef, Part, V);
+}
+
+void VPTransformState::reset(VPValue *Def, Value *IRDef, Value *V,
+                             unsigned Part) {
+  set(Def, V, Part);
+  ILV->resetVectorValue(IRDef, Part, V);
 }
 
 Value *VPTransformState::get(VPValue *Def, unsigned Part) {
