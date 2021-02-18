@@ -1594,63 +1594,40 @@ BasicAAResult::aliasSelect(const SelectInst *SI, LocationSize SISize,
                            const AAMDNodes &SIAAInfo, const Value *V2,
                            LocationSize V2Size, const AAMDNodes &V2AAInfo,
                            AAQueryInfo &AAQI) {
+#if INTEL_CUSTOMIZATION
+  if (AAQI.NeedLoopCarried) {
+    // Disambiguating based on selects can potentially violate loopCarriedAlias
+    // semantics, so for now we exclude this logic.
+    return MayAlias;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // If the values are Selects with the same condition, we can do a more precise
   // check: just check for aliases between the values on corresponding arms.
   if (const SelectInst *SI2 = dyn_cast<SelectInst>(V2))
     if (SI->getCondition() == SI2->getCondition()) {
-#if INTEL_CUSTOMIZATION
-      AliasResult Alias;
-      if (AAQI.NeedLoopCarried)
-        Alias = getBestAAResults().loopCarriedAlias(
-            MemoryLocation(SI->getTrueValue(), SISize, SIAAInfo),
-            MemoryLocation(SI2->getTrueValue(), V2Size, V2AAInfo), AAQI);
-      else
-        Alias = getBestAAResults().alias(
-            MemoryLocation(SI->getTrueValue(), SISize, SIAAInfo),
-            MemoryLocation(SI2->getTrueValue(), V2Size, V2AAInfo), AAQI);
-#endif // INTEL_CUSTOMIZATION
+      AliasResult Alias = getBestAAResults().alias(
+          MemoryLocation(SI->getTrueValue(), SISize, SIAAInfo),
+          MemoryLocation(SI2->getTrueValue(), V2Size, V2AAInfo), AAQI);
       if (Alias == MayAlias)
         return MayAlias;
-#if INTEL_CUSTOMIZATION
-      AliasResult ThisAlias;
-      if (AAQI.NeedLoopCarried)
-        ThisAlias = getBestAAResults().loopCarriedAlias(
+      AliasResult ThisAlias = getBestAAResults().alias(
           MemoryLocation(SI->getFalseValue(), SISize, SIAAInfo),
           MemoryLocation(SI2->getFalseValue(), V2Size, V2AAInfo), AAQI);
-      else
-        ThisAlias = getBestAAResults().alias(
-            MemoryLocation(SI->getFalseValue(), SISize, SIAAInfo),
-            MemoryLocation(SI2->getFalseValue(), V2Size, V2AAInfo), AAQI);
-#endif // INTEL_CUSTOMIZATION
       return MergeAliasResults(ThisAlias, Alias);
     }
 
   // If both arms of the Select node NoAlias or MustAlias V2, then returns
   // NoAlias / MustAlias. Otherwise, returns MayAlias.
-#if INTEL_CUSTOMIZATION
-  AliasResult Alias;
-  if (AAQI.NeedLoopCarried)
-    Alias = getBestAAResults().loopCarriedAlias(
-        MemoryLocation(V2, V2Size, V2AAInfo),
-        MemoryLocation(SI->getTrueValue(), SISize, SIAAInfo), AAQI);
-  else
-    Alias = getBestAAResults().alias(
-        MemoryLocation(V2, V2Size, V2AAInfo),
-        MemoryLocation(SI->getTrueValue(), SISize, SIAAInfo), AAQI);
-#endif // INTEL_CUSTOMIZATION
+  AliasResult Alias = getBestAAResults().alias(
+      MemoryLocation(V2, V2Size, V2AAInfo),
+      MemoryLocation(SI->getTrueValue(), SISize, SIAAInfo), AAQI);
   if (Alias == MayAlias)
     return MayAlias;
-#if INTEL_CUSTOMIZATION
-  AliasResult ThisAlias;
-  if (AAQI.NeedLoopCarried)
-    ThisAlias = getBestAAResults().loopCarriedAlias(
-        MemoryLocation(V2, V2Size, V2AAInfo),
-        MemoryLocation(SI->getFalseValue(), SISize, SIAAInfo), AAQI);
-  else
-    ThisAlias = getBestAAResults().alias(
-        MemoryLocation(V2, V2Size, V2AAInfo),
-        MemoryLocation(SI->getFalseValue(), SISize, SIAAInfo), AAQI);
-#endif // INTEL_CUSTOMIZATION
+
+  AliasResult ThisAlias = getBestAAResults().alias(
+      MemoryLocation(V2, V2Size, V2AAInfo),
+      MemoryLocation(SI->getFalseValue(), SISize, SIAAInfo), AAQI);
   return MergeAliasResults(ThisAlias, Alias);
 }
 
