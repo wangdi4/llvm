@@ -25,14 +25,14 @@ define void @foo(i64 %N) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[DO_BODY2:%.*]]
 ; CHECK:       do.body2:
 ; CHECK-NEXT:    [[I_1:%.*]] = phi i64 [ [[INC3:%.*]], [[DO_BODY2]] ], [ 0, [[DO_BODY2_PREHEADER]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = add nuw i64 [[INC]], [[I_1]]
+; CHECK-NEXT:    [[TMP0:%.*]] = add{{.*}}i64 [[INC]], [[I_1]] ;INTEL
 ; CHECK-NEXT:    tail call void @goo(i64 [[I_1]], i64 [[TMP0]])
 ; CHECK-NEXT:    [[INC3]] = add nuw i64 [[I_1]], 1
 ; CHECK-NEXT:    [[T1:%.*]] = load i64, i64* @cond, align 8
 ; CHECK-NEXT:    [[TOBOOL6:%.*]] = icmp eq i64 [[T1]], 0
 ; CHECK-NEXT:    br i1 [[TOBOOL6]], label [[DO_BODY8_PREHEADER:%.*]], label [[DO_BODY2]]
 ; CHECK:       do.body8.preheader:
-; CHECK-NEXT:    [[TMP1:%.*]] = add nuw i64 [[INC]], [[INC3]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add{{.*}}i64 [[INC]], [[INC3]] ;INTEL
 ; CHECK-NEXT:    br label [[DO_BODY8:%.*]]
 ; CHECK:       do.body8:
 ; CHECK-NEXT:    [[I_2:%.*]] = phi i64 [ [[INC9:%.*]], [[DO_BODY8]] ], [ 0, [[DO_BODY8_PREHEADER]] ]
