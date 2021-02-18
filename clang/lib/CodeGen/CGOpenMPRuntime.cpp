@@ -9686,6 +9686,11 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         if (!*CV)
           continue;
         MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
+        // Generate correct mapping for variables captured by reference in
+        // lambdas.
+        if (CI->capturesVariable())
+          MEHandler.generateInfoForLambdaCaptures(CI->getCapturedVar(), *CV,
+                                                  CurInfo, LambdaPointers);
       }
       // Save the map argument's size of CombinedInfo.  This is used later
       // to determine if base map is added after call to emitCombinedEntry
@@ -9694,7 +9699,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         // The partial struct case requires two steps.  The step above generates
         // expressions for each partial piece.  The call to emitCombinedEntry
         // creates the base that covers all the pieces.
-        MEHandler.emitCombinedEntry(CombinedInfo, CurInfo.Types, PartialStruct);
+        MEHandler.emitCombinedEntry(CombinedInfo, CurInfo.Types, PartialStruct,
+                                    nullptr, /*NoTargetParam=*/false);
 
       const VarDecl *VD = nullptr;
       if (!CI->capturesThis())

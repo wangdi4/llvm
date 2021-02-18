@@ -72,7 +72,7 @@ void B::start()
 {
   // CHECK: [[L8:%[0-9]+]] = sdiv exact i64
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.B* %this1, double** %zoo, i64 [[L8]], i64 0
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.B* %this1, double** %zoo, i64 [[L8]], i64 32
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(double** %zoo, double* %arrayidx, i64 136, i64 281474976710675
   // CHECK-SAME: "QUAL.OMP.MAP.FROM:CHAIN"(double** %xoo, double* %arrayidx4, i64 48, i64 281474976710674
   #pragma omp target map(tofrom: zoo[7:17]) map(from: xoo[1:6])
@@ -101,7 +101,7 @@ void map_with_overlap_elems() {
 // CHECK: [[L16:%[0-9]+]] = getelementptr i32*, i32** %ptr1, i64 1
 // CHECK: [[L22:%[0-9]+]] = sdiv exact i64
 // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, {{.*}}, i64 0
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, {{.*}}, i64 32
 // CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, i64 [[L8]], i64 281474976710657
 // CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, i32** [[L9]], i64 [[L15]], i64 281474976710657
 // CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, i32** [[L16]], i64 [[L22]], i64 281474976710657
@@ -126,9 +126,9 @@ public:
     int *axx;
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** %axx, i32** %axx, i64 8, i64 33
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.Mapper* %this1, %class.AOO** %ptr4, i64 8, i64 547
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.Mapper* %this1, %class.AOO** %ptr{{.*}}, i64 8, i64 547
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** %pt3
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** %pt{{.*}} 
 #pragma omp target parallel for map(to:axx) reduction(+:pt[0:9])
     for (int i=0; i <20 ; i++) {
   // CHECK:load i32*, i32** %axx,
