@@ -1139,12 +1139,12 @@ int X86TTIImpl::getMatchingVectorVariant(
 }
 
 const char *X86TTIImpl::getISASetForIMLFunctions() const {
-  if (ST->hasAVX512())
+  if (ST->hasAVX512()) {
     if (getRegisterBitWidth(true) > 256)
       return "coreavx512";
     else
       return "coreavx512zmmlow";
-
+  }
   if (ST->hasAVX2())
     return "avx2";
 
