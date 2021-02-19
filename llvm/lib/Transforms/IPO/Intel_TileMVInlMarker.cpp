@@ -39,7 +39,7 @@ using namespace llvm::PatternMatch;
 // until the actual tiling is performed, as the inlining alone will produce
 // a performance regression.
 //
-static cl::opt<bool> TileCandidateMark("tile-candidate-mark", cl::init(false),
+static cl::opt<bool> TileCandidateMark("tile-candidate-mark", cl::init(true),
                                        cl::ReallyHidden);
 
 // Enable the optimization for testing purposes
