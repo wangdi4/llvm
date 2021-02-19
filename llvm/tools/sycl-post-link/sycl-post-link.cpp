@@ -791,14 +791,18 @@ static string_vector saveResultSymbolsLists(string_vector &ResSymbolsLists,
   return Res;
 }
 
+// TODO: This is temporary edit. The version with no INTEL flag
+// will be added to intel/llvm.
+#if INTEL_CUSTOMIZATION
 #define CHECK_AND_EXIT(E)                                                      \
   {                                                                            \
-    Error LocE = std::move(E);                                                 \
+    Error LocE = E;                                                            \
     if (LocE) {                                                                \
       logAllUnhandledErrors(std::move(LocE), WithColor::error(errs()));        \
       return 1;                                                                \
     }                                                                          \
   }
+#endif
 
 using TableFiles = std::map<StringRef, string_vector>;
 
