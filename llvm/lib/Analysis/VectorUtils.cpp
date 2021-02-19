@@ -808,7 +808,7 @@ bool llvm::isSVMLFunction(const TargetLibraryInfo *TLI, StringRef FnName,
 unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
                              const TargetLibraryInfo *TLI) {
   // Call can already be vectorized for current VF, pumping not needed.
-  if (TLI->isFunctionVectorizable(FnName, VF, IsMasked))
+  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VF), IsMasked))
     return 1;
 
   // TODO: Pumping is supported only for simple SVML functions.
@@ -820,7 +820,8 @@ unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
   // TODO: This filtering is temporary until we start supporting pumping feature
   // for SIMD functions with vector-variants.
   StringRef VecFnName =
-      TLI->getVectorizedFunction(FnName, 4 /*dummy VF*/, IsMasked);
+      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(4) /*dummy VF*/,
+                                 IsMasked);
   if (VecFnName.empty() || !isSVMLFunction(TLI, FnName, VecFnName))
     return 1;
 
@@ -830,7 +831,8 @@ unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
          "Pumping analysis is not supported for non-power of two VF.");
   unsigned LowerVF;
   for (LowerVF = VF / 2; LowerVF > 1; LowerVF /= 2) {
-    if (TLI->isFunctionVectorizable(FnName, LowerVF, IsMasked))
+    if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(LowerVF),
+                                    IsMasked))
       return VF / LowerVF;
   }
 
@@ -880,8 +882,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   // an intrinsic.
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant &&
-      !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
+  if (!TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VL)) &&
+      !ID && !VecVariant && !isOpenCLReadChannel(FnName) &&
+      !isOpenCLWriteChannel(FnName))
     return nullptr;
 
   Module *M = OrigF->getParent();
@@ -953,7 +956,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   // Generate a vector library call.
-  StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);
+  StringRef VFnName =
+      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(VL),
+                                 Masked);
   Function *VectorF = M->getFunction(VFnName);
   if (!VectorF) {
     // isFunctionVectorizable() returned true, so it is guaranteed that

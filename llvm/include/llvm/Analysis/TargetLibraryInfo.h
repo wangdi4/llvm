@@ -28,7 +28,7 @@ class Triple;
 struct VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
-  unsigned VectorizationFactor;
+  ElementCount VectorizationFactor;
 #if INTEL_CUSTOMIZATION
   bool Masked;
 #endif
@@ -169,7 +169,8 @@ public:
   /// factor VF and 'IsMasked' property. For any function 'F' \p true is
   /// returned if and only if a vector version for a particular VF
   /// and appropriate 'IsMasked' property exists.
-  bool isFunctionVectorizable(StringRef F, unsigned VF, bool IsMasked) const {
+  bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
+                              bool IsMasked) const {
     return !getVectorizedFunction(F, VF, IsMasked).empty();
   }
 
@@ -183,7 +184,7 @@ public:
 
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
-  StringRef getVectorizedFunction(StringRef F, unsigned VF,
+  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
                                   bool Masked = false) const; // INTEL
 
   /// Set to true iff i32 parameters to library functions should have signext
@@ -212,7 +213,8 @@ public:
 
   /// Returns the largest vectorization factor used in the list of
   /// vector functions.
-  unsigned getWidestVF(StringRef ScalarF) const;
+  void getWidestVF(StringRef ScalarF, ElementCount &FixedVF,
+                   ElementCount &Scalable) const;
 };
 
 /// Provides information about what library functions are available for
@@ -327,8 +329,9 @@ public:
   bool has(LibFunc F) const {
     return getState(F) != TargetLibraryInfoImpl::Unavailable;
   }
+
 #if INTEL_CUSTOMIZATION
-  bool isFunctionVectorizable(StringRef F, unsigned VF,
+  bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
                               bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
@@ -346,7 +349,7 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  StringRef getVectorizedFunction(StringRef F, unsigned VF,
+  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
                                   bool Masked=false) const { // INTEL
     return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
   }
@@ -442,8 +445,9 @@ public:
   }
   /// Returns the largest vectorization factor used in the list of
   /// vector functions.
-  unsigned getWidestVF(StringRef ScalarF) const {
-    return Impl->getWidestVF(ScalarF);
+  void getWidestVF(StringRef ScalarF, ElementCount &FixedVF,
+                   ElementCount &ScalableVF) const {
+    Impl->getWidestVF(ScalarF, FixedVF, ScalableVF);
   }
 
   /// Check if the function "F" is listed in a library known to LLVM.

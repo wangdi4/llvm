@@ -114,6 +114,7 @@ void LibmvecVariantsEmitter::emitLibmvecVariants(raw_ostream &OS) {
       Records.getAllDerivedDefinitions("LibmvecVariant");
 
   OS << "#ifdef GET_LIBMVEC_VARIANTS\n";
+  OS << "#define FIXED(NL) ElementCount::getFixed(NL)\n";
 
   for (auto LibmvecVariant : LibmvecVariants) {
     std::vector<Record*> ArgList =
@@ -131,22 +132,26 @@ void LibmvecVariantsEmitter::emitLibmvecVariants(raw_ostream &OS) {
         // math library call to non-masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "f" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", false},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", false},\n";
 
         // math library call to masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "f" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", true},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", true},\n";
 
         // llvm intrinsic to non-masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f32" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", false},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", false},\n";
 
         // llvm intrinsic to masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f32" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", true},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", true},\n";
       }
     }
 
@@ -157,22 +162,26 @@ void LibmvecVariantsEmitter::emitLibmvecVariants(raw_ostream &OS) {
         // math library call to non-masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", false},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", false},\n";
 
         // math library call to masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", true},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", true},\n";
 
         // llvm intrinsic to non-masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f64" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", false},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", false},\n";
 
         // llvm intrinsic to masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f64" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
-           << "_" << LibmvecVariantNameStr << "\", " << VL << ", true},\n";
+           << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
+           << ", true},\n";
       }
     }
   }

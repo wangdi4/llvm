@@ -1909,7 +1909,9 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // in the future if we need very clean outgoing vector code.
   Value *PumpPartMaskValue =
       generateExtractSubVector(MaskValue, PumpPart, PumpFactor, Builder);
-  StringRef VecFnName = TLI->getVectorizedFunction(FnName, PumpedVF, IsMasked);
+  StringRef VecFnName =
+      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(PumpedVF),
+                                 IsMasked);
   if (IsMasked && !VecFnName.empty() &&
       isSVMLFunction(TLI, FnName, VecFnName)) {
     addMaskToSVMLCall(F, PumpPartMaskValue, Attrs, VecArgs, VecArgTys,

@@ -5713,9 +5713,9 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
 #endif
 }
 
-
 StringRef
-TargetLibraryInfoImpl::getVectorizedFunction(StringRef F, unsigned VF,
+TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
+                                             const ElementCount &VF,
                                              bool Masked) const { // INTEL
   F = sanitizeFunctionName(F);
   if (F.empty())
@@ -5770,18 +5770,24 @@ char TargetLibraryInfoWrapperPass::ID = 0;
 
 void TargetLibraryInfoWrapperPass::anchor() {}
 
-unsigned TargetLibraryInfoImpl::getWidestVF(StringRef ScalarF) const {
+void TargetLibraryInfoImpl::getWidestVF(StringRef ScalarF,
+                                        ElementCount &FixedVF,
+                                        ElementCount &ScalableVF) const {
   ScalarF = sanitizeFunctionName(ScalarF);
+  // Use '0' here because a type of the form <vscale x 1 x ElTy> is not the
+  // same as a scalar.
+  ScalableVF = ElementCount::getScalable(0);
+  FixedVF = ElementCount::getFixed(1);
   if (ScalarF.empty())
-    return 1;
+    return;
 
-  unsigned VF = 1;
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, ScalarF, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == ScalarF) {
-    if (I->VectorizationFactor > VF)
-      VF = I->VectorizationFactor;
+    ElementCount *VF =
+        I->VectorizationFactor.isScalable() ? &ScalableVF : &FixedVF;
+    if (ElementCount::isKnownGT(I->VectorizationFactor, *VF))
+      *VF = I->VectorizationFactor;
     ++I;
   }
-  return VF;
 }
