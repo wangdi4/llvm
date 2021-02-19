@@ -37,6 +37,7 @@ config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
 # Propagate some variables from the host environment.
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
+llvm_config.with_system_environment(['TC_WRAPPER_PATH']) # INTEL_CUSTOMIZATION
 
 # Configure LD_LIBRARY_PATH or corresponding os-specific alternatives
 if platform.system() == "Linux":
