@@ -427,11 +427,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // buildInitialVPlan.
   // TODO: Add options to set MinVF and MaxVF.
   const unsigned MaxVF = 32;
-#if INTEL_CUSTOMIZATION
-  CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL, VLSA);
-#else
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL);
-#endif // INTEL_CUSTOMIZATION
   unsigned ScalarIterationCost = ScalarCM.getCost();
   ScalarIterationCost =
       ScalarIterationCost == CostModelTy::UnknownCost ? 0 : ScalarIterationCost;
