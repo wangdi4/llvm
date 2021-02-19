@@ -326,6 +326,12 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   if (!IsInnermostLoopDV) {
     LastLevel++;
     InnermostDV = DVKind::ALL;
+
+  } else if (InnermostDV == DVKind::NONE) {
+    // Ideally, we should treat NONE the same as EQ as either of them shouldn't
+    // prevent unroll & jam but NONE seems to be incorrectly derived using
+    // noalias metadata so we use conservative ALL DV.
+    InnermostDV = DVKind::ALL;
   }
 
   // 1. We can always permute these combinations-
