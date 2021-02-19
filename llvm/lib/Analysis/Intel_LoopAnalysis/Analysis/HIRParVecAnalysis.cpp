@@ -166,14 +166,21 @@ public:
 
 // Dumps bail-out messages when idiom recognition fails.
 struct MatchFail {
-  MatchFail(const char *IdiomName) : IdiomName(IdiomName) {}
+  MatchFail(const char *IdiomName)
+#ifndef NDEBUG
+    : IdiomName(IdiomName)
+#endif
+  {
+  }
   bool operator()(StringRef Reason) {
     LLVM_DEBUG(dbgs() << '[' << IdiomName << "] Skipped: " << Reason << '\n');
     return false;
   }
 
 private:
+#ifndef NDEBUG
   const char *IdiomName;
+#endif
 };
 
 } // unnamed namespace

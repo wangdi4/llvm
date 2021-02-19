@@ -873,6 +873,8 @@ public:
     // Callback method for when a safety flag is set to report the ValueTypeInfo
     // object for the value and store operands of the StoreInst.
     auto DumpCallback = [ValInfo, PtrInfo]() {
+                         (void)ValInfo;
+                         (void)PtrInfo;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       dbgs() << "  Value op info:\n";
       if (ValInfo)
@@ -2005,6 +2007,8 @@ public:
       // set, and debug trace filtering is enabled for the function being
       // analyzed.
       auto DumpCallback = [Param, ArgNum]() {
+                           (void)Param;
+                           (void)ArgNum;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         dbgs() << "  Arg#" << ArgNum << ": " << *Param << "\n";
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -3660,6 +3664,7 @@ private:
           FieldBaseTy = FieldBaseTy->getPointerElementType();
         dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
         if (!FieldTI->testSafetyData(Data)) {
+          (void)BaseTy;
           DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
             dbgs()
                 << "dtrans-safety: Cascading pointer carried safety condition: "

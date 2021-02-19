@@ -10713,6 +10713,7 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
 bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   auto Exiter = [FunctionName = __FUNCTION__, W](bool Changed) {
     W->resetBBSetIfChanged(Changed);
+    (void)FunctionName;
     LLVM_DEBUG(dbgs() << FunctionName << ": finished loops collapsing\n");
     return Changed;
   };

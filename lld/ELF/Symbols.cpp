@@ -566,6 +566,60 @@ static int compareVersion(StringRef a, StringRef b) {
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
+// This is a helper function for Symbol::compare. It checks if the input
+// symbols are associated with a "gnu.linkonce.". Return:
+//   0 := let the linker decide which resolution will be used
+//   1 := use the resolution from newSym
+//  -1 := use the resolution from oldSym
+static int compareGNULinkOnce(const Symbol *oldSym, const Symbol *newSym) {
+
+  // Collect the input file associated with the symbols and
+  // check if there is a "gnu.linkonce." section associated
+  // with the symbol name.
+  auto getLinkOnceSection = [](const Symbol *sym) -> SectionBase * {
+    if (!sym)
+      return nullptr;
+
+    InputFile *file = sym->file;
+    if (!file)
+      return nullptr;
+
+    // If the symbol already has a ".gnu.linkonce." section associated
+    // with it, then use it.
+    if (auto *def = dyn_cast<Defined>(sym))
+      if (def->section && def->section->name.startswith(".gnu.linkonce."))
+        return def->section;
+
+    // Else, check if we can find the ".gnu.linkonce." section from the
+    // input file
+    return dyn_cast_or_null<SectionBase>(
+        file->getGNULinkOnceSectionForSymbol(sym));
+  };
+
+  // Name mismatch
+  if (oldSym->getName() != newSym->getName())
+    return 0;
+
+  // Check if we can find a ".gnu.linkonce." section associated
+  // with the input symbol
+  auto oldLinkOnceSec = getLinkOnceSection(oldSym);
+  auto newLinkOnceSec = getLinkOnceSection(newSym);
+
+  // Neither symbol has a "linkonce" section, let the linker decide
+  if (!oldLinkOnceSec && !newLinkOnceSec)
+    return 0;
+  // Both symbols use the same file and section, keep the old one
+  else if (oldLinkOnceSec == newLinkOnceSec)
+    return -1;
+  // We found the "linkonce" section for the old symbol, keep the old one
+  else if (oldLinkOnceSec)
+    return -1;
+  // "linkonce" section found for new, keep the new one
+  return 1;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Compare two symbols. Return 1 if the new symbol should win, -1 if
 // the new symbol should lose, or 0 if there is a conflict.
 int Symbol::compare(const Symbol *other) const {
@@ -573,6 +627,14 @@ int Symbol::compare(const Symbol *other) const {
 
   if (!isDefined() && !isCommon())
     return 1;
+
+#if INTEL_CUSTOMIZATION
+  // Check if the current symbol (*this) and the input symbol (other)
+  // are associated with a "gnu.linkonce.t" section
+  int cmpGNU = compareGNULinkOnce(this, other);
+  if (cmpGNU != 0)
+    return cmpGNU;
+#endif // INTEL_CUSTOMIZATION
 
   if (int cmp = compareVersion(getName(), other->getName()))
     return cmp;

@@ -451,7 +451,11 @@ void ArrayUseInfo::print(raw_ostream &OS) const {
 #endif
 
 ArrayUse::ArrayUse(Function &F, LoopInfo &LI, ScalarEvolution &SE)
-: F(F), LI(LI), SE(SE), ArrayUseMap(std::make_unique<ArrayUse::ArrayMapTy>()) {
+:
+#ifndef NDEBUG
+  F(F),
+#endif
+  LI(LI), SE(SE), ArrayUseMap(std::make_unique<ArrayUse::ArrayMapTy>()) {
 }
 
 ArrayRangeInfo ArrayUse::getRangeUse(Instruction &I) const {

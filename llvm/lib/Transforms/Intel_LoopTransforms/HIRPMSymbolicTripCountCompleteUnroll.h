@@ -167,7 +167,9 @@ typedef SmallVector<HLNode *, 16> NodeVecTy;
 class HIRPMSymbolicTripCountCompleteUnroll {
 
 private:
+#ifndef NDEBUG
   HIRFramework &HIRF;
+#endif
   const TargetTransformInfo &TTI;
   HIRDDAnalysis &HDDA;
   HLNodeUtils &HNU;
@@ -194,7 +196,11 @@ public:
   HIRPMSymbolicTripCountCompleteUnroll(HIRFramework &HIRF,
                                        const TargetTransformInfo &TTI,
                                        HIRDDAnalysis &HDDA)
-      : HIRF(HIRF), TTI(TTI), HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
+      :
+#ifndef NDEBUG
+    HIRF(HIRF),
+#endif
+    TTI(TTI), HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
 
   bool run();
 

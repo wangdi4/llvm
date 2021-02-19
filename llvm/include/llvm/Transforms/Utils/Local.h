@@ -358,9 +358,24 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
       return BasePtr;
     }
 
-    SmallVector<Value *, 2> Offsets(
-        IndexLevel - 1, ConstantInt::get(ElementOffset->getType(), 0));
-    Offsets.push_back(ElementOffset);
+    SmallVector<Value *, 8> Offsets(
+        IndexLevel, ConstantInt::get(ElementOffset->getType(), 0));
+
+    // Merge new gep with base gep if possible.
+    if (auto *BaseGep = dyn_cast<GetElementPtrInst>(BasePtr)) {
+      if (BaseGep->use_empty() && IndexLevel != 1) {
+
+        Offsets.resize(BaseGep->getNumOperands());
+        for (int I = 1, E = BaseGep->getNumOperands(); I < E; ++I) {
+          Offsets[I - 1] = BaseGep->getOperand(I);
+        }
+
+        BasePtr = BaseGep->getPointerOperand();
+        BaseGep->eraseFromParent();
+      }
+    }
+
+    Offsets.back() = ElementOffset;
 
     return InBounds ? Builder->CreateInBoundsGEP(BasePtr, Offsets)
                     : Builder->CreateGEP(BasePtr, Offsets);

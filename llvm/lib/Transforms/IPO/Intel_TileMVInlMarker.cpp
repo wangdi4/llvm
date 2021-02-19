@@ -1614,6 +1614,7 @@ void TileMVInlMarker::simplifyConditionals(Function &F) {
     bool Sense = false;
     if (!HasProvableBranch(IC, ICN, Direction, Sense))
       return false;
+    (void)this;
     LLVM_DEBUG({
       dbgs() << "TMVINL: Testing     ";
       IC->dump();

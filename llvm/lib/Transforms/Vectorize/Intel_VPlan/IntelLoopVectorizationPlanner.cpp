@@ -137,9 +137,6 @@ static cl::opt<bool>
     PrintAfterEvaluator("vplan-print-after-evaluator", cl::init(false),
                         cl::Hidden, cl::desc("Print VPlan after evaluator."));
 
-#else
-static constexpr bool PrintAfterCallVecDecisionsOpt = false;
-static constexpr bool PrintSVAResultsOpt = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {

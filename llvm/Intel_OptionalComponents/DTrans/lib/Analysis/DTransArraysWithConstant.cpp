@@ -998,6 +998,7 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
   // This function wipes all the data in case we find something that
   // we can't handle at the moment.
   auto DisableAll = [&StructsWithConstArrays, I]() {
+    (void)I;
     for (auto StructData : StructsWithConstArrays) {
       StructData.second->clean();
       delete StructData.second;
