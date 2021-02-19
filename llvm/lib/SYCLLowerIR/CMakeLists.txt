@@ -18,17 +18,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
 
     message(STATUS "vc-intrinsics are missing. Will try to download them from ${LLVMGenXIntrinsics_GIT_REPO} ") #INTEL_CUSTOMIZATION
     include(FetchContent)
-    if(INTEL_CUSTOMIZATION)
-      FetchContent_Declare(vc-intrinsics
-        GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
-        GIT_TAG        80211c5bd0504fe8ddfbc9a32122df7ebc38dffb
-      )
-    else(INTEL_CUSTOMIZATION)
-      FetchContent_Declare(vc-intrinsics
-        GIT_REPOSITORY https://github.com/intel/vc-intrinsics.git
-        GIT_TAG        80211c5bd0504fe8ddfbc9a32122df7ebc38dffb
-      )
-    endif(INTEL_CUSTOMIZATION)
+    FetchContent_Declare(vc-intrinsics
+      GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
+      GIT_TAG         dbb67dfb9802fa0e5d7abffc59b5976295f1e87c
+    )
     FetchContent_MakeAvailable(vc-intrinsics)
     FetchContent_GetProperties(vc-intrinsics)
 
@@ -81,3 +74,10 @@ add_llvm_component_library(LLVMSYCLLowerIR
 target_include_directories(LLVMSYCLLowerIR
   PRIVATE ${LLVM_MAIN_SRC_DIR}/projects/vc-intrinsics/GenXIntrinsics/include
   PRIVATE ${LLVM_BINARY_DIR}/projects/vc-intrinsics/GenXIntrinsics/include)
+
+## Remove the Werror for external component GenXIntrinsics.
+if(MSVC)
+  target_compile_options(LLVMGenXIntrinsics  PRIVATE "-WX-")
+else()
+  target_compile_options(LLVMGenXIntrinsics  PRIVATE "-Wno-error")
+endif()
