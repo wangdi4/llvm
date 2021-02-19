@@ -119,9 +119,11 @@ const char *PASS_NAME = PASS_NAME_STR;
 const char *PASS_DESC =
     "clone functions in call trees specializing by constant parameter sets of "
     "the calls at the top of the tree";
+#ifndef NDEBUG
 const StringRef CTCSectionName = "Call-Tree Cloning";
 const StringRef PPSectionName = "Post Processing";
 const StringRef MVSectionName = "MultiVersioning";
+#endif
 } // namespace
 
 #define DEBUG_TYPE PASS_NAME_STR
