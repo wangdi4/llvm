@@ -67,7 +67,7 @@ using namespace llvm;
 
 // Option to enable DopeVector Hoist.
 static cl::opt<bool>
-    DopeVectorHoistEnable("dopevector-hoist-enable", cl::init(false), cl::Hidden,
+    DopeVectorHoistEnable("dopevector-hoist-enable", cl::init(true), cl::Hidden,
                           cl::desc("Enable DopeVector Hoist."));
 
 // Max limit: DopeVectorHoist is not triggered if number of new loads
