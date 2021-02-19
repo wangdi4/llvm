@@ -389,7 +389,7 @@ template <typename T> static T extractForwardValue(T KeyPath) {
 
 template <typename T, typename U, U Value>
 static T extractMaskValue(T KeyPath) {
-  return ((KeyPath & Value) == Value) ? Value : T();
+  return ((KeyPath & Value) == Value) ? static_cast<T>(Value) : T();
 }
 
 #define PARSE_OPTION_WITH_MARSHALLING(ARGS, DIAGS, SUCCESS, ID, FLAGS, PARAM,  \
@@ -2015,22 +2015,80 @@ bool CompilerInvocation::ParseCodeGenArgs(
       Res, Args, Diags, "CodeGenOptions");
 }
 
-static void ParseDependencyOutputArgs(DependencyOutputOptions &Opts,
-                                      ArgList &Args) {
-  Opts.DependencyFilter =
+static void
+GenerateDependencyOutputArgs(const DependencyOutputOptions &Opts,
+                             SmallVectorImpl<const char *> &Args,
+                             CompilerInvocation::StringAllocator SA) {
+  const DependencyOutputOptions &DependencyOutputOpts = Opts;
+#define DEPENDENCY_OUTPUT_OPTION_WITH_MARSHALLING(                             \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
+    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
+    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
+  GENERATE_OPTION_WITH_MARSHALLING(                                            \
+      Args, SA, KIND, FLAGS, SPELLING, ALWAYS_EMIT, KEYPATH, DEFAULT_VALUE,    \
+      IMPLIED_CHECK, IMPLIED_VALUE, DENORMALIZER, EXTRACTOR, TABLE_INDEX)
+#include "clang/Driver/Options.inc"
+#undef DEPENDENCY_OUTPUT_OPTION_WITH_MARSHALLING
+
+  if (Opts.ShowIncludesDest != ShowIncludesDestination::None)
+    GenerateArg(Args, OPT_show_includes, SA);
+
+  for (const auto &Dep : Opts.ExtraDeps) {
+    switch (Dep.second) {
+    case EDK_SanitizeBlacklist:
+      // Sanitizer blacklist arguments are generated from LanguageOptions.
+      continue;
+    case EDK_ModuleFile:
+      // Module file arguments are generated from FrontendOptions and
+      // HeaderSearchOptions.
+      continue;
+    case EDK_ProfileList:
+      GenerateArg(Args, OPT_fprofile_list_EQ, Dep.first, SA);
+      break;
+    case EDK_DepFileEntry:
+      GenerateArg(Args, OPT_fdepfile_entry, Dep.first, SA);
+      break;
+    }
+  }
+}
+
+static bool ParseDependencyOutputArgsImpl(
+    DependencyOutputOptions &Opts, ArgList &Args,
+    DiagnosticsEngine &Diags,
+    frontend::ActionKind Action, bool ShowLineMarkers) {
+    Opts.DependencyFilter =
       std::string(Args.getLastArgValue(OPT_dependency_filter));
   Opts.Targets = Args.getAllArgValues(OPT_MT);
+
+  unsigned NumErrorsBefore = Diags.getNumErrors();
+  bool Success = true;
+
+  DependencyOutputOptions &DependencyOutputOpts = Opts;
+#define DEPENDENCY_OUTPUT_OPTION_WITH_MARSHALLING(                             \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
+    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
+    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
+  PARSE_OPTION_WITH_MARSHALLING(Args, Diags, Success, ID, FLAGS, PARAM,        \
+                                SHOULD_PARSE, KEYPATH, DEFAULT_VALUE,          \
+                                IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER,      \
+                                MERGER, TABLE_INDEX)
+#include "clang/Driver/Options.inc"
+#undef DEPENDENCY_OUTPUT_OPTION_WITH_MARSHALLING
+
   if (Args.hasArg(OPT_show_includes)) {
     // Writing both /showIncludes and preprocessor output to stdout
     // would produce interleaved output, so use stderr for /showIncludes.
     // This behaves the same as cl.exe, when /E, /EP or /P are passed.
-    if (Args.hasArg(options::OPT_E) || Args.hasArg(options::OPT_P))
+    if (Action == frontend::PrintPreprocessedInput || !ShowLineMarkers)
       Opts.ShowIncludesDest = ShowIncludesDestination::Stderr;
     else
       Opts.ShowIncludesDest = ShowIncludesDestination::Stdout;
   } else {
     Opts.ShowIncludesDest = ShowIncludesDestination::None;
   }
+
   // Add sanitizer blacklists as extra dependencies.
   // They won't be discovered by the regular preprocessor, so
   // we let make / ninja to know about this implicit dependency.
@@ -2038,32 +2096,84 @@ static void ParseDependencyOutputArgs(DependencyOutputOptions &Opts,
     for (const auto *A : Args.filtered(OPT_fsanitize_blacklist)) {
       StringRef Val = A->getValue();
       if (Val.find('=') == StringRef::npos)
-        Opts.ExtraDeps.push_back(std::string(Val));
+        Opts.ExtraDeps.emplace_back(std::string(Val), EDK_SanitizeBlacklist);
     }
     if (Opts.IncludeSystemHeaders) {
       for (const auto *A : Args.filtered(OPT_fsanitize_system_blacklist)) {
         StringRef Val = A->getValue();
         if (Val.find('=') == StringRef::npos)
-          Opts.ExtraDeps.push_back(std::string(Val));
+          Opts.ExtraDeps.emplace_back(std::string(Val), EDK_SanitizeBlacklist);
       }
     }
   }
 
   // -fprofile-list= dependencies.
   for (const auto &Filename : Args.getAllArgValues(OPT_fprofile_list_EQ))
-    Opts.ExtraDeps.push_back(Filename);
+    Opts.ExtraDeps.emplace_back(Filename, EDK_ProfileList);
 
   // Propagate the extra dependencies.
-  for (const auto *A : Args.filtered(OPT_fdepfile_entry)) {
-    Opts.ExtraDeps.push_back(A->getValue());
-  }
+  for (const auto *A : Args.filtered(OPT_fdepfile_entry))
+    Opts.ExtraDeps.emplace_back(A->getValue(), EDK_DepFileEntry);
 
   // Only the -fmodule-file=<file> form.
   for (const auto *A : Args.filtered(OPT_fmodule_file)) {
     StringRef Val = A->getValue();
     if (Val.find('=') == StringRef::npos)
-      Opts.ExtraDeps.push_back(std::string(Val));
+      Opts.ExtraDeps.emplace_back(std::string(Val), EDK_ModuleFile);
   }
+
+  return Success && Diags.getNumErrors() == NumErrorsBefore;
+}
+
+static bool ParseDependencyOutputArgs(CompilerInvocation &Res,
+                                      DependencyOutputOptions &Opts,
+                                      ArgList &Args, DiagnosticsEngine &Diags,
+                                      frontend::ActionKind Action,
+                                      bool ShowLineMarkers) {
+  DependencyOutputOptions DummyOpts;
+
+  return RoundTrip(
+      [Action, ShowLineMarkers](CompilerInvocation &Res, ArgList &Args,
+                                DiagnosticsEngine &Diags) {
+        return ParseDependencyOutputArgsImpl(Res.getDependencyOutputOpts(),
+                                             Args, Diags, Action,
+                                             ShowLineMarkers);
+      },
+      [&Args](CompilerInvocation &Res,
+              SmallVectorImpl<const char *> &GeneratedArgs,
+              CompilerInvocation::StringAllocator SA) {
+        GenerateDependencyOutputArgs(Res.getDependencyOutputOpts(),
+                                     GeneratedArgs, SA);
+        // We're querying sanitizer blacklist and module file arguments, but
+        // they are generated from LanguageOptions and HeaderSearchOptions.
+        // Let's satisfy RoundTrip by generating them ourselves for now.
+        if (!Args.hasArg(OPT_fno_sanitize_blacklist)) {
+          for (const auto *A : Args.filtered(OPT_fsanitize_blacklist)) {
+            StringRef Val = A->getValue();
+            if (Val.find('=') == StringRef::npos)
+              GenerateArg(GeneratedArgs, OPT_fsanitize_blacklist, Val, SA);
+          }
+          if (Res.getDependencyOutputOpts().IncludeSystemHeaders) {
+            for (const auto *A :
+                 Args.filtered(OPT_fsanitize_system_blacklist)) {
+              StringRef Val = A->getValue();
+              if (Val.find('=') == StringRef::npos)
+                GenerateArg(GeneratedArgs, OPT_fsanitize_system_blacklist, Val,
+                            SA);
+            }
+          }
+        }
+
+        for (const auto *A : Args.filtered(OPT_fmodule_file)) {
+          StringRef Val = A->getValue();
+          if (Val.find('=') == StringRef::npos)
+            GenerateArg(GeneratedArgs, OPT_fmodule_file, Val, SA);
+        }
+      },
+      [&DummyOpts](CompilerInvocation &Res) {
+        std::swap(Res.getDependencyOutputOpts(), DummyOpts);
+      },
+      Res, Args, Diags, "DependencyOutputOptions");
 }
 
 static bool parseShowColorsArgs(const ArgList &Args, bool DefaultColor) {
@@ -4466,19 +4576,116 @@ static bool ParsePreprocessorArgs(CompilerInvocation &Res,
                    "PreprocessorOptions");
 }
 
-static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
-                                        ArgList &Args,
-                                        frontend::ActionKind Action) {
-  if (isStrictlyPreprocessorAction(Action))
-    Opts.ShowCPP = !Args.hasArg(OPT_dM);
-  else
-    Opts.ShowCPP = 0;
+static void GeneratePreprocessorOutputArgs(
+    const PreprocessorOutputOptions &Opts, SmallVectorImpl<const char *> &Args,
+    CompilerInvocation::StringAllocator SA, frontend::ActionKind Action) {
+  const PreprocessorOutputOptions &PreprocessorOutputOpts = Opts;
 
-  Opts.ShowMacros = Args.hasArg(OPT_dM) || Args.hasArg(OPT_dD);
+#define PREPROCESSOR_OUTPUT_OPTION_WITH_MARSHALLING(                           \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
+    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
+    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
+  GENERATE_OPTION_WITH_MARSHALLING(                                            \
+      Args, SA, KIND, FLAGS, SPELLING, ALWAYS_EMIT, KEYPATH, DEFAULT_VALUE,    \
+      IMPLIED_CHECK, IMPLIED_VALUE, DENORMALIZER, EXTRACTOR, TABLE_INDEX)
+#include "clang/Driver/Options.inc"
+#undef PREPROCESSOR_OUTPUT_OPTION_WITH_MARSHALLING
+
+  bool Generate_dM = isStrictlyPreprocessorAction(Action) && !Opts.ShowCPP;
+  if (Generate_dM)
+    GenerateArg(Args, OPT_dM, SA);
+  if (!Generate_dM && Opts.ShowMacros)
+    GenerateArg(Args, OPT_dD, SA);
 }
 
-static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
-                            DiagnosticsEngine &Diags) {
+static bool ParsePreprocessorOutputArgsImpl(PreprocessorOutputOptions &Opts,
+                                            ArgList &Args,
+                                            DiagnosticsEngine &Diags,
+                                            frontend::ActionKind Action) {
+  PreprocessorOutputOptions &PreprocessorOutputOpts = Opts;
+  unsigned NumErrorsBefore = Diags.getNumErrors();
+  bool Success = true;
+
+#define PREPROCESSOR_OUTPUT_OPTION_WITH_MARSHALLING(                           \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
+    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
+    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
+  PARSE_OPTION_WITH_MARSHALLING(Args, Diags, Success, ID, FLAGS, PARAM,        \
+                                SHOULD_PARSE, KEYPATH, DEFAULT_VALUE,          \
+                                IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER,      \
+                                MERGER, TABLE_INDEX)
+#include "clang/Driver/Options.inc"
+#undef PREPROCESSOR_OUTPUT_OPTION_WITH_MARSHALLING
+
+  Opts.ShowCPP = isStrictlyPreprocessorAction(Action) && !Args.hasArg(OPT_dM);
+  Opts.ShowMacros = Args.hasArg(OPT_dM) || Args.hasArg(OPT_dD);
+
+  return Success && Diags.getNumErrors() == NumErrorsBefore;
+}
+
+static bool ParsePreprocessorOutputArgs(CompilerInvocation &Res,
+                                        PreprocessorOutputOptions &Opts,
+                                        ArgList &Args, DiagnosticsEngine &Diags,
+                                        frontend::ActionKind Action) {
+  PreprocessorOutputOptions DummyOpts;
+
+  return RoundTrip(
+      [Action](CompilerInvocation &Res, ArgList &Args,
+               DiagnosticsEngine &Diags) {
+        return ParsePreprocessorOutputArgsImpl(Res.getPreprocessorOutputOpts(),
+                                               Args, Diags, Action);
+      },
+      [Action](CompilerInvocation &Res, SmallVectorImpl<const char *> &Args,
+               CompilerInvocation::StringAllocator SA) {
+        GeneratePreprocessorOutputArgs(Res.getPreprocessorOutputOpts(), Args,
+                                       SA, Action);
+      },
+      [&DummyOpts](CompilerInvocation &Res) {
+        std::swap(DummyOpts, Res.getPreprocessorOutputOpts());
+      },
+      Res, Args, Diags, "PreprocessorOutputOptions");
+}
+
+static void GenerateTargetArgs(const TargetOptions &Opts,
+                               SmallVectorImpl<const char *> &Args,
+                               CompilerInvocation::StringAllocator SA) {
+  const TargetOptions *TargetOpts = &Opts;
+#define TARGET_OPTION_WITH_MARSHALLING(                                        \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
+    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
+    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
+  GENERATE_OPTION_WITH_MARSHALLING(                                            \
+      Args, SA, KIND, FLAGS, SPELLING, ALWAYS_EMIT, KEYPATH, DEFAULT_VALUE,    \
+      IMPLIED_CHECK, IMPLIED_VALUE, DENORMALIZER, EXTRACTOR, TABLE_INDEX)
+#include "clang/Driver/Options.inc"
+#undef TARGET_OPTION_WITH_MARSHALLING
+
+  if (!Opts.SDKVersion.empty())
+    GenerateArg(Args, OPT_target_sdk_version_EQ, Opts.SDKVersion.getAsString(),
+                SA);
+}
+
+static bool ParseTargetArgsImpl(TargetOptions &Opts, ArgList &Args,
+                                DiagnosticsEngine &Diags) {
+  TargetOptions *TargetOpts = &Opts;
+  unsigned NumErrorsBefore = Diags.getNumErrors();
+  bool Success = true;
+
+#define TARGET_OPTION_WITH_MARSHALLING(                                        \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
+    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
+    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
+  PARSE_OPTION_WITH_MARSHALLING(Args, Diags, Success, ID, FLAGS, PARAM,        \
+                                SHOULD_PARSE, KEYPATH, DEFAULT_VALUE,          \
+                                IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER,      \
+                                MERGER, TABLE_INDEX)
+#include "clang/Driver/Options.inc"
+#undef TARGET_OPTION_WITH_MARSHALLING
+
   if (Arg *A = Args.getLastArg(options::OPT_target_sdk_version_EQ)) {
     llvm::VersionTuple Version;
     if (Version.tryParse(A->getValue()))
@@ -4487,6 +4694,27 @@ static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
     else
       Opts.SDKVersion = Version;
   }
+
+  return Success && Diags.getNumErrors() == NumErrorsBefore;
+}
+
+static bool ParseTargetArgs(CompilerInvocation &Res, TargetOptions &Opts,
+                            ArgList &Args, DiagnosticsEngine &Diags) {
+  auto DummyOpts = std::make_shared<TargetOptions>();
+
+  return RoundTrip(
+      [](CompilerInvocation &Res, ArgList &Args,
+                    DiagnosticsEngine &Diags) {
+        return ParseTargetArgsImpl(Res.getTargetOpts(), Args, Diags);
+      },
+      [](CompilerInvocation &Res, SmallVectorImpl<const char *> &GeneratedArgs,
+         CompilerInvocation::StringAllocator SA) {
+        GenerateTargetArgs(Res.getTargetOpts(), GeneratedArgs, SA);
+      },
+      [&DummyOpts](CompilerInvocation &Res) {
+        Res.TargetOpts.swap(DummyOpts);
+      },
+      Res, Args, Diags, "TargetArgs");
 }
 
 bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
@@ -4525,19 +4753,13 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   Success &= Res.parseSimpleArgs(Args, Diags);
 
   Success &= ParseAnalyzerArgs(Res, *Res.getAnalyzerOpts(), Args, Diags);
-  ParseDependencyOutputArgs(Res.getDependencyOutputOpts(), Args);
-  if (!Res.getDependencyOutputOpts().OutputFile.empty() &&
-      Res.getDependencyOutputOpts().Targets.empty()) {
-    Diags.Report(diag::err_fe_dependency_file_requires_MT);
-    Success = false;
-  }
   Success &= ParseDiagnosticArgs(Res.getDiagnosticOpts(), Args, &Diags,
                                  /*DefaultDiagColor=*/false);
   Success &= ParseFrontendArgs(Res, Res.getFrontendOpts(), Args, Diags,
                                LangOpts.IsHeaderFile);
   // FIXME: We shouldn't have to pass the DashX option around here
   InputKind DashX = Res.getFrontendOpts().DashX;
-  ParseTargetArgs(Res.getTargetOpts(), Args, Diags);
+  ParseTargetArgs(Res, Res.getTargetOpts(), Args, Diags);
   llvm::Triple T(Res.getTargetOpts().Triple);
   ParseHeaderSearchArgs(Res, Res.getHeaderSearchOpts(), Args, Diags,
                         Res.getFileSystemOpts().WorkingDir);
@@ -4603,8 +4825,17 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
   ParsePreprocessorArgs(Res, Res.getPreprocessorOpts(), Args, Diags,
                         Res.getFrontendOpts().ProgramAction,
                         Res.getFrontendOpts());
-  ParsePreprocessorOutputArgs(Res.getPreprocessorOutputOpts(), Args,
+  ParsePreprocessorOutputArgs(Res, Res.getPreprocessorOutputOpts(), Args, Diags,
                               Res.getFrontendOpts().ProgramAction);
+
+  ParseDependencyOutputArgs(Res, Res.getDependencyOutputOpts(), Args, Diags,
+                            Res.getFrontendOpts().ProgramAction,
+                            Res.getPreprocessorOutputOpts().ShowLineMarkers);
+  if (!Res.getDependencyOutputOpts().OutputFile.empty() &&
+      Res.getDependencyOutputOpts().Targets.empty()) {
+    Diags.Report(diag::err_fe_dependency_file_requires_MT);
+    Success = false;
+  }
 
   // Turn on -Wspir-compat for SPIR target.
   if (T.isSPIR())
@@ -4762,12 +4993,16 @@ void CompilerInvocation::generateCC1CommandLine(
 
   GenerateAnalyzerArgs(*AnalyzerOpts, Args, SA);
   GenerateFrontendArgs(FrontendOpts, Args, SA, LangOpts->IsHeaderFile);
+  GenerateTargetArgs(*TargetOpts, Args, SA);
   GenerateHeaderSearchArgs(*HeaderSearchOpts, Args, SA);
   GenerateLangArgs(*LangOpts, Args, SA, T);
   GenerateCodeGenArgs(CodeGenOpts, Args, SA, T, FrontendOpts.OutputFile,
                       &*LangOpts);
-  GeneratePreprocessorArgs(*PreprocessorOpts, Args, SA, *LangOpts,
-                           FrontendOpts, CodeGenOpts);
+  GeneratePreprocessorArgs(*PreprocessorOpts, Args, SA, *LangOpts, FrontendOpts,
+                           CodeGenOpts);
+  GeneratePreprocessorOutputArgs(PreprocessorOutputOpts, Args, SA,
+                                 FrontendOpts.ProgramAction);
+  GenerateDependencyOutputArgs(DependencyOutputOpts, Args, SA);
 }
 
 IntrusiveRefCntPtr<llvm::vfs::FileSystem>
