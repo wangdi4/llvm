@@ -28,7 +28,9 @@ typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
 
 // If the group of refs consitute a structurally stencil pattern.
 // It internally calls getMedianRef and isSymetricCenteredAt.
-bool areStructuallyStencilRefs(RefGroupTy &Group);
+// \p Relaxed flag will ignore instead of bailout for non-const dist
+// when checking isSymetricCenteredAt.
+bool areStructuallyStencilRefs(RefGroupTy &Group, bool Relaxed = false);
 
 // Get the median of all given refs.
 // Assumes all refs are memrefs with the same base ptr.
@@ -45,7 +47,8 @@ const RegDDRef *getMedianRef(RefGroupTy &Group);
 //         A[i-1][j][k] (numCEs with diff == 1),
 //         A[i+1][j][k-1] (numCEs with diff == 2) and so on
 //         are stencil refs.
-bool isSymetricCenteredAt(const RegDDRef *Center, const RefGroupTy &Group);
+bool isSymetricCenteredAt(const RegDDRef *Center, const RefGroupTy &Group,
+                          bool Relaxed = false);
 } // namespace stencilpattern
 
 } // namespace loopopt

@@ -46,6 +46,7 @@ enum DiagMsg {
   NO_STENCIL_LOOP,
   NO_STENCIL_LOOP_BODY,
   NO_STENCIL_MEM_REFS,
+  STENCIL_PROFIT,
   SUCCESS_NON_SIV,
   SUCCESS_NON_SIV_OR_NON_ADVANCED,
   SUCCESS_BASIC_SIV,
@@ -74,11 +75,12 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
   Map[MULTIVERSIONED_FALLBACK_LOOP] = "The loop is mv fallback loop.";
   Map[NO_STENCIL_LOOP] = "The loop body is not a stencil function.";
   Map[NO_STENCIL_LOOP_BODY] = "Operations for stencil is missing.";
-  Map[NO_STENCIL_MEM_REFS] = "Memrefs are not of stencil pattern.";
+  Map[NO_STENCIL_MEM_REFS] = "Memrefs are not entirely stencil pattern.";
+  Map[STENCIL_PROFIT] = "Found profitable Stencil-type loop.";
   Map[SUCCESS_NON_SIV] = "Non-Siv loop.";
   Map[SUCCESS_NON_SIV_OR_NON_ADVANCED] = "Non-Siv loop or Non-advanced.";
   Map[SUCCESS_BASIC_SIV] = "Basic algorithm.";
-  Map[SUCCESS_STENCIL] = "Stencil pattern.";
+  Map[SUCCESS_STENCIL] = "Stencil loop is profitable and legal.";
 
   return Map;
 }
@@ -89,6 +91,15 @@ enum RefAnalysisResult {
   NON_LINEAR_READ_ONLY,
   NON_LINEAR,
   NON_SIV,
+};
+
+enum StencilType { CACT = 0, BWAV, NUM_STENCIL_TYPES, NONE };
+
+// Values correspond to blocksize starting from innermostloop of
+// blocked loopnest target
+const unsigned StencilBlockingFactors[NUM_STENCIL_TYPES][MaxLoopNestLevel] = {
+    {0, 8, 0}, // CACT
+    {0, 14, 0} // BWAV
 };
 
 // Mapping from a loop to its kind. Used for/during actual transformantion.
