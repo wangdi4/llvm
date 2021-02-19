@@ -144,6 +144,9 @@ public:
   std::vector<Symbol *> symbols;
 
 #if INTEL_CUSTOMIZATION
+  // Return the ".gnu.linkonce." section mapped to the input symbol
+  InputSectionBase *getGNULinkOnceSectionForSymbol(const Symbol *sym);
+
   // True if the file contains the GNU LTO section
   bool isGNULTOFile = false;
 #endif // INTEL_CUSTOMIZATION

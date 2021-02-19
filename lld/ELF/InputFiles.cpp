@@ -295,6 +295,56 @@ StringRef InputFile::getNameForScript() const {
   return nameForScriptCache;
 }
 
+#if INTEL_CUSTOMIZATION
+// Return the "gnu.linkonce.T." section associated with the input symbol
+InputSectionBase*
+InputFile::getGNULinkOnceSectionForSymbol(const Symbol *sym) {
+  if (!sym)
+    return nullptr;
+
+  StringRef linkOnceName;
+  bool sectionFound = false;
+
+  for (auto pair : symtab->gnuLinkOnceGroups) {
+    if (this != pair.second)
+      continue;
+
+    StringRef secName = pair.first.val();
+    // The section name is in the form of ".gnu.linkonce.T.SYMBOLNAME" where
+    // T is the type ('t' = text, 'd' = data, etc.) and SYMBOLNAME is the
+    // symbol's name. The first 14 (0-13) characters represent ".gnu.linkonce.",
+    // character 14 represents the type and 15 the delimiter ('.'). The symbol
+    // name starts at character 16.
+    size_t gnuLinkOnceSize = strlen(".gnu.linkonce.");
+    StringRef symbolName = secName.drop_front(gnuLinkOnceSize + 2);
+    if (symbolName == sym->getName()) {
+      if (isalpha(secName[gnuLinkOnceSize]) &&
+          secName[gnuLinkOnceSize + 1] == '.') {
+        linkOnceName = secName;
+        sectionFound = true;
+        break;
+      }
+    }
+  }
+
+  if (!sectionFound)
+    return nullptr;
+
+  // Traverse through the sections in the input file and find the
+  // ".gnu.linkonce." section
+  for (auto *sec : sections) {
+    if (!sec)
+      continue;
+    // Check if section name matches
+    if (sec->name == linkOnceName)
+      return sec;
+  }
+
+  // ".gnu.linkonce." section not found
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <class ELFT> DWARFCache *ObjFile<ELFT>::getDwarf() {
   llvm::call_once(initDwarf, [this]() {
     dwarf = std::make_unique<DWARFCache>(std::make_unique<DWARFContext>(
@@ -1064,14 +1114,44 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(const Elf_Shdr &sec) {
     return &InputSection::discarded;
   }
 
+#if INTEL_CUSTOMIZATION
+  // NOTE: The following hack from the community is disabled inside the Intel
+  // customization. LLD should be able to handle the link once sections now.
+
+  // BEGIN COMMUNITY HACK
   // The linkonce feature is a sort of proto-comdat. Some glibc i386 object
   // files contain definitions of symbol "__x86.get_pc_thunk.bx" in linkonce
   // sections. Drop those sections to avoid duplicate symbol errors.
   // FIXME: This is glibc PR20543, we should remove this hack once that has been
   // fixed for a while.
-  if (name == ".gnu.linkonce.t.__x86.get_pc_thunk.bx" ||
-      name == ".gnu.linkonce.t.__i686.get_pc_thunk.bx")
-    return &InputSection::discarded;
+  // if (name == ".gnu.linkonce.t.__x86.get_pc_thunk.bx" ||
+  //    name == ".gnu.linkonce.t.__i686.get_pc_thunk.bx")
+  //  return &InputSection::discarded;
+  // END COMMUNITY HACK
+
+  // If the section starts with ".gnu.linkonce.", then treat it as another
+  // form of comdat. These sections are used to mark that one resolution
+  // will be used for a symbol in the object. For example, the section name
+  // ".gnu.linkonce.t.__x86.get_pc_thunk.bx" means that only one resolution
+  // for the symbol __x86.get_pc_thunk.bx will be used, the other definitions
+  // can be discarded.
+  if (name.startswith(".gnu.linkonce.")) {
+    // The ".gnu.linkonce." sections are in form ".gnu.linkonce.T.SYMBOLNAME",
+    // where T is the type and SYMBOLNAME is the symbol's name. We are
+    // going to make sure that at least characters 14 and 15 represent
+    // "T.". This is because we don't want to break special sections that
+    // start with ".gnu.linkonce." (e.g. ".gnu.linkonce.this_module").
+    size_t gnuLinkOnceSize = strlen(".gnu.linkonce.");
+    if (isalpha(name[gnuLinkOnceSize]) &&
+        name[gnuLinkOnceSize + 1] == '.') {
+      bool isNew =
+          symtab->gnuLinkOnceGroups.try_emplace(CachedHashStringRef(name),
+                                                this).second;
+      if (!isNew)
+        return &InputSection::discarded;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If we are creating a new .build-id section, strip existing .build-id
   // sections so that the output won't have more than one .build-id.

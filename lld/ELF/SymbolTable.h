@@ -63,6 +63,11 @@ public:
   // is used to uniquify them.
   llvm::DenseMap<llvm::CachedHashStringRef, const InputFile *> comdatGroups;
 
+#if INTEL_CUSTOMIZATION
+  // Maps the section name referred to ".gnu.linkonce." to a file
+  llvm::DenseMap<llvm::CachedHashStringRef, const InputFile *> gnuLinkOnceGroups;
+#endif // INTEL_CUSTOMIZATION
+
 private:
   std::vector<Symbol *> findByVersion(SymbolVersion ver);
   std::vector<Symbol *> findAllByVersion(SymbolVersion ver);
