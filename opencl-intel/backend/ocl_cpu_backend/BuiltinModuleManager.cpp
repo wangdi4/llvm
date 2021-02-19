@@ -64,7 +64,7 @@ BuiltinModuleManager* BuiltinModuleManager::GetInstance()
 template <typename DeviceBuiltinLibrary>
 BuiltinLibrary* BuiltinModuleManager::GetOrLoadDeviceLibrary(Intel::CPUId cpuId)
 {
-    DevIdCpuId key = std::make_pair(0, cpuId);
+    TIdCpuId key = std::make_pair(std::this_thread::get_id(), cpuId);
     BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
     if( it != m_BuiltinLibs.end() )
     {

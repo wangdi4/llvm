@@ -1,4 +1,5 @@
 #include "CL/cl.h"
+#include "cl_sys_info.h"
 #include "cl_types.h"
 #include <stdio.h>
 #include <time.h>
@@ -561,7 +562,7 @@ bool ConcurrentExecutionTest()
 
 	SynchronizedThread* threads[numThreads];
 
-	printf("Begin multithreaded concurrent execution test. Using %lu threads\n", numThreads);
+	printf("Begin multithreaded concurrent execution test. Using %zu threads\n", numThreads);
 
 	for (size_t i = 0; i < numThreads; ++i)
 	{
@@ -821,7 +822,8 @@ void BuildProgramThread::ThreadRoutine()
 	iRet     = clBuildProgram(program, 1, &m_deviceId, NULL, NULL, NULL);
 	m_bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
-	clReleaseProgram(program);
+	iRet = clReleaseProgram(program);
+        m_bResult &= SilentCheck("Release program", CL_SUCCESS, iRet);
 }
 
 bool MultithreadedBuildTest()
@@ -829,7 +831,7 @@ bool MultithreadedBuildTest()
 	bool bResult = true;
 	cl_int iRet  = CL_SUCCESS;
 
-	const size_t numThreads     = 1;
+    const size_t numThreads = 32;
 
 	cl_platform_id platform     = 0;
 	cl_device_id   deviceId     = 0;
@@ -871,6 +873,9 @@ bool MultithreadedBuildTest()
 	{
 		bResult &= static_cast<BuildProgramThread*>(threads[i])->GetResult();
 	}
+
+        for (size_t i = 0; i < numThreads; ++i)
+            delete threads[i];
 
 	clReleaseContext(context);
 	return bResult;

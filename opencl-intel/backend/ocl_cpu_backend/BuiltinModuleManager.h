@@ -13,9 +13,10 @@
 // License.
 
 #pragma once
-#include <map>
 #include "CPUDetect.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include <map>
+#include <thread>
 
 namespace llvm
 {
@@ -78,8 +79,8 @@ private:
     template <typename DeviceBuiltinLibrary>
     BuiltinLibrary* GetOrLoadDeviceLibrary(Intel::CPUId cpuId);
 
-    typedef std::pair<int, CPUId> DevIdCpuId;
-    typedef std::map<DevIdCpuId, BuiltinLibrary*> BuiltinsMap;
+    typedef std::pair<std::thread::id, CPUId> TIdCpuId;
+    typedef std::map<TIdCpuId, BuiltinLibrary*> BuiltinsMap;
     static BuiltinModuleManager* s_pInstance;
     BuiltinsMap m_BuiltinLibs;
 };
