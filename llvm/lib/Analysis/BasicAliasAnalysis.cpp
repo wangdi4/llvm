@@ -1316,22 +1316,9 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
     DecompGEP1.Offset -= DecompGEP2.Offset;
     GetIndexDifference(DecompGEP1.VarIndices, DecompGEP2.VarIndices);
 
-    // Do the base pointers alias?
-#if INTEL_CUSTOMIZATION
-    AliasResult BaseAlias;
-    if (AAQI.NeedLoopCarried)
-      BaseAlias = getBestAAResults().loopCarriedAlias(
-          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-          MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
-    else
-      BaseAlias = getBestAAResults().alias(
-          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-          MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
-#endif // INTEL_CUSTOMIZATION
-
     // For GEPs with identical offsets, we can preserve the size and AAInfo
     // when performing the alias check on the underlying objects.
-    if (BaseAlias == MayAlias && DecompGEP1.Offset == 0 &&
+    if (DecompGEP1.Offset == 0 &&
         DecompGEP1.Base == UnderlyingV1 && // INTEL
         DecompGEP2.Base == UnderlyingV2 && // INTEL
         DecompGEP1.VarIndices.empty()) {
@@ -1345,10 +1332,22 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
           PreciseBaseAlias = getBestAAResults().alias(
               MemoryLocation(UnderlyingV1, V1Size, V1AAInfo),
               MemoryLocation(UnderlyingV2, V2Size, V2AAInfo), AAQI);
+        return PreciseBaseAlias;
 #endif // INTEL_CUSTOMIZATION
-      if (PreciseBaseAlias == NoAlias)
-        return NoAlias;
     }
+
+    // Do the base pointers alias?
+#if INTEL_CUSTOMIZATION
+    AliasResult BaseAlias;
+    if (AAQI.NeedLoopCarried)
+      BaseAlias = getBestAAResults().loopCarriedAlias(
+          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
+          MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+    else
+      BaseAlias = getBestAAResults().alias(
+          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
+          MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+#endif // INTEL_CUSTOMIZATION
 
     // If we get a No or May, then return it immediately, no amount of analysis
     // will improve this situation.
