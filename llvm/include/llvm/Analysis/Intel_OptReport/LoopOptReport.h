@@ -17,6 +17,7 @@
 #ifndef LLVM_ANALYSIS_LOOPOPTREPORT_H
 #define LLVM_ANALYSIS_LOOPOPTREPORT_H
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
@@ -35,6 +36,20 @@ struct LoopOptReportTag {
   static constexpr const char *Remark = "intel.optreport.remark";
   static constexpr const char *NextSibling = "intel.optreport.next_sibling";
   static constexpr const char *FirstChild = "intel.optreport.first_child";
+};
+
+/// Represents a string " at line %d" inside the OptReport.
+/// The instance may be passed to opt report builder as an operand.
+/// For example-
+///   addRemark(Low, Id, AtLine(5))
+class AtLine {
+  unsigned Line;
+
+public:
+  AtLine() : Line(0) {}
+  AtLine(unsigned Line) : Line(Line) {}
+  operator bool() { return Line != 0; }
+  unsigned get() { return Line; }
 };
 
 /// \brief Helper for representing a single OptReport remark.
@@ -102,6 +117,20 @@ private:
     ConstantInt *CI = ConstantInt::get(Type::getInt32Ty(C), I);
     V.push_back(ConstantAsMetadata::get(CI));
     populateMDTupleOperands(V, C, std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  static void populateMDTupleOperands(SmallVectorImpl<Metadata *> &V,
+                                      LLVMContext &C, AtLine Line,
+                                      Args &&... args) {
+    SmallString<16> Buf;
+
+    if (Line) {
+      raw_svector_ostream VOS(Buf);
+      VOS << " at line " << Line.get();
+    }
+
+    populateMDTupleOperands(V, C, Buf, std::forward<Args>(args)...);
   }
 };
 

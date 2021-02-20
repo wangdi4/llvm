@@ -347,9 +347,12 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
   // of bytes that can be accessed is restricted by the dimension size so we use
   // this info.
   for (auto I = NumDims; I > 0; --I) {
-    auto CE = Ref->getDimensionIndex(I);
+    auto *Lower = Ref->getDimensionLower(I);
+    auto *Index = Ref->getDimensionIndex(I);
+    auto *Stride = Ref->getDimensionStride(I);
 
-    if (!NonLinearBase && CE->isInvariantAtLevel(Level)) {
+    if (!NonLinearBase && Lower->isInvariantAtLevel(Level) &&
+        Index->isInvariantAtLevel(Level) && Stride->isInvariantAtLevel(Level)) {
       continue;
     }
 
@@ -357,11 +360,11 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
     // Dimension size is not available for pointer dimension
     // and variable size arrays
     if (DimSize == 0) {
-      // Use info from the CE to construct a more accurate stride.
+      // Use info from the Index to construct a more accurate stride.
       int64_t Coeff;
       unsigned BlobIndex;
 
-      CE->getIVCoeff(Level, &BlobIndex, &Coeff);
+      Index->getIVCoeff(Level, &BlobIndex, &Coeff);
       auto IVCoeff = static_cast<uint64_t>(std::llabs(Coeff));
 
       if (!IVCoeff) {
@@ -375,13 +378,14 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
       // TripCnt number of elements.
       uint64_t NumElem = TripCnt;
 
-      if (NonLinearBase || CE->getDefinedAtLevel() >= Level) {
+      if (NonLinearBase || !Lower->isLinearAtLevel(Level) ||
+          !Index->isLinearAtLevel(Level) || !Stride->isLinearAtLevel(Level)) {
         // Penalize non-linearity by adding more number of elements.
         // TODO: Is there a better way?
         NumElem += TripCnt / 2;
       }
 
-      auto Denom = CE->getDenominator();
+      auto Denom = Index->getDenominator();
 
       // Calculate the number of actual accesses of Ref based on IV coefficient,
       // denominator and number of elements. The access is assumed to be
