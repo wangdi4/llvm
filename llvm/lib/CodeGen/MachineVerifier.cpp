@@ -2188,12 +2188,8 @@ void MachineVerifier::checkLiveness(const MachineOperand *MO, unsigned MONum) {
             if (!Register::isPhysicalRegister(MOP.getReg()))
               continue;
 
-            for (const MCPhysReg &SubReg : TRI->subregs(MOP.getReg())) {
-              if (SubReg == Reg) {
-                Bad = false;
-                break;
-              }
-            }
+            if (llvm::is_contained(TRI->subregs(MOP.getReg()), Reg))
+              Bad = false;
           }
         }
         if (Bad)
