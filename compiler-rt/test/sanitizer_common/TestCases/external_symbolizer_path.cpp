@@ -1,3 +1,10 @@
+// If the binary looks up libraries using an rpath, we can't test this
+// without copying the whole lib dir or polluting the build dir.
+// REQUIRES: static-libs
+
+// The above also applies if the binary is built with libc++.
+// UNSUPPORTED: libcxx-used
+
 // RUN: rm -rf %t.bin
 // RUN: mkdir %t.bin
 // RUN: cp $(which llvm-symbolizer) %t.bin
@@ -17,8 +24,8 @@
 // Mobile device will not have symbolizer in provided path.
 // UNSUPPORTED: ios, android
 
-// FIXME: Figure out why this fails and re-enable.
-// UNSUPPORTED: *
+// FIXME: Figure out why this fails on certain buildbots and re-enable.
+// UNSUPPORTED: linux
 
 #include <sanitizer/common_interface_defs.h>
 #include <stdio.h>
