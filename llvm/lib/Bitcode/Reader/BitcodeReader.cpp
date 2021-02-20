@@ -5926,6 +5926,11 @@ Error ModuleSummaryIndexBitcodeReader::parseModule() {
         // v2: [strtab offset, strtab size, v1]
         case bitc::MODULE_CODE_GLOBALVAR:
         case bitc::MODULE_CODE_FUNCTION:
+#if INTEL_CUSTOMIZATION
+        // This change and related changes could be ported back to the
+        // community to fix CMPLRLLVM-26177.
+        case bitc::MODULE_CODE_IFUNC:
+#endif // INTEL_CUSTOMIZATION
         case bitc::MODULE_CODE_ALIAS: {
           StringRef Name;
           ArrayRef<uint64_t> GVRecord;
