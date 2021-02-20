@@ -26,9 +26,10 @@ public:
                                      const TargetTransformInfo *TTI,
                                      const TargetLibraryInfo *TLI,
                                      const DataLayout *DL,
-                                     VPlanVLSAnalysis *VLSA)
+                                     VPlanVLSAnalysis *VLSA = nullptr)
     : VPlanCostModel(Plan, VF, TTI, TLI, DL, VLSA) {
-    VLSA->getOVLSMemrefs(Plan, VF);
+    if (VLSA)
+      VLSA->getOVLSMemrefs(Plan, VF);
 
     // Clear out HeuristicsPipeline from Base Cost Model Heuristic and fill it
     // up with Proprietary Cost Model heuristics set in the order they should
