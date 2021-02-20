@@ -1324,7 +1324,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
-
 #if INTEL_CUSTOMIZATION
   case LibFunc_assert_fail:
     if (!IsSpirFunc)
@@ -2060,29 +2059,52 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_for_adjustl:
   case LibFunc_for_alloc_allocatable:
+  case LibFunc_for_alloc_allocatable_handle:
   case LibFunc_for_allocate:
+  case LibFunc_for_array_copy_in:
+  case LibFunc_for_array_copy_out:
   case LibFunc_for_backspace:
   case LibFunc_for_check_mult_overflow64:
   case LibFunc_for_close:
   case LibFunc_for_concat:
+  case LibFunc_for_contig_array:
   case LibFunc_for_cpstr:
   case LibFunc_for_cpystr:
+  case LibFunc_for_date_and_time:
   case LibFunc_for_dealloc_allocatable:
+  case LibFunc_for_dealloc_allocatable_handle:
   case LibFunc_for_deallocate:
+  case LibFunc_for_endfile:
+  case LibFunc_for_exponent8_v:
   case LibFunc_for_f90_index:
+  case LibFunc_for_f90_scan:
+  case LibFunc_for_f90_verify:
+  case LibFunc_for_fraction8_v:
   case LibFunc_for_getcmd_arg_err:
   case LibFunc_for_iargc:
+  case LibFunc_for_inquire:
+  case LibFunc_for_len_trim:
   case LibFunc_for_open:
+  case LibFunc_for_random_number:
+  case LibFunc_for_random_seed_bit_size:
+  case LibFunc_for_random_seed_put:
   case LibFunc_for_read_int_fmt:
   case LibFunc_for_read_seq_fmt:
   case LibFunc_for_read_seq_lis:
   case LibFunc_for_read_seq_lis_xmit:
+  case LibFunc_for_read_seq_nml:
   case LibFunc_for_realloc_lhs:
+  case LibFunc_for_rewind:
+  case LibFunc_for_scale8_v:
   case LibFunc_for_set_reentrancy:
+  case LibFunc_for_setexp8_v:
   case LibFunc_for_stop_core_quiet:
+  case LibFunc_for_system_clock_count:
   case LibFunc_for_trim:
   case LibFunc_for_write_int_fmt:
   case LibFunc_for_write_int_fmt_xmit:
+  case LibFunc_for_write_int_lis:
+  case LibFunc_for_write_int_lis_xmit:
   case LibFunc_for_write_seq:
   case LibFunc_for_write_seq_fmt:
   case LibFunc_for_write_seq_fmt_xmit:
@@ -2821,6 +2843,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_trunc:
   case LibFunc_truncf:
   case LibFunc_truncl:
+#if INTEL_CUSTOMIZATION
+  case LibFunc_dunder_powi4i4:
+  case LibFunc_dunder_powr8i8:
+#endif //INTEL_CUSTOMIZATION
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotFreeMemory(F);
     Changed |= setWillReturn(F);

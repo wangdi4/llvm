@@ -3612,6 +3612,16 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+  case LibFunc_dunder_powi4i4:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_dunder_powr8i8:
+    return (NumParams == 2 && FTy.getReturnType()->isDoubleTy() &&
+            FTy.getParamType(0)->isDoubleTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
   case LibFunc_dunder_std_terminate:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
@@ -4793,11 +4803,27 @@ case LibFunc_under_commit:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
+  case LibFunc_for_alloc_allocatable_handle:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
   case LibFunc_for_allocate:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_for_array_copy_in:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_for_array_copy_out:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_for_backspace: // Varargs function
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
@@ -4825,6 +4851,10 @@ case LibFunc_under_commit:
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isIntegerTy());
 
+  case LibFunc_for_contig_array:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
   case LibFunc_for_cpstr:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -4841,15 +4871,42 @@ case LibFunc_under_commit:
             FTy.getParamType(3)->isIntegerTy() &&
             FTy.getParamType(4)->isIntegerTy());
 
+  case LibFunc_for_date_and_time:
+    return (NumParams == 8 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isIntegerTy() &&
+            FTy.getParamType(6)->isPointerTy() &&
+            FTy.getParamType(7)->isIntegerTy());
+
   case LibFunc_for_dealloc_allocatable:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_for_dealloc_allocatable_handle:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
   case LibFunc_for_deallocate:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_for_endfile: // Varargs function
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_for_exponent8_v:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isDoubleTy());
 
   case LibFunc_for_f90_index:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
@@ -4858,6 +4915,26 @@ case LibFunc_under_commit:
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isIntegerTy() &&
             FTy.getParamType(4)->isIntegerTy());
+
+  case LibFunc_for_f90_scan:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
+
+  case LibFunc_for_f90_verify:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
+
+  case LibFunc_for_fraction8_v:
+    return (NumParams == 1 && FTy.getReturnType()->isDoubleTy() &&
+            FTy.getParamType(0)->isDoubleTy());
 
   case LibFunc_for_getcmd_arg_err:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
@@ -4870,6 +4947,19 @@ case LibFunc_under_commit:
   case LibFunc_for_iargc:
     return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
 
+  case LibFunc_for_inquire: //  Varargs function
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_for_len_trim:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
   case LibFunc_for_open: // Varargs function
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -4877,6 +4967,16 @@ case LibFunc_under_commit:
             FTy.getParamType(2)->isIntegerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_for_random_number:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_for_random_seed_bit_size:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_for_random_seed_put:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_for_read_int_fmt: // Varargs function
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
@@ -4922,15 +5022,39 @@ case LibFunc_under_commit:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 
+  case LibFunc_for_read_seq_nml: // Varargs function
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
   case LibFunc_for_realloc_lhs:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
+  case LibFunc_for_rewind:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_for_scale8_v:
+    return (NumParams == 2 && FTy.getReturnType()->isDoubleTy() &&
+            FTy.getParamType(0)->isDoubleTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
   case LibFunc_for_set_reentrancy:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_for_setexp8_v:
+    return (NumParams == 2 && FTy.getReturnType()->isDoubleTy() &&
+            FTy.getParamType(0)->isDoubleTy() &&
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_for_stop_core_quiet: // Varargs function
     return (NumParams == 6 && FTy.getReturnType()->isIntegerTy() &&
@@ -4940,6 +5064,10 @@ case LibFunc_under_commit:
             FTy.getParamType(3)->isIntegerTy() &&
             FTy.getParamType(4)->isIntegerTy() &&
             FTy.getParamType(5)->isIntegerTy());
+
+  case LibFunc_for_system_clock_count:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
 
   case LibFunc_for_trim:
     return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
@@ -4955,6 +5083,19 @@ case LibFunc_under_commit:
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_for_write_int_lis: // Varargs function
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
+  case LibFunc_for_write_int_lis_xmit:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
 
   case LibFunc_for_write_int_fmt_xmit:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
