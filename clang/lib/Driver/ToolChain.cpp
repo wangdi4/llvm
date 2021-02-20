@@ -357,12 +357,6 @@ Tool *ToolChain::getSYCLPostLink() const {
   return SYCLPostLink.get();
 }
 
-Tool *ToolChain::getPartialLink() const {
-  if (!PartialLink)
-    PartialLink.reset(new tools::PartialLink(*this));
-  return PartialLink.get();
-}
-
 Tool *ToolChain::getBackendCompiler() const {
   if (!BackendCompiler)
     BackendCompiler.reset(buildBackendCompiler());
@@ -425,9 +419,6 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::SYCLPostLinkJobClass:
     return getSYCLPostLink();
-
-  case Action::PartialLinkJobClass:
-    return getPartialLink();
 
   case Action::BackendCompileJobClass:
     return getBackendCompiler();
