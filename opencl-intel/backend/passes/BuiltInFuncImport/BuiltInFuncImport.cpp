@@ -44,9 +44,9 @@ namespace intel {
 
   char BIImport::ID = 0;
 
-  OCL_INITIALIZE_PASS_BEGIN(BIImport, "builtin-import", "Built-in function pass", false, true)
+  OCL_INITIALIZE_PASS_BEGIN(BIImport, "builtin-import", "Built-in function pass", false, false)
   OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-  OCL_INITIALIZE_PASS_END(BIImport, "builtin-import", "Built-in function pass", false, true)
+  OCL_INITIALIZE_PASS_END(BIImport, "builtin-import", "Built-in function pass", false, false)
 
   BIImport::BIImport(const char *CPUPrefix)
     : ModulePass(ID)
