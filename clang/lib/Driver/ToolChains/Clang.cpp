@@ -6315,6 +6315,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (A->getOption().matches(options::OPT_freroll_loops))
       CmdArgs.push_back("-freroll-loops");
 
+  Args.AddLastArg(CmdArgs, options::OPT_ffinite_loops,
+                  options::OPT_fno_finite_loops);
+
   Args.AddLastArg(CmdArgs, options::OPT_fwritable_strings);
 #if INTEL_CUSTOMIZATION
   RenderUnrollOptions(D, Args, CmdArgs);

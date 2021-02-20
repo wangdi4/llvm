@@ -150,6 +150,12 @@ public:
     All,         // Keep all frame pointers.
   };
 
+  enum FiniteLoopsKind {
+    Language, // Not specified, use language standard.
+    Always,   // All loops are assumed to be finite.
+    Never,    // No loop is assumed to be finite.
+  };
+
 #if INTEL_CUSTOMIZATION
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   /// The name of object file to emit MS debug info into.
@@ -157,7 +163,6 @@ public:
   /// The name of PDB file to emit MS debug info into.
   std::string MSOutputPdbFile;
 #endif //INTEL_CUSTOMIZATION
-  using DebugPrefixMapTy = std::map<std::string, std::string>;
 
   /// The code model to use (-mcmodel).
   std::string CodeModel;
