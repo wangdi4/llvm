@@ -1310,6 +1310,12 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
     // direction.
     if (isGEPBaseAtNegativeOffset(GEP2, DecompGEP2, DecompGEP1, V1Size))
       return NoAlias;
+
+    // Subtract the GEP2 pointer from the GEP1 pointer to find out their
+    // symbolic difference.
+    DecompGEP1.Offset -= DecompGEP2.Offset;
+    GetIndexDifference(DecompGEP1.VarIndices, DecompGEP2.VarIndices);
+
     // Do the base pointers alias?
 #if INTEL_CUSTOMIZATION
     AliasResult BaseAlias;
@@ -1325,10 +1331,10 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
 
     // For GEPs with identical offsets, we can preserve the size and AAInfo
     // when performing the alias check on the underlying objects.
-    if (BaseAlias == MayAlias && DecompGEP1.Offset == DecompGEP2.Offset &&
+    if (BaseAlias == MayAlias && DecompGEP1.Offset == 0 &&
         DecompGEP1.Base == UnderlyingV1 && // INTEL
         DecompGEP2.Base == UnderlyingV2 && // INTEL
-        DecompGEP1.VarIndices == DecompGEP2.VarIndices) {
+        DecompGEP1.VarIndices.empty()) {
 #if INTEL_CUSTOMIZATION
         AliasResult PreciseBaseAlias;
         if (AAQI.NeedLoopCarried)
@@ -1350,11 +1356,6 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
       assert(BaseAlias == NoAlias || BaseAlias == MayAlias);
       return BaseAlias;
     }
-
-    // Subtract the GEP2 pointer from the GEP1 pointer to find out their
-    // symbolic difference.
-    DecompGEP1.Offset -= DecompGEP2.Offset;
-    GetIndexDifference(DecompGEP1.VarIndices, DecompGEP2.VarIndices);
 
 #if INTEL_CUSTOMIZATION
     // GCD test for same base. https://en.wikipedia.org/wiki/GCD_test
