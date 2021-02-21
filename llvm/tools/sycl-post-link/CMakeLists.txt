@@ -19,6 +19,8 @@ set(LLVM_LINK_COMPONENTS
 # end INTEL_CUSTOMIZATION
   TransformUtils
   SYCLLowerIR
+  InstCombine
+  ScalarOpts
   )
 
 get_property(LLVMGenXIntrinsics_SOURCE_DIR GLOBAL PROPERTY LLVMGenXIntrinsics_SOURCE_PROP)
@@ -58,3 +60,5 @@ if(INTEL_CUSTOMIZATION)
     "Intel(R) oneAPI DPC++ Compiler"
     "SYCL post-link device code processing tool")
 endif()
+
+target_link_libraries(sycl-post-link PRIVATE LLVMGenXIntrinsics)
