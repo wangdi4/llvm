@@ -5434,6 +5434,12 @@ static Value *simplifyUnaryIntrinsic(Function *F, Value *Op0,
       return Op0;
     break;
   }
+  case Intrinsic::experimental_vector_reverse:
+    // experimental.vector.reverse(experimental.vector.reverse(x)) -> x
+    if (match(Op0,
+              m_Intrinsic<Intrinsic::experimental_vector_reverse>(m_Value(X))))
+      return X;
+    break;
   default:
     break;
   }
