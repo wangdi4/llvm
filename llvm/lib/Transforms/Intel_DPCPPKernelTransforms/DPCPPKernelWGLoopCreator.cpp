@@ -244,8 +244,9 @@ DPCPPKernelWGLoopCreatorLegacyPass::inlineVectorFunction(BasicBlock *BB) {
 
   // Do actual cloning work
   // TODO: replace manual inlining by llvm::InlineFunction()
-  CloneFunctionInto(Fn, VectorFunc, ValueMap, /*ModuleLevelChanges*/ true,
-                    Returns, "vector_func");
+  CloneFunctionInto(Fn, VectorFunc, ValueMap,
+                    CloneFunctionChangeType::LocalChangesOnly, Returns,
+                    "vector_func");
 
   // The CloneFunctionInto() above will move all function metadata from the
   // vector function to the scalar function. Because the scalar function
