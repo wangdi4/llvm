@@ -223,6 +223,7 @@ protected:
   MCSection *PDataSection = nullptr;
   MCSection *XDataSection = nullptr;
   MCSection *SXDataSection = nullptr;
+  MCSection *GEHContSection = nullptr;
   MCSection *GFIDsSection = nullptr;
   MCSection *GIATsSection = nullptr;
   MCSection *GLJMPSection = nullptr;
@@ -417,6 +418,7 @@ public:
   MCSection *getPDataSection() const { return PDataSection; }
   MCSection *getXDataSection() const { return XDataSection; }
   MCSection *getSXDataSection() const { return SXDataSection; }
+  MCSection *getGEHContSection() const { return GEHContSection; }
   MCSection *getGFIDsSection() const { return GFIDsSection; }
   MCSection *getGIATsSection() const { return GIATsSection; }
   MCSection *getGLJMPSection() const { return GLJMPSection; }
