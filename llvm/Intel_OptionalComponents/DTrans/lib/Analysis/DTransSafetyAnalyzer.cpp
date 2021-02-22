@@ -1,6 +1,6 @@
 //===----------------------DTransSafetyAnalyzer.cpp-----------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,9 +22,11 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormattedStream.h"
 
 #define DEBUG_TYPE "dtrans-safetyanalyzer"
 
@@ -46,6 +48,13 @@ static cl::list<std::string> DTransSAFilterPrintFuncs(
     cl::desc("Filter emission of safety analyzer verbose debug messages to "
              "specific functions"));
 
+// Trace option to print the IR instructions with comments inserted that
+// show the safety flags that are triggered by the instruction.
+static cl::opt<bool> PrintSafetyAnalyzerIR(
+    "dtrans-print-safetyanalyzer-ir", cl::ReallyHidden,
+    cl::desc("Print IR with safety analyzer comments after "
+             "instructions that trigger safety flags"));
+
 // A trace filter that will be enabled/disabled based on the function name.
 static llvm::dtrans::debug::DebugFilter FNFilter;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -59,21 +68,118 @@ static bool isPtrToPtr(const DTransType *Ty) {
 // trace messages when setting safety flags.
 using SafetyInfoReportCB = std::function<void()>;
 
+// This structure is used to store information about a safety flag being set on
+// a type to allow printing the IR with the comment message that indicates the
+// safety conditions triggered by an instruction. In debug builds, a mapping can
+// be kept to map a Value object to a set of SafeInfoLog objects that were
+// triggered by that Value.
+struct SafetyInfoLog {
+  DTransType *Ty;
+  SafetyData SafetyFlag;
+  bool IsCascaded;
+  bool IsPointerCarried;
+
+  SafetyInfoLog(DTransType *Ty, SafetyData SafetyFlag, bool IsCascaded,
+                bool IsPointerCarried)
+      : Ty(Ty), SafetyFlag(SafetyFlag), IsCascaded(IsCascaded),
+        IsPointerCarried(IsPointerCarried) {}
+
+  // This comparison operator is only suitable for avoiding duplicates when
+  // storing this object in a container. It is not suitable for maintaining a
+  // deterministic printing order because it is relying on the address of
+  // objects.
+  bool operator<(const SafetyInfoLog &Other) const {
+    if (Ty != Other.Ty)
+      return Ty < Other.Ty;
+    if (SafetyFlag != Other.SafetyFlag)
+      return SafetyFlag < Other.SafetyFlag;
+    if (IsCascaded != Other.IsCascaded)
+      return IsCascaded < Other.IsCascaded;
+    return IsPointerCarried < Other.IsPointerCarried;
+  }
+};
+
+// Implementation of a DTransSafetyLogger that the DTransSafetyInstVisitor and
+// SafetyAnnotationWriter classes will use to save and retrieve log messages for
+// use in a debug build. In the debug build this will store a mapping of Value
+// objects to SafetyInfoLog objects for printing as comments with IR when using
+// the flag -print-dtrans-safetyanalyzer-ir.
+class DTransSafetyLogger {
+public:
+  void log(Value *V, const SafetyInfoLog &Log) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    ValueToSafetyInfo[V].insert(Log);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  }
+
+  void lookupSafetyFlagsForValue(Value *V, std::set<SafetyInfoLog> &SD) const {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    auto It = ValueToSafetyInfo.find(V);
+    if (It != ValueToSafetyInfo.end())
+      SD = It->second;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  }
+
+private:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  std::map<Value *, std::set<SafetyInfoLog>> ValueToSafetyInfo;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+};
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Class that can be called by the AsmWriter to print comments about the DTrans
+// SafetyData values triggered by an instruction.
+class SafetyAnnotationWriter : public AssemblyAnnotationWriter {
+public:
+  SafetyAnnotationWriter(const DTransSafetyLogger &Log) : Log(Log) {}
+
+  // Emit a comment after an Instruction or GlobalValue is printed.
+  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+    // Lambda used to print the comment to a string buffer to allow sorting when
+    // there are multiple comments to be emitted for the instruction.
+    auto LogToString = [](const SafetyInfoLog &Log) {
+      std::string OutputVal;
+      raw_string_ostream OutputStream(OutputVal);
+      OutputStream << "\n    ; -> Safety data: ";
+      OutputStream << *Log.Ty << " : " << getSafetyDataName(Log.SafetyFlag);
+      if (Log.IsCascaded)
+        OutputStream << "[Cascaded]";
+      if (Log.IsPointerCarried)
+        OutputStream << "[PtrCarried]";
+
+      OutputStream.flush();
+      return OutputVal;
+    };
+
+    Value *V = const_cast<Value *>(&CV);
+    std::set<SafetyInfoLog> Data;
+    Log.lookupSafetyFlagsForValue(V, Data);
+    if (!Data.empty())
+      dtrans::printCollectionSorted(OS, Data.begin(), Data.end(), "",
+                                    LogToString);
+  }
+
+private:
+  const DTransSafetyLogger &Log;
+};
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 // This class is responsible for analyzing the LLVM IR using information
 // collected by the PtrTypeAnalyzer class to mark the DTrans safety bits on the
 // TypeInfo objects managed by the DTransSafetyInfo class. This will also
 // collect the field usage information for structure fields.
 class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
 public:
-  // TODO: Making this public temporarly for upcoming code development.
+  // TODO: Making this public temporarily to avoid an unused variable warning
+  // because the variable is not used yet. Change to private when it is used.
   DTransAllocAnalyzer &DTAA;
   DTransSafetyInstVisitor(LLVMContext &Ctx, const DataLayout &DL,
                           DTransSafetyInfo::GetTLIFnType GetTLI,
                           DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
                           DTransTypeManager &TM, TypeMetadataReader &MDReader,
-                          DTransAllocAnalyzer &DTAA)
-      :  DTAA(DTAA), DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA),
-         MDReader(MDReader), TM(TM) {
+                          DTransAllocAnalyzer &DTAA, DTransSafetyLogger &Log)
+      : DTAA(DTAA), DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA),
+        MDReader(MDReader), TM(TM), Log(Log) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -873,8 +979,8 @@ public:
     // Callback method for when a safety flag is set to report the ValueTypeInfo
     // object for the value and store operands of the StoreInst.
     auto DumpCallback = [ValInfo, PtrInfo]() {
-                         (void)ValInfo;
-                         (void)PtrInfo;
+      (void)ValInfo;
+      (void)PtrInfo;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       dbgs() << "  Value op info:\n";
       if (ValInfo)
@@ -2007,8 +2113,8 @@ public:
       // set, and debug trace filtering is enabled for the function being
       // analyzed.
       auto DumpCallback = [Param, ArgNum]() {
-                           (void)Param;
-                           (void)ArgNum;
+        (void)Param;
+        (void)ArgNum;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         dbgs() << "  Arg#" << ArgNum << ": " << *Param << "\n";
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2130,7 +2236,7 @@ public:
           Value *TargetArg = F->getArg(ArgNum);
           ValueTypeInfo *ArgInfo = PTA.getValueTypeInfo(TargetArg);
           assert(ArgInfo &&
-            "Expected pointer type analyzer to analyze pointer");
+                 "Expected pointer type analyzer to analyze pointer");
 
           DTransType *TargDomTy =
               PTA.getDominantType(*ArgInfo, ValueTypeInfo::VAT_Use);
@@ -3510,7 +3616,9 @@ private:
     printSafetyDataDebugMessage(Data, Reason, V, nullptr, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setBaseTypeInfoSafetyDataImpl(Ty, Data, isCascadingSafetyCondition(Data),
-                                  isPointerCarriedSafetyCondition(Data));
+                                  isPointerCarriedSafetyCondition(Data), V,
+                                  /*ForCascade=*/false,
+                                  /*ForPtrCarried=*/false);
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo'
@@ -3529,7 +3637,7 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
+    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, V, /*Aliases=*/true,
                                           /*Pointees=*/false);
   }
 
@@ -3551,7 +3659,7 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, Callback);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/false,
+    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, V, /*Aliases=*/false,
                                           /*Pointees=*/true);
   }
 
@@ -3574,14 +3682,14 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     printSafetyDataDebugMessage(Data, Reason, V, PtrInfo, nullptr);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
+    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, V, /*Aliases=*/true,
                                           /*Pointees=*/true);
   }
 
   // Sets the safety data on either the Aliases or ElementPointees of PtrInfo
   // depending on boolean inputs.
   void setAliasedOrPointeeTypeSafetyDataImpl(ValueTypeInfo *PtrInfo,
-                                             dtrans::SafetyData Data,
+                                             dtrans::SafetyData Data, Value *V,
                                              bool Aliases, bool Pointees) {
     assert((Aliases || Pointees) &&
            "Expected aliases and/or pointees to be specified");
@@ -3589,31 +3697,37 @@ private:
     if (Aliases)
       for (auto *AliasTy :
            PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
-        setBaseTypeInfoSafetyData(AliasTy, Data, "", nullptr);
+        setBaseTypeInfoSafetyData(AliasTy, Data, "", V);
 
     if (Pointees)
       for (auto &PointeePair :
            PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use))
-        setBaseTypeInfoSafetyData(PointeePair.first, Data, "", nullptr);
+        setBaseTypeInfoSafetyData(PointeePair.first, Data, "", V);
   }
 
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
   //
-  // When 'IsCascading' is set, the safety data will also
-  // be set for fields nested (and possibly pointers) within a structure type.
+  // When 'DoCascade' is set, the safety data will also be set for fields nested
+  // (and possibly pointers) within a structure type.
   //
-  // When 'IsPointerCarried' is set, the safety data will also be cascaded to
+  // When 'DoPtrCarried' is set, the safety data will also be cascaded to
   // the types referenced via the pointer. This parameter is only used, when
-  // 'IsCascading' is set to true.
+  // 'DoCascade' is set to true.
   //
-  // Note, descending into types for cascading of the safety data stops
-  // when a type is encountered that already contains the safety data value
-  // because all elements reached from it should also already have the safety
-  // bit set.
+  // 'TriggerValue', 'ForCascade' and 'ForPtrCarried' are informational fields
+  // used for the log messages to report the instruction that caused the safety
+  // flag, and whether the flag is being set on an inner type due to a safety
+  // condition of the outer type.
+  //
+  // Note, descending into types for cascading of the safety data stops when a
+  // type is encountered that already contains the safety data value because all
+  // elements reached from it should also already have the safety bit set.
   void setBaseTypeInfoSafetyDataImpl(DTransType *Ty, dtrans::SafetyData Data,
-                                     bool IsCascading, bool IsPointerCarried) {
+                                     bool DoCascade, bool DoPtrCarried,
+                                     Value *TriggerValue, bool ForCascade,
+                                     bool ForPtrCarried) {
 
     // Get the underlying element type by stripping away the pointer levels.
     // Because we do not have TypeInfo objects for vector types, we also need to
@@ -3631,7 +3745,9 @@ private:
 
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
-    if (!IsCascading)
+    Log.log(TriggerValue,
+            SafetyInfoLog(BaseTy, Data, ForCascade, ForPtrCarried));
+    if (!DoCascade)
       return;
 
     // This lambda encapsulates the logic for propagating safety conditions to
@@ -3644,16 +3760,19 @@ private:
     // of nesting.
     auto MaybePropagateSafetyCondition = [this, BaseTy](DTransType *FieldTy,
                                                         dtrans::SafetyData Data,
-                                                        bool IsCascading,
-                                                        bool IsPointerCarried) {
+                                                        bool DoCascade,
+                                                        bool DoPtrCarried,
+                                                        Value *TriggerValue,
+                                                        bool ForCascade,
+                                                        bool ForPtrCarried) {
       // If FieldTy is not a type of interest, there's no need to propagate.
       if (!isTypeOfInterest(FieldTy))
         return;
-      // If the field is an instance of the type, propagate the condition.
+      // If the field is a pointer or aggregate type, propagate the condition.
       if (!FieldTy->isPointerTy()) {
-        setBaseTypeInfoSafetyDataImpl(FieldTy, Data, IsCascading,
-                                      IsPointerCarried);
-      } else if (IsPointerCarried) {
+        setBaseTypeInfoSafetyDataImpl(FieldTy, Data, DoCascade, DoPtrCarried,
+                                      TriggerValue, ForCascade, ForPtrCarried);
+      } else if (DoPtrCarried) {
         // In some cases we need to propagate the condition even to fields
         // that are pointers to structures, but in order to avoid infinite
         // loops in the case where two structures each have pointers to the
@@ -3671,8 +3790,9 @@ private:
                 << "From: " << *BaseTy << " To: " << *FieldBaseTy
                 << " :: " << dtrans::getSafetyDataName(Data) << "\n";
           });
-          setBaseTypeInfoSafetyDataImpl(FieldBaseTy, Data, IsCascading,
-                                        IsPointerCarried);
+          setBaseTypeInfoSafetyDataImpl(FieldBaseTy, Data, DoCascade,
+                                        DoPtrCarried, TriggerValue, ForCascade,
+                                        /*ForPtrCarried=*/true);
         }
       }
     };
@@ -3680,11 +3800,13 @@ private:
     // Propagate this condition to any nested types.
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
       for (dtrans::FieldInfo &FI : StInfo->getFields())
-        MaybePropagateSafetyCondition(FI.getDTransType(), Data, IsCascading,
-                                      IsPointerCarried);
+        MaybePropagateSafetyCondition(FI.getDTransType(), Data, DoCascade,
+                                      DoPtrCarried, TriggerValue,
+                                      /*IsCascade=*/true, ForPtrCarried);
     else if (isa<dtrans::ArrayInfo>(TI))
       MaybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data,
-                                    IsCascading, IsPointerCarried);
+                                    DoCascade, DoPtrCarried, TriggerValue,
+                                    /*IsCascade=*/true, ForPtrCarried);
   }
 
   // Mark all the fields of the type, and fields of aggregates the type contains
@@ -3778,6 +3900,7 @@ private:
   PtrTypeAnalyzer &PTA;
   TypeMetadataReader &MDReader;
   DTransTypeManager &TM;
+  DTransSafetyLogger &Log;
 
   // Types that are frequently needed for comparing type aliases against
   // known types.
@@ -3836,10 +3959,25 @@ void DTransSafetyInfo::analyzeModule(
   // functions after the DTransAllocAnalyzer is updated to work with opaque
   // pointers:
   // DTAA.populateAllocDeallocTable(M);
-
+  DTransSafetyLogger Log;
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, *this, *PtrAnalyzer, *TM,
-                                  *MDReader, DTAA);
+                                  *MDReader, DTAA, Log);
   Visitor.visit(M);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintSafetyAnalyzerIR) {
+    SafetyAnnotationWriter Annotator(Log);
+    if (DTransSAFilterPrintFuncs.empty()) {
+      M.print(dbgs(), &Annotator);
+    } else {
+      for (auto &Name : DTransSAFilterPrintFuncs) {
+        Function *F = M.getFunction(Name);
+        if (F)
+          F->print(dbgs(), &Annotator);
+      }
+    }
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   LLVM_DEBUG({
     dbgs() << "DTransSafetyInfo: Module visited\n";
