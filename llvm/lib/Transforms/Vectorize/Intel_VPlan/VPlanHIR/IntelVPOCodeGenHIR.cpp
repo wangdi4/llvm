@@ -1932,13 +1932,12 @@ RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
   return CombShuffle->getLvalDDRef();
 }
 
-RegDDRef *VPOCodeGenHIR::concatenateVectors(RegDDRef **VecsArray,
-                                            int64_t NumVecs, RegDDRef *Mask) {
+RegDDRef *VPOCodeGenHIR::concatenateVectors(ArrayRef<RegDDRef *> VecsArray,
+                                            RegDDRef *Mask) {
+  int64_t NumVecs = VecsArray.size();
   assert(NumVecs > 1 && "Should be at least two vectors");
 
-  SmallVector<RegDDRef *, 8> ResList;
-  for (unsigned Index = 0; Index < NumVecs; ++Index)
-    ResList.push_back(VecsArray[Index]);
+  SmallVector<RegDDRef *, 8> ResList(VecsArray.begin(), VecsArray.end());
 
   do {
     SmallVector<RegDDRef *, 8> TmpList;
@@ -1954,7 +1953,7 @@ RegDDRef *VPOCodeGenHIR::concatenateVectors(RegDDRef **VecsArray,
     if (NumVecs % 2 != 0)
       TmpList.push_back(ResList[NumVecs - 1]);
 
-    ResList = TmpList;
+    std::swap(ResList, TmpList);
     NumVecs = ResList.size();
   } while (NumVecs > 1);
 
@@ -1997,11 +1996,11 @@ HLInst *VPOCodeGenHIR::createInterleavedLoad(const RegDDRef *LvalRef,
   return Shuffle;
 }
 
-HLInst *VPOCodeGenHIR::createInterleavedStore(RegDDRef **StoreVals,
+HLInst *VPOCodeGenHIR::createInterleavedStore(ArrayRef<RegDDRef *> StoreVals,
                                               RegDDRef *WStorePtrRef,
                                               int64_t InterleaveFactor,
                                               RegDDRef *Mask) {
-  RegDDRef *ConcatVec = concatenateVectors(StoreVals, InterleaveFactor, Mask);
+  RegDDRef *ConcatVec = concatenateVectors(StoreVals, Mask);
 
   // Create interleaved store mask shuffle instruction to shuffle the
   // concatenated vectors in the desired order for the wide store.
@@ -2121,9 +2120,7 @@ void VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
   } else {
     assert(isa<StoreInst>(CurInst) &&
            "Unexpected interleaved access instruction");
-    RegDDRef **StoreValRefs;
-    const RegDDRef *StoreValRef = INode->getOperandDDRef(1);
-    RegDDRef *WStoreValRef = widenRef(StoreValRef, getVF());
+    RegDDRef *WStoreValRef = widenRef(INode->getOperandDDRef(1), getVF());
 
     auto It = VLSGroupStoreMap.find(Grp);
     if (It == VLSGroupStoreMap.end()) {
@@ -2131,23 +2128,16 @@ void VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
       // Allocate an array of RegDDRef * that is big enough to store the values
       // being stored in InterleaveFactor number of stores in the group.
       // Initialize array elements to null and store in VLSGroupStoreMap.
-      StoreValRefs =
-          VLSGroupStoreMap
-              .insert(std::make_pair(
-                  Grp, std::make_unique<RegDDRef *[]>(InterleaveFactor)))
-              .first->second.get();
-      for (unsigned Index = 0; Index < InterleaveFactor; ++Index)
-        StoreValRefs[Index] = nullptr;
-    } else
-      StoreValRefs = It->second.get();
+      It = VLSGroupStoreMap.try_emplace(Grp, InterleaveFactor).first;
+    }
 
-    // Store the widened store value into StoreValRefs array.
-    StoreValRefs[InterleaveIndex] = WStoreValRef;
+    // Store the widened store value into RegDDRef array.
+    It->second[InterleaveIndex] = WStoreValRef;
 
     // Check if we are at the point of the last store in the VLS group.
     unsigned Index;
     for (Index = 0; Index < InterleaveFactor; ++Index)
-      if (StoreValRefs[Index] == nullptr)
+      if (It->second[Index] == nullptr)
         break;
 
     // If we have seen all the instructions in a store group, go ahead and
@@ -2161,7 +2151,7 @@ void VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
       RegDDRef *WStorePtrRef = widenRef(GrpStartInst->getOperandDDRef(0),
                                         getVF() * InterleaveFactor, true);
       assert(WStorePtrRef && "Wide store reference should not be null pointer");
-      WideInst = createInterleavedStore(StoreValRefs, WStorePtrRef,
+      WideInst = createInterleavedStore(It->second, WStorePtrRef,
                                         InterleaveFactor, Mask);
       SmallVector<const RegDDRef *, 4> MemDDRefVec;
       FillRefVec(Grp, MemDDRefVec);
@@ -2302,7 +2292,6 @@ void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
   } else {
     assert(Opcode == Instruction::Store &&
            "Unexpected interleaved access instruction");
-    RegDDRef **StoreValRefs;
     RegDDRef *WStoreValRef = widenRef(VPLdSt->getOperand(0), getVF());
 
     auto It = VLSGroupStoreMap.find(Grp);
@@ -2311,23 +2300,16 @@ void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
       // Allocate an array of RegDDRef * that is big enough to store the values
       // being stored in InterleaveFactor number of stores in the group.
       // Initialize array elements to null and store in VLSGroupStoreMap.
-      StoreValRefs =
-          VLSGroupStoreMap
-              .insert(std::make_pair(
-                  Grp, std::make_unique<RegDDRef *[]>(InterleaveFactor)))
-              .first->second.get();
-      for (unsigned Index = 0; Index < InterleaveFactor; ++Index)
-        StoreValRefs[Index] = nullptr;
-    } else
-      StoreValRefs = It->second.get();
+      It = VLSGroupStoreMap.try_emplace(Grp, InterleaveFactor).first;
+    }
 
-    // Store the widened store value into StoreValRefs array.
-    StoreValRefs[InterleaveIndex] = WStoreValRef;
+    // Store the widened store value into RegDDRef array.
+    It->second[InterleaveIndex] = WStoreValRef;
 
     // Check if we are at the point of the last store in the VLS group.
     unsigned Index;
     for (Index = 0; Index < InterleaveFactor; ++Index)
-      if (StoreValRefs[Index] == nullptr)
+      if (It->second[Index] == nullptr)
         break;
 
     // If we have seen all the instructions in a store group, go ahead and
@@ -2344,7 +2326,7 @@ void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
       const VPLoadStoreInst *FirstGrpInst = cast<VPLoadStoreInst>(
           cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getInstruction());
       RegDDRef *WStorePtrRef = prepareMemoryRef(FirstGrpInst, 0);
-      WideInst = createInterleavedStore(StoreValRefs, WStorePtrRef,
+      WideInst = createInterleavedStore(It->second, WStorePtrRef,
                                         InterleaveFactor, Mask);
 
       DEBUG_WITH_TYPE("ovls",
