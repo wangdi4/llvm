@@ -68,5 +68,5 @@ dpcpptarget_add_resource_file(pi_opencl
 #end INTEL_CUSTOMIZATION
 
 install(TARGETS pi_opencl
-    LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT pi_opencl
-    RUNTIME DESTINATION "bin" COMPONENT pi_opencl)
+  LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT pi_opencl
+  RUNTIME DESTINATION "bin" COMPONENT pi_opencl)
