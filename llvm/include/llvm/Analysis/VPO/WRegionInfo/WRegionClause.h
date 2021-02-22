@@ -1464,7 +1464,11 @@ print(formatted_raw_ostream &OS, unsigned Depth, unsigned Verbosity) const {
 
   if (Verbosity==0 && !size())
     return false;  // Don't print absent clause message if Verbosity==0
-
+  if (getClauseID() == QUAL_OMP_INIT) {
+    for (auto I : items())
+      I->print(OS, Depth);
+    return true;
+  }
   StringRef Name = VPOAnalysisUtils::getOmpClauseName(getClauseID());
   OS.indent(2*Depth) << Name << " clause";
   if (!size()) {  // this clause was not used in the directive
@@ -1490,6 +1494,130 @@ typename std::vector<ClauseItem>::iterator Clause<ClauseItem>::findOrig(VAR V)
 }
 */
 
+class InteropItem {
+public:
+  typedef enum InteropAction {
+    InteropNone = 0,
+    InteropDestroy,
+    InteropUse,
+    InteropInit
+  } InteropAction;
+
+  enum InitClauseMod {
+    InitTarget       = 0x0001,
+    InitTargetSync   = 0x0002,
+    InitPrefer       = 0x0004,
+    InitPreferOpenCL = 0x0008,
+    InitPreferSycl   = 0x0010,
+    InitPreferL0     = 0x0020
+  } InitClauseMod;
+
+private:
+  VAR InteropObj;
+  InteropAction Action;
+  unsigned InitModifiers; // bit vector for INIT modifiers
+  SmallVector<unsigned, 4> PreferList;
+
+public:
+  InteropItem(VAR V = nullptr) : InteropObj(V), InitModifiers(0) {}
+  void setOrig(VAR V) { InteropObj = V; }
+  VAR getOrig() const { return InteropObj; }
+
+  void setIsDestroy() { Action = InteropDestroy; }
+  void setIsUse() { Action = InteropUse; }
+  void setIsInit() { Action = InteropInit; }
+
+  void setIsTarget() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Target modifier for a non Init Clause");
+    InitModifiers |= InitTarget;
+  }
+
+  void setIsTargetSync() {
+    assert(
+        Action == InteropInit &&
+        "Unexpected: Trying to set TargetSync modifier for a non Init Clause");
+    InitModifiers |= InitTargetSync;
+  }
+
+  void setIsPrefer() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPrefer;
+  }
+
+  void setIsPreferOpenCL() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferOpenCL;
+  }
+
+  void setIsPreferSycl() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferSycl;
+  }
+
+  void setIsPreferL0() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferL0;
+  }
+
+  // Get prefer items from Args and populate the PreferList
+  void populatePreferList(const Use *Args, unsigned NumArgs);
+
+  unsigned getInteropAction() const { return Action; }
+  bool getIsDestroy() const { return Action == InteropDestroy; }
+  bool getIsUse() const { return Action == InteropUse; }
+  bool getIsInit() const { return Action == InteropInit; }
+
+  bool getIsTarget() const { return InitModifiers & InitTarget; }
+  bool getIsTargetSync() const { return InitModifiers & InitTargetSync; }
+  bool getIsPrefer() const { return InitModifiers & InitPrefer; }
+  bool getIsPreferOpenCL() const { return InitModifiers & InitPreferOpenCL; }
+  bool getIsPreferSycl() const { return InitModifiers & InitPreferSycl; }
+  bool getIsPreferL0() const { return InitModifiers & InitPreferL0; }
+
+  void  printPreferList(formatted_raw_ostream& OS) const {
+      OS << "PREFER_TYPE < ";
+      for (unsigned I = 0; I < PreferList.size(); I++){
+        if(PreferList[I] == InitPreferOpenCL)
+          OS << "3 (OpenCL) ";
+        else if (PreferList[I] == InitPreferSycl)
+          OS << "4 (SYCL) ";
+        else if (PreferList[I] == InitPreferL0)
+          OS << "6 (LEVEL0) ";
+      }
+      OS << "> ";
+  }
+
+  void print(formatted_raw_ostream &OS, unsigned Depth = 0,
+             bool PrintType = true) const {
+    if(getIsDestroy()){
+      OS.indent(2 * Depth) << "DESTROY clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ")\n";
+    }
+    else if(getIsUse()){
+      OS.indent(2 * Depth) << "USE clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ")\n";
+    }
+    else {
+      OS.indent(2 * Depth) << "INIT clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+      if (getIsTarget())
+        OS << "TARGET ";
+      if (getIsTargetSync())
+        OS << "TARGETSYNC ";
+      if (getIsPrefer())
+        printPreferList(OS);
+      OS << "\n";
+    }
+  }
+};
 
 //
 // typedef for list-type clause classes and associated iterator types
@@ -1507,6 +1635,7 @@ typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
 typedef Clause<SubdeviceItem>     SubdeviceClause;
+typedef Clause<InteropItem>       InteropActionClause;
 typedef Clause<DependItem>        DependClause;
 typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
@@ -1528,6 +1657,7 @@ typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
 typedef std::vector<SubdeviceItem>::iterator     SubdeviceIter;
+typedef std::vector<InteropItem>::iterator       InteropIter;
 typedef std::vector<DependItem>::iterator        DependIter;
 typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
