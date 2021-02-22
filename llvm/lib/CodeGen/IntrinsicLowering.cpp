@@ -361,6 +361,7 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
     LowerIntelHonorFCmp(Builder, cast<IntelHonorFCmpIntrinsic>(CI));
     break;
 
+  case Intrinsic::intel_subscript_nonexact:
   case Intrinsic::intel_subscript: {
     // Do not unlink intrinsic
     CI->replaceAllUsesWith(EmitSubsValue(&Builder, DL, CI));

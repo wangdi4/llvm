@@ -290,7 +290,8 @@ static bool lowerIntrinsics(Module &M) {
 #if INTEL_CUSTOMIZATION
     // TODO: These checks could be placed under the switch case once they are
     // fully tested in xmain.
-    if (F.getIntrinsicID() == Intrinsic::intel_subscript)
+    if (F.getIntrinsicID() == Intrinsic::intel_subscript ||
+        F.getIntrinsicID() == Intrinsic::intel_subscript_nonexact)
       Changed |= lowerSubscript(F);
 
     if (F.getIntrinsicID() == Intrinsic::intel_fakeload)

@@ -83,6 +83,7 @@ bool llvm::shouldSkipIntrinsic(IntrinsicInst *II) {
   case Intrinsic::dbg_declare:
   case Intrinsic::dbg_value:
   case Intrinsic::intel_subscript:
+  case Intrinsic::intel_subscript_nonexact:
   case Intrinsic::lifetime_end:
   case Intrinsic::lifetime_start:
   case Intrinsic::ptr_annotation:

@@ -1,5 +1,6 @@
 ; RUN: opt -lower-subscript -S < %s | FileCheck %s
 ; RUN: opt -passes="lower-subscript" -S < %s | FileCheck %s
+; RUN: opt -pre-isel-intrinsic-lowering -S < %s | FileCheck %s
 
 ; CHECK-LABEL: foo_exact
 ; CHECK: %[[OFFSET:.*]] = sdiv exact i64 %s, 4
