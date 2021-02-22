@@ -759,8 +759,9 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
 
   // Do actual cloning work
   // TODO: replace manual inlining by llvm::InlineFunction()
-  CloneFunctionInto(Fn, m_vectorFunc, valueMap, /*ModuleLevelChanges*/ true,
-                    returns, "vector_func");
+  CloneFunctionInto(Fn, m_vectorFunc, valueMap,
+                    CloneFunctionChangeType::LocalChangesOnly, returns,
+                    "vector_func");
 
   // The CloneFunctionInto() above will move all function metadata from the
   // vector function to the scalar function. Because the scalar function

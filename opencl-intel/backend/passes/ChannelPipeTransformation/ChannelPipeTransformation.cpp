@@ -642,7 +642,8 @@ static Function *createUserFunctionStub(CallInst *Call, Type *ChannelTy,
   }
 
   SmallVector<ReturnInst *, 4> Returns;
-  CloneFunctionInto(Replacement, ExistingF, VMap, true, Returns, "");
+  CloneFunctionInto(Replacement, ExistingF, VMap,
+                    CloneFunctionChangeType::LocalChangesOnly, Returns, "");
   assert(Replacement && "CloneFunctionInfo failed");
 
   ExistingF->deleteBody();
