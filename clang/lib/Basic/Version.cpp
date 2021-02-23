@@ -110,18 +110,16 @@ std::string getClangFullCPPVersion() {
 #if INTEL_CUSTOMIZATION
 std::string getICXVersionString() {
   // XMAIN_BUILD_DATE_STAMP_STR is expected to be 8 characters of YYYYMMDD.
-  // Split the string for our usage in the version, which should resemble
-  // YYYY.8.x.0.MMDD
+  // Update the string for our usage in the version, which should resemble
+  // MAJOR.MINOR.PATCH.YYYYMMDD
   StringRef Date(XMAIN_BUILD_DATE_STAMP_STR);
   if (Date.size() == 8) {
-    StringRef MMDD(Date.take_back(4));
-    StringRef YYYY(Date.take_front(4));
     std::string buf;
     llvm::raw_string_ostream OS(buf);
-    OS << YYYY << "." << XMAIN_VERSION_STRING << "." << MMDD;
+    OS << getDPCPPVersionString() << "." << Date;
     return OS.str();
   }
-  return XMAIN_VERSION_STRING;
+  return getDPCPPVersionString();
 }
 
 std::string getDPCPPProductName() {

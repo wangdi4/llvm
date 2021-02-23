@@ -20,9 +20,6 @@
 // TODO: Auto-populate __INTEL_LLVM_COMPILER and __INTEL_CLANG_COMPILER
 //       macros using build settings and remove XMAIN_VERSION_NUMBER
 #define XMAIN_VERSION_NUMBER "20210200"
-#define XMAIN_VERSION_STRING   "1.0"
-#define XMAIN_VERSION_MINOR     1
-#define XMAIN_VERSION_UPDATE    0
 
 #ifndef BUILD_DATE_STAMP
 #define BUILD_DATE_STAMP        YYYYMMDD
