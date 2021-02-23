@@ -151,6 +151,43 @@ static bool refIsUnit(unsigned Level, const RegDDRef *Ref, VPOCodeGenHIR *CG) {
   return true;
 }
 
+/// Create an interleave shuffle mask. This function mimics the interface in
+/// VectorUtils.cpp which requires us to pass in an IRBuilder. This function
+/// creates a shuffle mask for interleaving NumVecs vectors of vectorization
+/// factor VF into a single wide vector. The mask is of the form: <0, VF, VF *
+/// 2, ..., VF * (NumVecs - 1), 1, VF + 1, VF * 2 + 1, ...> For example, the
+/// mask for VF = 4 and NumVecs = 2 is: <0, 4, 1, 5, 2, 6, 3, 7>.
+static Constant *createInterleaveMask(LLVMContext &Context, unsigned VF,
+                                      unsigned NumVecs) {
+  SmallVector<Constant *, 16> Mask;
+  for (unsigned I = 0; I < VF; ++I)
+    for (unsigned J = 0; J < NumVecs; ++J)
+      Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), J * VF + I));
+
+  return ConstantVector::get(Mask);
+}
+
+/// Create a sequential shuffle mask. This function mimics the interface in
+/// VectorUtils.cpp which requires us to pass in an IRBuilder. This function
+/// creates shuffle mask whose elements are sequential and begin at Start. The
+/// mask contains NumInts integers and is padded with NumUndefs undef values.
+/// The mask is of the form: <Start, Start + 1, ... Start + NumInts - 1,
+/// undef_1, ... undef_NumUndefs> For example, the mask for Start = 0, NumInts
+/// = 4, and NumUndefs = 4 is: <0, 1, 2, 3, undef, undef, undef, undef>
+static Constant *createSequentialMask(unsigned Start, unsigned NumInts,
+                                      unsigned NumUndefs,
+                                      LLVMContext &Context) {
+  SmallVector<Constant *, 16> Mask;
+  for (unsigned I = 0; I < NumInts; ++I)
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Start + I));
+
+  Constant *Undef = UndefValue::get(Type::getInt32Ty(Context));
+  for (unsigned I = 0; I < NumUndefs; ++I)
+    Mask.push_back(Undef);
+
+  return ConstantVector::get(Mask);
+}
+
 HLInst *VPOCodeGenHIR::createReverseVector(RegDDRef *ValRef) {
   unsigned NumElems = cast<VectorType>(ValRef->getDestType())->getNumElements();
   SmallVector<Constant *, 4> ShuffleMask;
@@ -160,12 +197,7 @@ HLInst *VPOCodeGenHIR::createReverseVector(RegDDRef *ValRef) {
     ShuffleMask.push_back(Mask);
   }
 
-  Constant *MaskVec = ConstantVector::get(ShuffleMask);
-  RegDDRef *ShuffleMaskRef = DDRefUtilities.createConstDDRef(MaskVec);
-  RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(ValRef->getDestType());
-
-  HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
-      ValRef, UndefRef, ShuffleMaskRef, "reverse");
+  HLInst *Shuffle = createShuffleWithUndef(ValRef, ShuffleMask, "reverse");
   addInstUnmasked(Shuffle);
   return Shuffle;
 }
@@ -732,6 +764,22 @@ void HandledCheck::visit(HLDDNode *Node) {
       if (!CG->isIgnoredCall(Call))
         VectorizableCallSeen = true;
     }
+
+    // Checks for instructions that operate on VectorType.
+    if (Opcode == Instruction::ExtractElement ||
+        Opcode == Instruction::InsertElement) {
+      // Index will be the last operand of insert/extractelement instruction.
+      auto *IndexRef = Inst->getOperandDDRef(Inst->getNumOperands() - 1);
+      if (!IndexRef->isIntConstant()) {
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs()
+                            << "VPLAN_OPTREPORT: Loop not handled - "
+                               "insert/extractelement with variable index\n");
+        IsHandled = false;
+        return;
+      }
+    }
   }
 
   for (auto Iter = Node->ddref_begin(), End = Node->ddref_end(); Iter != End;
@@ -744,12 +792,12 @@ void HandledCheck::visit(HLDDNode *Node) {
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
-  if (!VectorType::isValidElementType(RegDD->getSrcType()) ||
-      !VectorType::isValidElementType(RegDD->getDestType())) {
-    DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getSrcType()->dump());
+  if (!isVectorizableTy(RegDD->getDestType())) {
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->dump(); dbgs() << "\n");
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getDestType()->dump());
     DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-        dbgs() << "VPLAN_OPTREPORT: Loop not handled - invalid element type\n");
+                    dbgs() << "VPLAN_OPTREPORT: Loop not handled - "
+                              "non-vectorizable destination type\n");
     IsHandled = false;
     return;
   }
@@ -1355,9 +1403,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
   RegDDRef *WideRef;
   auto RefDestTy = Ref->getDestType();
-  auto VecRefDestTy = FixedVectorType::get(RefDestTy, VF);
+  auto VecRefDestTy = getWidenedType(RefDestTy, VF);
   auto RefSrcTy = Ref->getSrcType();
-  auto VecRefSrcTy = FixedVectorType::get(RefSrcTy, VF);
+  auto VecRefSrcTy = getWidenedType(RefSrcTy, VF);
 
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
@@ -1497,12 +1545,53 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     }
 
     for (auto &BI : BlobIndices) {
-      auto TopBlob = BlobUtilities.getBlob(BI);
+      BlobTy TopBlob = BlobUtilities.getBlob(BI);
 
-      // We do not need to widen invariant blobs - check for blob invariance
-      // by comparing maxbloblevel against the loop's nesting level.
-      if (WideRef->findMaxBlobLevel(BI) < NestingLevel)
+      // We do not need to widen invariant scalar blobs, invariant vector blobs
+      // need to be replicated - check for blob invariance by comparing
+      // maxbloblevel against the loop's nesting level.
+      if (WideRef->findMaxBlobLevel(BI) < NestingLevel) {
+        if (TopBlob->getType()->isVectorTy()) {
+          Constant *ConstVec = nullptr;
+          UndefValue *UndefVec = nullptr;
+          if (BlobUtils::isConstantVectorBlob(TopBlob, &ConstVec) ||
+              BlobUtils::isUndefBlob(TopBlob, &UndefVec)) {
+            // Replicate the constant/undef vector blob VF times.
+            if (!ConstVec) {
+              assert(UndefVec && "Only ConstVector or UndefValue is expected.");
+              // UndefValue is a sub-class of Constant, so it's valid to upcast.
+              ConstVec = UndefVec;
+            }
+
+            assert(ConstVec &&
+                   "ConstantVector value not found for ConstantVector blob.");
+            unsigned ReplBlobIdx;
+            BlobUtilities.createReplicatedConstantBlob(
+                ConstVec, VF, true /*Insert*/, &ReplBlobIdx);
+            // Replace the original vector blob with replicated version.
+            assert(BlobUtilities.isBlobIndexValid(ReplBlobIdx) &&
+                   "Replicated blob does not have valid blob index.");
+            CE->replaceBlob(BI, ReplBlobIdx);
+          } else {
+            assert(WideRef->getSingleCanonExpr()->getSingleBlobIndex() == BI &&
+                   "Unexpected RegDDRef/Blob for invariant vector blob");
+            // Replicate invariant vector blob VF times.
+            HLInst *ReplBlobInst = replicateVector(WideRef, VF);
+            // Insert the replicating instruction into preheader of vector loop.
+            // TODO: Need insertion point tracking mechanism here.
+            HLNodeUtils::insertAsLastPreheaderNode(MainLoop, ReplBlobInst);
+            auto NewRef = ReplBlobInst->getLvalDDRef();
+            // Add the new replicated Ref as a live-in for vector loop.
+            MainLoop->addLiveInTemp(NewRef->getSymbase());
+
+            AuxRefs.push_back(NewRef);
+            CE->replaceBlob(BI,
+                            NewRef->getSingleCanonExpr()->getSingleBlobIndex());
+          }
+        }
+
         continue;
+      }
 
       if (BlobUtilities.isNestedBlob(TopBlob)) {
         NestedBlobCG CGBlob(Ref, HLNodeUtilities, DDRefUtilities, this,
@@ -1527,8 +1616,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       }
     }
 
-    auto VecCEDestTy = FixedVectorType::get(CE->getDestType(), VF);
-    auto VecCESrcTy = FixedVectorType::get(CE->getSrcType(), VF);
+    auto VecCEDestTy = getWidenedType(CE->getDestType(), VF);
+    auto VecCESrcTy = getWidenedType(CE->getSrcType(), VF);
 
     CE->setDestType(VecCEDestTy);
     CE->setSrcType(VecCESrcTy);
@@ -1757,43 +1846,6 @@ HLInst *VPOCodeGenHIR::widenIfNode(const HLIf *HIf, RegDDRef *Mask) {
   return CurWideInst;
 }
 
-/// Create an interleave shuffle mask. This function mimics the interface in
-/// VectorUtils.cpp which requires us to pass in an IRBuilder. This function
-/// creates a shuffle mask for interleaving NumVecs vectors of vectorization
-/// factor VF into a single wide vector. The mask is of the form: <0, VF, VF *
-/// 2, ..., VF * (NumVecs - 1), 1, VF + 1, VF * 2 + 1, ...> For example, the
-/// mask for VF = 4 and NumVecs = 2 is: <0, 4, 1, 5, 2, 6, 3, 7>.
-static Constant *createInterleaveMask(LLVMContext &Context, unsigned VF,
-                                      unsigned NumVecs) {
-  SmallVector<Constant *, 16> Mask;
-  for (unsigned I = 0; I < VF; ++I)
-    for (unsigned J = 0; J < NumVecs; ++J)
-      Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), J * VF + I));
-
-  return ConstantVector::get(Mask);
-}
-
-/// Create a sequential shuffle mask. This function mimics the interface in
-/// VectorUtils.cpp which requires us to pass in an IRBuilder. This function
-/// creates shuffle mask whose elements are sequential and begin at Start. The
-/// mask contains NumInts integers and is padded with NumUndefs undef values.
-/// The mask is of the form: <Start, Start + 1, ... Start + NumInts - 1,
-/// undef_1, ... undef_NumUndefs> For example, the mask for Start = 0, NumInsts
-/// = 4, and NumUndefs = 4 is: <0, 1, 2, 3, undef, undef, undef, undef>
-static Constant *createSequentialMask(unsigned Start, unsigned NumInts,
-                                      unsigned NumUndefs,
-                                      LLVMContext &Context) {
-  SmallVector<Constant *, 16> Mask;
-  for (unsigned I = 0; I < NumInts; ++I)
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), I));
-
-  Constant *Undef = UndefValue::get(Type::getInt32Ty(Context));
-  for (unsigned I = 0; I < NumUndefs; ++I)
-    Mask.push_back(Undef);
-
-  return ConstantVector::get(Mask);
-}
-
 template <class MDSource>
 void VPOCodeGenHIR::propagateMetadata(
     RegDDRef *NewRef, SmallVectorImpl<const MDSource *> &MDSrcVec) {
@@ -1960,6 +2012,57 @@ RegDDRef *VPOCodeGenHIR::concatenateVectors(ArrayRef<RegDDRef *> VecsArray,
   return ResList[0];
 }
 
+HLInst *VPOCodeGenHIR::createShuffleWithUndef(RegDDRef *Input,
+                                              ArrayRef<Constant *> Mask,
+                                              const StringRef &Name,
+                                              RegDDRef *WLvalRef) {
+  Constant *MaskVec = ConstantVector::get(Mask);
+  RegDDRef *ShufMaskRef = DDRefUtilities.createConstDDRef(MaskVec);
+  RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(Input->getDestType());
+
+  return HLNodeUtilities.createShuffleVectorInst(Input->clone(), UndefRef,
+                                                 ShufMaskRef, Name, WLvalRef);
+}
+
+HLInst *VPOCodeGenHIR::extendVector(RegDDRef *Input, unsigned TargetLength) {
+  Type *OrigTy = Input->getDestType();
+  assert(isa<VectorType>(OrigTy) && "Input should be of a vector type.");
+  unsigned OrigNumElts = cast<VectorType>(OrigTy)->getNumElements();
+  assert(TargetLength > OrigNumElts &&
+         "TargetLength should be greater than OrigNumElts.");
+
+  Constant *ShufMaskVec = createSequentialMask(
+      0 /*Start*/, OrigNumElts, TargetLength - OrigNumElts /*NumUndefs*/,
+      HLNodeUtilities.getContext());
+  // TODO: modify createShuffleWithUndef to accept ConstantVector too?
+  RegDDRef *ShufMaskRef = DDRefUtilities.createConstDDRef(ShufMaskVec);
+  RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(Input->getDestType());
+
+  return HLNodeUtilities.createShuffleVectorInst(Input->clone(), UndefRef,
+                                                 ShufMaskRef, ".extended");
+}
+
+HLInst *VPOCodeGenHIR::replicateVector(RegDDRef *Input,
+                                       unsigned ReplicationFactor) {
+  assert(ReplicationFactor > 1 && "Unexpected replication factor.");
+  auto *OrigTy = cast<VectorType>(Input->getDestType());
+  unsigned OrigNumElts = OrigTy->getNumElements();
+
+  SmallVector<Constant *, 8> ShuffleMask;
+  for (unsigned J = 0; J < ReplicationFactor; ++J) {
+    for (unsigned I = 0; I < OrigNumElts; ++I) {
+      Constant *Mask = ConstantInt::get(Type::getInt32Ty(Context), I);
+      ShuffleMask.push_back(Mask);
+    }
+  }
+
+  auto *ReplVecInst = createShuffleWithUndef(Input, ShuffleMask, ".replicated");
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] ReplVecInst: "; ReplVecInst->dump();
+             dbgs() << "\n");
+
+  return ReplVecInst;
+}
+
 HLInst *VPOCodeGenHIR::createInterleavedLoad(const RegDDRef *LvalRef,
                                              RegDDRef *WLoadRes,
                                              int64_t InterleaveFactor,
@@ -1974,15 +2077,12 @@ HLInst *VPOCodeGenHIR::createInterleavedLoad(const RegDDRef *LvalRef,
                          InterleaveIndex + (InterleaveFactor * Index));
     ShuffleMask.push_back(Mask);
   }
-  Constant *MaskVec = ConstantVector::get(ShuffleMask);
-  RegDDRef *ShuffleMaskRef = DDRefUtilities.createConstDDRef(MaskVec);
-  RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(WLoadRes->getDestType());
 
   // Create shuffle instruction using the result of the wide load and the
   // computed shuffle mask.
   RegDDRef *WLvalRef = LvalRef ? widenRef(LvalRef, getVF()) : nullptr;
-  HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
-      WLoadRes->clone(), UndefRef, ShuffleMaskRef, "vls.shuf", WLvalRef);
+  HLInst *Shuffle = createShuffleWithUndef(WLoadRes->clone(), ShuffleMask,
+                                           "vls.shuf", WLvalRef);
 
   addInst(Shuffle, Mask);
   if (LvalRef)
@@ -3102,7 +3202,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
   Type *ValTy = PtrTy->getElementType();
   if (!Lane0Value) {
-    Type *VecValTy = FixedVectorType::get(ValTy, VF);
+    Type *VecValTy = getWidenedType(ValTy, VF);
 
     // MemRef's bitcast type needs to be set to a pointer to <VF x ValType>.
     MemRef->setBitCastDestType(
@@ -4158,6 +4258,127 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
     }
 
+    break;
+  }
+
+  // CG support for opcodes that operate on VectorType.
+  case Instruction::ExtractElement: {
+    assert(isa<VectorType>(RefOp0->getDestType()) &&
+           "First operand of extractelement was not widened.");
+    VPValue *VPIndexVal = VPInst->getOperand(1);
+    assert(isa<VPConstantInt>(VPIndexVal) &&
+           "Only constant index extractelements are supported.");
+
+    RegDDRef *ExtrFrom = RefOp0;
+    unsigned IndexVal =
+        cast<VPConstantInt>(VPIndexVal)->getValue().getLimitedValue();
+
+    // Extract subvector from widened first operand. Subvector should include VF
+    // elements.
+    SmallVector<Constant *, 8> ShufMask;
+    unsigned OrigNumElts =
+        cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
+    unsigned WideNumElts = getVF() * OrigNumElts;
+
+    for (unsigned Idx = IndexVal; Idx < WideNumElts; Idx += OrigNumElts)
+      ShufMask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Idx));
+
+    assert(ShufMask.size() == getVF() &&
+           "Subvector should contain VF elements.");
+
+    NewInst = createShuffleWithUndef(ExtrFrom, ShufMask, "wide.extract");
+    break;
+  }
+
+  case Instruction::InsertElement: {
+    assert(isa<VectorType>(RefOp0->getDestType()) &&
+           isa<VectorType>(RefOp1->getDestType()) &&
+           "First/second operand of insertelement was not widened.");
+    VPValue *VPIndexVal = VPInst->getOperand(2);
+    assert(isa<VPConstantInt>(VPIndexVal) &&
+           "Only constant index insertelements are supported.");
+
+    RegDDRef *InsertInto = RefOp0;
+    RegDDRef *SubVecToInsert = RefOp1;
+    unsigned IndexVal =
+        cast<VPConstantInt>(VPIndexVal)->getValue().getLimitedValue();
+    unsigned OrigNumElts =
+        cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
+    unsigned WideNumElts = getVF() * OrigNumElts;
+
+    // Widening of insertelements is handled based on 2 cases -
+    // 1. Insert into empty/undef vector.
+    // 2. Generic case where values are inserted into non-empty vector.
+    //
+    // Examples used to explain cases below -
+    // Incoming OrigNumElts= 2 (complex type), VF = 2
+    // %real = opcode ...
+    // %imag = opcode ...
+    // %complex.1 = insertelement <undef, undef>, %real, 0  ---> Case 1
+    // %complex.2 = insertelement %complex.1, %imag, 1      ---> Case 2
+
+    // Case 1:
+    // Generate a shuffle that selects elements of SubVecToInsert at appropriate
+    // indices and uses undef for other elements of outgoing vector. The example
+    // is revectorized as -
+    // %real.vec = opcode ...
+    // %complex.1.vec = shuffle <2 x float> %real.vec, <undef, undef>,
+    //                          <4 x i32 > < 0, undef, 1, undef >
+    if (InsertInto->isStandAloneUndefBlob()) {
+      SmallVector<Constant *, 8> ShufMask;
+      // Fill all elements of mask with undef, size is WideNumElts.
+      ShufMask.resize(WideNumElts, UndefValue::get(Type::getInt32Ty(Context)));
+      // For each vector lane set mask bits based on IndexVal.
+      for (unsigned Lane = 0; Lane < getVF(); ++Lane)
+        ShufMask[Lane * OrigNumElts + IndexVal] =
+            ConstantInt::get(Type::getInt32Ty(Context), Lane);
+
+      // Emit shuffle to emulate the wide insert operation.
+      NewInst = createShuffleWithUndef(SubVecToInsert, ShufMask, "wide.insert");
+      break;
+    }
+
+    assert(!InsertInto->isStandAloneUndefBlob() && "Unexpected InsertInto.");
+
+    // Case 2:
+    // The vector we need to insert into is already of appropriate length and
+    // may contain elements. To generically insert new elements into this
+    // vector, we first extend the subvector to insert (with undefs) and then
+    // generate a shuffle to select elements from the main vector or subvector
+    // based on current index being processed. The example above is revectorized
+    // as -
+    // %imag.vec = opcode ...
+    // %imag.vec.extend = shuffle %imag.vec, <undef, undef>,
+    //                            <4 x i32> < 0, 1, undef, undef >
+    // %complex.2.vec = shuffle %complex.1.vec, %imag.vec.extended,
+    //                          <4 x i32> < 0, 4, 2, 5 >
+    HLInst *ExtendedSubVec = extendVector(SubVecToInsert, WideNumElts);
+    // Add the extended subvector into outgoing HIR. No need to update any
+    // internal maps, its only user is the shuffle generated below.
+    addInst(ExtendedSubVec, Mask);
+
+    // Create shuffle mask to select elements from InsertInto or ExtendedSubVec
+    // based on index value of the original insertelement.
+    SmallVector<Constant *, 8> ShufMask;
+    for (unsigned InsIntoVecIdx = 0, ExtSubVecIdx = WideNumElts;
+         InsIntoVecIdx < WideNumElts; ++InsIntoVecIdx) {
+      if (InsIntoVecIdx % OrigNumElts == IndexVal) {
+        // Index matches, so insert element from ExtendedSubVec
+        ShufMask.push_back(
+            ConstantInt::get(Type::getInt32Ty(Context), ExtSubVecIdx));
+        ExtSubVecIdx++;
+      } else {
+        // Index doesn't match, so retain element from InsertInto vector.
+        ShufMask.push_back(
+            ConstantInt::get(Type::getInt32Ty(Context), InsIntoVecIdx));
+      }
+    }
+
+    Constant *MaskVec = ConstantVector::get(ShufMask);
+    RegDDRef *ShufMaskRef = DDRefUtilities.createConstDDRef(MaskVec);
+    NewInst = HLNodeUtilities.createShuffleVectorInst(
+        InsertInto->clone(), ExtendedSubVec->getLvalDDRef()->clone(),
+        ShufMaskRef, "wide.insert");
     break;
   }
 

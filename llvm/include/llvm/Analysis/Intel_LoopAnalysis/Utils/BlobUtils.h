@@ -34,6 +34,7 @@ class LLVMContext;
 class DataLayout;
 class MetadataAsValue;
 class TargetTransformInfo;
+class UndefValue;
 
 namespace loopopt {
 
@@ -146,7 +147,7 @@ public:
   static bool isGuaranteedProperLinear(BlobTy TempBlob);
 
   /// Returns true if \p Blob is a UndefValue.
-  static bool isUndefBlob(BlobTy Blob);
+  static bool isUndefBlob(BlobTy Blob, UndefValue **UVal = nullptr);
 
   /// Returns true if \p Blob contains undef.
   static bool containsUndef(BlobTy Blob);
@@ -173,6 +174,16 @@ public:
   /// Returns a new blob created from passed constant.
   BlobTy createConstantBlob(Constant *Const, bool Insert = true,
                             unsigned *NewBlobIndex = nullptr);
+
+  /// Returns a new blob by replicating given constant \p Const by \p
+  /// ReplicationFactor number of times. Example -
+  /// {0, 1, 2, 3} -> RF=2 -> { 0, 1, 2, 3, 0, 1, 2, 3 }
+  // TODO: Only VectorType constants are supported today, bcast pattern should
+  // be generated for ScalarType constants.
+  BlobTy createReplicatedConstantBlob(Constant *Const,
+                                      unsigned ReplicationFactor,
+                                      bool Insert = true,
+                                      unsigned *NewBlobIndex = nullptr);
 
   /// Returns a new blob created from passed global variable.
   /// This function is needed just for vectorizer in order to generate

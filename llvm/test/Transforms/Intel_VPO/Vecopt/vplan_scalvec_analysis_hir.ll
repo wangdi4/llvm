@@ -268,9 +268,10 @@ DIR.OMP.END.SIMD.3:                               ; preds = %if.end
 }
 
 define void @no_side_effect_insts(<8 x i32> %val, i64 %n, i32 *%p) {
-; FIXME: No CHECKs currently because loop is not handled due to vector types.
-; The crash was happenning in SVA invocation inside CM, not the one peformed
-; during CG that has dumps.
+; FIXME: No CHECKs currently because loop is not handled due to
+; insert/extractelement with variable index. The crash was happenning
+; in SVA invocation inside CM, not the one peformed during CG that has
+; dumps.
 ;
 entry:
   br label %preheader

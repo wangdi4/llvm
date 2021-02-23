@@ -215,6 +215,25 @@ public:
   // work with HIR. Vector values are concatenated and masked using Mask.
   RegDDRef *concatenateVectors(ArrayRef<RegDDRef *> VecsArray, RegDDRef *Mask);
 
+  /// Helper method to create a shuffle using \p Input and undef vectors based
+  /// on given \p Mask vector. Shuffle's result is writen to \p WLvalRef if
+  /// non-null.
+  HLInst *createShuffleWithUndef(RegDDRef *Input, ArrayRef<Constant *> Mask,
+                                 const StringRef &Name,
+                                 RegDDRef *WLvalRef = nullptr);
+
+  /// Extend the length of incoming vector \p Input to \p TargetLength using
+  /// undefs. This function mimics the equivalent LLVM-IR version in
+  /// VectorUtils.cpp. Example -
+  /// {0, 1, 2, 3} -> TargetLen = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
+  HLInst *extendVector(RegDDRef *Input, unsigned TargetLength);
+
+  /// Helper method to replicate contents of \p Input vector by \p
+  /// ReplicationFactor number of times. This function mimics the equivalent
+  /// LLVM-IR version in VectorUtils.cpp. Example -
+  /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v1, v2, v3, v0, v1, v2, v3 }
+  HLInst *replicateVector(RegDDRef *Input, unsigned ReplicationFactor);
+
   // Given the LvalRef of a load instruction belonging to an interleaved group,
   // and the result of the corresponding wide interleaved load WLoadRes,
   // generate a shuffle using WLoadRes and the interleave index of the
