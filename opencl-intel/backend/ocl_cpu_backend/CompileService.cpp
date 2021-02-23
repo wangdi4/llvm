@@ -104,7 +104,7 @@ void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
 #ifdef OCL_DEV_BACKEND_PLUGINS
     m_pluginManager.OnReleaseProgram(pProgram);
 #endif
-    if (pProgram != LibraryProgramManager::getInstance().getProgram())
+    if (pProgram != LibraryProgramManager::getInstance()->getProgram())
         delete pProgram;
 }
 
@@ -142,11 +142,11 @@ CompileService::GetLibraryProgram(ICLDevBackendProgram_ **Prog,
   if (!Prog || !KernelNames)
     return CL_DEV_INVALID_VALUE;
 
-  auto &LPM = LibraryProgramManager::getInstance();
-  *Prog = LPM.getProgram();
+  auto *LPM = LibraryProgramManager::getInstance();
+  *Prog = LPM->getProgram();
   if (!*Prog)
     return CL_DEV_OUT_OF_MEMORY;
-  *KernelNames = LPM.getKernelNames();
+  *KernelNames = LPM->getKernelNames();
   return CL_DEV_SUCCESS;
 }
 
@@ -196,7 +196,9 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
 
 void CompileService::Release()
 {
-    LibraryProgramManager::getInstance().release();
+    // LLJIT instance in library program must be released before
+    // IntelJITEventListener dtor.
+    LibraryProgramManager::getInstance()->release();
     delete this;
 }
 
