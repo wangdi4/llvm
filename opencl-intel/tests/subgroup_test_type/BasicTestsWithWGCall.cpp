@@ -14,7 +14,7 @@
 
 #include "SGEmulationTest.h"
 
-TEST_F(SGEmulationTest, BasicTestsWithWGCall) {
+TEST_P(SGEmulationTest, BasicTestsWithWGCall) {
 
   const char *kernel = "__kernel void basic(__global int* scan_add, __global "
                        "int* wg_reduce_add) {"
@@ -29,7 +29,7 @@ TEST_F(SGEmulationTest, BasicTestsWithWGCall) {
       clCreateProgramWithSource(m_context, 1, &kernel, &kernel_size, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
-  iRet = clBuildProgram(program, 0, nullptr, "-cl-opt-disable -cl-std=CL2.0",
+  iRet = clBuildProgram(program, 0, nullptr, "-cl-std=CL2.0",
                         nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
