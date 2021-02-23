@@ -526,7 +526,7 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "safe-stack",           "cost-model",
       "codegenprepare",       "interleaved-load-combine",
       "unreachableblockelim", "verify-safepoint-ir",
-      "divergence",           "atomic-expand",
+      "atomic-expand",
       "hardware-loops",       "type-promotion",
       "mve-tail-predication", "interleaved-access",
       "global-merge",         "pre-isel-intrinsic-lowering",

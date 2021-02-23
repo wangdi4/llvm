@@ -203,18 +203,17 @@ Value *VPTransformState::get(VPValue *Def, const VPIteration &Instance) {
   if (hasScalarValue(Def, Instance))
     return Data.PerPartScalars[Def][Instance.Part][Instance.Lane];
 
-  if (hasVectorValue(Def, Instance.Part)) {
-    assert(Data.PerPartOutput.count(Def));
-    auto *VecPart = Data.PerPartOutput[Def][Instance.Part];
-    if (!VecPart->getType()->isVectorTy()) {
-      assert(Instance.Lane == 0 && "cannot get lane > 0 for scalar");
-      return VecPart;
-    }
-    // TODO: Cache created scalar values.
-    return Builder.CreateExtractElement(VecPart,
-                                        Builder.getInt32(Instance.Lane));
+  assert(hasVectorValue(Def, Instance.Part));
+  auto *VecPart = Data.PerPartOutput[Def][Instance.Part];
+  if (!VecPart->getType()->isVectorTy()) {
+    assert(Instance.Lane == 0 && "cannot get lane > 0 for scalar");
+    return VecPart;
   }
-  return Callback.getOrCreateScalarValue(VPValue2Value[Def], Instance);
+  // TODO: Cache created scalar values.
+  auto *Extract =
+      Builder.CreateExtractElement(VecPart, Builder.getInt32(Instance.Lane));
+  // set(Def, Extract, Instance);
+  return Extract;
 }
 
 BasicBlock *
@@ -904,7 +903,7 @@ void VPWidenGEPRecipe::print(raw_ostream &O, const Twine &Indent,
 
 void VPWidenPHIRecipe::print(raw_ostream &O, const Twine &Indent,
                              VPSlotTracker &SlotTracker) const {
-  O << "WIDEN-PHI " << VPlanIngredient(Phi);
+  O << "WIDEN-PHI " << VPlanIngredient(getUnderlyingValue());
 }
 
 void VPBlendRecipe::print(raw_ostream &O, const Twine &Indent,
@@ -961,6 +960,8 @@ void VPReplicateRecipe::print(raw_ostream &O, const Twine &Indent,
 void VPPredInstPHIRecipe::print(raw_ostream &O, const Twine &Indent,
                                 VPSlotTracker &SlotTracker) const {
   O << "PHI-PREDICATED-INSTRUCTION ";
+  printAsOperand(O, SlotTracker);
+  O << " = ";
   printOperands(O, SlotTracker);
 }
 
