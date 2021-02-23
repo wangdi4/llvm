@@ -359,23 +359,41 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
   }
 
-  void CompilationUtils::getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule) {
+  void CompilationUtils::getAllSyncBuiltinsDcls(FunctionSet &functionSet,
+                                                Module *pModule, bool IsWG) {
     //Clear old collected data!
     functionSet.clear();
 
     for ( Module::iterator fi = pModule->begin(), fe = pModule->end(); fi != fe; ++fi ) {
       if ( !fi->isDeclaration() ) continue;
       llvm::StringRef func_name = fi->getName();
-      if ( /* barrier built-ins */
-          func_name == CompilationUtils::mangledBarrier() ||
-          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
-          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
-          /* work group built-ins */
-          CompilationUtils::isWorkGroupBuiltin(std::string(func_name))  ||
-          /* built-ins synced as if were called by a single work item */
-          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(std::string(func_name), pModule) ) {
-            // Found synchronized built-in declared in the module add it to the container set.
-            functionSet.insert(&*fi);
+      if (IsWG) {
+        if (/* WG barrier built-ins */
+            func_name == CompilationUtils::mangledBarrier() ||
+            func_name == CompilationUtils::mangledWGBarrier(
+                             CompilationUtils::BARRIER_NO_SCOPE) ||
+            func_name == CompilationUtils::mangledWGBarrier(
+                             CompilationUtils::BARRIER_WITH_SCOPE) ||
+            /* work group built-ins */
+            CompilationUtils::isWorkGroupBuiltin(std::string(func_name)) ||
+            /* built-ins synced as if were called by a single work item */
+            CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(
+                std::string(func_name), pModule)) {
+          // Found synchronized built-in declared in the module add it to the
+          // container set.
+          functionSet.insert(&*fi);
+        }
+      } else {
+        if (/* SG barrier built-ins */
+            func_name == CompilationUtils::mangledSGBarrier(
+                             CompilationUtils::BARRIER_NO_SCOPE) ||
+            func_name == CompilationUtils::mangledSGBarrier(
+                             CompilationUtils::BARRIER_WITH_SCOPE) ||
+            CompilationUtils::isSubGroupBuiltin(std::string(func_name))) {
+          // Found synchronized built-in declared in the module add it to the
+          // container set.
+          functionSet.insert(&*fi);
+        }
       }
     }
   }
