@@ -86,7 +86,8 @@ public:
   bool run() {
     auto Externals = std::make_unique<VPExternalValues>(
         &F.getContext(), &F.getParent()->getDataLayout());
-    auto Plan = std::make_unique<VPlan>(*Externals);
+    auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
+    auto Plan = std::make_unique<VPlan>(*Externals, *UnlinkedVPInsts);
     VPlanFunctionCFGBuilder Builder(Plan.get(), F);
     Builder.buildCFG();
     Plan->setName(F.getName());

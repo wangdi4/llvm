@@ -175,11 +175,11 @@ protected:
   /// the given \p EndRangeVF.
   // TODO: If this function becomes more complicated, move common code to base
   // class.
-  virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                                   unsigned &EndRangeVF,
-                                                   VPExternalValues &Ext,
-                                                   std::string VPlanName,
-                                                   ScalarEvolution *SE = nullptr);
+  virtual std::shared_ptr<VPlan>
+  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
+                    VPExternalValues &Ext,
+                    VPUnlinkedInstructions &UnlinkedVPInsts,
+                    std::string VPlanName, ScalarEvolution *SE = nullptr);
 
   /// Transform to emit explict uniform Vector loop iv.
   virtual void emitVecSpecifics(VPlan *Plan);
@@ -229,6 +229,9 @@ protected:
 
   // Storage for common external data (VPExternalDefs, Uses, Consts etc).
   std::unique_ptr<VPExternalValues> Externals;
+
+  // Storage for VPInstructions that have been removed from VPlan and unlinked.
+  std::unique_ptr<VPUnlinkedInstructions> UnlinkedVPInsts;
 
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
