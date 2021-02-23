@@ -302,4 +302,7 @@ void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
   updateExternalUsesOperands(FinalBB);
 
   Plan.setExplicitRemainderUsed();
+
+  // Invalidate SVA results as VPlan has been changed.
+  Plan.invalidateAnalyses({VPAnalysisID::SVA});
 }

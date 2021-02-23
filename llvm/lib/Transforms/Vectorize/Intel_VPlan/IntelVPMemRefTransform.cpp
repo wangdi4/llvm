@@ -67,6 +67,7 @@ void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
   // original GEP. These would continue to be used for load/store operation.
 
   VPBuilder Builder;
+  bool ResetSVA = false;
 
   for (auto &VPBB : Plan) {
     for (auto &I : VPBB) {
@@ -98,9 +99,14 @@ void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
         assert(Plan.getVPlanDA()->isDivergent(I) &&
                "Expect the GEP to be divergent.");
         Plan.getVPlanDA()->markDivergent(*ConstVectorStepInst);
+        ResetSVA = true;
       }
     }
   }
+
+  if (ResetSVA)
+    Plan.invalidateAnalyses({VPAnalysisID::SVA});
+
   VPLAN_DUMP(SOAGEPsDumpsControl, Plan);
 }
 
