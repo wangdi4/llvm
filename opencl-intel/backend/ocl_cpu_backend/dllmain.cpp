@@ -23,6 +23,7 @@
 #include "BuiltinModuleManager.h"
 #include "ImageCallbackManager.h"
 #include "Compiler.h"
+#include "LibraryProgramManager.h"
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
@@ -151,6 +152,7 @@ extern "C"
             ServiceFactory::Init();
             CPUDeviceBackendFactory::Init();
             BuiltinModuleManager::Init();
+            LibraryProgramManager::Init();
             ImageCallbackManager::Init();
             // Attempt to initialize the debug service. If debugging is
             // disabled this is a no-op returning success.
@@ -188,6 +190,7 @@ extern "C"
 
         BuiltinModuleManager::Terminate();
         ImageCallbackManager::Terminate();
+        LibraryProgramManager::Terminate();
         CPUDeviceBackendFactory::Terminate();
         DebuggingServiceWrapper::GetInstance().Terminate();
         ServiceFactory::Terminate();

@@ -15,6 +15,7 @@
 #ifndef OCL_CPU_BACKEND_LIBRARY_PROGRAM_MANAGER_H
 #define OCL_CPU_BACKEND_LIBRARY_PROGRAM_MANAGER_H
 
+#include "Program.h"
 #include "cl_device_api.h"
 #include <memory>
 #include <string>
@@ -24,19 +25,17 @@ namespace OpenCL {
 namespace DeviceBackend {
 class IAbstractBackendFactory;
 class CPUProgramBuilder;
-class Program;
 
 class LibraryProgramManager {
 public:
-  static LibraryProgramManager &getInstance() {
-    static LibraryProgramManager instance;
-    return instance;
-  }
-
   LibraryProgramManager(const LibraryProgramManager &) = delete;
   void operator=(const LibraryProgramManager &) = delete;
 
-  ~LibraryProgramManager() {}
+  static void Init();
+
+  static void Terminate();
+
+  static LibraryProgramManager *getInstance();
 
   cl_dev_err_code createProgram(IAbstractBackendFactory *Factory,
                                 CPUProgramBuilder &PB);
@@ -49,6 +48,9 @@ public:
 
 private:
   LibraryProgramManager(){};
+  ~LibraryProgramManager(){};
+
+  static LibraryProgramManager *m_instance;
 
   // Holds program object.
   std::unique_ptr<Program> m_program;

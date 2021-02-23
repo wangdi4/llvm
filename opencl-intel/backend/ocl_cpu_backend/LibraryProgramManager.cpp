@@ -15,13 +15,31 @@
 #include "LibraryProgramManager.h"
 #include "CPUProgramBuilder.h"
 #include "IAbstractBackendFactory.h"
-#include "Program.h"
 #include <iterator>
 #include <sstream>
 
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
+
+LibraryProgramManager *LibraryProgramManager::m_instance = nullptr;
+
+void LibraryProgramManager::Init() {
+  assert(!m_instance && "instance already initialized");
+  m_instance = new LibraryProgramManager();
+}
+
+void LibraryProgramManager::Terminate() {
+  if (m_instance) {
+    delete m_instance;
+    m_instance = nullptr;
+  }
+}
+
+LibraryProgramManager *LibraryProgramManager::getInstance() {
+  assert(m_instance && "instance doesn't exist");
+  return m_instance;
+}
 
 cl_dev_err_code
 LibraryProgramManager::createProgram(IAbstractBackendFactory *Factory,
