@@ -2746,10 +2746,20 @@ Optional<int> llvm::getInliningCostEstimate(
                                /*ColdCallSiteThreshold*/ {},
                                /*ComputeFullInlineCost*/ true,
                                /*EnableDeferral*/ true};
-
+#if INTEL_CUSTOMIZATION
+  bool NeedLocalILIC = !ILIC;
+  if (NeedLocalILIC)
+    ILIC = new InliningLoopInfoCache();
+#endif // INTEL_CUSTOMIZATION
   InlineCostCallAnalyzer CA(*Call.getCalledFunction(), Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, TLI, // INTEL
                             ILIC, WPI, true, /*IgnoreThreshold*/ true);// INTEL
+#if INTEL_CUSTOMIZATION
+  if (NeedLocalILIC) {
+    delete ILIC;
+    ILIC = nullptr;
+  }
+#endif // INTEL_CUSTOMIZATION
   auto R = CA.analyze(CalleeTTI); // INTEL
   if (!R.isSuccess())
     return None;
@@ -2913,9 +2923,16 @@ InlineCost llvm::getInlineCost(
 
 #if INTEL_CUSTOMIZATION
   auto TLI = GetTLI(*Callee);
+  bool NeedLocalILIC = !ILIC;
+  if (NeedLocalILIC)
+    ILIC = new InliningLoopInfoCache();
   InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, &TLI, ILIC,
                             WPI, true);
+  if (NeedLocalILIC) {
+    delete ILIC;
+    ILIC = nullptr;
+  }
   InlineResult ShouldInline = CA.analyze(CalleeTTI);
   InlineReason Reason = ShouldInline.getIntelInlReason();
 #endif // INTEL_CUSTOMIZATION
