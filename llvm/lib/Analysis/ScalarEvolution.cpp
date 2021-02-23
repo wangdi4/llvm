@@ -7555,7 +7555,10 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
           }
         }
       }
-      if (BO->IsExact) {
+#if INTEL_CUSTOMIZATION // HIR parsing
+      // This parsing is too ugly to be useful to HIR.
+      if (BO->IsExact && !isa<ScopedScalarEvolution>(this)) {
+#endif // INTEL_CUSTOMIZATION
         // Given exact arithmetic in-bounds right-shift by a constant,
         // we can lower it into:  (abs(x) EXACT/u (1<<C)) * signum(x)
         const SCEV *X = getSCEV(BO->LHS);
