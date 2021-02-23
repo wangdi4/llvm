@@ -3805,6 +3805,7 @@ public:
 
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);
+  void EmitOMPTileDirective(const OMPTileDirective &S);
   void EmitOMPForDirective(const OMPForDirective &S);
   void EmitOMPForSimdDirective(const OMPForSimdDirective &S);
   void EmitOMPSectionsDirective(const OMPSectionsDirective &S);
@@ -4039,7 +4040,7 @@ public:
   }
 #if INTEL_CUSTOMIZATION
   bool useFrontEndOutlining(const Stmt *S);
-  bool LoopBoundsHaveBeenHoisted(const OMPLoopDirective *LD) {
+  bool LoopBoundsHaveBeenHoisted(const OMPLoopBasedDirective *LD) {
    return HoistedBoundsLoops.find(LD) != HoistedBoundsLoops.end();
   }
   void HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,

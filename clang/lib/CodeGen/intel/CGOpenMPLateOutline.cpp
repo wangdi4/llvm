@@ -1909,6 +1909,7 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
+void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
@@ -1982,7 +1983,7 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
     for (const auto *C : LoopDir->getClausesOfKind<OMPOrderedClause>()) {
       if (!C->getNumForLoops())
         continue;
-      for (unsigned I = LoopDir->getCollapsedNumber(),
+      for (unsigned I = LoopDir->getLoopsNumber(),
                     E = C->getLoopNumIterations().size();
            I < E; ++I) {
         const auto *DRE = cast<DeclRefExpr>(C->getLoopCounter(I));
@@ -1998,7 +1999,7 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
       auto UncollapsedIVs = LoopDir->uncollapsedIVs();
       auto UncollapsedLowerBounds = LoopDir->uncollapsedLowerBounds();
       auto UncollapsedUpperBounds = LoopDir->uncollapsedUpperBounds();
-      for (unsigned I = 0, E = LoopDir->getCollapsedNumber(); I < E; ++I) {
+      for (unsigned I = 0, E = LoopDir->getLoopsNumber(); I < E; ++I) {
         HandleImplicitVar(UncollapsedIVs[I], ICK_normalized_iv);
         HandleImplicitVar(UncollapsedUpperBounds[I], ICK_normalized_ub);
         if (isOpenMPWorksharingDirective(CurrentDirectiveKind) ||
@@ -2862,6 +2863,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_requires:
   case OMPD_depobj:
   case OMPD_scan:
+  case OMPD_tile:
     break;
 
   // These directives do not create region directives.

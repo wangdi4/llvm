@@ -6744,6 +6744,7 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_allocate:
   case OMPD_task:
   case OMPD_simd:
+  case OMPD_tile:
   case OMPD_sections:
   case OMPD_section:
   case OMPD_single:
@@ -7071,6 +7072,7 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_allocate:
   case OMPD_task:
   case OMPD_simd:
+  case OMPD_tile:
   case OMPD_sections:
   case OMPD_section:
   case OMPD_single:
@@ -9809,6 +9811,7 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_allocate:
     case OMPD_task:
     case OMPD_simd:
+    case OMPD_tile:
     case OMPD_sections:
     case OMPD_section:
     case OMPD_single:
@@ -10668,6 +10671,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_allocate:
     case OMPD_task:
     case OMPD_simd:
+    case OMPD_tile:
     case OMPD_sections:
     case OMPD_section:
     case OMPD_single:
@@ -11536,6 +11540,7 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_allocate:
     case OMPD_task:
     case OMPD_simd:
+    case OMPD_tile:
     case OMPD_sections:
     case OMPD_section:
     case OMPD_single:

@@ -2568,17 +2568,21 @@ enum CXCursorKind {
    */
   CXCursor_OMPScanDirective = 287,
 
+  /** OpenMP tile directive.
+   */
+  CXCursor_OMPTileDirective = 288,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 288,
-  CXCursor_OMPGenericLoopDirective = 289,
-  CXCursor_OMPTeamsGenericLoopDirective = 290,
-  CXCursor_OMPTargetTeamsGenericLoopDirective = 291,
-  CXCursor_OMPParallelGenericLoopDirective = 292,
-  CXCursor_OMPTargetParallelGenericLoopDirective = 293,
+  CXCursor_OMPTargetVariantDispatchDirective = 289,
+  CXCursor_OMPGenericLoopDirective = 290,
+  CXCursor_OMPTeamsGenericLoopDirective = 291,
+  CXCursor_OMPTargetTeamsGenericLoopDirective = 292,
+  CXCursor_OMPParallelGenericLoopDirective = 293,
+  CXCursor_OMPTargetParallelGenericLoopDirective = 294,
 
   CXCursor_LastStmt = CXCursor_OMPTargetParallelGenericLoopDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPScanDirective,
+  CXCursor_LastStmt = CXCursor_OMPTileDirective,
 #endif /* INTEL_COLLAB */
 
   /**
