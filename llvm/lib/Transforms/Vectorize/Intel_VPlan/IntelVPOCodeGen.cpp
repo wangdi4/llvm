@@ -3336,49 +3336,30 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
 }
 
 void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
-  unsigned OriginalVL =
+  unsigned OrigSrcVL =
       cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
-  // Simple case - broadcast scalar elt into vector.
-  if (getOrigSplatVPValue(VPInst)) {
-    assert(isa<VPInstruction>(VPInst->getOperand(0)) &&
-           "First operand of simple supported shuffle is not a VPInstruction.");
-    assert(cast<VPInstruction>(VPInst->getOperand(0))->getOpcode() ==
-               Instruction::InsertElement &&
-           "First operand of simple supported shuffle is not insertelement");
-    VPValue *SplVal = cast<VPInstruction>(VPInst->getOperand(0))->getOperand(1);
-    Value *Vec = getVectorValue(SplVal);
-    SmallVector<int, 8> ShufMask;
-    for (unsigned I = 0; I < OriginalVL; ++I)
-      for (unsigned J = 0; J < VF; ++J)
-        ShufMask.push_back(J);
-
-    VPWidenMap[VPInst] = Builder.CreateShuffleVector(
-        Vec, UndefValue::get(Vec->getType()), ShufMask);
-    return;
-  }
+  int OrigDstVL = cast<VectorType>(VPInst->getType())->getNumElements();
 
   Value *V0 = getVectorValue(VPInst->getOperand(0));
+  Value *V1 = getVectorValue(VPInst->getOperand(1));
+  auto *Mask = cast<VPConstant>(VPInst->getOperand(2))->getConstant();
 
-  // Mask of the shuffle is always the last operand is known to be constant.
-  VPConstant *VPMask =
-      cast<VPConstant>(VPInst->getOperand(VPInst->getNumOperands() - 1));
-  Constant *Mask = cast<Constant>(getScalarValue(VPMask, 0 /*Lane*/));
-  int InstVL = cast<VectorType>(VPInst->getType())->getNumElements();
-  // All-zero mask case.
-  if (isa<ConstantAggregateZero>(Mask)) {
-    SmallVector<int, 8> ShufMask;
-    int Repeat = InstVL / OriginalVL;
-    for (int K = 0; K < Repeat; K++)
-      for (unsigned I = 0; I < OriginalVL; ++I)
-        for (unsigned J = 0; J < VF; ++J)
-          ShufMask.push_back(J + I);
-
-    VPWidenMap[VPInst] = Builder.CreateShuffleVector(
-        V0, UndefValue::get(V0->getType()), ShufMask);
-    return;
+  SmallVector<Constant *, 16> MaskIndices;
+  for (unsigned LogicalLane = 0; LogicalLane < VF; ++LogicalLane) {
+    for (int Idx = 0; Idx < OrigDstVL; ++Idx) {
+      auto *MaskElt = cast<ConstantInt>(Mask->getAggregateElement(Idx));
+      unsigned OrigIdx = MaskElt->getZExtValue();
+      unsigned NewIdx;
+      if (OrigIdx < OrigSrcVL) {
+        NewIdx = OrigSrcVL * LogicalLane + OrigIdx;
+      } else {
+        NewIdx = OrigSrcVL * VF + OrigSrcVL * LogicalLane + (OrigIdx - OrigSrcVL);
+      }
+      MaskIndices.push_back(ConstantInt::get(MaskElt->getType(), NewIdx));
+    }
   }
-  // General case - whole mask should be recalculated.
-  llvm_unreachable("Unsupported shuffle");
+  VPWidenMap[VPInst] =
+      Builder.CreateShuffleVector(V0, V1, ConstantVector::get(MaskIndices));
 }
 
 void VPOCodeGen::processPredicatedNonWidenedUniformCall(VPInstruction *VPInst) {

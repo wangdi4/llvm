@@ -167,6 +167,13 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
     for (Value *Op : Inst->operands())
       VPOperands.push_back(getOrCreateVPOperand(Op));
 
+    if (auto *Shuffle = dyn_cast<ShuffleVectorInst>(Inst)) {
+      // TODO: Once the community cleans up the bitcode representation we'd want
+      // to have a separate subclass of VPInstruction to store the mask.
+      VPOperands.push_back(
+          getOrCreateVPOperand(Shuffle->getShuffleMaskForBitcode()));
+    }
+
     if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
       assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
       NewVPInst = VPIRBuilder.createCmpInst(VPOperands[0], VPOperands[1], CI);
