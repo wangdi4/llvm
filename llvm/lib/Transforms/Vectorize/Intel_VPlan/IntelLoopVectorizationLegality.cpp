@@ -620,17 +620,6 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
         return false;
       } // end of PHI handling
 
-      // Check for handled shuffles
-      if (auto ShufInst = dyn_cast<ShuffleVectorInst>(&I)) {
-        if (getSplatValue(ShufInst) || all_of(ShufInst->getShuffleMask(),
-                                              [](int Elt) { return Elt == 0; }))
-          continue;
-
-        LLVM_DEBUG(dbgs() << "LV: Unsupported shufflevector instruction."
-                          << *ShufInst << "\n");
-        return false;
-      }
-
       // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
       // have to do this because there are no users of these calls directly
       // since the results are written through a ptr argument. Thus, the
