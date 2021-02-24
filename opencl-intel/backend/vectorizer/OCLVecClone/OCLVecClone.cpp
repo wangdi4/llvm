@@ -101,10 +101,14 @@ static cl::opt<bool> LT2GigWorkGroupSize(
     "less-than-two-gig-max-work-group-size", cl::init(true), cl::Hidden,
     cl::desc("Max work group size is less than 2 Gig elements."));
 
-static cl::opt<bool> LT2GigGlobalWorkSize(
-    "less-than-two-gig-max-global-work-size", cl::init(false), cl::Hidden,
+enum GlobalWorkSizeLT2GState : uint8_t {GWS_FALSE, GWS_TRUE, GWS_AUTO};
+static cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
+    "less-than-two-gig-max-global-work-size", cl::init(GWS_AUTO), cl::Hidden,
     cl::desc("Max global work size (global_work_offset + total work items) is "
-             "less than 2 Gig elements."));
+             "less than 2 Gig elements."),
+    cl::values(clEnumValN(GWS_AUTO, "auto", ""),
+               clEnumValN(GWS_TRUE, "true", ""),
+               clEnumValN(GWS_FALSE, "false", "")));
 
 namespace llvm {
 template <> struct GraphTraits<User *> {
@@ -138,20 +142,21 @@ OCL_INITIALIZE_PASS_BEGIN(OCLVecClone, SV_NAME, lv_name,
 OCL_INITIALIZE_PASS_END(OCLVecClone, SV_NAME, lv_name,
                         false /* modififies CFG */, false /* transform pass */)
 
-OCLVecClone::OCLVecClone(const Intel::CPUId *CPUId)
-    : ModulePass(ID), Impl(CPUId) {
+OCLVecClone::OCLVecClone(const Intel::CPUId *CPUId, bool IsOCL)
+    : ModulePass(ID), Impl(CPUId, IsOCL) {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
 
-OCLVecClone::OCLVecClone() : OCLVecClone(nullptr) {}
+OCLVecClone::OCLVecClone() : OCLVecClone(nullptr, false) {}
 
 bool OCLVecClone::runOnModule(Module &M) {
   Impl.setDimChooser(getAnalysisIfAvailable<ChooseVectorizationDimensionModulePass>());
   return Impl.runImpl(M);
 }
 
-OCLVecCloneImpl::OCLVecCloneImpl(const Intel::CPUId *CPUId)
-    : VecCloneImpl(), CPUId(CPUId) {
+OCLVecCloneImpl::OCLVecCloneImpl(
+    const Intel::CPUId *CPUId, bool IsOCL)
+    : VecCloneImpl(), CPUId(CPUId), IsOCL(IsOCL) {
   V_INIT_PRINT;
 }
 
@@ -668,12 +673,18 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         if (dim == VecDim) {
           // If the get-id calls return i32 (e.g., on 32-bit target), there's
           // no truncation, so we don't need to do special optimization.
+          // LT2GigGlobalWorkSize is set to AUTO by default, then for native
+          // OpenCL program, the optimization is turned on to match the
+          // behavior of Volcano, and for SYCL, it's turned on only when the
+          // assumption that TID fits in i32 stands.
           bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
           if (!TIDIsInt32 &&
               ((FuncName == CompilationUtils::mangledGetLID() &&
                 LT2GigWorkGroupSize) ||
                (FuncName == CompilationUtils::mangledGetGID() &&
-                (LT2GigGlobalWorkSize || TIDFitsInInt32(CI)))))
+                ((LT2GigGlobalWorkSize == GWS_TRUE) ||
+                 (LT2GigGlobalWorkSize == GWS_AUTO &&
+                  (IsOCL || TIDFitsInInt32(CI)))))))
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
@@ -959,8 +970,9 @@ bool OCLReqdSubGroupSize::runOnModule(Module &M) {
 }
 } // namespace intel
 
-extern "C" Pass *createOCLVecClonePass(const Intel::CPUId *CPUId) {
-  return new intel::OCLVecClone(CPUId);
+extern "C" Pass *createOCLVecClonePass(
+    const Intel::CPUId *CPUId, bool IsOCL) {
+  return new intel::OCLVecClone(CPUId, IsOCL);
 }
 
 extern "C" Pass *createOCLReqdSubGroupSizePass() {

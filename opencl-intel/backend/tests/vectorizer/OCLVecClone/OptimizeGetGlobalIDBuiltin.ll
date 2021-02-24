@@ -4,7 +4,7 @@
 ; Check for non-default case i.e. max number of work items < 2Gig. Note that %trunc.user is removed from function,
 ; its uses replaced by %add. Similarly %shl.user and %ashr.inst are removed, with all uses of %ashr.inst
 ; replaced by %add.sext.
-; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core --less-than-two-gig-max-global-work-size < %s -S -o - | FileCheck %s --check-prefix=LT2GIG
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core --less-than-two-gig-max-global-work-size=true < %s -S -o - | FileCheck %s --check-prefix=LT2GIG
 ; LT2GIG-LABEL: @_ZGVeN8uu_foo
 
 ; LT2GIG-LABEL: entry:
