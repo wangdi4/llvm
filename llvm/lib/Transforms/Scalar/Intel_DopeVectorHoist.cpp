@@ -151,7 +151,8 @@ bool DopeVectorHoistImpl::collectDopeVectorBaseAddrLoads() {
     if (!isGEPBaseAddrComputation(GEP))
       continue;
     auto *A = dyn_cast<Argument>(GEP->getPointerOperand());
-    if (!A)
+    // Makes sure "A" is unmodified DopeVector argument.
+    if (!A || !UnmodifiedDopeVectorArgs.count(A))
       continue;
     const auto &DL = LI->getModule()->getDataLayout();
     if (!isDereferenceablePointer(V, LI->getType(), DL))
