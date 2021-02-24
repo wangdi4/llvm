@@ -1,28 +1,38 @@
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -fhls %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -fsycl -fsycl-is-device %s -triple spir64-unknown-linux-sycldevice -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -fhls %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,HLS
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -fsycl -fsycl-is-device %s -triple spir64-unknown-linux-sycldevice -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SYCL
 
-// CHECK: %[[L0:[0-9]+]] = load i4, i4* %x4_u, align 1
-// CHECK: %[[L1:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4
+// HLS: %[[L0:[0-9]+]] = load i4, i4* %x4_u, align 1
+// SYCL: %[[L0:[0-9]+]] = load i4, i4 addrspace(4)* %x4_u.ascast, align 1
+// HLS: %[[L1:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4
+// SYCL: %[[L1:[0-9]+]] = load i32, i32 addrspace(4)* %shift_amount.addr.ascast, align 4
 // CHECK: %[[T0:[a-zA-Z0-9]+]] = trunc i32 %[[L1]] to i4
 // CHECK: = shl i4 %[[L0]], %[[T0]]
 
-// CHECK: %[[L2:[0-9]+]] = load i5, i5* %x5_u, align 1
-// CHECK: %[[L3:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4
+// HLS: %[[L2:[0-9]+]] = load i5, i5* %x5_u, align 1
+// SYCL: %[[L2:[0-9]+]] = load i5, i5 addrspace(4)* %x5_u.ascast, align 1
+// HLS: %[[L3:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4
+// SYCL: %[[L3:[0-9]+]] = load i32, i32 addrspace(4)* %shift_amount.addr.ascast, align 4
 // CHECK: %[[T1:[a-zA-Z0-9]+]] = trunc i32 %[[L3]] to i5
 // CHECK: = shl i5 %[[L2]], %[[T1]]
 
-// CHECK: %[[L4:[0-9]+]] = load i46, i46* %x46_u, align 8
+// HLS: %[[L4:[0-9]+]] = load i46, i46* %x46_u, align 8
+// SYCL: %[[L4:[0-9]+]] = load i46, i46 addrspace(4)* %x46_u.ascast, align 8
 // CHECK: = shl i46 %[[L4]], 47
-// CHECK: %[[L5:[0-9]+]] = load i46, i46* %x46_u, align 8
+// HLS: %[[L5:[0-9]+]] = load i46, i46* %x46_u, align 8
+// SYCL: %[[L5:[0-9]+]] = load i46, i46 addrspace(4)* %x46_u.ascast, align 8
 // CHECK: = shl i46 %[[L5]], -42
-// CHECK: %[[L6:[0-9]+]] = load i46, i46* %x46_u, align 8
+// HLS: %[[L6:[0-9]+]] = load i46, i46* %x46_u, align 8
+// SYCL: %[[L6:[0-9]+]] = load i46, i46 addrspace(4)* %x46_u.ascast, align 8
 // CHECK: = shl i46 %[[L6]], -47
 
-// CHECK: %[[L7:[0-9]+]] = load i43, i43* %x43_u, align 8
+// HLS: %[[L7:[0-9]+]] = load i43, i43* %x43_u, align 8
+// SYCL: %[[L7:[0-9]+]] = load i43, i43 addrspace(4)* %x43_u.ascast, align 8
 // CHECK: = shl i43 %[[L7]], 47
-// CHECK: %[[L8:[0-9]+]] = load i43, i43* %x43_u, align 8
+// HLS: %[[L8:[0-9]+]] = load i43, i43* %x43_u, align 8
+// SYCL: %[[L8:[0-9]+]] = load i43, i43 addrspace(4)* %x43_u.ascast, align 8
 // CHECK: = shl i43 %[[L8]], -42
-// CHECK: %[[L9:[0-9]+]] = load i43, i43* %x43_u, align 8
+// HLS: %[[L9:[0-9]+]] = load i43, i43* %x43_u, align 8
+// SYCL: %[[L9:[0-9]+]] = load i43, i43 addrspace(4)* %x43_u.ascast, align 8
 // CHECK: = shl i43 %[[L9]], -47
 
 typedef unsigned int uint46_tt __attribute__((__ap_int(46)));
