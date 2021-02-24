@@ -108,7 +108,8 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_five
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankWidthAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   __attribute__((__bankwidth__(4)))
   unsigned int v_five[64];
@@ -116,7 +117,8 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_five_two
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: MaxConcurrencyAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //expected-warning@+2 {{attribute 'max_concurrency' is deprecated}}
   //expected-note@+1 {{did you mean to use 'private_copies' instead?}}
@@ -126,7 +128,8 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_five_three
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: PrivateCopiesAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   __attribute__((private_copies(4)))
   unsigned int v_five_three[64];
@@ -134,7 +137,8 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_six
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumBanksAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   __attribute__((__numbanks__(8)))
   unsigned int v_six[64];
@@ -156,13 +160,17 @@ void foo1()
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 3
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 5
   //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
   __attribute__((__bank_bits__(2,3,4,5)))
   unsigned int v_twelve[64];
@@ -172,12 +180,15 @@ void foo1()
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 3
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
   //CHECK: BankWidthAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   __attribute__((__bank_bits__(2,3), __bankwidth__(16)))
   unsigned int v_thirteen[64];
@@ -388,10 +399,12 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}bw_two
   //CHECK: BankWidthAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: BankWidthAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'bankwidth' is already applied}}
   __attribute__((__bankwidth__(8)))
@@ -430,10 +443,12 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}mc_two
   //CHECK: MaxConcurrencyAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: MaxConcurrencyAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+6 {{attribute '__max_concurrency__' is deprecated}}
   //expected-note@+5 {{did you mean to use 'private_copies' instead?}}
@@ -470,10 +485,12 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}pc_two
   //CHECK: PrivateCopiesAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: PrivateCopiesAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__private_copies__(8)))
@@ -502,10 +519,12 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}nb_two
   //CHECK: NumBanksAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: NumBanksAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'numbanks' is already applied}}
   __attribute__((__numbanks__(8)))
@@ -574,14 +593,18 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}bb_two
   //CHECK: BankBitsAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 42
   //CHECK-NEXT: IntegerLiteral{{.*}}42{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 43
   //CHECK-NEXT: IntegerLiteral{{.*}}43{{$}}
   //CHECK: BankBitsAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 1
   //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //expected-warning@+2{{attribute 'bank_bits' is already applied}}
   __attribute__((__bank_bits__(42,43)))
@@ -735,14 +758,16 @@ struct foo {
   //CHECK: FieldDecl{{.*}}v_five
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankWidthAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   __attribute__((__bankwidth__(4))) unsigned int v_five[64];
 
   //CHECK: FieldDecl{{.*}}v_six
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumBanksAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   __attribute__((__numbanks__(8))) unsigned int v_six[64];
 
@@ -762,13 +787,17 @@ struct foo {
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 3
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 5
   //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
   __attribute__((__bank_bits__(2, 3, 4, 5))) unsigned int v_twelve[64];
 
@@ -777,12 +806,15 @@ struct foo {
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 3
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
   //CHECK: BankWidthAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr {{.*}} 'int'
+  //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   __attribute__((__bank_bits__(2, 3), __bankwidth__(16))) unsigned int v_thirteen[64];
 
