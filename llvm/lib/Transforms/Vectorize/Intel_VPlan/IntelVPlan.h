@@ -3143,8 +3143,9 @@ public:
   // Compute SVA results for this VPlan.
   void runSVA(unsigned VF, const TargetLibraryInfo *TLI);
 
-  // Clear SVA results for this VPlan.
-  void clearSVA() { VPlanSVA.reset(); }
+  // Clear SVA results for this VPlan. We also reset CallVecDecisions results
+  // here.
+  void clearSVA();
 
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }

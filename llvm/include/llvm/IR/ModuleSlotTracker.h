@@ -29,12 +29,16 @@ class Value;
 class ModuleSlotTracker {
   /// Storage for a slot tracker.
   std::unique_ptr<SlotTracker> MachineStorage;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   bool ShouldCreateStorage = false;
   bool ShouldInitializeAllMetadata = false;
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   const Module *M = nullptr;
   const Function *F = nullptr;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   SlotTracker *Machine = nullptr;
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 public:
   /// Wrap a preinitialized SlotTracker.

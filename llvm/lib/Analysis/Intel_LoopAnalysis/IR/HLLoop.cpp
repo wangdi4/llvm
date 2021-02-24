@@ -1535,7 +1535,7 @@ static bool normalizeCE(const HLLoop *Lp, CanonExpr *CE,
   std::unique_ptr<CanonExpr> TmpNormalizedIV(LowerBlob->clone());
 
   // Extend or truncate to CE type.
-  TmpNormalizedIV->setDestType(CE->getSrcType());
+  TmpNormalizedIV->setDestType(CE->getSrcType()->getScalarType());
   bool Res = TmpNormalizedIV->convertToStandAloneBlobOrConstant();
   (void)Res;
   assert(Res && "[HIR-NORMALIZE] Conversion to stand alone blob failed");

@@ -411,7 +411,7 @@ struct RTLFlagsTy {
       UseHostMemForUSM(0),
       UseDriverGroupSizes(0),
       EnableSimd(0),
-      UseSVM(1), // TODO: Set it to 0 when MKL is ready.
+      UseSVM(0),
       UseBuffer(0),
       Reserved(0) {}
 };
@@ -667,8 +667,6 @@ public:
     // Read LIBOMPTARGET_OPENCL_USE_SVM
     if ((env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM"))) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
-        // This is current default. TODO: remove this comment after we switch
-        // to Flags.UseSVM=0 by default.
         Flags.UseSVM = 1;
       else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
         Flags.UseSVM = 0;

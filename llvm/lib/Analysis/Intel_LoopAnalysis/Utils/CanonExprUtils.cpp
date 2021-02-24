@@ -172,6 +172,15 @@ bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   Type *Ty1 = CE1->getSrcType();
   Type *Ty2 = CE2->getSrcType();
 
+  // Return true for Ty1 = <2 x i64> and Ty2 = i64.
+  // Vector CEs are allowed to contain scalar terms for ease of analysis. These
+  // are widened during CG so we can allow merging of a scalar CE into a vector
+  // CE. This check is asymmetric because we don't want to merge vector CE into
+  // scalar CE. Does the asymmetry matter?
+  if (Ty1->isVectorTy() && !Ty2->isVectorTy()) {
+    Ty1 = Ty1->getScalarType();
+  }
+
   bool SameSrcType = (Ty1 == Ty2);
   // Change related to normalize i2+2 in sitofp.i32.float(i2 + 2) to
   // (64 * i1 + i2 + 2).
@@ -182,7 +191,8 @@ bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   }
 
   return (SameSrcType &&
-          (RelaxedMode || (CE1->getDestType() == CE2->getDestType() &&
+          (RelaxedMode || ((CE1->getDestType()->getScalarType() ==
+                            CE2->getDestType()->getScalarType()) &&
                            (CE1->isSExt() == CE2->isSExt()))));
 }
 

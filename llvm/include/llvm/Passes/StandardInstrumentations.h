@@ -82,11 +82,18 @@ public:
 // Debug logging for transformation and analysis passes.
 class PrintPassInstrumentation {
 public:
-  PrintPassInstrumentation(bool DebugLogging) : DebugLogging(DebugLogging) {}
+  PrintPassInstrumentation(bool DebugLogging)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+      : DebugLogging(DebugLogging)
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  {
+  }
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 private:
   bool DebugLogging;
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 };
 
 class PreservedCFGCheckerInstrumentation {

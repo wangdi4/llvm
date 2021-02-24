@@ -34,8 +34,8 @@
 ; CHECK: |   %scalarepl = %scalarepl[[NUM]];
 ; CHECK: + END LOOP
 
-; CHECK: (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][(-1 + sext.i32.i64(%n)) + 1] = %scalarepl;
-; CHECK:  <LVAL-REG> {al:4}(<4 x float>*)(LINEAR [4 x [100 x float]]* @B)[<4 x i64> 0][<4 x i64> <i64 0, i64 1, i64 2, i64 3>][LINEAR <4 x i64> (-1 + sext.i32.i64(%n)) + 1]
+; CHECK: (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][sext.i32.i64(%n)] = %scalarepl;
+; CHECK:  <LVAL-REG> {al:4}(<4 x float>*)(LINEAR [4 x [100 x float]]* @B)[<4 x i64> 0][<4 x i64> <i64 0, i64 1, i64 2, i64 3>][LINEAR <4 x i64> sext.i32.i64(%n)]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
