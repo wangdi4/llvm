@@ -56,8 +56,6 @@
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/Analysis/Intel_WP.h" // INTEL
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/iterator_range.h"
@@ -84,7 +82,6 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndexYAML.h"
-#include "llvm/IR/Verifier.h" // INTEL
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
@@ -97,6 +94,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"  // INTEL
 #include "llvm/Transforms/Utils/Evaluator.h"
 #include <algorithm>
 #include <cstddef>
@@ -109,11 +107,6 @@ using namespace llvm::llvm_intel_wp_analysis;  // INTEL
 using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
-
-#if INTEL_CUSTOMIZATION
-// Intel specialized print for debugging
-#define INTEL_DEVIRT_DEBUG "intel-wholeprogramdevirt"
-#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<PassSummaryAction> ClSummaryAction(
     "wholeprogramdevirt-summary-action",
@@ -149,23 +142,6 @@ static cl::opt<bool>
                        cl::init(false), cl::ZeroOrMore,
                        cl::desc("Print index-based devirtualization messages"));
 
-#if INTEL_CUSTOMIZATION
-// Set the threshold for the maximum targets we can devirtualize using
-// the multiversioning
-static cl::opt<unsigned>
-    WPDevirtMaxBranchTargets("wholeprogramdevirt-max-branch-targets",
-                             cl::init(4), cl::ReallyHidden);
-
-// Allows us to perform the multiversioning for the devirtualization
-// as opposed to generating the branch funnels
-static cl::opt<bool> WPDevirtMultiversion("wholeprogramdevirt-multiversion",
-                                          cl::init(true), cl::ReallyHidden);
-
-// Run the verifier to check if the multiversion generated something wrong
-static cl::opt<bool> WPDevirtMultiversionVerify(
-    "wholeprogramdevirt-multiversion-verify", cl::init(false),
-    cl::ReallyHidden);
-#endif // INTEL_CUSTOMIZATION
 /// Provide a way to force enable whole program visibility in tests.
 /// This is needed to support legacy tests that don't contain
 /// !vcall_visibility metadata (the mere presense of type tests
@@ -551,8 +527,7 @@ struct DevirtModule {
                function_ref<DominatorTree &(Function &)> LookupDomTree,
                ModuleSummaryIndex *ExportSummary,
                const ModuleSummaryIndex *ImportSummary,          // INTEL
-               bool IsWholeProgramSafe,                          // INTEL
-               std::function<const TargetLibraryInfo &(Function &F)> GetTLI) // INTEL
+               IntelDevirtMultiversion &IntelDevirtMV)           // INTEL
       : M(M), AARGetter(AARGetter), LookupDomTree(LookupDomTree),
         ExportSummary(ExportSummary), ImportSummary(ImportSummary),
         Int8Ty(Type::getInt8Ty(M.getContext())),
@@ -562,7 +537,7 @@ struct DevirtModule {
         IntPtrTy(M.getDataLayout().getIntPtrType(M.getContext(), 0)),
         Int8Arr0Ty(ArrayType::get(Type::getInt8Ty(M.getContext()), 0)),
         RemarksEnabled(areRemarksEnabled()), OREGetter(OREGetter),    // INTEL
-        IsWholeProgramSafe(IsWholeProgramSafe), GetTLI(GetTLI) {      // INTEL
+        IntelDevirtMV(IntelDevirtMV) {      // INTEL
     assert(!(ExportSummary && ImportSummary));
     FunctionsToSkip.init(SkipFunctionNames);
   }
@@ -596,105 +571,11 @@ struct DevirtModule {
                             WholeProgramDevirtResolution *Res, VTableSlot Slot);
 
 #if INTEL_CUSTOMIZATION
-
-  // Structure to store the basic information needed by the multiversioning
-  struct VirtualCallsDataForMV {
-    SmallVector<Function*, 10> TargetFunctions;  // vector of Function* with
-                                                 //   the targets
-    std::vector<CallBase*> VirtualCallSites;     // vector of CallBase* with
-                                                 //   the virtual callsites
-    bool HasLibFuncAsTarget = false;             // True if at least one target
-                                                 //   is a libfunc, else false
-    unsigned NumBranches = 0;                    // Number of branches needed
-                                                 //   for devirtualization
-  };
-
   // Generate a VirtualCallsDataForMV, which contains the basic information
   // needed by the multiversioning
   void translateDataForMultiVersion(
       MutableArrayRef<VirtualCallTarget> TargetsForSlot,
-      VTableSlotInfo &SlotInfo, VirtualCallsDataForMV &NewVCallsData);
-
-  // Structure that contains the information related to a target
-  // of a virtual call
-  struct TargetData {
-    Value      *TargetFunc;           // Value of the target function
-    BasicBlock *TargetBasicBlock;     // Basic block of the target's call site
-    Instruction *CallInstruction;     // Target's call instruction
-    std::string TargetName;           // Basic Block's name
-  };
-
-#if INTEL_INCLUDE_DTRANS
-  // Metadata node that will be used to mark a function call as being
-  // created by the devirtualizer to help DTrans analyze bitcast function calls.
-  MDNode *DevirtCallMDNode = nullptr;
-#endif // INTEL_INCLUDE_DTRANS
-
-  // True if whole program safe is achieved, else false
-  bool IsWholeProgramSafe : 1;
-
-  // Lambda function used for collecting library function
-  std::function<const TargetLibraryInfo &(Function &)> GetTLI;
-
-  // Build the basic block of the default case
-  TargetData* buildDefaultCase(Module &M, CallBase *VCallSite);
-
-  // Create the call sites and basic blocks for each target
-  void createCallSiteBasicBlocks(Module &M,
-      std::vector<TargetData *> &TargetVector,
-      CallBase *VCallSite,
-      SmallVectorImpl<Function*> &TargetFunctions, MDNode *Node);
-
-  // Fix the PHINodes in the unwind destinations
-  void fixUnwindPhiNodes(CallBase *VCallSite, BasicBlock *MergePointBB,
-      std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget,
-      bool LibFuncFound);
-
-  // Return true if the input function is a libfunc
-  bool functionIsLibFuncOrExternal(Function *F);
-
-  // Compute the basic block where all targets will jump after executing
-  // the call instruction
-  BasicBlock* getMergePoint(Module &M,
-      CallBase *VCallSite);
-
-  // Connect all targets with the if/else instructions
-  void generateBranching(Module &M, BasicBlock *MainBB,
-      BasicBlock *MergePointBB, bool IsCallInst,
-      std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget,
-      bool LibFuncFound);
-
-  // Replace the Users of the virtual call with a PHINode
-  void generatePhiNodes(Module &M, BasicBlock *MergePointBB,
-      std::vector<TargetData *> TargetsVector,
-      TargetData *DefaultTarget, bool LibFuncFound);
-
-  // Find the possible downcasting to prevent devirtualization
-  void filterDowncasting(Function *AssumeFunc);
-
-  // Verify that the transformation was done correctly
-  void runDevirtVerifier(Module &M);
-
-  // Try to generate multiple targets with if and else instructions
-  // rather than a branch funnel
-  bool tryMultiVersionDevirt(VirtualCallsDataForMV &VCallsData);
-
-  // Helper function to generate the branches for multiversioning
-  void multiversionVCallSite(CallBase *VCallSite, bool LibFuncFound,
-                             SmallVectorImpl<Function*> &TargetFunctions);
-
-  // Return true if the input virtual call site needs to include the
-  // default target during devirtualization since the input target function
-  // or the input caller function are libfuncs or external functions.
-  bool tryAddingDefaultTargetIntoVCallSite(CallBase *VCallSite,
-                                           Function *TargetFunc,
-                                           Function *CallerFunc);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Simplified print of the data collected by the devirtualization process,
-  // useful for debugging
-  void PrintVTableInfoAndTargets(VirtualCallsDataForMV &VCallsData);
-#endif // NDEBUG || LLVM_ENABLE_DUMP
-
+      VTableSlotInfo &SlotInfo);
 #endif //INTEL_CUSTOMIZATION
 
   bool tryEvaluateFunctionsWithArgs(
@@ -764,7 +645,10 @@ struct DevirtModule {
   runForTesting(Module &M, function_ref<AAResults &(Function &)> AARGetter,
                 function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
                 function_ref<DominatorTree &(Function &)> LookupDomTree,
-                std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+                IntelDevirtMultiversion &IntelDevirMV);
+
+private:
+  IntelDevirtMultiversion &IntelDevirtMV;
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -847,18 +731,19 @@ struct WholeProgramDevirt : public ModulePass {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
-    if (UseCommandLine)
-      return DevirtModule::runForTesting(M, LegacyAARGetter(*this), OREGetter,
-                                         LookupDomTree, GetTLI);
     WholeProgramInfo &WPInfo =
         getAnalysis<WholeProgramWrapperPass>().getResult();
-#endif // INTEL_CUSTOMIZATION
+
+    IntelDevirtMultiversion IntelDevirtMV(M, WPInfo, GetTLI);
+
+    if (UseCommandLine)
+      return DevirtModule::runForTesting(M, LegacyAARGetter(*this), OREGetter,
+                                         LookupDomTree, IntelDevirtMV);
 
     return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
-                        ExportSummary, ImportSummary,                // INTEL
-                        WPInfo.isWholeProgramSafe(), GetTLI)         // INTEL
+                        ExportSummary, ImportSummary, IntelDevirtMV)
         .run();
-
+#endif // INTEL_CUSTOMIZATION
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -908,14 +793,17 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
+  IntelDevirtMultiversion IntelDevirtMV(M, WPInfo, GetTLI);
+
   if (UseCommandLine) {
-    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree, GetTLI))
+    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree,
+        IntelDevirtMV))
       return PreservedAnalyses::all();
     return PreservedAnalyses::none();
   }
 
   if (!DevirtModule(M, AARGetter, OREGetter, LookupDomTree, ExportSummary,
-                    ImportSummary, WPInfo.isWholeProgramSafe(), GetTLI)
+                    ImportSummary, IntelDevirtMV)
            .run())
     return PreservedAnalyses::all();
 
@@ -1037,7 +925,7 @@ bool DevirtModule::runForTesting(
     Module &M, function_ref<AAResults &(Function &)> AARGetter,
     function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
     function_ref<DominatorTree &(Function &)> LookupDomTree,          // INTEL
-    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {   // INTEL
+    IntelDevirtMultiversion &IntelDevirtMV) {   // INTEL
   std::unique_ptr<ModuleSummaryIndex> Summary =
       std::make_unique<ModuleSummaryIndex>(/*HaveGVs=*/false);
 
@@ -1068,7 +956,7 @@ bool DevirtModule::runForTesting(
                                                                 : nullptr,
                    ClSummaryAction == PassSummaryAction::Import ? Summary.get()
                                                                 : nullptr,
-                   AssumeWholeProgram, GetTLI)
+                   IntelDevirtMV)
           .run();
 #endif // INTEL_CUSTOMIZATION
 
@@ -1215,29 +1103,6 @@ bool DevirtIndex::tryFindVirtualCallTargets(
   return !TargetsForSlot.empty();
 }
 
-#if INTEL_CUSTOMIZATION
-// Return true if the input function is a LibFunc or a function
-// that wasn't internalized, except main.
-bool DevirtModule::functionIsLibFuncOrExternal(Function *F) {
-  if (!F)
-    return false;
-
-  if (!WPDevirtMultiversion)
-    return false;
-
-  if (WPUtils.isMainEntryPoint(F->getName()))
-    return false;
-
-  LibFunc TheLibFunc;
-  const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(F));
-  if ((TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) ||
-      F->isIntrinsic() || !F->hasLocalLinkage())
-    return true;
-
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-
 void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
                                          Constant *TheFn, bool &IsExported) {
   // Don't devirtualize function if we're told to skip it
@@ -1254,7 +1119,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       // CMPLRLLVM-23243: If the target or the caller functions are libfuncs
       // then we are going to multiversion the virtual call and will include
       // the default case.
-      if(!tryAddingDefaultTargetIntoVCallSite(&VCallSite.CB,
+      if(!IntelDevirtMV.tryAddingDefaultTargetIntoVCallSite(&VCallSite.CB,
           dyn_cast<Function>(TheFn), VCallSite.CB.getCaller())) {
 #endif // INTEL_CUSTOIMIZATION
       VCallSite.CB.setCalledOperand(ConstantExpr::getBitCast(
@@ -1268,7 +1133,8 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
       if (TheFn->getType() != VCallSite.CB.getCalledOperand()->getType())
-        (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
+        (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call",
+         IntelDevirtMV.getDevirtCallMDNode());
 #endif // INTEL_INCLUDE_DTRANS
       }
 #endif // INTEL_CUSTOMIZATION
@@ -1565,11 +1431,13 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
 // multiversioning).
 void DevirtModule::translateDataForMultiVersion(
     MutableArrayRef<VirtualCallTarget> TargetsForSlot,
-    VTableSlotInfo &SlotInfo, VirtualCallsDataForMV &NewVCallsData) {
+    VTableSlotInfo &SlotInfo) {
 
    // Check if multi-version flag is available
-  if (!WPDevirtMultiversion)
+  if (!IntelDevirtMV.isMultiversionEnabled())
     return;
+
+  IntelDevirtMV.resetData();
 
   // If the size of TargetsForSlot is 1, then it means that another pass
   // devirtualized the virtual call. In this case trySingleImplDevirt will
@@ -1581,29 +1449,14 @@ void DevirtModule::translateDataForMultiVersion(
 
   // CMPLRLLVM-23243: If at least one target function is a libfunc or external
   // then we are going to include the default case in the multiversioning.
-  bool LibFuncFound = false;
-  for (auto &&Target : TargetsForSlot) {
-    NewVCallsData.TargetFunctions.push_back(Target.Fn);
-    if (!LibFuncFound && functionIsLibFuncOrExternal(Target.Fn))
-      NewVCallsData.HasLibFuncAsTarget = true;
-  }
-
-  NewVCallsData.NumBranches =
-      NewVCallsData.HasLibFuncAsTarget ? TargetsForSlot.size() + 1 :
-                                         TargetsForSlot.size();
+  for (auto &&Target : TargetsForSlot)
+    IntelDevirtMV.addTarget(Target.Fn);
 
   // Lambda function that will go through each of the virtual call sites
   // and collect the CallBase pointer
   auto CollectVirtualCallSites = [&](CallSiteInfo &CSInfo) {
-    for (auto &&VCallSite : CSInfo.CallSites) {
-      // Skip those calls that have been devirtualized already
-      const Value *CalledOperand =
-          VCallSite.CB.getCalledOperand()->stripPointerCasts();
-      if (isa<Function>(CalledOperand))
-        continue;
-
-      NewVCallsData.VirtualCallSites.push_back(&VCallSite.CB);
-    }
+    for (auto &&VCallSite : CSInfo.CallSites)
+      IntelDevirtMV.addVirtualCallSite(&VCallSite.CB);
   };
 
   // The virtual call sites related to TargetsForSlot are in SlotInfo.
@@ -1619,821 +1472,9 @@ void DevirtModule::translateDataForMultiVersion(
     CollectVirtualCallSites(P.second);
 
   DEBUG_WITH_TYPE(INTEL_DEVIRT_DEBUG, {
-    PrintVTableInfoAndTargets(NewVCallsData);
+    IntelDevirtMV.PrintVTableInfoAndTargets();
   });
 }
-
-// Create the BasicBlocks with the direct call sites.
-//   TargetVector:   a TargetData vector that will be used to store the
-//                     information related to the targets
-//   VCallSite:      callsite of the virtual call
-//   TargetsForSlot: possible targets to the current virtual callsite
-//   MDNode:         node containing the metadata information for the
-//                     target functions
-void DevirtModule::createCallSiteBasicBlocks(Module &M,
-    std::vector<TargetData *> &TargetVector,
-    CallBase *VCallSite,
-    SmallVectorImpl<Function*> &TargetFunctions,
-    MDNode* Node) {
-
-  IRBuilder<> Builder(M.getContext());
-  StringRef BaseName = StringRef("BBDevirt_");
-  Instruction *CSInst = VCallSite;
-  Function *Func = CSInst->getFunction();
-  SmallPtrSet<Function *, 10> FuncsProcessed;
-
-  // Add all the function addresses and create the BasicBlocks
-  // with the direct calls
-  for (auto TargetFunc : TargetFunctions) {
-
-    // CMPLRLLVM-22269: The TargetsForSlot array can have repeated
-    // entries. This is caused by the process in tryFindVirtualCallTargets,
-    // which collects the target functions from multiple vtables, and
-    // one target function can be in two or more vtables. If we processed a
-    // function already, then prevent generating another branch for the same
-    // function.
-    if (!FuncsProcessed.insert(TargetFunc).second)
-      continue;
-
-    Builder.SetInsertPoint(CSInst);
-
-    TargetData *NewTarget = new TargetData();
-    std::string FuncName = TargetFunc->getName().str();
-
-    NewTarget->TargetFunc = TargetFunc;
-
-    // Create a new BasicBlock with the name
-    // BBDevirt_TARGETNAME
-    std::string BBName = Twine(BaseName, FuncName.c_str()).str();
-    NewTarget->TargetName = FuncName;
-
-    NewTarget->TargetBasicBlock =
-        BasicBlock::Create(M.getContext(), BBName.c_str(), Func);
-
-    // Clone the call instruction
-    Instruction *CloneCS = CSInst->clone();
-
-    // Change the builder inside the basic block created
-    // and insert the cloned function
-    Builder.SetInsertPoint(NewTarget->TargetBasicBlock);
-    Builder.Insert(CloneCS);
-
-    // Replace the called function with the direct call
-    CallBase *NewCB = cast<CallBase>(CloneCS);
-    if (TargetFunc->getFunctionType() != VCallSite->getFunctionType()) {
-      NewCB->setCalledOperand(ConstantExpr::getBitCast(
-          TargetFunc, VCallSite->getCalledOperand()->getType()));
-#if INTEL_INCLUDE_DTRANS
-      // Because a bitcast operation has been performed to match the callsite to
-      // the call target for the object type, mark the call to allow DTrans
-      // analysis to treat the 'this' pointer argument as being the expected
-      // type for the call, rather than a mismatched argument type. The
-      // devirtualizer has proven the types to match, so this marking avoids
-      // needing to try to prove the types match again during DTrans analysis.
-      NewCB->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
-#endif // INTEL_INCLUDE_DTRANS
-    }
-    else {
-      NewCB->setCalledFunction(TargetFunc);
-    }
-
-    // Save the new instruction for PHINode
-    NewTarget->CallInstruction = NewCB;
-
-    // Add the metadata "_Intel.Devirt.Target" in the target function
-    if (!TargetFunc->hasMetadata() ||
-        TargetFunc->getMetadata("_Intel.Devirt.Target") == nullptr)
-      TargetFunc->setMetadata("_Intel.Devirt.Target", Node);
-
-    TargetVector.push_back(NewTarget);
-  }
-}
-
-// Create a BasicBlock that will be the merge point for all targets.
-// Also, collect the BasicBlock that will continue the function
-//   M:          current module
-//   VCallSite:  CallBase pointing to the virtual call site
-// This function returns the BasicBlock that all call sites will jump to.
-BasicBlock* DevirtModule::getMergePoint(Module &M, CallBase *VCallSite) {
-
-  BasicBlock *EndPointBB = nullptr;
-  BasicBlock *MergePointBB = nullptr;
-  IRBuilder<> Builder(M.getContext());
-  std::string MergePointName = "MergeBB";
-  Instruction *CSInst = VCallSite;
-  Function *Func = CSInst->getFunction();
-  BasicBlock *BB = CSInst->getParent();
-
-  // Build the merge point with the following name
-  // MergeBB
-  MergePointBB =
-      BasicBlock::Create(M.getContext(), MergePointName.c_str(), Func);
-
-  // Split the main BasicBlock in case the call instruction
-  // is a CallInst
-  //   BB: everything before the virtual function call
-  //   BBEndPoint: Everything from the virtual function call until the end
-  if (isa<CallInst>(VCallSite)) {
-    EndPointBB = BB->splitBasicBlock(CSInst->getNextNode());
-    // The current terminator branch is not needed since is going to be
-    // replaced with an if/else
-    BB->getTerminator()->eraseFromParent();
-    // NOTE: The PHINodes that are pointing to the main BasicBlock
-    // aren't replaced in this path since the splitting operation
-    // will take care of fixing them.
-  }
-  // Else, InvokeInst, collect the destination
-  else if (isa<InvokeInst>(VCallSite)) {
-    // Replace the PHINodes that are pointing to the main BasicBlock
-    // with the merge point. The PHINodes that are in the unwind
-    // destinations will be fixed later.
-    BB->replaceSuccessorsPhiUsesWith(MergePointBB);
-    EndPointBB = cast<InvokeInst>(CSInst)->getNormalDest();
-  }
-  else {
-    llvm_unreachable("wholeprogramdevirt-multiversion:"
-                     " Branch end point not found");
-  }
-
-  // Create a branch in the merge point that will jump into the end point
-  Builder.SetInsertPoint(MergePointBB);
-  Builder.CreateBr(EndPointBB);
-
-  return MergePointBB;
-}
-
-// Build the default case that will call the virtual call in case
-// the address doesn't match.
-//   M:          current module
-//   VCallSite:  CallBase pointing to the virtual call site
-// This function returns a new TargetData object with the information
-// needed to call the virtual instruction.
-DevirtModule::TargetData* DevirtModule::buildDefaultCase(Module &M,
-    CallBase* VCallSite) {
-
-  Instruction *CSInst = VCallSite;
-  Value *CalledVal = VCallSite->getCalledOperand();
-  Function *Func = CSInst->getFunction();
-  IRBuilder<> Builder(M.getContext());
-  std::string DefaultBBName = "DefaultBB";
-
-  // Build the Basic Block for the default case with the name
-  // DefaultBB
-  BasicBlock *DefaultBB =
-      BasicBlock::Create(M.getContext(), DefaultBBName.c_str(), Func);
-  Builder.SetInsertPoint(DefaultBB);
-  CSInst->removeFromParent();
-  Builder.Insert(CSInst);
-
-  TargetData *DefaultTarget = new TargetData();
-
-  DefaultTarget->TargetFunc = CalledVal;
-  DefaultTarget->TargetBasicBlock = DefaultBB;
-  DefaultTarget->CallInstruction = CSInst;
-  DefaultTarget->TargetName = DefaultBBName;
-
-  return DefaultTarget;
-}
-
-// If we are multiversioning an Invoke instruction, there is a chance
-// that replacing the PHINodes with the merge point can damage the
-// the unwind destinations. This function will remove the merge
-// point from those PHINodes in the unwind destinations and replace them
-// with the BasicBlocks where the targets are called from.
-//   VCallSite:     Information related to the actual virtual call
-//   MergePointBB:  BasicBlock that where all targets will branch into
-//   TargetsVector: Vector containing all the targets for the virtual call
-//   DefaultTarget: TargetData generated that contains the call to
-//                    the virtual function
-void DevirtModule::fixUnwindPhiNodes(CallBase *VCallSite,
-    BasicBlock *MergePointBB, std::vector<TargetData *> &TargetsVector,
-    TargetData *DefaultTarget, bool LibFuncFound) {
-
-  if (!isa<InvokeInst>(VCallSite))
-    return;
-
-  InvokeInst *InvokeI = cast<InvokeInst>(VCallSite);
-  BasicBlock *UnwindBB = InvokeI->getUnwindDest();
-
-  // Traverse through each PHINode in the unwind destination
-  for (PHINode &PhiNode : UnwindBB->phis()) {
-
-    // If the MergePoint is not found, then the result will be -1
-    int BBIdx = PhiNode.getBasicBlockIndex(MergePointBB);
-    if (BBIdx < 0)
-      continue;
-
-    // Collect the value that is used by the merge point
-    Value *Val = PhiNode.getIncomingValue(BBIdx);
-
-    // Check if the Value is produced by the return of the InvokeInst.
-    // If so, then it means that we need to replace the Value and the
-    // BasicBlock.
-    Value *DefaultCall = cast<Instruction>(DefaultTarget->CallInstruction);
-    bool SameCall = Val == DefaultCall;
-
-    // Remove the merge point from the current PHINode
-    PhiNode.removeIncomingValue(BBIdx);
-
-    // Add the targets into the PHINode
-    for (TargetData *Target : TargetsVector) {
-      if (SameCall) {
-        Value *TargetCall = cast<Value>(Target->CallInstruction);
-        PhiNode.addIncoming(TargetCall, Target->TargetBasicBlock);
-      }
-      else
-        PhiNode.addIncoming(Val, Target->TargetBasicBlock);
-    }
-
-
-    // Add the default case into the PHINode if whole program is not safe or
-    // at least one of the targets is a LibFunc
-    if (!IsWholeProgramSafe || LibFuncFound)
-      PhiNode.addIncoming(Val, DefaultTarget->TargetBasicBlock);
-  }
-}
-
-// Generate the branching that will do the multiversioning. Each compare
-// instruction will check if the address of the virtual call matches with
-// the address of a target function.
-//   M:             current module
-//   MainBB:        BasicBlock where the virtual call instruction
-//                    originally came from
-//   IsCallInst:    true if the virtual call site is a CallInst,
-//                    false if it is an InvokeInst
-//   TargetsVector: vector with all target functions and the information
-//                    needed to generate the branching
-//   DefaultTarget: TargetData with the information related to the virtual
-//                    call site, this is used to generate the default case
-// If whole program safe is achieved, then the virtual call won't be added
-// since all possible targets were found and they are stored in the input
-// TargetsVector.
-void DevirtModule::generateBranching(Module &M, BasicBlock *MainBB,
-    BasicBlock *MergePointBB, bool IsCallInst,
-    std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget,
-    bool LibFuncFound) {
-
-  unsigned int TargetI = 0;
-  StringRef ElseBaseName = StringRef("ElseDevirt_");
-  Function *Func = DefaultTarget->CallInstruction->getFunction();
-  IRBuilder<> Builder(M.getContext());
-
-  Builder.SetInsertPoint(MainBB);
-
-  BitCastInst *DefaultAddress =
-      new BitCastInst(DefaultTarget->TargetFunc, Int8PtrTy);
-  Builder.Insert(DefaultAddress);
-
-  BasicBlock *InsertPointBB = MainBB;
-
-  TargetData *LastTarget = nullptr;
-
-  unsigned int EndTarget = TargetsVector.size();
-
-  // If whole program safe is achieved, then we are going to traverse until
-  // the second to last
-  if (IsWholeProgramSafe && !LibFuncFound)
-    EndTarget--;
-
-  // Create the branching and connect the whole structure
-  for (TargetI = 0; TargetI < EndTarget; TargetI++) {
-
-    TargetData *Target = TargetsVector[TargetI];
-
-    // Build the else BasicBlock
-    BasicBlock *ElseBB;
-    if (TargetI == EndTarget - 1) {
-
-      // If whole program safe is achieved then the last target will
-      // be the else case
-      if (IsWholeProgramSafe && !LibFuncFound) {
-        LastTarget = TargetsVector[TargetI+1];
-      }
-      // Else, the virtual call will be added as default case
-      else {
-        LastTarget = DefaultTarget;
-      }
-      ElseBB = LastTarget->TargetBasicBlock;
-    }
-    else {
-      // Create the name ElseDevirt_TARGETNAME_CallSlotI_VCallI
-      std::string TargetName = Target->TargetName;
-      std::string ElseBBName =
-           Twine(ElseBaseName, TargetName.c_str()).str();
-      ElseBB =
-           BasicBlock::Create(M.getContext(), ElseBBName.c_str(), Func);
-    }
-
-    BasicBlock *IfBB = Target->TargetBasicBlock;
-
-    // Create the condition and branching
-    Builder.SetInsertPoint(InsertPointBB);
-
-    BitCastInst *TargetAddress =
-        new BitCastInst(Target->TargetFunc, Int8PtrTy);
-    Builder.Insert(TargetAddress);
-
-    Value *Cond = Builder.CreateICmpEQ(DefaultAddress, TargetAddress);
-    Builder.CreateCondBr(Cond, IfBB, ElseBB);
-
-    // Insert the branch to merge point in case of CallInst
-    if (IsCallInst) {
-      Builder.SetInsertPoint(IfBB);
-      Builder.CreateBr(MergePointBB);
-    }
-    else {
-      InvokeInst *InvInst =
-                 cast<InvokeInst>(&(IfBB->front()));
-      InvInst->setNormalDest(MergePointBB);
-    }
-
-    IfBB->moveAfter(InsertPointBB);
-    ElseBB->moveAfter(IfBB);
-    // The next insert point will be the else branch
-    InsertPointBB = ElseBB;
-  }
-
-  // Fix the last branch added
-  if (IsCallInst) {
-    Builder.SetInsertPoint(LastTarget->TargetBasicBlock);
-    Builder.CreateBr(MergePointBB);
-  }
-  else {
-    InvokeInst *InvInst =
-                 cast<InvokeInst>(LastTarget->CallInstruction);
-    InvInst->setNormalDest(MergePointBB);
-  }
-
-  // Rearrange the basic blocks
-  if (!IsWholeProgramSafe || LibFuncFound)
-    DefaultTarget->TargetBasicBlock->moveAfter(InsertPointBB);
-
-  MergePointBB->moveAfter(LastTarget->TargetBasicBlock);
-}
-
-// Generate a PHINode that will replace all the Users of the virtual
-// call site. This PHINode will be added to the merge BasicBlock.
-//   M:             current module
-//   MergePointBB:  BasicBlock that where all targets will branch into
-//   TargetsVector: vector with all target functions and the information
-//                    needed to generate the branching
-//   DefaultTarget: TargetData with the information related to the virtual
-//                    call site, this is used to generate the default case
-void DevirtModule::generatePhiNodes(Module &M, BasicBlock *MergePointBB,
-    std::vector<TargetData *> TargetsVector, TargetData *DefaultTarget,
-    bool LibFuncFound) {
-
-  Instruction *CSInst = DefaultTarget->CallInstruction;
-
-  if (CSInst->user_empty())
-    return;
-
-  IRBuilder<> Builder(M.getContext());
-
-  // Compute the number of incoming values
-  // (number of targets plus default case)
-  unsigned int NumTargets = TargetsVector.size() + 1;
-
-  // Insert in the merge point
-  Builder.SetInsertPoint(&(MergePointBB->front()));
-
-  // Create the new PHINode
-  PHINode *Phi = Builder.CreatePHI(CSInst->getType(), NumTargets);
-
-  // Replace all users of the virtual call instruction with the new PHINode
-  CSInst->replaceAllUsesWith(Phi);
-
-  // Insert the incoming Values from each target into the new PHINode
-  for (TargetData *Target : TargetsVector) {
-    Phi->addIncoming(Target->CallInstruction,
-                     Target->TargetBasicBlock);
-  }
-
-  // Insert the incoming Value from the default case if
-  // whole program is not safe or at least one target is
-  // a LibFunc
-  if (!IsWholeProgramSafe || LibFuncFound)
-    Phi->addIncoming(CSInst, DefaultTarget->TargetBasicBlock);
-}
-
-// Return true if the caller function or the target function for the input
-// virtual call site are libfuncs. If at least one of them is a libfunc or an
-// external function then apply the multiversioning with the default target.
-// Else, return false.
-bool DevirtModule::tryAddingDefaultTargetIntoVCallSite(
-    CallBase *VCallSite, Function *TargetFunc, Function *CallerFunc) {
-
-  if (!WPDevirtMultiversion)
-    return false;
-
-  if (!VCallSite || !TargetFunc || !CallerFunc)
-    return false;
-
-  if (!functionIsLibFuncOrExternal(TargetFunc) &&
-      !functionIsLibFuncOrExternal(CallerFunc))
-    return false;
-
-  SmallVector<Function*, 1> TargetFunction;
-  TargetFunction.push_back(TargetFunc);
-  multiversionVCallSite(VCallSite, true /* LibFuncFound */, TargetFunction);
-
-  return true;
-}
-
-// Helper function that will generate the multiversioning. This function
-// will replace the virtual callsite 'VCallSite' with the multiple targets
-// in 'TargetFunctions'. If 'LibFuncFound' is true then the default case
-// will be included in the multiversioning regardless of whether we achieved
-// whole program safe or not.
-void DevirtModule::multiversionVCallSite(CallBase *VCallSite,
-    bool LibFuncFound, SmallVectorImpl<Function*> &TargetFunctions) {
-
-  if (TargetFunctions.empty() || !WPDevirtMultiversion)
-    return;
-
-  MDNode *Node = MDNode::get(M.getContext(),
-               MDString::get(M.getContext(), "_Intel.Devirt.Target"));
-
-  BasicBlock *MainBB = VCallSite->getParent();
-
-  std::vector<TargetData *> TargetsVector;
-
-  // Generate the BasicBlocks that contain the direct call sites
-  createCallSiteBasicBlocks(M, TargetsVector, VCallSite,
-                            TargetFunctions, Node);
-
-  // Compute the merge point
-  BasicBlock *MergePoint = getMergePoint(M, VCallSite);
-
-  // Create the default target
-  TargetData *DefaultTarget = buildDefaultCase(M, VCallSite);
-
-  // Fix the PHINodes in the unwind destinations
-  fixUnwindPhiNodes(VCallSite, MergePoint, TargetsVector,
-                    DefaultTarget, LibFuncFound);
-
-  // Build the branches that will do the multiversioning
-  generateBranching(M, MainBB, MergePoint,
-                    isa<CallInst>(VCallSite), TargetsVector,
-                    DefaultTarget, LibFuncFound);
-
-  // Build the PHINode and the replacement in case there is any use
-  generatePhiNodes(M, MergePoint, TargetsVector,
-                   DefaultTarget, LibFuncFound);
-
-  // Destroy the default case since we have whole program and there is no
-  // LibFunc in the list of targets, or the virtual call is not inside a
-  // LibFunc with IR.
-  if (IsWholeProgramSafe && !LibFuncFound) {
-    DefaultTarget->CallInstruction->eraseFromParent();
-    DefaultTarget->TargetBasicBlock->eraseFromParent();
-  }
-
-  // Cleanup the data since it isn't needed anymore
-  for (auto *TargetInfo : TargetsVector)
-    delete TargetInfo;
-
-  delete DefaultTarget;
-
-  TargetsVector.clear();
-}
-
-// This function will go through each virtual function call site and
-// multiversion it. For example, consider that there is a base class
-// called Base with a pure virtual function foo. Also, consider that
-// there are 2 derived classes: Derived and Derived2, and both classes
-// have a definition for foo. The IR first looks as follows:
-//
-//  %. = select i1 %cmp,
-//       i1 (%class.Base*, i32)*** bitcast (%class.Derived* @d
-//          to i1 (%class.Base*, i32)***),
-//       i1 (%class.Base*, i32)*** bitcast (%class.Derived2* @d2
-//          to i1 (%class.Base*, i32)***)
-//  %.4 = select i1 %cmp,
-//        %class.Base* getelementptr inbounds (%class.Derived,
-//          %class.Derived* @d, i64 0, i32 0),
-//        %class.Base* getelementptr inbounds (%class.Derived2,
-//          %class.Derived2* @d2, i64 0, i32 0)
-//  store i1 (%class.Base*, i32)*** %., i1 (%class.Base*, i32)****
-//     bitcast (%class.Base** @b to i1 (%class.Base*, i32)****),
-//     align 8, !tbaa !8
-//  %vtable = load i1 (%class.Base*, i32)**, i1 (%class.Base*, i32)*** %.,
-//            align 8, !tbaa !12
-//  %0 = bitcast i1 (%class.Base*, i32)** %vtable to i8*
-//  %1 = tail call i1 @llvm.type.test(i8* %0, metadata !"_ZTS4Base")
-//  tail call void @llvm.assume(i1 %1)
-//  %2 = load i1 (%class.Base*, i32)*, i1 (%class.Base*, i32)** %vtable,
-//       align 8
-//  %call = tail call zeroext i1 %2(%class.Base* %.4, i32 %argc)
-//  %call.i = tail call dereferenceable(272)
-//              %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(
-//                %"class.std::basic_ostream"* nonnull @_ZSt4cout,
-//                i1 zeroext %call)
-//
-// The %vtable is collected from %. and the actual function is in %2. The
-// values %0 and %1 are related to the metadata added by the CFE. The call
-// to the virtual function happens in %call. The multiversioning will transform
-// the IR as follows:
-//
-//  %2 = bitcast i1 (%class.Base*, i32)* %1 to i8*
-//  %3 = icmp eq i8* %2, bitcast (i1 (%class.Derived*, i32)*
-//       @_ZN7Derived3fooEi to i8*)
-//  br i1 %3, label %BBDevirt__ZN7Derived3fooEi_0_0,
-//            label %ElseDevirt__ZN7Derived3fooEi_0_0
-//
-// BBDevirt__ZN7Derived3fooEi_0_0:
-//  %4 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)*
-//       @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)
-//       (%class.Base* %.4, i32 %argc)
-//  br label %MergeBB_0_0
-//
-// ElseDevirt__ZN7Derived3fooEi_0_0:
-//  %5 = icmp eq i8* %2, bitcast (i1 (%class.Derived2*, i32)*
-//       @_ZN8Derived23fooEi to i8*)
-//  br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
-//
-// BBDevirt__ZN8Derived23fooEi_0_0:
-//  %6 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)*
-//       @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)
-//       (%class.Base* %.4, i32 %argc)
-//  br label %MergeBB_0_0
-//
-// DefaultBB_0_0:
-//  %7 = tail call zeroext i1 %1(%class.Base* %.4, i32 %argc)
-//  br label %MergeBB_0_0
-//
-// MergeBB_0_0:
-//  %8 = phi i1 [ %4, %BBDevirt__ZN7Derived3fooEi_0_0 ],
-//              [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ],
-//              [ %7, %DefaultBB_0_0]
-//  br label %9
-//
-// <label>:9:
-//  %call.i = tail call dereferenceable(272)
-//            %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(
-//              %"class.std::basic_ostream"* nonnull @_ZSt4cout,
-//              i1 zeroext %8)
-//
-// The address of the virtual function will be compared with the address
-// of each of the targets. If an address matches, then call the direct
-// target, else call the virtual function.
-//
-// In case whole program safe is achieved then the virtual call won't be added.
-// The result will be the following:
-//
-//  %2 = bitcast i1 (%class.Base*, i32)* %1 to i8*
-//  %3 = icmp eq i8* %2, bitcast (i1 (%class.Derived*, i32)*
-//       @_ZN7Derived3fooEi to i8*)
-//  br i1 %3, label %BBDevirt__ZN7Derived3fooEi_0_0,
-//            label %BBDevirt__ZN8Derived23fooEi_0_0:
-//
-// BBDevirt__ZN7Derived3fooEi_0_0:
-//  %4 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)*
-//       @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)
-//       (%class.Base* %.4, i32 %argc)
-//  br label %MergeBB_0_0
-//
-// BBDevirt__ZN8Derived23fooEi_0_0:
-//  %5 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)*
-//       @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)
-//       (%class.Base* %.4, i32 %argc)
-//  br label %MergeBB_0_0
-//
-// MergeBB_0_0:
-//  %6 = phi i1 [ %4, %BBDevirt__ZN7Derived3fooEi_0_0 ],
-//              [ %5, %BBDevirt__ZN8Derived23fooEi_0_0 ]
-//  br label %7
-//
-// <label>:7:
-//  %call.i = tail call dereferenceable(272)
-//            %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(
-//              %"class.std::basic_ostream"* nonnull @_ZSt4cout,
-//              i1 zeroext %6)
-//
-// In the previous example the virtual call is removed because we know that
-// everything is inside the LTO unit, therefore all targets were found.
-//
-// Parameters:
-//   VCallsData : Structure containing the information with the virtual
-//                calls and the targets
-bool DevirtModule::tryMultiVersionDevirt(VirtualCallsDataForMV &VCallsData) {
-
-  // Check if multi-version flag is available
-  if (!WPDevirtMultiversion)
-    return false;
-
-  if (VCallsData.TargetFunctions.empty() ||
-      VCallsData.VirtualCallSites.empty())
-    return false;
-
-  // If the number of targets is larger than the threshold then don't do
-  // the multiversioning.
-  if (VCallsData.NumBranches > WPDevirtMaxBranchTargets)
-    return false;
-
-  IRBuilder<> Builder(M.getContext());
-
-  for (auto *VCallSite : VCallsData.VirtualCallSites) {
-    // CMPLRLLVM-23243: If there isn't a libfunc as target function, but
-    // the caller function is a libfunc with IR then we will include the
-    // default case in the multiversioning.
-    auto CallerFunc = VCallSite->getCaller();
-    bool DefaultTargetNeeded = VCallsData.HasLibFuncAsTarget ||
-                               functionIsLibFuncOrExternal(CallerFunc);
-
-    multiversionVCallSite(VCallSite, DefaultTargetNeeded,
-                          VCallsData.TargetFunctions);
-  }
-
-  return true;
-}
-
-// Run the verifier if the user requested it. For now, the verifier
-// is run if requested since it will be a very expensive operation.
-void DevirtModule::runDevirtVerifier(Module &M) {
-  if (WPDevirtMultiversion && WPDevirtMultiversionVerify) {
-    for (Function &F : M) {
-      if (verifyFunction(F)) {
-        report_fatal_error("Whole Program Devirtualization: Fails in"
-                           " function: " + F.getName() + "()\n");
-      }
-    }
-  }
-}
-
-// Prevent devirtualization on those virtual call sites that are related to
-// downcasting. A possible downcasting occurs when a pointer from a base class
-// is cast to a derived class. For example:
-//
-//   %"class.Base" = type { i32 (...)** }
-//   %"class.DerivedA" = type { %"class.Base" }
-//   %"class.DerivedB" = type { %"class.Base" }
-//
-//   %2 = bitcast %"class.Base"* %1 to i32 (%"class.DerivedA"*)***
-//   %3 = load i32 (%"class.Base"*)**, i32 (%"class.DerivedA"*)*** %2
-//   %4 = bitcast i32 (%"class.DerivedA"*)** %3 to i8*
-//   %5 = call i1 @llvm.type.test(i8* %4, metadata !"_ZTS8DerivedA")
-//   call void @llvm.assume(i1 %5)
-//
-// The types %"class.DerivedA" and %"class.DerivedB" have Base as element.
-// This means that the classes DerivedA and DerivedB could be derived from
-// Base. Consider that %1 is a Value and its type is %"class.Base". The
-// bitcasting in %2 converts the %1 into a function pointer. This casting goes
-// from %"class.Base" to %"class.DerivedA". This could cause that the
-// devirtualization process to convert the virtual call into an incorrect
-// direct call.
-
-// The following function will identify the bitcasting mentioned above by
-// tracing from the assume call site up to the bitcasting (%2). Then it will
-// check if the source type of the casting (%"class.Base") is an element of
-// the destination type (%"class.DerivedA"). If so, then remove the assume
-// intrinsic, which will prevent the devirtualization.
-void DevirtModule::filterDowncasting(Function *AssumeFunc) {
-  if (!IsWholeProgramSafe || !AssumeFunc ||
-      AssumeFunc->use_empty() || !AssumeFunc->isIntrinsic() ||
-      AssumeFunc->getIntrinsicID() != Intrinsic::assume)
-    return;
-
-  // Given a Type, find the first non-pointer type that it points-to.
-  auto GetElemType = [](llvm::Type *InputType) {
-
-    Type *RootType = nullptr;
-
-    if (!InputType)
-      return RootType;
-
-    RootType = InputType;
-
-    while (RootType && RootType->isPointerTy()) {
-      PointerType *PtrTy = cast<PointerType>(RootType);
-      RootType = PtrTy->getElementType();
-    }
-
-    return RootType;
-  };
-
-  // Return true if SrcType is one of the elements of DestType, else
-  // return false.
-  auto DowncastingFound = [](StructType *SrcType, StructType *DestType) {
-    if (!SrcType || !DestType)
-      return false;
-
-    unsigned NumElem = DestType->getNumElements();
-    if (NumElem == 0)
-      return false;
-
-    for (unsigned CurrElem = 0; CurrElem < NumElem; CurrElem++)
-      if (DestType->getElementType(CurrElem) == SrcType)
-        return true;
-
-    return false;
-  };
-
-  // Vector that holds the assume callsites that will be removed
-  std::vector<CallBase *> AssumesVector;
-
-  // Go through each of the users for the intrinsic assume
-  for (User *User : AssumeFunc->users()) {
-
-    CallBase *AssumeCall = dyn_cast<CallBase>(User);
-    if (!AssumeCall)
-      continue;
-
-    // Collect type.test intrinsic
-    CallBase *TestCall = dyn_cast<CallBase>(AssumeCall->getArgOperand(0));
-    if (!TestCall)
-      continue;
-
-    // Collect the VTable that the metadata is being assigned to
-    BitCastInst *VTableBCInst = dyn_cast<BitCastInst>(
-                                  TestCall->getArgOperand(0));
-    if (!VTableBCInst)
-      continue;
-
-    // Get the pointer loaded
-    LoadInst *LoadPtr = dyn_cast<LoadInst>(VTableBCInst->getOperand(0));
-    if (!LoadPtr)
-      continue;
-
-    // Collect the bitcasting from base to derived
-    BitCastInst *TypeCasting = dyn_cast<BitCastInst>(LoadPtr->getOperand(0));
-    if (!TypeCasting)
-      continue;
-
-    // Get the source
-    StructType *SrcType = dyn_cast<StructType>(
-                              GetElemType(TypeCasting->getSrcTy()));
-    if (!SrcType)
-      continue;
-
-    // Get the destination
-    FunctionType *DestType = dyn_cast<FunctionType>(
-                               GetElemType(TypeCasting->getDestTy()));
-    if (!DestType)
-      continue;
-
-    // Go through each parameter of the virtual function and check
-    // if there is a possible downcasting
-    unsigned NumParams = DestType->getNumParams();
-    for (unsigned CurrParam = 0; CurrParam < NumParams; CurrParam++) {
-      StructType *ParamStruct = dyn_cast<StructType>(
-                         GetElemType(DestType->getParamType(CurrParam)));
-
-      if (!ParamStruct)
-        continue;
-
-      // If SrcType is in ParamStruct's element types list then
-      // we found a possible downcasting (Base -> Derived).
-      if (DowncastingFound(SrcType, ParamStruct)) {
-        AssumesVector.push_back(AssumeCall);
-        break;
-      }
-    }
-  }
-
-  // Remove the assumes related to downcasting
-  for (CallBase *AssumeCall : AssumesVector) {
-    CallBase *TestCall = cast<CallBase>(AssumeCall->getArgOperand(0));
-    BitCastInst *VTableBCInst = cast<BitCastInst>(
-                                  TestCall->getArgOperand(0));
-
-    // Delete the call to assume
-    AssumeCall->eraseFromParent();
-
-    // Delete the call to type.test
-    if (TestCall->use_empty())
-      TestCall->eraseFromParent();
-
-    // Delete the bitcast for the vtable
-    if (VTableBCInst->use_empty())
-      VTableBCInst->eraseFromParent();
-  }
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Given a VTableSlotInfo and an array of Targets, print the indirect
-// call and the possible targets. This function is used for debugging.
-void
-DevirtModule::PrintVTableInfoAndTargets(VirtualCallsDataForMV &VCallsData) {
-
-  for (auto *VCallSite : VCallsData.VirtualCallSites) {
-    Function *Caller = VCallSite->getCaller();
-    dbgs() << "Function: " << Caller->getName() << "\n";
-    dbgs() << "  Indirect Call: " << *VCallSite << "\n";
-    dbgs() << "  Targets:";
-
-    if (VCallsData.TargetFunctions.empty()) {
-      dbgs() << " No targets\n";
-    }
-    else {
-      dbgs() << "\n";
-      for (auto *TargetFn : VCallsData.TargetFunctions)
-        dbgs() << "    " << TargetFn->getName() << "\n";
-    }
-    dbgs() << "\n";
-  }
-}
-#endif // NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
 bool DevirtModule::tryEvaluateFunctionsWithArgs(
@@ -2854,14 +1895,7 @@ void DevirtModule::scanTypeTestUsers(
         CallSlots[{TypeId, Call.Offset}].addCallSite(Ptr, Call.CB, nullptr);
     }
 
-#if INTEL_CUSTOMIZATION
-    Value *PtrCast = CI->getArgOperand(0);
-    BitCastInst *PtrInst = dyn_cast<BitCastInst>(PtrCast);
-
-    // Delete the bitcast for the vtable if there is no use of it.
-    if (IsWholeProgramSafe && PtrInst && PtrInst->use_empty())
-      PtrInst->eraseFromParent();
-#endif // INTEL_CUSTOMIZATION
+    IntelDevirtMV.deleteVTableCast(CI->getArgOperand(0));  // INTEL
 
     auto RemoveTypeTestAssumes = [&]() {
       // We no longer need the assumes or the type test.
@@ -3100,7 +2134,7 @@ bool DevirtModule::run() {
 
 #if INTEL_CUSTOMIZATION
   // Find the possible places where a downcasting can occur
-  filterDowncasting(AssumeFunc);
+  IntelDevirtMV.filterDowncasting(AssumeFunc);
 #endif // INTEL_CUSTOMIZATION
 
   // Rebuild type metadata into a map for easy lookup.
@@ -3183,13 +2217,6 @@ bool DevirtModule::run() {
   bool DidVirtualConstProp = false;
   std::map<std::string, Function*> DevirtTargets;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  DevirtCallMDNode = MDNode::get(
-      M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));
-#endif // INTEL_INCLUDE_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
   for (auto &S : CallSlots) {
     // Search each of the members of the type identifier for the virtual
     // function implementation at offset S.first.ByteOffset, and add to
@@ -3214,9 +2241,8 @@ bool DevirtModule::run() {
       if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION
-        VirtualCallsDataForMV VCallsData;
-        translateDataForMultiVersion(TargetsForSlot, S.second, VCallsData);
-        if (!tryMultiVersionDevirt(VCallsData)) {
+        translateDataForMultiVersion(TargetsForSlot, S.second);
+        if (!IntelDevirtMV.tryMultiVersionDevirt()) {
 #endif // INTEL_CUSTOMIZATION
 
         DidVirtualConstProp |=
@@ -3277,7 +2303,7 @@ bool DevirtModule::run() {
   for (GlobalVariable &GV : M.globals())
     GV.eraseMetadata(LLVMContext::MD_vcall_visibility);
 
-  runDevirtVerifier(M);  // INTEL
+  IntelDevirtMV.runDevirtVerifier(M);  // INTEL
 
   return true;
 }
