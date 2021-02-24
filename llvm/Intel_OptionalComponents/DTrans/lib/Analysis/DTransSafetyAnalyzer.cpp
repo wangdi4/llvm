@@ -108,7 +108,8 @@ class DTransSafetyLogger {
 public:
   void log(Value *V, const SafetyInfoLog &Log) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    ValueToSafetyInfo[V].insert(Log);
+    if (V)
+      ValueToSafetyInfo[V].insert(Log);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
 
@@ -3802,11 +3803,11 @@ private:
       for (dtrans::FieldInfo &FI : StInfo->getFields())
         MaybePropagateSafetyCondition(FI.getDTransType(), Data, DoCascade,
                                       DoPtrCarried, TriggerValue,
-                                      /*IsCascade=*/true, ForPtrCarried);
+                                      /*ForCascade=*/true, ForPtrCarried);
     else if (isa<dtrans::ArrayInfo>(TI))
       MaybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data,
                                     DoCascade, DoPtrCarried, TriggerValue,
-                                    /*IsCascade=*/true, ForPtrCarried);
+                                    /*ForCascade=*/true, ForPtrCarried);
   }
 
   // Mark all the fields of the type, and fields of aggregates the type contains
