@@ -20,6 +20,8 @@ cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 void SGEmulationTest::SetUp() {
   if (!SETENV("CL_CONFIG_CPU_VECTORIZER_TYPE", "vpo"))
     FAIL() << "Failed to set vectorizer type as vpo";
+  if (GetParam() && !SETENV("OPENCL_PROGRAM_COMPILE_OPTIONS", "-cl-opt-disable"))
+    FAIL() << "Failed to set OPENCL_PROGRAM_COMPILE_OPTIONS";
   CL_base::SetUp();
   ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, m_version)
       << "Test required OpenCL2.1 version at least";
@@ -28,8 +30,15 @@ void SGEmulationTest::SetUp() {
 void SGEmulationTest::TearDown() {
   if (!UNSETENV("CL_CONFIG_CPU_VECTORIZER_TYPE"))
     FAIL() << "Failed to unset CL_CONFIG_CPU_VECTORIZER_TYPE";
+  if (GetParam() && !UNSETENV("OPENCL_PROGRAM_COMPILE_OPTIONS"))
+    FAIL() << "Failed to unset OPENCL_PROGRAM_COMPILE_OPTIONS";
   CL_base::TearDown();
 }
+
+
+INSTANTIATE_TEST_CASE_P(SubGroupTestType,
+                        SGEmulationTest,
+                        ::testing::Values(false, true));
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

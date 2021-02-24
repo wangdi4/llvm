@@ -24,6 +24,8 @@
 
 #include <map>
 #include <string>
+#include <thread>
+#include <unordered_map>
 
 namespace llvm {
     class ExecutionEngine;
@@ -191,7 +193,7 @@ public:
     virtual void *GetFunctionAddressResolver() { return NULL; }
 
     // Returns a list of pointers to the RTL libraries
-    virtual llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const = 0;
+    virtual llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() = 0;
 
     std::unique_ptr<llvm::Module> ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
@@ -211,7 +213,7 @@ public:
 
 protected:
     void LoadBuiltinModules(BuiltinLibrary* pLibrary,
-      llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;
+      llvm::SmallVector<llvm::Module*, 2>& builtinsModules);
 
     // Create TargetMachine for X86.
     llvm::TargetMachine* GetTargetMachine(llvm::Module* pModule) const;
@@ -222,7 +224,11 @@ protected:
 protected:
     bool                     m_bIsFPGAEmulator;
     bool                     m_bIsEyeQEmulator;
-    llvm::LLVMContext*       m_pLLVMContext;
+    // Each host thread should have its own LLVMContext, because it is not
+    // thread-safe for multiple threads to access LLVM resources within a
+    // single LLVMContext.
+    std::unordered_map<std::thread::id, llvm::LLVMContext*> m_LLVMContexts;
+    llvm::sys::Mutex         m_LLVMContextMutex;
     Intel::CPUId             m_CpuId;
     llvm::SmallVector<std::string, 8>
                              m_forcedCpuFeatures;
@@ -250,6 +256,9 @@ private:
     // Validate if the vectorized mode is supported by a target arch.
     // If not then issue an error and interrupt the compilation.
     void validateVectorizerMode(llvm::raw_ostream& log) const;
+
+    // Get or generate LLVMContext for current thread.
+    llvm::LLVMContext& getLLVMContext();
 };
 
     typedef struct {

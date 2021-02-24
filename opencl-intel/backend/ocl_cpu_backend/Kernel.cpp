@@ -31,6 +31,7 @@
 
 #if defined(_WIN32)
 #define NOMINMAX
+#include <strsafe.h>
 #include <windows.h>
 #else
 #include <ucontext.h>
@@ -128,7 +129,7 @@ Kernel::~Kernel() {
     delete *i;
   }
   while (!m_stackMem.empty()) {
-    auto s = m_stackMem.top();
+    auto s = m_stackMem.front();
     free(s);
     m_stackMem.pop();
   }
@@ -652,6 +653,36 @@ static void WINAPI CreateFiberExRoutineFunc(LPVOID params) {
                     fiberData->pRuntimeHandle);
   SwitchToFiber(fiberData->primaryFiber);
 }
+
+static void ErrorExit(LPTSTR lpszFunction) {
+    // Retrieve the system error message for the last-error code
+    LPVOID lpMsgBuf;
+    LPVOID lpDisplayBuf;
+    DWORD dw = GetLastError();
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR) &lpMsgBuf,
+        0, NULL);
+
+    // Display the error message and exit the process
+    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
+        (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
+    StringCchPrintf((LPTSTR)lpDisplayBuf,
+        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+        TEXT("%s failed with error %d: %s"),
+        lpszFunction, dw, lpMsgBuf);
+    MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
+
+    LocalFree(lpMsgBuf);
+    LocalFree(lpDisplayBuf);
+    ExitProcess(dw);
+}
+
 #endif
 
 cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
@@ -705,13 +736,16 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 #if defined(_WIN32)
     LPVOID primaryFiber = nullptr, fiber = nullptr;
     primaryFiber = ConvertThreadToFiber(nullptr);
-    assert(primaryFiber && "ConvertThreadToFiber error!");
+    if (!primaryFiber)
+      ErrorExit((LPTSTR)TEXT("ConvertThreadToFiber"));
+
     FIBERDATA fiberData = {pKernelUniformArgs, pGroupID, pRuntimeHandle, kernel,
                            primaryFiber};
-    fiber = CreateFiberEx(pKernelUniformImplicitArgs->stackSize,
-                          pKernelUniformImplicitArgs->stackSize,
+    fiber = CreateFiberEx(pKernelUniformImplicitArgs->stackSize, 0,
                           0, CreateFiberExRoutineFunc, &fiberData);
-    assert(fiber && "CreateFiberEx error!");
+    if (!fiber)
+      ErrorExit((LPTSTR)TEXT("CreateFiberEx"));
+
     SwitchToFiber(fiber);
     DeleteFiber(fiber);
     ConvertFiberToThread();
@@ -747,10 +781,14 @@ void* Kernel::AllocaStack(size_t size) const {
   if (m_stackMem.empty()) {
     m_stackMutex.unlock();
     void* stackBase = malloc(size);
-    assert(stackBase && "memory out of resource");
+    if (!stackBase) {
+      std::cerr << "Error: System memory is out of resource\n";
+      exit(1);
+    }
     return stackBase;
   }
-  void *stackBase = m_stackMem.top();
+
+  void *stackBase = m_stackMem.front();
   m_stackMem.pop();
   m_stackMutex.unlock();
   return stackBase;

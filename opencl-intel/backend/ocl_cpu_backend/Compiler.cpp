@@ -381,7 +381,6 @@ void Compiler::Terminate()
 Compiler::Compiler(const ICompilerConfig& config):
     m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
     m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
-    m_pLLVMContext( new llvm::LLVMContext ),
     m_transposeSize(config.GetTransposeSize()),
     m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
     m_IRDumpAfter(config.GetIRDumpOptionsAfter()),
@@ -404,7 +403,9 @@ Compiler::~Compiler()
     if( Utils::TerminationBlocker::IsReleased() )
         return;
 
-    delete m_pLLVMContext;
+    for (auto &C : m_LLVMContexts)
+        delete C.second;
+    m_LLVMContexts.clear();
 }
 
 void Compiler::materializeSpirTriple(llvm::Module *M) {
@@ -650,10 +651,11 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 std::unique_ptr<llvm::Module>
 Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
+    LLVMContext &Ctx = getLLVMContext();
     // Parse the module IR
     llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr =
-      expectedToErrorOrAndEmitErrors(*m_pLLVMContext, llvm::parseBitcodeFile(
-                               pIRBuffer->getMemBufferRef(), *m_pLLVMContext));
+        expectedToErrorOrAndEmitErrors(
+            Ctx, llvm::parseBitcodeFile(pIRBuffer->getMemBufferRef(), Ctx));
     if ( !pModuleOrErr )
     {
         throw Exceptions::CompilerException(std::string("Failed to parse IR: ")
@@ -666,8 +668,9 @@ Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 // The first is shared across all HW architectures and the second one
 // is optimized for a specific HW architecture.
 void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
-                   llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
+                   llvm::SmallVector<llvm::Module*, 2>& builtinsModules)
 {
+    LLVMContext &Ctx = getLLVMContext();
     llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4>
         rtlBuffersForEyeQEmulationMode = pLibrary->GetRtlBuffersForEyeQEmulationMode();
     // This is an empty loop unless in EyeQ emulation mode
@@ -677,9 +680,8 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
                "rtlBufferForEyeQEmulationMode is NULL pointer");
         llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
             expectedToErrorOrAndEmitErrors(
-                *m_pLLVMContext,
-                llvm::getOwningLazyBitcodeModule(
-                    std::move(rtlBufferForEyeQEmulationMode), *m_pLLVMContext));
+                Ctx, llvm::getOwningLazyBitcodeModule(
+                         std::move(rtlBufferForEyeQEmulationMode), Ctx));
 
         if (!spModuleOrErr) {
             throw Exceptions::CompilerException(
@@ -693,15 +695,15 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
                                         pLibrary->GetRtlBuffer()));
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
     llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
-      expectedToErrorOrAndEmitErrors(*m_pLLVMContext,
-               llvm::getOwningLazyBitcodeModule(std::move(rtlBuffer), *m_pLLVMContext));
+      expectedToErrorOrAndEmitErrors(Ctx,
+               llvm::getOwningLazyBitcodeModule(std::move(rtlBuffer), Ctx));
 
     if ( !spModuleOrErr )
     {
         // Failed to load runtime library
         spModuleOrErr = llvm::ErrorOr<std::unique_ptr<llvm::Module>>(
                 std::unique_ptr<llvm::Module>(
-                  new llvm::Module("dummy", *m_pLLVMContext)));
+                  new llvm::Module("dummy", Ctx)));
         if ( !spModuleOrErr )
         {
             throw Exceptions::CompilerException(
@@ -720,8 +722,7 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
     std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(std::move(
                                       pLibrary->GetRtlBufferSvmlShared()));
     llvm::Expected<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
-        llvm::getOwningLazyBitcodeModule(std::move(RtlBufferSvmlShared),
-            *m_pLLVMContext));
+        llvm::getOwningLazyBitcodeModule(std::move(RtlBufferSvmlShared), Ctx));
 
     if ( !spModuleSvmlSharedOrErr ) {
         throw Exceptions::CompilerException(
@@ -788,6 +789,15 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
     }
 
     return *strTargetTriple;
+}
+
+llvm::LLVMContext& Compiler::getLLVMContext() {
+    std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
+    auto TID = std::this_thread::get_id();
+    auto It = m_LLVMContexts.find(TID);
+    if (It == m_LLVMContexts.end())
+        It = m_LLVMContexts.insert(std::make_pair(TID, new LLVMContext)).first;
+    return *It->second;
 }
 
 }}}

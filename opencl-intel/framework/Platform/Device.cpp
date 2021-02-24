@@ -341,38 +341,34 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
 
 cl_err_code Device::CreateInstance()
 {
-    fn_clDevCreateDeviceInstance *devCreateInstance;
+    LOG_DEBUG(TEXT("%s"), TEXT("Need to create a new device instance (Device::CreateInstance)"));
+    OclAutoMutex CS(&m_deviceInitializationMutex);
     if (0 == m_pDeviceRefCount)
     {
-        LOG_DEBUG(TEXT("%s"), TEXT("Need to create a new device instance (Device::CreateInstance)"));
-        OclAutoMutex CS(&m_deviceInitializationMutex);
-        if (0 == m_pDeviceRefCount)
+        LOG_DEBUG(TEXT("%s"), TEXT("Creating new device instance (Device::CreateInstance)"));
+        auto *devCreateInstance = (fn_clDevCreateDeviceInstance*)m_dlModule.GetFunctionPtrByName("clDevCreateDeviceInstance");
+        if (nullptr == devCreateInstance)
         {
-            LOG_DEBUG(TEXT("%s"), TEXT("Creating new device instance (Device::CreateInstance)"));
-            devCreateInstance = (fn_clDevCreateDeviceInstance*)m_dlModule.GetFunctionPtrByName("clDevCreateDeviceInstance");
-            if (nullptr == devCreateInstance)
-            {
-                LOG_ERROR(TEXT("%s"), TEXT("GetProcAddress(clDevCreateDeviceInstance) failed (devCreateInstance==NULL)"));
-                return CL_ERR_DEVICE_INIT_FAIL;
-            }
-
-            LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
-            int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice, g_pUserLogger);
-            if (clDevErr != (int)CL_DEV_SUCCESS)
-            {
-                LOG_ERROR(TEXT("Device::devCreateInstance returned %d"), clDevErr);
-                return CL_DEVICE_NOT_AVAILABLE;
-            }
-            m_pDeviceRefCount++;
-            if (nullptr == m_pPlatformModule)
-            {
-                m_pPlatformModule = FrameworkProxy::Instance()->GetPlatformModule();
-                assert( nullptr != m_pPlatformModule );
-            }
-            m_pPlatformModule->DeviceCreated();
-            LOG_DEBUG(TEXT("%s"), TEXT("Device::fn_clDevCreateDeviceInstance exit. (CL_SUCCESS)"));
-            return CL_SUCCESS;
+            LOG_ERROR(TEXT("%s"), TEXT("GetProcAddress(clDevCreateDeviceInstance) failed (devCreateInstance==NULL)"));
+            return CL_ERR_DEVICE_INIT_FAIL;
         }
+
+        LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
+        int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice, g_pUserLogger);
+        if (clDevErr != (int)CL_DEV_SUCCESS)
+        {
+            LOG_ERROR(TEXT("Device::devCreateInstance returned %d"), clDevErr);
+            return CL_DEVICE_NOT_AVAILABLE;
+        }
+        m_pDeviceRefCount++;
+        if (nullptr == m_pPlatformModule)
+        {
+            m_pPlatformModule = FrameworkProxy::Instance()->GetPlatformModule();
+            assert( nullptr != m_pPlatformModule );
+        }
+        m_pPlatformModule->DeviceCreated();
+        LOG_DEBUG(TEXT("%s"), TEXT("Device::fn_clDevCreateDeviceInstance exit. (CL_SUCCESS)"));
+        return CL_SUCCESS;
     }
     m_pDeviceRefCount++;
     LOG_DEBUG(TEXT("%s"), TEXT("Device::CreateInstance exit without doing anything"));

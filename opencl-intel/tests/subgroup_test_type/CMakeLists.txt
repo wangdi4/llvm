@@ -7,6 +7,7 @@ include_directories( ${OCL_SOURCE_DIR}/tests/framework_test_type
 link_directories( ${TBB_LIB_DIR} )
 
 set( TARGET_LIBS test_utils  intelocl${BUILD_PLATFORM} )
+set_source_files_properties(SGEmulationTest.cpp PROPERTIES COMPILE_FLAGS -w)
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()

@@ -234,20 +234,25 @@ unsigned int SelectCpuFeatures(
 
 }
 
-void CPUCompiler::GetOrLoadBuiltinModules()
+BuiltinModules* CPUCompiler::GetOrLoadBuiltinModules(bool ForceLoad)
 {
-    BuiltinLibrary *pLibrary =
-        m_bIsEyeQEmulator
-            ? BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId)
-            : m_bIsFPGAEmulator
-                  ? BuiltinModuleManager::GetInstance()
-                        ->GetOrLoadFPGAEmuLibrary(m_CpuId)
-                  : BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(
-                        m_CpuId);
-    llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
-    LoadBuiltinModules(pLibrary, bltnFuncList);
-    m_pBuiltinModule = new BuiltinModules(bltnFuncList);
-    setBuiltinInitLog(pLibrary->getLog());
+    std::lock_guard<llvm::sys::Mutex> Locked(m_builtinModuleMutex);
+    auto TID = std::this_thread::get_id();
+    auto It = m_builtinModules.find(TID);
+    if (ForceLoad && It != m_builtinModules.end())
+        delete It->second;
+    if (ForceLoad || It == m_builtinModules.end()) {
+        BuiltinModuleManager *Manager = BuiltinModuleManager::GetInstance();
+        BuiltinLibrary *Library =
+            m_bIsEyeQEmulator   ? Manager->GetOrLoadEyeQLibrary(m_CpuId)
+            : m_bIsFPGAEmulator ? Manager->GetOrLoadFPGAEmuLibrary(m_CpuId)
+                                : Manager->GetOrLoadCPULibrary(m_CpuId);
+        llvm::SmallVector<llvm::Module *, 2> bltnFuncList;
+        LoadBuiltinModules(Library, bltnFuncList);
+        m_builtinModules[TID] = new BuiltinModules(bltnFuncList);
+        setBuiltinInitLog(Library->getLog());
+    }
+    return m_builtinModules[TID];
 }
 // If binary not matchs current cpu arch
 // and cpu is backwards compatible,load builtin modules again
@@ -255,17 +260,12 @@ void
 CPUCompiler::SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures="")
 {
     // config.GetLoadBuiltins should be true
-    if(m_pBuiltinModule != nullptr)
-    {
-        SelectCpu(cpuName, cpuFeatures);
-        delete m_pBuiltinModule;
-        GetOrLoadBuiltinModules();
-    }
+    SelectCpu(cpuName, cpuFeatures);
+    (void)GetOrLoadBuiltinModules(/*ForceLoad*/ true);
 }
 
 CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     Compiler(config),
-    m_pBuiltinModule(nullptr),
     m_pExecEngine(nullptr),
     m_pVTuneListener(nullptr)
 {
@@ -274,7 +274,7 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     // Initialize the BuiltinModules
     if(config.GetLoadBuiltins())
     {
-        GetOrLoadBuiltinModules();
+        (void)GetOrLoadBuiltinModules();
     }
 
     // Create the listener that allows Amplifier to profile OpenCL kernels
@@ -292,8 +292,9 @@ CPUCompiler::~CPUCompiler()
     // WORKAROUND!!! See the notes in TerminationBlocker description
     if( Utils::TerminationBlocker::IsReleased() )
         return;
-
-    delete m_pBuiltinModule;
+    for (auto &BM : m_builtinModules)
+        delete BM.second;
+    m_builtinModules.clear();
     delete m_pVTuneListener;
 }
 
@@ -475,9 +476,11 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     return pExecEngine;
 }
 
-llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
+llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList()
 {
-    return m_pBuiltinModule->GetBuiltinModuleList();
+    BuiltinModules *BM = GetOrLoadBuiltinModules();
+    assert(BM && "Invalid BuiltinModules");
+    return BM->GetBuiltinModuleList();
 }
 
 std::unique_ptr<MemoryBuffer>

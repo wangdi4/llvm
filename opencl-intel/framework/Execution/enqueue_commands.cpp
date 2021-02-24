@@ -1708,13 +1708,17 @@ cl_err_code NDRangeKernelCommand::Init()
             return CL_INVALID_OPERATION;
     }
 
-    //
+    cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
+    m_pDevice->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &deviceType, nullptr);
+    bool UseAutoMemory = FrameworkProxy::Instance()->GetOCLConfig()->UseAutoMemory();
+    bool ThrowOOR = !(deviceType == CL_DEVICE_TYPE_ACCELERATOR && UseAutoMemory);
+
     // Query kernel info to validate input params
-    //
     size_t szCompiledWorkGroupMaxSize = m_pDeviceKernel->GetKernelWorkGroupSize();
-    if( szCompiledWorkGroupMaxSize == 0 )
+    if (ThrowOOR && szCompiledWorkGroupMaxSize == 0 )
     {
       // Kernel cannot run if its max. possible work-group size is zero.
+      // No enough private memory size.
       return CL_OUT_OF_RESOURCES;
     }
 
@@ -1780,10 +1784,10 @@ cl_err_code NDRangeKernelCommand::Init()
             return CL_INVALID_WORK_GROUP_SIZE;
         }
 
-        if (szWorkGroupSize > szCompiledWorkGroupMaxSize)
+        if (ThrowOOR && szWorkGroupSize > szCompiledWorkGroupMaxSize)
         {
             // according to spec this is not an invalid WG size error, but it will be manifested
-            // as out of resources.
+            // as out of resources. No enough private memory.
             return CL_OUT_OF_RESOURCES;
         }
 

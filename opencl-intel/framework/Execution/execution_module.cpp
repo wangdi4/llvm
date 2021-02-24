@@ -2287,10 +2287,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
                 return errVal;
             }
 
-            // To track kernel execution we need to implicitly set a tracker
-            // event even if a user set it as null.
-            cl_event* trackerEvent = pEvent ? pEvent : ::new cl_event;
-
             {
                 OclAutoMutex mu(&KernelEventMutex);
                 auto it = m_OclKernelEventMap.find(kernelName);
@@ -2304,21 +2300,30 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
                     {
                         EventListToWait.push_back(prevClEvent);
                     }
-                    // Update the map replacing old with a newer one.
-                    m_OclKernelEventMap.erase(kernelName);
                 }
+            }
 
-                errVal = pNDRangeKernelCmd->EnqueueSelf(
-                    false /*never blocking*/, EventListToWait.size(),
-                    EventListToWait.empty() ? nullptr : &EventListToWait[0],
-                    trackerEvent, apiLogger);
-                m_OclKernelEventMap.insert(
-                    std::make_pair(kernelName, *trackerEvent));
+            // Set a tracker event to track kernel execution.
+            cl_event trackerEvent = nullptr;
+
+            errVal = pNDRangeKernelCmd->EnqueueSelf(
+                false /*never blocking*/, EventListToWait.size(),
+                EventListToWait.empty() ? nullptr : &EventListToWait[0],
+                &trackerEvent, apiLogger);
+
+            // Get the returned tracker event.
+            if (pEvent != nullptr)
+                *pEvent = trackerEvent;
+
+            // Update the map replacing old with a newer one.
+            {
+                OclAutoMutex mu(&KernelEventMutex);
+                m_OclKernelEventMap[kernelName] = trackerEvent;
             }
 
             // Set call back which will erase this tracker kernel-event pair
             // from this map when the event status is changed to CL_COMPLETE.
-            SetEventCallback(*trackerEvent, CL_COMPLETE,
+            SetEventCallback(trackerEvent, CL_COMPLETE,
                              (eventCallbackFn)callbackForKernelEventMap,
                              &m_OclKernelEventMap);
             updatedEventList = true;

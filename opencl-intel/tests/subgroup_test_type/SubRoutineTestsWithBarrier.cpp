@@ -14,9 +14,10 @@
 
 #include "SGEmulationTest.h"
 
-TEST_F(SGEmulationTest, SubRoutineTestsWithBarrier) {
+TEST_P(SGEmulationTest, SubRoutineTestsWithBarrier) {
 
-  const char *kernel = "int foo(int lid) {"
+  const char *kernel = "__attribute__((noinline))"
+                       "int foo(int lid) {"
                        "  barrier(CLK_LOCAL_MEM_FENCE);"
                        "  return sub_group_scan_inclusive_add(lid);"
                        "}"
@@ -32,7 +33,7 @@ TEST_F(SGEmulationTest, SubRoutineTestsWithBarrier) {
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
   iRet =
-      clBuildProgram(program, 0, nullptr, "-cl-opt-disable", nullptr, nullptr);
+      clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));

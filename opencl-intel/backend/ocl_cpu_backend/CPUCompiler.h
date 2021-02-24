@@ -70,15 +70,17 @@ public:
 
 protected:
     // Returns a list of pointers to the RTL library modules
-    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const override;
+    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() override;
 
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
-    void GetOrLoadBuiltinModules();
+    BuiltinModules* GetOrLoadBuiltinModules(bool ForceLoad = false);
 
 private:
-    BuiltinModules*         m_pBuiltinModule;
+    std::unordered_map<std::thread::id, BuiltinModules*> m_builtinModules;
+    llvm::sys::Mutex        m_builtinModuleMutex;
+
     llvm::ExecutionEngine*  m_pExecEngine;
 
     llvm::JITEventListener* m_pVTuneListener;

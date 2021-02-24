@@ -1224,12 +1224,22 @@ let Types = [v1i32, v1u32, v1f32],
     NeedForwardDecl = 1 in {
 def atomic_xchg_global : OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_xchg_local  : OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_cmpxchg_global : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_cmpxchg_local  : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
+}
+
+let Types = [v1i32, v1u32, v1f32, v1f64],
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def atomic_min_global : OclBuiltin<"atomic_min", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_min_local  : OclBuiltin<"atomic_min", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_max_global : OclBuiltin<"atomic_max", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_max_local  : OclBuiltin<"atomic_max", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
-def atomic_cmpxchg_global : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
-def atomic_cmpxchg_local  : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
+}
+
+let Types = [v1i32, v1u32, v1f32, v1f64],
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def atomic_add_global : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_add_local  : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 }
