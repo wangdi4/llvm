@@ -34,6 +34,7 @@ void VPlanSSADeconstruction::run() {
   VPLoop *VLoop = *(Plan.getVPLoopInfo()->begin());
   VPBuilderHIR Builder;
   unsigned DeconstructedPhiId = 0;
+  bool ResetSVA = false;
 
   for (VPBasicBlock &VPBB : Plan) {
     // Outermost loop header PHIs are either inductions or reductions (loop
@@ -100,6 +101,12 @@ void VPlanSSADeconstruction::run() {
       // Update incoming values of PHI to the newly inserted copy instructions.
       for (auto &UpdateKey : PhiInValUpdates)
         Phi.setIncomingValue(UpdateKey.first, UpdateKey.second);
+
+      ResetSVA = true;
     }
   }
+
+  // Invalidate SVA results as VPlan has been changed.
+  if (ResetSVA)
+    Plan.invalidateAnalyses({VPAnalysisID::SVA});
 }
