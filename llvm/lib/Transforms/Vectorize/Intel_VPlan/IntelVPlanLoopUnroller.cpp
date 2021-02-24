@@ -194,5 +194,8 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
   CurrentLatch->setCondBit(ValueMap[CurrentLatch->getCondBit()]);
 
+  // VPlan has been modified, thus we have to reset SVA results, if any.
+  Plan.invalidateAnalyses({VPAnalysisID::SVA});
+
   VPLAN_DUMP(UnrollDumpControl, Plan);
 }
