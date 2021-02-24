@@ -54,6 +54,11 @@ public:
   matchVectorVariant(const VPCallInstruction *VPCall, bool Masked, unsigned VF,
                      const TargetTransformInfo *TTI);
 
+  /// Public interface to reset decisions recorded for analyzed VPCalls in given
+  /// VPlan. This is done by resetting the corresponding vectorization scenarios
+  /// of each call, setting their last analyzed VF with an invalid value (VF=0).
+  void reset();
+
 private:
   /// Determine call vectorization properties for a given \p VPCall. This
   /// decision is taken based on given \p VF and various external components
