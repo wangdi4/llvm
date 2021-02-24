@@ -20,6 +20,7 @@
 #include "IntelVPlan.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
+#include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
@@ -686,6 +687,13 @@ void VPlan::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
     return;
   VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
   VPlanSVA->compute(this, VF, TLI);
+}
+
+void VPlan::clearSVA() {
+  // Reset CallVecDecisions results that were recorded for this VPlan.
+  VPlanCallVecDecisions CVDA(*this);
+  CVDA.reset();
+  VPlanSVA.reset();
 }
 
 void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {

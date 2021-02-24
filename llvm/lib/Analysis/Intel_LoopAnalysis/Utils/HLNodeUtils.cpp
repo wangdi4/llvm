@@ -3387,10 +3387,12 @@ HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
   switch (Pred) {
   case PredicateTy::ICMP_SLT: // <
     EqualOffset = -1;
+    LLVM_FALLTHROUGH;
   case PredicateTy::ICMP_SLE: // <=
     break;
   case PredicateTy::ICMP_SGT: // >
     EqualOffset = -1;
+    LLVM_FALLTHROUGH;
   case PredicateTy::ICMP_SGE: // >=
     std::swap(Lhs, Rhs);
     break;

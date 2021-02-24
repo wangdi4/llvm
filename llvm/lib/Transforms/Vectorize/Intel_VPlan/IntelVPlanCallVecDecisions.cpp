@@ -40,6 +40,17 @@ void VPlanCallVecDecisions::run(unsigned VF, const TargetLibraryInfo *TLI,
   }
 }
 
+void VPlanCallVecDecisions::reset() {
+  LLVM_DEBUG(dbgs() << "Resetting CallVecDecisions for Plan: " << Plan.getName()
+                    << "\n");
+  for (VPBasicBlock &VPBB : Plan) {
+    for (VPInstruction &Inst : VPBB) {
+      if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst))
+        VPCall->resetVecScenario(0 /*NewVF*/);
+    }
+  }
+}
+
 std::unique_ptr<VectorVariant>
 VPlanCallVecDecisions::getVectorVariantForCallParameters(
     const VPCallInstruction *VPCall,
