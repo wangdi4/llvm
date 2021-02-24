@@ -1,4 +1,5 @@
-; RUN: %oclopt -S -barrier-copy-instruction-threshold=3 -B-ReduceCrossBarrierValues -dce %s | FileCheck %s
+; RUN: %oclopt -S -barrier-copy-instruction-threshold=3 -B-ReduceCrossBarrierValues -adce %s | FileCheck %s
+; TODO: Remove -adce pass when this pass can eliminate dead instructions.
 
 declare void @_Z7barrierj(i32)
 declare i64 @_Z13get_global_idj(i32) #0
