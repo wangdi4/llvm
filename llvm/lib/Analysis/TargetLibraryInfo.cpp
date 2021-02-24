@@ -4828,6 +4828,13 @@ case LibFunc_under_commit:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
+  case LibFunc_for_allocate_handle:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy());
+
   case LibFunc_for_array_copy_in:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
