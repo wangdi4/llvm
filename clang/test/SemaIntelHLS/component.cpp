@@ -136,7 +136,7 @@ __attribute__((scheduler_target_fmax_mhz("sch"))) //expected-error{{integral con
 void bar14() {
 }
 
-__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires integer constant between 0 and 1048576 inclusive}}
+__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires a non-negative integral compile time constant expression}}
 void bar15() {
 }
 

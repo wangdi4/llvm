@@ -3885,8 +3885,7 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!checkWorkGroupSizeValues(S, D, AL))
     return;
 
-  S.addIntelSYCLTripleArgFunctionAttr<WorkGroupAttr>(D, AL, XDimExpr, YDimExpr,
-                                                     ZDimExpr);
+  S.addIntelTripleArgAttr<WorkGroupAttr>(D, AL, XDimExpr, YDimExpr, ZDimExpr);
 }
 
 // Handles work_group_size_hint.
@@ -3928,7 +3927,7 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (D->getAttr<IntelReqdSubGroupSizeAttr>())
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
 
-  S.addIntelSYCLSingleArgFunctionAttr<IntelReqdSubGroupSizeAttr>(D, AL, E);
+  S.addIntelSingleArgAttr<IntelReqdSubGroupSizeAttr>(D, AL, E);
 }
 
 // Handles num_simd_work_items.
@@ -3975,7 +3974,7 @@ static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelNumSimdWorkItemsAttr>(D, A, E);
+  S.addIntelSingleArgAttr<SYCLIntelNumSimdWorkItemsAttr>(D, A, E);
 }
 
 // Handles use_stall_enable_clusters
@@ -4031,7 +4030,7 @@ static void handleSchedulerTargetFmaxMhzAttr(Sema &S, Decl *D,
 
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
 
-  S.AddOneConstantValueAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>(D, AL, E);
+  S.addIntelSingleArgAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>(D, AL, E);
 }
 
 // Handles max_global_work_dim.
@@ -4063,7 +4062,7 @@ static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
 
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
-  S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelMaxGlobalWorkDimAttr>(D, A, E);
+  S.addIntelSingleArgAttr<SYCLIntelMaxGlobalWorkDimAttr>(D, A, E);
 }
 
 SYCLIntelLoopFuseAttr *
@@ -4116,10 +4115,13 @@ static bool checkSYCLIntelLoopFuseArgument(Sema &S,
     return true;
   }
 
-  SYCLIntelLoopFuseAttr TmpAttr(S.Context, CI, E);
-  ExprResult ICE;
+  if (!ArgVal->isNonNegative()) {
+    S.Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+        << CI << /*non-negative*/ 1;
+    return true;
+  }
 
-  return S.checkRangedIntegralArgument<SYCLIntelLoopFuseAttr>(E, &TmpAttr, ICE);
+  return false;
 }
 
 void Sema::addSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI,
@@ -6411,7 +6413,7 @@ static void handleNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
                 ? A.getArgAsExpr(0)
                 : IntegerLiteral::Create(S.Context, llvm::APInt(32, 1),
                                          S.Context.IntTy, A.getLoc());
-  S.addIntelSYCLSingleArgFunctionAttr<SYCLIntelNoGlobalWorkOffsetAttr>(D, A, E);
+  S.addIntelSingleArgAttr<SYCLIntelNoGlobalWorkOffsetAttr>(D, A, E);
 }
 
 /// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]] attributes.
@@ -6566,9 +6568,7 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, A))
     return;
 
-  if (A.getKind() == ParsedAttr::AT_IntelFPGABankWidth ||
-      A.getKind() == ParsedAttr::AT_IntelFPGANumBanks)
-    S.CheckDeprecatedSYCLAttributeSpelling(A);
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 
   S.AddOneConstantPowerTwoValueAttr<AttrType>(D, A, A.getArgAsExpr(0));
 }
@@ -6613,8 +6613,7 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
 
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
-  S.AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(D, A,
-                                                        A.getArgAsExpr(0));
+  S.addIntelSingleArgAttr<IntelFPGAMaxReplicatesAttr>(D, A, A.getArgAsExpr(0));
 }
 
 /// Handle the merge attribute.
@@ -6702,11 +6701,14 @@ void Sema::AddIntelFPGABankBitsAttr(Decl *D, const AttributeCommonInfo &CI,
     Expr::EvalResult Result;
     ListIsValueDep = ListIsValueDep || E->isValueDependent();
     if (!E->isValueDependent()) {
-      ExprResult ICE;
-      if (checkRangedIntegralArgument<IntelFPGABankBitsAttr>(E, &TmpAttr, ICE))
+      ExprResult ICE = VerifyIntegerConstantExpression(E, &Value);
+      if (ICE.isInvalid())
         return;
-      if (E->EvaluateAsInt(Result, Context))
-        Value = Result.Val.getInt();
+      if (!Value.isNonNegative()) {
+        Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+            << CI << /*non-negative*/ 1;
+        return;
+      }
       E = ICE.get();
     }
     Args.push_back(E);
@@ -6767,8 +6769,7 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
 
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
-  S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(D, A,
-                                                        A.getArgAsExpr(0));
+  S.addIntelSingleArgAttr<IntelFPGAPrivateCopiesAttr>(D, A, A.getArgAsExpr(0));
 }
 
 static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,

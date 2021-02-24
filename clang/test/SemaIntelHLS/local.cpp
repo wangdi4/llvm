@@ -413,7 +413,7 @@ void foo1()
   __attribute__((__bankwidth__(3)))
   unsigned int bw_three[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__bankwidth__(-4)))
   unsigned int bw_four[64];
 
@@ -428,7 +428,7 @@ void foo1()
   __attribute__((__bankwidth__(4,8)))
   unsigned int bw_six[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__bankwidth__(0)))
   unsigned int bw_seven[64];
 
@@ -501,7 +501,7 @@ void foo1()
   __attribute__((__private_copies__(16)))
   unsigned int pc_three[64];
 
-  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  //expected-error@+1{{attribute requires a non-negative integral compile time constant expression}}
   __attribute__((__private_copies__(-4)))
   unsigned int pc_four[64];
 
@@ -541,7 +541,7 @@ void foo1()
   __attribute__((__numbanks__(15)))
   unsigned int nb_three[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__numbanks__(-4)))
   unsigned int nb_four[64];
 
@@ -556,7 +556,7 @@ void foo1()
   __attribute__((__numbanks__(4,8)))
   unsigned int nb_six[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__numbanks__(0)))
   unsigned int nb_seven[64];
 
@@ -669,7 +669,7 @@ void foo1()
   __attribute__((bank_bits()))
   unsigned int bb_eight[4];
 
-  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  //expected-error@+1{{attribute requires a non-negative integral compile time constant expression}}
   __attribute__((bank_bits(-1)))
   unsigned int bb_ten[4];
 
@@ -750,7 +750,7 @@ void tattr() {
   __attribute__((__bank_bits__(bit1,3,bit3)))
   int var1;
 
-  //expected-error@+1{{'private_copies' attribute requires integer constant between 0 and 1048576 inclusive}}
+  //expected-error@+1{{attribute requires a non-negative integral compile time constant expression}}
   __attribute__((private_copies(private_copies)))
   int var2;
 }
