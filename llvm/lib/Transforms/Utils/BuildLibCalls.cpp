@@ -2061,6 +2061,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_for_alloc_allocatable:
   case LibFunc_for_alloc_allocatable_handle:
   case LibFunc_for_allocate:
+  case LibFunc_for_allocate_handle:
   case LibFunc_for_array_copy_in:
   case LibFunc_for_array_copy_out:
   case LibFunc_for_backspace:

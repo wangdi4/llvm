@@ -1115,6 +1115,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @for_alloc_allocatable(i64, i8**, i32)\n"
       "declare i32 @for_alloc_allocatable_handle(i64, i8**, i32, i8*)\n"
       "declare i32 @for_allocate(i64, i8**, i32)\n"
+      "declare i32 @for_allocate_handle(i64, i8**, i32, i8*)\n"
       "declare i8* @for_array_copy_in(i8*)\n"
       "declare void @for_array_copy_out(i8*, i8*)\n"
       "declare i32 @for_backspace(i8*, i32, i64, ...)\n"
