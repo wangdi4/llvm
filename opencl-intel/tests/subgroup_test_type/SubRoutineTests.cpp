@@ -14,9 +14,10 @@
 
 #include "SGEmulationTest.h"
 
-TEST_F(SGEmulationTest, SubRoutineTests) {
+TEST_P(SGEmulationTest, SubRoutineTests) {
 
-  const char *kernel = "int foo(int lid) {"
+  const char *kernel = "__attribute__((noinline))"
+                       "int foo(int lid) {"
                        "  return sub_group_scan_inclusive_add(lid);"
                        "}"
                        "__kernel void basic(__global int* scan_add) {"
@@ -31,7 +32,7 @@ TEST_F(SGEmulationTest, SubRoutineTests) {
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
   iRet =
-      clBuildProgram(program, 0, nullptr, "-cl-opt-disable", nullptr, nullptr);
+      clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));

@@ -16,13 +16,6 @@
 //  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include <vector>
-#include <map>
-#include <stack>
-#include <mutex>
-#include <iostream>
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "RuntimeService.h"
@@ -31,6 +24,14 @@
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
+
+#include <assert.h>
+#include <iostream>
+#include <map>
+#include <mutex>
+#include <queue>
+#include <string>
+#include <vector>
 
 namespace Intel {
 namespace OpenCL {
@@ -329,7 +330,7 @@ protected:
   // RuntimeService. Refcounted
   RuntimeServiceSharedPtr m_RuntimeService;
 
-  mutable std::stack<void*> m_stackMem;
+  mutable std::queue<void*> m_stackMem;
   mutable std::mutex m_stackMutex;
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;

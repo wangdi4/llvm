@@ -14,7 +14,7 @@
 
 #include "SGEmulationTest.h"
 
-TEST_F(SGEmulationTest, BasicTIDResolution) {
+TEST_P(SGEmulationTest, BasicTIDResolution) {
 
   const char *kernel = "__kernel void basic(__global unsigned long* local_id, "
                        "__global unsigned long* sg_local_id) {"
@@ -30,7 +30,7 @@ TEST_F(SGEmulationTest, BasicTIDResolution) {
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
   iRet =
-      clBuildProgram(program, 0, nullptr, "-cl-opt-disable", nullptr, nullptr);
+      clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));

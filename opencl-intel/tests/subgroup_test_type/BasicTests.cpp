@@ -14,7 +14,7 @@
 
 #include "SGEmulationTest.h"
 
-TEST_F(SGEmulationTest, BasicTests) {
+TEST_P(SGEmulationTest, BasicTests) {
 
   const char *kernel = "__kernel void basic(__global int* scan_add) {"
                        "  int lid = get_local_id(0);"
@@ -27,7 +27,7 @@ TEST_F(SGEmulationTest, BasicTests) {
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
   iRet =
-      clBuildProgram(program, 0, nullptr, "-cl-opt-disable", nullptr, nullptr);
+      clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));

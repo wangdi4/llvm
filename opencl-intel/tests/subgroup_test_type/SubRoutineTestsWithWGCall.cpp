@@ -14,9 +14,9 @@
 
 #include "SGEmulationTest.h"
 
-TEST_F(SGEmulationTest, SubRoutineTestsWithWGCall) {
-
-  const char *kernel = "int foo(int lid) {"
+TEST_P(SGEmulationTest, SubRoutineTestsWithWGCall) {
+  const char *kernel = "__attribute__((noinline))"
+                       "int foo(int lid) {"
                        "  return work_group_reduce_add(lid);"
                        "}"
                        "__kernel void basic(__global int* scan_add, __global "
@@ -31,7 +31,7 @@ TEST_F(SGEmulationTest, SubRoutineTestsWithWGCall) {
       clCreateProgramWithSource(m_context, 1, &kernel, &kernel_size, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
-  iRet = clBuildProgram(program, 0, nullptr, "-cl-opt-disable -cl-std=CL2.0",
+  iRet = clBuildProgram(program, 0, nullptr, "-cl-std=CL2.0",
                         nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
