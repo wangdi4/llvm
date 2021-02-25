@@ -161,10 +161,6 @@ static cl::opt<bool> FilterSameScaledReg(
     cl::desc("Narrow LSR search space by filtering non-optimal formulae"
              " with the same ScaledReg and Scale"));
 
-static cl::opt<bool> EnableBackedgeIndexing(
-  "lsr-backedge-indexing", cl::Hidden, cl::init(true),
-  cl::desc("Enable the generation of cross iteration indexed memops"));
-
 static cl::opt<unsigned> ComplexityLimit(
   "lsr-complexity-limit", cl::Hidden,
   cl::init(std::numeric_limits<uint16_t>::max()),
@@ -1039,14 +1035,15 @@ class Cost {
   ScalarEvolution *SE = nullptr;
   const TargetTransformInfo *TTI = nullptr;
   TargetTransformInfo::LSRCost C;
+  TTI::AddressingModeKind AMK = TTI::AMK_None;
   PhiSCEVCacheT *PhiSCEVCache = nullptr; // INTEL
 
 public:
   Cost() = delete;
 #if INTEL_CUSTOMIZATION
   Cost(const Loop *L, ScalarEvolution &SE, const TargetTransformInfo &TTI,
-       PhiSCEVCacheT *PhiSCEVCache = nullptr)
-      : L(L), SE(&SE), TTI(&TTI), PhiSCEVCache(PhiSCEVCache) {
+       TTI::AddressingModeKind AMK, PhiSCEVCacheT *PhiSCEVCache = nullptr)
+      : L(L), SE(&SE), TTI(&TTI), AMK(AMK), PhiSCEVCache(PhiSCEVCache) {
 #endif // INTEL_CUSTOMIZATION
     C.Insns = 0;
     C.NumRegs = 0;
@@ -1259,8 +1256,6 @@ static unsigned getSetupCost(const SCEV *Reg, unsigned Depth) {
 /// Tally up interesting quantities from the given register.
 void Cost::RateRegister(const Formula &F, const SCEV *Reg,
                         SmallPtrSetImpl<const SCEV *> &Regs) {
-  TTI::AddressingModeKind AMK = TTI->getPreferredAddressingMode(L, SE);
-
   if (const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(Reg)) {
     // If this is an addrec for another loop, it should be an invariant
     // with respect to L since L is the innermost loop (at least
@@ -1941,7 +1936,7 @@ class LSRInstance {
   const TargetTransformInfo &TTI;
   Loop *const L;
   MemorySSAUpdater *MSSAU;
-  bool FavorBackedgeIndex = false;
+  TTI::AddressingModeKind AMK;
   bool Changed = false;
 
   /// This is the insert position that the current loop's induction variable
@@ -3633,7 +3628,6 @@ void LSRInstance::GenerateReassociationsImpl(LSRUse &LU, unsigned LUIdx,
   // may generate a post-increment operator. The reason is that the
   // reassociations cause extra base+register formula to be created,
   // and possibly chosen, but the post-increment is more efficient.
-  TTI::AddressingModeKind AMK = TTI.getPreferredAddressingMode(L, &SE);
   if (AMK == TTI::AMK_PostIndexed && mayUsePostIncMode(TTI, LU, BaseReg, L, SE))
     return;
   SmallVector<const SCEV *, 8> AddOps;
@@ -3869,7 +3863,7 @@ void LSRInstance::GenerateConstantOffsetsImpl(
   // means that a single pre-indexed access can be generated to become the new
   // base pointer for each iteration of the loop, resulting in no extra add/sub
   // instructions for pointer updating.
-  if (FavorBackedgeIndex && LU.Kind == LSRUse::Address) {
+  if (AMK == TTI::AMK_PreIndexed && LU.Kind == LSRUse::Address) {
     if (auto *GAR = dyn_cast<SCEVAddRecExpr>(G)) {
       if (auto *StepRec =
           dyn_cast<SCEVConstant>(GAR->getStepRecurrence(SE))) {
@@ -4298,8 +4292,7 @@ void LSRInstance::GenerateCrossUseConstantOffsets() {
           NewF.BaseOffset = (uint64_t)NewF.BaseOffset + Imm;
           if (!isLegalUse(TTI, LU.MinOffset, LU.MaxOffset,
                           LU.Kind, LU.AccessTy, NewF)) {
-            if (TTI.getPreferredAddressingMode(this->L, &SE) ==
-                    TTI::AMK_PostIndexed &&
+            if (AMK == TTI::AMK_PostIndexed &&
                 mayUsePostIncMode(TTI, LU, OrigReg, this->L, SE))
               continue;
             if (!TTI.isLegalAddImmediate((uint64_t)NewF.UnfoldedOffset + Imm))
@@ -4409,7 +4402,7 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
       // avoids the need to recompute this information across formulae using the
       // same bad AddRec. Passing LoserRegs is also essential unless we remove
       // the corresponding bad register from the Regs set.
-      Cost CostF(L, SE, TTI, &PhiSCEVCache); // INTEL
+      Cost CostF(L, SE, TTI, AMK, &PhiSCEVCache); // INTEL
       Regs.clear();
       CostF.RateFormula(F, Regs, VisitedRegs, LU, &LoserRegs);
       if (CostF.isLoser()) {
@@ -4442,7 +4435,7 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
 
         Formula &Best = LU.Formulae[P.first->second];
 
-        Cost CostBest(L, SE, TTI);
+        Cost CostBest(L, SE, TTI, AMK);
         Regs.clear();
         CostBest.RateFormula(Best, Regs, VisitedRegs, LU);
         if (CostF.isLess(CostBest))
@@ -4695,8 +4688,8 @@ void LSRInstance::NarrowSearchSpaceByFilterFormulaWithSameScaledReg() {
 
       // If the new register numbers are the same, choose the Formula with
       // less Cost.
-      Cost CostFA(L, SE, TTI);
-      Cost CostFB(L, SE, TTI);
+      Cost CostFA(L, SE, TTI, AMK);
+      Cost CostFB(L, SE, TTI, AMK);
       Regs.clear();
       CostFA.RateFormula(FA, Regs, VisitedRegs, LU);
       Regs.clear();
@@ -4746,7 +4739,7 @@ void LSRInstance::NarrowSearchSpaceByFilterFormulaWithSameScaledReg() {
 /// If we are over the complexity limit, filter out any post-inc prefering
 /// variables to only post-inc values.
 void LSRInstance::NarrowSearchSpaceByFilterPostInc() {
-  if (TTI.getPreferredAddressingMode(L, &SE) != TTI::AMK_PostIndexed)
+  if (AMK != TTI::AMK_PostIndexed)
     return;
   if (EstimateSearchSpaceComplexity() < ComplexityLimit)
     return;
@@ -5037,7 +5030,7 @@ void LSRInstance::SolveRecurse(SmallVectorImpl<const Formula *> &Solution,
       ReqRegs.insert(S);
 
   SmallPtrSet<const SCEV *, 16> NewRegs;
-  Cost NewCost(L, SE, TTI);
+  Cost NewCost(L, SE, TTI, AMK);
   for (const Formula &F : LU.Formulae) {
     // Ignore formulae which may not be ideal in terms of register reuse of
     // ReqRegs.  The formula should use all required registers before
@@ -5045,8 +5038,7 @@ void LSRInstance::SolveRecurse(SmallVectorImpl<const Formula *> &Solution,
     // This can sometimes (notably when trying to favour postinc) lead to
     // sub-optimial decisions. There it is best left to the cost modelling to
     // get correct.
-    if (TTI.getPreferredAddressingMode(L, &SE) != TTI::AMK_PostIndexed ||
-        LU.Kind != LSRUse::Address) {
+    if (AMK != TTI::AMK_PostIndexed || LU.Kind != LSRUse::Address) {
       int NumReqRegsToFind = std::min(F.getNumRegs(), ReqRegs.size());
       for (const SCEV *Reg : ReqRegs) {
         if ((F.ScaledReg && F.ScaledReg == Reg) ||
@@ -5094,9 +5086,9 @@ void LSRInstance::SolveRecurse(SmallVectorImpl<const Formula *> &Solution,
 /// vector.
 void LSRInstance::Solve(SmallVectorImpl<const Formula *> &Solution) const {
   SmallVector<const Formula *, 8> Workspace;
-  Cost SolutionCost(L, SE, TTI);
+  Cost SolutionCost(L, SE, TTI, AMK);
   SolutionCost.Lose();
-  Cost CurCost(L, SE, TTI);
+  Cost CurCost(L, SE, TTI, AMK);
   SmallPtrSet<const SCEV *, 16> CurRegs;
   DenseSet<const SCEV *> VisitedRegs;
   Workspace.reserve(Uses.size());
@@ -5627,9 +5619,7 @@ LSRInstance::LSRInstance(Loop *L, IVUsers &IU, ScalarEvolution &SE,
                          const TargetTransformInfo &TTI, AssumptionCache &AC,
                          TargetLibraryInfo &TLI, MemorySSAUpdater *MSSAU)
     : IU(IU), SE(SE), DT(DT), LI(LI), AC(AC), TLI(TLI), TTI(TTI), L(L),
-      MSSAU(MSSAU), FavorBackedgeIndex(EnableBackedgeIndexing &&
-                                       TTI.getPreferredAddressingMode(L, &SE) ==
-                                           TTI::AMK_PreIndexed) {
+      MSSAU(MSSAU), AMK(TTI.getPreferredAddressingMode(L, &SE)) {
   // If LoopSimplify form is not available, stay out of trouble.
   if (!L->isLoopSimplifyForm())
     return;
