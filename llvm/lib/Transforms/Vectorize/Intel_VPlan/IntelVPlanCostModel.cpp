@@ -16,6 +16,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -416,8 +417,10 @@ VPlanCostModel::getIntrinsicForSVMLCall(const VPCallInstruction *VPCall) const {
 }
 
 unsigned VPlanCostModel::getIntrinsicInstrCost(
-  Intrinsic::ID ID, const CallBase &CB, unsigned VF,
-  VPCallInstruction::CallVecScenariosTy VS) {
+  Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF) {
+
+  const CallBase &CB = *(VPCall->getUnderlyingCallInst());
+  VPCallInstruction::CallVecScenariosTy VS = VPCall->getVectorizationScenario();
 
   // Intrinsics which have 0 cost are not lowered to actual code during ASM CG.
   // They are meant for intermediate analysis/transforms and will be deleted
@@ -485,14 +488,37 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       // SVML-vectorized library calls will be handled later.
       if (TLI->isSVMLEnabled() && VF > 1 && !CB.getType()->isVoidTy())
         return VPTTI->getNumberOfParts(getWidenedType(CB.getType(), VF)) *
-          VPlanCostModel::getIntrinsicInstrCost(ID, CB, 1, VS);
+          VPlanCostModel::getIntrinsicInstrCost(ID, VPCall, 1);
       break;
 
     default:
       break;
   }
+
+  // Factor in VF into return type and Args type when it is vectorizable.
+  auto MaybeVectorizeType =
+    [](bool NeedsVectorCode, Type *Ty, unsigned VF) -> Type * {
+    if (NeedsVectorCode && isVectorizableTy(Ty) && !Ty->isVoidTy())
+      return getWidenedType(Ty, VF);
+    return Ty;
+  };
+
+  Type *RetTy = MaybeVectorizeType(
+    Plan->getVPlanSVA()->retValNeedsVectorCode(VPCall), CB.getType(), VF);
+  FastMathFlags FMF;
+  if (VPCall->hasFastMathFlags())
+    FMF = VPCall->getFastMathFlags();
+
+  SmallVector<Type *> ParamTys;
+  transform(enumerate(VPCall->arg_operands()), ParamTys.begin(), [&](auto Arg) {
+    return MaybeVectorizeType(
+      Plan->getVPlanSVA()->operandNeedsVectorCode(VPCall, Arg.index()),
+      Arg.value()->getType(), VF); });
+
   return VPTTI->getIntrinsicInstrCost(
-      IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput);
+    IntrinsicCostAttributes(ID, RetTy, ParamTys, FMF,
+                            dyn_cast<IntrinsicInst>(&CB)),
+    TTI::TCK_RecipThroughput);
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
@@ -692,8 +718,7 @@ unsigned VPlanCostModel::getCostForVF(
     if (ID == Intrinsic::not_intrinsic)
       return UnknownCost;
 
-    return getIntrinsicInstrCost(ID, *CI, VF,
-                                 VPCall->getVectorizationScenario());
+    return getIntrinsicInstrCost(ID, VPCall, VF);
   }
   }
 }
