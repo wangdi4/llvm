@@ -248,7 +248,7 @@ public:
   /// the given \p Peeling. The returned alignment is computed using the memory
   /// address either in the first vector lane (if the stride is positive) or in
   /// the last lane (if the stride is negative).
-  Align getAlignmentUnitStride(VPLoadStoreInst &Memref,
+  Align getAlignmentUnitStride(const VPLoadStoreInst &Memref,
                                VPlanPeelingVariant &Peeling);
 
   /// Compute conservative alignment of \p Memref. The returned alignment is
