@@ -1374,7 +1374,9 @@ static void CheckMutualExclusionSYCLLoopAttribute(
     // If we've seen both of the attribute types, then diagnose them both.
     if (SeenAttrs.first && SeenAttrs.second)
       S.Diag(I->getLocation(), diag::err_attributes_are_not_compatible)
-          << FirstSeen << I;
+#if INTEL_CUSTOMIZATION
+          << FirstSeen->getAttrName() << I->getAttrName();
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
