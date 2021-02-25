@@ -80,7 +80,7 @@ __attribute__((reqd_work_group_size(-10, 10, 10)))
 __attribute__((autorun))
 __kernel void kernel_4j() {}
 
-__attribute__((reqd_work_group_size(10.f, 10, 10))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
+__attribute__((reqd_work_group_size(10.f, 10, 10))) //expected-error{{integer constant expression must have integer type, not 'float'}}
 __attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __kernel void kernel_4k() {
 }
@@ -90,7 +90,7 @@ __attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_wo
 __kernel void kernel_4l() {
 }
 
-__attribute__((reqd_work_group_size(6))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
+__attribute__((reqd_work_group_size(6, 6, 6))) //expected-error{{Autorun kernel functions must have work group sizes that are divisors of 2^32}}
 __attribute__((autorun))
 __kernel void kernel_4m() {
 }
@@ -101,7 +101,7 @@ __kernel void kernel_4n() {
 }
 
 int foo();
-__attribute__((reqd_work_group_size(foo() + 32, foo() + 32, foo() + 32))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
+__attribute__((reqd_work_group_size(foo() + 32, foo() + 32, foo() + 32))) //expected-error 3{{expression is not an integer constant expression}}
 __attribute__((autorun))  //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __kernel void kernel_4o() {
 }
@@ -174,7 +174,7 @@ __attribute__((scheduler_target_fmax_mhz("sch"))) // expected-error{{integer con
 __kernel void kernel_7c() {
 }
 
-__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires integer constant between 0 and 1048576 inclusive}}
+__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires a non-negative integral compile time constant expression}}
 __kernel void kernel_7d() {
 }
 
@@ -210,8 +210,8 @@ __attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items'
 __kernel void kernel_8f() {
 }
 
-__attribute__((reqd_work_group_size(5.f, 5, 5))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
-__attribute__((num_simd_work_items(3.f))) //expected-error{{'num_simd_work_items' attribute requires an integer constant}}
+__attribute__((reqd_work_group_size(5.f, 5, 5))) //expected-error{{integer constant expression must have integer type, not 'float'}}
+__attribute__((num_simd_work_items(3.f))) //expected-error{{integer constant expression must have integer type, not 'float'}}
 __kernel void kernel_8g() {
 }
 
@@ -220,7 +220,7 @@ __attribute__((reqd_work_group_size(-5, 5, 5))) //expected-warning{{implicit con
 __kernel void kernel_8h() {
 }
 
-__attribute__((num_simd_work_items(1.2f))) //expected-error{{'num_simd_work_items' attribute requires an integer constant}}
+__attribute__((num_simd_work_items(1.2f))) //expected-error{{integer constant expression must have integer type, not 'float'}}
 __kernel void kernel_8i() {
 }
 
@@ -235,12 +235,12 @@ __kernel void kernel_8k() {
 }
 
 int foo1();
-__attribute__((reqd_work_group_size(foo1() + 64, foo1() + 64, foo1() + 64))) //expected-error{{'reqd_work_group_size' attribute requires an integer constant}}
+__attribute__((reqd_work_group_size(foo1() + 64, foo1() + 64, foo1() + 64))) //expected-error 3{{expression is not an integer constant expression}}
 __attribute__((num_simd_work_items(4)))
 __kernel void kernel_8l() {
 }
 
-__attribute__((max_work_group_size(5.f, 5, 5))) //expected-error{{'max_work_group_size' attribute requires an integer constant}}
+__attribute__((max_work_group_size(5.f, 5, 5))) //expected-error{{integer constant expression must have integer type, not 'float'}}
 __kernel void kernel_8m() {
 }
 
@@ -257,7 +257,7 @@ __kernel void kernel_8p() {
 }
 
 int foo2();
-__attribute__((max_work_group_size(foo2() + 64, foo2() + 64, foo2() + 64))) //expected-error{{'max_work_group_size' attribute requires an integer constant}}
+__attribute__((max_work_group_size(foo2() + 64, foo2() + 64, foo2() + 64))) //expected-error 3{{expression is not an integer constant expression}}
 __kernel void kernel_4q() {
 }
 
