@@ -3,17 +3,24 @@ set(LLVM_LINK_COMPONENTS
   Core
   Vectorize
   AsmParser
+  CodeGen
+  MC
+  X86CodeGen
+  X86Info
+  X86Desc
+  Target
   )
 
 add_llvm_unittest(VectorizeTests
 # INTEL_CUSTOMIZATION
   IntelVPlanAlignmentAnalysisTest.cpp
+  IntelVPlanCGTest.cpp
   IntelVPlanCheckNodeParent.cpp
-  IntelVPlanDATest.cpp
   IntelVPlanClonePlanTest.cpp
+  IntelVPlanDATest.cpp
+  IntelVPlanTTIMemrefCostTest.cpp
   IntelVPlanValueTrackingTest.cpp
   IntelVPlanVPSubscriptTest.cpp
-  IntelVPlanCGTest.cpp
 # end INTEL_CUSTOMIZATION
   VPlanDominatorTreeTest.cpp
   VPlanLoopInfoTest.cpp

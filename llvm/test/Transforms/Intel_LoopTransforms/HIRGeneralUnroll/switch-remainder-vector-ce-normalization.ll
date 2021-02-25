@@ -37,6 +37,7 @@
 ; CHECK: DO i1 = 0, %tgu + -1, 1
 ; CHECK: switch
 
+target triple = "x86_64-unknown-linux-gnu"
 
 @"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$UPPER_WVL" = external hidden unnamed_addr constant [11 x float], align 32
 @"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$LOWER_WVL" = external hidden unnamed_addr constant [11 x float], align 32
@@ -86,7 +87,7 @@ latch:                                              ; preds = %loop
   store float %t956, float* %t957, align 1
   %t958 = add nsw i64 %t925, 1
   %t959 = icmp eq i64 %t958, %t918
-  br i1 %t959, label %exit, label %outer.loop
+  br i1 %t959, label %exit, label %outer.loop, !llvm.loop !0
 
 exit:
   ret void
@@ -99,3 +100,6 @@ declare float @llvm.log.f32(float) #3
 attributes #2 = { nounwind readnone speculatable }
 
 attributes #3 = { nofree nosync nounwind readnone speculatable willreturn }
+
+!0 = distinct !{!0, !1}
+!1 = !{!"llvm.loop.unroll.count", i32 4}
