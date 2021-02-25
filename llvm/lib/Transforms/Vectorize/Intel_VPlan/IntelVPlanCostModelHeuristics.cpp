@@ -509,8 +509,9 @@ unsigned HeuristicGatherScatter::operator()(
 bool HeuristicPsadbw::checkPsadwbPattern(
   const VPInstruction *AbsInst,
   SmallPtrSetImpl<const VPInstruction*> &PatternInsts) const {
-  const VPInstruction *Add, *Mul, *ZExtA, *ZExtB;
-  const VPValue *A, *B;
+  const VPInstruction *Add = nullptr, *Mul = nullptr, *ZExtA = nullptr,
+                      *ZExtB = nullptr;
+  const VPValue *A = nullptr, *B = nullptr;
 
   auto MAdd =
     m_Bind(m_c_Add(m_Bind(m_ZExt(m_Bind(A)), ZExtA),
@@ -597,7 +598,7 @@ unsigned HeuristicPsadbw::applyOnPlan(unsigned Cost) const {
         const VPInstruction *AddInst = AddsStack.top();
         AddsStack.pop();
 
-        const VPInstruction *LHS, *RHS;
+        const VPInstruction *LHS = nullptr, *RHS = nullptr;
         // In case of accumulator is 64 bits there are ZExt's in operands of
         // the ADD possible.  Go over them.
         if (!match(AddInst, m_Add(m_ZExtOrSelf(m_Bind(LHS)),
@@ -656,7 +657,7 @@ unsigned HeuristicPsadbw::applyOnPlan(unsigned Cost) const {
       //
       // Make additial post pass throughout the current block to pick them up.
       for (const VPInstruction &VPInst : *Block) {
-        const VPInstruction *LHS, *RHS;
+        const VPInstruction *LHS = nullptr, *RHS = nullptr;
         if (match(&VPInst, m_ZExt(m_Bind(LHS))) &&
             CurrPsadbwPatternInsts.count(LHS) > 0)
           CurrPsadbwPatternInsts.insert(&VPInst);
