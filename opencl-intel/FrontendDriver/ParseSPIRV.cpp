@@ -23,13 +23,8 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
-#if OPENCL_INTREE_BUILD
 #include <LLVMSPIRVLib.h> // llvm::ReadSPIRV
 #include <LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
-#else
-#include <LLVMSPIRVLib/LLVMSPIRVLib.h> // llvm::ReadSPIRV
-#include <LLVMSPIRVLib/LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
-#endif
 #include <llvm/Support/SwapByteOrder.h>
 #include <spirv/1.1/spirv.hpp> // spv::MagicNumber, spv::Version
 
