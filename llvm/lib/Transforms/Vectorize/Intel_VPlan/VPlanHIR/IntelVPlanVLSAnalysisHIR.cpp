@@ -142,9 +142,7 @@ const DDGraph VPVLSClientMemrefHIR::getDDGraph() const {
   const HLNode *Node = getInstruction()->HIR.getUnderlyingNode();
   assert(Node && "Expected underlying HLNode!");
   const HLLoop *Loop = Node->getParentLoop();
-  const DDGraph &DDG = Loop->getParentLoop()
-                           ? DDA->getGraph(Loop->getParentLoop())
-                           : DDA->getGraph(Loop->getParentRegion());
+  const DDGraph &DDG = DDA->getGraph(Loop);
   return DDG;
 }
 
