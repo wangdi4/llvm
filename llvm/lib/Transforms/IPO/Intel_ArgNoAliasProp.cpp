@@ -70,9 +70,6 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
   if (PtrArgs.empty())
     return false;
 
-  AAResults &AA = AAGetter(F);
-  DominatorTree &DT = DTGetter(F);
-
   // Make a pass of the Function's uses in order to look through ConstantExpr
   // cast uses. The AbstractCallSite constructor can do this for cases where
   // the ConstantExpr has a single use, but doing it for the constructor allows
@@ -106,6 +103,12 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
     /* If OptLevel > 2, spend time exploring more uses. */
     const unsigned MaxUsesToExplore =
         OptLevel > 2 ? 80 : getDefaultMaxUsesToExploreForCaptureTracking();
+
+    // Obtain alias and dominator analyses for the function containing this
+    // call site of F. (We are not concerned with the implementation of F.)
+    Function *CallingFunc = CS.getInstruction()->getFunction();
+    AAResults &AA = AAGetter(*CallingFunc);
+    DominatorTree &DT = DTGetter(*CallingFunc);
 
     for (auto &P : PtrArgs) {
       if (!P.second)
