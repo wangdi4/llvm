@@ -263,7 +263,7 @@ public:
   /// address either in the first vector lane (if the stride is positive) or in
   /// the last lane (if the stride is negative).
   Align getAlignmentUnitStride(const VPLoadStoreInst &Memref,
-                               VPlanPeelingVariant &Peeling);
+                               VPlanPeelingVariant &Peeling) const;
 
   /// Compute conservative alignment of \p Memref. The returned alignment is
   /// valid for any vector lane and any peeling variant. This method should be

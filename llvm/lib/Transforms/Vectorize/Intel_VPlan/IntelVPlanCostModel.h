@@ -172,7 +172,8 @@ public:
                  const TargetLibraryInfo *TLI,
                  const DataLayout *DL,
                  VPlanVLSAnalysis *VLSA = nullptr)
-    : VPlanTTICostModel(Plan, VF, TTI, TLI, DL), VLSA(VLSA) {
+    : VPlanTTICostModel(Plan, VF, TTI, TLI, DL), VLSA(VLSA),
+      VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // Fill up HeuristicsPipeline with heuristics in the order they should be
     // applied.
@@ -182,7 +183,9 @@ public:
     HeuristicsPipeline.push_back(
       std::make_unique<VPlanCostModelHeuristics::HeuristicSpillFill>(this));
   }
-  unsigned getCost();
+  // Get Cost for VPlan with specified peeling.
+  unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr);
+  unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
   virtual unsigned getLoadStoreCost(
     const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) {
     return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
@@ -201,6 +204,8 @@ protected:
 #if INTEL_CUSTOMIZATION
   VPlanVLSAnalysis *VLSA;
 #endif // INTEL_CUSTOMIZATION
+  VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
+  VPlanAlignmentAnalysis VPAA;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getCostNumberString(unsigned Cost) const {
