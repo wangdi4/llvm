@@ -51,7 +51,6 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocap
 ; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK: call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 %explicit_1, i32 addrspace(1)* %explicit_2, i8 addrspace(3)* null, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK: ret void
-; CHECK: attributes #1 = { alwaysinline nounwind }
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
