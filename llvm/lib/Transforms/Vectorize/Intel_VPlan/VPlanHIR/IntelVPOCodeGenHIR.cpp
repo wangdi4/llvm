@@ -2028,6 +2028,10 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(ArrayRef<RegDDRef *> StoreVals,
 bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
                                      const RegDDRef *Mask,
                                      const VPInstruction *VPInst) {
+  // Disable interleaving in mixed codegen mode.
+  if (!EnableVPValueCodegenHIR || getForceMixedCG())
+    return false;
+
   // TODO: Mask for the interleaved accesses must be shuffled as well. Currently
   // it's not done, thus disable CG for it.
   if (Mask)

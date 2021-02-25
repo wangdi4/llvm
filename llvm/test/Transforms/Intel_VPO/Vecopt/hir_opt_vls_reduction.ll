@@ -17,7 +17,6 @@
 ;      @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;   END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=1 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 
 ; CHECK:            %red.var = 0;
