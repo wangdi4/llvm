@@ -11,7 +11,9 @@
 ;         + END LOOP
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
-; CHECK-LABEL:   IR Dump After VPlan Vectorization Driver HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
+; CHECK-LABEL:   IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   %.addrcopy = &((i64*)(%sarr)[i1].1);
 ; CHECK-NEXT:        |   %.vls.load = (<8 x i64>*)(%.addrcopy)[-1];

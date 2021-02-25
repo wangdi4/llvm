@@ -12,7 +12,11 @@
 ; Gather is expected for %yarrrr load.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+
 ; CHECK: (<4 x i32>*)(%yarrrr)[0][i1 + <i32 0, i32 1, i32 2, i32 3> + -1];
 
 source_filename = "hir_unsigned_wrap.cpp"

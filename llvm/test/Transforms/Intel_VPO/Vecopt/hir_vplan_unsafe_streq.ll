@@ -2,6 +2,9 @@
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -debug-only=vplan-idioms \
 ; RUN:     2>&1 | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     < %s -S -debug-only=vplan-idioms 2>&1 | FileCheck %s
+
 ; REQUIRES: asserts
 ;
 ; Verify that loop with similar properties as string comparison is not vectorized.

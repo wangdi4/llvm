@@ -10,6 +10,8 @@
 ;       a[i1][i2] = b[i1][i2] + c[i1][i2];
 ; }
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -S  < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -vplan-force-vf=4 -S < %s | FileCheck %s
+
 ; CHECK: add <4 x i32>
 ; CHECK-NEXT: store <4 x i32>
 ; 

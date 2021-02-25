@@ -1,4 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir -vplan-force-vf=4 -disable-output -tbaa -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -enable-vp-value-codegen-hir -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
 ;
 ; The following test computes an address, does a bitcast of the address, and then uses
 ; the bitcast result to compute yet another address. HIR requires the base canon
@@ -22,7 +24,7 @@
 ; (with bitcast folded in), and use the LVAL of the copy instruction to generate the
 ; new addressof ref.
 ;
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK:                     DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                  %.vec = (<4 x i64>*)(%neighbor)[i1];
 ; CHECK-NEXT:                  %nsbgepcopy = &((<4 x i8*>)(%lattice)[%.vec]);

@@ -56,6 +56,8 @@
 ; when possible. CMPLRLLVM-20305.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=16 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=16 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+
 ; CHECK: %[[WIDE_LOAD:.*]] = (<16 x i8>*)(%pix1){{.*}}
 ; CHECK: {{.*}} = zext.<16 x i8>.<16 x i32>(%[[WIDE_LOAD]]);
 ; CHECK-NOT: {{.*}} = zext.<16 x i8>.<16 x i32>(%[[WIDE_LOAD]]);

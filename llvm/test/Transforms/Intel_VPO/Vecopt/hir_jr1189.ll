@@ -1,5 +1,7 @@
 ; Test from CMPLRLLVM-1189. Check that we can generate vector code.
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -S  %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -S %s 2>&1 | FileCheck %s
+
 ; HIR opt-predicate generates two vectorizable loops and both should be vectorized.
 ; CHECK: DO i1 = 0, {{.*}}, 4
 ; CHECK: DO i1 = 0, {{.*}}, 4

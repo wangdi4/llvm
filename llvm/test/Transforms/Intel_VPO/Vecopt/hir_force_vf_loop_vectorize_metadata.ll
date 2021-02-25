@@ -15,6 +15,8 @@
 ;   + END LOOP
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           + DO i1 = 0, 1023, 32   <DO_LOOP> <auto-vectorized> <novectorize>

@@ -5,6 +5,8 @@
 ; scalar type causing HIR verification errors.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; CHECK:          @llvm.powi.v4f64(%.vec,  %P)
 ; CHECK:          <RVAL-REG> LINEAR trunc.i64.i32(%P)

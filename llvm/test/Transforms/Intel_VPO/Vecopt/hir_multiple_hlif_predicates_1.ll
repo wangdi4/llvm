@@ -17,6 +17,8 @@
 ; }
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
+
 
 ; Check plain HCFG
 ; HCFG: i1 [[Cmp1:%.*]] = icmp ult i64 {{%.*}} i64 512
@@ -26,6 +28,8 @@
 
 ; NOTE: We force VF=4 here to test correctness of code generation
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+
 
 ; Check HIR
 ; CHECK: DO i1 = 0, 1023, 4   <DO_LOOP>

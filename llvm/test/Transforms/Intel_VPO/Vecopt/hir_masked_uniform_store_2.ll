@@ -1,5 +1,9 @@
 ; RUN: opt -S -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -S -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+
 ; Test to check that we correctly handle store to a uniform location under mask in vp-value code generation
 ; Check that the loop is vectorized and that we emit a masked store to <&r, &r, &r, &r>
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP>

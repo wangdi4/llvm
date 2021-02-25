@@ -2,8 +2,14 @@
 ; Test for basic functionality of min/max+index idiom (main reduction + first linear index).
 ; REQUIRES: asserts
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -disable-output -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -disable-output -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-force-vf=4 -S -print-after=vplan-driver-hir < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -disable-output -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-force-vf=4 -S -print-after=vplan-driver-hir < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+
 
 ; CHECK:       External Defs Start:
 ; CHECK:         [[VPMPLUS:%.*]] = {%m + -1}
@@ -47,7 +53,7 @@
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL]] = induction-final{add} i32 0 i32 1
 ;
 
-;CGCHECK-LABEL:*** IR Dump After VPlan Vectorization Driver HIR ***
+;CGCHECK-LABEL:*** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ;CGCHECK: Function: maxloc
 ;CGCHECK-EMPTY:
 ;CGCHECK-NEXT:  BEGIN REGION { modified }

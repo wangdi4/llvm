@@ -2,7 +2,9 @@
 ; checks that we bail out during vectorization for such cases.
 ;
 ; RUN: opt -hir-framework -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
-; CHECK-LABEL: IR Dump After VPlan Vectorization Driver HIR
+; RUN: opt -passes="vplan-driver-hir" -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s
+
+; CHECK-LABEL: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP> <simd> <vectorize>
 ; CHECK-NEXT:    |   %val = (%arr)[i1];
 ; CHECK-NEXT:    |   %retval = (%ret)[0];

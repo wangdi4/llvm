@@ -13,6 +13,8 @@
 ; 
 ; RUN: opt -default-vpo-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -default-vpo-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -default-vpo-vf=4 -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+
 ; XFAIL: *
 ; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
 

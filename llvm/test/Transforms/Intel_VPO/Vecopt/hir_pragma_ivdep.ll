@@ -12,6 +12,8 @@
 ; ModuleID = 'tivdep.c'
 ; Check that the loop is vectorized
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-before=VPlanDriverHIR -print-after=VPlanDriverHIR  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,vplan-driver-hir,print<hir>" -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+
 ; CHECK: + DO i1 = 0, 1023, 1   <DO_LOOP> <ivdep>
 ; CHECK: + END LOOP
 

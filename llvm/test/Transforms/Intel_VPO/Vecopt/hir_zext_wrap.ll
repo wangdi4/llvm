@@ -1,5 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -hir-details -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -hir-details -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+
 
 ; Verify that vectorizer generates a scatter for this loop due to possible wraparound.
 
@@ -14,7 +18,11 @@
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+
 
 ; Verify that -hir-ignore-wraparound  works as expected.
 ; IGNORE-WRAP: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911>

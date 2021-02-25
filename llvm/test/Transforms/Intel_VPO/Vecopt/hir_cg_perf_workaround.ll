@@ -21,6 +21,8 @@
 ; }
 ; ModuleID = 'cg_perf_workaround.c'
 ; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-hir-loop-reversal -print-after=vplan-driver-hir -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s
+
 ; It used to be a lit test for performance WA bail out in HIR CG.
 ; Now it checks that the input code can be vectorized with VF=4.
 ; ModuleID = 'cg_perf_workaround.c'
@@ -34,7 +36,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind readonly uwtable
 define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }

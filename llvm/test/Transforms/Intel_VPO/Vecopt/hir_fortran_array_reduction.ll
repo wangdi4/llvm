@@ -20,9 +20,17 @@
 ;    @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=2 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=2 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=2 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=2 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Check that loop was vectorized.
 ; CHECK:      + DO i2 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>

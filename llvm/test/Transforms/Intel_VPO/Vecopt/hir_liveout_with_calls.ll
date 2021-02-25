@@ -4,6 +4,8 @@
 ; unconditional liveout.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR -debug-only=VPOCGHIR -debug-only=VPOCGHIR-bailout < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output -debug-only=VPOCGHIR -debug-only=VPOCGHIR-bailout < %s 2>&1 | FileCheck %s
+
 
 define float @foo1(float* nocapture %a) {
 ; CHECK: VPLAN_OPTREPORT: VPValCG liveout induction/private not handled - forcing mixed CG
