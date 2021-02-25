@@ -1051,10 +1051,6 @@ def fcuda_flush_denormals_to_zero : Flag<["-"], "fcuda-flush-denormals-to-zero">
   HelpText<"Flush denormal floating point values to zero in CUDA device mode.">;
 def fno_cuda_flush_denormals_to_zero : Flag<["-"], "fno-cuda-flush-denormals-to-zero">;
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-defm cuda_approx_transcendentals : OptInFFlag<"cuda-approx-transcendentals", "Use", "Don't use",
-  " approximate transcendental functions", [DpcppUnsupported]>;
-#endif // INTEL_CUSTOMIZATION
 defm gpu_rdc : BoolFOption<"gpu-rdc",
   LangOpts<"GPURelocatableDeviceCode">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Generate relocatable device code, also known as separate compilation mode">,
@@ -6435,6 +6431,14 @@ def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
   HelpText<"Experimental flag enabling standard optimization in the front-end.">;
 
 } // let Flags = [CC1Option, NoDriverOption]
+
+#if INTEL_CUSTOMIZATION
+defm cuda_approx_transcendentals : BoolFOption<"cuda-approx-transcendentals",
+  LangOpts<"CUDADeviceApproxTranscendentals">, DefaultFalse,
+  PosFlag<SetTrue, [CC1Option], "Use">, NegFlag<SetFalse, [], "Don't use">,
+  BothFlags<[DpcppUnsupported], " approximate transcendental functions">>,
+  ShouldParseIf<fcuda_is_device.KeyPath>;
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Frontend Options - cc1 + fc1
