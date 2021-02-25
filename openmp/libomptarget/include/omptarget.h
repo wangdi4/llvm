@@ -199,6 +199,8 @@ struct __tgt_target_table {
 
 #endif  // !__cplusplus
 #endif  // INTEL_COLLAB
+// clang-format on
+
 /// This struct contains information exchanged between different asynchronous
 /// operations for device-dependent optimization and potential synchronization
 struct __tgt_async_info {
@@ -208,14 +210,35 @@ struct __tgt_async_info {
   void *Queue = nullptr;
 };
 
+struct DeviceTy;
+
+/// The libomptarget wrapper around a __tgt_async_info object directly
+/// associated with a libomptarget layer device. RAII semantics to avoid
+/// mistakes.
+class AsyncInfoTy {
+  __tgt_async_info AsyncInfo;
+  DeviceTy &Device;
+
+public:
+  AsyncInfoTy(DeviceTy &Device) : Device(Device) {}
+  ~AsyncInfoTy() { synchronize(); }
+
+  /// Implicit conversion to the __tgt_async_info which is used in the
+  /// plugin interface.
+  operator __tgt_async_info *() { return &AsyncInfo; }
+
+  /// Synchronize all pending actions.
+  ///
+  /// \returns OFFLOAD_FAIL or OFFLOAD_SUCCESS appropriately.
+  int synchronize();
+};
+
 /// This struct is a record of non-contiguous information
 struct __tgt_target_non_contig {
   uint64_t Offset;
   uint64_t Count;
   uint64_t Stride;
 };
-
-// clang-format on
 
 #ifdef __cplusplus
 extern "C" {
