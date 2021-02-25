@@ -656,7 +656,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
-VPlan::VPlan(VPExternalValues &E) : Externals(E) {}
+VPlan::VPlan(VPExternalValues &E, VPUnlinkedInstructions &UVPI)
+    : Externals(E), UnlinkedVPInsts(UVPI) {}
 
 VPlan::~VPlan() {
   // After this it is safe to delete instructions.
@@ -1285,7 +1286,8 @@ void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
 
 std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new VPlan
-  std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
+  std::unique_ptr<VPlan> ClonedVPlan =
+      std::make_unique<VPlan>(getExternals(), getUnlinkedVPInsts());
 
   // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
