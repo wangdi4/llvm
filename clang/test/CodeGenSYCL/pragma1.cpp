@@ -35,45 +35,45 @@ void foo_ivdep(int select)
   for (int i=0;i<32;++i) { bar(i); }
 
   int myArray[32];
-  //CHECK: load i32, i32* %i8, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i8.ascast, align 4
   //CHECK: %idxprom = sext i32 %8 to i64
-  //CHECK: %arrayidx = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom, !llvm.index.group [[IVDEP3:![0-9]+]]
-  //CHECK: store i32 %call, i32* %arrayidx, align 4
+  //CHECK: %arrayidx = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %idxprom, !llvm.index.group [[IVDEP3:![0-9]+]]
+  //CHECK: store i32 %call, i32 addrspace(4)* %arrayidx, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP4:![0-9]+]]
   [[intelfpga::ivdep(myArray)]]
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i15, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i15.ascast, align 4
   //CHECK: %idxprom20 = sext i32 %12 to i64
-  //CHECK: %arrayidx21 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom20, !llvm.index.group [[IVDEP5:![0-9]+]]
-  //CHECK: store i32 %call19, i32* %arrayidx21, align 4
+  //CHECK: %arrayidx21 = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %idxprom20, !llvm.index.group [[IVDEP5:![0-9]+]]
+  //CHECK: store i32 %call19, i32 addrspace(4)* %arrayidx21, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP6:![0-9]+]]
   [[intelfpga::ivdep(myArray, 8)]]
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i25, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i25.ascast, align 4
   //CHECK: %idxprom30 = sext i32 %16 to i64
-  //CHECK: %arrayidx31 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom30, !llvm.index.group [[IVDEP7:![0-9]+]]
-  //CHECK: store i32 %call29, i32* %arrayidx31, align 4
+  //CHECK: %arrayidx31 = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %idxprom30, !llvm.index.group [[IVDEP7:![0-9]+]]
+  //CHECK: store i32 %call29, i32 addrspace(4)* %arrayidx31, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP8:![0-9]+]]
   #pragma unroll 4
   [[intelfpga::ivdep(myArray, 8)]]
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i35, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i35.ascast, align 4
   //CHECK: %idxprom40 = sext i32 %20 to i64
-  //CHECK: %arrayidx41 = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* getelementptr inbounds (%struct.SIVDep, %struct.SIVDep addrspace(4)* @SV, i32 0, i32 0), i64 0, i64 %idxprom40, !llvm.index.group [[IVDEP9:![0-9]+]]
+  //CHECK: %arrayidx41 = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* getelementptr inbounds (%struct.SIVDep, %struct.SIVDep addrspace(4)* addrspacecast (%struct.SIVDep addrspace(1)* @SV to %struct.SIVDep addrspace(4)*), i32 0, i32 0), i64 0, i64 %idxprom40, !llvm.index.group [[IVDEP9:![0-9]+]]
   //CHECK: store i32 %call39, i32 addrspace(4)* %arrayidx41, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP10:![0-9]+]]
   [[intelfpga::ivdep(SV.A)]]
   for (int i=0;i<32;++i) { SV.A[i] = ibar(i); }
 
-  //CHECK: load %struct.SIVDep2 addrspace(4)*, %struct.SIVDep2 addrspace(4)* addrspace(4)* @Sv2p, align 8
+  //CHECK: load %struct.SIVDep2 addrspace(4)*, %struct.SIVDep2 addrspace(4)* addrspace(4)* addrspacecast (%struct.SIVDep2 addrspace(4)* addrspace(1)* @Sv2p to %struct.SIVDep2 addrspace(4)* addrspace(4)*), align 8
   //CHECK: getelementptr inbounds %struct.SIVDep2, %struct.SIVDep2 addrspace(4)* %24, i32 0, i32 0
   //CHECK: %arrayidx50 = getelementptr inbounds [8 x [16 x %struct.SIVDep]], [8 x [16 x %struct.SIVDep]] addrspace(4)* %X, i64 0, i64 2
   //CHECK: %arrayidx51 = getelementptr inbounds [16 x %struct.SIVDep], [16 x %struct.SIVDep] addrspace(4)* %arrayidx50, i64 0, i64 3
   //CHECK: getelementptr inbounds %struct.SIVDep, %struct.SIVDep addrspace(4)* %arrayidx51, i32 0, i32 0
-  //CHECK: load i32, i32* %i45, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i45.ascast, align 4
   //CHECK: %idxprom52 = sext i32 %25 to i64
   //CHECK: %arrayidx53 = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %A, i64 0, i64 %idxprom52, !llvm.index.group [[IVDEP11:![0-9]+]]
   //CHECK: store i32 %call49, i32 addrspace(4)* %arrayidx53, align 4
@@ -83,34 +83,35 @@ void foo_ivdep(int select)
 
   int myArray2[32];
   int *ptr = select ? myArray : myArray2;
-  //CHECK: load i32 addrspace(4)*, i32 addrspace(4)** %ptr, align 8
-  //CHECK: load i32, i32* %i57, align 4
-  //CHECK: %idxprom62 = sext i32 %32 to i64
-  //CHECK: %ptridx = getelementptr inbounds i32, i32 addrspace(4)* %31, i64 %idxprom62, !llvm.index.group [[IVDEP13:![0-9]+]]
+  //CHECK: load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
+  //CHECK: load i32, i32 addrspace(4)* %i57.ascast, align 4
+  //CHECK: %idxprom62 = sext i32 %31 to i64
+  //CHECK: %ptridx = getelementptr inbounds i32, i32 addrspace(4)* %30, i64 %idxprom62, !llvm.index.group [[IVDEP13:![0-9]+]]
   //CHECK: store i32 %call61, i32 addrspace(4)* %ptridx, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP14:![0-9]+]]
   [[intelfpga::ivdep(ptr)]]
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 16
-  //CHECK: addrspacecast i32* %arrayidx66 to i32 addrspace(4)*
-  //CHECK: store i32 addrspace(4)* %34, i32 addrspace(4)** %ptr, align 8
-  //CHECK: store i32 0, i32* %i67, align 4
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 16
+  //CHECK: store i32 addrspace(4)* %[[ARRAYIDX]], i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
+  //CHECK: store i32 0, i32 addrspace(4)* %i67.ascast, align 4
   ptr = &myArray[16];
 
-  //CHECK: load i32 addrspace(4)*, i32 addrspace(4)** %ptr, align 8
-  //CHECK: load i32, i32* %i67, align 4
-  //CHECK: %idxprom72 = sext i32 %38 to i64
-  //CHECK: %ptridx73 = getelementptr inbounds i32, i32 addrspace(4)* %37, i64 %idxprom72, !llvm.index.group [[IVDEP15:![0-9]+]]
+  //CHECK: %[[PTRLOAD:.+]] = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
+  //CHECK: %[[IDXLOAD:.+]] = load i32, i32 addrspace(4)* %i67.ascast, align 4
+  //CHECK: %idxprom72 = sext i32 %[[IDXLOAD]] to i64
+  //CHECK: %ptridx73 = getelementptr inbounds i32, i32 addrspace(4)* %[[PTRLOAD]], i64 %idxprom72, !llvm.index.group [[IVDEP15:![0-9]+]]
   //CHECK: store i32 %call71, i32 addrspace(4)* %ptridx73, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
   [[intelfpga::ivdep(ptr)]]
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i77, align 4
-  //CHECK: %idxprom82 = sext i32 %42 to i64
-  //CHECK: %arrayidx83 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom82, !llvm.index.group [[IVDEP17:![0-9]+]]
-  //CHECK: store i32 %call81, i32* %arrayidx83, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i77.ascast, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i77.ascast, align 4
+  //CHECK: %[[i77LOAD:.+]] = load i32, i32 addrspace(4)* %i77.ascast, align 4
+  //CHECK: %idxprom82 = sext i32 %[[i77LOAD]] to i64
+  //CHECK: %arrayidx83 = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %idxprom82, !llvm.index.group [[IVDEP17:![0-9]+]]
+  //CHECK: store i32 %call81, i32 addrspace(4)* %arrayidx83, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP18:![0-9]+]]
   [[intelfpga::ivdep(myArray2)]]
   [[intelfpga::ivdep(myArray)]]
