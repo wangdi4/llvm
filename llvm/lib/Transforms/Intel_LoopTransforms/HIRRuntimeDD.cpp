@@ -144,6 +144,10 @@ static cl::opt<unsigned>
                          cl::init(60), cl::Hidden,
                          cl::desc("Maximum number of runtime tests for loop."));
 
+static cl::opt<bool> IgnoreIVDepLoopLoops(
+    OPT_SWITCH "-ignore-ivdeploop-loops", cl::init(false), cl::Hidden,
+    cl::desc("Ignore loops with \"ivdep loop\" in " OPT_DESCR "."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 namespace DbgMessage {
 enum Kind {
@@ -903,7 +907,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
 
   if (Loop->hasVectorizeIVDepPragma()) {
-    return IVDEP_PRAGMA_LOOP;
+    // Historically we don't consider loops with "ivdep" pragmas. However,
+    // OpenMP "parallel for" semantics may be preserved for LoopOpt as "ivdep
+    // loop." Don't ignore these.
+    if (!Loop->hasVectorizeIVDepLoopPragma() || IgnoreIVDepLoopLoops)
+      return IVDEP_PRAGMA_LOOP;
   }
 
   if (Loop->getMVTag()) {
