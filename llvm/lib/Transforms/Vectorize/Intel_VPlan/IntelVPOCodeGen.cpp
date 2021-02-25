@@ -872,28 +872,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     /// Vectorize casts.
     Type *ScalTy = VPInst->getType();
-    Type *VecTy = FixedVectorType::get(ScalTy, VF);
+    Type *VecTy = getWidenedType(ScalTy, VF);
     VPValue *ScalOp = VPInst->getOperand(0);
     Value *VecOp = getVectorValue(ScalOp);
     VPWidenMap[VPInst] = Builder.CreateCast(Opcode, VecOp, VecTy);
-
-    // If the cast is a SExt/ZExt of a unit step linear item, add the cast value
-    // to UnitStepLinears - so that we can use it to infer information about
-    // unit stride loads/stores.
-    Value *NewScalar;
-    int LinStep;
-
-    if ((Opcode == Instruction::SExt || Opcode == Instruction::ZExt) &&
-        isVPValueUnitStepLinear(ScalOp, &LinStep, &NewScalar)) {
-      // NewScalar is the scalar linear iterm corresponding to ScalOp - apply
-      // cast.
-      auto ScalCast = Builder.CreateCast(Opcode, NewScalar, ScalTy);
-      (void)ScalCast;
-      // TODO: Mark the new Value as unit-step linear.
-#if 0
-      addUnitStepLinear(Inst, ScalCast, LinStep);
-#endif
-    }
     return;
   }
 
