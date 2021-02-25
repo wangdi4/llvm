@@ -4446,7 +4446,9 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
-    if (NeedsKmpcCritical) {
+    if (NeedsKmpcCritical && !isa<WRNVecLoopNode>(W)) {
+      // Reduction update does not have to be atomic/critical for SIMD loops.
+
       // Wrap the reduction fini code inside a critical region.
       // EndBB is created to be used as the insertion point for
       // end_critical()/end_reduce().
