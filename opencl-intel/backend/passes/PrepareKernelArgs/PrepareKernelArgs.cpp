@@ -101,6 +101,15 @@ namespace intel{
     pNewF->setCallingConv(pFunc->getCallingConv());
     pNewF->copyMetadata(pFunc, 0);
 
+    // Move attributes from the old kernel to the new one, and make the former
+    // 'alwaysinline'.
+    auto FnAttrs =
+      pFunc->getAttributes().getAttributes(AttributeList::FunctionIndex);
+    AttrBuilder B(std::move(FnAttrs));
+    pNewF->addAttributes(AttributeList::FunctionIndex, B);
+    pFunc->removeAttributes(AttributeList::FunctionIndex, B);
+    pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
+
     // pFunc is expected to be inlined anyway,
     // so no need to duplicate DISubprogram.
     pFunc->setSubprogram(nullptr);
@@ -477,12 +486,6 @@ namespace intel{
 
     // Change name of old function
     pFunc->setName("__" + pFunc->getName() + "_separated_args");
-
-    // Make sure the old function is always inlined, and the wrapper will keep the
-    // old function's debug info
-    // We want to do inlining pass after PrepareKernelArgs pass to gain performance
-    pFunc->removeFnAttr(llvm::Attribute::NoInline);
-    pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
 
     createWrapperBody(pWrapper, pFunc);
 
