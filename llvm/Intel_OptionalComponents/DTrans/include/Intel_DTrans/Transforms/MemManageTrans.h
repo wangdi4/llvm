@@ -19,9 +19,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
+#include "Intel_DTrans/Transforms/MemManageInfoImpl.h"
+
 namespace llvm {
 
 namespace dtrans {
+
+using MemTLITy = std::function<const TargetLibraryInfo &(const Function &)>;
 
 /// Pass to perform Initial Memory Management Transformation.
 class MemManageTransPass : public PassInfoMixin<MemManageTransPass> {
@@ -29,7 +33,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info, WholeProgramInfo &WPInfo);
+  bool runImpl(Module &M, DTransAnalysisInfo &Info, WholeProgramInfo &WPInfo,
+               MemTLITy GetTLI);
 };
 
 } // namespace dtrans

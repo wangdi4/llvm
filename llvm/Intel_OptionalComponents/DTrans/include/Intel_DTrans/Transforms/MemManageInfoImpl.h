@@ -43,14 +43,20 @@ class MemManageCandidateInfo {
   // Max limit: Number of Interface functions of Allocator.
   constexpr static int MaxNumAllocatorInterfaceFuncs = 7;
 
-  // Max limit: Size of interface functions of Allocator.
-  constexpr static int MaxSizeAllocatorInterfaceFunc = 25;
+  // Max Pre-LTO limit: Size of interface functions of Allocator.
+  constexpr static int MaxPreLTOSizeAllocatorInterfaceFunc = 25;
+
+  // Max LTO limit: Size of interface functions of Allocator.
+  constexpr static int MaxLTOSizeAllocatorInterfaceFunc = 100;
 
   // Max limit: Number of StringObject functions.
   constexpr static int MaxNumStringObjectFuncs = 2;
 
   // Max pre-LTO limit: Number of inner functions of Allocator.
   constexpr static int MaxPreLTONumAllocatorInnerFuncs = 90;
+
+  // Max LTO limit: Number of inner functions of Allocator.
+  constexpr static int MaxLTONumAllocatorInnerFuncs = 15;
 
   // Max pre-LTO limit: Number of inner function uses.
   constexpr static int MaxPreLTONumInnerFuncUses = 12;
@@ -68,12 +74,45 @@ class MemManageCandidateInfo {
   constexpr static int NumStringObjectElems = 2;
 
 public:
+  using InterfaceSetTy = SmallPtrSet<Function *, 8>;
+  using InnerCallSetTy = std::set<const CallBase *>;
+
   inline MemManageCandidateInfo(Module &M) : M(M){};
 
   inline bool isCandidateType(Type *Ty);
   inline bool collectMemberFunctions(bool);
   inline bool collectInlineNoInlineMethods(std::set<Function *> *,
                                            SmallSet<Function *, 16> *) const;
+
+  // Iterator for AllocatorInterfaceFunctions
+  typedef InterfaceSetTy::const_iterator m_const_iterator;
+  inline iterator_range<m_const_iterator> interface_functions() {
+    return make_range(AllocatorInterfaceFunctions.begin(),
+                      AllocatorInterfaceFunctions.end());
+  }
+
+  // Iterator for AllocatorInnerCalls
+  typedef InnerCallSetTy::const_iterator f_const_iterator;
+  inline iterator_range<f_const_iterator> inner_function_calls() {
+    return make_range(AllocatorInnerCalls.begin(), AllocatorInnerCalls.end());
+  }
+
+  // Returns StringObjectType.
+  StructType *getStringObjectType() { return StringObjectType; }
+
+  // Returns ReusableArenaAllocatorType.
+  StructType *getReusableArenaAllocatorType() {
+    return ReusableArenaAllocatorType;
+  }
+
+  // Returns ArenaAllocatorType.
+  StructType *getArenaAllocatorType() { return ArenaAllocatorType; }
+
+  // Returns MemInterfaceType.
+  StructType *getMemInterfaceType() { return MemInterfaceType; }
+
+  // Returns StringAllocatorType.
+  StructType *getStringAllocatorType() { return StringAllocatorType; }
 
 private:
   Module &M;
@@ -110,6 +149,10 @@ private:
   // Functions that are called to implement AllocatorInterfaceFunctions
   // functions.
   std::set<Function *> AllocatorInnerFunctions;
+
+  // Function Calls that are called to implement AllocatorInterfaceFunctions
+  // functions.
+  std::set<const CallBase *> AllocatorInnerCalls;
 
   inline StructType *getClassType(const Function *F);
   inline bool isBasicAllocatorType(Type *Ty);
@@ -504,20 +547,22 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
   // Add "F" to AllocatorInnerFunctions if "F" is not in
   // AllocatorInterfaceFunctions/StringObjectFunctions/
   // StringAllocatorFunctions.
-  auto CheckInlMemberFunction = [&](Function *F) -> void {
+  // Returns true if "F" is added to AllocatorInnerFunctions.
+  auto CheckInlMemberFunction = [&](Function *F) -> bool {
     if (!F)
-      return;
+      return false;
     // Check if "F" is candidate for NoInlFuncsForDtrans.
     if (AllocatorInterfaceFunctions.count(F) ||
         StringObjectFunctions.count(F) || StringAllocatorFunctions.count(F))
-      return;
+      return false;
 
     AllocatorInnerFunctions.insert(F);
+    return true;
   };
 
   // Recursively walks CallGraph to detect all functions called from "F".
   CollectMemberFunctions =
-      [&CollectMemberFunctions, &CheckInlMemberFunction](
+      [this, &CollectMemberFunctions, &CheckInlMemberFunction](
           Function *F, bool AtLTO,
           SmallPtrSet<Function *, 32> &ProcessedFunctions) -> bool {
     if (!F || F->isDeclaration())
@@ -538,7 +583,11 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
           });
           return false;
         }
-        CheckInlMemberFunction(Callee);
+        if (!CheckInlMemberFunction(Callee))
+          continue;
+        if (AtLTO)
+          AllocatorInnerCalls.insert(CB);
+
         if (!CollectMemberFunctions(Callee, AtLTO, ProcessedFunctions))
           return false;
       }
@@ -579,7 +628,7 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
             ThisTy == ArenaAllocatorType) {
           AllocatorInterfaceFunctions.insert(Callee);
         } else if (ThisTy == StringObjectType) {
-          StringObjectFunctions.insert(F);
+          StringObjectFunctions.insert(Callee);
         } else {
           DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
             dbgs() << "  Failed: Unexpected call in StringAllocator\n";
@@ -600,8 +649,15 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
   for (auto *F : AllocatorInterfaceFunctions) {
     if (F->isDeclaration() || F->isVarArg())
       return false;
-    if (!AtLTO && F->size() > MaxSizeAllocatorInterfaceFunc)
-      return false;
+    if (!AtLTO) {
+      if (F->size() > MaxPreLTOSizeAllocatorInterfaceFunc)
+        return false;
+    } else {
+      // After pre-LTO inlining, sizes of interface functions will be
+      // increased at LTO.
+      if (F->size() > MaxLTOSizeAllocatorInterfaceFunc)
+        return false;
+    }
     for (const auto &I : instructions(F))
       if (auto *CB = dyn_cast<CallBase>(&I)) {
         if (isa<DbgInfoIntrinsic>(*CB))
@@ -613,7 +669,7 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
         if (!ThisTy)
           continue;
         if (ThisTy == StringObjectType)
-          StringObjectFunctions.insert(F);
+          StringObjectFunctions.insert(Callee);
       }
   }
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
@@ -629,7 +685,7 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
   // Collect inner functions.
   SmallPtrSet<Function *, 32> ProcessedFunctions;
   for (auto *F : AllocatorInterfaceFunctions) {
-    if (!CollectMemberFunctions(F, false, ProcessedFunctions)) {
+    if (!CollectMemberFunctions(F, AtLTO, ProcessedFunctions)) {
       DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
         dbgs() << "  Failed: Collecting Allocator Inner function\n";
       });
@@ -641,8 +697,15 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
     for (auto *F : AllocatorInnerFunctions)
       dbgs() << "    " << F->getName() << "\n";
   });
-  if (AllocatorInnerFunctions.size() > MaxPreLTONumAllocatorInnerFuncs)
-    return false;
+  if (!AtLTO) {
+    if (AllocatorInnerFunctions.size() > MaxPreLTONumAllocatorInnerFuncs)
+      return false;
+  } else {
+    // After pre-LTO inlining, number of calls is expected to be reduced
+    // at LTO.
+    if (AllocatorInnerFunctions.size() > MaxLTONumAllocatorInnerFuncs)
+      return false;
+  }
   return true;
 }
 
