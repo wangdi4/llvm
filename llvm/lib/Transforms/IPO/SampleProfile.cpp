@@ -1156,13 +1156,9 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
   if (Callee == nullptr)
     return false;
 
-#if INTEL_CUSTOMIZATION
-  InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
-      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, GetTLI,
-                    nullptr, nullptr, nullptr, ILIC);
-  delete ILIC;
-#endif // INTEL_CUSTOMIZATION
+      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee),
+                    GetAC, GetTLI);
 
   if (Cost.isNever())
     return false;
@@ -1433,9 +1429,11 @@ InlineCost
 SampleProfileLoader::shouldInlineCandidate(InlineCandidate &Candidate) {
   std::unique_ptr<InlineAdvice> Advice = nullptr;
   if (ExternalInlineAdvisor) {
-    InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
+#if INTEL_CUSTOMIZATION
     InlineCost *IC = nullptr;
-    Advice = ExternalInlineAdvisor->getAdvice(*Candidate.CallInstr, ILIC, nullptr, &IC);
+    Advice = ExternalInlineAdvisor->getAdvice(*Candidate.CallInstr, nullptr,
+        nullptr, &IC);
+#endif // INTEL_CUSTOMIZATION
     if (!Advice->isInliningRecommended()) {
       Advice->recordUnattemptedInlining();
       return InlineCost::getNever("not previously inlined");

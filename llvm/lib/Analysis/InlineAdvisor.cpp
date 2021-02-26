@@ -565,16 +565,31 @@ std::unique_ptr<InlineAdvice>
 InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                          WholeProgramInfo *WPI, InlineCost **IC,
                          bool MandatoryOnly) {
-#endif // INTEL_CUSTOMIZATION
-  if (!MandatoryOnly)
-#if INTEL_CUSTOMIZATION
-    return getAdviceImpl(CB, ILIC, WPI, IC);
+  if (!MandatoryOnly) {
+    bool NeedLocalILIC = !ILIC;
+    if (NeedLocalILIC)
+      ILIC = new InliningLoopInfoCache();
+    auto RV = getAdviceImpl(CB, ILIC, WPI, IC);
+    if (NeedLocalILIC) {
+      delete ILIC;
+      ILIC = nullptr;
+    }
+    return RV;
+  }
 #endif // INTEL_CUSTOMIZATION
   bool Advice = CB.getCaller() != CB.getCalledFunction() &&
                 MandatoryInliningKind::Always ==
                     getMandatoryKind(CB, FAM, getCallerORE(CB));
 #if INTEL_CUSTOMIZATION
-  return getMandatoryAdvice(CB, ILIC, WPI, IC, Advice);
+  bool NeedLocalILIC = !ILIC;
+  if (NeedLocalILIC)
+    ILIC = new InliningLoopInfoCache();
+  auto RV = getMandatoryAdvice(CB, ILIC, WPI, IC, Advice);
+  if (NeedLocalILIC) {
+    delete ILIC;
+    ILIC = nullptr;
+  }
+  return RV;
 #endif // INTEL_CUSTOMIZATION
 }
 
