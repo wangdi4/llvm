@@ -301,11 +301,11 @@ namespace intel {
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pDL->getABITypeAlignment(pType);
     unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL->getPrefTypeAlignment(pType);
-    unsigned int sizeInBits = m_pDL->getTypeStoreSizeInBits(pType);
+    unsigned int sizeInBits = m_pDL->getTypeAllocSizeInBits(pType);
 
     Type *pElementType = pType;
     FixedVectorType* pVecType = dyn_cast<FixedVectorType>(pType);
-    if ( pVecType ) {
+    if (pVecType) {
       pElementType = pVecType->getElementType();
     }
     assert(!isa<VectorType>(pElementType) && "element type of a vector is another vector!");
