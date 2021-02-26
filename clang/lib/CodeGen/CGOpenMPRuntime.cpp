@@ -1945,7 +1945,12 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
                             FunctionArgList(), Loc, Loc);
       auto AL = ApplyDebugLocation::CreateArtificial(CtorCGF);
       CtorCGF.EmitAnyExprToMem(Init,
+#if INTEL_COLLAB
+                               Address(CGM.GetAddrOfGlobalVar(VD),
+                                       CGM.getContext().getDeclAlign(VD)),
+#else  // INTEL_COLLAB
                                Address(Addr, CGM.getContext().getDeclAlign(VD)),
+#endif // INTEL_COLLAB
                                Init->getType().getQualifiers(),
                                /*IsInitializer=*/true);
       CtorCGF.FinishFunction();
@@ -1987,7 +1992,12 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // Create a scope with an artificial location for the body of this
       // function.
       auto AL = ApplyDebugLocation::CreateArtificial(DtorCGF);
+#if INTEL_COLLAB
+      DtorCGF.emitDestroy(Address(CGM.GetAddrOfGlobalVar(VD),
+                                  CGM.getContext().getDeclAlign(VD)),
+#else // INTEL_COLLAB
       DtorCGF.emitDestroy(Address(Addr, CGM.getContext().getDeclAlign(VD)),
+#endif // INTEL_COLLAB
                           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
                           DtorCGF.needsEHCleanup(ASTTy.isDestructedType()));
       DtorCGF.FinishFunction();
