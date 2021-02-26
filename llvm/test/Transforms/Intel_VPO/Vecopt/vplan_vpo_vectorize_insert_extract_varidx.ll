@@ -258,12 +258,14 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.cond.
 define dso_local void @maskedSetElement(<4 x float>* %vec, float %val, i32* %arr) {
 ; CHECK-LABEL: @maskedSetElement(
 ; CHECK:       vector.body:
+; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> undef)
+; CHECK-NEXT:    [[EXTRACTSUBVEC_6:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:         [[TMP7:%.*]] = srem <2 x i32> [[WIDE_MASKED_LOAD3:%.*]], <i32 4, i32 4>
 ; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP7]], i32 1
 ; CHECK-NEXT:    [[DOTEXTRACT_0_4:%.*]] = extractelement <2 x i32> [[TMP7]], i32 0
 ; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP2:%.*]], i64 0
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE]], true
-; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD:%.*]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_INSERTELEMENT_IF:%.*]], label [[TMP10:%.*]]
 ; CHECK:       pred.insertelement.if:
 ; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_]], float [[VAL:%.*]], i32 [[DOTEXTRACT_0_4]]
@@ -274,7 +276,6 @@ define dso_local void @maskedSetElement(<4 x float>* %vec, float %val, i32* %arr
 ; CHECK:       pred.insertelement.continue:
 ; CHECK-NEXT:    [[PREDICATE5:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i1 [[PREDICATE5]], true
-; CHECK-NEXT:    [[EXTRACTSUBVEC_6:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[PRED_INSERTELEMENT_IF8:%.*]], label [[TMP14:%.*]]
 ; CHECK:       pred.insertelement.if8:
 ; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_6]], float [[VAL]], i32 [[DOTEXTRACT_1_]]
@@ -347,11 +348,13 @@ DIR.OMP.END.SIMD.3:
 define dso_local float @maskedGetElement(<4 x float>* %vec, float %val, i32 %i) {
 ; CHECK-LABEL: @maskedGetElement(
 ; CHECK:       vector.body:
+; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> undef)
+; CHECK-NEXT:    [[EXTRACTSUBVEC_7:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:         [[TMP8:%.*]] = srem i32 [[CONV:%.*]], [[DOTEXTRACT_0_3:%.*]]
 ; CHECK:         [[TMP12:%.*]] = srem i32 [[CONV]], [[DOTEXTRACT_1_:%.*]]
 ; CHECK:         [[PREDICATE5:%.*]] = extractelement <2 x i1> [[TMP3:%.*]], i64 0
 ; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i1 [[PREDICATE5]], true
-; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[PRED_EXTRACTELEMENT_IF:%.*]], label [[TMP18:%.*]]
 ; CHECK:       pred.extractelement.if:
 ; CHECK-NEXT:    [[TMP16:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_]], i32 [[TMP10]]
@@ -363,7 +366,6 @@ define dso_local float @maskedGetElement(<4 x float>* %vec, float %val, i32 %i) 
 ; CHECK:       pred.extractelement.continue:
 ; CHECK-NEXT:    [[PREDICATE6:%.*]] = extractelement <2 x i1> [[TMP3]], i64 1
 ; CHECK-NEXT:    [[TMP20:%.*]] = icmp eq i1 [[PREDICATE6]], true
-; CHECK-NEXT:    [[EXTRACTSUBVEC_7:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    br i1 [[TMP20]], label [[PRED_EXTRACTELEMENT_IF10:%.*]], label [[TMP23:%.*]]
 ; CHECK:       pred.extractelement.if10:
 ; CHECK-NEXT:    [[TMP21:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_7]], i32 [[TMP14]]
