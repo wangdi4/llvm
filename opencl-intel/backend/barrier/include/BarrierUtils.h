@@ -41,7 +41,6 @@ using namespace llvm;
 namespace intel {
 
   /// @brief OpenCL-specific barrier function names
-  #define FIBER_FUNC_NAME         "fiber."
   #define DUMMY_BARRIER_FUNC_NAME "dummybarrier."
 
   #define GET_SPECIAL_BUFFER "get_special_buffer."
@@ -58,7 +57,6 @@ namespace intel {
     SYNC_TYPE_NONE,
     SYNC_TYPE_BARRIER,
     SYNC_TYPE_DUMMY_BARRIER,
-    SYNC_TYPE_FIBER,
     SYNC_TYPE_NUM
   } SYNC_TYPE;
 
@@ -116,13 +114,13 @@ namespace intel {
     /// @brief return synchronize type of given instruction
     /// @param pInst instruction to observe its synchronize type
     /// @returns given instruction synchronize type
-    ///  {barrier, fiber, dummyBarrier or none}
+    ///  {barrier dummyBarrier or none}
     SYNC_TYPE getSynchronizeType(Instruction *pInst);
 
     /// @brief return synchronize type of given basic block
     /// @param pBB basic block to observe its synchronize type
     /// @returns given basic block synchronize type
-    ///  {barrier, fiber, dummyBarrier or none}
+    ///  {barrier, dummyBarrier or none}
     SYNC_TYPE getSynchronizeType(BasicBlock *pBB);
 
     /// @brief return all synchronize instructions in the module
@@ -304,8 +302,6 @@ namespace intel {
     TInstructionSet m_barriers;
     /// This holds the all dummyBarrier instructions of the module
     TInstructionSet m_dummyBarriers;
-    /// This holds the all fiber instructions of the module
-    TInstructionSet m_fibers;
 
     /// This indecator for get_local_id data initialization
     bool m_bLIDInitialized;

@@ -51,7 +51,7 @@ namespace intel {
 
   OCL_INITIALIZE_PASS_BEGIN(
       Barrier, "B-Barrier",
-      "Barrier Pass - Handle special values & replace barrier/fiber with"
+      "Barrier Pass - Handle special values & replace barrier with"
       "internal loop over WIs",
       false, false)
   OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(DataPerBarrier)
@@ -59,7 +59,7 @@ namespace intel {
   OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
   OCL_INITIALIZE_PASS_END(
       Barrier, "B-Barrier",
-      "Barrier Pass - Handle special values & replace barrier/fiber with"
+      "Barrier Pass - Handle special values & replace barrier with"
       "internal loop over WIs",
       false, false)
 
@@ -182,9 +182,6 @@ namespace intel {
   }
 
   bool Barrier::runOnFunction(Function &F) {
-
-    assert(!m_pDataPerBarrier->hasFiberInstruction(&F) && "handle case when having fiber instructions!");
-
     //Get key values for this functions.
     getBarrierKeyValues(&F);
 
@@ -1052,7 +1049,7 @@ namespace intel {
           createSetCurrBarrierId(UniqueID, B);
           continue;
         }
-        //This is a barrier/fiber instruction.
+        //This is a barrier instruction.
         // For the innermost loop, replace with the following code
         // if (LocalId.0 < GroupSize.0) {
         //   LocalId.0+=VecWidth
@@ -1074,7 +1071,6 @@ namespace intel {
         BarrierBBIdList BBId;
         // Create List of barrier label that may be jumped to
         DataPerBarrier::SBarrierRelated *pRelated = &m_pDataPerBarrier->getBarrierPredecessors(pInst);
-        assert( !pRelated->m_hasFiberRelated && "We reach here only if function has no fiber!" );
         TInstructionSet *pSyncPreds = &pRelated->m_relatedBarriers;
         for (TInstructionSet::iterator ii = pSyncPreds->begin(),
                                        ie = pSyncPreds->end();

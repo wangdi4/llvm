@@ -86,10 +86,6 @@ namespace intel {
           functionsToHandle.push_back(pCallerFunc);
       }
     }
-
-    // Remove all fiber instructions from non handled functions
-    RemoveFibersFromNonHandledFunctions(functionsAddedToHandle, M);
-
     return true;
   }
 
@@ -122,40 +118,6 @@ namespace intel {
         m_util.createBarrier(pRetInst);
     }
   }
-
-  void BarrierInFunction::RemoveFibersFromNonHandledFunctions(TFunctionSet& functionSet, Module &M) {
-    TInstructionVector fibersToRemove;
-    // Find all fiber call instructions that need to be removed
-    Function *pFiber = M.getFunction(FIBER_FUNC_NAME);
-    if( !pFiber ) {
-      // Module contains no fiber instruction
-      return;
-    }
-    Value::user_iterator ui = pFiber->user_begin();
-    Value::user_iterator ue = pFiber->user_end();
-    for ( ; ui != ue; ++ui ) {
-      CallInst *pCall = dyn_cast<CallInst>(*ui);
-      assert( pCall && "Something other than CallInst is using fiber function!" );
-      Function *pFunc = pCall->getParent()->getParent();
-
-      if( functionSet.count(pFunc) ) {
-        // pFunc was handled keep fiber
-        continue;
-      }
-      // pfunc was not handled remove fiber instruction
-      fibersToRemove.push_back(pCall);
-    }
-
-    // Remove all fibers in fibersToRemove container from Module
-    TInstructionVector::iterator ii = fibersToRemove.begin();
-    TInstructionVector::iterator ie = fibersToRemove.end();
-    for( ;ii != ie; ++ii ) {
-      Instruction *pInstToRemove = *ii;
-      pInstToRemove->eraseFromParent();
-    }
-  }
-
-
 } // namespace intel
 
 /// Support for static linking of modules for Windows

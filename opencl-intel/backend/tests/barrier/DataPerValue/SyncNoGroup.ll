@@ -1,4 +1,4 @@
-; RUN: %oclopt -analyze -B-ValueAnalysis -verify -S < %s | FileCheck %s
+; RUN: %oclopt -analyze -B-ValueAnalysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerValue pass
@@ -20,9 +20,6 @@ L0:
   %y = xor i32 %x, %x
   br label %L1
 L1:
-  call void @fiber.()
-  br label %L2
-L2:
   call void @_Z7barrierj(i32 1)
   ret void
 ; CHECK: L0:
@@ -30,9 +27,6 @@ L2:
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @fiber.()
-; CHECK: br label %L2
-; CHECK: L2:
 ; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: ret void
 }
@@ -60,7 +54,6 @@ L2:
 
 declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
-declare void @fiber.()
 
 !opencl.kernels = !{!0}
 
