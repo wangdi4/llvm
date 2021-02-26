@@ -3029,6 +3029,7 @@ public:
 
 private:
   VPExternalValues &Externals;
+  VPUnlinkedInstructions &UnlinkedVPInsts;
 
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
@@ -3083,9 +3084,6 @@ private:
 
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 
-  // Holds the instructions that need to be deleted by VPlan's destructor.
-  SmallVector<std::unique_ptr<VPInstruction>, 2> UnlinkedVPInsns;
-
   /// Holds the VPLiveInValues.
   SmallVector<std::unique_ptr<VPLiveInValue>, 16> LiveInValues;
 
@@ -3093,7 +3091,7 @@ private:
   SmallVector<std::unique_ptr<VPLiveOutValue>, 16> LiveOutValues;
 
 public:
-  VPlan(VPExternalValues &E);
+  VPlan(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
 
   ~VPlan();
 
@@ -3105,6 +3103,10 @@ public:
 
   VPExternalValues &getExternals() { return Externals; }
   const VPExternalValues &getExternals() const { return Externals; }
+  VPUnlinkedInstructions &getUnlinkedVPInsts() { return UnlinkedVPInsts; }
+  const VPUnlinkedInstructions &getUnlinkedVPInsts() const {
+    return UnlinkedVPInsts;
+  }
 
   VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
 
@@ -3333,6 +3335,11 @@ public:
     return Iter->second.get();
   }
 
+  /// Add unlinked VPInstructions.
+  void addUnlinkedVPInst(VPInstruction *I) {
+    UnlinkedVPInsts.addUnlinkedVPInst(I);
+  }
+
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.
   VPConstant *getVPConstant(Constant *Const) {
@@ -3386,9 +3393,6 @@ public:
   VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
     return Externals.getVPMetadataAsValue(MD);
   }
-
-  // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
-  void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsns.emplace_back(I); }
 
   // When we clone the plan, we can choose if we want to calculate DA from
   // scratch or clone DA or none of them. If the plan is cloned after the

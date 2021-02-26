@@ -25,6 +25,20 @@ class VPlan;
 class VPLoopEntityList;
 class ScalarInOutList;
 class VPLoopEntity;
+class VPInstruction;
+
+/// Auxiliary class to keep VPInstructions that are removed from CFG. We can't
+/// delete them during removal because we might have links to them in the data
+/// structures that are not in the def-use chain (e.g. DA). The problem can be
+/// solved having a tracking mechanism but that is left for the future.
+class VPUnlinkedInstructions {
+public:
+  // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
+  void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsts.emplace_back(I); }
+
+private:
+  SmallVector<std::unique_ptr<VPInstruction>, 8> UnlinkedVPInsts;
+};
 
 // Auxiliary class to describe live-in/out values for scalar loop.
 class ScalarInOutDescr {

@@ -287,12 +287,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   unsigned EndRangeVF = MaxVF + 1;
 
   Externals = std::make_unique<VPExternalValues>(Context, DL);
+  UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
 
   unsigned i = 0;
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
-    std::shared_ptr<VPlan> Plan =
-      buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals, VPlanName, SE);
+    std::shared_ptr<VPlan> Plan = buildInitialVPlan(
+        StartRangeVF, EndRangeVF, *Externals, *UnlinkedVPInsts, VPlanName, SE);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
     if (!canProcessVPlan(*Plan.get())) {
@@ -714,9 +715,11 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
     unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
-    std::string VPlanName, ScalarEvolution *SE) {
+    VPUnlinkedInstructions &UnlinkedVPInsts, std::string VPlanName,
+    ScalarEvolution *SE) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
+  std::shared_ptr<VPlan> SharedPlan =
+      std::make_shared<VPlan>(Ext, UnlinkedVPInsts);
   VPlan *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
 

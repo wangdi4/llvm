@@ -44,7 +44,7 @@ private:
 
   std::shared_ptr<VPlan>
   buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
-                    VPExternalValues &Ext,
+                    VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
                     std::string VPlanName,
                     ScalarEvolution *SE = nullptr) override;
 
