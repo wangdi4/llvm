@@ -413,6 +413,12 @@ bool cannotBeMaxInLoop(const SCEV *S, const Loop *L, ScalarEvolution &SE,
 bool cannotBeMinInLoop(const SCEV *S, const Loop *L, ScalarEvolution &SE,
                        bool Signed);
 
+#if INTEL_CUSTOMIZATION
+/// Returns true if loop \p L preheader or any of its predecessors has an
+/// OpenMP SIMD directive.
+bool isOmpSIMDLoop(Loop *L);
+#endif // INTEL_CUSTOMIZATION
+
 enum ReplaceExitVal { NeverRepl, OnlyCheapRepl, NoHardUse, AlwaysRepl };
 
 /// If the final value of any expressions that are recurrent in the loop can
