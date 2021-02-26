@@ -388,6 +388,8 @@ struct ProgramData {
   int Initialized = 0;
   int NumDevices = 0;
   int DeviceNum = -1;
+  uint32_t TotalEUs = 0;
+  uint32_t HWThreadsPerEU = 0;
 };
 
 /// RTL flags
@@ -1041,10 +1043,27 @@ static std::string getDeviceRTLPath(const char *basename) {
 /// TODO: consider moving allocation of static buffers in device RTL to here
 ///       as it requires device information.
 int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
+  uint32_t totalEUs = maxExecutionUnits[deviceId];
+  uint32_t numThreadsPerEU;
+
+  switch (DeviceArchs[deviceId]) {
+  case DeviceArch_Gen9:
+  case DeviceArch_XeLP:
+    numThreadsPerEU = 7;
+    break;
+  case DeviceArch_XeHP:
+    numThreadsPerEU = 8;
+    break;
+  default:
+    numThreadsPerEU = 1;
+  }
+
   ProgramData hostData = {
     1,                   // Initialized
     (int32_t)numDevices, // Number of devices
-    deviceId             // Device ID
+    deviceId,            // Device ID
+    totalEUs,            // Total EUs
+    numThreadsPerEU      // HW threads per EU
   };
 
 #if INTEL_CUSTOMIZATION

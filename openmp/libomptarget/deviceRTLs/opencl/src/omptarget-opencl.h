@@ -273,6 +273,8 @@ typedef struct kmp_program_data {
   int initialized;
   int num_devices;
   int device_num;
+  uint total_eus;
+  uint hw_threads_per_eu;
 } kmp_program_data_t;
 
 /// Global state
