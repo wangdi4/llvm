@@ -1,4 +1,4 @@
-; RUN: %oclopt --cl-loop-creator -verify -S %s | FileCheck %s
+; RUN: %oclopt -enable-debugify --cl-loop-creator -verify -S %s | FileCheck %s
 ;
 ; Verify the OpenCL CLWGLoopCreator pass retains the debug info.
 ; Specifically,
