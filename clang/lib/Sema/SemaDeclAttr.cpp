@@ -3858,7 +3858,7 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
       if (!(XDimVal.getZExtValue() % NumSimdWorkItems == 0 ||
             YDimVal.getZExtValue() % NumSimdWorkItems == 0 ||
             ZDimVal.getZExtValue() % NumSimdWorkItems == 0)) {
-        S.Diag(A->getLocation(), diag::err_conflicting_sycl_function_attributes)
+        S.Diag(A->getLocation(), diag::err_sycl_num_kernel_wrong_reqd_wg_size)
             << A << AL;
         S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
         return;
@@ -3935,50 +3935,62 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 // Handles num_simd_work_items.
-static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &A) {
+static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (D->isInvalidDecl())
     return;
 
-  Expr *E = A.getArgAsExpr(0);
+  Expr *E = AL.getArgAsExpr(0);
 
   if (D->getAttr<SYCLIntelNumSimdWorkItemsAttr>())
-    S.Diag(A.getLoc(), diag::warn_duplicate_attribute) << A;
+    S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
 
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
+
+  if (!E->isValueDependent()) {
+    llvm::APSInt ArgVal;
+    ExprResult ICE = S.VerifyIntegerConstantExpression(E, &ArgVal);
 
 #if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, A))
-    return;
+    if (checkValidSYCLSpelling(S, AL))
+      return;
 
-  if (A.getSyntax() == AttributeCommonInfo::AS_GNU &&
-      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(A.getLoc(), diag::warn_unknown_attribute_ignored) << A;
-    return;
-  }
+    if (AL.getSyntax() == AttributeCommonInfo::AS_GNU &&
+        !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+      S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
 
-  if (const auto *B = D->getAttr<ReqdWorkGroupSizeAttr>()) {
-    ASTContext &Ctx = S.getASTContext();
+    if (ICE.isInvalid())
+      return;
 
-    if (!E->isValueDependent()) {
-      Optional<llvm::APSInt> NumSimdWorkItems = E->getIntegerConstantExpr(Ctx);
-      Optional<llvm::APSInt> XDimVal = B->getXDim()->getIntegerConstantExpr(Ctx);
-      Optional<llvm::APSInt> YDimVal = B->getYDim()->getIntegerConstantExpr(Ctx);
-      Optional<llvm::APSInt> ZDimVal = B->getZDim()->getIntegerConstantExpr(Ctx);
+    E = ICE.get();
+    int64_t NumSimdWorkItems = ArgVal.getSExtValue();
 
-      if (!(XDimVal->getExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
-            YDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
-            ZDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0)) {
-        S.Diag(A.getLoc(), diag::err_conflicting_sycl_function_attributes)
-            << A << B->getSpelling();
-        S.Diag(B->getLocation(), diag::note_conflicting_attribute);
+    if (NumSimdWorkItems == 0) {
+      S.Diag(E->getExprLoc(), diag::err_attribute_argument_is_zero)
+          << AL << E->getSourceRange();
+      return;
+    }
+
+    if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      ASTContext &Ctx = S.getASTContext();
+      Optional<llvm::APSInt> XDimVal = A->getXDimVal(Ctx);
+      Optional<llvm::APSInt> YDimVal = A->getYDimVal(Ctx);
+      Optional<llvm::APSInt> ZDimVal = A->getZDimVal(Ctx);
+
+      if (!(XDimVal->getZExtValue() % NumSimdWorkItems == 0 ||
+            YDimVal->getZExtValue() % NumSimdWorkItems == 0 ||
+            ZDimVal->getZExtValue() % NumSimdWorkItems == 0)) {
+        S.Diag(AL.getLoc(), diag::err_sycl_num_kernel_wrong_reqd_wg_size)
+            << AL << A;
+        S.Diag(A->getLocation(), diag::note_conflicting_attribute);
         return;
       }
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
-  S.addIntelSingleArgAttr<SYCLIntelNumSimdWorkItemsAttr>(D, A, E);
+  S.addIntelSingleArgAttr<SYCLIntelNumSimdWorkItemsAttr>(D, AL, E);
 }
 
 // Handles use_stall_enable_clusters
@@ -6850,14 +6862,13 @@ void Sema::addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &Attr,
     Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(getASTContext());
     if (!ArgVal) {
       Diag(E->getExprLoc(), diag::err_attribute_argument_type)
-          << Attr.getAttrName() << AANT_ArgumentIntegerConstant
-          << E->getSourceRange();
+          << Attr << AANT_ArgumentIntegerConstant << E->getSourceRange();
       return;
     }
     int32_t ArgInt = ArgVal->getSExtValue();
     if (ArgInt < 0) {
       Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-          << Attr.getAttrName() << /*non-negative*/ 1;
+          << Attr << /*non-negative*/ 1;
       return;
     }
   }
