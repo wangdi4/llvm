@@ -32,12 +32,11 @@ using namespace llvm;
 namespace intel {
 
   /// @brief DataPerBarrier pass is a analysis module pass used to collect
-  /// data on barrier/fiber/dummy barrier instructions
+  /// data on barrier/dummy barrier instructions
   class DataPerBarrier : public ModulePass {
   public:
     typedef struct  {
       TInstructionSet    m_relatedBarriers;
-      bool               m_hasFiberRelated;
     } SBarrierRelated;
     typedef struct {
       unsigned int m_id;
@@ -145,15 +144,6 @@ namespace intel {
       return m_barrierPredecessorsMap[pInst];
     }
 
-    /// @brief return true if given function contains fiber instruction
-    /// @param pFunc pointer to Function
-    /// @returns true if and only if given function contains fiber instruction
-    bool hasFiberInstruction(Function *pFunc) {
-      // TODO: currently this function returns false if module has no fiber
-      // and true otherwise. If needed change it to answer per function!
-      return m_hasFiber;
-    }
-
     /// @brief return true if given function contains synchronize instruction
     /// @param pFunc pointer to Function
     /// @returns true if and only if given function contains synchronize instruction
@@ -193,7 +183,6 @@ namespace intel {
     TBasicBlock2BasicBlocksSetMap m_predecessorsMap;
     TBasicBlock2BasicBlocksSetMap m_successorsMap;
     TBarrier2BarriersSetMap       m_barrierPredecessorsMap;
-    bool                          m_hasFiber;
 
   };
 
