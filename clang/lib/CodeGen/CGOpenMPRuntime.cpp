@@ -10023,7 +10023,13 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
     llvm::Value *CurSizeArg = Info.Sizes[I];
     llvm::Value *CurNameArg =
         (CGM.getCodeGenOpts().getDebugInfo() == codegenoptions::NoDebugInfo)
+#if INTEL_COLLAB
+            ? llvm::ConstantPointerNull::get(
+                  CGM.VoidPtrTy->getPointerElementType()->getPointerTo(
+                      CGM.getEffectiveAllocaAddrSpace()))
+#else  // INTEL_COLLAB
             ? llvm::ConstantPointerNull::get(CGM.VoidPtrTy)
+#endif // INTEL_COLLAB
             : emitMappingInformation(MapperCGF, OMPBuilder, Info.Exprs[I]);
 
     // Extract the MEMBER_OF field from the map type.
@@ -10204,7 +10210,13 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
       MapType,
       MapperCGF.Builder.getInt64(~(MappableExprsHandler::OMP_MAP_TO |
                                    MappableExprsHandler::OMP_MAP_FROM)));
+#if INTEL_COLLAB
+  llvm::Value *MapNameArg = llvm::ConstantPointerNull::get(
+      CGM.VoidPtrTy->getPointerElementType()->getPointerTo(
+          CGM.getEffectiveAllocaAddrSpace()));
+#else  // INTEL_COLLAB
   llvm::Value *MapNameArg = llvm::ConstantPointerNull::get(CGM.VoidPtrTy);
+#endif  // INTEL_COLLAB
 
   // Call the runtime API __tgt_push_mapper_component to fill up the runtime
   // data structure.
