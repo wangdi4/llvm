@@ -266,7 +266,9 @@ namespace intel {
         assert(!Failed && "Unexpected widened-size attribute");
         return WidenedSize;
       }
-      return 1;
+      // TODO: Maybe we need to rename KernelInternalMetadataAPI.
+      auto FIMD = KernelInternalMetadataAPI(const_cast<Function *>(F));
+      return FIMD.VectorizedWidth.hasValue() ? FIMD.VectorizedWidth.get() : 1;
     }
     return I->second;
   }

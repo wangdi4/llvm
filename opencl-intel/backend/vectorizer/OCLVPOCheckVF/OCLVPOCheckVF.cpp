@@ -54,6 +54,9 @@ using namespace Intel::MetadataAPI;
 
 extern bool EnableSubGroupEmulation;
 
+extern bool EnableSubgroupDirectCallVectorization;
+extern bool EnableDirectFunctionCallVectorization;
+
 #define DEBUG_TYPE "check-vf"
 namespace intel {
 
@@ -163,7 +166,6 @@ bool OCLVPOCheckVF::checkSGSemantics(
     Function *F, const std::set<Function *> &SGIndirectUsers) {
   LLVM_DEBUG(dbgs() << "Checking SubGroup Semantics:\n");
   auto KIMD = KernelInternalMetadataAPI(F);
-  bool IsBroken = false;
   if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get()) {
     // No need to check whether VF can be falled back, checkHorizontalOps did
     // this.
@@ -171,9 +173,10 @@ bool OCLVPOCheckVF::checkSGSemantics(
       LLVM_DEBUG(dbgs() << "sub-group is broken<VF is 1> \n");
       return false;
     }
+
     // Check whether there is subgroup call is in a subroutine.
-    IsBroken |= SGIndirectUsers.count(F);
-    if (IsBroken) {
+    if (!EnableSubgroupDirectCallVectorization &&
+        !EnableDirectFunctionCallVectorization && SGIndirectUsers.count(F)) {
       LLVM_DEBUG(dbgs() << "sub-group is broken<In a subroutine> \n");
       return false;
     }
