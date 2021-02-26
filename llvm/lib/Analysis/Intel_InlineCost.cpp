@@ -970,12 +970,6 @@ static bool preferDTransToInlining(CallBase &CB, bool PrepareForLTO) {
   return false;
 }
 
-// Return 'true' if 'CB' is preferred for inlining because doing so will
-// enable dtrans opportunities.
-static bool preferInlineDtrans(CallBase &CB) {
-  return CB.hasFnAttr("prefer-inline-dtrans");
-}
-
 //
 // Returns 'true' if the Function *F calls a realloc-like function, or if
 // heuristically we suspect it is a realloc-like function. (In a non-LTO
@@ -1703,9 +1697,6 @@ static bool preferNotToInlineEHIntoLoop(CallBase &CB,
   if (!DTransInlineHeuristics)
     return false;
   Function *Callee = CB.getCalledFunction();
-  // Return false if CB is marked as prefer-inline-dtrans
-  if (preferInlineDtrans(CB))
-    return false;
   if (Callee->hasFnAttribute(Attribute::NoUnwind))
     return false;
   if (!isInNonEHLoop(CB, ILIC))
@@ -3285,6 +3276,10 @@ static bool preferInlineForManyRecursiveCallsSplitting(CallBase &CB) {
 
 static bool preferInlineAggressive(CallBase &CB) {
   return CB.hasFnAttr("prefer-inline-aggressive");
+}
+
+static bool preferInlineDtrans(CallBase &CB) {
+  return CB.hasFnAttr("prefer-inline-dtrans");
 }
 
 //
