@@ -51,6 +51,10 @@ cl::opt<bool>
     MinMaxIndexEnabled("enable-mmindex", cl::init(false), cl::Hidden,
                        cl::desc("Enable min/max+index idiom recognition"));
 
+cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(false),
+                                    cl::Hidden,
+                                    cl::desc("Enable vconflict idiom"));
+
 static cl::opt<bool> DisableNonLinearMMIndexes(
     "disable-nonlinear-mmindex", cl::init(true), cl::Hidden,
     cl::desc("Disable min/max+index idiom recognition for non-linear indexes"));
@@ -332,7 +336,8 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
     return !SRI->HasUnsafeAlgebra;
   }
 
-  return IdiomList.isIdiom(Inst) != HIRVectorIdioms::NoIdiom;
+  return IdiomList.isIdiom(Inst) == HIRVectorIdioms::MinOrMax ||
+         IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastLoc;
 }
 
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
@@ -665,16 +670,16 @@ public:
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool tryMinMaxIdiom(HLDDNode *Node);
+  bool tryVConflictIdiom(HLDDNode *Node);
 };
 
 // Checks if the given Node is the beginning of Min/Max idiom. If the search
 // succeeds, then the Node and its linked instructions are added in IdiomList.
 bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
-  auto HInst = dyn_cast<HLInst>(Node);
-  if (!HInst)
+  auto *MinMaxInst = dyn_cast<HLInst>(Node);
+  if (!MinMaxInst)
     return false;
 
-  HLInst *MinMaxInst = dyn_cast<HLInst>(Node);
   // First hunt for min/max pattern
   if (!MinMaxInst->isMinOrMax())
     return false;
@@ -836,9 +841,96 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   return false;
 }
 
+// The "vconflict idiom" refers to the user code with vector data dependencies
+// that can be resolved using vconflict instruction. Particularly, dependencies
+// due to possible overlapped indexes in statements like
+// a[index] = a[index] OP some_value
+// The example of incoming HIR is as follows
+// <0>          BEGIN REGION { }
+// <15>               + DO i1 = 0, 1023, 1   <DO_LOOP> <nounroll>
+// <3>                |   %0 = (%B)[i1];
+// <7>                |   %add = (%A)[%0]  +  1.000000e+00;
+// <8>                |   (%A)[%0] = %add;
+// <15>               + END LOOP
+// <0>          END REGION
+// In this routine, we detect possible dependencies that can be resolved using
+// vconflict. I.e. we check each store if it has memory dependency only on the
+// load from the same address.
+// There are three possible ways to generate code for vconflict idiom depending
+// on OP and some_value classification from above. We don't consider/recognize
+// those different kinds of idiom here, the classification is done in VPlan.
+bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
+  auto *StoreInst = dyn_cast<HLInst>(CurNode);
+  if (!StoreInst)
+    return false;
+
+  MatchFail Mismatch("VConflict Idiom");
+  RegDDRef *StoreMemDDRef = StoreInst->getLvalDDRef();
+  if (!StoreMemDDRef || !StoreMemDDRef->isMemRef())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Looking at store candidate:";
+             StoreInst->dump());
+
+  // The store address of the above example has two incoming edges:
+  // 7:8 (%A)[%0] --> (%A)[%0] ANTI (*) (?)
+  // 8:8 (%A)[%0] --> (%A)[%0] OUTPUT (*) (?)
+  int AntiDepCnt = 0;
+  for (DDEdge *E : DDG.incoming(StoreMemDDRef)) {
+    if (E->isOutput()) {
+      if (E->getSrc() != StoreMemDDRef)
+        return Mismatch(
+            "The output dependency is expected to be self-dependency.\n");
+    } else {
+      DDRef *SrcRef = E->getSrc();
+      HLDDNode *SrcNode = SrcRef->getHLDDNode();
+      LLVM_DEBUG(dbgs() << "[VConflict Idiom] Depends(WAR) on:";
+                 SrcNode->dump());
+
+      if (!E->isAnti())
+        return Mismatch("Expected anti-dependency.");
+
+      if (AntiDepCnt >= 1)
+        return Mismatch("Too many dependencies.");
+
+      AntiDepCnt++;
+      // TODO: Update VConflict search to work with multi-dimensional arrays.
+      // For now, we just bail-out.
+      if (StoreMemDDRef->getNumDimensions() > 1)
+        return Mismatch("Multidimensional arrays are not supported.");
+
+      // Check if both nodes are at top level.
+      if (SrcNode->getParent() != Loop)
+        return Mismatch("Source is in another loop.");
+
+      // Only backward edges are allowed.
+      if (SrcNode->getTopSortNum() > CurNode->getTopSortNum())
+        return Mismatch("Nodes are not in the right order.");
+
+      // Check if both source and sink nodes have the same memory reference.
+      if (SrcRef->isRval() && SrcNode->getRvalDDRef()->isMemRef())
+        if (DDRefUtils::areEqual(SrcRef, StoreMemDDRef))
+          continue;
+      return Mismatch("Wrong memory dependency.");
+    }
+  }
+
+  if (AntiDepCnt == 0 || AntiDepCnt > 1)
+    return Mismatch("Store address should have one anti-dependency.");
+
+  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected!\n");
+  IdiomList.addIdiom(StoreInst, HIRVectorIdioms::VConflict);
+  return true;
+}
+
+// The routine looks for some idiom patterns. If any is recognized, the Node is
+// added into IdiomList tagged with what kind of idiom was recognized.
 void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
 
-  if (tryMinMaxIdiom(Node))
+  if (MinMaxIndexEnabled && tryMinMaxIdiom(Node))
+    return;
+
+  if (VConflictIdiomEnabled && tryVConflictIdiom(Node))
     return;
 
   return;
@@ -848,13 +940,12 @@ void HIRVectorIdiomAnalysis::gatherIdioms(HIRVectorIdioms &IList,
                                           const DDGraph &DDG,
                                           HIRSafeReductionAnalysis &SRA,
                                           HLLoop *Loop) {
-  if (MinMaxIndexEnabled) {
+  if (MinMaxIndexEnabled || VConflictIdiomEnabled) {
     HIRIdiomAnalyzer IdiomAnalyzer(IList, DDG, SRA, Loop);
     Loop->getHLNodeUtils().visit(IdiomAnalyzer, Loop);
     LLVM_DEBUG(IList.dump());
-  }
-  else
-    LLVM_DEBUG(dbgs() << "MinMax+index recognition is disabled\n");
+  } else
+    LLVM_DEBUG(dbgs() << "Any idiom recognition is disabled\n");
 }
 
 extern void llvm::loopopt::deleteHIRVectorIdioms(HIRVectorIdioms *p) {
