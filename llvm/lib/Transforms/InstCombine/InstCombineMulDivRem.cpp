@@ -525,7 +525,7 @@ Instruction *InstCombinerImpl::visitFMul(BinaryOperator &I) {
 #if INTEL_CUSTOMIZATION
     auto ShouldSinkFDiv = [&](Instruction &Mul, Value *Div, Value *Dividend) {
       // Don't sink loop invariant reciprocals.
-      if (match(Dividend, m_FPOne()))
+      if (LI && match(Dividend, m_FPOne()))
         if (Loop *L = LI->getLoopFor(I.getParent()))
           if (L->isLoopInvariant(Div))
             return false;

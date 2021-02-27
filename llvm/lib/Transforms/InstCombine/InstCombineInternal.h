@@ -766,6 +766,9 @@ public:
                                              const APInt &C);
   Instruction *foldICmpEqIntrinsicWithConstant(ICmpInst &ICI, IntrinsicInst *II,
                                                const APInt &C);
+#if INTEL_CUSTOMIZATION
+  Instruction *foldNotCmpOverTwoSelects(ICmpInst &I, const SimplifyQuery &Q);
+#endif // INTEL_CUSTOMIZATION
 
   // Helpers of visitSelectInst().
   Instruction *foldSelectExtConst(SelectInst &Sel);
