@@ -1116,6 +1116,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // TODO: Investigate if this is too expensive.
   FPM.addPass(ADCEPass());
 
+  // Specially optimize memory movement as it doesn't look like dataflow in SSA.
+  FPM.addPass(MemCpyOptPass());
+
   FPM.addPass(DSEPass());
   FPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap),

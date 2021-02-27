@@ -181,9 +181,7 @@
 ; CHECK-O3-NEXT: Running pass: GVN
 ; CHECK-O3-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O3-NEXT: Running analysis: PhiValuesAnalysis
-; CHECK-O-NEXT: Running pass: MemCpyOptPass
-; CHECK-O1-NEXT: Running analysis: MemoryDependenceAnalysis
-; CHECK-O1-NEXT: Running analysis: PhiValuesAnalysis
+; CHECK-O1-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O-NEXT: Running pass: SCCPPass
 ; CHECK-O-NEXT: Running pass: BDCEPass
 ; CHECK-O-NEXT: Running analysis: DemandedBitsAnalysis
@@ -195,8 +193,9 @@
 ; CHECK-O-NEXT: Running pass: ADCEPass
 ; INTEL_CUSTOMIZATION
 ; s/CHECK-O-NEXT/CHECK-O1-NEXT/ on the next line.
-; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; END_INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
+; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass

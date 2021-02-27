@@ -863,6 +863,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
   MPM.add(createAggressiveDCEPass()); // Delete dead instructions
 
+  MPM.add(createMemCpyOptPass());               // Remove memcpy / form memset
   // TODO: Investigate if this is too expensive at O1.
   if (OptLevel > 1) {
     MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
