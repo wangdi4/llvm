@@ -95,6 +95,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"  // INTEL
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Evaluator.h"
 #include <algorithm>
 #include <cstddef>
@@ -163,6 +164,14 @@ cl::list<std::string>
     SkipFunctionNames("wholeprogramdevirt-skip",
                       cl::desc("Prevent function(s) from being devirtualized"),
                       cl::Hidden, cl::ZeroOrMore, cl::CommaSeparated);
+
+/// Mechanism to add runtime checking of devirtualization decisions, trapping on
+/// any that are not correct. Useful for debugging undefined behavior leading to
+/// failures with WPD.
+cl::opt<bool>
+    CheckDevirt("wholeprogramdevirt-check", cl::init(false), cl::Hidden,
+                cl::ZeroOrMore,
+                cl::desc("Add code to trap on incorrect devirtualizations"));
 
 namespace {
 struct PatternList {
@@ -1130,8 +1139,27 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       if(!IntelDevirtMV.tryAddingDefaultTargetIntoVCallSite(&VCallSite.CB,
           dyn_cast<Function>(TheFn), VCallSite.CB.getCaller())) {
 #endif // INTEL_CUSTOIMIZATION
-      VCallSite.CB.setCalledOperand(ConstantExpr::getBitCast(
-          TheFn, VCallSite.CB.getCalledOperand()->getType()));
+      auto &CB = VCallSite.CB;
+      IRBuilder<> Builder(&CB);
+      Value *Callee =
+          Builder.CreateBitCast(TheFn, CB.getCalledOperand()->getType());
+
+      // If checking is enabled, add support to compare the virtual function
+      // pointer to the devirtualized target. In case of a mismatch, perform a
+      // debug trap.
+      if (CheckDevirt) {
+        auto *Cond = Builder.CreateICmpNE(CB.getCalledOperand(), Callee);
+        Instruction *ThenTerm =
+            SplitBlockAndInsertIfThen(Cond, &CB, /*Unreachable=*/false);
+        Builder.SetInsertPoint(ThenTerm);
+        Function *TrapFn = Intrinsic::getDeclaration(&M, Intrinsic::debugtrap);
+        auto *CallTrap = Builder.CreateCall(TrapFn);
+        CallTrap->setDebugLoc(CB.getDebugLoc());
+      }
+
+      // Devirtualize.
+      CB.setCalledOperand(Callee);
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
       // If a bitcast operation has been performed to match the callsite to
