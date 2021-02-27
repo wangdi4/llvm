@@ -2047,18 +2047,19 @@ bool HIRLoopRerollLegacyPass::runOnFunction(Function &F) {
   return NumRerolled > 0;
 }
 
-PreservedAnalyses HIRLoopRerollPass::run(llvm::Function &F,
-                                         llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
+                                             llvm::FunctionAnalysisManager &AM,
+                                             HIRFramework &HIRF) {
   if (DisablePass) {
     return PreservedAnalyses::all();
   }
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  unsigned NumRerolled = doLoopReroll(
-      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
-      AM.getResult<HIRLoopStatisticsAnalysis>(F),
-      AM.getResult<HIRSafeReductionAnalysisPass>(F));
+  unsigned NumRerolled =
+      doLoopReroll(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                   AM.getResult<HIRSafeReductionAnalysisPass>(F));
   LoopsRerolled += NumRerolled;
   if (NumRerolled > 0) {
     LLVM_DEBUG(dbgs() << "Reroll happend\n");

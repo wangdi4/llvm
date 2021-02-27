@@ -942,9 +942,9 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printUBTCArry(void) const {
 
 #endif
 
-PreservedAnalyses HIRLoopCollapsePass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRLoopCollapse(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRLoopCollapsePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRLoopCollapse(HIRF).run();
   return PreservedAnalyses::all();
 }
 

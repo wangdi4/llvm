@@ -1349,10 +1349,10 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
   // LLVM_DEBUG(Lp->dump(););
 }
 
-PreservedAnalyses HIRLMMPass::run(llvm::Function &F,
-                                  llvm::FunctionAnalysisManager &AM) {
-  HIRLMM(AM.getResult<HIRFrameworkAnalysis>(F),
-         AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRLMMPass::runImpl(llvm::Function &F,
+                                      llvm::FunctionAnalysisManager &AM,
+                                      HIRFramework &HIRF) {
+  HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
          AM.getResult<HIRLoopStatisticsAnalysis>(F),
          &AM.getResult<DominatorTreeAnalysis>(F),
          &AM.getResult<DTransFieldModRefResult>(F),

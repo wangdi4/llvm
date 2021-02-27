@@ -2290,8 +2290,8 @@ bool HIRLoopBlockingLegacyPass::runOnFunction(Function &F) {
   return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(false);
 }
 
-PreservedAnalyses HIRLoopBlockingPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRLoopBlockingPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   // TODO: Is it a right way to skip function?
   if (DisablePass) {
     return PreservedAnalyses::all();
@@ -2299,8 +2299,7 @@ PreservedAnalyses HIRLoopBlockingPass::run(llvm::Function &F,
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  HIRLoopBlocking(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F),
+  HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<TargetIRAnalysis>(F))
@@ -2325,9 +2324,8 @@ bool HIRPragmaLoopBlockingLegacyPass::runOnFunction(Function &F) {
   return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(true);
 }
 
-PreservedAnalyses
-HIRPragmaLoopBlockingPass::run(llvm::Function &F,
-                               llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRPragmaLoopBlockingPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   // TODO: Is it a right way to skip function?
   if (DisablePass) {
     return PreservedAnalyses::all();
@@ -2336,8 +2334,7 @@ HIRPragmaLoopBlockingPass::run(llvm::Function &F,
   LLVM_DEBUG(dbgs() << OPT_DESC_PRAGMA " for Function : " << F.getName()
                     << "\n");
 
-  HIRLoopBlocking(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F),
+  HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<TargetIRAnalysis>(F))

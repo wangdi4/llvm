@@ -12,16 +12,18 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRSTORERESULTINTOTEMPARRAY_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRSTORERESULTINTOTEMPARRAY_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRStoreResultIntoTempArrayPass
-    : public PassInfoMixin<HIRStoreResultIntoTempArrayPass> {
+    : public HIRPassInfoMixin<HIRStoreResultIntoTempArrayPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-store-result-into-temp-array";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

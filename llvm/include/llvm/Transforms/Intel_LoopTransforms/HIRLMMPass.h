@@ -11,21 +11,24 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LMM_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_LMM_H
 
-#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 class Function;
 
 namespace loopopt {
 
-class HIRLMMPass : public PassInfoMixin<HIRLMMPass> {
+class HIRLMMPass : public HIRPassInfoMixin<HIRLMMPass> {
   bool LoopNestHoistingOnly;
 
 public:
   HIRLMMPass(bool LoopNestHoistingOnly = false)
       : LoopNestHoistingOnly(LoopNestHoistingOnly) {}
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+
+  static constexpr auto PassName = "hir-lmm";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

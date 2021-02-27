@@ -724,11 +724,9 @@ bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
       .run();
 }
 
-PreservedAnalyses
-HIRCrossLoopArrayContractionPass::run(Function &F,
-                                      FunctionAnalysisManager &AM) {
-  HIRCrossLoopArrayContraction(AM.getResult<HIRFrameworkAnalysis>(F),
-                               AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRCrossLoopArrayContractionPass::runImpl(
+    Function &F, FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRCrossLoopArrayContraction(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                                AM.getResult<HIRArraySectionAnalysisPass>(F))
       .run();
   return PreservedAnalyses::all();

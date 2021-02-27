@@ -16,16 +16,18 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRROWWISEMVPASS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRROWWISEMVPASS_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 /// An HIR pass which performs row-wise multiversioning.
-class HIRRowWiseMVPass : public PassInfoMixin<HIRRowWiseMVPass> {
+class HIRRowWiseMVPass : public HIRPassInfoMixin<HIRRowWiseMVPass> {
 public:
-  PreservedAnalyses run(Function &, FunctionAnalysisManager &);
+  static constexpr auto PassName = "hir-rowwise-mv";
+  PreservedAnalyses runImpl(Function &, FunctionAnalysisManager &,
+                            HIRFramework &);
 };
 
 } // namespace loopopt

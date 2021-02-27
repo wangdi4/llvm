@@ -780,11 +780,9 @@ bool HIRConditionalLoadStoreMotionLegacyPass::runOnFunction(Function &F) {
     getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
-PreservedAnalyses
-HIRConditionalLoadStoreMotionPass::run(Function &F,
-                                       llvm::FunctionAnalysisManager &AM) {
-  runConditionalLoadStoreMotion(AM.getResult<HIRFrameworkAnalysis>(F),
-                                AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRConditionalLoadStoreMotionPass::runImpl(
+    Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  runConditionalLoadStoreMotion(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                                 AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }

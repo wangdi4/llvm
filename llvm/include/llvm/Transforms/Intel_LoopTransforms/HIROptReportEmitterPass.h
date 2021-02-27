@@ -12,18 +12,19 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIROPTREPORTEMITTER_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIROPTREPORTEMITTER_H
 
-#include "llvm/IR/Function.h"
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIROptReportEmitterPass : public PassInfoMixin<HIROptReportEmitterPass> {
+class HIROptReportEmitterPass
+    : public HIRPassInfoMixin<HIROptReportEmitterPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &);
+  static constexpr auto PassName = "hir-optreport-emitter";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &,
+                            HIRFramework &);
 };
-
 }
 
 }

@@ -16,8 +16,9 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h" // INTEL
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h" // INTEL
 #include "llvm/Transforms/Vectorize.h" // INTEL
 
 namespace llvm {
@@ -172,11 +173,14 @@ public:
                FatalErrorHandlerTy FatalErrorHandler);
 };
 
-class VPlanDriverHIRPass : public PassInfoMixin<VPlanDriverHIRPass> {
+class VPlanDriverHIRPass
+    : public loopopt::HIRPassInfoMixin<VPlanDriverHIRPass> {
   VPlanDriverHIRImpl Impl;
 
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "vplan-driver-hir";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            loopopt::HIRFramework &);
 };
 
 class VPlanDriverHIR : public FunctionPass {

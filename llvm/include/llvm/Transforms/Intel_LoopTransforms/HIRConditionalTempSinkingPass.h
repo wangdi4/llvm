@@ -16,16 +16,18 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCONDITIONALTEMPSINKINGPASS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCONDITIONALTEMPSINKINGPASS_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRConditionalTempSinkingPass
-    : public PassInfoMixin<HIRConditionalTempSinkingPass> {
+    : public HIRPassInfoMixin<HIRConditionalTempSinkingPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-conditional-temp-sinking";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

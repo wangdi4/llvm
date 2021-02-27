@@ -795,10 +795,9 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
   return CurUnrollFactor;
 }
 
-PreservedAnalyses HIRGeneralUnrollPass::run(llvm::Function &F,
-                                            llvm::FunctionAnalysisManager &AM) {
-  HIRGeneralUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                   AM.getResult<HIRLoopResourceAnalysis>(F),
+PreservedAnalyses HIRGeneralUnrollPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRGeneralUnroll(HIRF, AM.getResult<HIRLoopResourceAnalysis>(F),
                    AM.getResult<HIRDDAnalysisPass>(F),
                    AM.getResult<HIRSafeReductionAnalysisPass>(F),
                    AM.getResult<HIRLoopStatisticsAnalysis>(F), false)

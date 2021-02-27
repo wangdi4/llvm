@@ -906,8 +906,9 @@ bool HIRTempCleanupLegacyPass::runOnFunction(Function &F) {
   return false;
 }
 
-PreservedAnalyses HIRTempCleanupPass::run(llvm::Function &F,
-                                          llvm::FunctionAnalysisManager &AM) {
-  runTempCleanup(AM.getResult<HIRFrameworkAnalysis>(F));
+PreservedAnalyses HIRTempCleanupPass::runImpl(llvm::Function &F,
+                                              llvm::FunctionAnalysisManager &AM,
+                                              HIRFramework &HIRF) {
+  runTempCleanup(HIRF);
   return PreservedAnalyses::all();
 }

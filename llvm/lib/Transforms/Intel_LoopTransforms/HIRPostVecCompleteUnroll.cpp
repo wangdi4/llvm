@@ -33,15 +33,13 @@ cl::opt<bool>
                          cl::desc("Disables post vec complete unroll"),
                          cl::Hidden, cl::init(false));
 
-PreservedAnalyses
-HIRPostVecCompleteUnrollPass::run(llvm::Function &F,
-                                  llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRPostVecCompleteUnrollPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisablePostVecUnroll) {
     return PreservedAnalyses::all();
   }
 
-  HIRCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                    AM.getResult<DominatorTreeAnalysis>(F),
+  HIRCompleteUnroll(HIRF, AM.getResult<DominatorTreeAnalysis>(F),
                     AM.getResult<TargetIRAnalysis>(F),
                     AM.getResult<HIRLoopStatisticsAnalysis>(F),
                     AM.getResult<HIRDDAnalysisPass>(F),
