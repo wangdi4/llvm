@@ -3923,9 +3923,6 @@ static void handleWorkGroupSizeHint(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 void Sema::AddIntelReqdSubGroupSize(Decl *D, const AttributeCommonInfo &CI,
                                     Expr *E) {
-  if (LangOpts.SYCLIsHost)
-    return;
-
   if (!E->isValueDependent()) {
     // Validate that we have an integer constant expression and then store the
     // converted constant expression into the semantic attribute so that we
@@ -4218,10 +4215,6 @@ void Sema::addSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI,
   assert(E && "argument has unexpected null value");
 
   if (checkSYCLIntelLoopFuseArgument(*this, CI, E))
-    return;
-
-  // Attribute should not be added during host compilation.
-  if (getLangOpts().SYCLIsHost)
     return;
 
   SYCLIntelLoopFuseAttr *NewAttr = mergeSYCLIntelLoopFuseAttr(D, CI, E);
@@ -6491,9 +6484,6 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
 
 static void handleNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
                                          const ParsedAttr &A) {
-  if (S.LangOpts.SYCLIsHost)
-    return;
-
   checkForDuplicateAttribute<SYCLIntelNoGlobalWorkOffsetAttr>(S, D, A);
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
@@ -6510,8 +6500,6 @@ static void handleNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
 /// Both are incompatible with the __register__ attribute.
 template <typename AttrType, typename IncompatAttrType>
 static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
-  if (S.LangOpts.SYCLIsHost)
-    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -6537,9 +6525,6 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 /// This is incompatible with the [[intelfpga::register]] attribute.
 static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
                                       const ParsedAttr &AL) {
-
-  if (S.LangOpts.SYCLIsHost)
-    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -6620,9 +6605,6 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
 /// Handle the [[intelfpga::register]] attribute.
 /// This is incompatible with most of the other memory attributes.
 static void handleIntelFPGARegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
-
-  if (S.LangOpts.SYCLIsHost)
-    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -6645,9 +6627,6 @@ static void handleIntelFPGARegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 template <typename AttrType>
 static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
                                                const ParsedAttr &A) {
-
-  if (S.LangOpts.SYCLIsHost)
-    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -6664,8 +6643,6 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
 
 static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
                                               const ParsedAttr &AL) {
-  if (S.LangOpts.SYCLIsHost)
-    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -6688,8 +6665,6 @@ static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
 
 static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
                                              const ParsedAttr &A) {
-  if (S.LangOpts.SYCLIsHost)
-    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -6717,9 +6692,6 @@ static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 #endif // INTEL
 
   checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, AL);
-
-  if (S.LangOpts.SYCLIsHost)
-    return;
 
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
     return;
@@ -6844,9 +6816,6 @@ void Sema::AddIntelFPGABankBitsAttr(Decl *D, const AttributeCommonInfo &CI,
 
 static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
                                              const ParsedAttr &A) {
-  if (S.LangOpts.SYCLIsHost)
-    return;
-
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -6863,9 +6832,6 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
 
 static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
                                               const ParsedAttr &A) {
-  if (S.LangOpts.SYCLIsHost)
-    return;
-
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
