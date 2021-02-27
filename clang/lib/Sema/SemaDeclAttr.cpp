@@ -3994,17 +3994,6 @@ void Sema::AddSYCLIntelNumSimdWorkItemsAttr(Decl *D,
     // don't have to evaluate it again later.
     llvm::APSInt ArgVal;
 
-#if INTEL_CUSTOMIZATION
-    if (checkValidSYCLSpelling(S, AL))
-      return;
-
-    if (AL.getSyntax() == AttributeCommonInfo::AS_GNU &&
-        !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-      S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
-      return;
-    }
-#endif // INTEL_CUSTOMIZATION
-
     ExprResult Res = VerifyIntegerConstantExpression(E, &ArgVal);
     if (Res.isInvalid())
       return;
