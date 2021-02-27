@@ -2990,6 +2990,11 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
        const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
        RemapVars.push_back(VarExpr ? VarExpr : Ref);
      }
+  for (const auto *C : D.getClausesOfKind<OMPUseDevicePtrClause>())
+     for (const auto *Ref : C->varlists()) {
+       const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
+       RemapVars.push_back(VarExpr ? VarExpr : Ref);
+     }
   for (const auto *Ref : RemapVars) {
     if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
       if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
