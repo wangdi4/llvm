@@ -1618,9 +1618,8 @@ bool TwoAddressInstructionPass::runOnMachineFunction(MachineFunction &Func) {
       .set(MachineFunctionProperties::Property::TiedOpsRewritten);
 
   TiedOperandMap TiedOperands;
-  for (MachineFunction::iterator MBBI = MF->begin(), MBBE = MF->end();
-       MBBI != MBBE; ++MBBI) {
-    MBB = &*MBBI;
+  for (MachineBasicBlock &MBBI : *MF) {
+    MBB = &MBBI;
     unsigned Dist = 0;
     DistanceMap.clear();
     SrcRegMap.clear();
