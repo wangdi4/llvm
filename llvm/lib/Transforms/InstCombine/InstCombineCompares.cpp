@@ -6032,9 +6032,53 @@ Instruction *InstCombinerImpl::visitICmpInst(ICmpInst &I) {
   if (I.getType()->isVectorTy())
     if (Instruction *Res = foldVectorCmp(I, Builder))
       return Res;
+#if INTEL_CUSTOMIZATION
+  if (auto *Res = foldNotCmpOverTwoSelects(I, Q))
+    return Res;
+#endif // INTEL_CUSTOMIZATION
 
   return Changed ? &I : nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+// InstructionSimplify::threadCmpOverTwoSelects skips this case because it
+// requires a new instruction. Catch it here.
+//
+//  %0 = select i1 %cond, i32 %A, %B
+//  %1 = select i1 %cond, i32 %C, %D
+//  %I = icmp PRED i32 %0, %1
+//  [%A PRED %C is false]
+//  [%B PRED %D is true]
+//  =>
+//  %I = select i1 %cond, false, true
+//  =>
+//  %I = xor i1 %cond, true
+//  https://rise4fun.com/Alive/cWpc
+Instruction *
+InstCombinerImpl::foldNotCmpOverTwoSelects(ICmpInst &I,
+                                           const SimplifyQuery &Q) {
+  Value *Cond, *A, *B, *C, *D;
+  auto *LHS = I.getOperand(0);
+  auto *RHS = I.getOperand(1);
+  // 2 selects
+  if (!(match(LHS, m_Select(m_Value(Cond), m_Value(A), m_Value(B))) &&
+        match(RHS, m_Select(m_Specific(Cond), m_Value(C), m_Value(D)))))
+    return nullptr;
+
+  unsigned Pred = I.getPredicate();
+
+  // check A PRED C, B PRED D
+  Value *LeftCmp = SimplifyICmpInst(Pred, A, C, Q);
+  Value *RightCmp = SimplifyICmpInst(Pred, B, D, Q);
+  if (!LeftCmp || !RightCmp)
+    return nullptr;
+
+  if (match(LeftCmp, m_Zero()) && match(RightCmp, m_One())) {
+    return BinaryOperator::CreateNot(Cond);
+  }
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Fold fcmp ([us]itofp x, cst) if possible.
 Instruction *InstCombinerImpl::foldFCmpIntToFPConst(FCmpInst &I,

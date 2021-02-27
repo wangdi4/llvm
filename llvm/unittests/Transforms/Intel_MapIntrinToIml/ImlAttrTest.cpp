@@ -100,7 +100,7 @@ struct ImfFuncInfo {
     if (ISASet)
       Tail = createImfAttr("isa-set", ISASet, Tail);
 
-    return std::move(ImfAttrListWrapper(Tail));
+    return ImfAttrListWrapper(Tail);
   }
 };
 

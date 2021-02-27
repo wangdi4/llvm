@@ -234,7 +234,6 @@ class PagePoolTy {
   int32_t DeviceId = 0;
   int32_t TargetAllocKind = TARGET_ALLOC_DEFAULT;
   ze_context_handle_t Context = nullptr;
-  ze_device_handle_t Device = nullptr;
 
   uint32_t getBucketId(size_t Size) {
     uint32_t i;
@@ -250,11 +249,10 @@ public:
   /// Initialize a page pool for the given device.
   /// Multiple threads cannot call this simultaneously.
   void initialize(int32_t deviceId, ze_context_handle_t context,
-                  ze_device_handle_t device, int32_t allocKind) {
+                  int32_t allocKind) {
     Buckets.resize(MaxSize - MinSize + 1);
     DeviceId = deviceId;
     Context = context;
-    Device = device;
     TargetAllocKind = allocKind;
   }
 
@@ -812,7 +810,7 @@ public:
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
 
-  // Devices' default target allocation kinds
+  // Devices' default target allocation kinds for internal allocation
   std::vector<int32_t> AllocKinds;
 
   std::vector<ze_device_handle_t> Devices;
@@ -851,7 +849,13 @@ public:
   std::mutex *DataMutexes; // For internal data
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
   std::vector<std::vector<RTLProfileTy *>> Profiles;
-  std::vector<PagePoolTy> PagePools; // Internal memory pool
+
+  /// Host memory pool for all devices
+  PagePoolTy PagePoolHost;
+  /// Shared memory pools
+  std::vector<PagePoolTy> PagePoolShared;
+  /// Device memory pools
+  std::vector<PagePoolTy> PagePoolDevice;
 
   /// Flags, parameters, options
   RTLFlagsTy Flags;
@@ -860,7 +864,10 @@ public:
   int32_t DeviceType;
   uint32_t ThreadLimit = 0; // Global thread limit
   uint32_t NumTeams = 0; // Global max number of teams
+
+  /// User-directed allocation kind
   int32_t TargetAllocKind = TARGET_ALLOC_DEFAULT;
+
   uint32_t SubscriptionRate = 4;
   uint32_t ForcedKernelWidth = 0;
   int32_t DeviceMode = DEVICE_MODE_TOP;
@@ -1173,6 +1180,16 @@ public:
 
   /// Enqueue copy command
   int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, void *Src, size_t Size);
+
+  /// Return the device's default page pool
+  PagePoolTy &getPagePool(int32_t DeviceId);
+
+  /// Allocate data
+  void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr, void *HstBase,
+                  bool *PoolAllocated = nullptr);
+
+  /// Return memory allocation type
+  uint32_t getMemAllocType(void *Ptr);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -1348,16 +1365,23 @@ static void closeRTL() {
         CALL_ZE_EXIT_FAIL(zeEventDestroy, event);
       CALL_ZE_EXIT_FAIL(zeEventPoolDestroy, subDeviceEvent.Pool);
     }
-    if (DeviceInfo->Flags.UseMemoryPool)
-      DeviceInfo->PagePools[i].clear();
+    if (DeviceInfo->Flags.UseMemoryPool) {
+      DeviceInfo->PagePoolShared[i].clear();
+      DeviceInfo->PagePoolDevice[i].clear();
+    }
     DeviceInfo->Mutexes[i].unlock();
 
     if (DeviceInfo->Flags.EnableTargetGlobals)
       DeviceInfo->unloadOffloadTable(i);
     MEMSTAT_PRINT(i);
   }
+
+  if (DeviceInfo->Flags.UseMemoryPool)
+    DeviceInfo->PagePoolHost.clear();
+
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.deinit();
+
   if (DeviceInfo->Context)
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
 
@@ -1368,8 +1392,10 @@ static void closeRTL() {
 
 static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
                         std::unique_lock<std::mutex> &copyLock) {
-  int32_t allocKind = DeviceInfo->AllocKinds[DeviceId];
-  if (allocKind == TARGET_ALLOC_SHARED || allocKind == TARGET_ALLOC_HOST) {
+  auto destType = DeviceInfo->getMemAllocType(Dest);
+  auto srcType = DeviceInfo->getMemAllocType(Src);
+
+  if (destType != ZE_MEMORY_TYPE_DEVICE && srcType != ZE_MEMORY_TYPE_DEVICE) {
     char *src = static_cast<char *>(Src);
     std::copy(src, src + Size, static_cast<char *>(Dest));
   } else {
@@ -1507,6 +1533,33 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
 
   return OFFLOAD_SUCCESS;
+}
+
+/// Return the device's default page pool. Only Shared/Device is possible.
+PagePoolTy &RTLDeviceInfoTy::getPagePool(int32_t DeviceId) {
+  if (AllocKinds[DeviceId] == TARGET_ALLOC_SHARED)
+    return PagePoolShared[DeviceId];
+  else
+    return PagePoolDevice[DeviceId];
+}
+
+/// Return the memory allocation type for the specified memory location.
+uint32_t RTLDeviceInfoTy::getMemAllocType(void *Ptr) {
+  ze_memory_allocation_properties_t properties = {
+    ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
+    nullptr, // extension
+    ZE_MEMORY_TYPE_UNKNOWN, // type
+    0, // id
+    0, // page size
+  };
+
+  ze_result_t rc;
+  CALL_ZE(rc, zeMemGetAllocProperties, Context, Ptr, &properties, nullptr);
+
+  if (rc == ZE_RESULT_ERROR_INVALID_ARGUMENT)
+    return ZE_MEMORY_TYPE_UNKNOWN;
+  else
+    return properties.type;
 }
 
 static void dumpImageToFile(
@@ -1652,20 +1705,10 @@ static uint64_t getDeviceArch(uint32_t L0DeviceId) {
   return DeviceArch_None;
 }
 
-// Decide device's default target allocation method
+// Decide device's default memory kind for internal allocation (e.g., map)
 static int32_t getAllocKinds(uint32_t L0DeviceId) {
-  if (DeviceInfo->TargetAllocKind != TARGET_ALLOC_DEFAULT)
-    return DeviceInfo->TargetAllocKind; // Respect global setting
-
   uint32_t prefix = L0DeviceId & 0xFF00;
-#if 0
   if (prefix == 0x4900 || prefix == 0x0200)
-  // FIXME: We have multiple issues when using device mem by default on DG1
-  // including device offload table loading.
-  // Stay with shared mem on DG1 until all issues are resolved.
-#else
-  if (prefix == 0x0200)
-#endif
     return TARGET_ALLOC_DEVICE; // Discrete device
   else
     return TARGET_ALLOC_SHARED; // Integrated device
@@ -1810,8 +1853,6 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->DataMutexes = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
-  if (DeviceInfo->Flags.UseMemoryPool)
-    DeviceInfo->PagePools.resize(DeviceInfo->NumDevices);
 #if INTEL_INTERNAL_BUILD
   if (DebugLevel > 0)
     MemStats.resize(DeviceInfo->NumDevices);
@@ -1820,6 +1861,13 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.init(DeviceInfo->Context);
   DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
+
+  if (DeviceInfo->Flags.UseMemoryPool) {
+    DeviceInfo->PagePoolHost.initialize(0, DeviceInfo->Context,
+                                        TARGET_ALLOC_HOST);
+    DeviceInfo->PagePoolShared.resize(DeviceInfo->NumDevices);
+    DeviceInfo->PagePoolDevice.resize(DeviceInfo->NumDevices);
+  }
 
 #ifndef _WIN32
   if (std::atexit(closeRTL)) {
@@ -1855,9 +1903,13 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     numSubDevices += subIds.size();
     for (auto subId : subIds) {
       DeviceInfo->Initialized[subId] = true;
-      if (DeviceInfo->Flags.UseMemoryPool)
-        DeviceInfo->PagePools[subId].initialize(subId, DeviceInfo->Context,
-            DeviceInfo->Devices[subId], DeviceInfo->AllocKinds[subId]);
+      if (DeviceInfo->Flags.UseMemoryPool) {
+        auto context = DeviceInfo->Context;
+        DeviceInfo->PagePoolShared[subId].initialize(subId, context,
+                                                     TARGET_ALLOC_SHARED);
+        DeviceInfo->PagePoolDevice[subId].initialize(subId, context,
+                                                     TARGET_ALLOC_DEVICE);
+      }
     }
   }
   if (numSubDevices > 0) {
@@ -1885,9 +1937,13 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
       subDeviceEvent.Events.push_back(event);
     }
   }
-  if (DeviceInfo->Flags.UseMemoryPool)
-    DeviceInfo->PagePools[DeviceId].initialize(DeviceId, DeviceInfo->Context,
-        DeviceInfo->Devices[DeviceId], DeviceInfo->AllocKinds[DeviceId]);
+  if (DeviceInfo->Flags.UseMemoryPool) {
+    auto context = DeviceInfo->Context;
+    DeviceInfo->PagePoolShared[DeviceId].initialize(DeviceId, context,
+                                                    TARGET_ALLOC_SHARED);
+    DeviceInfo->PagePoolDevice[DeviceId].initialize(DeviceId, context,
+                                                    TARGET_ALLOC_DEVICE);
+  }
 
   DeviceInfo->Initialized[DeviceId] = true;
 
@@ -2005,13 +2061,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
         tgtAddr = DeviceInfo->getOffloadVarDeviceAddr(DeviceId, name, size);
 
       if (!tgtAddr) {
-        tgtAddr = __tgt_rtl_data_alloc(DeviceId, size, hstAddr);
+        bool poolAllocated = false;
+        tgtAddr = DeviceInfo->allocData(DeviceId, size, hstAddr, hstAddr,
+                                        &poolAllocated);
         __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
-        if (!DeviceInfo->Flags.UseMemoryPool ||
-            size > DeviceInfo->PagePools[DeviceId].getMaxSize()) {
-          DeviceInfo->DataMutexes[DeviceId].lock();
+        if (!poolAllocated) {
+          std::unique_lock<std::mutex> lock(DeviceInfo->DataMutexes[DeviceId]);
           DeviceInfo->OwnedMemory[DeviceId].push_back(tgtAddr);
-          DeviceInfo->DataMutexes[DeviceId].unlock();
         }
         IDP("Warning: global variable '%s' allocated. "
           "Direct references will not work properly.\n", name);
@@ -2123,18 +2179,18 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   return &table;
 }
 
-static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
-                       void *HstBase, int32_t IsImplicitArg) {
+void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
+                                 void *HstBase, bool *PoolAllocated) {
 #if !SUBDEVICE_USE_ROOT_MEMORY
   if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
     auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
     auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
-    DeviceId = DeviceInfo->SubDeviceIds[DeviceId][subLevel][subStart];
+    DeviceId = SubDeviceIds[DeviceId][subLevel][subStart];
   }
 #endif
 
   // TODO: this seems necessary for now -- check with L0 driver team for details
-  std::unique_lock<std::mutex> allocLock(DeviceInfo->Mutexes[DeviceId]);
+  std::unique_lock<std::mutex> allocLock(Mutexes[DeviceId]);
 
   ScopedTimerTy tmDataAlloc(DeviceId, "DataAlloc");
   intptr_t offset = (intptr_t)HstPtr - (intptr_t)HstBase;
@@ -2145,55 +2201,57 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
 
   void *base = nullptr;
   void *mem = nullptr;
-  if (DeviceInfo->Flags.UseMemoryPool &&
-      (base = DeviceInfo->PagePools[DeviceId].allocate(size))) {
-    mem = (void *)((intptr_t)base + offset);
-    IDP("Allocated target memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
-       "from memory pool for host ptr " DPxMOD "\n",
-       DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
-    if (IsImplicitArg)
-      DeviceInfo->addImplicitArgs(DeviceId, mem,
-                                  DeviceInfo->AllocKinds[DeviceId]);
-
-    return mem;
+  if (Flags.UseMemoryPool) {
+    auto &pool = getPagePool(DeviceId);
+    base = pool.allocate(size);
+    if (base != nullptr) {
+      mem = (void *)((intptr_t)base + offset);
+      IDP("Allocated target memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
+          "from memory pool for host ptr " DPxMOD "\n", DPxPTR(mem),
+          DPxPTR(base), size, DPxPTR(HstPtr));
+      if (PoolAllocated)
+        *PoolAllocated = true;
+      return mem;
+    }
   }
 
-  // We use shared USM to avoid overheads coming from explicit data copy to
-  // device memory.
-  base = allocDataExplicit(DeviceId, size, DeviceInfo->AllocKinds[DeviceId]);
+  // Use device-specific allocation type
+  base = allocDataExplicit(DeviceId, size, AllocKinds[DeviceId]);
   mem = (void *)((intptr_t)base + offset);
 
   if (DebugLevel > 0) {
     void *actualBase = nullptr;
     size_t actualSize = 0;
-    CALL_ZE_RET_NULL(zeMemGetAddressRange, DeviceInfo->Context, mem,
-                     &actualBase, &actualSize);
+    CALL_ZE_RET_NULL(zeMemGetAddressRange, Context, mem, &actualBase,
+                     &actualSize);
     assert(base == actualBase && "Invalid memory address range!");
     IDP("Allocated target memory " DPxMOD " (Base: " DPxMOD
-       ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem), DPxPTR(actualBase),
-       actualSize, DPxPTR(HstPtr));
+        ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem),
+        DPxPTR(actualBase), actualSize, DPxPTR(HstPtr));
   }
-  if (IsImplicitArg)
-    DeviceInfo->addImplicitArgs(DeviceId, mem,
-                                DeviceInfo->AllocKinds[DeviceId]);
 
   return mem;
 }
 
-EXTERN
-void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr) {
-  return allocData(DeviceId, Size, HstPtr, HstPtr, 0);
+EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size,
+                                  void *HstPtr) {
+  return DeviceInfo->allocData(DeviceId, Size, HstPtr, HstPtr);
 }
 
 EXTERN void *__tgt_rtl_data_alloc_user(
     int32_t DeviceId, int64_t Size, void *HstPtr) {
-  return allocData(DeviceId, Size, HstPtr, HstPtr, 1);
+  // Device memory by default respecting LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM
+  int32_t allocKind = TARGET_ALLOC_DEVICE;
+
+  if (DeviceInfo->TargetAllocKind != TARGET_ALLOC_DEFAULT)
+    allocKind = DeviceInfo->TargetAllocKind;
+
+  return __tgt_rtl_data_alloc_explicit(DeviceId, Size, allocKind);
 }
 
-EXTERN
-void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase) {
-  return allocData(DeviceId, Size, HstPtr, HstBase, 0);
+EXTERN void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size,
+                                       void *HstPtr, void *HstBase) {
+  return DeviceInfo->allocData(DeviceId, Size, HstPtr, HstBase);
 }
 
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
@@ -2203,23 +2261,7 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
 }
 
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
-  ze_memory_allocation_properties_t properties = {
-    ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
-    nullptr, // extension
-    ZE_MEMORY_TYPE_UNKNOWN, // type
-    0, // id
-    0, // page size
-  };
-  ze_result_t rc;
-  auto context = DeviceInfo->Context;
-  CALL_ZE(rc, zeMemGetAllocProperties, context, Ptr, &properties, nullptr);
-  // Host pointer is classified as an error -- skip error reporting
-  // TODO: check if this checking is still required
-  if (rc == ZE_RESULT_ERROR_INVALID_ARGUMENT)
-    return 0;
-  CALL_ZE_RET_ZERO(zeMemGetAllocProperties, context, Ptr, &properties,
-                   nullptr);
-  int32_t ret = properties.type != ZE_MEMORY_TYPE_UNKNOWN;
+  int32_t ret = DeviceInfo->getMemAllocType(Ptr) != ZE_MEMORY_TYPE_UNKNOWN;
 
   IDP("Ptr " DPxMOD " is %sa device accessible memory pointer.\n", DPxPTR(Ptr),
      ret ? "" : "not ");
@@ -2478,7 +2520,7 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   mutex.unlock();
 
   if (DeviceInfo->Flags.UseMemoryPool) {
-    auto &pool = DeviceInfo->PagePools[DeviceId];
+    auto &pool = DeviceInfo->getPagePool(DeviceId);
     mutex.lock();
     bool deallocated = pool.deallocate(TgtPtr);
     mutex.unlock();
@@ -3084,31 +3126,23 @@ EXTERN int32_t __tgt_rtl_manifest_data_for_region(
   ze_kernel_handle_t kernel = *static_cast<ze_kernel_handle_t *>(TgtEntryPtr);
   std::unique_lock<std::mutex> dataLock(DeviceInfo->Mutexes[DeviceId]);
 
-  // We don't know how TgtPtrs are allocated, so set the flag based on L0 API
-  ze_memory_allocation_properties_t properties = {
-    ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
-    nullptr,
-    ZE_MEMORY_TYPE_UNKNOWN,
-    0,
-    0
-  };
   auto &flags =
       DeviceInfo->KernelProperties[DeviceId][kernel].IndirectAccessFlags;
 
   ScopedTimerTy tmManifestData(DeviceId, "DataManifest");
-  for (size_t i = 0; i < NumPtrs; i++) {
-    CALL_ZE_RET_FAIL(zeMemGetAllocProperties, DeviceInfo->Context, TgtPtrs[i],
-                     &properties, nullptr);
-    if (properties.type == ZE_MEMORY_TYPE_HOST)
+
+  uint32_t flagsAll = ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST |
+                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED |
+                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+
+  for (size_t i = 0; i < NumPtrs && flags != flagsAll; i++) {
+    auto memType = DeviceInfo->getMemAllocType(TgtPtrs[i]);
+    if (memType == ZE_MEMORY_TYPE_HOST)
       flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
-    else if (properties.type == ZE_MEMORY_TYPE_SHARED)
+    else if (memType == ZE_MEMORY_TYPE_SHARED)
       flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
-    else if (properties.type == ZE_MEMORY_TYPE_DEVICE)
+    else if (memType == ZE_MEMORY_TYPE_DEVICE)
       flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-    if (flags == (ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST |
-                  ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED |
-                  ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE))
-      break;
   }
   return OFFLOAD_SUCCESS;
 }
