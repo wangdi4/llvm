@@ -39286,12 +39286,11 @@ static SDValue canonicalizeLaneShuffleWithRepeatedOps(SDValue V,
 
   switch (SrcOpc0) {
   case X86ISD::MOVDDUP: {
-    SDValue LHS = DAG.getBitcast(VT, Src0.getOperand(0));
-    SDValue RHS =
-        DAG.getBitcast(VT, Src1.isUndef() ? Src1 : Src1.getOperand(0));
+    SDValue LHS = Src0.getOperand(0);
+    SDValue RHS = Src1.isUndef() ? Src1 : Src1.getOperand(0);
     SDValue Res =
-        DAG.getNode(X86ISD::VPERM2X128, DL, VT, LHS, RHS, V.getOperand(2));
-    Res = DAG.getNode(SrcOpc0, DL, SrcVT0, DAG.getBitcast(SrcVT0, Res));
+        DAG.getNode(X86ISD::VPERM2X128, DL, SrcVT0, LHS, RHS, V.getOperand(2));
+    Res = DAG.getNode(SrcOpc0, DL, SrcVT0, Res);
     return DAG.getBitcast(VT, Res);
   }
   case X86ISD::VPERMILPI:
@@ -39307,13 +39306,11 @@ static SDValue canonicalizeLaneShuffleWithRepeatedOps(SDValue V,
   case X86ISD::VSRAI:
   case X86ISD::PSHUFD:
     if (Src1.isUndef() || Src0.getOperand(1) == Src1.getOperand(1)) {
-      SDValue LHS = DAG.getBitcast(VT, Src0.getOperand(0));
-      SDValue RHS =
-          DAG.getBitcast(VT, Src1.isUndef() ? Src1 : Src1.getOperand(0));
-      SDValue Res =
-          DAG.getNode(X86ISD::VPERM2X128, DL, VT, LHS, RHS, V.getOperand(2));
-      Res = DAG.getNode(SrcOpc0, DL, SrcVT0, DAG.getBitcast(SrcVT0, Res),
-                        Src0.getOperand(1));
+      SDValue LHS = Src0.getOperand(0);
+      SDValue RHS = Src1.isUndef() ? Src1 : Src1.getOperand(0);
+      SDValue Res = DAG.getNode(X86ISD::VPERM2X128, DL, SrcVT0, LHS, RHS,
+                                V.getOperand(2));
+      Res = DAG.getNode(SrcOpc0, DL, SrcVT0, Res, Src0.getOperand(1));
       return DAG.getBitcast(VT, Res);
     }
     break;
@@ -52765,21 +52762,20 @@ static SDValue combineSub(SDNode *N, SelectionDAG &DAG,
   SDValue Op1 = N->getOperand(1);
 
   // X86 can't encode an immediate LHS of a sub. See if we can push the
-  // negation into a preceding instruction.
-  if (ConstantSDNode *C = dyn_cast<ConstantSDNode>(Op0)) {
-    // If the RHS of the sub is a XOR with one use and a constant, invert the
-    // immediate. Then add one to the LHS of the sub so we can turn
-    // X-Y -> X+~Y+1, saving one register.
-    if (Op1->hasOneUse() && Op1.getOpcode() == ISD::XOR &&
-        isa<ConstantSDNode>(Op1.getOperand(1))) {
-      const APInt &XorC = Op1.getConstantOperandAPInt(1);
-      EVT VT = Op0.getValueType();
-      SDValue NewXor = DAG.getNode(ISD::XOR, SDLoc(Op1), VT,
-                                   Op1.getOperand(0),
-                                   DAG.getConstant(~XorC, SDLoc(Op1), VT));
-      return DAG.getNode(ISD::ADD, SDLoc(N), VT, NewXor,
-                         DAG.getConstant(C->getAPIntValue() + 1, SDLoc(N), VT));
-    }
+  // negation into a preceding instruction. If the RHS of the sub is a XOR with
+  // one use and a constant, invert the immediate, saving one register.
+  // sub(C1, xor(X, C2)) -> add(xor(X, ~C2), C1+1)
+  if (Op1.getOpcode() == ISD::XOR &&
+      DAG.isConstantIntBuildVectorOrConstantInt(Op0) &&
+      DAG.isConstantIntBuildVectorOrConstantInt(Op1.getOperand(1)) &&
+      Op1->hasOneUse()) {
+    SDLoc DL(N);
+    EVT VT = Op0.getValueType();
+    SDValue NewXor = DAG.getNode(ISD::XOR, SDLoc(Op1), VT, Op1.getOperand(0),
+                                 DAG.getNOT(SDLoc(Op1), Op1.getOperand(1), VT));
+    SDValue NewAdd =
+        DAG.getNode(ISD::ADD, DL, VT, Op0, DAG.getConstant(1, DL, VT));
+    return DAG.getNode(ISD::ADD, DL, VT, NewXor, NewAdd);
   }
 
   // Try to synthesize horizontal subs from subs of shuffles.
@@ -52888,6 +52884,29 @@ static SDValue combineConcatVectorOps(const SDLoc &DL, MVT VT,
       if (Op0.getOperand(0).getOpcode() == X86ISD::VBROADCAST ||
           Op0.getOperand(0).getOpcode() == X86ISD::VBROADCAST_LOAD)
         return Op0.getOperand(0);
+    }
+  }
+
+  // concat(extract_subvector(v0,c0), extract_subvector(v1,c1)) -> vperm2x128.
+  // Only concat of subvector high halves which vperm2x128 is best at.
+  // TODO: This should go in combineX86ShufflesRecursively eventually.
+  if (VT.is256BitVector() && Ops.size() == 2) {
+    SDValue Src0 = peekThroughBitcasts(Ops[0]);
+    SDValue Src1 = peekThroughBitcasts(Ops[1]);
+    if (Src0.getOpcode() == ISD::EXTRACT_SUBVECTOR &&
+        Src1.getOpcode() == ISD::EXTRACT_SUBVECTOR) {
+      EVT SrcVT0 = Src0.getOperand(0).getValueType();
+      EVT SrcVT1 = Src1.getOperand(0).getValueType();
+      unsigned NumSrcElts0 = SrcVT0.getVectorNumElements();
+      unsigned NumSrcElts1 = SrcVT1.getVectorNumElements();
+      if (SrcVT0.is256BitVector() && SrcVT1.is256BitVector() &&
+          Src0.getConstantOperandAPInt(1) == (NumSrcElts0 / 2) &&
+          Src1.getConstantOperandAPInt(1) == (NumSrcElts1 / 2)) {
+        return DAG.getNode(X86ISD::VPERM2X128, DL, VT,
+                           DAG.getBitcast(VT, Src0.getOperand(0)),
+                           DAG.getBitcast(VT, Src1.getOperand(0)),
+                           DAG.getTargetConstant(0x31, DL, MVT::i8));
+      }
     }
   }
 
