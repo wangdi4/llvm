@@ -1554,6 +1554,17 @@ function(add_unittest test_suite test_name)
   endif()
   # end INTEL_CUSTOMIZATION
 
+  # The runtime benefits of ThinLTO don't outweight the compile time costs for tests.
+  if(uppercase_LLVM_ENABLE_LTO STREQUAL "THIN")
+    if((UNIX OR MINGW) AND LLVM_USE_LINKER STREQUAL "lld")
+      set_property(TARGET ${test_name} APPEND_STRING PROPERTY
+                    LINK_FLAGS " -Wl,--lto-O0")
+    elseif(LINKER_IS_LLD_LINK)
+      set_property(TARGET ${test_name} APPEND_STRING PROPERTY
+                    LINK_FLAGS " /opt:lldlto=0")
+    endif()
+  endif()
+
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
   if (test_suite_folder)
