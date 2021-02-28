@@ -12858,6 +12858,9 @@ private:
   bool CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 #endif // INTEL_CUSTOMIZATION
 
+  bool CheckRISCVBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
+                                     CallExpr *TheCall);
+
   bool CheckIntelFPGARegBuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
   bool CheckIntelFPGAMemBuiltinFunctionCall(CallExpr *Call);
 
