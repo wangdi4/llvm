@@ -324,7 +324,7 @@ public:
   }
 
   unsigned getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
-                                            unsigned VF) const {
+                                            ArrayRef<Type *> Tys) const {
     return 0;
   }
 
