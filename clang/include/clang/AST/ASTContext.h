@@ -34,10 +34,10 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/Linkage.h"
+#include "clang/Basic/NoSanitizeList.h"
 #include "clang/Basic/OperatorKinds.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/ProfileList.h"
-#include "clang/Basic/SanitizerBlacklist.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/XRayLists.h"
@@ -568,14 +568,18 @@ private:
   ///  this ASTContext object.
   LangOptions &LangOpts;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// The flag specifies status of "fp_contract" feature
   bool DisabledFPContract;
 #endif // INTEL_CUSTOMIZATION
 
   /// Blacklist object that is used by sanitizers to decide which
+=======
+  /// NoSanitizeList object that is used by sanitizers to decide which
+>>>>>>> e64fcdf8d53c1d2ab709394c39743fa11d270181
   /// entities should not be instrumented.
-  std::unique_ptr<SanitizerBlacklist> SanitizerBL;
+  std::unique_ptr<NoSanitizeList> NoSanitizeL;
 
   /// Function filtering mechanism to determine whether a given function
   /// should be imbued with the XRay "always" or "never" attributes.
@@ -702,9 +706,7 @@ public:
     return LangOpts.CPlusPlus || LangOpts.RecoveryAST;
   }
 
-  const SanitizerBlacklist &getSanitizerBlacklist() const {
-    return *SanitizerBL;
-  }
+  const NoSanitizeList &getNoSanitizeList() const { return *NoSanitizeL; }
 
   const XRayFunctionFilter &getXRayFilter() const {
     return *XRayFilter;
