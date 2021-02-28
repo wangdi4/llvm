@@ -1,13 +1,12 @@
-; INTEL -- This test is landing in xmain first but will be replaced by
-;          an upstream version when the same patch lands in llorg.
 ; Test upgrade of var.annotation intrinsics.
 ;
 ; RUN: llvm-dis < %s.bc | FileCheck %s
 
 
-define void @f() {
-  call void @llvm.var.annotation(i8* undef, i8* undef, i8* undef, i32 undef)
-;CHECK:  call void @llvm.var.annotation(i8* undef, i8* undef, i8* undef, i32 undef, i8* null)
+define void @f(i8* %arg0, i8* %arg1, i8* %arg2, i32 %arg3) {
+;CHECK: @f(i8* [[ARG0:%.*]], i8* [[ARG1:%.*]], i8* [[ARG2:%.*]], i32 [[ARG3:%.*]])
+  call void @llvm.var.annotation(i8* %arg0, i8* %arg1, i8* %arg2, i32 %arg3)
+;CHECK:  call void @llvm.var.annotation(i8* [[ARG0]], i8* [[ARG1]], i8* [[ARG2]], i32 [[ARG3]], i8* null)
   ret void
 }
 

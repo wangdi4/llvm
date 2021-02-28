@@ -1,19 +1,25 @@
-; INTEL -- This test is landing in xmain first but will be replaced by
-;          an upstream version when the same patch lands in llorg.
 ; Test upgrade of ptr.annotation intrinsics.
 ;
 ; RUN: llvm-dis < %s.bc | FileCheck %s
 
 ; Unused return values
-define void @f1() {
-  %t0 = call i8* @llvm.ptr.annotation.p0i8(i8* undef, i8* undef, i8* undef, i32 undef)
-;CHECK:  call i8* @llvm.ptr.annotation.p0i8(i8* undef, i8* undef, i8* undef, i32 undef, i8* null)
+; The arguments passed to the intrinisic wouldn't normally be arguments to
+; the function, but that makes it easier to test that they are handled
+; correctly.
+define void @f1(i8* %arg0, i8* %arg1, i8* %arg2, i32 %arg3) {
+;CHECK: @f1(i8* [[ARG0:%.*]], i8* [[ARG1:%.*]], i8* [[ARG2:%.*]], i32 [[ARG3:%.*]])
+  %t0 = call i8* @llvm.ptr.annotation.p0i8(i8* %arg0, i8* %arg1, i8* %arg2, i32 %arg3)
+;CHECK:  call i8* @llvm.ptr.annotation.p0i8(i8* [[ARG0]], i8* [[ARG1]], i8* [[ARG2]], i32 [[ARG3]], i8* null)
 
-  %t1 = call i16* @llvm.ptr.annotation.p0i16(i16* undef, i8* undef, i8* undef, i32 undef)
-;CHECK:  call i16* @llvm.ptr.annotation.p0i16(i16* undef, i8* undef, i8* undef, i32 undef, i8* null)
+  %arg0_p16 = bitcast i8* %arg0 to i16*
+  %t1 = call i16* @llvm.ptr.annotation.p0i16(i16* %arg0_p16, i8* %arg1, i8* %arg2, i32 %arg3)
+;CHECK:  [[ARG0_P16:%.*]] = bitcast
+;CHECK:  call i16* @llvm.ptr.annotation.p0i16(i16* [[ARG0_P16]], i8* [[ARG1]], i8* [[ARG2]], i32 [[ARG3]], i8* null)
 
-  %t2 = call i256* @llvm.ptr.annotation.p0i256(i256* undef, i8* undef, i8* undef, i32 undef)
-;CHECK:  call i256* @llvm.ptr.annotation.p0i256(i256* undef, i8* undef, i8* undef, i32 undef, i8* null)
+  %arg0_p256 = bitcast i8* %arg0 to i256*
+  %t2 = call i256* @llvm.ptr.annotation.p0i256(i256* %arg0_p256, i8* %arg1, i8* %arg2, i32 %arg3)
+;CHECK:  [[ARG0_P256:%.*]] = bitcast
+;CHECK:  call i256* @llvm.ptr.annotation.p0i256(i256* [[ARG0_P256]], i8* [[ARG1]], i8* [[ARG2]], i32 [[ARG3]], i8* null)
   ret void
 }
 
