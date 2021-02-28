@@ -36,6 +36,9 @@
 ; CHECK-PRE-LINK-NEXT: Running pass: CanonicalizeAliasesPass
 ; CHECK-PRE-LINK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-THINLTO-NEXT: Running pass: Annotation2MetadataPass
+; CHECK-THINLTO-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-THINLTO-NEXT: Running pass: EliminateAvailableExternallyPass
+; CHECK-THINLTO-NEXT: Running pass: GlobalDCEPass
 ; CHECK-LTO-NEXT: Running pass: Annotation2MetadataPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: XmainOptLevelAnalysisInit
