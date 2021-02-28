@@ -971,18 +971,21 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   // Handle some boolean conditions.
   if (I->getType()->getPrimitiveSizeInBits() == 1) {
+    using namespace PatternMatch;
+
     assert(Preference == WantInteger && "One-bit non-integer type?");
     // X | true -> true
     // X & false -> false
-    if (I->getOpcode() == Instruction::Or ||
-        I->getOpcode() == Instruction::And) {
+    Value *Op0, *Op1;
+    if (match(I, m_LogicalOr(m_Value(Op0), m_Value(Op1))) ||
+        match(I, m_LogicalAnd(m_Value(Op0), m_Value(Op1)))) {
       PredValueInfoTy LHSVals, RHSVals;
       ThreadRegionInfoTy RegionInfoOp0, RegionInfoOp1;                  // INTEL
 
-      computeValueKnownInPredecessorsImpl(I->getOperand(0), BB, LHSVals,
+      computeValueKnownInPredecessorsImpl(Op0, BB, LHSVals,
                                           RegionInfoOp0,                    // INTEL
-                                      WantInteger, RecursionSet, CxtI);
-      computeValueKnownInPredecessorsImpl(I->getOperand(1), BB, RHSVals,
+                                          WantInteger, RecursionSet, CxtI);
+      computeValueKnownInPredecessorsImpl(Op1, BB, RHSVals,
                                           RegionInfoOp1,                    // INTEL
                                           WantInteger, RecursionSet, CxtI);
 
@@ -990,7 +993,7 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
         return false;
 
       ConstantInt *InterestingVal;
-      if (I->getOpcode() == Instruction::Or)
+      if (match(I, m_LogicalOr()))
         InterestingVal = ConstantInt::getTrue(I->getContext());
       else
         InterestingVal = ConstantInt::getFalse(I->getContext());
