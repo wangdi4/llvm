@@ -568,16 +568,12 @@ private:
   ///  this ASTContext object.
   LangOptions &LangOpts;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// The flag specifies status of "fp_contract" feature
   bool DisabledFPContract;
 #endif // INTEL_CUSTOMIZATION
 
-  /// Blacklist object that is used by sanitizers to decide which
-=======
   /// NoSanitizeList object that is used by sanitizers to decide which
->>>>>>> e64fcdf8d53c1d2ab709394c39743fa11d270181
   /// entities should not be instrumented.
   std::unique_ptr<NoSanitizeList> NoSanitizeL;
 
