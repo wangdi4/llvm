@@ -547,5 +547,24 @@ void enter_exit_data() {
   #pragma omp target exit data map(always,from: a[9:13])
 }
 
+class S {
+  public:
+    int *y;
+    void foo() {
+  //CHECK: "DIR.OMP.TARGET.DATA"
+  //CHECK-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %y)
+  //CHECK: "DIR.OMP.END.TARGET.DATA"
+#pragma omp target data use_device_ptr(y)
+         y++;
+    }
+};
+
+void barfoo() {
+    int a[10];
+    S s; s.y = &a[0];
+    a[2] = 111;
+    s.foo();
+}
+
 #endif // HEADER
 // end INTEL_COLLAB

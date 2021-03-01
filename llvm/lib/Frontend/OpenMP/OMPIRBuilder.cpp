@@ -61,6 +61,16 @@ void OpenMPIRBuilder::addAttributes(omp::RuntimeFunction FnID, Function &Fn) {
   }
 }
 
+#if INTEL_COLLAB
+static unsigned getPointerAddressSpace(Module &M) {
+  Triple TargetTriple(M.getTargetTriple());
+  if (TargetTriple.getArch() == Triple::ArchType::spir ||
+      TargetTriple.getArch() == Triple::ArchType::spir64)
+    return /*GENERIC_AS=*/4;
+  return 0;
+}
+#endif // INTEL_COLLAB
+
 FunctionCallee
 OpenMPIRBuilder::getOrCreateRuntimeFunction(Module &M, RuntimeFunction FnID) {
   FunctionType *FnTy = nullptr;
@@ -68,12 +78,32 @@ OpenMPIRBuilder::getOrCreateRuntimeFunction(Module &M, RuntimeFunction FnID) {
 
   // Try to find the declation in the module first.
   switch (FnID) {
+#if INTEL_COLLAB
+#define OMP_RTL(Enum, Str, IsVarArg, ReturnType, ...)                          \
+  case Enum: {                                                                 \
+    SmallVector<llvm::Type *, 5> ArgTys = {__VA_ARGS__};                       \
+    if (unsigned PointerAS = getPointerAddressSpace(M)) {                      \
+      if (auto *PT = dyn_cast<PointerType>(ReturnType))                        \
+        if (PT != IdentPtr)                                                    \
+          ReturnType =                                                         \
+              llvm::PointerType::get(PT->getPointerElementType(), PointerAS);  \
+      for (unsigned I = 0, E = ArgTys.size(); I < E; ++I)                      \
+        if (auto *PT = dyn_cast<PointerType>(ArgTys[I]))                       \
+          if (PT != IdentPtr)                                                  \
+            ArgTys[I] = llvm::PointerType::get(PT->getPointerElementType(),    \
+                                               PointerAS);                     \
+    }                                                                          \
+    FnTy = FunctionType::get(ReturnType, ArgTys, IsVarArg);                    \
+    Fn = M.getFunction(Str);                                                   \
+  } break;
+#else  // INTEL_COLLAB
 #define OMP_RTL(Enum, Str, IsVarArg, ReturnType, ...)                          \
   case Enum:                                                                   \
     FnTy = FunctionType::get(ReturnType, ArrayRef<Type *>{__VA_ARGS__},        \
                              IsVarArg);                                        \
     Fn = M.getFunction(Str);                                                   \
     break;
+#endif  // INTEL_COLLAB
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
   }
 
@@ -238,16 +268,6 @@ Value *OpenMPIRBuilder::getOrCreateIdent(Constant *SrcLocStr,
   }
   return Builder.CreatePointerCast(Ident, IdentPtr);
 }
-
-#if INTEL_COLLAB
-static unsigned getPointerAddressSpace(Module &M) {
-  Triple TargetTriple(M.getTargetTriple());
-  if (TargetTriple.getArch() == Triple::ArchType::spir ||
-      TargetTriple.getArch() == Triple::ArchType::spir64)
-    return /*GENERIC_AS=*/4;
-  return 0;
-}
-#endif // INTEL_COLLAB
 
 Type *OpenMPIRBuilder::getLanemaskType() {
   LLVMContext &Ctx = M.getContext();

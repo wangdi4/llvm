@@ -47,4 +47,18 @@ void test_delete() {
   x[i]=1;
 }
 
+typedef struct { int a; double *b; } C;
+#pragma omp declare mapper(id: C s) map(s.a)
+
+void foo() {
+  C s;
+  s.a = 10;
+  double x[2]; x[0] = 20;
+  s.b = &x[0];
+  #pragma omp target map(mapper(id), to:s)
+  s.a++;
+}
+//CHECK: declare void @__tgt_push_mapper_component(i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i64, i64, i8 addrspace(4)*)
+//CHECK: declare i64 @__tgt_mapper_num_components(i8 addrspace(4)*) #1
+
 // end INTEL_COLLAB
