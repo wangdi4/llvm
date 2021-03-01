@@ -3342,8 +3342,23 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
   SmallVector<Constant *, 16> MaskIndices;
   for (unsigned LogicalLane = 0; LogicalLane < VF; ++LogicalLane) {
     for (int Idx = 0; Idx < OrigDstVL; ++Idx) {
-      auto *MaskElt = cast<ConstantInt>(Mask->getAggregateElement(Idx));
-      unsigned OrigIdx = MaskElt->getZExtValue();
+      auto *MaskElt = Mask->getAggregateElement(Idx);
+      if (isa<UndefValue>(MaskElt) || isa<PoisonValue>(MaskElt)) {
+        // From the LangRef: If the shuffle mask selects an undefined element
+        // from one of the input vectors, the resulting element is undefined. An
+        // undefined element in the mask vector specifies that the resulting
+        // element is undefined. An undefined element in the mask vector
+        // prevents a poisoned vector element from propagating.
+        //
+        // For poison: Vector elements may be independently poisoned. Therefore,
+        // transforms on instructions such as shufflevector must be careful to
+        // propagate poison across values or elements only as allowed by the
+        // original code... An instruction that depends on a poison value,
+        // produces a poison value itself.
+        MaskIndices.push_back(MaskElt);
+        continue;
+      }
+      unsigned OrigIdx = cast<ConstantInt>(MaskElt)->getZExtValue();
       unsigned NewIdx;
       if (OrigIdx < OrigSrcVL) {
         NewIdx = OrigSrcVL * LogicalLane + OrigIdx;
