@@ -110,18 +110,6 @@ static bool isVPValueLinear(VPValue *V, int *Step = nullptr) {
   return false;
 }
 
-/// Helper function to check if VPValue is unit step linear and return linear
-/// step in \p Step and new scalar value in \p NewScalarV.
-// TODO: Use new VPO legality infra to get this information.
-static bool isVPValueUnitStepLinear(VPValue *V, int *Step = nullptr,
-                                    Value **NewScalarV = nullptr) {
-  if (Step)
-    *Step = 0;
-  if (NewScalarV)
-    *NewScalarV = nullptr;
-  return false;
-}
-
 /// Helper function that returns widened type of given type \p VPInstTy.
 static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
   auto *VPInstVecTy = dyn_cast<VectorType>(VPInstTy);
