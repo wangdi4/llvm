@@ -7,7 +7,7 @@ endif (NOT WIN32)
 set( TARGET common_runtime_test_type )
 
 include_directories( ../../externals/gtest/include
-                     ../../externals/khronos/spirv/headers/include
+                     ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib
                      ${CL_API_HEADERS}
                      ${CMAKE_CURRENT_SOURCE_DIR}/common )
 

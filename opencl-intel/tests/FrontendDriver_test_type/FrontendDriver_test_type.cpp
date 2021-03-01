@@ -27,7 +27,7 @@
 
 #include "FrontendDriverFixture.h"
 
-#include <spirv/1.1/spirv.hpp>
+#include "SPIRV/libSPIRV/spirv_internal.hpp"
 
 #include <llvm/Support/SwapByteOrder.h>
 
@@ -142,7 +142,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
     // Hand made SPIR-V module
     std::uint32_t const spvBC[] = {
         // First 5 mandatory words
-        spv::MagicNumber, SPIRV11Version, 0, 0, 0,
+        spv::MagicNumber, SPIRV12Version, 0, 0, 0,
         // Common capabilities
         SPIRVOpCapability,  spv::CapabilityAddresses,
         SPIRVOpCapability,  spv::CapabilityLinkage,
@@ -187,8 +187,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptSPIRV10) {
        << "ERROR: SPIR-V 1.0 was rejected by FE though is supported.\n";
 }
 
-// test that a moudle with SPIR-V 1.2 version is rejected by FE
-TEST_F(ClangCompilerTestType, Test_RejectSPIRV12) {
+// test that a moudle with SPIR-V 1.2 version is accepted by FE
+TEST_F(ClangCompilerTestType, Test_AcceptSPIRV12) {
    // Hand made SPIR-V module
    std::uint32_t const spvBC[] = {
        // First 5 mandatory words
@@ -201,8 +201,8 @@ TEST_F(ClangCompilerTestType, Test_RejectSPIRV12) {
    auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 
    int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
-   ASSERT_EQ(CL_INVALID_PROGRAM, err)
-       << "ERROR: SPIR-V 1.2 was accepted by FE though is not supported.\n";
+   ASSERT_EQ(CL_SUCCESS, err)
+       << "ERROR: SPIR-V 1.2 was rejected by FE though is supported.\n";
 }
 
 // Enable the following subtest once the byte order bug is fixed in SPIR-V consumer
@@ -213,7 +213,7 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
     // Hand made SPIR-V module
     std::uint32_t spvBC[] = {
         // First 5 mandatory words
-        spv::MagicNumber, SPIRV11Version, 0, 0, 0,
+        spv::MagicNumber, SPIRV12Version, 0, 0, 0,
         // Common capabilities
         SPIRVOpCapability,  spv::CapabilityAddresses,
         SPIRVOpCapability,  spv::CapabilityLinkage,
@@ -249,7 +249,7 @@ TEST_F(ClangCompilerTestType, Test_NoSpirvMemoryModel) {
     // Hand made SPIR-V module
     std::uint32_t const spvBC[] = {
         // First 5 mandatory words
-        spv::MagicNumber, SPIRV11Version, 0, 0, 0,
+        spv::MagicNumber, SPIRV12Version, 0, 0, 0,
         // Common capabilities
         SPIRVOpCapability, spv::CapabilityAddresses,
         // No mandatory memory model
@@ -267,7 +267,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
     // Hand made SPIR-V module
     std::uint32_t const spvBC[] = {
         // First 5 mandatory words
-        spv::MagicNumber, SPIRV11Version, 0, 0, 0,
+        spv::MagicNumber, SPIRV12Version, 0, 0, 0,
         // Common capabilities
         SPIRVOpCapability, spv::CapabilitySampled1D,
         SPIRVOpCapability, spv::CapabilitySampledBuffer,
@@ -302,7 +302,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
     // Hand made SPIR-V module
     std::uint32_t const spvBC[] = {
         // First 5 mandatory words
-        spv::MagicNumber, SPIRV11Version, 0, 0, 0,
+        spv::MagicNumber, SPIRV12Version, 0, 0, 0,
         // Common capabilities
         SPIRVOpCapability, spv::CapabilityFloat64,
         // Memory model
@@ -349,7 +349,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
     for (auto IC : imageCapabilities) {
       // Hand made SPIR-V module
       std::uint32_t const spvBC[] = {// First 5 mandatory words
-                                     spv::MagicNumber, SPIRV11Version, 0, 0, 0,
+                                     spv::MagicNumber, SPIRV12Version, 0, 0, 0,
                                      // Image capability
                                      SPIRVOpCapability, IC,
                                      // Memory model

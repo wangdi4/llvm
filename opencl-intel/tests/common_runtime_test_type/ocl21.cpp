@@ -23,7 +23,7 @@
 
 #include "common_runtime_tests.h"
 #include "ocl21.h"
-#include "spirv/1.0/spirv.hpp"
+#include "SPIRV/libSPIRV/spirv_internal.hpp"
 
 class OCL21: public CommonRuntime{};
 

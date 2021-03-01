@@ -8,7 +8,7 @@ include_directories(
     # common_clang.h is in CCLANG_DEV_INCLUDE_DIRS
     ${CCLANG_DEV_INCLUDE_DIRS}
     ${OCL_SOURCE_DIR}/FrontendDriver
-    ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include )
+    ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib )
 
 # Generate SPIR-V input for tests
 set( INPUT_FILE test.cl )
