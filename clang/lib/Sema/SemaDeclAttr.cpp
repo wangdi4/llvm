@@ -3105,9 +3105,9 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
     ASTContext &Ctx = S.getASTContext();
-    Optional<llvm::APSInt> XDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> XDimVal = A->getXDimVal(Ctx);
+    Optional<llvm::APSInt> YDimVal = A->getYDimVal(Ctx);
+    Optional<llvm::APSInt> ZDimVal = A->getZDimVal(Ctx);
 
     if (N % XDimVal->getZExtValue() != 0 ||
         N % YDimVal->getZExtValue() != 0 ||
@@ -3832,58 +3832,62 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 #if INTEL_CUSTOMIZATION
   ASTContext &Ctx = S.getASTContext();
+  if (!XDimExpr->isValueDependent() && !YDimExpr->isValueDependent() &&
+      !ZDimExpr->isValueDependent()) {
+    llvm::APSInt XDimVal, YDimVal, ZDimVal;
+    ExprResult XDim = S.VerifyIntegerConstantExpression(XDimExpr, &XDimVal);
+    ExprResult YDim = S.VerifyIntegerConstantExpression(YDimExpr, &YDimVal);
+    ExprResult ZDim = S.VerifyIntegerConstantExpression(ZDimExpr, &ZDimVal);
 
-  if (D->hasAttr<AutorunAttr>()) {
-    long long int N = 1ll << 32ll;
-    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
-
-    if ((N % XDimVal->getZExtValue()) != 0 ||
-        (N % YDimVal->getZExtValue()) != 0 ||
-        (N % ZDimVal->getZExtValue()) != 0) {
-      S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+    if (XDim.isInvalid())
       return;
-    }
-  }
+    XDimExpr = XDim.get();
 
-  if (const auto *A = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
-    Optional<llvm::APSInt> NumSimdWorkItems =
-        A->getValue()->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
-
-    if (!(XDimVal->getExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
-          YDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
-          ZDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0)) {
-      S.Diag(A->getLocation(), diag::err_conflicting_sycl_function_attributes)
-          << A << AL;
-      S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
+    if (YDim.isInvalid())
       return;
+    YDimExpr = YDim.get();
+
+    if (ZDim.isInvalid())
+      return;
+    ZDimExpr = ZDim.get();
+
+    if (const auto *A = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
+      int64_t NumSimdWorkItems =
+          A->getValue()->getIntegerConstantExpr(Ctx)->getSExtValue();
+
+      if (!(XDimVal.getZExtValue() % NumSimdWorkItems == 0 ||
+            YDimVal.getZExtValue() % NumSimdWorkItems == 0 ||
+            ZDimVal.getZExtValue() % NumSimdWorkItems == 0)) {
+        S.Diag(A->getLocation(), diag::err_conflicting_sycl_function_attributes)
+            << A << AL;
+        S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
+        return;
+      }
     }
-  }
+
+    if (D->hasAttr<AutorunAttr>()) {
+      long long int N = 1ll << 32ll;
+      if ((N % XDimVal.getZExtValue()) != 0 ||
+          (N % YDimVal.getZExtValue()) != 0 ||
+          (N % ZDimVal.getZExtValue()) != 0) {
+        S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+        return;
+      }
+    }
 #endif // INTEL_CUSTOMIZATION
 
-  if (WorkGroupAttr *ExistingAttr = D->getAttr<WorkGroupAttr>()) {
-    ASTContext &Ctx = S.getASTContext();
-    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ExistingXDimVal = ExistingAttr->getXDimVal(Ctx);
-    Optional<llvm::APSInt> ExistingYDimVal = ExistingAttr->getYDimVal(Ctx);
-    Optional<llvm::APSInt> ExistingZDimVal = ExistingAttr->getZDimVal(Ctx);
-
-    // Compare attribute arguments value and warn for a mismatch.
-    if (ExistingXDimVal != XDimVal || ExistingYDimVal != YDimVal ||
-        ExistingZDimVal != ZDimVal) {
-      S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
-      S.Diag(ExistingAttr->getLocation(), diag::note_conflicting_attribute);
+    if (const auto *ExistingAttr = D->getAttr<WorkGroupAttr>()) {
+      // Compare attribute arguments value and warn for a mismatch.
+      if (ExistingAttr->getXDimVal(Ctx) != XDimVal ||
+          ExistingAttr->getYDimVal(Ctx) != YDimVal ||
+          ExistingAttr->getZDimVal(Ctx) != ZDimVal) {
+        S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
+        S.Diag(ExistingAttr->getLocation(), diag::note_conflicting_attribute);
+      }
     }
+    if (!checkWorkGroupSizeValues(S, D, AL))
+      return;
   }
-
-  if (!checkWorkGroupSizeValues(S, D, AL))
-    return;
 
   S.addIntelSYCLTripleArgFunctionAttr<WorkGroupAttr>(D, AL, XDimExpr, YDimExpr,
                                                      ZDimExpr);
