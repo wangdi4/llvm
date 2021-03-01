@@ -766,8 +766,10 @@ void PMTopLevelManager::schedulePass(Pass *P) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PI && !PI->isAnalysis() && shouldPrintBeforePass(PI->getPassArgument())) {
-    Pass *PP = P->createPrinterPass(
-        dbgs(), ("*** IR Dump Before " + P->getPassName() + " ***").str());
+    Pass *PP =
+        P->createPrinterPass(dbgs(), ("*** IR Dump Before " + P->getPassName() +
+                                      " (" + PI->getPassArgument() + ") ***")
+                                         .str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -777,8 +779,10 @@ void PMTopLevelManager::schedulePass(Pass *P) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PI && !PI->isAnalysis() && shouldPrintAfterPass(PI->getPassArgument())) {
-    Pass *PP = P->createPrinterPass(
-        dbgs(), ("*** IR Dump After " + P->getPassName() + " ***").str());
+    Pass *PP =
+        P->createPrinterPass(dbgs(), ("*** IR Dump After " + P->getPassName() +
+                                      " (" + PI->getPassArgument() + ") ***")
+                                         .str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
