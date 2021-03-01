@@ -1,6 +1,6 @@
 //===------- HLNodeUtils.cpp - Implements HLNodeUtils class ---------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -5073,6 +5073,13 @@ public:
 
     if (MayRemoveRedundantLoop) {
       HLNodeUtils::remove(Loop->child_begin(), Loop->child_end());
+
+      // Explicitly visit post exit nodes because they will be extracted to the
+      // parent loop body, which is already visited.
+      if (Loop->hasPostexit()) {
+        HLNodeUtils::visitRange(*this, Loop->post_begin(), Loop->post_end());
+      }
+
       EmptyNodeRemoverVisitorImpl::postVisit(Loop);
       return;
     }
@@ -5096,27 +5103,40 @@ public:
     EmptyNodeRemoverVisitorImpl::postVisit(Node);
   }
 
-  void visit(HLDDNode *Node) {
-    // Record side effect of LVal or volatile memref.
-    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
-      for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
-        if (Ref->isMemRef() && (Ref->isVolatile() || Ref->isLval())) {
-          LoopSideEffects.back().second = true;
-        }
+  static bool containsSideEffect(HLInst *Inst) {
+    return Inst->isSideEffectsCallInst();
+  }
+
+  static bool containsSideEffect(HLDDNode *Node) {
+    for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+      // Record side effect of LVal or volatile memref.
+      if (Ref->isMemRef() && (Ref->isVolatile() || Ref->isLval())) {
+        return true;
       }
     }
 
+    return false;
+  }
+
+  template <typename NodeTy>
+  void recordSideEffectForNode(NodeTy *Node) {
+    if (LoopSideEffects.empty()) {
+      // Node is not inside any loop.
+      return;
+    }
+
+    if (!LoopSideEffects.back().second) {
+      LoopSideEffects.back().second = containsSideEffect(Node);
+    }
+  }
+
+  void visit(HLDDNode *Node) {
+    recordSideEffectForNode(Node);
     visit(static_cast<HLNode *>(Node));
   }
 
   void visit(HLInst *Inst) {
-    // Record side effect of calls.
-    if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
-      if (Inst->isSideEffectsCallInst()) {
-        LoopSideEffects.back().second = true;
-      }
-    }
-
+    recordSideEffectForNode(Inst);
     visit(static_cast<HLDDNode *>(Inst));
   }
 
