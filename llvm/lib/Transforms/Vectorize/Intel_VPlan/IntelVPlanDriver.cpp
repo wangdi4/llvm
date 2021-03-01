@@ -296,9 +296,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   if (EnableMaskedVariant)
     for (auto &Pair : LVP.getAllVPlans()) {
-      std::shared_ptr<VPlan> Plan = Pair.second.MainPlan;
+      std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
       if (!Pair.second.MaskedModeLoop) {
-        MaskedModeLoopCreator MML(Plan.get(), VPAF);
+        MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
         LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
                                             Plan, MML.createMaskedModeLoop()});
       }
@@ -323,7 +323,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     LVP.selectBestPeelingVariants();
 
   unsigned VF = LVP.selectBestPlan();
-  VPlan *Plan = LVP.getVPlanForVF(VF);
+  VPlanVector *Plan = LVP.getVPlanForVF(VF);
   assert(Plan && "Unexpected null VPlan");
 
   LLVM_DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
@@ -396,7 +396,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // Transform SOA-GEPs.
   if (EnableSOAAnalysis) {
-    VPMemRefTransform VPMemRefTrans(*Plan);
+    VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
     VPMemRefTrans.transformSOAGEPs(VF);
   }
 
@@ -1149,7 +1149,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   raw_string_ostream RSO(PlanName);
   RSO << "Initial VPlan for VF=" << VF;
   RSO.flush();
-  VPlan *Plan = LVP.getVPlanForVF(VF);
+  VPlanVector *Plan = LVP.getVPlanForVF(VF);
   assert(Plan && "Unexpected null VPlan");
   Plan->setName(PlanName);
 

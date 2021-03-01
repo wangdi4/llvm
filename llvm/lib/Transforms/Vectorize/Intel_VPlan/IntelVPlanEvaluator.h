@@ -36,7 +36,8 @@ class TargetTransformInfo;
 
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
+class VPlanMasked;
 class VPlanCostModel;
 class VPlanPeelingVariant;
 class VPlanVLSAnalysis;
@@ -53,7 +54,7 @@ public:
 protected:
   // Calculates the cost of VPlan, without calculating peel/remainder cost. If
   // there is not a VPlan, returns UINT_MAX.
-  unsigned calculatePlanCost(unsigned VF, VPlan *Plan);
+  unsigned calculatePlanCost(unsigned VF, VPlanVector *Plan);
 
   LoopVectorizationPlanner &Planner;
   unsigned ScalarIterCost;

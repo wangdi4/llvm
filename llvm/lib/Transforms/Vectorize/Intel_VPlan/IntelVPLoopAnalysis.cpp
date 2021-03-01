@@ -1098,7 +1098,7 @@ bool ReductionDescr::isIncomplete() const {
          Exit == nullptr;
 }
 
-bool ReductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
+bool ReductionDescr::isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const {
   if (VPEntityImportDescr::isDuplicate(Plan, Loop))
     return true;
 
@@ -1175,7 +1175,7 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 //
 // 6. Unknown recurrence type
 //    - Determined based on type of reduction's Exit/recurrence PHI/Start value.
-void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
+void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (!Exit) {
     // Explicit reduction descriptors need further analysis to identify Exit
@@ -1251,7 +1251,7 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
   }
 }
 
-void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   if (!Importing)
     return;
 
@@ -1401,7 +1401,7 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   return LoopExitVPI;
 }
 
-void PrivateDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   LE->addPrivate(FinalInst, PtrAliases, IsConditional, IsLast, IsExplicit,
                  AllocaInst, isMemOnly());
@@ -1412,7 +1412,8 @@ void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
   // AllocaInst in this function.
 }
 
-void PrivateDescr::tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop) {
+void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+                                        const VPLoop *Loop) {
 
   for (auto User : AllocaInst->users()) {
     if (auto Inst = dyn_cast<VPInstruction>(User)) {
@@ -1425,7 +1426,7 @@ void PrivateDescr::tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop) {
   }
 }
 
-bool VPEntityImportDescr::isDuplicate(const VPlan *Plan,
+bool VPEntityImportDescr::isDuplicate(const VPlanVector *Plan,
                                       const VPLoop *Loop) const {
   const VPLoopEntityList *LE = Plan->getLoopEntities(Loop);
   // It's not first (LE exists) and already have the same alloca instruction
@@ -1522,7 +1523,8 @@ bool InductionDescr::isIncomplete() const {
   return StartPhi == nullptr || InductionOp == nullptr || Step == nullptr;
 }
 
-bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
+bool InductionDescr::isDuplicate(const VPlanVector *Plan,
+                                 const VPLoop *Loop) const {
   if (VPEntityImportDescr::isDuplicate(Plan, Loop))
     return true;
 
@@ -1674,7 +1676,7 @@ bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
   return false;
 }
 
-void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   if (!Importing)
     return;
 
@@ -1686,7 +1688,7 @@ void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
     VPInd->setNeedCloseForm(true);
 }
 
-void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
+void InductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (StartPhi == nullptr) {
     VPValue *V = InductionOp ? InductionOp : Start;

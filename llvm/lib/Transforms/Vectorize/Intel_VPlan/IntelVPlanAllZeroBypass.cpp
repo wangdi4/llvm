@@ -92,7 +92,7 @@ void VPlanAllZeroBypass::createLiveOutPhisAndReplaceUsers(
     VPBasicBlock *BypassEnd,
     LiveOutUsersMapTy &LiveOutMap) {
 
-  auto *DA = Plan.getVPlanDA();
+  auto *DA = cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
   Builder.setInsertPoint(BypassEnd, BypassEnd->begin());
   // Create a new phi at the end of the split for all values live-out of
   // the bypassed block and replace all users with this phi.
@@ -154,8 +154,7 @@ void VPlanAllZeroBypass::insertBypassForRegion(
   Builder.setInsertPoint(BypassBegin);
   VPValue *AllZeroCheck = Builder.createAllZeroCheck(BlockPredicate,
                                                      "all.zero.check");
-  auto *DA = Plan.getVPlanDA();
-  DA->markUniform(*AllZeroCheck);
+  Plan.getVPlanDA()->markUniform(*AllZeroCheck);
   // No need to update dominator info because bypass regions are inserted from
   // the outermost region to innermost region. Any blocks inserted previously
   // will not affect the CFG of the current region.

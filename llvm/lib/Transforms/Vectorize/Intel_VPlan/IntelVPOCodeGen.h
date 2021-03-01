@@ -47,15 +47,13 @@ class VPOCodeGen {
 public:
   VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
-             TargetLibraryInfo *TLI,
-             unsigned VecWidth, unsigned UnrollFactor,
+             TargetLibraryInfo *TLI, unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
-             const VPlan *Plan,
+             const VPlanVector *Plan,
              FatalErrorHandlerTy FatalErrorHandler = nullptr)
-      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI),
-        Legal(LVL), VLSA(VLSA),
-        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
-        VF(VecWidth), UF(UnrollFactor), Builder(Context),
+      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
+        VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
+        Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
         PreferredPeeling(Plan->getPreferredPeeling(VF)),
         OrigPreHeader(OrigLoop->getLoopPreheader()),
         FatalErrorHandler(FatalErrorHandler) {}
@@ -158,7 +156,7 @@ public:
 
   VPlanVLSAnalysis *getVLS() { return VLSA; }
 
-  void setVPlan(const VPlan *P, const VPLoopEntityList *Entities) {
+  void setVPlan(const VPlanVector *P, const VPLoopEntityList *Entities) {
     Plan = P;
     VPEntities = Entities;
   }
@@ -402,7 +400,7 @@ private:
   VPlanAlignmentAnalysis VPAA;
 
   /// VPlan for which vector code is generated, need to finalize external uses.
-  const VPlan *Plan;
+  const VPlanVector *Plan;
 
   // Loop entities, for correct reductions processing
   const VPLoopEntityList *VPEntities = nullptr;

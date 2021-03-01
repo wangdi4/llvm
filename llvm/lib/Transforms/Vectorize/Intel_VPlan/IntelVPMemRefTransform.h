@@ -22,7 +22,7 @@ namespace llvm {
 class Type;
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
 
 class VPMemRefTransform {
 public:
@@ -30,13 +30,13 @@ public:
   VPMemRefTransform &operator=(const VPMemRefTransform &) = delete;
 
   // Constructor.
-  VPMemRefTransform(VPlan &Plan) : Plan(Plan) {}
+  VPMemRefTransform(VPlanVector &Plan) : Plan(Plan) {}
 
   /// Do appropriate transforms on SOA GEPs.
   void transformSOAGEPs(unsigned VF);
 
 private:
-  VPlan &Plan;
+  VPlanVector &Plan;
 };
 
 } // namespace vpo

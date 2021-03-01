@@ -319,7 +319,7 @@ private:
   void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
 
 public:
-  VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,
+  VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlanVector *Plan,
                       HIRVectorizationLegality *Legality, const DDGraph &DDG);
 };
 

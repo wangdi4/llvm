@@ -27,7 +27,7 @@ namespace vpo {
 class VPlanLoopUnroller {
 
 public:
-  VPlanLoopUnroller(VPlan &Plan, unsigned UF) : Plan(Plan), UF(UF) {}
+  VPlanLoopUnroller(VPlanVector &Plan, unsigned UF) : Plan(Plan), UF(UF) {}
 
   // Store here unrolled parts numbers for all cloned VPInstructions.
   using VPInstUnrollPartTy = DenseMap<const VPInstruction *, unsigned>;
@@ -38,7 +38,7 @@ public:
   void run(VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
 private:
-  VPlan &Plan;
+  VPlanVector &Plan;
   unsigned UF;
 };
 

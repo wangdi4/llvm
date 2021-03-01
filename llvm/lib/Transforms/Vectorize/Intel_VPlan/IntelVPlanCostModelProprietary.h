@@ -22,7 +22,7 @@ namespace vpo {
 class VPlanCostModelProprietary : public VPlanCostModel {
   using VPlanCostModel::getLoadStoreCost;
 public:
-  explicit VPlanCostModelProprietary(const VPlan *Plan, unsigned VF,
+  explicit VPlanCostModelProprietary(const VPlanVector *Plan, unsigned VF,
                                      const TargetTransformInfo *TTI,
                                      const TargetLibraryInfo *TLI,
                                      const DataLayout *DL,

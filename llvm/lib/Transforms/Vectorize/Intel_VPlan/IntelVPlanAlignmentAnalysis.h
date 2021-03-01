@@ -20,7 +20,7 @@
 namespace llvm {
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
 class VPInstruction;
 class VPlanValueTracking;
 class VPLoadStoreInst;
@@ -177,7 +177,7 @@ public:
   /// Find and analyze all the memory references in \p VPlan.
   /// This method must be called before selecting a peeling variant, and it
   /// must be called only once.
-  void collectMemrefs(VPlan &Plan);
+  void collectMemrefs(VPlanVector &Plan);
 
   /// Find the most profitable peeling variant for a particular \p VF.
   std::unique_ptr<VPlanPeelingVariant>
@@ -195,7 +195,7 @@ public:
   selectBestDynamicPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
 private:
-  void collectCandidateMemrefs(VPlan &Plan);
+  void collectCandidateMemrefs(VPlanVector &Plan);
   void computeCongruentMemrefs();
   LLVM_DUMP_METHOD void dump();
 

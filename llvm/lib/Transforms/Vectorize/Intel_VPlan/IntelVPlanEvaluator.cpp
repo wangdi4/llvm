@@ -29,7 +29,7 @@ using namespace llvm::vpo;
 
 // Calculates the cost of a Plan. If there is not any Plan available, then this
 // function returns UINT_MAX.
-unsigned VPlanEvaluator::calculatePlanCost(unsigned VF, VPlan *Plan) {
+unsigned VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan) {
   if (Plan) {
     VPlanCostModel CM(Plan, VF, TTI, TLI, DL, VLSA);
     return CM.getCost();
@@ -60,7 +60,7 @@ VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
   }
 
   // Calculates the total cost of the masked vector peel loop.
-  VPlan *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
+  VPlanMasked *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
   unsigned MaskedVectorCost = calculatePlanCost(MainLoopVF, MaskedModePlan);
 
   unsigned ScalarTC = getScalarPeelTripCount(MainLoopVF);
@@ -124,7 +124,7 @@ void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
   // main loop.
   for (unsigned TempVF = MainLoopVF / 2; TempVF > 1; TempVF /= 2) {
     // Cost of the vectorized remainder loop.
-    VPlan *RemPlan = Planner.getVPlanForVF(TempVF);
+    VPlanVector *RemPlan = Planner.getVPlanForVF(TempVF);
     if (!RemPlan) {
       LLVM_DEBUG(dbgs() << "Remainder evaluator: no unmasked VPlan for VF="
                         << TempVF << "\n");
@@ -159,7 +159,7 @@ VPlanRemainderEvaluator::calculateBestVariant() {
   }
 
   // Calculates the total cost for masked mode loop if it is available.
-  VPlan *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
+  VPlanMasked *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
   unsigned MaskedVectorCost =
       calculatePlanCost(MainLoopVF, MaskedModePlan) * MainLoopUF;
 

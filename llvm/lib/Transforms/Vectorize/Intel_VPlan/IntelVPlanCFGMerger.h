@@ -27,12 +27,12 @@ namespace vpo {
 
 // Utility class to merge CFG of VPlan.
 class VPlanCFGMerger {
-  VPlan &Plan;
+  VPlanVector &Plan;
   VPExternalValues &ExtVals;
   VPVectorTripCountCalculation * VectorTripCount = nullptr;
 
 public:
-  VPlanCFGMerger(VPlan &P) : Plan(P), ExtVals(P.getExternals()) {}
+  VPlanCFGMerger(VPlanVector &P) : Plan(P), ExtVals(P.getExternals()) {}
 
   //
   // Create a simple chain of vectorized loop and scalar remainder.

@@ -42,7 +42,7 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
-  std::shared_ptr<VPlan>
+  std::shared_ptr<VPlanVector>
   buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
                     VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
                     std::string VPlanName,
@@ -50,13 +50,13 @@ private:
 
   /// Replace original upper bound of the loop with
   /// VPVectorTripCountCalculation.
-  void emitVecSpecifics(VPlan *Plan) override;
+  void emitVecSpecifics(VPlanVector *Plan) override;
 
 protected:
   /// Check whether everything in the loop body is supported at the moment.
   /// We can have some unimplemented things and it's better to gracefully
   /// bailout in such cases than assert or generate incorrect code.
-  bool canProcessLoopBody(const VPlan &Plan, const VPLoop &Loop) const override;
+  bool canProcessLoopBody(const VPlanVector &Plan, const VPLoop &Loop) const override;
 
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,

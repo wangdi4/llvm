@@ -25,7 +25,7 @@ class IndirectCallCodeGenerator {
 public:
   IndirectCallCodeGenerator(VPOCodeGen *CodeGen, LoopInfo *LI, unsigned VF,
                             VPTransformState *State, Value *MaskValue,
-                            const VPlan *Plan)
+                            const VPlanVector *Plan)
       : CodeGen(CodeGen), LI(LI), VF(VF), State(State), MaskValue(MaskValue),
         Plan(Plan){};
 
@@ -38,7 +38,7 @@ private:
   unsigned VF = 0;
   VPTransformState *State = nullptr;
   Value *MaskValue = nullptr;
-  const VPlan *Plan = nullptr;
+  const VPlanVector *Plan = nullptr;
 
   // Keeps the call arguments.
   SmallVector<Value *, 4> CallArgs;

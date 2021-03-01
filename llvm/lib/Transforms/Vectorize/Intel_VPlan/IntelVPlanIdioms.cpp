@@ -471,7 +471,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
   return true;
 }
 
-VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
+VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlanVector *Plan,
                                               const unsigned VF,
                                               const bool CheckSafety,
                                               RegDDRef *&PeelArrayRef) {
@@ -567,7 +567,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   return Opcode;
 }
 
-bool VPlanIdioms::isAnySearchLoop(const VPlan *Plan, const unsigned VF,
+bool VPlanIdioms::isAnySearchLoop(const VPlanVector *Plan, const unsigned VF,
                                   const bool CheckSafety) {
   RegDDRef *PeelArrayRef = nullptr;
   return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafety, PeelArrayRef));

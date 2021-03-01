@@ -80,21 +80,22 @@ extern llvm::cl::opt<bool> EnableMaskedVariant;
 namespace llvm {
 namespace vpo {
 
-class VPlan;
+class VPlanNonMasked;
+class VPlanMasked;
 class VPAnalysesFactory;
 class VPInstruction;
 class VPLoop;
 
 class MaskedModeLoopCreator {
-  VPlan *OrigVPlan = nullptr;
+  VPlanNonMasked *OrigVPlan = nullptr;
   VPAnalysesFactory &VPAF;
 
 public:
-  MaskedModeLoopCreator(VPlan *OrigVPlan, VPAnalysesFactory &VPAF)
+  MaskedModeLoopCreator(VPlanNonMasked *OrigVPlan, VPAnalysesFactory &VPAF)
       : OrigVPlan(OrigVPlan), VPAF(VPAF) {}
 
   // Emit masked mode loop.
-  std::shared_ptr<VPlan> createMaskedModeLoop();
+  std::shared_ptr<VPlanMasked> createMaskedModeLoop();
 
 private:
   // Checks whether masked mode loop is needed.

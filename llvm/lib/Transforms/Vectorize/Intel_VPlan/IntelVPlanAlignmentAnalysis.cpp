@@ -106,7 +106,7 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
 #endif
 }
 
-void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
+void VPlanPeelingAnalysis::collectMemrefs(VPlanVector &Plan) {
   collectCandidateMemrefs(Plan);
   computeCongruentMemrefs();
   LLVM_DEBUG(dump());
@@ -264,7 +264,7 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
   return Reduce;
 }
 
-void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlan &Plan) {
+void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
   for (auto &VPBB : Plan)
     for (auto &VPInst : VPBB) {
       auto *LS = dyn_cast<VPLoadStoreInst>(&VPInst);

@@ -24,7 +24,7 @@
 
 namespace llvm {
 namespace vpo {
-void formLCSSA(VPlan &Plan, bool SkipTopLoop = false);
+void formLCSSA(VPlanVector &Plan, bool SkipTopLoop = false);
 } // namespace vpo
 } // namespace llvm
 

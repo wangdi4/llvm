@@ -39,8 +39,8 @@ static cl::opt<bool>
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
-  VPlan *Plan = getVPlanForVF(BestVF);
-  assert(Plan && "VPlan not found!");
+  VPlanVector *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "Unexpected null VPlan");
 
   // Deconstruct SSA for final VPlan that will be lowered to HIR.
   VPlanSSADeconstruction SSADeconstructor(*Plan);
@@ -81,12 +81,13 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   return true;
 }
 
-std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
+std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
     unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
     VPUnlinkedInstructions &UVPI, std::string VPlanName, ScalarEvolution *SE) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext, UVPI);
-  VPlan *Plan = SharedPlan.get();
+  std::shared_ptr<VPlanVector> SharedPlan =
+      std::make_shared<VPlanNonMasked>(Ext, UVPI);
+  VPlanVector *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
 
   // Disable SOA-analysis for HIR.
@@ -112,7 +113,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
   return SharedPlan;
 }
 
-bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlan &Plan,
+bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                                                      const VPLoop &Loop) const {
   // TODO: Privates are not being imported from HIRLegality to VPEntities, hence
   // below checks for in-memory entities will not capture OMP SIMD private
@@ -158,7 +159,7 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   return UF;
 }
 
-void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlan *Plan) {
+void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
 

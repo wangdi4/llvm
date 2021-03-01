@@ -69,7 +69,7 @@ TEST_F(VPlanPeelingVariantTest, DynamicPeelingParameters) {
 class VPlanPeelingAnalysisTest : public vpo::VPlanTestBase {
 protected:
   Function *FuncFoo;
-  std::unique_ptr<VPlan> Plan;
+  std::unique_ptr<VPlanVector> Plan;
   std::unique_ptr<VPlanScalarEvolutionLLVM> VPSE;
   std::unique_ptr<VPlanValueTrackingLLVM> VPVT;
   std::unique_ptr<VPlanPeelingAnalysis> VPPA;

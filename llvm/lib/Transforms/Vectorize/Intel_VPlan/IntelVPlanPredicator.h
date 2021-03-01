@@ -28,7 +28,7 @@ namespace vpo {
 class VPlanPredicator {
 private:
   // VPlan being predicated.
-  VPlan &Plan;
+  VPlanVector &Plan;
 
   // VPLoopInfo for Plan's HCFG.
   VPLoopInfo *VPLI;
@@ -204,7 +204,7 @@ private:
   bool shouldPreserveOutgoingEdges(VPBasicBlock *Block);
 
 public:
-  VPlanPredicator(VPlan &Plan);
+  VPlanPredicator(VPlanVector &Plan);
 
   /// Predicate Plan's HCFG.
   void predicate(void);
