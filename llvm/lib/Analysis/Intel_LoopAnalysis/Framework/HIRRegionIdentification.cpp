@@ -774,7 +774,9 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
   auto BBInstCount = BB.size();
 
   // Bail out early instead of analyzing each individual instruction.
-  if ((BBInstCount + InstCount) > 10 * MaxInstThreshold) {
+  // Factor of 2 is to add buffer for DbgInfoIntrinsic and other intructions
+  // which are usually eliminated in HIR.
+  if ((BBInstCount + InstCount) > 2 * MaxInstThreshold) {
     printOptReportRemark(&Lp,
                          "Throttled due to presence of too many statements.");
     return false;
