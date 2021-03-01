@@ -1365,7 +1365,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
     SmallVectorImpl<GlobalVariable *> &Names, SmallVectorImpl<Value *> &Mappers,
-    bool &hasRuntimeEvaluationCaptureSize) {
+    bool &hasRuntimeEvaluationCaptureSize, bool VIsTargetKernelArg) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
                     << " ConstSizes.size()=" << ConstSizes.size()
@@ -1455,6 +1455,17 @@ void VPOParoptTransform::genTgtInformationForPtrs(
             NewMapType = NewMapType | TGT_MAP_RETURN_PARAM;
             LLVM_DEBUG(dbgs() << __FUNCTION__
                               << ": Added TGT_MAP_RETURN_PARAM flag.\n");
+          }
+
+          // It's possible that the frontend created a map-type for V
+          // without TGT_PARAM because it's not used inside the region.
+          // For now, we add it back so that the runtime doesn't complain
+          // about it.
+          // TODO: We can restructure to not pass V into the kernel instead.
+          if (I == 0 && VIsTargetKernelArg) {
+            NewMapType = NewMapType | TGT_MAP_TARGET_PARAM;
+            LLVM_DEBUG(dbgs() << __FUNCTION__
+                              << ": Added TGT_MAP_TARGET_PARAM flag.\n");
           }
 
           if (MapType != NewMapType) {
@@ -1748,7 +1759,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
-                                 hasRuntimeEvaluationCaptureSize);
+                                 hasRuntimeEvaluationCaptureSize,
+                                 /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,

@@ -1164,12 +1164,15 @@ private:
   /// \param [out]    Mappers         array of mappers.
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
+  /// \param [in] VIsTargetKernelArg `true` iff \p V is a kernel
+  /// function argument for a target construct.
   void genTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 SmallVectorImpl<uint64_t> &MapTypes,
                                 SmallVectorImpl<GlobalVariable *> &Names,
                                 SmallVectorImpl<Value *> &Mappers,
-                                bool &hasRuntimeEvaluationCaptureSize);
+                                bool &hasRuntimeEvaluationCaptureSize,
+                                bool VIsTargetKernelArg = false);
 
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
