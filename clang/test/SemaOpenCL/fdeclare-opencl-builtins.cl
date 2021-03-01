@@ -38,7 +38,6 @@ typedef long long2 __attribute__((ext_vector_type(2)));
 #if (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
 #define cl_khr_subgroup_ballot 1
 #endif
-#endif
 
 kernel void test_pointers(volatile global void *global_p, global const int4 *a) {
   int i;
@@ -84,10 +83,6 @@ char4 test_int(char c, char4 c4) {
   uchar4 abs1 = abs(c4);
   uchar4 abs2 = abs(abs1);
   return max(c4, c);
-}
-
-kernel void basic_readonly_image_type(__read_only image2d_t img, int2 coord, global float4 *out) {
-  out[0] = read_imagef(img, coord);
 }
 
 kernel void basic_vector_misc(float4 a) {
