@@ -475,8 +475,8 @@ int main(int Argc, const char **Argv) {
   FixupDiagPrefixExeName(DiagClient, Path);
 #if INTEL_CUSTOMIZATION
   bool HasDpcppOption = false;
-  for (int i = 1, size = argv.size(); i < size; ++i) {
-    if (argv[i] != nullptr && CheckDpcppOption(argv[i])) {
+  for (int i = 1, size = Args.size(); i < size; ++i) {
+    if (Args[i] != nullptr && CheckDpcppOption(Args[i])) {
       HasDpcppOption = true;
       break;
     }
