@@ -1387,9 +1387,6 @@ void CompilerInvocation::GenerateCodeGenArgs(
       GenerateArg(Args, OPT_ftime_report, SA);
   }
 
-  if (Opts.FunctionSections)
-    GenerateArg(Args, OPT_ffunction_sections, SA);
-
   if (Opts.PrepareForLTO && !Opts.PrepareForThinLTO)
     GenerateArg(Args, OPT_flto, SA);
 
@@ -1703,9 +1700,6 @@ bool CompilerInvocation::ParseCodeGenArgsImpl(CodeGenOptions &Opts,
       Args.hasFlag(OPT_disable_free, OPT_no_disable_free, /*Default=*/false);
 #endif //INTEL_CUSTOMIZATION
   Opts.Reciprocals = Args.getAllArgValues(OPT_mrecip_EQ);
-
-  // Basic Block Sections implies Function Sections.
-  Opts.FunctionSections = Args.hasArg(OPT_ffunction_sections);
 
   Opts.PrepareForLTO = Args.hasArg(OPT_flto, OPT_flto_EQ);
   Opts.PrepareForThinLTO = false;
