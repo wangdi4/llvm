@@ -648,6 +648,11 @@ class HIRRegionIdentification::CostModelAnalyzer
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
   unsigned IfCount;               // Approximates number of ifs in HIR.
 
+  // Current count of contiguous integer insts.
+  unsigned CurContiguousIntegerInsts;
+  // Max count of contiguous integer insts.
+  unsigned MaxContiguousIntegerInsts;
+
   unsigned MaxInstThreshold;
   unsigned MaxIfThreshold;
   unsigned MaxIfNestThreshold;
@@ -676,8 +681,8 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
     : RI(RI), Lp(Lp), IsInnermostLoop(Lp.isInnermost()),
       IsSingleExitLoop(Lp.getExitingBlock()),
       IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
-      OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
-      IfCount(0) {
+      OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0), IfCount(0),
+      CurContiguousIntegerInsts(0), MaxContiguousIntegerInsts(0) {
 
   if (MaxInstThresholdOption.getNumOccurrences() != 0) {
     MaxInstThreshold = MaxInstThresholdOption;
@@ -777,15 +782,30 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
   // Factor of 2 is to add buffer for DbgInfoIntrinsic and other intructions
   // which are usually eliminated in HIR.
   if ((BBInstCount + InstCount) > 2 * MaxInstThreshold) {
+    // Update count to print more accurate stats when bailing out.
+    InstCount += BBInstCount;
     printOptReportRemark(&Lp,
                          "Throttled due to presence of too many statements.");
     return false;
   }
 
+  CurContiguousIntegerInsts = 0;
+
   for (auto &Inst : BB) {
     if (!visit(const_cast<Instruction &>(Inst))) {
       return false;
     }
+  }
+
+  // Number of contiguous integer insts are an indicator of the size of SCEV
+  // expressions that will be formed. Huge SCEV expressions are slow to analyze
+  // so we bail out on them.
+  if ((InstCount + MaxContiguousIntegerInsts) > MaxInstThreshold) {
+    // Update count to print more accurate stats when bailing out.
+    InstCount += MaxContiguousIntegerInsts;
+    printOptReportRemark(&Lp,
+                         "Throttled due to presence of too many statements.");
+    return false;
   }
 
   return true;
@@ -794,6 +814,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
 bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     const Instruction &Inst) {
 
+  bool IsIntegerInst = false;
   // This logic is very similar to HIRParser::isEssential().
   if (isa<CallInst>(Inst)) {
 
@@ -813,6 +834,16 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     } else {
       ++InstCount;
     }
+  } else if (isa<IntegerType>(Inst.getType())) {
+    IsIntegerInst = true;
+  }
+
+  if (!IsIntegerInst) {
+    MaxContiguousIntegerInsts =
+        std::max(MaxContiguousIntegerInsts, CurContiguousIntegerInsts);
+    CurContiguousIntegerInsts = 0;
+  } else {
+    ++CurContiguousIntegerInsts;
   }
 
   bool Ret = (InstCount <= MaxInstThreshold);
@@ -882,6 +913,9 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   if (BI.isUnconditional()) {
     return visitInstruction(static_cast<const Instruction &>(BI));
   }
+
+  MaxContiguousIntegerInsts =
+      std::max(MaxContiguousIntegerInsts, CurContiguousIntegerInsts);
 
   auto ParentBB = BI.getParent();
 
