@@ -4669,12 +4669,29 @@ bool CompilerInvocation::CreateFromArgsImpl(
     Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
 
 #if INTEL_CUSTOMIZATION
-  // Set the triple of the host for SYCL device compile and HLS IntelFPGA
-  // compile.
-  if (LangOpts.SYCLIsDevice ||
-      (LangOpts.HLS && T.getEnvironment() == llvm::Triple::IntelFPGA))
+  // Set the triple of the host for HLS IntelFPGA compile.
+  if (LangOpts.HLS && T.getEnvironment() == llvm::Triple::IntelFPGA)
     Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
 #endif // INTEL_CUSTOMIZATION
+  if (LangOpts.SYCLIsDevice) {
+    // Set the triple of the host for SYCL device compile.
+    Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
+    // If specified, create an empty integration header file for now.
+    const StringRef &HeaderName = LangOpts.SYCLIntHeader;
+    if (!HeaderName.empty()) {
+      Expected<llvm::sys::fs::file_t> ft =
+          llvm::sys::fs::openNativeFileForWrite(
+              HeaderName, llvm::sys::fs::CD_OpenAlways, llvm::sys::fs::OF_None);
+      if (ft)
+        llvm::sys::fs::closeFile(*ft);
+      else {
+        // Emit a message but don't terminate; compilation will fail
+        // later if this file is absent.
+        llvm::errs() << "Error: " << llvm::toString(ft.takeError())
+                     << " when opening " << HeaderName << "\n";
+      }
+    }
+  }
 
   Success &= ParseCodeGenArgs(Res.getCodeGenOpts(), Args, DashX, Diags, T,
                               Res.getFrontendOpts().OutputFile, LangOpts);
