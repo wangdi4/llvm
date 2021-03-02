@@ -7,6 +7,7 @@ define <32 x half> @test_tcvtrowps2phiee(<32 x half> %A, i32 %B) {
 ; CHECK-LABEL: test_tcvtrowps2phiee:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2phie %edi, %tmm2, %zmm0 # encoding: [0x62,0xf2,0x45,0x48,0x6d,0xc2]
+; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x half> @llvm.x86.tcvtrowps2phiee(<32 x half> %A, i8 2, i32 %B)
   ret <32 x half> %ret
@@ -17,6 +18,7 @@ define <32 x half> @test_tcvtrowps2phiei(<32 x half> %A) {
 ; CHECK-LABEL: test_tcvtrowps2phiei:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2phie $127, %tmm2, %zmm0, %zmm0 # encoding: [0x62,0xf3,0x6f,0x48,0x77,0xc0,0x7f]
+; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x half> @llvm.x86.tcvtrowps2phiei(<32 x half> %A, i8 2, i32 127)
   ret <32 x half> %ret
