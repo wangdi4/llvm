@@ -541,7 +541,7 @@ class VPInstruction : public VPUser,
     void setFoldIVConvert(bool Fold) { FoldIVConvert = Fold; }
     bool getFoldIVConvert(void) const { return FoldIVConvert; }
 
-    void cloneFrom(const HIRSpecifics &HIR) {
+    void cloneFrom(const HIRSpecifics &HIR, bool CopySymbase) {
       if (HIR.isMaster()) {
         setUnderlyingNode(HIR.getUnderlyingNode());
         if (HIR.isValid())
@@ -558,8 +558,11 @@ class VPInstruction : public VPUser,
           setOperandIV(IV->getIVLevel());
         }
       }
-      setSymbase(HIR.getSymbase());
-      setFoldIVConvert(HIR.getFoldIVConvert());
+
+      if (CopySymbase)
+        setSymbase(HIR.getSymbase());
+      else
+        setFoldIVConvert(HIR.getFoldIVConvert());
 
       // Verify correctness of the cloned HIR.
       assert(isMaster() == HIR.isMaster() &&
@@ -769,9 +772,11 @@ private:
   /// modeled instruction.
   void generateInstruction(VPTransformState &State, unsigned Part);
 
+  virtual bool canHaveSymbase() const { return false; }
+
   void copyUnderlyingFrom(const VPInstruction &Inst) {
 #if INTEL_CUSTOMIZATION
-    HIR.cloneFrom(Inst.HIR);
+    HIR.cloneFrom(Inst.HIR, canHaveSymbase());
 #endif // INTEL_CUSTOMIZATION
     Value *V = Inst.getUnderlyingValue();
     if (V)
@@ -1804,6 +1809,8 @@ public:
     // is assigned to the cloned VPlan.
     return Cloned;
   }
+
+  bool canHaveSymbase() const override { return true; }
 
 private:
   // Captures alignment of underlying access.

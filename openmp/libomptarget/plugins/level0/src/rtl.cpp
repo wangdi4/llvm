@@ -736,7 +736,7 @@ struct KernelProfileEventsTy {
         ze_event_pool_desc_t poolDesc = {
           ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
           nullptr,
-          ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP,
+          ZE_EVENT_POOL_FLAG_HOST_VISIBLE | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP,
           (uint32_t)Size
         };
         ze_event_pool_handle_t pool = nullptr;
