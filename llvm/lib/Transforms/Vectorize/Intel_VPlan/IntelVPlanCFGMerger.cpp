@@ -75,52 +75,31 @@ void VPlanCFGMerger::updateMergeBlockIncomings(VPBasicBlock *MergeBlock,
   }
 }
 
-VPVectorTripCountCalculation *
-VPlanCFGMerger::findVectorTCInst(VPBasicBlock *StartBB) {
-  if (VectorTripCount)
-    return VectorTripCount;
-
-  auto findInBB = [](VPBasicBlock *BB) -> VPVectorTripCountCalculation * {
-    auto Iter = llvm::find_if(*BB, [](VPInstruction &I) {
-      return isa<VPVectorTripCountCalculation>(I);
-    });
-
-    if (Iter == BB->end())
-      return nullptr;
-    return cast<VPVectorTripCountCalculation>(&*Iter);
-  };
-
-  for (; StartBB; StartBB = StartBB->getSinglePredecessor())
-    if (VectorTripCount = findInBB(StartBB))
-      break;
-
-  assert(VectorTripCount && "Can't find vector TC");
-  return VectorTripCount;
-}
-
-VPBasicBlock *VPlanCFGMerger::findFirstNonEmptyBB() const {
-  VPBasicBlock *BB = Plan.getEntryBlock();
-  for (; BB && BB->terminator() == BB->begin(); BB = BB->getSingleSuccessor())
-    ;
-  assert(BB && "Non-empty VPlan expected");
-  return BB;
+// Try to find vector trip count instruction in the basic block.
+static VPVectorTripCountCalculation *findVectorTCInst(VPBasicBlock *BB) {
+  auto Iter = llvm::find_if(*BB, [](VPInstruction &I) {
+    return isa<VPVectorTripCountCalculation>(I);
+  });
+  if (Iter == BB->end())
+    return nullptr;
+  return cast<VPVectorTripCountCalculation>(&*Iter);
 }
 
 VPBasicBlock *
 VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
 
   VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
-  // Create new basic block before first non-empty block.
-  VPBasicBlock *VectorTopTestBB = findFirstNonEmptyBB();
-  VPBasicBlock *FirstExecutableBB =
+  // Create new basic block before loop preheader.
+  VPBasicBlock *VectorTopTestBB = Loop->getLoopPreheader();
+  assert(VectorTopTestBB && "Loop preheader is expected to exist.");
+  VPBasicBlock *Preheader =
       VPBlockUtils::splitBlockBegin(VectorTopTestBB, Plan.getVPLoopInfo(),
                                     Plan.getDT(), Plan.getPDT());
   // Find and move vector trip count and original trip count instructions to
   // the new block.
-  VPBasicBlock *Preheader = Loop->getLoopPreheader();
-  assert(Preheader && "Loop preheader is expected to exist.");
-
   VPVectorTripCountCalculation *VectorTC = findVectorTCInst(Preheader);
+  assert(VectorTC && "Expected vector TC in preheader");
+
   VPOrigTripCountCalculation *OrigTC =
       cast<VPOrigTripCountCalculation>(VectorTC->getOperand(0));
 
@@ -136,7 +115,7 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
   auto *VectorTopTest =
       Builder.createCmpInst(CmpInst::ICMP_EQ, Zero, VectorTC, "vec.tc.check");
   Plan.getVPlanDA()->markUniform(*VectorTopTest);
-  VectorTopTestBB->setTerminator(FallThroughMergeBlock, FirstExecutableBB, VectorTopTest);
+  VectorTopTestBB->setTerminator(FallThroughMergeBlock, Preheader, VectorTopTest);
   return VectorTopTestBB;
 }
 
@@ -147,12 +126,20 @@ VPBasicBlock *VPlanCFGMerger::createRemainderTopTest(VPBasicBlock *InsertAfter,
   VPBasicBlock *Preheader = Loop->getLoopPreheader();
 
   // Find vector tc and original tc instructions
-  VPVectorTripCountCalculation *VectorTC = findVectorTCInst(Preheader);
-  VPOrigTripCountCalculation *OrigTC =
-      cast<VPOrigTripCountCalculation>(VectorTC->getOperand(0));
+  VPOrigTripCountCalculation *OrigTC = nullptr;
+  VPVectorTripCountCalculation *VectorTC = nullptr;
+  for (auto PrevBB : Preheader->getPredecessors()) {
+    VectorTC = findVectorTCInst(PrevBB);
+    if (VectorTC)
+      break;
+  }
+  assert(VectorTC && "Expected vector TC in preheader");
+
+  OrigTC = cast<VPOrigTripCountCalculation>(VectorTC->getOperand(0));
   // Create a new block after insertion point.
-  VPBasicBlock *RemIterTestBB = VPBlockUtils::splitBlockEnd(
-      InsertAfter, Plan.getVPLoopInfo(), Plan.getDT(), Plan.getPDT());
+  VPBasicBlock *RemIterTestBB =
+      VPBlockUtils::splitBlockEnd(InsertAfter, Plan.getVPLoopInfo(),
+                                  Plan.getDT(), Plan.getPDT());
   // Generate a check for vector tc is not equal original tc and branch
   // accoring to the check.
   VPBuilder Builder;
