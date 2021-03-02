@@ -2123,6 +2123,8 @@ void CodeGenModule::setNonAliasAttributes(GlobalDecl GD,
 
   if (D) {
     if (auto *GV = dyn_cast<llvm::GlobalVariable>(GO)) {
+      if (D->hasAttr<RetainAttr>())
+        addUsedGlobal(GV);
       if (auto *SA = D->getAttr<PragmaClangBSSSectionAttr>())
         GV->addAttribute("bss-section", SA->getName());
       if (auto *SA = D->getAttr<PragmaClangDataSectionAttr>())
@@ -2134,6 +2136,8 @@ void CodeGenModule::setNonAliasAttributes(GlobalDecl GD,
     }
 
     if (auto *F = dyn_cast<llvm::Function>(GO)) {
+      if (D->hasAttr<RetainAttr>())
+        addUsedGlobal(F);
       if (auto *SA = D->getAttr<PragmaClangTextSectionAttr>())
         if (!D->getAttr<SectionAttr>())
           F->addFnAttr("implicit-section-name", SA->getName());
