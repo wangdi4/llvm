@@ -62,9 +62,8 @@ public:
     /// @brief checks if some pipes access were not resolved statically
     bool hasFpgaPipeDynamicAccess();
 
-    /// @brief checks if any of "must vectorize" functions are failed
-    /// to vectorize.
-    bool hasFailedToVectorizerMustVec();
+    /// @brief checks if there are any issues with vector-varian attributes.
+    bool hasVectorVariantFailure();
 
     /// @brief checks if there are some channels whose depths are differs from
     /// real depth on FPGA hardware due to channel depth mode, so we should emit
@@ -74,7 +73,7 @@ public:
     enum InvalidFunctionType {
         RECURSION,
         FPGA_PIPE_DYNAMIC_ACCESS,
-        FAILED_TO_VECTORIZE_MUST_VEC_FUNCTION
+        VECTOR_VARIANT_FAILURE
     };
 
     enum InvalidGVType {
