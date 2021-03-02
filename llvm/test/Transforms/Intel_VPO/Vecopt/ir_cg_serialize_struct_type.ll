@@ -7,18 +7,16 @@
 ; CHECK-NEXT:  VPlan IR for: simd_test:bb5
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB2]], [[VECTOR_PH:.*]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[VECTOR_PH]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_P0:%.*]] = phi  [ i32 [[VP_P0_IND_INIT:%.*]], [[VECTOR_PH]] ],  [ i32 [[VP_ADD21:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INT_SEXT17:%.*]] = sext i32 [[VP_P0]] to i64 (SVAOpBits 0->F )
-; FIXME: Accesses to non-vectorizable type will always be serialized. Marking GEP FirstScalar
-; using unit-strided optimization here is incorrect.
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] %complex_64bit* [[VP_PR:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pR i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] [[COMPLEX_64BIT0:%.*]] = type { float, float } [[VP_PR_FETCH:%.*]] = load %complex_64bit* [[VP_PR]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] %complex_64bit* [[VP_PS:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pS i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[VP_PS]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_P0:%.*]] = phi  [ i32 [[VP_P0_IND_INIT:%.*]], [[VECTOR_PH]] ],  [ i32 [[VP_ADD21:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INT_SEXT17:%.*]] = sext i32 [[VP_P0]] to i64 (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] %complex_64bit* [[VP_PR:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pR i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] [[COMPLEX_64BIT0:%.*]] = type { float, float } [[VP_PR_FETCH:%.*]] = load %complex_64bit* [[VP_PR]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] %complex_64bit* [[VP_PS:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pS i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[VP_PS]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD:%.*]] = load %complex_64bit* [[UNI_SRC0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD]] %complex_64bit* [[UNI_DEST0:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (  L)] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[UNI_DEST0]] (SVAOpBits 0->L 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_ADD21]] = add i32 [[VP_P0]] i32 [[VP_P0_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD21]] = add i32 [[VP_P0]] i32 [[VP_P0_IND_INIT_STEP:%.*]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )

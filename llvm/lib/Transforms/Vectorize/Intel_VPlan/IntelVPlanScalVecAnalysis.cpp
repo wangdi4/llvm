@@ -130,32 +130,17 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
 
   case Instruction::Load:
   case Instruction::Store: {
-    // Non-simple loads/stores should be vectorized always.
-    if (!Inst->isSimpleLoadStore()) {
-      setSVAKindForInst(Inst, SVAKind::Vector);
-      setSVAKindForAllOperands(Inst, SVAKind::Vector);
-      return true;
-    }
-
     // Loads/stores are processed uniquely since the nature of the instruction
-    // is not propagated to its operands. Specialization is done for
+    // is not propagated to its operands. Specialization is done for possible
     // unit-stride and uniform memory accesses.
+
     VPValue *Ptr = getLoadStorePointerOperand(Inst);
     unsigned PtrOpIdx = Inst->getOperandIndex(Ptr);
-    if (DA->isUnitStridePtr(Ptr)) {
-      // For a unit-stride access, pointer will be scalar in nature,
-      // specifically requiring first lane value.
-      setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
-      // The access itself is vector in nature.
-      setSVAKindForInst(Inst, SVAKind::Vector);
-      // For stores, the value operand should be vector.
-      if (Inst->getOpcode() == Instruction::Store)
-        setSVAKindForOperand(Inst, 0 /*Value OpIdx*/, SVAKind::Vector);
-      return true;
-    }
-    if (!DA->isDivergent(*Ptr)) {
-      // If the pointer operand is uniform, then the access itself is uniform
-      // and hence scalar (for first lane) in nature.
+
+    if (Inst->isSimpleLoadStore() && !DA->isDivergent(*Ptr)) {
+      // If the load/store is simple (non-atomic and non-volatile) and the
+      // pointer operand is uniform, then the access itself is uniform and hence
+      // scalar (for first/last lane) in nature.
       setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
       if (Inst->getOpcode() == Instruction::Load)
         setSVAKindForInst(Inst, SVAKind::FirstScalar);
@@ -170,6 +155,18 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
         setSVAKindForOperand(Inst, 0 /*Value OpIdx*/, StoreValOpKind);
         setSVAKindForInst(Inst, StoreValOpKind);
       }
+      return true;
+    }
+
+    if (isVectorizableLoadStore(Inst) && DA->isUnitStridePtr(Ptr)) {
+      // For a vectorizable unit-stride access, pointer will be scalar in
+      // nature, specifically requiring first lane value.
+      setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
+      // The access itself is vector in nature.
+      setSVAKindForInst(Inst, SVAKind::Vector);
+      // For stores, the value operand should be vector.
+      if (Inst->getOpcode() == Instruction::Store)
+        setSVAKindForOperand(Inst, 0 /*Value OpIdx*/, SVAKind::Vector);
       return true;
     }
 
