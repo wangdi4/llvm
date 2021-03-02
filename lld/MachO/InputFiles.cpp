@@ -278,16 +278,20 @@ void ObjFile::parseRelocations(const section_64 &sec,
       continue;
     if (relInfo.r_address & R_SCATTERED)
       fatal("TODO: Scattered relocations not supported");
-    uint64_t embeddedAddend = target->getEmbeddedAddend(mb, sec, relInfo);
-    assert(!(embeddedAddend && pairedAddend));
-    uint64_t totalAddend = pairedAddend + embeddedAddend;
 
     Reloc p;
     if (target->hasAttr(relInfo.r_type, RelocAttrBits::SUBTRAHEND)) {
       p.type = relInfo.r_type;
       p.referent = symbols[relInfo.r_symbolnum];
       relInfo = relInfos[++i];
+      // SUBTRACTOR relocations should always be followed by an UNSIGNED one
+      // indicating the minuend symbol.
+      assert(target->hasAttr(relInfo.r_type, RelocAttrBits::UNSIGNED) &&
+             relInfo.r_extern);
     }
+    uint64_t embeddedAddend = target->getEmbeddedAddend(mb, sec, relInfo);
+    assert(!(embeddedAddend && pairedAddend));
+    uint64_t totalAddend = pairedAddend + embeddedAddend;
     Reloc r;
     r.type = relInfo.r_type;
     r.pcrel = relInfo.r_pcrel;
@@ -317,8 +321,7 @@ void ObjFile::parseRelocations(const section_64 &sec,
     }
 
     InputSection *subsec = findContainingSubsection(subsecMap, &r.offset);
-    if (p.type != GENERIC_RELOC_INVALID &&
-        target->hasAttr(p.type, RelocAttrBits::SUBTRAHEND))
+    if (p.type != GENERIC_RELOC_INVALID)
       subsec->relocs.push_back(p);
     subsec->relocs.push_back(r);
   }
