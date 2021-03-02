@@ -667,7 +667,7 @@ static bool RoundTrip(ParseFn Parse, GenerateFn Generate,
   // Generate arguments from the dummy invocation. If Generate is the
   // inverse of Parse, the newly generated arguments must have the same
   // semantics as the original.
-  SmallVector<const char *> GeneratedArgs1;
+  SmallVector<const char *, 16> GeneratedArgs1;
   Generate(DummyInvocation, GeneratedArgs1, SA);
 
   // Run the second parse, now on the generated arguments, and with the real
@@ -687,7 +687,7 @@ static bool RoundTrip(ParseFn Parse, GenerateFn Generate,
 
   // Generate arguments again, this time from the options we will end up using
   // for the rest of the compilation.
-  SmallVector<const char *> GeneratedArgs2;
+  SmallVector<const char *, 16> GeneratedArgs2;
   Generate(RealInvocation, GeneratedArgs2, SA);
 
   // Compares two lists of generated arguments.
@@ -3817,11 +3817,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     if (Name == "full" || Name == "branch") {
       Opts.CFProtectionBranch = 1;
     }
-  }
-
-
-  if (auto *A = Args.getLastArg(OPT_cuid_EQ)) {
-    Opts.CUID = std::string(A->getValue());
   }
 
   if (Opts.ObjC) {
