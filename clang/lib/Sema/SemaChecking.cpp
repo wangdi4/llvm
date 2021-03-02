@@ -4400,15 +4400,6 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tilemovee:
   case X86::BI__builtin_ia32_tilemovex:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
-  case X86::BI__builtin_ia32_tcvtrowps2bf16ee:
-  case X86::BI__builtin_ia32_tcvtrowps2phee:
-  case X86::BI__builtin_ia32_tcvtrowd2psee:
-    return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
-  case X86::BI__builtin_ia32_tcvtrowps2bf16ei:
-  case X86::BI__builtin_ia32_tcvtrowps2phei:
-  case X86::BI__builtin_ia32_tcvtrowd2psei:
-    return (CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31) ||
-            CheckX86BuiltinTileArgumentsRange(TheCall, 1, 0, 255));
   case X86::BI__builtin_ia32_tilemove:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1}, 0, 31);
   case X86::BI__builtin_ia32_ttransposed:
@@ -4513,6 +4504,21 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_ttmmulfp19ps:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
 #endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16hee:
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16lee:
+  case X86::BI__builtin_ia32_tcvtrowps2phhee:
+  case X86::BI__builtin_ia32_tcvtrowps2phlee:
+  case X86::BI__builtin_ia32_tcvtrowd2psee:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16hei:
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16lei:
+  case X86::BI__builtin_ia32_tcvtrowps2phhei:
+  case X86::BI__builtin_ia32_tcvtrowps2phlei:
+  case X86::BI__builtin_ia32_tcvtrowd2psei:
+    return (CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31) ||
+            CheckX86BuiltinTileArgumentsRange(TheCall, 1, 0, 255));
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
   }
 }
 #endif // INTEL_CUSTOMIZATION
