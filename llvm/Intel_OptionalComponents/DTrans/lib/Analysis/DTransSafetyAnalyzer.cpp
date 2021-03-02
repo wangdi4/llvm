@@ -4196,5 +4196,5 @@ INITIALIZE_PASS_END(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
 char DTransSafetyAnalyzerWrapper::ID = 0;
 
 ModulePass *llvm::createDTransSafetyAnalyzerTestWrapperPass() {
-  return new DTransAnalysisWrapper();
+  return new DTransSafetyAnalyzerWrapper();
 }

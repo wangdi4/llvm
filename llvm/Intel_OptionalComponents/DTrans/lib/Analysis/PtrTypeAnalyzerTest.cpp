@@ -1,6 +1,6 @@
 //===---------------------PtrTypeAnalyzerTest.cpp-------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,6 +18,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
