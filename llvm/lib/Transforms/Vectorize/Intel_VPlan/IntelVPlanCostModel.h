@@ -75,7 +75,7 @@ public:
                  const DataLayout *DL,
                  VPlanVLSAnalysis *VLSA = nullptr)
     : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VLSA(VLSA) {
-    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
+    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI, *DL);
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
@@ -100,7 +100,7 @@ public:
                  const TargetLibraryInfo *TLI,
                  const DataLayout *DL)
     : Plan(Plan), VF(VF), TLI(TLI), DL(DL) {
-    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
+    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI, *DL);
   }
 #endif // INTEL_CUSTOMIZATION
   unsigned getCost();

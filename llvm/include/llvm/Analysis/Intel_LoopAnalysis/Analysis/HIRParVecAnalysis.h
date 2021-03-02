@@ -304,6 +304,7 @@ public:
     MinOrMax,
     // Index instruction of minmax+index idiom.
     MMFirstLastLoc,
+    VConflict,
   };
 
 private:
@@ -367,7 +368,9 @@ public:
   static bool isStandaloneIdiom(IdiomId Id) { return false; }
 
   /// Predicate whether \p Id marks idioms that require the linked ones.
-  static bool isMasterIdiom(IdiomId Id) { return Id == MinOrMax; }
+  static bool isMasterIdiom(IdiomId Id) {
+    return Id == MinOrMax || Id == VConflict;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
@@ -391,7 +394,8 @@ public:
   }
 
   static const char *getIdiomName(IdiomId Id) {
-    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastLoc"};
+    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastLoc",
+                                  "VConflict"};
     return Names[Id];
   }
 #endif

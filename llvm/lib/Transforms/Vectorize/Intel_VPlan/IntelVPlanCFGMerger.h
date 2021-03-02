@@ -29,6 +29,7 @@ namespace vpo {
 class VPlanCFGMerger {
   VPlan &Plan;
   VPExternalValues &ExtVals;
+  VPVectorTripCountCalculation * VectorTripCount = nullptr;
 
 public:
   VPlanCFGMerger(VPlan &P) : Plan(P), ExtVals(P.getExternals()) {}
@@ -112,6 +113,13 @@ private:
 
   // Set operands of external uses to merge values from the \p FinalBB.
   void updateExternalUsesOperands(VPBasicBlock *FinalBB);
+
+  // Find first non-empty VPBasicBlock in VPlan, starting from the entry.
+  VPBasicBlock *findFirstNonEmptyBB() const;
+
+  // Try to find vector trip count instruction in the chain of predecessors
+  // starting from basic block \p StartBB.
+  VPVectorTripCountCalculation *findVectorTCInst(VPBasicBlock *StartBB);
 };
 
 } // namespace vpo
