@@ -1991,7 +1991,7 @@ pi_result piContextCreate(const pi_context_properties *Properties,
   ZE_CALL(zeContextCreate((*Devices)->Platform->ZeDriver, &ContextDesc,
                           &ZeContext));
   try {
-    *RetContext = new _pi_context(ZeContext, NumDevices, Devices);
+    *RetContext = new _pi_context(ZeContext, NumDevices, Devices, true);
     (*RetContext)->initialize();
   } catch (const std::bad_alloc &) {
     return PI_OUT_OF_HOST_MEMORY;
@@ -2050,6 +2050,7 @@ pi_result piextContextGetNativeHandle(pi_context Context,
 pi_result piextContextCreateWithNativeHandle(pi_native_handle NativeHandle,
                                              pi_uint32 NumDevices,
                                              const pi_device *Devices,
+                                             bool OwnNativeHandle,
                                              pi_context *RetContext) {
   PI_ASSERT(NativeHandle, PI_INVALID_VALUE);
   PI_ASSERT(Devices, PI_INVALID_DEVICE);
@@ -2058,7 +2059,7 @@ pi_result piextContextCreateWithNativeHandle(pi_native_handle NativeHandle,
 
   try {
     *RetContext = new _pi_context(pi_cast<ze_context_handle_t>(NativeHandle),
-                                  NumDevices, Devices);
+                                  NumDevices, Devices, OwnNativeHandle);
     (*RetContext)->initialize();
   } catch (const std::bad_alloc &) {
     return PI_OUT_OF_HOST_MEMORY;
@@ -2082,7 +2083,8 @@ pi_result piContextRelease(pi_context Context) {
   PI_ASSERT(Context, PI_INVALID_CONTEXT);
 
   if (--(Context->RefCount) == 0) {
-    auto ZeContext = Context->ZeContext;
+    ze_context_handle_t DestoryZeContext =
+        Context->OwnZeContext ? Context->ZeContext : nullptr;
 
     // Clean up any live memory associated with Context
     pi_result Result = Context->finalize();
@@ -2096,7 +2098,8 @@ pi_result piContextRelease(pi_context Context) {
     // and therefore it must be valid at that point.
     // Technically it should be placed to the destructor of pi_context
     // but this makes API error handling more complex.
-    ZE_CALL(zeContextDestroy(ZeContext));
+    if (DestoryZeContext)
+      ZE_CALL(zeContextDestroy(DestoryZeContext));
 
     return Result;
   }
