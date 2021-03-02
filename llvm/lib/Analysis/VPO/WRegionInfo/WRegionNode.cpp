@@ -1045,13 +1045,15 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     Value *BasePtr = (Value *)Args[0];
     Value *SectionPtr = (Value *)Args[1];
     Value *Size = (Value *)Args[2];
-    uint64_t MapType = 0;
     bool AggrHasMapType = (NumArgs == 4 || NumArgs == 6);
+    MapAggrTy *Aggr = nullptr;
     if (AggrHasMapType) {
       ConstantInt *CI = cast<ConstantInt>(Args[3]);
-      MapType = CI->getZExtValue();
+      uint64_t MapType = CI->getZExtValue();
+      Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
+    } else {
+      Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
     }
-    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
     if (NumArgs == 6) {
       auto *Name = cast<Constant>(Args[4]);
       Aggr->setName(!Name->isNullValue() ? cast<GlobalVariable>(Name)

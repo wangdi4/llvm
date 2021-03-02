@@ -1429,7 +1429,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         }
 
         uint64_t MapType = Aggr->getMapType();
-        if (MapType) {
+        if (MapType || Aggr->hasExplicitMapType()) {
           // MemberOf flag is in the 16 MSBs of the 64 bit MapType.
           uint64_t MemberOfFlag = MapType >> 48;
           uint64_t NewMapType = MapType;
