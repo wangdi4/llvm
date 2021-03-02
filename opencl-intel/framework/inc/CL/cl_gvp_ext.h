@@ -26,7 +26,7 @@ CL_API_CALL clGetDeviceGlobalVariablePointerINTEL(
     cl_program      program,
     const char *    global_variable_name,
     size_t *        global_variable_size_ret,
-    void **         global_variable_pointer_ret) CL_EXT_SUFFIX__VERSION_2_2;
+    void **         global_variable_pointer_ret) CL_API_SUFFIX__VERSION_2_2;
 
 typedef CL_API_ENTRY cl_int
 (CL_API_CALL *clGetDeviceGlobalVariablePointerINTEL_fn)(
@@ -34,7 +34,7 @@ typedef CL_API_ENTRY cl_int
     cl_program      program,
     const char *    global_variable_name,
     size_t *        global_variable_size_ret,
-    void **         global_variable_pointer_ret) CL_EXT_SUFFIX__VERSION_2_2;
+    void **         global_variable_pointer_ret) CL_API_SUFFIX__VERSION_2_2;
 
 #ifdef __cplusplus
 }
