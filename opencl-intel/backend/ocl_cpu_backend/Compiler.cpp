@@ -109,13 +109,12 @@ static void LogHasFpgaPipeDynamicAccess(llvm::raw_ostream& logs,
     }
 }
 
-static void LogHasFailedToVectorizeMustVecFunctions(
+static void LogVectorVariantFailureFunctions(
     llvm::raw_ostream& logs,
-    const std::vector<std::string>& functions)
+    const std::vector<std::string>& functions,
+    const std::string &reason)
 {
-    // So far this is the only reason to observe vectorization being failed.
-    logs << "Error: failed to match a vector variant for an indirect "
-         << "call in function(s):\n";
+    logs << "Error: " << reason << " in function(s):\n";
 
     for (const auto& f : functions)
     {
@@ -579,6 +578,26 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
         }
     }
 
+    if (optimizer.hasVectorVariantFailure()) {
+      std::map<std::string, std::vector<std::string>> Reasons;
+      for (auto &F : *pModule)
+        if (F.hasFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE)) {
+          std::string Value =
+              F.getFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE)
+                  .getValueAsString()
+                  .str();
+          Reasons[Value].push_back(F.getName().str());
+        }
+
+      for (auto It : Reasons)
+        Utils::LogVectorVariantFailureFunctions(pResult->LogS(), It.second,
+                                                It.first);
+
+      throw Exceptions::UserErrorCompilerException(
+          "Vector-variant processing problem for an indirect function call.",
+          CL_DEV_INVALID_BINARY);
+    }
+
     if (optimizer.hasUndefinedExternals()) {
       auto undefExternals = optimizer.GetUndefinedExternals();
       if (m_bIsFPGAEmulator && !this->getBuiltinInitLog().empty() &&
@@ -610,16 +629,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       throw Exceptions::UserErrorCompilerException(
           "Dynamic access to FPGA pipe or channel detected.",
           CL_DEV_INVALID_BINARY);
-    }
-
-    if (optimizer.hasFailedToVectorizerMustVec()) {
-      Utils::LogHasFailedToVectorizeMustVecFunctions(
-        pResult->LogS(), optimizer.GetInvalidFunctions(
-          Optimizer::InvalidFunctionType::FAILED_TO_VECTORIZE_MUST_VEC_FUNCTION));
-
-      throw Exceptions::UserErrorCompilerException(
-        "Failed to match vector variant for an indirect function call.",
-        CL_DEV_INVALID_BINARY);
     }
 
     if (optimizer.hasFPGAChannelsWithDepthIgnored())
