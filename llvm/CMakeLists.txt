@@ -54,7 +54,7 @@ if (INTEL_CUSTOMIZATION)
      set(FULL_VERSION "${FULL_VERSION}-${DPCPP_VERSION_QUALITY}")
   endif()
   set(DPCPP_PRODUCT_FULL_VERSION ${FULL_VERSION})
-  set(DPCPP_PRODUCT_NAME "Intel(R) oneAPI DPC++ Compiler")
+  set(DPCPP_PRODUCT_NAME "Intel(R) oneAPI DPC++/C++ Compiler")
   # The bitcode producer string must be encoded using only alphanumeric
   # characters plus '.' and '_'
   set(DPCPP_BITCODE_PRODUCER_STR "Intel.oneAPI.DPCPP.Compiler_${DPCPP_PRODUCT_VERSION}")

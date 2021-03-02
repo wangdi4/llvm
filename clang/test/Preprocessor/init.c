@@ -1066,7 +1066,7 @@
 // SPARC:#define __UINT_LEAST8_TYPE__ unsigned char
 // SPARC:#define __USER_LABEL_PREFIX__
 // INTEL_CUSTOMIZATION
-// SPARC:#define __VERSION__ "{{.*}}Intel(R) oneAPI DPC++ Compiler{{.*}}
+// SPARC:#define __VERSION__ "{{.*}}Intel(R) oneAPI DPC++/C++ Compiler{{.*}}
 // INTEL_CUSTOMIZATION
 // SPARC:#define __WCHAR_MAX__ 2147483647
 // SPARC:#define __WCHAR_TYPE__ int
