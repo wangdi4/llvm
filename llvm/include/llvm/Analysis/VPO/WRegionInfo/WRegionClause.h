@@ -941,24 +941,26 @@ private:
   Value *BasePtr;
   Value *SectionPtr;
   Value *Size;
-  uint64_t MapType;
+  uint64_t MapType = 0;
+  bool HasExplicitMapType = false;
   GlobalVariable *Name = nullptr;
   Value *Mapper = nullptr;
 
 public:
   MapAggrTy(Value *BP, Value *SP, Value *Sz)
-      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(0) {}
+      : BasePtr(BP), SectionPtr(SP), Size(Sz) {}
   MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT)
-      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT) {}
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT),
+        HasExplicitMapType(true) {}
   void setBasePtr(Value *BP) { BasePtr = BP; }
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
-  void setMapType(uint64_t MT) { MapType = MT;}
   void setName(GlobalVariable *N) { Name = N; }
   void setMapper(Value *M) { Mapper = M; }
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
+  bool hasExplicitMapType() { return HasExplicitMapType; }
   uint64_t getMapType() const { return MapType; }
   GlobalVariable *getName() const { return Name; }
   Value *getMapper() const { return Mapper; }
@@ -1122,7 +1124,10 @@ public:
         OS << ", ";
         Size->printAsOperand(OS, PrintType);
         OS << ", ";
-        OS << MapType;
+        if (Aggr->hasExplicitMapType())
+          OS << MapType;
+        else
+          OS << "UNSPECIFIED";
         OS << ", ";
         if (Name)
           Name->printAsOperand(OS, PrintType);
