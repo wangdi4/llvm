@@ -1176,6 +1176,10 @@ ChangeStatus Attributor::manifestAttributes() {
 }
 
 void Attributor::identifyDeadInternalFunctions() {
+  // Early exit if we don't intend to delete functions.
+  if (!DeleteFns)
+    return;
+
   // Identify dead internal functions and delete them. This happens outside
   // the other fixpoint analysis as we might treat potentially dead functions
   // as live to lower the number of iterations. If they happen to be dead, the
@@ -2289,7 +2293,8 @@ void AbstractAttribute::printWithDeps(raw_ostream &OS) const {
 static bool runAttributorOnFunctions(InformationCache &InfoCache,
                                      SetVector<Function *> &Functions,
                                      AnalysisGetter &AG,
-                                     CallGraphUpdater &CGUpdater) {
+                                     CallGraphUpdater &CGUpdater,
+                                     bool DeleteFns) {
   if (Functions.empty())
     return false;
 
@@ -2298,7 +2303,8 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
 
   // Create an Attributor and initially empty information cache that is filled
   // while we identify default attribute opportunities.
-  Attributor A(Functions, InfoCache, CGUpdater);
+  Attributor A(Functions, InfoCache, CGUpdater, /* Allowed */ nullptr,
+               DeleteFns);
 
   // Create shallow wrappers for all functions that are not IPO amendable
   if (AllowShallowWrappers)
@@ -2401,7 +2407,8 @@ PreservedAnalyses AttributorPass::run(Module &M, ModuleAnalysisManager &AM) {
   CallGraphUpdater CGUpdater;
   BumpPtrAllocator Allocator;
   InformationCache InfoCache(M, AG, Allocator, /* CGSCC */ nullptr);
-  if (runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater)) {
+  if (runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater,
+                               /* DeleteFns */ true)) {
     // FIXME: Think about passes we will preserve and add them here.
 #if INTEL_CUSTOMIZATION
     {
@@ -2435,7 +2442,8 @@ PreservedAnalyses AttributorCGSCCPass::run(LazyCallGraph::SCC &C,
   CGUpdater.initialize(CG, C, AM, UR);
   BumpPtrAllocator Allocator;
   InformationCache InfoCache(M, AG, Allocator, /* CGSCC */ &Functions);
-  if (runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater)) {
+  if (runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater,
+                               /* DeleteFns */ false)) {
     // FIXME: Think about passes we will preserve and add them here.
     PreservedAnalyses PA;
     PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
@@ -2511,7 +2519,8 @@ struct AttributorLegacyPass : public ModulePass {
     CallGraphUpdater CGUpdater;
     BumpPtrAllocator Allocator;
     InformationCache InfoCache(M, AG, Allocator, /* CGSCC */ nullptr);
-    return runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater);
+    return runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater,
+                                    /* DeleteFns*/ true);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -2548,7 +2557,8 @@ struct AttributorCGSCCLegacyPass : public CallGraphSCCPass {
     Module &M = *Functions.back()->getParent();
     BumpPtrAllocator Allocator;
     InformationCache InfoCache(M, AG, Allocator, /* CGSCC */ &Functions);
-    return runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater);
+    return runAttributorOnFunctions(InfoCache, Functions, AG, CGUpdater,
+                                    /* DeleteFns */ false);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
