@@ -832,6 +832,11 @@ public:
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  VPLiveInValue *clone() const {
+    VPLiveInValue *Cloned = new VPLiveInValue(*this);
+    return Cloned;
+  }
+
 private:
   unsigned MergeId;
 };

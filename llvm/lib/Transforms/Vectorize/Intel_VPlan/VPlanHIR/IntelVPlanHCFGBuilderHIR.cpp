@@ -921,6 +921,10 @@ public:
       : IdiomList(IList) {
     MainCurrent = Begin ? IdiomList.begin() : IdiomList.end();
     MainEnd = IdiomList.end();
+    // Skip idioms in IdiomList until Min/Max idiom is found.
+    while (MainCurrent != MainEnd &&
+           MainCurrent->second != HIRVectorIdioms::MinOrMax)
+      ++MainCurrent;
     resetRedIterators();
     fillData();
   }
@@ -976,6 +980,8 @@ private:
       Descriptor.HLInst = *LinkedCurrent;
       if (Descriptor.HLInst != MainInst)
         Descriptor.ParentInst = MainInst;
+      else
+        Descriptor.ParentInst = nullptr;
     } else
       Descriptor.clear();
   }

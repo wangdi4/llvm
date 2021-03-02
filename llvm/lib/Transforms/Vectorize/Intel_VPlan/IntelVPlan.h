@@ -3217,6 +3217,8 @@ public:
       return V.get();});
   }
 
+  size_t getLiveInValuesSize() const { return LiveInValues.size(); }
+
   size_t getLiveOutValuesSize() const { return LiveOutValues.size(); }
 
   bool hasExplicitRemainder() const { return ExplicitRemainderUsed; }
@@ -3447,6 +3449,9 @@ private:
     assert(LiveOutValues.size() == 0 && "The list is not empty");
     LiveOutValues.resize(Count);
   }
+
+  /// Clone live-in values from OrigVPlan and add them in LiveInValues.
+  void cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
 
   /// Clone live-out values from OrigVPlan and add them in LiveOutValues.
   void cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper);

@@ -1276,6 +1276,14 @@ void VPlan::computeDA() {
   }
 }
 
+void VPlan::cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  for (auto OrigLI : OrigPlan.liveInValues()) {
+    auto ClonedLI = OrigLI->clone();
+    addLiveInValue(ClonedLI);
+    Mapper.registerClone(OrigLI, ClonedLI);
+  }
+}
+
 void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
   for (auto OrigLO : OrigPlan.liveOutValues()) {
     auto ClonedLO = OrigLO->clone();
@@ -1293,9 +1301,11 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
   VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
                                  nullptr, "Cloned.", ClonedVPlan.get());
-  // Clone live out values.
+
+  // Clone live in and live out values.
   VPValueMapper Mapper(OrigClonedValuesMap);
   ClonedVPlan->cloneLiveOutValues(*this, Mapper);
+  ClonedVPlan->cloneLiveInValues(*this, Mapper);
 
   // Update cloned instructions' operands
   for (VPBasicBlock &OrigVPBB : *this)

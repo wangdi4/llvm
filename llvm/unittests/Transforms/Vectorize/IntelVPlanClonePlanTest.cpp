@@ -59,6 +59,16 @@ CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan,
       }
     }
 
+    auto OrigLiveInRange = OrigVPlan->liveInValues();
+    auto ClonedLiveInRange = ClonedVPlan->liveInValues();
+    EXPECT_EQ(OrigVPlan->getLiveInValuesSize(),
+              ClonedVPlan->getLiveInValuesSize());
+    for (auto ItO = OrigLiveInRange.begin(), ItO_End = OrigLiveInRange.end(),
+              ItC = ClonedLiveInRange.begin();
+         ItO != ItO_End; ++ItO, ++ItC) {
+      EXPECT_EQ((*ItO)->getMergeId(), (*ItC)->getMergeId());
+    }
+
     auto OrigLiveOutRange = OrigVPlan->liveOutValues();
     auto ClonedLiveOutRange = ClonedVPlan->liveOutValues();
     EXPECT_EQ(OrigVPlan->getLiveOutValuesSize(),
@@ -68,6 +78,7 @@ CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan,
          ItO != ItO_End; ++ItO, ++ItC) {
       EXPECT_EQ(cast<VPInstruction>((*ItO)->getOperand(0))->getOpcode(),
                 cast<VPInstruction>((*ItC)->getOperand(0))->getOpcode());
+      EXPECT_EQ((*ItO)->getMergeId(), (*ItC)->getMergeId());
     }
   }
   return ClonedOrigVPBBsMap;
@@ -274,7 +285,7 @@ TEST_F(CloneVPlan, TestCloneDA) {
                                            VPlan::UpdateDA::CloneDA);
 }
 
-TEST_F(CloneVPlan, TestCloneVPLiveOut) {
+TEST_F(CloneVPlan, TestCloneVPLiveInOut) {
   const char *ModuleString =
       "define void @f() {\n"
       "entry:\n"
