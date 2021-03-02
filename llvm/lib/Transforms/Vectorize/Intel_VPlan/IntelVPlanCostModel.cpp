@@ -656,8 +656,6 @@ unsigned VPlanCostModel::getCostForVF(
     if (!BaseDstTy || !BaseSrcTy)
       return UnknownCost;
 
-    assert(!BaseDstTy->isVectorTy() &&
-           "Vector base types are not yet implemented!");
     assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
 
     Type *VecDstTy = getWidenedType(BaseDstTy, VF);
