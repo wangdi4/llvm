@@ -196,6 +196,7 @@ TargetIntVect floatVec2IntVec(const cl_float4 val, const float multiplier)
 #define MASK_AS_128i(val) _mm_set1_epi32(val)
 #define MASK_AS_128(val) _mm_set1_ps(val)
 
+#ifdef FLOAT2HALF_SIMD
 __m128 float2half_rte_simd(__m128 param)
 {
     // _mm_cvtps_epi32 _m128 --> _m128i
@@ -291,6 +292,7 @@ __m128 float2half_rte_simd(__m128 param)
 
     return eq1;
 }
+#endif // FLOAT2HALF_SIMD
 
 float tosRGB(float color)
 {
