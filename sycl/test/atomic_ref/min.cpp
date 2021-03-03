@@ -1,9 +1,7 @@
-// INTEL
 // RUN: %clangxx -fsycl -fsycl-unnamed-lambda -DSYCL_USE_NATIVE_FP_ATOMICS \
 // RUN:  -fsycl-device-only -S %s -o - | FileCheck %s --check-prefix=CHECK-LLVM
 // RUN: %clangxx -fsycl -fsycl-unnamed-lambda -fsycl-device-only -S %s -o - \
 // RUN: | FileCheck %s --check-prefix=CHECK-LLVM-EMU
-// end INTEL
 // RUN: %clangxx -fsycl -fsycl-unnamed-lambda -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %RUN_ON_HOST %t.out
 
@@ -85,7 +83,6 @@ int main() {
   // CHECK-LLVM-SAME: @_Z{{[0-9]+}}__spirv_AtomicUMin
   // CHECK-LLVM-SAME: (i64 addrspace(1)*, i32, i32, i64)
   min_test<unsigned long long>(q, N);
-  // INTEL
   // CHECK-LLVM: declare dso_local spir_func float
   // CHECK-LLVM-SAME: @_Z{{[0-9]+}}__spirv_AtomicFMinEXT
   // CHECK-LLVM-SAME: (float addrspace(1)*, i32, i32, float)
@@ -93,9 +90,7 @@ int main() {
   // CHECK-LLVM-EMU-SAME: (i32 addrspace(1)*, i32, i32)
   // CHECK-LLVM-EMU: declare {{.*}} i32 @{{.*}}__spirv_AtomicCompareExchange
   // CHECK-LLVM-EMU-SAME: (i32 addrspace(1)*, i32, i32, i32, i32, i32)
-  // end INTEL
   min_test<float>(q, N);
-  // INTEL
   // CHECK-LLVM: declare dso_local spir_func double
   // CHECK-LLVM-SAME: @_Z{{[0-9]+}}__spirv_AtomicFMinEXT
   // CHECK-LLVM-SAME: (double addrspace(1)*, i32, i32, double)
@@ -103,7 +98,6 @@ int main() {
   // CHECK-LLVM-EMU-SAME: (i64 addrspace(1)*, i32, i32)
   // CHECK-LLVM-EMU: declare {{.*}} i64 @{{.*}}__spirv_AtomicCompareExchange
   // CHECK-LLVM-EMU-SAME: (i64 addrspace(1)*, i32, i32, i32, i64, i64)
-  // end INTEL
   min_test<double>(q, N);
 
   std::cout << "Test passed." << std::endl;

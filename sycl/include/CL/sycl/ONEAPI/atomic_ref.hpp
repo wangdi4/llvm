@@ -496,7 +496,6 @@ public:
 
   T fetch_min(T operand, memory_order order = default_read_modify_write_order,
               memory_scope scope = default_scope) const noexcept {
-/* INTEL_CUSTOMIZATION */
 // TODO: Remove the "native atomics" macro check once implemented for all
 // backends
 #if defined(__SYCL_DEVICE_ONLY__) && defined(SYCL_USE_NATIVE_FP_ATOMICS)
@@ -509,12 +508,10 @@ public:
     }
     return old;
 #endif
-    /* end INTEL_CUSTOMIZATION */
   }
 
   T fetch_max(T operand, memory_order order = default_read_modify_write_order,
               memory_scope scope = default_scope) const noexcept {
-/* INTEL_CUSTOMIZATION */
 // TODO: Remove the "native atomics" macro check once implemented for all
 // backends
 #if defined(__SYCL_DEVICE_ONLY__) && defined(SYCL_USE_NATIVE_FP_ATOMICS)
@@ -527,7 +524,6 @@ public:
     }
     return old;
 #endif
-    /* end INTEL_CUSTOMIZATION */
   }
 
 private:
