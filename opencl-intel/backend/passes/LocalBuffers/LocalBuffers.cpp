@@ -194,6 +194,27 @@ namespace intel{
       return IE;
     }
 
+    if (ConstantStruct *CS = dyn_cast<ConstantStruct>(pCE)) {
+      StructType *ST = CS->getType();
+      unsigned NumElem = ST->getNumElements();
+
+      Value *UpdatedStruct = UndefValue::get(ST);
+      Instruction *IE = nullptr;
+      for (unsigned i = 0; i < NumElem; i++) {
+        Value *ToInsert = nullptr;
+        if (CS->getOperand(i) == From) {
+          ToInsert = To;
+        } else {
+          ToInsert = CS->getOperand(i);
+        }
+        IE = InsertValueInst::Create(UpdatedStruct, ToInsert, i, "Insert");
+        UpdatedStruct = IE;
+        InstInsert->push_back(IE);
+      }
+      assert(IE && "Unable to find source constant");
+      return IE;
+    }
+
     if (isa<ConstantArray>(pCE)) {
       // Right now, the only case in which this happens is when replacing annotations
       // This means we can simply avoid replacing it.
