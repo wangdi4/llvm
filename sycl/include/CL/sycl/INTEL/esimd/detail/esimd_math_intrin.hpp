@@ -1216,7 +1216,7 @@ __esimd_reduced_smin(sycl::INTEL::gpu::vector_type_t<Ty, N> src1,
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
-inline constexpr uint __esimd_dpas_bits_precision(
+inline constexpr sycl::INTEL::gpu::uint __esimd_dpas_bits_precision(
     sycl::INTEL::gpu::EsimdPrecisionType precisionType) {
   return precisionType == sycl::INTEL::gpu::EsimdPrecisionType::BF16 ||
                  precisionType == sycl::INTEL::gpu::EsimdPrecisionType::FP16
@@ -1236,17 +1236,19 @@ inline constexpr uint __esimd_dpas_bits_precision(
 template <sycl::INTEL::gpu::EsimdPrecisionType src1_precision,
           sycl::INTEL::gpu::EsimdPrecisionType src2_precision,
           int systolic_depth, int repeat_count, typename RT, typename T1,
-          typename T2, uint SZ, uint N1, uint N2>
+          typename T2, sycl::INTEL::gpu::uint SZ, sycl::INTEL::gpu::uint N1,
+          sycl::INTEL::gpu::uint N2>
 inline sycl::INTEL::gpu::vector_type_t<RT, SZ>
 __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
                    const sycl::INTEL::gpu::vector_type_t<T1, N1> &src1,
                    const sycl::INTEL::gpu::vector_type_t<T2, N2> &src2) {
   sycl::INTEL::gpu::vector_type_t<RT, SZ> retv;
 
-  uint sat1 = EsimdEmulSys::SetSatur<T1, is_inttype<RT>::value>::set() ||
+  sycl::INTEL::gpu::uint sat1 =
+      EsimdEmulSys::SetSatur<T1, is_inttype<RT>::value>::set() ||
               EsimdEmulSys::SetSatur<T2, is_inttype<RT>::value>::set();
 
-  constexpr uint ops_per_chan =
+  constexpr sycl::INTEL::gpu::uint ops_per_chan =
       src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 ||
               src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::FP16 ||
               src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 ||
@@ -1259,7 +1261,8 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
           ? 4
           : 8;
 
-  uint V = 0, U = 0, k = 0, temp = 0, src1_ops_per_dword = 0, p = 0;
+  sycl::INTEL::gpu::uint V = 0, U = 0, k = 0, temp = 0, src1_ops_per_dword = 0,
+                         p = 0;
 
   constexpr auto src1_el_bits = __esimd_dpas_bits_precision(src1_precision);
   constexpr auto src2_el_bits = __esimd_dpas_bits_precision(src2_precision);
