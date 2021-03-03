@@ -189,7 +189,7 @@ bool AAResults::escapes(const Value *V) {
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB) {
-  AAQueryInfo AAQIP(true);
+  AAQueryInfo AAQIP(/*CacheOffsets*/ false, /*NeedLoopCarried*/ true);
   return loopCarriedAlias(LocA, LocB, AAQIP);
 }
 
@@ -1107,6 +1107,17 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
       WrapperPass->CB(P, F, AAR);
 
   return AAR;
+}
+
+Optional<int64_t>
+BatchAAResults::getClobberOffset(const MemoryLocation &LocA,
+                                 const MemoryLocation &LocB) const {
+  if (!LocA.Size.hasValue() || !LocB.Size.hasValue())
+    return None;
+  const Value *V1 = LocA.Ptr->stripPointerCastsForAliasAnalysis();
+  const Value *V2 = LocB.Ptr->stripPointerCastsForAliasAnalysis();
+  return AAQI.getClobberOffset(V1, V2, LocA.Size.getValue(),
+                               LocB.Size.getValue());
 }
 
 bool llvm::isNoAliasCall(const Value *V) {
