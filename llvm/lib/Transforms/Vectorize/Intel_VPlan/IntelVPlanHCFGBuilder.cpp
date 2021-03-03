@@ -43,6 +43,10 @@ using namespace llvm::vpo;
 extern cl::opt<bool> EnableVPValueCodegen;
 static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
                                                 "importing plain CFG");
+static cl::opt<bool> VPlanPrintPrivDescr(
+    "vplan-print-privdescr", cl::Hidden, cl::init(false),
+    cl::desc(
+        "Print privates' data structure details in VPlan LLVM-IR legality."));
 #endif // INTEL_CUSTOMIZATION
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
@@ -204,7 +208,7 @@ public:
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
-  using PrivatesListTy = VPOVectorizationLegality::PrivatesListTy;
+  using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -428,7 +432,7 @@ class PrivatesListCvt : public VPEntityConverterBase {
   // This method collects aliases that lie outside the loop-region. We are not
   // concerned with aliases within the loop as they would be acquired
   // when required (e.g., escape analysis).
-  void collectAliases(PrivateDescr &Descriptor, Value *Alloca) {
+  void collectMemoryAliases(PrivateDescr &Descriptor, Value *Alloca) {
     SetVector<Value *> WorkList;
 
     // Start with the Alloca Inst.
@@ -471,33 +475,25 @@ class PrivatesListCvt : public VPEntityConverterBase {
   }
 
 public:
-  PrivatesListCvt(PlainCFGBuilder &Bld, bool IsCond = false,
-                  bool IsLast = false)
-      : VPEntityConverterBase(Bld), IsCondPriv(IsCond), IsLastPriv(IsLast) {}
+  PrivatesListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
 
-  void operator()(PrivateDescr &Descriptor,
-                  const PrivatesListTy::value_type &CurValue) {
-
+  void operator()(PrivateDescr &Descriptor, const PrivDescrTy *CurValue) {
     Descriptor.clear();
-    assertIsSingleElementAlloca(CurValue);
-    auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
+    assertIsSingleElementAlloca(CurValue->getRef());
+    auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue->getRef());
 
     // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    collectAliases(Descriptor, CurValue);
+    collectMemoryAliases(Descriptor, CurValue->getRef());
 
     Descriptor.setAllocaInst(VPAllocaVal);
-    Descriptor.setIsConditional(IsCondPriv);
-    Descriptor.setIsLast(IsLastPriv);
+    Descriptor.setIsConditional(CurValue->isCond());
+    Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
   }
-
-private:
-  bool IsCondPriv;
-  bool IsLastPriv;
 };
 
 class Loop2VPLoopMapper {
@@ -551,7 +547,6 @@ void PlainCFGBuilder::convertEntityDescriptors(
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
-  using PrivatesListTy = VPOVectorizationLegality::PrivatesListTy;
 
   ReductionConverter *RedCvt = new ReductionConverter(Plan);
   InductionConverter *IndCvt = new InductionConverter(Plan);
@@ -584,55 +579,26 @@ void PlainCFGBuilder::convertEntityDescriptors(
   auto ExplicitRedPair = std::make_pair(ExplicitReductionRange, ExpRLCvt);
   auto InMemoryRedPair = std::make_pair(InMemoryReductionRange, IMRLCvt);
 
-  // TODO: VPOLegality stores Privates, LastPrivates and CondPrivates in
-  // different lists. This is different from the way HIRLegality store this
-  // information. Till we have a unified way of storing the information and
-  // accessing it, we will have to do with the following hack where we we go
-  // through the Privates, which is a superset, and check membership of elements
-  // within ConPrivates and LastPrivates. This helps us separate out paivates
-  // based on types. This code will be simplified when we have the correct
-  // implementation for Privates in VPOLegality.
-  const PrivatesListTy &PrivatesList = Legal->getPrivates();
-  const PrivatesListTy &CondPrivatesList = Legal->getCondPrivates();
-  const PrivatesListTy &LastPrivatesList = Legal->getLastPrivates();
-
-  PrivatesListTy NewPrivatesList;
-  PrivatesListTy NewCondPrivatesList;
-  PrivatesListTy NewLastPrivatesList;
-
-  for (auto Val : PrivatesList) {
-    if (CondPrivatesList.count(Val))
-      NewCondPrivatesList.insert(Val);
-    else if (LastPrivatesList.count(Val))
-      NewLastPrivatesList.insert(Val);
-    else
-      NewPrivatesList.insert(Val);
-  }
-
-  iterator_range<PrivatesListTy::const_iterator> PrivatesRange(
-      NewPrivatesList.begin(), NewPrivatesList.end());
-  iterator_range<PrivatesListTy::const_iterator> CondPrivatesRange(
-      NewCondPrivatesList.begin(), NewCondPrivatesList.end());
-  iterator_range<PrivatesListTy::const_iterator> LastPrivatesRange(
-      NewLastPrivatesList.begin(), NewLastPrivatesList.end());
-
   PrivatesListCvt PrivListCvt(*this);
-  PrivatesListCvt CondPrivListCvt(*this, true /*IsCond*/, false /*IsLast*/);
-  PrivatesListCvt LastPrivListCvt(*this, false /*IsCond*/, true /*IsLast*/);
+
+  // Create the iterator-range to the list of privates loop-entities.
+  // FIXME: Uses workaround approach because of known bug with reuse of
+  // map_range, currently used in VPOVectorizationLegality::privates().
+  // Should be simplified once community fix will be provided.
+  SmallVector<const VPOVectorizationLegality::PrivDescrTy *, 8> PvtRawPtrs =
+      llvm::to_vector<8>(Legal->privates());
 
   RedCvt->createDescrList(TheLoop, ReducPair, ExplicitRedPair, InMemoryRedPair);
 
   auto InducPair = std::make_pair(InducRange, InducListCvt);
   auto LinearPair = std::make_pair(LinearRange, LinListCvt);
 
-  auto PrivatesPair = std::make_pair(PrivatesRange, PrivListCvt);
-  auto CondPrivatesPair = std::make_pair(CondPrivatesRange, CondPrivListCvt);
-  auto LastPrivatesPair = std::make_pair(LastPrivatesRange, LastPrivListCvt);
+  auto PrivatesPair = std::make_pair(
+      make_range(PvtRawPtrs.begin(), PvtRawPtrs.end()), PrivListCvt);
 
   IndCvt->createDescrList(TheLoop, InducPair, LinearPair);
 
-  PrivCvt->createDescrList(TheLoop, PrivatesPair, CondPrivatesPair,
-                           LastPrivatesPair);
+  PrivCvt->createDescrList(TheLoop, PrivatesPair);
 
   Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
   Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
@@ -648,6 +614,12 @@ void VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
 
 void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   typedef VPLoopEntitiesConverterTempl<Loop2VPLoopMapper> BaseConverter;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (VPlanPrintPrivDescr) {
+    Legal->dump(dbgs());
+  }
+#endif
 
   Loop2VPLoopMapper Mapper(TheLoop, Plan);
   for (auto &Cvt : Cvts) {

@@ -1,6 +1,6 @@
 //===--------------- ResolveTypes.cpp - DTransResolveTypesPass ------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1057,7 +1057,8 @@ void ResolveTypesImpl::collectExternalStructTypes(
   // Collect the types that are used by external functions and any types
   // that depend on those types.
   for (Function &F : M) {
-    if (F.isDeclaration() || F.hasDLLExportStorageClass()) {
+    if (!isFunctionASubscriptIntrinsic(&F) &&
+        (F.isDeclaration() || F.hasDLLExportStorageClass())) {
       auto *FnTy = F.getFunctionType();
       if (auto *RetST = getContainedStructTy(FnTy->getReturnType()))
         addExternalType(RetST);
