@@ -9018,6 +9018,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         }
       }
     }
+    // Temporary disable SPV_INTEL_optnone until some targets support it.
+    ExtArg += ",-SPV_INTEL_optnone";
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 #if INTEL_CUSTOMIZATION
