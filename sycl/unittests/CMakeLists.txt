@@ -11,7 +11,11 @@ include(AddSYCLUnitTest)
 
 add_subdirectory(misc)
 add_subdirectory(pi)
-add_subdirectory(kernel-and-program)
+# INTEL_CUSTOMIZATION
+if (NOT SYCL_BUILD_INSTRUMENTED_COVERAGE)
+  add_subdirectory(kernel-and-program)
+endif()
+# end INTEL_CUSTOMIZATION
 add_subdirectory(queue)
 add_subdirectory(scheduler)
 add_subdirectory(thread_safety)
