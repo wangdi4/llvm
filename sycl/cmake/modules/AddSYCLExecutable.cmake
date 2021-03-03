@@ -32,7 +32,7 @@ macro(add_sycl_executable ARG_TARGET_NAME)
     endif()
   endif()
 
-  add_custom_target(${ARG_TARGET_NAME}_exec ALL
+  add_custom_target(${ARG_TARGET_NAME}_exec
     # INTEL_CUSTOMIZATION
     COMMAND ${DEVICE_COMPILER_EXECUTABLE} ${DEVICE_EXTRA_OPTS} -fsycl ${ARG_SOURCES}
     # end INTEL_CUSTOMIZATION
