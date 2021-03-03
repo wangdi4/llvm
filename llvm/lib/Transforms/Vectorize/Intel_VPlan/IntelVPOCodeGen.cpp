@@ -1697,6 +1697,7 @@ void VPOCodeGen::vectorizeCast(
     WidenedTy = VPInst->getType();
     IsScalarized = true;
   } else if (!IsBitCastInst && VPScalarMap.count(VPInst->getOperand(0)) &&
+             !VPWidenMap.count(VPInst->getOperand(0)) &&
              !isSerialized(VPInst->getOperand(0))) {
     // For addrspace cast check if operand is a scalar already
     // TODO: Replace with proper SVA check

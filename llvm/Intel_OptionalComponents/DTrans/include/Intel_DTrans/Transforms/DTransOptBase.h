@@ -1,6 +1,6 @@
 //===---- DTransOptBase.h - Common base classes for DTrans Transforms --==//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -243,6 +243,10 @@ protected:
   // Sets the body for the all the types in the \p DependentTypeMapping based
   // on types computed by the TypeRemapper.
   void populateDependentTypes(Module &M, TypeToTypeMap &DependentTypeMapping);
+
+  // Return true if the input function is a llvm.intel.subscript intrinsic,
+  // else return false.
+  bool isFunctionASubscriptIntrinsic(Function *F);
 
 private:
   // Identify and create new types for any types the child class is going

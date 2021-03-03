@@ -135,7 +135,7 @@ public:
   SafetyAnnotationWriter(const DTransSafetyLogger &Log) : Log(Log) {}
 
   // Emit a comment after an Instruction or GlobalValue is printed.
-  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+  void printInfoComment(const Value &CV, formatted_raw_ostream &OS) override {
     // Lambda used to print the comment to a string buffer to allow sorting when
     // there are multiple comments to be emitted for the instruction.
     auto LogToString = [](const SafetyInfoLog &Log) {
