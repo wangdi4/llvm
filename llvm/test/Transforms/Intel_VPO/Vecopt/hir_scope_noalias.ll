@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i64* %larr1, i64* readonly %larr2) {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:     + DO i64 i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK:     |   [[VEC:.*]] = (<4 x i64>*)(%larr2)[i1];
 ; CHECK:     |   <RVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* %larr2)[LINEAR i64 i1] inbounds  !tbaa !1 !alias.scope !5

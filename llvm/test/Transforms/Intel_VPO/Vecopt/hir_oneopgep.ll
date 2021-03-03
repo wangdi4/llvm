@@ -19,7 +19,7 @@
 ;   i8* %vp38320 = getelementptr inbounds i8* %vp61520 i64 40
 ;   i64* %vp61840 = bitcast i8* %vp38320
 ;
-; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:              %red.var = 0;
 ; CHECK-NEXT:         %red.var = insertelement %red.var,  %n.09,  0;
 ; CHECK-NEXT:         DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>

@@ -17,7 +17,7 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ;   }
 ; }
 ;
-; CHECK:   *** IR Dump After HIR Vec Directive Insertion Pass ***
+; CHECK:   *** IR Dump After HIR Vec Directive Insertion Pass (hir-vec-dir-insert) ***
 ; CHECK:       BEGIN REGION { }
 ; CHECK-NEXT:        + DO i1 = 0, 127, 1   <DO_LOOP>
 ; CHECK-NEXT:        |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
@@ -32,7 +32,7 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ; CHECK-NEXT:        + END LOOP
 ; CHECK-NEXT:  END REGION
 ;
-; CHECK:   *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK:   *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 127, 1   <DO_LOOP>
 ; CHECK-NEXT:        |   if (%size.inner != 0)

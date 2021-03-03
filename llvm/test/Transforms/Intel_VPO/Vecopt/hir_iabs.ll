@@ -37,7 +37,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }

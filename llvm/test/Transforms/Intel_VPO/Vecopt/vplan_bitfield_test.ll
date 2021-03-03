@@ -15,7 +15,7 @@
 ; to an array of i1 due to padding bits in array elements.
 ;
 define void @foo(i1* %arri1, i7* %arri7 ) {
-; HIR-CHECK:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; HIR-CHECK:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIR-CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-CHECK-NEXT:       |   [[DOTVEC0:%.*]] = (<4 x i1>*)([[ARRI10:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>]
 ; HIR-CHECK-NEXT:       |   (<4 x i7>*)([[ARRI70:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>] = [[DOTVEC0]]

@@ -85,7 +85,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ;
-; CGCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CGCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CGCHECK-NEXT:  Function: foo
 ; CGCHECK-EMPTY:
 ; CGCHECK-NEXT:  <0>          BEGIN REGION { modified }

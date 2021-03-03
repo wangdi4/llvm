@@ -67,7 +67,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-NEXT:  Function: _Z3fooPii
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
@@ -94,7 +94,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:  <24>               + END LOOP
 ; CHECK-NEXT:  <0>          END REGION
 ;
-; VPVALCG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVALCG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; VPVALCG-NEXT:  Function: _Z3fooPii
 ; VPVALCG-EMPTY:
 ; VPVALCG-NEXT:  <0>          BEGIN REGION { modified }

@@ -20,14 +20,14 @@
 ;         END LOOP
 ;
 define dso_local void @foo(i64* nocapture %larr) local_unnamed_addr #0 {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:  |   [[DOTVEC0:%.*]] = inttoptr.<4 x i64>.<4 x i64*>(8 * i1 + ptrtoint.i64*.i64([[LARR0:%.*]]) + 8 * <i64 0, i64 1, i64 2, i64 3> + 8)
 ; CHECK-NEXT:  |   [[EXTRACT_0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK-NEXT:  |   (<4 x i64>*)([[EXTRACT_0]])[0] = i1 + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:  + END LOOP
 
-; CHECK:       *** IR Dump After SROA ***
+; CHECK:       *** IR Dump After SROA (sroa) ***
 ;
 ; CHECK:  define dso_local void @foo(i64* nocapture [[LARR0]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:

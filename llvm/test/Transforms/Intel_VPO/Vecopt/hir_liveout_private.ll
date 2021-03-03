@@ -8,7 +8,7 @@
 ; vector loop generated is same as in mixed CG for this case.
 ;
 define i64 @foo(i64* nocapture %larr) {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:                    BEGIN REGION { modified }
 ; CHECK-NEXT:                     + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                     |   [[DOTVEC0:%.*]] = (<4 x i64>*)([[LARR0:%.*]])[i1]

@@ -7,7 +7,7 @@
 ;   - Something other than the IV - in which we can use extracted value from
 ;     the last vector lane as the value being stored.
 ;
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   %.vec = (<4 x i64>*)(%larr)[i1];
 ; CHECK-NEXT:        |   %extract.3. = extractelement %.vec,  3;

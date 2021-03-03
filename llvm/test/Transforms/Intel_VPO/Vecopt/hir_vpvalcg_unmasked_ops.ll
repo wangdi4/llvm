@@ -33,7 +33,7 @@
 @larr2 = global [100 x [100 x i64]] zeroinitializer, align 16
 
 define void @foo(i64* nocapture readonly %unif, i64 %n2) local_unnamed_addr #0 {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    %.unifload = (%unif)[0];
 ; CHECK-NEXT:    %.vec = (<4 x i64>*)(@larr)[0][i1];

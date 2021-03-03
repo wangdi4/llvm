@@ -53,7 +53,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
 ;
-; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; MIXED-CG-NEXT:  Function: interp1
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
@@ -69,7 +69,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; MIXED-CG-NEXT:  <50>               + END LOOP
 ; MIXED-CG-NEXT:  <0>          END REGION
 ;
-; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; VPVALUE-CG-NEXT:  Function: interp1
 ; VPVALUE-CG-EMPTY:
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
@@ -206,7 +206,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
 ;
-; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; MIXED-CG-NEXT:  Function: interp2
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
@@ -225,7 +225,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; MIXED-CG-NEXT:  <63>               + END LOOP
 ; MIXED-CG-NEXT:  <0>          END REGION
 ;
-; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; VPVALUE-CG-NEXT:  Function: interp2
 ; VPVALUE-CG-EMPTY:
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }

@@ -22,7 +22,7 @@
 ; (with bitcast folded in), and use the LVAL of the copy instruction to generate the
 ; new addressof ref.
 ;
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:                     DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                  %.vec = (<4 x i64>*)(%neighbor)[i1];
 ; CHECK-NEXT:                  %nsbgepcopy = &((<4 x i8*>)(%lattice)[%.vec]);

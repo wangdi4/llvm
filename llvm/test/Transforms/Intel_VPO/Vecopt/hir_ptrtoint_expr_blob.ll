@@ -37,7 +37,7 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
@@ -50,7 +50,7 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-NEXT:  <16>               + END LOOP
 ; CHECK-NEXT:  <0>          END REGION
 ;
-; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; MIXED-CG-NEXT:  Function: foo
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }

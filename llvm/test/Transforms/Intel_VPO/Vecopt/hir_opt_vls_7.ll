@@ -34,7 +34,7 @@
 ; CHECK-NEXT:    + END LOOP
 ; CHECK-NEXT:    END REGION
 ;
-; CHECK-LABEL: IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL: IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:       Function: f_liveout
 ; CHECK:         BEGIN REGION { modified }
 ; CHECK-NEXT:    + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>

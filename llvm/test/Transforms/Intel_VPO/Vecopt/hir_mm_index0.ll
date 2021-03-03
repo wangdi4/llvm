@@ -47,7 +47,7 @@
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL]] = induction-final{add} i32 0 i32 1
 ;
 
-;CGCHECK-LABEL:*** IR Dump After VPlan Vectorization Driver HIR ***
+;CGCHECK-LABEL:*** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ;CGCHECK: Function: maxloc
 ;CGCHECK-EMPTY:
 ;CGCHECK-NEXT:  BEGIN REGION { modified }

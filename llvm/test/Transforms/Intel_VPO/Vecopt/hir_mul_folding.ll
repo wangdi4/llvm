@@ -3,7 +3,7 @@
 ; in VPValue based CG.
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1  | FileCheck %s
 define void @foo(i64* noalias nocapture %larr) {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   (<4 x i64>*)(%larr)[i1] = 9 * i1 + 9 * <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:          + END LOOP

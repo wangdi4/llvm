@@ -5,7 +5,7 @@
 ; LIT test to check vectorization of freeze instruction
 ;
 define dso_local void @foo(i64* noalias nocapture readonly %larr, i64* noalias nocapture %larr2) local_unnamed_addr #0 {
-; IR-CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver ***
+; IR-CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver (VPlanDriver) ***
 ;
 ; IR-CHECK:  define dso_local void @foo(i64* noalias nocapture readonly [[LARR0:%.*]], i64* noalias nocapture [[LARR20:%.*]]) local_unnamed_addr {
 ; IR-CHECK:       vector.body:
@@ -21,7 +21,7 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr, i64* noalias n
 ; IR-CHECK-NEXT:    [[TMP3:%.*]] = bitcast i64* [[SCALAR_GEP20]] to <4 x i64>*
 ; IR-CHECK-NEXT:    store <4 x i64> [[TMP2]], <4 x i64>* [[TMP3]], align 8
 ;
-; HIR-CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; HIR-CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIR-CHECK-NEXT:  Function: foo
 ; HIR-CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];

@@ -17,13 +17,13 @@
 @arr1 = dso_local local_unnamed_addr global [100 x float] zeroinitializer, align 16
 
 define void @foo() {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x i32>*)(@arr2)[0][i1];
 ; CHECK-NEXT:          |   (<4 x i32>*)(@arr1)[0][i1] = %.vec;
 ; CHECK-NEXT:          + END LOOP
 ;
-; CHECK:  *** IR Dump After SROA ***
+; CHECK:  *** IR Dump After SROA (sroa) ***
 ;
 ; CHECK:       define void @foo() {
 ; CHECK:       loop.17:

@@ -34,7 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind readonly uwtable
 define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }

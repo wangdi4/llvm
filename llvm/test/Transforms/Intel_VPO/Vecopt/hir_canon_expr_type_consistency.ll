@@ -15,7 +15,7 @@
 ;    (<4 x float>*)(@r)[0] = %.vec; Mask = @{%.vec1}
 ;    <LVAL-REG> {al:4}(<4 x float>*)(LINEAR float* @r)[<4 x i64> 0]
 ;
-; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:  DO i64 i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:    (<4 x float>*)(@r)[0] = %.vec; Mask = @{%.vec1}
 ; CHECK:     <LVAL-REG> {al:4}(<4 x float>*)(LINEAR float* @r)[<4 x i64> 0]
@@ -64,7 +64,7 @@ for.end:                                          ; preds = %for.inc
 ;    %__svml_exp41 = @__svml_exp4(%copy); <fast>
 ;    <RVAL-REG> NON-LINEAR <4 x double> %copy
 ;
-; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL: *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:  DO i64 i1 = 96, 97, 1   <DO_LOOP> <novectorize>
 ; CHECK:    %__svml_exp41 = @__svml_exp4(%copy); <fast>
 ; CHECK:    <RVAL-REG> NON-LINEAR <4 x double> %copy

@@ -41,7 +41,7 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
 ;
-; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; MIXED-CG-NEXT:  Function: foo
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
@@ -50,7 +50,7 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; MIXED-CG-NEXT:  <17>               + END LOOP
 ; MIXED-CG-NEXT:  <0>          END REGION
 ;
-; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; VPVALUE-CG-NEXT:  Function: foo
 ; VPVALUE-CG-EMPTY:
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }

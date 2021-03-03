@@ -27,7 +27,7 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64* [[VP7:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[I10:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     store i64 [[VP3]] i64* [[VP7]]
 ;
-; CHECK:       *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK:       *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK:        DO i2 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:     (<4 x i64>*)(@arr)[0][i1][i2 + (%n1 * %n2)] = i1 + (%n1 * %n2);
 ; CHECK-NEXT:   END LOOP

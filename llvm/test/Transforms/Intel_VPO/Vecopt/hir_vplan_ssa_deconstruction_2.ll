@@ -125,7 +125,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   float [[VP__RED_FINAL]] -> [[VP21:%.*]] = {%red.phi}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
@@ -173,7 +173,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <71>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
-; MIXED-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; MIXED-NEXT:  Function: foo
 ; MIXED-EMPTY:
 ; MIXED-NEXT:  <0>          BEGIN REGION { modified }

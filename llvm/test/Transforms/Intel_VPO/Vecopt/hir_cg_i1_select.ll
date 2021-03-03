@@ -3,7 +3,7 @@
 
 
 define void @foo(i1 %cond, i1 %a, i64 *%p) {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:       BEGIN REGION { modified }

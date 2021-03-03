@@ -4,7 +4,7 @@
 ; the last private phi are not processed correctly.
 ;
 define i64 @foo(i64* nocapture %larr) {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-NOT:                      + DO i1 = 0, 99, 4
 ;
 entry:
