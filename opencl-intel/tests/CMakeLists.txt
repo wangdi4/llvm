@@ -74,7 +74,7 @@ macro(compile_spv SOURCE OUTPUT)
     DEPENDS ${SPIRV_CONVERTER} ${BC_OUTPUT_FILE}
     COMMENT "Generate spirv binary file ${OUTPUT}"
     VERBATIM)
-endmacro(compile_test_spv)
+endmacro(compile_spv)
 
 
 # It is used by lit.cfg to find lit.site.cfg when user launches LIT tests from a
