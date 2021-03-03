@@ -68,8 +68,9 @@ kernel has barrier path and subgroup calls", false, false)
       auto *pNewEntry = BasicBlock::Create(*pContext, "", maskedKernel, pEntry);
       Value* sgSize = m_util.createGetSGSize(pNewEntry);
       Type* IndTy = LoopUtils::getIndTy(&module);
-      Instruction* loopLen = new ZExtInst(sgSize, IndTy, "", pNewEntry);
-      Value* mask = LoopUtils::generateRemainderMask(vectWidth, loopLen, pNewEntry);
+      if (sgSize->getType() != IndTy)
+        sgSize = new ZExtInst(sgSize, IndTy, "", pNewEntry);
+      Value* mask = LoopUtils::generateRemainderMask(vectWidth, sgSize, pNewEntry);
       BranchInst::Create(pEntry, pNewEntry);
       Value* maskArg = maskedKernel->arg_end()-1;
       maskArg->replaceAllUsesWith(mask);
