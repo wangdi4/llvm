@@ -4083,6 +4083,10 @@ def v : Flag<["-"], "v">, Flags<[CC1Option, CoreOption]>,
   HelpText<"Show commands to run and use verbose output">,
   MarshallingInfoFlag<HeaderSearchOpts<"Verbose">>;
 #if INTEL_CUSTOMIZATION
+def i_keep : Flag<["-"], "i_keep">,
+             Group<internal_driver_Group>,
+             Flags<[NoArgumentUnused, NoXarchOption, HelpHidden]>,
+             HelpText<"Save tool args to <tool>.arg file">;
 def HASH_x : Flag<["-"], "#x">, Flags<[NoXarchOption]>,
   HelpText<"Show commands to run and use verbose output">;
 def unroll : Joined<["-"], "unroll">, Flags<[NoXarchOption]>,
@@ -6456,6 +6460,8 @@ def _SLASH_help : CLFlag<"help">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_HELP : CLFlag<"HELP">, Alias<help>;
 #if INTEL_CUSTOMIZATION
+def _SLASH_Q_keep : CLFlag<"Q_keep">, Alias<i_keep>,
+  HelpText<"Save tool args to <tool>.arg file">;
 def _SLASH_HASH : CLFlag<"#">, Alias<_HASH>,
   HelpText<"Print (but do not run) the commands to run for this compilation">;
 def _SLASH_HASH_x : CLFlag<"#x">, Alias<HASH_x>,

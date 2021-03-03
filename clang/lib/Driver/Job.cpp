@@ -309,6 +309,33 @@ void Command::Print(raw_ostream &OS, const char *Terminator, bool Quote,
   OS << Terminator;
 }
 
+#if INTEL_CUSTOMIZATION
+void Command::PrintArgsFile(raw_ostream &OS, bool Quote) const {
+
+  ArrayRef<const char *> Args = Arguments;
+  SmallVector<const char *, 128> ArgsRespFile;
+  if (ResponseFile != nullptr) {
+    buildArgvForResponseFile(ArgsRespFile);
+    Args = ArrayRef<const char *>(ArgsRespFile).slice(1); // no executable name
+  }
+
+  for (size_t i = 0, e = Args.size(); i < e; ++i) {
+    const char *const Arg = Args[i];
+    llvm::sys::printArg(OS, Arg, Quote);
+    OS << '\n';
+  }
+
+  if (ResponseFile != nullptr) {
+    writeResponseFile(OS);
+    // Avoiding duplicated newline terminator, since FileLists are
+    // newline-separated.
+    if (ResponseSupport.ResponseKind != ResponseFileSupport::RF_FileList)
+      OS << "\n";
+    OS << " ";
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Command::setResponseFile(const char *FileName) {
   ResponseFile = FileName;
   ResponseFileFlag = ResponseSupport.ResponseFlag;

@@ -191,6 +191,10 @@ public:
   virtual void Print(llvm::raw_ostream &OS, const char *Terminator, bool Quote,
                      CrashReportInfo *CrashInfo = nullptr) const;
 
+#if INTEL_CUSTOMIZATION
+  virtual void PrintArgsFile(raw_ostream &OS, bool Quote) const;
+#endif // INTEL_CUSTOMIZATION
+
   virtual int Execute(ArrayRef<Optional<StringRef>> Redirects,
                       std::string *ErrMsg, bool *ExecutionFailed) const;
 
