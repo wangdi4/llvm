@@ -1,7 +1,5 @@
 //RUN: %clang_cc1 %s -cl-std=clc++ -pedantic -verify -ast-dump  | FileCheck %s
 
-// XFAIL: windows-msvc
-
 template <typename T>
 struct S {
   T a;        // expected-error{{field may not be qualified with an address space}}
