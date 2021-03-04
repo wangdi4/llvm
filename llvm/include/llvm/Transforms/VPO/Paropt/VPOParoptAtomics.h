@@ -89,9 +89,40 @@ private:
   ~VPOParoptAtomics() = delete;
   /// @}
 
-  /// This is a pair with an Instruction Op-code as the first member, and a pair
-  /// of IntrinsicOperandTy's as the second member.
-  typedef std::pair<unsigned,
+  // Enumeration of the atomic update operation kinds.
+  enum AtomicUpdateOp {
+    AtomicUpdateNone = 0,
+    AtomicUpdateAShr,
+    AtomicUpdateAdd,
+    AtomicUpdateAnd,
+    AtomicUpdateEqv,
+    AtomicUpdateFAdd,
+    AtomicUpdateFDiv,
+    AtomicUpdateFMax,
+    AtomicUpdateFMin,
+    AtomicUpdateFMul,
+    AtomicUpdateFSub,
+    AtomicUpdateLAnd,
+    AtomicUpdateLOr,
+    AtomicUpdateLShr,
+    AtomicUpdateMul,
+    AtomicUpdateNeqv,
+    AtomicUpdateOr,
+    AtomicUpdateSDiv,
+    AtomicUpdateSMax,
+    AtomicUpdateSMin,
+    AtomicUpdateShl,
+    AtomicUpdateSub,
+    AtomicUpdateUDiv,
+    AtomicUpdateUMax,
+    AtomicUpdateUMin,
+    AtomicUpdateXor,
+  };
+
+  /// This is a pair with an atomic update operation identifier
+  /// as the first member, and a pair of IntrinsicOperandTy's
+  /// as the second member.
+  typedef std::pair<AtomicUpdateOp,
                     std::pair<intrinsics::IntrinsicOperandTy,
                               intrinsics::IntrinsicOperandTy>>
       AtomicOperationTy;
@@ -286,13 +317,18 @@ private:
   ///   AtomicOpnd.
   ///   (v) Final store to AtomicOpnd.
   ///
-  /// \returns `true`, if \p OpInst and \p ValueOpnd are found successfully
-  /// using \p AtomicOpnd as the atomic operand, `false` otherwise.
-  static bool extractAtomicUpdateOp(
+  /// \returns AtomicUpdateOp value that identifies the atomic update operation,
+  /// if \p OpInst and \p ValueOpnd are found successfully using \p AtomicOpnd
+  /// as the atomic operand, AtomicUpdateNone otherwise.
+  static AtomicUpdateOp extractAtomicUpdateOp(
       BasicBlock *BB, Value *AtomicOpnd,                       // In
       Instruction *&OpInst, Value *&ValueOpnd, bool &Reversed, // Out
       StoreInst *&AtomicOpndStore,                             // Out
       SmallVectorImpl<Instruction *> &InstsToDelete);          // In, Out
+
+  static AtomicUpdateOp getAtomicUpdateOpForBinaryOp(
+      const Instruction *Operation, bool Reversed,
+      const Type *AtomicOpndTy, const Type *ValueOpndTy);
 
   /// \brief Extracts the atomic capture op and operands for the BasicBlock \p
   /// BB. The function looks at \p BB, and identifies the atomic operand,
@@ -328,6 +364,8 @@ private:
   /// OpInst to \p AtomicOpnd (Instruction (v) here).
   /// \param [out] CaptureOpndCast The CastInst (from the type of \p AtomicOpnd)
   /// done before the store to \p CaptureOpnd. (%conv2 here)
+  /// \param [out] OpKind is one of AtomicUpdateOp values identifying
+  /// the atomic update operation (e.g. AtomicUpdateFSub here)
   /// \param [in,out] InstsToDelete is updated with the Instructions that should
   /// be deleted after inserting a call to KMPC intrinsic. (Here (i) to (v) are
   /// populated by a call to extractAtomicUpdateOp(), and (a) to (c) by
@@ -349,7 +387,7 @@ private:
       BasicBlock *BB,                                                   // In
       Instruction *&OpInst, Value *&AtomicOpnd, Value *&ValueOpnd,      // Out
       Value *&CaptureOpnd, bool &Reversed, StoreInst *&AtomicOpndStore, // Out
-      CastInst *&CaptureOpndCast,                                       // Out
+      CastInst *&CaptureOpndCast, AtomicUpdateOp &OpKind,               // Out
       SmallVectorImpl<Instruction *> &InstsToDelete); // In, Out
 
   /// \brief Returns the CaptureKind for the operation in an atomic capture
@@ -516,9 +554,12 @@ private:
   /// (for non-swap kind capture operation).
   /// \tparam CaptureKind is required only for \p AtomicKind = WRNAtomicCapture.
   /// And it can either be \arg CaptureBeforeOp or \arg CaptureAfterOp.
-  /// \param Op is the LLVM Instruction which represents the binary operation,
-  /// for example, for integer operands, \p Op will be `sub` in (1) and
-  /// `sdiv` in (2).
+  /// \param Operation is the LLVM Instruction which represents the binary
+  /// operation, for example, for integer operands, \p Operation will be `sub`
+  /// in (1) and `sdiv` in (2).
+  /// \param OpKind is one of AtomicUpdateOp values identifying the atomic
+  /// update operation (e.g. AtomicUpdateFSub in (1) and AtomicUpdateSDiv
+  /// in (2)).
   /// \param Reversed is `true` if for a non-commutative operation like sub/div,
   /// the atomic operand is the second one. e.g. x = expr - x. (`true` for (2),
   /// `false` for (1)).
@@ -531,8 +572,9 @@ private:
   template <WRNAtomicKind AtomicKind,
             AtomicCaptureKind CaptureKind = CaptureUnknown>
   static const std::string
-  getAtomicUCIntrinsicName(const Instruction &Operation, bool Reversed,
-                           const Value &AtomicOpnd, const Value &ValueOpnd,
+  getAtomicUCIntrinsicName(const Instruction &Operation, AtomicUpdateOp OpKind,
+                           bool Reversed, const Value &AtomicOpnd,
+                           const Value &ValueOpnd,
                            bool IsTargetSPIRV);
 
   /// \brief Returns the intrinsic name for the atomic capture operation
@@ -547,6 +589,8 @@ private:
   /// \param [in] BB is the middle BasicBlock of WRNAtomicNode.
   /// \param [in] Operation (Ignored for CaptureSwap) is the Instruction
   /// corresponding to `op` for CaptureAfterOp and CaptureBeforeOp.
+  /// \param [in] OpKind (ignored for CaptureSwap) is one of AtomicUpdateOp
+  /// values identifying the atomic update operation.
   /// \param [in] Reversed (Ignored for CaptureSwap) tells if for a
   /// non-commutative `op` like `sub`, atomic operand is the second operand,
   /// such as `x = expr - x`.
@@ -558,18 +602,19 @@ private:
   /// string.
   static const std::string getAtomicCaptureIntrinsicName(
       AtomicCaptureKind CaptureKind, const BasicBlock *BB,
-      const Instruction *Operation, bool Reversed, const Value *AtomicOpnd,
+      const Instruction *Operation, AtomicUpdateOp OpKind,
+      bool Reversed, const Value *AtomicOpnd,
       const Value *ValueOpnd, bool IsTargetSPIRV);
 
   /// \brief Adjusts \p IntrinsicName for non-X86 architectures.
   /// The function looks for the substring '_a16' in \p IntrinsicName, removes
   /// it from the name for x64 architectures, and returns the resulting string.
-  /// \param BB is the BasicBlock in which the intrinsic is to be inserted.
+  /// \param F is the Function in which the intrinsic is to be inserted.
   ///
   /// \returns Adjusted intrinsic name if needed, original \p IntrinsicName
   /// otherwise.
   static const std::string
-  adjustIntrinsicNameForArchitecture(const BasicBlock &BB,
+  adjustIntrinsicNameForArchitecture(const Function &F,
                                      const std::string &IntrinsicName);
 
   /// @}

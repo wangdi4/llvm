@@ -18,12 +18,12 @@
 ; CHECK-DAG: BAND reduction update of type i32 made atomic
 ; CHECK-DAG: BOR reduction update of type i32 made atomic
 ; CHECK-DAG: BXOR reduction update of type i32 made atomic
+; CHECK-DAG: MIN reduction update of type i32 made atomic
+; CHECK-DAG: MAX reduction update of type i32 made atomic
 ; FIXME: we need runtime support for these reduction operations OR
 ;        we have to encode compare-exchange loop in IR.
 ; CHECK-DAG: AND reduction update of type i32 cannot be done using atomic API
 ; CHECK-DAG: OR reduction update of type i32 cannot be done using atomic API
-; CHECK-DAG: MIN reduction update of type i32 cannot be done using atomic API
-; CHECK-DAG: MAX reduction update of type i32 cannot be done using atomic API
 ; CHECK: Critical section was generated for reduction update(s)
 
 ; CHECK: define weak dso_local spir_kernel void @__omp_offloading_
@@ -33,6 +33,8 @@
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_andb
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_orb
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_xor
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_min
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_max
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
