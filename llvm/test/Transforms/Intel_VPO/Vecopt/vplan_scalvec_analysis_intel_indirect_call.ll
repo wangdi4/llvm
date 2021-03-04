@@ -32,7 +32,7 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbN4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1] (SVAOpBits 0->V 1->V 2->V 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1] (SVAOpBits 0->V 1->V 2->V 3->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
