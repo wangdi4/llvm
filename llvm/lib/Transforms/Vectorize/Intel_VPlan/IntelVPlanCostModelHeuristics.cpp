@@ -414,6 +414,14 @@ unsigned HeuristicSpillFill::operator()(
 }
 
 unsigned HeuristicSpillFill::applyOnPlan(unsigned Cost) const {
+  // Don't run register pressure heuristics on TTI models that do not support
+  // scalar or vector registers.
+  if (CM->VPTTI->getNumberOfRegisters(
+        CM->VPTTI->getRegisterClassForType(false)) == 0 ||
+      CM->VPTTI->getNumberOfRegisters(
+        CM->VPTTI->getRegisterClassForType(true)) == 0)
+    return Cost;
+
   // LiveValues map contains the liveness of the given instruction multiplied
   // by its legalization factor.  The map is updated on each VPInstruction in
   // the loop below.
