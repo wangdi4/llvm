@@ -155,8 +155,12 @@ int VPlanTTIWrapper::getNonMaskedMemOpCostAdj(unsigned Opcode, Type *SrcTy,
 
   // Number of parts for this Type.
   unsigned NumReg = TTI.getNumberOfParts(VecTy);
-  assert(NumReg &&
-         "NumReg is 0, perhaps TargetTransformInfoImplBase defaults to 0.");
+
+  // TTI model doesn't support vector types/registers.  Don't bother evaluating
+  // cache split cost for such targets.
+  if (NumReg == 0)
+    return 0;
+
   assert(VecTy->getScalarType()->isSized() && "Expect only sizable types");
 
   uint64_t TypeSizeInBits = 0;
