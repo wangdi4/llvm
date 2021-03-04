@@ -3247,6 +3247,12 @@ X86
 
 .. option:: -maes, -mno-aes
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+.. option:: -mamx-avx512-cvtrow, -mno-amx-avx512-cvtrow
+
+.. end INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+.. end INTEL_CUSTOMIZATION
 .. option:: -mamx-bf16, -mno-amx-bf16
 
 .. option:: -mamx-int8, -mno-amx-int8
