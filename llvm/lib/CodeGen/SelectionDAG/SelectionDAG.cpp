@@ -4577,6 +4577,12 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
         // operations here as the need arises.
         break;
       case ISD::FNEG:
+#if INTEL_CUSTOMIZATION
+      // If a +CData is used in other non-fneg instructions, we don't fold the
+      // -CData, because this usually generate unnecessary load -CData from Data
+      // section. The constant check/replace work has already done in mid-end.
+        break;
+#endif // INTEL_CUSTOMIZATION
       case ISD::FABS:
       case ISD::FCEIL:
       case ISD::FTRUNC:
