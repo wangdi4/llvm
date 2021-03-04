@@ -74,6 +74,7 @@
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/DTransPasses.h"
 #endif // INTEL_INCLUDE_DTRANS
 #if INTEL_FEATURE_CSA
 #include "Intel_CSA/CSAIRPasses.h"
