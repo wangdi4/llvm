@@ -145,9 +145,16 @@ public:
   /// best selected VPlan.
   // void executeBestPlan(InnerLoopVectorizer &LB);
 
+  /// Return unmasked variant of VPlan for given VF.
   VPlan *getVPlanForVF(unsigned VF) const {
     auto It = VPlans.find(VF);
     return It != VPlans.end() ? It->second.MainPlan.get() : nullptr;
+  }
+
+  /// Return masked variant of VPlan for given VF.
+  VPlan *getMaskedVPlanForVF(unsigned VF) const {
+    auto It = VPlans.find(VF);
+    return It != VPlans.end() ? It->second.MaskedModeLoop.get() : nullptr;
   }
 
   VPlan *getScalarVPlan(void) const { return getVPlanForVF(1); }
