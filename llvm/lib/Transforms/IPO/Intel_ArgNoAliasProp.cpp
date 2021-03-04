@@ -23,6 +23,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Dominators.h"
@@ -40,11 +41,13 @@ namespace {
 class NoAliasProp {
   function_ref<AAResults &(Function &)> AAGetter;
   function_ref<DominatorTree &(Function &)> DTGetter;
+  const unsigned OptLevel;
 
 public:
   NoAliasProp(function_ref<AAResults &(Function &)> AAGetter,
-              function_ref<DominatorTree &(Function &)> DTGetter)
-      : AAGetter(AAGetter), DTGetter(DTGetter) {}
+              function_ref<DominatorTree &(Function &)> DTGetter,
+              unsigned OptLevel)
+      : AAGetter(AAGetter), DTGetter(DTGetter), OptLevel(OptLevel) {}
 
   bool run(CallGraph &CG);
 
@@ -100,6 +103,10 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
     if (!CS || !(CS.isDirectCall() || CS.isCallbackCall()))
       return false;
 
+    /* If OptLevel > 2, spend time exploring more uses. */
+    const unsigned MaxUsesToExplore =
+        OptLevel > 2 ? 80 : getDefaultMaxUsesToExploreForCaptureTracking();
+
     for (auto &P : PtrArgs) {
       if (!P.second)
         continue;
@@ -110,13 +117,15 @@ bool NoAliasProp::propagateNoAliasToArgs(Function &F) {
 
         // Returns true if the Value is both derived from a function-local
         // noalias pointer and not captured before the call site.
-        auto IsLocalAndUncaptured = [&DT, &CS](const Value *V) -> bool {
+        auto IsLocalAndUncaptured = [&DT, &CS,
+                                     MaxUsesToExplore](const Value *V) -> bool {
           if (!isIdentifiedFunctionLocal(V))
             return false;
 
-          return !PointerMayBeCapturedBefore(V, /*ReturnCaptures=*/true,
-                                             /*StoreCaptures=*/ true,
-                                             CS.getInstruction(), &DT);
+          return !PointerMayBeCapturedBefore(
+              V, /*ReturnCaptures=*/true,
+              /*StoreCaptures=*/true, CS.getInstruction(), &DT,
+              /*IncludeI=*/false, MaxUsesToExplore);
         };
 
         // Returns true if the Value is derived exclusively from local objects
@@ -201,7 +210,9 @@ PreservedAnalyses ArgNoAliasPropPass::run(Module &M,
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
 
-  if (!NoAliasProp(AARGetter, DTGetter).run(CG))
+  unsigned OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
+
+  if (!NoAliasProp(AARGetter, DTGetter, OptLevel).run(CG))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
@@ -227,6 +238,7 @@ struct ArgNoAliasProp : public ModulePass {
     AU.addRequired<CallGraphWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<XmainOptLevelWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<CallGraphWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
@@ -245,7 +257,9 @@ struct ArgNoAliasProp : public ModulePass {
       return getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
 
-    return NoAliasProp(LegacyAARGetter(*this), DTGetter).run(CG);
+    unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
+
+    return NoAliasProp(LegacyAARGetter(*this), DTGetter, OptLevel).run(CG);
   }
 };
 
@@ -259,6 +273,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 INITIALIZE_PASS_END(ArgNoAliasProp, DEBUG_TYPE,
                     "Propagate noalias to function arguments", false, false)
 

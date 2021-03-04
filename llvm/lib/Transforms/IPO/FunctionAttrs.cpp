@@ -96,6 +96,14 @@ static cl::opt<bool> DisableNoFreeInference(
     "disable-nofree-inference", cl::Hidden,
     cl::desc("Stop inferring nofree attribute during function-attrs pass"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned>
+    MaxUsesToExplore("function-attrs-max-uses-to-explore", cl::init(80),
+                     cl::Hidden,
+                     cl::desc("Maximum number of uses to explore when capture "
+                              "tracking for function-attrs pass"));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 using SCCNodeSet = SmallSetVector<Function *, 8>;
@@ -728,7 +736,7 @@ static bool addArgumentAttrs(const SCCNodeSet &SCCNodes) {
       bool HasNonLocalUses = false;
       if (!A->hasNoCaptureAttr()) {
         ArgumentUsesTracker Tracker(SCCNodes);
-        PointerMayBeCaptured(&*A, &Tracker);
+        PointerMayBeCaptured(&*A, &Tracker, MaxUsesToExplore); // INTEL
         if (!Tracker.Captured) {
           if (Tracker.Uses.empty()) {
             // If it's trivially not captured, mark it nocapture now.
