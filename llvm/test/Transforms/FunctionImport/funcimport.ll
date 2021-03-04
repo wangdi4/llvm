@@ -1,7 +1,10 @@
 ; Do setup work for all below tests: generate bitcode and combined index
-; RUN: opt -module-summary %s -o %t.bc
-; RUN: opt -module-summary %p/Inputs/funcimport.ll -o %t2.bc
-; RUN: llvm-lto -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
+; INTEL_CUSTOMIZATION
+; Use extra option to allow full source filename path in module
+; RUN: opt -strip-module-src-path=false -module-summary %s -o %t.bc
+; RUN: opt -strip-module-src-path=false -module-summary %p/Inputs/funcimport.ll -o %t2.bc
+; RUN: llvm-lto -strip-module-src-path=false -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
+; end INTEL_CUSTOMIZATION
 
 ; Do the import now
 ; RUN: opt -function-import -stats -print-imports -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIMDEF
