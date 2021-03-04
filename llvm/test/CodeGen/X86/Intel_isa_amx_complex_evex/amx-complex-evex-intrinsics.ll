@@ -2,6 +2,8 @@
 ;REQUIRES: intel_feature_isa_amx_complex_evex
 
 ; RUN: llc < %s -O0 -mtriple=x86_64-unknown-unknown --show-mc-encoding -mattr=+amx-tile,+amx-complex-evex,+avx512fp16 -verify-machineinstrs | FileCheck %s
+; Need another patch to remove amx_complex_evex target feature.
+; XFAIL: *
 
 define <32 x half> @test_tcvtrowps2phiee(<32 x half> %A, i32 %B) {
 ; CHECK-LABEL: test_tcvtrowps2phiee:

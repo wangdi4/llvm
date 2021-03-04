@@ -404,31 +404,3 @@ typedef float __m128 __attribute__((__vector_size__(16)));
 void test_tile_tilemovrowex(__m128 A) {
   _tile_tilemovrowex(16, A); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
 }
-
-void test_tile_cvtrowd2psei() {
-  _tile_cvtrowd2psei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_cvtrowd2psei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
-}
-
-typedef unsigned int uint32_t;
-void test_tile_cvtrowd2psee(uint32_t A) {
-  _tile_cvtrowd2psee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_cvtrowps2bf16ei() {
-  _tile_cvtrowps2bf16ei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_cvtrowps2bf16ei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
-}
-
-void test_tile_cvtrowps2bf16ee(uint32_t A) {
-  _tile_cvtrowps2bf16ee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_cvtrowps2phei() {
-  _tile_cvtrowps2phei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_cvtrowps2phei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
-}
-
-void test_tile_cvtrowps2phee(uint32_t A) {
-  _tile_cvtrowps2phee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
