@@ -665,6 +665,13 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       return Decomposed;
     }
 
+    // Track whether we've seen at least one in bounds gep, and if so, whether
+    // all geps parsed were in bounds.
+    if (Decomposed.InBounds == None)
+      Decomposed.InBounds = GEPOp->isInBounds();
+    else if (!GEPOp->isInBounds())
+      Decomposed.InBounds = false;
+
     // Don't attempt to analyze GEPs over unsized objects.
     if (!GEPOp->getSourceElementType()->isSized()) {
       Decomposed.Base = V;
