@@ -365,7 +365,8 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
 
         HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
 
-        Lp->addLiveOutTemp(HInst->getRvalDDRef()->getSymbase());
+        Lp->addLiveOutTemp(HInst->getRvalDDRef());
+
         HInst->getLvalDDRef()->makeConsistent({}, LoopLevel - 1);
         HInst->setIsSinked(false);
       }
