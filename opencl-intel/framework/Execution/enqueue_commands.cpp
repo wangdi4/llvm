@@ -1918,7 +1918,7 @@ cl_err_code NDRangeKernelCommand::Init()
                 // Get location in the command parameters
                 IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)(pArgValues + pArg->GetOffset());
                 res = GetMemObjectDescriptor(pMemObj, devObjSrc);
-                if (pArg->IsSvmPtr())
+                if (pArg->IsSvmPtr() || pArg->IsUsmPtr())
                     m_argDevDescMemObjects.push_back(*devObjSrc);
                 if ( CL_FAILED(res) )
                 {
