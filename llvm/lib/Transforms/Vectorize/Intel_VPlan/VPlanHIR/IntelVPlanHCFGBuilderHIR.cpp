@@ -119,13 +119,13 @@ DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
   for (auto &Descr : List) {
     // TODO: try to avoid returning the non-const ptr.
     DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
-    assert(isa<RegDDRef>(CurrentDescr->getRef()) &&
+    assert(isa<RegDDRef>(CurrentDescr->Ref) &&
            "The original SIMD descriptor Ref is not a RegDDRef.");
-    if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref))
+    if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->Ref), Ref))
       return CurrentDescr;
 
     // Check if Ref matches any aliases of current descriptor's ref
-    if (CurrentDescr->findAlias(Ref))
+    if (CurrentDescr->Aliases.count(Ref))
       return CurrentDescr;
   }
 
@@ -136,10 +136,9 @@ DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
 template HIRVectorizationLegality::RedDescr *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::RedDescr> List, const DDRef *Ref) const;
-template HIRVectorizationLegality::PrivDescrTy *
+template HIRVectorizationLegality::PrivDescr *
 HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::PrivDescrTy> List,
-    const DDRef *Ref) const;
+    ArrayRef<HIRVectorizationLegality::PrivDescr> List, const DDRef *Ref) const;
 template HIRVectorizationLegality::LinearDescr *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::LinearDescr> List,
@@ -147,24 +146,24 @@ HIRVectorizationLegality::findDescr(
 
 void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
-  DescrWithInitValue *Descr = getLinearRednDescriptors(Ref);
+  DescrWithAliases *Descr = getLinearRednDescriptors(Ref);
 
   // If Ref does not correspond to linear/reduction then nothing to do
   if (!Descr)
     return;
 
-  assert(isa<RegDDRef>(Descr->getRef()) &&
+  assert(isa<RegDDRef>(Descr->Ref) &&
          "The original SIMD descriptor Ref is not a RegDDRef.");
-  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->getRef()), Ref)) {
+  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->Ref), Ref)) {
     // Ref refers to the original descriptor
     // TODO: should we assert that InitVPValue is not set already?
-    Descr->setInitValue(Ref);
+    Descr->InitValue = Ref;
   } else {
     // Ref is an alias to the original descriptor
-    auto AliasIt = Descr->findAlias(Ref);
-    assert(AliasIt && "Alias not found.");
-    auto *Alias = cast<DescrWithInitValue>(AliasIt);
-    Alias->setInitValue(Ref);
+    auto AliasIt = Descr->Aliases.find(Ref);
+    assert(AliasIt != Descr->Aliases.end() && "Alias not found.");
+    DescrValues *Alias = AliasIt->second.get();
+    Alias->InitValue = Ref;
   }
 }
 
@@ -176,22 +175,23 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   if (!Ref)
     return;
 
-  DescrWithInitValue *Descr = getLinearRednDescriptors(Ref);
+  DescrWithAliases *Descr = getLinearRednDescriptors(Ref);
 
   // If Ref does not correspond to linear/reduction then nothing to do
   if (!Descr)
     return;
 
-  assert(isa<RegDDRef>(Descr->getRef()) &&
+  assert(isa<RegDDRef>(Descr->Ref) &&
          "The original SIMD descriptor Ref is not a RegDDRef.");
-  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->getRef()), Ref)) {
+  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->Ref), Ref)) {
     // Ref refers to the original descriptor
-    Descr->addUpdateInstruction(UpdateInst);
+    Descr->UpdateInstructions.push_back(UpdateInst);
   } else {
     // Ref is an alias to the original descriptor
-    auto Alias = Descr->findAlias(Ref);
-    assert(Alias && "Alias not found.");
-    Alias->addUpdateInstruction(UpdateInst);
+    auto AliasIt = Descr->Aliases.find(Ref);
+    assert(AliasIt != Descr->Aliases.end() && "Alias not found.");
+    DescrValues *Alias = AliasIt->second.get();
+    Alias->UpdateInstructions.push_back(UpdateInst);
   }
 }
 
@@ -230,7 +230,7 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
         continue;
 
       // Check if RVal is any of explicit SIMD descriptors
-      DescrWithAliasesTy *Descr = isPrivate(RVal);
+      DescrWithAliases *Descr = isPrivate(RVal);
       if (Descr == nullptr)
         Descr = isLinear(RVal);
       if (Descr == nullptr)
@@ -244,10 +244,7 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
                  RVal->dump(); dbgs() << "\n");
       RegDDRef *LVal = HInst->getLvalDDRef();
       assert(LVal && "HLInst in the preheader does not have an Lval.");
-      if (isa<DescrWithInitValue>(Descr))
-        Descr->addAlias(LVal, std::make_unique<DescrWithInitValue>(LVal));
-      else
-        Descr->addAlias(LVal, std::make_unique<DescrWithAliasesTy>(LVal));
+      Descr->Aliases[LVal] = std::make_unique<DescrValues>(LVal);
     }
   }
 }
@@ -1075,8 +1072,8 @@ public:
 
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
-    Type *IndTy = CurrValue.getRef()->getDestType();
-    const HLDDNode *HLNode = CurrValue.getRef()->getHLDDNode();
+    Type *IndTy = CurrValue.Ref->getDestType();
+    const HLDDNode *HLNode = CurrValue.Ref->getHLDDNode();
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
     Descriptor.setKindAndOpcodeFromTy(IndTy);
@@ -1089,8 +1086,7 @@ public:
       // not sized.
       assert(PointerElementType->isSized() &&
              "Can't determine size of pointed-to type");
-      const DataLayout &DL =
-          CurrValue.getRef()->getDDRefUtils().getDataLayout();
+      const DataLayout &DL = CurrValue.Ref->getDDRefUtils().getDataLayout();
       int64_t Size =
           static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
       assert(Size && "Can't determine size of pointed-to type");
@@ -1148,14 +1144,14 @@ public:
   /// Fill in the data from list of explicit reductions
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurrValue) {
-    Type *RType = CurrValue.getRef()->getDestType();
+    Type *RType = CurrValue.Ref->getDestType();
     assert(isa<PointerType>(RType) &&
            "SIMD reduction descriptor DDRef is not pointer type.");
     // Get pointee type of descriptor ref
     RType = cast<PointerType>(RType)->getElementType();
     // Translate HIRLegality descriptor's UpdateInstructions to corresponding
     // VPInstructions
-    for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {
+    for (auto *UpdateInst : CurrValue.UpdateInstructions) {
       VPValue *UpdateVPInst = Decomposer.getVPValueForNode(UpdateInst);
       assert(UpdateVPInst && isa<VPInstruction>(UpdateVPInst) &&
              "Instruction that updates reduction descriptor is not valid.");
@@ -1163,18 +1159,16 @@ public:
     }
     // Set start value of descriptor (can be null)
     Descriptor.setStart(
-        CurrValue.getInitValue()
-            ? Decomposer.getVPExternalDefForDDRef(CurrValue.getInitValue())
+        CurrValue.InitValue
+            ? Decomposer.getVPExternalDefForDDRef(CurrValue.InitValue)
             : nullptr);
 
-    if (HIRVectorizationLegality::DescrValueTy *Alias =
+    if (HIRVectorizationLegality::DescrValues *Alias =
             CurrValue.getValidAlias()) {
-      auto *RedAlias =
-          cast<HIRVectorizationLegality::DescrWithInitValue>(Alias);
       VPValue *AliasInit =
-          Decomposer.getVPExternalDefForDDRef(RedAlias->getInitValue());
+          Decomposer.getVPExternalDefForDDRef(Alias->InitValue);
       SmallVector<VPInstruction *, 4> AliasUpdates;
-      for (auto *UpdateInst : Alias->getUpdateInstructions())
+      for (auto *UpdateInst : Alias->UpdateInstructions)
         AliasUpdates.push_back(
             cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
       Descriptor.setAlias(AliasInit, AliasUpdates);
