@@ -731,7 +731,7 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
 let CopyCost = -1 in // Don't allow copying of tile registers
-def TILE : RegisterClass<"X86", [v256i32], 8192,
+def TILE : RegisterClass<"X86", [x86amx], 8192,
                          (sequence "TMM%u", 0, 15)> {let Size = 8192;}
 
 // Tiles
