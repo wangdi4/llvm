@@ -18,7 +18,6 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
-#include "IntelVPlanEntityDescr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
@@ -42,12 +41,8 @@ public:
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const CallInst *RegionEntry);
 
-  using PrivDescrTy = PrivDescr<Value>;
-  using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
-  using PrivateKindTy = PrivDescrTy::PrivateKind;
-
   /// Container-class for storing the different types of Privates
-  using PrivatesListTy = MapVector<const Value *, std::unique_ptr<PrivDescrTy>>;
+  using PrivatesListTy = SetVector<Value *>;
 
   /// ReductionList contains the reduction descriptors for all
   /// of the reductions that were found in the loop.
@@ -166,6 +161,8 @@ private:
 
   /// Vector of in memory loop private values(allocas)
   PrivatesListTy Privates;
+  PrivatesListTy LastPrivates;
+  PrivatesListTy CondLastPrivates;
 
   /// List of explicit linears.
   LinearListTy Linears;
@@ -193,29 +190,14 @@ public:
   // Used for a temporary solution of teaching legality based on DA.
   void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
 
-  /// Add an in memory non-POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Function *Constr, Function *Destr,
-                      Function *CopyAssign, bool IsLast = false) {
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    std::unique_ptr<PrivDescrNonPODTy> PrivItem =
-        std::make_unique<PrivDescrNonPODTy>(PrivVal, Kind, Constr, Destr,
-                                            CopyAssign);
-    Privates.insert({PrivVal, std::move(PrivItem)});
-  }
-
-  /// Add an in memory POD private to the vector of private values.
+  /// Add an in memory private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, bool IsLast = false,
                       bool IsConditional = false) {
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
+    Privates.insert(PrivVal);
     if (IsConditional)
-      Kind = PrivateKindTy::Conditional;
-    std::unique_ptr<PrivDescrTy> PrivItem =
-        std::make_unique<PrivDescrTy>(PrivVal, Kind);
-    Privates.insert({PrivVal, std::move(PrivItem)});
+      CondLastPrivates.insert(PrivVal);
+    else if (IsLast)
+      LastPrivates.insert(PrivVal);
   }
 
   /// Register explicit reduction variables provided from outside.
@@ -279,19 +261,28 @@ public:
     return &Linears;
   }
 
+  // Return Pointer to Privates map
+  const PrivatesListTy &getPrivates() const { return Privates; }
+
+  // Return Pointer to CondPrivates map
+  const PrivatesListTy &getCondPrivates() const { return CondLastPrivates; }
+
+  // Return Pointer to LastPrivates map
+  const PrivatesListTy &getLastPrivates() const { return LastPrivates; }
+
   // Return the iterator-range to the list of privates loop-entities.
-  // TODO: Windows compiler explicitly doesn't allow for const type specifier.
   inline decltype(auto) privates() const {
-    return map_range(
-        make_range(Privates.begin(), Privates.end()), [](auto &PrivatePair) {
-          return const_cast<const PrivDescrTy *>(PrivatePair.second.get());
-        });
+    return make_range(Privates.begin(), Privates.end());
   }
 
-  // Return the iterator-range to the list of privates loop-entities values.
-  inline decltype(auto) privateVals() const {
-    return map_range(make_range(Privates.begin(), Privates.end()),
-                     [](auto &PrivatePair) { return PrivatePair.first; });
+  // Return the iterator-range to the list of conditional privates.
+  inline decltype(auto) condPrivates() const {
+    return make_range(CondLastPrivates.begin(), CondLastPrivates.end());
+  }
+
+  // Return the iterator-range to the list of last-privates.
+  inline decltype(auto) lastPrivates() const {
+    return make_range(LastPrivates.begin(), LastPrivates.end());
   }
 
   // Return the iterator-range to the list of explicit reduction variables which
@@ -318,11 +309,6 @@ public:
     return map_range(make_range(Linears.begin(), Linears.end()),
                      [](auto &LinearStepPair) { return LinearStepPair.first; });
   }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const;
-  void dump() const { dump(errs()); }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   // Find pattern inside the loop for matching the explicit
