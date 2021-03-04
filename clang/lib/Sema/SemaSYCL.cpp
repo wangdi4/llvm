@@ -489,7 +489,7 @@ public:
   // Returns the kernel body function found during traversal.
   FunctionDecl *
   CollectPossibleKernelAttributes(FunctionDecl *SYCLKernel,
-                                  llvm::SmallVector<Attr *, 4> &Attrs) {
+                                  llvm::SmallPtrSet<Attr *, 4> &Attrs) {
 #ifdef INTEL_CUSTOMIZATION
     typedef std::tuple<FunctionDecl *, FunctionDecl *, Expr *>
         ChildParentCall;
