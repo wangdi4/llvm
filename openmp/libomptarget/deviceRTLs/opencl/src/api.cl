@@ -92,8 +92,8 @@ EXTERN void omp_set_num_threads(int num_threads) {
 
 EXTERN int omp_get_max_threads(void) {
   if (__omp_spirv_global_data.assume_simple_spmd_mode) {
-    // Distinguish sequential/parallel region
-    return omp_get_num_threads() > 1 ? 1 : omp_get_thread_limit();
+    // Return thread_limit always.
+    return __kmp_get_local_size();
   }
 
   kmp_local_state_t *local_state = __kmp_get_local_state();
@@ -135,9 +135,8 @@ EXTERN int omp_get_num_devices(void) {
 }
 
 EXTERN int omp_get_num_procs(void) {
-  if (__omp_spirv_global_data.assume_simple_spmd_mode || __kmp_is_spmd_mode())
-    return __kmp_get_local_size();
-  return __kmp_get_num_workers();
+  return __omp_spirv_program_data.total_eus *
+      __omp_spirv_program_data.hw_threads_per_eu;
 }
 
 EXTERN int omp_get_supported_active_levels(void) {

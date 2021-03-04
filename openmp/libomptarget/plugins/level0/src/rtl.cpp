@@ -321,6 +321,8 @@ struct ModuleDataTy {
   int Initialized = 0;
   int NumDevices = 0;
   int DeviceNum = -1;
+  uint32_t TotalEUs = 0;
+  uint32_t HWThreadsPerEU = 0;
 };
 
 /// RTL profile -- only host timer for now
@@ -1347,10 +1349,15 @@ static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
 /// Initialize module data
 int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   // Prepare host data to copy
+  auto &P = DeviceProperties[DeviceId];
+  uint32_t totalEUs =
+      P.numSlices * P.numSubslicesPerSlice * P.numEUsPerSubslice;
   ModuleDataTy hostData = {
     1,                   // Initialized
     (int32_t)NumDevices, // Number of devices
-    DeviceId             // Device ID
+    DeviceId,            // Device ID
+    totalEUs,            // Total EUs
+    P.numThreadsPerEU    // HW threads per EU
   };
 
   // Look up program data location on device
