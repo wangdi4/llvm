@@ -27,7 +27,7 @@
 #include <map>
 #include <utility>
 
-#define DEBUG_TYPE "resolve-sg-call"
+#define DEBUG_TYPE "resolve-sub-group-wi-call"
 
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
@@ -42,10 +42,10 @@ namespace intel {
 
 char ResolveSubGroupWICall::ID = 0;
 
-OCL_INITIALIZE_PASS_BEGIN(ResolveSubGroupWICall, "resolve-sub-group-wi-call",
+OCL_INITIALIZE_PASS_BEGIN(ResolveSubGroupWICall, DEBUG_TYPE,
                           "Resolve Sub Group WI functions", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-OCL_INITIALIZE_PASS_END(ResolveSubGroupWICall, "resolve-sub-group-wi-call",
+OCL_INITIALIZE_PASS_END(ResolveSubGroupWICall, DEBUG_TYPE,
                         "Resolve Sub Group WI functions", false, false)
 
 ResolveSubGroupWICall::ResolveSubGroupWICall(bool ResolveSGBarrier)
@@ -83,7 +83,7 @@ bool ResolveSubGroupWICall::runOnModule(Module &M) {
 
   typedef Value *(ResolveSubGroupWICall::*ResolverFunc)(Instruction *, Value *,
                                                         int32_t);
-  static std::map<std::string, ResolverFunc> SubGroupFuncToResolver = {
+  std::map<std::string, ResolverFunc> SubGroupFuncToResolver = {
       {CompilationUtils::mangledNumSubGroups(),
        &ResolveSubGroupWICall::replaceGetNumSubGroups},
       {CompilationUtils::mangledGetSubGroupId(),
@@ -95,6 +95,7 @@ bool ResolveSubGroupWICall::runOnModule(Module &M) {
       {CompilationUtils::mangledGetMaxSubGroupSize(),
        &ResolveSubGroupWICall::replaceGetMaxSubGroupSize}};
 
+  LLVM_DEBUG(dbgs() << "ResolveSGBarrier = " << ResolveSGBarrier << '\n');
   if (ResolveSGBarrier) {
     SubGroupFuncToResolver.insert(
         {CompilationUtils::mangledSGBarrier(
