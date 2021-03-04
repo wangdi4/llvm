@@ -3094,7 +3094,7 @@ void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t
     }
     if ((flags & ~(CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY | CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS)) != 0)
     {
-        LOG_ERROR(TEXT("The values specified in flags are not valid i.e. don’t match those defined in table 5.13"), "");
+        LOG_ERROR(TEXT("The values specified in flags are not valid i.e. donÂ’t match those defined in table 5.13"), "");
         return nullptr;
     }
     if (0 == size)
@@ -3370,6 +3370,65 @@ cl_int ContextModule::USMFree(cl_context context, void* ptr)
     return err;
 }
 
+cl_int ContextModule::USMBlockingFree(cl_context context, void* ptr)
+{
+    SharedPtr<Context> pContext = GetContext(context);
+    if (nullptr == pContext.GetPtr())
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        return CL_INVALID_CONTEXT;
+    }
+
+    if (nullptr == ptr)
+    {
+        LOG_INFO(TEXT("ptr is nullptr. No action occurs."), "");
+        return CL_SUCCESS;
+    }
+
+    auto usmBufferIter = m_mapUSMBuffers.find(ptr);
+    if (usmBufferIter == m_mapUSMBuffers.end())
+    {
+        LOG_ERROR(TEXT("ptr isn't a USM buffer"), "");
+        return CL_INVALID_VALUE;
+    }
+
+    auto waitListIter = m_mapUSMFreeWaitList.end();
+    std::vector<cl_event> waitList;
+    {
+        OclAutoMutex mu(&m_SvmUsmMutex);
+        waitListIter = m_mapUSMFreeWaitList.find(ptr);
+        if (waitListIter != m_mapUSMFreeWaitList.end())
+            for (auto eventSPtr : waitListIter->second)
+                waitList.push_back(eventSPtr.get());
+    }
+
+    // Wait for all commands referring this USM buffer to complete.
+    if (!waitList.empty()) {
+        cl_err_code err = FrameworkProxy::Instance()
+                              ->GetExecutionModule()
+                              ->GetEventsManager()
+                              ->WaitForEvents(waitList.size(), waitList.data());
+
+        if (CL_FAILED(err)) {
+            // TODO: The document doesn't say which error code we should return
+            // if some internal errors occurs.
+            LOG_ERROR(TEXT("Failed to wait for related events done."), "");
+            return err;
+        }
+    }
+
+    cl_err_code err = pContext->USMFree(ptr);
+
+    if (CL_SUCCESS == err) {
+        OclAutoMutex mu(&m_SvmUsmMutex);
+        m_mapUSMBuffers.erase(usmBufferIter);
+        if (waitListIter != m_mapUSMFreeWaitList.end())
+            m_mapUSMFreeWaitList.erase(waitListIter);
+    }
+
+    return err;
+}
+
 cl_int ContextModule::GetMemAllocInfoINTEL(cl_context context, const void* ptr,
                                            cl_mem_info_intel param_name,
                                            size_t param_value_size,
@@ -3430,3 +3489,10 @@ void ContextModule::UnRegisterMappedMemoryObject( MemoryObject* pMemObj )
     m_setMappedMemObjects.remove( pMemObj );
 }
 
+void ContextModule::RegisterUSMFreeWaitEvent(
+    const void *usmPtr, std::shared_ptr<_cl_event> eventSPtr )
+{
+    assert(usmPtr != nullptr && "Not a valid USM pointer");
+    OclAutoMutex mu(&m_SvmUsmMutex);
+    m_mapUSMFreeWaitList[usmPtr].push_back(eventSPtr);
+}

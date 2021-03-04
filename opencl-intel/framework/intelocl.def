@@ -134,6 +134,7 @@ EXPORTS
 	clDeviceMemAllocINTEL
 	clSharedMemAllocINTEL
 	clMemFreeINTEL
+	clMemBlockingFreeINTEL
 	clGetMemAllocInfoINTEL
 	clSetKernelArgMemPointerINTEL
 	clEnqueueMemsetINTEL
