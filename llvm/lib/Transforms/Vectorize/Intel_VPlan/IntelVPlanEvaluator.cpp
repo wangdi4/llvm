@@ -32,6 +32,7 @@ using namespace llvm::vpo;
 unsigned VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan) {
   if (Plan) {
     VPlanCostModel CM(Plan, VF, TTI, TLI, DL, VLSA);
+    // TODO: no peeling should be accounted here, update after interface changes.
     return CM.getCost();
   }
   return UINT_MAX;

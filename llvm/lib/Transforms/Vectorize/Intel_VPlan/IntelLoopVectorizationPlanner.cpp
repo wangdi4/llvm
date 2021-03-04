@@ -87,6 +87,10 @@ static cl::opt<bool> EnableGeneralPeelingCostModel(
     cl::desc("Use more advanced general cost model instead of a simple one for "
              "peeling decisions"));
 
+static cl::opt<bool> PrintVecScenario(
+    "vplan-print-vec-scenario", cl::init(false), cl::Hidden,
+    cl::desc("Print selected single loop vectorization scenario"));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -138,6 +142,15 @@ static cl::opt<bool>
     PrintAfterEvaluator("vplan-print-after-evaluator", cl::init(false),
                         cl::Hidden, cl::desc("Print VPlan after evaluator."));
 
+static cl::opt<std::string> VecScenarioStr(
+    "vplan-vec-scenario", cl::init(""), cl::Hidden,
+    cl::desc(
+        "Set vectorization scenario defining peel/main/remainder kinds and VF. "
+        "UF is always set to 1.\n"
+        "Format: peel-kindVF;main-kindVF;rem-kindVF[rem-kindVF]. kind=n,s,v,m, "
+        "VF=number. E.g. n0;v4;v2s1 means no peel, main vector loop with VF=4, "
+        "vector remainder with VF=2, scalar remainder"));
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -173,15 +186,17 @@ static cl::list<ForceVFTy, bool /* Use internal storage */, VPlanLoopVFParser>
         "vplan-force-loop-vf", cl::Hidden, cl::ZeroOrMore,
         cl::value_desc("LoopID:VF"),
         cl::desc(
-            "Debug option to force vectorization scenario of a particular "
-            "loop. This option is *NOT* thread-safe and might not have "
+            "Debug option to force vector factor of a particular "
+            "loop that we are going to vectorize. This applies to the main "
+            "part of vector loop only and not to peel/remainder. This option "
+            "is *NOT* thread-safe and might not have "
             "production quality! Loops order is also implementation-defined "
             "and might not match the order of the loops in the input. Refer to "
             "-debug-only=LoopVectorizationPlanner to see the mapping. It is "
             "expected to be deterministic between multiple runs of the same "
             "compiler invocation though. Comma separated list of pairs isn't "
             "supported at this moment - use the option multiple times to force "
-            "scenarios for multiple loops."));
+            "vector factors for multiple loops."));
 static int VPlanOrderNumber = 0;
 
 using namespace llvm;
@@ -280,19 +295,32 @@ int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
     // We won't be able to fill the entire register, but it
     // still might be profitable.
     MinVF = std::min(MinVF, Safelen);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (!VecScenarioStr.empty()) {
+      VecScenario.fromString(VecScenarioStr);
+      SmallSet<unsigned, 4> UsedVFs;
+      VecScenario.getUsedVFs(UsedVFs);
+      for (auto VF : UsedVFs) {
+        if (VF > 1 && VF < MinVF)
+          MinVF = VF;
+        if (VF > 1 && VF > MaxVF)
+          MaxVF = VF;
+      }
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #if INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "LVP: MinVF: " << MinVF << " MaxVF: " << MaxVF
                       << "\n");
 #endif // INTEL_CUSTOMIZATION
-
     if (MinVF > MaxVF) {
       VFs.push_back(0);
       return 0;
     }
     for (unsigned VF = MinVF; VF <= MaxVF; VF *= 2)
       VFs.push_back(VF);
-#if INTEL_CUSTOMIZATION
   }
+#if INTEL_CUSTOMIZATION
   // TODO: add information about specified vector lengths in opt-report
   DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_lengths",
                   dbgs() << "LVP: Specified vectorlengths: ");
@@ -522,6 +550,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   }
 #endif // INTEL_CUSTOMIZATION
 
+  // Reset the current selection to scalar loop only.
+  VecScenario.resetPeel();
+  VecScenario.resetMain();
+  VecScenario.resetRemainders();
+
   // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
   // cost model.
   //
@@ -604,6 +637,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (VectorCost < BestCost || VF == ForcedVF) {
       BestCost = VectorCost;
       BestVF = VF;
+      updateVecScenario(PeelEvaluator, RemainderEvaluator, BestVF, BestUF);
     }
   }
 #if INTEL_CUSTOMIZATION
@@ -613,15 +647,92 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   if (BestVF == 1 && IsVectorAlways) {
     BestVF = VFs[0];
   }
+  if (BestVF != VecScenario.getMainVF()) {
+    // The VecScenario was not updated in the main CM loop. That
+    // may happen when the BestVF is forced and loop cost for it is unknown
+    // and when vectorization is forced but the scalar cost is the best.
+    // Select the simplest configuration: unmasked main loop + scalar
+    // remainder.
+    VecScenario.resetPeel();
+    VecScenario.resetRemainders();
+    VecScenario.addScalarRemainder();
+    VecScenario.setVectorMain(BestVF, BestUF);
+  }
 #endif // INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (!VecScenarioStr.empty()) {
+    VecScenario.fromString(VecScenarioStr);
+    SmallSet<unsigned, 4> UsedVFs;
+    VecScenario.getUsedVFs(UsedVFs);
+    for (auto VF : UsedVFs) {
+      VPlan *P = getVPlanForVF(VF);
+      assert(P && "The VPlan for VF from string does not exist");
+    }
+    // just in case, to not face assert on null VPlan
+    BestVF = VecScenario.getMainVF();
+    if (VecScenario.hasPeel()) {
+      VPlanVector *MPlan = getVPlanForVF(BestVF);
+      VPLoop *L = *(MPlan->getVPLoopInfo())->begin();
+      if (VecScenario.hasMaskedPeel() && !L->hasNormalizedInduction()) {
+        // replace by scalar loop if there is no normalized induction
+        VecScenario.setScalarPeel();
+      }
+      if (!MPlan->getPreferredPeeling(BestVF))
+        MPlan->setPreferredPeeling(BestVF,
+                                   std::make_unique<VPlanStaticPeeling>(1));
+    }
+  }
+  if (PrintVecScenario || !VecScenarioStr.empty()) {
+    VecScenario.dump();
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Delete all other VPlans.
+  SmallSet<unsigned, 4> UsedVFs;
+  VecScenario.getUsedVFs(UsedVFs);
   for (auto &It : VPlans) {
-    if (It.first != BestVF)
+    if (!UsedVFs.count(It.first))
       VPlans.erase(It.first);
   }
   LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << BestVF << '\n');
   return BestVF;
+}
+
+void LoopVectorizationPlanner::updateVecScenario(
+    VPlanPeelEvaluator const &PE, VPlanRemainderEvaluator const &RE,
+    unsigned VF, unsigned UF) {
+  using PeelKind = VPlanPeelEvaluator::PeelLoopKind;
+  using RemKind = VPlanRemainderEvaluator::RemainderLoopKind;
+  switch (PE.getPeelLoopKind()) {
+  case PeelKind::None:
+    VecScenario.resetPeel();
+    break;
+  case PeelKind::Scalar:
+    VecScenario.setScalarPeel();
+    break;
+  case PeelKind::MaskedVector:
+    // Note: for masked peel we use the same VF as for main loop.
+    VecScenario.setMaskedPeel(VF);
+    break;
+  }
+  VecScenario.resetRemainders();
+  switch (RE.getRemainderLoopKind()) {
+  case RemKind::None:
+    break;
+  case RemKind::Scalar:
+    VecScenario.addScalarRemainder();
+    break;
+  case RemKind::VectorScalar:
+    VecScenario.addUnmaskedRemainder(RE.getRemainderVF());
+    VecScenario.addScalarRemainder();
+    break;
+  case RemKind::MaskedVector:
+    // Note: for masked remainder we use the same VF as for main loop.
+    VecScenario.addMaskedRemainder(VF);
+    break;
+  }
+  // TODO: need update for cases when we select masked mode for main loop.
+  VecScenario.setVectorMain(VF, UF);
 }
 
 template unsigned
@@ -760,6 +871,82 @@ LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>(
 template void LoopVectorizationPlanner::printCostModelAnalysisIfRequested<
     VPlanCostModelProprietary>(
   const std::string &Header);
+
+void SingleLoopVecScenario::fromString(StringRef S) {
+  // The supported string format is:
+  //  Spec:= <Peel>;<Main>;<Remainder>
+  //  Peel:= <Loop>
+  //  Main:= <Loop>
+  //  Remainder:= <Loops>
+  //  LoopKinds:= <Loop> {<Loops>}
+  //  Loop := <LoopKind><VF>
+  //  VF := a positive number
+  //  LoopKind := n | s | v | m
+  //    n := none, means no loop
+  //    s := scalar
+  //    v := non-masked vector
+  //    m := masked vector
+  // E.g."n0;v8;v4s1" means "no peel, unmasked vector main loop with VF=8,
+  // unmasked vector remainder with VF=4 and scalar remainder".
+
+  SmallVector<StringRef, 3> Parts;
+  S.split(Parts, ';', 3, false);
+  assert(Parts.size() == 3 && "expected three substrings");
+
+  // Get one descriptor from a string R, setting E to the beginning of the next
+  // substring. The routine performs parsing of the <Loop> term from the spec
+  // above (<LoopKind><VF>).
+  auto getDescr = [](StringRef &R, StringRef &E) -> AuxLoopDescr {
+    AuxLoopDescr Res;
+    assert(R.size() >= 2 && "unexpectedly short string");
+    switch (R[0]) {
+    case 'n':
+      Res.Kind = LKNone;
+      break;
+    case 's':
+      Res.Kind = LKScalar;
+      break;
+    case 'v':
+      Res.Kind = LKVector;
+      break;
+    case 'm':
+      Res.Kind = LKMasked;
+      break;
+    default:
+      llvm_unreachable("unexpected character");
+      break;
+    }
+    size_t C = 1;
+    int VF = 0;
+    assert(std::isdigit(R[1]) && "expected a number");
+    while (C < R.size() && std::isdigit(R[C])) {
+      VF *= 10;
+      VF += R[C] - '0';
+      C++;
+    }
+    Res.VF = VF;
+    // C is incremented on the last iteration, so it points to beginning of the
+    // next substring
+    E = R.drop_front(C);
+    return Res;
+  };
+
+  StringRef E;
+  Peel = getDescr(Parts[0], E);
+  Main = getDescr(Parts[1], E);
+
+  StringRef R = Parts[2];
+  while (R.size()) {
+    AuxLoopDescr D = getDescr(R, E);
+    addRemainder(D);
+    R = E;
+  }
+  std::sort(Remainders.begin(), Remainders.end(),
+            [](const AuxLoopDescr &F, const AuxLoopDescr &S) {
+              return F.Kind < S.Kind;
+            });
+}
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // TODO: Current implementation is too aggressive and may lead to increase of

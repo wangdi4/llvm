@@ -24,6 +24,7 @@
 #include "VPlan.h"
 #endif
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallSet.h"
 
 namespace llvm {
 class Loop;
@@ -48,11 +49,157 @@ class VPOVectorizationLegality;
 class WRNVecLoopNode;
 class VPlanHCFGBuilder;
 class VPlanCostModel;
+class VPlanRemainderEvaluator;
+class VPlanPeelEvaluator;
 
 extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
+
+/// Auxiliary class to keep vectorization scenario for a single loop
+/// vectorization. It describes which variants of the loops are selected for
+/// peel, remainder, and main loop. For peel we can select either scalar or
+/// masked vector loop or none of them, for remainder we can have four
+/// variants: none, scalar, masked vector, unmasked vector plus scalar. For main
+/// loop we can select either unmasked or masked vector variants. All vector
+/// variants can have their own VF, the main loop can have also an unroll
+/// factor. The selection is done by cost model and trip count analysis.
+class SingleLoopVecScenario {
+public:
+  friend class LoopVectorizationPlanner; // to use set() methods
+
+  enum AuxLoopKind {
+    LKNone = 0,
+    LKScalar,
+    LKMasked,
+    LKVector,
+  };
+
+  struct AuxLoopDescr {
+    AuxLoopKind Kind = LKNone;
+    unsigned VF = 0;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    void print(raw_ostream &OS) const {
+      switch (Kind) {
+      case LKNone:
+        OS << "none";
+        break;
+      case LKScalar:
+        OS << "scalar";
+        break;
+      case LKMasked:
+        OS << "masked, VF=" << VF;
+        break;
+      case LKVector:
+        OS << "unmasked, VF=" << VF;
+        break;
+      }
+    }
+    friend raw_ostream &operator<<(raw_ostream &OS, const AuxLoopDescr &D);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  };
+
+  const AuxLoopDescr &getMain() const { return Main; }
+  const AuxLoopDescr &getPeel() const { return Peel; }
+  auto rem_begin() const { return Remainders.begin(); }
+  auto rem_end() const { return Remainders.end(); }
+  unsigned getMainUF() const { return MainUF; }
+
+  AuxLoopKind getMainKind() const { return Main.Kind; }
+  unsigned getMainVF() const { return Main.VF; }
+  AuxLoopKind getPeelKind() const { return Peel.Kind; }
+  unsigned getPeelVF() const { return Peel.VF; }
+
+  /// Convenience methods
+  bool hasPeel() const { return Peel.Kind != LKNone; }
+  bool hasMaskedPeel() const { return Peel.Kind == LKMasked; }
+
+  /// Return list of vector factors used for the current selection.
+  void getUsedVFs(SmallSet<unsigned, 4> &Ret) {
+    Ret.insert(Main.VF);
+    if (Peel.Kind != LKNone)
+      Ret.insert(Peel.VF);
+    for (auto &Rem : Remainders)
+      if (Rem.Kind != LKNone)
+        Ret.insert(Rem.VF);
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { dump(dbgs()); }
+  void dump(raw_ostream &OS) const {
+    OS << "Single loop scenario:\n";
+    OS << " MainLoop: " << Main << "\n";
+    OS << " PeelLoop: " << Peel << "\n";
+    OS << " Remainders: ";
+    if (!Remainders.size())
+      OS << "none";
+    else
+      for (auto &Rem : Remainders)
+        OS << Rem << ",";
+    OS << "\n";
+  }
+
+  // For debug purposes, allow setting from a string.
+  // The supported string format is:
+  //  Spec:= <Peel>;<Main>;<Remainder>
+  //  Peel:= <Loop>
+  //  Main:= <Loop>
+  //  Remainder:= <Loops>
+  //  Loops:= <Loop> {<Loops>}
+  //  Loop := <LoopKind><VF>
+  //  VF := a positive number
+  //  LoopKind := n | s | v | m
+  //    n := none, means no loop
+  //    s := scalar
+  //    v := non-masked vector
+  //    m := masked vector
+  // E.g."n0;v8;v4s1" means "no peel, unmasked vector main loop with VF=8,
+  // unmasked vector remainder with VF=4 and scalar remainder".
+  void fromString(StringRef S);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+private:
+  void setMainUF(unsigned N) {MainUF = N;}
+  void resetRemainders() { Remainders.clear(); }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Keep it for debug purpose only (used by fromString())
+  void addRemainder(const AuxLoopDescr RD) { Remainders.emplace_back(RD); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  void resetPeel() { Peel = {LKNone, 0}; }
+  void resetMain() { Main = {LKScalar, 1}; }
+  void setScalarPeel() { Peel = {LKScalar, 1}; }
+  void setMaskedPeel(unsigned VF) { Peel = {LKMasked, VF}; }
+
+  void addScalarRemainder() {
+    Remainders.emplace_back(AuxLoopDescr{LKScalar, 1});
+  }
+  void addUnmaskedRemainder(unsigned VF) {
+    Remainders.emplace_back(AuxLoopDescr{LKVector, VF});
+  }
+  void addMaskedRemainder(unsigned VF) {
+    Remainders.emplace_back(AuxLoopDescr{LKMasked, VF});
+  }
+  void setVectorMain(unsigned VF, unsigned UF) {
+    Main = {LKVector, VF};
+    MainUF = UF;
+  }
+
+  AuxLoopDescr Main;
+  AuxLoopDescr Peel;
+  SmallVector<AuxLoopDescr, 1> Remainders;
+  unsigned MainUF = 1; // Unroll factor of the main loop.
+};
+
+inline raw_ostream &operator<<(raw_ostream &OS,
+                               const SingleLoopVecScenario::AuxLoopDescr &D) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  D.print(OS);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  return OS;
+}
 
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
@@ -216,6 +363,12 @@ protected:
   virtual bool canProcessLoopBody(const VPlanVector &Plan,
                                   const VPLoop &Loop) const;
 
+  /// Register the choosen vectorization scenario: peel/remainder configuration,
+  /// vector and unroll factors for main loop
+  void updateVecScenario(VPlanPeelEvaluator const &PE,
+                         VPlanRemainderEvaluator const &RE, unsigned VF,
+                         unsigned UF);
+
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
 
@@ -247,6 +400,7 @@ protected:
   SmallVector<unsigned, 5> VFs;
   unsigned BestVF = 0;
   unsigned BestUF = 0;
+  SingleLoopVecScenario VecScenario;
 
   // Storage for common external data (VPExternalDefs, Uses, Consts etc).
   std::unique_ptr<VPExternalValues> Externals;
