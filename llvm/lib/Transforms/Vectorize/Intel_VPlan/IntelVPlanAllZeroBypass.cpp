@@ -100,7 +100,7 @@ void VPlanAllZeroBypass::createLiveOutPhisAndReplaceUsers(
     VPValue *LiveOut = It.first;
     LiveOutUsersTy &LiveOutUsers = It.second;
     VPPHINode *VPPhi = Builder.createPhiInstruction(LiveOut->getType());
-    DA->updateVectorShape(VPPhi, DA->getVectorShape(LiveOut));
+    DA->updateVectorShape(VPPhi, DA->getVectorShape(*LiveOut));
     VPPhi->addIncoming(LiveOut, LastBlockInBypassRegion);
     // Propagate 0/false along all-zero edge because live-outs could feed
     // into instructions used as block-predicates and these values cannot

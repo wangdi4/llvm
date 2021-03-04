@@ -4380,7 +4380,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // pointers and pointers used in VLS interleaved accesses. This
   // will be changed later to use SVA information.
   if (isa<VPGEPInstruction>(VPInst) || isa<VPSubscriptInst>(VPInst)) {
-    if (Plan->getVPlanDA()->getVectorShape(VPInst).hasKnownStride() ||
+    if (Plan->getVPlanDA()->getVectorShape(*VPInst).hasKnownStride() ||
         !Plan->getVPlanDA()->isDivergent(*VPInst))
       generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst, false /*Widen*/, 0 /*LaneID*/);
