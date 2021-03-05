@@ -1,55 +1,55 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=false -vpo-paropt-enable-64bit-opencl-atomics=false -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=false -vpo-paropt-enable-64bit-opencl-atomics=false -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=false -vpo-paropt-enable-64bit-opencl-atomics=true -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=false -vpo-paropt-enable-64bit-opencl-atomics=true -S | FileCheck %s
 
 ; Original code (see at the end of the file).
 
 ; Signed add:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_addi(i32
 ; CHECK-DAG: spir_func void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_addl(i64
+; CHECK-DAG: spir_func void @__kmpc_atomic_fixed8_add(i64 addrspace(4)* {{.*}}, i64
 
 ; Unsigned add:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_addi(i32
 ; CHECK-DAG: spir_func void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_addl(i64
+; CHECK-DAG: spir_func void @__kmpc_atomic_fixed8_add(i64 addrspace(4)* {{.*}}, i64
 
 ; FP add:
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_float4_add(float addrspace(4)* {{.*}}, float
-; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_addd(double
+; CHECK-DAG: call spir_func void @__kmpc_atomic_float8_add(double addrspace(4)* {{.*}}, double
 
 ; Signed min:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_mini(i32
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_min(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_minl(i64
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed8_min(i64 addrspace(4)* {{.*}}, i64
 
 ; Unsigned min:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_minj(i32
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4u_min(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_minm(i64
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed8u_min(i64 addrspace(4)* {{.*}}, i64
 
 ; FP min:
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_float4_min(float addrspace(4)* {{.*}}, float
-; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_mind(double
+; CHECK-DAG: call spir_func void @__kmpc_atomic_float8_min(double addrspace(4)* {{.*}}, double
 
 ; Signed max:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxi(i32
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_max(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_maxl(i64
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed8_max(i64 addrspace(4)* {{.*}}, i64
 
 ; Unsigned max:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxj(i32
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4u_max(i32 addrspace(4)* {{.*}}, i32
-; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_maxm(i64
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed8u_max(i64 addrspace(4)* {{.*}}, i64
 
 ; FP max:
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_float4_max(float addrspace(4)* {{.*}}, float
-; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_maxd(double
+; CHECK-DAG: call spir_func void @__kmpc_atomic_float8_max(double addrspace(4)* {{.*}}, double
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
 target device_triples = "spir64"
 
-; Function Attrs: noinline optnone nounwind uwtable
+; Function Attrs: noinline nounwind uwtable
 define dso_local spir_func void @foo(i32 addrspace(4)* %x) #0 {
 entry:
   %x.addr = alloca i32 addrspace(4)*, align 8
@@ -668,7 +668,7 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-attributes #0 = { noinline optnone nounwind uwtable "contains-openmp-target"="true" "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { noinline nounwind uwtable "contains-openmp-target"="true" "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }
 
 !omp_offload.info = !{!0}
