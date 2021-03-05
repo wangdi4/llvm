@@ -2631,6 +2631,10 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = S.mergeEnforceTCBLeafAttr(D, *TCBLA);
   else if (Attr->shouldInheritEvenIfAlreadyPresent() || !DeclHasAttr(D, Attr))
     NewAttr = cast<InheritableAttr>(Attr->clone(S.Context));
+#if INTEL_CUSTOMIZATION
+  else if (const auto *ACF = dyn_cast<AllowCpuFeaturesAttr>(Attr))
+    NewAttr = S.MergeAllowCpuFeaturesAttr(D, *ACF);
+#endif // INTEL_CUSTOMIZATION
 
   if (NewAttr) {
     NewAttr->setInherited(true);

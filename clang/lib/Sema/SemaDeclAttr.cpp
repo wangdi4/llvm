@@ -3694,6 +3694,84 @@ static bool IsSlaveMemory(Sema &S, Decl *D) {
   return S.getLangOpts().HLS && D->hasAttr<OpenCLLocalMemSizeAttr>() &&
          D->hasAttr<SlaveMemoryArgumentAttr>();
 }
+
+static void handleAllowCpuFeaturesAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+
+  Expr *P1 = Attr.getArgAsExpr(0);
+  Expr *P2 = Attr.getNumArgs() > 1 ? Attr.getArgAsExpr(1) : nullptr;
+  S.AddAllowCpuFeaturesAttr(D, Attr, P1, P2);
+}
+
+static bool
+HasConflictingAllowCpuFeaturesAttr(Sema &S, Decl *D, Expr *P1, Expr *P2,
+                                   const AttributeCommonInfo &NewCI) {
+  if (const auto *ExistingAttr = D->getAttr<AllowCpuFeaturesAttr>()) {
+    const auto *ExistingP1 = dyn_cast<ConstantExpr>(ExistingAttr->getPage1());
+    const auto *ExistingP2 =
+        dyn_cast_or_null<ConstantExpr>(ExistingAttr->getPage2());
+    const auto *NewP1 = dyn_cast<ConstantExpr>(P1);
+    const auto *NewP2 = dyn_cast_or_null<ConstantExpr>(P2);
+
+    if (((P2 == nullptr) != (ExistingAttr->getPage2() == nullptr)) ||
+        (ExistingP1 && NewP1 &&
+         ExistingP1->getResultAsAPSInt() != NewP1->getResultAsAPSInt()) ||
+        (ExistingP2 && NewP2 &&
+         ExistingP2->getResultAsAPSInt() != NewP2->getResultAsAPSInt())) {
+      S.Diag(ExistingAttr->getLoc(), diag::warn_duplicate_attribute) << NewCI;
+      S.Diag(NewCI.getLoc(), diag::note_previous_attribute);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+AllowCpuFeaturesAttr *
+Sema::MergeAllowCpuFeaturesAttr(Decl *D, const AllowCpuFeaturesAttr &AL) {
+  if (HasConflictingAllowCpuFeaturesAttr(*this, D, AL.getPage1(),
+                                         AL.getPage2(), AL))
+    return nullptr;
+
+  return AllowCpuFeaturesAttr::Create(Context, AL.getPage1(), AL.getPage2(),
+                                      AL);
+}
+
+void Sema::AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI,
+                                   Expr *P1, Expr *P2) {
+  if (!P1->isValueDependent()) {
+    llvm::APSInt ArgVal;
+    ExprResult Res = VerifyIntegerConstantExpression(P1, &ArgVal);
+    if (Res.isInvalid())
+      return;
+    P1 = Res.get();
+    const auto *P1CE = cast<ConstantExpr>(P1);
+
+    if (!Context.isValidCpuFeaturesBitmask(
+            0, P1CE->getResultAsAPSInt().getZExtValue())) {
+      Diag(P1->getExprLoc(), diag::err_allow_cpu_feature_invalid_bitmask);
+      return;
+    }
+  }
+
+  if (P2 && !P2->isValueDependent()) {
+    llvm::APSInt ArgVal;
+    ExprResult Res = VerifyIntegerConstantExpression(P2, &ArgVal);
+    if (Res.isInvalid())
+      return;
+    P2 = Res.get();
+    const auto *P2CE = cast<ConstantExpr>(P2);
+
+    if (!Context.isValidCpuFeaturesBitmask(
+            0, P2CE->getResultAsAPSInt().getZExtValue())) {
+      Diag(P2->getExprLoc(), diag::err_allow_cpu_feature_invalid_bitmask);
+      return;
+    }
+  }
+
+  if (!HasConflictingAllowCpuFeaturesAttr(*this, D, P1, P2, CI))
+    D->addAttr(AllowCpuFeaturesAttr::Create(Context, P1, P2, CI));
+}
 #endif // INTEL_CUSTOMIZATION
 
 // Checks correctness of mutual usage of different work_group_size attributes:
@@ -10093,6 +10171,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_HLSMaxInvocationDelay:
     handleHLSMaxInvocationDelayAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_AllowCpuFeatures:
+    handleAllowCpuFeaturesAttr(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_IntelFPGAMaxReplicates:

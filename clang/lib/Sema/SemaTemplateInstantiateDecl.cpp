@@ -214,6 +214,21 @@ static void instantiateDependentHLSBankBitsAttr(
   }
   S.AddIntelFPGABankBitsAttr(New, *BBA, Args.data(), Args.size());
 }
+static void instantiateDependentAllowCpuFeaturesAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const AllowCpuFeaturesAttr *Attr, Decl *New) {
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  ExprResult P1 = S.SubstExpr(Attr->getPage1(), TemplateArgs);
+  if (P1.isInvalid())
+    return;
+  ExprResult P2 = S.SubstExpr(Attr->getPage2(), TemplateArgs);
+  if (P2.isInvalid())
+    return;
+
+  return S.AddAllowCpuFeaturesAttr(New, *Attr, P1.get(), P2.get());
+}
 #endif // INTEL_CUSTOMIZATION
 
 static void instantiateDependentAllocAlignAttr(
@@ -851,6 +866,10 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
         dyn_cast<IntelFPGABankBitsAttr>(TmplAttr);
     if (BBA) {
       instantiateDependentHLSBankBitsAttr(*this, TemplateArgs, BBA, New);
+      continue;
+    }
+    if (auto *A = dyn_cast<AllowCpuFeaturesAttr>(TmplAttr)) {
+      instantiateDependentAllowCpuFeaturesAttr(*this, TemplateArgs, A, New);
       continue;
     }
 #endif // INTEL_CUSTOMIZATION

@@ -11581,7 +11581,14 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
       NewFeats = split.second;
     }
 
-    Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU, FeaturesTmp);
+    Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU,
+                           FeaturesTmp);
+  } else if (const auto *AF = FD->getAttr<AllowCpuFeaturesAttr>()) {
+    std::vector<std::string> NewFeatures;
+    getAddCpuFeaturesFromBitmask(NewFeatures, AF->getPage1Value(),
+                                 AF->getPage2Value());
+    Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU,
+                           NewFeatures);
 #endif // INTEL_CUSTOMIZATION
   } else {
     FeatureMap = Target->getTargetOpts().FeatureMap;

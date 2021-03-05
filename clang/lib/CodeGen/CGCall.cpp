@@ -4579,8 +4579,11 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     // since otherwise we could be making a conditional call after a check for
     // the proper cpu features (and it won't cause code generation issues due to
     // function based code generation).
+#if INTEL_CUSTOMIZATION
     if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
-        TargetDecl->hasAttr<TargetAttr>())
+        (TargetDecl->hasAttr<TargetAttr>() ||
+         TargetDecl->hasAttr<AllowCpuFeaturesAttr>()))
+#endif // INTEL_CUSTOMIZATION
       checkTargetFeatures(Loc, FD);
 
     // Some architectures (such as x86-64) have the ABI changed based on
