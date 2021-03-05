@@ -84,8 +84,7 @@ Optional<bool> VPLoop::hasNormalizedInduction() const {
 std::pair<VPValue *, VPInstruction *> VPLoop::getLoopUpperBound() const {
   if (!hasNormalizedInduction())
     return std::make_pair<VPValue *, VPInstruction *>(nullptr, nullptr);
-  VPCmpInst *Cond =
-      cast<VPCmpInst>(getLoopLatch()->getTerminator()->getCondition());
+  VPCmpInst *Cond = getLatchComparison();
   if (VPInstruction *Add = dyn_cast<VPInstruction>(Cond->getOperand(0)))
     if (Add->getOpcode() == Instruction::Add && contains(Add))
       return std::make_pair(Cond->getOperand(1), Cond);

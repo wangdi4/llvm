@@ -65,6 +65,9 @@ static cl::opt<bool, true>
     EnableNewCFGMergeOpt("vplan-enable-new-cfg-merge", cl::Hidden,
                          cl::location(EnableNewCFGMerge),
                          cl::desc("Enable the new CFG merger."));
+static cl::opt<bool>
+    NewCFGMergeListOnly("vplan-new-cfg-merge-list-only", cl::init(false), cl::Hidden,
+                   cl::desc("Enable new CFG merger vplans list creation only."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
     "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
@@ -1393,7 +1396,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 }
 
 void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF) {
-  if (!EnableCFGMerge)
+  if (!EnableCFGMerge && !EnableNewCFGMerge)
     return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
@@ -1401,7 +1404,12 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
 
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
-  CFGMerger.createSimpleVectorRemainderChain(TheLoop);
+  // Run CFGMerger.
+  if (!EnableNewCFGMerge)
+    CFGMerger.createSimpleVectorRemainderChain(TheLoop);
+  else if (!NewCFGMergeListOnly)
+    CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
+
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
 

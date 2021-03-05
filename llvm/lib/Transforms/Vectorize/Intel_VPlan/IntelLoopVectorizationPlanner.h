@@ -225,19 +225,31 @@ public:
   CfgMergerPlanDescr(LoopType LT, unsigned F, VPlan *P)
       : Type(LT), VF(F), Plan(P) {}
 
-
   VPlan *getVPlan() const { return Plan; }
   unsigned getVF() const { return VF; }
-
   LoopType getLoopType() const { return Type; }
+
+  bool isMaskedRemainder() const {
+    return Type == LTRemainder && isa<VPlanMasked>(Plan);
+  }
+  bool isMaskedOrScalarRemainder() const {
+    return Type == LTRemainder &&
+           (isa<VPlanMasked>(Plan) || isa<VPlanScalar>(Plan));
+  }
 
 private:
   LoopType Type; // Loop-type.
   unsigned VF;   // vector factor
   VPlan *Plan;   // VPlan
 
-  // Basic blocks used during merge
-  VPBasicBlock *AdapterBB = nullptr;
+  // Basic blocks used during merge.
+  // For main VPlan these are the existing start and end blocks respectively,
+  // before merge starts. For other VPlans both fields point to the same
+  // newly created basic block with VPlanAdapter.
+  VPBasicBlock *FirstBB = nullptr;
+  VPBasicBlock *LastBB = nullptr;
+  // Merge blocks created around Plan. The PrevMerge is placed after LastBB and
+  // MergeBefore - before FirstBB.
   VPBasicBlock *PrevMerge = nullptr;
   VPBasicBlock *MergeBefore = nullptr;
 

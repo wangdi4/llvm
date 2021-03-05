@@ -2,10 +2,10 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -VPlanDriver -mtriple=x86_64-unknown-linux-gnu -tti -mattr=+sse4.2\
 ; RUN: -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass\
-; RUN: -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -disable-output -vplan-enable-new-cfg-merge -S 2>&1 | FileCheck %s
+; RUN: -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -disable-output -vplan-enable-new-cfg-merge -vplan-new-cfg-merge-list-only -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="vplan-driver" -mtriple=x86_64-unknown-linux-gnu -mattr=+sse4.2\
 ; RUN: -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass\
-; RUN: -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -disable-output -vplan-enable-new-cfg-merge -S 2>&1 | FileCheck %s
+; RUN: -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -disable-output -vplan-enable-new-cfg-merge -vplan-new-cfg-merge-list-only -S 2>&1 | FileCheck %s
 
 ; This test was copied from vplan_loopcfu_uniform_toptest.ll to check that an all-zero bypass is formed
 ; around the loop body. This bypass is really unnecessary because the all-zero check inserted by loop cfu

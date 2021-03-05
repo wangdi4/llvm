@@ -2,7 +2,9 @@
 ; RUN: opt -vplan-vec-scenario="s1;v4;v2s1" \
 ; RUN: -disable-output -VPlanDriver -vplan-enable-new-cfg-merge \
 ; RUN: -disable-vplan-codegen -vplan-enable-masked-variant \
-; RUN: -vplan-print-after-create-in-merge < %s 2>&1 | FileCheck %s
+; RUN: -vplan-print-after-create-in-merge \
+; RUN: -vplan-new-cfg-merge-list-only %s 2>&1 | FileCheck %s
+; R;UN: -vplan-enable-peeling -vplan-print-after-merge-skeleton %s 2>&1 | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
