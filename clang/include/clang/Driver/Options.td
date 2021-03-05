@@ -3981,6 +3981,10 @@ def save_temps : Flag<["-", "--"], "save-temps">, Flags<[NoXarchOption]>,
   HelpText<"Save intermediate compilation results">;
 def save_stats_EQ : Joined<["-", "--"], "save-stats=">, Flags<[NoXarchOption]>,
   HelpText<"Save llvm statistics.">;
+#if INTEL_CUSTOMIZATION
+def i_save_temps : Flag<["-"], "i_save-temps">, Alias<save_temps_EQ>,
+  AliasArgs<["cwd"]>;
+#endif // INTEL_CUSTOMIZATION
 def save_stats : Flag<["-", "--"], "save-stats">, Flags<[NoXarchOption]>,
   Alias<save_stats_EQ>, AliasArgs<["cwd"]>,
   HelpText<"Save llvm statistics.">;
@@ -6481,6 +6485,8 @@ def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
 // Internal Intel options
 def _SLASH_Q_no_use_libirc : CLFlag<"Q_no-use-libirc">, Alias<i_no_use_libirc>,
   HelpText<"Disable usage of libirc.">;
+def _SLASH_Q_save_temps : CLFlag<"Q_save-temps">, Alias<save_temps_EQ>,
+  AliasArgs<["cwd"]>;
 // Intel specific options (Intel only)
 def : CLJoinedOrSeparate<"constexpr:steps">, Alias<fconstexpr_steps_EQ>;
 def : CLCommaJoined<"device-math-lib:">, Alias<device_math_lib_EQ>,
