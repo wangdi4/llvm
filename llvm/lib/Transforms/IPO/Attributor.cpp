@@ -536,8 +536,8 @@ void IRPosition::verify() {
 Optional<Constant *>
 Attributor::getAssumedConstant(const Value &V, const AbstractAttribute &AA,
                                bool &UsedAssumedInformation) {
-  const auto &ValueSimplifyAA = getAAFor<AAValueSimplify>(
-      AA, IRPosition::value(V), /* TrackDependence */ false);
+  const auto &ValueSimplifyAA =
+      getAAFor<AAValueSimplify>(AA, IRPosition::value(V), DepClassTy::NONE);
   Optional<Value *> SimplifiedV =
       ValueSimplifyAA.getAssumedSimplifiedValue(*this);
   bool IsKnown = ValueSimplifyAA.isKnown();
@@ -616,8 +616,7 @@ bool Attributor::isAssumedDead(const Instruction &I,
                                bool CheckBBLivenessOnly, DepClassTy DepClass) {
   if (!FnLivenessAA)
     FnLivenessAA = lookupAAFor<AAIsDead>(IRPosition::function(*I.getFunction()),
-                                         QueryingAA,
-                                         /* TrackDependence */ false);
+                                         QueryingAA, DepClassTy::NONE);
 
   // If we have a context instruction and a liveness AA we use it.
   if (FnLivenessAA &&
@@ -632,7 +631,7 @@ bool Attributor::isAssumedDead(const Instruction &I,
     return false;
 
   const AAIsDead &IsDeadAA = getOrCreateAAFor<AAIsDead>(
-      IRPosition::value(I), QueryingAA, /* TrackDependence */ false);
+      IRPosition::value(I), QueryingAA, DepClassTy::NONE);
   // Don't check liveness for AAIsDead.
   if (QueryingAA == &IsDeadAA)
     return false;
@@ -665,10 +664,9 @@ bool Attributor::isAssumedDead(const IRPosition &IRP,
   if (IRP.getPositionKind() == IRPosition::IRP_CALL_SITE)
     IsDeadAA = &getOrCreateAAFor<AAIsDead>(
         IRPosition::callsite_returned(cast<CallBase>(IRP.getAssociatedValue())),
-        QueryingAA, /* TrackDependence */ false);
+        QueryingAA, DepClassTy::NONE);
   else
-    IsDeadAA = &getOrCreateAAFor<AAIsDead>(IRP, QueryingAA,
-                                           /* TrackDependence */ false);
+    IsDeadAA = &getOrCreateAAFor<AAIsDead>(IRP, QueryingAA, DepClassTy::NONE);
   // Don't check liveness for AAIsDead.
   if (QueryingAA == IsDeadAA)
     return false;
@@ -716,7 +714,7 @@ bool Attributor::checkForAllUses(function_ref<bool(const Use &, bool &)> Pred,
   const Function *ScopeFn = IRP.getAnchorScope();
   const auto *LivenessAA =
       ScopeFn ? &getAAFor<AAIsDead>(QueryingAA, IRPosition::function(*ScopeFn),
-                                    /* TrackDependence */ false)
+                                    DepClassTy::NONE)
               : nullptr;
 
   while (!Worklist.empty()) {
@@ -867,7 +865,8 @@ bool Attributor::checkForAllReturnedValuesAndReturnInsts(
   // and liveness information.
   // TODO: use the function scope once we have call site AAReturnedValues.
   const IRPosition &QueryIRP = IRPosition::function(*AssociatedFunction);
-  const auto &AARetVal = getAAFor<AAReturnedValues>(QueryingAA, QueryIRP);
+  const auto &AARetVal =
+      getAAFor<AAReturnedValues>(QueryingAA, QueryIRP, DepClassTy::REQUIRED);
   if (!AARetVal.getState().isValidState())
     return false;
 
@@ -884,7 +883,8 @@ bool Attributor::checkForAllReturnedValues(
 
   // TODO: use the function scope once we have call site AAReturnedValues.
   const IRPosition &QueryIRP = IRPosition::function(*AssociatedFunction);
-  const auto &AARetVal = getAAFor<AAReturnedValues>(QueryingAA, QueryIRP);
+  const auto &AARetVal =
+      getAAFor<AAReturnedValues>(QueryingAA, QueryIRP, DepClassTy::REQUIRED);
   if (!AARetVal.getState().isValidState())
     return false;
 
@@ -932,9 +932,9 @@ bool Attributor::checkForAllInstructions(function_ref<bool(Instruction &)> Pred,
   // TODO: use the function scope once we have call site AAReturnedValues.
   const IRPosition &QueryIRP = IRPosition::function(*AssociatedFunction);
   const auto *LivenessAA =
-      CheckBBLivenessOnly ? nullptr
-                          : &(getAAFor<AAIsDead>(QueryingAA, QueryIRP,
-                                                 /* TrackDependence */ false));
+      CheckBBLivenessOnly
+          ? nullptr
+          : &(getAAFor<AAIsDead>(QueryingAA, QueryIRP, DepClassTy::NONE));
 
   auto &OpcodeInstMap =
       InfoCache.getOpcodeInstMapForFunction(*AssociatedFunction);
@@ -956,7 +956,7 @@ bool Attributor::checkForAllReadWriteInstructions(
   // TODO: use the function scope once we have call site AAReturnedValues.
   const IRPosition &QueryIRP = IRPosition::function(*AssociatedFunction);
   const auto &LivenessAA =
-      getAAFor<AAIsDead>(QueryingAA, QueryIRP, /* TrackDependence */ false);
+      getAAFor<AAIsDead>(QueryingAA, QueryIRP, DepClassTy::NONE);
 
   for (Instruction *I :
        InfoCache.getReadOrWriteInstsForFunction(*AssociatedFunction)) {
@@ -1941,6 +1941,8 @@ InformationCache::FunctionInfo::~FunctionInfo() {
 void Attributor::recordDependence(const AbstractAttribute &FromAA,
                                   const AbstractAttribute &ToAA,
                                   DepClassTy DepClass) {
+  if (DepClass == DepClassTy::NONE)
+    return;
   // If we are outside of an update, thus before the actual fixpoint iteration
   // started (= when we create AAs), we do not track dependences because we will
   // put all AAs into the initial worklist anyway.
@@ -1955,6 +1957,9 @@ void Attributor::rememberDependences() {
   assert(!DependenceStack.empty() && "No dependences to remember!");
 
   for (DepInfo &DI : *DependenceStack.back()) {
+    assert((DI.DepClass == DepClassTy::REQUIRED ||
+            DI.DepClass == DepClassTy::OPTIONAL) &&
+           "Expected required or optional dependence (1 bit)!");
     auto &DepAAs = const_cast<AbstractAttribute &>(*DI.FromAA).Deps;
     DepAAs.push_back(AbstractAttribute::DepTy(
         const_cast<AbstractAttribute *>(DI.ToAA), unsigned(DI.DepClass)));
