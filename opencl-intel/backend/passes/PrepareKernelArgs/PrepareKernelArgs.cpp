@@ -101,13 +101,13 @@ namespace intel{
     pNewF->setCallingConv(pFunc->getCallingConv());
     pNewF->copyMetadata(pFunc, 0);
 
-    // Move attributes from the old kernel to the new one, and make the former
+    // Copy attributes from the old kernel to the new one, and make the former
     // 'alwaysinline'.
     auto FnAttrs =
       pFunc->getAttributes().getAttributes(AttributeList::FunctionIndex);
     AttrBuilder B(std::move(FnAttrs));
     pNewF->addAttributes(AttributeList::FunctionIndex, B);
-    pFunc->removeAttributes(AttributeList::FunctionIndex, B);
+    pFunc->removeFnAttr(llvm::Attribute::NoInline);
     pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
 
     // pFunc is expected to be inlined anyway,
