@@ -167,7 +167,7 @@ public:
                        FastMathFlags FMF, Instruction *ExactFP, Type *RT,
                        bool Signed, SmallPtrSetImpl<Instruction *> &CI)
 #if INTEL_CUSTOMIZATION
-      : RDTempl(Start, Exit, K, FMF, RT, Signed), UnsafeAlgebraInst(UAI) {
+      : RDTempl(Start, Exit, K, FMF, RT, Signed), ExactFPMathInst(ExactFP) {
 #else
       : StartValue(Start), LoopExitInstr(Exit), Kind(K), FMF(FMF),
         ExactFPMathInst(ExactFP), RecurrenceType(RT), IsSigned(Signed) {
