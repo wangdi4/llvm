@@ -999,7 +999,6 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     MainFound |= IsMain;
     AllResolved &= Res.second.ResolvedByLinker;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     unsigned SymbolAttributes = 0;
     bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
 
@@ -1012,8 +1011,10 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     if (Res.second.ResolvedByLinker)
       SymbolAttributes |= WholeProgramReadSymbol::AttrResolved;
 
+    if (Res.second.ExportDynamic)
+      SymbolAttributes |= WholeProgramReadSymbol::AttrExportDynamic;
+
     WPUtils.AddSymbolResolution(SymbolName, SymbolAttributes);
-#endif // NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
   }
 #if INTEL_CUSTOMIZATION

@@ -66,14 +66,13 @@ bool WholeProgramUtils::isMainEntryPoint(llvm::StringRef GlobName) {
   return false;
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void WholeProgramUtils::AddSymbolResolution(llvm::StringRef SymbolName,
                                             unsigned Attributes) {
-
   WholeProgramReadSymbol Symbol(SymbolName, Attributes);
   SymbolsVector.push_back(Symbol);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void WholeProgramUtils::PrintSymbolsResolution() {
 
   unsigned SymbolsResolved = 0;
@@ -84,6 +83,7 @@ void WholeProgramUtils::PrintSymbolsResolution() {
     dbgs() << "  RESULT:";
     dbgs() << (Symbol.isMain() ? " MAIN |" : "");
     dbgs() << (Symbol.isLinkerAddedSymbol() ? " LINKER ADDED SYMBOL |" : "");
+    dbgs() << (Symbol.isExportDynamic() ? " DYNAMIC EXPORT SYMBOL |" : "");
     dbgs() << (Symbol.isResolvedByLinker() ? "" : " NOT") <<
                 " RESOLVED BY LINKER \n\n";
 

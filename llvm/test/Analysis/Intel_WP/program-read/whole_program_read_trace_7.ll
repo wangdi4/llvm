@@ -1,29 +1,21 @@
 ; REQUIRES: asserts
-; This test checks that the trace for whole program read prints
-; the correct solution when all symbols aren't internal.
+; This test checks that symbol add was marked as "DYNAMIC EXPORT SYMBOL"
+; and the trace was printed correctly.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -m elf_x86_64  -plugin %llvmshlibdir/icx-lto%shlibext \
+; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
+; RUN:    --export-dynamic-symbol=add \
 ; RUN:    2>&1 | FileCheck %s
 
-; Check that main is a valid symbol
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
 ; CHECK: SYMBOL NAME: main
 ; CHECK: RESULT: MAIN | RESOLVED BY LINKER
 
-; Check that add and sub are printed since they won't be internalized
 ; CHECK: SYMBOL NAME: add
-; CHECK:  RESULT: RESOLVED BY LINKER
-
-; CHECK: SYMBOL NAME: sub
-; CHECK:  RESULT:  RESOLVED BY LINKER
-
-; CHECK: SYMBOLS RESOLVED BY LINKER: 3
-; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
-; CHECK: WHOLE PROGRAM READ:  DETECTED
+; CHECK: RESULT: DYNAMIC EXPORT SYMBOL | RESOLVED BY LINKER
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -34,15 +26,8 @@ entry:
   ret i32 %add
 }
 
-define i32 @sub(i32 %a) {
-entry:
-  %sub = add nsw i32 %a, -2
-  ret i32 %sub
-}
-
 define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
 entry:
   %call1 = call i32 @add(i32 %argc)
-  %call2 = call i32 @sub(i32 %call1)
-  ret i32 %call2
+  ret i32 %call1
 }
