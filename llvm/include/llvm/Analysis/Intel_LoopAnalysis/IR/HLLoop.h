@@ -837,6 +837,17 @@ public:
     }
   }
 
+  /// Adds all symbases attached at Ref as live out to the loop
+  void addLiveOutTemp(const RegDDRef *Ref) {
+    if (Ref->isSelfBlob()) {
+      addLiveOutTemp(Ref->getSymbase());
+    }
+
+    for (auto DRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+      addLiveOutTemp(DRef->getSymbase());
+    }
+  }
+
   // TODO: const
   void addLiveInTemp(ArrayRef<RegDDRef *> Refs) {
     for (auto Ref : Refs)
