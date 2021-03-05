@@ -53,9 +53,7 @@ declare %"OUTER_TYPE"* @"llvm.intel.subscript.p0s_OUTER_TYPEs.i64.i64.p0s_OUTER_
 ; CHECK:   %temp1 = tail call %__DTRT_OUTER_TYPE* @llvm.intel.subscript.p0s___DTRT_OUTER_TYPEs.i64.i64.p0s___DTRT_OUTER_TYPEs.i64(i8 0, i64 0, i64 1920, %__DTRT_OUTER_TYPE* %temp0, i64 0)
 ; CHECK:   %temp2 = getelementptr inbounds %__DTRT_OUTER_TYPE, %__DTRT_OUTER_TYPE* %temp1, i64 0, i32 0
 ; CHECK:   %temp3 = getelementptr inbounds %__DTRT_OUTER_TYPE, %__DTRT_OUTER_TYPE* %temp1, i64 0, i32 1
-; CHECK:   %temp4 = bitcast %"__DTRT_QNCA_a0$double*$rank3$"* %temp2 to %"__DTRT_QNCA_a0$double*$rank3$"*
-; CHECK:   %temp5 = bitcast %"__DTRT_QNCA_a0$double*$rank2$"* %temp3 to %"__DTRT_QNCA_a0$double*$rank2$"*
-; CHECK:   call void @bar.1(%"__DTRT_QNCA_a0$double*$rank3$"* %temp4, %"__DTRT_QNCA_a0$double*$rank2$"* %temp5)
+; CHECK:   call void @bar.1(%"__DTRT_QNCA_a0$double*$rank3$"* %temp2, %"__DTRT_QNCA_a0$double*$rank2$"* %temp3)
 
 ; Check that the clone for bar was generated and the instructions were updated
 ; CHECK: define internal void @bar.1(%"__DTRT_QNCA_a0$double*$rank3$"* %dv1, %"__DTRT_QNCA_a0$double*$rank2$"* %dv2) {
