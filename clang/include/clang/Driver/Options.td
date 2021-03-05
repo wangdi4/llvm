@@ -5645,6 +5645,9 @@ def cfguard_no_checks : Flag<["-"], "cfguard-no-checks">,
 def cfguard : Flag<["-"], "cfguard">,
     HelpText<"Emit Windows Control Flow Guard tables and checks">,
     MarshallingInfoFlag<CodeGenOpts<"ControlFlowGuard">>;
+def ehcontguard : Flag<["-"], "ehcontguard">,
+    HelpText<"Emit Windows EH Continuation Guard tables">,
+    MarshallingInfoFlag<CodeGenOpts<"EHContGuard">>;
 
 def fdenormal_fp_math_f32_EQ : Joined<["-"], "fdenormal-fp-math-f32=">,
    Group<f_Group>;
@@ -7094,7 +7097,8 @@ def _SLASH_Fo : CLCompileJoined<"Fo">,
 def : CLCompileJoined<"Fo:">, Alias<_SLASH_Fo>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_guard : CLJoined<"guard:">,
-  HelpText<"Enable Control Flow Guard with /guard:cf, or only the table with /guard:cf,nochecks">;
+  HelpText<"Enable Control Flow Guard with /guard:cf, or only the table with /guard:cf,nochecks. "
+           "Enable EH Continuation Guard with /guard:ehcont">;
 def _SLASH_GX : CLFlag<"GX">,
   HelpText<"Deprecated; use /EHsc">;
 def _SLASH_GX_ : CLFlag<"GX-">,
