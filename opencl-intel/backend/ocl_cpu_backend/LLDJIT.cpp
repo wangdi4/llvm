@@ -114,7 +114,7 @@ void LLDJIT::DeleteTempFiles(
   for (int i = 0; i < OwnedTempFiles.size(); i++) {
     TmpFile &TempFile = OwnedTempFiles[i];
     if (std::find(B, E, TempFile.FileName()) != E) {
-      std::swap<TmpFile, TmpFile>(TempFile, OwnedTempFiles.back());
+      std::swap(TempFile, OwnedTempFiles.back());
       OwnedTempFiles.pop_back();
       i--;
     }
