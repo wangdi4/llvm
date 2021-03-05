@@ -28,68 +28,7 @@
 #include <string.h>
 #endif  // INTEL_COLLAB
 
-////////////////////////////////////////////////////////////////////////////////
-/// manage the success or failure of a target construct
-static void HandleDefaultTargetOffload() {
-  PM->TargetOffloadMtx.lock();
-  if (PM->TargetOffloadPolicy == tgt_default) {
-    if (omp_get_num_devices() > 0) {
-      DP("Default TARGET OFFLOAD policy is now mandatory "
-         "(devices were found)\n");
-      PM->TargetOffloadPolicy = tgt_mandatory;
-    } else {
-      DP("Default TARGET OFFLOAD policy is now disabled "
-         "(no devices were found)\n");
-      PM->TargetOffloadPolicy = tgt_disabled;
-    }
-  }
-  PM->TargetOffloadMtx.unlock();
-}
-
-static int IsOffloadDisabled() {
-  if (PM->TargetOffloadPolicy == tgt_default)
-    HandleDefaultTargetOffload();
-  return PM->TargetOffloadPolicy == tgt_disabled;
-}
-
-static void HandleTargetOutcome(bool success, ident_t *loc = nullptr) {
-  switch (PM->TargetOffloadPolicy) {
-  case tgt_disabled:
-    if (success) {
-      FATAL_MESSAGE0(1, "expected no offloading while offloading is disabled");
-    }
-    break;
-  case tgt_default:
-    FATAL_MESSAGE0(1, "default offloading policy must be switched to "
-                      "mandatory or disabled");
-    break;
-  case tgt_mandatory:
-    if (!success) {
-      if (getInfoLevel() & OMP_INFOTYPE_DUMP_TABLE)
-        for (auto &Device : PM->Devices)
-          dumpTargetPointerMappings(loc, Device);
-      else
-        FAILURE_MESSAGE("Run with LIBOMPTARGET_DEBUG=%d to dump host-target "
-                        "pointer mappings.\n",
-                        OMP_INFOTYPE_DUMP_TABLE);
-
-      SourceInfo info(loc);
-      if (info.isAvailible())
-        fprintf(stderr, "%s:%d:%d: ", info.getFilename(), info.getLine(),
-                info.getColumn());
-      else
-        FAILURE_MESSAGE("Source location information not present. Compile with "
-                        "-g or -gline-tables-only.\n");
-      FATAL_MESSAGE0(
-          1, "failure of target construct while offloading is mandatory");
-    } else {
-      if (getInfoLevel() & OMP_INFOTYPE_DUMP_TABLE)
-        for (auto &Device : PM->Devices)
-          dumpTargetPointerMappings(loc, Device);
-    }
-    break;
-  }
-}
+extern bool isOffloadDisabled();
 
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
@@ -159,42 +98,17 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
                                            map_var_info_t *arg_names,
                                            void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
-  if (IsOffloadDisabled())
-    return;
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
+    encodedId = device_id = omp_get_default_device();
+  else if (encodedId < 0)
     device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
-
   DP("Entering data begin region for device %" PRId64 " with %d mappings\n",
      device_id, arg_num);
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-    DP("Use default device id %" PRId64 "\n", device_id);
-  }
-
-  // Proposed behavior for OpenMP 5.2 in OpenMP spec github issue 2669.
-  if (omp_get_num_devices() == 0) {
-    DP("omp_get_num_devices() == 0 but offload is manadatory\n");
-    HandleTargetOutcome(false, loc);
-    return;
-  }
-
-  if (device_id == omp_get_initial_device()) {
-    DP("Device is host (%" PRId64 "), returning as if offload is disabled\n",
-       device_id);
-    return;
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
@@ -223,7 +137,7 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
                            arg_types, arg_names, arg_mappers, AsyncInfo);
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterEnd(device_id));
   if (encodedId != device_id)
@@ -276,39 +190,16 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
                                          map_var_info_t *arg_names,
                                          void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
-  if (IsOffloadDisabled())
-    return;
-  DP("Entering data end region with %d mappings\n", arg_num);
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
+    encodedId = device_id = omp_get_default_device();
+  else if (encodedId < 0)
     device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  // Proposed behavior for OpenMP 5.2 in OpenMP spec github issue 2669.
-  if (omp_get_num_devices() == 0) {
-    DP("omp_get_num_devices() == 0 but offload is manadatory\n");
-    HandleTargetOutcome(false, loc);
-    return;
-  }
-
-  if (device_id == omp_get_initial_device()) {
-    DP("Device is host (%" PRId64 "), returning as if offload is disabled\n",
-       device_id);
-    return;
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  DP("Entering data end region with %d mappings\n", arg_num);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
@@ -337,7 +228,7 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
                          arg_types, arg_names, arg_mappers, AsyncInfo);
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));
   if (encodedId != device_id)
@@ -385,39 +276,16 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
                                             map_var_info_t *arg_names,
                                             void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
-  if (IsOffloadDisabled())
-    return;
   DP("Entering data update with %d mappings\n", arg_num);
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
+    encodedId = device_id = omp_get_default_device();
+  else if (encodedId < 0)
     device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  // Proposed behavior for OpenMP 5.2 in OpenMP spec github issue 2669.
-  if (omp_get_num_devices() == 0) {
-    DP("omp_get_num_devices() == 0 but offload is manadatory\n");
-    HandleTargetOutcome(false, loc);
-    return;
-  }
-
-  if (device_id == omp_get_initial_device()) {
-    DP("Device is host (%" PRId64 "), returning as if offload is disabled\n",
-       device_id);
-    return;
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
@@ -437,7 +305,7 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
                             arg_types, arg_names, arg_mappers, AsyncInfo);
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataUpdateEnd(device_id));
   if (encodedId != device_id)
@@ -484,42 +352,18 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
                                int64_t *arg_sizes, int64_t *arg_types,
                                map_var_info_t *arg_names, void **arg_mappers) {
   TIMESCOPE_WITH_IDENT(loc);
-  if (IsOffloadDisabled())
-    return OFFLOAD_FAIL;
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
-  // Extract root device ID
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
+    encodedId = device_id = omp_get_default_device();
+  else if (encodedId < 0)
     device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
   DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
      "\n",
      DPxPTR(host_ptr), device_id);
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  // Proposed behavior for OpenMP 5.2 in OpenMP spec github issue 2669.
-  if (omp_get_num_devices() == 0) {
-    DP("omp_get_num_devices() == 0 but offload is manadatory\n");
-    HandleTargetOutcome(false, loc);
-    return OFFLOAD_FAIL;
-  }
-
-  if (device_id == omp_get_initial_device()) {
-    DP("Device is host (%" PRId64 "), returning OFFLOAD_FAIL as if offload is "
-       "disabled\n",
-       device_id);
-    return OFFLOAD_FAIL;
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    REPORT("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return OFFLOAD_FAIL;
   }
 
@@ -548,7 +392,7 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
                   AsyncInfo);
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
@@ -603,42 +447,18 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
                                      map_var_info_t *arg_names,
                                      void **arg_mappers, int32_t team_num,
                                      int32_t thread_limit) {
-  if (IsOffloadDisabled())
-    return OFFLOAD_FAIL;
 #if INTEL_COLLAB
   int64_t encodedId = device_id;
-  // Extract root device ID
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
+  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
+    encodedId = device_id = omp_get_default_device();
+  else if (encodedId < 0)
     device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
   DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
      "\n",
      DPxPTR(host_ptr), device_id);
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  // Proposed behavior for OpenMP 5.2 in OpenMP spec github issue 2669.
-  if (omp_get_num_devices() == 0) {
-    DP("omp_get_num_devices() == 0 but offload is manadatory\n");
-    HandleTargetOutcome(false, loc);
-    return OFFLOAD_FAIL;
-  }
-
-  if (device_id == omp_get_initial_device()) {
-    DP("Device is host (%" PRId64 "), returning OFFLOAD_FAIL as if offload is "
-       "disabled\n",
-       device_id);
-    return OFFLOAD_FAIL;
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    REPORT("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return OFFLOAD_FAIL;
   }
 
@@ -667,14 +487,13 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
                   true /*team*/, AsyncInfo);
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
     PM->Devices[device_id].popSubDevice();
 #endif // INTEL_COLLAB
-
   return rc;
 }
 
@@ -721,29 +540,8 @@ EXTERN void __tgt_push_mapper_component(void *rt_mapper_handle, void *base,
 EXTERN void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
                                          uint64_t loop_tripcount) {
   TIMESCOPE_WITH_IDENT(loc);
-  if (IsOffloadDisabled())
-    return;
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  // Proposed behavior for OpenMP 5.2 in OpenMP spec github issue 2669.
-  if (omp_get_num_devices() == 0) {
-    DP("omp_get_num_devices() == 0 but offload is manadatory\n");
-    HandleTargetOutcome(false, loc);
-    return;
-  }
-
-  if (device_id == omp_get_initial_device()) {
-    DP("Device is host (%" PRId64 "), returning as if offload is disabled\n",
-       device_id);
-    return;
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
@@ -758,16 +556,9 @@ EXTERN void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
 EXTERN int32_t __tgt_is_device_available(int64_t device_num,
                                          void *device_type) {
-  if (IsOffloadDisabled())
-    return false;
-
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return false;
   }
 
@@ -780,16 +571,12 @@ EXTERN char *__tgt_get_device_name(
      "buffer_max_size %zu.\n",
      device_num, buffer_max_size);
 
-  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+  if (!buffer || buffer_max_size == 0 || isOffloadDisabled())
     return NULL;
 
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return NULL;
   }
 
@@ -805,16 +592,13 @@ EXTERN char *__tgt_get_device_rtl_name(
      "buffer_max_size %zu.\n",
      device_num, buffer_max_size);
 
-  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+  if (!buffer || buffer_max_size == 0 || isOffloadDisabled())
     return NULL;
 
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
 
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return NULL;
   }
 
@@ -857,17 +641,9 @@ EXTERN void *__tgt_create_interop_obj(
      ", async_obj " DPxMOD "\n", device_id, is_async ? "true" : "false",
      DPxPTR(async_obj));
 
-  if (IsOffloadDisabled()) {
-    return NULL;
-  }
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
+  if (checkDeviceAndCtors(device_id, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return NULL;
   }
 
@@ -911,9 +687,9 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
   DP("Call to __tgt_release_interop_obj with interop_obj " DPxMOD "\n",
      DPxPTR(interop_obj));
 
-  assert(!IsOffloadDisabled() &&
+  assert(!isOffloadDisabled() &&
           "Freeing interop object with Offload Disabled.");
-  if (IsOffloadDisabled() || !interop_obj)
+  if (!interop_obj)
     return OFFLOAD_FAIL;
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
@@ -930,7 +706,7 @@ EXTERN int __tgt_set_interop_property(
   DP("Call to __tgt_set_interop_property with interop_obj " DPxMOD
      ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
 
-  if (IsOffloadDisabled() || !interop_obj || !property_value) {
+  if (isOffloadDisabled() || !interop_obj || !property_value) {
     return OFFLOAD_FAIL;
   }
 
@@ -957,7 +733,7 @@ EXTERN int __tgt_get_interop_property(
   DP("Call to __tgt_get_interop_property with interop_obj " DPxMOD
      ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
 
-  if (IsOffloadDisabled() || !interop_obj || !property_value) {
+  if (isOffloadDisabled() || !interop_obj || !property_value) {
     return OFFLOAD_FAIL;
   }
 
@@ -1007,7 +783,7 @@ EXTERN int __tgt_get_target_memory_info(
      ", num_ptrs %" PRId32 ", tgt_ptrs " DPxMOD ", ptr_info " DPxMOD
      "\n", DPxPTR(interop_obj), num_ptrs, DPxPTR(tgt_ptrs), DPxPTR(ptr_info));
 
-  if (IsOffloadDisabled() || !interop_obj || !tgt_ptrs || !ptr_info ||
+  if (isOffloadDisabled() || !interop_obj || !tgt_ptrs || !ptr_info ||
       num_ptrs <= 0) {
     return OFFLOAD_FAIL;
   }
