@@ -302,8 +302,12 @@ public:
     NoIdiom = 0,
     // Min or Max main instruction in minmax+index idiom.
     MinOrMax,
-    // Index instruction of minmax+index idiom.
-    MMFirstLastLoc,
+    // Index instructions of minmax+index idiom.
+    // Monotonic index, the last value can be calculated in one step.
+    MMFirstLastIdx,
+    // Non-monotonic value, the last value calculation requires a MMFirstLastIdx
+    // to be present and uses its last value for final calculation.
+    MMFirstLastVal,
     VConflict,
   };
 
@@ -394,8 +398,8 @@ public:
   }
 
   static const char *getIdiomName(IdiomId Id) {
-    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastLoc",
-                                  "VConflict"};
+    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastIdx",
+                                  "MMFirstLastVal", "VConflict"};
     return Names[Id];
   }
 #endif

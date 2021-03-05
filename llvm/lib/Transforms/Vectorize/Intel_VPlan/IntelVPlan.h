@@ -2519,20 +2519,20 @@ public:
                    bool Sign)
       : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec, StartValue}),
-        BinOpcode(BinOp), Signed(Sign) {}
+        BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
 
   /// Constructor for optimized summation
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec)
       : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec}),
-        BinOpcode(BinOp), Signed(false) {}
+        BinOpcode(BinOp), Signed(false), IsLinearIndex(false) {}
 
   /// Constructor for index part of min/max+index reduction.
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *ParentExit,
                    VPReductionFinal *ParentFinal, bool Sign)
       : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec, ParentExit, ParentFinal}),
-        BinOpcode(BinOp), Signed(Sign) {}
+        BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -2620,6 +2620,9 @@ public:
     }
   }
 
+  bool isLinearIndex() const { return IsLinearIndex; }
+  void setIsLinearIndex() { IsLinearIndex = true; }
+
 protected:
   // Clones VPReductionFinal.
   virtual VPReductionFinal *cloneImpl() const final {
@@ -2637,6 +2640,7 @@ protected:
 private:
   unsigned BinOpcode;
   bool Signed;
+  bool IsLinearIndex;
 };
 
 /// Concrete class for representing a vector of steps of arithmetic progression.

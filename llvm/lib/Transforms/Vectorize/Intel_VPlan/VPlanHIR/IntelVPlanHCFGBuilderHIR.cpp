@@ -268,7 +268,8 @@ bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
   auto *Idioms = getVectorIdioms(Loop);
   for (auto &IdiomDescr : make_range(Idioms->begin(), Idioms->end()))
     if ((IdiomDescr.second == HIRVectorIdioms::IdiomId::MinOrMax ||
-         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastLoc) &&
+         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastIdx ||
+         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastVal) &&
         DDRefUtils::areEqual(IdiomDescr.first->getLvalDDRef(), Ref))
       return true;
 
@@ -731,12 +732,14 @@ public:
   RecurKind getKind() const { return RKind; }
   Type *getRedType() const { return RedType; }
   bool isSigned() const { return IsSigned; }
+  HIRVectorIdioms::IdiomId getIdiomKind() const {return IdiomKind;}
 
 private:
   void fillReductionKinds(Type *DestType, unsigned OpCode, PredicateTy Pred,
-                          bool IsMax) {
+                          bool IsMax, HIRVectorIdioms::IdiomId IdKind) {
     RedType = DestType;
     IsSigned = false;
+    IdiomKind = IdKind;
     switch (OpCode) {
     case Instruction::FAdd:
     case Instruction::FSub:
@@ -797,6 +800,7 @@ private:
     RKind = RecurKind::None;
     RedType = nullptr;
     IsSigned = false;
+    IdiomKind = HIRVectorIdioms::NoIdiom;
   }
 
   const DataType *HLInst;
@@ -805,6 +809,7 @@ private:
   RecurKind RKind;
   Type *RedType;
   bool IsSigned;
+  HIRVectorIdioms::IdiomId IdiomKind = HIRVectorIdioms::NoIdiom;
 };
 
 /// Class implements input iterator for reductions. The input is done
@@ -881,7 +886,7 @@ private:
                         : PredicateTy::BAD_ICMP_PREDICATE;
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
-            (*RedCurrent)->isMax());
+            (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom);
         Descriptor.RedChain = ChainCurrent->Chain;
         break;
       }
@@ -969,18 +974,20 @@ private:
       LinkedCurrent = TempVector.begin();
       LinkedEnd = TempVector.end();
       assert(LinkedCurrent != LinkedEnd && "Unexpected empty list");
-      MainInst = *LinkedCurrent;
+      MainInst = LinkedCurrent->first;
     }
   }
 
   void fillData() {
     if (LinkedCurrent != LinkedEnd) {
-      assert(isa<SelectInst>((*LinkedCurrent)->getLLVMInstruction()) &&
+      const loopopt::HLInst *InstPtr = LinkedCurrent->first;
+      // Only select is expected here.
+      assert(isa<SelectInst>(InstPtr->getLLVMInstruction()) &&
              "expected select instruction");
-      Descriptor.fillReductionKinds(
-          (*LinkedCurrent)->getLvalDDRef()->getDestType(), Instruction::Select,
-          (*LinkedCurrent)->getPredicate(), (*LinkedCurrent)->isMax());
-      Descriptor.HLInst = *LinkedCurrent;
+      Descriptor.fillReductionKinds(InstPtr->getLvalDDRef()->getDestType(),
+                                    Instruction::Select, InstPtr->getPredicate(),
+                                    InstPtr->isMax(), LinkedCurrent->second);
+      Descriptor.HLInst = InstPtr;
       if (Descriptor.HLInst != MainInst)
         Descriptor.ParentInst = MainInst;
       else
@@ -1001,16 +1008,20 @@ private:
   void fillTempArray() {
     TempVector.clear();
     if (MainCurrent != MainEnd) {
-      TempVector.push_back(MainCurrent->first);
+      TempVector.push_back({MainCurrent->first, HIRVectorIdioms::MinOrMax});
       auto *LinkedList = IdiomList.getLinkedIdioms(MainCurrent->first);
       if (LinkedList)
-        for (auto Linked : *LinkedList)
-          TempVector.push_back(Linked);
+        for (auto Linked : *LinkedList) {
+          HIRVectorIdioms::IdiomId Id = IdiomList.isIdiom(Linked);
+          TempVector.push_back({Linked, Id});
+        }
     }
   }
 
 private:
-  using TempVectorTy = SmallVector<const ReductionDescriptorHIR::DataType *, 2>;
+  using IdiomItem = std::pair<const ReductionDescriptorHIR::DataType *,
+                              HIRVectorIdioms::IdiomId>;
+  using TempVectorTy = SmallVector<IdiomItem, 2>;
 
   ReductionDescriptorHIR Descriptor;
   // Reduction instruction representing the main min/max reduction.
@@ -1138,6 +1149,8 @@ public:
           dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(Inst)));
     else
       Descriptor.setLinkPhi(nullptr);
+    Descriptor.setIsLinearIndex(CurValue.getIdiomKind() ==
+                                HIRVectorIdioms::MMFirstLastIdx);
   }
 };
 
@@ -1206,6 +1219,7 @@ public:
     Descriptor.setRecType(RType);
     Descriptor.setSigned(CurrValue.IsSigned);
     Descriptor.setLinkPhi(nullptr);
+    Descriptor.setIsLinearIndex(false);
   }
 };
 
