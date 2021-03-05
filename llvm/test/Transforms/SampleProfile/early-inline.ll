@@ -1,7 +1,7 @@
 ; RUN: opt < %s -instcombine -sample-profile -sample-profile-file=%S/Inputs/einline.prof -S | FileCheck %s
 
 ; INTEL: Disbaled due to CMPLRLLVM-26575
-; XFAIL: -linux-
+; UNSUPPORTED: linux, windows
 
 ; Checks if both call and invoke can be inlined early if their inlined
 ; instances are hot in profile.
