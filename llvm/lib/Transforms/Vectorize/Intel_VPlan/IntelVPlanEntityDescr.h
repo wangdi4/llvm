@@ -142,7 +142,7 @@ public:
   /// argument.
   Value *getRef() const { return Ref; }
   /// Return list of Update Instructions.
-  SmallVector<const Instruction *, 4> getUpdateInstructions() const {
+  ArrayRef<const Instruction *> getUpdateInstructions() const {
     return UpdateInstructions;
   }
   /// Add new instruction to list of Update Instructions.
@@ -156,7 +156,6 @@ public:
   virtual void print(raw_ostream &OS, unsigned Indent = 0) const {
     OS << "Ref: ";
     Ref->dump();
-    OS << "\n";
     OS.indent(Indent + 2) << "UpdateInstruction: ";
     for (auto &V : UpdateInstructions) {
       V->dump();

@@ -42,6 +42,8 @@ public:
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const CallInst *RegionEntry);
 
+  using DescrValueTy = DescrValue<Value>;
+  using DescrWithAliasesTy = DescrWithAliases<Value>;
   using PrivDescrTy = PrivDescr<Value>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
   using PrivateKindTy = PrivDescrTy::PrivateKind;
@@ -279,6 +281,14 @@ public:
     return &Linears;
   }
 
+  // Analyze all instruction between the SIMD clause and the loop to identify
+  // any aliasing variables to the explicit SIMD descriptors.
+  void collectPreLoopDescrAliases();
+
+  // Analyze all instructions in loop post-exit to identify any aliasing
+  // variables to the explicit SIMD descriptor.
+  void collectPostExitLoopDescrAliases();
+
   // Return the iterator-range to the list of privates loop-entities.
   // TODO: Windows compiler explicitly doesn't allow for const type specifier.
   inline decltype(auto) privates() const {
@@ -349,6 +359,10 @@ private:
   bool isEntityAliasingSafe(
       const LoopEntitiesRange &LERange,
       std::function<bool(const Instruction *)> IsAliasInRelevantScope);
+
+  /// Utility function to check whether given Instruction is end directive of
+  /// OMP.SIMD directive.
+  bool isEndDirective(Instruction *I) const;
 };
 
 } // namespace vpo

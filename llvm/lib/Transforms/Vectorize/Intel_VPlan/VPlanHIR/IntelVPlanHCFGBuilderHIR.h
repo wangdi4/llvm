@@ -250,6 +250,12 @@ public:
   void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  // TODO: Dummy placeholder set of functions which should be updated once
+  // common interface will be established for VPOVectorizationLegality and for
+  // HIRVectorizationLegality.
+  void collectPreLoopDescrAliases();
+  void collectPostExitLoopDescrAliases();
+
 private:
   void addReduction(RegDDRef *V, RecurKind Kind, bool IsSigned = false) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");

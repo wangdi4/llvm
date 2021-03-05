@@ -276,6 +276,16 @@ bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
   return false;
 }
 
+// TODO: Dummy placeholder function which should be updated once common
+// interface will be established for VPOVectorizationLegality and for
+// HIRVectorizationLegality.
+void HIRVectorizationLegality::collectPreLoopDescrAliases() {}
+
+// TODO: Dummy placeholder function which should be updated once common
+// interface will be established for VPOVectorizationLegality and for
+// HIRVectorizationLegality.
+void HIRVectorizationLegality::collectPostExitLoopDescrAliases() {}
+
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions.
 class PlainCFGBuilderHIR : public HLNodeVisitorBase {

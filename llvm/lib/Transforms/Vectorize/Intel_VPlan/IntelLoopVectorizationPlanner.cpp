@@ -50,7 +50,6 @@ static cl::opt<unsigned> VecThreshold(
     cl::desc("sets a threshold for the vectorization on the probability"
              "of profitable execution of the vectorized loop in parallel."),
     cl::init(100));
-
 #else
 cl::opt<unsigned> VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
                                       cl::desc("Default estimated trip count"));
@@ -1067,6 +1066,14 @@ void LoopVectorizationPlanner::EnterExplicitData(
         break;
       }
     }
+  }
+  if (WRLp) {
+    LVL.collectPreLoopDescrAliases();
+    LVL.collectPostExitLoopDescrAliases();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (VPlanPrintPrivDescr)
+      LVL.dump();
+#endif
   }
 }
 
