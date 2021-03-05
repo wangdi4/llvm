@@ -892,7 +892,13 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #else
       auto PrivVal = PrivItem->getOrig();
 #endif
-      LVL.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
+      if (PrivItem->getIsNonPod())
+        LVL.addLoopPrivate(PrivVal, PrivItem->getConstructor(),
+                           PrivItem->getDestructor(), PrivItem->getCopyAssign(),
+                           true /* IsLast */);
+      else
+        LVL.addLoopPrivate(PrivVal, true /* IsLast */,
+                           PrivItem->getIsConditional());
     }
     PrivateClause &PrivateClause = WRLp->getPriv();
     for (PrivateItem *PrivItem : PrivateClause.items()) {
@@ -901,7 +907,12 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #else
       auto PrivVal = PrivItem->getOrig();
 #endif
-      LVL.addLoopPrivate(PrivVal);
+      if (PrivItem->getIsNonPod())
+        LVL.addLoopPrivate(PrivVal, PrivItem->getConstructor(),
+                           PrivItem->getDestructor(),
+                           nullptr /* no CopyAssign for PrivateItem */);
+      else
+        LVL.addLoopPrivate(PrivVal);
     }
 
     // Add information about loop linears to Legality
