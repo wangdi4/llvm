@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -3589,8 +3589,13 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
 
   // For multi-dim NextArr allow merging only into existing dimensions or create
   // new outer dimensions.
-  return NextArr.getMinRank() == NextArr.getMaxRank() ||
-         NextArr.getMinRank() >= CurArr.getMinRank();
+  if (NextArr.getMinRank() != NextArr.getMaxRank() &&
+      (NextArr.getMinRank() < CurArr.getMinRank() ||
+       NextArr.getMaxRank() < CurArr.getMaxRank())) {
+    return false;
+  }
+
+  return true;
 }
 
 // Parses the \p GEPOp and updates chain state if GEPOp is compatible.
