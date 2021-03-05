@@ -83,6 +83,10 @@ class LoopVectorizeHints {
   /// Says whether we should use fixed width or scalable vectorization.
   Hint Scalable;
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<unsigned, 5> AllowedVFs;
+#endif // INTEL_CUSTOMIZATION
+
   /// Return the loop metadata prefix.
   static StringRef Prefix() { return "llvm.loop."; }
 
@@ -104,6 +108,10 @@ public:
 
   bool allowVectorization(Function *F, Loop *L,
                           bool VectorizeOnlyWhenForced) const;
+
+#if INTEL_CUSTOMIZATION
+  ArrayRef<unsigned> getAllowedVFs() { return AllowedVFs; }
+#endif // INTEL_CUSTOMIZATION
 
   /// Dumps all the hint information.
   void emitRemarkWithHints() const;
