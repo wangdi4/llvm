@@ -2603,7 +2603,7 @@ EVT X86TargetLowering::getOptimalMemOpType(
 bool X86TargetLowering::isSafeMemOpType(MVT VT) const {
   if (VT == MVT::f32)
     return X86ScalarSSEf32;
-  else if (VT == MVT::f64)
+  if (VT == MVT::f64)
     return X86ScalarSSEf64;
   return true;
 }
