@@ -1,6 +1,9 @@
 ; Test to check the callgraph in summary
-; RUN: opt -module-summary %s -o %t.o
-; RUN: llvm-lto -thinlto-action=thinlink -o %t.index.bc %t.o
+; INTEL_CUSTOMIZATION
+; Use extra option to allow full source filename path in module
+; RUN: opt -strip-module-src-path=false -module-summary %s -o %t.o
+; RUN: llvm-lto -strip-module-src-path=false -thinlto-action=thinlink -o %t.index.bc %t.o
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-bcanalyzer -dump %t.index.bc | FileCheck %s --check-prefix=COMBINED
 
 ; COMBINED:       <GLOBALVAL_SUMMARY_BLOCK

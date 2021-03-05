@@ -95,6 +95,13 @@ static cl::opt<bool> WriteRelBFToSummary(
     "write-relbf-to-summary", cl::Hidden, cl::init(false),
     cl::desc("Write relative block frequency to function summary "));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> StripPathFromSrcFileName(
+    "strip-module-src-path", cl::Hidden, cl::init(true),
+    cl::desc("Strip the path before writing the source filename to bitcode "
+             "modules"));
+#endif // INTEL_CUSTOMIZATION
+
 extern FunctionSummary::ForceSummaryHotnessType ForceSummaryEdgesCold;
 
 namespace {
@@ -1285,7 +1292,13 @@ void ModuleBitcodeWriter::writeModuleInfo() {
   SmallVector<unsigned, 64> Vals;
   // Emit the module's source file name.
   {
-    StringEncoding Bits = getStringEncoding(M.getSourceFileName());
+#if INTEL_CUSTOMIZATION
+    // Don't save the full path to the source file
+    StringRef SourceFileName = StripPathFromSrcFileName ?
+                                  sys::path::filename(M.getSourceFileName()) :
+                                  M.getSourceFileName();
+    StringEncoding Bits = getStringEncoding(SourceFileName);
+#endif // INTEL_CUSTOMIZATION
     BitCodeAbbrevOp AbbrevOpToUse = BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8);
     if (Bits == SE_Char6)
       AbbrevOpToUse = BitCodeAbbrevOp(BitCodeAbbrevOp::Char6);
@@ -1299,7 +1312,7 @@ void ModuleBitcodeWriter::writeModuleInfo() {
     Abbv->Add(AbbrevOpToUse);
     unsigned FilenameAbbrev = Stream.EmitAbbrev(std::move(Abbv));
 
-    for (const auto P : M.getSourceFileName())
+    for (const auto P : SourceFileName) // INTEL
       Vals.push_back((unsigned char)P);
 
     // Emit the finished record.
@@ -4723,7 +4736,13 @@ void ThinLinkBitcodeWriter::writeSimplifiedModuleInfo() {
   SmallVector<unsigned, 64> Vals;
   // Emit the module's source file name.
   {
-    StringEncoding Bits = getStringEncoding(M.getSourceFileName());
+#if INTEL_CUSTOMIZATION
+    // Don't save the full path to the source file
+    StringRef SourceFileName = StripPathFromSrcFileName ?
+                                  sys::path::filename(M.getSourceFileName()) :
+                                  M.getSourceFileName();
+    StringEncoding Bits = getStringEncoding(SourceFileName);
+#endif // INTEL_CUSTOMIZATION
     BitCodeAbbrevOp AbbrevOpToUse = BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8);
     if (Bits == SE_Char6)
       AbbrevOpToUse = BitCodeAbbrevOp(BitCodeAbbrevOp::Char6);
@@ -4737,7 +4756,7 @@ void ThinLinkBitcodeWriter::writeSimplifiedModuleInfo() {
     Abbv->Add(AbbrevOpToUse);
     unsigned FilenameAbbrev = Stream.EmitAbbrev(std::move(Abbv));
 
-    for (const auto P : M.getSourceFileName())
+    for (const auto P : SourceFileName) // INTEL
       Vals.push_back((unsigned char)P);
 
     Stream.EmitRecord(bitc::MODULE_CODE_SOURCE_FILENAME, Vals, FilenameAbbrev);
