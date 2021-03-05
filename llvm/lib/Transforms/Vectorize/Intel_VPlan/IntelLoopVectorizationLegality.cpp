@@ -194,6 +194,16 @@ static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
   return Ty1;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPOVectorizationLegality::dump(raw_ostream &OS) const {
+  OS << "VPOLegality Descriptor Lists\n";
+  OS << "\n\nVPOLegality PrivateList:\n";
+  for (auto const &Pvt : Privates) {
+    Pvt.second->print(OS);
+  }
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 /// Analyze reduction pattern for variable \p RedVarPtr and return true if we
 /// have Phi nodes inside. If yes, return the Phi node in \p LoopHeaderPhiNode
 /// and the initializer in \p StartV.
@@ -329,12 +339,12 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
     const LoopEntitiesRange &LERange,
     std::function<bool(const Instruction *)> IsAliasInRelevantScope) {
   for (auto *En : LERange) {
-    SetVector<Value *> WL;
+    SetVector<const Value *> WL;
     WL.insert(En);
     while (!WL.empty()) {
       auto *HeadI = WL.pop_back_val();
       for (auto *Use : HeadI->users()) {
-        Instruction *UseInst = cast<Instruction>(Use);
+        const Instruction *UseInst = cast<Instruction>(Use);
 
         // We only want to analyze the blocks between the region-entry and the
         // loop-block (typically just simd.loop.preheader). This means we won't
@@ -345,7 +355,7 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
         // If this is a store of private pointer or any of its alias to an
         // external memory, treat the loop as unsafe for vectorization and
         // return false.
-        if (StoreInst *SI = dyn_cast<StoreInst>(UseInst))
+        if (const StoreInst *SI = dyn_cast<StoreInst>(UseInst))
           if (SI->getValueOperand() == HeadI)
             return false;
         if (isTrivialPointerAliasingInst(UseInst))
@@ -375,9 +385,7 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
            DT.dominates(I, TheLoop->getHeader());
   };
 
-  return isEntityAliasingSafe(privates(), IsInstInRelevantScope) &&
-         isEntityAliasingSafe(condPrivates(), IsInstInRelevantScope) &&
-         isEntityAliasingSafe(lastPrivates(), IsInstInRelevantScope) &&
+  return isEntityAliasingSafe(privateVals(), IsInstInRelevantScope) &&
          isEntityAliasingSafe(explicitReductionVals(), IsInstInRelevantScope) &&
          isEntityAliasingSafe(inMemoryReductionVals(), IsInstInRelevantScope) &&
          isEntityAliasingSafe(linearVals(), IsInstInRelevantScope);
@@ -654,7 +662,6 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     LLVM_DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
     return false;
   }
-
   return true;
 }
 
@@ -727,11 +734,15 @@ bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
 }
 
 bool VPOVectorizationLegality::isLastPrivate(Value *V) const {
-  return LastPrivates.count(getPtrThruCast<BitCastInst>(V)) != 0;
+  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
+    return Privates.find(V)->second->isLast();
+  return false;
 }
 
 bool VPOVectorizationLegality::isCondLastPrivate(Value *V) const {
-  return CondLastPrivates.count(getPtrThruCast<BitCastInst>(V));
+  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
+    return Privates.find(V)->second->isCond();
+  return false;
 }
 
 bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {

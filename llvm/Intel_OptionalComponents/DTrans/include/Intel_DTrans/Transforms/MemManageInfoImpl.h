@@ -30,6 +30,19 @@ namespace llvm {
 
 namespace dtrans {
 
+// Returns true if Ty is pointer to pointer to a function.
+// TODO: The same function is used by MemInitTrimDown. This code needs
+// to be reused by both MemInitTrimDown & MemManageTrans.
+inline bool isVFTablePointer(Type *Ty) {
+  Type *ETy = nullptr;
+  if (auto *PPETy = dyn_cast<PointerType>(Ty))
+    if (auto *PETy = dyn_cast<PointerType>(PPETy->getElementType()))
+      ETy = PETy->getElementType();
+  if (!ETy || !ETy->isFunctionTy())
+    return false;
+  return true;
+}
+
 // This is used to collect candidate for MemManageTrans and
 // maintain information related to the candidate.
 class MemManageCandidateInfo {
@@ -114,6 +127,24 @@ public:
   // Returns StringAllocatorType.
   StructType *getStringAllocatorType() { return StringAllocatorType; }
 
+  // Returns ListNodeType.
+  StructType *getListNodeType() { return ListNodeType; }
+
+  // Returns index of ArenaAllocatorObject.
+  int32_t getArenaAllocatorObjectIndex() { return ArenaAllocatorObjectIndex; }
+  // Returns index of destroyBlockFlag.
+  int32_t getDestroyBlockFlagIndex() { return DestroyBlockFlagIndex; }
+  // Returns index of List.
+  int32_t getListObjectIndex() { return ListObjectIndex; }
+  // Returns index of BlockSize.
+  int32_t getAllocatorBlockSizeIndex() { return AllocatorBlockSizeIndex; }
+  // Returns index of MemManager in List
+  int32_t getListMemManagerIndex() { return ListMemManagerIndex; }
+  // Returns index of Head in List.
+  int32_t getListHeadIndex() { return ListHeadIndex; }
+  // Returns index of FreeHead in List.
+  int32_t getListFreeHeadIndex() { return ListFreeHeadIndex; }
+
 private:
   Module &M;
 
@@ -135,6 +166,9 @@ private:
   // of this class are also called in "StringAllocatorType".
   StructType *ArenaAllocatorType = nullptr;
 
+  // Type of Node class.
+  StructType *ListNodeType = nullptr;
+
   // Member functions of StringAllocatorType.
   SmallPtrSet<Function *, 8> StringAllocatorFunctions;
 
@@ -154,6 +188,27 @@ private:
   // functions.
   std::set<const CallBase *> AllocatorInnerCalls;
 
+  // Index of ArenaAllocator in ReusableArenaAllocator
+  int32_t ArenaAllocatorObjectIndex = -1;
+
+  // Index of destroyBlock in ReusableArenaAllocator
+  int32_t DestroyBlockFlagIndex = -1;
+
+  // Index of List in ArenaAllocator
+  int32_t ListObjectIndex = -1;
+
+  // Index of blockSize in ArenaAllocator
+  int32_t AllocatorBlockSizeIndex = -1;
+
+  // Index of MemManager in List
+  int32_t ListMemManagerIndex = -1;
+
+  // Index of listHead in List
+  int32_t ListHeadIndex = -1;
+
+  // Index of listFreeHead in List
+  int32_t ListFreeHeadIndex = -1;
+
   inline StructType *getClassType(const Function *F);
   inline bool isBasicAllocatorType(Type *Ty);
   inline bool isBlockBaseType(Type *Ty);
@@ -163,7 +218,6 @@ private:
   inline bool isArenaAllocatorType(Type *Ty);
   inline bool isReusableArenaAllocatorType(Type *Ty);
   inline bool isStringAllocatorType(Type *Ty);
-  inline bool isPtrToVFTable(Type *);
   inline bool isPotentialPaddingField(Type *);
   inline bool isStructWithNoRealData(Type *);
   inline bool isStringObjectType(Type *);
@@ -205,22 +259,11 @@ bool MemManageCandidateInfo::isStructWithNoRealData(Type *Ty) {
   auto *STy = getValidStructTy(Ty);
   if (!STy || STy->getNumElements() > 1)
     return false;
-  if (STy->getNumElements() == 1 && !isPtrToVFTable(STy->getElementType(0)))
+  if (STy->getNumElements() == 1 && !isVFTablePointer(STy->getElementType(0)))
     return false;
   if (!MemInterfaceType)
     MemInterfaceType = STy;
   else if (MemInterfaceType != STy)
-    return false;
-  return true;
-}
-
-// Returns true if Ty is pointer to pointer to a function.
-bool MemManageCandidateInfo::isPtrToVFTable(Type *Ty) {
-  Type *ETy = nullptr;
-  if (auto *PPETy = dyn_cast<PointerType>(Ty))
-    if (auto *PETy = dyn_cast<PointerType>(PPETy->getElementType()))
-      ETy = PETy->getElementType();
-  if (!ETy || !ETy->isFunctionTy())
     return false;
   return true;
 }
@@ -395,6 +438,7 @@ bool MemManageCandidateInfo::isListNodeType(Type *Ty) {
   }
   if (NumListNodePtrs != 2 || NumReusableArenaBlock != 1)
     return false;
+  ListNodeType = STy;
   return true;
 }
 
@@ -410,22 +454,29 @@ bool MemManageCandidateInfo::isListType(Type *Ty) {
   unsigned NumListNodePtrs = 0;
   unsigned NumMemInt = 0;
   Type *NodeTy = nullptr;
+  int32_t FieldCount = -1;
   for (auto *ETy : STy->elements()) {
     auto *PTy = getPointeeType(ETy);
     if (!PTy)
       return false;
+    FieldCount++;
     if (isStructWithNoRealData(PTy)) {
       NumMemInt++;
+      ListMemManagerIndex = FieldCount;
       continue;
     }
     if (NodeTy) {
       if (NodeTy != PTy)
         return false;
       NumListNodePtrs++;
+      ListFreeHeadIndex = FieldCount;
       continue;
     } else if (isListNodeType(PTy)) {
       NodeTy = PTy;
       NumListNodePtrs++;
+      // For now, assume first NodeTy pointer as ListHead and the second
+      // NodeTy pointer as ListFreeHead.
+      ListHeadIndex = FieldCount;
       continue;
     }
     return false;
@@ -447,17 +498,24 @@ bool MemManageCandidateInfo::isArenaAllocatorType(Type *Ty) {
   unsigned NumVFTablePtrs = 0;
   unsigned NumLists = 0;
   unsigned NumInts = 0;
+  int32_t FieldCount = -1;
   for (auto *ETy : STy->elements()) {
-    if (isPtrToVFTable(ETy)) {
+    FieldCount++;
+    if (isVFTablePointer(ETy)) {
+      // Expect VFTable as first field always.
+      if (FieldCount != 0)
+        return false;
       NumVFTablePtrs++;
       continue;
     }
     if (isListType(ETy)) {
       NumLists++;
+      ListObjectIndex = FieldCount;
       continue;
     }
     if (ETy->isIntegerTy(16)) {
       NumInts++;
+      AllocatorBlockSizeIndex = FieldCount;
       continue;
     }
     return false;
@@ -480,17 +538,21 @@ bool MemManageCandidateInfo::isReusableArenaAllocatorType(Type *Ty) {
   unsigned NumArenaAllocator = 0;
   unsigned NumFlags = 0;
   unsigned NumUnused = 0;
+  int32_t FieldCount = -1;
   for (auto *ETy : STy->elements()) {
+    FieldCount++;
     if (isPotentialPaddingField(ETy)) {
       NumUnused++;
       continue;
     }
     if (isArenaAllocatorType(ETy)) {
       NumArenaAllocator++;
+      ArenaAllocatorObjectIndex = FieldCount;
       continue;
     }
     if (ETy->isIntegerTy(8)) {
       NumFlags++;
+      DestroyBlockFlagIndex = FieldCount;
       continue;
     }
     return false;

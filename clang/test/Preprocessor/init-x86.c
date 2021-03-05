@@ -1297,7 +1297,7 @@
 // X86_64-CLOUDABI:#define __UINT_LEAST8_TYPE__ unsigned char
 // X86_64-CLOUDABI:#define __USER_LABEL_PREFIX__
 // INTEL_CUSTOMIZATION
-// X86_64-CLOUDABI:#define __VERSION__ "{{.*}}Intel(R) oneAPI DPC++ Compiler {{.*}}
+// X86_64-CLOUDABI:#define __VERSION__ "{{.*}}Intel(R) oneAPI DPC++/C++ Compiler {{.*}}
 // INTEL_CUSTOMIZATION
 // X86_64-CLOUDABI:#define __WCHAR_MAX__ 2147483647
 // X86_64-CLOUDABI:#define __WCHAR_TYPE__ int

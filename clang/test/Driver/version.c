@@ -1,6 +1,6 @@
 // RUN: %clang --version 2>&1 | FileCheck %s
 #if INTEL_CUSTOMIZATION
-CHECK: Intel(R) oneAPI DPC++ Compiler
+CHECK: Intel(R) oneAPI DPC++/C++ Compiler
 #endif // INTEL_CUSTOMIZATION
 
 // Don't add llvm::TargetRegistry::printRegisteredTargetsForVersion()
