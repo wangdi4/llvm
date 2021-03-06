@@ -963,6 +963,17 @@ public:
                       << ": Checking module for DTrans metadata\n");
     bool ErrorsFound = false;
 
+    // Determine whether the IR is using opaque pointers or not. When opaque
+    // pointers are in use, all pointers of an address space should be equivalent. Until
+    // opaque pointers become enabled, it's possible to check whether the
+    // metadata information mataches the pointer type in the IR.
+    bool OpaquePointersEnabled = false;
+    LLVMContext &Ctx = M.getContext();
+    llvm::Type *I8Ptr = llvm::Type::getInt8Ty(Ctx)->getPointerTo();
+    llvm::Type *I16Ptr = llvm::Type::getInt16Ty(Ctx)->getPointerTo();
+    if (I8Ptr == I16Ptr)
+      OpaquePointersEnabled = true;
+
     // Check whether all the global variables that are expected to have metadata
     // have it.
     for (auto &GV : M.globals()) {
@@ -992,6 +1003,16 @@ public:
         } else {
           LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded var type metadata: "
                             << GV << " - " << *DType << "\n");
+
+          if (!OpaquePointersEnabled && GVType != DType->getLLVMType()) {
+            ErrorsFound = true;
+            LLVM_DEBUG(
+                dbgs()
+                << DEBUG_TYPE
+                << ":   ERROR: Metadata type does not match expected type: "
+                << GV.getName() << "\n  IR: " << *GV.getValueType()
+                << "\n  MD: " << *DType << "\n");
+          }
         }
       }
     }
@@ -1003,7 +1024,7 @@ public:
 
       // We need to invert the result of check function, because a result of
       // 'false' means there was an error found.
-      ErrorsFound |= !checkFunction(F);
+      ErrorsFound |= !checkFunction(F, OpaquePointersEnabled);
     }
 
     return !ErrorsFound;
@@ -1011,7 +1032,7 @@ public:
 
   // Check the function signature and instructions within the body for
   // DTrans metadata. Return 'true' if no errors are found.
-  bool checkFunction(Function &F) {
+  bool checkFunction(Function &F, bool OpaquePointersEnabled) {
     LLVM_DEBUG(dbgs() << DEBUG_TYPE
                       << ": Checking function for DTrans metadata: "
                       << F.getName() << "\n");
@@ -1050,10 +1071,19 @@ public:
       if (DType) {
         LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   Decoded fn type metadata: "
                           << *DType << "\n");
+        if (!OpaquePointersEnabled && DType->getLLVMType() != FnType) {
+          ErrorsFound = true;
+          LLVM_DEBUG(
+              dbgs()
+              << DEBUG_TYPE
+              << ":   ERROR: Metadata type does not match expected type: "
+              << F.getName() << "\n  IR: " << *FnType << "\n  MD: " << *DType
+              << "\n");
+        }
       }
     }
 
-    for (auto &I : instructions(F))
+    for (auto &I : instructions(F)) {
       if (auto *AI = dyn_cast<AllocaInst>(&I)) {
         llvm::Type *AllocType = AI->getAllocatedType();
         if (dtrans::hasPointerType(AllocType)) {
@@ -1077,11 +1107,58 @@ public:
             LLVM_DEBUG(dbgs() << DEBUG_TYPE
                               << ":   ERROR: Failed to decode metadata: " << *AI
                               << " - " << *MD << "\n");
-          } else
+          } else {
             LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded metadata: " << *AI
                               << " - " << *DType << "\n");
+            if (!OpaquePointersEnabled && DType->getLLVMType() != AllocType) {
+              ErrorsFound = true;
+              LLVM_DEBUG(dbgs() << DEBUG_TYPE
+                                << ":  ERROR: Metadata type does not match "
+                                   "expected type: "
+                                << *AI << "\n  IR: " << *AI->getAllocatedType()
+                                << "\n  MD: " << *DType << "\n");
+            }
+          }
+        }
+      } else if (auto *Call = dyn_cast<CallBase>(&I)) {
+        if (Call->isIndirectCall() &&
+            dtrans::hasPointerType(Call->getFunctionType())) {
+          MDNode *MD = Call->getMetadata(dtrans::MDDTransTypeTag);
+
+          // Temporary fallback to the legacy tag name for existing LIT tests.
+          // TODO: Remove when LIT tests are updated.
+          if (!MD)
+            MD = Call->getMetadata(dtrans::MDDTransTypeTagLegacy);
+
+          if (!MD) {
+            ErrorsFound = true;
+            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   ERROR: Missing metadata: "
+                              << *Call << "\n");
+            continue;
+          }
+
+          dtrans::DTransType *DType = Reader.decodeMDNode(MD);
+          if (!DType) {
+            ErrorsFound = true;
+            LLVM_DEBUG(dbgs()
+                       << DEBUG_TYPE << ":   ERROR: Failed to decode metadata: "
+                       << *Call << " - " << *MD << "\n");
+          } else {
+            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded metadata: " << *Call
+                              << " - " << *DType << "\n");
+            if (!OpaquePointersEnabled &&
+                DType->getLLVMType() != Call->getFunctionType()) {
+              LLVM_DEBUG(dbgs()
+                         << DEBUG_TYPE
+                         << ":   ERROR:  Metadata type does not match "
+                            "expected type: "
+                         << *Call << "\n  IR: " << *Call->getFunctionType()
+                         << "\nMD: " << *DType << "\n");
+            }
+          }
         }
       }
+    }
 
     return !ErrorsFound;
   }
