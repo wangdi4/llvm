@@ -641,3 +641,19 @@
 // PARALLEL_SOURCE_INFO0: "-mllvm" "-parallel-source-info=0"
 // PARALLEL_SOURCE_INFO1: "-mllvm" "-parallel-source-info=1"
 // PARALLEL_SOURCE_INFO2: "-mllvm" "-parallel-source-info=2"
+
+// -i_save-temps /Q_save-temps
+// RUN: %clang -target x86_64-unknown-linux-gnu -i_save-temps %s -### 2>&1 \
+// RUN:   | FileCheck -check-prefixes=SAVE_TEMPS,SAVE_TEMPS_LIN %s
+// RUN: %clang_cl --target=x86_64-pc-windows-msvc -Q_save-temps %s -### 2>&1 \
+// RUN:   | FileCheck -check-prefixes=SAVE_TEMPS,SAVE_TEMPS_WIN %s
+// SAVE_TEMPS: "-o" "intel-options.i"
+// SAVE_TEMPS: "-emit-llvm-uselists"
+// SAVE_TEMPS: "-disable-llvm-passes"
+// SAVE_TEMPS: "-o" "intel-options.bc"
+// SAVE_TEMPS_LIN: "-o" "intel-options.s"
+// SAVE_TEMPS_LIN: "-o" "intel-options.o"
+// SAVE_TEMPS_LIN: "-o" "a.out"
+// SAVE_TEMPS_WIN: "-o" "intel-options.asm"
+// SAVE_TEMPS_WIN: "-o" "intel-options.obj"
+// SAVE_TEMPS_WIN: "-out:intel-options.exe"

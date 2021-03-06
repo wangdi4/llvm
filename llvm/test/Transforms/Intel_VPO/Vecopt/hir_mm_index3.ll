@@ -14,7 +14,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   signed (SIntMax) Start: i32 [[TMP_0240:%.*]] Exit: i32 [[VP2:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP3:%.*]], i32 [[VP2]], i32 [[VP__RED_INIT_1:%.*]], i32 [[VP__RED_FINAL_1:%.*]],
-; CHECK-NEXT:   Parent exit: i32 [[VP0]]
+; CHECK-NEXT:   IsLinearIndex: 1   Parent exit: i32 [[VP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP4:%.*]] = add i32 [[VP5:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
@@ -84,7 +84,6 @@
 ;
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_unnamed_addr #0 {
-
 entry:
   %cmp22 = icmp sgt i32 %m, 0
   br i1 %cmp22, label %for.body.preheader, label %for.end
@@ -126,4 +125,3 @@ attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
-

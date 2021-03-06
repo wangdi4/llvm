@@ -14,7 +14,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   signed (SIntMin) Start: i32 [[TMP_0240:%.*]] Exit: i32 [[VP2:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP3:%.*]], i32 [[VP2]], i32 [[VP__RED_INIT_1:%.*]], i32 [[VP__RED_FINAL_1:%.*]],
-; CHECK-NEXT:   Parent exit: i32 [[VP0]]
+; CHECK-NEXT:   IsLinearIndex: 1  Parent exit: i32 [[VP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP4:%.*]] = add i32 [[VP5:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
