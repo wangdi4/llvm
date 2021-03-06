@@ -46,4 +46,4 @@ declare noalias i8* @malloc(i64)
 !7 = !{i32 0, i32 0}  ; i32
 !8 = !{!"S", %struct.test01  zeroinitializer, i32 3, !6, !7, !7} ; { i64, i32, i32 }
 
-!dtrans_types = !{!8}
+!intel.dtrans.types = !{!8}

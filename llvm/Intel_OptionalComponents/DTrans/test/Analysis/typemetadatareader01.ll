@@ -78,7 +78,7 @@
 ; CHECK-LABEL: StructType: %struct.test11
 ; CHECK-NEXT: 0) <4 x i32>
 
-!dtrans_types = !{ !10, !20, !30, !40, !50, !60, !70, !80, !90, !100, !105, !110 }
+!intel.dtrans.types = !{ !10, !20, !30, !40, !50, !60, !70, !80, !90, !100, !105, !110 }
 
 !10 = !{!"S", %struct.test01 zeroinitializer, i32 2, !11, !11 } ; %struct.test01
 !11 = !{i32 0, i32 0 }  ; i32
@@ -88,20 +88,20 @@
 !22 = !{i8 0, i32 1}   ; i8*
 
 !30 = !{!"S", %struct.test03 zeroinitializer, i32 3, !31, !32, !33 } ; %struct.test03
-!31 = !{!"R", %struct.test01 zeroinitializer, i32 1 } ; %struct.test01*
-!32 = !{!"R", %struct.test02 zeroinitializer, i32 1 } ; %struct.test02*
-!33 = !{!"R", %struct.test03 zeroinitializer, i32 1 } ; %struct.test03*
+!31 = !{%struct.test01 zeroinitializer, i32 1 } ; %struct.test01*
+!32 = !{%struct.test02 zeroinitializer, i32 1 } ; %struct.test02*
+!33 = !{%struct.test03 zeroinitializer, i32 1 } ; %struct.test03*
 
 !40 = !{!"S", %struct.test04 zeroinitializer, i32 2, !41, !42 } ; %struct.test04
-!41 = !{!"R", %struct.test01 zeroinitializer, i32 0 } ; %struct.test01
-!42 = !{!"R", %struct.test02 zeroinitializer, i32 0 } ; %struct.test02
+!41 = !{%struct.test01 zeroinitializer, i32 0 } ; %struct.test01
+!42 = !{%struct.test02 zeroinitializer, i32 0 } ; %struct.test02
 
 !50 = !{!"S", %struct.test05 zeroinitializer, i32 2, !51, !52 } ; %struct.test05
 !51 = !{i32 0, i32 0 }                                ; i32
 !52 = !{!53, i32 1 }                                  ; void (%struct.test05*)*
 !53 = !{!"F", i1 false, i32 1, !54, !55 }             ; void (%struct.test05*)
 !54 = !{!"void", i32 0 }                              ; void
-!55 = !{!"R", %struct.test05 zeroinitializer, i32 1 } ; %struct.test05*
+!55 = !{%struct.test05 zeroinitializer, i32 1 } ; %struct.test05*
 
 !60 = !{!"S", %struct.test06 zeroinitializer, i32 3, !61, !63, !66} ; %struct.test06
 !61 = !{!"A", i32 256, !62} ; [256 x i8]
@@ -126,7 +126,7 @@
 !101 = !{!102, i32 2 }                                           ; i32 (...)**
 !102 = !{!"F", i1 true, i32 0, !11}                              ; i32 (...)
 !105 = !{!"S", %struct.test10derived zeroinitializer, i32 1, !106} ; %struct.test10derived
-!106 = !{!"R", %struct.test10base zeroinitializer, i32 0 }       ; %struct.test10base
+!106 = !{%struct.test10base zeroinitializer, i32 0 }       ; %struct.test10base
 
 !110 = !{!"S", %struct.test11 zeroinitializer, i32 1, !111 }     ; %struct.test11
 !111 = !{!"V", i32 4, !11}    ; <4 x i32>
