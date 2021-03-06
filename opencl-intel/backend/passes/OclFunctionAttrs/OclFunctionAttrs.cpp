@@ -78,9 +78,25 @@ namespace intel{
     }
   }
 
+  static std::set<Function *> getSyncUsersFuncs(Module *M) {
+    // Get all synchronize built-ins declared in module
+    CompilationUtils::FunctionSet WGSyncBuiltins, SGSyncBuiltins;
+    CompilationUtils::getAllSyncBuiltinsDcls(WGSyncBuiltins, M, /*IsWG*/ true);
+    CompilationUtils::getAllSyncBuiltinsDcls(SGSyncBuiltins, M, /*IsWG*/ false);
+
+    std::set<Function *> SyncBuiltins{WGSyncBuiltins.begin(),
+                                      WGSyncBuiltins.end()};
+    SyncBuiltins.insert(SGSyncBuiltins.begin(), SGSyncBuiltins.end());
+
+    std::set<Function *> SyncUsers;
+    LoopUtils::fillFuncUsersSet(SyncBuiltins, SyncUsers);
+    return SyncUsers;
+  }
+
   // AddNoAliasAttrs - Attempts to add the 'NoAlias' attribute to function
   // arguments
-  static bool AddNoAliasAttrs(Function &F, bool isKernel) {
+  static bool AddNoAliasAttrs(Function &F, bool isKernel,
+                              std::set<Function *> &SyncUsers) {
     // Rules:
     // 1. If exists a kernel function, F, s.t. F is not called by other functions,
     // then any local memory argument of F is safe to be marked as NoAlias
@@ -97,6 +113,11 @@ namespace intel{
     // pessistically assume they will collide with other pointer arguments
     if (F.isDeclaration())
       return false;
+
+    // The pointer may be written by other threads.
+    if (SyncUsers.count(&F))
+      return false;
+
     // Keeps the function's pointer arguments in address space buckets
     SmallVector<Argument *, 16> Args[LastStaticAddrSpace + 1];
     // Keeps the number of function args with NoAlias per addrspace
@@ -142,17 +163,20 @@ namespace intel{
     return Changed;
   }
 
-  static bool runOnFunction(Function &F, bool isKernel) {
-    return AddNoAliasAttrs(F, isKernel);
+  static bool runOnFunction(Function &F, bool isKernel,
+                            std::set<Function *> &SyncUsers) {
+    return AddNoAliasAttrs(F, isKernel, SyncUsers);
   }
 
   bool OclFunctionAttrs::runOnModule(Module &M) {
     CompilationUtils::FunctionSet Kernels;
     CompilationUtils::getAllKernels(Kernels, &M);
 
+    std::set<Function *> SyncUsers = getSyncUsersFuncs(&M);
+
     bool Changed = false;
     for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I)
-      Changed = runOnFunction(*I, Kernels.count(&*I)) || Changed;
+      Changed = runOnFunction(*I, Kernels.count(&*I), SyncUsers) || Changed;
     return Changed;
   }
 

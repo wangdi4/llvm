@@ -206,11 +206,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static void getAllSyncBuiltinsDclsForKernelUniformCallAttr(
       FunctionSet &functionSet, Module *pModule);
 
-    /// @brief collect built-ins declared in the module and force synchronization.
+    /// @brief collect built-ins declared in the module and force
+    /// synchronization.
     //         I.e. implemented using barrier built-in.
     /// @param functionSet container to insert all synchronized built-ins into
-    /// @param pModule the module to search synchronize built-ins declarations in
-    static void getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule);
+    /// @param pModule the module to search synchronize built-ins declarations
+    /// in
+    /// @param IsWG  true for workgroup, false for subgroup
+    static void getAllSyncBuiltinsDcls(FunctionSet &functionSet,
+                                       Module *pModule, bool IsWG = true);
 
     /// @brief collect all kernel functions
     /// @param functionSet container to insert all kernel function into
