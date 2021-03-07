@@ -439,6 +439,9 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     OrigLoop->markDoNotUnroll();
   }
 
+  // Original prefetching info does not apply to remainder loop.
+  OrigLoop->clearPrefetchingPragmaInfo();
+
   if (Prof) {
     // Set the remainder loop's profile data with Rem calcuated before.
     // Leaves FalseVal intact.

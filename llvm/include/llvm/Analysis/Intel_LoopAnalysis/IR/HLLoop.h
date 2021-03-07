@@ -1357,6 +1357,9 @@ public:
   ArrayRef<PrefetchingPragmaInfo> getPrefetchingPragmaInfo() const {
     return PrefetchingInfoVec;
   }
+
+  /// Clears the prefetching pragma vector
+  void clearPrefetchingPragmaInfo() { PrefetchingInfoVec.clear(); }
 };
 
 /// Loop information related to its parallel characteristics, such as

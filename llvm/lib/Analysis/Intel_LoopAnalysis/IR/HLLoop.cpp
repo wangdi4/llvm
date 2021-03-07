@@ -126,7 +126,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       IsBlocked(HLLoopObj.IsBlocked),
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
       ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor),
-      VecTag(HLLoopObj.VecTag) {
+      VecTag(HLLoopObj.VecTag),
+      PrefetchingInfoVec(HLLoopObj.PrefetchingInfoVec) {
 
   initialize();
 
