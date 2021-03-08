@@ -1285,6 +1285,15 @@ void VPValue::invalidateUnderlyingIR() {
   }
 }
 
+StringRef VPValue::getVPNamePrefix() const {
+  // FIXME: Define the VPNamePrefix in some analogue of the
+  // llvm::Context just like we plan for the 'Name' field.
+  static std::string VPNamePrefix = "vp.";
+  if (isa<VPBasicBlock>(this))
+    return "";
+  return VPNamePrefix;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPValue::printAsOperand(raw_ostream &OS) const {
   if (getType()->isLabelTy()) {
