@@ -1830,7 +1830,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       !FD->getReturnType()->isVoidType() && Builder.GetInsertBlock()) {
     bool ShouldEmitUnreachable =
         CGM.getCodeGenOpts().StrictReturn ||
-        shouldUseUndefinedBehaviorReturnOptimization(FD, getContext());
+        !CGM.MayDropFunctionReturn(FD->getASTContext(), FD->getReturnType());
     if (SanOpts.has(SanitizerKind::Return)) {
       SanitizerScope SanScope(this);
       llvm::Value *IsFalse = Builder.getFalse();

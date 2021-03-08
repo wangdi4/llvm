@@ -5790,6 +5790,9 @@ def disable_free : Flag<["-"], "disable-free">,
 def no_disable_free: Flag<["-"], "no-disable-free">,
   HelpText<"Do not disable freeing of memory on exit">;
 #endif // INTEL_CUSTOMIZATION
+def enable_noundef_analysis : Flag<["-"], "enable-noundef-analysis">, Group<f_Group>,
+  HelpText<"Enable analyzing function argument and return types for mandatory definedness">,
+  MarshallingInfoFlag<CodeGenOpts<"EnableNoundefAttrs">>;
 def discard_value_names : Flag<["-"], "discard-value-names">,
   HelpText<"Discard value names in LLVM IR">,
   MarshallingInfoFlag<CodeGenOpts<"DiscardValueNames">>;
