@@ -163,7 +163,7 @@ static cl::opt<unsigned>
 
 // Maximum number of direct callsites allowed for CallTreeClone
 static cl::opt<unsigned> CTCloningMaxDirectCallSiteCount(
-    PASS_NAME_STR "-max-direct-callsites", cl::init(6145), cl::ReallyHidden,
+    PASS_NAME_STR "-max-direct-callsites", cl::init(1950), cl::ReallyHidden,
     cl::desc("maximum allowed number of direct callsites in linked module"));
 
 // Allows to specify "seed" functions and their parameter sets profitable to
@@ -1965,15 +1965,15 @@ protected:
     if (ModelArbitraryNumUserCalls)
       NumCallInst = NumUserCallsModeled;
     else {
-      // count direct calls only on module level:
-      // support both CallInst and InvokeInst and skip any DBG intrinsic.
+      // Support both CallInst and InvokeInst and skip any intrinsic.
       for (auto &F : M.functions())
-        for (BasicBlock &BB : F)
-          for (Instruction &I : BB)
-            if (!isa<DbgInfoIntrinsic>(&I))
-              if (CallBase *CB = dyn_cast<CallBase>(&I))
-                if (!CB->isIndirectCall())
-                  ++NumCallInst;
+        for (auto &I : instructions(F))
+          if (CallBase *CB = dyn_cast<CallBase>(&I))
+            if (!isa<IntrinsicInst>(CB)) {
+              Function *F = CB->getCalledFunction();
+              if (F && !F->isDeclaration())
+                ++NumCallInst;
+            }
     }
 
     LLVM_DEBUG(dbgs() << "NumCallInst:\t" << NumCallInst << "\n");

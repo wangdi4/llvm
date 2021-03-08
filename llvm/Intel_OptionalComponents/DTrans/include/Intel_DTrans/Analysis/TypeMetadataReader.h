@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.h - Decode metadata annotations---------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -29,6 +29,7 @@ namespace llvm {
 namespace dtrans {
 
 class DTransType;
+class DTransFunctionType;
 class DTransStructType;
 class DTransTypeManager;
 class TypeMetadataTester;
@@ -82,6 +83,17 @@ private:
   DTransType *decodeMDArrayNode(MDNode *MD);
   DTransType *decodeMDVectorNode(MDNode *MD);
 
+  // Lookup a value from the FunctionToDTransTypeMap table.
+  DTransFunctionType *getDTransType(Function *F) const;
+
+  // Build of cache of DTransFunctionType objects to map Functions to a
+  // DTransFunctionType for each function that has DTrans metadata tags.
+  void buildFunctionTypeTable(Module &M);
+
+  // Decode the metadata 'MDTypeListNode' attached to Function 'F'.
+  DTransFunctionType *decodeDTransFuncType(Function &F,
+    const MDNode &MDTypeListNode);
+
   // Utility methods
   DTransType *createPointerToLevel(DTransType *DTTy, unsigned PtrLevel);
   void cacheMDDecoding(MDNode *MD, DTransType *DTTy);
@@ -99,7 +111,12 @@ private:
   // of calls to this class.
   DenseMap<MDNode *, dtrans::DTransType *> MDToDTransTypeMap;
 
+  // Map of functions with DTrans metadata tags to a DTransFunctionType.
+  DenseMap<Function *, dtrans::DTransFunctionType *> FunctionToDTransTypeMap;
+
+  // Deprecated:
   // Map of external symbol name to MDNode that describes the type.
+  // TODO: Remove when LIT tests are updated.
   StringMap<MDNode *> SymbolNameToMDNodeMap;
 };
 

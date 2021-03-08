@@ -1922,6 +1922,16 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
                          : Constant::getAllOnesValue(FixedVectorType::get(
                                Type::getInt1Ty(F->getContext()), PumpedVF));
 
+  createVectorMaskArg(VPCall, VecVariant, VecArgs, VecArgTys, PumpedVF,
+                      MaskToUse);
+}
+
+void VPOCodeGen::createVectorMaskArg(VPCallInstruction *VPCall,
+                                     VectorVariant *VecVariant,
+                                     SmallVectorImpl<Value *> &VecArgs,
+                                     SmallVectorImpl<Type *> &VecArgTys,
+                                     unsigned PumpedVF, Value *MaskToUse) {
+
   // Add the mask parameter for masked simd functions.
   // Mask should already be vectorized as i1 type.
   VectorType *MaskTy = cast<VectorType>(MaskToUse->getType());
