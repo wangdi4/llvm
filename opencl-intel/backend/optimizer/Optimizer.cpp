@@ -901,7 +901,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
                      const intel::OptimizerConfig *pConfig)
     : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList),
       m_IsFpgaEmulator(pConfig->isFpgaEmulator()),
-      m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
+      m_IsEyeQEmulator(pConfig->isEyeQEmulator()),
+      m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*pModule)) {
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
 
@@ -930,29 +931,19 @@ Optimizer::Optimizer(llvm::Module *pModule,
 
   bool EnableInferAS = !getenv("DISABLE_INFER_AS");
 
-  // The only noticeable difference between SYCL flow and OpenCL flow is the
-  // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++
-  // (because SYCL does not have a dedicated enum value yet), while in OpenCL
-  // spirv.Source is OpenCL C.
-  //
-  // spirv.Source is an *optional* metadata and can be omitted (optimized)
-  // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
-  // as an intermediate. These two cases are not supported now.
-  bool IsSYCL = CompilationUtils::generatedFromOCLCPP(*pModule);
-  bool UseVplan = EnableVPlan;
-
   bool IsOMP = CompilationUtils::generatedFromOMP(*pModule);
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20, m_IsFpgaEmulator,
-                             UnrollLoops, EnableInferAS, isSPIRV, UseVplan);
+                             UnrollLoops, EnableInferAS, isSPIRV, EnableVPlan);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(
-      m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel, pConfig,
-      m_undefinedExternalFunctions, isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-      UnrollLoops, EnableInferAS, UseVplan, IsSYCL, IsOMP, m_kernelToVFState);
+  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
+                              OptLevel, pConfig, m_undefinedExternalFunctions,
+                              isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+                              UnrollLoops, EnableInferAS, EnableVPlan, m_IsSYCL,
+                              IsOMP, m_kernelToVFState);
 }
 
 void Optimizer::Optimize() {
@@ -971,9 +962,9 @@ void Optimizer::Optimize() {
   materializerPM.run(*m_pModule);
   m_PreFailCheckPM.run(*m_pModule);
 
-  // if there are still recursive calls  after standard
-  // LLVM optimizations applied  Compilation will report failure
-  if (hasRecursion()) {
+  // if there are still unsupported recursive calls after standard LLVM
+  // optimizations applied, compilation will report failure.
+  if (hasUnsupportedRecursion()) {
     return;
   }
 
@@ -1004,8 +995,12 @@ const std::vector<std::string> &Optimizer::GetUndefinedExternals() const {
   return m_undefinedExternalFunctions;
 }
 
-bool Optimizer::hasRecursion() {
-  return !GetInvalidFunctions(InvalidFunctionType::RECURSION).empty();
+bool Optimizer::hasUnsupportedRecursion() {
+
+  return m_IsSYCL
+             ? !GetInvalidFunctions(InvalidFunctionType::RECURSION_WITH_BARRIER)
+                    .empty()
+             : !GetInvalidFunctions(InvalidFunctionType::RECURSION).empty();
 }
 
 bool Optimizer::hasFpgaPipeDynamicAccess() {
@@ -1055,6 +1050,9 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
     switch (Ty) {
     case RECURSION:
       Invalid = KMD.RecursiveCall.hasValue() && KMD.RecursiveCall.get();
+      break;
+    case RECURSION_WITH_BARRIER:
+      Invalid = F.hasFnAttribute(CompilationUtils::ATTR_RECURSION_WITH_BARRIER);
       break;
     case FPGA_PIPE_DYNAMIC_ACCESS:
       Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&

@@ -27,6 +27,8 @@
 #define DEV_MAXIMUM_ALIGN			128
 #define ADJUST_SIZE_TO_MAXIMUM_ALIGN(X)		( ((X)+DEV_MAXIMUM_ALIGN-1) & (~(DEV_MAXIMUM_ALIGN-1)))
 
+#define MAX_RECURSION_DEPTH 1024
+
 // OpenCL 2.0 introduced the non-uniform work-group size.
 // In our implementation RT calculates two arrays of local WG sizes and passes them to a kernel.
 // One array for region of work-groups with sizes equal to the spefied in clEnqueueNDRangeKernel while

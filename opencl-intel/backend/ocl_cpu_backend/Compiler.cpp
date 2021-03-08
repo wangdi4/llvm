@@ -610,8 +610,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                           CL_DEV_INVALID_BINARY);
     }
 
-    if (optimizer.hasRecursion())
-    {
+    if (optimizer.hasUnsupportedRecursion()) {
       Utils::LogHasRecursion(
           pResult->LogS(), optimizer.GetInvalidFunctions(
               Optimizer::InvalidFunctionType::RECURSION));

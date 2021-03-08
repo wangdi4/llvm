@@ -190,6 +190,17 @@ namespace intel {
     return m_syncFunctions;
   }
 
+  TFunctionSet BarrierUtils::getRecursiveFunctionsWithSync() {
+    TFunctionSet &SyncFunctions = getAllFunctionsWithSynchronization();
+    TFunctionSet RecursiveFunctions;
+    for (Function *F : SyncFunctions) {
+      auto FMD = FunctionMetadataAPI(F);
+      if (FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get())
+        RecursiveFunctions.insert(F);
+    }
+    return RecursiveFunctions;
+  }
+
   TFunctionVector BarrierUtils::getAllKernelsAndVectorizedCounterparts(
       const SmallVectorImpl<Function *> &KernelList) {
     TFunctionVector Result;
