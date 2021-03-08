@@ -18,36 +18,36 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
 ; CHECK-NEXT:  VPlan IR for: _ZGVbN4_direct:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop (SVAOpBits )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbN4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1]
-; CHECK-NEXT:     [DA: Uni] br [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbN4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1] (SVAOpBits 0->V 1->V 2->V 3->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 false, [[BB2]], [[BB4:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 false, [[BB2]], [[BB4:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     Condition(external): i1 false
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Uni] br <External Block>
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP_INDEX_IND_FINAL]]
@@ -63,9 +63,9 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[INDIRECT_CALL_LOOP_EXIT0:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[INDIRECT_CALL_LOOP_EXIT0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[INDIRECT_CALL_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[INDIRECT_CALL_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[INDIRECT_CALL_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[INDIRECT_CALL_LOOP_EXIT0]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = call <4 x i32 (i32, float)**> @_ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv()
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_ENTRY0:%.*]]
 ; CHECK-EMPTY:
@@ -83,10 +83,10 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <4 x i32 (i32, float)**> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    [[VECTOR_FUNC_PTR_MASK0:%.*]] = sext <4 x i1> [[FUNC_PTR_MASK0]] to <4 x i32>
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32 (i32, float)** [[CURRENT_FPTR0]] to <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)**
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)** [[TMP1]], i32 1
-; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)** [[TMP3]], align 8
-; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i32> [[TMP4]](<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>, <4 x i32> [[VECTOR_FUNC_PTR_MASK0]])
-; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <4 x i1> [[FUNC_PTR_MASK0]], <4 x i32> [[TMP5]], <4 x i32> [[CUR_INDIRECT_CALL_RETURN0]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)** [[TMP1]], i32 1
+; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x float>, <4 x i32>)** [[TMP2]], align 8
+; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x i32> [[TMP3]](<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>, <4 x i32> [[VECTOR_FUNC_PTR_MASK0]])
+; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <4 x i1> [[FUNC_PTR_MASK0]], <4 x i32> [[TMP4]], <4 x i32> [[CUR_INDIRECT_CALL_RETURN0]]
 ; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <4 x i1> [[FUNC_PTR_MASK0]], <4 x i32 (i32, float)**> zeroinitializer, <4 x i32 (i32, float)**> [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -99,10 +99,10 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.exit:
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_LCSSA_PHI0:%.*]] = phi <4 x i32> [ [[FINAL_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    [[TMP6]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP7]] = add nuw i32 [[UNI_PHI10]], 4
-; CHECK-NEXT:    [[TMP8]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i32 [[TMP8]], 4
+; CHECK-NEXT:    [[TMP5]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP6]] = add nuw i32 [[UNI_PHI10]], 4
+; CHECK-NEXT:    [[TMP7]] = add i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i32 [[TMP7]], 4
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:

@@ -421,7 +421,6 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     BestUF = 1;
     LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
                       << ", selecting it.\n");
-    return ForcedVF;
   }
 
   // FIXME: This value of MaxVF has to be aligned with value of MaxVF in
@@ -436,6 +435,15 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   uint64_t ScalarCost = ScalarIterationCost * TripCount;
 
   BestVF = 1;
+  if (ForcedVF > 0) {
+    BestVF = ForcedVF;
+    for (unsigned VF = 2; VF <= MaxVF; VF *= 2) {
+      (void)VF;
+      assert((!hasVPlanForVF(VF) || VF == ForcedVF) &&
+             "VPlan should not exists for VF other than ForcedVF.");
+    }
+  }
+
   // FIXME: Currently, unroll is not in VPlan, so set it to 1.
   BestUF = 1;
   uint64_t BestCost = ScalarCost;
@@ -460,6 +468,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 
   // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
   // cost model.
+  //
+  // The main loop where we choose VF.
+  // Please note that best peeling variant is expected to be selected up to
+  // this moment.  Now we check whether the best peeling is profitable VS no
+  // peeling.
   for (unsigned VF = 2; VF <= MaxVF; VF *= 2) {
     if (!hasVPlanForVF(VF))
       continue;
@@ -535,7 +548,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    if (VectorCost < BestCost) {
+    if (VectorCost < BestCost || VF == ForcedVF) {
       BestCost = VectorCost;
       BestVF = VF;
     }
