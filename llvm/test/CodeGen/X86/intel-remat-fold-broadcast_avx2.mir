@@ -279,12 +279,13 @@ machineFunctionInfo: {}
 body:             |
   ; CHECK-LABEL: name: compute_bcast
   ; CHECK: bb.1.for.body.preheader:
+  ; CHECK-NOT:   VBROADCASTSSYrm
+  ; CHECK: bb.3.for.body:
   ; CHECK:   [[VBROADCASTSSYrm:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.0, $noreg :: (load 4 from constant-pool)
   ; CHECK:   [[VBROADCASTSSYrm1:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.1, $noreg :: (load 4 from constant-pool)
   ; CHECK:   [[VBROADCASTSSYrm2:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.2, $noreg :: (load 4 from constant-pool)
   ; CHECK:   [[VBROADCASTSSYrm3:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.3, $noreg :: (load 4 from constant-pool)
   ; CHECK:   [[VBROADCASTSSYrm4:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.4, $noreg :: (load 4 from constant-pool)
-  ; CHECK: bb.3.for.body:
   bb.0.entry:
     successors: %bb.1(0x50000000), %bb.2(0x30000000)
     liveins: $edi, $rsi, $rdx
