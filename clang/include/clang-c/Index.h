@@ -2572,6 +2572,10 @@ enum CXCursorKind {
    */
   CXCursor_OMPTileDirective = 288,
 
+  /** OpenMP canonical loop.
+   */
+  CXCursor_OMPCanonicalLoop = 289,
+
 #if INTEL_COLLAB
   CXCursor_OMPTargetVariantDispatchDirective = 289,
   CXCursor_OMPGenericLoopDirective = 290,
@@ -2582,7 +2586,7 @@ enum CXCursorKind {
 
   CXCursor_LastStmt = CXCursor_OMPTargetParallelGenericLoopDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPTileDirective,
+  CXCursor_LastStmt = CXCursor_OMPCanonicalLoop,
 #endif /* INTEL_COLLAB */
 
   /**
