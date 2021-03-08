@@ -255,28 +255,21 @@ void IndirectCallCodeGenerator::fillVectorIndirectCallBB(
   if (IsMasked)
     FinalMask = State->Builder.CreateAnd(FuncPtrMask, MaskValue, "final_mask");
 
-  // The function pointer mask should be added in indirect call's arguments.
-  Value *VecMask = State->Builder.CreateSExt(
-      FuncPtrMask, VectorType::get(VPCallInst->getType(), EC),
-      "vector_func_ptr_mask");
-  // If the loop has a mask (MaskValue), then this mask will have already been
+  VectorVariant *MatchedVariant =
+      const_cast<VectorVariant *>(VPCallInst->getVectorVariant());
+  assert(MatchedVariant && "Unexpected null matched vector variant");
+
+  // If matched vector variant has a mask, then this mask will have already been
   // added in indirect call's arguments by vectorizeCallArgs. Thus, we have to
-  // retrieve it from the arguments list, blend it with the function pointer
-  // mask and push it back to the arguments list.
-  if (IsMasked) {
-    Value *LoopMask = CallArgs.back();
+  // pop it out from the arguments list.
+  if (MatchedVariant->isMasked()) {
     CallArgs.pop_back();
-    Type *LoopMaskTy = CallArgsTy.back();
     CallArgsTy.pop_back();
-    if (VecMask->getType() != LoopMaskTy)
-      VecMask = State->Builder.CreateBitCast(VecMask, LoopMask->getType(),
-                                             "mask_cast");
-    VecMask = State->Builder.CreateAnd(VecMask, LoopMask, "and_masks");
-    assert(VecMask->getType() == LoopMaskTy &&
-           "The merged mask should have the same type as the loop mask!");
   }
-  CallArgs.push_back(VecMask);
-  CallArgsTy.push_back(VecMask->getType());
+
+  CodeGen->createVectorMaskArg(VPCallInst, MatchedVariant, CallArgs, CallArgsTy,
+                               VF, FinalMask);
+
   // Generate the call to the vectorized version of the function pointer.
   Value *IndirectCallReturn = generateIndirectCall(VPCallInst, CurrentFPtr);
   // Blend the return value of the current function pointer in a vector.

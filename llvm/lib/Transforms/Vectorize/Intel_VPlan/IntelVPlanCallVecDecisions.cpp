@@ -115,6 +115,9 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
     Variants.push_back(VectorVariant(VariantAttributes[I]));
   }
 
+  if (VPCall->isIntelIndirectCall())
+     Masked |= Plan.getVPlanDA()->isDivergent(*VPCall->getOperand(0));
+
   std::unique_ptr<VectorVariant> VariantForCall =
       getVectorVariantForCallParameters(VPCall, Masked, VF);
 

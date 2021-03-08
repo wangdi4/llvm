@@ -132,6 +132,13 @@ public:
                          SmallVectorImpl<Type *> &VecArgTys,
                          SmallVectorImpl<AttributeSet> &VecArgAttrs);
 
+  /// Promote provided mask to a proper type and add it into
+  /// vector arguments/vector argument types arrays.
+  void createVectorMaskArg(VPCallInstruction *VPCall, VectorVariant *VecVariant,
+                           SmallVectorImpl<Value *> &VecArgs,
+                           SmallVectorImpl<Type *> &VecArgTys,
+                           unsigned PumpedVF, Value *MaskToUse);
+
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
   bool isScalarArgument(StringRef FnName, unsigned Idx);

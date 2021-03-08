@@ -50,11 +50,11 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <4 x i32 (i32)*> poison, i32 (i32)* [[CURRENT_FPTR0]], i32 0
 ; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <4 x i32 (i32)*> [[CURRENT_FPTR_SPLATINSERT0]], <4 x i32 (i32)*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <4 x i32 (i32)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
-; CHECK-NEXT:    [[VECTOR_FUNC_PTR_MASK0:%.*]] = sext <4 x i1> [[FUNC_PTR_MASK0]] to <4 x i32>
+; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[FUNC_PTR_MASK0]] to <4 x i32>
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32 (i32)* [[CURRENT_FPTR0]] to <4 x i32> (<4 x i32>, <4 x i32>)**
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP2]], i32 1
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP2]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP3]], align 8
-; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i32> [[TMP4]](<4 x i32> [[WIDE_LOAD30]], <4 x i32> [[VECTOR_FUNC_PTR_MASK0]])
+; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i32> [[TMP4]](<4 x i32> [[WIDE_LOAD30]], <4 x i32> [[MASKEXT0]])
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <4 x i1> [[FUNC_PTR_MASK0]], <4 x i32> [[TMP5]], <4 x i32> [[CUR_INDIRECT_CALL_RETURN0]]
 ; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <4 x i1> [[FUNC_PTR_MASK0]], <4 x i32 (i32)*> zeroinitializer, <4 x i32 (i32)*> [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_LATCH0]]
