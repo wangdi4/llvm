@@ -247,7 +247,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void print(raw_ostream &OS, unsigned Indent = 0) const {
+  virtual void print(raw_ostream &OS, unsigned Indent = 0) const override {
     DescrValue<Value>::print(OS);
     if (!Aliases.empty()) {
       for (const auto &AliasIt : Aliases) {
