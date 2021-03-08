@@ -28,6 +28,13 @@ define void @NonKernelFunc4(i32 addrspace(4)* noalias %X, i32 addrspace(1)* %G, 
   ret void
 }
 
+; function has barrier, so we cannot set NoAlias
+define void @NonKernelFunc5(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L) nounwind {
+; CHECK: define void @NonKernelFunc5(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L)
+  call void @_Z7barrierj(i32 1)
+  ret void
+}
+
 ; kernel function is called by KernelFunc and more than one local-mem argument, so we cannot set NoAlias
 define void @KernelFuncCallee1(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L2) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 ; CHECK: define void @KernelFuncCallee1(i32 addrspace(1)* noalias %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L2)
@@ -47,6 +54,8 @@ define void @KernelFunc(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i
   call void @KernelFuncCallee2(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L2)
   ret void
 }
+
+declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
