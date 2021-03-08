@@ -16,8 +16,8 @@
 ; RUN: opt -replace-with-math-library-functions -VPlanDriver -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
 
 ; VPLAN-LABEL: VPlan after CallVecDecisions analysis for VF=8
-; VPLAN:        [DA: Uni] i32 [[UREM_CALL:%vp.*]] = call i32 %dividend i32 %divisor _Z4uremDv8_jS_ [x 1]
-; VPLAN-NEXT:   [DA: Uni] i32 [[SG_BCAST:%vp.*]] = call i32 [[IV:%vp.*]] i32 [[UREM_CALL]] _ZGVbM8vu_Z19sub_group_broadcastjj(_Z19sub_group_broadcastDv8_jjS_) [x 1] [@CurrMask]
+; VPLAN:        [DA: Uni, SVA: ( V )] i32 [[UREM_CALL:%vp.*]] = call i32 %dividend i32 %divisor _Z4uremDv8_jS_ [x 1]
+; VPLAN-NEXT:   [DA: Uni, SVA: ( V )] i32 [[SG_BCAST:%vp.*]] = call i32 [[IV:%vp.*]] i32 [[UREM_CALL]] _ZGVbM8vu_Z19sub_group_broadcastjj(_Z19sub_group_broadcastDv8_jjS_) [x 1] [@CurrMask]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
