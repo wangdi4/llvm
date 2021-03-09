@@ -638,35 +638,37 @@ def intel_mno_intrinsic_promote : Flag<["-"], "mno-intrinsic-promote">, Flags<[N
 def qipp_EQ : Joined<["-"], "qipp=">, Flags<[NoXarchOption]>,
   Values<"common,crypto,nonpic,nonpic_crypto">,
   HelpText<"Link commonly used Intel(R) Integrated Performace Primitives "
-  "(Intel(R) IPP) libraries and bring in the associated headers">;
+  "(Intel(R) IPP) libraries and bring in the associated headers"
+  " (common,crypto,nonpic,nonpic_crypto)">;
 def qipp : Flag<["-"], "qipp">, Alias<qipp_EQ>, AliasArgs<["common"]>;
 def qipp_link_EQ : Joined<["-"], "qipp-link=">, Flags<[NoXarchOption]>,
   Values<"static,dynamic,shared">, HelpText<"Link Intel(R) IPP libraries in "
-  "requested manner">;
+  "requested manner (static,dynamic,shared)">;
 def : Joined<["-"], "ipp=">, Alias<qipp_EQ>, HelpText<"Link commonly used "
   "Intel(R) Integrated Performace Primitives (Intel(R) IPP) libraries and "
-  "bring in the associated headers">;
+  "bring in the associated headers (common,crypto,nonpic,nonpic_crypto)">;
 def : Flag<["-"], "ipp">, Alias<qipp_EQ>, AliasArgs<["common"]>;
 def : Joined<["-"], "ipp-link=">, Alias<qipp_link_EQ>,
   Values<"static,dynamic,shared">, HelpText<"Link Intel(R) IPP libraries in "
-  "requested manner">;
+  "requested manner (static,dynamic,shared)">;
 def qmkl_EQ : Joined<["-"], "qmkl=">,
   Values<"parallel,sequential,cluster">,
   HelpText<"Link commonly used Intel(R) Math Kernel Library (Intel(R) MKL) "
-  "and bring in the associated headers">;
+  "and bring in the associated headers (parallel,sequential,cluster)"
+  "(\"cluster\" is not supported in DPC++)">;
 def qmkl : Flag<["-"], "qmkl">, Alias<qmkl_EQ>, AliasArgs<["parallel"]>;
 def qtbb : Flag<["-"], "qtbb">, HelpText<"Link Intel(R) Threading Building "
   "Blocks (Intel(R) TBB) libraries and bring in the associated headers">;
 def qdaal_EQ : Joined<["-"], "qdaal=">, Values<"parallel,sequential">,
   HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
-  "libraries and bring in the associated headers">;
+  "libraries and bring in the associated headers (parallel,sequential)">;
 def qdaal : Flag<["-"], "qdaal">, Alias<qdaal_EQ>, AliasArgs<["parallel"]>;
 def : Flag<["-"], "tbb">, Alias<qtbb>, HelpText<"Link Intel(R) Threading "
   "Building Blocks (Intel(R) TBB) libraries and bring in the associated "
   "headers">;
 def : Joined<["-"], "daal=">, Alias<qdaal_EQ>, HelpText<"Link Intel(R) Data "
   "Analytics Acceleration Library (Intel(R) DAAL) libraries and bring in the "
-  "associated headers">;
+  "associated headers (parallel,sequential)">;
 def : Flag<["-"], "daal">, Alias<qdaal_EQ>, AliasArgs<["parallel"]>;
 def x_intel : Joined<["-"], "x">, Flags<[NoXarchOption]>,
   HelpText<"Generate specialized code to run exclusively on processors "
@@ -6747,15 +6749,18 @@ def _SLASH_Qintrinsic_promote_ : CLFlag<"Qintrinsic-promote-">,
   Alias<intel_mno_intrinsic_promote>;
 def _SLASH_Qipp_EQ : CLJoined<"Qipp=">, Alias<qipp_EQ>,
   HelpText<"Link commonly used Intel(R) Integrated Performace Primitives "
-  "(Intel(R) IPP) libraries and bring in the associated headers">;
+  "(Intel(R) IPP) libraries and bring in the associated headers"
+  " (common,crypto,nonpic,nonpic_crypto)">;
 def _SLASH_Qipp_COL : CLJoined<"Qipp:">, Alias<qipp_EQ>;
 def _SLASH_Qipp_link_EQ : CLJoined<"Qipp-link=">, Alias<qipp_link_EQ>,
-  HelpText<"Link Intel(R) IPP libraries in the requested manner">;
+  HelpText<"Link Intel(R) IPP libraries in the requested manner"
+  " (static,dynamic,shared)">;
 def _SLASH_Qipp_link_COL : CLJoined<"Qipp-link:">, Alias<qipp_link_EQ>;
 def _SLASH_Qipp : CLFlag<"Qipp">, Alias<qipp_EQ>, AliasArgs<["common"]>;
 def _SLASH_Qmkl_EQ : CLJoined<"Qmkl=">, Alias<qmkl_EQ>,
   HelpText<"Link commonly used Intel(R) Math Kernel Library (Intel(R) MKL) "
-  "and bring in the associated headers">;
+  "and bring in the associated headers (parallel,sequential,cluster)"
+  "(\"cluster\" is not supported in DPC++)">;
 def _SLASH_Qmkl_COL : CLJoined<"Qmkl:">, Alias<qmkl_EQ>;
 def _SLASH_Qmkl : CLFlag<"Qmkl">, Alias<qmkl_EQ>, AliasArgs<["parallel"]>;
 def _SLASH_QMP : CLFlag<"QMP">, Alias<MP>, HelpText<"Create phony target for "
@@ -6765,7 +6770,7 @@ def _SLASH_Qtbb : CLFlag<"Qtbb">, Alias<qtbb>,
   "and bring in the associated headers">;
 def _SLASH_Qdaal_EQ : CLJoined<"Qdaal=">, Alias<qdaal_EQ>,
   HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
-  "libraries and bring in the associated headers">;
+  "libraries and bring in the associated headers (parallel,sequential)">;
 def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<qdaal_EQ>;
 def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<qdaal_EQ>, AliasArgs<["parallel"]>;
 def _SLASH_Qfma : CLFlag<"Qfma">, Alias<ffp_contract>, AliasArgs<["fast"]>,
