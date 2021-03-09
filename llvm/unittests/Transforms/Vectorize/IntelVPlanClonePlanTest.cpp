@@ -54,8 +54,8 @@ CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan,
       if (UDA == VPlan::UpdateDA::CloneDA ||
           UDA == VPlan::UpdateDA::RecalculateDA) {
         EXPECT_FALSE(OrigVPlan->getVPlanDA()->shapesAreDifferent(
-            OrigVPlan->getVPlanDA()->getVectorShape(&*ItO),
-            ClonedVPlan->getVPlanDA()->getVectorShape(&*ItC)));
+            OrigVPlan->getVPlanDA()->getVectorShape(*ItO),
+            ClonedVPlan->getVPlanDA()->getVectorShape(*ItC)));
       }
     }
 

@@ -82,7 +82,7 @@ void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
 
           // Copy over the shape from the previous instruction.
           Plan.getVPlanDA()->updateVectorShape(
-              ClonedGEP, Plan.getVPlanDA()->getVectorShape(&I));
+              ClonedGEP, Plan.getVPlanDA()->getVectorShape(I));
 
           // Use this GEP when we encounter the non-load/store user of this GEP.
           Builder.insert(ClonedGEP);
