@@ -191,8 +191,8 @@ define void @loop_2(i32 %size, i32 %nsteps, i32 %hsize, i32* %lined, i8 %tmp1) {
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_BODY2]], label [[FOR_BODY3_PREHEADER:%.*]]
 ; CHECK:       for.body3.preheader:
-; CHECK-NEXT:    [[TMP6:%.*]] = trunc i64 [[TMP4]] to i32
-; CHECK-NEXT:    [[TMP7:%.*]] = zext i32 [[TMP6]] to i64
+; CHECK-NEXT:    [[TMP5:%.*]] = trunc i64 [[TMP3]] to i32
+; CHECK-NEXT:    [[TMP6:%.*]] = zext i32 [[TMP5]] to i64
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[WIDE_TRIP_COUNT5:%.*]] = sext i32 [[SIZE]] to i64
 ; end INTEL_CUSTOMIZATION
