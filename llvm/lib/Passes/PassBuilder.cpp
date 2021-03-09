@@ -1084,21 +1084,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   else
     FPM.addPass(GVN());
 
-  // Specially optimize memory movement as it doesn't look like dataflow in SSA.
-#if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
-  // true to simplify handling of memcpy/memset/memmov calls in DTrans
-  // implementation.
-  // TODO: Remove this customization once DTrans handled partial memcpy/
-  // memset/memmov calls of struct types.
-  if (!PrepareForLTO || !EnableDTrans)
-    FPM.addPass(MemCpyOptPass());
-#else
-  FPM.addPass(MemCpyOptPass());
-#endif // INTEL_INCLUDE_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
   // Sparse conditional constant propagation.
   // FIXME: It isn't clear why we do this *after* loop passes rather than
   // before...
@@ -1129,7 +1114,19 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(ADCEPass());
 
   // Specially optimize memory movement as it doesn't look like dataflow in SSA.
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
+  // true to simplify handling of memcpy/memset/memmov calls in DTrans
+  // implementation.
+  // TODO: Remove this customization once DTrans handled partial memcpy/
+  // memset/memmov calls of struct types.
+  if (!PrepareForLTO || !EnableDTrans)
+    FPM.addPass(MemCpyOptPass());
+#else
   FPM.addPass(MemCpyOptPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   FPM.addPass(DSEPass());
   FPM.addPass(createFunctionToLoopPassAdaptor(
