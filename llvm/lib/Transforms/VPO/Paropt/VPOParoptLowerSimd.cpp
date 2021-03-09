@@ -229,6 +229,24 @@ static std::string getMDString(MDNode *N, unsigned I) {
 
   return "";
 }
+// Native sqrt doesn't support double type on GEN. We generate native sqrt only
+// if fast flag is specified and no double type provided
+static Value *translateSqrtOpIntrinsic(CallInst *CI) {
+  assert(isa<llvm::IntrinsicInst>(CI) &&
+         CI->getIntrinsicID() == Intrinsic::sqrt);
+
+  GenXIntrinsic::ID GID = (CI->getType()->getScalarType()->isDoubleTy() ||
+                           !CI->getFastMathFlags().isFast())
+                              ? GenXIntrinsic::genx_ieee_sqrt
+                              : GenXIntrinsic::genx_sqrt;
+
+  Function *NewFDecl =
+      GenXIntrinsic::getGenXDeclaration(CI->getModule(), GID, {CI->getType()});
+  Value *RepI =
+      IntrinsicInst::Create(NewFDecl, {CI->getOperand(0)}, CI->getName(), CI);
+  CI->replaceAllUsesWith(RepI);
+  return RepI;
+}
 
 static Value *translateReduceOpIntrinsic(CallInst *CI) {
   assert(isa<llvm::IntrinsicInst>(CI));
@@ -743,7 +761,6 @@ std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
 
 //  Power functions
     {Intrinsic::pow,          GenXIntrinsic::genx_pow},
-    {Intrinsic::sqrt,         GenXIntrinsic::genx_ieee_sqrt},
 
 //  Trig & hyperbolic functions
     {Intrinsic::sin,          GenXIntrinsic::genx_sin},
@@ -775,7 +792,6 @@ std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath64 = {
 
 //  Power functions
     {Intrinsic::pow,          GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::sqrt,         GenXIntrinsic::genx_ieee_sqrt},
 
 //  Trig & hyperbolic functions
     {Intrinsic::sin,          GenXIntrinsic::not_genx_intrinsic},
@@ -1060,6 +1076,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
     case Intrinsic::vector_reduce_xor:
     case Intrinsic::vector_reduce_or:
       return translateReduceOpIntrinsic(CallOp);
+    case Intrinsic::sqrt:
+      return translateSqrtOpIntrinsic(CallOp);
     default: {
       auto DTy = CallOp->getType()->getScalarType();
       GenXIntrinsic::ID GID = GenXIntrinsic::not_genx_intrinsic;
