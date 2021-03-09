@@ -5,6 +5,14 @@
 typedef float float4 __attribute__((ext_vector_type(4)));
 // end INTEL_CUSTOMIZATION
 
+// Test that mix is correctly defined.
+// CHECK-LABEL: @test_float
+// CHECK: call <4 x float> @_Z3mixDv4_fS_f
+// CHECK: ret
+void test_float(float4 x, float a) {
+  float4 ret = mix(x, x, a);
+}
+
 // Test that Attr.Const from OpenCLBuiltins.td is lowered to a readnone attribute.
 // CHECK-LABEL: @test_const_attr
 // CHECK: call i32 @_Z3maxii({{.*}}) [[ATTR_CONST:#[0-9]]]
