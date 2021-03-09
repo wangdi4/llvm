@@ -1125,7 +1125,7 @@ public:
         Size->printAsOperand(OS, PrintType);
         OS << ", ";
         if (Aggr->hasExplicitMapType())
-          OS << MapType;
+          OS << MapType << " (" << llvm::format_hex(MapType, 18, true) << ")";
         else
           OS << "UNSPECIFIED";
         OS << ", ";

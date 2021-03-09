@@ -14,7 +14,7 @@
 ; }
 
 ; CHECK-DAG: @[[SIZE1:.+]] = {{.*}} constant {{.*}} [i64 68]
-; CHECK-DAG: @[[MAPTYPE1:.+]] = {{.*}} constant {{.*}} [i64 33]
+; CHECK-DAG: @[[MAPTYPE1:.+]] = {{.*}} constant {{.*}} [i64 1]
 ; CHECK: define dso_local void @_Z6updatePi(i32* %[[A:[^)]+]])
 ; CHECK: store i32* %[[A]], i32** %[[A_ADDR:[^,]+]]
 ; CHECK-DAG: %[[A_BASE_PTR:.+\.load]] = load i32*, i32** %[[A_ADDR]]

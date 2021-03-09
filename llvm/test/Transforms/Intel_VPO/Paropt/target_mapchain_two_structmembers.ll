@@ -33,9 +33,9 @@
 ; the MemberOf fields are updated based on the index of the starting
 ; link of the map-chain.
 ; DBG: Updated MemberOf Flag from '3' to '1'
-; DBG: MapType changed from '844424930131971' to '281474976710659'
+; DBG: MapType changed from '844424930131971 (0x0003000000000003)' to '281474976710659 (0x0001000000000003)'
 ; DBG: Updated MemberOf Flag from '1' to '3'
-; DBG: MapType changed from '281474976710659' to '844424930131971'
+; DBG: MapType changed from '281474976710659 (0x0001000000000003)' to '844424930131971 (0x0003000000000003)'
 
 
 ; Check that the maptypes struct has the value in the correct order. If the memberof

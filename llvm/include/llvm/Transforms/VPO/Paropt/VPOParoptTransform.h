@@ -1561,9 +1561,11 @@ private:
   };
 
   /// Returns the corresponding flag for a given map clause modifier.
+  /// Does not set TARGET_PARAM may-type flag unless IsTargetKernelArg is true.
   uint64_t getMapTypeFlag(MapItem *MpI,
                          bool AddrIsTargetParamFlag,
-                         bool IsFirstComponentFlag);
+                         bool IsFirstComponentFlag,
+                         bool IsTargetKernelArg);
 
   /// Create a pointer, store address of \p V to the pointer, and replace uses
   /// of \p V with a load from that pointer.

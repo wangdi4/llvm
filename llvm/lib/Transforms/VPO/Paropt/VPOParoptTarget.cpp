@@ -1312,11 +1312,23 @@ void VPOParoptTransform::resetValueInSubdeviceClause(WRegionNode* W) {
 // Returns the corresponding flag for a given map clause modifier.
 uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool AddrIsTargetParamFlag,
-                                            bool IsFirstComponentFlag) {
+                                            bool IsFirstComponentFlag,
+                                            bool IsTargetKernelArg) {
+
+  auto printAndReturn = [&MapI](uint64_t RetVal) {
+    LLVM_DEBUG(dbgs() << "genMapTypeFlag : Map-type for '";
+               MapI->getOrig()->printAsOperand(dbgs());
+               dbgs() << "': " << RetVal << " ("
+                      << llvm::format_hex(RetVal, 18, true) << ").\n");
+    return RetVal;
+  };
 
   uint64_t Res = 0u;
-  if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
-    return TGT_MAP_TARGET_PARAM;
+  if (!AddrIsTargetParamFlag && IsFirstComponentFlag) {
+    if (IsTargetKernelArg)
+      Res |= TGT_MAP_TARGET_PARAM;
+    return printAndReturn(Res);
+  }
 
   assert(!MapI->getIsMapNone() &&
          "Cannot compute map type flag. No type info in clause.");
@@ -1351,12 +1363,13 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
   // The flag AddrIsTargetParamFlag indicates that the map clause is
   // not in a chain. If it is head of the chain, according to the logic at
   // the entry of function getMapTypeFlag, it returns TGT_MAP_TARGET_PARAM.
-  if (AddrIsTargetParamFlag)
-    Res |= TGT_MAP_TARGET_PARAM;
-  else
+  if (AddrIsTargetParamFlag) {
+    if (IsTargetKernelArg)
+      Res |= TGT_MAP_TARGET_PARAM;
+  } else
     Res |= TGT_MAP_PTR_AND_OBJ | getMemberOfFlag();
 
-  return Res;
+  return printAndReturn(Res);
 }
 
 // Generate the sizes and map type flags for the given map type, map
@@ -1469,14 +1482,17 @@ void VPOParoptTransform::genTgtInformationForPtrs(
           }
 
           if (MapType != NewMapType) {
-            LLVM_DEBUG(dbgs() << __FUNCTION__ << ": MapType changed from '"
-                              << MapType << "' to '" << NewMapType << "'.\n");
+            LLVM_DEBUG(dbgs()
+                       << __FUNCTION__ << ": MapType changed from '" << MapType
+                       << " (" << llvm::format_hex(MapType, 18, true)
+                       << ")' to '" << NewMapType << " ("
+                       << llvm::format_hex(NewMapType, 18, true) << ")'.\n");
             MapType = NewMapType;
           }
           MapTypes.push_back(MapType);
         } else
-          MapTypes.push_back(
-              getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0));
+          MapTypes.push_back(getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0,
+                                            VIsTargetKernelArg));
 
         // MapName looks like:
         //  @0 = private unnamed_addr constant [40 x i8]
@@ -1493,7 +1509,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
              "Map with an array section must have a map chain.");
       ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(getMapTypeFlag(MapI, true, true));
+      MapTypes.push_back(getMapTypeFlag(MapI, true, true, VIsTargetKernelArg));
       Names.push_back(getMapNameForVar(MapI->getOrig()));
       Mappers.push_back(nullptr);
     }
@@ -1765,7 +1781,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
                                  MapTypes, Names, Mappers,
-                                 hasRuntimeEvaluationCaptureSize);
+                                 hasRuntimeEvaluationCaptureSize,
+                                 /*VIsTargetKernelArg=*/true);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
@@ -1854,7 +1871,7 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
   }
   IRBuilder<> LoadBuilder(InsertPt);
   Value *MapSize = LoadBuilder.getInt64(0);
-  uint64_t MapType = TGT_MAP_TARGET_PARAM | TGT_MAP_RETURN_PARAM;
+  uint64_t MapType = TGT_MAP_RETURN_PARAM;
   MapClause &MapC = W->getMap();
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
     // There's already a map clause present for the use_device_ptr clause item.
@@ -3485,7 +3502,7 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
 /// Pseudocode for the extra code looks like this:
 /// \code
 ///
-///   @.offload_maptypes = ... [96, 96] // TGT_PARAM | TGT_RETURN_PARAM
+///   @.offload_maptypes = ... [64, 64] // TGT_RETURN_PARAM
 ///   @.offload_sizes = ... [0, 0]
 ///   ...
 ///   define internal void @foo_gpu.wrapper(i8* %a, i8* %b) {
