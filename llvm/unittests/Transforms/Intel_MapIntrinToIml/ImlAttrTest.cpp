@@ -162,4 +162,22 @@ TEST_F(ImlAttrTest, ISASetTest) {
             makeFuncNamePair("__svml_sinf8_ha_x0", "__svml_sinf8_ha_z0"));
 }
 
+#if INTEL_FEATURE_ISA_FP16
+TEST_F(ImlAttrTest, FP16Test) {
+  ImfFuncInfo HighAccuracy = ImfFuncInfo().setPrecision(High);
+  ImfFuncInfo GLC = ImfFuncInfo().setISASet("coreavx512glc");
+  ImfFuncInfo GLCLowAccuracy = GLC.setPrecision(Low);
+  ImfFuncInfo GLCMediumAccuracy = GLC.setPrecision(Medium);
+  ImfFuncInfo GLCHighAccuracy = GLC.setPrecision(High);
+  EXPECT_EQ(getLibraryFunctionName("__svml_sins16", HighAccuracy),
+            makeFuncNamePair("__svml_sins16_ha", "__svml_sins16_ha"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sins16", GLCLowAccuracy),
+            makeFuncNamePair("__svml_sins16_ep_x1", "__svml_sins16_ep_z1"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sins16", GLCMediumAccuracy),
+            makeFuncNamePair("__svml_sins16_x1", "__svml_sins16_z1"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sins16", GLCHighAccuracy),
+            makeFuncNamePair("__svml_sins16_ha_x1", "__svml_sins16_ha_z1"));
+}
+#endif // INTEL_FEATURE_ISA_FP16
+
 } // namespace
