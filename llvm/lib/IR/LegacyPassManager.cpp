@@ -248,7 +248,9 @@ void PassManagerPrettyStackEntry::print(raw_ostream &OS) const {
 
 namespace llvm {
 namespace legacy {
+#if !INTEL_PRODUCT_RELEASE
 bool debugPassSpecified() { return PassDebugging != Disabled; }
+#endif // !INTEL_PRODUCT_RELEASE
 
 //===----------------------------------------------------------------------===//
 // FunctionPassManagerImpl
