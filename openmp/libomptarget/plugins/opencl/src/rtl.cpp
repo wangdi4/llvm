@@ -2024,11 +2024,18 @@ int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
+EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
+  if (Interop == nullptr) {
+    IDP("Invalid interop object in %s\n", __func__);
+    return;
+  }
+
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(Interop);
+  auto isAsync = obj->is_async;
   cl_int status;
   cl_command_queue queue = nullptr;
-  auto deviceId = DeviceInfo->deviceIDs[device_id];
-  auto context = DeviceInfo->getContext(device_id);
+  auto device = DeviceInfo->deviceIDs[DeviceId];
+  auto context = DeviceInfo->getContext(DeviceId);
 
   // Queue properties for profiling
   cl_queue_properties qProperties[] = {
@@ -2039,41 +2046,46 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
   auto enableProfile = DeviceInfo->Flags.EnableProfile;
 
   // Return a shared in-order queue for synchronous case if requested
-  if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
-    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
-    queue = DeviceInfo->QueuesInOrder[device_id];
+  if (!isAsync && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[DeviceId]);
+    queue = DeviceInfo->QueuesInOrder[DeviceId];
     if (!queue) {
       CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
-                   deviceId, enableProfile ? qProperties : nullptr);
+                   device, enableProfile ? qProperties : nullptr);
       if (status != CL_SUCCESS) {
         IDP("Error: Failed to create interop command queue: %d\n", status);
-        return nullptr;
+        obj->queue = nullptr;
+        return;
       }
-      DeviceInfo->QueuesInOrder[device_id] = queue;
+      DeviceInfo->QueuesInOrder[DeviceId] = queue;
     }
     IDP("%s returns a shared in-order queue " DPxMOD "\n", __func__,
         DPxPTR(queue));
-    return (void *)queue;
+    obj->queue = queue;
+    return;
   }
 
   // Return a shared out-of-order queue for asynchronous case by default
-  if (is_async && !DeviceInfo->Flags.UseInteropQueueInorderAsync) {
-    queue = DeviceInfo->Queues[device_id];
+  if (isAsync && !DeviceInfo->Flags.UseInteropQueueInorderAsync) {
+    queue = DeviceInfo->Queues[DeviceId];
     IDP("%s returns a shared out-of-order queue " DPxMOD "\n", __func__,
         DPxPTR(queue));
-    return (void *)queue;
+    obj->queue = queue;
+    return;
   }
 
   // Return a new in-order queue for other cases
   CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
-               deviceId, enableProfile ? qProperties : nullptr);
+               device, enableProfile ? qProperties : nullptr);
   if (status != CL_SUCCESS) {
     IDP("Error: Failed to create interop command queue\n");
-    return nullptr;
+    obj->queue = nullptr;
+    return;
   }
   IDP("%s creates and returns a new in-order queue " DPxMOD "\n", __func__,
       DPxPTR(queue));
-  return (void *)queue;
+  obj->queue = queue;
+  return;
 }
 
 // Release the command queue if it is a new in-order command queue.
@@ -2093,9 +2105,13 @@ EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
   return (void *) context;
 }
 
-EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
-  auto cldevice = DeviceInfo->deviceIDs[DeviceId];
-  return (void *)cldevice;
+EXTERN void __tgt_rtl_set_device_handle(int32_t DeviceId, void *Interop) {
+  if (Interop == nullptr) {
+    IDP("Invalid interop object in %s\n", __func__);
+    return;
+  }
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(Interop);
+  obj->device_handle = DeviceInfo->deviceIDs[DeviceId];
 }
 
 EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {

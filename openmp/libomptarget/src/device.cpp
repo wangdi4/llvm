@@ -751,10 +751,9 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-void *DeviceTy::create_offload_queue(bool IsAsync) {
-  if (!RTL->create_offload_queue)
-    return nullptr;
-  return RTL->create_offload_queue(RTLDeviceID, IsAsync);
+void DeviceTy::create_offload_queue(void *Interop) {
+  if (RTL->create_offload_queue)
+    RTL->create_offload_queue(RTLDeviceID, Interop);
 }
 
 int32_t DeviceTy::release_offload_queue(void *Queue) {
@@ -770,10 +769,9 @@ void *DeviceTy::get_platform_handle() {
   return RTL->get_platform_handle(RTLDeviceID);
 }
 
-void *DeviceTy::get_device_handle() {
-  if (!RTL->get_device_handle)
-    return nullptr;
-  return RTL->get_device_handle(RTLDeviceID);
+void DeviceTy::setDeviceHandle(void *Interop) {
+  if (RTL->set_device_handle)
+    RTL->set_device_handle(RTLDeviceID, Interop);
 }
 
 void *DeviceTy::get_context_handle() {

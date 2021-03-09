@@ -331,7 +331,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(release_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(get_device_name);
     SET_OPTIONAL_INTERFACE_FN(get_platform_handle);
-    SET_OPTIONAL_INTERFACE_FN(get_device_handle);
+    SET_OPTIONAL_INTERFACE_FN(set_device_handle);
     SET_OPTIONAL_INTERFACE_FN(get_context_handle);
     SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
     SET_OPTIONAL_INTERFACE_FN(init_ompt);

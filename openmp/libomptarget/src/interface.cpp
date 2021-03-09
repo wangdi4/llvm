@@ -733,12 +733,8 @@ typedef struct {
 }
 
 EXTERN void *__tgt_create_interop_obj(
-    int64_t device_id, bool is_async, void *async_obj) {
-  // Use root device ID if subdevice was requested
-  // TODO: Add subdevice support when a single queue can handle multiple
-  //       sub-devices
-  if (device_id < 0 && device_id != OFFLOAD_DEVICE_DEFAULT)
-    device_id = EXTRACT_BITS(device_id, 31, 0);
+    int64_t device_code, bool is_async, void *async_obj) {
+  int64_t device_id = EXTRACT_BITS(device_code, 31, 0);
 
   DP("Call to __tgt_create_interop_obj with device_id %" PRId64 ", is_async %s"
      ", async_obj " DPxMOD "\n", device_id, is_async ? "true" : "false",
@@ -782,13 +778,14 @@ EXTERN void *__tgt_create_interop_obj(
   }
 
   obj->device_id = device_id;
+  obj->device_code = device_code; // Preserve 64-bit device encoding
   obj->is_async = is_async;
   obj->async_obj = async_obj;
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
   obj->queue = nullptr; // Will be created when property is requested.
   obj->platform_handle = Device.get_platform_handle();
   obj->context_handle = Device.get_context_handle();
-  obj->device_handle = Device.get_device_handle();
+  Device.setDeviceHandle(obj);
   obj->plugin_interface = plugin;
 
   return obj;
@@ -864,8 +861,7 @@ EXTERN int __tgt_get_interop_property(
     break;
   case INTEROP_OFFLOAD_QUEUE:
     if (!interop->queue)
-      interop->queue = PM->Devices[interop->device_id].
-          create_offload_queue(interop->is_async);
+      PM->Devices[interop->device_id].create_offload_queue(interop);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:
