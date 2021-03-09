@@ -92,6 +92,8 @@ EXTERN void omp_set_num_threads(int num_threads) {
 
 EXTERN int omp_get_max_threads(void) {
   if (__omp_spirv_global_data.assume_simple_spmd_mode) {
+    // FIXME: this somehow fixes CMPLRLIBS-33306. Investigate why.
+    (void)omp_get_num_threads();
     // Return thread_limit always.
     return __kmp_get_local_size();
   }
