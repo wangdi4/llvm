@@ -1629,12 +1629,13 @@ bool HIRRuntimeDD::run() {
   return true;
 }
 
-PreservedAnalyses HIRRuntimeDDPass::run(llvm::Function &F,
-                                        llvm::FunctionAnalysisManager &AM) {
-  HIRRuntimeDD(
-      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
-      AM.getResult<HIRLoopStatisticsAnalysis>(F),
-      AM.getResult<TargetLibraryAnalysis>(F), AM.getResult<TargetIRAnalysis>(F))
+PreservedAnalyses HIRRuntimeDDPass::runImpl(llvm::Function &F,
+                                            llvm::FunctionAnalysisManager &AM,
+                                            HIRFramework &HIRF) {
+  HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+               AM.getResult<HIRLoopStatisticsAnalysis>(F),
+               AM.getResult<TargetLibraryAnalysis>(F),
+               AM.getResult<TargetIRAnalysis>(F))
       .run();
 
   return PreservedAnalyses::all();

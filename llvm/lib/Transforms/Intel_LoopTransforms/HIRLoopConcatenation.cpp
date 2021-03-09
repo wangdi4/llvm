@@ -1445,12 +1445,9 @@ void HIRLoopConcatenation::createReductionLoop(
   RednLp->addLiveInTemp(AllocaSymbase);
 }
 
-PreservedAnalyses
-HIRLoopConcatenationPass::run(llvm::Function &F,
-                              llvm::FunctionAnalysisManager &AM) {
-  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F),
-                       AM.getResult<TargetIRAnalysis>(F))
-      .run();
+PreservedAnalyses HIRLoopConcatenationPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRLoopConcatenation(HIRF, AM.getResult<TargetIRAnalysis>(F)).run();
   return PreservedAnalyses::all();
 }
 

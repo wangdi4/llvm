@@ -1027,10 +1027,9 @@ void HIRArrayTranspose::performTranspose() {
   transposeStridedRefs(TransposedOffset);
 }
 
-PreservedAnalyses
-HIRArrayTransposePass::run(llvm::Function &F,
-                           llvm::FunctionAnalysisManager &AM) {
-  HIRArrayTranspose(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRArrayTransposePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRArrayTranspose(HIRF).run();
   return PreservedAnalyses::all();
 }
 

@@ -12,16 +12,18 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRIDENTITYMATRIXIDIOMRECOGNITION_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRIDENTITYMATRIXIDIOMRECOGNITION_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRIdentityMatrixIdiomRecognitionPass
-    : public PassInfoMixin<HIRIdentityMatrixIdiomRecognitionPass> {
+    : public HIRPassInfoMixin<HIRIdentityMatrixIdiomRecognitionPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-identity-matrix-idiom-recognition";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

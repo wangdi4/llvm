@@ -914,10 +914,9 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
   return false;
 }
 
-PreservedAnalyses
-HIROptVarPredicatePass::run(llvm::Function &F,
-                            llvm::FunctionAnalysisManager &AM) {
-  HIROptVarPredicate(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIROptVarPredicatePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIROptVarPredicate(HIRF).run();
   return PreservedAnalyses::all();
 }
 

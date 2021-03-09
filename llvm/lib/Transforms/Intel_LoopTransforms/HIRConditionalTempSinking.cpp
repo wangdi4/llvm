@@ -563,11 +563,9 @@ bool HIRConditionalTempSinkingLegacyPass::runOnFunction(Function &F) {
   return Result;
 }
 
-PreservedAnalyses
-HIRConditionalTempSinkingPass::run(llvm::Function &F,
-                                   llvm::FunctionAnalysisManager &AM) {
-  doConditionalTempSinking(AM.getResult<HIRFrameworkAnalysis>(F),
-                           AM.getResult<HIRLoopStatisticsAnalysis>(F));
+PreservedAnalyses HIRConditionalTempSinkingPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  doConditionalTempSinking(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }
 

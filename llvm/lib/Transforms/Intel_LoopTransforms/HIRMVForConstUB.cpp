@@ -277,9 +277,9 @@ bool HIRMVForConstUB::run() {
   return true;
 }
 
-PreservedAnalyses HIRMVForConstUBPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRMVForConstUB(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRMVForConstUBPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRMVForConstUB(HIRF).run();
   return PreservedAnalyses::all();
 }
 

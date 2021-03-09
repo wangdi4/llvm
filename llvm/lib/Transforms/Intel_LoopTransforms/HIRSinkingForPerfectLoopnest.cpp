@@ -181,12 +181,9 @@ bool HIRSinkingForPerfectLoopnest::run() {
   return SV.sinked();
 }
 
-PreservedAnalyses
-HIRSinkingForPerfectLoopnestPass::run(llvm::Function &F,
-                                      llvm::FunctionAnalysisManager &AM) {
-  HIRSinkingForPerfectLoopnest(AM.getResult<HIRFrameworkAnalysis>(F),
-                               AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+PreservedAnalyses HIRSinkingForPerfectLoopnestPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRSinkingForPerfectLoopnest(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

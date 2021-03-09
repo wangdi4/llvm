@@ -1278,9 +1278,9 @@ bool HIRSumWindowReuseLegacyPass::runOnFunction(Function &F) {
 }
 
 PreservedAnalyses
-HIRSumWindowReusePass::run(Function &F, llvm::FunctionAnalysisManager &AM) {
-  runHIRSumWindowReuse(AM.getResult<HIRFrameworkAnalysis>(F),
-                       AM.getResult<HIRDDAnalysisPass>(F),
+HIRSumWindowReusePass::runImpl(Function &F, llvm::FunctionAnalysisManager &AM,
+                               HIRFramework &HIRF) {
+  runHIRSumWindowReuse(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                        AM.getResult<HIRSafeReductionAnalysisPass>(F));
   return PreservedAnalyses::all();
 }

@@ -297,10 +297,9 @@ bool HIRIdentityMatrixIdiomRecognition::run() {
   return Result;
 }
 
-PreservedAnalyses
-HIRIdentityMatrixIdiomRecognitionPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRIdentityMatrixIdiomRecognition(AM.getResult<HIRFrameworkAnalysis>(F),
+PreservedAnalyses HIRIdentityMatrixIdiomRecognitionPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRIdentityMatrixIdiomRecognition(HIRF,
                                     AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
   return PreservedAnalyses::all();

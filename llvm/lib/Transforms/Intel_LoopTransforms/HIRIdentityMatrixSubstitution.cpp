@@ -163,10 +163,9 @@ bool HIRIdentityMatrixSubstitution::run() {
   return Result;
 }
 
-PreservedAnalyses
-HIRIdentityMatrixSubstitutionPass::run(llvm::Function &F,
-                                       llvm::FunctionAnalysisManager &AM) {
-  HIRIdentityMatrixSubstitution(AM.getResult<HIRFrameworkAnalysis>(F),
+PreservedAnalyses HIRIdentityMatrixSubstitutionPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRIdentityMatrixSubstitution(HIRF,
                                 AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
   return PreservedAnalyses::all();

@@ -752,10 +752,10 @@ bool HIRLoopFusion::run() {
   return false;
 }
 
-PreservedAnalyses HIRLoopFusionPass::run(llvm::Function &F,
-                                         llvm::FunctionAnalysisManager &AM) {
-  HIRLoopFusion(AM.getResult<HIRFrameworkAnalysis>(F),
-                AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRLoopFusionPass::runImpl(llvm::Function &F,
+                                             llvm::FunctionAnalysisManager &AM,
+                                             HIRFramework &HIRF) {
+  HIRLoopFusion(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                 AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
 

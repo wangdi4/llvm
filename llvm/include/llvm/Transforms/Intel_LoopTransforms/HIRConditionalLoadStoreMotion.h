@@ -16,7 +16,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCONDITIONALLOADSTOREMOTION_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRCONDITIONALLOADSTOREMOTION_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
@@ -24,9 +24,11 @@ namespace loopopt {
 
 /// An HIR pass which performs conditional load/store motion.
 class HIRConditionalLoadStoreMotionPass
-    : public PassInfoMixin<HIRConditionalLoadStoreMotionPass> {
+    : public HIRPassInfoMixin<HIRConditionalLoadStoreMotionPass> {
 public:
-  PreservedAnalyses run(Function &, FunctionAnalysisManager &);
+  static constexpr auto PassName = "hir-cond-ldst-motion";
+  PreservedAnalyses runImpl(Function &, FunctionAnalysisManager &,
+                            HIRFramework &);
 };
 
 } // namespace loopopt

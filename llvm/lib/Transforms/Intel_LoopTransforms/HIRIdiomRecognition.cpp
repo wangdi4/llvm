@@ -788,11 +788,9 @@ bool HIRIdiomRecognition::run() {
   return false;
 }
 
-PreservedAnalyses
-HIRIdiomRecognitionPass::run(llvm::Function &F,
-                             llvm::FunctionAnalysisManager &AM) {
-  HIRIdiomRecognition(AM.getResult<HIRFrameworkAnalysis>(F),
-                      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+PreservedAnalyses HIRIdiomRecognitionPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRIdiomRecognition(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                       AM.getResult<HIRDDAnalysisPass>(F),
                       AM.getResult<TargetLibraryAnalysis>(F))
       .run();

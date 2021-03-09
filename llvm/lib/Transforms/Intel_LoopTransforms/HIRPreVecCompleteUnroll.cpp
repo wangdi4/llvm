@@ -33,15 +33,13 @@ cl::opt<bool> DisablePreVecUnroll("disable-hir-pre-vec-complete-unroll",
                                   cl::desc("Disables pre vec complete unroll"),
                                   cl::Hidden, cl::init(false));
 
-PreservedAnalyses
-HIRPreVecCompleteUnrollPass::run(llvm::Function &F,
-                                 llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRPreVecCompleteUnrollPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisablePreVecUnroll) {
     return PreservedAnalyses::all();
   }
 
-  HIRCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                    AM.getResult<DominatorTreeAnalysis>(F),
+  HIRCompleteUnroll(HIRF, AM.getResult<DominatorTreeAnalysis>(F),
                     AM.getResult<TargetIRAnalysis>(F),
                     AM.getResult<HIRLoopStatisticsAnalysis>(F),
                     AM.getResult<HIRDDAnalysisPass>(F),

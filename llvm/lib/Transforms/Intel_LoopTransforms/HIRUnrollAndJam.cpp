@@ -1646,10 +1646,9 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   }
 }
 
-PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRUnrollAndJam(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
+PreservedAnalyses HIRUnrollAndJamPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<HIRLoopResourceAnalysis>(F),
                   AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F), false)

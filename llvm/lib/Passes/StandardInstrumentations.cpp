@@ -778,17 +778,50 @@ void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
   printIR(dbgs(), M, Banner, Extra);
 }
 
+#if INTEL_CUSTOMIZATION
+// Returns true if this an HIR related pass.
+static bool isHIRPass(StringRef PassName) {
+  return PassName.contains("HIR");
+}
+// Returns true if we want to print HIR instead of LLVM IR.
+static bool isHIRPrintNeeded(StringRef PassName) {
+  return isHIRPass(PassName) && !PassName.contains("HIRSSADeconstruction") &&
+         !PassName.contains("HIRCodeGen");
+}
+#endif // INTEL_CUSTOMIZATION
 bool PrintIRInstrumentation::shouldPrintBeforePass(StringRef PassID) {
+#if INTEL_CUSTOMIZATION
+  // HIR is printed using a different mechansim in HIRTRansformPass.h
+  if (isHIRPrintNeeded(PassID))
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   if (shouldPrintBeforeAll())
     return true;
+
+#if INTEL_CUSTOMIZATION
+  if (shouldHIRPrintBeforeAll() && isHIRPass(PassID))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   StringRef PassName = PIC->getPassNameForClassName(PassID);
   return llvm::is_contained(printBeforePasses(), PassName);
 }
 
 bool PrintIRInstrumentation::shouldPrintAfterPass(StringRef PassID) {
+#if INTEL_CUSTOMIZATION
+  // HIR is printed using a different mechansim in HIRTRansformPass.h
+  if (isHIRPrintNeeded(PassID))
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   if (shouldPrintAfterAll())
     return true;
+
+#if INTEL_CUSTOMIZATION
+  if (shouldHIRPrintAfterAll() && isHIRPass(PassID))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   StringRef PassName = PIC->getPassNameForClassName(PassID);
   return llvm::is_contained(printAfterPasses(), PassName);

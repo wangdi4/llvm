@@ -1940,10 +1940,9 @@ void HIRPMSymbolicTripCountCompleteUnroll::clearWorkingSetMemory(void) {
   MLibsRefVec.clear();
 }
 
-PreservedAnalyses HIRPMSymbolicTripCountCompleteUnrollPass::run(
-    llvm::Function &F, llvm::FunctionAnalysisManager &AM) {
-  HIRPMSymbolicTripCountCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                                       AM.getResult<TargetIRAnalysis>(F),
+PreservedAnalyses HIRPMSymbolicTripCountCompleteUnrollPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRPMSymbolicTripCountCompleteUnroll(HIRF, AM.getResult<TargetIRAnalysis>(F),
                                        AM.getResult<HIRDDAnalysisPass>(F))
       .run();
 

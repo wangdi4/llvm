@@ -27,21 +27,20 @@ cl::opt<bool>
                         cl::desc("Disable HIR Loop Distribution LoopNest"),
                         cl::Hidden, cl::init(false));
 
-PreservedAnalyses
-HIRLoopDistributionForLoopNestPass::run(llvm::Function &F,
-                                        llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRLoopDistributionForLoopNestPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisableDistLoopNest) {
     LLVM_DEBUG(
         dbgs() << "LOOP DISTRIBUTION enable perfect Loop Nest Disabled\n");
     return PreservedAnalyses::all();
   }
 
-  HIRLoopDistribution(
-      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
-      AM.getResult<HIRSafeReductionAnalysisPass>(F),
-      AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
-      AM.getResult<HIRLoopResourceAnalysis>(F),
-      AM.getResult<HIRLoopLocalityAnalysis>(F), DistHeuristics::NestFormation)
+  HIRLoopDistribution(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                      AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
+                      AM.getResult<HIRLoopResourceAnalysis>(F),
+                      AM.getResult<HIRLoopLocalityAnalysis>(F),
+                      DistHeuristics::NestFormation)
       .run();
 
   return PreservedAnalyses::all();
