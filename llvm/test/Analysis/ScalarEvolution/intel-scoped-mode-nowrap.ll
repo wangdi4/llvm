@@ -16,7 +16,7 @@
 ; SCOPED-MODE: %add = add nuw nsw i32 %n, 3
 ; SCOPED-MODE:   -->  (3 + %n)<nsw> U: [-2147483645,-2147483648) S: [-2147483645,-2147483648)
 ; SCOPED-MODE: %div = sdiv i32 %n, 8
-; SCOPED-MODE:   -->  %div U: full-set S: [-268435456,268435456)
+; SCOPED-MODE:   -->  %div U: [-268435456,268435456) S: [-268435456,268435456)
 ; SCOPED-MODE: %add1 = add nsw i32 %n, 3
 ; SCOPED-MODE:   -->  (3 + %n)<nsw> U: [-2147483645,-2147483648) S: [-2147483645,-2147483648)
 

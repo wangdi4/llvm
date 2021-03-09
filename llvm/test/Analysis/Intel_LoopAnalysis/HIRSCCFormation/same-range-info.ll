@@ -6,8 +6,8 @@
 
 ; CHECK: SCC1: %shr87 -> %shr87321
 
-; SCEV: -->  %shr87321 U: full-set S: [-262144,262144)
-; SCEV: -->  %shr87 U: full-set S: [-262144,262144)
+; SCEV: -->  %shr87321 U: [-262144,262144) S: [-262144,262144)
+; SCEV: -->  %shr87 U: [-262144,262144) S: [-262144,262144)
 
 define void @foo(i32 %t56, i32 %t57, i32 %init, i32 %t49) {
 entry:
