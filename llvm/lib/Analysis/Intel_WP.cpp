@@ -1,6 +1,6 @@
 //===------- Intel_WP.cpp - Whole Program Analysis -*------===//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -682,16 +682,6 @@ bool WholeProgramInfo::analyzeAndResolveFunctions() {
     KeepWalking = OldSize != FuncsCollected.size();
   }
 
-  // Check for Resolved if WholeProgramAssert is true.
-  // NOTE: This is not an actual c assert, this is just an early exit.
-  // The assert function calls abort and produces some messages that could
-  // be misleading. Instead, we are going to use report_fatal_error.
-  if (WholeProgramAssert && !Resolved) {
-    errs() << "Whole-Program-Analysis: Did not detect whole program\n";
-    errs().flush();
-    exit(1);
-  }
-
   return Resolved;
 }
 
@@ -830,8 +820,36 @@ bool WholeProgramInfo::analyzeAndResolveAliases() {
 //
 void WholeProgramInfo::wholeProgramAllExternsAreIntrins() {
 
+  // If whole program assert is enabled and FunctionsResolved
+  // is false then exit with an error message. This is to
+  // catch when whole program wasn't achieved.
+  auto AssertWholeProgram = [](bool FunctionsResolved) -> void {
+    if (!WholeProgramAssert || FunctionsResolved)
+      return;
+
+    // NOTE: Although this function is used for asserting if whole program
+    // was achieved, it doesn't use an actual c assert to abort the compilation.
+    // The issue is that the c assert function calls abort, which produces some
+    // messages that could be misleading while debugging. Instead, we are going
+    // to report the failure using the errs function and then call exit.
+    errs() << "Whole-Program-Analysis: Did not detect whole program\n";
+    errs().flush();
+    exit(1);
+  };
+
+  // This analysis walks the module and checks that all the functions were
+  // resolved and all libfuncs are in the libfuncs table.
   bool AllResolved = analyzeAndResolveFunctions();
+  AssertWholeProgram(AllResolved);
+
+  // This analysis checks the aliases. There is a chance that an alias is
+  // pointing to multiple functions and we didn't reach these functions by
+  // walking the module. In this case we need to check all the functions that
+  // the alias is pointing to and make sure that they were resolved. If at
+  // least one function is not resolved, then there is no whole program.
+  // This is common with MS Visual Studio libraries.
   AllResolved &= analyzeAndResolveAliases();
+  AssertWholeProgram(AllResolved);
 
   if (AllResolved)
     WholeProgramSeen = true;
