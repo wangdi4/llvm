@@ -363,12 +363,13 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
 
     auto Found = VPPACache.find(&Plan);
     if (Found == VPPACache.end()) {
-      VPlanPeelingAnalysis VPPA(CM, *Plan.getVPSE(), *Plan.getVPVT(), *DL);
+      VPlanPeelingAnalysis VPPA(*Plan.getVPSE(), *Plan.getVPVT(), *DL);
       VPPA.collectMemrefs(Plan);
       std::tie(Found, std::ignore) = VPPACache.emplace(&Plan, std::move(VPPA));
     }
 
-    Plan.setPreferredPeeling(VF, Found->second.selectBestPeelingVariant(VF));
+    Plan.setPreferredPeeling(VF,
+                             Found->second.selectBestPeelingVariant(VF, CM));
   }
 }
 
