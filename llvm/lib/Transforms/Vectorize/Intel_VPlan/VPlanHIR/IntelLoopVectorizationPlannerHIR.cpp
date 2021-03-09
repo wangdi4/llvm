@@ -157,3 +157,25 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
 
   return UF;
 }
+
+void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlan *Plan) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  // The multi-exit loops are processed in a special way
+  if (!CandidateLoop->getUniqueExitBlock())
+    return;
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  assert(PreHeader && "Single pre-header is expected!");
+
+  VPBuilderHIR Builder;
+  Builder.setInsertPointFirstNonPhi(PreHeader);
+  VPValue *OrigTC;
+  VPInstruction *Cond;
+  std::tie(OrigTC, Cond) = getLoopUpperBound(CandidateLoop);
+  assert((OrigTC && Cond) && "A normalized loop expected");
+  auto *VTC = Builder.create<VPVectorTripCountCalculation>(
+      TheLoop, "vector.trip.count", OrigTC);
+  Cond->replaceUsesOfWith(OrigTC, VTC);
+}

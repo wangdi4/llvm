@@ -63,6 +63,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB1]]: # preds: [[BB0]]
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
@@ -86,7 +87,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP10]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP8]] i32* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->V 1->V )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP11:%.*]] = icmp sle i64 [[VP2]] i64 1023 (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP11:%.*]] = icmp sle i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB3]]: # preds: [[BB2]]

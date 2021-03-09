@@ -10,13 +10,14 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-NEXT:  VPlan IR for: main:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%x4.sroa.0.140}
-; CHECK-DAG:     [[VP1:%.*]] = {%u0}
-; CHECK-DAG:     [[VP2:%.*]] = {%n + -2}
+; CHECK-DAG:     [[VP1:%.*]] = {%n + -2}
+; CHECK-DAG:     [[VP2:%.*]] = {%u0}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:     i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in2 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -47,7 +48,7 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-NEXT:     i32 [[VP18:%.*]] = phi  [ i32 [[VP17]], [[BB4]] ],  [ i32 [[VP9]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP4]] = phi  [ i32 [[VP14]], [[BB4]] ],  [ i32 [[VP3]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp sle i64 [[VP6]] i64 [[VP2]]
+; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp sle i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     br i1 [[VP19]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]

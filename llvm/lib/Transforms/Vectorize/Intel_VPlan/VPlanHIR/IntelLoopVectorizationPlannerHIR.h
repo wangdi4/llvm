@@ -48,9 +48,9 @@ private:
                     std::string VPlanName,
                     ScalarEvolution *SE = nullptr) override;
 
-  void emitVecSpecifics(VPlan *Plan) override {
-    Plan->markBackedgeUniformityForced();
-  };
+  /// Replace original upper bound of the loop with
+  /// VPVectorTripCountCalculation.
+  void emitVecSpecifics(VPlan *Plan) override;
 
 protected:
   /// Check whether everything in the loop body is supported at the moment.
