@@ -42,12 +42,68 @@ class VPInductionInitStep;
 class VPDominatorTree;
 class VPPostDominatorTree;
 
+
+/// Base class for VPlan DivergenceAnalysis.
+class VPlanDivergenceAnalysisBase {
+
+public:
+
+  /// Mark \p UniVal as a value that is non-divergent.
+  virtual void markUniform(const VPValue &UniVal) = 0;
+
+  /// Mark \p UniVal as a value that is non-divergent.
+  virtual void markDivergent(const VPValue &UniVal) = 0;
+
+  /// Update divergence information of a particular instruction.
+  virtual void updateDivergence(VPValue &Val) = 0;
+
+  /// Return whether \p Val is a divergent value.
+  virtual bool isDivergent(const VPValue &V) const = 0;
+
+  /// Get the vector-shape of the VPValue \p V.
+  virtual VPVectorShape getVectorShape(const VPValue &V) const = 0;
+};
+
+/// Class for Scalar-VPlan DivergenceAnalysis.
+/// This class currently has two methods which are common for both scalar and
+/// vector-VPlans. For scalar-DA, we always return 'false' for \p isDivergent
+/// method and 'Uniform' shape for \p getVectorShape method.
+class VPlanDivergenceAnalysisScalar final : public VPlanDivergenceAnalysisBase {
+
+public:
+  /// Mark \p UniVal as a value that is non-divergent.
+  void markUniform(const VPValue &UniVal) override {
+    llvm_unreachable("Call to markUniform is not supported for Scalar "
+                     "Divergence Analysis.");
+  }
+
+  /// Mark \p UniVal as a value that is non-divergent.
+  void markDivergent(const VPValue &UniVal) override {
+    llvm_unreachable("Call to markDivergent is not supported for Scalar "
+                     "Divergence Analysis.");
+  };
+
+  /// Update divergence information of a particular instruction.
+  void updateDivergence(VPValue &Val) override {
+    llvm_unreachable("Call to updateDivergence is not supported for Scalar "
+                     "Divergence Analysis.");
+  }
+
+  /// Return whether \p Val is a divergent value.
+  bool isDivergent(const VPValue &V) const override { return false; }
+
+  /// Get the vector-shape of the VPValue \p V.
+  VPVectorShape getVectorShape(const VPValue &V) const override {
+    return {VPVectorShape::Uni};
+  };
+};
+
 /// Generic divergence analysis for reducible CFGs.
 ///
 /// This analysis propagates divergence in a data-parallel context from sources
 /// of divergence to all users. It requires reducible CFGs. All assignments
 /// should be in SSA form.
-class VPlanDivergenceAnalysis {
+class VPlanDivergenceAnalysis final : public VPlanDivergenceAnalysisBase {
 public:
   /// This instance will analyze the whole function \p F or the loop \p
   /// RegionLoop.
@@ -74,21 +130,21 @@ public:
                        bool EnableFullDAVerificationAndPrint = false);
 
   /// Mark \p DivVal as a value that is always divergent.
-  void markDivergent(const VPValue &DivVal);
+  void markDivergent(const VPValue &DivVal) override;
 
   /// Mark \p UniVal as a value that is non-divergent.
-  void markUniform(const VPValue &UniVal);
+  void markUniform(const VPValue &UniVal) override;
 
   /// Whether \p Val will always return a uniform value regardless of its
   /// operands
   bool isAlwaysUniform(const VPValue &Val) const;
 
-  /// Whether \p Val is a divergent value
-  bool isDivergent(const VPValue &Val) const;
+  /// Return whether \p Val is a divergent value
+  bool isDivergent(const VPValue &Val) const override;
 
 #if INTEL_CUSTOMIZATION
   /// Return the vector shape for \p V.
-  VPVectorShape getVectorShape(const VPValue *V) const;
+  VPVectorShape getVectorShape(const VPValue &V) const override;
 
   /// Updates the vector shape for \p V, if necessary.
   /// Returns true if the shape was updated.
@@ -112,7 +168,7 @@ public:
   /// Return true if the given variable has SOA unit-stride.
   bool isSOAUnitStride(const VPValue *Val) const;
 
-  void updateDivergence(VPValue &Val) {
+  void updateDivergence(VPValue &Val) override {
     assert(isa<VPInstruction>(&Val) &&
            "Expected a VPInstruction as input argument.");
     SmallPtrSet<VPInstruction *, 1> Seeds({cast<VPInstruction>(&Val)});
