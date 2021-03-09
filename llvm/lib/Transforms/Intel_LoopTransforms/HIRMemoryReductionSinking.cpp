@@ -547,11 +547,9 @@ bool HIRMemoryReductionSinkingLegacyPass::runOnFunction(Function &F) {
   return Result;
 }
 
-PreservedAnalyses
-HIRMemoryReductionSinkingPass::run(llvm::Function &F,
-                                   llvm::FunctionAnalysisManager &AM) {
-  runMemoryReductionSinking(AM.getResult<HIRFrameworkAnalysis>(F),
-                            AM.getResult<HIRLoopStatisticsAnalysis>(F),
+PreservedAnalyses HIRMemoryReductionSinkingPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  runMemoryReductionSinking(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                             AM.getResult<HIRDDAnalysisPass>(F));
   return PreservedAnalyses::all();
 }

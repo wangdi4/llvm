@@ -12,18 +12,19 @@
 #ifndef LLVM_HIRCROSSLOOPARRAYCONTRACTION_H
 #define LLVM_HIRCROSSLOOPARRAYCONTRACTION_H
 
-
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRCrossLoopArrayContractionPass
-    : public PassInfoMixin<HIRCrossLoopArrayContractionPass> {
+    : public HIRPassInfoMixin<HIRCrossLoopArrayContractionPass> {
 
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-cross-loop-array-contraction";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

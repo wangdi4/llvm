@@ -271,10 +271,9 @@ bool HIRNontemporalMarkingLegacyPass::runOnFunction(Function &F) {
   return NTM.run();
 }
 
-PreservedAnalyses HIRNontemporalMarkingPass::run(Function &F,
-    llvm::FunctionAnalysisManager &AM) {
-  HIRNontemporalMarking NTM(AM.getResult<HIRFrameworkAnalysis>(F),
-                            AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRNontemporalMarkingPass::runImpl(
+    Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRNontemporalMarking NTM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                             AM.getResult<HIRLoopLocalityAnalysis>(F),
                             AM.getResult<TargetIRAnalysis>(F));
   NTM.run();

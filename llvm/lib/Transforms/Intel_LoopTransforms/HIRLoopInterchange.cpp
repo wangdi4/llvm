@@ -1822,11 +1822,9 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   return true;
 }
 
-PreservedAnalyses
-HIRLoopInterchangePass::run(llvm::Function &F,
-                            llvm::FunctionAnalysisManager &AM) {
-  HIRLoopInterchange(AM.getResult<HIRFrameworkAnalysis>(F),
-                     AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRLoopInterchangePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRLoopInterchange(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                      AM.getResult<HIRLoopLocalityAnalysis>(F),
                      AM.getResult<HIRSafeReductionAnalysisPass>(F),
                      AM.getResult<HIRLoopStatisticsAnalysis>(F),

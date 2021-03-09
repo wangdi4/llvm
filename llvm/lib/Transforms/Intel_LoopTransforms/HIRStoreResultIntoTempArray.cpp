@@ -1932,12 +1932,9 @@ bool HIRStoreResultIntoTempArray::run() {
   return Result;
 }
 
-PreservedAnalyses
-HIRStoreResultIntoTempArrayPass::run(llvm::Function &F,
-                                     llvm::FunctionAnalysisManager &AM) {
-  HIRStoreResultIntoTempArray(AM.getResult<HIRFrameworkAnalysis>(F),
-                              AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+PreservedAnalyses HIRStoreResultIntoTempArrayPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRStoreResultIntoTempArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

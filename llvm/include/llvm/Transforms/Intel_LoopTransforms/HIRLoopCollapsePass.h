@@ -12,15 +12,17 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPCOLLAPSE_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPCOLLAPSE_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRLoopCollapsePass : public PassInfoMixin<HIRLoopCollapsePass> {
+class HIRLoopCollapsePass : public HIRPassInfoMixin<HIRLoopCollapsePass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-loop-collapse";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

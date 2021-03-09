@@ -16,17 +16,19 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRDEADSTOREELIMINATIONPASS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRDEADSTOREELIMINATIONPASS_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRDeadStoreEliminationPass
-    : public PassInfoMixin<HIRDeadStoreEliminationPass> {
+    : public HIRPassInfoMixin<HIRDeadStoreEliminationPass> {
 
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-dead-store-elimination";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

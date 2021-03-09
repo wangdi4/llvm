@@ -1025,9 +1025,9 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
                       WR, TTI, TLI, nullptr);
 }
 
-PreservedAnalyses VPlanDriverHIRPass::run(Function &F,
-                                          FunctionAnalysisManager &AM) {
-  auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
+PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
+                                              FunctionAnalysisManager &AM,
+                                              loopopt::HIRFramework &HIRF) {
   auto HIRLoopStats = &AM.getResult<HIRLoopStatisticsAnalysis>(F);
   auto DDA = &AM.getResult<HIRDDAnalysisPass>(F);
   auto Verbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
@@ -1036,7 +1036,7 @@ PreservedAnalyses VPlanDriverHIRPass::run(Function &F,
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
 
-  Impl.runImpl(F, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
+  Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
                TLI, nullptr);
   return PreservedAnalyses::all();
 }

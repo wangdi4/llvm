@@ -12,22 +12,26 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPBLOCKING_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPBLOCKING_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRLoopBlockingPass : public PassInfoMixin<HIRLoopBlockingPass> {
+class HIRLoopBlockingPass : public HIRPassInfoMixin<HIRLoopBlockingPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-loop-blocking";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
-class HIRPragmaLoopBlockingPass : public PassInfoMixin<HIRPragmaLoopBlockingPass> {
+class HIRPragmaLoopBlockingPass
+    : public HIRPassInfoMixin<HIRPragmaLoopBlockingPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-pragma-loop-blocking";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
-
 
 } // namespace loopopt
 

@@ -12,15 +12,17 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDD_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRRUNTIMEDD_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRRuntimeDDPass : public PassInfoMixin<HIRRuntimeDDPass> {
+class HIRRuntimeDDPass : public HIRPassInfoMixin<HIRRuntimeDDPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-runtime-dd";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

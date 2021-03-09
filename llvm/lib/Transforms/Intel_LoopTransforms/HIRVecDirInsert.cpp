@@ -116,16 +116,16 @@ namespace llvm {
 
 namespace loopopt {
 
-PreservedAnalyses HIRVecDirInsertPass::run(Function &F,
-                                           FunctionAnalysisManager &AM) {
-  auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
+PreservedAnalyses HIRVecDirInsertPass::runImpl(Function &F,
+                                               FunctionAnalysisManager &AM,
+                                               HIRFramework &HIRF) {
   auto HPVA = &AM.getResult<HIRParVecAnalysisPass>(F);
   const bool OuterVec = this->OuterVec && !OuterVecDisabled;
   if (shouldRunOnFunction(F, OuterVec)) {
     ParVecDirectiveInsertion(OuterVec
                                  ? ParVecInfo::VectorForVectorizer
                                  : ParVecInfo::VectorForVectorizerInnermost)
-        .runOnFunction(F, HIRF, HPVA);
+        .runOnFunction(F, &HIRF, HPVA);
   }
   return PreservedAnalyses::all();
 }

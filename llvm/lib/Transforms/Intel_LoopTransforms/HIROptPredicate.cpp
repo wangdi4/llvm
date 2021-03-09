@@ -1642,11 +1642,10 @@ void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,
   IfVisitedSet.insert(IfOrSwitch);
 }
 
-PreservedAnalyses HIROptPredicatePass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIROptPredicate(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F), EnablePartialUnswitch,
-                  KeepLoopnestPerfect)
+PreservedAnalyses HIROptPredicatePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                  EnablePartialUnswitch, KeepLoopnestPerfect)
       .run();
 
   return PreservedAnalyses::all();

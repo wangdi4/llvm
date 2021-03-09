@@ -1467,10 +1467,10 @@ bool HIRRowWiseMVLegacyPass::runOnFunction(Function &F) {
     getAnalysis<DTransFieldModRefResultWrapper>().getResult());
 }
 
-PreservedAnalyses HIRRowWiseMVPass::run(Function &F,
-                                        llvm::FunctionAnalysisManager &AM) {
-  runRowWiseMV(AM.getResult<HIRFrameworkAnalysis>(F),
-               AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRRowWiseMVPass::runImpl(Function &F,
+                                            llvm::FunctionAnalysisManager &AM,
+                                            HIRFramework &HIRF) {
+  runRowWiseMV(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                AM.getResult<HIRLoopStatisticsAnalysis>(F),
                AM.getResult<DTransImmutableAnalysis>(F),
                AM.getResult<DTransFieldModRefResult>(F));

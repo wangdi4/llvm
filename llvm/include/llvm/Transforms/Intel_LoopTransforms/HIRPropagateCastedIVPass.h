@@ -16,16 +16,18 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRPROPAGATECASTEDIVPASS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRPROPAGATECASTEDIVPASS_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRPropagateCastedIVPass
-    : public PassInfoMixin<HIRPropagateCastedIVPass> {
+    : public HIRPassInfoMixin<HIRPropagateCastedIVPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-propagate-casted-iv";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

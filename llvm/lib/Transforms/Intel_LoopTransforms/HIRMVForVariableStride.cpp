@@ -604,10 +604,9 @@ bool HIRMVForVariableStride::run() {
   return Changed;
 }
 
-PreservedAnalyses
-HIRMVForVariableStridePass::run(llvm::Function &F,
-                                llvm::FunctionAnalysisManager &AM) {
-  HIRMVForVariableStride(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRMVForVariableStridePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRMVForVariableStride(HIRF).run();
   return PreservedAnalyses::all();
 }
 

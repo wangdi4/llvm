@@ -20,6 +20,37 @@
 ; CHECK: + END LOOP
 
 
+; Verify HIR print functionality with new pass manager.
+
+; This should pass with default CHECKs above.
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup" -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
+
+; Verify that we dump HIR with print-before-all/print-before-all.
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup" -print-before-all -print-after-all 2>&1 | FileCheck %s --check-prefix=PRINT-ALL
+
+; PRINT-ALL-COUNT-1: HIRTempCleanup
+; PRINT-ALL: DO i1
+
+; PRINT-ALL-COUNT-1: HIRTempCleanup
+; PRINT-ALL: DO i1
+
+; Verify that we only dump HIR passes with hir-print-before-all/hir-print-after-all with the correct function filtering.
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,instcombine" -hir-print-before-all -hir-print-after-all -filter-print-funcs=foo 2>&1 | FileCheck %s --check-prefix=HIR-PRINT-ALL
+
+; HIR-PRINT-ALL-COUNT-1: HIRTempCleanup
+; HIR-PRINT-ALL: DO i1
+; HIR-PRINT-ALL-NOT: InstCombine
+
+; HIR-PRINT-ALL-COUNT-1: HIRTempCleanup
+; HIR-PRINT-ALL: DO i1
+; HIR-PRINT-ALL-NOT: InstCombine
+
+; Verify that we do not dump anything with the wrong filter.
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup" -filter-print-funcs=bar -print-after-all | FileCheck %s --check-prefix=FILTER
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup" -filter-print-funcs=bar -hir-print-after-all | FileCheck %s --check-prefix=FILTER
+
+; FILTER-NOT: Dump
+
 ; ModuleID = 'float.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

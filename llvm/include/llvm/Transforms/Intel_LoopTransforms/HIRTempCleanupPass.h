@@ -12,15 +12,19 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRTEMPCLEANUP_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRTEMPCLEANUP_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRTempCleanupPass : public PassInfoMixin<HIRTempCleanupPass> {
+class HIRFramework;
+
+class HIRTempCleanupPass : public HIRPassInfoMixin<HIRTempCleanupPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-temp-cleanup";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

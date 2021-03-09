@@ -881,11 +881,9 @@ bool HIRDeadStoreEliminationLegacyPass::runOnFunction(Function &F) {
       getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
-PreservedAnalyses
-HIRDeadStoreEliminationPass::run(llvm::Function &F,
-                                 llvm::FunctionAnalysisManager &AM) {
-  runDeadStoreElimination(AM.getResult<HIRFrameworkAnalysis>(F),
-                          AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRDeadStoreEliminationPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  runDeadStoreElimination(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                           AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }
