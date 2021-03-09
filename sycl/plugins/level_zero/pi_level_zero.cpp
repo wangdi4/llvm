@@ -4960,9 +4960,8 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
     if (Result != PI_SUCCESS)
       return Result;
 
-      // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
-      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
-      // Check that SYCL RT did not want pitch larger than default.
+    // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
+    // Check that SYCL RT did not want pitch larger than default.
     (void)RowPitch;
     (void)SlicePitch;
 #ifndef NDEBUG
