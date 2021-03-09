@@ -18,6 +18,7 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0 ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -36,7 +37,7 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:    Cost 2000 for i32 [[VP8:%.*]] = abs i32 [[VP7]] ( PSADBW )
 ; CHECK-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP8]] i32 [[VP0]] ( PSADBW )
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 1023
+; CHECK-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] ( PSADBW )
@@ -82,6 +83,7 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 255, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0 ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -149,7 +151,7 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:    Cost 0 for i64 [[VP45:%.*]] = zext i32 [[VP38]] to i64 ( PSADBW )
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP44]] i64 [[VP45]] ( PSADBW )
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 1000 for i1 [[VP46:%.*]] = icmp sle i64 [[VP3]] i64 255
+; CHECK-NEXT:    Cost 1000 for i1 [[VP46:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP46]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]] ( PSADBW )
@@ -233,6 +235,7 @@ define dso_local i32 @_Z3toov(i32 %t) {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 15, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -251,7 +254,7 @@ define dso_local i32 @_Z3toov(i32 %t) {
 ; CHECK-NEXT:    Cost 2000 for i32 [[VP8:%.*]] = abs i32 [[VP7]]
 ; CHECK-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP8]] i32 [[VP0]]
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 15
+; CHECK-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
@@ -297,6 +300,7 @@ define dso_local i32 @full_unroll_with_slp(i32 %t) {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 15, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0 ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -345,7 +349,7 @@ define dso_local i32 @full_unroll_with_slp(i32 %t) {
 ; CHECK-NEXT:    Cost 1000 for i32 [[VP26:%.*]] = add i32 [[VP25]] i32 [[VP18]] ( PSADBW )
 ; CHECK-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP26]] i32 [[VP0]] ( PSADBW )
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 1000 for i1 [[VP27:%.*]] = icmp sle i64 [[VP3]] i64 15
+; CHECK-NEXT:    Cost 1000 for i1 [[VP27:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP27]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] ( PSADBW )

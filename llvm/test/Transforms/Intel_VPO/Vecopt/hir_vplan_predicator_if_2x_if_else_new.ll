@@ -38,6 +38,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 299, UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -114,7 +115,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB11]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp sle i64 [[VP1]] i64 299
+; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP20]], [[BB2]], [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]: # preds: [[BB3]]

@@ -667,12 +667,6 @@ VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
   if (isAlwaysUniform(*V))
     return NonConstDA->getUniformVectorShape();
 
-  // FIXME: This needs an explicit vector IV.
-  if (Plan->isBackedgeUniformityForced())
-    if (VPBasicBlock *LoopLatch = RegionLoop->getLoopLatch())
-      if (LoopLatch->getCondBit() == V)
-        return NonConstDA->getUniformVectorShape();
-
   auto ShapeIter = VectorShapes.find(V);
   if (ShapeIter != VectorShapes.end())
     return ShapeIter->second;

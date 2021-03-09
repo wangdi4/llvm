@@ -39,6 +39,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 99, UF = 1
 ; CHECK-NEXT:     [DA: Div] float [[VP__RED_INIT:%.*]] = reduction-init float 0.000000e+00
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -71,7 +72,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:     [DA: Div] float [[VP12:%.*]] = phi  [ float [[VP10]], [[BB4]] ],  [ float [[VP7]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] float [[VP1]] = fadd float [[VP12]] float [[VP11]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP13:%.*]] = icmp sle i64 [[VP3]] i64 99
+; CHECK-NEXT:     [DA: Uni] i1 [[VP13:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP13]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
