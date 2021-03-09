@@ -36,7 +36,6 @@ using namespace llvm::vpo;
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
-extern cl::opt<bool> EnableVPValueCodegen;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
 

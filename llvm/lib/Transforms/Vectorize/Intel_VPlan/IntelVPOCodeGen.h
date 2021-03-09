@@ -26,8 +26,6 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Vectorize.h"
 
-extern llvm::cl::opt<bool> EnableVPValueCodegen;
-
 namespace llvm {
 
 class TargetTransformInfo;
