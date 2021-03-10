@@ -716,9 +716,6 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE_EVEX = FeatureAMX_TI
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
 static constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-static constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX_EVEX = FeatureAMX_TILE;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
 #if INTEL_FEATURE_ISA_AMX_FP19
 static constexpr FeatureBitset ImpliedFeaturesAMX_FP19 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_FP19

@@ -430,10 +430,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-complex") {
       HasAMXCOMPLEX = true;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-    } else if (Feature == "+amx-complex-evex") {
-      HasAMXCOMPLEXEVEX = true;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
 #if INTEL_FEATURE_ISA_AMX_FP19
     } else if (Feature == "+amx-fp19") {
       HasAMXFP19 = true;
@@ -1074,11 +1070,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXCOMPLEX__");
   Builder.defineMacro("__AMXCOMPLEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-  if (HasAMXCOMPLEXEVEX)
-    Builder.defineMacro("__AMXCOMPLEXEVEX__");
-  Builder.defineMacro("__AMXCOMPLEXEVEX_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
 #if INTEL_FEATURE_ISA_AMX_FP19
   if (HasAMXFP19)
     Builder.defineMacro("__AMXFP19__");
@@ -1377,9 +1368,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
       .Case("amx-complex", true)
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-      .Case("amx-complex-evex", true)
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
 #if INTEL_FEATURE_ISA_AMX_FP19
       .Case("amx-fp19", true)
 #endif // INTEL_FEATURE_ISA_AMX_FP19
@@ -1607,9 +1595,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
       .Case("amx-complex", HasAMXCOMPLEX)
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-      .Case("amx-complex-evex", HasAMXCOMPLEXEVEX)
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
 #if INTEL_FEATURE_ISA_AMX_FP19
       .Case("amx-fp19", HasAMXFP19)
 #endif // INTEL_FEATURE_ISA_AMX_FP19
