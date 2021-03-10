@@ -99,9 +99,6 @@ extern "C" LLVM_BACKEND_API long double __extenddftf2(double a);
 // _chkstk routine used by Cygwin/MingW environments
 #ifdef _WIN32
 extern "C" LLVM_BACKEND_API void ___chkstk_ms();
-#ifndef _WIN64
-extern "C" LLVM_BACKEND_API void *_alloca(size_t);
-#endif
 #endif
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
@@ -216,9 +213,6 @@ llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("_ZSt14_Xlength_errorPKc", _ZSt14_Xlength_errorPKc)
     REGISTER_BI_FUNCTION("_ZdlPv", _ZdlPv)
     REGISTER_BI_FUNCTION("___chkstk_ms", ___chkstk_ms)
-#ifndef _WIN64
-    REGISTER_BI_FUNCTION("_alloca", _alloca)
-#endif
 #endif
 
     return llvm::Error::success();
