@@ -1227,7 +1227,11 @@ void ChangedIRComparer::handleFunctionCompare(StringRef Name, StringRef Prefix,
         const std::string Removed = "\033[31m-%l\033[0m\n";
         const std::string Added = "\033[32m+%l\033[0m\n";
         const std::string NoChange = " %l\n";
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         Out << doSystemDiff(BStr, AStr, Removed, Added, NoChange);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_CUSTOMIZATION
       });
 }
 
