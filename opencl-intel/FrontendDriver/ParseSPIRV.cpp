@@ -26,7 +26,7 @@
 #include <LLVMSPIRVLib.h> // llvm::ReadSPIRV
 #include <LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
 #include <llvm/Support/SwapByteOrder.h>
-#include <spirv/1.1/spirv.hpp> // spv::MagicNumber, spv::Version
+#include "SPIRV/libSPIRV/spirv_internal.hpp" // spv::MagicNumber, spv::Version
 
 #include <memory>
 #include <string>
@@ -184,7 +184,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityVariableLengthArrayINTEL:
     case spv::CapabilityVectorVariantsINTEL:
       // Optimization hints
-    case spv::CapabilityOptimizationHintsINTEL:
+    case spv::internal::CapabilityOptimizationHintsINTEL:
       // Unstructured loop control
     case spv::CapabilityUnstructuredLoopControlsINTEL:
       // Arbitrary Precision Integers
@@ -211,7 +211,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityArbitraryPrecisionFixedPointINTEL:
     case spv::CapabilityArbitraryPrecisionFloatingPointINTEL:
     case spv::CapabilityFPGAMemoryAccessesINTEL:
-    case spv::CapabilityIOPipeINTEL:
+    case spv::CapabilityIOPipesINTEL:
     case spv::CapabilityUSMStorageClassesINTEL:
     case spv::CapabilityFPGABufferLocationINTEL:
     case spv::CapabilityFPGAClusterAttributesINTEL:
