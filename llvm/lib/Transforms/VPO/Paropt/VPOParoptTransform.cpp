@@ -4563,6 +4563,18 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Determines if \p Usr is a subscript intrinsic.
+static bool isSubscript(const User *Usr) {
+  const auto *const IntrInst = dyn_cast<IntrinsicInst>(Usr);
+  if (!IntrInst)
+    return false;
+  const unsigned IntrID = IntrInst->getIntrinsicID();
+  return IntrID == Intrinsic::intel_subscript ||
+         IntrID == Intrinsic::intel_subscript_nonexact;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
   W->populateBBSet();
   LLVMContext &Context = F->getContext();
@@ -4615,7 +4627,11 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
           Changed = true;
         }
         Mrf->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
-      } else if (isa<GEPOperator>(Usr) || isa<BitCastOperator>(Usr)) {
+      } else if (isa<GEPOperator>(Usr) || isa<BitCastOperator>(Usr)
+#if INTEL_CUSTOMIZATION
+                 || isSubscript(Usr)
+#endif // INTEL_CUSTOMIZATION
+      ) {
         // Look through getelementptr and bitcast operators.
         growWorkList(Usr);
       }
