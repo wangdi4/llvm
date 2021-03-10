@@ -4277,7 +4277,7 @@ bool HIRParser::parsedDebugIntrinsic(const IntrinsicInst *Intrin) {
     return false;
   }
 
-  Value *Variable = DbgIntrin->getVariableLocation(true);
+  Value *Variable = DbgIntrin->getVariableLocationOp(0);
 
   // Sometimes DbgIntrin can be @llvm.dbg.value(!{}, ...);
   // !{} is returned as nullptr, we have to ignore such intrinsic.

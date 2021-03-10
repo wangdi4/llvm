@@ -1641,7 +1641,7 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
     // If the location isn't a constant or an instruction, delete the
     // intrinsic.
     auto *DVI = cast<DbgVariableIntrinsic>(DII);
-    Value *Location = DVI->getVariableLocation();
+    Value *Location = DVI->getVariableLocationOp(0);
     if (!Location ||
         (!isa<Constant>(Location) && !isa<Instruction>(Location))) {
       DebugIntrinsicsToDelete.push_back(DVI);
@@ -1664,7 +1664,7 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
           NewSP, OldVar->getName(), OldVar->getFile(), OldVar->getLine(),
           OldVar->getType(), /*AlwaysPreserve=*/false, DINode::FlagZero,
           OldVar->getAlignInBits());
-    DVI->setArgOperand(1, MetadataAsValue::get(Ctx, NewVar));
+    DVI->setVariable(cast<DILocalVariable>(NewVar));
   }
   for (auto *DII : DebugIntrinsicsToDelete)
     DII->eraseFromParent();
@@ -1801,7 +1801,7 @@ void CodeExtractor::updateDebugInfo(
   }
 
   for (DbgVariableIntrinsic *DVI : DebugVariableIntrinsics) {
-    Value *Storage = DVI->getVariableLocation();
+    Value *Storage = DVI->getVariableLocationOp(0);
     DIExpression *Expression = DVI->getExpression();
     DILocalVariable *Variable = DVI->getVariable();
     DILocation *Location = DVI->getDebugLoc().get();
