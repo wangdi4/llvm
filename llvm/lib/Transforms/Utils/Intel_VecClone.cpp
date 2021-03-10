@@ -1691,7 +1691,7 @@ void VecCloneImpl::removeScalarAllocasForVectorParams(
 
       // The scalar alloca needs to be removed from the allocas that are marked
       // as SIMD loop private.
-      PrivateAllocas.erase(ScalarAlloca);
+      PrivateAllocas.remove(ScalarAlloca);
     }
   }
 }
