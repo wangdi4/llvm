@@ -6938,17 +6938,6 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 
-#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-let TargetPrefix = "x86" in {
-  def int_x86_tcvtrowps2phiee : GCCBuiltin<"__builtin_ia32_tcvtrowps2phiee">,
-        Intrinsic<[llvm_v32f16_ty], [llvm_v32f16_ty, llvm_i8_ty, llvm_i32_ty],
-        [ImmArg<ArgIndex<1>>]>;
-  def int_x86_tcvtrowps2phiei : GCCBuiltin<"__builtin_ia32_tcvtrowps2phiei">,
-        Intrinsic<[llvm_v32f16_ty], [llvm_v32f16_ty, llvm_i8_ty, llvm_i32_ty],
-        [ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
-}
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-
 #if INTEL_FEATURE_ISA_AMX_FP19
 let TargetPrefix = "x86" in {
   def int_x86_tmmulfp19ps : GCCBuiltin<"__builtin_ia32_tmmulfp19ps">,
