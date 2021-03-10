@@ -6984,6 +6984,7 @@ def : Pat<(nontemporalstore FR64:$src, addr:$dst),
 // VBROADCAST - Load from memory and broadcast to all elements of the
 //              destination operand
 //
+let isReMaterializable = 1, canFoldAsLoad = 1 in
 class avx_broadcast_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                            X86MemOperand x86memop, ValueType VT,
                            PatFrag bcast_frag, SchedWrite Sched> :

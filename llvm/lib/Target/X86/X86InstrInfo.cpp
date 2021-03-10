@@ -1070,6 +1070,9 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::VBROADCASTSSZ128rm:
   case X86::VBROADCASTSSZ256rm:
   case X86::VBROADCASTSSZrm:
+  case X86::VBROADCASTSSrm:
+  case X86::VBROADCASTSSYrm:
+  case X86::VBROADCASTSDYrm:
   case X86::VPBROADCASTBZ128rm:
   case X86::VPBROADCASTBZ256rm:
   case X86::VPBROADCASTBZrm:
@@ -6532,6 +6535,8 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   case X86::VBROADCASTSSZ128rm:
   case X86::VBROADCASTSSZ256rm:
   case X86::VBROADCASTSSZrm:
+  case X86::VBROADCASTSSrm:
+  case X86::VBROADCASTSSYrm:
     // Folding a broadcast. Just copy the broadcast's address operands.
     MOs.append(LoadMI.operands_begin() + NumOps - X86::AddrNumOperands,
                LoadMI.operands_begin() + NumOps);
@@ -6543,6 +6548,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   case X86::VPBROADCASTQZrm:
   case X86::VBROADCASTSDZ256rm:
   case X86::VBROADCASTSDZrm:
+  case X86::VBROADCASTSDYrm:
     // Folding a broadcast. Just copy the broadcast's address operands.
     MOs.append(LoadMI.operands_begin() + NumOps - X86::AddrNumOperands,
                LoadMI.operands_begin() + NumOps);
