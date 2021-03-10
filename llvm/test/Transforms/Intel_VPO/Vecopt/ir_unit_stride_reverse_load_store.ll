@@ -30,6 +30,12 @@ define void @reverse(i32* %src, i32* %dest) {
 ;
 ; CHECK:  define void @reverse(i32* [[SRC0]], i32* [[DEST0]]) {
 ; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB1:
 ; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
@@ -37,7 +43,7 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub nuw nsw <4 x i64> <i64 1023, i64 1023, i64 1023, i64 1023>, [[VEC_PHI0]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
@@ -46,16 +52,16 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 8
 ; CHECK-NEXT:    [[REVERSE0:%.*]] = shufflevector <4 x i32> [[WIDE_LOAD0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i32, i32* [[DEST0]], i64 [[DOTEXTRACT_0_0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, i32* [[SCALAR_GEP20]], i32 -3
+; CHECK-NEXT:    [[SCALAR_GEP40:%.*]] = getelementptr inbounds i32, i32* [[DEST0]], i64 [[DOTEXTRACT_0_0]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, i32* [[SCALAR_GEP40]], i32 -3
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP3]] to <4 x i32>*
-; CHECK-NEXT:    [[REVERSE30:%.*]] = shufflevector <4 x i32> [[REVERSE0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    store <4 x i32> [[REVERSE30]], <4 x i32>* [[TMP4]], align 8
+; CHECK-NEXT:    [[REVERSE50:%.*]] = shufflevector <4 x i32> [[REVERSE0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
+; CHECK-NEXT:    store <4 x i32> [[REVERSE50]], <4 x i32>* [[TMP4]], align 8
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI10]], 4
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI30]], 4
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i64 [[TMP7]], 1024
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

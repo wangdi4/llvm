@@ -43,7 +43,7 @@ define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
 ; CHECK: call void @llvm.masked.scatter
 ; For sanity ensure that scalar load is generated for uniform load to StructType in vector loop
 ; CHECK: {{.*}} = load i32, i32*
-; CHECK-LABEL: VPlannedBB:
+; CHECK-LABEL: VPlannedBB6:
 ;
 omp.inner.for.body.lr.ph:
   %i.lpriv = alloca i32, align 4

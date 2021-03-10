@@ -62,7 +62,7 @@ static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 static cl::opt<bool>
-    EnableCFGMerge("vplan-enable-cfg-merge", cl::init(false), cl::Hidden,
+    EnableCFGMerge("vplan-enable-cfg-merge", cl::init(true), cl::Hidden,
                    cl::desc("Enable CFG merge before VPlan code gen."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(

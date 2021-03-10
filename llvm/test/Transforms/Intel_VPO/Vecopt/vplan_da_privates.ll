@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return arr1[RetIdx];
 ;}
 
-; RUN: opt -vplan-enable-soa=false -VPlanDriver -disable-output -vplan-dump-da -vplan-print-after-linearization -vplan-enable-all-liveouts %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -VPlanDriver -disable-output -vplan-dump-da -vplan-print-after-linearization -vplan-enable-all-liveouts -vplan-enable-cfg-merge=0 %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 

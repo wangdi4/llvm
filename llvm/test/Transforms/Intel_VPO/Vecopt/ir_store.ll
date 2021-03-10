@@ -8,28 +8,30 @@
 define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL: @foo(
 ; CHECK:       for.body.preheader:
-; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[ZEXT_TRIP_CNT:%.*]], 4
+; CHECK:         [[N_MOD_VF:%.*]] = urem i64 [[ZEXT_TRIP_CNT:%.*]], 4
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub i64 [[ZEXT_TRIP_CNT]], [[N_MOD_VF]]
-; CHECK-NEXT:    [[CMP_ZERO:%.*]] = icmp eq i64 [[N_VEC]], 0
-; CHECK-NEXT:    br i1 [[CMP_ZERO]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[UNI_PHI1]]
-; CHECK-NEXT:    [[TMP0:%.*]] = trunc <4 x i64> [[VEC_PHI]] to <4 x i32>
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP0]], <4 x i32>* [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 4
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[UNI_PHI3]]
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc <4 x i64> [[VEC_PHI]] to <4 x i32>
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[TMP1]], <4 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI3]], 4
 ; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
+; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB4:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ; CHECK:       scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER:%.*]] ], [ [[TMP8:%.*]], [[MIDDLE_BLOCK:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI6:%.*]] = phi i64 [ [[TMP8:%.*]], [[MIDDLE_BLOCK:%.*]] ], [ 0, [[VPLANNEDBB1:%.*]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB7:%.*]]
+; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[UNI_PHI6]], [[VPLANNEDBB7]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
