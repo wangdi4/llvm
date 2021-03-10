@@ -360,10 +360,6 @@ TARGET_BUILTIN(__builtin_ia32_tconjfp16, "vIUcIUc", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_ttcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_ttcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-TARGET_BUILTIN(__builtin_ia32_tcvtrowps2phiee, "V32gV32gIUcUi", "n", "amx-complex-evex")
-TARGET_BUILTIN(__builtin_ia32_tcvtrowps2phiei, "V32gV32gIUcIUi", "n", "amx-complex-evex")
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
 
 #if INTEL_FEATURE_ISA_AMX_FP19
 TARGET_BUILTIN(__builtin_ia32_tmmulfp19ps, "vIUcIUcIUc", "n", "amx-fp19")

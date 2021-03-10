@@ -3268,10 +3268,6 @@ X86
 .. option:: -mamx-complex, -mno-amx-complex
 
 .. end INTEL_FEATURE_ISA_AMX_COMPLEX
-.. INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
-.. option:: -mamx-complex-evex, -mno-amx-complex-evex
-
-.. end INTEL_FEATURE_ISA_AMX_COMPLEX_EVEX
 .. INTEL_FEATURE_ISA_AMX_MEMADVISE
 .. option:: -mamx-memadvise, -mno-amx-memadvise
 

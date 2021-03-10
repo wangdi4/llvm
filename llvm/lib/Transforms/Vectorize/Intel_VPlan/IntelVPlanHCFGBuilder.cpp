@@ -40,7 +40,6 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #if INTEL_CUSTOMIZATION
-extern cl::opt<bool> EnableVPValueCodegen;
 static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
                                                 "importing plain CFG");
 static cl::opt<bool> VPlanPrintPrivDescr(

@@ -44,7 +44,6 @@
 
 #if INTEL_CUSTOMIZATION
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
-extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
 static cl::opt<unsigned> VecThreshold(
     "vec-threshold",
