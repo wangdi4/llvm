@@ -114,6 +114,9 @@ bool fission_context_test();
 bool fission_subdivision_test();
 bool fission_two_queues_test();
 bool fission_by_names_test();
+#ifndef _WIN32
+void fission_by_numa_test();
+#endif
 bool fission_read_buffer_between_device_test();
 bool api_test();
 bool immediateExecutionTest();

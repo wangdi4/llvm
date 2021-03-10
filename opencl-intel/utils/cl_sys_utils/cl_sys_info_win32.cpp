@@ -337,6 +337,16 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
+// return an index representing the processors in a given NUMA node
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(unsigned long node, std::vector<cl_uint> &index)
+{
+    // TODO: This function need to be implemented after
+    // subdevice is supported on windows.
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
 bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize)

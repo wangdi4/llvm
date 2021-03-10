@@ -424,7 +424,7 @@ public:
      * @return an object representing the sub-device in the TaskExecutor module
      * @param  user_handle - handle to be returned to used during GetCurrentDevice() calls
      */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = nullptr ) = 0;
+    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = nullptr, bool disableMasterJoin = true ) = 0;
 
     /**
      * Reset ITaskExecutorObserver passed during device creation. Note: sub-devices share the same observer, so it will be reset for sub-devices also.

@@ -94,6 +94,16 @@ TEST(FrameworkTestType, Test_clfissionByNamesTest)
 {
     EXPECT_TRUE(fission_by_names_test());
 }
+
+#ifndef _WIN32
+//clCreateSubDevice is not supported on windows,
+//skip this test temporarily.
+TEST(FrameworkTestType, Test_clfissionByNumaTest)
+{
+    fission_by_numa_test();
+}
+#endif
+
 TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
 {
     EXPECT_TRUE(fission_read_buffer_between_device_test());

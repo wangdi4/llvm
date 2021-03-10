@@ -15,6 +15,9 @@
 #pragma once
 
 #include "cl_sys_defines.h"
+#include "cl_utils.h"
+#include <vector>
+#include <stdint.h>
 
 namespace Intel { namespace OpenCL { namespace Utils {
 #define GetModuleDirectory(str, strLen) GetModuleDirectoryImp(__FUNCTION__, str, strLen)
@@ -32,6 +35,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern unsigned int          GetNumberOfCpuSockets();
     extern bool                  IsHyperThreadingEnabled();
     extern unsigned long         GetMaxNumaNode();
+    extern bool                  GetProcessorIndexFromNumaNode(unsigned long node, std::vector<cl_uint> &index);
     extern bool                  GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = nullptr);
     extern unsigned int          GetCpuId();
     extern const char*           GetFullModuleNameForLoad(const char* moduleName);

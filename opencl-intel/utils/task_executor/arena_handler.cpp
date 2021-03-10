@@ -548,7 +548,7 @@ void TEDevice::SetObserver(ITaskExecutorObserver* pObserver)
 }
 
 
-SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_data ) 
+SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_data, bool disableMasterJoin )
 {
     LOG_INFO(TEXT("Creating sub-device with %d compute units"), uiNumSubdevComputeUnits);
 
@@ -559,8 +559,11 @@ SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeU
         device_desc.uiThreadsPerLevel[0] = uiNumSubdevComputeUnits;
     }
 
-    device_desc.mastersJoining              = TE_DISABLE_MASTERS_JOIN;
-    device_desc.uiNumOfExecPlacesForMasters = 0;
+    if (disableMasterJoin)
+    {
+        device_desc.mastersJoining              = TE_DISABLE_MASTERS_JOIN;
+        device_desc.uiNumOfExecPlacesForMasters = 0;
+    }
 
     return Allocate( device_desc, user_data, m_observer, m_taskExecutor, this );
 }
