@@ -62,6 +62,8 @@ public:
 
   /// Get the vector-shape of the VPValue \p V.
   virtual VPVectorShape getVectorShape(const VPValue &V) const = 0;
+
+  virtual ~VPlanDivergenceAnalysisBase() {}
 };
 
 /// Class for Scalar-VPlan DivergenceAnalysis.
