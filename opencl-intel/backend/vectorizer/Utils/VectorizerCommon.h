@@ -17,9 +17,9 @@
 
 
 // Maximum width (in elements) supported as input
-// This value was observed when scalarizing ExtractElementInst from vector of
-// <128 x i8> after a bitcast <16 x double> to <128 x i8>
-#define MAX_INPUT_VECTOR_WIDTH 128
+// An AMX tile has a maximum size of 16 rows x 64 bytes. It could be flatten to
+// a <1024 x i8> vector.
+#define MAX_INPUT_VECTOR_WIDTH 1024
 
 // Define estimated amount of instructions in function
 #define ESTIMATED_INST_NUM 128

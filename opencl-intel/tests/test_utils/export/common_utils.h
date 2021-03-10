@@ -11,10 +11,13 @@
 #define __COMMON_UTILS_H__
 #include <string>
 #include <cstdio>
+#include <vector>
 
 bool GetEnv(std::string& result, const std::string& name);
 
 std::string get_exe_dir(unsigned int pid = 0);
+
+void readBinary(std::string filename, std::vector<unsigned char> &binary);
 
 #if defined(_WIN32)
 #define NOMINMAX

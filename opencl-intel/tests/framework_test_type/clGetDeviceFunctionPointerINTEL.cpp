@@ -22,17 +22,6 @@
 
 extern cl_device_type gDeviceType;
 
-static void readBinary(std::string filename,
-                       std::vector<unsigned char> &binary) {
-  std::ifstream binaryFile(get_exe_dir() + filename,
-                           std::fstream::binary | std::fstream::in);
-  ASSERT_TRUE(binaryFile.is_open()) << "Unable to open file";
-  std::copy(std::istreambuf_iterator<char>(binaryFile),
-            std::istreambuf_iterator<char>(), std::back_inserter(binary));
-  binaryFile.close();
-  ASSERT_NE(binary.size(), 0) << "Unable to read binary";
-}
-
 TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
   cl_int error = CL_SUCCESS;
 
@@ -54,7 +43,7 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
   //   clang++ -fsycl-device-only -fno-sycl-use-bitcode
   //           -Xclang -fsycl-allow-func-ptr -std=c++14
   //           fp-as-kernel-arg.cpp -o fp-as-kernel-arg.spv
-  std::string fileName = "fp-as-kernel-arg.spv";
+  std::string fileName = get_exe_dir() + "fp-as-kernel-arg.spv";
   const char *funcName = "add";
 
   std::vector<unsigned char> spvBinary;

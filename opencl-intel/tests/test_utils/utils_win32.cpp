@@ -12,7 +12,9 @@
 
 #include <vector>
 #include <climits>
+#include <fstream>
 #include <string>
+#include <assert.h>
 
 #include <windows.h>
 #include <Psapi.h>
@@ -102,4 +104,13 @@ std::string get_exe_dir(unsigned int pid) {
     size_t i = path.find_last_of("/\\");
     return path.substr(0, i) + dir_sep();
   }
+}
+
+void readBinary(std::string filename, std::vector<unsigned char> &binary) {
+  std::ifstream file(filename, std::fstream::binary | std::fstream::in);
+  assert(file.is_open() && "Unable to open file");
+  std::copy(std::istreambuf_iterator<char>(file),
+            std::istreambuf_iterator<char>(), std::back_inserter(binary));
+  file.close();
+  assert(binary.size() && "Unable to read binary");
 }

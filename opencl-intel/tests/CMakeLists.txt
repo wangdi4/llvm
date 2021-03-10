@@ -140,6 +140,7 @@ list(APPEND RUNTIME_UNITTESTS
   name_mangling_test_type
   metadata_api_test_type
   subgroup_test_type
+  bi_test_type
 )
 if (NOT ${ADDR} STREQUAL "32")
   list(APPEND RUNTIME_UNITTESTS fpga_test_type )

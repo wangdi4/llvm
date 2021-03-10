@@ -180,6 +180,10 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
     endforeach (FILE)
   endif()
 
+  if (EXISTS ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_intrinsics.ll)
+    list (APPEND TMP_FILES ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_intrinsics.ll)
+  endif()
+
   if(${USE_OPT})
     # link OpenCL image callback library (adding also intrinsic BI IR )
     add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt
@@ -317,10 +321,19 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   add_ocl_library(IGNORE OUTPUT_OCL_LIBRARY_OBJ "${CLANG_CL_CBK_COMPILER_FLAGS}" ${TARGET_NAME}_img_cbk ${TARGET_DIR} ${ARCH} ${PROC} TRUE ${PREBUILD_IMAGE_LIBRARY} ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} IGNORE ${OCL_IMAGE_CALLBACK_SOURCE_FILE})
 
   # copy SVML (and SDE) libaries to install directory
-  install_svml( ${ARCH} )
+  # FIXME: ocl_svml for z1/x1 (AMX) arch is not available yet
+  # use AVX512's lib as a workaround
+  set(SVML_ARCH ${ARCH})
+  if(${ARCH} STREQUAL "z1") # 64bit AMX
+    set(SVML_ARCH "z0") # 64bit AVX512
+  endif()
+  if(${ARCH} STREQUAL "x1") # 32bit AMX
+    set(SVML_ARCH "x0") # 32bit AVX512
+  endif()
+  install_svml( ${SVML_ARCH} )
 
   # Unconditional dependent targets
-  set (TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_OUTPUT_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
+  set (TARGET_DEPENDENCIES ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_OUTPUT_DIR}/${SVML_NAME_PREFIX}${SVML_ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
 
   # If prebuilt library is built, depend on it so it gets built.
   if( PREBUILD_IMAGE_LIBRARY )
@@ -401,6 +414,7 @@ add_subdirectory (avx)
 add_subdirectory (avx2)
 # includes AVX-512 F, CD, BW, DQ, VL.
 add_subdirectory (avx512)
+add_subdirectory (amx)
 add_subdirectory (shared)
 if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
     # includes AVX-512 F, CD, ER, PF.

@@ -185,6 +185,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityVectorVariantsINTEL:
       // SPV_KHR_expect_assume
     case spv::CapabilityExpectAssumeKHR:
+    case spv::CapabilityVectorAnyINTEL:
       // Unstructured loop control
     case spv::CapabilityUnstructuredLoopControlsINTEL:
       // Arbitrary Precision Integers

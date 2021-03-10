@@ -1,0 +1,1 @@
+create_target ( sapphirerapids ${PrefixAMX} amx TRUE )
