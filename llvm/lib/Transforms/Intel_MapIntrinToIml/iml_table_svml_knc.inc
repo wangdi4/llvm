@@ -26113,8 +26113,380 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 },
 
 {
-"__svml_sind8", //const char * parent_function_name;
+"__svml_sincospi8", //const char * parent_function_name;
 842, //int index;
+c_precision_double, // PrecisionEnum  precision;
+c_accuracy_ep, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+67108864, //float ulp_error;
+1e30f, //float absolute_error;
+26, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospi8_ep", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospi8", //const char * parent_function_name;
+843, //int index;
+c_precision_double, // PrecisionEnum  precision;
+c_accuracy_low, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+4, //float ulp_error;
+1e30f, //float absolute_error;
+50, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospi8", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospi8", //const char * parent_function_name;
+844, //int index;
+c_precision_double, // PrecisionEnum  precision;
+c_accuracy_high, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+0.6, //float ulp_error;
+1e30f, //float absolute_error;
+52, //float accurate_bits;
+0, //int domain_exclusion;
+1, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospi8_ha", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospi8_mask", //const char * parent_function_name;
+845, //int index;
+c_precision_double, // PrecisionEnum  precision;
+c_accuracy_ep, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+67108864, //float ulp_error;
+1e30f, //float absolute_error;
+26, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospi8_ep_mask", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospi8_mask", //const char * parent_function_name;
+846, //int index;
+c_precision_double, // PrecisionEnum  precision;
+c_accuracy_low, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+4, //float ulp_error;
+1e30f, //float absolute_error;
+50, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospi8_mask", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospi8_mask", //const char * parent_function_name;
+847, //int index;
+c_precision_double, // PrecisionEnum  precision;
+c_accuracy_high, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+0.6, //float ulp_error;
+1e30f, //float absolute_error;
+52, //float accurate_bits;
+0, //int domain_exclusion;
+1, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospi8_ha_mask", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospif16", //const char * parent_function_name;
+848, //int index;
+c_precision_single, // PrecisionEnum  precision;
+c_accuracy_ep, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+4096, //float ulp_error;
+1e30f, //float absolute_error;
+11, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospif16_ep", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospif16", //const char * parent_function_name;
+849, //int index;
+c_precision_single, // PrecisionEnum  precision;
+c_accuracy_low, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+4, //float ulp_error;
+1e30f, //float absolute_error;
+21, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospif16", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospif16", //const char * parent_function_name;
+850, //int index;
+c_precision_single, // PrecisionEnum  precision;
+c_accuracy_high, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+0.6, //float ulp_error;
+1e30f, //float absolute_error;
+23, //float accurate_bits;
+0, //int domain_exclusion;
+1, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospif16_ha", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospif16_mask", //const char * parent_function_name;
+851, //int index;
+c_precision_single, // PrecisionEnum  precision;
+c_accuracy_ep, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+4096, //float ulp_error;
+1e30f, //float absolute_error;
+11, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospif16_ep_mask", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospif16_mask", //const char * parent_function_name;
+852, //int index;
+c_precision_single, // PrecisionEnum  precision;
+c_accuracy_low, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+4, //float ulp_error;
+1e30f, //float absolute_error;
+21, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospif16_mask", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sincospif16_mask", //const char * parent_function_name;
+853, //int index;
+c_precision_single, // PrecisionEnum  precision;
+c_accuracy_high, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+0.6, //float ulp_error;
+1e30f, //float absolute_error;
+23, //float accurate_bits;
+0, //int domain_exclusion;
+1, //int arch_consistency;
+0, //int valid_status_bits;
+1, //int use_svml_allowed;
+0, //int zmm_low;// communication field
+    {
+    "__svml_sincospif16_ha_mask", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"__svml_sind8", //const char * parent_function_name;
+854, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26145,7 +26517,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sind8", //const char * parent_function_name;
-843, //int index;
+855, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26176,7 +26548,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sind8", //const char * parent_function_name;
-844, //int index;
+856, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26207,7 +26579,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sind8_mask", //const char * parent_function_name;
-845, //int index;
+857, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26238,7 +26610,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sind8_mask", //const char * parent_function_name;
-846, //int index;
+858, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26269,7 +26641,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sind8_mask", //const char * parent_function_name;
-847, //int index;
+859, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26300,7 +26672,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sindf16", //const char * parent_function_name;
-848, //int index;
+860, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26331,7 +26703,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sindf16", //const char * parent_function_name;
-849, //int index;
+861, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26362,7 +26734,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sindf16", //const char * parent_function_name;
-850, //int index;
+862, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26393,7 +26765,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sindf16_mask", //const char * parent_function_name;
-851, //int index;
+863, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26424,7 +26796,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sindf16_mask", //const char * parent_function_name;
-852, //int index;
+864, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26455,7 +26827,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sindf16_mask", //const char * parent_function_name;
-853, //int index;
+865, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26486,7 +26858,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinf16", //const char * parent_function_name;
-854, //int index;
+866, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26517,7 +26889,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinf16", //const char * parent_function_name;
-855, //int index;
+867, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26548,7 +26920,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinf16", //const char * parent_function_name;
-856, //int index;
+868, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26579,7 +26951,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinf16_mask", //const char * parent_function_name;
-857, //int index;
+869, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26610,7 +26982,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinf16_mask", //const char * parent_function_name;
-858, //int index;
+870, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26641,7 +27013,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinf16_mask", //const char * parent_function_name;
-859, //int index;
+871, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26672,7 +27044,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinh8", //const char * parent_function_name;
-860, //int index;
+872, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26703,7 +27075,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinh8", //const char * parent_function_name;
-861, //int index;
+873, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26734,7 +27106,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinh8", //const char * parent_function_name;
-862, //int index;
+874, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26765,7 +27137,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinh8_mask", //const char * parent_function_name;
-863, //int index;
+875, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26796,7 +27168,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinh8_mask", //const char * parent_function_name;
-864, //int index;
+876, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26827,7 +27199,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinh8_mask", //const char * parent_function_name;
-865, //int index;
+877, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26858,7 +27230,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinhf16", //const char * parent_function_name;
-866, //int index;
+878, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26889,7 +27261,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinhf16", //const char * parent_function_name;
-867, //int index;
+879, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26920,7 +27292,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinhf16", //const char * parent_function_name;
-868, //int index;
+880, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26951,7 +27323,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinhf16_mask", //const char * parent_function_name;
-869, //int index;
+881, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -26982,7 +27354,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinhf16_mask", //const char * parent_function_name;
-870, //int index;
+882, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27013,7 +27385,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinhf16_mask", //const char * parent_function_name;
-871, //int index;
+883, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27044,7 +27416,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpi8", //const char * parent_function_name;
-872, //int index;
+884, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27075,7 +27447,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpi8", //const char * parent_function_name;
-873, //int index;
+885, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27106,7 +27478,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpi8", //const char * parent_function_name;
-874, //int index;
+886, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27137,7 +27509,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpi8_mask", //const char * parent_function_name;
-875, //int index;
+887, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27168,7 +27540,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpi8_mask", //const char * parent_function_name;
-876, //int index;
+888, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27199,7 +27571,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpi8_mask", //const char * parent_function_name;
-877, //int index;
+889, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27230,7 +27602,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpif16", //const char * parent_function_name;
-878, //int index;
+890, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27261,7 +27633,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpif16", //const char * parent_function_name;
-879, //int index;
+891, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27292,7 +27664,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpif16", //const char * parent_function_name;
-880, //int index;
+892, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27323,7 +27695,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpif16_mask", //const char * parent_function_name;
-881, //int index;
+893, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27354,7 +27726,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpif16_mask", //const char * parent_function_name;
-882, //int index;
+894, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27385,7 +27757,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sinpif16_mask", //const char * parent_function_name;
-883, //int index;
+895, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27416,7 +27788,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrt8", //const char * parent_function_name;
-884, //int index;
+896, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27447,7 +27819,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrt8", //const char * parent_function_name;
-885, //int index;
+897, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27478,7 +27850,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrt8", //const char * parent_function_name;
-886, //int index;
+898, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27509,7 +27881,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrt8_mask", //const char * parent_function_name;
-887, //int index;
+899, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27540,7 +27912,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrt8_mask", //const char * parent_function_name;
-888, //int index;
+900, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27571,7 +27943,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrt8_mask", //const char * parent_function_name;
-889, //int index;
+901, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27602,7 +27974,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrtf16", //const char * parent_function_name;
-890, //int index;
+902, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27633,7 +28005,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrtf16", //const char * parent_function_name;
-891, //int index;
+903, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27664,7 +28036,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrtf16", //const char * parent_function_name;
-892, //int index;
+904, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27695,7 +28067,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrtf16_mask", //const char * parent_function_name;
-893, //int index;
+905, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27726,7 +28098,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrtf16_mask", //const char * parent_function_name;
-894, //int index;
+906, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27757,7 +28129,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_sqrtf16_mask", //const char * parent_function_name;
-895, //int index;
+907, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27788,7 +28160,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tan8", //const char * parent_function_name;
-896, //int index;
+908, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27819,7 +28191,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tan8", //const char * parent_function_name;
-897, //int index;
+909, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27850,7 +28222,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tan8", //const char * parent_function_name;
-898, //int index;
+910, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27881,7 +28253,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tan8_mask", //const char * parent_function_name;
-899, //int index;
+911, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27912,7 +28284,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tan8_mask", //const char * parent_function_name;
-900, //int index;
+912, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27943,7 +28315,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tan8_mask", //const char * parent_function_name;
-901, //int index;
+913, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -27974,7 +28346,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tand8", //const char * parent_function_name;
-902, //int index;
+914, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28005,7 +28377,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tand8", //const char * parent_function_name;
-903, //int index;
+915, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28036,7 +28408,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tand8", //const char * parent_function_name;
-904, //int index;
+916, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28067,7 +28439,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tand8_mask", //const char * parent_function_name;
-905, //int index;
+917, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28098,7 +28470,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tand8_mask", //const char * parent_function_name;
-906, //int index;
+918, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28129,7 +28501,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tand8_mask", //const char * parent_function_name;
-907, //int index;
+919, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28160,7 +28532,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tandf16", //const char * parent_function_name;
-908, //int index;
+920, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28191,7 +28563,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tandf16", //const char * parent_function_name;
-909, //int index;
+921, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28222,7 +28594,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tandf16", //const char * parent_function_name;
-910, //int index;
+922, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28253,7 +28625,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tandf16_mask", //const char * parent_function_name;
-911, //int index;
+923, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28284,7 +28656,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tandf16_mask", //const char * parent_function_name;
-912, //int index;
+924, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28315,7 +28687,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tandf16_mask", //const char * parent_function_name;
-913, //int index;
+925, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28346,7 +28718,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanf16", //const char * parent_function_name;
-914, //int index;
+926, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28377,7 +28749,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanf16", //const char * parent_function_name;
-915, //int index;
+927, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28408,7 +28780,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanf16", //const char * parent_function_name;
-916, //int index;
+928, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28439,7 +28811,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanf16_mask", //const char * parent_function_name;
-917, //int index;
+929, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28470,7 +28842,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanf16_mask", //const char * parent_function_name;
-918, //int index;
+930, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28501,7 +28873,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanf16_mask", //const char * parent_function_name;
-919, //int index;
+931, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28532,7 +28904,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanh8", //const char * parent_function_name;
-920, //int index;
+932, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28563,7 +28935,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanh8", //const char * parent_function_name;
-921, //int index;
+933, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28594,7 +28966,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanh8", //const char * parent_function_name;
-922, //int index;
+934, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28625,7 +28997,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanh8_mask", //const char * parent_function_name;
-923, //int index;
+935, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28656,7 +29028,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanh8_mask", //const char * parent_function_name;
-924, //int index;
+936, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28687,7 +29059,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanh8_mask", //const char * parent_function_name;
-925, //int index;
+937, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28718,7 +29090,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanhf16", //const char * parent_function_name;
-926, //int index;
+938, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28749,7 +29121,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanhf16", //const char * parent_function_name;
-927, //int index;
+939, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28780,7 +29152,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanhf16", //const char * parent_function_name;
-928, //int index;
+940, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28811,7 +29183,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanhf16_mask", //const char * parent_function_name;
-929, //int index;
+941, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28842,7 +29214,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanhf16_mask", //const char * parent_function_name;
-930, //int index;
+942, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28873,7 +29245,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanhf16_mask", //const char * parent_function_name;
-931, //int index;
+943, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28904,7 +29276,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpi8", //const char * parent_function_name;
-932, //int index;
+944, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28935,7 +29307,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpi8", //const char * parent_function_name;
-933, //int index;
+945, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28966,7 +29338,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpi8", //const char * parent_function_name;
-934, //int index;
+946, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -28997,7 +29369,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpi8_mask", //const char * parent_function_name;
-935, //int index;
+947, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29028,7 +29400,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpi8_mask", //const char * parent_function_name;
-936, //int index;
+948, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29059,7 +29431,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpi8_mask", //const char * parent_function_name;
-937, //int index;
+949, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29090,7 +29462,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpif16", //const char * parent_function_name;
-938, //int index;
+950, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29121,7 +29493,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpif16", //const char * parent_function_name;
-939, //int index;
+951, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29152,7 +29524,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpif16", //const char * parent_function_name;
-940, //int index;
+952, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29183,7 +29555,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpif16_mask", //const char * parent_function_name;
-941, //int index;
+953, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_ep, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29214,7 +29586,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpif16_mask", //const char * parent_function_name;
-942, //int index;
+954, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_low, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29245,7 +29617,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_tanpif16_mask", //const char * parent_function_name;
-943, //int index;
+955, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29276,7 +29648,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_trunc8", //const char * parent_function_name;
-944, //int index;
+956, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29307,7 +29679,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_trunc8_mask", //const char * parent_function_name;
-945, //int index;
+957, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29338,7 +29710,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_truncf16", //const char * parent_function_name;
-946, //int index;
+958, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29369,7 +29741,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_truncf16_mask", //const char * parent_function_name;
-947, //int index;
+959, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29400,7 +29772,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_u16div32", //const char * parent_function_name;
-948, //int index;
+960, //int index;
 c_precision_unsigned_short, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29431,7 +29803,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_u16rem32", //const char * parent_function_name;
-949, //int index;
+961, //int index;
 c_precision_unsigned_short, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29462,7 +29834,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_u64div8", //const char * parent_function_name;
-950, //int index;
+962, //int index;
 c_precision_unsigned_longlong, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29493,7 +29865,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_u64rem8", //const char * parent_function_name;
-951, //int index;
+963, //int index;
 c_precision_unsigned_longlong, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29524,7 +29896,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_u8div64", //const char * parent_function_name;
-952, //int index;
+964, //int index;
 c_precision_unsigned_char, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29555,7 +29927,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_u8rem64", //const char * parent_function_name;
-953, //int index;
+965, //int index;
 c_precision_unsigned_char, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29586,7 +29958,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_udiv16", //const char * parent_function_name;
-954, //int index;
+966, //int index;
 c_precision_unsigned_int, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29617,7 +29989,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_udiv16_mask", //const char * parent_function_name;
-955, //int index;
+967, //int index;
 c_precision_unsigned_int, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29648,7 +30020,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_udivrem16", //const char * parent_function_name;
-956, //int index;
+968, //int index;
 c_precision_unsigned_int, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29679,7 +30051,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_udivrem16_mask", //const char * parent_function_name;
-957, //int index;
+969, //int index;
 c_precision_unsigned_int, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29710,7 +30082,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_urem16", //const char * parent_function_name;
-958, //int index;
+970, //int index;
 c_precision_unsigned_int, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29741,7 +30113,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "__svml_urem16_mask", //const char * parent_function_name;
-959, //int index;
+971, //int index;
 c_precision_unsigned_int, // PrecisionEnum  precision;
 c_accuracy_cr, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -29769,4 +30141,4 @@ c_cpu_all, //SupportedCpusEnum  configuration;
     "", //const char * cpu_specific_names[avx512zmmlow];
     },
 },
-/* End of libiml_attr table */
+

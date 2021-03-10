@@ -73,6 +73,7 @@ const char *precisionEnumToString(PrecisionEnum Value) {
 struct ImfFuncInfo {
   PrecisionEnum Precision = High;
   bool FuSa = false;
+  bool ValidStatusBits = false;
   const char *ISASet = nullptr;
 
   ImfFuncInfo setPrecision(PrecisionEnum Value) const {
@@ -93,6 +94,12 @@ struct ImfFuncInfo {
     return Ret;
   }
 
+  ImfFuncInfo setValidStatusBits(bool Value) const {
+    ImfFuncInfo Ret(*this);
+    Ret.ValidStatusBits = Value;
+    return Ret;
+  }
+
   ImfAttrListWrapper createImfAttrList() const {
     ImfAttr *Tail = nullptr;
 
@@ -102,6 +109,8 @@ struct ImfFuncInfo {
       Tail = createImfAttr("fusa", "true", Tail);
     if (ISASet)
       Tail = createImfAttr("isa-set", ISASet, Tail);
+    if (ValidStatusBits)
+      Tail = createImfAttr("valid-status-bits", "true", Tail);
 
     return ImfAttrListWrapper(Tail);
   }
@@ -144,10 +153,29 @@ TEST_F(ImlAttrTest, FuSaTest) {
             makeFuncNamePair("fmaxf", "__libm_fmaxf_ex"));
   EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa, llvm::Triple::Linux),
             makeFuncNamePair("logf", "__libm_logf_ex"));
+
   EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoFuSa, llvm::Triple::Win32),
             makeFuncNamePair("fmaxf", "fmaxf"));
   EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa, llvm::Triple::Win32),
             makeFuncNamePair("logf", "logf"));
+
+  EXPECT_EQ(getLibraryFunctionName("lgamma", InfoFuSa, llvm::Triple::Linux),
+            makeFuncNamePair("lgamma", "__libm_lgamma_rf"));
+  EXPECT_EQ(getLibraryFunctionName("lgammaf", InfoFuSa, llvm::Triple::Linux),
+            makeFuncNamePair("lgammaf", "__libm_lgammaf_rf"));
+  EXPECT_EQ(getLibraryFunctionName("lgamma", InfoFuSa, llvm::Triple::Win32),
+            makeFuncNamePair("lgamma", "lgamma"));
+  EXPECT_EQ(getLibraryFunctionName("lgammaf", InfoFuSa, llvm::Triple::Win32),
+            makeFuncNamePair("lgammaf", "lgammaf"));
+
+  EXPECT_EQ(getLibraryFunctionName("sincospi", InfoFuSa, llvm::Triple::Linux),
+            makeFuncNamePair("sincospi", "__libm_sincospi_ex"));
+  EXPECT_EQ(getLibraryFunctionName("sincospif", InfoFuSa, llvm::Triple::Linux),
+            makeFuncNamePair("sincospif", "__libm_sincospif_ex"));
+  EXPECT_EQ(getLibraryFunctionName("sincospi", InfoFuSa, llvm::Triple::Win32),
+            makeFuncNamePair("sincospi", "sincospi"));
+  EXPECT_EQ(getLibraryFunctionName("sincospif", InfoFuSa, llvm::Triple::Win32),
+            makeFuncNamePair("sincospif", "sincospif"));
 }
 
 TEST_F(ImlAttrTest, ISASetTest) {
@@ -206,6 +234,19 @@ TEST_F(ImlAttrTest, PrecisionTest) {
   EXPECT_EQ(getLibraryFunctionName("__svml_powf8", ReferenceAccuracy,
                                    llvm::Triple::Win32),
             makeFuncNamePair("__svml_powf8_ha", "__svml_powf8_ha"));
+}
+
+TEST_F(ImlAttrTest, ValidStatusBitsTest) {
+  ImfFuncInfo Default;
+  ImfFuncInfo ValidStatusBits = Default.setValidStatusBits(true);
+
+  EXPECT_EQ(getLibraryFunctionName("pow", Default),
+            makeFuncNamePair("pow", "pow"));
+  EXPECT_EQ(
+      getLibraryFunctionName("pow", ValidStatusBits.setPrecision(Reference)),
+      makeFuncNamePair("pow", "__libm_pow_rf"));
+  EXPECT_EQ(getLibraryFunctionName("pow", ValidStatusBits.setFuSa(true)),
+            makeFuncNamePair("pow", "__libm_pow_ex"));
 }
 
 #if INTEL_FEATURE_ISA_FP16
