@@ -235,6 +235,12 @@ constexpr FeatureBitset FeaturesGoldmontPlus =
     FeaturesGoldmont | FeaturePTWRITE | FeatureRDPID | FeatureSGX;
 constexpr FeatureBitset FeaturesTremont =
     FeaturesGoldmontPlus | FeatureCLWB | FeatureGFNI;
+constexpr FeatureBitset FeaturesAlderlake =
+    FeaturesTremont | FeatureADX | FeatureBMI | FeatureBMI2 | FeatureF16C |
+    FeatureFMA | FeatureINVPCID | FeatureLZCNT | FeaturePCONFIG | FeaturePKU |
+    FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
+    FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
+    FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_ADL
