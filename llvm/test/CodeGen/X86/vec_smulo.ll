@@ -3639,7 +3639,7 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX-NEXT:    movb %al, (%rdi)
 ; AVX-NEXT:    retq
 ;
-
+; INTEL_CUSTOMIZATION
 ; AVX512F-LABEL: smulo_v4i1:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    pushq %rbx
@@ -3660,40 +3660,40 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512F-NEXT:    andb $1, %r10b
 ; AVX512F-NEXT:    negb %r10b
 ; AVX512F-NEXT:    kshiftrw $2, %k1, %k2
-; AVX512F-NEXT:    kmovw %k2, %ebx
-; AVX512F-NEXT:    andb $1, %bl
-; AVX512F-NEXT:    negb %bl
+; AVX512F-NEXT:    kmovw %k2, %r11d
+; AVX512F-NEXT:    andb $1, %r11b
+; AVX512F-NEXT:    negb %r11b
 ; AVX512F-NEXT:    kshiftrw $1, %k0, %k2
 ; AVX512F-NEXT:    kmovw %k2, %ecx
 ; AVX512F-NEXT:    andb $1, %cl
 ; AVX512F-NEXT:    negb %cl
 ; AVX512F-NEXT:    kshiftrw $1, %k1, %k2
-; AVX512F-NEXT:    kmovw %k2, %esi
-; AVX512F-NEXT:    andb $1, %sil
-; AVX512F-NEXT:    negb %sil
+; AVX512F-NEXT:    kmovw %k2, %edx
+; AVX512F-NEXT:    andb $1, %dl
+; AVX512F-NEXT:    negb %dl
 ; AVX512F-NEXT:    kmovw %k0, %eax
 ; AVX512F-NEXT:    andb $1, %al
 ; AVX512F-NEXT:    negb %al
-; AVX512F-NEXT:    kmovw %k1, %edx
-; AVX512F-NEXT:    andb $1, %dl
-; AVX512F-NEXT:    negb %dl
+; AVX512F-NEXT:    kmovw %k1, %esi
+; AVX512F-NEXT:    andb $1, %sil
+; AVX512F-NEXT:    negb %sil
 ; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
-; AVX512F-NEXT:    mulb %dl
-; AVX512F-NEXT:    movl %eax, %r11d
+; AVX512F-NEXT:    mulb %sil
+; AVX512F-NEXT:    movl %eax, %esi
 ; AVX512F-NEXT:    andb $1, %al
 ; AVX512F-NEXT:    negb %al
-; AVX512F-NEXT:    cmpb %r11b, %al
+; AVX512F-NEXT:    cmpb %sil, %al
 ; AVX512F-NEXT:    setne %al
 ; AVX512F-NEXT:    kmovw %eax, %k1
 ; AVX512F-NEXT:    movw $-3, %ax
 ; AVX512F-NEXT:    kmovw %eax, %k0
 ; AVX512F-NEXT:    kandw %k0, %k1, %k1
 ; AVX512F-NEXT:    movl %ecx, %eax
-; AVX512F-NEXT:    mulb %sil
-; AVX512F-NEXT:    movl %eax, %ecx
+; AVX512F-NEXT:    mulb %dl
+; AVX512F-NEXT:    movl %eax, %ebx
 ; AVX512F-NEXT:    andb $1, %al
 ; AVX512F-NEXT:    negb %al
-; AVX512F-NEXT:    cmpb %cl, %al
+; AVX512F-NEXT:    cmpb %bl, %al
 ; AVX512F-NEXT:    setne %al
 ; AVX512F-NEXT:    kmovw %eax, %k2
 ; AVX512F-NEXT:    kshiftlw $15, %k2, %k2
@@ -3703,7 +3703,7 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512F-NEXT:    kmovw %eax, %k1
 ; AVX512F-NEXT:    kandw %k1, %k2, %k2
 ; AVX512F-NEXT:    movl %r10d, %eax
-; AVX512F-NEXT:    mulb %bl
+; AVX512F-NEXT:    mulb %r11b
 ; AVX512F-NEXT:    movl %eax, %edx
 ; AVX512F-NEXT:    andb $1, %al
 ; AVX512F-NEXT:    negb %al
@@ -3717,20 +3717,20 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512F-NEXT:    movl %r8d, %eax
 ; AVX512F-NEXT:    mulb %r9b
 ; AVX512F-NEXT:    # kill: def $al killed $al def $eax
-; AVX512F-NEXT:    movl %eax, %ebx
-; AVX512F-NEXT:    andb $1, %bl
-; AVX512F-NEXT:    negb %bl
-; AVX512F-NEXT:    cmpb %al, %bl
-; AVX512F-NEXT:    setne %sil
-; AVX512F-NEXT:    kmovw %esi, %k3
+; AVX512F-NEXT:    movl %eax, %ecx
+; AVX512F-NEXT:    andb $1, %cl
+; AVX512F-NEXT:    negb %cl
+; AVX512F-NEXT:    cmpb %al, %cl
+; AVX512F-NEXT:    setne %cl
+; AVX512F-NEXT:    kmovw %ecx, %k3
 ; AVX512F-NEXT:    kshiftlw $3, %k3, %k3
 ; AVX512F-NEXT:    korw %k3, %k2, %k2
 ; AVX512F-NEXT:    vpcmpeqd %xmm0, %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovdqa32 %xmm0, %xmm0 {%k2} {z}
-; AVX512F-NEXT:    andl $1, %r11d
-; AVX512F-NEXT:    kmovw %r11d, %k2
+; AVX512F-NEXT:    andl $1, %esi
+; AVX512F-NEXT:    kmovw %esi, %k2
 ; AVX512F-NEXT:    kandw %k0, %k2, %k0
-; AVX512F-NEXT:    kmovw %ecx, %k2
+; AVX512F-NEXT:    kmovw %ebx, %k2
 ; AVX512F-NEXT:    kshiftlw $15, %k2, %k2
 ; AVX512F-NEXT:    kshiftrw $14, %k2, %k2
 ; AVX512F-NEXT:    korw %k2, %k0, %k0
@@ -3771,40 +3771,40 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512BW-NEXT:    andb $1, %r10b
 ; AVX512BW-NEXT:    negb %r10b
 ; AVX512BW-NEXT:    kshiftrw $2, %k1, %k2
-; AVX512BW-NEXT:    kmovd %k2, %ebx
-; AVX512BW-NEXT:    andb $1, %bl
-; AVX512BW-NEXT:    negb %bl
+; AVX512BW-NEXT:    kmovd %k2, %r11d
+; AVX512BW-NEXT:    andb $1, %r11b
+; AVX512BW-NEXT:    negb %r11b
 ; AVX512BW-NEXT:    kshiftrw $1, %k0, %k2
 ; AVX512BW-NEXT:    kmovd %k2, %ecx
 ; AVX512BW-NEXT:    andb $1, %cl
 ; AVX512BW-NEXT:    negb %cl
 ; AVX512BW-NEXT:    kshiftrw $1, %k1, %k2
-; AVX512BW-NEXT:    kmovd %k2, %esi
-; AVX512BW-NEXT:    andb $1, %sil
-; AVX512BW-NEXT:    negb %sil
+; AVX512BW-NEXT:    kmovd %k2, %edx
+; AVX512BW-NEXT:    andb $1, %dl
+; AVX512BW-NEXT:    negb %dl
 ; AVX512BW-NEXT:    kmovd %k0, %eax
 ; AVX512BW-NEXT:    andb $1, %al
 ; AVX512BW-NEXT:    negb %al
-; AVX512BW-NEXT:    kmovd %k1, %edx
-; AVX512BW-NEXT:    andb $1, %dl
-; AVX512BW-NEXT:    negb %dl
+; AVX512BW-NEXT:    kmovd %k1, %esi
+; AVX512BW-NEXT:    andb $1, %sil
+; AVX512BW-NEXT:    negb %sil
 ; AVX512BW-NEXT:    # kill: def $al killed $al killed $eax
-; AVX512BW-NEXT:    mulb %dl
-; AVX512BW-NEXT:    movl %eax, %r11d
+; AVX512BW-NEXT:    mulb %sil
+; AVX512BW-NEXT:    movl %eax, %esi
 ; AVX512BW-NEXT:    andb $1, %al
 ; AVX512BW-NEXT:    negb %al
-; AVX512BW-NEXT:    cmpb %r11b, %al
+; AVX512BW-NEXT:    cmpb %sil, %al
 ; AVX512BW-NEXT:    setne %al
 ; AVX512BW-NEXT:    kmovd %eax, %k1
 ; AVX512BW-NEXT:    movw $-3, %ax
 ; AVX512BW-NEXT:    kmovd %eax, %k0
 ; AVX512BW-NEXT:    kandw %k0, %k1, %k1
 ; AVX512BW-NEXT:    movl %ecx, %eax
-; AVX512BW-NEXT:    mulb %sil
-; AVX512BW-NEXT:    movl %eax, %ecx
+; AVX512BW-NEXT:    mulb %dl
+; AVX512BW-NEXT:    movl %eax, %ebx
 ; AVX512BW-NEXT:    andb $1, %al
 ; AVX512BW-NEXT:    negb %al
-; AVX512BW-NEXT:    cmpb %cl, %al
+; AVX512BW-NEXT:    cmpb %bl, %al
 ; AVX512BW-NEXT:    setne %al
 ; AVX512BW-NEXT:    kmovd %eax, %k2
 ; AVX512BW-NEXT:    kshiftlw $15, %k2, %k2
@@ -3814,7 +3814,7 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512BW-NEXT:    kmovd %eax, %k1
 ; AVX512BW-NEXT:    kandw %k1, %k2, %k2
 ; AVX512BW-NEXT:    movl %r10d, %eax
-; AVX512BW-NEXT:    mulb %bl
+; AVX512BW-NEXT:    mulb %r11b
 ; AVX512BW-NEXT:    movl %eax, %edx
 ; AVX512BW-NEXT:    andb $1, %al
 ; AVX512BW-NEXT:    negb %al
@@ -3828,20 +3828,20 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512BW-NEXT:    movl %r8d, %eax
 ; AVX512BW-NEXT:    mulb %r9b
 ; AVX512BW-NEXT:    # kill: def $al killed $al def $eax
-; AVX512BW-NEXT:    movl %eax, %ebx
-; AVX512BW-NEXT:    andb $1, %bl
-; AVX512BW-NEXT:    negb %bl
-; AVX512BW-NEXT:    cmpb %al, %bl
-; AVX512BW-NEXT:    setne %sil
-; AVX512BW-NEXT:    kmovd %esi, %k3
+; AVX512BW-NEXT:    movl %eax, %ecx
+; AVX512BW-NEXT:    andb $1, %cl
+; AVX512BW-NEXT:    negb %cl
+; AVX512BW-NEXT:    cmpb %al, %cl
+; AVX512BW-NEXT:    setne %cl
+; AVX512BW-NEXT:    kmovd %ecx, %k3
 ; AVX512BW-NEXT:    kshiftlw $3, %k3, %k3
 ; AVX512BW-NEXT:    korw %k3, %k2, %k2
 ; AVX512BW-NEXT:    vpcmpeqd %xmm0, %xmm0, %xmm0
 ; AVX512BW-NEXT:    vmovdqa32 %xmm0, %xmm0 {%k2} {z}
-; AVX512BW-NEXT:    andl $1, %r11d
-; AVX512BW-NEXT:    kmovw %r11d, %k2
+; AVX512BW-NEXT:    andl $1, %esi
+; AVX512BW-NEXT:    kmovw %esi, %k2
 ; AVX512BW-NEXT:    kandw %k0, %k2, %k0
-; AVX512BW-NEXT:    kmovd %ecx, %k2
+; AVX512BW-NEXT:    kmovd %ebx, %k2
 ; AVX512BW-NEXT:    kshiftlw $15, %k2, %k2
 ; AVX512BW-NEXT:    kshiftrw $14, %k2, %k2
 ; AVX512BW-NEXT:    korw %k2, %k0, %k0
@@ -3861,6 +3861,8 @@ define <4 x i32> @smulo_v4i1(<4 x i1> %a0, <4 x i1> %a1, <4 x i1>* %p2) nounwind
 ; AVX512BW-NEXT:    movb %al, (%rdi)
 ; AVX512BW-NEXT:    popq %rbx
 ; AVX512BW-NEXT:    retq
+; end INTEL_CUSTOMIZATION
+
   %t = call {<4 x i1>, <4 x i1>} @llvm.smul.with.overflow.v4i1(<4 x i1> %a0, <4 x i1> %a1)
   %val = extractvalue {<4 x i1>, <4 x i1>} %t, 0
   %obit = extractvalue {<4 x i1>, <4 x i1>} %t, 1
