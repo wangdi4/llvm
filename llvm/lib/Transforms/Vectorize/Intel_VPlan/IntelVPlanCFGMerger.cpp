@@ -115,6 +115,7 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
   VPBasicBlock *FirstExecutableBB =
       VPBlockUtils::splitBlockBegin(VectorTopTestBB, Plan.getVPLoopInfo(),
                                     Plan.getDT(), Plan.getPDT());
+  FirstExecutableBB->setName("vector.ph");
   // Find and move vector trip count and original trip count instructions to
   // the new block.
   VPBasicBlock *Preheader = Loop->getLoopPreheader();
@@ -150,9 +151,12 @@ VPBasicBlock *VPlanCFGMerger::createRemainderTopTest(VPBasicBlock *InsertAfter,
   VPVectorTripCountCalculation *VectorTC = findVectorTCInst(Preheader);
   VPOrigTripCountCalculation *OrigTC =
       cast<VPOrigTripCountCalculation>(VectorTC->getOperand(0));
+
   // Create a new block after insertion point.
   VPBasicBlock *RemIterTestBB = VPBlockUtils::splitBlockEnd(
       InsertAfter, Plan.getVPLoopInfo(), Plan.getDT(), Plan.getPDT());
+  RemIterTestBB->setName("middle.block");
+
   // Generate a check for vector tc is not equal original tc and branch
   // accoring to the check.
   VPBuilder Builder;
@@ -263,6 +267,7 @@ void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
     //      i64 merge.phi1 = phi-merge  [ i64 live-out1, ExitBB ]
     //      br <External Block>
     PostExitBB = createMergeBlock(ExitBB, ExitBB, false /*UseLiveIn*/);
+  PostExitBB->setName("scalar.ph");
 
   // Create vector top test:
   // %c = icmp eq i64 %VecTC, 0
@@ -318,4 +323,7 @@ void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
 
   // Invalidate SVA results as VPlan has been changed.
   Plan.invalidateAnalyses({VPAnalysisID::SVA});
+
+  Plan.computeDT();
+  Plan.computePDT();
 }

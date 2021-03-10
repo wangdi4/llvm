@@ -18,10 +18,16 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br label [[PREHEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  preheader:
+; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB1:
 ; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[N0]], 4
 ; CHECK-NEXT:    [[N_VEC0:%.*]] = sub i64 [[N0]], [[N_MOD_VF0]]
-; CHECK-NEXT:    [[CMP_ZERO0:%.*]] = icmp eq i64 [[N_VEC0]], 0
-; CHECK-NEXT:    br i1 [[CMP_ZERO0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC0]]
+; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[N0]], i32 0
@@ -29,25 +35,28 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP16:%.*]], [[PRED_LOAD_CONTINUE0:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ [[TMP15:%.*]], [[PRED_LOAD_CONTINUE0]] ], [ 0, [[VECTOR_PH0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ [[TMP14:%.*]], [[PRED_LOAD_CONTINUE0]] ], [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i64> [[VEC_PHI0]], <i64 2, i64 2, i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i64> [[TMP0]], [[BROADCAST_SPLAT0]]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32 (i32)*, i32 (i32)** [[FUNC0]], i64 [[UNI_PHI10]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32 (i32)** [[SCALAR_GEP0]] to <4 x i32 (i32)*>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32 (i32)*> @llvm.masked.load.v4p0f_i32i32f.p0v4p0f_i32i32f(<4 x i32 (i32)*>* [[TMP2]], i32 8, <4 x i1> [[TMP1]], <4 x i32 (i32)*> undef)
-; CHECK-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i32, i32* [[C0]], i64 [[UNI_PHI10]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP20]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD30:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP3]], i32 4, <4 x i1> [[TMP1]], <4 x i32> undef)
-; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP1]] to <4 x i32>
-; CHECK-NEXT:    [[ORIGINAL_VECTOR_OF_FUNC_PTR0:%.*]] = select <4 x i1> [[TMP1]], <4 x i32 (i32)*> [[WIDE_MASKED_LOAD0]], <4 x i32 (i32)*> zeroinitializer
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP17:%.*]], [[VPLANNEDBB110:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ [[TMP16:%.*]], [[VPLANNEDBB110]] ], [ 0, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ [[TMP15:%.*]], [[VPLANNEDBB110]] ], [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i64> [[VEC_PHI0]], <i64 2, i64 2, i64 2, i64 2>
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <4 x i64> [[TMP1]], [[BROADCAST_SPLAT0]]
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32 (i32)*, i32 (i32)** [[FUNC0]], i64 [[UNI_PHI30]]
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32 (i32)** [[SCALAR_GEP0]] to <4 x i32 (i32)*>*
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32 (i32)*> @llvm.masked.load.v4p0f_i32i32f.p0v4p0f_i32i32f(<4 x i32 (i32)*>* [[TMP3]], i32 8, <4 x i1> [[TMP2]], <4 x i32 (i32)*> undef)
+; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i32, i32* [[C0]], i64 [[UNI_PHI30]]
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD60:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP4]], i32 4, <4 x i1> [[TMP2]], <4 x i32> undef)
+; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP2]] to <4 x i32>
+; CHECK-NEXT:    [[ORIGINAL_VECTOR_OF_FUNC_PTR0:%.*]] = select <4 x i1> [[TMP2]], <4 x i32 (i32)*> [[WIDE_MASKED_LOAD0]], <4 x i32 (i32)*> zeroinitializer
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_ENTRY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.entry:
-; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <4 x i32 (i32)*> [ [[ORIGINAL_VECTOR_OF_FUNC_PTR0]], [[VECTOR_BODY0]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
-; CHECK-NEXT:    [[CUR_INDIRECT_CALL_RETURN0:%.*]] = phi <4 x i32> [ zeroinitializer, [[VECTOR_BODY0]] ], [ [[FINAL_INDIRECT_CALL_RETURN0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    [[INDX0:%.*]] = phi i64 [ 0, [[VECTOR_BODY0]] ], [ [[INDX_UPDATED0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
+; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <4 x i32 (i32)*> [ [[ORIGINAL_VECTOR_OF_FUNC_PTR0]], [[VPLANNEDBB40]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
+; CHECK-NEXT:    [[CUR_INDIRECT_CALL_RETURN0:%.*]] = phi <4 x i32> [ zeroinitializer, [[VPLANNEDBB40]] ], [ [[FINAL_INDIRECT_CALL_RETURN0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
+; CHECK-NEXT:    [[INDX0:%.*]] = phi i64 [ 0, [[VPLANNEDBB40]] ], [ [[INDX_UPDATED0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[CURRENT_FPTR0:%.*]] = extractelement <4 x i32 (i32)*> [[VECTOR_OF_FUNC_PTRS0]], i64 [[INDX0]]
 ; CHECK-NEXT:    [[IS_VISITED0:%.*]] = icmp eq i32 (i32)* [[CURRENT_FPTR0]], null
 ; CHECK-NEXT:    br i1 [[IS_VISITED0]], label [[INDIRECT_CALL_LOOP_LATCH0]], label [[VECTOR_INDIRECT_CALL0:%.*]]
@@ -56,13 +65,13 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <4 x i32 (i32)*> poison, i32 (i32)* [[CURRENT_FPTR0]], i32 0
 ; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <4 x i32 (i32)*> [[CURRENT_FPTR_SPLATINSERT0]], <4 x i32 (i32)*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <4 x i32 (i32)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
-; CHECK-NEXT:    [[FINAL_MASK0:%.*]] = and <4 x i1> [[FUNC_PTR_MASK0]], [[TMP1]]
-; CHECK-NEXT:    [[MASKEXT40:%.*]] = sext <4 x i1> [[FINAL_MASK0]] to <4 x i32>
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32 (i32)* [[CURRENT_FPTR0]] to <4 x i32> (<4 x i32>, <4 x i32>)**
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP4]], i32 0
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP5]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = call <4 x i32> [[TMP6]](<4 x i32> [[WIDE_MASKED_LOAD30]], <4 x i32> [[MASKEXT40]])
-; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <4 x i1> [[FINAL_MASK0]], <4 x i32> [[TMP7]], <4 x i32> [[CUR_INDIRECT_CALL_RETURN0]]
+; CHECK-NEXT:    [[FINAL_MASK0:%.*]] = and <4 x i1> [[FUNC_PTR_MASK0]], [[TMP2]]
+; CHECK-NEXT:    [[MASKEXT70:%.*]] = sext <4 x i1> [[FINAL_MASK0]] to <4 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32 (i32)* [[CURRENT_FPTR0]] to <4 x i32> (<4 x i32>, <4 x i32>)**
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP5]], i32 0
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP6]], align 8
+; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x i32> [[TMP7]](<4 x i32> [[WIDE_MASKED_LOAD60]], <4 x i32> [[MASKEXT70]])
+; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <4 x i1> [[FINAL_MASK0]], <4 x i32> [[TMP8]], <4 x i32> [[CUR_INDIRECT_CALL_RETURN0]]
 ; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <4 x i1> [[FINAL_MASK0]], <4 x i32 (i32)*> zeroinitializer, <4 x i32 (i32)*> [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -70,36 +79,39 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    [[FINAL_INDIRECT_CALL_RETURN0]] = phi <4 x i32> [ [[INDIRECT_CALL_RETURN_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[CUR_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_ENTRY0]] ]
 ; CHECK-NEXT:    [[CURRENT_VECTOR_OF_FUNC_PTRS0]] = phi <4 x i32 (i32)*> [ [[VECTOR_OF_FUNC_PTRS_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[VECTOR_OF_FUNC_PTRS0]], [[INDIRECT_CALL_LOOP_ENTRY0]] ]
 ; CHECK-NEXT:    [[INDX_UPDATED0]] = add i64 [[INDX0]], 1
-; CHECK-NEXT:    [[EXITCOND50:%.*]] = icmp eq i64 [[INDX_UPDATED0]], 4
-; CHECK-NEXT:    br i1 [[EXITCOND50]], label [[INDIRECT_CALL_LOOP_EXIT0:%.*]], label [[INDIRECT_CALL_LOOP_ENTRY0]]
+; CHECK-NEXT:    [[EXITCOND80:%.*]] = icmp eq i64 [[INDX_UPDATED0]], 4
+; CHECK-NEXT:    br i1 [[EXITCOND80]], label [[INDIRECT_CALL_LOOP_EXIT0:%.*]], label [[INDIRECT_CALL_LOOP_ENTRY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.exit:
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_LCSSA_PHI0:%.*]] = phi <4 x i32> [ [[FINAL_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <4 x i1> [[TMP1]] to i4
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne i4 [[TMP8]], 0
-; CHECK-NEXT:    br i1 [[TMP9]], label [[PRED_LOAD_IF0:%.*]], label [[TMP11:%.*]]
+; CHECK-NEXT:    [[TMP9:%.*]] = bitcast <4 x i1> [[TMP2]] to i4
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp ne i4 [[TMP9]], 0
+; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_LOAD_IF0:%.*]], label [[TMP12:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.if:
-; CHECK-NEXT:    [[TMP10:%.*]] = load i32, i32* [[A0]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT60:%.*]] = insertelement <4 x i32> poison, i32 [[TMP10]], i32 0
-; CHECK-NEXT:    br label [[TMP11]]
+; CHECK-NEXT:    [[TMP11:%.*]] = load i32, i32* [[A0]], align 4
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT90:%.*]] = insertelement <4 x i32> poison, i32 [[TMP11]], i32 0
+; CHECK-NEXT:    br label [[TMP12]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  11:
-; CHECK-NEXT:    [[TMP12:%.*]] = phi <4 x i32> [ poison, [[INDIRECT_CALL_LOOP_EXIT0]] ], [ [[BROADCAST_SPLATINSERT60]], [[PRED_LOAD_IF0]] ]
-; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE0]]
+; CHECK-NEXT:  12:
+; CHECK-NEXT:    [[TMP13:%.*]] = phi <4 x i32> [ poison, [[INDIRECT_CALL_LOOP_EXIT0]] ], [ [[BROADCAST_SPLATINSERT90]], [[PRED_LOAD_IF0]] ]
+; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLAT70:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP13:%.*]] = add nsw <4 x i32> [[BROADCAST_SPLAT70]], [[INDIRECT_CALL_RETURN_LCSSA_PHI0]]
-; CHECK-NEXT:    [[TMP14]] = add nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP15]] = add nsw i64 [[UNI_PHI10]], 4
-; CHECK-NEXT:    [[TMP16]] = add i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP17:%.*]] = icmp uge i64 [[TMP16]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP17]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[BROADCAST_SPLAT100:%.*]] = shufflevector <4 x i32> [[TMP13]], <4 x i32> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP14:%.*]] = add nsw <4 x i32> [[BROADCAST_SPLAT100]], [[INDIRECT_CALL_RETURN_LCSSA_PHI0]]
+; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB:
-; CHECK-NEXT:    [[TMP18:%.*]] = mul i64 1, [[N_VEC0]]
-; CHECK-NEXT:    [[TMP19:%.*]] = add i64 0, [[TMP18]]
+; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:    [[TMP15]] = add nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-NEXT:    [[TMP16]] = add nsw i64 [[UNI_PHI30]], 4
+; CHECK-NEXT:    [[TMP17]] = add i64 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[N_VEC0]]
+; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB120:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB12:
+; CHECK-NEXT:    [[TMP19:%.*]] = mul i64 1, [[N_VEC0]]
+; CHECK-NEXT:    [[TMP20:%.*]] = add i64 0, [[TMP19]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:

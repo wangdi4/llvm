@@ -18,58 +18,68 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br i1 [[CMP5]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
+; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
+; CHECK:       VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
+; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[WIDE_TRIP_COUNT]], 2
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub i64 [[WIDE_TRIP_COUNT]], [[N_MOD_VF]]
-; CHECK-NEXT:    [[CMP_ZERO:%.*]] = icmp eq i64 [[N_VEC]], 0
-; CHECK-NEXT:    br i1 [[CMP_ZERO]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
 ; CHECK:       vector.ph:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32*> poison, i32* [[IP:%.*]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT]], <2 x i32*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ [[TMP1:%.*]], [[VECTOR_BODY]] ], [ 0, [[VECTOR_PH]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP0:%.*]], [[VECTOR_BODY]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VPLANNEDBB5:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ [[TMP2:%.*]], [[VPLANNEDBB5]] ], [ 0, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP1:%.*]], [[VPLANNEDBB5]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 0
+; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
+; CHECK:       VPlannedBB4:
 ;
 ; The ordered block is inlined back to the loop:
-; CHECK-NEXT:    [[VAL_I:%.*]] = load i32, i32* [[X:%.*]]
+; CHECK-NEXT:    [[VAL_I:%.*]] = load i32, i32* [[X:%.*]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I]], i32* [[MM_VECTORGEP_EXTRACT_0_]], align 4
 ;
 ; The ordered block is inlined again:
-; CHECK-NEXT:    [[VAL_I3:%.*]] = load i32, i32* [[X]]
-; CHECK-NEXT:    store i32 [[VAL_I3]], i32* [[MM_VECTORGEP_EXTRACT_1_]], align 4
-; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI1]], 2
-; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
-; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[TMP4:%.*]] = mul i64 1, [[N_VEC]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add i64 0, [[TMP4]]
+; CHECK-NEXT:    [[VAL_I13:%.*]] = load i32, i32* [[X]], align 4
+; CHECK-NEXT:    store i32 [[VAL_I13]], i32* [[MM_VECTORGEP_EXTRACT_1_]], align 4
+; CHECK-NEXT:    br label [[VPLANNEDBB5]]
+; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI3]], 2
+; CHECK-NEXT:    [[TMP3]] = add i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[TMP5:%.*]] = mul i64 1, [[N_VEC]]
+; CHECK-NEXT:    [[TMP6:%.*]] = add i64 0, [[TMP5]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
 ; CHECK:       middle.block:
-; CHECK-NEXT:    [[CMP_N:%.*]] = icmp eq i64 [[WIDE_TRIP_COUNT]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[CMP_N]], label [[FOR_END:%.*]], label [[SCALAR_PH]]
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT]], [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[SCALAR_PH]], label [[VPLANNEDBB7:%.*]]
 ; CHECK:       scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[TMP5]], [[MIDDLE_BLOCK]] ]
+; CHECK-NEXT:    [[UNI_PHI8:%.*]] = phi i64 [ [[TMP6]], [[MIDDLE_BLOCK]] ], [ 0, [[VPLANNEDBB1]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB9:%.*]]
+; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ [[UNI_PHI8]], [[VPLANNEDBB9]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[IP]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    br label [[CODEREPL:%.*]]
 ;
 ; Inline the ordered region again:
 ; CHECK:       codeRepl:
-; CHECK-NEXT:    [[VAL_I2:%.*]] = load i32, i32* [[X]]
-; CHECK-NEXT:    store i32 [[VAL_I2]], i32* [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[VAL_I12:%.*]] = load i32, i32* [[X]], align 4
+; CHECK-NEXT:    store i32 [[VAL_I12]], i32* [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    br label [[LATCH]]
 ; CHECK:       latch:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
-; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_END]], label [[FOR_BODY]]
+; CHECK-NEXT:    br i1 [[EXITCOND]], label [[VPLANNEDBB7]], label [[FOR_BODY]], [[LOOP2:!llvm.loop !.*]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    br label [[FOR_COND_CLEANUP]]
 ; CHECK:       for.cond.cleanup:

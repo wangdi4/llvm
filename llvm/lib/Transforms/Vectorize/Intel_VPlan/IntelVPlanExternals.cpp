@@ -211,9 +211,9 @@ void VPLiveInOutCreator::createInOutsReductions(
     if (!RedFinalExternalUse) {
       // No external use can be possible for some auto-generated reductions,
       // e.g. fake linear index for min/max+index idiom or for reductions that
-      // are not used outside of the loop or in-memory reductions.
-      // Then we create a fake external use, with symbase equal to symbase of
-      // start value.
+      // are not used outside of the loop or in-memory reductions. Then we
+      // create a fake external use, with symbase equal to symbase of start
+      // value.
       // TODO: We don't need to create an external use in cases when it's a fake
       // linear index. In other cases we need to keep it's value after peel/main
       // loop.

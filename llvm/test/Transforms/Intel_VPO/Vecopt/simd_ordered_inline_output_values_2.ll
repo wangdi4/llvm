@@ -24,55 +24,72 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br i1 [[CMP5]], label [[FOR_BODY_PREHEADER:%.*]], label [[DIR_OMP_END_SIMD_2:%.*]]
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
+; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
+; CHECK:       VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
+; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[WIDE_TRIP_COUNT]], 2
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub i64 [[WIDE_TRIP_COUNT]], [[N_MOD_VF]]
-; CHECK-NEXT:    [[CMP_ZERO:%.*]] = icmp eq i64 [[N_VEC]], 0
-; CHECK-NEXT:    br i1 [[CMP_ZERO]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
 ; CHECK:       vector.ph:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32*> poison, i32* [[IP:%.*]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT]], <2 x i32*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ [[TMP3:%.*]], [[VECTOR_BODY]] ], [ 0, [[VECTOR_PH]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP2:%.*]], [[VECTOR_BODY]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VPLANNEDBB6:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ [[TMP4:%.*]], [[VPLANNEDBB6]] ], [ 0, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP3:%.*]], [[VPLANNEDBB6]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[TMP0]])
+; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
+; CHECK:       VPlannedBB4:
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[TMP1]])
 ; CHECK-NEXT:    [[VAL_I:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_]], align 4
-; CHECK-NEXT:    [[VAL_I3:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_1_]], align 4
-; CHECK-NEXT:    store i32 [[VAL_I3]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_]], align 4
+; CHECK-NEXT:    [[VAL_I14:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_1_]], align 4
+; CHECK-NEXT:    store i32 [[VAL_I14]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[VAL_LOC_VEC]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[TMP0]])
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_]] to <2 x i32>*
-; CHECK-NEXT:    store <2 x i32> [[WIDE_LOAD]], <2 x i32>* [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 2
-; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
-; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[TMP6:%.*]] = mul i64 1, [[N_VEC]]
-; CHECK-NEXT:    [[TMP7:%.*]] = add i64 0, [[TMP6]]
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[TMP1]])
+; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
+; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_]] to <2 x i32>*
+; CHECK-NEXT:    store <2 x i32> [[WIDE_LOAD]], <2 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    br label [[VPLANNEDBB6]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI3]], 2
+; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB7:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
+; CHECK:       VPlannedBB7:
+; CHECK-NEXT:    [[TMP7:%.*]] = mul i64 1, [[N_VEC]]
+; CHECK-NEXT:    [[TMP8:%.*]] = add i64 0, [[TMP7]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
 ; CHECK:       middle.block:
-; CHECK-NEXT:    [[CMP_N:%.*]] = icmp eq i64 [[WIDE_TRIP_COUNT]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[CMP_N]], label [[FOR_END:%.*]], label [[SCALAR_PH]]
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT]], [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP9]], label [[SCALAR_PH]], label [[VPLANNEDBB8:%.*]]
 ; CHECK:       scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[TMP7]], [[MIDDLE_BLOCK]] ]
+; CHECK-NEXT:    [[UNI_PHI9:%.*]] = phi i64 [ [[TMP8]], [[MIDDLE_BLOCK]] ], [ 0, [[VPLANNEDBB1]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; CHECK:       VPlannedBB10:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
+; CHECK:       VPlannedBB8:
+; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ [[TMP8]], [[MIDDLE_BLOCK]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB12:%.*]]
+; CHECK:       VPlannedBB12:
+; CHECK-NEXT:    br label [[FOR_END:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ]
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT]], [[LATCH]] ], [ [[UNI_PHI9]], [[VPLANNEDBB10]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[IP]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    br label [[CODEREPL:%.*]]
 ; CHECK:       codeRepl:
 ; CHECK-NEXT:    [[LT_CAST:%.*]] = bitcast i32* [[VAL_LOC]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[LT_CAST]])
-; CHECK-NEXT:    [[VAL_I2:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
-; CHECK-NEXT:    store i32 [[VAL_I2]], i32* [[VAL_LOC]], align 4
+; CHECK-NEXT:    [[VAL_I13:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
+; CHECK-NEXT:    store i32 [[VAL_I13]], i32* [[VAL_LOC]], align 4
 ; CHECK-NEXT:    [[VAL_RELOAD:%.*]] = load i32, i32* [[VAL_LOC]], align 4
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[LT_CAST]])
 ; CHECK-NEXT:    br label [[BB:%.*]]
@@ -82,7 +99,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK:       latch:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT]]
-; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_END]], label [[FOR_BODY]], [[LOOP2:!llvm.loop !.*]]
+; CHECK-NEXT:    br i1 [[EXITCOND]], label [[VPLANNEDBB8]], label [[FOR_BODY]], [[LOOP2:!llvm.loop !.*]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_2]]
 ; CHECK:       DIR.OMP.END.SIMD.2:

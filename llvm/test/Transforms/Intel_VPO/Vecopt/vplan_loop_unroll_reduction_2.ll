@@ -69,67 +69,87 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.1:
 ; CHECK-NEXT:    [[WIDE_TRIP_COUNT0:%.*]] = sext i32 [[N0]] to i64
+; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB1:
 ; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[WIDE_TRIP_COUNT0]], 4
 ; CHECK-NEXT:    [[N_VEC0:%.*]] = sub i64 [[WIDE_TRIP_COUNT0]], [[N_MOD_VF0]]
-; CHECK-NEXT:    [[CMP_ZERO0:%.*]] = icmp eq i64 [[N_VEC0]], 0
-; CHECK-NEXT:    br i1 [[CMP_ZERO0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC0]]
+; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP10:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP9:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI20:%.*]] = phi <2 x i32> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI10]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <2 x i32> [[WIDE_LOAD0]], [[VEC_PHI20]]
-; CHECK-NEXT:    [[TMP2:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[UNI_PHI10]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], [[N_VEC0]]
-; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP3]]
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP30]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD40:%.*]] = load <2 x i32>, <2 x i32>* [[TMP6]], align 4
-; CHECK-NEXT:    [[TMP7]] = add nsw <2 x i32> [[WIDE_LOAD40]], [[TMP1]]
-; CHECK-NEXT:    [[TMP8]] = add nuw nsw <2 x i64> [[TMP2]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP9]] = add nuw nsw i64 [[TMP3]], 2
-; CHECK-NEXT:    [[TMP10]] = add i64 [[TMP4]], 2
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp uge i64 [[TMP10]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP11:%.*]], [[VPLANNEDBB50:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP10:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP9:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[VEC_PHI40:%.*]] = phi <2 x i32> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI30]]
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP1]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <2 x i32> [[WIDE_LOAD0]], [[VEC_PHI40]]
+; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw i64 [[UNI_PHI30]], 2
+; CHECK-NEXT:    [[TMP5:%.*]] = add i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC0]]
+; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB:
-; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[TMP7]])
-; CHECK-NEXT:    [[TMP13:%.*]] = mul i64 1, [[N_VEC0]]
-; CHECK-NEXT:    [[TMP14:%.*]] = add i64 0, [[TMP13]]
+; CHECK-NEXT:  VPlannedBB5:
+; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP4]]
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP60]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD70:%.*]] = load <2 x i32>, <2 x i32>* [[TMP7]], align 4
+; CHECK-NEXT:    [[TMP8]] = add nsw <2 x i32> [[WIDE_LOAD70]], [[TMP2]]
+; CHECK-NEXT:    [[TMP9]] = add nuw nsw <2 x i64> [[TMP3]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP10]] = add nuw nsw i64 [[TMP4]], 2
+; CHECK-NEXT:    [[TMP11]] = add i64 [[TMP5]], 2
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp uge i64 [[TMP11]], [[N_VEC0]]
+; CHECK-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB8:
+; CHECK-NEXT:    [[TMP13:%.*]] = call i32 @llvm.vector.reduce.add.v2i32(<2 x i32> [[TMP8]])
+; CHECK-NEXT:    [[TMP14:%.*]] = mul i64 1, [[N_VEC0]]
+; CHECK-NEXT:    [[TMP15:%.*]] = add i64 0, [[TMP14]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  middle.block:
-; CHECK-NEXT:    [[CMP_N0:%.*]] = icmp eq i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[CMP_N0]], label [[DIR_OMP_END_SIMD_30:%.*]], label [[SCALAR_PH0]]
+; CHECK-NEXT:    [[TMP16:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
+; CHECK-NEXT:    br i1 [[TMP16]], label [[SCALAR_PH0]], label [[VPLANNEDBB90:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  scalar.ph:
-; CHECK-NEXT:    [[BC_MERGE_REDUCTION0:%.*]] = phi i32 [ 0, [[DIR_OMP_SIMD_10]] ], [ [[TMP12]], [[MIDDLE_BLOCK0]] ]
-; CHECK-NEXT:    [[BC_RESUME_VAL0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10]] ], [ [[TMP14]], [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    [[UNI_PHI100:%.*]] = phi i32 [ [[TMP13]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI110:%.*]] = phi i64 [ [[TMP15]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB120:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB12:
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY0]]
 ; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9.loopexit:
+; CHECK-NEXT:    br label [[VPLANNEDBB90]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    [[UNI_PHI130:%.*]] = phi i32 [ [[TMP13]], [[MIDDLE_BLOCK0]] ], [ [[ADD60]], [[VPLANNEDBB9_LOOPEXIT0:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI140:%.*]] = phi i64 [ [[TMP15]], [[MIDDLE_BLOCK0]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[VPLANNEDBB9_LOOPEXIT0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB150:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB15:
+; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_30:%.*]]
+; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.inner.for.body:
-; CHECK-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[BC_RESUME_VAL0]], [[SCALAR_PH0]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0]] ]
-; CHECK-NEXT:    [[ACC_0190:%.*]] = phi i32 [ [[BC_MERGE_REDUCTION0]], [[SCALAR_PH0]] ], [ [[ADD60]], [[OMP_INNER_FOR_BODY0]] ]
+; CHECK-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[UNI_PHI110]], [[VPLANNEDBB120]] ], [ [[INDVARS_IV_NEXT0]], [[OMP_INNER_FOR_BODY0]] ]
+; CHECK-NEXT:    [[ACC_0190:%.*]] = phi i32 [ [[UNI_PHI100]], [[VPLANNEDBB120]] ], [ [[ADD60]], [[OMP_INNER_FOR_BODY0]] ]
 ; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[INDVARS_IV0]]
-; CHECK-NEXT:    [[TMP15:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
-; CHECK-NEXT:    [[ADD60]] = add nsw i32 [[TMP15]], [[ACC_0190]]
+; CHECK-NEXT:    [[TMP17:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
+; CHECK-NEXT:    [[ADD60]] = add nsw i32 [[TMP17]], [[ACC_0190]]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
-; CHECK-NEXT:    br i1 [[EXITCOND0]], label [[DIR_OMP_END_SIMD_3_LOOPEXIT0:%.*]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !2
-; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.SIMD.3.loopexit:
-; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_30]]
+; CHECK-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB9_LOOPEXIT0]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.SIMD.3:
-; CHECK-NEXT:    [[ADD6_LCSSA0]] = phi i32 [ [[TMP12]], [[MIDDLE_BLOCK0]] ], [ [[ADD60]], [[DIR_OMP_END_SIMD_3_LOOPEXIT0]] ]
+; CHECK-NEXT:    [[ADD6_LCSSA0]] = phi i32 [ [[UNI_PHI130]], [[VPLANNEDBB150]] ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.SIMD.2:

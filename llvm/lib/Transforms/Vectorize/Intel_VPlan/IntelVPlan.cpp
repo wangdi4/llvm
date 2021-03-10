@@ -718,36 +718,86 @@ void VPlan::execute(VPTransformState *State) {
          "Expected single outermost loop!");
   VPLoop *VLoop = *VPLInfo->begin();
   State->ILV->setVPlan(this, getLoopEntities(VLoop));
+
+  IRBuilder<>::InsertPointGuard Guard(State->Builder);
+  // The code below (until hasExplicitRemainder check) won't be needed when
+  // explicit remainder becomes the only option.
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
-  BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
-  assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
-  // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
-  // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
-  // file.
-  auto *HTerm = VectorHeaderBB->getTerminator();
-  BasicBlock *MiddleBlock = HTerm->getSuccessor(0);
+  BasicBlock *MiddleBlock;
 
-  auto CurrIP = State->Builder.saveIP();
+  if (hasExplicitRemainder()) {
+    State->CFG.InsertBefore = State->ILV->getOrigLoop()->getExitBlock();
+    State->CFG.PrevBB = State->ILV->getOrigLoop()->getLoopPreheader();
+    // Find first VPBB that is on the path to vector loop. We can't
+    // place vector instructions before that block, this might lead
+    // to unnecessary vector code executed when the vector path is
+    // not taken (e.g. after TC check).
+    // Supposing that CFG is built like below
+    //
+    // pred.block:
+    //   %vectorTC = vector-trip-count %op
+    //   %c = icmp eq i64 %vectorTC, 0
+    //   br i1 %c, label vector.ph, label %scalar.ph
+    // vector.ph:
+    //   ...
+    // vector.body:
+    //   ...
+    // Here vector.ph is the needed block. We go from loop preheader
+    // back by single predecessor until find the block with more than
+    // one succesor.
+    // TODO. That might need correction if we will insert some
+    // if-then-else initilization sequences before VPLoop preheader.
+     VPBasicBlock *BB;
+    for (BB = VLoop->getLoopPreheader();
+         BB && BB->getSinglePredecessor()->getNumSuccessors() == 1;
+         BB = BB->getSinglePredecessor())
+      ;
+    assert(BB && "Can't find first executable VPlan block");
+    // Sanity check: lookup for the VPVectorTripCountCalculation in
+    // the predecessor.
+    auto I = llvm::find_if(*BB->getSinglePredecessor(),
+                           [](VPInstruction &Inst) -> bool {
+                             return isa<VPVectorTripCountCalculation>(Inst);
+                           });
+    assert(I != BB->getSinglePredecessor()->end() && "Incorrect basic block");
+    (void)I;
+    State->CFG.FirstExecutableVPBB = BB;
+  } else {
+    BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
+    assert(VectorHeaderBB &&
+           "Loop preheader does not have a single successor.");
+    // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
+    // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
+    // file.
+    auto *HTerm = VectorHeaderBB->getTerminator();
+    MiddleBlock = HTerm->getSuccessor(0);
+    assert(MiddleBlock->getName().startswith("middle.block") &&
+           "Code is not in sync!");
 
-  // Temporarily terminate with unreachable until CFG is rewired.
-  // Note: this asserts xform code's assumption that getFirstInsertionPt()
-  // can be dereferenced into an Instruction.
-  VectorHeaderBB->getTerminator()->eraseFromParent();
-  State->Builder.SetInsertPoint(VectorHeaderBB);
-  State->Builder.CreateUnreachable();
-  // Set insertion point to vector loop PH
-  State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
+    // Temporarily terminate with unreachable until CFG is rewired.
+    // Note: this asserts xform code's assumption that getFirstInsertionPt()
+    // can be dereferenced into an Instruction.
+    VectorHeaderBB->getTerminator()->eraseFromParent();
+    State->Builder.SetInsertPoint(VectorHeaderBB);
+    State->Builder.CreateUnreachable();
+    // Set insertion point to vector loop PH
+    State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
 
-  // Generate code in loop body of vectorized version.
-  State->CFG.PrevVPBB = nullptr;
-  State->CFG.PrevBB = VectorPreHeaderBB;
-  State->CFG.InsertBefore = MiddleBlock;
+    // Generate code in loop body of vectorized version.
+    State->CFG.PrevVPBB = nullptr;
+    State->CFG.PrevBB = VectorPreHeaderBB;
+    State->CFG.InsertBefore = MiddleBlock;
+  }
 
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
     LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << BB->getName() << '\n');
     BB->execute(State);
   }
+
+  if (hasExplicitRemainder())
+    // The rest is not needed in this case.
+    return;
 
   // Fix the edges for blocks in VPBBsToFix list.
   for (auto VPBB : State->CFG.VPBBsToFix) {
@@ -782,7 +832,6 @@ void VPlan::execute(VPTransformState *State) {
   // with inner loops. Right now we are not marking any analyses as
   // preserved - so this should be ok.
   // updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
-  State->Builder.restoreIP(CurrIP);
 }
 
 #if INTEL_CUSTOMIZATION

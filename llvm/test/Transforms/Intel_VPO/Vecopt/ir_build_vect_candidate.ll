@@ -60,24 +60,33 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_L1_IND_FINAL]]
 ;
 ; CHECK:  define void @foo(i64* nocapture [[LARR0]]) {
-; CHECK:       vector.body: ; preds = [[VECTOR_BODY0:%.*]], [[VECTOR_PH0:%.*]]
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64* [[LARR0]], i64 [[UNI_PHI10]]
+; CHECK:       vector.body: ; preds = [[VPLANNEDBB60:%.*]], [[VECTOR_PH0:%.*]]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VPLANNEDBB60]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VPLANNEDBB60]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VPLANNEDBB60]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64* [[LARR0]], i64 [[UNI_PHI30]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i64>, <4 x i64>* [[TMP0]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i64> [[WIDE_LOAD0]], <i64 1111, i64 1111, i64 1111, i64 1111>
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> <i64 2222, i64 2222, i64 2222, i64 2222>, <4 x i64>* [[TMP3]], i32 8, <4 x i1> [[TMP2]])
+; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB5:
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> <i64 3333, i64 3333, i64 3333, i64 3333>, <4 x i64>* [[TMP4]], i32 8, <4 x i1> [[TMP1]])
+; CHECK-NEXT:    br label [[VPLANNEDBB60]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI10]], 4
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI30]], 4
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 100
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0:%.*]]
 ;
 entry:
   br label %for.body

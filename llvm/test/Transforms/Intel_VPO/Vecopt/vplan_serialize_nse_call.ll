@@ -22,7 +22,7 @@ simd.loop.preheader:                              ; preds = %simd.begin.region
 ; CHECK:       vector.body:
 ; CHECK:       {{.*}} = call i32 @foo_i32({{.*}})
 ; CHECK-NOT:   {{.*}} = call i32 @foo_i32({{.*}})
-; CHECK:       VPlannedBB:
+; CHECK:       VPlannedBB4:
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
@@ -64,7 +64,7 @@ simd.loop.preheader:                              ; preds = %simd.begin.region
 ; CHECK:       vector.body:
 ; CHECK:       call void @foo_void({{.*}})
 ; CHECK-NOT:   call void @foo_void({{.*}})
-; CHECK:       VPlannedBB:
+; CHECK:       VPlannedBB4:
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]

@@ -1,5 +1,6 @@
-; RUN: opt -S -VPlanDriver -vplan-enable-all-liveouts %s | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" -vplan-enable-all-liveouts %s | FileCheck %s
+; TODO: enable cfg merge after private support enabled
+; RUN: opt -S -VPlanDriver -vplan-enable-all-liveouts -vplan-enable-cfg-merge=0 %s | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" -vplan-enable-all-liveouts -vplan-enable-cfg-merge=0 %s | FileCheck %s
 
 ; CHECK-LABEL: simd_loop
 ; CHECK: %[[CmpRes:.*]] = icmp sgt <4 x i32> %{{.*}}, zeroinitializer

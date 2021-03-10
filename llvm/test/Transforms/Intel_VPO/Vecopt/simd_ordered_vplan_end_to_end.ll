@@ -22,10 +22,16 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  for.body.preheader:
 ; LLVMIR-NEXT:    [[WIDE_TRIP_COUNT0:%.*]] = zext i32 [[N0]] to i64
+; LLVMIR-NEXT:    br label [[VPLANNEDBB0:%.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB:
+; LLVMIR-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB1:
 ; LLVMIR-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[WIDE_TRIP_COUNT0]], 2
 ; LLVMIR-NEXT:    [[N_VEC0:%.*]] = sub i64 [[WIDE_TRIP_COUNT0]], [[N_MOD_VF0]]
-; LLVMIR-NEXT:    [[CMP_ZERO0:%.*]] = icmp eq i64 [[N_VEC0]], 0
-; LLVMIR-NEXT:    br i1 [[CMP_ZERO0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
+; LLVMIR-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC0]]
+; LLVMIR-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  vector.ph:
 ; LLVMIR-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i32 0
@@ -33,35 +39,51 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  vector.body:
-; LLVMIR-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
-; LLVMIR-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ [[TMP1:%.*]], [[VECTOR_BODY0]] ], [ 0, [[VECTOR_PH0]] ]
-; LLVMIR-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP0:%.*]], [[VECTOR_BODY0]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; LLVMIR-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VPLANNEDBB50:%.*]] ]
+; LLVMIR-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ [[TMP2:%.*]], [[VPLANNEDBB50]] ], [ 0, [[VECTOR_PH0]] ]
+; LLVMIR-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP1:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
 ; LLVMIR-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[VEC_PHI0]]
 ; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 1
 ; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 0
+; LLVMIR-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB4:
 ; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_0_0]])
 ; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_1_0]])
-; LLVMIR-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; LLVMIR-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI10]], 2
-; LLVMIR-NEXT:    [[TMP2]] = add i64 [[UNI_PHI0]], 2
-; LLVMIR-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], [[N_VEC0]]
-; LLVMIR-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; LLVMIR-NEXT:    br label [[VPLANNEDBB50]]
 ; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  VPlannedBB:
-; LLVMIR-NEXT:    [[TMP4:%.*]] = mul i64 1, [[N_VEC0]]
-; LLVMIR-NEXT:    [[TMP5:%.*]] = add i64 0, [[TMP4]]
+; LLVMIR-NEXT:  VPlannedBB5:
+; LLVMIR-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; LLVMIR-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI30]], 2
+; LLVMIR-NEXT:    [[TMP3]] = add i64 [[UNI_PHI0]], 2
+; LLVMIR-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], [[N_VEC0]]
+; LLVMIR-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB6:
+; LLVMIR-NEXT:    [[TMP5:%.*]] = mul i64 1, [[N_VEC0]]
+; LLVMIR-NEXT:    [[TMP6:%.*]] = add i64 0, [[TMP5]]
 ; LLVMIR-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  middle.block:
-; LLVMIR-NEXT:    [[CMP_N0:%.*]] = icmp eq i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
-; LLVMIR-NEXT:    br i1 [[CMP_N0]], label [[FOR_END0:%.*]], label [[SCALAR_PH0]]
+; LLVMIR-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
+; LLVMIR-NEXT:    br i1 [[TMP7]], label [[SCALAR_PH0]], label [[VPLANNEDBB70:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  scalar.ph:
-; LLVMIR-NEXT:    [[BC_RESUME_VAL0:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER0]] ], [ [[TMP5]], [[MIDDLE_BLOCK0]] ]
+; LLVMIR-NEXT:    [[UNI_PHI80:%.*]] = phi i64 [ [[TMP6]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; LLVMIR-NEXT:    br label [[VPLANNEDBB90:%.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB9:
 ; LLVMIR-NEXT:    br label [[FOR_BODY0:%.*]]
 ; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB7:
+; LLVMIR-NEXT:    [[UNI_PHI100:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[LATCH0:%.*]] ], [ [[TMP6]], [[MIDDLE_BLOCK0]] ]
+; LLVMIR-NEXT:    br label [[VPLANNEDBB110:%.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB11:
+; LLVMIR-NEXT:    br label [[FOR_END0:%.*]]
+; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  for.body:
-; LLVMIR-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[LATCH0:%.*]] ], [ [[BC_RESUME_VAL0]], [[SCALAR_PH0]] ]
+; LLVMIR-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0]], [[LATCH0]] ], [ [[UNI_PHI80]], [[VPLANNEDBB90]] ]
 ; LLVMIR-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[INDVARS_IV0]]
 ; LLVMIR-NEXT:    br label [[CODEREPL0:%.*]]
 ; LLVMIR-EMPTY:
@@ -72,7 +94,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:  latch:
 ; LLVMIR-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; LLVMIR-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
-; LLVMIR-NEXT:    br i1 [[EXITCOND0]], label [[FOR_END0]], label [[FOR_BODY0]], !llvm.loop !2
+; LLVMIR-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB70]], label [[FOR_BODY0]], !llvm.loop !2
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  for.end:
 ; LLVMIR-NEXT:    br label [[FOR_COND_CLEANUP0]]

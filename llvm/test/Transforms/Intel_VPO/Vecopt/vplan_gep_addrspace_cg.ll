@@ -12,7 +12,7 @@
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_OP:%.*]] i32 addrspace(4)* [[VP_GEP_ASCAST]]
 
 define dso_local void @test_gep_addrpspace_cast([1024 x i32]* %src) {
-; CHECK:       DIR.OMP.SIMD.1:
+; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br i1 false, label %scalar.ph, label %vector.ph
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:

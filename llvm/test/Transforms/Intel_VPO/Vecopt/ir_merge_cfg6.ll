@@ -10,8 +10,8 @@
 ; MERGE-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop
 ; MERGE-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
 ; MERGE-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP_VECTOR_TRIP_COUNT]]
-; MERGE-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
-; MERGE:           [[BB2]]: # preds: [[BB0]]
+; MERGE-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[SCALAR_PH0:.*]], [[VECTOR_PH0:.*]]
+; MERGE:           [[VECTOR_PH0]]: # preds: [[BB0]]
 ; MERGE-NEXT:       [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 icmp eq (i8 addrspace(3)* bitcast (i32 addrspace(3)* @testKernel.lint to i8 addrspace(3)*), i8 addrspace(3)* null)
 ; MERGE-NEXT:       [DA: Uni] i1 [[VP__NOT_1:%.*]] = not i1 icmp eq (i8 addrspace(1)* bitcast (i32 addrspace(1)* @gint to i8 addrspace(1)*), i8 addrspace(1)* null)
 ;

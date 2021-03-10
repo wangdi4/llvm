@@ -941,7 +941,64 @@ static Optional<bool> getKnownSign(Value *Op, Instruction *CxtI,
   return isImpliedByDomCondition(
       ICmpInst::ICMP_SLT, Op, Constant::getNullValue(Op->getType()), CxtI, DL);
 }
+#if INTEL_CUSTOMIZATION
+/// Checks if the given pair of stacksave (\p SSCI) and stackrestore
+/// (\p SRCI) call instructions may be eliminated.
+///
+/// \p SRCI has to be the only use of \p SSCI (to simplify the analysis),
+/// and we have to prove that there is nothing between them
+/// that reads/modifies the value of the stack pointer.
+static bool isRedundantStacksaveStackrestore(CallInst *SSCI,
+                                             CallInst *SRCI) {
+  // Optimize stacksave that is used only by a stackrestore.
+  if (!SSCI->hasOneUse())
+    return false;
+  if (SSCI->user_back() != SRCI)
+    return false;
+  // Be conservative and optimize only if the stacksave
+  // and the stackrestore are in the same basic block.
+  if (SSCI->getParent() != SRCI->getParent())
+    return false;
 
+  // Walk from the stacksave to the stackrestore and make sure
+  // the stack pointer is not used in any unknown way.
+  BasicBlock::iterator BI(SSCI);
+  Instruction *TI = SSCI->getParent()->getTerminator();
+  for (++BI; &*BI != TI && &*BI != SRCI; ++BI) {
+    if (isa<AllocaInst>(BI))
+      return false;
+
+    // This may happen when variable allocas are DCE'd.
+    // In addition, the inliner may insert stacksave/stackrestore
+    // for allocas of known size to guarantee correctness (e.g.
+    // when the inlining is done within an OpenMP region). These allocas
+    // may be hoisted later leaving redundant pairs of stacksave/stackrestore.
+    // See CMPLRLLVM-26364 for details.
+    if (CallBase *CB = dyn_cast<CallBase>(BI)) {
+      if (auto *II2 = dyn_cast<IntrinsicInst>(CB)) {
+        // Bail if we cross over an intrinsic with side effects, such as
+        // llvm.stacksave, or llvm.read_register. At the same time, allow
+        // some known intrinsics (e.g. memset).
+        if (isa<AnyMemSetInst>(II2))
+          continue;
+
+        if (II2->mayHaveSideEffects())
+          return false;
+      } else {
+        // If we found a non-intrinsic call or invoke, we cannot optimize.
+        return false;
+      }
+    }
+  }
+
+  // If we have not reached the corresponding stackrestore, then
+  // something is wrong, so just avoid optimizing.
+  if (&*BI != SRCI)
+    return false;
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 /// CallInst simplification. This mostly only handles folding of intrinsic
 /// instructions. For normal calls, it allows visitCallBase to do the heavy
 /// lifting.
@@ -1745,6 +1802,10 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         if (SS->getNextNonDebugInstruction() == II) {
           return eraseInstFromFunction(CI);
         }
+#if INTEL_CUSTOMIZATION
+        if (isRedundantStacksaveStackrestore(SS, &CI))
+          return eraseInstFromFunction(CI);
+#endif // INTEL_CUSTOMIZATION
       }
     }
 

@@ -62,7 +62,7 @@ static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 static cl::opt<bool>
-    EnableCFGMerge("vplan-enable-cfg-merge", cl::init(false), cl::Hidden,
+    EnableCFGMerge("vplan-enable-cfg-merge", cl::init(true), cl::Hidden,
                    cl::desc("Enable CFG merge before VPlan code gen."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
@@ -491,15 +491,12 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     }
 
     // Calculate the total cost of peel loop if there is one.
-    VPlanPeelEvaluator PeelEvaluator(
-        nullptr /*currently, we do not support masked peel variant*/,
-        ScalarIterationCost, TLI, TTI, DL, VLSA, VF,
-        Plan->getPreferredPeeling(VF));
+    VPlanPeelEvaluator PeelEvaluator(*this, ScalarIterationCost, TLI, TTI, DL,
+                                     VLSA, VF, Plan->getPreferredPeeling(VF));
 
     // Calculate the total cost of remainder loop if there is one.
     VPlanRemainderEvaluator RemainderEvaluator(
-        nullptr /*currently, we do not support masked remainder*/,
-        ScalarIterationCost, TLI, TTI, DL, VLSA, Plan, TripCount,
+        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
         PeelEvaluator.getTripCount(), VF, BestUF);
 
     // Calculate main loop's trip count. Currently, the unroll factor is set to
@@ -539,6 +536,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (PrintAfterEvaluator) {
+      dbgs() << "Evaluators for VF=" << VF << "\n";
       PeelEvaluator.dump();
       dbgs() << "The main loop is vectorized with vector factor " << VF
              << ". The vector cost is "

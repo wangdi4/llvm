@@ -10,9 +10,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo() local_unnamed_addr #0 {
 ; CHECK-LABEL: @foo(
+; CHECK:       VPlannedBB7:
+; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi i64 [ [[INC:%.*]], [[DOTLR_PH:%.*]] ], [ [[TMP14:%.*]], [[MIDDLE_BLOCK:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI12:%.*]] = phi i32 [ [[INC3:%.*]], [[DOTLR_PH]] ], [ [[TMP16:%.*]], [[MIDDLE_BLOCK]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB13:%.*]]
+; CHECK:       VPlannedBB13:
+; CHECK-NEXT:    br label [[DOT_CRIT_EDGE:%.*]]
 ; CHECK:       ._crit_edge:
-; CHECK:    [[INC_LCSSA:%.*]] = phi i64 [ [[INC:%.*]], [[DOTLR_PH:%.*]] ], [ [[N_VEC:%.*]], [[MIDDLE_BLOCK:%.*]] ]
-; CHECK:    store i64 [[INC_LCSSA]], i64* [[POS:%.*]]
+; CHECK-NEXT:    [[INC_LCSSA:%.*]] = phi i64 [ [[UNI_PHI11]], [[VPLANNEDBB13]] ]
+; CHECK-NEXT:    store i64 [[INC_LCSSA]], i64* [[POS:%.*]]
 ;
 
   %1 = load %struct.TypOutputFile*, %struct.TypOutputFile** @Output, align 8
