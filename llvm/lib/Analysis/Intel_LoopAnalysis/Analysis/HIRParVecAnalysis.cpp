@@ -928,9 +928,9 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
         return Mismatch("Nodes are not in the right order.");
 
       // Check if both source and sink nodes have the same memory reference.
-      if (SrcRef->isRval() && SrcNode->getRvalDDRef()->isMemRef())
-        if (DDRefUtils::areEqual(SrcRef, StoreMemDDRef))
-          continue;
+      if (SrcRef->isRval() && DDRefUtils::areEqual(SrcRef, StoreMemDDRef))
+        continue;
+
       return Mismatch("Wrong memory dependency.");
     }
   }
