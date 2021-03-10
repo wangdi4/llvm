@@ -78,8 +78,6 @@ static cl::opt<bool>
     VPlanVerifyDA("vplan-verify-da", cl::init(DA_FVERIFY_INIT), cl::Hidden,
                   cl::desc("Run sanity-check on VPlan divergence analysis"));
 
-extern cl::opt<bool> EnableVPValueCodegen;
-
 #define Uni    VPVectorShape::Uni
 #define Seq    VPVectorShape::Seq
 #define Str    VPVectorShape::Str

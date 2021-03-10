@@ -32,8 +32,6 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Print VPlan entities"));
 
-extern cl::opt<bool> EnableVPValueCodegen;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void VPReduction::dump(raw_ostream &OS) const {
