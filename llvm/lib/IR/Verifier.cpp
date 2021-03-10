@@ -5170,8 +5170,11 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   case Intrinsic::vector_reduce_umax:
   case Intrinsic::vector_reduce_umin: {
     Type *ArgTy = Call.getArgOperand(0)->getType();
-    Assert(ArgTy->isIntOrIntVectorTy() && ArgTy->isVectorTy(),
+#if INTEL_CUSTOMIZATION
+    Assert((ArgTy->isIntOrIntVectorTy() || ArgTy->isPtrOrPtrVectorTy()) &&
+               ArgTy->isVectorTy(),
            "Intrinsic has incorrect argument type!");
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   case Intrinsic::vector_reduce_fmax:
