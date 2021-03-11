@@ -32,6 +32,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
+#include "llvm/Transforms/Utils/Debugify.h"
 
 using namespace llvm;
 using namespace opt_tool;
@@ -227,6 +228,21 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   ModulePassManager MPM(DebugPM);
+
+  // Register a callback that creates the debugify passes as needed.
+  PB.registerPipelineParsingCallback(
+      [](StringRef Name, ModulePassManager &MPM,
+         ArrayRef<PassBuilder::PipelineElement>) {
+        if (Name == "debugify") {
+          MPM.addPass(NewPMDebugifyPass());
+          return true;
+        } else if (Name == "check-debugify") {
+          MPM.addPass(NewPMCheckDebugifyPass());
+          return true;
+        }
+        return false;
+      });
+
   if (VK > VK_NoVerifier)
     MPM.addPass(VerifierPass());
 

@@ -61,6 +61,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Debugify.h"
 
 #include <algorithm>
 #include <memory>
@@ -175,6 +176,9 @@ static cl::opt<unsigned>
 CodeGenOptLevel("codegen-opt-level",
                 cl::desc("Override optimization level for codegen hooks"));
 
+static cl::opt<bool>
+EnableDebugify("enable-debugify",
+               cl::desc("Enable Debugify and corresponding Debugify check for all passes"));
 #if INTEL_CUSTOMIZATION
 // This option can be passed directly to clcpcom. It is duplicated here to
 // provide the same functionality through opt.
@@ -710,6 +714,9 @@ int main(int argc, char **argv) {
     Passes.add(TPC);
   }
 
+  // Enable debugify pass.
+  if (EnableDebugify)
+    Passes.add(createDebugifyModulePass());
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
     if (StandardLinkOpts &&
@@ -784,6 +791,9 @@ int main(int argc, char **argv) {
       Passes.add(
           createPrintModulePass(errs(), "", PreserveAssemblyUseListOrder));
   }
+  // Enable debugify check pass.
+  if (EnableDebugify)
+    Passes.add(createCheckDebugifyModulePass(false));
 
   if (StandardLinkOpts) {
     AddStandardLinkPasses(Passes);
