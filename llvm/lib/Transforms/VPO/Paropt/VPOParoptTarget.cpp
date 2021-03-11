@@ -2878,6 +2878,38 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
     return NewV;
   };
 
+  DenseMap<Value *, Value *> RenamedNonPointerCEsMap;
+  auto renameNonPointerConstExprVInEntryDirective = [&](Value *V) -> Value * {
+    if (!V)
+      return V;
+
+    if (ValuesToChange != nullptr &&
+        ValuesToChange->find(V) == ValuesToChange->end())
+      return V;
+
+    auto VOrigAndNew = RenamedNonPointerCEsMap.find(V);
+    if (VOrigAndNew != RenamedNonPointerCEsMap.end())
+      return VOrigAndNew->second;
+
+    auto *VCast = dyn_cast<ConstantExpr>(V);
+    if (!VCast) {
+      RenamedNonPointerCEsMap.insert({V, V});
+      return V;
+    }
+
+    Instruction *VInst = VCast->getAsInstruction();
+    VInst->setName("cexpr.inst");
+    VInst->insertBefore(EntryBB->getTerminator());
+    W->getEntryDirective()->replaceUsesOfWith(V, VInst);
+    RenamedNonPointerCEsMap.insert({V, VInst});
+
+    LLVM_DEBUG(dbgs() << "renameNonPointerConstExprVInEntryDirective: Expr '";
+               VCast->printAsOperand(dbgs());
+               dbgs() << "' hoisted to Instruction '";
+               VInst->printAsOperand(dbgs()); dbgs() << "'.\n");
+    return VInst;
+  };
+
   // Map between Original Value V and the renamed value NewV. If no renaming
   // happens, The map will have {V, V}. Use MapVector so that the replacement
   // happens in the same order as the generation of renamed values.
@@ -2899,9 +2931,6 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
     if (ValuesToChange != nullptr &&
         ValuesToChange->find(V) == ValuesToChange->end())
       return V;
-
-    if (RenameMap.find(V) != RenameMap.end())
-      return RenameMap.find(V)->second;
 
     Value *VNew = createRenamedValueForV(V);
     RenameMap.insert({V, VNew});
@@ -2927,6 +2956,49 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
   };
 
   Value *VNew = nullptr;
+
+  // First, rename If clause and map-size ConstantExprs in the entry directive.
+  // Otherwise, when breaking other operands, or map base/section pointers,
+  // references to broken const-expr map-sizes in clause items may become
+  // obsolete. e.g.
+  // -------------------------------------+-------------------------------------
+  //         Before                       |      After
+  // -------------------------------------+-------------------------------------
+  //                                      |  %cexpr.inst =
+  //                                      |   i64 ptrtoint(i32* @y to i64)
+  //                                      |
+  //                                      |  %cexpr.inst1 =
+  //                                      |   i1 icmp ne i32* @z, i32* null
+  //                                      |
+  // "MAP"(i32* @w, i32* %1,              |  "MAP"(i32* @w, i32* %1,
+  //      i64 ptrtoint(i32* @y to i64))   |        i64 %cexpr.inst)
+  // "MAP"(i32* @x, i32* %1,              |  "MAP"(i32* @x, i32* %1,
+  //      i64 ptrtoint(i32* @y to i64))   |        i64 %cexpr.inst)
+  //  "IF"(i1 icmp ne i32* @z, i32* null) |  "IF"(i1 %cexpr.inst1)
+  //                                      |
+  // -------------------------------------+-------------------------------------
+  // TODO: If we find other cases that need this, like for array-section bounds/
+  // linear step, we'll need to add code for handling them here. However, with
+  // the current pipeline, we haven't seen any case for non-pointer
+  // constant-exprs that would need laundering via
+  // genLaunderIntrinIfPrivatizedInAncestor(). That's because renaming of
+  // operands in prepare pass breaks all const-exprs in inner regions that use
+  // global operands from outer regions.
+  if (W->canHaveIf()) {
+    VNew = renameNonPointerConstExprVInEntryDirective(W->getIf());
+    W->setIf(VNew);
+  }
+
+  VPOParoptUtils::executeForEachItemInClause(
+      W->getMapIfSupported(), [&](MapItem *MapI) {
+        if (MapI->getIsMapChain())
+          for (auto *Aggr : MapI->getMapChain()) {
+            VNew = renameNonPointerConstExprVInEntryDirective(Aggr->getSize());
+            Aggr->setSize(VNew);
+            Changed = true;
+          }
+      });
+
   if (W->canHaveMap()) {
     MapClause &MpClause = W->getMap();
     // The capturing also needs to happen for Constant EXPRs in SectionPtrs.
