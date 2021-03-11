@@ -1157,6 +1157,20 @@ ConstantFoldConstantImpl(const Constant *C, const DataLayout &DL,
 
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
+bool llvm::ConstantHasNonFNegUse(Value *V) {
+  if (dyn_cast<Constant>(V) && V->getType()->isVectorTy()) {
+    for (Value::user_iterator UI = V->user_begin(), E = V->user_end();
+         UI != E;) {
+      User *U = *UI++;
+      if (Instruction *I = dyn_cast<Instruction>(U))
+        if (I->getOpcode() != Instruction::FNeg)
+          return true;
+    }
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
                                         const TargetLibraryInfo *TLI) {
   // Handle PHI nodes quickly here...
@@ -1222,6 +1236,15 @@ Constant *llvm::ConstantFoldInstruction(Instruction *I, const DataLayout &DL,
                                     EVI->getIndices());
   }
 
+#if INTEL_CUSTOMIZATION
+  // If a +CData is used in other non-fneg instructions, we don't fold the
+  // -CData, because this usually generate unnecessary load -CData from Data
+  // section. We tend to combine the fneg with its user at Codegen.
+  // e.g fneg(+CData) + fmadd --> fnmadd
+  if (I->getOpcode() == Instruction::FNeg &&
+      ConstantHasNonFNegUse(I->getOperand(0)))
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   return ConstantFoldInstOperands(I, Ops, DL, TLI);
 }
 
