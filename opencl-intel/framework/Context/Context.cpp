@@ -66,9 +66,9 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_ppAllDevices(nullptr), m_pDeviceIds(nullptr),
     m_pOriginalDeviceIds(nullptr), m_devTypeMask(0),
     m_pclContextProperties(nullptr), m_fpgaEmulator(false), m_eyeqEmulator(false),
-    m_pfnNotify(nullptr), m_pUserData(nullptr), m_ulMaxMemAllocSize(0),
-    m_MemObjectsHeap(nullptr), m_contextModule(contextModule),
-    m_backendLibraryProgram(nullptr)
+    m_useAutoMemory(false), m_pfnNotify(nullptr), m_pUserData(nullptr),
+    m_ulMaxMemAllocSize(0), m_MemObjectsHeap(nullptr),
+    m_contextModule(contextModule), m_backendLibraryProgram(nullptr)
 {
 
     INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
@@ -212,6 +212,8 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     {
         m_eyeqEmulator = true;
     }
+
+    m_useAutoMemory = pOclConfig->UseAutoMemory();
 
     m_pfnNotify = pfnNotify;
     m_pUserData = pUserData;

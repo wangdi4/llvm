@@ -1708,10 +1708,8 @@ cl_err_code NDRangeKernelCommand::Init()
             return CL_INVALID_OPERATION;
     }
 
-    cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
-    m_pDevice->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &deviceType, nullptr);
-    bool UseAutoMemory = FrameworkProxy::Instance()->GetOCLConfig()->UseAutoMemory();
-    bool ThrowOOR = !(deviceType == CL_DEVICE_TYPE_ACCELERATOR && UseAutoMemory);
+    const SharedPtr<Context>& pContext = m_pKernel->GetContext();
+    bool ThrowOOR = !(pContext->IsFPGAEmulator() && pContext->UseAutoMemory());
 
     // Query kernel info to validate input params
     size_t szCompiledWorkGroupMaxSize = m_pDeviceKernel->GetKernelWorkGroupSize();
