@@ -571,6 +571,10 @@ VPlanScalVecAnalysis::getAllSetBitsFromUsers(const VPInstruction *Inst,
   SVABits CombinedUseBits;
   for (auto *User : Inst->users()) {
     if (auto *UserInst = dyn_cast<VPInstruction>(User)) {
+      // Ignore user if the instruction is used by itself.
+      if (UserInst == Inst)
+        continue;
+
       auto UserInstResults = VPlanSVAResults.find(UserInst);
       if (UserInstResults == VPlanSVAResults.end()) {
         // TODO: Only recurrent PHIs are allowed to be non-processed users. Fix
