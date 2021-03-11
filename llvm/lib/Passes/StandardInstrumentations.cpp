@@ -1236,9 +1236,13 @@ void ChangedIRComparer::handleFunctionCompare(StringRef Name, StringRef Prefix,
 }
 
 void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintChanged == ChangePrinter::PrintChangedDiffVerbose ||
       PrintChanged == ChangePrinter::PrintChangedDiffQuiet)
     TextChangeReporter<ChangedIRData>::registerRequiredCallbacks(PIC);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_CUSTOMIZATION
 }
 
 StandardInstrumentations::StandardInstrumentations(bool DebugLogging,
