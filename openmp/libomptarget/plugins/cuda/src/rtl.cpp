@@ -31,6 +31,7 @@
 // This source below is clang-compatible and does not build with xmain's
 // very strict GCC options.
 // Turn this off to avoid excessive source modifications.
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif // INTEL_CUSTOMIZATION
 
