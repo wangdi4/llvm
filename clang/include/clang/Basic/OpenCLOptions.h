@@ -172,6 +172,12 @@ public:
     else if (isCore(Ext, CLVer))
       OptMap[Ext].Enabled = V;
   }
+
+  // Turn on or off support of all options.
+  void supportAll(bool On) {
+    for (auto &I : OptMap)
+      I.second.Supported = On;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: Whether extension should accept pragma should not

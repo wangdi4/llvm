@@ -81,6 +81,12 @@ void OpenCLOptions::acceptsPragma(llvm::StringRef Ext, bool V) {
 void OpenCLOptions::support(llvm::StringRef Ext, bool V) {
   assert(!Ext.empty() && "Extension is empty.");
   assert(Ext[0] != '+' && Ext[0] != '-');
+#if INTEL_CUSTOMIZATION
+  if (Ext.equals("all")) {
+    supportAll(V);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   OptMap[Ext].Supported = V;
 }
 

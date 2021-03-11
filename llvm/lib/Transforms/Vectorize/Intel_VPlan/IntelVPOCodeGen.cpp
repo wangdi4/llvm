@@ -3240,6 +3240,13 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   // Get the scalar value by extracting from the vector instruction based on the
   // requested lane.
   Value *VecV = getVectorValue(V);
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  if (auto VecInst = dyn_cast<Instruction>(VecV)) {
+    if (isa<PHINode>(VecInst))
+      Builder.SetInsertPoint(&*(VecInst->getParent()->getFirstInsertionPt()));
+    else
+      Builder.SetInsertPoint(VecInst->getNextNode());
+  }
 
   // This code assumes that the widened vector, that we are extracting from has
   // data in AOS layout. If OriginalVL = 2, VF = 4 the widened value would be
@@ -3262,13 +3269,6 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
     return Shuff;
   }
 
-  IRBuilder<>::InsertPointGuard Guard(Builder);
-  if (auto VecInst = dyn_cast<Instruction>(VecV)) {
-    if (isa<PHINode>(VecInst))
-      Builder.SetInsertPoint(&*(VecInst->getParent()->getFirstInsertionPt()));
-    else
-      Builder.SetInsertPoint(VecInst->getNextNode());
-  }
   auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane),
                                               VecV->getName() + ".extract." +
                                                   Twine(Lane) + ".");
