@@ -1821,6 +1821,15 @@ static bool simplifyInstsInBlock(SCCPSolver &Solver, BasicBlock &BB,
   for (Instruction &Inst : make_early_inc_range(BB)) {
     if (Inst.getType()->isVoidTy())
       continue;
+#if INTEL_CUSTOMIZATION
+    // If a +CData is used in other non-fneg instructions, we don't fold the
+    // -CData, because this usually generate unnecessary load -CData from Data
+    // section. We tend to combine the fneg with its user at Codegen.
+    // e.g fneg(+CData) + fmadd --> fnmadd
+    if (Inst.getOpcode() == Instruction::FNeg &&
+        ConstantHasNonFNegUse(Inst.getOperand(0)))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     if (tryToReplaceWithConstant(Solver, &Inst)) {
       if (Inst.isSafeToRemove())
         Inst.eraseFromParent();

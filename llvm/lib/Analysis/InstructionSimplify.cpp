@@ -4876,6 +4876,13 @@ static Constant *foldConstant(Instruction::UnaryOps Opcode,
 /// returns null.
 static Value *simplifyFNegInst(Value *Op, FastMathFlags FMF,
                                const SimplifyQuery &Q, unsigned MaxRecurse) {
+#if INTEL_CUSTOMIZATION
+  // If a +CData is used in other non-fneg instructions, we don't fold the
+  // -CData, because this usually generate unnecessary load -CData from Data
+  // section. We tend to combine the fneg with its user at Codegen.
+  // e.g fneg(+CData) + fmadd --> fnmadd
+  if (!ConstantHasNonFNegUse(Op))
+#endif // INTEL_CUSTOMIZATION
   if (Constant *C = foldConstant(Instruction::FNeg, Op, Q))
     return C;
 
