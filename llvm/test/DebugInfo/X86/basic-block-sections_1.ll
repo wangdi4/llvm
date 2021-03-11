@@ -2,7 +2,9 @@
 ; RUN: llc -O0 %s --basic-block-sections=all --unique-basic-block-section-names -mtriple=x86_64 -filetype=obj -o %t && llvm-dwarfdump -debug-info -v %t | FileCheck --check-prefix=BB-SECTIONS %s
 ; RUN: llc -O0 %s --basic-block-sections=all --unique-basic-block-section-names -mtriple=x86_64 -filetype=obj -split-dwarf-file=%t.dwo -o %t && llvm-dwarfdump -debug-info -v %t | FileCheck --check-prefix=BB-SECTIONS %s
 ; RUN: llc -O0 %s --basic-block-sections=all -mtriple=x86_64 -o - | FileCheck --check-prefix=BB-SECTIONS-ASM %s
-; RUN: llc -O0 %s -mtriple=x86_64 -filetype=obj -o %t && llvm-dwarfdump  -debug-line %t | FileCheck --check-prefix=BB-SECTIONS-LINE-TABLE %s
+; INTEL_CUSTOMIZATION
+; RUN: llc -O0 %s -mtriple=x86_64 -filetype=obj -o %t --use-unknown-locations=Enable && llvm-dwarfdump  -debug-line %t | FileCheck --check-prefix=BB-SECTIONS-LINE-TABLE %s
+; end INTEL_CUSTOMIZATION
 
 ; From:
 ; 1  int foo(int a) {
