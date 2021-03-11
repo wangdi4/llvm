@@ -75,7 +75,7 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-attributes #0 = { norecurse nounwind uwtable "no-nans-fp-math"="true" }
+attributes #0 = { norecurse nounwind uwtable "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" }
 attributes #1 = { nounwind }
 
 !2 = !{!3, !3, i64 0}
