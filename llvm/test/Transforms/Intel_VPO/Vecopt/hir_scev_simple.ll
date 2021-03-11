@@ -27,9 +27,9 @@
 ; CHECK-NEXT:  END REGION
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  computeAddressSCEV([DA: Div] i32 %vp{{.*}} = load i32* [[LD_PTR:%.*]])
-; CHECK-NEXT:    -> nil
+; CHECK-NEXT:    -> {(%src),+,4}
 ; CHECK-NEXT:  computeAddressSCEV([DA: Div] store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
-; CHECK-NEXT:    -> nil
+; CHECK-NEXT:    -> {(%dst),+,4}
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

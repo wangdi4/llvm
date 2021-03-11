@@ -25,7 +25,8 @@ bool VPlanScalarEvolution::maybePointerToPrivateMemory(const VPValue &V) {
     return false;
 
   const auto &VPI = cast<VPInstruction>(V);
-  if (VPI.isCast() || isa<VPGEPInstruction>(VPI))
+
+  if (VPI.isCast() || isa<VPGEPInstruction>(VPI) || isa<VPSubscriptInst>(VPI))
     return maybePointerToPrivateMemory(*VPI.getOperand(0));
 
   // TODO: Look through more instruction kinds. Particularly, we may want to
