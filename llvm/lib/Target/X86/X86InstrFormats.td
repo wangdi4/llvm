@@ -395,7 +395,8 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bit notEVEX2VEXConvertible = 0; // Prevent EVEX->VEX conversion.
   bit ExplicitVEXPrefix = 0; // Force the instruction to use VEX encoding.
   bit ExplicitEVEXPrefix = 0; // Force the instruction to use EVEX encoding. // INTEL
-
+  // Force to check predicate before compress EVEX to VEX encoding.
+  bit checkVEXPredicate = 0;
   // TSFlags layout should be kept in sync with X86BaseInfo.h.
   let TSFlags{6-0}   = FormBits;
   let TSFlags{8-7}   = OpSizeBits;
