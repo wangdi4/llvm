@@ -40,7 +40,7 @@ private:
 
 public:
   explicit VPVLSClientMemrefHIR(OVLSAccessKind AccKind, const OVLSType &Ty,
-                                const VPInstruction *Inst,
+                                const VPLoadStoreInst *Inst,
                                 const unsigned LoopLevel, HIRDDAnalysis *DDA,
                                 const RegDDRef *Ref)
       : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccKind, Ty, Inst,

@@ -49,43 +49,26 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
   return Const->getAPInt().getSExtValue();
 }
 
-// FIXME: It is not safe to call this method after we start modifying IR, as
-//        modifying IR invalidates ScalarEvolution. It'd be better to remove
-//        this method, but it is still used in canMoveTo.
-const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
-  auto &VPSE = getVPSE();
-  return VPSE.toSCEV(VPSE.getVPlanSCEV(*Val));
-}
-
-VPVLSClientMemref::VPVLSClientMemref(const OVLSMemrefKind &Kind,
-                                     OVLSAccessKind AccKind, const OVLSType &Ty,
-                                     const VPInstruction *Inst,
-                                     const VPlanVLSAnalysis *VLSA)
-    : OVLSMemref(Kind, Ty, AccKind), Inst(Inst), VLSA(VLSA) {
-  if (Kind == OVLSMemref::VLSK_VPlanVLSClientMemref)
-    ScevExpr = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
-}
-
 Optional<int64_t>
 VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
-  const VPInstruction *FromInst = cast<VPVLSClientMemref>(From).Inst;
-  const SCEV *FromScev = cast<VPVLSClientMemref>(From).ScevExpr;
+  const VPLoadStoreInst *FromInst = cast<VPVLSClientMemref>(From).Inst;
+  const SCEV *FromScev = getAddressSCEV(FromInst);
 
   // Don't waste time if memrefs are in different basic blocks. This case is not
   // supported yet.
   if (Inst->getParent() != FromInst->getParent())
     return None;
 
-  return getConstDistanceFromImpl(ScevExpr, FromScev, getVPSE());
+  return getConstDistanceFromImpl(getAddressSCEV(Inst), FromScev, getVPSE());
 }
 
 // FIXME: This is an extremely naive implementation just to enable the most
 // simple G2S cases. It is expected to be replaced with a full-fledged Data
 // Dependence analysis.
 bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
-  const VPInstruction *ToInst = cast<VPVLSClientMemref>(ToMemRef).Inst;
-  const VPInstruction *FromInst = Inst;
-  const SCEV *FromSCEV = ScevExpr;
+  const VPLoadStoreInst *ToInst = cast<VPVLSClientMemref>(ToMemRef).Inst;
+  const VPLoadStoreInst *FromInst = Inst;
+  const SCEV *FromSCEV = getAddressSCEV(FromInst);
 
   if (ToInst == FromInst)
     return true;
@@ -98,7 +81,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   Type *AccessType = getLoadStoreType(FromInst);
   int64_t AccessSize = VLSA->getDL().getTypeStoreSize(AccessType);
 
-  if (isa<SCEVCouldNotCompute>(FromSCEV))
+  if (!FromSCEV)
     return false;
 
   Optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, VPSE);
@@ -151,8 +134,8 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     // area SR, then it is safe to swap IterInst and FromInst.
     if (IterInst->getOpcode() == Instruction::Load ||
         IterInst->getOpcode() == Instruction::Store) {
-      auto *IterSCEV = getSCEVForVPValue(getLoadStorePointerOperand(IterInst));
-      if (isa<SCEVCouldNotCompute>(IterSCEV))
+      auto *IterSCEV = getAddressSCEV(cast<VPLoadStoreInst>(IterInst));
+      if (!IterSCEV)
         return false;
 
       // Constant distance between From and IterInst implies that the strides of
@@ -184,7 +167,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
-  return getConstStrideImpl(ScevExpr, getVPSE());
+  return getConstStrideImpl(getAddressSCEV(Inst), getVPSE());
 }
 
 bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {

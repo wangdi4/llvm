@@ -44,7 +44,7 @@ cl::opt<VPlanVLSLevelVariant> VPlanVLSLevel(
                           "Always run OptVLS during loop vectorization")),
     cl::init(VPlanVLSRunAuto));
 
-OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
+OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
                                               const unsigned VF) const {
   int Opcode = VPInst->getOpcode();
   OVLSAccessKind AccKind = OVLSAccessKind::Unknown;
@@ -88,8 +88,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock())) {
     for (const VPInstruction &VPInst : *Block) {
-      auto Opcode = VPInst.getOpcode();
-      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
+      if (!isa<VPLoadStoreInst>(VPInst))
         continue;
 
       // FIXME: VPOCodeGen does not support widening of VLS groups composed of
@@ -99,7 +98,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
       if (hasIrregularTypeForUnitStride(MrfTy, &DL))
         continue;
 
-      OVLSMemref *Memref = createVLSMemref(&VPInst, VF);
+      OVLSMemref *Memref = createVLSMemref(&cast<VPLoadStoreInst>(VPInst), VF);
       if (!Memref)
         continue;
 
