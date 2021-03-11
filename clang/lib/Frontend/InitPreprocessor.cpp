@@ -474,7 +474,7 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__FAST_RELAXED_MATH__");
   }
 
-  if (LangOpts.SYCL) {
+  if (LangOpts.SYCLIsDevice || LangOpts.SYCLIsHost) {
 #if INTEL_CUSTOMIZATION
     Builder.defineMacro("__INTEL_DPCPP_COMPILER__");
 #endif // INTEL_CUSTOMIZATION
@@ -1017,8 +1017,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // As a result,__FINITE_MATH_ONLY__ was defined and errors were thrown
   // due to incompatibility with Intel headers. To avoid this, the condition
   // was expanded to include SYCL compilations as well.
-  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) &&
-      !LangOpts.IntelCompat && !LangOpts.SYCL)
+  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat &&
+      !LangOpts.SYCLIsDevice && !LangOpts.SYCLIsHost)
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");

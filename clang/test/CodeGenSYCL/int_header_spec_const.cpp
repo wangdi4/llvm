@@ -1,9 +1,11 @@
+// INTEL
 // REQUIRES: system-linux
 // TODO temporarily disable on Windows as FE crashes on Windows/x86 and
 //      this inteferes with pre-commit testing, and continue investigation.
 //      This is non-essential platform for the spec constant feature at this
 //      point.
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-int-header=%t.h %s -o %t.out
+// end INTEL
+// RUN: %clang_cc1 -fsycl-is-device -fsycl-int-header=%t.h %s -o %t.out
 // RUN: FileCheck -input-file=%t.h %s
 
 #include "Inputs/sycl.hpp"
