@@ -404,6 +404,7 @@
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 using namespace llvm;
+using namespace llvm::loopopt;                 // INTEL
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL
 
 extern cl::opt<unsigned> MaxDevirtIterations;
@@ -1544,6 +1545,212 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   return MPM;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isLoopOptEnabled(PassBuilder::OptimizationLevel Level) {
+  // Disabling it for now. Need to move '-loopopt' here from
+  // PassManagerBuilder.cpp. If loopopt is enabled unconditionally, release
+  // build fails complaining about propietary optimizations triggering.
+  return false;
+}
+
+void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
+                                   FunctionPassManager &FPM,
+                                   OptimizationLevel Level, bool IsLTO) {
+  if (!isLoopOptEnabled(Level))
+    return;
+
+  if (IsLTO) {
+    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(ADCEPass());
+  }
+
+  FPM.addPass(createFunctionToLoopPassAdaptor(
+      LoopSimplifyCFGPass(), /*UseMemorySSA=*/false,
+      /*UseBlockFrequencyInfo=*/false, DebugLogging));
+
+  FPM.addPass(LCSSAPass());
+  // Leaving comments for stuff which need to be added to match legacy pass
+  // manager.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (shouldPrintModuleBeforeLoopopt()) {
+    // We need to 'flush' current function pipeline to MPM to get latest module dump with the printer.
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    MPM.addPass(PrintModulePass(dbgs(), ";Module Before HIR"));
+    // Reinitialize FPM for safety.
+    FPM = FunctionPassManager(DebugLogging);
+  }
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  //
+  // if (EnableVPlanDriverHIR) {
+  //  MPM.addPass(createVPOCFGRestructuringPass());
+  //  MPM.addPass(createVPlanPragmaOmpOrderedSimdExtractPass());
+  // }
+  //
+  // if (ConvertToSubs)
+  //  FPM.add(createConvertGEPToSubscriptIntrinsicPass());
+
+  FPM.addPass(HIRSSADeconstructionPass());
+  FPM.addPass(HIRTempCleanupPass());
+
+  // if (!RunLoopOptFrameworkOnly) {
+  // if (vpo::UseOmpRegionsInLoopoptFlag)
+  //   FPM.addPass(HIRRecognizeParLoopPass());
+
+  FPM.addPass(HIRPropagateCastedIVPass());
+
+  if (Level.getSpeedupLevel() > 2) {
+    // if (RunLoopOpts == LoopOptMode::Full) {
+    FPM.addPass(HIRLoopConcatenationPass());
+    FPM.addPass(HIRPMSymbolicTripCountCompleteUnrollPass());
+    // } END LoopOptMode::Full
+    FPM.addPass(HIRArrayTransposePass());
+  }
+
+  // if (RunLoopOpts == LoopOptMode::Full) {
+  if (Level.getSizeLevel() == 0) {
+    // if (RunVPOOpt)
+    // FPM.add(createHIRParDirInsertPass());
+    FPM.addPass(HIRConditionalTempSinkingPass());
+    FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, true));
+
+    if (Level.getSpeedupLevel() > 2) {
+      FPM.addPass(HIRLMMPass(true));
+      FPM.addPass(HIRStoreResultIntoTempArrayPass());
+    }
+
+    FPM.addPass(HIRAosToSoaPass());
+    FPM.addPass(HIRRuntimeDDPass());
+    FPM.addPass(HIRMVForConstUBPass());
+
+    if (Level.getSpeedupLevel() > 2 && IsLTO) {
+      FPM.addPass(HIRRowWiseMVPass());
+      FPM.addPass(HIRSumWindowReusePass());
+    }
+  }
+
+  FPM.addPass(HIRSinkingForPerfectLoopnestPass());
+  FPM.addPass(HIRNonZeroSinkingForPerfectLoopnestPass());
+  FPM.addPass(HIRPragmaLoopBlockingPass());
+  FPM.addPass(HIRLoopDistributionForLoopNestPass());
+
+  if (Level.getSpeedupLevel() > 2 && IsLTO)
+    FPM.addPass(HIRCrossLoopArrayContractionPass());
+
+  FPM.addPass(HIRLoopInterchangePass());
+  FPM.addPass(HIRGenerateMKLCallPass());
+
+  if (Level.getSpeedupLevel() > 2 && IsLTO)
+    FPM.addPass(HIRInterLoopBlockingPass());
+
+  FPM.addPass(HIRLoopBlockingPass());
+  FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());
+  FPM.addPass(HIRDeadStoreEliminationPass());
+  FPM.addPass(HIRLoopReversalPass());
+  FPM.addPass(HIRIdentityMatrixIdiomRecognitionPass());
+
+  // } END LoopOptMode::Full
+
+  if (Level.getSizeLevel() == 0)
+    FPM.addPass(HIRPreVecCompleteUnrollPass(Level.getSpeedupLevel(),
+                                            !PTO.LoopUnrolling));
+
+  // if (RunLoopOpts == LoopOptMode::Full) {
+  FPM.addPass(HIRConditionalLoadStoreMotionPass());
+
+  if (Level.getSizeLevel() == 0)
+    FPM.addPass(HIRMemoryReductionSinkingPass());
+
+  FPM.addPass(HIRLMMPass());
+  FPM.addPass(HIRDeadStoreEliminationPass());
+  // } END LoopOptMode::Full
+
+  FPM.addPass(HIRLastValueComputationPass());
+
+  // if (RunLoopOpts == LoopOptMode::Full) {
+  FPM.addPass(HIRLoopRerollPass());
+
+  if (Level.getSizeLevel() == 0)
+    FPM.addPass(HIRLoopDistributionForMemRecPass());
+
+  FPM.addPass(HIRLoopRematerializePass());
+  FPM.addPass(HIRMultiExitLoopRerollPass());
+  FPM.addPass(HIRLoopCollapsePass());
+  FPM.addPass(HIRIdiomRecognitionPass());
+  FPM.addPass(HIRLoopFusionPass());
+  // } END LoopOptMode::Full
+
+  if (Level.getSizeLevel() == 0) {
+    // if (RunLoopOpts == LoopOptMode::Full) {
+    FPM.addPass(HIRUnrollAndJamPass(!PTO.LoopUnrolling));
+    FPM.addPass(HIRMVForVariableStridePass());
+    FPM.addPass(HIROptVarPredicatePass());
+    FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
+    // } END LoopOptMode::Full
+    // if (RunVPOOpt) {
+    FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
+    // if (EnableVPlanDriverHIR) {
+    FPM.addPass(vpo::VPlanDriverHIRPass());
+    // } END EnableVPlanDriverHIR
+    // } END RunVPOOpt
+    FPM.addPass(HIRPostVecCompleteUnrollPass(Level.getSpeedupLevel(),
+                                             !PTO.LoopUnrolling));
+    FPM.addPass(HIRGeneralUnrollPass(!PTO.LoopUnrolling));
+  }
+
+  // if (RunLoopOpts == LoopOptMode::Full) {
+  FPM.addPass(HIRScalarReplArrayPass());
+  if (Level.getSpeedupLevel() > 2) {
+    FPM.addPass(HIRNontemporalMarkingPass());
+    FPM.addPass(HIRPrefetchingPass());
+  }
+  // } END LoopOptMode::Full
+
+  // } END RunLoopOptFrameworkOnly
+
+  // if (IntelOptReportEmitter == OptReportOptions::HIR)
+  // FPM.addPass(HIROptReportEmitterWrapperPass());
+
+  FPM.addPass(HIRCodeGenPass());
+
+  addLoopOptCleanupPasses(FPM, Level);
+
+  // if (EnableVPlanDriverHIR) {
+  //  PM.add(createAlwaysInlinerLegacyPass());
+  //  PM.add(createBarrierNoopPass());
+  // }
+}
+
+void PassBuilder::addLoopOptCleanupPasses(FunctionPassManager &FPM,
+                                          OptimizationLevel Level) {
+
+  FPM.addPass(SimplifyCFGPass());
+  FPM.addPass(LowerSubscriptIntrinsicPass());
+  FPM.addPass(SROA());
+
+  if (Level.getSpeedupLevel() > 2)
+    FPM.addPass(NaryReassociatePass());
+
+  FPM.addPass(GVN());
+
+  FPM.addPass(SROA());
+
+  addInstCombinePass(FPM, !DTransEnabled);
+
+  FPM.addPass(LoopCarriedCSEPass());
+
+  FPM.addPass(DSEPass());
+
+  if (Level.getSpeedupLevel() > 2)
+    FPM.addPass(AddSubReassociatePass());
+}
+
+void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
+                                                   FunctionPassManager &FPM,
+                                                   OptimizationLevel Level,
+                                                   bool IsLTO) {
+  addLoopOptPasses(MPM, FPM, Level, IsLTO);
+}
+#endif // INTEL_CUSTOMIZATION
 ModulePassManager
 PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                                              bool LTOPreLink) {
@@ -1643,7 +1850,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
       LoopRotatePass(Level != OptimizationLevel::Oz, LTOPreLink),
       EnableMSSALoopDependency,
       /*UseBlockFrequencyInfo=*/false, DebugLogging));
-
+#if INTEL_CUSTOMIZATION
+  if (!PrepareForLTO)
+    addLoopOptAndAssociatedVPOPasses(MPM, OptimizePM, Level, false);
+#endif // INTEL_CUSTOMIZATION
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.  This is
   // currently only performed for loops marked with the metadata
@@ -2417,6 +2627,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       std::move(LPM), /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/true,
       DebugLogging));
 
+#if INTEL_CUSTOMIZATION
+  addLoopOptAndAssociatedVPOPasses(MPM, MainFPM, Level, true);
+#endif // INTEL_CUSTOMIZATION
   MainFPM.addPass(LoopDistributePass());
   MainFPM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));

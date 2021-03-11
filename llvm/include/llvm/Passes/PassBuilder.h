@@ -550,6 +550,16 @@ public:
   void addWholeProgramUtils(WholeProgramUtils WPUtils) {
     this->WPUtils = std::move(WPUtils);
   }
+
+  void addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
+                                        FunctionPassManager &FPM,
+                                        OptimizationLevel Level, bool IsLTO);
+
+  void addLoopOptPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
+                        OptimizationLevel Level, bool IsLTO);
+
+  void addLoopOptCleanupPasses(FunctionPassManager &FPM,
+                               OptimizationLevel Level);
 #endif // INTEL_CUSTOMIZATION
 
   /// Print pass names.
