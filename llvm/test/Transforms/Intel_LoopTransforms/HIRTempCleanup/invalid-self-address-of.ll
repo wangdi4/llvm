@@ -50,4 +50,4 @@ declare i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8, i64, i64, i64*, i
 
 declare void @bar(i64*) #1
 
-attributes #1 = { nounwind readnone }
+attributes #1 = { willreturn nounwind readnone }

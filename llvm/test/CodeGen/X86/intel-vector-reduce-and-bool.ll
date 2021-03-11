@@ -434,9 +434,8 @@ define i1 @trunc_v32i16_v32i1(<32 x i16>) {
 ; AVX-NEXT:    vmovdqa {{.*#+}} ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
 ; AVX-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; AVX-NEXT:    vpand %ymm2, %ymm0, %ymm0
-; AVX-NEXT:    vperm2i128 {{.*#+}} ymm2 = ymm0[2,3],ymm1[2,3]
-; AVX-NEXT:    vinserti128 $1, %xmm1, %ymm0, %ymm0
-; AVX-NEXT:    vpackuswb %ymm2, %ymm0, %ymm0
+; AVX-NEXT:    vpackuswb %ymm1, %ymm0, %ymm0
+; AVX-NEXT:    vpermq {{.*#+}} ymm0 = ymm0[0,2,1,3]
 ; AVX-NEXT:    vpsllw $7, %ymm0, %ymm0
 ; AVX-NEXT:    vpmovmskb %ymm0, %eax
 ; AVX-NEXT:    cmpl $-1, %eax

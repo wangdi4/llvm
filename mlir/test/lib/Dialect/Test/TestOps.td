@@ -900,6 +900,13 @@ def TestOpInPlaceFold : TEST_Op<"op_in_place_fold"> {
   let hasFolder = 1;
 }
 
+// An op that always fold itself.
+def TestPassthroughFold : TEST_Op<"passthrough_fold"> {
+  let arguments = (ins AnyType:$op);
+  let results = (outs AnyType);
+  let hasFolder = 1;
+}
+
 //===----------------------------------------------------------------------===//
 // Test Patterns (Symbol Binding)
 
@@ -1274,6 +1281,8 @@ def TestInvalidOp : TEST_Op<"invalid", [Terminator]>,
   Arguments<(ins Variadic<AnyType>)>;
 def TestTypeProducerOp : TEST_Op<"type_producer">,
   Results<(outs AnyType)>;
+def TestAnotherTypeProducerOp : TEST_Op<"another_type_producer">,
+  Results<(outs AnyType)>;
 def TestTypeConsumerOp : TEST_Op<"type_consumer">,
   Arguments<(ins AnyType)>;
 def TestValidOp : TEST_Op<"valid", [Terminator]>,
@@ -1287,6 +1296,10 @@ def TestMergeBlocksOp : TEST_Op<"merge_blocks"> {
 
   let regions = (region AnyRegion:$body);
   let results = (outs Variadic<AnyType>:$result);
+}
+
+def TestSignatureConversionUndoOp : TEST_Op<"signature_conversion_undo"> {
+  let regions = (region AnyRegion);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1569,6 +1582,25 @@ def FormatOptionalOperandResultAOp : FormatOptionalOperandResultOpBase<"a", [{
 def FormatOptionalOperandResultBOp : FormatOptionalOperandResultOpBase<"b", [{
   (`(` $optional^ `:` type($optional) `)`)? `:` type($optional_res)
   (`[` $variadic^ `]`)? attr-dict
+}]>;
+
+// Test optional result type formatting.
+class FormatOptionalResultOpBase<string suffix, string fmt>
+    : TEST_Op<"format_optional_result_" # suffix # "_op",
+              [AttrSizedResultSegments]> {
+  let results = (outs Optional<I64>:$optional, Variadic<I64>:$variadic);
+  let assemblyFormat = fmt;
+}
+def FormatOptionalResultAOp : FormatOptionalResultOpBase<"a", [{
+  (`:` type($optional)^ `->` type($variadic))? attr-dict
+}]>;
+
+def FormatOptionalResultBOp : FormatOptionalResultOpBase<"b", [{
+  (`:` type($optional) `->` type($variadic)^)? attr-dict
+}]>;
+
+def FormatOptionalResultCOp : FormatOptionalResultOpBase<"c", [{
+  (`:` functional-type($optional, $variadic)^)? attr-dict
 }]>;
 
 def FormatTwoVariadicOperandsNoBuildableTypeOp

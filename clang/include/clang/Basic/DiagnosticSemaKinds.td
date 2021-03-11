@@ -135,7 +135,7 @@ def err_intel_fpga_reg_limitations : Error <
 def illegal_type_declared_here : Note<
   "field with illegal type declared here">;
 def err_sycl_loop_attr_duplication : Error<
-  "duplicate %select{unroll|Intel FPGA}0 loop attribute '%1'">;
+  "duplicate %select{unroll|Intel FPGA}0 loop attribute %1">;
 def err_loop_unroll_compatibility : Error<
   "incompatible loop unroll instructions: '%0' and '%1'">;
 def err_pipe_attribute_arg_not_allowed : Error<
@@ -251,6 +251,9 @@ def ext_designated_init_reordered : ExtWarn<
   SFINAEFailure;
 def note_previous_field_init : Note<
   "previous initialization for field %0 is here">;
+def ext_designated_init_brace_elision : ExtWarn<
+  "brace elision for designated initializer is a C99 extension">,
+  InGroup<C99Designator>, SFINAEFailure;
 
 // Declarations.
 def ext_plain_complex : ExtWarn<
@@ -8330,7 +8333,7 @@ def err_cuda_device_exceptions : Error<
   "%select{__device__|__global__|__host__|__host__ __device__}1 function">;
 def err_dynamic_var_init : Error<
     "dynamic initialization is not supported for "
-    "__device__, __constant__, and __shared__ variables.">;
+    "__device__, __constant__, __shared__, and __managed__ variables.">;
 def err_shared_var_init : Error<
     "initialization is not supported for __shared__ variables.">;
 def err_cuda_vla : Error<
@@ -8340,7 +8343,8 @@ def err_cuda_extern_shared : Error<"__shared__ variable %0 cannot be 'extern'">;
 def err_cuda_host_shared : Error<
     "__shared__ local variables not allowed in "
     "%select{__device__|__global__|__host__|__host__ __device__}0 functions">;
-def err_cuda_nonstatic_constdev: Error<"__constant__ and __device__ are not allowed on non-static local variables">;
+def err_cuda_nonstatic_constdev: Error<"__constant__, __device__, and "
+    "__managed__ are not allowed on non-static local variables">;
 def err_cuda_ovl_target : Error<
   "%select{__device__|__global__|__host__|__host__ __device__}0 function %1 "
   "cannot overload %select{__device__|__global__|__host__|__host__ __device__}2 function %3">;
@@ -8639,7 +8643,7 @@ def err_invalid_conversion_between_vector_and_integer : Error<
   "of different size">;
 
 def err_opencl_function_pointer : Error<
-  "pointers to functions are not allowed">;
+  "%select{pointers|references}0 to functions are not allowed">;
 
 def err_opencl_taking_address_capture : Error<
   "taking address of a capture is not allowed">;
@@ -9710,7 +9714,7 @@ def warn_duplicate_attribute_exact : Warning<
   "attribute %0 is already applied">, InGroup<IgnoredAttributes>;
 
 def warn_duplicate_attribute : Warning<
-  "attribute %0 is already applied with different parameters">,
+  "attribute %0 is already applied with different arguments">,
   InGroup<IgnoredAttributes>;
 
 def warn_sync_fetch_and_nand_semantics_change : Warning<

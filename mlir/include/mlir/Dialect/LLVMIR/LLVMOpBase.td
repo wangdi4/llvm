@@ -52,25 +52,16 @@ def LLVM_Type : DialectType<LLVM_Dialect,
                             CPred<"::mlir::LLVM::isCompatibleType($_self)">,
                             "LLVM dialect-compatible type">;
 
+// Type constraint accepting LLVM token type.
+def LLVM_TokenType : Type<
+  CPred<"$_self.isa<::mlir::LLVM::LLVMTokenType>()">,
+  "LLVM token type">,
+  BuildableType<"::mlir::LLVM::LLVMTokenType::get($_builder.getContext())">;
+
 // Type constraint accepting LLVM integer types.
 def LLVM_AnyInteger : Type<
   CPred<"$_self.isa<::mlir::IntegerType>()">,
   "LLVM integer type">;
-
-// Type constraints accepting LLVM integer type of a specific width.
-class LLVM_IntBase<int width> :
-    Type<And<[
-        LLVM_AnyInteger.predicate,
-        CPred<"$_self.cast<::mlir::IntegerType>().getWidth() == "
-              # width>]>,
-        "LLVM " # width # "-bit integer type">,
-    BuildableType<
-        "::mlir::IntegerType::get($_builder.getContext(), "
-        # width # ")">;
-
-def LLVM_i1 : LLVM_IntBase<1>;
-def LLVM_i8 : LLVM_IntBase<8>;
-def LLVM_i32 : LLVM_IntBase<32>;
 
 // Type constraint accepting LLVM primitive types, i.e. all types except void
 // and function.
@@ -98,6 +89,16 @@ class LLVM_PointerTo<Type pointee> : Type<
          "$_self.cast<::mlir::LLVM::LLVMPointerType>().getElementType()",
          pointee.predicate>]>,
   "LLVM pointer to " # pointee.summary>;
+
+// Type constraints accepting LLVM pointer type to integer of a specific width.
+class LLVM_IntPtrBase<int width> : Type<
+  LLVM_PointerTo<I<width>>.predicate,
+  "LLVM pointer to " # I<width>.summary>,
+  BuildableType<"::mlir::LLVM::LLVMPointerType::get("
+                "::mlir::IntegerType::get($_builder.getContext(), "
+                # width #"))">;
+
+def LLVM_i8Ptr : LLVM_IntPtrBase<8>;
 
 // Type constraint accepting any LLVM structure type.
 def LLVM_AnyStruct : Type<CPred<"$_self.isa<::mlir::LLVM::LLVMStructType>()">,

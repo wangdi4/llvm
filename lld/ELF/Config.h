@@ -178,6 +178,7 @@ struct Configuration {
   bool ltoDebugPassManager;
   bool ltoEmitAsm;
   bool ltoNewPassManager;
+  bool ltoPseudoProbeForProfiling;
   bool ltoUniqueBasicBlockSectionNames;
   bool ltoWholeProgramVisibility;
   bool mergeArmExidx;
@@ -217,7 +218,6 @@ struct Configuration {
   bool warnBackrefs;
   std::vector<llvm::GlobPattern> warnBackrefsExclude;
   bool warnCommon;
-  bool warnIfuncTextrel;
   bool warnMissingEntry;
   bool warnSymbolOrdering;
   bool writeAddends;

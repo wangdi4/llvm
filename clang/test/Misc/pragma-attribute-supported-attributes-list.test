@@ -72,6 +72,7 @@
 // CHECK-NEXT: FlagEnum (SubjectMatchRule_enum)
 // CHECK-NEXT: Flatten (SubjectMatchRule_function)
 // CHECK-NEXT: GNUInline (SubjectMatchRule_function)
+// CHECK-NEXT: HIPManaged (SubjectMatchRule_variable)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: HLSDevice (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION

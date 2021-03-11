@@ -80,10 +80,10 @@
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O-NEXT: Running analysis: BasicAA
-; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis
+; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-O1-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA
+; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA ;INTEL
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O-NEXT: Running analysis: StdContainerAA
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy

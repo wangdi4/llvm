@@ -1246,6 +1246,28 @@ void PGOUseFunc::setEdgeCount(DirectEdges &Edges, uint64_t Value) {
   llvm_unreachable("Cannot find the unknown count edge");
 }
 
+// Emit function metadata indicating PGO profile mismatch.
+static void annotateFunctionWithHashMismatch(Function &F,
+                                             LLVMContext &ctx) {
+  const char MetadataName[] = "instr_prof_hash_mismatch";
+  SmallVector<Metadata *, 2> Names;
+  // If this metadata already exists, ignore.
+  auto *Existing = F.getMetadata(LLVMContext::MD_annotation);
+  if (Existing) {
+    MDTuple *Tuple = cast<MDTuple>(Existing);
+    for (auto &N : Tuple->operands()) {
+      if (cast<MDString>(N.get())->getString() ==  MetadataName)
+        return;
+      Names.push_back(N.get());
+    }
+  }
+
+  MDBuilder MDB(ctx);
+  Names.push_back(MDB.createString(MetadataName));
+  MDNode *MD = MDTuple::get(ctx, Names);
+  F.setMetadata(LLVMContext::MD_annotation, MD);
+}
+
 // Read the profile from ProfileFileName and assign the value to the
 // instrumented BB and the edges. This function also updates ProgramMaxCount.
 // Return true if the profile are successfully read, and false on errors.
@@ -1273,6 +1295,8 @@ bool PGOUseFunc::readCounters(IndexedInstrProfReader *PGOReader, bool &AllZeros,
              (F.hasComdat() ||
               F.getLinkage() == GlobalValue::AvailableExternallyLinkage));
         LLVM_DEBUG(dbgs() << "hash mismatch (skip=" << SkipWarning << ")");
+        // Emit function metadata indicating PGO profile mismatch.
+        annotateFunctionWithHashMismatch(F, M->getContext());
       }
 
       LLVM_DEBUG(dbgs() << " IsCS=" << IsCS << "\n");
@@ -1464,8 +1488,8 @@ void PGOUseFunc::setBranchWeights() {
 }
 
 static bool isIndirectBrTarget(BasicBlock *BB) {
-  for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI) {
-    if (isa<IndirectBrInst>((*PI)->getTerminator()))
+  for (BasicBlock *Pred : predecessors(BB)) {
+    if (isa<IndirectBrInst>(Pred->getTerminator()))
       return true;
   }
   return false;
@@ -1613,6 +1637,8 @@ static bool InstrumentAllFunctions(
 
   for (auto &F : M) {
     if (F.isDeclaration())
+      continue;
+    if (F.hasFnAttribute(llvm::Attribute::NoProfile))
       continue;
     auto &TLI = LookupTLI(F);
     auto *BPI = LookupBPI(F);
@@ -2136,14 +2162,13 @@ template <> struct DOTGraphTraits<PGOUseFunc *> : DefaultDOTGraphTraits {
     if (!PGOInstrSelect)
       return Result;
 
-    for (auto BI = Node->begin(); BI != Node->end(); ++BI) {
-      auto *I = &*BI;
-      if (!isa<SelectInst>(I))
+    for (const Instruction &I : *Node) {
+      if (!isa<SelectInst>(&I))
         continue;
       // Display scaled counts for SELECT instruction:
       OS << "SELECT : { T = ";
       uint64_t TC, FC;
-      bool HasProf = I->extractProfMetadata(TC, FC);
+      bool HasProf = I.extractProfMetadata(TC, FC);
       if (!HasProf)
         OS << "Unknown, F = Unknown }\\l";
       else

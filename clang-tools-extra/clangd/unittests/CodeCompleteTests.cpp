@@ -1390,9 +1390,9 @@ public:
                  llvm::function_ref<void(const SymbolID &, const Symbol &)>)
       const override {}
 
-  llvm::unique_function<bool(llvm::StringRef) const>
+  llvm::unique_function<IndexContents(llvm::StringRef) const>
   indexedFiles() const override {
-    return [](llvm::StringRef) { return false; };
+    return [](llvm::StringRef) { return IndexContents::None; };
   }
 
   // This is incorrect, but IndexRequestCollector is not an actual index and it
@@ -2573,7 +2573,7 @@ TEST(SignatureHelpTest, ConstructorInitializeFields) {
 }
 
 TEST(CompletionTest, IncludedCompletionKinds) {
-  Annotations Test(R"cpp(#include "^")cpp");
+  Annotations Test(R"cpp(#include "^)cpp");
   auto TU = TestTU::withCode(Test.code());
   TU.AdditionalFiles["sub/bar.h"] = "";
   TU.ExtraArgs.push_back("-I" + testPath("sub"));

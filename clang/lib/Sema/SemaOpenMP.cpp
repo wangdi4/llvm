@@ -13455,7 +13455,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_distribute_parallel_for_simd:
     case OMPD_distribute:
     case OMPD_distribute_simd:
-      // Do not capture thread_limit-clause expressions.
+      // Do not capture dist_schedule-clause expressions.
       break;
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
@@ -13518,7 +13518,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_target_teams:
     case OMPD_requires:
-      llvm_unreachable("Unexpected OpenMP directive with schedule clause");
+      llvm_unreachable("Unexpected OpenMP directive with dist_schedule clause");
     case OMPD_unknown:
     default:
       llvm_unreachable("Unknown OpenMP directive");
@@ -13607,7 +13607,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
-      llvm_unreachable("Unexpected OpenMP directive with num_teams-clause");
+      llvm_unreachable("Unexpected OpenMP directive with device-clause");
     case OMPD_unknown:
     default:
       llvm_unreachable("Unknown OpenMP directive");

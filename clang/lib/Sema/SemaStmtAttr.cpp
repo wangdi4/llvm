@@ -124,9 +124,15 @@ static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
 }
 
 template <typename FPGALoopAttrT>
-static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
+static Attr *handleIntelFPGALoopAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
   if(S.LangOpts.SYCLIsHost)
     return nullptr;
+
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
 
   unsigned NumArgs = A.getNumArgs();
 #if INTEL_CUSTOMIZATION
@@ -140,7 +146,7 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
   }
 
   if (NumArgs == 0) {
-    if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAII ||
+    if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAInitiationInterval ||
         A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency ||
         A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving ||
         A.getKind() == ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations) {
@@ -161,9 +167,15 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
 
 template <>
 Attr *handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
-    Sema &S, const ParsedAttr &A) {
+    Sema &S, Stmt *St, const ParsedAttr &A) {
   if (S.LangOpts.SYCLIsHost)
     return nullptr;
+
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
 
   unsigned NumArgs = A.getNumArgs();
 #if INTEL_CUSTOMIZATION
@@ -332,7 +344,13 @@ CheckRedundantSYCLIntelFPGAIVDepAttrs(Sema &S, ArrayRef<const Attr *> Attrs) {
   }
 }
 
-static Attr *handleIntelFPGAIVDepAttr(Sema &S, const ParsedAttr &A) {
+static Attr *handleIntelFPGAIVDepAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
+
   unsigned NumArgs = A.getNumArgs();
   if (NumArgs > 2) {
     S.Diag(A.getLoc(), diag::err_attribute_too_many_arguments) << A << 2;
@@ -358,9 +376,16 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-static Attr *handleIntelFPGANofusionAttr(Sema &S, const ParsedAttr &A) {
+static Attr *handleIntelFPGANofusionAttr(Sema &S, Stmt *St,
+                                         const ParsedAttr &A) {
   if (S.LangOpts.SYCLIsHost)
     return nullptr;
+
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
 
   unsigned NumArgs = A.getNumArgs();
   if (NumArgs > 0) {
@@ -1309,19 +1334,17 @@ CheckForIncompatibleAttributes(Sema &S,
 }
 
 template <typename LoopAttrT>
-static void CheckForDuplicationSYCLLoopAttribute(
-    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range,
-    bool isIntelFPGAAttr = true) {
+static void
+CheckForDuplicationSYCLLoopAttribute(Sema &S,
+                                     const SmallVectorImpl<const Attr *> &Attrs,
+                                     bool isIntelFPGAAttr = true) {
   const LoopAttrT *LoopAttr = nullptr;
 
   for (const auto *I : Attrs) {
-    if (LoopAttr) {
-      if (isa<LoopAttrT>(I)) {
-        SourceLocation Loc = Range.getBegin();
-        // Cannot specify same type of attribute twice.
-        S.Diag(Loc, diag::err_sycl_loop_attr_duplication)
-            << isIntelFPGAAttr << LoopAttr->getName();
-      }
+    if (LoopAttr && isa<LoopAttrT>(I)) {
+      // Cannot specify same type of attribute twice.
+      S.Diag(I->getLocation(), diag::err_sycl_loop_attr_duplication)
+          << isIntelFPGAAttr << LoopAttr;
     }
     if (isa<LoopAttrT>(I))
       LoopAttr = cast<LoopAttrT>(I);
@@ -1332,63 +1355,62 @@ static void CheckForDuplicationSYCLLoopAttribute(
 /// declaration. Returns true if diagnosed.
 template <typename LoopAttrT, typename LoopAttrT2>
 static void CheckMutualExclusionSYCLLoopAttribute(
-    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
-  const LoopAttrT *LoopAttr = nullptr;
-  const LoopAttrT2 *LoopAttr2 = nullptr;
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs) {
+  std::pair<bool, bool> SeenAttrs;
+  const Attr *FirstSeen = nullptr;
 
   for (const auto *I : Attrs) {
+    // Remember the first attribute of the problematic type so that we can
+    // potentially diagnose it later.
+    if (!FirstSeen && isa<LoopAttrT, LoopAttrT2>(I))
+      FirstSeen = I;
+
+    // Remember if we've seen either of the attribute types.
     if (isa<LoopAttrT>(I))
-      LoopAttr = cast<LoopAttrT>(I);
-    if (isa<LoopAttrT2>(I))
-      LoopAttr2 = cast<LoopAttrT2>(I);
-    if (LoopAttr && LoopAttr2) {
-      #if INTEL_CUSTOMIZATION
-      StringRef LoopAttrName = isa<LoopAttrT>(LoopAttr)
-                               ? LoopAttr->getName()
-                               : LoopAttr->getSpelling();
-      StringRef LoopAttr2Name = isa<LoopAttrT2>(LoopAttr2)
-                                ? LoopAttr2->getName()
-                                :LoopAttr2->getSpelling();
-      S.Diag(Range.getBegin(), diag::err_attributes_are_not_compatible)
-          << LoopAttrName << LoopAttr2Name;
-      #endif // INTEL_CUSTOMIZATION
-    }
+      SeenAttrs.first = true;
+    else if (isa<LoopAttrT2>(I))
+      SeenAttrs.second = true;
+
+    // If we've seen both of the attribute types, then diagnose them both.
+    if (SeenAttrs.first && SeenAttrs.second)
+      S.Diag(I->getLocation(), diag::err_attributes_are_not_compatible)
+#if INTEL_CUSTOMIZATION
+          << FirstSeen->getAttrName() << I->getAttrName();
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
 static void CheckForIncompatibleSYCLLoopAttributes(
-    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
-  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAIIAttr>(S, Attrs, Range);
-  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxConcurrencyAttr>(
-      S, Attrs, Range);
-  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGALoopCoalesceAttr>(S, Attrs,
-                                                                      Range);
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs) {
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAInitiationIntervalAttr>(
+      S, Attrs);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxConcurrencyAttr>(S,
+                                                                        Attrs);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGALoopCoalesceAttr>(S, Attrs);
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr>(
-      S, Attrs, Range);
-  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxInterleavingAttr>(
-      S, Attrs, Range);
+      S, Attrs);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxInterleavingAttr>(S,
+                                                                         Attrs);
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGASpeculatedIterationsAttr>(
-      S, Attrs, Range);
-  CheckForDuplicationSYCLLoopAttribute<LoopUnrollHintAttr>(S, Attrs, Range,
-                                                           false);
+      S, Attrs);
+  CheckForDuplicationSYCLLoopAttribute<LoopUnrollHintAttr>(S, Attrs, false);
   CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
                                         SYCLIntelFPGAMaxInterleavingAttr>(
-      S, Attrs, Range);
+      S, Attrs);
   CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
                                         SYCLIntelFPGASpeculatedIterationsAttr>(
-      S, Attrs, Range);
+      S, Attrs);
   CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
-                                        SYCLIntelFPGAIIAttr>(S, Attrs, Range);
+                                        SYCLIntelFPGAInitiationIntervalAttr>(
+      S, Attrs);
   CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
-                                        SYCLIntelFPGAIVDepAttr>(S, Attrs,
-                                                                Range);
+                                        SYCLIntelFPGAIVDepAttr>(S, Attrs);
   CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
-                                        SYCLIntelFPGAMaxConcurrencyAttr>(
-      S, Attrs, Range);
+                                        SYCLIntelFPGAMaxConcurrencyAttr>(S,
+                                                                         Attrs);
 
   CheckRedundantSYCLIntelFPGAIVDepAttrs(S, Attrs);
-  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGANofusionAttr>(S, Attrs,
-                                                                  Range);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGANofusionAttr>(S, Attrs);
 }
 
 void CheckForIncompatibleUnrollHintAttributes(
@@ -1452,11 +1474,11 @@ void CheckForIncompatibleHLSAttributes(
 // and #pragma min_ii_at_target_fmax with #pragma ii.
 void CheckForDuplicateHLSAttributes(
     Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
-  const SYCLIntelFPGAIIAttr *PragmaII = nullptr;
+  const SYCLIntelFPGAInitiationIntervalAttr *PragmaII = nullptr;
   const LoopHintAttr *PragmaLoopHint = nullptr;
 
   for (const auto *I : Attrs) {
-    if (auto *LH = dyn_cast<const SYCLIntelFPGAIIAttr>(I))
+    if (auto *LH = dyn_cast<const SYCLIntelFPGAInitiationIntervalAttr>(I))
       PragmaII = LH;
     if (auto *LH = dyn_cast<LoopHintAttr>(I)) {
       LoopHintAttr::OptionType Opt = LH->getOption();
@@ -1520,6 +1542,12 @@ static Attr *handleLoopUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
   // determines unrolling factor) or 1 argument (the unroll factor provided
   // by the user).
 
+  if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+    S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << A << "'for', 'while', and 'do' statements";
+    return nullptr;
+  }
+
   unsigned NumArgs = A.getNumArgs();
 
   if (NumArgs > 1) {
@@ -1530,8 +1558,17 @@ static Attr *handleLoopUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
   Expr *E = NumArgs ? A.getArgAsExpr(0) : nullptr;
   if (A.getParsedKind() == ParsedAttr::AT_OpenCLUnrollHint)
     return S.BuildOpenCLLoopUnrollHintAttr(A, E);
-  else if (A.getParsedKind() == ParsedAttr::AT_LoopUnrollHint)
+  else if (A.getParsedKind() == ParsedAttr::AT_LoopUnrollHint) {
+    // FIXME: this should be hoisted up to the top level, but can't be placed
+    // there until the opencl attribute has its parsing error converted into a
+    // semantic error. See: Parser::ParseOpenCLUnrollHintAttribute().
+    if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
+      S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
+          << A << "'for', 'while', and 'do' statements";
+      return nullptr;
+    }
     return S.BuildLoopUnrollHintAttr(A, E);
+  }
 
   return nullptr;
 }
@@ -1563,20 +1600,22 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_LoopHint:
     return handleLoopHintAttr(S, St, A, Range);
   case ParsedAttr::AT_SYCLIntelFPGAIVDep:
-    return handleIntelFPGAIVDepAttr(S, A);
-  case ParsedAttr::AT_SYCLIntelFPGAII:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGAIIAttr>(S, A);
+    return handleIntelFPGAIVDepAttr(S, St, A);
+  case ParsedAttr::AT_SYCLIntelFPGAInitiationInterval:
+    return handleIntelFPGALoopAttr<SYCLIntelFPGAInitiationIntervalAttr>(S, St,
+                                                                        A);
   case ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGALoopCoalesce:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGALoopCoalesceAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGALoopCoalesceAttr>(S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGADisableLoopPipelining:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(S,
-                                                                           A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
+        S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxInterleavingAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxInterleavingAttr>(S, St, A);
   case ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(S, A);
+    return handleIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(S, St,
+                                                                          A);
   case ParsedAttr::AT_OpenCLUnrollHint:
   case ParsedAttr::AT_LoopUnrollHint:
     return handleLoopUnrollHint(S, St, A, Range);
@@ -1589,7 +1628,7 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_Unlikely:
     return handleUnlikely(S, St, A, Range);
   case ParsedAttr::AT_SYCLIntelFPGANofusion:
-    return handleIntelFPGANofusionAttr(S, A);
+    return handleIntelFPGANofusionAttr(S, St, A);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute
@@ -1611,7 +1650,7 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
   }
 
   CheckForIncompatibleAttributes(*this, Attrs);
-  CheckForIncompatibleSYCLLoopAttributes(*this, Attrs, Range);
+  CheckForIncompatibleSYCLLoopAttributes(*this, Attrs);
   CheckForIncompatibleUnrollHintAttributes(*this, Attrs, Range);
 #if INTEL_CUSTOMIZATION
   CheckForIncompatibleHLSAttributes(*this, Attrs, Range);

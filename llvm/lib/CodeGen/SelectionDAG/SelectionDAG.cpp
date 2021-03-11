@@ -307,7 +307,8 @@ bool ISD::matchUnaryPredicate(SDValue Op,
     return Match(Cst);
 
   // FIXME: Add support for vector UNDEF cases?
-  if (ISD::BUILD_VECTOR != Op.getOpcode())
+  if (ISD::BUILD_VECTOR != Op.getOpcode() &&
+      ISD::SPLAT_VECTOR != Op.getOpcode())
     return false;
 
   EVT SVT = Op.getValueType().getScalarType();
@@ -2451,7 +2452,9 @@ bool SelectionDAG::isSplatValue(SDValue V, const APInt &DemandedElts,
     return true;
   case ISD::ADD:
   case ISD::SUB:
-  case ISD::AND: {
+  case ISD::AND: 
+  case ISD::XOR:
+  case ISD::OR: {
     APInt UndefLHS, UndefRHS;
     SDValue LHS = V.getOperand(0);
     SDValue RHS = V.getOperand(1);
@@ -3943,6 +3946,9 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, const APInt &DemandedElts,
     SDValue InVec = Op.getOperand(0);
     SDValue EltNo = Op.getOperand(1);
     EVT VecVT = InVec.getValueType();
+    // ComputeNumSignBits not yet implemented for scalable vectors.
+    if (VecVT.isScalableVector())
+      break;
     const unsigned BitWidth = Op.getValueSizeInBits();
     const unsigned EltBitWidth = Op.getOperand(0).getScalarValueSizeInBits();
     const unsigned NumSrcElts = VecVT.getVectorNumElements();

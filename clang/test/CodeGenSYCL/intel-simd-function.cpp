@@ -241,16 +241,18 @@ SYCL_EXTERNAL auto bar()
 //CHECK-SAME: float [[AS4]]* align 4 dereferenceable(4) %args
 //CHECK: [[THISARG:%this.addr.*]] = alloca {{.*}}class{{.*}}SimdFunction{{.*}}*,
 //CHECK: [[ARG1:%args.addr.*]] = alloca i32 [[AS4]]*,
+//CHECK: %[[ARG1_CAST:.+]] = addrspacecast i32 [[AS4]]** [[ARG1]] to i32 [[AS4]]* [[AS4]]*
 //CHECK: [[ARG2:%args.addr.*]] = alloca float [[AS4]]*,
+//CHECK: %[[ARG2_CAST:.+]] = addrspacecast float [[AS4]]** [[ARG2]] to float [[AS4]]* [[AS4]]*
 
 //CHECK: %ptrs = getelementptr {{.*}}%this{{.*}} i32 0, i32 0
 //CHECK-NEXT: [[C1:%call[0-9]*]] = {{.*}}%ptrs
 
-//CHECK: [[L0:%[0-9]+]] = load i32 [[AS4]]*, i32 [[AS4]]** [[ARG1]],
+//CHECK: [[L0:%[0-9]+]] = load i32 [[AS4]]*, i32 [[AS4]]* [[AS4]]* %[[ARG1_CAST]],
 //CHECK-NEXT: [[C2:%call[0-9]*]] = {{.*}}[[L0]]
 //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32 [[AS4]]* [[C2]], align 4
 
-//CHECK: [[L2:%[0-9]+]] = load float [[AS4]]*, float [[AS4]]** [[ARG2]],
+//CHECK: [[L2:%[0-9]+]] = load float [[AS4]]*, float [[AS4]]* [[AS4]]* %[[ARG2_CAST]],
 //CHECK-NEXT: [[C2:%call[0-9]*]] = {{.*}}[[L2]]
 //CHECK-NEXT: [[L3:%[0-9]+]] = load float, float [[AS4]]* [[C2]], align 4
 

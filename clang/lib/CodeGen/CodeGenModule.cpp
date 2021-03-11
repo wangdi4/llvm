@@ -131,6 +131,8 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
     C.toCharUnitsFromBits(C.getTargetInfo().getMaxPointerWidth()).getQuantity();
   IntAlignInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getIntAlign()).getQuantity();
+  CharTy =
+    llvm::IntegerType::get(LLVMContext, C.getTargetInfo().getCharWidth());
   IntTy = llvm::IntegerType::get(LLVMContext, C.getTargetInfo().getIntWidth());
   IntPtrTy = llvm::IntegerType::get(LLVMContext,
     C.getTargetInfo().getMaxPointerWidth());
@@ -2975,6 +2977,34 @@ bool CodeGenModule::imbueXRayAttrs(llvm::Function *Fn, SourceLocation Loc,
   return true;
 }
 
+bool CodeGenModule::isProfileInstrExcluded(llvm::Function *Fn,
+                                           SourceLocation Loc) const {
+  const auto &ProfileList = getContext().getProfileList();
+  // If the profile list is empty, then instrument everything.
+  if (ProfileList.isEmpty())
+    return false;
+  CodeGenOptions::ProfileInstrKind Kind = getCodeGenOpts().getProfileInstr();
+  // First, check the function name.
+  Optional<bool> V = ProfileList.isFunctionExcluded(Fn->getName(), Kind);
+  if (V.hasValue())
+    return *V;
+  // Next, check the source location.
+  if (Loc.isValid()) {
+    Optional<bool> V = ProfileList.isLocationExcluded(Loc, Kind);
+    if (V.hasValue())
+      return *V;
+  }
+  // If location is unknown, this may be a compiler-generated function. Assume
+  // it's located in the main file.
+  auto &SM = Context.getSourceManager();
+  if (const auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+    Optional<bool> V = ProfileList.isFileExcluded(MainFile->getName(), Kind);
+    if (V.hasValue())
+      return *V;
+  }
+  return ProfileList.getDefault();
+}
+
 bool CodeGenModule::MustBeEmitted(const ValueDecl *Global) {
   // Never defer when EmitAllDecls is specified.
   if (LangOpts.EmitAllDecls)
@@ -3467,7 +3497,7 @@ bool CodeGenModule::shouldEmitFunction(GlobalDecl GD) {
   if (CodeGenOpts.OptimizationLevel == 0 && !F->hasAttr<AlwaysInlineAttr>())
     return false;
 
-  if (F->hasAttr<DLLImportAttr>()) {
+  if (F->hasAttr<DLLImportAttr>() && !F->hasAttr<AlwaysInlineAttr>()) {
     // Check whether it would be safe to inline this dllimport function.
     DLLImportFunctionVisitor Visitor;
     Visitor.TraverseFunctionDecl(const_cast<FunctionDecl*>(F));
@@ -4418,7 +4448,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         : (LangOpts.OpenCL ? LangAS::opencl_global : LangAS::Default);
   assert(getContext().getTargetAddressSpace(ExpectedAS) ==
          Ty->getPointerAddressSpace());
-
   if (AddrSpace != ExpectedAS)
     return getTargetCodeGenInfo().performAddrSpaceCast(*this, GV, AddrSpace,
                                                        ExpectedAS, Ty);
@@ -4576,14 +4605,10 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
     return AddrSpace;
   }
 
-  if (LangOpts.SYCLIsDevice) {
-    if (!D)
-      return LangAS::opencl_global;
+  if (LangOpts.SYCLIsDevice && D) {
     auto *Scope = D->getAttr<SYCLScopeAttr>();
     if (Scope && Scope->isWorkGroup())
       return LangAS::opencl_local;
-    if (D->getType().getAddressSpace() == LangAS::Default)
-      return LangAS::opencl_global;
   }
 
   if (LangOpts.CUDA && LangOpts.CUDAIsDevice) {
@@ -4624,17 +4649,6 @@ LangAS CodeGenModule::getStringLiteralAddressSpace() const {
   // OpenCL v1.2 s6.5.3: a string literal is in the constant address space.
   if (LangOpts.OpenCL)
     return LangAS::opencl_constant;
-  if (LangOpts.SYCLIsDevice)
-    // If we keep a literal string in constant address space, the following code
-    // becomes illegal:
-    //
-    //   const char *getLiteral() n{
-    //     return "AB";
-    //   }
-    // Use global address space to avoid illegal casts from constant to generic.
-    // Private address space is not used here because in SPIR-V global values
-    // cannot have private address space.
-    return LangAS::opencl_global;
   if (auto AS = getTarget().getConstantAddressSpace())
     return AS.getValue();
   return LangAS::Default;
@@ -5021,8 +5035,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   bool NeedsGlobalDtor =
       D->needsDestruction(getContext()) == QualType::DK_cxx_destructor;
 
+  bool IsHIPManagedVarOnDevice =
+      getLangOpts().CUDAIsDevice && D->hasAttr<HIPManagedAttr>();
+
   const VarDecl *InitDecl;
-  const Expr *InitExpr = D->getAnyInitializer(InitDecl);
+  const Expr *InitExpr =
+      IsHIPManagedVarOnDevice ? nullptr : D->getAnyInitializer(InitDecl);
 
   Optional<ConstantEmitter> emitter;
 
@@ -5034,15 +5052,14 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   // Shadows of initialized device-side global variables are also left
   // undefined.
   bool IsCUDAShadowVar =
-      !getLangOpts().CUDAIsDevice &&
+      !getLangOpts().CUDAIsDevice && !D->hasAttr<HIPManagedAttr>() &&
       (D->hasAttr<CUDAConstantAttr>() || D->hasAttr<CUDADeviceAttr>() ||
        D->hasAttr<CUDASharedAttr>());
   bool IsCUDADeviceShadowVar =
       getLangOpts().CUDAIsDevice &&
       (D->getType()->isCUDADeviceBuiltinSurfaceType() ||
-       D->getType()->isCUDADeviceBuiltinTextureType());
-  // HIP pinned shadow of initialized host-side global variables are also
-  // left undefined.
+       D->getType()->isCUDADeviceBuiltinTextureType() ||
+       D->hasAttr<HIPManagedAttr>());
   if (getLangOpts().CUDA &&
       (IsCUDASharedVar || IsCUDAShadowVar || IsCUDADeviceShadowVar))
     Init = llvm::UndefValue::get(getTypes().ConvertType(ASTTy));
@@ -5187,63 +5204,15 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
           (D->hasAttr<CUDADeviceAttr>() || D->hasAttr<CUDAConstantAttr>()))
         GV->setExternallyInitialized(true);
     } else {
-      // Host-side shadows of external declarations of device-side
-      // global variables become internal definitions. These have to
-      // be internal in order to prevent name conflicts with global
-      // host variables with the same name in a different TUs.
-      if (D->hasAttr<CUDADeviceAttr>() || D->hasAttr<CUDAConstantAttr>()) {
-        Linkage = llvm::GlobalValue::InternalLinkage;
-        // Shadow variables and their properties must be registered with CUDA
-        // runtime. Skip Extern global variables, which will be registered in
-        // the TU where they are defined.
-        //
-        // Don't register a C++17 inline variable. The local symbol can be
-        // discarded and referencing a discarded local symbol from outside the
-        // comdat (__cuda_register_globals) is disallowed by the ELF spec.
-        // TODO: Reject __device__ constexpr and __device__ inline in Sema.
-        if (!D->hasExternalStorage() && !D->isInline())
-          getCUDARuntime().registerDeviceVar(D, *GV, !D->hasDefinition(),
-                                             D->hasAttr<CUDAConstantAttr>());
-      } else if (D->hasAttr<CUDASharedAttr>()) {
-        // __shared__ variables are odd. Shadows do get created, but
-        // they are not registered with the CUDA runtime, so they
-        // can't really be used to access their device-side
-        // counterparts. It's not clear yet whether it's nvcc's bug or
-        // a feature, but we've got to do the same for compatibility.
-        Linkage = llvm::GlobalValue::InternalLinkage;
-      } else if (D->getType()->isCUDADeviceBuiltinSurfaceType() ||
-                 D->getType()->isCUDADeviceBuiltinTextureType()) {
-        // Builtin surfaces and textures and their template arguments are
-        // also registered with CUDA runtime.
-        Linkage = llvm::GlobalValue::InternalLinkage;
-        const ClassTemplateSpecializationDecl *TD =
-            cast<ClassTemplateSpecializationDecl>(
-                D->getType()->getAs<RecordType>()->getDecl());
-        const TemplateArgumentList &Args = TD->getTemplateArgs();
-        if (TD->hasAttr<CUDADeviceBuiltinSurfaceTypeAttr>()) {
-          assert(Args.size() == 2 &&
-                 "Unexpected number of template arguments of CUDA device "
-                 "builtin surface type.");
-          auto SurfType = Args[1].getAsIntegral();
-          if (!D->hasExternalStorage())
-            getCUDARuntime().registerDeviceSurf(D, *GV, !D->hasDefinition(),
-                                                SurfType.getSExtValue());
-        } else {
-          assert(Args.size() == 3 &&
-                 "Unexpected number of template arguments of CUDA device "
-                 "builtin texture type.");
-          auto TexType = Args[1].getAsIntegral();
-          auto Normalized = Args[2].getAsIntegral();
-          if (!D->hasExternalStorage())
-            getCUDARuntime().registerDeviceTex(D, *GV, !D->hasDefinition(),
-                                               TexType.getSExtValue(),
-                                               Normalized.getZExtValue());
-        }
-      }
+      getCUDARuntime().internalizeDeviceSideVar(D, Linkage);
+      getCUDARuntime().handleVarRegistration(D, *GV);
     }
   }
 
-  GV->setInitializer(Init);
+  // HIP managed variables need to be emitted as declarations in device
+  // compilation.
+  if (!IsHIPManagedVarOnDevice)
+    GV->setInitializer(Init);
   if (emitter)
     emitter->finalize(GV);
 
@@ -5720,7 +5689,8 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
     LT = getFunctionLinkage(GD);
     AS = Aliasee->getType()->getPointerAddressSpace();
   } else {
-    AS = ArgInfoAddressSpace(GetGlobalVarAddressSpace(/*D=*/nullptr));
+    AS = ArgInfoAddressSpace(
+        GetGlobalVarAddressSpace(dyn_cast<VarDecl>(GD.getDecl())));
     Aliasee = GetOrCreateLLVMGlobal(AA->getAliasee(), DeclTy->getPointerTo(AS),
                                     /*D=*/nullptr);
     if (const auto *VD = dyn_cast<VarDecl>(GD.getDecl()))

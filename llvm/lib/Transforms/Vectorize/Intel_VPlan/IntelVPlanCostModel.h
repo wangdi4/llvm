@@ -164,8 +164,7 @@ protected:
   unsigned getInsertExtractElementsCost(unsigned Opcode,
                                         Type *Ty, unsigned VF);
   virtual unsigned getIntrinsicInstrCost(
-    Intrinsic::ID ID, const CallBase &CB, unsigned VF,
-    VPCallInstruction::CallVecScenariosTy VS);
+    Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF);
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in

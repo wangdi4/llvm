@@ -3272,6 +3272,10 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     }
   }
 
+  // If the old declaration was found in an inline namespace and the new
+  // declaration was qualified, update the DeclContext to match.
+  adjustDeclContextForDeclaratorDecl(New, Old);
+
   // If the old declaration is invalid, just give up here.
   if (Old->isInvalidDecl())
     return true;
@@ -4144,6 +4148,10 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
     return New->setInvalidDecl();
   }
 
+  // If the old declaration was found in an inline namespace and the new
+  // declaration was qualified, update the DeclContext to match.
+  adjustDeclContextForDeclaratorDecl(New, Old);
+
   // Ensure the template parameters are compatible.
   if (NewTemplate &&
       !TemplateParameterListsAreEqual(NewTemplate->getTemplateParameters(),
@@ -4328,7 +4336,6 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
   New->setPreviousDecl(Old);
   if (NewTemplate)
     NewTemplate->setPreviousDecl(OldTemplate);
-  adjustDeclContextForDeclaratorDecl(New, Old);
 
   // Inherit access appropriately.
   New->setAccess(Old->getAccess());
@@ -5439,10 +5446,8 @@ Sema::GetNameFromUnqualifiedId(const UnqualifiedId &Name) {
   case UnqualifiedIdKind::IK_OperatorFunctionId:
     NameInfo.setName(Context.DeclarationNames.getCXXOperatorName(
                                            Name.OperatorFunctionId.Operator));
-    NameInfo.getInfo().CXXOperatorName.BeginOpNameLoc =
-        Name.OperatorFunctionId.SymbolLocations[0].getRawEncoding();
-    NameInfo.getInfo().CXXOperatorName.EndOpNameLoc
-      = Name.EndLocation.getRawEncoding();
+    NameInfo.setCXXOperatorNameRange(SourceRange(
+        Name.OperatorFunctionId.SymbolLocations[0], Name.EndLocation));
     return NameInfo;
 
   case UnqualifiedIdKind::IK_LiteralOperatorId:
@@ -6852,10 +6857,13 @@ static bool diagnoseOpenCLTypes(Scope *S, Sema &Se, Declarator &D,
 
   // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
   if (!Se.getOpenCLOptions().isEnabled("__cl_clang_function_pointers")) {
-    QualType NR = R;
-    while (NR->isPointerType() || NR->isMemberFunctionPointerType()) {
-      if (NR->isFunctionPointerType() || NR->isMemberFunctionPointerType()) {
-        Se.Diag(D.getIdentifierLoc(), diag::err_opencl_function_pointer);
+    QualType NR = R.getCanonicalType();
+    while (NR->isPointerType() || NR->isMemberFunctionPointerType() ||
+           NR->isReferenceType()) {
+      if (NR->isFunctionPointerType() || NR->isMemberFunctionPointerType() ||
+          NR->isFunctionReferenceType()) {
+        Se.Diag(D.getIdentifierLoc(), diag::err_opencl_function_pointer)
+            << NR->isReferenceType();
         D.setInvalidType();
         return false;
       }
@@ -11039,7 +11047,6 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
       NewTemplateDecl->mergePrevDecl(OldTemplateDecl);
 
       NewFD->setPreviousDeclaration(OldFD);
-      adjustDeclContextForDeclaratorDecl(NewFD, OldFD);
       if (NewFD->isCXXClassMember()) {
         NewFD->setAccess(OldTemplateDecl->getAccess());
         NewTemplateDecl->setAccess(OldTemplateDecl->getAccess());
@@ -11066,7 +11073,6 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
         auto *OldFD = cast<FunctionDecl>(OldDecl);
         // This needs to happen first so that 'inline' propagates.
         NewFD->setPreviousDeclaration(OldFD);
-        adjustDeclContextForDeclaratorDecl(NewFD, OldFD);
         if (NewFD->isCXXClassMember())
           NewFD->setAccess(OldFD->getAccess());
       }

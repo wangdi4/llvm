@@ -2063,9 +2063,14 @@ void CodeGenModule::ConstructAttributeList(
     if (TargetDecl->hasAttr<ConstAttr>()) {
       FuncAttrs.addAttribute(llvm::Attribute::ReadNone);
       FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
+      // gcc specifies that 'const' functions have greater restrictions than
+      // 'pure' functions, so they also cannot have infinite loops.
+      FuncAttrs.addAttribute(llvm::Attribute::WillReturn);
     } else if (TargetDecl->hasAttr<PureAttr>()) {
       FuncAttrs.addAttribute(llvm::Attribute::ReadOnly);
       FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
+      // gcc specifies that 'pure' functions cannot have infinite loops.
+      FuncAttrs.addAttribute(llvm::Attribute::WillReturn);
     } else if (TargetDecl->hasAttr<NoAliasAttr>()) {
       FuncAttrs.addAttribute(llvm::Attribute::ArgMemOnly);
       FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
@@ -4882,17 +4887,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             V->getType()->isIntegerTy())
           V = Builder.CreateZExt(V, ArgInfo.getCoerceToType());
 
-        if (FirstIRArg < IRFuncTy->getNumParams()) {
-          const auto *LHSPtrTy =
-              dyn_cast_or_null<llvm::PointerType>(V->getType());
-          const auto *RHSPtrTy = dyn_cast_or_null<llvm::PointerType>(
-              IRFuncTy->getParamType(FirstIRArg));
-          if (LHSPtrTy && RHSPtrTy &&
-              LHSPtrTy->getAddressSpace() != RHSPtrTy->getAddressSpace())
-            V = Builder.CreateAddrSpaceCast(V,
-                                            IRFuncTy->getParamType(FirstIRArg));
-        }
-
         // If the argument doesn't match, perform a bitcast to coerce it.  This
         // can happen due to trivial type mismatches.
         if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -5112,20 +5106,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // the call.
   if (!CallArgs.getCleanupsToDeactivate().empty())
     deactivateArgCleanupsBeforeCall(*this, CallArgs);
-
-  // Addrspace cast to generic if necessary
-  for (unsigned i = 0; i < IRFuncTy->getNumParams(); ++i) {
-    if (auto *PtrTy = dyn_cast<llvm::PointerType>(IRCallArgs[i]->getType())) {
-      auto *ExpectedPtrType =
-          cast<llvm::PointerType>(IRFuncTy->getParamType(i));
-      unsigned ValueAS = PtrTy->getAddressSpace();
-      unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-      if (ValueAS != ExpectedAS) {
-        IRCallArgs[i] = Builder.CreatePointerBitCastOrAddrSpaceCast(
-            IRCallArgs[i], ExpectedPtrType);
-      }
-    }
-  }
 
   // Assert that the arguments we computed match up.  The IR verifier
   // will catch this, but this is a common enough source of problems

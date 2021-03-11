@@ -94,7 +94,7 @@ static bool foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel,
 
   // Since we have whole program then proceed to change the visibility of the
   // virtual calls.
-  updateVCallVisibilityInModule(M, WPInfo->isWholeProgramSafe());
+  updateVCallVisibilityInModule(M, WPInfo->isWholeProgramSafe(), {});
 
   return true;
 }

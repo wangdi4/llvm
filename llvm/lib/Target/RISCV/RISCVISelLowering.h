@@ -44,7 +44,8 @@ enum NodeType : unsigned {
   SRAW,
   SRLW,
   // 32-bit operations from RV64M that can't be simply matched with a pattern
-  // at instruction selection time.
+  // at instruction selection time. These have undefined behavior for division
+  // by 0 or overflow (divw) like their target independent counterparts.
   DIVW,
   DIVUW,
   REMUW,
@@ -52,6 +53,10 @@ enum NodeType : unsigned {
   // instructions.
   ROLW,
   RORW,
+  // RV64IB/RV32IB funnel shifts, with the semantics of the named RISC-V
+  // instructions, but the same operand order as fshl/fshr intrinsics.
+  FSR,
+  FSL,
   // RV64IB funnel shifts, with the semantics of the named RISC-V instructions,
   // but the same operand order as fshl/fshr intrinsics.
   FSRW,
@@ -84,9 +89,8 @@ enum NodeType : unsigned {
   GORCI,
   GORCIW,
   // Vector Extension
-  // VMV_X_S matches the semantics of vmv.x.s. The result is always XLenVT
-  // sign extended from the vector element size. NOTE: The result size will
-  // never be less than the vector element size.
+  // VMV_X_S matches the semantics of vmv.x.s. The result is always XLenVT sign
+  // extended from the vector element size.
   VMV_X_S,
   // Splats an i64 scalar to a vector type (with element type i64) where the
   // scalar is a sign-extended i32.
@@ -98,8 +102,35 @@ enum NodeType : unsigned {
   // Unit-stride fault-only-first load
   VLEFF,
   VLEFF_MASK,
-  // read vl CSR
-  READ_VL,
+  // Matches the semantics of vslideup/vslidedown. The first operand is the
+  // pass-thru operand, the second is the source vector, and the third is the
+  // XLenVT index (either constant or non-constant).
+  VSLIDEUP,
+  VSLIDEDOWN,
+  // Matches the semantics of the unmasked vid.v instruction.
+  VID,
+  // Matches the semantics of the vfcnvt.rod function (Convert double-width
+  // float to single-width float, rounding towards odd). Takes a double-width
+  // float vector and produces a single-width float vector.
+  VFNCVT_ROD,
+  // These nodes match the semantics of the corresponding RVV vector reduction
+  // instructions. They produce a vector result which is the reduction
+  // performed over the first vector operand plus the first element of the
+  // second vector operand. The first operand is an unconstrained vector type,
+  // and the result and second operand's types are expected to be the
+  // corresponding full-width LMUL=1 type for the first operand:
+  //   nxv8i8 = vecreduce_add nxv32i8, nxv8i8
+  //   nxv2i32 = vecreduce_add nxv8i32, nxv2i32
+  // The different in types does introduce extra vsetvli instructions but
+  // similarly it reduces the number of registers consumed per reduction.
+  VECREDUCE_ADD,
+  VECREDUCE_UMAX,
+  VECREDUCE_SMAX,
+  VECREDUCE_UMIN,
+  VECREDUCE_SMIN,
+  VECREDUCE_AND,
+  VECREDUCE_OR,
+  VECREDUCE_XOR,
 };
 } // namespace RISCVISD
 
@@ -217,6 +248,7 @@ public:
   getExceptionSelectorRegister(const Constant *PersonalityFn) const override;
 
   bool shouldExtendTypeInLibCall(EVT Type) const override;
+  bool shouldSignExtendTypeInLibCall(EVT Type, bool IsSigned) const override;
 
   /// Returns the register with the specified architectural or ABI name. This
   /// method is necessary to lower the llvm.read_register.* and
@@ -296,8 +328,11 @@ private:
   SDValue lowerVectorMaskExt(SDValue Op, SelectionDAG &DAG,
                              int64_t ExtTrueVal) const;
   SDValue lowerVectorMaskTrunc(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerINSERT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerVECREDUCE(SDValue Op, SelectionDAG &DAG) const;
 
   bool isEligibleForTailCallOptimization(
       CCState &CCInfo, CallLoweringInfo &CLI, MachineFunction &MF,
@@ -313,8 +348,8 @@ private:
 namespace RISCVVIntrinsicsTable {
 
 struct RISCVVIntrinsicInfo {
-  unsigned int IntrinsicID;
-  unsigned int ExtendedOperand;
+  unsigned IntrinsicID;
+  uint8_t ExtendedOperand;
 };
 
 using namespace RISCV;
@@ -327,10 +362,11 @@ using namespace RISCV;
 namespace RISCVZvlssegTable {
 
 struct RISCVZvlsseg {
-  unsigned int IntrinsicID;
-  unsigned int SEW;
-  unsigned int LMUL;
-  unsigned int Pseudo;
+  unsigned IntrinsicID;
+  uint8_t SEW;
+  uint8_t LMUL;
+  uint8_t IndexLMUL;
+  uint16_t Pseudo;
 };
 
 using namespace RISCV;

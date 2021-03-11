@@ -83,6 +83,22 @@ public:
 
   bool instNeedsExtractFromLastActiveLane(const VPInstruction *Inst) const;
 
+  // Getter interfaces for querying SVA results at return value level.
+  bool retValNeedsVectorCode(const VPInstruction *Inst) const {
+    return getSVABitsForReturnValue(Inst).test(
+      static_cast<unsigned>(SVAKind::Vector));
+  }
+
+  bool retValNeedsFirstScalarCode(const VPInstruction *Inst) const {
+    return getSVABitsForReturnValue(Inst).test(
+      static_cast<unsigned>(SVAKind::FirstScalar));
+  }
+
+  bool retValNeedsLastScalarCode(const VPInstruction *Inst) const {
+    return getSVABitsForReturnValue(Inst).test(static_cast<unsigned>(
+      SVAKind::LastScalar));
+  }
+
   // TODO: Public setter/add interfaces are not needed as of now since bits are
   // computed internally within SVA. Introduce them if needed in the future.
 

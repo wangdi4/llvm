@@ -55,15 +55,6 @@ set(OPENMP_TEST_FLAGS "" CACHE STRING
 set(OPENMP_TEST_OPENMP_FLAGS ${OPENMP_TEST_COMPILER_OPENMP_FLAGS} CACHE STRING
   "OpenMP compiler flag to use for testing OpenMP runtime libraries.")
 
-
-# Build host runtime library.
-# INTEL_CUSTOMIZATION
-# Do not add runtime if Intel specific runtime is being used, which we now do
-# unconditionally.
-#  add_subdirectory(runtime)
-# end INTEL_CUSTOMIZATION
-
-
 set(ENABLE_LIBOMPTARGET ON)
 # Currently libomptarget cannot be compiled on Windows or MacOS X.
 # Since the device plugins are only supported on Linux anyway,
@@ -101,6 +92,16 @@ if (INTEL_CUSTOMIZATION)
     set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
   endif()
 endif(INTEL_CUSTOMIZATION)
+option(OPENMP_ENABLE_LIBOMP_PROFILING "Enable time profiling for libomp." OFF)
+
+# Build host runtime library, after LIBOMPTARGET variables are set since they are needed
+# to enable time profiling support in the OpenMP runtime.
+# INTEL_CUSTOMIZATION
+# Do not add runtime if Intel specific runtime is being used, which we now do
+# unconditionally.
+# add_subdirectory(runtime)
+# end INTEL_CUSTOMIZATION
+
 if (OPENMP_ENABLE_LIBOMPTARGET)
   # Check that the library can actually be built.
   if (APPLE OR WIN32)

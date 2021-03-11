@@ -123,13 +123,6 @@ public:
         MaxAtomicInlineWidth = 64;
     }
   }
-
-  llvm::Optional<LangAS> getConstantAddressSpace() const override {
-    if (UseAutoOpenCLAddrSpaceForOpenMP)
-      // Place constants into a global address space.
-      return getLangASFromTargetAS(1);
-    return LangAS::Default;
-  }
 #endif  // INTEL_COLLAB
 
   bool hasFeature(StringRef Feature) const override {
@@ -168,10 +161,20 @@ public:
     return CC_SpirFunction;
   }
 
+  llvm::Optional<LangAS> getConstantAddressSpace() const override {
+    // If we assign "opencl_constant" address space the following code becomes
+    // illegal, because it can't be cast to any other address space:
+    //
+    //   const char *getLiteral() {
+    //     return "AB";
+    //   }
+    return LangAS::opencl_global;
+  }
+
   void setSupportedOpenCLOpts() override {
     // Assume all OpenCL extensions and optional core features are supported
     // for SPIR since it is a generic target.
-    getSupportedOpenCLOpts().supportAll();
+    supportAllOpenCLOpts();
   }
 
   bool hasExtIntType() const override { return true; }

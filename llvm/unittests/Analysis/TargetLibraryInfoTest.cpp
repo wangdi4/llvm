@@ -788,6 +788,12 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @__sinhf_finite(float)\n"
       "declare x86_fp80 @__sinhl_finite(x86_fp80)\n"
 
+      // These functions are aix vec allocation/free routines
+      "declare i8* @vec_calloc(i64, i64)\n"
+      "declare i8* @vec_malloc(i64)\n"
+      "declare i8* @vec_realloc(i8*, i64)\n"
+      "declare void @vec_free(i8*)\n"
+
 #if INTEL_CUSTOMIZATION
       "declare %struct* @__acrt_iob_func(i32)\n"
       "declare void @__assert_fail(i8*, i8*, i32, i8*)\n"

@@ -1241,9 +1241,6 @@ def note_pragma_attribute_namespace_on_attribute : Note<
   "omit the namespace to add attributes to the most-recently"
   " pushed attribute group">;
 
-def err_opencl_unroll_hint_on_non_loop : Error<
-  "OpenCL only supports 'opencl_unroll_hint' attribute on for, while, and do statements">;
-
 // OpenCL EXTENSION pragma (OpenCL 1.1 [9.1])
 def warn_pragma_expected_colon : Warning<
   "missing ':' after %0 - ignoring">, InGroup<IgnoredPragmas>;
@@ -1479,12 +1476,6 @@ def err_pragma_cannot_end_force_cuda_host_device : Error<
   "force_cuda_host_device end pragma without matching "
   "force_cuda_host_device begin">;
 } // end of Parse Issue category.
-
-// SYCL loop pragmas and attributes support
-// * Intel FPGA attribute ivdep, ii, max_concurrency support
-// * clang::loop_unroll attribute support
-def err_loop_attr_on_non_loop : Error<
-  "%select{clang|intelfpga}0 loop attributes must be applied to for, while, or do statements">;
 
 let CategoryName = "Modules Issue" in {
 def err_unexpected_module_decl : Error<

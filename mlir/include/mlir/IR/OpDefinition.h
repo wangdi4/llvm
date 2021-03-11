@@ -41,7 +41,7 @@ public:
   ParseResult(const Diagnostic &) : LogicalResult(failure()) {}
 
   /// Failure is true in a boolean context.
-  explicit operator bool() const { return failed(*this); }
+  explicit operator bool() const { return failed(); }
 };
 /// This class implements `Optional` functionality for ParseResult. We don't
 /// directly use Optional here, because it provides an implicit conversion
@@ -213,10 +213,24 @@ inline bool operator!=(OpState lhs, OpState rhs) {
   return lhs.getOperation() != rhs.getOperation();
 }
 
+raw_ostream &operator<<(raw_ostream &os, OpFoldResult ofr);
+
 /// This class represents a single result from folding an operation.
 class OpFoldResult : public PointerUnion<Attribute, Value> {
   using PointerUnion<Attribute, Value>::PointerUnion;
+
+public:
+  void dump() { llvm::errs() << *this << "\n"; }
 };
+
+/// Allow printing to a stream.
+inline raw_ostream &operator<<(raw_ostream &os, OpFoldResult ofr) {
+  if (Value value = ofr.dyn_cast<Value>())
+    value.print(os);
+  else
+    ofr.dyn_cast<Attribute>().print(os);
+  return os;
+}
 
 /// Allow printing to a stream.
 inline raw_ostream &operator<<(raw_ostream &os, OpState &op) {

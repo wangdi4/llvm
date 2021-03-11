@@ -16,6 +16,7 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/ReplayInlineAdvisor.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -165,11 +166,19 @@ void InlineAdvice::recordInliningWithCalleeDeleted() {
 AnalysisKey InlineAdvisorAnalysis::Key;
 
 bool InlineAdvisorAnalysis::Result::tryCreate(InlineParams Params,
-                                              InliningAdvisorMode Mode) {
+                                              InliningAdvisorMode Mode,
+                                              StringRef ReplayFile) {
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   switch (Mode) {
   case InliningAdvisorMode::Default:
     Advisor.reset(new DefaultInlineAdvisor(M, FAM, Params));
+    // Restrict replay to default advisor, ML advisors are stateful so
+    // replay will need augmentations to interleave with them correctly.
+    if (!ReplayFile.empty()) {
+      Advisor = std::make_unique<ReplayInlineAdvisor>(
+          M, FAM, M.getContext(), std::move(Advisor), ReplayFile,
+          /* EmitRemarks =*/true);
+    }
     break;
   case InliningAdvisorMode::Development:
 #ifdef LLVM_HAVE_TF_API
@@ -188,6 +197,7 @@ bool InlineAdvisorAnalysis::Result::tryCreate(InlineParams Params,
 #endif
     break;
   }
+
   return !!Advisor;
 }
 
@@ -555,16 +565,31 @@ std::unique_ptr<InlineAdvice>
 InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                          WholeProgramInfo *WPI, InlineCost **IC,
                          bool MandatoryOnly) {
-#endif // INTEL_CUSTOMIZATION
-  if (!MandatoryOnly)
-#if INTEL_CUSTOMIZATION
-    return getAdviceImpl(CB, ILIC, WPI, IC);
+  if (!MandatoryOnly) {
+    bool NeedLocalILIC = !ILIC;
+    if (NeedLocalILIC)
+      ILIC = new InliningLoopInfoCache();
+    auto RV = getAdviceImpl(CB, ILIC, WPI, IC);
+    if (NeedLocalILIC) {
+      delete ILIC;
+      ILIC = nullptr;
+    }
+    return RV;
+  }
 #endif // INTEL_CUSTOMIZATION
   bool Advice = CB.getCaller() != CB.getCalledFunction() &&
                 MandatoryInliningKind::Always ==
                     getMandatoryKind(CB, FAM, getCallerORE(CB));
 #if INTEL_CUSTOMIZATION
-  return getMandatoryAdvice(CB, ILIC, WPI, IC, Advice);
+  bool NeedLocalILIC = !ILIC;
+  if (NeedLocalILIC)
+    ILIC = new InliningLoopInfoCache();
+  auto RV = getMandatoryAdvice(CB, ILIC, WPI, IC, Advice);
+  if (NeedLocalILIC) {
+    delete ILIC;
+    ILIC = nullptr;
+  }
+  return RV;
 #endif // INTEL_CUSTOMIZATION
 }
 

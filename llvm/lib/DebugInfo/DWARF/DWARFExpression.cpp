@@ -174,7 +174,10 @@ bool DWARFExpression::Operation::extract(DataExtractor Data,
     case Operation::WasmLocationArg:
       assert(Operand == 1);
       switch (Operands[0]) {
-      case 0: case 1: case 2:
+      case 0:
+      case 1:
+      case 2:
+      case 4:
         Operands[Operand] = Data.getULEB128(&Offset);
         break;
       case 3: // global as uint32
@@ -294,8 +297,11 @@ bool DWARFExpression::Operation::print(raw_ostream &OS, DIDumpOptions DumpOpts,
     } else if (Size == Operation::WasmLocationArg) {
       assert(Operand == 1);
       switch (Operands[0]) {
-      case 0: case 1: case 2:
+      case 0:
+      case 1:
+      case 2:
       case 3: // global as uint32
+      case 4:
         OS << format(" 0x%" PRIx64, Operands[Operand]);
         break;
       default: assert(false);
@@ -499,6 +505,12 @@ static bool printCompactDWARFExpr(raw_ostream &OS, DWARFExpression::iterator I,
 
 bool DWARFExpression::printCompact(raw_ostream &OS, const MCRegisterInfo &MRI) {
   return printCompactDWARFExpr(OS, begin(), end(), MRI);
+}
+
+bool DWARFExpression::operator==(const DWARFExpression &RHS) const {
+  if (AddressSize != RHS.AddressSize || Format != RHS.Format)
+    return false;
+  return Data.getData() == RHS.Data.getData();
 }
 
 } // namespace llvm

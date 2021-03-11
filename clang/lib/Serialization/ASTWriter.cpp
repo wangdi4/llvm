@@ -3996,6 +3996,7 @@ void ASTWriter::WriteOpenCLExtensions(Sema &SemaRef) {
     Record.push_back(V.Enabled ? 1 : 0);
     Record.push_back(V.Avail);
     Record.push_back(V.Core);
+    Record.push_back(V.Opt);
   }
   Stream.EmitRecord(OPENCL_EXTENSIONS, Record);
 }
@@ -5430,19 +5431,15 @@ void ASTRecordWriter::AddDeclarationNameLoc(const DeclarationNameLoc &DNLoc,
   case DeclarationName::CXXConstructorName:
   case DeclarationName::CXXDestructorName:
   case DeclarationName::CXXConversionFunctionName:
-    AddTypeSourceInfo(DNLoc.NamedType.TInfo);
+    AddTypeSourceInfo(DNLoc.getNamedTypeInfo());
     break;
 
   case DeclarationName::CXXOperatorName:
-    AddSourceLocation(SourceLocation::getFromRawEncoding(
-        DNLoc.CXXOperatorName.BeginOpNameLoc));
-    AddSourceLocation(
-        SourceLocation::getFromRawEncoding(DNLoc.CXXOperatorName.EndOpNameLoc));
+    AddSourceRange(DNLoc.getCXXOperatorNameRange());
     break;
 
   case DeclarationName::CXXLiteralOperatorName:
-    AddSourceLocation(SourceLocation::getFromRawEncoding(
-        DNLoc.CXXLiteralOperatorName.OpNameLoc));
+    AddSourceLocation(DNLoc.getCXXLiteralOperatorNameLoc());
     break;
 
   case DeclarationName::Identifier:
@@ -5684,6 +5681,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
     Record->push_back(Lambda.NumExplicitCaptures);
     Record->push_back(Lambda.HasKnownInternalLinkage);
     Record->push_back(Lambda.ManglingNumber);
+    Record->push_back(D->getDeviceLambdaManglingNumber());
     AddDeclRef(D->getLambdaContextDecl());
     AddTypeSourceInfo(Lambda.MethodTyInfo);
     for (unsigned I = 0, N = Lambda.NumCaptures; I != N; ++I) {

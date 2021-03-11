@@ -267,10 +267,12 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
   static InlineCost getAlways(const char *Reason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason, true);
+    return InlineCost(AlwaysInlineCost, 0, Reason, true,     // INTEL
+                      InlineReportTypes::InlrAlwaysInline);  // INTEL
   }
   static InlineCost getNever(const char *Reason) {
-    return InlineCost(NeverInlineCost, 0, Reason, false);
+    return InlineCost(NeverInlineCost, 0, Reason, false,     // INTEL
+                      InlineReportTypes::NinlrNeverInline);  // INTEL
   }
 #if INTEL_CUSTOMIZATION
   static InlineCost getAlways(const char* Reason,

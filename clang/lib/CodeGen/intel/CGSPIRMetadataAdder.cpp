@@ -83,11 +83,11 @@ static const char *ImageMSAATypeNames[] = {
     "opencl.image2d_array_msaa_depth_rw_t"};
 
 struct OCLExtensionsTy {
-#define OPENCLEXT(nm) unsigned _##nm : 1;
+#define OPENCLEXTNAME(nm) unsigned _##nm : 1;
 #include "clang/Basic/OpenCLExtensions.def"
 
 OCLExtensionsTy() {
-#define OPENCLEXT(nm) _##nm = 0;
+#define OPENCLEXTNAME(nm) _##nm = 0;
 #include "clang/Basic/OpenCLExtensions.def"
   }
 };
@@ -242,7 +242,7 @@ void clang::CodeGen::addSPIRMetadata(Module &M, int OCLVersion,
   // Add used extensions
   SmallVector<llvm::Metadata *, 5> OCLExtElts;
 
-#define OPENCLEXT(nm)                                                          \
+#define OPENCLEXTNAME(nm)                                                          \
   if (UsedExts._##nm)                                                         \
     OCLExtElts.push_back(llvm::MDString::get(M.getContext(), #nm));
 #include "clang/Basic/OpenCLExtensions.def"

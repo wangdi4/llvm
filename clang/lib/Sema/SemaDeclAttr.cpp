@@ -321,6 +321,36 @@ static bool checkAttrMutualExclusion(Sema &S, Decl *D, const Attr &AL) {
   return false;
 }
 
+void Sema::DiagnoseDeprecatedAttribute(const ParsedAttr &A, StringRef NewScope,
+                                       StringRef NewName) {
+  assert((!NewName.empty() || !NewScope.empty()) &&
+         "Deprecated attribute with no new scope or name?");
+  Diag(A.getLoc(), diag::warn_attribute_spelling_deprecated)
+      << "'" + A.getNormalizedFullName() + "'";
+
+  FixItHint Fix;
+  std::string NewFullName;
+  if (NewScope.empty() && !NewName.empty()) {
+    // Only have a new name.
+    Fix = FixItHint::CreateReplacement(A.getLoc(), NewName);
+    NewFullName =
+        ((A.hasScope() ? A.getScopeName()->getName() : StringRef("")) +
+         "::" + NewName)
+            .str();
+  } else if (NewName.empty() && !NewScope.empty()) {
+    // Only have a new scope.
+    Fix = FixItHint::CreateReplacement(A.getScopeLoc(), NewScope);
+    NewFullName = (NewScope + "::" + A.getAttrName()->getName()).str();
+  } else {
+    // Have both a new name and a new scope.
+    NewFullName = (NewScope + "::" + NewName).str();
+    Fix = FixItHint::CreateReplacement(A.getRange(), NewFullName);
+  }
+
+  Diag(A.getLoc(), diag::note_spelling_suggestion)
+      << "'" + NewFullName + "'" << Fix;
+}
+
 void Sema::CheckDeprecatedSYCLAttributeSpelling(const ParsedAttr &A,
                                                 StringRef NewName) {
 #if INTEL_CUSTOMIZATION
@@ -328,24 +358,21 @@ void Sema::CheckDeprecatedSYCLAttributeSpelling(const ParsedAttr &A,
   if (!A.hasScope())
     return;
 #endif // INTEL_CUSTOMIZATION
+
+  // Additionally, diagnose the old [[intel::ii]] spelling.
+  if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAInitiationInterval &&
+      A.getAttrName()->isStr("ii")) {
+    DiagnoseDeprecatedAttribute(A, "intel", "initiation_interval");
+    return;
+  }
+
   // All attributes in the intelfpga vendor namespace are deprecated in favor
   // of a name in the intel vendor namespace. By default, assume the attribute
   // retains its original name but changes the namespace. However, some
   // attributes were renamed, so we support supplying a new name as well.
   if (A.hasScope() && A.getScopeName()->isStr("intelfpga")) {
-    Diag(A.getLoc(), diag::warn_attribute_spelling_deprecated)
-        << "'" + A.getNormalizedFullName() + "'";
-
-    FixItHint Fix = NewName.empty()
-                        ? FixItHint::CreateReplacement(A.getScopeLoc(), "intel")
-                        : FixItHint::CreateReplacement(
-                              A.getRange(), ("intel::" + NewName).str());
-
-    Diag(A.getLoc(), diag::note_spelling_suggestion)
-        << (llvm::Twine("'intel::") +
-            (NewName.empty() ? A.getAttrName()->getName() : NewName) + "'")
-               .str()
-        << Fix;
+    DiagnoseDeprecatedAttribute(A, "intel", NewName);
+    return;
   }
 }
 
@@ -3078,9 +3105,9 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
     ASTContext &Ctx = S.getASTContext();
-    Optional<llvm::APSInt> XDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = A->getXDim()->getIntegerConstantExpr(Ctx);
+    Optional<llvm::APSInt> XDimVal = A->getXDimVal(Ctx);
+    Optional<llvm::APSInt> YDimVal = A->getYDimVal(Ctx);
+    Optional<llvm::APSInt> ZDimVal = A->getZDimVal(Ctx);
 
     if (N % XDimVal->getZExtValue() != 0 ||
         N % YDimVal->getZExtValue() != 0 ||
@@ -3692,11 +3719,13 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &AL) {
     return true;
   };
 
-  /// Returns the usigned constant integer value represented by
-  /// given expression.
+  // Returns the unsigned constant integer value represented by
+  // given expression.
   auto getExprValue = [](const Expr *E, ASTContext &Ctx) {
     return E->getIntegerConstantExpr(Ctx)->getZExtValue();
   };
+
+  ASTContext &Ctx = S.getASTContext();
 
   if (AL.getKind() == ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim) {
     ArrayRef<const Expr *> Dims;
@@ -3706,9 +3735,9 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &AL) {
     else if (const auto *B = D->getAttr<ReqdWorkGroupSizeAttr>())
       Dims = B->dimensions();
     if (B) {
-      Result &= checkZeroDim(B, getExprValue(Dims[0], S.getASTContext()),
-                             getExprValue(Dims[1], S.getASTContext()),
-                             getExprValue(Dims[2], S.getASTContext()));
+      Result &=
+          checkZeroDim(B, getExprValue(Dims[0], Ctx),
+                       getExprValue(Dims[1], Ctx), getExprValue(Dims[2], Ctx));
     }
     return Result;
   }
@@ -3716,28 +3745,22 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (AL.getKind() == ParsedAttr::AT_SYCLIntelMaxWorkGroupSize)
     S.CheckDeprecatedSYCLAttributeSpelling(AL);
 
-  // For a SYCLDevice, WorkGroupAttr arguments are reversed.
-  // "XDim" gets the third argument to the attribute and
-  // "ZDim" gets the first argument of the attribute.
   if (const auto *A = D->getAttr<SYCLIntelMaxGlobalWorkDimAttr>()) {
-    int64_t AttrValue =
-        A->getValue()->getIntegerConstantExpr(S.Context)->getSExtValue();
-    if (AttrValue == 0) {
-      Result &=
-          checkZeroDim(A, getExprValue(AL.getArgAsExpr(0), S.getASTContext()),
-                       getExprValue(AL.getArgAsExpr(1), S.getASTContext()),
-                       getExprValue(AL.getArgAsExpr(2), S.getASTContext()),
-                       /*ReverseAttrs=*/true);
+    if ((A->getValue()->getIntegerConstantExpr(Ctx)->getSExtValue()) == 0) {
+      Result &= checkZeroDim(A, getExprValue(AL.getArgAsExpr(0), Ctx),
+                             getExprValue(AL.getArgAsExpr(1), Ctx),
+                             getExprValue(AL.getArgAsExpr(2), Ctx),
+                             /*ReverseAttrs=*/true);
     }
   }
 
   if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-    if (!((getExprValue(AL.getArgAsExpr(0), S.getASTContext()) <=
-           getExprValue(A->getXDim(), S.getASTContext())) &&
-          (getExprValue(AL.getArgAsExpr(1), S.getASTContext()) <=
-           getExprValue(A->getYDim(), S.getASTContext())) &&
-          (getExprValue(AL.getArgAsExpr(2), S.getASTContext()) <=
-           getExprValue(A->getZDim(), S.getASTContext())))) {
+    if (!((getExprValue(AL.getArgAsExpr(0), Ctx) <=
+           getExprValue(A->getXDim(), Ctx)) &&
+          (getExprValue(AL.getArgAsExpr(1), Ctx) <=
+           getExprValue(A->getYDim(), Ctx)) &&
+          (getExprValue(AL.getArgAsExpr(2), Ctx) <=
+           getExprValue(A->getZDim(), Ctx)))) {
       S.Diag(AL.getLoc(), diag::err_conflicting_sycl_function_attributes)
           << AL << A->getSpelling();
       Result &= false;
@@ -3745,12 +3768,12 @@ static bool checkWorkGroupSizeValues(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
-    if (!((getExprValue(AL.getArgAsExpr(0), S.getASTContext()) >=
-           getExprValue(A->getXDim(), S.getASTContext())) &&
-          (getExprValue(AL.getArgAsExpr(1), S.getASTContext()) >=
-           getExprValue(A->getYDim(), S.getASTContext())) &&
-          (getExprValue(AL.getArgAsExpr(2), S.getASTContext()) >=
-           getExprValue(A->getZDim(), S.getASTContext())))) {
+    if (!((getExprValue(AL.getArgAsExpr(0), Ctx) >=
+           getExprValue(A->getXDim(), Ctx)) &&
+          (getExprValue(AL.getArgAsExpr(1), Ctx) >=
+           getExprValue(A->getYDim(), Ctx)) &&
+          (getExprValue(AL.getArgAsExpr(2), Ctx) >=
+           getExprValue(A->getZDim(), Ctx)))) {
       S.Diag(AL.getLoc(), diag::err_conflicting_sycl_function_attributes)
           << AL << A->getSpelling();
       Result &= false;
@@ -3809,58 +3832,62 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 #if INTEL_CUSTOMIZATION
   ASTContext &Ctx = S.getASTContext();
+  if (!XDimExpr->isValueDependent() && !YDimExpr->isValueDependent() &&
+      !ZDimExpr->isValueDependent()) {
+    llvm::APSInt XDimVal, YDimVal, ZDimVal;
+    ExprResult XDim = S.VerifyIntegerConstantExpression(XDimExpr, &XDimVal);
+    ExprResult YDim = S.VerifyIntegerConstantExpression(YDimExpr, &YDimVal);
+    ExprResult ZDim = S.VerifyIntegerConstantExpression(ZDimExpr, &ZDimVal);
 
-  if (D->hasAttr<AutorunAttr>()) {
-    long long int N = 1ll << 32ll;
-    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
-
-    if ((N % XDimVal->getZExtValue()) != 0 ||
-        (N % YDimVal->getZExtValue()) != 0 ||
-        (N % ZDimVal->getZExtValue()) != 0) {
-      S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+    if (XDim.isInvalid())
       return;
-    }
-  }
+    XDimExpr = XDim.get();
 
-  if (const auto *A = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
-    Optional<llvm::APSInt> NumSimdWorkItems =
-        A->getValue()->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
-
-    if (!(XDimVal->getExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
-          YDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0 ||
-          ZDimVal->getZExtValue() % NumSimdWorkItems->getExtValue() == 0)) {
-      S.Diag(A->getLocation(), diag::err_conflicting_sycl_function_attributes)
-          << A << AL;
-      S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
+    if (YDim.isInvalid())
       return;
+    YDimExpr = YDim.get();
+
+    if (ZDim.isInvalid())
+      return;
+    ZDimExpr = ZDim.get();
+
+    if (const auto *A = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
+      int64_t NumSimdWorkItems =
+          A->getValue()->getIntegerConstantExpr(Ctx)->getSExtValue();
+
+      if (!(XDimVal.getZExtValue() % NumSimdWorkItems == 0 ||
+            YDimVal.getZExtValue() % NumSimdWorkItems == 0 ||
+            ZDimVal.getZExtValue() % NumSimdWorkItems == 0)) {
+        S.Diag(A->getLocation(), diag::err_conflicting_sycl_function_attributes)
+            << A << AL;
+        S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
+        return;
+      }
     }
-  }
+
+    if (D->hasAttr<AutorunAttr>()) {
+      long long int N = 1ll << 32ll;
+      if ((N % XDimVal.getZExtValue()) != 0 ||
+          (N % YDimVal.getZExtValue()) != 0 ||
+          (N % ZDimVal.getZExtValue()) != 0) {
+        S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+        return;
+      }
+    }
 #endif // INTEL_CUSTOMIZATION
 
-  if (WorkGroupAttr *ExistingAttr = D->getAttr<WorkGroupAttr>()) {
-    ASTContext &Ctx = S.getASTContext();
-    Optional<llvm::APSInt> XDimVal = XDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> YDimVal = YDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ZDimVal = ZDimExpr->getIntegerConstantExpr(Ctx);
-    Optional<llvm::APSInt> ExistingXDimVal = ExistingAttr->getXDimVal(Ctx);
-    Optional<llvm::APSInt> ExistingYDimVal = ExistingAttr->getYDimVal(Ctx);
-    Optional<llvm::APSInt> ExistingZDimVal = ExistingAttr->getZDimVal(Ctx);
-
-    // Compare attribute arguments value and warn for a mismatch.
-    if (ExistingXDimVal != XDimVal || ExistingYDimVal != YDimVal ||
-        ExistingZDimVal != ZDimVal) {
-      S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
-      S.Diag(ExistingAttr->getLocation(), diag::note_conflicting_attribute);
+    if (const auto *ExistingAttr = D->getAttr<WorkGroupAttr>()) {
+      // Compare attribute arguments value and warn for a mismatch.
+      if (ExistingAttr->getXDimVal(Ctx) != XDimVal ||
+          ExistingAttr->getYDimVal(Ctx) != YDimVal ||
+          ExistingAttr->getZDimVal(Ctx) != ZDimVal) {
+        S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
+        S.Diag(ExistingAttr->getLocation(), diag::note_conflicting_attribute);
+      }
     }
+    if (!checkWorkGroupSizeValues(S, D, AL))
+      return;
   }
-
-  if (!checkWorkGroupSizeValues(S, D, AL))
-    return;
 
   S.addIntelSYCLTripleArgFunctionAttr<WorkGroupAttr>(D, AL, XDimExpr, YDimExpr,
                                                      ZDimExpr);
@@ -3911,7 +3938,6 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 // Handles num_simd_work_items.
 static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
                                        const ParsedAttr &A) {
-
   if (D->isInvalidDecl())
     return;
 
@@ -5688,7 +5714,8 @@ static void handleSYCLRegisterNumAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL))
+  if (checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL) ||
+      checkAttrMutualExclusion<HIPManagedAttr>(S, D, AL))
     return;
   const auto *VD = cast<VarDecl>(D);
   if (VD->hasLocalStorage()) {
@@ -5699,7 +5726,8 @@ static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleSharedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<CUDAConstantAttr>(S, D, AL))
+  if (checkAttrMutualExclusion<CUDAConstantAttr>(S, D, AL) ||
+      checkAttrMutualExclusion<HIPManagedAttr>(S, D, AL))
     return;
   const auto *VD = cast<VarDecl>(D);
   // extern __shared__ is only allowed on arrays with no length (e.g.
@@ -5764,7 +5792,31 @@ static void handleDeviceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
       return;
     }
   }
+
+  if (auto *A = D->getAttr<CUDADeviceAttr>()) {
+    if (!A->isImplicit())
+      return;
+    D->dropAttr<CUDADeviceAttr>();
+  }
   D->addAttr(::new (S.Context) CUDADeviceAttr(S.Context, AL));
+}
+
+static void handleManagedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (checkAttrMutualExclusion<CUDAConstantAttr>(S, D, AL) ||
+      checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL)) {
+    return;
+  }
+
+  if (const auto *VD = dyn_cast<VarDecl>(D)) {
+    if (VD->hasLocalStorage()) {
+      S.Diag(AL.getLoc(), diag::err_cuda_nonstatic_constdev);
+      return;
+    }
+  }
+  if (!D->hasAttr<HIPManagedAttr>())
+    D->addAttr(::new (S.Context) HIPManagedAttr(S.Context, AL));
+  if (!D->hasAttr<CUDADeviceAttr>())
+    D->addAttr(CUDADeviceAttr::CreateImplicit(S.Context));
 }
 
 static void handleGNUInlineAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -9487,6 +9539,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_CUDAHost:
     handleSimpleAttributeWithExclusions<CUDAHostAttr, CUDAGlobalAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_HIPManaged:
+    handleManagedAttr(S, D, AL);
     break;
   case ParsedAttr::AT_CUDADeviceBuiltinSurfaceType:
     handleSimpleAttributeWithExclusions<CUDADeviceBuiltinSurfaceTypeAttr,

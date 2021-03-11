@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_ANALYSIS_SCALAREVOLUTIONEXPANDER_H
-#define LLVM_ANALYSIS_SCALAREVOLUTIONEXPANDER_H
+#ifndef LLVM_TRANSFORMS_UTILS_SCALAREVOLUTIONEXPANDER_H
+#define LLVM_TRANSFORMS_UTILS_SCALAREVOLUTIONEXPANDER_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -200,6 +200,8 @@ public:
     ReusedValues.clear();
     ChainedPhis.clear();
   }
+
+  ScalarEvolution *getSE() { return &SE; }
 
   /// Return a vector containing all instructions inserted during expansion.
   SmallVector<Instruction *, 32> getAllInsertedInstructions() const {

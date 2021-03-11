@@ -30,6 +30,8 @@ int main() {
 
   // CHECK-LABEL:  FunctionDecl {{.*}}test_kernel3 'void ()'
   // CHECK:        SYCLIntelSchedulerTargetFmaxMhzAttr {{.*}}
+  // CHECK-NEXT:   ConstantExpr {{.*}} 'int'
+  // CHECK-NEXT:   value: Int 75
   // CHECK-NEXT:   SubstNonTypeTemplateParmExpr {{.*}} 'int'
   // CHECK-NEXT:   NonTypeTemplateParmDecl {{.*}} referenced 'int' depth 0 index 0 N
   // CHECK-NEXT:   IntegerLiteral {{.*}} 'int' 75
@@ -45,5 +47,5 @@ int main() {
       []() [[intel::scheduler_target_fmax_mhz(-4)]]{}); // expected-error{{'scheduler_target_fmax_mhz' attribute requires integer constant between 0 and 1048576 inclusive}}
 
   cl::sycl::kernel_single_task<class test_kernel6>(
-      []() [[intel::scheduler_target_fmax_mhz(1), intel::scheduler_target_fmax_mhz(2)]]{}); // expected-warning{{attribute 'scheduler_target_fmax_mhz' is already applied with different parameters}}
+      []() [[intel::scheduler_target_fmax_mhz(1), intel::scheduler_target_fmax_mhz(2)]]{}); // expected-warning{{attribute 'scheduler_target_fmax_mhz' is already applied with different arguments}}
 }

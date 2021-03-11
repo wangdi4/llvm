@@ -12527,7 +12527,8 @@ TreeTransform<Derived>::TransformCXXConstructExpr(CXXConstructExpr *E) {
         (E->getNumArgs() > 1 && getDerived().DropCallArgument(E->getArg(1)))) &&
        (!getDerived().DropCallArgument(E->getArg(0))) &&
        !E->isListInitialization()))
-    return getDerived().TransformExpr(E->getArg(0));
+    return getDerived().TransformInitializer(E->getArg(0),
+                                             /*DirectInit*/ false);
 
   TemporaryBase Rebase(*this, /*FIXME*/ E->getBeginLoc(), DeclarationName());
 
@@ -12790,10 +12791,11 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
                                         E->getCaptureDefault());
   getDerived().transformedLocalDecl(OldClass, {Class});
 
-  Optional<std::tuple<unsigned, bool, Decl *>> Mangling;
+  Optional<std::tuple<bool, unsigned, unsigned, Decl *>> Mangling;
   if (getDerived().ReplacingOriginal())
-    Mangling = std::make_tuple(OldClass->getLambdaManglingNumber(),
-                               OldClass->hasKnownLambdaInternalLinkage(),
+    Mangling = std::make_tuple(OldClass->hasKnownLambdaInternalLinkage(),
+                               OldClass->getLambdaManglingNumber(),
+                               OldClass->getDeviceLambdaManglingNumber(),
                                OldClass->getLambdaContextDecl());
 
   // Build the call operator.
@@ -14644,11 +14646,9 @@ TreeTransform<Derived>::RebuildCXXOperatorCallExpr(OverloadedOperatorKind Op,
     SourceLocation RBrace;
 
     if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Callee)) {
-        DeclarationNameLoc NameLoc = DRE->getNameInfo().getInfo();
-        LBrace = SourceLocation::getFromRawEncoding(
-                    NameLoc.CXXOperatorName.BeginOpNameLoc);
-        RBrace = SourceLocation::getFromRawEncoding(
-                    NameLoc.CXXOperatorName.EndOpNameLoc);
+      DeclarationNameLoc NameLoc = DRE->getNameInfo().getInfo();
+      LBrace = NameLoc.getCXXOperatorNameBeginLoc();
+      RBrace = NameLoc.getCXXOperatorNameEndLoc();
     } else {
       LBrace = Callee->getBeginLoc();
       RBrace = OpLoc;

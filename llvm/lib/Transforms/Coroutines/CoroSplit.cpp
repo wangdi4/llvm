@@ -158,6 +158,7 @@ private:
   void replaceCoroSuspends();
   void replaceCoroEnds();
   void replaceSwiftErrorOps();
+  void salvageDebugInfo();
   void handleFinalSuspend();
 };
 
@@ -631,6 +632,37 @@ void CoroCloner::replaceSwiftErrorOps() {
   ::replaceSwiftErrorOps(*NewF, Shape, &VMap);
 }
 
+void CoroCloner::salvageDebugInfo() {
+  SmallVector<DbgDeclareInst *, 8> Worklist;
+  SmallDenseMap<llvm::Value *, llvm::AllocaInst *, 4> DbgPtrAllocaCache;
+  for (auto &BB : *NewF)
+    for (auto &I : BB)
+      if (auto *DDI = dyn_cast<DbgDeclareInst>(&I))
+        Worklist.push_back(DDI);
+  for (DbgDeclareInst *DDI : Worklist)
+    coro::salvageDebugInfo(DbgPtrAllocaCache, DDI);
+
+  // Remove all salvaged dbg.declare intrinsics that became
+  // either unreachable or stale due to the CoroSplit transformation.
+  auto IsUnreachableBlock = [&](BasicBlock *BB) {
+    return BB->hasNPredecessors(0) && BB != &NewF->getEntryBlock();
+  };
+  for (DbgDeclareInst *DDI : Worklist) {
+    if (IsUnreachableBlock(DDI->getParent()))
+      DDI->eraseFromParent();
+    else if (dyn_cast_or_null<AllocaInst>(DDI->getAddress())) {
+      // Count all non-debuginfo uses in reachable blocks.
+      unsigned Uses = 0;
+      for (auto *User : DDI->getAddress()->users())
+        if (auto *I = dyn_cast<Instruction>(User))
+          if (!isa<AllocaInst>(I) && !IsUnreachableBlock(I->getParent()))
+            ++Uses;
+      if (!Uses)
+        DDI->eraseFromParent();
+    }
+  }
+}
+
 void CoroCloner::replaceEntryBlock() {
   // In the original function, the AllocaSpillBlock is a block immediately
   // following the allocation of the frame object which defines GEPs for
@@ -683,15 +715,17 @@ void CoroCloner::replaceEntryBlock() {
   }
   }
 
-  // Any alloca that's still being used but not reachable from the new entry
-  // needs to be moved to the new entry.
+  // Any static alloca that's still being used but not reachable from the new
+  // entry needs to be moved to the new entry.
   Function *F = OldEntry->getParent();
   DominatorTree DT{*F};
   for (auto IT = inst_begin(F), End = inst_end(F); IT != End;) {
     Instruction &I = *IT++;
-    if (!isa<AllocaInst>(&I) || I.use_empty())
+    auto *Alloca = dyn_cast<AllocaInst>(&I);
+    if (!Alloca || I.use_empty())
       continue;
-    if (DT.isReachableFromEntry(I.getParent()))
+    if (DT.isReachableFromEntry(I.getParent()) ||
+        !isa<ConstantInt>(Alloca->getArraySize()))
       continue;
     I.moveBefore(*Entry, Entry->getFirstInsertionPt());
   }
@@ -903,6 +937,9 @@ void CoroCloner::create() {
 
   // Remove coro.end intrinsics.
   replaceCoroEnds();
+
+  // Salvage debug info that points into the coroutine frame.
+  salvageDebugInfo();
 
   // Eliminate coro.free from the clones, replacing it with 'null' in cleanup,
   // to suppress deallocation code.

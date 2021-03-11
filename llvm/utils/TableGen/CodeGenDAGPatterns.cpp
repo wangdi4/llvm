@@ -2648,6 +2648,8 @@ static bool OnlyOnRHSOfCommutative(TreePatternNode *N) {
     return true;
   if (N->isLeaf() && isa<IntInit>(N->getLeafValue()))
     return true;
+  if (isImmAllOnesAllZerosMatch(N))
+    return true;
   return false;
 }
 
@@ -3969,7 +3971,7 @@ void CodeGenDAGPatterns::AddPatternToMatch(TreePattern *Pattern,
         SrcNames[Entry.first].second == 1)
       Pattern->error("Pattern has dead named input: $" + Entry.first);
 
-  PatternsToMatch.push_back(PTM);
+  PatternsToMatch.push_back(std::move(PTM));
 }
 
 void CodeGenDAGPatterns::InferInstructionFlags() {
@@ -4041,8 +4043,7 @@ void CodeGenDAGPatterns::InferInstructionFlags() {
 /// Verify instruction flags against pattern node properties.
 void CodeGenDAGPatterns::VerifyInstructionFlags() {
   unsigned Errors = 0;
-  for (ptm_iterator I = ptm_begin(), E = ptm_end(); I != E; ++I) {
-    const PatternToMatch &PTM = *I;
+  for (const PatternToMatch &PTM : ptms()) {
     SmallVector<Record*, 8> Instrs;
     getInstructionsInTree(PTM.getDstPattern(), Instrs);
     if (Instrs.empty())
@@ -4293,31 +4294,32 @@ static void collectModes(std::set<unsigned> &Modes, const TreePatternNode *N) {
 void CodeGenDAGPatterns::ExpandHwModeBasedTypes() {
   const CodeGenHwModes &CGH = getTargetInfo().getHwModes();
   std::map<unsigned,std::vector<Predicate>> ModeChecks;
-  std::vector<PatternToMatch> Copy = PatternsToMatch;
-  PatternsToMatch.clear();
+  std::vector<PatternToMatch> Copy;
+  PatternsToMatch.swap(Copy);
 
   auto AppendPattern = [this, &ModeChecks](PatternToMatch &P, unsigned Mode) {
-    TreePatternNodePtr NewSrc = P.SrcPattern->clone();
-    TreePatternNodePtr NewDst = P.DstPattern->clone();
+    TreePatternNodePtr NewSrc = P.getSrcPattern()->clone();
+    TreePatternNodePtr NewDst = P.getDstPattern()->clone();
     if (!NewSrc->setDefaultMode(Mode) || !NewDst->setDefaultMode(Mode)) {
       return;
     }
 
-    std::vector<Predicate> Preds = P.Predicates;
+    std::vector<Predicate> Preds = P.getPredicates();
     const std::vector<Predicate> &MC = ModeChecks[Mode];
     llvm::append_range(Preds, MC);
-    PatternsToMatch.emplace_back(P.getSrcRecord(), Preds, std::move(NewSrc),
-                                 std::move(NewDst), P.getDstRegs(),
+    PatternsToMatch.emplace_back(P.getSrcRecord(), std::move(Preds),
+                                 std::move(NewSrc), std::move(NewDst),
+                                 P.getDstRegs(),
                                  P.getAddedComplexity(), Record::getNewUID(),
                                  Mode);
   };
 
   for (PatternToMatch &P : Copy) {
     TreePatternNodePtr SrcP = nullptr, DstP = nullptr;
-    if (P.SrcPattern->hasProperTypeByHwMode())
-      SrcP = P.SrcPattern;
-    if (P.DstPattern->hasProperTypeByHwMode())
-      DstP = P.DstPattern;
+    if (P.getSrcPattern()->hasProperTypeByHwMode())
+      SrcP = P.getSrcPatternShared();
+    if (P.getDstPattern()->hasProperTypeByHwMode())
+      DstP = P.getDstPatternShared();
     if (!SrcP && !DstP) {
       PatternsToMatch.push_back(P);
       continue;
@@ -4729,11 +4731,11 @@ void CodeGenDAGPatterns::GenerateVariants() {
       if (AlreadyExists) continue;
 
       // Otherwise, add it to the list of patterns we have.
-      PatternsToMatch.push_back(PatternToMatch(
+      PatternsToMatch.emplace_back(
           PatternsToMatch[i].getSrcRecord(), PatternsToMatch[i].getPredicates(),
           Variant, PatternsToMatch[i].getDstPatternShared(),
           PatternsToMatch[i].getDstRegs(),
-          PatternsToMatch[i].getAddedComplexity(), Record::getNewUID()));
+          PatternsToMatch[i].getAddedComplexity(), Record::getNewUID());
       MatchedPredicates.push_back(Matches);
 
       // Add a new match the same as this pattern.

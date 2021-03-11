@@ -2879,9 +2879,11 @@ BasicBlock *GVN::splitCriticalEdges(BasicBlock *Pred, BasicBlock *Succ) {
   BasicBlock *BB = SplitCriticalEdge(
       Pred, Succ,
       CriticalEdgeSplittingOptions(DT, LI, MSSAU).unsetPreserveLoopSimplify());
-  if (MD)
-    MD->invalidateCachedPredecessors();
-  InvalidBlockRPONumbers = true;
+  if (BB) {
+    if (MD)
+      MD->invalidateCachedPredecessors();
+    InvalidBlockRPONumbers = true;
+  }
   return BB;
 }
 
@@ -2890,14 +2892,20 @@ BasicBlock *GVN::splitCriticalEdges(BasicBlock *Pred, BasicBlock *Succ) {
 bool GVN::splitCriticalEdges() {
   if (toSplit.empty())
     return false;
+
+  bool Changed = false;
   do {
     std::pair<Instruction *, unsigned> Edge = toSplit.pop_back_val();
-    SplitCriticalEdge(Edge.first, Edge.second,
-                      CriticalEdgeSplittingOptions(DT, LI, MSSAU));
+    Changed |= SplitCriticalEdge(Edge.first, Edge.second,
+                                 CriticalEdgeSplittingOptions(DT, LI, MSSAU)) !=
+               nullptr;
   } while (!toSplit.empty());
-  if (MD) MD->invalidateCachedPredecessors();
-  InvalidBlockRPONumbers = true;
-  return true;
+  if (Changed) {
+    if (MD)
+      MD->invalidateCachedPredecessors();
+    InvalidBlockRPONumbers = true;
+  }
+  return Changed;
 }
 
 /// Executes one iteration of GVN
@@ -2993,9 +3001,7 @@ void GVN::addDeadBlock(BasicBlock *BB) {
 
   // For the dead blocks' live successors, update their phi nodes by replacing
   // the operands corresponding to dead blocks with UndefVal.
-  for(SmallSetVector<BasicBlock *, 4>::iterator I = DF.begin(), E = DF.end();
-        I != E; I++) {
-    BasicBlock *B = *I;
+  for (BasicBlock *B : DF) {
     if (DeadBlocks.count(B))
       continue;
 

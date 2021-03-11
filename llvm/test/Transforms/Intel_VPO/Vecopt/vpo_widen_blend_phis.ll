@@ -140,6 +140,8 @@ for.end:
 ; CHECK-NEXT:    [[VEC_PHI70:%.*]] = phi <2 x i64> [ [[VEC_PHI0]], [[VPLANNEDBB40]] ], [ [[TMP16:%.*]], [[VPLANNEDBB160]] ]
 ; CHECK-NEXT:    [[VEC_PHI80:%.*]] = phi <2 x i1> [ [[TMP3]], [[VPLANNEDBB40]] ], [ [[TMP19:%.*]], [[VPLANNEDBB160]] ]
 ; CHECK-NEXT:    [[VEC_PHI90:%.*]] = phi <8 x float> [ undef, [[VPLANNEDBB40]] ], [ [[TMP18:%.*]], [[VPLANNEDBB160]] ]
+; CHECK-NEXT:    [[EXTRACTSUBVEC_140:%.*]] = shufflevector <8 x float> [[VEC_PHI60]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[EXTRACTSUBVEC_0:%.*]] = shufflevector <8 x float> [[VEC_PHI60]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB10:
@@ -148,12 +150,14 @@ for.end:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
 ; CHECK-NEXT:    [[TMP6:%.*]] = fadd <8 x float> [[VEC_PHI60]], [[VEC_PHI60]]
+; CHECK-NEXT:    [[EXTRACTSUBVEC_150:%.*]] = shufflevector <8 x float> [[TMP6]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[EXTRACTSUBVEC_120:%.*]] = shufflevector <8 x float> [[TMP6]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i1 [[PREDICATE0]], true
-; CHECK:         br i1 [[TMP7]], label [[PRED_CALL_IF0:%.*]], label [[TMP9:%.*]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[PRED_CALL_IF0:%.*]], label [[TMP9:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.if:
-; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_0:%.*]], <4 x float> [[EXTRACTSUBVEC_120:%.*]])
+; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_0]], <4 x float> [[EXTRACTSUBVEC_120]])
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  9:
@@ -163,10 +167,10 @@ for.end:
 ; CHECK-NEXT:  pred.call.continue:
 ; CHECK-NEXT:    [[PREDICATE130:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE130]], true
-; CHECK:         br i1 [[TMP11]], label [[PRED_CALL_IF300:%.*]], label [[TMP13:%.*]]
+; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF300:%.*]], label [[TMP13:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.if30:
-; CHECK-NEXT:    [[TMP12:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_140:%.*]], <4 x float> [[EXTRACTSUBVEC_150:%.*]])
+; CHECK-NEXT:    [[TMP12:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_140]], <4 x float> [[EXTRACTSUBVEC_150]])
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  13:

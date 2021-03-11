@@ -119,6 +119,7 @@ add_clang_library(clangCodeGen
   clangBasic
   clangFrontend
   clangLex
+  clangSema
   clangSerialization
   LLVMGenXIntrinsics
   )

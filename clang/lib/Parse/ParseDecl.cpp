@@ -103,6 +103,24 @@ static bool FindLocsWithCommonFileID(Preprocessor &PP, SourceLocation StartLoc,
   return AttrStartIsInMacro && AttrEndIsInMacro;
 }
 
+void Parser::ParseAttributes(unsigned WhichAttrKinds,
+                             ParsedAttributesWithRange &Attrs,
+                             SourceLocation *End,
+                             LateParsedAttrList *LateAttrs) {
+  bool MoreToParse;
+  do {
+    // Assume there's nothing left to parse, but if any attributes are in fact
+    // parsed, loop to ensure all specified attribute combinations are parsed.
+    MoreToParse = false;
+    if (WhichAttrKinds & PAKM_CXX11)
+      MoreToParse |= MaybeParseCXX11Attributes(Attrs, End);
+    if (WhichAttrKinds & PAKM_GNU)
+      MoreToParse |= MaybeParseGNUAttributes(Attrs, End, LateAttrs);
+    if (WhichAttrKinds & PAKM_Declspec)
+      MoreToParse |= MaybeParseMicrosoftDeclSpecs(Attrs, End);
+  } while (MoreToParse);
+}
+
 /// ParseGNUAttributes - Parse a non-empty attributes list.
 ///
 /// [GNU] attributes:
@@ -3609,14 +3627,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       continue;
     }
 
-    // GNU attributes support.
+    // Attributes support.
     case tok::kw___attribute:
-      ParseGNUAttributes(DS.getAttributes(), nullptr, LateAttrs);
-      continue;
-
-    // Microsoft declspec support.
     case tok::kw___declspec:
-      ParseMicrosoftDeclSpecs(DS.getAttributes());
+      ParseAttributes(PAKM_GNU | PAKM_Declspec, DS.getAttributes(), nullptr,
+                      LateAttrs);
       continue;
 
     // Microsoft single token adornments.
@@ -4009,8 +4024,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
                                     !getLangOpts().OpenCLCPlusPlus &&
           !getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
 #endif // INTEL_CUSTOMIZATION
-        // OpenCL 2.0 defined this keyword. OpenCL 1.2 and earlier should
-        // support the "pipe" word as identifier.
+        // OpenCL 2.0 and later define this keyword. OpenCL 1.2 and earlier
+        // should support the "pipe" word as identifier.
         Tok.getIdentifierInfo()->revertTokenIDToIdentifier();
         goto DoneWithDeclSpec;
       }
@@ -4139,8 +4154,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 #endif // INTEL_CUSTOMIZATION
       // generic address space is introduced only in OpenCL v2.0
       // see OpenCL C Spec v2.0 s6.5.5
-      if (Actions.getLangOpts().OpenCLVersion < 200 &&
-          !Actions.getLangOpts().OpenCLCPlusPlus) {
+      if (!Actions.getLangOpts().OpenCLGenericAddressSpace) {
         DiagID = diag::err_opencl_unknown_type_specifier;
         PrevSpec = Tok.getIdentifierInfo()->getNameStart();
         isInvalid = true;
@@ -4353,7 +4367,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
     }
 
     // Parse _Static_assert declaration.
-    if (Tok.is(tok::kw__Static_assert)) {
+    if (Tok.isOneOf(tok::kw__Static_assert, tok::kw_static_assert)) {
       SourceLocation DeclEnd;
       ParseStaticAssertDeclaration(DeclEnd);
       continue;
@@ -4491,9 +4505,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 
   // If attributes exist after tag, parse them.
   ParsedAttributesWithRange attrs(AttrFactory);
-  MaybeParseGNUAttributes(attrs);
-  MaybeParseCXX11Attributes(attrs);
-  MaybeParseMicrosoftDeclSpecs(attrs);
+  MaybeParseAttributes(PAKM_GNU | PAKM_Declspec | PAKM_CXX11, attrs);
 
   SourceLocation ScopedEnumKWLoc;
   bool IsScopedUsingClassTag = false;
@@ -4510,9 +4522,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
     ProhibitAttributes(attrs);
 
     // They are allowed afterwards, though.
-    MaybeParseGNUAttributes(attrs);
-    MaybeParseCXX11Attributes(attrs);
-    MaybeParseMicrosoftDeclSpecs(attrs);
+    MaybeParseAttributes(PAKM_GNU | PAKM_Declspec | PAKM_CXX11, attrs);
   }
 
   // C++11 [temp.explicit]p12:
@@ -5211,13 +5221,11 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   default: return false;
 
   case tok::kw_pipe:
-    return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
-            getLangOpts().OpenCLCPlusPlus;
+    return getLangOpts().OpenCLPipe;
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
-      getTargetInfo().getSupportedOpenCLOpts().
-         isEnabled("cl_intel_channels");
+           getActions().getOpenCLOptions().isEnabled("cl_intel_channels");
 #endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
@@ -5338,6 +5346,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_friend:
 
     // static_assert-declaration
+  case tok::kw_static_assert:
   case tok::kw__Static_assert:
 
     // GNU typeof support.
@@ -5755,17 +5764,16 @@ void Parser::ParseDeclarator(Declarator &D) {
 
 #if INTEL_CUSTOMIZATION
 static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
-                               const TargetInfo &Target, DeclaratorContext TheContext) {
+                               Sema &Actions, DeclaratorContext TheContext) {
 #endif // INTEL_CUSTOMIZATION
   if (Kind == tok::star || Kind == tok::caret)
     return true;
 
-  if ((Kind == tok::kw_pipe) &&
-      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus))
+  if (Kind == tok::kw_pipe && Lang.OpenCLPipe)
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&
-      Target.getSupportedOpenCLOpts().isEnabled("cl_intel_channels"))
+      Actions.getOpenCLOptions().isEnabled("cl_intel_channels"))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
@@ -5905,7 +5913,7 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
 
 #if INTEL_CUSTOMIZATION
   // Not a pointer, C++ reference, or block.
-  if (!isPtrOperatorToken(Kind, getLangOpts(), getTargetInfo(),
+  if (!isPtrOperatorToken(Kind, getLangOpts(), getActions(),
                           D.getContext())) {
     if (DirectDeclParser)
       (this->*DirectDeclParser)(D);
@@ -6134,7 +6142,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
           D.getDeclSpec().getTypeSpecType() != TST_auto)) {
       SourceLocation EllipsisLoc = ConsumeToken();
 #if INTEL_CUSTOMIZATION
-      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), getTargetInfo(),
+      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), getActions(),
                              D.getContext())) {
 #endif // INTEL_CUSTOMIZATION
         // The ellipsis was put in the wrong place. Recover, and explain to

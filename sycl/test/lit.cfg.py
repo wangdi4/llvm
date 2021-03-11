@@ -40,8 +40,13 @@ llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_A
 llvm_config.with_system_environment(['TC_WRAPPER_PATH']) # INTEL_CUSTOMIZATION
 
 # Configure LD_LIBRARY_PATH or corresponding os-specific alternatives
+# Add 'libcxx' feature to filter out all SYCL abi tests when SYCL runtime
+# is built with llvm libcxx. This feature is added for Linux only since MSVC
+# CL compiler doesn't support to use llvm libcxx instead of MSVC STL.
 if platform.system() == "Linux":
     config.available_features.add('linux')
+    if config.sycl_use_libcxx == "ON":
+        config.available_features.add('libcxx')
     llvm_config.with_system_environment('LD_LIBRARY_PATH')
     llvm_config.with_environment('LD_LIBRARY_PATH', config.sycl_libs_dir, append_path=True)
     llvm_config.with_system_environment('CFLAGS')

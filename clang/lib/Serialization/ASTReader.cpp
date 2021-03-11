@@ -1499,7 +1499,7 @@ bool ASTReader::ReadSLocEntry(int ID) {
     // we will also try to fail gracefully by setting up the SLocEntry.
     unsigned InputID = Record[4];
     InputFile IF = getInputFile(*F, InputID);
-    const FileEntry *File = IF.getFile();
+    Optional<FileEntryRef> File = IF.getFile();
     bool OverriddenBuffer = IF.isOverridden();
 
     // Note that we only check if a File was returned. If it was out-of-date
@@ -1515,9 +1515,8 @@ bool ASTReader::ReadSLocEntry(int ID) {
     }
     SrcMgr::CharacteristicKind
       FileCharacter = (SrcMgr::CharacteristicKind)Record[2];
-    // FIXME: The FileID should be created from the FileEntryRef.
-    FileID FID = SourceMgr.createFileID(File, IncludeLoc, FileCharacter,
-                                        ID, BaseOffset + Record[0]);
+    FileID FID = SourceMgr.createFileID(*File, IncludeLoc, FileCharacter, ID,
+                                        BaseOffset + Record[0]);
     SrcMgr::FileInfo &FileInfo =
           const_cast<SrcMgr::FileInfo&>(SourceMgr.getSLocEntry(FID).getFile());
     FileInfo.NumCreatedFIDs = Record[5];
@@ -1533,14 +1532,14 @@ bool ASTReader::ReadSLocEntry(int ID) {
     }
 
     const SrcMgr::ContentCache &ContentCache =
-        SourceMgr.getOrCreateContentCache(File, isSystem(FileCharacter));
+        SourceMgr.getOrCreateContentCache(*File, isSystem(FileCharacter));
     if (OverriddenBuffer && !ContentCache.BufferOverridden &&
         ContentCache.ContentsEntry == ContentCache.OrigEntry &&
         !ContentCache.getBufferIfLoaded()) {
       auto Buffer = ReadBuffer(SLocEntryCursor, File->getName());
       if (!Buffer)
         return true;
-      SourceMgr.overrideFileContents(File, std::move(Buffer));
+      SourceMgr.overrideFileContents(*File, std::move(Buffer));
     }
 
     break;
@@ -2751,9 +2750,15 @@ ASTReader::ReadControlBlock(ModuleFile &F,
       }
 
       bool hasErrors = Record[6];
-      if (hasErrors && !DisableValidation && !AllowASTWithCompilerErrors) {
-        Diag(diag::err_pch_with_compiler_errors);
-        return HadErrors;
+      if (hasErrors && !DisableValidation) {
+        // Always rebuild modules from the cache on an error
+        if (F.Kind == MK_ImplicitModule)
+          return OutOfDate;
+
+        if (!AllowASTWithCompilerErrors) {
+          Diag(diag::err_pch_with_compiler_errors);
+          return HadErrors;
+        }
       }
       if (hasErrors) {
         Diags.ErrorOccurred = true;
@@ -3609,11 +3614,12 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
     case OPENCL_EXTENSIONS:
       for (unsigned I = 0, E = Record.size(); I != E; ) {
         auto Name = ReadString(Record, I);
-        auto &Opt = OpenCLExtensions.OptMap[Name];
-        Opt.Supported = Record[I++] != 0;
-        Opt.Enabled = Record[I++] != 0;
-        Opt.Avail = Record[I++];
-        Opt.Core = Record[I++];
+        auto &OptInfo = OpenCLExtensions.OptMap[Name];
+        OptInfo.Supported = Record[I++] != 0;
+        OptInfo.Enabled = Record[I++] != 0;
+        OptInfo.Avail = Record[I++];
+        OptInfo.Core = Record[I++];
+        OptInfo.Opt = Record[I++];
       }
       break;
 
@@ -7892,7 +7898,7 @@ void ASTReader::InitializeSema(Sema &S) {
         NewOverrides.applyOverrides(SemaObj->getLangOpts());
   }
 
-  SemaObj->OpenCLFeatures.copy(OpenCLExtensions);
+  SemaObj->OpenCLFeatures = OpenCLExtensions;
   SemaObj->OpenCLTypeExtMap = OpenCLTypeExtMap;
   SemaObj->OpenCLDeclExtMap = OpenCLDeclExtMap;
 
@@ -7901,13 +7907,16 @@ void ASTReader::InitializeSema(Sema &S) {
   for (const std::string &Ext:
        ContextObj->getTargetInfo().getTargetOpts().OpenCLExtensionsAsWritten) {
     OpenCLOptions& OCLFeatures = SemaObj->OpenCLFeatures;
-    OCLFeatures.support(Ext);
+    bool IsPrefixed = (Ext[0] == '+' || Ext[0] == '-');
+    std::string Name = IsPrefixed ? Ext.substr(1) : Ext;
+    bool V = IsPrefixed ? Ext[0] == '+' : true;
+    OCLFeatures.support(Name, V);
     // If we specify via -cl-ext that an *extension* is supported, it doesn't
     // mean that it is enabled. Corresponding pragma must be used to enable it.
     // But if we specify via -cl-ext that a *core feature* is not supported we
     // need to disable it, because pragma is ignored for core features.
     const unsigned OCLVersion = SemaObj->getLangOpts().OpenCLVersion;
-    OCLFeatures.toggleCoreFeatureIsEnabled(Ext, OCLVersion);
+    OCLFeatures.toggleCoreFeatureIsEnabled(Name, OCLVersion, V);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -8776,25 +8785,18 @@ ASTReader::getGlobalSelectorID(ModuleFile &M, unsigned LocalID) const {
 
 DeclarationNameLoc
 ASTRecordReader::readDeclarationNameLoc(DeclarationName Name) {
-  DeclarationNameLoc DNLoc;
   switch (Name.getNameKind()) {
   case DeclarationName::CXXConstructorName:
   case DeclarationName::CXXDestructorName:
   case DeclarationName::CXXConversionFunctionName:
-    DNLoc.NamedType.TInfo = readTypeSourceInfo();
-    break;
+    return DeclarationNameLoc::makeNamedTypeLoc(readTypeSourceInfo());
 
   case DeclarationName::CXXOperatorName:
-    DNLoc.CXXOperatorName.BeginOpNameLoc
-      = readSourceLocation().getRawEncoding();
-    DNLoc.CXXOperatorName.EndOpNameLoc
-      = readSourceLocation().getRawEncoding();
-    break;
+    return DeclarationNameLoc::makeCXXOperatorNameLoc(readSourceRange());
 
   case DeclarationName::CXXLiteralOperatorName:
-    DNLoc.CXXLiteralOperatorName.OpNameLoc
-      = readSourceLocation().getRawEncoding();
-    break;
+    return DeclarationNameLoc::makeCXXLiteralOperatorNameLoc(
+        readSourceLocation());
 
   case DeclarationName::Identifier:
   case DeclarationName::ObjCZeroArgSelector:
@@ -8804,7 +8806,7 @@ ASTRecordReader::readDeclarationNameLoc(DeclarationName Name) {
   case DeclarationName::CXXDeductionGuideName:
     break;
   }
-  return DNLoc;
+  return DeclarationNameLoc();
 }
 
 DeclarationNameInfo ASTRecordReader::readDeclarationNameInfo() {

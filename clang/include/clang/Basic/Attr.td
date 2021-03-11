@@ -334,11 +334,11 @@ class LangOpt<string name, code customCode = [{}]> {
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
+def HIP : LangOpt<"HIP">;
 def SYCLIsDevice : LangOpt<"SYCLIsDevice">;
 def SYCL : LangOpt<"SYCLIsDevice">;
 def SYCLIsHost : LangOpt<"SYCLIsHost">;
 def SYCLExplicitSIMD : LangOpt<"SYCLExplicitSIMD">;
-def HIP : LangOpt<"HIP">;
 def COnly : LangOpt<"", "!LangOpts.CPlusPlus">;
 def CPlusPlus : LangOpt<"CPlusPlus">;
 def OpenCL : LangOpt<"OpenCL">;
@@ -1134,6 +1134,13 @@ def CUDAHost : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HIPManaged : InheritableAttr {
+  let Spellings = [GNU<"managed">, Declspec<"__managed__">];
+  let Subjects = SubjectList<[Var]>;
+  let LangOpts = [HIP];
+  let Documentation = [HIPManagedAttrDocs];
+}
+
 def CUDAInvalidTarget : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[Function]>;
@@ -1294,11 +1301,6 @@ def SYCLIntelUseStallEnableClusters : InheritableAttr {
                    Clang<"use_stall_enable_clusters">]; //INTEL
   let LangOpts = [SYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "stall_enable";
-    }
-  }];
   let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
 }
 
@@ -1407,21 +1409,22 @@ def OpenCLKernel : InheritableAttr {
   let SimpleHandler = 1;
 }
 
-def OpenCLUnrollHint : InheritableAttr {
+def OpenCLUnrollHint : StmtAttr {
   let Spellings = [GNU<"opencl_unroll_hint">];
+//  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+//                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [UnsignedArgument<"UnrollHint">];
   let Documentation = [OpenCLUnrollHintDocs];
 }
 
-def LoopUnrollHint : InheritableAttr {
+def LoopUnrollHint : StmtAttr {
   let Spellings = [CXX11<"clang","loop_unroll">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"UnrollHintExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "loop_unroll";
-    }
     std::string getDiagnosticName(const PrintingPolicy &Policy) const {
       std::string ValueName;
       llvm::raw_string_ostream OS(ValueName);
@@ -1836,9 +1839,11 @@ def Mode : Attr {
   let PragmaAttributeSupport = 0;
 }
 
-def SYCLIntelFPGAIVDep : Attr {
+def SYCLIntelFPGAIVDep : StmtAttr {
   let Spellings = [CXX11<"intelfpga","ivdep">,
                    CXX11<"intel","ivdep">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [
     ExprArgument<"SafelenExpr">, ExprArgument<"ArrayExpr">,
     UnsignedArgument<"SafelenValue">
@@ -1846,9 +1851,6 @@ def SYCLIntelFPGAIVDep : Attr {
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "ivdep";
-    }
     bool isDependent() const {
       return (getSafelenExpr() &&
               getSafelenExpr()->isInstantiationDependent()) ||
@@ -1883,17 +1885,17 @@ def SYCLIntelFPGAIVDep : Attr {
   let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
 }
 
-def SYCLIntelFPGAII : Attr {
+def SYCLIntelFPGAInitiationInterval : StmtAttr {
   let Spellings = [CXX11<"intelfpga","ii">,
                    Pragma<"", "ii">, //INTEL
-                   CXX11<"intel","ii">];
+                   CXX11<"intel","ii">,
+                   CXX11<"intel", "initiation_interval">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"IntervalExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "ii";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
@@ -1903,20 +1905,19 @@ def SYCLIntelFPGAII : Attr {
     }
     // end INTEL_CUSTOMIZATION
   }];
-  let Documentation = [SYCLIntelFPGAIIAttrDocs];
+  let Documentation = [SYCLIntelFPGAInitiationIntervalAttrDocs];
 }
 
-def SYCLIntelFPGAMaxConcurrency : Attr {
+def SYCLIntelFPGAMaxConcurrency : StmtAttr {
   let Spellings = [CXX11<"intelfpga","max_concurrency">,
                    Pragma<"", "max_concurrency">, //INTEL
                    CXX11<"intel","max_concurrency">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NThreadsExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "max_concurrency";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_concurrency" << getNThreadsExpr();
@@ -1926,17 +1927,16 @@ def SYCLIntelFPGAMaxConcurrency : Attr {
   let Documentation = [SYCLIntelFPGAMaxConcurrencyAttrDocs];
 }
 
-def SYCLIntelFPGALoopCoalesce : Attr {
+def SYCLIntelFPGALoopCoalesce : StmtAttr {
   let Spellings = [CXX11<"intelfpga","loop_coalesce">,
                    Pragma<"", "loop_coalesce">, //INTEL
                    CXX11<"intel","loop_coalesce">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "loop_coalesce";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma loop_coalesce" << getNExpr();
@@ -1946,16 +1946,15 @@ def SYCLIntelFPGALoopCoalesce : Attr {
   let Documentation = [SYCLIntelFPGALoopCoalesceAttrDocs];
 }
 
-def SYCLIntelFPGADisableLoopPipelining : Attr {
+def SYCLIntelFPGADisableLoopPipelining : StmtAttr {
   let Spellings = [CXX11<"intelfpga","disable_loop_pipelining">,
                    Pragma<"", "disable_loop_pipelining">, //INTEL
                    CXX11<"intel","disable_loop_pipelining">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "disable_loop_pipelining";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
@@ -1968,17 +1967,16 @@ def SYCLIntelFPGADisableLoopPipelining : Attr {
   let Documentation = [SYCLIntelFPGADisableLoopPipeliningAttrDocs];
 }
 
-def SYCLIntelFPGAMaxInterleaving : Attr {
+def SYCLIntelFPGAMaxInterleaving : StmtAttr {
   let Spellings = [CXX11<"intelfpga","max_interleaving">,
                    Pragma<"", "max_interleaving">, //INTEL
                    CXX11<"intel","max_interleaving">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "max_interleaving";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_interleaving" << getNExpr();
@@ -1988,17 +1986,16 @@ def SYCLIntelFPGAMaxInterleaving : Attr {
   let Documentation = [SYCLIntelFPGAMaxInterleavingAttrDocs];
 }
 
-def SYCLIntelFPGASpeculatedIterations : Attr {
+def SYCLIntelFPGASpeculatedIterations : StmtAttr {
   let Spellings = [CXX11<"intelfpga","speculated_iterations">,
                    Pragma<"", "speculated_iterations">, //INTEL
                    CXX11<"intel","speculated_iterations">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
-    static const char *getName() {
-      return "speculated_iterations";
-    }
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma speculated_iterations" << getNExpr();
@@ -2008,15 +2005,12 @@ def SYCLIntelFPGASpeculatedIterations : Attr {
   let Documentation = [SYCLIntelFPGASpeculatedIterationsAttrDocs];
 }
 
-def SYCLIntelFPGANofusion : Attr {
+def SYCLIntelFPGANofusion : StmtAttr {
   let Spellings = [CXX11<"intel","nofusion">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                             ErrorDiag, "'for', 'while', and 'do' statements">;
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let HasCustomTypeTransform = 1;
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "nofusion";
-    }
-  }];
   let Documentation = [SYCLIntelFPGANofusionAttrDocs];
 }
 

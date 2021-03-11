@@ -49,9 +49,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
         ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
         dl
-# INTEL_CUSTOMIZATION
         ${OPENMP_PTHREAD_LIB}
-# end INTEL_CUSTOMIZATION
         "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
 
       list(APPEND LIBOMPTARGET_TESTED_PLUGINS
@@ -80,6 +78,7 @@ add_subdirectory(ppc64)
 add_subdirectory(ppc64le)
 add_subdirectory(ve)
 add_subdirectory(x86_64)
+add_subdirectory(remote)
 
 if(INTEL_CUSTOMIZATION)
 # INTEL_FEATURE_CSA

@@ -745,7 +745,8 @@ static void translateUnPackMask(CallInst &CI) {
   llvm::Value *TransCI = Builder.CreateZExt(
       Arg0, llvm::FixedVectorType::get(llvm::Type::getInt16Ty(Context), N));
   TransCI->takeName(&CI);
-  cast<llvm::Instruction>(TransCI)->setDebugLoc(CI.getDebugLoc());
+  if (llvm::Instruction *TransCInst = dyn_cast<llvm::Instruction>(TransCI))
+    TransCInst->setDebugLoc(CI.getDebugLoc());
   CI.replaceAllUsesWith(TransCI);
 }
 
@@ -1258,10 +1259,6 @@ void SYCLLowerESIMDLegacyPass::collectGenXVolatileType(Module &M) {
 PreservedAnalyses SYCLLowerESIMDPass::run(Function &F,
                                           FunctionAnalysisManager &FAM,
                                           SmallPtrSet<Type *, 4> &GVTS) {
-  // Only consider functions marked with !sycl_explicit_simd
-  if (F.getMetadata("sycl_explicit_simd") == nullptr)
-    return PreservedAnalyses::all();
-
   SmallVector<CallInst *, 32> ESIMDIntrCalls;
   SmallVector<Instruction *, 8> ESIMDToErases;
 

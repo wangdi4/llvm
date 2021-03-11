@@ -91,7 +91,6 @@
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
 #include "llvm/Transforms/Coroutines/CoroElide.h"
 #include "llvm/Transforms/Coroutines/CoroSplit.h"
-#include "llvm/Transforms/HelloNew/HelloWorld.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Annotation2Metadata.h"
@@ -250,6 +249,7 @@
 #include "llvm/Transforms/Utils/CanonicalizeFreezeInLoops.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/FixIrreducible.h"
+#include "llvm/Transforms/Utils/HelloWorld.h"
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/InstructionNamer.h"
 #include "llvm/Transforms/Utils/LCSSA.h"
@@ -489,6 +489,10 @@ static cl::opt<bool> PerformMandatoryInliningsFirst(
     cl::desc("Perform mandatory inlinings module-wide, before performing "
              "inlining."));
 
+static cl::opt<bool> EnableO3NonTrivialUnswitching(
+    "enable-npm-O3-nontrivial-unswitch", cl::init(true), cl::Hidden,
+    cl::ZeroOrMore, cl::desc("Enable non-trivial loop unswitching for -O3"));
+
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
   LoopVectorization = true;
@@ -502,6 +506,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   MergeFunctions = false;
   UniqueLinkageNames = false;
 }
+extern cl::opt<bool> ExtraVectorizerPasses;
 
 extern cl::opt<bool> EnableConstraintElimination;
 extern cl::opt<bool> EnableGVNHoist;
@@ -1004,7 +1009,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // TODO: Investigate promotion cap for O1.
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
   LPM1.addPass(
-      SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3));
+      SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3 &&
+                             EnableO3NonTrivialUnswitching));
   LPM2.addPass(LoopIdiomRecognizePass());
   LPM2.addPass(IndVarSimplifyPass());
 
@@ -1603,6 +1609,28 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // Cleanup after the loop optimization passes.
   addInstCombinePass(OptimizePM); // INTEL
 
+  if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
+    // At higher optimization levels, try to clean up any runtime overlap and
+    // alignment checks inserted by the vectorizer. We want to track correlated
+    // runtime checks for two inner loops in the same outer loop, fold any
+    // common computations, hoist loop-invariant aspects out of any outer loop,
+    // and unswitch the runtime checks if possible. Once hoisted, we may have
+    // dead (or speculatable) control flows or more combining opportunities.
+    OptimizePM.addPass(EarlyCSEPass());
+    OptimizePM.addPass(CorrelatedValuePropagationPass());
+    OptimizePM.addPass(InstCombinePass());
+    LoopPassManager LPM(DebugLogging);
+    LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
+    LPM.addPass(
+        SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3));
+    OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
+    OptimizePM.addPass(createFunctionToLoopPassAdaptor(
+        std::move(LPM), EnableMSSALoopDependency, /*UseBlockFrequencyInfo=*/true,
+        DebugLogging));
+    OptimizePM.addPass(SimplifyCFGPass());
+    OptimizePM.addPass(InstCombinePass());
+  }
+
   // Now that we've formed fast to execute loop structures, we do further
   // optimizations. These are run afterward as they might block doing complex
   // analyses and transforms such as what are needed for loop vectorization.
@@ -1622,8 +1650,12 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                                          .sinkCommonInsts(true)));
 
   // Optimize parallel scalar instruction chains into SIMD instructions.
-  if (PTO.SLPVectorization)
+  if (PTO.SLPVectorization) {
     OptimizePM.addPass(SLPVectorizerPass());
+    if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
+      OptimizePM.addPass(EarlyCSEPass());
+    }
+  }
 
   AfterSLPVectorizer = true; // INTEL
 
@@ -1760,6 +1792,9 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPreLink));
 
+  if (PGOOpt && PGOOpt->PseudoProbeForProfiling)
+    MPM.addPass(PseudoProbeUpdatePass());
+
   // Emit annotation remarks.
   addAnnotationRemarksPass(MPM);
 
@@ -1813,6 +1848,9 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
   // on these, we schedule the cleanup here.
   if (PTO.Coroutines)
     MPM.addPass(createModuleToFunctionPassAdaptor(CoroCleanupPass()));
+
+  if (PGOOpt && PGOOpt->PseudoProbeForProfiling)
+    MPM.addPass(PseudoProbeUpdatePass());
 
   // Emit annotation remarks.
   addAnnotationRemarksPass(MPM);

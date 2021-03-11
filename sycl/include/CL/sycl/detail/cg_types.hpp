@@ -208,9 +208,14 @@ public:
 
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     sycl::id<Dims> Offset;
+    sycl::range<Dims> Stride(
+        InitializedVal<Dims, range>::template get<1>()); // initialized to 1
+    sycl::range<Dims> UpperBound(
+        InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I) {
       Range[I] = NDRDesc.GlobalSize[I];
       Offset[I] = NDRDesc.GlobalOffset[I];
+      UpperBound[I] = Range[I] + Offset[I];
     }
 
 /* INTEL_CUSTOMIZATION */
@@ -218,7 +223,8 @@ public:
     ParallelFor(Range, [this](const sycl::id<Dims> Id) { MKernel(Id); });
 #else
 /* end INTEL_CUSTOMIZATION */
-    detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> &ID) {
+    detail::NDLoop<Dims>::iterate(/*LowerBound=*/Offset, Stride, UpperBound,
+    [&](const sycl::id<Dims> &ID) {
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
@@ -271,9 +277,14 @@ public:
 
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     sycl::id<Dims> Offset;
+    sycl::range<Dims> Stride(
+        InitializedVal<Dims, range>::template get<1>()); // initialized to 1
+    sycl::range<Dims> UpperBound(
+        InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I) {
       Range[I] = NDRDesc.GlobalSize[I];
       Offset[I] = NDRDesc.GlobalOffset[I];
+      UpperBound[I] = Range[I] + Offset[I];
     }
 
 /* INTEL_CUSTOMIZATION */
@@ -281,14 +292,14 @@ public:
     ParallelFor(Range, [Range, Offset, this](sycl::id<Dims> ID) {
 #else
 /* end INTEL_CUSTOMIZATION */
-    detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> &ID) {
+    detail::NDLoop<Dims>::iterate(/*LowerBound=*/Offset, Stride, UpperBound,
+                                  [&](const sycl::id<Dims> &ID) {
 #endif // INTEL
-      sycl::id<Dims> OffsetID = ID + Offset;
       sycl::item<Dims, /*Offset=*/true> Item =
-          IDBuilder::createItem<Dims, true>(Range, OffsetID, Offset);
+          IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
       if (StoreLocation) {
-        store_id(&OffsetID);
+        store_id(&ID);
         store_item(&Item);
       }
       MKernel(Item);

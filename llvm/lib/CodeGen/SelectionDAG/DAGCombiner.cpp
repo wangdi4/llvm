@@ -964,13 +964,13 @@ static bool isConstantSplatVectorMaskForType(SDNode *N, EVT ScalarTy) {
   return false;
 }
 
-// Determines if it is a constant integer or a build vector of constant
+// Determines if it is a constant integer or a splat/build vector of constant
 // integers (and undefs).
 // Do not permit build vector implicit truncation.
 static bool isConstantOrConstantVector(SDValue N, bool NoOpaques = false) {
   if (ConstantSDNode *Const = dyn_cast<ConstantSDNode>(N))
     return !(Const->isOpaque() && NoOpaques);
-  if (N.getOpcode() != ISD::BUILD_VECTOR)
+  if (N.getOpcode() != ISD::BUILD_VECTOR && N.getOpcode() != ISD::SPLAT_VECTOR)
     return false;
   unsigned BitWidth = N.getScalarValueSizeInBits();
   for (const SDValue &Op : N->op_values()) {
@@ -8366,13 +8366,17 @@ SDValue DAGCombiner::visitSRA(SDNode *N) {
     unsigned LowBits = OpSizeInBits - (unsigned)N1C->getZExtValue();
     EVT ExtVT = EVT::getIntegerVT(*DAG.getContext(), LowBits);
     if (VT.isVector())
-      ExtVT = EVT::getVectorVT(*DAG.getContext(),
-                               ExtVT, VT.getVectorNumElements());
+      ExtVT = EVT::getVectorVT(*DAG.getContext(), ExtVT,
+                               VT.getVectorElementCount());
     if (!LegalOperations ||
         TLI.getOperationAction(ISD::SIGN_EXTEND_INREG, ExtVT) ==
         TargetLowering::Legal)
       return DAG.getNode(ISD::SIGN_EXTEND_INREG, SDLoc(N), VT,
                          N0.getOperand(0), DAG.getValueType(ExtVT));
+    // Even if we can't convert to sext_inreg, we might be able to remove
+    // this shift pair if the input is already sign extended.
+    if (DAG.ComputeNumSignBits(N0.getOperand(0)) > N1C->getZExtValue())
+      return N0.getOperand(0);
   }
 
   // fold (sra (sra x, c1), c2) -> (sra x, (add c1, c2))
@@ -8417,7 +8421,7 @@ SDValue DAGCombiner::visitSRA(SDNode *N) {
       EVT TruncVT = EVT::getIntegerVT(Ctx, OpSizeInBits - N1C->getZExtValue());
 
       if (VT.isVector())
-        TruncVT = EVT::getVectorVT(Ctx, TruncVT, VT.getVectorNumElements());
+        TruncVT = EVT::getVectorVT(Ctx, TruncVT, VT.getVectorElementCount());
 
       // Determine the residual right-shift amount.
       int ShiftAmt = N1C->getZExtValue() - N01C->getZExtValue();
@@ -8457,7 +8461,7 @@ SDValue DAGCombiner::visitSRA(SDNode *N) {
       unsigned ShiftAmt = N1C->getZExtValue();
       EVT TruncVT = EVT::getIntegerVT(Ctx, OpSizeInBits - ShiftAmt);
       if (VT.isVector())
-        TruncVT = EVT::getVectorVT(Ctx, TruncVT, VT.getVectorNumElements());
+        TruncVT = EVT::getVectorVT(Ctx, TruncVT, VT.getVectorElementCount());
 
       // TODO: The simple type check probably belongs in the default hook
       //       implementation and/or target-specific overrides (because
@@ -17752,8 +17756,7 @@ SDValue DAGCombiner::visitLIFETIME_END(SDNode *N) {
   // We walk up the chains to find stores.
   SmallVector<SDValue, 8> Chains = {N->getOperand(0)};
   while (!Chains.empty()) {
-    SDValue Chain = Chains.back();
-    Chains.pop_back();
+    SDValue Chain = Chains.pop_back_val();
     if (!Chain.hasOneUse())
       continue;
     switch (Chain.getOpcode()) {
@@ -22347,43 +22350,21 @@ SDValue DAGCombiner::buildSqrtEstimateImpl(SDValue Op, SDNodeFlags Flags,
                           Reciprocal)) {
     AddToWorklist(Est.getNode());
 
-    if (Iterations) {
+    if (Iterations)
       Est = UseOneConstNR
             ? buildSqrtNROneConst(Op, Est, Iterations, Flags, Reciprocal)
             : buildSqrtNRTwoConst(Op, Est, Iterations, Flags, Reciprocal);
+    if (!Reciprocal) {
+      SDLoc DL(Op);
+      // Try the target specific test first.
+      SDValue Test = TLI.getSqrtInputTest(Op, DAG, DAG.getDenormalMode(VT));
 
-      if (!Reciprocal) {
-        SDLoc DL(Op);
-        EVT CCVT = getSetCCResultType(VT);
-        SDValue FPZero = DAG.getConstantFP(0.0, DL, VT);
-        DenormalMode DenormMode = DAG.getDenormalMode(VT);
-        // Try the target specific test first.
-        SDValue Test = TLI.getSqrtInputTest(Op, DAG, DenormMode);
-        if (!Test) {
-          // If no test provided by target, testing it with denormal inputs to
-          // avoid wrong estimate.
-          if (DenormMode.Input == DenormalMode::IEEE) {
-            // This is specifically a check for the handling of denormal inputs,
-            // not the result.
-
-            // Test = fabs(X) < SmallestNormal
-            const fltSemantics &FltSem = DAG.EVTToAPFloatSemantics(VT);
-            APFloat SmallestNorm = APFloat::getSmallestNormalized(FltSem);
-            SDValue NormC = DAG.getConstantFP(SmallestNorm, DL, VT);
-            SDValue Fabs = DAG.getNode(ISD::FABS, DL, VT, Op);
-            Test = DAG.getSetCC(DL, CCVT, Fabs, NormC, ISD::SETLT);
-          } else
-            // Test = X == 0.0
-            Test = DAG.getSetCC(DL, CCVT, Op, FPZero, ISD::SETEQ);
-        }
-
-        // The estimate is now completely wrong if the input was exactly 0.0 or
-        // possibly a denormal. Force the answer to 0.0 or value provided by
-        // target for those cases.
-        Est = DAG.getNode(
-            Test.getValueType().isVector() ? ISD::VSELECT : ISD::SELECT, DL, VT,
-            Test, TLI.getSqrtResultForDenormInput(Op, DAG), Est);
-      }
+      // The estimate is now completely wrong if the input was exactly 0.0 or
+      // possibly a denormal. Force the answer to 0.0 or value provided by
+      // target for those cases.
+      Est = DAG.getNode(
+          Test.getValueType().isVector() ? ISD::VSELECT : ISD::SELECT, DL, VT,
+          Test, TLI.getSqrtResultForDenormInput(Op, DAG), Est);
     }
     return Est;
   }
