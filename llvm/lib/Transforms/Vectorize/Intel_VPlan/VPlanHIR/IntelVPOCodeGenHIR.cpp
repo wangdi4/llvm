@@ -3379,6 +3379,7 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
       widenRef(RedFinal->getParentFinalValOperand(), getVF());
   // Get broadcasted DDRef.
   ParentFinal = widenRef(ParentFinal, getVF());
+  assert(ParentFinal && "trying to broadcast Lval?");
   unsigned Opc = RedFinal->getBinOpcode();
   PredicateTy Pred = ParentFinal->getDestType()->isFPOrFPVectorTy()
                          ? PredicateTy::FCMP_OEQ
