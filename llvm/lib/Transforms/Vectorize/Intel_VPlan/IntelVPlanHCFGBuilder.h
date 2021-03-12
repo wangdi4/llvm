@@ -29,10 +29,12 @@ class Loop;
 
 namespace vpo {
 
-  class VPOVectorizationLegality;
-  class VPlanVerifier;
-  class WRNVecLoopNode;
-  class VPlan;
+extern bool VPlanPrintPrivDescr;
+
+class VPOVectorizationLegality;
+class VPlanVerifier;
+class WRNVecLoopNode;
+class VPlan;
 
 class VPlanHCFGBuilder {
 public:

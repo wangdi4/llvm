@@ -331,6 +331,68 @@ bool VPOVectorizationLegality::isReductionVarStoredInsideTheLoop(
   return false;
 }
 
+bool VPOVectorizationLegality::isEndDirective(Instruction *I) const {
+  return VPOAnalysisUtils::isEndDirective(I) &&
+         VPOAnalysisUtils::getDirectiveID(I) == DIR_OMP_SIMD;
+}
+
+// Utility to analyze all instructions between the SIMD clause and the loop to
+// identify any aliasing variables to the explicit SIMD descriptors. We traverse
+// the CFG backwards, starting from Loop pre-header to the BB where SIMD clause
+// is found.
+void VPOVectorizationLegality::collectPreLoopDescrAliases() {
+  BasicBlock *LpPH = TheLoop->getLoopPreheader();
+
+  if (!LpPH)
+    return;
+
+  for (auto *CurBB = LpPH; CurBB; CurBB = CurBB->getSinglePredecessor()) {
+    for (auto &I : reverse((*CurBB))) {
+      if (isEndDirective(&I))
+        return;
+      if (!isa<LoadInst>(&I))
+        continue;
+      LLVM_DEBUG(dbgs() << "VPOLegal: LoadInst: "; I.dump());
+      Value *LoadPtrOp = cast<LoadInst>(&I)->getPointerOperand();
+      if (Privates.count(LoadPtrOp)) {
+        std::unique_ptr<PrivDescrTy> &Descr = Privates.find(LoadPtrOp)->second;
+
+        LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+                   LoadPtrOp->dump());
+        Descr->addAlias(&I, std::make_unique<DescrValueTy>(&I));
+      }
+    }
+  }
+}
+
+// Utility to analyze all instructions in loop post-exit to identify any
+// aliasing variables to the explicit SIMD descriptor. We traverse CFG starting
+// from loop exit BB to the BB where END.SIMD clause is found.
+void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
+  BasicBlock *LpEx = TheLoop->getExitBlock();
+
+  if (!LpEx)
+    return;
+
+  for (auto *CurBB = LpEx; CurBB; CurBB = CurBB->getSingleSuccessor()) {
+    for (auto &I : *CurBB) {
+      if (isEndDirective(&I))
+        return;
+      if (!isa<StoreInst>(&I))
+        continue;
+      LLVM_DEBUG(dbgs() << "VPOLegal: StoreInst: "; I.dump());
+      Value *StorePtrOp = cast<StoreInst>(&I)->getPointerOperand();
+      if (Privates.count(StorePtrOp)) {
+        std::unique_ptr<PrivDescrTy> &Descr = Privates.find(StorePtrOp)->second;
+
+        LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+                   StorePtrOp->dump());
+        Descr->addAlias(&I, std::make_unique<DescrValueTy>(&I));
+      }
+    }
+  }
+}
+
 // Check the safety of aliasing of particular class of clause-variables in \p
 // Range outside of the loop.
 template <typename LoopEntitiesRange>

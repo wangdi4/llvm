@@ -42,11 +42,17 @@ using namespace llvm::vpo;
 #if INTEL_CUSTOMIZATION
 static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
                                                 "importing plain CFG");
-static cl::opt<bool> VPlanPrintPrivDescr(
-    "vplan-print-privdescr", cl::Hidden, cl::init(false),
+static cl::opt<bool, true> VPlanPrintPrivDescrOpt(
+    "vplan-print-privdescr", cl::Hidden, cl::location(VPlanPrintPrivDescr),
     cl::desc(
         "Print privates' data structure details in VPlan LLVM-IR legality."));
 #endif // INTEL_CUSTOMIZATION
+
+namespace llvm {
+namespace vpo {
+bool VPlanPrintPrivDescr = false;
+} // namespace vpo
+} // namespace llvm
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlan *Plan,
