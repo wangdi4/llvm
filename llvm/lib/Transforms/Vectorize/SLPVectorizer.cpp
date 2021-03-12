@@ -7510,8 +7510,29 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
   // Make sure that the scheduling region contains all
   // instructions of the bundle.
   for (Value *V : VL) {
-    if (!extendSchedulingRegion(V, S))
+    if (!extendSchedulingRegion(V, S)) { // INTEL
+#if INTEL_CUSTOMIZATION
+      if (ScheduleEnd != OldScheduleEnd) {
+        // The scheduling region got new instructions at the lower end (or it is
+        // a new region for the first bundle). This makes it necessary to
+        // recalculate all dependencies.
+        // Otherwise the compiler may crash trying to incorrectly calculate
+        // dependencies and emit instruction in the wrong order at the actual
+        // scheduling.
+        for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode())
+          doForAllOpcodes(I, [](ScheduleData *SD) { SD->clearDependencies(); });
+        resetSchedule();
+        initialFillReadyList(ReadyInsts);
+        while (!ReadyInsts.empty()) {
+          ScheduleData *Picked = ReadyInsts.back();
+          ReadyInsts.pop_back();
+          if (Picked->isSchedulingEntity() && Picked->isReady())
+            schedule(Picked, ReadyInsts);
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       return None;
+    } // INTEL
   }
 
   for (Value *V : VL) {
