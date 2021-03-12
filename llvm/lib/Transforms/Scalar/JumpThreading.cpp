@@ -3228,6 +3228,18 @@ void JumpThreadingPass::threadEdge(
     BasicBlock::iterator BI = OldBB->begin();
     BasicBlock::iterator BE = OldBB->end();
 
+    // Some of this code is copied from cloneInstructions. The divergence is
+    // in the handling of phis -- these are patched up below not cloned.
+
+    // Clone noalias scope declarations in the threaded block. When threading a
+    // loop exit, we would otherwise end up with two idential scope declarations
+    // visible at the same time.
+    SmallVector<MDNode *> NoAliasScopes;
+    DenseMap<MDNode *, MDNode *> ClonedScopes;
+    LLVMContext &Context = PredBB->getContext();
+    identifyNoAliasScopesToClone(BI, BE, NoAliasScopes);
+    cloneNoAliasScopes(NoAliasScopes, ClonedScopes, "thread", Context);
+
     // Clone the instructions of OldBB into NewBB, keeping track of
     // the mapping. Delay remapping until all blocks in the region have been
     // cloned. That ensures all required cross-block mappings are available.
@@ -3238,6 +3250,7 @@ void JumpThreadingPass::threadEdge(
       New->setName(BI->getName());
       NewBB->getInstList().push_back(New);
       ValueMapping[&*BI] = New;
+      adaptNoAliasScopes(New, ClonedScopes, Context);
     }
   }
 
