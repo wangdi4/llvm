@@ -60,12 +60,24 @@ VPlanSCEV *VPlanScalarEvolutionHIR::getMinusExpr(VPlanSCEV *OpaqueLHS,
 
 Optional<VPConstStepLinear>
 VPlanScalarEvolutionHIR::asConstStepLinear(VPlanSCEV *Expr) const {
-  return None;
+  // FIXME: This implementation of asConstStepLinear simply delegates the
+  //        request to asConstStepInduction. That is, no variables that are
+  //        linear but non-inductive can be detected by this routine yet.
+  Optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
+  return Ind.map([](const auto &I) {
+    return VPConstStepLinear{I.InvariantBase, I.Step};
+  });
 }
 
 Optional<VPConstStepInduction>
-VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *Expr) const {
-  return None;
+VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *OpaqueExpr) const {
+  VPlanAddRecHIR *Expr = toVPlanAddRecHIR(OpaqueExpr);
+
+  if (!Expr)
+    return None;
+
+  return VPConstStepInduction{toVPlanSCEV(makeVPlanAddRecHIR(Expr->Base, 0)),
+                              Expr->Stride};
 }
 
 // Check if access address of a load/store instruction can be represented as
