@@ -1228,7 +1228,7 @@ def atomic_cmpxchg_global : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (i
 def atomic_cmpxchg_local  : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 }
 
-let Types = [v1i32, v1u32, v1f32, v1f64],
+let Types = [v1i32, v1u32, v1f16, v1f32, v1f64],
     Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atomic_min_global : OclBuiltin<"atomic_min", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
