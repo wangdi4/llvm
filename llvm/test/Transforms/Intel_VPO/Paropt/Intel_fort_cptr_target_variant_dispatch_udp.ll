@@ -56,8 +56,8 @@
 ;
 ; end program
 
-; Check that the map-type of the use_device_ptr operand is 96 (TGT_PARAM | TGT_RETURN_PARAM):
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
+; Check that the map-type of the use_device_ptr operand is 64 (TGT_RETURN_PARAM):
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check for the copy of c_yp created to call the variant function.
 ; CHECK: [[NEWV:%[^ ]+C_YP[^ ]+]] = alloca %"ISO_C_BINDING$.btC_PTR", align 8

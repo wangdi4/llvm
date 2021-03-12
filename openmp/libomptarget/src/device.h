@@ -246,10 +246,10 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
-  void *create_offload_queue(bool);
+  void create_offload_queue(void *Interop);
   int32_t release_offload_queue(void *);
   void *get_platform_handle();
-  void *get_device_handle();
+  void setDeviceHandle(void *Interop);
   void *get_context_handle();
   void *data_alloc_managed(int64_t Size);
   int32_t is_device_accessible_ptr(void *Ptr);

@@ -47,8 +47,8 @@ entry:
   %array_device.val = load i32*, i32** %array_device
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"(i32* %array_device.val) ]
 
-; Check that the map created for %array_device.val has the correct map-type (96)
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
+; Check that the map created for %array_device.val has the correct map-type (64)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check that the value in the baseptrs struct after the tgt_data call is
 ; used inside the region as the updated value of the pointer %array_device.val.

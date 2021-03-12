@@ -55,6 +55,7 @@
 using namespace llvm;
 using namespace InlineReportTypes;
 using namespace llvm::PatternMatch;
+using namespace llvm::vpo;
 
 #define DEBUG_TYPE "inline-cost"
 
@@ -614,6 +615,25 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     return false;
   };
 
+  // Return 'true' if 'I' is in a BasicBlock which will be an entry block after
+  // OpenMP outlining. There should be no penalty for Allocas in such blocks.
+  auto IsInFirstOMPOutlineBlock = [](AllocaInst &I) -> bool {
+    BasicBlock *BB = I.getParent()->getSinglePredecessor();
+    if (!BB)
+      return false;
+    Instruction *II = BB->getTerminator()->getPrevNonDebugInstruction();
+    if (!II)
+      return false;
+    if (!VPOAnalysisUtils::isRegionDirective(II))
+      return false;
+    StringRef DirString = VPOAnalysisUtils::getDirectiveString(II);
+    if (!VPOAnalysisUtils::isOpenMPDirective(DirString))
+      return false;
+    if (!VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(DirString))
+      return false;
+    return true;
+  };
+
   // CMPLRLLVM-21826: Ignore AllocaInsts that appear in an OMP_SIMD directive
   if (IsInOmpSimd(I))
     return true;
@@ -629,6 +649,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     for (User *U : I.users())
       if (isa<SubscriptInst>(U))
         return true;
+    if (IsInFirstOMPOutlineBlock(I))
+      return true;
     if (IsSimpleAlloca(I))
       return true;
     // Tolerate a dynamic alloca representing a character array. This can

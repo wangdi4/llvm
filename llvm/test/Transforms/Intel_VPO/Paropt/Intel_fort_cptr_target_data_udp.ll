@@ -34,8 +34,8 @@
 ; !       end subroutine
 ;   end program
 
-; Check that the map-type the use_device_ptr operand is 96 (TGT_PARAM | TGT_RETURN_PARAM):
-; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 35, i64 96]
+; Check that the map-type the use_device_ptr operand is 64 (TGT_RETURN_PARAM):
+; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 3, i64 64]
 
 ; Check for the local copy of %"main_$A_CPTR"
 ; CHECK: [[NEWV:[^ ]+.new"]] = alloca %"ISO_C_BINDING$.btC_PTR", align 8

@@ -13,7 +13,7 @@
 
 ; Check for the map type/size for the operand.
 ; CHECK: @.offload_sizes = private unnamed_addr constant [1 x i64] zeroinitializer
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check that we cast the gobal @a, and map it
 ; CHECK: %[[A_CAST1:[^ ]+]] = bitcast i8* bitcast (i32* @a to i8*) to i32*

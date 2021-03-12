@@ -3154,17 +3154,37 @@ EXTERN int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void *__tgt_rtl_create_offload_queue(int32_t DeviceId, bool IsAsync) {
+EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
+  if (Interop == nullptr) {
+    IDP("Invalid interop object in %s\n", __func__);
+    return;
+  }
+
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(Interop);
+
+  int32_t deviceId = DeviceId;
+  int64_t deviceCode = obj->device_code;
+  if (deviceCode < 0) {
+    if (isValidSubDevice(deviceCode)) {
+      uint32_t subId = SUBDEVICE_GET_START(deviceCode);
+      uint32_t subLevel = SUBDEVICE_GET_LEVEL(deviceCode);
+      deviceId = DeviceInfo->SubDeviceIds[DeviceId][subLevel][subId];
+    } else {
+      IDP("Ignoring invalid sub-device encoding " DPxMOD "\n",
+          DPxPTR(deviceCode));
+    }
+  }
+
   // Create and return a new command queue for interop
   // TODO: check with MKL team and decide what to do with IsAsync
   ze_command_queue_handle_t cmdQueue =
-      createCmdQueue(DeviceInfo->Context, DeviceInfo->Devices[DeviceId],
-                     DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
-                     DeviceInfo->CmdQueueIndices[DeviceId],
-                     DeviceInfo->DeviceIdStr[DeviceId]);
+      createCmdQueue(DeviceInfo->Context, DeviceInfo->Devices[deviceId],
+                     DeviceInfo->CmdQueueGroupOrdinals[deviceId],
+                     DeviceInfo->CmdQueueIndices[deviceId],
+                     DeviceInfo->DeviceIdStr[deviceId]);
+  obj->queue = cmdQueue;
   IDP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
-     DPxPTR(cmdQueue));
-  return cmdQueue;
+      DPxPTR(obj->queue));
 }
 
 EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Queue) {
@@ -3177,9 +3197,30 @@ EXTERN void *__tgt_rtl_get_platform_handle(int32_t DeviceId) {
   return (void *)driver;
 }
 
-EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
-  auto device = DeviceInfo->Devices[DeviceId];
-  return (void *)device;
+EXTERN void __tgt_rtl_set_device_handle(int32_t DeviceId, void *Interop) {
+  if (Interop == nullptr) {
+    IDP("Invalid interop object in %s\n", __func__);
+    return;
+  }
+
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(Interop);
+
+  obj->device_handle = DeviceInfo->Devices[DeviceId];
+
+  int64_t deviceCode = obj->device_code;
+  if (deviceCode < 0) {
+    if (isValidSubDevice(deviceCode)) {
+      auto &subDeviceIds = DeviceInfo->SubDeviceIds[DeviceId];
+      uint32_t subId = SUBDEVICE_GET_START(deviceCode);
+      uint32_t subLevel = SUBDEVICE_GET_LEVEL(deviceCode);
+      obj->device_handle = DeviceInfo->Devices[subDeviceIds[subLevel][subId]];
+    } else {
+      IDP("Ignoring invalid sub-device encoding " DPxMOD "\n",
+          DPxPTR(deviceCode));
+    }
+  }
+
+  IDP("Returns device handle " DPxMOD "\n", DPxPTR(obj->device_handle));
 }
 
 EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {

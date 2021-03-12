@@ -15,7 +15,7 @@
 ; }
 
 ; CHECK-DAG: @[[SIZE1:.+]] = {{.*}} constant {{.*}} [i64 400]
-; CHECK-DAG: @[[MAPTYPE1:.+]] = {{.*}} constant {{.*}} [i64 39]
+; CHECK-DAG: @[[MAPTYPE1:.+]] = {{.*}} constant {{.*}} [i64 7]
 ; CHECK-DAG: %[[A1:.+]] = bitcast i8*{{.*}}@a
 ; CHECK-DAG: %[[CAST1_1:.+]] = bitcast {{.*}} %[[A1]] to i8*
 ; CHECK-DAG: store i8* %[[CAST1_1]]

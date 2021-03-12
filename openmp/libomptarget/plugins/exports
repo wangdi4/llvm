@@ -33,7 +33,7 @@ VERS1.0 {
     __tgt_rtl_create_offload_queue;
     __tgt_rtl_release_offload_queue;
     __tgt_rtl_get_platform_handle;
-    __tgt_rtl_get_device_handle;
+    __tgt_rtl_set_device_handle;
     __tgt_rtl_get_context_handle;
     __tgt_rtl_data_alloc_managed;
     __tgt_rtl_is_device_accessible_ptr;

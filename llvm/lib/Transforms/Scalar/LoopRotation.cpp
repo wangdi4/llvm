@@ -40,6 +40,14 @@ static cl::opt<bool> PrepareForLTOOption(
     cl::desc("Run loop-rotation in the prepare-for-lto stage. This option "
              "should be used for testing only."));
 
+#if INTEL_CUSTOMIZATION
+// Loops * total blocks, limit only for extreme cases.
+static cl::opt<uint64_t>
+    ComplexityLimit("loop-rotate-max-complexity", cl::init(1000000000),
+                    cl::Hidden,
+                    cl::desc("Stop rotating if loops*blocks exceeds this"));
+#endif // INTEL_CUSTOMIZATION
+
 LoopRotatePass::LoopRotatePass(bool EnableHeaderDuplication, bool PrepareForLTO)
     : EnableHeaderDuplication(EnableHeaderDuplication),
       PrepareForLTO(PrepareForLTO) {}
@@ -54,6 +62,15 @@ PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM,
                           hasVectorizeTransformation(&L) == TM_ForcedByUser
                       ? DefaultRotationThreshold
                       : 0;
+#if INTEL_CUSTOMIZATION
+  // 23961: Disable rotation when loops * blocks is extremely large.
+  if (L.getHeader())
+    if ((uint64_t)AR.LI.getTopLevelLoops().size() *
+            L.getHeader()->getParent()->size() >
+        ComplexityLimit)
+      return PreservedAnalyses::all();
+#endif // INTEL_CUSTOMIZATION
+
   const DataLayout &DL = L.getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = getBestSimplifyQuery(AR, DL);
 
@@ -122,6 +139,14 @@ public:
         MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
     }
 #if INTEL_CUSTOMIZATION
+    // Disable rotation when loops * blocks is extremely large.
+    if (L->getHeader())
+      if ((uint64_t)LI->getTopLevelLoops().size() *
+              L->getHeader()->getParent()->size() >
+          ComplexityLimit)
+        return false;
+
+    // Max header size is set by target, if the option is not specified.
     if (MaxHeaderSize == (unsigned)-1)
       MaxHeaderSize = DefaultRotationThreshold.getNumOccurrences() > 0 ?
           DefaultRotationThreshold :

@@ -123,6 +123,7 @@ enum InteropPluginInterfaceTy : int32_t {
 
 struct __tgt_interop_obj {
   int64_t device_id; // OpenMP device id
+  int64_t device_code; // Encoded device id
   bool is_async; // Whether it is for asynchronous operation
   void *async_obj; // Pointer to the asynchronous object
   void (*async_handler)(void *); // Callback function for asynchronous operation

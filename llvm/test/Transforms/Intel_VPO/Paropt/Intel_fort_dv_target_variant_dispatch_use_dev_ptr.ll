@@ -50,8 +50,8 @@
 ; end program
 
 ; Check that the map-type used for the target data calls for the variant region is
-; TGT_PARAM | TGT_RETURN_PARAM (96):
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
+; TGT_RETURN_PARAM (64):
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check that the return-param map is created for the addr0 pointer of the dope vector.
 ; CHECK: [[Y_CAST:%[^ ]+]] = bitcast i8* bitcast (%"QNCA_a0$i32*$rank1$.1"* @"main_$Y" to i8*) to %"QNCA_a0$i32*$rank1$.1"*
