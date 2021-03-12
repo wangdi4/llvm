@@ -73,6 +73,7 @@ const char *precisionEnumToString(PrecisionEnum Value) {
 struct ImfFuncInfo {
   PrecisionEnum Precision = High;
   bool FuSa = false;
+  bool ForceDynamic = false;
   bool ValidStatusBits = false;
   const char *ISASet = nullptr;
 
@@ -85,6 +86,12 @@ struct ImfFuncInfo {
   ImfFuncInfo setFuSa(bool Value) const {
     ImfFuncInfo Ret(*this);
     Ret.FuSa = Value;
+    return Ret;
+  }
+
+  ImfFuncInfo setForceDynamic(bool Value) const {
+    ImfFuncInfo Ret(*this);
+    Ret.ForceDynamic = Value;
     return Ret;
   }
 
@@ -107,6 +114,8 @@ struct ImfFuncInfo {
 
     if (FuSa)
       Tail = createImfAttr("fusa", "true", Tail);
+    if (ForceDynamic)
+      Tail = createImfAttr("force-dynamic", "true", Tail);
     if (ISASet)
       Tail = createImfAttr("isa-set", ISASet, Tail);
     if (ValidStatusBits)
@@ -187,6 +196,8 @@ TEST_F(ImlAttrTest, ISASetTest) {
   ImfFuncInfo AVX512ZMMLow = Default.setISASet("coreavx512zmmlow");
   ImfFuncInfo AVX512ZMMHigh = Default.setISASet("coreavx512");
 
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", Default),
+            makeFuncNamePair("__svml_sinf8_ha", "__svml_sinf8_ha"));
   EXPECT_EQ(getLibraryFunctionName("__svml_sinf4", SSE42),
             makeFuncNamePair("__svml_sinf4_ha", "__svml_sinf4_ha"));
   EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX),
@@ -197,6 +208,14 @@ TEST_F(ImlAttrTest, ISASetTest) {
             makeFuncNamePair("__svml_sinf8_ha_s9", "__svml_sinf8_ha_l9"));
   EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX512ZMMHigh),
             makeFuncNamePair("__svml_sinf8_ha_x0", "__svml_sinf8_ha_z0"));
+
+  EXPECT_EQ(
+      getLibraryFunctionName("__svml_sinf8", Default.setForceDynamic(true)),
+      makeFuncNamePair("__svml_sinf8_ha", "__svml_sinf8_ha"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX.setForceDynamic(true)),
+            makeFuncNamePair("__svml_sinf8_ha", "__svml_sinf8_ha"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX2.setForceDynamic(true)),
+            makeFuncNamePair("__svml_sinf8_ha", "__svml_sinf8_ha"));
 }
 
 TEST_F(ImlAttrTest, PrecisionTest) {
