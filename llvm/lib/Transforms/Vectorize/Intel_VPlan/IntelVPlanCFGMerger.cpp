@@ -205,6 +205,14 @@ static bool isMergeBlock(VPBasicBlock *BB) {
   });
 }
 
+static Use *getExitBBUse(Loop *Loop) {
+  BasicBlock *Latch = Loop->getLoopLatch();
+  BasicBlock *Header = Loop->getHeader();
+  auto *Br = cast<BranchInst>(Latch->getTerminator());
+  return Br->getOperand(1) == Header ? &Br->getOperandUse(2)
+                                     : &Br->getOperandUse(1);
+}
+
 VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
                                                     VPBasicBlock *InsertAfter,
                                                     VPBasicBlock *FinalBB) {
@@ -234,16 +242,148 @@ VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
     Remainder->addLiveIn(&I,
                          &OrigPhi->getOperandUse(ScalarDescr->getStartOpNum()));
   }
-  BasicBlock *OrigLatch = OrigLoop->getLoopLatch();
-  BasicBlock *OrigHeader = OrigLoop->getHeader();
-  auto *Br = cast<BranchInst>(OrigLatch->getTerminator());
-
   // Add info to replace the successor in scalar exit block.
-  Remainder->addLiveIn(FinalBB, Br->getOperand(1) == OrigHeader
-                                    ? &Br->getOperandUse(2)
-                                    : &Br->getOperandUse(1));
+  Remainder->addLiveIn(FinalBB, getExitBBUse(OrigLoop));
   return RemainderBB;
 }
+
+template <typename VPlanType, typename VPInstructionType>
+class ScalarPeelOrRemainderVPlanFabBase {
+    virtual void addRemainderLiveIn(ScalarInOutDescr *Descr, VPInstructionType *I) {}
+    virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk, Use *Val) = 0;
+    virtual void setPlanName(VPlan &MainPlan) = 0;
+    virtual const char* getFirstBlockName() = 0;
+protected:
+  VPlanType *NewPlan;
+
+  // Worker routine to create a body of a brand new VPlanScalarPeel
+  // or VPlanScalarRemainder:
+  //  - Create livein/liveout lists
+  //  - Create two basic blocks. The first one contains either VPScalarRemainder
+  //    or VPScalarPeel instruction (which does represent the loop) and a set
+  //    of VPOrigLiveOut instructions. The second block is empty. It will serve
+  //    as landing pad for the scalar loop (one behind the instruction). Exit
+  //    form the loop is redirected to the pad block.
+  //  - Liveins for the VPScalar{Peel,Remainder} instruction are also filled in,
+  //    except the peel count for a peel loop.
+  //  - Create a new DA instance.
+  VPlanType *runImpl(VPlan &MainPlan, Loop *OrigLoop) {
+    NewPlan =
+        new VPlanType(MainPlan.getExternals(), MainPlan.getUnlinkedVPInsts());
+    setPlanName(MainPlan);
+
+    // Create live-in and live-out lists.
+    const ScalarInOutList *ScalarInOuts =
+        NewPlan->getExternals().getScalarLoopInOuts(OrigLoop);
+
+    // First create live-ins
+    VPLiveInOutCreator LICreator(*NewPlan);
+    LICreator.createLiveInsForScalarVPlan(*ScalarInOuts,
+                                          MainPlan.getLiveInValuesSize());
+    // Create the code
+    auto *FirstBB = new VPBasicBlock(
+        VPlanUtils::createUniqueName(getFirstBlockName()), NewPlan);
+    NewPlan->insertAtBack(FirstBB);
+    FirstBB->setTerminator();
+
+    VPBuilder Builder;
+    Builder.setInsertPoint(FirstBB);
+    auto *ScalarLoopInstr =
+        Builder.create<VPInstructionType>("orig.loop", OrigLoop, false);
+
+    // Go through ScalarInOuts and add scalar remainder liveins (no liveins for
+    // peel) and VPOrigLiveOuts for original loop live out values. The needed
+    // scalar values are taken from the ScalarInOuts descriptor.
+    DenseMap<int, VPValue *> LiveOuts;
+    for (auto ScalarDescr : ScalarInOuts->list()) {
+      int MergeId = ScalarDescr->getId();
+      auto LO = Builder.create<VPOrigLiveOut>(
+          "orig.liveout", ScalarLoopInstr, ScalarDescr->getLiveOut(), MergeId);
+      LiveOuts[MergeId] = LO;
+      addRemainderLiveIn(ScalarDescr, ScalarLoopInstr); // No-op for peel
+    }
+    // Create live out list.
+    LICreator.createLiveOutsForScalarVPlan(
+        *ScalarInOuts, MainPlan.getLiveOutValuesSize(), LiveOuts);
+
+    // Add info to replace the successor in scalar exit block.
+    // For that we create one more basic block in the scalar VPlan and set it as
+    // the exit block in the scalar loop.
+    auto *FinalBB =
+        new VPBasicBlock(VPlanUtils::createUniqueName("BB"), NewPlan);
+    FinalBB->insertAfter(FirstBB);
+    FinalBB->setTerminator();
+    FirstBB->setTerminator(FinalBB);
+
+    // Set the basic block where to jump after the scalar loop.
+    // For that we update the operand of the branch instruction that corresponds
+    // to the loop exit, taking either one its operand use or another.
+    // We have different interfaces for peel and remainder (see details in
+    // updateLoopExit specializations). Peel has restrictions on its arguments.
+    // For remainder we do that directly. For peel - using special interface.
+    updateLoopExit(ScalarLoopInstr, FinalBB, getExitBBUse(OrigLoop));
+
+    // Finnaly, create DA.
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysisScalar>();
+    NewPlan->setVPlanDA(std::move(VPDA));
+    return NewPlan;
+  }
+};
+
+// Peel specialization
+template <bool>
+class ScalarPeelOrRemainderVPlanFab
+    : public ScalarPeelOrRemainderVPlanFabBase<VPlanScalarPeel, VPScalarPeel> {
+  using VPlanType = VPlanScalarPeel;
+  using VPInstructionType = VPScalarPeel;
+
+  virtual const char *getFirstBlockName() override { return "PeelBlk"; }
+  virtual void setPlanName(VPlan &MainPlan) override {
+    NewPlan->setName(
+        VPlanUtils::createUniqueName(MainPlan.getName() + ".ScalarPeel"));
+  }
+  virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk,
+                              Use *Val) override {
+    I->setTargetLabel(Blk, Val);
+  }
+
+public:
+  VPlanType *create(VPlan &MainPlan, Loop *OrigLoop) {
+    return runImpl(MainPlan, OrigLoop);
+  }
+};
+
+// Remainder specialization
+template <>
+class ScalarPeelOrRemainderVPlanFab<false>
+    : public ScalarPeelOrRemainderVPlanFabBase<VPlanScalarRemainder,
+                                               VPScalarRemainder> {
+  using VPlanType = VPlanScalarRemainder;
+  using VPInstructionType = VPScalarRemainder;
+
+  virtual const char *getFirstBlockName() override { return "RemBlk"; }
+  virtual void setPlanName(VPlan &MainPlan) override {
+    NewPlan->setName(
+        VPlanUtils::createUniqueName(MainPlan.getName() + ".ScalarRemainder"));
+  }
+
+  virtual void addRemainderLiveIn(ScalarInOutDescr *Descr,
+                                  VPInstructionType *I) override {
+    int Id = Descr->getId();
+    PHINode *OrigPhi = Descr->getPhi();
+    I->addLiveIn(const_cast<VPLiveInValue *>(NewPlan->getLiveInValue(Id)),
+                 &OrigPhi->getOperandUse(Descr->getStartOpNum()));
+  }
+  virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk,
+                              Use *Val) override {
+    I->addLiveIn(Blk, Val);
+  }
+
+public:
+  VPlanType *create(VPlan &MainPlan, Loop *OrigLoop) {
+    return runImpl(MainPlan, OrigLoop);
+  }
+};
 
 void VPlanCFGMerger::updateMergeBlockByScalarLiveOuts(VPBasicBlock *BB,
                                                       VPBasicBlock *InBlock) {

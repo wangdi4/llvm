@@ -522,16 +522,16 @@ private:
 };
 
 class VPLiveInOutCreator {
-  VPlanVector &Plan;
+  VPlan &Plan;
 
 public:
-  VPLiveInOutCreator(VPlanVector &P) : Plan(P) {}
+  VPLiveInOutCreator(VPlan &P) : Plan(P) {}
 
   /// Create VPLiveInValue and VPLiveOutValue lists for VPlan.
   /// Looking through VPEntities of VPlan create live-in counterparts and
   /// wrappers for all live-out, also adding fake VPExternalUse when needed.
   /// The original incoming vaules are replaced by the newly created
-  /// VPLiveInValues and VExternalUse-users are replaced by VPLiveOutValues.
+  /// VPLiveInValues and VPExternalUse-users are replaced by VPLiveOutValues.
   /// Also, descriptors of in/out values for scalar loops are created in VPlan.
   void createInOutValues(Loop *OrigLoop);
 
@@ -539,6 +539,20 @@ public:
   /// Temporary, until CFG merge process is not implemented. Then all such
   /// occurences are expected to be replaced during CFG merge process.
   void restoreLiveIns();
+
+  /// Create VPLiveInValue-s list for VPlan that represents
+  /// scalar loop. Going through the list of descriptors for a scalar loop,
+  /// create live-ins of the appropriate type and update live-in list of VPlan.
+  void createLiveInsForScalarVPlan(const ScalarInOutList &ScalarInOuts,
+                                   int Count);
+
+  /// Create VPLiveOutValue-s list for VPlan that represents
+  /// scalar loop. Going through the list of descriptors for a scalar loop,
+  /// create live-outs with corresponding operands from \p Outgoing and update
+  /// the live-out list in VPlan.
+  void createLiveOutsForScalarVPlan(
+      const ScalarInOutList &ScalarInOuts, int Count,
+      DenseMap<int, VPValue *> &Outgoing);
 
 private:
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's inductions.

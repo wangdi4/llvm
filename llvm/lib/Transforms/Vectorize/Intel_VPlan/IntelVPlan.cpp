@@ -1419,32 +1419,30 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
   }
 }
 
-std::unique_ptr<VPlanVector> VPlanMasked::clone(VPAnalysesFactory &VPAF,
-                                                UpdateDA UDA) {
+VPlanVector *VPlanMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new masked VPlan
-  std::unique_ptr<VPlanMasked> ClonedVPlan =
-      std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
+  auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
-  copyData(VPAF, UDA, ClonedVPlan.get());
+
+  copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }
 
-std::unique_ptr<VPlanVector> VPlanNonMasked::clone(VPAnalysesFactory &VPAF,
-                                                   UpdateDA UDA) {
+VPlanVector *VPlanNonMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new non-masked VPlan
-  std::unique_ptr<VPlanNonMasked> ClonedVPlan =
-      std::make_unique<VPlanNonMasked>(getExternals(), getUnlinkedVPInsts());
+  auto *ClonedVPlan = new VPlanNonMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
-  copyData(VPAF, UDA, ClonedVPlan.get());
+
+  copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }
 
-std::unique_ptr<VPlanMasked>
-VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF,
+                                         UpdateDA UDA) {
   // Create new masked VPlan from a non-masked VPlan.
-  std::unique_ptr<VPlanMasked> ClonedVPlan =
-      std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
+  auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned.masked");
-  copyData(VPAF, UDA, ClonedVPlan.get());
+
+  copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }

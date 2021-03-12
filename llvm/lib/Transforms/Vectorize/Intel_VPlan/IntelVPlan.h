@@ -3314,9 +3314,9 @@ protected:
   VPlan(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)
       : Kind(K), Externals(E), UnlinkedVPInsts(UVPI) {}
 
-  virtual ~VPlan();
-
 public:
+
+  virtual ~VPlan();
 
   VPlanKind getVPlanKind() const { return Kind; }
 
@@ -3575,9 +3575,14 @@ public:
   virtual void printSpecifics(raw_ostream &OS) const override {}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  void setNeedCloneOrigLoop(bool V) { NeedCloneOrigLoop = V; }
+  bool getNeedCloneOrigLoop() const { return NeedCloneOrigLoop; }
+
 protected:
   VPlanScalar(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)
       : VPlan(K, E, UVPI) {}
+
+  bool NeedCloneOrigLoop = false;
 };
 
 
@@ -3726,8 +3731,7 @@ public:
 
   /// Utility method to clone VPlan. VPAnalysesFactory has methods to
   /// create additional analyses required for cloned VPlan.
-  virtual std::unique_ptr<VPlanVector> clone(VPAnalysesFactory &VPAF,
-                                             UpdateDA UDA) = 0;
+  virtual VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) = 0;
 
   void setPreferredPeeling(unsigned VF,
                            std::unique_ptr<VPlanPeelingVariant> Peeling) {
@@ -3837,8 +3841,7 @@ public:
 
   /// Utility method to clone Non-Masked-vplan. VPAnalysesFactory has methods to
   /// create additional analyses required for cloned VPlan.
-  std::unique_ptr<VPlanVector> clone(VPAnalysesFactory &VPAF,
-                                     UpdateDA UDA) override;
+  VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) override;
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPlan *V) {
@@ -3853,12 +3856,10 @@ public:
 
   /// Utility method to clone masked-vplan. VPAnalysesFactory has methods to
   /// create additional analyses required for cloned VPlan.
-  std::unique_ptr<VPlanVector> clone(VPAnalysesFactory &VPAF,
-                                     UpdateDA UDA) override;
+  VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) override;
 
   /// Utility method to allow a Non-masked VPlan to clone a masked VPlan.
-  std::unique_ptr<VPlanMasked> cloneMasked(VPAnalysesFactory &VPAF,
-                                           UpdateDA UDA);
+  VPlanMasked *cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA);
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:

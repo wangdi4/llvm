@@ -238,21 +238,21 @@ void VPLiveInOutCreator::createInOutsReductions(
 }
 
 void VPLiveInOutCreator::createInOutValues(Loop *OrigLoop) {
-  const VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
+  VPlanVector &VecPlan = cast<VPlanVector>(Plan);
+  const VPLoop *Loop = *VecPlan.getVPLoopInfo()->begin();
   if (!Loop->getUniqueExitBlock())
     return;
 
   VPExternalValues &ExtVals = Plan.getExternals();
   unsigned ExtUseCount = ExtVals.getLastMergeId();
 
-  const VPLoopEntityList *VPLEntityList =
-      Plan.getLoopEntities(Loop);
+  const VPLoopEntityList *VPLEntityList = VecPlan.getLoopEntities(Loop);
   assert(VPLEntityList && "VPLEntityList is expected to be non-null here.");
 
   // We need to allocate LiveIn/LiveOut lists here, along with
   // OriginalIncomingValues, due to we look through entities and the lookup is
-  // not in the order of VPExternalUses creation but we need to place the items
-  // in the needed order.
+  // not in the order of VPExternalUses creation but we need to place the
+  // items in the needed order.
   ExtVals.allocateOriginalIncomingValues(ExtUseCount);
   Plan.allocateLiveInValues(ExtUseCount);
   Plan.allocateLiveOutValues(ExtUseCount);
@@ -267,6 +267,31 @@ void VPLiveInOutCreator::restoreLiveIns() {
     if (LIV) // Might be not created for some MergeId-s.
       LIV->replaceAllUsesWith(
           ExtVals.getOriginalIncomingValue(LIV->getMergeId()));
+}
+
+void VPLiveInOutCreator::createLiveInsForScalarVPlan(
+    const ScalarInOutList &ScalarInOuts, int Count) {
+
+  Plan.allocateLiveInValues(Count);
+  for (auto Item : ScalarInOuts.list()) {
+    int MergeId = Item->getId();
+    VPLiveInValue *LIV = createLiveInValue(MergeId, Item->getPhi()->getType());
+    Plan.setLiveInValue(LIV, MergeId);
+  }
+}
+
+void VPLiveInOutCreator::createLiveOutsForScalarVPlan(
+    const ScalarInOutList &ScalarInOuts, int Count,
+    DenseMap<int, VPValue *> &Outgoing) {
+
+  Plan.allocateLiveOutValues(Count);
+  for (auto Item : ScalarInOuts.list()) {
+    int MergeId = Item->getId();
+    VPValue *Val = Outgoing[MergeId];
+    assert(Val && "Expected non-null outgoing value");
+    VPLiveOutValue *LOV = createLiveOutValue(MergeId, Val);
+    Plan.setLiveOutValue(LOV, MergeId);
+  }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
