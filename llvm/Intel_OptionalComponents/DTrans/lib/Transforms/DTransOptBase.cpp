@@ -757,17 +757,46 @@ void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
 // Update this to have the remapped type for the byval attribute.
 //   define void @test0.1(%_DT_struct.type01b* byval(%_DT_struct.type01b) %in)
 //
+// Other attributes that contain types are: byref, sret, and preallocated.
 void DTransOptBase::updateAttributeTypes(Function *CloneFunc) {
+  auto &TheRemapper = TypeRemapper;
+  auto TypeChangeNeeded = [&TheRemapper](llvm::Type *Ty) -> llvm::Type * {
+    llvm::Type *RemapTy = TheRemapper->remapType(Ty);
+    if (Ty != RemapTy)
+      return RemapTy;
+    return nullptr;
+  };
+
   unsigned ArgIdx = 0;
   LLVMContext &Context = CloneFunc->getContext();
   for (Argument &I : CloneFunc->args()) {
+    // The attributes are mutually exclusive. Just find if any are present,
+    // and update the type if needed.
     if (I.hasByValAttr()) {
-      llvm::Type *Ty = I.getParamByValType();
-      llvm::Type *RemapTy = TypeRemapper->remapType(Ty);
-      if (Ty != RemapTy) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamByValType())) {
         CloneFunc->removeParamAttr(ArgIdx, Attribute::ByVal);
         CloneFunc->addParamAttr(ArgIdx,
                                 Attribute::getWithByValType(Context, RemapTy));
+      }
+    } else if (I.hasByRefAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamByRefType())) {
+        CloneFunc->removeParamAttr(ArgIdx, Attribute::ByRef);
+        CloneFunc->addParamAttr(ArgIdx,
+                                Attribute::getWithByRefType(Context, RemapTy));
+      }
+    } else if (I.hasStructRetAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamStructRetType())) {
+        CloneFunc->removeParamAttr(ArgIdx, Attribute::StructRet);
+        CloneFunc->addParamAttr(
+            ArgIdx, Attribute::getWithStructRetType(Context, RemapTy));
+      }
+    } else if (I.hasPreallocatedAttr()) {
+      AttributeSet ParamAttrs =
+          CloneFunc->getAttributes().getParamAttributes(ArgIdx);
+      if (auto *RemapTy = TypeChangeNeeded(ParamAttrs.getPreallocatedType())) {
+        CloneFunc->removeParamAttr(ArgIdx, Attribute::Preallocated);
+        CloneFunc->addParamAttr(
+            ArgIdx, Attribute::getWithPreallocatedType(Context, RemapTy));
       }
     }
     ++ArgIdx;
