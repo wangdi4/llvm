@@ -172,7 +172,7 @@ DenseMap<CallInst *, unsigned> CallInstArgumentSetIndexMap;
 
 // All constant argument sets for a function that is currently being
 // processed. Each constant argument set is mapped with unique index value.
-SmallDenseMap<unsigned, std::vector<std::pair<unsigned, Constant *>>>
+SmallDenseMap<unsigned, std::vector<std::pair<unsigned, Value *>>>
     FunctionAllArgumentsSets;
 
 // Mapping between newly cloned function and constant argument set index.
@@ -1899,7 +1899,7 @@ static void createRecProgressionClones(Function &F, unsigned ArgPos,
 //
 static void createConstantArgumentsSet(
     CallInst &CI, Function &F,
-    std::vector<std::pair<unsigned, Constant *>> &ConstantArgsSet) {
+    std::vector<std::pair<unsigned, Value *>> &ConstantArgsSet) {
 
   unsigned position = 0;
   auto CAI = CI.arg_begin();
@@ -1915,6 +1915,8 @@ static void createConstantArgumentsSet(
     auto &ValList = ActualConstantValues[ActualV];
     if (ValList.size() == 0)
       continue;
+
+
     Constant *C = *ValList.begin();
     ConstantArgsSet.push_back(std::make_pair(position, C));
   }
@@ -1924,7 +1926,7 @@ static void createConstantArgumentsSet(
 // of the constant argument set in "FunctionAllArgumentsSets".
 //
 static unsigned getConstantArgumentsSetIndex(
-    std::vector<std::pair<unsigned, Constant *>> &ConstantArgs) {
+    std::vector<std::pair<unsigned, Value *>> &ConstantArgs) {
   auto I = FunctionAllArgumentsSets.begin();
   auto E = FunctionAllArgumentsSets.end();
   unsigned index = 0;
@@ -2120,7 +2122,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
 //
 static bool collectAllConstantArgumentsSets(Function &F) {
 
-  std::vector<std::pair<unsigned, Constant *>> ConstantArgs;
+  std::vector<std::pair<unsigned, Value *>> ConstantArgs;
   for (unsigned i = 0, e = CurrCallList.size(); i != e; ++i) {
     CallInst *CI = CurrCallList[i];
     ConstantArgs.clear();
@@ -2150,7 +2152,7 @@ static bool collectAllConstantArgumentsSets(Function &F) {
 // Returns true if there is a constant value in 'CArgs' at 'position'.
 //
 static bool isArgumentConstantAtPosition(
-    std::vector<std::pair<unsigned, Constant *>> &CArgs, unsigned position) {
+    std::vector<std::pair<unsigned, Value *>> &CArgs, unsigned position) {
   for (auto I = CArgs.begin(), E = CArgs.end(); I != E; I++) {
     if (I->first == position)
       return true;
@@ -2476,7 +2478,7 @@ static CallInst *createNewCall(CallInst &CI, BasicBlock *Insert_BB,
   Function *SrcFn = CI.getCalledFunction();
 
   // Get argument-sets at ArgsIndex fpr CI
-  std::vector<std::pair<unsigned, Constant *>> ConstantArgs;
+  std::vector<std::pair<unsigned, Value *>> ConstantArgs;
   auto &CallArgsSets = AllCallsArgumentsSets[&CI];
   auto CArgs = CallArgsSets[ArgsIndex];
 
@@ -2491,11 +2493,7 @@ static CallInst *createNewCall(CallInst &CI, BasicBlock *Insert_BB,
     Value *V = isSpecializationConstantAtPosition(CArgs, Position);
     if (V == nullptr)
       continue;
-    // For now, it handles only Constants. We may need to handle special
-    // constants like address of stack locations etc in future.
-    if (Constant *C = dyn_cast<Constant>(V)) {
-      ConstantArgs.push_back(std::make_pair(Position, C));
-    }
+    ConstantArgs.push_back(std::make_pair(Position, V));
   }
   unsigned Index = getConstantArgumentsSetIndex(ConstantArgs);
   Function *NewFn = ArgSetIndexClonedFunctionMap[Index];
