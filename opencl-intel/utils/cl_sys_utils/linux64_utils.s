@@ -46,16 +46,6 @@ CallKernel:
 #================= Utilities ===================
 .equ ARG1_U64,%rdi
 
-## structure definition for hw_cpuid()
-        .struct 0
-M_RAX:
-        .struct M_RAX + 8
-M_RBX:
-        .struct M_RBX + 8
-M_RCX:
-        .struct M_RCX + 8
-M_RDX:
-
 .text
 #------------------------------------------------------------------------------
 #  void cdecl
@@ -91,12 +81,6 @@ M_RDX:
    
 .equ ARG1,%rdi
 
-## structure definition for hw_xgetbv()
-        .struct 0
-MEM_RAX:
-        .struct MEM_RAX + 8
-MEM_RDX:
-
 .text
 #------------------------------------------------------------------------------
 #  hw_xgetbv (
@@ -113,8 +97,8 @@ hw_xgetbv:
         .byte 15
         .byte 1
         .byte 208
-        mov     %rax, MEM_RAX (ARG1)
-        mov     %rdx, MEM_RDX (ARG1)
+        mov     %rax, 0(ARG1)
+        mov     %rdx, 8(ARG1)
         ret
 	
 .macro EMIT_VZEROUPPER
