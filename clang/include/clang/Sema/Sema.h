@@ -10394,6 +10394,12 @@ public:
                                 Expr *E);
   SYCLIntelLoopFuseAttr *
   MergeSYCLIntelLoopFuseAttr(Decl *D, const SYCLIntelLoopFuseAttr &A);
+  void AddIntelFPGAPrivateCopiesAttr(Decl *D, const AttributeCommonInfo &CI,
+                                     Expr *E);
+  void AddIntelFPGAMaxReplicatesAttr(Decl *D, const AttributeCommonInfo &CI,
+                                     Expr *E);
+  IntelFPGAMaxReplicatesAttr *
+  MergeIntelFPGAMaxReplicatesAttr(Decl *D, const IntelFPGAMaxReplicatesAttr &A);
 
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
@@ -13399,13 +13405,6 @@ void Sema::addIntelSingleArgAttr(Decl *D, const AttributeCommonInfo &CI,
       return;
     E = ICE.get();
     int32_t ArgInt = ArgVal.getSExtValue();
-    if (CI.getParsedKind() == ParsedAttr::AT_IntelFPGAMaxReplicates) {
-      if (ArgInt <= 0) {
-        Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-            << CI << /*positive*/ 0;
-        return;
-      }
-    }
     if (CI.getParsedKind() == ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim) {
       if (ArgInt < 0) {
         Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
