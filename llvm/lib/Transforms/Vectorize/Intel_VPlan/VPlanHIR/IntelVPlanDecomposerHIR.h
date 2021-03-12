@@ -332,6 +332,15 @@ public:
     return Plan->getVPExternalDefForDDRef(Ref);
   }
 
+  VPExternalDef *getVPExternalDefForSIMDDescr(const loopopt::DDRef *Ref) {
+    bool IsSIMDDescr = HIRLegality.isReduction(Ref) != nullptr ||
+                       HIRLegality.isLinear(Ref) != nullptr ||
+                       HIRLegality.isPrivate(Ref) != nullptr;
+    assert(IsSIMDDescr && "DDRef is not a SIMD entity descriptor.");
+    (void)IsSIMDDescr;
+    return Plan->getVPExternalDefForDDRef(Ref);
+  }
+
   /// Return induction list.
   VPInductionHIRList &getInductions(const loopopt::HLLoop *L) {
     return *(Inductions[L]);

@@ -149,7 +149,7 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
   DescrWithInitValue *Descr = getLinearRednDescriptors(Ref);
 
-  // If Ref does not correspond to linear/reduction then nothing to do
+  // If Ref does not correspond to SIMD descriptor then nothing to do
   if (!Descr)
     return;
 
@@ -176,9 +176,11 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   if (!Ref)
     return;
 
-  DescrWithInitValue *Descr = getLinearRednDescriptors(Ref);
+  DescrWithAliasesTy *Descr = isPrivate(Ref);
+  if (!Descr)
+    Descr = getLinearRednDescriptors(Ref);
 
-  // If Ref does not correspond to linear/reduction then nothing to do
+  // If Ref does not correspond to SIMD descriptor then nothing to do
   if (!Descr)
     return;
 
@@ -1236,22 +1238,19 @@ public:
 // Convert data from Privates list
 class PrivatesListCvt : public VPEntityConverterBase {
 public:
-  PrivatesListCvt(VPDecomposerHIR &Decomp, bool IsCond = false,
-                  bool IsLast = false)
-      : VPEntityConverterBase(Decomp), IsCondPriv(IsCond), IsLastPriv(IsLast) {}
+  PrivatesListCvt(VPDecomposerHIR &Decomp) : VPEntityConverterBase(Decomp) {}
 
   void operator()(PrivateDescr &Descriptor,
                   const PrivatesListTy::value_type &CurValue) {
-    Descriptor.setAllocaInst(nullptr);
-    Descriptor.setIsConditional(IsCondPriv);
-    Descriptor.setIsLast(IsLastPriv);
+    auto *DescrRef = cast<RegDDRef>(CurValue.getRef());
+    DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
+    Descriptor.setAllocaInst(
+        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setIsConditional(CurValue.isCond());
+    Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
   }
-
-private:
-  bool IsCondPriv;
-  bool IsLastPriv;
 };
 
 class HLLoop2VPLoopMapper {
@@ -1286,6 +1285,8 @@ typedef VPLoopEntitiesConverter<ReductionDescr, HLLoop,
                                 HLLoop2VPLoopMapper> ReductionConverter;
 typedef VPLoopEntitiesConverter<InductionDescr, HLLoop,
                                 HLLoop2VPLoopMapper> InductionConverter;
+typedef VPLoopEntitiesConverter<PrivateDescr, HLLoop, HLLoop2VPLoopMapper>
+    PrivatesConverter;
 
 void PlainCFGBuilderHIR::convertEntityDescriptors(
     HIRVectorizationLegality *Legal,
@@ -1294,9 +1295,11 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   using InductionList = VPDecomposerHIR::VPInductionHIRList;
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
+  using PrivatesList = HIRVectorizationLegality::PrivatesListTy;
 
   ReductionConverter *RedCvt = new ReductionConverter(Plan);
   InductionConverter *IndCvt = new InductionConverter(Plan);
+  PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
 
   for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
        LoopDescr != End; ++LoopDescr) {
@@ -1347,6 +1350,12 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     ExplicitReductionListCvt ExplRedCvt(Decomposer);
     auto ExplRedPair = std::make_pair(ExplRedRange, ExplRedCvt);
 
+    const PrivatesList &PL = Legal->getPrivates();
+    iterator_range<PrivatesList::const_iterator> PrivRange(PL.begin(),
+                                                           PL.end());
+    PrivatesListCvt PrivListCvt(Decomposer);
+    auto PrivatesPair = std::make_pair(PrivRange, PrivListCvt);
+
     const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
     iterator_range<MinMaxIdiomsInputIteratorHIR> MinMaxIdiomRange(
         MinMaxIdiomsInputIteratorHIR(true, *Idioms),
@@ -1356,9 +1365,11 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
 
     RedCvt->createDescrList(HL, ReducPair, ExplRedPair, RedIdiomPair);
     IndCvt->createDescrList(HL, InducPair, LinearPair);
+    PrivCvt->createDescrList(HL, PrivatesPair);
   }
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
+  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
 }
 
 void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
@@ -1372,8 +1383,12 @@ void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
 void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   typedef VPLoopEntitiesConverterTempl<HLLoop2VPLoopMapper> BaseConverter;
 
-  // The HIRLegality lists should be populated by now
-  LLVM_DEBUG(HIRLegality->dump());
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (VPlanPrintLegality) {
+    // The HIRLegality lists should be populated by now
+    HIRLegality->dump(dbgs());
+  }
+#endif
 
   HLLoop2VPLoopMapper Mapper(Plan, Header2HLLoop);
   for (auto &Cvt : Cvts) {

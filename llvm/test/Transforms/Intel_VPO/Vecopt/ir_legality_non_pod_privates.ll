@@ -1,6 +1,6 @@
 ; Test if debug information for PrivDescr class are generated correctly.
 
-; RUN: opt -S -VPlanDriver -disable-output --vplan-print-privdescr < %s 2>&1 | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-output -vplan-print-legality < %s 2>&1 | FileCheck %s
 
 ; CHECK: VPOLegality PrivateList:
 ; CHECK-NEXT: Ref:   %myPoint2.priv = alloca %struct.point2d, align 4

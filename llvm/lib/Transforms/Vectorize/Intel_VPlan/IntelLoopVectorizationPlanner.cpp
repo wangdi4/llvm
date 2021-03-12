@@ -1251,10 +1251,6 @@ void LoopVectorizationPlanner::EnterExplicitData(
   if (WRLp) {
     LVL.collectPreLoopDescrAliases();
     LVL.collectPostExitLoopDescrAliases();
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (VPlanPrintPrivDescr)
-      LVL.dump();
-#endif
   }
 }
 

@@ -947,9 +947,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     ClauseItemTy *Item = new ClauseItemTy(Args);
     Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
-    if (IsConditional)
-      Item->setIsConditional(true);
+    assert(!IsConditional && "NonPod can't be conditional by OMP standard.");
 #if INTEL_CUSTOMIZATION
+    if (!CurrentBundleDDRefs.empty() &&
+        WRegionUtils::supportsRegDDRefs(ClauseID))
+      Item->setHOrig(CurrentBundleDDRefs[0]);
     if (ClauseInfo.getIsF90DopeVector())
       Item->setIsF90DopeVector(true);
     Item->setIsWILocal(ClauseInfo.getIsWILocal());
