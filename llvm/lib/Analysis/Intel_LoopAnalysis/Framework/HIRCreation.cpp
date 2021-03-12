@@ -42,7 +42,6 @@ const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
 }
 
 void HIRCreation::setSrcBBlock(HLIf *If, const BasicBlock *SrcBB) {
-  assert((Ifs.find(If) == Ifs.end()) && "SrcBB already set!");
   Ifs[If] = SrcBB;
 }
 
