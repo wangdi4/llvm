@@ -11,6 +11,7 @@
 ; Translated from AT&T assembly to intel assembly syntax.
 
 PUBLIC  ____chkstk_ms
+PUBLIC  __alloca
 
 _TEXT   SEGMENT
 
@@ -33,6 +34,11 @@ ____chkstk_ms_1:
     pop     ecx
     ret
 ____chkstk_ms ENDP
+
+__alloca PROC
+    call    ____chkstk_ms
+    ret
+__alloca ENDP
 
 _TEXT ENDS
 END
