@@ -6,13 +6,33 @@ if (NOT TARGET LLVMGenXIntrinsics)
     set(LLVMGenXIntrinsics_GIT_TAG b831d10e49e1fb8fcd92b5b50e2cdc8f9cb6277b)
 
     if( INTEL_CUSTOMIZATION )
-      set( LLVMGenXIntrinsics_GIT_REPO
-           ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-vc-intrinsics.git )
-      if( DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "" )
-        set( LLVMGenXIntrinsics_GIT_REPO
-             $ENV{ICS_GIT_MIRROR}/dpd_icl-vc-intrinsics.git )
-        STRING(REGEX REPLACE "\\\\" "/" LLVMGenXIntrinsics_GIT_REPO "${LLVMGenXIntrinsics_GIT_REPO}") 
+      set( IS_INTERNAL_ESIMD_BUILD FALSE )
+# INTEL_FEATURE_ESIMD_EMBARGO
+      is_intel_feature_enabled(IS_INTERNAL_ESIMD_BUILD ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
+# end INTEL_FEATURE_ESIMD_EMBARGO
+
+      set( LLVMGenXIntrinsics_GIT_REPO_PATH ssh://git-amr-2.devtools.intel.com:29418 )
+      set( LLVMGenXIntrinsics_GIT_REPO_NAME dpd_icl-vc-intrinsics.git )
+
+# INTEL_FEATURE_ESIMD_EMBARGO
+      if( IS_INTERNAL_ESIMD_BUILD )
+        # use different git repo and tag for the internal ESIMD EMBARGO build
+        set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
+        set( LLVMGenXIntrinsics_GIT_TAG 4dec1a45eaa935adbb0a60fae99344e27c2c7b24 )
       endif()
+# end INTEL_FEATURE_ESIMD_EMBARGO
+
+      if( DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "" )
+        set( LLVMGenXIntrinsics_GIT_REPO_PATH $ENV{ICS_GIT_MIRROR} )
+        STRING(REGEX REPLACE "\\\\" "/" LLVMGenXIntrinsics_GIT_REPO_PATH "${LLVMGenXIntrinsics_GIT_REPO_PATH}")
+# INTEL_FEATURE_ESIMD_EMBARGO
+      elseif( IS_INTERNAL_ESIMD_BUILD )
+        message( FATAL_ERROR "xmain ESIMD_EMBARGO build requires ICS_GIT_MIRROR env var to be set" )
+# end INTEL_FEATURE_ESIMD_EMBARGO
+      endif()
+
+      set( LLVMGenXIntrinsics_GIT_REPO
+        ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     else(INTEL_CUSTOMIZATION)
       set( LLVMGenXIntrinsics_GIT_REPO
          https://github.com/intel/vc-intrinsics.git )
