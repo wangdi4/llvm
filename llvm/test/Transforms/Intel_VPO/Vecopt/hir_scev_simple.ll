@@ -30,6 +30,9 @@
 ; CHECK-NEXT:    -> {(%src),+,4}
 ; CHECK-NEXT:  computeAddressSCEV([DA: Div] store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
 ; CHECK-NEXT:    -> {(%dst),+,4}
+; CHECK-NEXT:  getMinusExpr({(%dst),+,0},
+; CHECK-NEXT:               {(%src),+,0})
+; CHECK-NEXT:    -> {(-1 * %src + %dst),+,0}
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

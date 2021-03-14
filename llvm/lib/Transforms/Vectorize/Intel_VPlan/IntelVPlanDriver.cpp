@@ -1151,6 +1151,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  if (VPlanEnablePeeling)
+    LVP.selectBestPeelingVariants();
+
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF = LVP.selectBestPlan<VPlanCostModelProprietary>();
 
