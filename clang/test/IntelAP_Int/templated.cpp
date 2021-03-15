@@ -5,8 +5,8 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-windows-pc -fhls %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,HLS
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-linux-pc -fhls %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,HLS
 
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl -fsycl-is-device %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,SYCL
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl -fsycl-is-device %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,SYCL
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,SYCL
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,SYCL
 
 // CHECK: %a = alloca i3, align 1
 // SYCL: %a.ascast = addrspacecast i3* %a to i3 addrspace(4)*

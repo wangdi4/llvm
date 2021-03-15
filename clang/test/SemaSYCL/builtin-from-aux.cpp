@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -aux-triple x86_64-linux-pc -verify -fsyntax-only %s
+// RUN: %clang_cc1 -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -aux-triple x86_64-linux-pc -verify -fsyntax-only %s
 // Eventually this should diagnose if we ever try to emit the builtin on
 // the SYCL device, but that requires quite a lot of upstream work.
 // expected-no-diagnostics

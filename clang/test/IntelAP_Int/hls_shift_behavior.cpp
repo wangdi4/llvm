@@ -1,5 +1,5 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -fhls %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,HLS
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -fsycl -fsycl-is-device %s -triple spir64-unknown-linux-sycldevice -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SYCL
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -fsycl-is-device %s -triple spir64-unknown-linux-sycldevice -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SYCL
 
 // HLS: %[[L0:[0-9]+]] = load i4, i4* %x4_u, align 1
 // SYCL: %[[L0:[0-9]+]] = load i4, i4 addrspace(4)* %x4_u.ascast, align 1
