@@ -25,6 +25,7 @@ VERS1.0 {
     __tgt_target_teams_nowait_mapper;
     __tgt_mapper_num_components;
     __tgt_push_mapper_component;
+<<<<<<< HEAD
 # INTEL_COLLAB
     __tgt_is_device_available;
     __tgt_get_device_name;
@@ -56,6 +57,8 @@ VERS1.0 {
     omp_target_get_context;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount_mapper;
   local:
     *;
 };

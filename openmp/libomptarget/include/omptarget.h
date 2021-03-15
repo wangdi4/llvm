@@ -507,6 +507,16 @@ EXTERN
 #endif  // INTEL_COLLAB
 void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
                                   uint64_t loop_tripcount);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
+
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void __kmpc_push_target_tripcount_mapper(ident_t *loc, int64_t device_id,
+                                         uint64_t loop_tripcount);
 
 #if INTEL_COLLAB
 EXTERN
