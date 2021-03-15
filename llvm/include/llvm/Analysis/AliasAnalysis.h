@@ -399,6 +399,11 @@ public:
 #if INTEL_CUSTOMIZATION
   // Do opt-level based initialization for each AAResult.
   void setupWithOptLevel(unsigned OptLevel);
+
+  // Sets the AAResults pointer of underlying AAs to this object.
+  // This is required to restore the connection after LoopOpt's AA
+  // pipeline breaks it.
+  void setAAResultsPtr();
 #endif // INTEL_CUSTOMIZATION
 
   /// Register a specific AA result.
