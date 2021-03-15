@@ -2028,10 +2028,6 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(ArrayRef<RegDDRef *> StoreVals,
 bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
                                      const RegDDRef *Mask,
                                      const VPInstruction *VPInst) {
-  // Disable interleaving in mixed codegen mode.
-  if (!EnableVPValueCodegenHIR || getForceMixedCG())
-    return false;
-
   // TODO: Mask for the interleaved accesses must be shuffled as well. Currently
   // it's not done, thus disable CG for it.
   if (Mask)
@@ -2064,109 +2060,6 @@ bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
     return false;
 
   return true;
-}
-
-void VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
-                                           const OVLSGroup *Grp,
-                                           int64_t InterleaveFactor,
-                                           int64_t InterleaveIndex,
-                                           const HLInst *GrpStartInst,
-                                           const VPInstruction *VPInst) {
-  auto CurInst = INode->getLLVMInstruction();
-  HLInst *WideInst = nullptr;
-
-  auto FillRefVec = [](const OVLSGroup *Grp,
-                       SmallVectorImpl<const RegDDRef *> &MemDDRefVec) {
-    for (auto *Memref : Grp->getMemrefVec())
-      MemDDRefVec.push_back(
-          (cast<VPVLSClientMemrefHIR>(Memref))->getRegDDRef());
-  };
-
-  if (isa<LoadInst>(CurInst)) {
-    RegDDRef *WLoadRes;
-    auto It = VLSGroupLoadMap.find(Grp);
-
-    if (It == VLSGroupLoadMap.end()) {
-      // We are encountering the first instruction of a load group. Generate a
-      // wide load using the memory reference from the instruction starting the
-      // group.
-      const RegDDRef *MemRef =
-          cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getRegDDRef();
-      RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
-      assert(WMemRef && "The memory reference should not be null pointer");
-      if (Mask)
-        OptRptStats.MaskedVLSLoads += Grp->size();
-      else
-        OptRptStats.UnmaskedVLSLoads += Grp->size();
-      HLInst *WideLoad =
-          HLNodeUtilities.createLoad(WMemRef, CurInst->getName() + ".vls.load");
-      SmallVector<const RegDDRef *, 4> MemDDRefVec;
-      FillRefVec(Grp, MemDDRefVec);
-      propagateMetadata(WMemRef, MemDDRefVec);
-
-      addInst(WideLoad, Mask);
-
-      // Set the result of the wide load and add the same to VLS Group load map.
-      WLoadRes = WideLoad->getLvalDDRef();
-      VLSGroupLoadMap[Grp] = WLoadRes;
-
-      DEBUG_WITH_TYPE("ovls",
-                      dbgs() << "Emitted a group-wide vector LOAD for Group#"
-                             << Grp->getDebugId() << ":\n  ");
-      DEBUG_WITH_TYPE("ovls", WideLoad->dump());
-    } else
-      WLoadRes = (*It).second;
-
-    WideInst = createInterleavedLoad(INode->getLvalDDRef(), WLoadRes,
-                                     InterleaveFactor, InterleaveIndex, Mask);
-    // Map the generated DDRef to corresponding VPInstruction.
-    addVPValueWideRefMapping(VPInst, WideInst->getLvalDDRef());
-  } else {
-    assert(isa<StoreInst>(CurInst) &&
-           "Unexpected interleaved access instruction");
-    RegDDRef *WStoreValRef = widenRef(INode->getOperandDDRef(1), getVF());
-
-    auto It = VLSGroupStoreMap.find(Grp);
-    if (It == VLSGroupStoreMap.end()) {
-      // We are encountering the first instruction of an OPTVLS store group.
-      // Allocate an array of RegDDRef * that is big enough to store the values
-      // being stored in InterleaveFactor number of stores in the group.
-      // Initialize array elements to null and store in VLSGroupStoreMap.
-      It = VLSGroupStoreMap.try_emplace(Grp, InterleaveFactor).first;
-    }
-
-    // Store the widened store value into RegDDRef array.
-    It->second[InterleaveIndex] = WStoreValRef;
-
-    // Check if we are at the point of the last store in the VLS group.
-    unsigned Index;
-    for (Index = 0; Index < InterleaveFactor; ++Index)
-      if (It->second[Index] == nullptr)
-        break;
-
-    // If we have seen all the instructions in a store group, go ahead and
-    // generate the interleaved store.
-    if (Index == InterleaveFactor) {
-      if (Mask)
-        OptRptStats.MaskedVLSStores += Grp->size();
-      else
-        OptRptStats.UnmaskedVLSStores += Grp->size();
-      assert(GrpStartInst && "Group start instruction pointer should not be null");
-      RegDDRef *WStorePtrRef = widenRef(GrpStartInst->getOperandDDRef(0),
-                                        getVF() * InterleaveFactor, true);
-      assert(WStorePtrRef && "Wide store reference should not be null pointer");
-      WideInst = createInterleavedStore(It->second, WStorePtrRef,
-                                        InterleaveFactor, Mask);
-      SmallVector<const RegDDRef *, 4> MemDDRefVec;
-      FillRefVec(Grp, MemDDRefVec);
-      propagateMetadata(WStorePtrRef, MemDDRefVec);
-
-      DEBUG_WITH_TYPE("ovls",
-                      dbgs() << "Emitted a group-wide vector STORE for Group#"
-                             << Grp->getDebugId() << ":\n  ");
-      DEBUG_WITH_TYPE("ovls", WideInst->dump());
-    }
-  }
 }
 
 void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
@@ -2829,10 +2722,6 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
 }
 
 void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
-                                  const OVLSGroup *Grp,
-                                  int64_t InterleaveFactor,
-                                  int64_t InterleaveIndex,
-                                  const HLInst *GrpStartInst,
                                   const VPInstruction *VPInst) {
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
@@ -2840,14 +2729,6 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
 
   if (!Mask)
     Mask = CurMaskValue;
-
-  // Check if we want to widen the current Inst as an interleaved memory access.
-  bool InterleaveAccess = interleaveAccess(Grp, Mask, VPInst);
-  if (InterleaveAccess) {
-    widenInterleavedAccess(INode, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                           GrpStartInst, VPInst);
-    return;
-  }
 
   // Widened values for SCEV expressions cannot be reused across HIR
   // instructions as temps that are part of such SCEV expressions can be
@@ -4590,8 +4471,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // Generate code using underlying HLInst.
     if (auto *Inst = dyn_cast<HLInst>(HNode)) {
-      widenNodeImpl(Inst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                    GrpStartInst, VPInst);
+      widenNodeImpl(Inst, Mask, VPInst);
       return;
     }
 
