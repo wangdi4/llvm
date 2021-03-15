@@ -37,7 +37,7 @@ namespace intel {
     typedef MapVector<Function*, TValueVector> TValuesPerFunctionMap;
     typedef std::map<Value*, unsigned int> TValueToOffsetMap;
     typedef std::set<Value*> TValueSet;
-    typedef SmallPtrSet<Use *, 16> TUseSet;
+    typedef SetVector<Use *> TUseSet;
 
   public:
     static char ID;
@@ -102,7 +102,7 @@ namespace intel {
       return m_valueToOffsetMap[pVal];
     }
 
-    const DenseMap<Instruction *, TUseSet> *getCrossBarrierUses(Function *F) {
+    const MapVector<Instruction *, TUseSet> *getCrossBarrierUses(Function *F) {
       auto It = m_crossBarrierUses.find(F);
       return It == m_crossBarrierUses.end() ? nullptr : &It->second;
     }
@@ -235,7 +235,7 @@ namespace intel {
 
     /// A map of maps between instructions and their cross-barrier users per
     /// function
-    DenseMap<Function *, DenseMap<Instruction *, TUseSet>> m_crossBarrierUses;
+    DenseMap<Function *, MapVector<Instruction *, TUseSet>> m_crossBarrierUses;
 
   };
 
