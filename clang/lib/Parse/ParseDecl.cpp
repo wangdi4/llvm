@@ -3771,8 +3771,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       // C++ for OpenCL does not allow virtual function qualifier, to avoid
       // function pointers restricted in OpenCL v2.0 s6.9.a.
       if (getLangOpts().OpenCLCPlusPlus &&
-          !getActions().getOpenCLOptions().isEnabled(
-              "__cl_clang_function_pointers")) {
+          !getActions().getOpenCLOptions().isAvailableOption(
+              "__cl_clang_function_pointers", getLangOpts())) {
         DiagID = diag::err_openclcxx_virtual_function;
         PrevSpec = Tok.getIdentifierInfo()->getNameStart();
         isInvalid = true;
@@ -5224,7 +5224,8 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
-           getActions().getOpenCLOptions().isEnabled("cl_intel_channels");
+           getActions().getOpenCLOptions().isAvailableOption(
+               "cl_intel_channels", getLangOpts());
 #endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
@@ -5772,7 +5773,7 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&
-      Actions.getOpenCLOptions().isEnabled("cl_intel_channels"))
+      Actions.getOpenCLOptions().isAvailableOption("cl_intel_channels", Lang))
     return true;
 #endif // INTEL_CUSTOMIZATION
 

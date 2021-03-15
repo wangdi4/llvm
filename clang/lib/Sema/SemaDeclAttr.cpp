@@ -3190,8 +3190,8 @@ static void handleOpenCLDepthAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (BaseTy->isChannelType())
     Ty = BaseTy;
 
-  if (Ty->isChannelType() &&
-      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+  if (Ty->isChannelType() && !S.getOpenCLOptions().isAvailableOption(
+                                 "cl_intel_channels", S.getLangOpts())) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr << "cl_intel_channels";
     return;
@@ -3234,8 +3234,8 @@ static void handleOpenCLIOAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (BaseTy->isChannelType())
     Ty = BaseTy;
 
-  if (Ty->isChannelType() &&
-      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+  if (Ty->isChannelType() && !S.getOpenCLOptions().isAvailableOption(
+                                 "cl_intel_channels", S.getLangOpts())) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr << "cl_intel_channels";
     return;
@@ -3596,7 +3596,8 @@ static void handleOpenCLHostAccessible(Sema &S, Decl *D,
 
   QualType Ty = cast<VarDecl>(D)->getType();
 
-  if (!S.getOpenCLOptions().isEnabled("cl_intel_fpga_host_pipe")) {
+  if (!S.getOpenCLOptions().isAvailableOption("cl_intel_fpga_host_pipe",
+                                              S.getLangOpts())) {
     S.Diag(D->getLocation(),
            diag::err_intel_opencl_attribute_requires_extension)
         << Attr << "cl_intel_fpga_host_pipe";
@@ -3614,7 +3615,8 @@ static void handleOpenCLHostAccessible(Sema &S, Decl *D,
 }
 
 static void handleVecLenHint(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  if (!S.getOpenCLOptions().isEnabled("cl_intel_vec_len_hint")) {
+  if (!S.getOpenCLOptions().isAvailableOption("cl_intel_vec_len_hint",
+                                              S.getLangOpts())) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr << "cl_intel_vec_len_hint";
     return;
