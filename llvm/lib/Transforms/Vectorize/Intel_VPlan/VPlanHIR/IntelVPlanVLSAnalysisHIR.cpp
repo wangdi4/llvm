@@ -43,7 +43,6 @@ bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
 
 OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
                                                  const unsigned VF) const {
-  unsigned Opcode = Inst->getOpcode();
 
   const HLNode *Node = Inst->HIR.getUnderlyingNode();
   const HLDDNode *DDNode = cast_or_null<HLDDNode>(Node);
@@ -54,62 +53,16 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   if (HLLoop *Lp = Node->getParentLoop())
     Level = Lp->getNestingLevel();
 
-  // Restrict creation of VLSMemrefs to load/store instructions only
-  // TODO: Remove this bailout when VLS is made an explicit transformation in
-  // VPlan (JR : CMPLRLLVM-7613)
-  auto *HInst = dyn_cast<HLInst>(DDNode);
-  if (!HInst || !(isa<LoadInst>(HInst->getLLVMInstruction()) ||
-                  isa<StoreInst>(HInst->getLLVMInstruction())))
-    return nullptr;
-
-  // VLS codegen currently handles cases where the underlying HLInst has only
-  // one memref and the instruction is load/store. Cases where HIR Temp Cleanup
-  // pass introduces extra load memrefs within the same HLInst is not correctly
-  // handled.
-  // TODO: Remove this bailout when VLS is made an explicit transformation in
-  // VPlan (JR : CMPLRLLVM-7613)
-
-  int CountMemref = llvm::count_if(
-      make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end()),
-      [&](const RegDDRef *Ref) { return Ref->isMemRef(); });
-
-  if (CountMemref > 1)
-    return nullptr;
-
   // TODO: Masked case is not supported right now by VPOCG. As soon as OVLS
   // still groups such masked memrefs, CM will try to reduce costs for them,
   // thus it's better to disable collection of masked memrefs here by now.
   // FIXME: This check is not complete for outer loop vectorization.
   if (isa<HLIf>(DDNode->getParent()))
     return nullptr;
-  const RegDDRef *Ref = nullptr;
 
-  // FIXME: This code is not needed with proper decomposition and DA.
-  // Assume we have original HLInst
-  //  a[i] = b[i] + (c[i] - d[i]);
-  // Currently, there's no way to understand if incoming VPLoadStoreInst was
-  // constructed for d[i] or for c[i], due to absence link to original RegDDRef.
-  // In the code we're looking for first unvisited RegDDRef and construct
-  // VPVLSClientMemrefHIR for this Ref. It's definitely not accurate, but still
-  // better than nothing.
-  for (auto I = DDNode->op_ddref_begin(), E = DDNode->op_ddref_end(); I != E;
-       ++I) {
-    Ref = *I;
-    auto DDNodeIt = DDNodeRefs.find(DDNode);
-    if (DDNodeIt == DDNodeRefs.end())
-      DDNodeIt = DDNodeRefs.insert({DDNode, {}}).first;
-
-    if (DDNodeIt != DDNodeRefs.end()) {
-      auto RefIt = DDNodeIt->second.find(Ref);
-      if (Ref->isMemRef() && !Ref->isStructurallyInvariantAtLevel(Level) &&
-          RefIt == DDNodeIt->second.end()) {
-        DDNodeIt->second.insert(Ref);
-        break;
-      }
-    }
-  }
-
-  assert(Ref && "Unvisited RegDDRef must exist.");
+  const RegDDRef *Ref = Inst->getHIRMemoryRef();
+  if (!Ref)
+    return nullptr;
 
   unsigned Size = DL.getTypeAllocSizeInBits(Ref->getDestType());
   if (!Size)
@@ -121,7 +74,7 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   // Overrides incoming AT.
   // TODO: remove getAccessType() from this place.
   MemAccessTy AccTy = getAccessType(Ref, Level, &Stride);
-  Opcode = Ref->isRval() ? Instruction::Load : Instruction::Store;
+  unsigned Opcode = Inst->getOpcode();
 
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Load)
     return new VPVLSClientMemrefHIR(OVLSAccessKind::SLoad, Ty, Inst, Level, DDA,
