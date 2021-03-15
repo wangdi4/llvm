@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRArrayContractionUtils.h"
 
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -35,10 +36,15 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace arraycontractionutils;
 
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
+
+static cl::opt<unsigned> MinMemRefNumDimension(
+    OPT_SWITCH "-min-memref-num-dimension", cl::init(5), cl::Hidden,
+    cl::desc(OPT_DESC " Minimal MemRef Number of Dimensions"));
 
 namespace {
 
@@ -137,6 +143,12 @@ public:
 private:
   bool mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels);
   bool runOnRegion(HLRegion &Reg);
+
+  // Contract relevant memref(s) from a given loop, using the provided
+  // symbase(s) and number of continuous dimensions contracted.
+  bool contractMemRefsInLoop(HLLoop *Lp, SparseBitVector<> &DefBases,
+                             const unsigned NumDimsContracted, HLRegion &Reg,
+                             SmallSet<unsigned, 4> &AfterContractSBS);
 };
 
 bool HIRCrossLoopArrayContraction::run() {
@@ -181,6 +193,16 @@ static unsigned computeDependencyMaxTopSortNumber(
   using Gatherer = DDRefGatherer<RegDDRef, TerminalRefs | MemRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
   Gatherer::gather(Loop, Refs);
+  LLVM_DEBUG({
+    dbgs() << "Refs:<" << Refs.size() << ">\n";
+    unsigned Count = 0;
+    for (auto Ref : Refs) {
+      dbgs() << Count++ << ": ";
+      Ref->dump();
+      dbgs() << "\t";
+    }
+    dbgs() << "\n";
+  });
 
   unsigned MaxTopSortNumber = std::numeric_limits<unsigned>::max();
   unsigned LoopMaxTopSortNumber = Loop->getMaxTopSortNum();
@@ -327,12 +349,12 @@ static unsigned computeNumDimsContracted(const ArraySectionInfo &InfoA,
     }
   }
 
-  return Dim;
+  return InfoA.getNumDimensions() - Dim;
 }
 
 // Computes direction vector for a pair of sections \p InfoA and \p InfoB.
-// It results in (=) or (*) for each used IV. The function is used to determine
-// the nesting level where loop fusion is possible.
+// It results in (=) or (*) for each used IV. The function is used to
+// determine the nesting level where loop fusion is possible.
 static DirectionVector computeDirectionVector(const ArraySectionInfo &InfoA,
                                               const ArraySectionInfo &InfoB,
                                               unsigned StartLevel) {
@@ -393,12 +415,15 @@ static DirectionVector computeDirectionVector(const ArraySectionInfo &InfoA,
 }
 
 static void removeDeadStores(HLLoop *Loop, SparseBitVector<> Bases) {
-  LLVM_DEBUG(dbgs() << "Unused bases: ";
-             auto &BU = Loop->getBlobUtils(); for (auto Bit
-                                                   : Bases) {
-               BU.printBlob(dbgs(), BU.getBlob(Bit));
-               dbgs() << " ";
-             } dbgs() << "\n";);
+  LLVM_DEBUG({
+    dbgs() << "Unused bases: ";
+    auto &BU = Loop->getBlobUtils();
+    for (auto Bit : Bases) {
+      BU.printBlob(dbgs(), BU.getBlob(Bit));
+      dbgs() << " ";
+    }
+    dbgs() << "\n";
+  });
 
   ForEach<HLInst>::visit(Loop, [&](HLInst *Inst) {
     auto *LVal = Inst->getLvalDDRef();
@@ -414,13 +439,16 @@ static void removeDeadStores(HLLoop *Loop, SparseBitVector<> Bases) {
 }
 
 static SparseBitVector<> getDefBases(const ArraySectionAnalysisResult &ASAR,
-                                        SparseBitVector<> &BasePtrIndices) {
+                                     SparseBitVector<> &BasePtrIndices) {
+  LLVM_DEBUG(dump(BasePtrIndices, dbgs()););
+
   SparseBitVector<> Output;
   for (unsigned BasePtr : BasePtrIndices) {
     if (ASAR.get(BasePtr)->isDef()) {
       Output.set(BasePtr);
     }
   }
+  LLVM_DEBUG(dump(Output, dbgs()););
   return Output;
 }
 
@@ -452,6 +480,93 @@ public:
   }
 };
 
+bool HIRCrossLoopArrayContraction::contractMemRefsInLoop(
+    HLLoop *Lp, SparseBitVector<> &DefBases, const unsigned NumDimsContracted,
+    HLRegion &Reg, SmallSet<unsigned, 4> &AfterContractSBS) {
+
+  LLVM_DEBUG({
+    dbgs() << "Loop: \n";
+    Lp->dump();
+    dbgs() << "DefBases: ";
+    dump(DefBases, dbgs());
+    dbgs() << "\nNumDimsContracted: " << NumDimsContracted << "\n";
+  });
+
+  // Collect relevant MemRef(s) matching the DefBases
+  SmallVector<RegDDRef *, 32> Refs;
+  DDRefGathererLambda<RegDDRef>::gather(Lp, Refs, [&](const RegDDRef *Ref) {
+    return Ref->isMemRef() && Ref->accessesAlloca() &&
+           Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV() &&
+           DefBases.test(Ref->getBasePtrBlobIndex());
+  });
+
+  LLVM_DEBUG({
+    dbgs() << "Refs:<" << Refs.size() << ">\n";
+    unsigned Count = 0;
+    for (auto Ref : Refs) {
+      dbgs() << "\t" << Count++ << ": ";
+      Ref->dump();
+      dbgs() << "\n";
+    }
+    dbgs() << "\n";
+  });
+
+  if (Refs.empty()) {
+    LLVM_DEBUG(dbgs() << "No suitable memref(s) collected\n";);
+    return false;
+  }
+
+  // Construct proper PreservedDims and ToContractDims:
+  SmallSet<unsigned, 4> PreservedDims;
+  SmallSet<unsigned, 4> ToContractDims;
+  const unsigned ToPreserveDimSize =
+      Refs[0]->getNumDimensions() - NumDimsContracted;
+
+  for (unsigned I = 1; I <= ToPreserveDimSize; ++I) {
+    PreservedDims.insert(I);
+  }
+  for (unsigned I = 1; I <= NumDimsContracted; ++I) {
+    ToContractDims.insert(ToPreserveDimSize + I);
+  }
+
+  LLVM_DEBUG({
+    dbgs() << "PreservedDims: <" << PreservedDims.size() << ">\t";
+    for (auto I : PreservedDims) {
+      dbgs() << I << ",";
+    }
+    dbgs() << "\n";
+
+    dbgs() << "ToContactDims: <" << ToContractDims.size() << ">\t";
+    for (auto I : ToContractDims) {
+      dbgs() << I << ",";
+    }
+    dbgs() << "\n";
+  });
+
+  // Contract each qualified Ref:
+  unsigned AfterSB = 0;
+  for (auto *Ref : Refs) {
+    RegDDRef *AfterContractRef = nullptr;
+    LLVM_DEBUG(dbgs() << "Ref: "; Ref->dump(); dbgs() << "\t HLDDNode: ";
+               Ref->getHLDDNode()->dump(); dbgs() << "\n";);
+    if (!HIRArrayContractionUtil::contractMemRef(Ref, PreservedDims,
+                                                 ToContractDims, Reg,
+                                                 AfterContractRef, AfterSB)) {
+      LLVM_DEBUG(dbgs() << "Fail to contract Ref:\t"; Ref->dump();
+                 dbgs() << "\n";);
+      return false;
+    }
+
+    LLVM_DEBUG(dbgs() << "Array Contraction -- \tFrom: "; Ref->dump();
+               dbgs() << "\tTo: "; AfterContractRef->dump();
+               dbgs() << "\tAfterSB:" << AfterSB << "\n";);
+
+    AfterContractSBS.insert(AfterSB);
+  }
+
+  return true;
+}
+
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   if (!Reg.isFunctionLevel()) {
     LLVM_DEBUG(dbgs() << "Skipping non-function region.\n");
@@ -462,7 +577,17 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   SmallVector<RegDDRef *, 32> Refs;
   DDRefGathererLambda<RegDDRef>::gather(&Reg, Refs, [](const RegDDRef *Ref) {
     return Ref->isMemRef() && Ref->accessesAlloca() &&
-           Ref->getNumDimensions() >= 5 && Ref->hasIV();
+           Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV();
+  });
+  LLVM_DEBUG({
+    dbgs() << "Refs:<" << Refs.size() << ">\n";
+    unsigned Count = 0;
+    for (auto Ref : Refs) {
+      dbgs() << Count++ << ": ";
+      Ref->dump();
+      dbgs() << "\t";
+    }
+    dbgs() << "\n";
   });
 
   // Keep set of interesting references to ignore DD between them.
@@ -474,8 +599,8 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     unsigned ParentLoopLevel = getRefMinLevel(Ref);
     HLLoop *ParentLoop =
         Ref->getHLDDNode()->getParentLoopAtLevel(ParentLoopLevel);
-
-    LoopToBasePtr[ParentLoop].set(Ref->getBasePtrBlobIndex());
+    const unsigned BlobIdx = Ref->getBasePtrBlobIndex();
+    LoopToBasePtr[ParentLoop].set(BlobIdx);
   }
 
   DDGraph DDG = DDA.getGraph(&Reg);
@@ -486,7 +611,10 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     LLVM_DEBUG(dbgs() << "\nTaking Def-loop <" << DefLp->getNumber() << ">\n");
 
     auto &DefASAR = ASA.getOrCompute(DefLp);
-    auto DefBases = getDefBases(DefASAR, DefPair.second);
+    auto &SparseBitVec = DefPair.second;
+    auto DefBases = getDefBases(DefASAR, SparseBitVec);
+    LLVM_DEBUG(dbgs() << " DefPair.second: "; dump(SparseBitVec, dbgs());
+               dbgs() << "\n";);
 
     if (DefBases.empty()) {
       LLVM_DEBUG(dbgs() << "+ Loop has no interesting defs\n");
@@ -510,6 +638,9 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       // Check if there are common array sections.
       auto CommonBases = DefBases & UsePair.second;
+      LLVM_DEBUG(dbgs() << " CommonBases: "; dump(CommonBases, dbgs());
+                 dbgs() << "\n";);
+
       if (CommonBases.empty()) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] No common array uses.\n");
         continue;
@@ -562,8 +693,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         }
 
         if (!DefSection->isDef() || !UseSection->isUse()) {
-          LLVM_DEBUG(dbgs()
-                     << "\t+ Only flow dependencies are expected\n");
+          LLVM_DEBUG(dbgs() << "\t+ Only flow dependencies are expected\n");
           break;
         }
 
@@ -643,16 +773,28 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         LLVM_DEBUG(
             dbgs() << "\t[STOP] Can not move here because of DD legality.\n");
 
-        // No reasons to look further for use-loops because they are all placed
-        // lexically after the current one.
+        // No reasons to look further for use-loops because they are all
+        // placed lexically after the current one.
         break;
       }
 
       Optimizations.emplace_back(UseLp);
       HLLoop *UseLoopClone = Optimizations.back().getOptimized();
-
-      // TODO: here is a place to clone loop with array contraction.
       HLLoop *DefLoopClone = DefLp->clone();
+
+      // Do array contraction on qualified memref(s) in a given loop:
+      SmallSet<unsigned, 4> AfterContractSBS;
+      if (!contractMemRefsInLoop(DefLoopClone, DefBases, NumDimsContracted, Reg,
+                                 AfterContractSBS)) {
+        LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in DefLoopClone: "
+                          << DefLoopClone->getNumber() << "\n";);
+      }
+
+      if (!contractMemRefsInLoop(UseLoopClone, DefBases, NumDimsContracted, Reg,
+                                 AfterContractSBS)) {
+        LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in UseLpClone: "
+                          << UseLoopClone->getNumber() << "\n";);
+      }
 
       HLNodeUtils::insertBefore(UseLoopClone, DefLoopClone);
       if (DefLp->getNestingLevel() != UseLoopClone->getNestingLevel()) {
@@ -668,11 +810,10 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         }
       }
 
-      // Merge loops
+      // Merge loops:
       if (!mergeLoops(DefLoopClone, UseLoopClone,
                       FusionLevel - UseLoopClone->getNestingLevel() + 1)) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
-
         Optimizations.pop_back();
         continue;
       }

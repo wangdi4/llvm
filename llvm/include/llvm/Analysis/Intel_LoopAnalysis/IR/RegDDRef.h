@@ -923,17 +923,10 @@ public:
   /// &A[-1 * i1]. \p IsNegStride is set when stride is -1.
   bool isUnitStride(unsigned Level, bool &IsNegStride) const;
 
-  /// Not sure if removeDimension() operation even makes sense. Commenting it
-  /// out for now.
-  /// Removes a dimension from the DDRef. DimensionNum's range is
-  /// [1, getNumDimensions()] with 1 representing the lowest dimension.
-  // void removeDimension(unsigned DimensionNum) {
-  //  assert(isDimensionValid(DimensionNum) && "DimensionNum is out of range!");
-  //  assert((getNumDimensions() > 1) && "Attempt to remove the only
-  //  dimension!");
-  //
-  //  CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
-  // }
+  /// Removes a dimension from the DDRef.
+  /// DimensionIndex's range is [1, getNumDimensions()] with 1 representing the
+  /// lowest dimension.
+  void removeDimension(unsigned DimensionIndex);
 
   /// Replaces existing self blob index with \p NewIndex and corresponding SB.
   void replaceSelfBlobIndex(unsigned NewIndex);

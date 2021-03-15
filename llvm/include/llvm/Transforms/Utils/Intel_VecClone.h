@@ -14,7 +14,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -58,7 +58,7 @@ class VecCloneImpl {
 #endif // INTEL_CUSTOMIZATION
 
     /// Set of allocas to mark private for the SIMD loop
-    SmallSet<Value*, 4> PrivateAllocas;
+    SetVector<Value*> PrivateAllocas;
 
     /// \brief Return true if the function has a complex type for the return
     /// or parameters.
