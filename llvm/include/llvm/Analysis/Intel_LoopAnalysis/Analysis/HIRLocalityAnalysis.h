@@ -144,6 +144,11 @@ private:
     computeLoopNestLocality(Lp, LoopVec, SpatialLocalityGroups);
   }
 
+  /// Returns true if a stride can be computed, in \p TotalStride corresponding
+  /// to specific \p Loop level.
+  bool getStrideEstimateAtLevel(const RegDDRef *Ref, const HLLoop *Loop,
+                                int64_t *TotalStride) const;
+
   /// Returns the trip count of the loop.
   /// If loop count is symbolic or above the threshold, it returns
   /// SymbolicConst value.
