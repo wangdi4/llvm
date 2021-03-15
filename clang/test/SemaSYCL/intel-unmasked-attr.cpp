@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-allow-func-ptr -DINTEL_CUSTOMIZATION -sycl-std=2020 -internal-isystem %S/Inputs -fsyntax-only -verify %s
-// RUN: %clang_cc1 -fsycl -fsycl-is-host -fsyntax-only -DSYCL_HOST -verify %s
-// RUN: not %clang_cc1 -fsycl -fsycl-is-device -fsycl-allow-func-ptr -ast-dump %s | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-device -fsycl-allow-func-ptr -DINTEL_CUSTOMIZATION -sycl-std=2020 -internal-isystem %S/Inputs -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fsycl-is-host -fsyntax-only -DSYCL_HOST -verify %s
+// RUN: not %clang_cc1 -fsycl-is-device -fsycl-allow-func-ptr -ast-dump %s | FileCheck %s
 // RUN: %clang_cc1 -fsyntax-only -verify %s
 
 #ifdef __SYCL_DEVICE_ONLY__

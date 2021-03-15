@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -ast-dump %s | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-device -ast-dump %s | FileCheck %s
 
 // Make sure we handle the wrapping of a pointer correctly in a base class of
 // the functor, and don't crash anymore.

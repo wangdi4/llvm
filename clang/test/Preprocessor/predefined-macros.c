@@ -75,7 +75,7 @@
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY
 // CHECK-INTEL-FINITE-MATH-ONLY: #define __FINITE_MATH_ONLY__ 0
 //
-// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fsycl -o - \
+// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -o - \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY-SYCL
 // CHECK-INTEL-FINITE-MATH-ONLY-SYCL: #define __FINITE_MATH_ONLY__ 0
 // end INTEL_CUSTOMIZATION
@@ -219,7 +219,7 @@
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown-intelfpga \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FPGA
 // CHECK-INTEL-FPGA-NOT: #define __IMAGE_SUPPORT__ 1
-// RUN: %clang_cc1 %s -E -dM -fsycl -o - -triple spir64\
+// RUN: %clang_cc1 %s -E -dM -o - -triple spir64\
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FSYCL
 // CHECK-FSYCL: #define __INTEL_DPCPP_COMPILER__ 1
 // RUN: %clang_cc1 %s -E -dM -o - -triple spir64\

@@ -3,7 +3,7 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -fhls %s -emit-llvm -o %t
 // RUN: FileCheck %s < %t
 
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl -fsycl-is-device %s -emit-llvm -o %t
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl-is-device %s -emit-llvm -o %t
 // RUN: FileCheck %s < %t
 
 // CHECK: = add nsw i66
