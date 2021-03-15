@@ -9,7 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #ifndef BACKEND_SUBGROUP_EMULATION_VALUE_WIDEN_H
-#define BACKEND_SUBGROUP_EMULATION_VALUE_WIDEH_H
+#define BACKEND_SUBGROUP_EMULATION_VALUE_WIDEN_H
 
 #include "BarrierUtils.h"
 #include "SGHelper.h"

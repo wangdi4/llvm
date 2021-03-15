@@ -276,6 +276,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Return true if context was created with EyeQ emulator extension.
         cl_bool IsEyeQEmulator() { return m_eyeqEmulator; }
 
+        // Return true if context was created with auto memory active.
+        cl_bool UseAutoMemory() { return m_useAutoMemory; }
+
         // get the device object pointers that associated to the context
         SharedPtr<FissionableDevice>* GetDevices(cl_uint* puiNumDevices);
 
@@ -678,6 +681,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_bool                                 m_fpgaEmulator;
         cl_bool                                 m_eyeqEmulator;
+
+        cl_bool                                 m_useAutoMemory;
 
         logging_fn                              m_pfnNotify; // notify function's pointer
 
