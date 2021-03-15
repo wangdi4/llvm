@@ -231,6 +231,8 @@ class RAGreedy : public MachineFunctionPass,
 
   uint8_t CutOffInfo;
 
+  bool EnableHeuristic = false; // INTEL
+
 #ifndef NDEBUG
   static const char *const StageName[];
 #endif
@@ -806,6 +808,11 @@ Register RAGreedy::tryAssign(LiveInterval &VirtReg,
   // Most registers have 0 additional cost.
   if (!Cost)
     return PhysReg;
+
+#if INTEL_CUSTOMIZATION
+  if (EnableHeuristic && getStage(VirtReg) == RS_Split2)
+    return PhysReg; // Avoid (RS_Spill) trivial siblings get physical registers
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << printReg(PhysReg, TRI) << " is available at cost "
                     << Cost << '\n');
@@ -2038,8 +2045,33 @@ unsigned RAGreedy::tryBlockSplit(LiveInterval &VirtReg, AllocationOrder &Order,
   // goes straight to spilling, the new local ranges get to stay RS_New.
   for (unsigned I = 0, E = LREdit.size(); I != E; ++I) {
     LiveInterval &LI = LIS->getInterval(LREdit.get(I));
-    if (getStage(LI) == RS_New && IntvMap[I] == 0)
-      setStage(LI, RS_Spill);
+#if INTEL_CUSTOMIZATION
+    if (getStage(LI) == RS_New && IntvMap[I] == 0) {
+      bool EnableMemoryStage = false;
+      if (EnableHeuristic) {
+        int LoopOpts = 0;
+        const MachineRegisterInfo &MRI = MF->getRegInfo();
+        for (MachineRegisterInfo::reg_instr_nodbg_iterator
+                 I = MRI.reg_instr_nodbg_begin(LI.reg()),
+                 E = MRI.reg_instr_nodbg_end();
+             I != E;) {
+          MachineInstr *MI = &*(I++);
+          MachineLoop *MLoop = Loops->getLoopFor(MI->getParent());
+          if (MLoop && MLoop->getSubLoops().empty() &&
+              MLoop->getLoopDepth() >= 4) {
+            LoopOpts++;
+          }
+        }
+        // Retry allocation for VRegs live across deep innermost loops
+        if (LoopOpts >= 2 && LI.size() == 3)
+          EnableMemoryStage = true;
+      }
+      if (EnableMemoryStage)
+        setStage(LI, RS_Memory);
+      else
+        setStage(LI, RS_Spill);
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (VerifyEnabled)
@@ -3232,6 +3264,10 @@ bool RAGreedy::runOnMachineFunction(MachineFunction &mf) {
 
   if (VerifyEnabled)
     MF->verify(this, "Before greedy register allocator");
+
+  EnableHeuristic = MF->getTarget().Options.IntelAdvancedOptim || // INTEL
+      MF->getFunction().getParent()->getNamedMetadata             // INTEL
+      ("opencl.ocl.version") != nullptr;                          // INTEL
 
   RegAllocBase::init(getAnalysis<VirtRegMap>(),
                      getAnalysis<LiveIntervals>(),
