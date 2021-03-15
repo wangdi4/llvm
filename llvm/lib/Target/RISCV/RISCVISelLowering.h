@@ -174,6 +174,7 @@ enum NodeType : unsigned {
   FABS_VL,
   FSQRT_VL,
   FMA_VL,
+  FCOPYSIGN_VL,
   SMIN_VL,
   SMAX_VL,
   UMIN_VL,
@@ -248,6 +249,10 @@ public:
   bool isCheapToSpeculateCtlz() const override;
   bool isFPImmLegal(const APFloat &Imm, EVT VT,
                     bool ForCodeSize) const override;
+
+  /// Return true if the given shuffle mask can be codegen'd directly, or if it
+  /// should be stack expanded.
+  bool isShuffleMaskLegal(ArrayRef<int> M, EVT VT) const override;
 
   bool hasBitPreservingFPLogic(EVT VT) const override;
   bool
@@ -451,6 +456,8 @@ private:
   SDValue lowerEXTRACT_SUBVECTOR(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVECTOR_REVERSE(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerABS(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerFixedLengthVectorFCOPYSIGNToRVV(SDValue Op,
+                                               SelectionDAG &DAG) const;
   SDValue lowerFixedLengthVectorLoadToRVV(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerFixedLengthVectorStoreToRVV(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerFixedLengthVectorSetccToRVV(SDValue Op, SelectionDAG &DAG) const;
