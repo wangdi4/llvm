@@ -1192,7 +1192,11 @@ InLineChangePrinter::~InLineChangePrinter() {}
 
 void InLineChangePrinter::generateIRRepresentation(Any IR, StringRef PassID,
                                                    ChangedIRData &D) {
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   ChangedIRComparer::analyzeIR(IR, D);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_CUSTOMIZATION
 }
 
 void InLineChangePrinter::handleAfter(StringRef PassID, std::string &Name,
@@ -1203,7 +1207,11 @@ void InLineChangePrinter::handleAfter(StringRef PassID, std::string &Name,
   SmallString<20> Banner =
       formatv("*** IR Dump After {0} ***{1}\n", PassID, Name);
   Out << Banner;
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   ChangedIRComparer(Out, Before, After).compare(IR, "", PassID, Name);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_CUSTOMIZATION
   Out << "\n";
 }
 
@@ -1220,6 +1228,8 @@ void ChangedIRComparer::handleFunctionCompare(StringRef Name, StringRef Prefix,
   if (InModule)
     Out << "\n*** IR for function " << Name << " ***\n";
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   ChangedFuncData::report(
       Before, After, [&](const ChangedBlockData *B, const ChangedBlockData *A) {
         StringRef BStr = B ? B->getBody() : "\n";
@@ -1227,12 +1237,10 @@ void ChangedIRComparer::handleFunctionCompare(StringRef Name, StringRef Prefix,
         const std::string Removed = "\033[31m-%l\033[0m\n";
         const std::string Added = "\033[32m+%l\033[0m\n";
         const std::string NoChange = " %l\n";
-#if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         Out << doSystemDiff(BStr, AStr, Removed, Added, NoChange);
+      });
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
-      });
 }
 
 void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
