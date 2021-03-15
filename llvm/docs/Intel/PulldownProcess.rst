@@ -492,6 +492,26 @@ the normal branch promotion process, e.g.
      <Request gatekeeper approval>
      $ ics merge -push
 
+When requesting gatekeeper approval, pulldown coordinator should include
+information about
+
+* latest commits from ``main`` and ``sycl`` branches which merged to xmain-cand.
+  To find them, execute:
+
+   .. code-block:: bash
+
+     $ cd $ICS_WSDIR/llvm
+     $ git log -1 `git rev-list --first-parent origin/main --not HEAD | tail -1`~
+     $ git log -1 `git rev-list --first-parent origin/sycl --not HEAD | tail -1`~
+
+* stability and performance regressions, and performance gains provided by alloy.
+  All stability regressions must be covered by JIRA trackers. All performance
+  regressions described in :ref:`Performance issues <performance-issues>` section
+  must be covered by JIRA trackers.
+
+The same information should be included to the promotion notification message and
+sent to the whole members of the compiler organization.
+
 `ics merge -push` tries to push the results of the previous merge to ``xmain``
 branch via fast-forwarding. If that merge commit cannot be fast-forwarded,
 a new merge is created without making any push to ``xmain``. At this point,
@@ -512,6 +532,8 @@ Checkin criteria for ``xmain-cand``
 Checkin criteria for pulldown is basically the same as for any other change and
 the final decision is done by the xmain gatekeeper. The main exception is the
 process of addressing performance regressions.
+
+.. _performance-issues:
 
 Performance issues
 ----------------------------------
