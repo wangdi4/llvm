@@ -443,33 +443,20 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
         // |-->Loc.Size     |-------> QuerySize
         // SI               Inst
         //
-        // TODO: we should try to leverage SCEV's 'isKnownPredicate' here. For
-        // example, the test below requires Diff to be constant and
-        // isKnownPredicate may not.
-        if (Loc.Size.hasValue()) {
-          const SCEVConstant *Diff = dyn_cast<SCEVConstant>(
-              SE.getMinusSCEV(QuerySCEV, SE.getSCEV(SI.getPointerOperand())));
-          unsigned LesserPtrFootprint = Loc.Size.getValue();
+        // For simplicity, we don't actually check which pointer is greater;
+        // instead we check that the absolute difference is greater than either
+        // location's footprint. This is slightly conservative.
+        if (Loc.Size.hasValue() && QuerySize.hasValue()) {
+          const SCEV *Diff = SE.getMinusSCEV(QuerySCEV, SE.getSCEV(SI.getPointerOperand()));
+          assert(Diff && "Unexpected nullptr SCEV");
+          const SCEV *Abs = SE.getAbsExpr(Diff, false);
+          assert(Abs && "Unexpected nullptr SCEV");
+          uint64_t LargestFootprint = std::max(Loc.Size.getValue(), QuerySize.getValue());
+          const SCEV *Footprint = SE.getConstant(Abs->getType(), LargestFootprint);
+          assert(Footprint && "Unexpected nullptr SCEV");
 
-          if (Diff && SE.isKnownNegative(Diff)) {
-            // It happens SI's pointer is greater. Flip if we know a size.
-            if (QuerySize.hasValue()) {
-              Diff = dyn_cast<SCEVConstant>(SE.getNegativeSCEV(Diff));
-              LesserPtrFootprint = QuerySize.getValue();
-            } else {
-              // Can't proceed with this test.
-              Diff = nullptr;
-            }
-          }
-
-          if (Diff) {
-            uint64_t Distance = Diff->getAPInt().getZExtValue();
-            // Because we're reasoning about byte addresses and not indicies
-            // inequality is not enough; we must ensure that there's no
-            // overlap.
-            if (Distance > LesserPtrFootprint)
-              continue;
-          }
+          if (SE.isKnownPredicate(ICmpInst::ICMP_UGT, Abs, Footprint))
+            continue;
         }
       }
 

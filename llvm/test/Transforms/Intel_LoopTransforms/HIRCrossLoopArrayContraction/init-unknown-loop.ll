@@ -1,7 +1,7 @@
 ; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
-;        BEGIN REGION { }                                                                                                 [18/1977]
+;        BEGIN REGION { }
 ;              + DO i1 = 0, 99, 1   <DO_LOOP>
 ;              |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ;              |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
@@ -13,7 +13,6 @@
 ;              |   |   + END LOOP
 ;              |   + END LOOP
 ;              + END LOOP
-;
 ;
 ;              + UNKNOWN LOOP i1
 ;              |   <i1 = 0>
@@ -56,40 +55,81 @@
 ;              ret ;
 ;        END REGION
 
+; *** Region after HIR-CrossLoop Array Contraction Transformation ***
+
+;            BEGIN REGION { modified }
+;                  + UNKNOWN LOOP i1
+;                  |   <i1 = 0>
+;                  |   do.body:
+;                  |
+;                  |   + DO i2 = 0, 99, 1   <DO_LOOP>
+;                  |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
+;                  |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
+;                  |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
+;                  |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
+;                  |   |   |   |   |   |   (%A)[0][i2][i3][i4][i5][i6] = i5 + i6;
+;                  |   |   |   |   |   + END LOOP
+;                  |   |   |   |   + END LOOP
+;                  |   |   |   |
+;                  |   |   |   |
+;                  |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
+;                  |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
+;                  |   |   |   |   |   |   %0 = (%A)[0][i2][i3][i4][i6][i5];
+;                  |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %0 + 1;
+;                  |   |   |   |   |   + END LOOP
+;                  |   |   |   |   + END LOOP
+;                  |   |   |   + END LOOP
+;                  |   |   + END LOOP
+;                  |   + END LOOP
+;                  |
+;                  |   %1 = (%b)[0];
+;                  |   if (%1 != 0)
+;                  |   {
+;                  |      <i1 = i1 + 1>
+;                  |      goto do.body;
+;                  |   }
+;                  + END LOOP
+;
+;                  ret ;
+;            END REGION
+
+
+; *** Region after HIR-CrossLoop Transformation with Array Contraction ***
+
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:           + UNKNOWN LOOP i1
-; CHECK:           |   <i1 = 0>
-; CHECK:           |   do.body:
-; CHECK:           |
+;                  + UNKNOWN LOOP i1
+;                  |   <i1 = 0>
+;                  |   do.body:
+;                  |
 ; CHECK:           |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   |   (%A)[0][i2][i3][i4][i5][i6] = i5 + i6;
+; CHECK:           |   |   |   |   |   |   (%ContractedArray)[i5][i6] = i5 + i6;
 ; CHECK:           |   |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   |   + END LOOP
-; CHECK:           |   |   |   |
-; CHECK:           |   |   |   |
+;                  |   |   |   |
+;                  |   |   |   |
 ; CHECK:           |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   |   %0 = (%A)[0][i2][i3][i4][i6][i5];
+; CHECK:           |   |   |   |   |   |   %0 = (%ContractedArray)[i6][i5];
 ; CHECK:           |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %0 + 1;
 ; CHECK:           |   |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   + END LOOP
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
-; CHECK:           |
-; CHECK:           |   %1 = (%b)[0];
-; CHECK:           |   if (%1 != 0)
-; CHECK:           |   {
-; CHECK:           |      <i1 = i1 + 1>
-; CHECK:           |      goto do.body;
-; CHECK:           |   }
-; CHECK:           + END LOOP
+;                  |
+;                  |   %1 = (%b)[0];
+;                  |   if (%1 != 0)
+;                  |   {
+;                  |      <i1 = i1 + 1>
+;                  |      goto do.body;
+;                  |   }
+;                  + END LOOP
 ;
-; CHECK:           ret ;
+;                  ret ;
 ; CHECK:     END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

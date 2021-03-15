@@ -2374,9 +2374,9 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
 
   switch (DeviceInfo->DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
+    cl_event event;
     if (async_data) {
       // Use SVMMemcpy for asynchronous transfer
-      cl_event event;
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
                        size, 0, nullptr, &event);
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
@@ -2388,7 +2388,8 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
                        size, 0, nullptr, nullptr);
       memcpy(tgt_ptr, hst_ptr, size);
-      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
 
       SubmitTime.stop();
     }
@@ -2513,9 +2514,9 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
 
   switch (DeviceInfo->DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
+    cl_event event;
     if (async_data) {
       // Use SVMMemcpy for asynchronous transfer
-      cl_event event;
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
                        size, 0, nullptr, &event);
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
@@ -2527,7 +2528,8 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
                        size, 0, nullptr, nullptr);
       memcpy(hst_ptr, tgt_ptr, size);
-      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
 
       RetrieveTime.stop();
     }
