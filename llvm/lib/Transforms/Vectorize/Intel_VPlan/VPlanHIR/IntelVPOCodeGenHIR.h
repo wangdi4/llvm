@@ -165,8 +165,7 @@ public:
   // corresponding to the lowest memory address access in the group.
   void widenNode(const VPInstruction *VPInst, RegDDRef *Mask = nullptr,
                  const OVLSGroup *Group = nullptr, int64_t InterleaveFactor = 0,
-                 int64_t InterleaveIndex = 0,
-                 const HLInst *GrpStartInst = nullptr);
+                 int64_t InterleaveIndex = 0);
 
   /// Adjust arguments passed to SVML functions to handle masks
   void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
@@ -811,14 +810,14 @@ private:
   // constructs for lane given in ScalarLaneID.
   void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                    const OVLSGroup *Group, int64_t InterleaveFactor,
-                   int64_t InterleaveIndex, const HLInst *GrpStartInst,
-                   bool Widen, unsigned ScalarLaneID = -1);
+                   int64_t InterleaveIndex, bool Widen,
+                   unsigned ScalarLaneID = -1);
 
   // Wrapper used to call generateHIR appropriately based on nature of given
   // VPInstruction.
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                      const OVLSGroup *Group, int64_t InterleaveFactor,
-                     int64_t InterleaveIndex, const HLInst *GrpStartInst);
+                     int64_t InterleaveIndex);
 
   // Implementation of blend widening.
   void widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask);
