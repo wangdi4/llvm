@@ -1,7 +1,5 @@
 // RUN: %clang_cc1 -funknown-anytype -fsyntax-only -fdebugger-support -verify %s
 
-// REQUIRES: linux
-
 extern __unknown_anytype test0;
 extern __unknown_anytype test1();
 

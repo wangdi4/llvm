@@ -214,6 +214,8 @@ uint64_t HIRLoopLocality::getTripCount(const HLLoop *Loop) {
 void HIRLoopLocality::updateTotalStrideAndRefs(LocalityInfo &LI,
                                                const RefGroupTy &RefGroup,
                                                uint64_t Stride) {
+  LLVM_DEBUG(RefGroup[0]->dump();
+             dbgs() << " Adding Stride of " << Stride << "\n";);
   auto Size = RefGroup.size();
   LI.TotalStride += Stride * Size;
   LI.TotalRefs += Size;
@@ -456,6 +458,85 @@ void HIRLoopLocality::computeNumSpatialCacheLines(LocalityInfo &LI,
       LI, RefGroup, Level, NumRefBytesAccessed, NumCacheLines);
 
   LI.NumSpatialCacheLines += NumCacheLines + ExtraCacheLines;
+  LLVM_DEBUG(dbgs() << "Added NumCacheLines = " << NumCacheLines
+                    << ", ExtraCacheLines = " << ExtraCacheLines << "\n";);
+}
+
+// TODO: Merge with RegDDRef::getConstStrideAtLevel
+bool HIRLoopLocality::getStrideEstimateAtLevel(const RegDDRef *Ref,
+                                               const HLLoop *Loop,
+                                               int64_t *TotalStride) const {
+
+  *TotalStride = 0;
+  unsigned Level = Loop->getNestingLevel();
+  if (Ref->getConstStrideAtLevel(Level, TotalStride)) {
+    return true;
+  }
+
+  // Give up for non-linear refs
+  if (!Ref->isLinearAtLevel(Level)) {
+    return false;
+  }
+
+  // Account for any loop stride value (Usually 1 if normalized)
+  int64_t LoopStrideVal = 0;
+  bool LoopHasConstStride =
+      Loop->getStrideDDRef()->isIntConstant(&LoopStrideVal);
+  (void)LoopHasConstStride;
+  assert(LoopHasConstStride && "Constant loop stride expected!");
+
+  // For each dimension, find the stride for loop level
+  for (auto Dim = Ref->getNumDimensions(); Dim > 0; --Dim) {
+
+    auto *IndexRef = Ref->getDimensionIndex(Dim);
+
+    int64_t Coeff;
+    unsigned BlobIndex;
+
+    // Multiply by iv coefficients
+    IndexRef->getIVCoeff(Level, &BlobIndex, &Coeff);
+
+    if (!Coeff) {
+      continue;
+    }
+
+    if (BlobIndex != InvalidBlobIndex) {
+      Coeff *= 4;
+    }
+
+    int64_t Denom = IndexRef->getDenominator();
+
+    // Try to use the const stride value if possible. This already accounts for
+    // multiple dimensions.
+    int64_t DimStride = Ref->getDimensionConstStride(Dim);
+    if (!DimStride) {
+      // Start with the unit stride size in bytes
+      DimStride = Ref->getDestTypeSizeInBytes();
+      // Account for lower dimension stride multiplier based on Loop IV tripcnt.
+      // E.G. A[i1][i2][i3] : Stride for i2 Level should be equal to
+      // TripCount/NumEle of i3 multiplied by the elementsize of i3. Note i2
+      // stride is not based on i2 dimension. Assuming ConstStride is known for
+      // i2, but not i1, the stride for i1 dimension would be the i2 ConstStride
+      // times the NumEle or TripCnt of i2 dimension.
+      for (unsigned D = 1; D < Dim; ++D) {
+        // Override with ConstStride when available for lower dimensions
+        int64_t InnerStride = Ref->getDimensionConstStride(D + 1);
+        if (InnerStride) {
+          DimStride = InnerStride;
+        } else {
+          auto *LowerIndex = Ref->getDimensionIndex(D);
+          unsigned IVLevel;
+          if (LowerIndex->isStandAloneIV(true, &IVLevel)) {
+            DimStride *= TripCountByLevel[IVLevel - 1];
+          } else {
+            DimStride *= 8;
+          }
+        }
+      }
+    }
+    *TotalStride += (DimStride * Coeff * LoopStrideVal) / Denom;
+  }
+  return true;
 }
 
 void HIRLoopLocality::computeNumCacheLines(const HLLoop *Loop,
@@ -472,8 +553,9 @@ void HIRLoopLocality::computeNumCacheLines(const HLLoop *Loop,
     // We need to compute spatial locality for only one from each RefGroup.
     const RegDDRef *Ref = RefVec.front();
     int64_t Stride;
+    bool HasLinearStride = getStrideEstimateAtLevel(Ref, Loop, &Stride);
 
-    if (!Ref->getConstStrideAtLevel(Level, &Stride)) {
+    if (!HasLinearStride) {
       computeNumNoLocalityCacheLines(LI, RefVec, Level, TripCnt);
     } else if (Stride == 0) {
       computeNumTempInvCacheLines(LI, RefVec, Level);
@@ -518,6 +600,7 @@ void HIRLoopLocality::initTripCountByLevel(
   for (auto Loop : Loops) {
     uint64_t TripCnt = 0;
     unsigned PragmaTripCnt;
+    unsigned Level = Loop->getNestingLevel();
 
     if (Loop->isConstTripLoop(&TripCnt)) {
       // In some cases, the loop reports an absurdly high trip count that causes
@@ -525,19 +608,18 @@ void HIRLoopLocality::initTripCountByLevel(
       // should satisfy any threshold analysis anyways.
       TripCnt = std::min(TripCnt, (uint64_t)1 << 32);
 
-      TripCountByLevel[Loop->getNestingLevel() - 1] = TripCnt;
+      TripCountByLevel[Level - 1] = TripCnt;
     } else if (Loop->getPragmaBasedAverageTripCount(PragmaTripCnt) ||
                Loop->getPragmaBasedMaximumTripCount(PragmaTripCnt)) {
       // Prioritize a pragma-based average or max estimate, in that order. Note
       // that PragmaTripCnt is uint32_t, so we effectively have the same
       // headroom for avoiding overflow.
-      TripCountByLevel[Loop->getNestingLevel() - 1] = PragmaTripCnt;
+      TripCountByLevel[Level - 1] = PragmaTripCnt;
     } else if ((TripCnt = Loop->getMaxTripCountEstimate())) {
       // Clamp max trip count to SymbolicConstTC if based on estimate.
-      TripCountByLevel[Loop->getNestingLevel() - 1] =
-          std::min(TripCnt, SymbolicConstTC);
+      TripCountByLevel[Level - 1] = std::min(TripCnt, SymbolicConstTC);
     } else {
-      TripCountByLevel[Loop->getNestingLevel() - 1] = SymbolicConstTC;
+      TripCountByLevel[Level - 1] = SymbolicConstTC;
     }
   }
 }
