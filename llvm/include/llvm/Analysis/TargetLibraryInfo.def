@@ -20,6 +20,88 @@
 // When adding a LibFunc which reallocates memory include the LibFunc
 // in lib/Analysis/MemoryBuiltins.cpp "AllocationFnData[]".
 
+#if INTEL_CUSTOMIZATION
+// These guidelines can be helpful when adding new LibFunc entries. The basic
+// structure of a LibFunc entry is:
+//
+//   /// 1 line comment with the function declaration "return name(arguments)"
+//   TLI_DEFINE_ENUM_INTERNAL(LibFunc name)
+//   TLI_DEFINE_STRING_INTERNAL("Function name")
+//
+// For example, assume that entry "i32 @foo(i32 %i)" needs to be added into
+// the table. The entry will look as follows:
+//   /// int foo(int i)
+//   TLI_DEFINE_ENUM_INTERNAL(foo)
+//   TLI_DEFINE_STRING_INTERNAL("foo")
+//
+// This means that the TargetLibraryInfo analysis will see the function named
+// "foo" (TLI_DEFINE_STRING_INTERNAL) and will map it with the LibFunc named
+// LibFunc_foo (TLI_DEFINE_ENUM_INTERNAL).
+//
+// If the function name contains an underscore then substitute that with the
+// keyword "under_" in the LibFunc name. For example:
+//   Function: "i32 @_foo(i32 %i)"
+//   Function name: "_foo"
+//   LibFunc name: under_foo
+//
+// In case there are double or triple underscores then use "dunder_" or
+// "tunder_" respectively.
+//
+// If the entry is specific to MS Visual Studio, then add the keyword "msvc_"
+// at the beginning of the LibFunc name. For example:
+//   Function: "i32 @foo(i32 %i)"
+//   Function name: "foo"
+//   LibFunc name: msvc_foo
+//
+// Function names can be mangled in the IR. In this case use a demangler
+// (c++filt for Linux or undname for Windows) to generate the LibFunc name
+// as follows:
+//   Class_nested_classes_function_name
+//
+// For example:
+//   Function: "i32 _ZN9TestClass3fooEi(%class.TestClass* %this, i32 %i)"
+//   Function name: "_ZN9TestClass3fooEi"
+//   Demangled name: TestClass::foo(int)
+//   LibFunc name: TestClass_foo
+//
+// In case there are overloaded functions then add the parameters and the
+// return types as part of the LibFunc name:
+//   Class_nested_classes_function_name_parameters_type_return_type
+//
+// For example:
+//   Function: "i32 _ZN9TestClass3fooEi(%class.TestClass* %this, i32 %i)"
+//   Function name: "_ZN9TestClass3fooEi"
+//   Demangled name: TestClass::foo(int)
+//   LibFunc name: TestClass_foo_int_int
+//
+//   Function: "double @_ZN9TestClass3fooEdi(%class.TestClass* %this,
+//              double %i, i32 %j)"
+//   Function name: "_ZN9TestClass3fooEdi"
+//   Demangled name: TestClass::foo(double, int)
+//   LibFunc name: TestClass_foo_double_int_double
+//
+// If the mangled name represents a C++ constructor or destructor, then add
+// the keywords "_ctor" or "_dtor" at the end of the LibFunc name. For example:
+//   Function: "void @_ZN9TestClassC2Ev(%class.TestClass* %this)"
+//   Function name: "_ZN9TestClassC2Ev"
+//   Demangled name: TestClass::TestClass()
+//   LibFunc name: TestClass_ctor
+//
+//   Function: "void @_ZN9TestClassD2Ev(%class.TestClass* %this)"
+//   Function name: "_ZN9TestClassD2Ev"
+//   Demangled name: ~TestClass::TestClass()
+//   LibFunc name: TestClass_dtor
+//
+// If there are multiple constructors, then add the parameters' types as part
+// of the LibFunc name and then the keyword "_ctor" at the end. Also, if an
+// underscore is part of the demangled name then add the keyword "_under_".
+// For example:
+//   Function: i32 @_ZN9TestClass4_fooEv(%class.TestClass* %this)
+//   Function name: "_ZN9TestClass4_fooEv"
+//   Demangled name: TestClass::_foo()
+//   LibFunc name: TestClass_under_foo
+#endif // INTEL_CUSTOMIZATION
+
 #if !(defined(TLI_DEFINE_ENUM) || defined(TLI_DEFINE_STRING))
 #error "Must define TLI_DEFINE_ENUM or TLI_DEFINE_STRING for TLI .def."
 #elif defined(TLI_DEFINE_ENUM) && defined(TLI_DEFINE_STRING)
@@ -775,9 +857,15 @@ TLI_DEFINE_STRING_INTERNAL("_ZNKSt13runtime_error4whatEv")
 /// void std::ctype<char>::_M_widen_init() const
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt5ctypeIcE13_M_widen_initEv)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt5ctypeIcE13_M_widen_initEv")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find_first_not_of(char const*, unsigned long, unsigned long) const
+TLI_DEFINE_ENUM_INTERNAL(std_cxx11_basic_string_find_first_not_of)
+TLI_DEFINE_STRING_INTERNAL("_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE17find_first_not_ofEPKcmm")
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find(char const*, unsigned long, unsigned long) const
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find(char, unsigned long) const
+TLI_DEFINE_ENUM_INTERNAL(std_cxx11_basic_string_find_char_unsigned_long)
+TLI_DEFINE_STRING_INTERNAL("_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEcm")
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::rfind(char const*, unsigned long, unsigned long) const
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm")
@@ -940,6 +1028,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt13runtime_errorC2EPKc")
 /// std::runtime_error::runtime_error(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE")
+/// std::runtime_error::runtime_error(std::runtime_error const&)
+TLI_DEFINE_ENUM_INTERNAL(std_runtime_error_std_runtime_error_const)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt13runtime_errorC2ERKS_")
 /// std::runtime_error::runtime_error(std::string const&)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt13runtime_errorC2ERKSs)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt13runtime_errorC2ERKSs")
@@ -955,6 +1046,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt13runtime_errorD2Ev")
 /// std::basic_ifstream<char, std::char_traits<char> >::basic_ifstream(char const*, std::_Ios_Openmode)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode")
+/// std::basic_ifstream<char, std::char_traits<char> >::basic_ifstream()
+TLI_DEFINE_ENUM_INTERNAL(std_basic_ifstream_ctor)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1Ev")
 /// std::basic_ifstream<char, std::char_traits<char> >::~basic_ifstream()
 TLI_DEFINE_ENUM_INTERNAL(ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev")
@@ -964,6 +1058,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev")
 /// std::basic_ofstream<char, std::char_traits<char> >::basic_ofstream(char const*, std::_Ios_Openmode)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode")
+/// std::basic_ofstream<char, std::char_traits<char> >::~basic_ofstream()
+TLI_DEFINE_ENUM_INTERNAL(std_basic_ofstream_dtor)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ofstreamIcSt11char_traitsIcEED1Ev")
 /// std::basic_streambuf<char, std::char_traits<char> >::imbue(std::locale const&)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt15basic_streambufIcSt11char_traitsIcEE5imbueERKSt6locale)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt15basic_streambufIcSt11char_traitsIcEE5imbueERKSt6locale")
@@ -1087,6 +1184,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsI
 /// std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >::basic_ostringstream(std::_Ios_Openmode)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode")
+/// std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >::~basic_ostringstream()
+TLI_DEFINE_ENUM_INTERNAL(std_cxx11_basic_ostringstream_dtor)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEED1Ev")
 /// void std::__detail::_List_node_base::_M_transfer(std::__detail::_List_node_base*, std::__detail::_List_node_base*)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_")
@@ -1174,6 +1274,15 @@ TLI_DEFINE_STRING_INTERNAL("_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node
 /// void std::_Rb_tree_insert_and_rebalance(bool, std::_Rb_tree_node_base*, std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)
 TLI_DEFINE_ENUM_INTERNAL(ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_)
 TLI_DEFINE_STRING_INTERNAL("_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_")
+/// std::basic_ostream<char, std::char_traits<char> >& std::endl<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&)
+TLI_DEFINE_ENUM_INTERNAL(std_basic_ostream_std_endl)
+TLI_DEFINE_STRING_INTERNAL("_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_")
+/// std::basic_ostream<char, std::char_traits<char> >& std::flush<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&)
+TLI_DEFINE_ENUM_INTERNAL(std_basic_ostream_std_flush)
+TLI_DEFINE_STRING_INTERNAL("_ZSt5flushIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_")
+/// std::basic_istream<char, std::char_traits<char> >& std::getline<char, std::char_traits<char>, std::allocator<char> >(std::basic_istream<char, std::char_traits<char> >&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&, char)
+TLI_DEFINE_ENUM_INTERNAL(std_basic_istream_getline_cxx11_char)
+TLI_DEFINE_STRING_INTERNAL("_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_stringIS4_S5_T1_EES4_")
 /// std::basic_istream<char, std::char_traits<char> >& std::getline<char, std::char_traits<char>, std::allocator<char> >(std::basic_istream<char, std::char_traits<char> >&, std::basic_string<char, std::char_traits<char>, std::allocator<char> >&, char)
 TLI_DEFINE_ENUM_INTERNAL(ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_)
 TLI_DEFINE_STRING_INTERNAL("_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_")
