@@ -2914,29 +2914,37 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
   // happens, The map will have {V, V}. Use MapVector so that the replacement
   // happens in the same order as the generation of renamed values.
   MapVector<Value *, Value *> RenameMap;
+  // Maintain a set of Vs that will be replaced within the region with their
+  // corresponding NewVs from RenameMap. For renamed Vs not in this set, the
+  // replacement will happen only on the entry directive.
+  SmallPtrSet<Value *, 32> ReplaceInFullRegion;
 
   // Create a renamed value for V if it's a Global or ConstantExpr.
-  auto createRenamedValueForGlobalsAndConstExprs = [&](Value *V) {
-    // If the set of ValuesToChange is provided, only change the Values in the
-    // Set.
-    auto VOrigAndNew = RenameMap.find(V);
-    if (VOrigAndNew != RenameMap.end())
-      return VOrigAndNew->second;
+  auto createRenamedValueForGlobalsAndConstExprs =
+      [&](Value *V, bool MarkForReplacementInRegion = true) {
+        // If the set of ValuesToChange is provided, only change the Values in
+        // the Set.
+        if (ValuesToChange != nullptr &&
+            ValuesToChange->find(V) == ValuesToChange->end())
+          return V;
 
-    if (!GeneralUtils::isOMPItemGlobalVAR(V) && !isa<ConstantExpr>(V)) {
-      RenameMap.insert({V, V});
-      return V;
-    }
+        if (MarkForReplacementInRegion)
+          ReplaceInFullRegion.insert(V);
 
-    if (ValuesToChange != nullptr &&
-        ValuesToChange->find(V) == ValuesToChange->end())
-      return V;
+        auto VOrigAndNew = RenameMap.find(V);
+        if (VOrigAndNew != RenameMap.end())
+          return VOrigAndNew->second;
 
-    Value *VNew = createRenamedValueForV(V);
-    RenameMap.insert({V, VNew});
-    Changed = true;
-    return VNew;
-  };
+        if (!GeneralUtils::isOMPItemGlobalVAR(V) && !isa<ConstantExpr>(V)) {
+          RenameMap.insert({V, V});
+          return V;
+        }
+
+        Value *VNew = createRenamedValueForV(V);
+        RenameMap.insert({V, VNew});
+        Changed = true;
+        return VNew;
+      };
 
   // For all renamed values created, replace the original value with the renamed
   // value in the region. This will update the region directive in the header
@@ -2950,6 +2958,11 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
 
       if (Globals != GeneralUtils::isOMPItemGlobalVAR(V))
         continue;
+
+      if (ReplaceInFullRegion.find(V) == ReplaceInFullRegion.end()) {
+        W->getEntryDirective()->replaceUsesOfWith(V, NewV);
+        continue;
+      }
 
       genPrivatizationReplacement(W, V, NewV);
     }
@@ -3013,8 +3026,8 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
         //   ... target map(tofrom:p1[0][1]) ...
         for (int I = MapChain.size() - 1; I >= 0; --I) {
           MapAggrTy *Aggr = MapChain[I];
-          VNew =
-              createRenamedValueForGlobalsAndConstExprs(Aggr->getSectionPtr());
+          VNew = createRenamedValueForGlobalsAndConstExprs(
+              Aggr->getSectionPtr(), /*MarkForReplacementInRegion=*/false);
           Aggr->setSectionPtr(VNew);
           VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getBasePtr());
           Aggr->setBasePtr(VNew);
