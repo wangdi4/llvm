@@ -25,7 +25,6 @@ VERS1.0 {
     __tgt_target_teams_nowait_mapper;
     __tgt_mapper_num_components;
     __tgt_push_mapper_component;
-<<<<<<< HEAD
 # INTEL_COLLAB
     __tgt_is_device_available;
     __tgt_get_device_name;
