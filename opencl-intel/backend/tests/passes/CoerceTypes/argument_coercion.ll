@@ -14,6 +14,7 @@ source_filename = "1"
 %struct.TwoLongs = type { i64, i64 }
 %struct.TwoDifferentWords = type { double, i64 }
 %struct.TwoWordWithArray = type { float, [2 x i32], float }
+%struct.ThreeIntegerMember = type { i8, i32, i32 }
 %struct.NestedStruct = type { float, %struct.TwoInts, float }
 %struct.OneElementFloatArray = type { [1 x float] }
 
@@ -29,6 +30,7 @@ entry:
   %TL = alloca %struct.TwoLongs, align 8
   %TDW = alloca %struct.TwoDifferentWords, align 8
   %TWA = alloca %struct.TwoWordWithArray, align 4
+  %TIM = alloca %struct.ThreeIntegerMember, align 4
   %NS = alloca %struct.NestedStruct, align 4
   %OEFA = alloca %struct.OneElementFloatArray, align 4
   %0 = bitcast %struct.SingleInt* %SI to i8*
@@ -58,6 +60,9 @@ entry:
   %8 = bitcast %struct.TwoWordWithArray* %TWA to i8*
   call void @llvm.lifetime.start.p0i8(i64 16, i8* %8) #3
   call void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWithArray) align 4 %TWA) #4
+  %bc.tim = bitcast %struct.ThreeIntegerMember* %TIM to i8*
+  call void @llvm.lifetime.start.p0i8(i64 12, i8* %bc.tim) #3
+  call void @threeIntegerMember(%struct.ThreeIntegerMember* byval(%struct.ThreeIntegerMember) align 4 %TIM) #4
   %9 = bitcast %struct.NestedStruct* %NS to i8*
   call void @llvm.lifetime.start.p0i8(i64 16, i8* %9) #3
   call void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4 %NS) #4
@@ -138,6 +143,11 @@ declare void @twoDifferentWords(%struct.TwoDifferentWords* byval(%struct.TwoDiff
 declare void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWithArray) align 4) #2
 ; X64-LINUX: declare void @twoWordWithArray(i64, i64) #2
 ; X64-WIN:   declare void @twoWordWithArray(%struct.TwoWordWithArray*) #2
+
+; Function Attrs: convergent
+declare void @threeIntegerMember(%struct.ThreeIntegerMember* byval(%struct.ThreeIntegerMember) align 4) #2
+; X64-LINUX: declare void @threeIntegerMember(i64, i32) #2
+; X64-WIN:   declare void @threeIntegerMember(%struct.ThreeIntegerMember*) #2
 
 ; Function Attrs: convergent
 declare void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4) #2
