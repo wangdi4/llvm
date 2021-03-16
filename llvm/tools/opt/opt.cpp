@@ -527,7 +527,7 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "expand-reductions",    "indirectbr-expand",
       "generic-to-nvvm",      "expandmemcmp",
       "loop-reduce",          "lower-amx-type",
-      "polyhedral-info"};
+      "lower-amx-intrinsics", "polyhedral-info"};
   for (const auto &P : PassNamePrefix)
     if (Pass.startswith(P))
       return true;
