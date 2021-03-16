@@ -29,6 +29,7 @@
 #include "llvm/Object/SymbolicFile.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Error.h"
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/VCSRevision.h"
@@ -46,6 +47,13 @@ static const char *LibcallRoutineNames[] = {
 #include "llvm/IR/RuntimeLibcalls.def"
 #undef HANDLE_LIBCALL
 };
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> StripPathFromStrTabSrcFileName(
+    "strip-strtab-src-path", cl::Hidden, cl::init(true),
+    cl::desc("Strip the path before writing the source filename to the bitcode "
+             "strtab block"));
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -315,7 +323,13 @@ Error Builder::build(ArrayRef<Module *> IRMods) {
   Hdr.Version = storage::Header::kCurrentVersion;
   setStr(Hdr.Producer, kExpectedProducerName);
   setStr(Hdr.TargetTriple, IRMods[0]->getTargetTriple());
-  setStr(Hdr.SourceFileName, IRMods[0]->getSourceFileName());
+#if INTEL_CUSTOMIZATION
+  // Don't save the full path to the source file
+  StringRef SourceFileName = IRMods[0]->getSourceFileName();
+  if (StripPathFromStrTabSrcFileName)
+    SourceFileName = sys::path::filename(SourceFileName);
+  setStr(Hdr.SourceFileName, SourceFileName);
+#endif // INTEL_CUSTOMIZATION
   TT = Triple(IRMods[0]->getTargetTriple());
 
   for (auto *M : IRMods)
