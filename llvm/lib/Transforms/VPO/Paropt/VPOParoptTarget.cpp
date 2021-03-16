@@ -1315,7 +1315,7 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool IsFirstComponentFlag,
                                             bool IsTargetKernelArg) {
 
-  auto printAndReturn = [&MapI](uint64_t RetVal) {
+  auto printAndReturn = [&](uint64_t RetVal) {
     LLVM_DEBUG(dbgs() << "genMapTypeFlag : Map-type for '";
                MapI->getOrig()->printAsOperand(dbgs());
                dbgs() << "': " << RetVal << " ("
