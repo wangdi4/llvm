@@ -2014,6 +2014,28 @@ bool WRegionNode::canHaveOrderedTripCounts() const {
   return false;
 }
 
+bool WRegionNode::canHaveIf() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch(SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNDistributeParLoop:
+  case WRNTarget:
+  case WRNTargetData:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+  case WRNTask:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNCancel:
+    return true;
+  }
+  return false;
+}
+
 // Return true if the construct needs to be outlined for OpenMP runtime.
 bool WRegionNode::needsOutlining() const {
   unsigned SubClassID = getWRegionKindID();
