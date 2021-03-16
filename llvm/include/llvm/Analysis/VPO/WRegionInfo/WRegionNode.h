@@ -121,6 +121,12 @@ private:
   /// Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
 
+  /// True for implicit constructs emitted by the frontend.
+  /// Examples:
+  /// * implicit task around a dispatch construct
+  /// * implicit taskgroup around a taskloop construct
+  bool IsImplicit = false;
+
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
   bool IsFromHIR;
@@ -169,6 +175,9 @@ protected:
 
   /// Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
+
+  /// Set whether this WRegionNode is for an implicit construct.
+  void setIsImplicit(bool B) { IsImplicit = B; }
 
   /// Finish creating the WRN once its ExitDir is found. This routine calls
   /// setExitDirective(ExitDir) and setExitBBlock(ExitDir->getParent()). In
@@ -662,6 +671,9 @@ public:
 
   /// Returns the name for this WRN based on its SubClassID
   StringRef getName() const;
+
+  /// Returns whether the WRegionNode is for an implicit construct.
+  bool getIsImplicit() const { return IsImplicit; }
 
   // Methods for BBlockSet
 
