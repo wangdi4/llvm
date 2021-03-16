@@ -11,11 +11,14 @@
 # OBJ: defined at {{.+}}1.obj
 # OBJ: defined at {{.+}}2.obj
 
+# INTEL_CUSTOMIZATION
+# We strip the path from the source file, so .+ becomes .*
 # BC: duplicate symbol: foo
-# BC: defined at {{.+}}conflict.ll
+# BC: defined at {{.*}}conflict.ll
 # BC:            {{.+}}1.obj
-# BC: defined at {{.+}}conflict.ll
+# BC: defined at {{.*}}conflict.ll
 # BC:            {{.+}}2.obj
+# end INTEL_CUSTOMIZATION
 
 --- !COFF
 header:
