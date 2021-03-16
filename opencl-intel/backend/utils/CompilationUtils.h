@@ -496,6 +496,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // have a vplan style mask.
     static const std::string ATTR_HAS_VPLAN_MASK;
 
+    // Function has subgroup callees.
+    static const std::string ATTR_HAS_SUBGROUPS;
+
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function mem_fence
     //////////////////////////////////////////////////////////////////

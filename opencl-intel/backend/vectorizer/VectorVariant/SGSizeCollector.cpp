@@ -32,6 +32,12 @@ static cl::opt<bool, true> EnableDirectFunctionCallVectorizationOpt(
     cl::desc(
         "Enable direct function call vectorization"));
 
+bool EnableSubgroupDirectCallVectorization = false;
+static cl::opt<bool, true> EnableSubgroupDirectCallVectorizationOpt(
+    "enable-direct-subgroup-function-call-vectorization",
+    cl::location(EnableSubgroupDirectCallVectorization),
+    cl::Hidden, cl::desc("Enable direct subgroup function call vectorization"));
+
 namespace intel {
 
 char SGSizeCollector::ID = 0;
@@ -70,9 +76,6 @@ SGSizeCollectorImpl::SGSizeCollectorImpl(const Intel::CPUId &CPUId)
 //   attributes #0 = { "vector-variants"="_ZGVbM8_foo,_ZGVbN8_foo" }
 //
 bool SGSizeCollectorImpl::runImpl(Module &M) {
-  if (!EnableDirectFunctionCallVectorization)
-    return false;
-
   bool Modified = false;
 
   CallGraph CG(M);
@@ -81,27 +84,34 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
   // Collect vector length information from the existing functions.
   for (auto &F : M) {
     int VecLength;
-    if (hasVecLength(&F, VecLength)) {
+    // Analyze if vectorization of direct function calls is enabled, or
+    // functions has subgroup callees down the call graph as indicated
+    // by the attribute.
+    if (EnableDirectFunctionCallVectorization ||
+        (EnableSubgroupDirectCallVectorization &&
+          F.hasFnAttribute(CompilationUtils::ATTR_HAS_SUBGROUPS))) {
+      if (hasVecLength(&F, VecLength)) {
 
-      CallGraphNode *Node = CG[&F];
-      for (auto It = df_begin(Node); It != df_end(Node);) {
+        CallGraphNode *Node = CG[&F];
+        for (auto It = df_begin(Node); It != df_end(Node);) {
 
-        Function *Fn = It->getFunction();
-        if (!Fn || Fn->isIntrinsic() || Fn->isDeclaration() ||
-            CLWGBoundDecoder::isWGBoundFunction(Fn->getName().str())) {
+          Function *Fn = It->getFunction();
+          if (!Fn || Fn->isIntrinsic() || Fn->isDeclaration() ||
+              CLWGBoundDecoder::isWGBoundFunction(Fn->getName().str())) {
 
-          It = It.skipChildren();
-          continue;
+            It = It.skipChildren();
+            continue;
+          }
+
+          auto &Set = SGSizes[Fn];
+          if (Set.count(VecLength)) {
+            It = It.skipChildren();
+            continue;
+          }
+
+          Set.insert(VecLength);
+          It++;
         }
-
-        auto &Set = SGSizes[Fn];
-        if (Set.count(VecLength)) {
-          It = It.skipChildren();
-          continue;
-        }
-
-        Set.insert(VecLength);
-        It++;
       }
     }
   }

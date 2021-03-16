@@ -29,13 +29,14 @@ namespace intel {
 char KernelSubGroupInfo::ID = 0;
 
 OCL_INITIALIZE_PASS(KernelSubGroupInfo, "kernel-sub-group-info",
-                    "mark kernels with subgroups", false, false)
+                    "mark functions and kernels with subgroups", false, false)
 
 bool KernelSubGroupInfo::runOnFunction(Function &F) const {
-  auto kimd = KernelInternalMetadataAPI(&F);
-  bool HasSubGroups = containsSubGroups(&F);
-  kimd.KernelHasSubgroups.set(HasSubGroups);
-  return HasSubGroups;
+  if (!F.isDeclaration() && containsSubGroups(&F)) {
+    F.addFnAttr(CompilationUtils::ATTR_HAS_SUBGROUPS);
+    return true;
+  }
+  return false;
 }
 
 bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {
@@ -54,16 +55,25 @@ bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {
 }
 
 bool KernelSubGroupInfo::runOnModule(Module &M) {
-  // Get all kernels
-  CompilationUtils::FunctionSet kernelsFunctionSet;
-  CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
-
   CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
   bool Changed = false;
-  // Run on all scalar functions for handling and handle them
+
+  for (auto &F : M) {
+    Changed |= runOnFunction(F);
+  }
+
+  // Get all kernels.
+  CompilationUtils::FunctionSet kernelsFunctionSet;
+  CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
+
+  // If a kernel has subgroup callees, mark it with a kernel metadata.
   for (auto *F : kernelsFunctionSet) {
-    Changed |= runOnFunction(*F);
+    if (F->hasFnAttribute(CompilationUtils::ATTR_HAS_SUBGROUPS)) {
+      auto kimd = KernelInternalMetadataAPI(F);
+      kimd.KernelHasSubgroups.set(true);
+      Changed = true;
+    }
   }
 
   return Changed;
