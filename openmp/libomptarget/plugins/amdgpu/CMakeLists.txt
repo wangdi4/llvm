@@ -70,6 +70,19 @@ add_library(omptarget.rtl.amdgpu SHARED
 install(TARGETS omptarget.rtl.amdgpu LIBRARY DESTINATION "lib${OPENMP_LIBDIR_SUFFIX}")
 
 set_property(TARGET omptarget.rtl.amdgpu PROPERTY INSTALL_RPATH "$ORIGIN")
+if(INTEL_COLLAB)
+target_link_libraries(
+  omptarget.rtl.amdgpu
+  PRIVATE
+  elf_common
+  hsa-runtime64::hsa-runtime64
+  dl
+  ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
+  ${OPENMP_PTHREAD_LIB}
+  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
+  "-Wl,-z,defs"
+  )
+else(INTEL_COLLAB)
 target_link_libraries(
   omptarget.rtl.amdgpu
   PRIVATE
@@ -79,6 +92,7 @@ target_link_libraries(
   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
   "-Wl,-z,defs"
   )
+endif(INTEL_COLLAB)
 
 # Report to the parent scope that we are building a plugin for amdgpu
 set(LIBOMPTARGET_SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS} amdgcn-amd-amdhsa" PARENT_SCOPE)

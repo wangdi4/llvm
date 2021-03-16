@@ -10,7 +10,10 @@
 #
 ##===----------------------------------------------------------------------===##
 
+if(INTEL_COLLAB)
+else(INTEL_COLLAB)
 include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIRS})
+endif(INTEL_COLLAB)
 include_directories(${LIBOMPTARGET_SRC_DIR})
 include_directories(${LIBOMPTARGET_INCLUDE_DIR})
 include_directories(${GRPC_INCLUDE_DIR})
@@ -24,8 +27,16 @@ add_executable(openmp-offloading-server
         OffloadingServer.cpp
 )
 
+if(INTEL_COLLAB)
+target_link_libraries(openmp-offloading-server
+        grpc++
+        protobuf
+        ${OPENMP_PTHREAD_LIB}
+        "-ldl" "-lomp" "-fopenmp" "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../../exports")
+else(INTEL_COLLAB)
 target_link_libraries(openmp-offloading-server
         grpc++
         protobuf
         ${OPENMP_PTHREAD_LIB}
         "-ldl" "-lomp" "-fopenmp" "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../../exports" ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES})
+endif(INTEL_COLLAB)
