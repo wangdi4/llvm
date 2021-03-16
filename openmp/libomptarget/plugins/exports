@@ -51,6 +51,7 @@ VERS1.0 {
     __tgt_rtl_get_interop_property_value;
     __tgt_rtl_get_interop_property_info;
     __tgt_rtl_get_interop_rc_desc;
+    __tgt_rtl_get_num_sub_devices;
 # end INTEL_COLLAB
     __tgt_rtl_register_lib;
     __tgt_rtl_unregister_lib;

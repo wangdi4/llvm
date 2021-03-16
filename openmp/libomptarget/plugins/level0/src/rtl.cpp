@@ -3718,6 +3718,16 @@ EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t DeviceId,
   return nullptr;
 }
 
+EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t DeviceId, int32_t Level) {
+  int32_t ret = 0;
+  if (Level >= 0 && DeviceInfo->SubDeviceIds[DeviceId].size() > (size_t)Level)
+    ret = DeviceInfo->SubDeviceIds[DeviceId][Level].size();
+
+  IDP("%s returns %" PRId32 " sub-devices at level %" PRId32 "\n", __func__,
+      ret, Level);
+  return ret;
+}
+
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
     int32_t DeviceId, const char *Name, size_t Size) {
   IDP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",

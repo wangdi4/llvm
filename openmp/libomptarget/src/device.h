@@ -260,7 +260,7 @@ struct DeviceTy {
   int32_t managed_memory_supported();
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
-  int32_t pushSubDevice(int64_t ID);
+  int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
   int32_t isSupportedDevice(void *DeviceType);
   __tgt_interop *createInterop(int32_t InteropContext);
@@ -272,6 +272,8 @@ struct DeviceTy {
   const char *getInteropPropertyInfo(omp_interop_property_t Property,
                                      int32_t InfoType);
   const char *getInteropRcDesc(int32_t RetCode);
+  int32_t setSubDevice(int32_t Level);
+  void unsetSubDevice(void);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfoPtr and return
@@ -308,6 +310,12 @@ struct PluginManager {
   // Store target policy (disabled, mandatory, default)
   kmp_target_offload_kind_t TargetOffloadPolicy = tgt_default;
   std::mutex TargetOffloadMtx; ///< For TargetOffloadPolicy
+#if INTEL_COLLAB
+  /// Root device ID and sub-device mask set by user
+  /// These should be global to all threads.
+  int64_t RootDeviceID = -1;
+  int64_t SubDeviceMask = 0;
+#endif // INTEL_COLLAB
 };
 
 extern PluginManager *PM;

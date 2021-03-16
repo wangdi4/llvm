@@ -312,6 +312,8 @@ EXTERN const char *__tgt_rtl_get_interop_property_info(
 // Get interop return code description from plugin
 EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t ID, int32_t Rc);
 
+// Return number of available sub-devices at the given level
+EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

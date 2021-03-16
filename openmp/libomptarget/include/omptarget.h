@@ -360,6 +360,16 @@ EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
 
 /// Get target device context
 EXTERN void *omp_target_get_context(int device_num);
+
+/// Set sub-device mode to map OpenMP device ID to sub-device ID at the
+/// specified level. Returns number of sub-devices if the requested mode is
+/// supported and the operation is successful, 0 otherwise.
+/// Calling this routine not from "sequential part" of the OpenMP program
+/// results in undefined behavior.
+EXTERN int omp_set_sub_device(int device_num, int level);
+
+/// Unset sub-device mode.
+EXTERN void omp_unset_sub_device(int device_num);
 #endif  // INTEL_COLLAB
 
 /// add the clauses of the requires directives in a given file

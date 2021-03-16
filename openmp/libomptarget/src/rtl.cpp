@@ -348,6 +348,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
     SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
     SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
+    SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,
