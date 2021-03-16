@@ -387,8 +387,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     bool TraceBackFlag = M.hasTraceBackFlag();
     if (TraceBackFlag && TM.getTargetTriple().isX86()) {
       Handlers.emplace_back(std::make_unique<TraceBackDebug>(this),
-                            DbgTimerName, DbgTimerDescription, nullptr,
-                            nullptr);
+                            DbgTimerName, DbgTimerDescription, "", "");
     }
 
     if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
