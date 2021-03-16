@@ -7541,7 +7541,7 @@ private:
 
 #if INTEL_COLLAB
 public:
-  bool isDevPoingerMap(const ValueDecl *VD) {
+  bool isDevPoingerMap(const ValueDecl *VD) const{
     return DevPointersMap.count(VD);
   }
 #endif // INTEL_COLLAB
@@ -8736,6 +8736,10 @@ public:
       // Underlying variable declaration used in the map clause.
       const ValueDecl *VD = std::get<0>(M);
 
+#if INTEL_COLLAB
+      if (CGF.CGM.getLangOpts().OpenMPLateOutline && isDevPoingerMap(VD))
+        continue;
+#endif  // INTEL_COLLAB
       // Temporary generated information.
       MapCombinedInfoTy CurInfo;
       StructRangeInfoTy PartialStruct;
@@ -9679,8 +9683,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         continue;
       }
 
-      if (!CI->capturesThis() &&
-          MEHandler.isDevPoingerMap(CI->getCapturedVar()))
+      if ((CI->capturesThis() && MEHandler.isDevPoingerMap(nullptr)) ||
+          (!CI->capturesThis() &&
+           MEHandler.isDevPoingerMap(CI->getCapturedVar())))
         continue;
 
       MappableExprsHandler::MapCombinedInfoTy CurInfo;
