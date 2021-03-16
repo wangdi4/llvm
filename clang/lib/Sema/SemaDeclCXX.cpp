@@ -7667,7 +7667,7 @@ public:
 
 private:
   Subobject getCompleteObject() {
-    return Subobject{Subobject::CompleteObject, nullptr, FD->getLocation()};
+    return Subobject{Subobject::CompleteObject, RD, FD->getLocation()};
   }
 
   Subobject getBase(CXXBaseSpecifier *Base) {
