@@ -852,20 +852,18 @@ template <typename CastInstTy> Value *llvm::getPtrThruCast(Value *Ptr) {
 template Value *llvm::getPtrThruCast<BitCastInst>(Value *Ptr);
 template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 
-void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall) {
-  AttributeList Attrs = OrigCall->getAttributes();
+void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall) {
   VecCall->setAttributes(Attrs.removeAttribute(
-    OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+      VecCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
 }
 
-void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall,
-                                  ArrayRef<AttributeSet> ArgAttrs) {
-  AttributeList Attrs = OrigCall->getAttributes();
+void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
+                                 ArrayRef<AttributeSet> ArgAttrs) {
   AttributeSet FnAttrs = Attrs.getFnAttributes().removeAttribute(
-      OrigCall->getContext(), "vector-variants");
+      VecCall->getContext(), "vector-variants");
 
   VecCall->setAttributes(AttributeList::get(
-      OrigCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
+      VecCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
 }
 
 Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,

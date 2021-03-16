@@ -1298,10 +1298,10 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
-    copyRequiredAttributes(Call,
-                           cast<CallInst>(const_cast<Instruction *>(
-                               WideCall->getLLVMInstruction())),
-                           ArgAttrs);
+    setRequiredAttributes(Call->getAttributes(),
+                          cast<CallInst>(const_cast<Instruction *>(
+                              WideCall->getLLVMInstruction())),
+                          ArgAttrs);
 
     // Set calling conventions for SVML function calls
     if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
@@ -2732,7 +2732,6 @@ HLInst *VPOCodeGenHIR::widenTrivialIntrinsic(const VPCallInstruction *VPCall) {
 HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
                                         RegDDRef *Mask,
                                         Intrinsic::ID VectorIntrinID) {
-  auto *Call = VPCall->getUnderlyingCallInst();
   Function *Fn = VPCall->getCalledFunction();
   assert(Fn && "Unexpected null called function");
   StringRef FnName = Fn->getName();
@@ -2745,7 +2744,7 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
   if (FnName == "sincos" || FnName == "sincosf")
     ArgIgnored = 2;
 
-  AttributeList Attrs = Call->getAttributes();
+  AttributeList Attrs = VPCall->getOrigCallAttrs();
 
   SmallVector<RegDDRef *, 4> CallArgs;
   SmallVector<Type *, 1> ArgTys;
@@ -2816,7 +2815,7 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
-  copyRequiredAttributes(Call, VecCall, ArgAttrs);
+  setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, ArgAttrs);
 
   return WideInst;
 }
