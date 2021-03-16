@@ -1347,7 +1347,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
-  case LibFunc_kmpc_barrier:
+  case LibFunc_kmpc_atomic_fixed4_add:
+  case LibFunc_kmpc_atomic_float8_add:
     return Changed;
   case LibFunc_kmpc_critical:
     return Changed;
@@ -1426,6 +1427,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_lxstat:
+  case LibFunc_lxstat64:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_regcomp:
@@ -1746,6 +1748,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev:
     return Changed;
   case LibFunc_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
+    return Changed;
+  case LibFunc_std_cxx11_basic_ostringstream_ctor:
     return Changed;
   case LibFunc_std_basic_ofstream_dtor:
     return Changed;
@@ -2103,6 +2107,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getrlimit:
+  case LibFunc_getrlimit64:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getrusage:
