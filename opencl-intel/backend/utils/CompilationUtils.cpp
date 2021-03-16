@@ -50,6 +50,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "failed to find a masked vector variant for an indirect call";
 
   const std::string CompilationUtils::ATTR_HAS_VPLAN_MASK = "has-vplan-mask";
+  const std::string CompilationUtils::ATTR_HAS_SUBGROUPS = "has-sub-groups";
 
   const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
