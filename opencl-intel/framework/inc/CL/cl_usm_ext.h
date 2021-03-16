@@ -115,13 +115,17 @@ typedef CL_API_ENTRY void *(CL_API_CALL *clSharedMemAllocINTEL_fn)(
     const cl_mem_properties_intel *properties,
     size_t size, cl_uint alignment, cl_int *errcode_ret);
 
-extern CL_API_ENTRY cl_int CL_API_CALL
-clMemFreeINTEL(cl_context context,
-               void *ptr);
+extern CL_API_ENTRY
+cl_int CL_API_CALL clMemFreeINTEL(cl_context context, void *ptr);
+
+extern CL_API_ENTRY
+cl_int CL_API_CALL clMemBlockingFreeINTEL(cl_context context, void *ptr);
 
 typedef CL_API_ENTRY
-cl_int(CL_API_CALL *clMemFreeINTEL_fn)(cl_context context,
-                                       void *ptr);
+cl_int(CL_API_CALL *clMemFreeINTEL_fn)(cl_context context, void *ptr);
+
+typedef CL_API_ENTRY
+cl_int(CL_API_CALL *clMemBlockingFreeINTEL_fn)(cl_context context, void *ptr);
 
 extern CL_API_ENTRY cl_int CL_API_CALL clGetMemAllocInfoINTEL(
     cl_context context, const void *ptr, cl_mem_info_intel param_name,

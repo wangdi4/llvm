@@ -25,6 +25,8 @@
 #include <tbb/global_control.h>
 #include <tbb/parallel_for.h>
 
+#include <thread>
+
 extern cl_device_type gDeviceType;
 
 class USMTest : public ::testing::Test {
@@ -83,6 +85,10 @@ TEST_F(USMTest, checkExtensions) {
   ASSERT_TRUE(nullptr != ptr);
 
   ptr = clGetExtensionFunctionAddressForPlatform(m_platform, "clMemFreeINTEL");
+  ASSERT_TRUE(nullptr != ptr);
+
+  ptr = clGetExtensionFunctionAddressForPlatform(m_platform,
+                                                 "clMemBlockingFreeINTEL");
   ASSERT_TRUE(nullptr != ptr);
 
   ptr = clGetExtensionFunctionAddressForPlatform(m_platform,
@@ -194,6 +200,100 @@ TEST_F(USMTest, memAlloc) {
   }
 }
 
+TEST_F(USMTest, memBlockingFree) {
+  cl_int err;
+  // Allocate USM buffers.
+  size_t num = 64;
+  size_t size = num * sizeof(int);
+  cl_uint alignment = 0;
+
+  cl_int *bufferA = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+                                                   size, alignment, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+
+  cl_int *bufferB = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+                                                   size, alignment, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+
+  cl_int expectedValue = 0;
+  for (size_t i = 0; i < num; i++) {
+    bufferA[i] = i;
+    bufferB[i] = i;
+    expectedValue += i;
+  }
+
+  cl_int result = -1;
+
+  // Build program and kernel.
+  const char *source = R"(
+      __kernel void blocking_test(__global int *buf,
+                                   volatile __global int *result) {
+        size_t tid = get_global_id(0);
+        while (*result == -1)
+          ;
+        atomic_add(result, buf[tid]);
+      }
+  )";
+  cl_program program;
+  cl_kernel kernel;
+
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(m_context, m_device, &source, 1, program));
+
+  kernel = clCreateKernel(program, "blocking_test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test");
+
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferA);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  /// Test clMemBlockingFreeINTEL when enqueue failed.
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 0, NULL, NULL, NULL, 0, NULL,
+                               NULL);
+  ASSERT_OCL_EQ(CL_INVALID_WORK_DIMENSION, err, "clEnqueueNDRangeKernel");
+
+  err = clMemBlockingFreeINTEL(m_context, bufferA);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+
+  /// Test clMemBlockingFreeINTEL when enqueue succeed.
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferB);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  size_t gdim = num;
+  size_t ldim = 8;
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
+                               NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+
+  // This thread is to unblock kernel execution.
+  // Just for testing purpose, detaching and sleeping for 2 seconds to make
+  // clMemBlockingFreeINTEL invoked before kernel completes.
+  std::thread([&]() {
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    result = 0; // Notify kernel to break the infinite loop.
+  }).detach();
+
+  // Test clMemBlockingFreeINTEL when USM buffer passed as argument of kernel.
+  err = clMemBlockingFreeINTEL(m_context, bufferB);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+
+  // Assert 'result' equal to 'expectedValue' if kernel did complete before
+  // buffer is freed.
+  EXPECT_EQ(expectedValue, result);
+
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+
+  err = clReleaseProgram(program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+}
+
 TEST_F(USMTest, getMemAllocInfo) {
   cl_int err;
   // Allocate USM buffers.
@@ -263,8 +363,8 @@ TEST_F(USMTest, enqueueMemset) {
       countErrors++;
   ASSERT_EQ(countErrors, 0);
 
-  err = clMemFreeINTEL(m_context, buffer);
-  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  ASSERT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 
   // Memset host ptr.
   char *data = new char[size];
@@ -317,8 +417,8 @@ TEST_F(USMTest, enqueueMemFill) {
       countErrors++;
   ASSERT_EQ(countErrors, 0);
 
-  err = clMemFreeINTEL(m_context, buffer);
-  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  ASSERT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 
   // Fill host ptr.
   char *data = new char[size1];
@@ -424,12 +524,12 @@ TEST_F(USMTest, enqueueMemcpy) {
 
   delete[] bufferHost;
   delete[] bufferHost2;
-  err = clMemFreeINTEL(m_context, buffer);
-  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
-  err = clMemFreeINTEL(m_context, buffer2);
-  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
-  err = clMemFreeINTEL(m_context, buffer3);
-  ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  ASSERT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, buffer2);
+  ASSERT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, buffer3);
+  ASSERT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 }
 
 TEST_F(USMTest, enqueueMigrateMem) {
@@ -469,8 +569,8 @@ TEST_F(USMTest, enqueueMigrateMem) {
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(m_device, device);
 
-  err = clMemFreeINTEL(m_context, buffer);
-  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 }
 
 TEST_F(USMTest, enqueueAdviseMem) {
@@ -489,8 +589,8 @@ TEST_F(USMTest, enqueueAdviseMem) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  err = clMemFreeINTEL(m_context, buffer);
-  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 }
 
 static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
@@ -631,7 +731,7 @@ TEST_F(USMTest, setKernelExecInfo) {
   foo->a = bufA;
   foo->b = bufB;
   foo->c = bufC;
-  cl_int result = 0;
+  cl_int result = -1;
 
   // Build program and kernel.
   const char *source[] = {
@@ -640,8 +740,10 @@ TEST_F(USMTest, setKernelExecInfo) {
       "  int *b;\n"
       "  int *c;\n"
       "} Foo;\n"
-      "__kernel void test(const __global Foo *foo, __global int *result) {\n"
+      "__kernel void test(const __global Foo *foo,\n"
+      "                   volatile __global int *result) {\n"
       "  size_t tid = get_global_id(0);\n"
+      "  while (*result == -1); // block the kernel\n"
       "  if (foo->a[tid] == foo->b[tid] && foo->a[tid] == foo->c[tid])\n"
       "    atomic_inc(result);\n"
       "}\n"};
@@ -695,8 +797,20 @@ TEST_F(USMTest, setKernelExecInfo) {
   err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &gdim, &ldim, 0, NULL,
                                NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
-  err = clFinish(m_queue);
-  ASSERT_OCL_SUCCESS(err, "clFinish");
+
+  // This thread is to unblock kernel execution.
+  // Just for testing purpose, detaching and sleeping for 2 seconds to make
+  // clMemBlockingFreeINTEL invoked before kernel completes.
+  std::thread([&]() {
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    result = 0; // Notify kernel to break the infinite loop.
+  }).detach();
+
+  // Test clMemBlockingFreeINTEL when kernel indirectly accesses USM buffers.
+  err = clMemBlockingFreeINTEL(m_context, bufA);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+  err = clMemBlockingFreeINTEL(m_context, bufB);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 
   // Check result
   EXPECT_EQ(result, num);
@@ -714,11 +828,8 @@ TEST_F(USMTest, setKernelExecInfo) {
                                NULL);
   ASSERT_OCL_EQ(CL_INVALID_OPERATION, err, "clEnqueueNDRangeKernel");
 
+  // Shared system allocations can't be released by blocking USM free.
   delete[] bufC;
-  err = clMemFreeINTEL(m_context, bufA);
-  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
-  err = clMemFreeINTEL(m_context, bufB);
-  EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
   err = clMemFreeINTEL(m_context, foo);
   EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
   err = clReleaseKernel(kernel);

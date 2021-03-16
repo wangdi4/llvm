@@ -192,6 +192,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
                           SharedPtr<USMBuffer> &buf);
 
+        // Register tracker event for blocking USMFree
+        void SetTrackerForUSM(const std::vector<const void *> &usmPtrList,
+                              cl_event tracker, bool isTrackerVisible);
+
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
         cl_err_code         FlushAllQueuesForContext(cl_context ctx);
         cl_err_code         EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger);
