@@ -24,8 +24,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <sstream>
-
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
 
@@ -300,8 +298,7 @@ shouldBeDeferred(Function *Caller, InlineCost IC, int &TotalSecondaryCost,
 }
 
 namespace llvm {
-static std::basic_ostream<char> &operator<<(std::basic_ostream<char> &R,
-                                            const ore::NV &Arg) {
+static raw_ostream &operator<<(raw_ostream &R, const ore::NV &Arg) {
   return R << Arg.Val;
 }
 
@@ -323,7 +320,8 @@ RemarkT &operator<<(RemarkT &&R, const InlineCost &IC) {
 } // namespace llvm
 
 std::string llvm::inlineCostStr(const InlineCost &IC) {
-  std::stringstream Remark;
+  std::string Buffer;
+  raw_string_ostream Remark(Buffer);
   Remark << IC;
   return Remark.str();
 }
@@ -422,7 +420,8 @@ InlineCost llvm::shouldInline(
 }
 
 std::string llvm::getCallSiteLocation(DebugLoc DLoc) {
-  std::ostringstream CallSiteLoc;
+  std::string Buffer;
+  raw_string_ostream CallSiteLoc(Buffer);
   bool First = true;
   for (DILocation *DIL = DLoc.get(); DIL; DIL = DIL->getInlinedAt()) {
     if (!First)
