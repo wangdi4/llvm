@@ -3549,6 +3549,24 @@ cl_int CL_API_CALL clMemFreeINTEL(cl_context context, void* ptr)
 SET_ALIAS(clMemFreeINTEL);
 REGISTER_EXTENSION_FUNCTION(clMemFreeINTEL, clMemFreeINTEL);
 
+cl_int CL_API_CALL clMemBlockingFreeINTEL(cl_context context, void* ptr)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clMemBlockingFreeINTEL);
+        apiLogger << "cl_context context" << context << "ptr" << ptr;
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            USMBlockingFree(context, ptr));
+    }
+    else
+    {
+      CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+                            USMBlockingFree(context, ptr));
+    }
+}
+SET_ALIAS(clMemBlockingFreeINTEL);
+REGISTER_EXTENSION_FUNCTION(clMemBlockingFreeINTEL, clMemBlockingFreeINTEL);
+
 cl_int CL_API_CALL clGetMemAllocInfoINTEL(cl_context context,
                                           const void* ptr,
                                           cl_mem_info_intel param_name,

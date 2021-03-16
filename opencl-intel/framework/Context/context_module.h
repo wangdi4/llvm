@@ -296,6 +296,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                              size_t size, cl_uint alignment,
                              cl_int* errcode_ret);
         cl_int USMFree(cl_context context, void* ptr);
+        cl_int USMBlockingFree(cl_context context, void* ptr);
         cl_int GetMemAllocInfoINTEL(cl_context context, const void* ptr,
                                     cl_mem_info_intel param_name,
                                     size_t param_value_size, void* param_value,
@@ -314,6 +315,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         void RegisterMappedMemoryObject( MemoryObject* pMemObj );
         void UnRegisterMappedMemoryObject( MemoryObject* pMemObj );
+
+        // Register event that blocking USMFree need to wait.
+        void RegisterUSMFreeWaitEvent(const void *usmPtr,
+                                      std::shared_ptr<_cl_event> eventSPtr);
+
 
     private:
 
@@ -383,6 +389,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         std::map<void*, SharedPtr<Context> >    m_mapSVMBuffers;   // map list of all svm objects
         // map list of all unified shared memory objects
         std::map<void*, SharedPtr<Context> >    m_mapUSMBuffers;
+        // map list of events registered for blocking USMFree.
+        std::map<const void *, std::vector<std::shared_ptr<_cl_event>>>
+            m_mapUSMFreeWaitList;
         // Mutex to guard access to m_mapSVMBuffers and m_mapSVMBuffers.
         Intel::OpenCL::Utils::OclMutex          m_SvmUsmMutex;
         Intel::OpenCL::Utils::OclMutex          m_backendLibraryMutex;
