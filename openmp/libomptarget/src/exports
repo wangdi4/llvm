@@ -58,6 +58,9 @@ VERS1.0 {
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount_mapper;
+    llvm_omp_target_alloc_host;
+    llvm_omp_target_alloc_shared;
+    llvm_omp_target_alloc_device;
   local:
     *;
 };

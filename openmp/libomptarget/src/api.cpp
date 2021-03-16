@@ -68,11 +68,23 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
     return rc;
   }
   rc = Device.data_alloc_user(size, NULL);
-#else // INTEL_COLLAB
-  rc = PM->Devices[device_num].allocData(size);
-#endif // INTEL_COLLAB
   DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
   return rc;
+#else  // INTEL_COLLAB
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEFAULT, __func__);
+#endif // INTEL_COLLAB
+}
+
+EXTERN void *llvm_omp_target_alloc_device(size_t size, int device_num) {
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
+}
+
+EXTERN void *llvm_omp_target_alloc_host(size_t size, int device_num) {
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_HOST, __func__);
+}
+
+EXTERN void *llvm_omp_target_alloc_shared(size_t size, int device_num) {
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
 }
 
 EXTERN void omp_target_free(void *device_ptr, int device_num) {

@@ -93,7 +93,6 @@ enum OpenMPOffloadingRequiresDirFlags {
   OMP_REQ_DYNAMIC_ALLOCATORS      = 0x010
 };
 
-#if INTEL_COLLAB
 enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEVICE = 0,
   TARGET_ALLOC_HOST,
@@ -101,6 +100,7 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEFAULT
 };
 
+#if INTEL_COLLAB
 enum InteropPropertyTy : int32_t {
   INTEROP_DEVICE_ID = 1,
   INTEROP_IS_ASYNC,
@@ -310,6 +310,12 @@ EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
 /// Get target device context
 EXTERN void *omp_target_get_context(int device_num);
 #endif  // INTEL_COLLAB
+
+/// Explicit target memory allocators
+/// Using the llvm_ prefix until they become part of the OpenMP standard.
+void *llvm_omp_target_alloc_device(size_t size, int device_num);
+void *llvm_omp_target_alloc_host(size_t size, int device_num);
+void *llvm_omp_target_alloc_shared(size_t size, int device_num);
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB

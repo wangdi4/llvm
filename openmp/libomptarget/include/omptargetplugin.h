@@ -83,11 +83,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t ID,
 // initialize the target data mapping structures. These addresses are
 // used to generate a table of target variables to pass to
 // __tgt_rtl_run_region(). The __tgt_rtl_data_alloc() returns NULL in
-// case an error occurred on the target device.
+// case an error occurred on the target device. Kind dictates what allocator
+// to use (e.g. shared, host, device).
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HostPtr);
+void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HostPtr,
+                           int32_t Kind);
 
 // Pass the data content to the target device using the target address. In case
 // of success, return zero. Otherwise, return an error code.
