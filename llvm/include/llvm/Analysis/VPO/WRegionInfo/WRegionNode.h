@@ -238,6 +238,7 @@ public:
   bool canHaveNowait() const;
   bool canHaveAllocate() const;
   bool canHaveOrderedTripCounts() const;
+  bool canHaveIf() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
