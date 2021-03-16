@@ -279,10 +279,30 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
       SmallVector<Instruction *, 8> Users;
       WRegionUtils::findUsersInRegion(W, DV, &Users, false);
       for (auto *U : Users) {
+        if (auto *II = dyn_cast<IntrinsicInst>(U)) {
         // Ignore uses by directive entry calls.
-        if (auto *II = dyn_cast<IntrinsicInst>(U))
           if (II->getIntrinsicID() == Intrinsic::directive_region_entry)
             continue;
+
+          // Not captured if the callee is readonly, doesn't return
+          // a copy through its return value and doesn't unwind
+          // (a readonly function can leak bits by throwing an exception
+          // or not depending on the input value).
+          //
+          // FIXME: this is copied from llvm::PointerMayBeCaptured().
+          //        We should try to reuse it. There are cases that
+          //        we currently handle incorrectly, e.g. pointer
+          //        comparison.
+          if (II->onlyReadsMemory() && II->doesNotThrow() &&
+              II->getType()->isVoidTy())
+            continue;
+
+          // Recognize the lifetime markers explicitly,
+          // since they do not classify as onlyReadsMemory().
+          if (II->getIntrinsicID() == Intrinsic::lifetime_end ||
+              II->getIntrinsicID() == Intrinsic::lifetime_start)
+            continue;
+        }
 
         auto *BB = U->getParent();
         auto I = BBToWRNMap.find(BB);
