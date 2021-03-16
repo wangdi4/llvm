@@ -1597,7 +1597,7 @@ unsigned AddSubReassociate::growTree(Tree *T, unsigned GrowthLimit,
         // having multiple uses within same tree are not. It is determined later
         // in findSharedleaves() routine and further tree growth is performed by
         // extendTrees().
-        if (Op->getNumUses() > 1 && isLegalTrunkInstr(OpI, T->getRoot(), DL))
+        if (Op->hasNUsesOrMore(2) && isLegalTrunkInstr(OpI, T->getRoot(), DL))
           T->setSharedLeafCandidate(true);
       }
     }
