@@ -2143,6 +2143,8 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
   if (Args.hasArg(options::OPT__dpcpp)) {
     ExcludedFlagsBitmask |= options::DpcppUnsupported;
     ExcludedFlagsBitmask |= options::DpcppHidden;
+    if (!Args.hasArg(options::OPT_v))
+      IncludedFlagsBitmask |= options::DpcppOption;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2155,6 +2157,12 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
   getOpts().PrintHelp(llvm::outs(), Usage.c_str(), DriverTitle.c_str(),
                       IncludedFlagsBitmask, ExcludedFlagsBitmask,
                       /*ShowAllAliases=*/false);
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__dpcpp) && !Args.hasArg(options::OPT_v))
+    // Emit additional information for dpcpp -help to enable more verbose output
+    llvm::outs() << "\nHelp displayed is for DPC++ specific options.\n"
+                 << "Use '-help -v' to display more options.\n";
+#endif // INTEL_CUSTOMIZATION
 }
 
 llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
