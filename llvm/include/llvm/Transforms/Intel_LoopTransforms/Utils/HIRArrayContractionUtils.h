@@ -81,6 +81,9 @@ class HIRArrayContractionUtil {
   static DenseMap<std::pair<unsigned, unsigned>, HLInst *>
       StorageBlobIdxAllocaMap;
 
+  // Map: contracted memref's BasePtrBlobIndex -> Symbase
+  static DenseMap<unsigned, unsigned> ContractedRefBlob2SB;
+
   // Check sanity of a given MemRef
   // Items to check:
   // - MemRef: ArrayType RegDDRef
@@ -120,7 +123,7 @@ class HIRArrayContractionUtil {
                   HLInst *&AllocaInst /* Output: Alloca created */
   );
 
-  // Contract a given memref, obtain its contracted memref:
+  // Contract a given memref, obtain its contracted counterpart memref
   static bool
   contract(RegDDRef *Ref,
            SmallSet<unsigned, 4> &PreservedDims,  /* Input: Dims preserved */
@@ -148,11 +151,6 @@ public:
       unsigned &AfterContractSB /* Output: Symbase of the contracted ref */
   );
 
-  // Given a ToContract RegDDRef *, find the Symbase of the matching
-  // AfterContract Ref.
-  static unsigned getPostContractSymbase(RegDDRef *ToContractRef,
-                                         SmallSet<unsigned, 4> &ToContractDims);
-
   // Give a BeforeContract Ref, find its matching after-contract Ref.
   static RegDDRef *getAfterContractRef(RegDDRef *BeforeContractRef) {
     return Pre2PostMap[BeforeContractRef];
@@ -162,6 +160,63 @@ public:
   static RegDDRef *getBeforeContractRef(RegDDRef *AfterContractRef) {
     return Post2PreMap[AfterContractRef];
   }
+
+  // For a given AfterContractMemRef:
+  // -if its BasePtrBlobIndex is already recorded, return true with its Symbase.
+  // -otherwise, create a new symbase, record it and return false;
+  static bool getOrCreateRefSB(RegDDRef *Ref, DDRefUtils &DDRU,
+                               unsigned &SymBase);
+
+  // Debug Printers:
+  void printPre2PostMap(formatted_raw_ostream &FOS);
+  void printPost2PreMap(formatted_raw_ostream &FOS);
+  void printStorageAllocaMap(formatted_raw_ostream &FOS);
+  void printContractRefBlob2SBMap(formatted_raw_ostream &FOS);
+
+#ifndef NDEBUG
+  LLVM_DUMP_METHOD void dumpPre2PostMap(void) {
+    formatted_raw_ostream FOS(dbgs());
+    printPre2PostMap(FOS);
+  }
+
+  LLVM_DUMP_METHOD void dumpPost2PreMap(void) {
+    formatted_raw_ostream FOS(dbgs());
+    printPost2PreMap(FOS);
+  }
+
+  LLVM_DUMP_METHOD void dumpStoragAllocaMap(void) {
+    formatted_raw_ostream FOS(dbgs());
+    printStorageAllocaMap(FOS);
+  }
+
+  LLVM_DUMP_METHOD void dumpContractRefBlob2SBMap(void) {
+    formatted_raw_ostream FOS(dbgs());
+    printContractRefBlob2SBMap(FOS);
+  }
+
+  LLVM_DUMP_METHOD void dump(bool PrintPre2PostMap = true,
+                             bool PrintPost2PreMap = false,
+                             bool PrintStorageAllocaMap = true,
+                             bool PrintContractRefBlob2SBMap = true) {
+    formatted_raw_ostream FOS(dbgs());
+
+    if (PrintPre2PostMap) {
+      printPre2PostMap(FOS);
+    }
+
+    if (PrintPost2PreMap) {
+      printPost2PreMap(FOS);
+    }
+
+    if (PrintStorageAllocaMap) {
+      printStorageAllocaMap(FOS);
+    }
+
+    if (PrintContractRefBlob2SBMap) {
+      printContractRefBlob2SBMap(FOS);
+    }
+  }
+#endif
 };
 
 } // namespace arraycontractionutils

@@ -23,6 +23,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/ADT/STLExtras.h"
+
 #define OPT_SWITCH "hir-array-contraction-utils"
 #define OPT_DESC "HIR Array Contraction Utils"
 #define DEBUG_TYPE OPT_SWITCH
@@ -72,23 +74,12 @@ DenseMap<RegDDRef *, RegDDRef *>
     llvm::loopopt::arraycontractionutils::HIRArrayContractionUtil::Post2PreMap =
         {{}};
 
+// static DenseMap<unsigned, unsigned> ContractedRefBlob2SB;
+DenseMap<unsigned, unsigned> llvm::loopopt::arraycontractionutils::
+    HIRArrayContractionUtil::ContractedRefBlob2SB = {{}};
+
 static bool isPrimitiveType(Type *Ty) {
   return isa<IntegerType>(Ty) || Ty->isFloatingPointTy();
-}
-
-unsigned HIRArrayContractionUtil::getPostContractSymbase(
-    RegDDRef *ToContractRef, SmallSet<unsigned, 4> &ToContractDims) {
-
-  HLInst *AllocaInst = getHLAllocaInst(ToContractRef, ToContractDims);
-  if (!AllocaInst) {
-    LLVM_DEBUG({
-      dbgs() << "Expect a valid AllocaInst * for a given ref\n";
-      ToContractRef->dump();
-    });
-    return (-1);
-  }
-
-  return AllocaInst->getLvalDDRef()->getSymbase();
 }
 
 bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
@@ -111,6 +102,101 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
       LLVM_DEBUG(dbgs() << "Expect the Ref be inside a loop\n";);
       return false;
     }
+
+    return true;
+  };
+
+  // CheckRefType: Ref is an array ref, but not having an explicit ArrayType.
+  //
+  // E.g.
+  // Ref: (%56)[i2][i3][i4][i5][i6]
+  // Its BaseCE is %56, and its type is double* (instead of an ArrayType),
+  // it has 5 dimensions and there is an CE on each dimension.
+  // Collectively, it represents an ArrayType suitable for contraction.
+  //
+  // After analysis, its RootTy is double*, and DimSizeVec may also need to
+  // reflect non-constant dimension sizes.
+  //
+  auto CheckRefType = [&](RegDDRef *Ref, unsigned NumDimsRemain,
+                          SmallVectorImpl<unsigned> &DimSizeVec,
+                          Type *&RootTy) {
+    const CanonExpr *CE = Ref->getBaseCE();
+    LLVM_DEBUG(dbgs() << "BaseCE: "; CE->dump(1); dbgs() << "\n";
+               dbgs() << "\tSrcType: "; CE->getSrcType()->dump();
+               dbgs() << "\tDestType: "; CE->getDestType()->dump();
+               dbgs() << "NumDimsRemain: " << NumDimsRemain << "\n";);
+    assert((RootTy == nullptr) && "Expect RootTy be nullptr");
+    assert(DimSizeVec.empty() && "Expect TyVec be empty");
+
+    // CE's SrcType:
+    // expect either an IntegerType or a FloatingPointType.
+    const PointerType *PtrTy = dyn_cast<PointerType>(CE->getSrcType());
+    Type *ElemTy = PtrTy->getElementType();
+    if (isa<IntegerType>(ElemTy) || ElemTy->isFloatingPointTy()) {
+      RootTy = ElemTy;
+    } else {
+      assert(0 && "Unknown ElemTy type\n");
+    }
+    LLVM_DEBUG(dbgs() << "RootTy: "; RootTy->dump(); dbgs() << "\n";);
+
+    // Figure out the array size of each dimensions in DimsRemain:
+    assert(NumDimsRemain + 1 <= Ref->getNumDimensions());
+    SmallVector<unsigned, 4> DimStride(NumDimsRemain + 2);
+    int64_t StrideConst = 0;
+
+    for (unsigned I = 1; I <= NumDimsRemain + 1; ++I) {
+      CanonExpr *Stride = Ref->getDimensionStride(I);
+
+      if (Stride->isIntConstant(&StrideConst)) {
+        DimStride[I] = StrideConst;
+      } else {
+        assert(0 && "Expect the relevant stride be an integer constant");
+      }
+
+      LLVM_DEBUG({
+        CanonExpr *LB = Ref->getDimensionLower(I);
+        CanonExpr *Index = Ref->getDimensionIndex(I);
+        dbgs() << "Dim: " << I << "\tLB: ";
+        LB->dump();
+        dbgs() << "\tStride: ";
+        Stride->dump();
+        dbgs() << "\tIndex: ";
+        Index->dump();
+        dbgs() << "\n";
+      });
+    }
+
+    // See the  NumDimsRemain + 1 Constant strides:
+    LLVM_DEBUG({
+      for (auto V : enumerate(DimStride)) {
+        auto index = V.index();
+        auto value = V.value();
+        dbgs() << "idx: " << index << ",\tvalue: " << value << "\n";
+      }
+    });
+
+    // Compute DimSizeVec for qualified Dimensions:
+    for (unsigned I = 1; I <= NumDimsRemain; ++I) {
+      assert(DimStride[I]);
+      const unsigned NumItems = DimStride[I + 1] / DimStride[I];
+      LLVM_DEBUG(dbgs() << "DimStride[" << I << "]: " << DimStride[I] << ",\t"
+                        << "DimStride[" << I + 1 << "]: " << DimStride[I + 1]
+                        << ",\tNumItems: " << NumItems << "\n";);
+      DimSizeVec.push_back(NumItems);
+    }
+
+    // See the Results:
+    LLVM_DEBUG({
+      dbgs() << "DimSizeVec: " << DimSizeVec.size() << "\nl";
+      for (auto V : enumerate(DimSizeVec)) {
+        auto index = V.index();
+        auto value = V.value();
+        dbgs() << "idx: " << index << ",\tvalue: " << value << "\n";
+      }
+      dbgs() << "RootTy: ";
+      RootTy->dump();
+      dbgs() << "\n";
+    });
 
     return true;
   };
@@ -145,22 +231,25 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
     const PointerType *PtrTy = dyn_cast<PointerType>(CE->getSrcType());
     const ArrayType *ArryTy = dyn_cast<ArrayType>(PtrTy->getElementType());
     if (!ArryTy) {
-      LLVM_DEBUG(dbgs() << "Expect a valid ArrayType*\n";);
+      Type *EleTy = PtrTy->getElementType();
+      if (isPrimitiveType(EleTy)) {
+        return CheckRefType(Ref, NumDimsRemain, DimSizeVec, RootTy);
+      }
+      LLVM_DEBUG(dbgs() << "Unknown type\n";);
       return false;
     }
     LLVM_DEBUG(dbgs() << "ArrTy: "; ArryTy->dump(););
 
-    unsigned NumDims = Ref->getNumDimensions() - 1, Dims = NumDims;
-    const unsigned TargetDims = (NumDims - NumDimsRemain + 1);
+    unsigned Dim = Ref->getNumDimensions() - 1;
     while (true) {
       unsigned N = ArryTy->getNumElements();
-      if (Dims <= TargetDims) {
+      if (Dim <= NumDimsRemain) {
         DimSizeVec.push_back(N);
       }
 
       Type *Ty = ArryTy->getElementType();
       if (isa<ArrayType>(Ty)) {
-        --Dims;
+        --Dim;
         ArryTy = dyn_cast<ArrayType>(Ty);
         LLVM_DEBUG(dbgs() << "ArrTy: "; ArryTy->dump(););
       } else if (isPrimitiveType(Ty)) {
@@ -203,10 +292,9 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
     const unsigned NumDims = Ref->getNumDimensions();
     for (auto Item : ToContractDims) {
       if (!isInRange<unsigned>(Item, 1, NumDims)) {
-        LLVM_DEBUG(
-            dbgs()
-                << "Expect items in ToContractDims be within the range of [1.."
-                << NumDims << "]\n";);
+        LLVM_DEBUG(dbgs() << "Expect items in ToContractDims be within the "
+                             "range of [1.."
+                          << NumDims << "]\n";);
         return false;
       }
     }
@@ -236,8 +324,8 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
       }
     }
 
-    // Expect ToContractDims and PreservedDims complement each other and produce
-    // a full set when combined.
+    // Expect ToContractDims and PreservedDims complement each other and
+    // produce a full set when combined.
     const unsigned ToContractSize = ToContractDims.size();
     std::vector<unsigned> Diff;
     // Check: A - B = A
@@ -297,9 +385,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
     return false;
   }
 
-  // Check Ref's BaseCE type: ArrayType, ultimate type is a primitive type
-  // SmallVector<unsigned> DimSizeVec;
-  // Type *RootTy = nullptr;
+  // Check Ref's BaseCE type: expect RootTy be an primitive (int or float) type
   if (!CheckBaseCE(Ref, PreservedDims.size(), DimSizeVec, RootTy)) {
     LLVM_DEBUG(dbgs() << "Failure in CheckBaseCE(.)\n";);
     return false;
@@ -330,10 +416,10 @@ bool HIRArrayContractionUtil::isStorageAllocated(
   //
   // E.g.
   // If A[l][m][k][j][i] has been allocated AA[][][] for contraction over dim
-  // range [1-2], then %A's blob index (e.g. 1) will be recorded for contraction
-  // with a ToContract range of [1-2]: 2.
+  // range [1-2], then %A's blob index (e.g. 1) will be recorded for
+  // contraction with a ToContract range of [1-2]: 2.
   //
-  // Nex time, when A[l][m][k][r][s] is to be contracted for range [1-2], the
+  // Next time, when A[l][m][k][r][s] is to be contracted for range [1-2], the
   // same AA[][][] will be used instead of allocating new storage.
   //
   // However, when A[l][m][k][r][s] is to be contracted for range [1-3], a new
@@ -378,7 +464,7 @@ bool HIRArrayContractionUtil::allocateStorage(
 
   // Obtain the After-Contract Ref's ArrayType
   // [Note]
-  // - the ArrayType ingredients are provided in DimSizeVec, and RootTy
+  // - ArrayType and DimSizes are provided in args: DimSizeVec and RootTy
   LLVM_DEBUG(dbgs() << "RootTy: "; RootTy->dump(););
 
   ArrayType *AfterContractTy = ArrayType::get(RootTy, DimSizeVec[0]);
@@ -389,11 +475,12 @@ bool HIRArrayContractionUtil::allocateStorage(
 
   // Create an AllocaInst
   // [Note]
-  // - no need to create a new symbase explicitly, the newly created alloca will
-  //   come with a new symbase.
+  // - need to create the alloca on region(function) level.
+  // - no need to create a new symbase explicitly, the newly created alloca
+  //   will come with a new symbase.
   // - size of alloca is implied by its type.
   AllocaInst = HNU.createAlloca(
-      AfterContractTy,
+      AfterContractTy, &Reg,
       DDRU.createConstDDRef(Type::getInt64Ty(HNU.getModule().getContext()), 1),
       ContractedArrayName);
   assert(AllocaInst && "Expect a valid AllocaInst");
@@ -407,8 +494,8 @@ bool HIRArrayContractionUtil::allocateStorage(
 
   // Add the new symbase into the region's Livein and ref's loopnest's Livein:
   // [Note]
-  // Region is passed in through a parameter, because after cloning, the loop
-  // may still be in detached mode from the region.
+  // - Region is passed in through a parameter. This is because after cloning,
+  //   the loop may still be in detached mode from the region.
   const unsigned NewSB = AllocaInst->getLvalDDRef()->getSymbase();
   Reg.addLiveInTemp(NewSB, AllocaInst->getLLVMInstruction());
   addSBToLoopnestLiveIn(Ref->getParentLoop(), NewSB);
@@ -497,11 +584,11 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
   // - This only removes the to-contract dimensions. Will need to make the
   //   DDRef's internal structures consistent with the contracted ref.
   // - Need reverse order.
-  //   (SmallSet doesn't support reverse iterator, so use SmallVector to stage.)
+  //   (SmallSet doesn't support reverse iterator, so use SmallVector to
+  //   stage.)
   //
   SmallVector<unsigned, 4> Vec(ToContractDims.begin(), ToContractDims.end());
   llvm::sort(Vec.begin(), Vec.end(), std::greater<unsigned>());
-
   for (auto I : Vec) {
     AfterRef->removeDimension(I);
   }
@@ -549,7 +636,7 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
              dbgs() << "\tDefAtLevel: " << BaseCE->getDefinedAtLevel()
                     << "\n";);
 
-  // Create a new blob, representing the NewSB (from newly created AllocaInst).
+  // Create a new blob, representing the NewSB (from the target AllocaInst).
   unsigned NewSBBlobIdx = BU.findOrInsertTempBlobIndex(NewSB);
   LLVM_DEBUG({
     dbgs() << "NewSBBlobIdx: " << NewSBBlobIdx << "\n";
@@ -567,8 +654,8 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
 
   // Set AfterRef's BaseCE to the NewBaseCE:
   // [Note]
-  // - Since both setBaseCE() and setAlignment() will call createGepInfo(), for
-  //   each dimension, set LB, Stride, and Index need to happen after it.
+  // - Since both setBaseCE() and setAlignment() will call createGepInfo(),
+  //   for each dimension, set LB, Stride, and Index need to happen after it.
   AfterRef->setBaseCE(NewBaseCE);
   AfterRef->setAlignment(Ref->getAlignment());
   LLVM_DEBUG({
@@ -577,10 +664,13 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
     dbgs() << "\n";
   });
 
+  // Cann't call makConsistent() on AfterRef because the ref and the entire
+  // loopnest is detacched.
   SmallVector<BlobDDRef *, 8> NewBlobs;
   AfterRef->updateBlobDDRefs(NewBlobs);
+
   LLVM_DEBUG({
-    dbgs() << "\nAfterRef (After updateBlobDDRefs):\t";
+    dbgs() << "\nAfterRef (After updateBlobDDRefs()):\t";
     AfterRef->dump(1);
     dbgs() << "\n";
   });
@@ -591,6 +681,22 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
   AfterContractRef = AfterRef;
 
   return true;
+}
+
+bool HIRArrayContractionUtil::getOrCreateRefSB(RegDDRef *Ref, DDRefUtils &DDRU,
+                                               unsigned &SymBase) {
+  unsigned BasePtrBlobIndex = Ref->getBasePtrBlobIndex();
+  unsigned SB = ContractedRefBlob2SB[BasePtrBlobIndex];
+  if (SB) {
+    // return the existing SB:
+    SymBase = SB;
+    return true;
+  } else {
+    // create a new SB, save it and return it:
+    SymBase = DDRU.getNewSymbase();
+    ContractedRefBlob2SB[BasePtrBlobIndex] = SymBase;
+    return false;
+  }
 }
 
 bool HIRArrayContractionUtil::contractMemRef(
@@ -619,7 +725,7 @@ bool HIRArrayContractionUtil::contractMemRef(
     }
     dbgs() << "RootTy: ";
     RootTy->dump();
-    dbgs() << " \n================================================= \n";
+    dbgs() << " ================================================= \n";
   });
 
   HLInst *AllocaInst = nullptr;
@@ -635,10 +741,80 @@ bool HIRArrayContractionUtil::contractMemRef(
     return false;
   }
 
-  unsigned NewSB = getPostContractSymbase(ToContractRef, ToContractDims);
-  addSBToLoopnestLiveIn(ToContractRef->getParentLoop(), NewSB);
-  HIRTransformUtils::replaceOperand(ToContractRef, AfterContractRef);
-  AfterContractSB = NewSB;
+  // Set proper symbase for the newly contracted memref, and then do
+  // replacement:
+  auto &HNU = ToContractRef->getParentLoop()->getHLNodeUtils();
+  auto &DDRU = HNU.getDDRefUtils();
+  unsigned NewSB = 0;
+  if (getOrCreateRefSB(AfterContractRef, DDRU, NewSB)) {
+    LLVM_DEBUG(dbgs() << "\texisting SB: " << NewSB << "\n";);
+  } else {
+    LLVM_DEBUG(dbgs() << "\tnew SB: " << NewSB << "\n";);
+  }
+  assert(NewSB && "Expect a valid (positive integer) Symbase");
+  AfterContractRef->setSymbase(NewSB);
 
+  HLLoop *Lp = ToContractRef->getParentLoop();
+  addSBToLoopnestLiveIn(Lp, NewSB);
+  const unsigned AllocaSB = AllocaInst->getLvalDDRef()->getSymbase();
+  addSBToLoopnestLiveIn(Lp, AllocaSB);
+  HIRTransformUtils::replaceOperand(ToContractRef, AfterContractRef);
+
+  AfterContractSB = NewSB;
   return true;
+}
+
+// static DenseMap<RegDDRef *, RegDDRef *> Pre2PostMap;
+void HIRArrayContractionUtil::printPre2PostMap(formatted_raw_ostream &FOS) {
+  FOS << "Pre -> Post map: <" << Pre2PostMap.size() << ">\n";
+  for (auto &Pair : Pre2PostMap) {
+    RegDDRef *PreRef = Pair.first;
+    RegDDRef *PostRef = Pair.second;
+    PreRef->print(FOS);
+    FOS << " -> ";
+    PostRef->print(FOS);
+    FOS << "\n";
+  }
+}
+
+// static DenseMap<RegDDRef *, RegDDRef *> Post2PreMap;
+void HIRArrayContractionUtil::printPost2PreMap(formatted_raw_ostream &FOS) {
+  FOS << "Post -> Pre map: <" << Post2PreMap.size() << ">\n";
+  for (auto &Pair : Post2PreMap) {
+    RegDDRef *PostRef = Pair.first;
+    RegDDRef *PreRef = Pair.second;
+    PostRef->print(FOS);
+    FOS << " -> ";
+    PreRef->print(FOS);
+    FOS << "\n";
+  }
+}
+
+// static DenseMap<std::pair<unsigned, unsigned>, HLInst *>
+// StorageBlobIdxAllocaMap;
+void HIRArrayContractionUtil::printStorageAllocaMap(
+    formatted_raw_ostream &FOS) {
+
+  FOS << "StorageBlobIdxAllocaMap: <" << StorageBlobIdxAllocaMap.size()
+      << ">\n";
+  for (auto &Pair : StorageBlobIdxAllocaMap) {
+    unsigned U0 = Pair.first.first;
+    unsigned U1 = Pair.first.second;
+    HLInst *AllocaI = Pair.second;
+    FOS << "(" << U0 << "," << U1 << ") -> ";
+    AllocaI->print(FOS, 0);
+    FOS << "\n";
+  }
+}
+
+// static DenseMap<unsigned, unsigned> ContractedRefBlob2SB;
+void HIRArrayContractionUtil::printContractRefBlob2SBMap(
+    formatted_raw_ostream &FOS) {
+  FOS << "ContractedRefBlob -> SymBase: <" << ContractedRefBlob2SB.size()
+      << ">\n";
+  for (auto &Pair : ContractedRefBlob2SB) {
+    unsigned BlobIndex = Pair.first;
+    unsigned Symbase = Pair.second;
+    FOS << BlobIndex << " -> " << Symbase << "\n";
+  }
 }

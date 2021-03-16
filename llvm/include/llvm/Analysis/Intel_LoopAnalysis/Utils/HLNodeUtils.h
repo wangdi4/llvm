@@ -656,6 +656,9 @@ public:
   /// GEP refs using the returned blob index as the base pointer.
   unsigned createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name = "alloca");
 
+  HLInst *createAlloca(Type *Ty, HLRegion *Reg, RegDDRef *ArraySizeRvalRef,
+                       const Twine &Name = "alloca");
+
   /// Generated alloca with arraysize. Useful for var array.
   HLInst *createAlloca(Type *Ty, RegDDRef *ArraySizeRvalRef,
                        const Twine &Name = "alloca");
@@ -1434,8 +1437,8 @@ public:
 
   /// Constant Node version of gatherLoopsWithLevel.
   template <typename T>
-  static void gatherLoopsWithLevel(const HLNode *Node, SmallVectorImpl<T> &Loops,
-                            unsigned Level) {
+  static void gatherLoopsWithLevel(const HLNode *Node,
+                                   SmallVectorImpl<T> &Loops, unsigned Level) {
     static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
                   "Type of SmallVector parameter should be const HLLoop *.");
     gatherLoopsWithLevel(const_cast<HLNode *>(Node), Loops, Level);
