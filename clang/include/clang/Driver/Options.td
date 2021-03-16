@@ -2808,6 +2808,10 @@ def fsycl_device_code_lower_esimd : Flag<["-"], "fsycl-device-code-lower-esimd">
   Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Lower ESIMD-specific constructs">;
 def fno_sycl_device_code_lower_esimd : Flag<["-"], "fno-sycl-device-code-lower-esimd">,
   Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Do not lower ESIMD-specific constructs">;
+def fsycl_instrument_device_code : Flag<["-"], "fsycl-instrument-device-code">,
+  Group<sycl_Group>, Flags<[CC1Option, CoreOption]>,
+  HelpText<"Add ITT instrumentation intrinsics calls">,
+  MarshallingInfoFlag<CodeGenOpts<"SPIRITTAnnotations">>;
 defm sycl_id_queries_fit_in_int: BoolFOption<"sycl-id-queries-fit-in-int",
   LangOpts<"SYCLValueFitInMaxInt">, DefaultFalse,
   PosFlag<SetTrue, [], "Assume">, NegFlag<SetFalse, [], "Do not assume">,

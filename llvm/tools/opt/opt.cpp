@@ -649,6 +649,8 @@ int main(int argc, char **argv) {
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
+
+  initializeSPIRITTAnnotationsLegacyPassPass(Registry);
   initializeESIMDLowerLoadStorePass(Registry);
   initializeESIMDLowerVecArgLegacyPassPass(Registry);
 
