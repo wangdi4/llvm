@@ -2929,11 +2929,11 @@ InlineCost llvm::getInlineCost(
   InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, &TLI, ILIC,
                             WPI, true);
+  InlineResult ShouldInline = CA.analyze(CalleeTTI);
   if (NeedLocalILIC) {
     delete ILIC;
     ILIC = nullptr;
   }
-  InlineResult ShouldInline = CA.analyze(CalleeTTI);
   InlineReason Reason = ShouldInline.getIntelInlReason();
 #endif // INTEL_CUSTOMIZATION
 
