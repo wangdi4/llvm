@@ -20,15 +20,31 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::vpo;
 
+namespace {
+template <typename T> struct DerefOrNilHelper {
+  const T *Ptr;
+  DerefOrNilHelper(const T *Ptr) : Ptr(Ptr) {}
+};
+
+template <typename T>
+raw_ostream &operator<<(raw_ostream &OS, DerefOrNilHelper<T> Helper) {
+  if (Helper.Ptr)
+    OS << *Helper.Ptr;
+  else
+    OS << "nil";
+  return OS;
+}
+
+template <typename T> DerefOrNilHelper<T> derefOrNil(T *Ptr) { return Ptr; }
+} // namespace
+
 VPlanSCEV *
 VPlanScalarEvolutionHIR::computeAddressSCEV(const VPLoadStoreInst &LSI) {
   LLVM_DEBUG(dbgs() << "computeAddressSCEV(" << LSI << ")\n");
 
   VPlanAddRecHIR *Expr = computeAddressSCEVImpl(LSI);
-  if (Expr)
-    LLVM_DEBUG(dbgs() << "  -> " << *Expr << '\n');
-  else
-    LLVM_DEBUG(dbgs() << "  -> nil\n");
+
+  LLVM_DEBUG(dbgs() << "  -> " << derefOrNil(Expr) << '\n');
 
   return toVPlanSCEV(Expr);
 }
@@ -38,22 +54,12 @@ VPlanSCEV *VPlanScalarEvolutionHIR::getMinusExpr(VPlanSCEV *OpaqueLHS,
   VPlanAddRecHIR *LHS = toVPlanAddRecHIR(OpaqueLHS);
   VPlanAddRecHIR *RHS = toVPlanAddRecHIR(OpaqueRHS);
 
-  if (LHS)
-    LLVM_DEBUG(dbgs() << "getMinusExpr(" << *LHS << ",\n");
-  else
-    LLVM_DEBUG(dbgs() << "getMinusExpr(nil,\n");
-
-  if (RHS)
-    LLVM_DEBUG(dbgs() << "             " << *RHS << ")\n");
-  else
-    LLVM_DEBUG(dbgs() << "             nil)\n");
+  LLVM_DEBUG(dbgs() << "getMinusExpr(" << derefOrNil(LHS) << ",\n");
+  LLVM_DEBUG(dbgs() << "             " << derefOrNil(RHS) << ")\n");
 
   VPlanAddRecHIR *Result = getMinusExprImpl(LHS, RHS);
 
-  if (Result)
-    LLVM_DEBUG(dbgs() << "  -> " << *Result << '\n');
-  else
-    LLVM_DEBUG(dbgs() << "  -> nil\n");
+  LLVM_DEBUG(dbgs() << "  -> " << derefOrNil(Result) << '\n');
 
   return toVPlanSCEV(Result);
 }
