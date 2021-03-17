@@ -50,6 +50,7 @@
 #include "IntelVPlanCostModelProprietary.h"
 #include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
 #include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
+#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
@@ -1132,6 +1133,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     auto &Plan = *Pair.second.MainPlan;
     if (!Plan.getVPSE())
       Plan.setVPSE(std::make_unique<VPlanScalarEvolutionHIR>(Lp));
+    if (!Plan.getVPVT())
+      Plan.setVPVT(std::make_unique<VPlanValueTrackingHIR>(*DL));
   }
 
   // VPlan construction stress test ends here.
