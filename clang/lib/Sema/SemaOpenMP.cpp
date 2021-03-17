@@ -15740,7 +15740,9 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
     Res = ActOnOpenMPDynamicAllocatorsClause(StartLoc, EndLoc);
     break;
   case OMPC_destroy:
-    Res = ActOnOpenMPDestroyClause(StartLoc, EndLoc);
+    Res = ActOnOpenMPDestroyClause(/*InteropVar=*/nullptr, StartLoc,
+                                   /*LParenLoc=*/SourceLocation(),
+                                   /*VarLoc=*/SourceLocation(), EndLoc);
     break;
   case OMPC_if:
   case OMPC_final:
@@ -15907,19 +15909,13 @@ OMPClause *Sema::ActOnOpenMPDynamicAllocatorsClause(SourceLocation StartLoc,
   return new (Context) OMPDynamicAllocatorsClause(StartLoc, EndLoc);
 }
 
-OMPClause *Sema::ActOnOpenMPDestroyClause(SourceLocation StartLoc,
-                                          SourceLocation EndLoc) {
-  return new (Context) OMPDestroyClause(StartLoc, EndLoc);
-}
-
 StmtResult Sema::ActOnOpenMPInteropDirective(ArrayRef<OMPClause *> Clauses,
                                              SourceLocation StartLoc,
                                              SourceLocation EndLoc) {
 
   // OpenMP 5.1 [2.15.1, interop Construct, Restrictions]
   // At least one action-clause must appear on a directive.
-  // TODO: also add 'destroy' here.
-  if (!hasClauses(Clauses, OMPC_init, OMPC_use, OMPC_nowait)) {
+  if (!hasClauses(Clauses, OMPC_init, OMPC_use, OMPC_destroy, OMPC_nowait)) {
     StringRef Expected = "'init', 'use', 'destroy', or 'nowait'";
     Diag(StartLoc, diag::err_omp_no_clause_for_directive)
         << Expected << getOpenMPDirectiveName(OMPD_interop);
@@ -15970,8 +15966,11 @@ StmtResult Sema::ActOnOpenMPInteropDirective(ArrayRef<OMPClause *> Clauses,
       const auto *UC = cast<OMPUseClause>(C);
       VarLoc = UC->getVarLoc();
       DRE = dyn_cast_or_null<DeclRefExpr>(UC->getInteropVar());
+    } else if (ClauseKind == OMPC_destroy) {
+      const auto *DC = cast<OMPDestroyClause>(C);
+      VarLoc = DC->getVarLoc();
+      DRE = dyn_cast_or_null<DeclRefExpr>(DC->getInteropVar());
     }
-    // TODO: 'destroy' clause to be added here.
 
     if (!DRE)
       continue;
@@ -16031,8 +16030,7 @@ static bool isValidInteropVariable(Sema &SemaRef, Expr *InteropVarExpr,
 
   // OpenMP 5.1 [2.15.1, interop Construct, Restrictions]
   // The interop-var passed to init or destroy must be non-const.
-  // TODO: 'destroy' clause too.
-  if (Kind == OMPC_init &&
+  if ((Kind == OMPC_init || Kind == OMPC_destroy) &&
       isConstNotMutableType(SemaRef, InteropVarExpr->getType())) {
     SemaRef.Diag(VarLoc, diag::err_omp_interop_variable_expected)
         << /*non-const*/ 1;
@@ -16079,6 +16077,19 @@ OMPClause *Sema::ActOnOpenMPUseClause(Expr *InteropVar, SourceLocation StartLoc,
 
   return new (Context)
       OMPUseClause(InteropVar, StartLoc, LParenLoc, VarLoc, EndLoc);
+}
+
+OMPClause *Sema::ActOnOpenMPDestroyClause(Expr *InteropVar,
+                                          SourceLocation StartLoc,
+                                          SourceLocation LParenLoc,
+                                          SourceLocation VarLoc,
+                                          SourceLocation EndLoc) {
+  if (InteropVar &&
+      !isValidInteropVariable(*this, InteropVar, VarLoc, OMPC_destroy))
+    return nullptr;
+
+  return new (Context)
+      OMPDestroyClause(InteropVar, StartLoc, LParenLoc, VarLoc, EndLoc);
 }
 
 OMPClause *Sema::ActOnOpenMPVarListClause(
