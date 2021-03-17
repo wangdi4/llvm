@@ -203,10 +203,6 @@ private:
             // handling.
   };
 
-#if INTEL_CUSTOMIZATION
-  bool isOmpSIMDLoop(Loop *L);
-#endif // INTEL_CUSTOMIZATION
-
   /// \name Countable Loop Idiom Handling
   /// @{
 
@@ -381,30 +377,6 @@ bool LoopIdiomRecognize::runOnLoop(Loop *L) {
 }
 
 #if INTEL_CUSTOMIZATION
-/// Checks if loop's \p L preheader or any of its predecessors has at least one
-/// OMP SIMD loop region.
-bool LoopIdiomRecognize::isOmpSIMDLoop(Loop *L) {
-  BasicBlock *CurBB = L->getLoopPreheader();
-  // Starting from Loop PH check all of its predecessors for OMP SIMD loop
-  // regions. Paropt transforms ensure that SIMD clause BB and Loop PH BB are
-  // connected by straight line control flow. Any BB with more than one
-  // predecessor should mean Loop is not SIMD.
-  while (CurBB) {
-    for (auto &I : *CurBB) {
-      StringRef DirString = vpo::VPOAnalysisUtils::getRegionDirectiveString(&I);
-      if (!DirString.empty() && DirString.equals("DIR.OMP.SIMD")) {
-        LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                   " Detected an OMP SIMD loop region in %"
-                          << L->getHeader()->getName() << "\n");
-        return true;
-      }
-    }
-
-    CurBB = CurBB->getSinglePredecessor();
-  }
-  return false;
-}
-
 static bool interferesWithLoopOpt(const Loop *Lp, const SCEV *BECount) {
   if (!Lp->getHeader()->getParent()->isPreLoopOpt())
     return false;

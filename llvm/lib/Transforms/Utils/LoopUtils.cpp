@@ -1227,6 +1227,39 @@ static bool hasHardUserWithinLoop(const Loop *L, const Instruction *I) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Check if loop \p L preheader or any of its predecessors has an
+/// OpenMP SIMD directive.
+bool llvm::isOmpSIMDLoop(Loop *L) {
+
+  if (!L->getLoopPreheader())
+    return false;
+
+  BasicBlock *CurBB = L->getLoopPreheader();
+
+  // Starting from Loop preheader, check all of its predecessors for
+  // the OpenMP SIMD directive. Paropt transforms ensure that the SIMD
+  // directive basic block and the Loop preheader basic block are
+  // connected by straight line control flow. Any basic block with
+  // more than one predecessor should mean that Loop is not SIMD.
+  while (CurBB) {
+    for (auto &I : *CurBB) {
+      StringRef DirString = vpo::VPOAnalysisUtils::getRegionDirectiveString(&I);
+      if (!DirString.empty() && DirString.equals("DIR.OMP.SIMD")) {
+        LLVM_DEBUG(dbgs() << DEBUG_TYPE
+                   " Detected an OMP SIMD loop region in %"
+                          << L->getHeader()->getName() << "\n");
+        return true;
+      }
+    }
+
+    CurBB = CurBB->getSinglePredecessor();
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Collect information about PHI nodes which can be transformed in
 // rewriteLoopExitValues.
 struct RewritePhi {
