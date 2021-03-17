@@ -1184,6 +1184,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsI
 /// std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >::basic_ostringstream(std::_Ios_Openmode)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode")
+/// std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >::basic_ostringstream()
+TLI_DEFINE_ENUM_INTERNAL(std_cxx11_basic_ostringstream_ctor)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1Ev")
 /// std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >::~basic_ostringstream()
 TLI_DEFINE_ENUM_INTERNAL(std_cxx11_basic_ostringstream_dtor)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEED1Ev")
@@ -1629,6 +1632,12 @@ TLI_DEFINE_STRING_INTERNAL("__isoc99_sscanf")
 ///     void *desired, int32_t success_order, int32_t failure_order);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_compare_exchange)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_compare_exchange")
+/// void __kmpc_atomic_fixed4_add(ident_t *id_ref, int gtid, kmp_int32 *lhs, kmp_int32 rhs)
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_fixed4_add)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_fixed4_add")
+/// void __kmpc_atomic_float8_add(ident_t *id_ref, int gtid, kmp_real64 *lhs, kmp_real64 rhs)
+TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_float8_add)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_float8_add")
 /// void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int32_t order);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_atomic_load)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_load")
@@ -1789,6 +1798,9 @@ TLI_DEFINE_STRING_INTERNAL("__logl_finite")
 /// int __lxstat (int version, const char *file, struct stat *buf);
 TLI_DEFINE_ENUM_INTERNAL(lxstat)
 TLI_DEFINE_STRING_INTERNAL("__lxstat")
+/// int __lxstat64 (int version, const char *file, struct stat64 *buf);
+TLI_DEFINE_ENUM_INTERNAL(lxstat64)
+TLI_DEFINE_STRING_INTERNAL("__lxstat64")
 #endif // INTEL_CUSTOMIZATION
 
 /// void *__memccpy_chk(void *dst, const void *src, int c, size_t n,
@@ -2947,6 +2959,9 @@ TLI_DEFINE_STRING_INTERNAL("getpwuid")
 /// int getrlimit(int resource, struct rlimit *rlim);
 TLI_DEFINE_ENUM_INTERNAL(getrlimit)
 TLI_DEFINE_STRING_INTERNAL("getrlimit")
+/// int getrlimit64(int resource, struct rlimit64 *rlim);
+TLI_DEFINE_ENUM_INTERNAL(getrlimit64)
+TLI_DEFINE_STRING_INTERNAL("getrlimit64")
 /// int getrusage(int who, struct rusage *usage);
 TLI_DEFINE_ENUM_INTERNAL(getrusage)
 TLI_DEFINE_STRING_INTERNAL("getrusage")

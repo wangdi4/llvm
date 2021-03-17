@@ -823,6 +823,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 #endif  // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
       "declare i1 @__kmpc_atomic_compare_exchange(i64, i8*, i8*, i8*, i32, i32)\n"
+      "declare void @__kmpc_atomic_fixed4_add(%struct*, i8, i32*, i32)\n"
+      "declare void @__kmpc_atomic_float8_add(%struct*, i8, double*, double)\n"
       "declare void @__kmpc_atomic_load(i64, i8*, i8*, i32)\n"
       "declare void @__kmpc_atomic_store(i64, i8*, i8*, i32)\n"
       "declare void @__kmpc_barrier(i8*, i32)\n"
@@ -867,6 +869,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64* @__local_stdio_printf_options()\n"
       "declare i64* @__local_stdio_scanf_options()\n"
       "declare i32 @__lxstat(i32, i8*, i8*)\n"
+      "declare i32 @__lxstat64(i32, i8*, i8*)\n"
       "declare i32 @__pthread_key_create(i32*, i8*)\n"
       "declare i8* @__rawmemchr(i8*, i32)\n"
       "declare i32 @__signbit(double)\n"
@@ -1062,6 +1065,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1Ev(%struct*)\n"
       "declare void @_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare void @_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode(i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1Ev(%struct*)\n"
       "declare void @_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEED1Ev(%struct*)\n"
       "declare void @_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_(i8*, i8*, i8*)\n"
       "declare void @_ZNSt8__detail15_List_node_base7_M_hookEPS0_(i8*, i8*)\n"
@@ -1194,6 +1198,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @getpid()\n"
       "declare i8* @getpwuid(i32)\n"
       "declare i32 @getrlimit(i32, i8*)\n"
+      "declare i32 @getrlimit64(i32, i8*)\n"
       "declare i32 @FindClose(i8*)\n"
       "declare i8* @FindFirstFileA(i8*, %struct*)\n"
       "declare i8* @FindFirstFileW(i16*, %struct*)\n"

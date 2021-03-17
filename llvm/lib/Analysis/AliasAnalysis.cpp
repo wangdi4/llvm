@@ -106,6 +106,12 @@ void AAResults::setupWithOptLevel(unsigned OptLevel) {
   for (auto &AA : AAs)
     AA->setupWithOptLevel(OptLevel);
 }
+
+void AAResults::setAAResultsPtr() {
+  for (auto &AA : AAs)
+    AA->setAAResults(this);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 bool AAResults::invalidate(Function &F, const PreservedAnalyses &PA,
