@@ -5046,10 +5046,12 @@ defm sycl : BoolOption<"f", "sycl",
 def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption, DpcppOption]>,
   HelpText<"SYCL language standard to compile for.">, Values<"2020,2017,121,1.2.1,sycl-1.2.1">,
   NormalizedValues<["SYCL_2020", "SYCL_2017", "SYCL_2017", "SYCL_2017", "SYCL_2017"]>, NormalizedValuesScope<"LangOptions">,
-  MarshallingInfoString<LangOpts<"SYCLVersion">, "SYCL_None">, ShouldParseIf<fsycl.KeyPath>, AutoNormalizeEnum;
-defm sycl_esimd: OptInFFlag<"sycl-explicit-simd", "Enable", "Disable", " SYCL explicit SIMD extension.", [CC1Option,CoreOption, DpcppOption], LangOpts<"SYCLExplicitSIMD">>;
+  MarshallingInfoString<LangOpts<"SYCLVersion">, "SYCL_None">;
+defm sycl_esimd: BoolFOption<"sycl-explicit-simd",
+  LangOpts<"SYCLExplicitSIMD">, DefaultFalse,
+  PosFlag<SetTrue, [CC1Option], "Enable">, NegFlag<SetFalse, [], "Disable">,
+  BothFlags<[NoArgumentUnused, CoreOption, DpcppOption], "SYCL explicit SIMD extension.">>;
 defm sycl_early_optimizations : OptOutFFlag<"sycl-early-optimizations", "Enable", "Disable", " standard optimization pipeline for SYCL device compiler", [CoreOption, DpcppOption]>;
-#if INTEL_CUSTOMIZATION
 def fsycl_enable_function_pointers : Flag<["-"],
   "fsycl-enable-function-pointers">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Experimental Feature: Enables function pointers and support for "
