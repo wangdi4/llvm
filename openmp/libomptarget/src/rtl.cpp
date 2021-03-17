@@ -342,6 +342,12 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(add_build_options);
     SET_OPTIONAL_INTERFACE_FN(is_supported_device);
     SET_OPTIONAL_INTERFACE_FN(deinit);
+    SET_OPTIONAL_INTERFACE_FN(create_interop);
+    SET_OPTIONAL_INTERFACE_FN(release_interop);
+    SET_OPTIONAL_INTERFACE_FN(get_num_interop_properties);
+    SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
+    SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
+    SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,

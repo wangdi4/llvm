@@ -88,6 +88,16 @@ struct RTLInfoTy {
   typedef void (add_build_options_ty)(const char *, const char *);
   typedef int32_t(is_supported_device_ty)(int32_t, void *);
   typedef void (deinit_ty)(void);
+  typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t);
+  typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
+  typedef int32_t(get_num_interop_properties_ty)(int32_t);
+  typedef int32_t(get_interop_property_value_ty)(int32_t, __tgt_interop *,
+                                                 omp_interop_property_t,
+                                                 int32_t, size_t, void *);
+  typedef const char *(get_interop_property_info_ty)(int32_t,
+                                                     omp_interop_property_t,
+                                                     int32_t);
+  typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
 
@@ -153,6 +163,12 @@ struct RTLInfoTy {
   add_build_options_ty *add_build_options = nullptr;
   is_supported_device_ty *is_supported_device = nullptr;
   deinit_ty *deinit = nullptr;
+  create_interop_ty *create_interop = nullptr;
+  release_interop_ty *release_interop = nullptr;
+  get_num_interop_properties_ty *get_num_interop_properties = nullptr;
+  get_interop_property_value_ty *get_interop_property_value = nullptr;
+  get_interop_property_info_ty *get_interop_property_info = nullptr;
+  get_interop_rc_desc_ty *get_interop_rc_desc = nullptr;
 #endif // INTEL_COLLAB
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;
