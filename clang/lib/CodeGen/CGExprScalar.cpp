@@ -882,13 +882,10 @@ Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
   if (const MemberPointerType *MPT = dyn_cast<MemberPointerType>(SrcType))
     return CGF.CGM.getCXXABI().EmitMemberPointerIsNotNull(CGF, Src, MPT);
 
-#if INTEL_CUSTOMIZATION
-  assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType()) ||
-          SrcType->isArbPrecIntType()) &&
+  assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType())) &&
          "Unknown scalar type to convert");
 
-  if (isa<llvm::IntegerType>(Src->getType()) || SrcType->isArbPrecIntType())
-#endif // INTEL_CUSTOMIZATION
+  if (isa<llvm::IntegerType>(Src->getType()))
     return EmitIntToBoolConversion(Src);
 
   assert(isa<llvm::PointerType>(Src->getType()));
@@ -2500,7 +2497,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     value = Builder.getTrue();
 
   // Most common case by far: integer increment.
-  } else if (type->isIntegerType() || type->isArbPrecIntType()) { // INTEL
+  } else if (type->isIntegerType()) {
     QualType promotedType;
     bool canPerformLossyDemotionCheck = false;
     if (type->isPromotableIntegerType()) {

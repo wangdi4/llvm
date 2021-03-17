@@ -241,9 +241,6 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<PipeType> PipeTypes;
 #if INTEL_CUSTOMIZATION
   mutable llvm::FoldingSet<ChannelType> ChannelTypes;
-  mutable llvm::FoldingSet<ArbPrecIntType> ArbPrecIntTypes;
-  mutable llvm::FoldingSet<DependentSizedArbPrecIntType>
-      DependentSizedArbPrecIntTypes;
 #endif // INTEL_CUSTOMIZATION
   mutable llvm::FoldingSet<ExtIntType> ExtIntTypes;
   mutable llvm::FoldingSet<DependentExtIntType> DependentExtIntTypes;
@@ -1275,11 +1272,6 @@ public:
 
 #if INTEL_CUSTOMIZATION
   QualType getChannelType(QualType T) const;
-  QualType getArbPrecIntType(QualType Type, unsigned NumBits,
-                             SourceLocation AttrLoc) const;
-  QualType getDependentSizedArbPrecIntType(QualType Type,
-                                          Expr *BitsExpr,
-                                          SourceLocation AttrLoc) const;
 #endif // INTEL_CUSTOMIZATION
   /// Return an extended integer type with the specified signedness and bit
   /// count.

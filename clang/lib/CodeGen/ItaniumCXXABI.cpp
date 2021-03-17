@@ -3433,8 +3433,6 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     llvm_unreachable("Channel types shouldn't get here");
-  case Type::ArbPrecInt:
-    // Fallthrough.
 #endif // INTEL_CUSTOMIZATION
 
   case Type::Builtin:
@@ -3717,8 +3715,6 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     llvm_unreachable("Channel type shouldn't get here");
-  case Type::ArbPrecInt:
-    break;
 #endif // INTEL_CUSTOMIZATION
 
   case Type::ConstantArray:

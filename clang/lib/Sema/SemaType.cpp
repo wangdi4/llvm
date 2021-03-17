@@ -2262,53 +2262,6 @@ QualType Sema::BuildChannelType(QualType T, SourceLocation Loc) {
   // Build the channel type.
   return Context.getChannelType(T);
 }
-
-/// Build an Arbitrary Precision Integer type.
-///
-/// \param T The underlying type for the ArbPrecInt
-///
-/// \param NumBitsExpr An expression representing the number of bits for this
-/// ArbPrecInt.
-///
-/// \param AttrLoc The Location of the attribute causing the ArbPrecInt.
-QualType Sema::BuildArbPrecIntType(QualType T, Expr *NumBitsExpr,
-                                   SourceLocation AttrLoc) {
-  if (!T->isDependentType() && T.getCanonicalType() != Context.IntTy &&
-      T.getCanonicalType() != Context.UnsignedIntTy) {
-    Diag(AttrLoc, diag::err_ap_int_type) << T;
-    return QualType();
-  }
-
-  if (!NumBitsExpr->isTypeDependent() && !NumBitsExpr->isValueDependent()) {
-    Optional<llvm::APSInt> Bits = NumBitsExpr->getIntegerConstantExpr(Context);
-    if (!Bits) {
-      Diag(AttrLoc, diag::err_attribute_argument_type)
-          << "__ap_int" << AANT_ArgumentIntegerConstant
-          << NumBitsExpr->getSourceRange();
-      return QualType();
-    }
-
-    int64_t NumBits = Bits->getSExtValue();
-    if (!T->isDependentType() && T->isSignedIntegerOrEnumerationType() &&
-        NumBits < 2) {
-      Diag(AttrLoc, diag::err_ap_int_bad_size) << 0;
-      return QualType();
-    }
-
-    if (!T->isDependentType() && !T->isSignedIntegerOrEnumerationType() &&
-        NumBits < 1) {
-      Diag(AttrLoc, diag::err_ap_int_bad_size) << 1;
-      return QualType();
-    }
-
-    if (T->isDependentType() && NumBits < 1) {
-      Diag(AttrLoc, diag::err_ap_int_bad_size) << 2;
-      return QualType();
-    }
-    return Context.getArbPrecIntType(T, NumBits, AttrLoc);
-  }
-  return Context.getDependentSizedArbPrecIntType(T, NumBitsExpr, AttrLoc);
-}
 #endif // INTEL_CUSTOMIZATION
 
 /// Build a extended int type.
@@ -7935,45 +7888,6 @@ static void HandleExtVectorTypeAttr(QualType &CurType, const ParsedAttr &Attr,
     CurType = T;
 }
 
-#if INTEL_CUSTOMIZATION
-static void HandleArbPrecIntAttr(QualType &CurType, const ParsedAttr &Attr,
-                                 Sema &S) {
-  // Warning message handled later, but prevent changing of the type.
-  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL &&
-      !S.getLangOpts().SYCLIsDevice)
-    return;
-
-  // check the attribute arguments.
-  if (Attr.getNumArgs() != 1) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
-        << Attr << 1;
-    return;
-  }
-
-  Expr *NumBitsExpr;
-  // Special case where the argument is a template id.
-  if (Attr.isArgIdent(0)) {
-    CXXScopeSpec SS;
-    SourceLocation TemplateKWLoc;
-    UnqualifiedId Id;
-    Id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
-
-    ExprResult NumBits = S.ActOnIdExpression(S.getCurScope(), SS, TemplateKWLoc,
-                                             Id, false, false);
-    if (NumBits.isInvalid())
-      return;
-
-    NumBitsExpr = NumBits.get();
-  } else {
-    NumBitsExpr = Attr.getArgAsExpr(0);
-  }
-
-  QualType T = S.BuildArbPrecIntType(CurType, NumBitsExpr, Attr.getLoc());
-  if (!T.isNull())
-    CurType = T;
-}
-#endif // INTEL_CUSTOMIZATION
-
 static bool isPermittedNeonBaseType(QualType &Ty,
                                     VectorType::VectorKind VecKind, Sema &S) {
   const BuiltinType *BTy = Ty->getAs<BuiltinType>();
@@ -8367,12 +8281,6 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       HandleVectorSizeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
       break;
-#if INTEL_CUSTOMIZATION
-    case ParsedAttr::AT_ArbPrecInt:
-      HandleArbPrecIntAttr(type, attr, state.getSema());
-      attr.setUsedAsTypeAttr();
-      break;
-#endif // INTEL_CUSTOMIZATION
     case ParsedAttr::AT_ExtVectorType:
       HandleExtVectorTypeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();

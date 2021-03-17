@@ -262,7 +262,6 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::ObjCObjectPointer:
 #if INTEL_CUSTOMIZATION
     case Type::Channel:
-    case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
     case Type::ExtInt:
@@ -2691,9 +2690,6 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
 #if INTEL_CUSTOMIZATION
     case Type::Channel:
       type = cast<ChannelType>(ty)->getElementType();
-      break;
-    case Type::ArbPrecInt:
-      type = cast<ArbPrecIntType>(ty)->getUnderlyingType();
       break;
 #endif // INTEL_CUSTOMIZATION
 
