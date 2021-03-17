@@ -3146,6 +3146,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     Clause = ParseOpenMPUsesAllocatorClause(DKind);
     break;
   case OMPC_init:
+  case OMPC_use:
     Clause = ParseOpenMPInteropClause(CKind, WrongDirective);
     break;
   case OMPC_device_type:
@@ -3371,6 +3372,9 @@ OMPClause *Parser::ParseOpenMPInteropClause(OpenMPClauseKind Kind,
     return Actions.ActOnOpenMPInitClause(InteropVarExpr.get(), Prefs, IsTarget,
                                          IsTargetSync, Loc, T.getOpenLocation(),
                                          VarLoc, RLoc);
+  if (Kind == OMPC_use)
+    return Actions.ActOnOpenMPUseClause(InteropVarExpr.get(), Loc,
+                                        T.getOpenLocation(), VarLoc, RLoc);
 
   llvm_unreachable("Unexpected interop variable clause.");
 }
