@@ -1610,7 +1610,15 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv:
     return Changed;
+  case LibFunc_std_cxx11_basic_string_find_first_not_of:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    return Changed;
   case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    return Changed;
+  case LibFunc_std_cxx11_basic_string_find_char_unsigned_long:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
     return Changed;
@@ -1732,6 +1740,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE:
     return Changed;
+  case LibFunc_std_runtime_error_std_runtime_error_const:
+    return Changed;
   case LibFunc_ZNSt13runtime_errorC2ERKSs:
     return Changed;
   case LibFunc_ZNSt13runtime_errorC2EPKc:
@@ -1743,11 +1753,15 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
     return Changed;
+  case LibFunc_std_basic_ifstream_ctor:
+    return Changed;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev:
     return Changed;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev:
     return Changed;
   case LibFunc_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
+    return Changed;
+  case LibFunc_std_basic_ofstream_dtor:
     return Changed;
   case LibFunc_ZNSt15basic_streambufIcSt11char_traitsIcEE5imbueERKSt6locale:
     return Changed;
@@ -1829,6 +1843,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode:
     return Changed;
+  case LibFunc_std_cxx11_basic_ostringstream_dtor:
+    return Changed;
   case LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_:
     return Changed;
   case LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_:
@@ -1892,7 +1908,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_:
   case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
+  case LibFunc_std_basic_ostream_std_endl:
+  case LibFunc_std_basic_ostream_std_flush:
   case LibFunc_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_:
+  case LibFunc_std_basic_istream_getline_cxx11_char:
     return Changed;
   case LibFunc_ZSt9terminatev:
     Changed |= setDoesNotReturn(F);
