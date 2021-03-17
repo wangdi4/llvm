@@ -338,6 +338,7 @@ bool VPInstruction::mayHaveSideEffects() const {
   if (Instruction::isCast(Opcode) || Instruction::isShift(Opcode) ||
       Instruction::isBitwiseLogicOp(Opcode) ||
       Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
+      Opcode == Instruction::ExtractElement ||
       Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr ||
       Opcode == VPInstruction::Subscript || Opcode == Instruction::PHI ||
       Opcode == Instruction::ICmp || Opcode == Instruction::FCmp ||
