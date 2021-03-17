@@ -422,10 +422,7 @@ NarrowingKind StandardConversionSequence::getNarrowingKind(
   case ICK_Integral_Conversion:
   IntegralConversion: {
     assert(FromType->isIntegralOrUnscopedEnumerationType());
-#if INTEL_CUSTOMIZATION
-    assert(ToType->isIntegralOrUnscopedEnumerationType() ||
-           ToType->isArbPrecIntType());
-#endif // INTEL_CUSTOMIZATION
+    assert(ToType->isIntegralOrUnscopedEnumerationType());
     const bool FromSigned = FromType->isSignedIntegerOrEnumerationType();
     const unsigned FromWidth = Ctx.getIntWidth(FromType);
     const bool ToSigned = ToType->isSignedIntegerOrEnumerationType();
@@ -1472,6 +1469,7 @@ TryImplicitConversion(Sema &S, Expr *From, QualType ToType,
 
     return ICS;
   }
+
   return TryUserDefinedConversion(S, From, ToType, SuppressUserConversions,
                                   AllowExplicit, InOverloadResolution, CStyle,
                                   AllowObjCWritebackConversion,
@@ -1672,26 +1670,6 @@ static bool IsVectorConversion(Sema &S, QualType FromType,
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-static bool IsArbPrecIntConversion(Sema &S, QualType FromType, QualType ToType,
-                               ImplicitConversionKind &ICK) {
-  if (!ToType->isArbPrecIntType() && !FromType->isArbPrecIntType())
-    return false;
-  if (S.Context.hasSameUnqualifiedType(FromType, ToType))
-    return false;
-  if (FromType->isArbPrecIntType() && ToType->isBooleanType()) {
-    ICK = ICK_Boolean_Conversion;
-    return true;
-  }
-  if ((ToType->isArbPrecIntType() || ToType->isIntegerType()) &&
-      (FromType->isArbPrecIntType() || FromType->isIntegerType())) {
-    ICK = ICK_Integral_Conversion;
-    return true;
-  }
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-
 static bool tryAtomicConversion(Sema &S, Expr *From, QualType ToType,
                                 bool InOverloadResolution,
                                 StandardConversionSequence &SCS,
@@ -1876,11 +1854,6 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
     // Boolean conversions (C++ 4.12).
     SCS.Second = ICK_Boolean_Conversion;
     FromType = S.Context.BoolTy;
-#if INTEL_CUSTOMIZATION
-  } else if (IsArbPrecIntConversion(S, FromType, ToType, SecondICK)) {
-    SCS.Second = SecondICK;
-    FromType = ToType.getUnqualifiedType();
-#endif // INTEL_CUSTOMIZATION
   } else if (FromType->isIntegralOrUnscopedEnumerationType() &&
              ToType->isIntegralType(S.Context)) {
     // Integral conversions (C++ 4.7).

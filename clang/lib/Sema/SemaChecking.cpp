@@ -12264,11 +12264,6 @@ struct IntRange {
       T = CT->getElementType().getTypePtr();
     if (const AtomicType *AT = dyn_cast<AtomicType>(T))
       T = AT->getValueType().getTypePtr();
-#if INTEL_CUSTOMIZATION
-    if (const ArbPrecIntType *AP = dyn_cast<ArbPrecIntType>(T))
-      return IntRange(AP->getNumBits(),
-                      AP->isUnsignedIntegerOrEnumerationType());
-#endif // INTEL_CUSTOMIZATION
 
     if (!C.getLangOpts().CPlusPlus) {
       // For enum types in C code, use the underlying datatype.
@@ -12319,11 +12314,6 @@ struct IntRange {
       T = AT->getValueType().getTypePtr();
     if (const EnumType *ET = dyn_cast<EnumType>(T))
       T = C.getCanonicalType(ET->getDecl()->getIntegerType()).getTypePtr();
-#if INTEL_CUSTOMIZATION
-    if (const ArbPrecIntType *AP = dyn_cast<ArbPrecIntType>(T))
-      return IntRange(AP->getNumBits(),
-                      AP->isUnsignedIntegerOrEnumerationType());
-#endif // INTEL_CUSTOMIZATION
 
     if (const auto *EIT = dyn_cast<ExtIntType>(T))
       return IntRange(EIT->getNumBits(), EIT->isUnsigned());
@@ -14116,8 +14106,7 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
   if (Target->isBooleanType())
     DiagnoseIntInBoolContext(S, E);
 
-  if (!(Source->isIntegerType() || Source->isArbPrecIntType()) || // INTEL
-      !(Target->isIntegerType() || Target->isArbPrecIntType()))   // INTEL
+  if (!Source->isIntegerType() || !Target->isIntegerType())
     return;
 
   // TODO: remove this early return once the false positives for constant->bool

@@ -1835,13 +1835,6 @@ static getConstantArrayInfoInChars(const ASTContext &Context,
               (uint64_t)(-1)/Size) &&
          "Overflow in array type char size evaluation");
   uint64_t Width = EltInfo.Width.getQuantity() * Size;
-#if INTEL_CUSTOMIZATION
-  if (CAT->getElementType()->isArbPrecIntType() &&
-      !llvm::isPowerOf2_64(Context.getTypeSize(CAT->getElementType())))
-    Width = llvm::alignTo(EltInfo.Width.getQuantity(),
-                          EltInfo.Align.getQuantity()) *
-            Size;
-#endif // INTEL_CUSTOMIZATION
   unsigned Align = EltInfo.Align.getQuantity();
   if (!Context.getTargetInfo().getCXXABI().isMicrosoft() ||
       Context.getTargetInfo().getPointerWidth(0) == 64)
@@ -1855,14 +1848,7 @@ TypeInfoChars ASTContext::getTypeInfoInChars(const Type *T) const {
   if (const auto *CAT = dyn_cast<ConstantArrayType>(T))
     return getConstantArrayInfoInChars(*this, CAT);
   TypeInfo Info = getTypeInfo(T);
-#if INTEL_CUSTOMIZATION
-  // toCharUnitsFromBits always rounds down and is depended on, but
-  // AP-Int size needs to be the next size up.
-  return TypeInfoChars(toCharUnitsFromBits(Info.Width) +
-                            (Info.Width % getCharWidth() == 0
-                                 ? CharUnits::Zero()
-                                 : CharUnits::One()),
-#endif // INTEL_CUSTOMIZATION
+  return TypeInfoChars(toCharUnitsFromBits(Info.Width),
                        toCharUnitsFromBits(Info.Align),
                        Info.AlignIsRequired);
 }
@@ -1957,13 +1943,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     assert((Size == 0 || EltInfo.Width <= (uint64_t)(-1) / Size) &&
            "Overflow in array type bit size evaluation");
     Width = EltInfo.Width * Size;
-#if INTEL_CUSTOMIZATION
-    if (cast<ArrayType>(T)->getElementType()->isArbPrecIntType() &&
-        !llvm::isPowerOf2_64(EltInfo.Width))
-      Width = llvm::alignTo(EltInfo.Width,
-                            EltInfo.Align) *
-              Size;
-#endif // INTEL_CUSTOMIZATION
     Align = EltInfo.Align;
     AlignIsRequired = EltInfo.AlignIsRequired;
     if (!getTargetInfo().getCXXABI().isMicrosoft() ||
@@ -2402,13 +2381,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     TypeInfo Info = getTypeInfo(cast<ChannelType>(T)->getElementType());
     Width = Info.Width;
     Align = Info.Align;
-    break;
-  }
-  case Type::ArbPrecInt: {
-    const ArbPrecIntType *AT = cast<ArbPrecIntType>(T);
-    Width = AT->getNumBits();
-    Align = std::min(std::max(getCharWidth(), llvm::PowerOf2Ceil(Width)),
-                     static_cast<uint64_t>(64));
     break;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3564,8 +3536,6 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::MemberPointer:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-  case Type::ArbPrecInt:
-  case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return type;
@@ -4467,70 +4437,6 @@ QualType ASTContext::getChannelType(QualType T) const {
   ChannelType *New = new (*this, TypeAlignment) ChannelType(T, Canonical);
   Types.push_back(New);
   ChannelTypes.InsertNode(New, InsertPos);
-  return QualType(New, 0);
-}
-
-QualType ASTContext::getArbPrecIntType(QualType Type, unsigned NumBits,
-                                       SourceLocation AttrLoc) const {
-  assert(Type->isIntegerType() || Type->isDependentType());
-
-  llvm::FoldingSetNodeID ID;
-  ArbPrecIntType::Profile(ID, Type, NumBits);
-
-  void *InsertPos = nullptr;
-  if (ArbPrecIntType *VTP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos))
-    return QualType(VTP, 0);
-
-  QualType Canonical;
-  if (!Type.isCanonical()) {
-    Canonical = getArbPrecIntType(getCanonicalType(Type), NumBits, AttrLoc);
-
-    ArbPrecIntType *NewIP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
-    assert(!NewIP && "Shouldn't be in the map!");
-    (void)NewIP;
-  }
-
-  ArbPrecIntType *New = new (*this, TypeAlignment)
-      ArbPrecIntType(Type, NumBits, Canonical, AttrLoc);
-  ArbPrecIntTypes.InsertNode(New, InsertPos);
-  Types.push_back(New);
-  return QualType(New, 0);
-}
-
-QualType
-ASTContext::getDependentSizedArbPrecIntType(QualType Type, Expr *NumBitsExpr,
-                                            SourceLocation AttrLoc) const {
-  llvm::FoldingSetNodeID ID;
-  DependentSizedArbPrecIntType::Profile(ID, *this, getCanonicalType(Type),
-                                        NumBitsExpr);
-
-  void *InsertPos = nullptr;
-  DependentSizedArbPrecIntType *Canon =
-      DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
-  DependentSizedArbPrecIntType *New;
-
-  if (Canon) {
-    New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
-        *this, Type, QualType(Canon, 0), NumBitsExpr, AttrLoc);
-  } else {
-    QualType CanonTy = getCanonicalType(Type);
-    if (CanonTy == Type) {
-      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
-          *this, Type, QualType(), NumBitsExpr, AttrLoc);
-      DependentSizedArbPrecIntType *CanonCheck =
-          DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
-      assert(!CanonCheck && "Shouldn't be in the map!");
-      (void)CanonCheck;
-      DependentSizedArbPrecIntTypes.InsertNode(New, InsertPos);
-    } else {
-      QualType Canon =
-          getDependentSizedArbPrecIntType(CanonTy, NumBitsExpr, AttrLoc);
-      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
-          *this, Type, Canon, NumBitsExpr, AttrLoc);
-    }
-  }
-
-  Types.push_back(New);
   return QualType(New, 0);
 }
 #endif // INTEL_CUSTOMIZATION
@@ -6412,11 +6318,6 @@ int ASTContext::getFloatingTypeSemanticOrder(QualType LHS, QualType RHS) const {
 /// or if it is not canonicalized.
 unsigned ASTContext::getIntegerRank(const Type *T) const {
   assert(T->isCanonicalUnqualified() && "T should be canonicalized");
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(T)) {
-    return 7 + (getIntWidth(QualType(T, 0)) << 3);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Results in this 'losing' to any type of the same size, but winning if
   // larger.
@@ -7829,7 +7730,6 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
 
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-  case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::ExtInt:
@@ -10042,33 +9942,6 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     if (getCanonicalType(RHSValue) == getCanonicalType(ResultType))
       return RHS;
     return getChannelType(ResultType);
-  }
-  case Type::ArbPrecInt:
-  {
-    // Merge two pointer types, while trying to preserve typedef info
-    QualType LHSValue = LHS->getAs<ArbPrecIntType>()->getUnderlyingType();
-    QualType RHSValue = RHS->getAs<ArbPrecIntType>()->getUnderlyingType();
-    unsigned LHSBits = LHS->getAs<ArbPrecIntType>()->getNumBits();
-    unsigned RHSBits = RHS->getAs<ArbPrecIntType>()->getNumBits();
-
-    if (Unqualified) {
-      LHSValue = LHSValue.getUnqualifiedType();
-      RHSValue = RHSValue.getUnqualifiedType();
-    }
-    QualType UnderlyingType = mergeTypes(LHSValue, RHSValue, false,
-                                     Unqualified);
-    if (UnderlyingType.isNull()) return QualType();
-
-    if (getCanonicalType(LHSValue) == getCanonicalType(UnderlyingType) &&
-        LHSBits == RHSBits)
-      return LHS;
-    if (getCanonicalType(RHSValue) == getCanonicalType(UnderlyingType) &&
-        LHSBits == RHSBits)
-      return RHS;
-
-    if (LHSBits >= RHSBits)
-      return LHS;
-    return RHS;
   }
 #endif // INTEL_CUSTOMIZATION
 

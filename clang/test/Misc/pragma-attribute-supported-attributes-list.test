@@ -17,9 +17,6 @@
 // CHECK-NEXT: AlwaysInline (SubjectMatchRule_function)
 // CHECK-NEXT: Annotate ()
 // CHECK-NEXT: AnyX86NoCfCheck (SubjectMatchRule_hasType_functionType)
-// if INTEL_CUSTOMIZATION
-// CHECK-NEXT: ArbPrecInt (SubjectMatchRule_type_alias)
-// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: ArcWeakrefUnavailable (SubjectMatchRule_objc_interface)
 // CHECK-NEXT: ArmBuiltinAlias (SubjectMatchRule_function)
 // CHECK-NEXT: AssumeAligned (SubjectMatchRule_objc_method, SubjectMatchRule_function)

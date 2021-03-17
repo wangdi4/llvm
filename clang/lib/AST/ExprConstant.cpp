@@ -3160,13 +3160,6 @@ static bool HandleSizeof(EvalInfo &Info, SourceLocation Loc,
   }
 
   Size = Info.Ctx.getTypeSizeInChars(Type);
-
-#if INTEL_CUSTOMIZATION
-  if (Type->isArbPrecIntType()) {
-    auto SizeAndAlign = Info.Ctx.getTypeInfoInChars(Type);
-    Size = SizeAndAlign.Width.alignTo(SizeAndAlign.Align);
-  }
-#endif // INTEL_CUSTOMIZATION
   return true;
 }
 
@@ -10605,11 +10598,8 @@ public:
       : ExprEvaluatorBaseTy(info), Result(result) {}
 
   bool Success(const llvm::APSInt &SI, const Expr *E, APValue &Result) {
-#if INTEL_CUSTOMIZATION
-    assert((E->getType()->isIntegralOrEnumerationType() ||
-            E->getType()->isArbPrecIntType()) &&
+    assert(E->getType()->isIntegralOrEnumerationType() &&
            "Invalid evaluation result.");
-#endif // INTEL_CUSTOMIZATION
     assert(SI.isSigned() == E->getType()->isSignedIntegerOrEnumerationType() &&
            "Invalid evaluation result.");
     assert(SI.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
@@ -10622,11 +10612,8 @@ public:
   }
 
   bool Success(const llvm::APInt &I, const Expr *E, APValue &Result) {
-#if INTEL_CUSTOMIZATION
-    assert((E->getType()->isIntegralOrEnumerationType() ||
-            E->getType()->isArbPrecIntType()) &&
+    assert(E->getType()->isIntegralOrEnumerationType() &&
            "Invalid evaluation result.");
-#endif // INTEL_CUSTOMIZATION
     assert(I.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
            "Invalid evaluation result.");
     Result = APValue(APSInt(I));
@@ -10639,11 +10626,8 @@ public:
   }
 
   bool Success(uint64_t Value, const Expr *E, APValue &Result) {
-#if INTEL_CUSTOMIZATION
-    assert((E->getType()->isIntegralOrEnumerationType() ||
-            E->getType()->isArbPrecIntType()) &&
+    assert(E->getType()->isIntegralOrEnumerationType() &&
            "Invalid evaluation result.");
-#endif // INTEL_CUSTOMIZATION
     Result = APValue(Info.Ctx.MakeIntValue(Value, E->getType()));
     return true;
   }
@@ -11049,7 +11033,6 @@ EvaluateBuiltinClassifyType(QualType T, const LangOptions &LangOpts) {
   case Type::ObjCObjectPointer:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-  case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::ExtInt:
@@ -14551,9 +14534,7 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
   } else if (T->isVectorType()) {
     if (!EvaluateVector(E, Result, Info))
       return false;
-#if INTEL_CUSTOMIZATION
-  } else if (T->isIntegralOrEnumerationType() || T->isArbPrecIntType()) {
-#endif // INTEL_CUSTOMIZATION
+  } else if (T->isIntegralOrEnumerationType()) {
     if (!IntExprEvaluator(Info, Result).Visit(E))
       return false;
   } else if (T->hasPointerRepresentation()) {

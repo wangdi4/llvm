@@ -2204,8 +2204,6 @@ public:
 #if INTEL_CUSTOMIZATION
   QualType BuildChannelType(QualType T,
                             SourceLocation Loc);
-  QualType BuildArbPrecIntType(QualType T, Expr *Size,
-                              SourceLocation AttrLoc);
 #endif // INTEL_CUSTOMIZATION
 
   QualType BuildWritePipeType(QualType T,
@@ -12042,14 +12040,6 @@ public:
     };
   };
   using ReferenceConversions = ReferenceConversionsScope::ReferenceConversions;
-
-#if INTEL_CUSTOMIZATION
-  QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
-                                   SourceLocation Loc, bool IsCompAssign,
-                                   bool IsShift = false);
-  QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
-                                      SourceLocation Loc);
-#endif // INTEL_CUSTOMIZATION
 
   ReferenceCompareResult
   CompareReferenceRelationship(SourceLocation Loc, QualType T1, QualType T2,

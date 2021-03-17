@@ -1203,11 +1203,6 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Build a new channel type given its value type.
   QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
-  QualType RebuildArbPrecIntType(QualType ValueType, unsigned NumBits,
-                                 SourceLocation Loc);
-  QualType RebuildDependentSizedArbPrecIntType(QualType ValueType,
-                                               Expr *NumBitsExpr,
-                                               SourceLocation Loc);
 #endif // INTEL_CUSTOMIZATION
 
    /// Build an extended int given its value type.
@@ -6386,67 +6381,6 @@ QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
 
   ChannelTypeLoc NewTL = TLB.push<ChannelTypeLoc>(Result);
   NewTL.setKWLoc(TL.getKWLoc());
-
-  return Result;
-}
-
-template <typename Derived>
-QualType TreeTransform<Derived>::TransformArbPrecIntType(TypeLocBuilder &TLB,
-                                                         ArbPrecIntTypeLoc TL) {
-  const ArbPrecIntType *T = TL.getTypePtr();
-  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
-  if (UnderlyingType.isNull())
-    return QualType();
-
-  QualType Result = TL.getType();
-  if (getDerived().AlwaysRebuild() ||
-      UnderlyingType != T->getUnderlyingType()) {
-    Result = getDerived().RebuildArbPrecIntType(UnderlyingType, T->getNumBits(),
-                                                T->getAttributeLoc());
-    if (Result.isNull())
-      return QualType();
-  }
-
-  ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
-  NewTL.setNameLoc(TL.getNameLoc());
-
-  return Result;
-}
-
-template <typename Derived>
-QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
-    TypeLocBuilder &TLB, DependentSizedArbPrecIntTypeLoc TL) {
-  const DependentSizedArbPrecIntType *T = TL.getTypePtr();
-  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
-  if (UnderlyingType.isNull())
-    return QualType();
-
-  EnterExpressionEvaluationContext Unevaluated(
-      SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-
-  ExprResult NumBits = getDerived().TransformExpr(T->getNumBitsExpr());
-  NumBits = SemaRef.ActOnConstantExpression(NumBits);
-  if (NumBits.isInvalid())
-    return QualType();
-
-  QualType Result = TL.getType();
-  if (getDerived().AlwaysRebuild() ||
-      UnderlyingType != T->getUnderlyingType() ||
-      NumBits.get() != T->getNumBitsExpr()) {
-    Result = getDerived().RebuildDependentSizedArbPrecIntType(
-        UnderlyingType, NumBits.get(), T->getAttributeLoc());
-    if (Result.isNull())
-      return QualType();
-  }
-
-  if (isa<DependentSizedArbPrecIntType>(Result)) {
-    DependentSizedArbPrecIntTypeLoc NewTL =
-        TLB.push<DependentSizedArbPrecIntTypeLoc>(Result);
-    NewTL.setNameLoc(TL.getNameLoc());
-  } else {
-    ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
-    NewTL.setNameLoc(TL.getNameLoc());
-  }
 
   return Result;
 }
@@ -14462,22 +14396,6 @@ template <typename Derived>
 QualType TreeTransform<Derived>::RebuildChannelType(QualType ValueType,
                                                     SourceLocation KWLoc) {
   return SemaRef.BuildChannelType(ValueType, KWLoc);
-}
-
-template <typename Derived>
-QualType TreeTransform<Derived>::RebuildArbPrecIntType(
-    QualType UnderlyingType, unsigned NumBits, SourceLocation AttributeLoc) {
-  llvm::APInt NumBitsAP(SemaRef.Context.getIntWidth(SemaRef.Context.IntTy),
-                        NumBits, true);
-  IntegerLiteral *Bits = IntegerLiteral::Create(
-      SemaRef.Context, NumBitsAP, SemaRef.Context.IntTy, AttributeLoc);
-  return SemaRef.BuildArbPrecIntType(UnderlyingType, Bits, AttributeLoc);
-}
-
-template <typename Derived>
-QualType TreeTransform<Derived>::RebuildDependentSizedArbPrecIntType(
-    QualType ElementType, Expr *NumExpr, SourceLocation AttributeLoc) {
-  return SemaRef.BuildArbPrecIntType(ElementType, NumExpr, AttributeLoc);
 }
 #endif // INTEL_CUSTOMIZATION
 

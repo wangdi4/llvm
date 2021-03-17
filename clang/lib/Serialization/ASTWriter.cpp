@@ -499,14 +499,6 @@ void TypeLocWriter::VisitPipeTypeLoc(PipeTypeLoc TL) {
 void TypeLocWriter::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   Record.AddSourceLocation(TL.getKWLoc());
 }
-
-void TypeLocWriter::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
-  Record.AddSourceLocation(TL.getNameLoc());
-}
-void TypeLocWriter::VisitDependentSizedArbPrecIntTypeLoc(
-    DependentSizedArbPrecIntTypeLoc TL) {
-  Record.AddSourceLocation(TL.getNameLoc());
-}
 #endif // INTEL_CUSTOMIZATION
 
 void TypeLocWriter::VisitExtIntTypeLoc(clang::ExtIntTypeLoc TL) {
