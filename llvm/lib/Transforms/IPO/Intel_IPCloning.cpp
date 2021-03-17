@@ -4502,6 +4502,10 @@ static bool isManyLoopSpecializationCandidate(Function *F,
       return 0;
     }
     auto BI = dyn_cast<BranchInst>(*IC->user_begin());
+    if (!BI) {
+      LLVM_DEBUG(dbgs() << "ICmpInst does not feed branch.\n");
+      return 0;
+    }
     auto BB = BI->getParent();
     unsigned Count = 0;
     for (unsigned I = 0, E = BI->getNumSuccessors(); I < E; ++I)
