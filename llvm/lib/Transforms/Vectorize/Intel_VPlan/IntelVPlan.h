@@ -3743,6 +3743,9 @@ public:
 // Several inline functions to hide the #if machinery from the callers.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
+  DEBUG_WITH_TYPE("vplan-dumps",
+                  dbgs() << "VPlan after " << Transformation << ":\n";
+                  Plan->dump(dbgs()));
   if (!Cond)
     return;
   outs() << "VPlan after " << Transformation << ":\n";
@@ -3835,6 +3838,11 @@ struct FuncVecVPlanDumpControl : public VPlanDumpControl {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan &Plan) {
+  DEBUG_WITH_TYPE("vplan-dumps", dbgs()
+                                     << "VPlan after "
+                                     << Control.getPassDescription() << ":\n";
+                  Plan.dump(dbgs()));
+
   if (Control.dumpPlain()) {
     if (Control.PrintPlainDumpPrefix)
       outs() << "VPlan after " << Control.getPassDescription() << ":\n";
