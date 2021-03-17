@@ -388,6 +388,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_fxstat64);
     TLI.setUnavailable(LibFunc_gxx_personality_v0);
     TLI.setUnavailable(LibFunc_lxstat);
+    TLI.setUnavailable(LibFunc_lxstat64);
     TLI.setUnavailable(LibFunc_sysv_signal);
     TLI.setUnavailable(LibFunc_alphasort);
     TLI.setUnavailable(LibFunc_asprintf);
@@ -414,6 +415,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_getopt_long);
     TLI.setUnavailable(LibFunc_getpwuid);
     TLI.setUnavailable(LibFunc_getrlimit);
+    TLI.setUnavailable(LibFunc_getrlimit64);
     TLI.setUnavailable(LibFunc_getrusage);
     TLI.setUnavailable(LibFunc_getuid);
     TLI.setUnavailable(LibFunc_glob);
@@ -573,6 +575,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1119basic_ostringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode);
+    TLI.setUnavailable(LibFunc_std_cxx11_basic_ostringstream_ctor);
     TLI.setUnavailable(LibFunc_std_cxx11_basic_ostringstream_dtor);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_);
@@ -3291,6 +3294,20 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(4)->isIntegerTy() &&
             FTy.getParamType(5)->isIntegerTy());
 
+  case LibFunc_kmpc_atomic_fixed4_add:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_kmpc_atomic_float8_add:
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isDoubleTy());
+
   case LibFunc_kmpc_atomic_load:
     return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
@@ -3533,6 +3550,7 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_lxstat:
+  case LibFunc_lxstat64:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
@@ -4574,6 +4592,7 @@ case LibFunc_under_commit:
             FTy.getParamType(0)->isPointerTy() && // this pointer
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_std_cxx11_basic_ostringstream_ctor:
   case LibFunc_std_cxx11_basic_ostringstream_dtor:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
@@ -5263,6 +5282,7 @@ case LibFunc_under_commit:
             FTy.getParamType(0)->isIntegerTy());
 
   case LibFunc_getrlimit:
+  case LibFunc_getrlimit64:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy());
