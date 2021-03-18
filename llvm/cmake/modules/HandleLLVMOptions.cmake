@@ -1523,3 +1523,11 @@ if(INTEL_CUSTOMIZATION)
     message(STATUS "INTEL: setting SDL options - end.")
   endif()
 endif(INTEL_CUSTOMIZATION)
+
+if(LLVM_INCLUDE_TESTS)
+  # Lit test suite requires at least python 3.6
+  set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
+else()
+  # FIXME: it is unknown if this is the actual minimum bound
+  set(LLVM_MINIMUM_PYTHON_VERSION 3.0)
+endif()
