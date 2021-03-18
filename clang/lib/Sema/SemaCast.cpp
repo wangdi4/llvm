@@ -2770,10 +2770,7 @@ void CastOperation::CheckCStyleCast() {
     return;
   }
 
-#if INTEL_CUSTOMIZATION
-  if (!DestType->isScalarType() && !DestType->isVectorType() &&
-      !DestType->isArbPrecIntType()) {
-#endif // INTEL_CUSTOMIZATION
+  if (!DestType->isScalarType() && !DestType->isVectorType()) {
     const RecordType *DestRecordTy = DestType->getAs<RecordType>();
 
     if (DestRecordTy && Self.Context.hasSameUnqualifiedType(DestType, SrcType)){
@@ -2826,10 +2823,8 @@ void CastOperation::CheckCStyleCast() {
 
   // The type we're casting to is known to be a scalar or vector.
 
-#if INTEL_CUSTOMIZATION
-  if (!SrcType->isScalarType() && !SrcType->isVectorType() &&
-      !SrcType->isArbPrecIntType()) {
-#endif // INTEL_CUSTOMIZATION
+  // Require the operand to be a scalar or vector.
+  if (!SrcType->isScalarType() && !SrcType->isVectorType()) {
     Self.Diag(SrcExpr.get()->getExprLoc(),
               diag::err_typecheck_expect_scalar_operand)
       << SrcType << SrcExpr.get()->getSourceRange();

@@ -1066,15 +1066,6 @@ DEF_TRAVERSE_TYPE(AtomicType, { TRY_TO(TraverseType(T->getValueType())); })
 
 #if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_TYPE(ChannelType, { TRY_TO(TraverseType(T->getElementType())); })
-
-DEF_TRAVERSE_TYPE(ArbPrecIntType,
-                  { TRY_TO(TraverseType(T->getUnderlyingType())); })
-
-DEF_TRAVERSE_TYPE(DependentSizedArbPrecIntType, {
-  if (T->getNumBitsExpr())
-    TRY_TO(TraverseStmt(T->getNumBitsExpr()));
-  TRY_TO(TraverseType(T->getUnderlyingType()));
-})
 #endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
@@ -1365,16 +1356,6 @@ DEF_TRAVERSE_TYPELOC(AtomicType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
 
 #if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_TYPELOC(ChannelType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
-
-DEF_TRAVERSE_TYPELOC(ArbPrecIntType, {
-  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
-})
-
-DEF_TRAVERSE_TYPELOC(DependentSizedArbPrecIntType, {
-  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
-  TRY_TO(TraverseStmt(TL.getTypePtr()->getNumBitsExpr()));
-})
-
 #endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })

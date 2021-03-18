@@ -1804,8 +1804,6 @@ bool CursorVisitor::VisitPipeTypeLoc(PipeTypeLoc TL) {
 bool CursorVisitor::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   return Visit(TL.getValueLoc());
 }
-DEFAULT_TYPELOC_IMPL(ArbPrecInt, Type)
-DEFAULT_TYPELOC_IMPL(DependentSizedArbPrecInt, Type)
 #endif // INTEL_CUSTOMIZATION
 
 DEFAULT_TYPELOC_IMPL(Complex, Type)

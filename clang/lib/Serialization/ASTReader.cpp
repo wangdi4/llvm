@@ -6811,13 +6811,6 @@ void TypeLocReader::VisitPipeTypeLoc(PipeTypeLoc TL) {
 void TypeLocReader::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   TL.setKWLoc(readSourceLocation());
 }
-void TypeLocReader::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
-  TL.setNameLoc(readSourceLocation());
-}
-void TypeLocReader::VisitDependentSizedArbPrecIntTypeLoc(
-    DependentSizedArbPrecIntTypeLoc TL) {
-  TL.setNameLoc(readSourceLocation());
-}
 #endif // INTEL_CUSTOMIZATION
 
 void TypeLocReader::VisitExtIntTypeLoc(clang::ExtIntTypeLoc TL) {

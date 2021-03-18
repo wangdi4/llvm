@@ -18,7 +18,6 @@ Intel-only Features and Customizations
 .. toctree::
    :maxdepth: 1
 
-   Intel/ArbitraryPrecisionIntegers
    Intel/SIMDFunctionPointers
    IntelCustomizations
 

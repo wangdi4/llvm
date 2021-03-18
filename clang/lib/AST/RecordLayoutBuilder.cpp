@@ -1856,18 +1856,7 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
     // Flexible array members don't have any size, but they have to be
     // aligned appropriately for their element type.
     EffectiveFieldSize = FieldSize =
-        IsIncompleteArrayType ? CharUnits::Zero()
-#if INTEL_CUSTOMIZATION
-            // toCharUnitsFromBits always rounds down and is depended on, but
-            // AP-Int size needs to be the next size up.
-            : (Context.toCharUnitsFromBits(
-                   Context.getTypeInfo(D->getType()).Width) +
-               (Context.getTypeInfo(D->getType()).Width %
-                            Context.getCharWidth() ==
-                        0
-                    ? CharUnits::Zero()
-                    : CharUnits::One()));
-#endif // INTEL_CUSTOMIZATION
+        IsIncompleteArrayType ? CharUnits::Zero() : TI.Width;
     AlignIsRequired = TI.AlignIsRequired;
   };
 
@@ -1881,12 +1870,6 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
         Context.getTargetInfo().getPointerAlign(AS));
   } else {
     setDeclInfo(false /* IsIncompleteArrayType */);
-#if INTEL_CUSTOMIZATION
-    // Arbitrary precision integer sizes require extra room to llvm::alloca due to
-    // their strange offset.  Thus, we need to include this in the layout size.
-    if (D->getType()->isArbPrecIntType())
-      EffectiveFieldSize = FieldSize = FieldSize.alignTo(FieldAlign);
-#endif // INTEL_CUSTOMIZATION
 
     // A potentially-overlapping field occupies its dsize or nvsize, whichever
     // is larger.
@@ -2604,12 +2587,6 @@ MicrosoftRecordLayoutBuilder::getAdjustedElementInfo(
   auto TInfo =
       Context.getTypeInfoInChars(FD->getType()->getUnqualifiedDesugaredType());
   ElementInfo Info{TInfo.Width, TInfo.Align};
-#if INTEL_CUSTOMIZATION
-  // Arbitrary precision integer sizes require extra room to llvm::alloca due to
-  // their strange offset.  Thus, we need to include this in the layout size.
-  if (FD->getType()->isArbPrecIntType())
-    Info.Size = Info.Size.alignTo(Info.Alignment);
-#endif // INTEL_CUSTOMIZATION
   // Respect align attributes on the field.
   CharUnits FieldRequiredAlignment =
       Context.toCharUnitsFromBits(FD->getMaxAlignment());

@@ -2214,8 +2214,6 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::Atomic:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-  case Type::ArbPrecInt:
-  case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::MacroQualified:
@@ -3909,18 +3907,6 @@ void CXXNameMangler::mangleType(const ChannelType *T) {
   // <type> ::= 11ocl_channel
   Out << "11ocl_channel";
   mangleType(T->getElementType());
-}
-void CXXNameMangler::mangleType(const ArbPrecIntType *T) {
-  Out << "11intel_apint_";
-  mangleNumber(T->getNumBits());
-  Out << '_';
-  mangleType(T->getUnderlyingType());
-}
-void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
-  Out << "11intel_apint_";
-  mangleExpression(T->getNumBitsExpr());
-  Out << '_';
-  mangleType(T->getUnderlyingType());
 }
 #endif // INTEL_CUSTOMIZATION
 

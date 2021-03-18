@@ -2110,63 +2110,6 @@ DeduceTemplateArgumentsByTypeMatch(Sema &S,
 
       return Sema::TDK_NonDeducedMismatch;
     }
-#if INTEL_CUSTOMIZATION
-    case Type::ArbPrecInt: {
-      const auto *IntParam = cast<ArbPrecIntType>(Param);
-      if (const auto *IntArg = dyn_cast<ArbPrecIntType>(Arg)) {
-        if (IntParam->getNumBits() != IntArg->getNumBits())
-          return Sema::TDK_NonDeducedMismatch;
-        // This should deduce the element types.
-        return DeduceTemplateArgumentsByTypeMatch(
-            S, TemplateParams, IntParam->getUnderlyingType(),
-            IntArg->getUnderlyingType(), Info, Deduced, TDF);
-      }
-
-      if (const auto *IntArg = dyn_cast<DependentSizedArbPrecIntType>(Arg))
-        return DeduceTemplateArgumentsByTypeMatch(
-            S, TemplateParams, IntParam->getUnderlyingType(),
-            IntArg->getUnderlyingType(), Info, Deduced, TDF);
-
-      return Sema::TDK_NonDeducedMismatch;
-    }
-    case Type::DependentSizedArbPrecInt: {
-      const auto *IntParam = cast<DependentSizedArbPrecIntType>(Param);
-      if (const auto *IntArg = dyn_cast<ArbPrecIntType>(Arg)) {
-        if (Sema::TemplateDeductionResult Result =
-                DeduceTemplateArgumentsByTypeMatch(
-                    S, TemplateParams, IntParam->getUnderlyingType(),
-                    IntArg->getUnderlyingType(), Info, Deduced, TDF))
-          return Result;
-
-        const NonTypeTemplateParmDecl *NTTP =
-            getDeducedParameterFromExpr(Info, IntParam->getNumBitsExpr());
-        if (!NTTP)
-          return Sema::TDK_Success;
-
-        llvm::APSInt ArgSize(S.Context.getTypeSize(S.Context.IntTy), false);
-        ArgSize = IntArg->getNumBits();
-
-        return DeduceNonTypeTemplateArgument(S, TemplateParams, NTTP, ArgSize,
-                                             S.Context.IntTy, true, Info,
-                                             Deduced);
-      }
-      if (const auto *IntArg = dyn_cast<DependentSizedArbPrecIntType>(Arg)) {
-        if (Sema::TemplateDeductionResult Result =
-                DeduceTemplateArgumentsByTypeMatch(
-                    S, TemplateParams, IntParam->getUnderlyingType(),
-                    IntArg->getUnderlyingType(), Info, Deduced, TDF))
-          return Result;
-        // Deduces Size.
-        const NonTypeTemplateParmDecl *NTTP =
-            getDeducedParameterFromExpr(Info, IntParam->getNumBitsExpr());
-        if (!NTTP)
-          return Sema::TDK_Success;
-        return DeduceNonTypeTemplateArgument(
-            S, TemplateParams, NTTP, IntArg->getNumBitsExpr(), Info, Deduced);
-      }
-      return Sema::TDK_NonDeducedMismatch;
-    }
-#endif // INTEL_CUSTOMIZATION
 
     //     (clang extension)
     //
@@ -5937,21 +5880,6 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
                                Depth, Used);
     break;
   }
-#if INTEL_CUSTOMIZATION
-  case Type::ArbPrecInt:
-    MarkUsedTemplateParameters(Ctx,
-                               cast<ArbPrecIntType>(T)->getUnderlyingType(),
-                               OnlyDeduced, Depth, Used);
-    break;
-  case Type::DependentSizedArbPrecInt: {
-    const auto *IntType = cast<DependentSizedArbPrecIntType>(T);
-    MarkUsedTemplateParameters(Ctx, IntType->getUnderlyingType(), OnlyDeduced,
-                               Depth, Used);
-    MarkUsedTemplateParameters(Ctx, IntType->getNumBitsExpr(), OnlyDeduced,
-                               Depth, Used);
-    break;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   case Type::DependentAddressSpace: {
     const DependentAddressSpaceType *DependentASType =

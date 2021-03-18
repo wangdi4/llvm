@@ -510,15 +510,6 @@ def StaticArrayReset : Attr {
   }];
 }
 
-def ArbPrecInt : TypeAttr {
-  let Spellings = [Clang<"__ap_int">];
-  let Subjects = SubjectList<[TypedefName], ErrorDiag>;
-  let Args = [ExprArgument<"NumBits">];
-  let LangOpts = [OpenCL, HLS, SYCLIsDevice];
-  let Documentation = [ArbPrecIntDocs];
-  let ASTNode = 0;
-}
-
 // IntrinsicPromotion implementation.
 // This is an AST only attribute that should never appear in customer code.
 def TargetPromotion : InheritableAttr {

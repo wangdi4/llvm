@@ -818,11 +818,6 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     ResultType = CGM.getOpenCLRuntime().getChannelType();
     break;
   }
-  case Type::ArbPrecInt: {
-    const auto *IntTy = cast<ArbPrecIntType>(Ty);
-    ResultType = llvm::Type::getIntNTy(getLLVMContext(), IntTy->getNumBits());
-    break;
-  }
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe: {
     ResultType = CGM.getOpenCLRuntime().getPipeType(cast<PipeType>(Ty));

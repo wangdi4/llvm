@@ -252,10 +252,6 @@ def err_hls_builtin_arg_mismatch : Error<
 def err_hls_builtin_without_fhls : Error <
   "HLS builtin can only be used when the HLS flag is present on the command "
   "line invocation">;
-def err_ap_int_type : Error <
-  "invalid __ap_int element type %0; must be 'int' or 'unsigned int'">;
-def err_ap_int_bad_size : Error <
-  "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
 def err_fpga_reg_limitations : Error <
   "Illegal %select{argument of type %1 |field in argument}0 to __builtin_fpga_reg.">;
 def err_pragma_loop_invalid_negative_value : Error<
