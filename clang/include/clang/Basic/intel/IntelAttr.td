@@ -527,3 +527,27 @@ def IntelOclBiccAVX512 : DeclOrTypeAttr {
   let Spellings = [Clang<"intel_ocl_bicc_avx512", 0>];
   let Documentation = [IntelOclBiccAVX512Docs];
 }
+
+def AllowCpuFeatures : InheritableAttr,
+                       TargetSpecificAttr<TargetAnyX86> {
+  let Spellings = [Clang<"allow_cpu_features">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [AllowCPUFeatureDocs];
+  let Args = [ExprArgument<"Page1">, ExprArgument<"Page2", 1>];
+  let AdditionalMembers = [{
+    uint64_t getPage1Value() const {
+      assert(page1 && "Page1 expression is not optional");
+      const auto *P1CE = dyn_cast<ConstantExpr>(page1);
+
+      if (!P1CE)
+        return 0;
+      return P1CE->getResultAsAPSInt().getZExtValue();
+    }
+    uint64_t getPage2Value() const {
+      const auto *P2CE = dyn_cast_or_null<ConstantExpr>(page2);
+      if (!P2CE)
+        return 0;
+      return P2CE->getResultAsAPSInt().getZExtValue();
+    }
+  }];
+}

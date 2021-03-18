@@ -2127,7 +2127,8 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   bool AddedAttr = false;
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
-  if (TD || SD || (FD && FD->hasAttr<TargetPromotionAttr>())) {
+  if (TD || SD || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
+      (FD && FD->hasAttr<AllowCpuFeaturesAttr>())) {
 #endif // INTEL_CUSTOMIZATION
     llvm::StringMap<bool> FeatureMap;
     getContext().getFunctionFeatureMap(FeatureMap, GD);

@@ -3023,7 +3023,32 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
     }))
       CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
           << FD->getDeclName() << TargetDecl->getDeclName() << MissingFeature;
+#if  INTEL_CUSTOMIZATION
+  } else if (const AllowCpuFeaturesAttr *AT =
+                 TargetDecl->getAttr<AllowCpuFeaturesAttr>()) {
+    SmallVector<StringRef, 1> ReqFeatures;
+    llvm::StringMap<bool> CalleeFeatureMap;
+    CGM.getContext().getFunctionFeatureMap(CalleeFeatureMap, TargetDecl);
+
+    CGM.getContext().getCpuFeaturesFromBitmask(ReqFeatures, AT->getPage1Value(),
+                                               AT->getPage2Value());
+
+    for (const auto &F : CalleeFeatureMap)
+    // Only positive features are "required".
+      if (F.getValue())
+        ReqFeatures.push_back(F.getKey());
+
+    if (!llvm::all_of(ReqFeatures, [&](StringRef Feature) {
+          if (!CallerFeatureMap.lookup(Feature)) {
+            MissingFeature = Feature.str();
+            return false;
+          }
+          return true;
+        }))
+      CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
+          << FD->getDeclName() << TargetDecl->getDeclName() << MissingFeature;
   }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenFunction::EmitSanitizerStatReport(llvm::SanitizerStatKind SSK) {

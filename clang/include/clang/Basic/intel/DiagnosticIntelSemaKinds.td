@@ -67,6 +67,8 @@ def warn_arg_invalid_range_low_assumed : Warning<
   InGroup<IntelCompat>;
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
+def err_allow_cpu_feature_invalid_bitmask : Error<
+  "invalid bitmask value specified for 'allow_cpu_features' attribute">;
 
 def warn_bad_cxx_cast_generic : Warning<
   "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
