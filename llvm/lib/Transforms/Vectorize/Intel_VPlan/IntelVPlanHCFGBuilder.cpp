@@ -213,6 +213,7 @@ public:
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
   using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
+  using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -497,6 +498,12 @@ public:
     Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
+    if (CurValue->isNonPOD()) {
+      auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);
+      Descriptor.setCtor(NonPODCurValue->getCtor());
+      Descriptor.setDtor(NonPODCurValue->getDtor());
+      Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
+    }
   }
 };
 

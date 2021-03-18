@@ -315,6 +315,8 @@ public:
   bool isCond() const { return PrivKind == PrivateKind::Conditional; }
   /// Check if private is last or conditional last private.
   bool isLast() const { return PrivKind != PrivateKind::NonLast; }
+  /// Check if private is for non-POD data type.
+  virtual bool isNonPOD() const { return false; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
@@ -339,7 +341,10 @@ public:
   PrivDescrNonPOD(Value *RegV, PrivateKind KindV, Function *Ctor,
                   Function *Dtor, Function *CopyAssign)
       : PrivDescr<Value>(RegV, KindV), Ctor(Ctor), Dtor(Dtor),
-        CopyAssign(CopyAssign) {}
+        CopyAssign(CopyAssign) {
+    assert(KindV != PrivateKind::Conditional &&
+           "Non POD privates cannot be conditional last privates.");
+  }
 
   // Copy constructor
   PrivDescrNonPOD(const PrivDescrNonPOD &Other)
@@ -381,6 +386,9 @@ public:
   Function *getDtor() const { return Dtor; }
   /// Get copy assign function for nonPOD private value.
   Function *getCopyAssign() const { return CopyAssign; }
+  /// Check if private is for non-POD data type.
+  bool isNonPOD() const override { return true; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
     PrivDescr<Value>::print(OS);

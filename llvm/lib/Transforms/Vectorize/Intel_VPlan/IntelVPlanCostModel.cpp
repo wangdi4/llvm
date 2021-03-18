@@ -722,7 +722,10 @@ unsigned VPlanTTICostModel::getTTICostForVF(
   case Instruction::Call: {
     auto *VPCall = cast<VPCallInstruction>(VPInst);
     auto *CI = VPCall->getUnderlyingCallInst();
-    assert(CI && "Expected non-null underlying call instruction");
+    // Calls that construct/destruct non-POD private memory are not expected to
+    // have any underlying CallInst. Return UnknownCost for such cases.
+    if (!CI)
+      return UnknownCost;
     Intrinsic::ID ID = getIntrinsicForCallSite(*CI, TLI);
 
     // If call is expected to be vectorized using SVML then obtain alternate

@@ -128,7 +128,9 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
                                           const TargetTransformInfo *TTI) {
 
   const CallInst *Call = VPCall->getUnderlyingCallInst();
-  if (!Call->hasFnAttr("vector-variants"))
+  // TODO: Add support to use called Function attributes when underlying Call is
+  // not available.
+  if (!Call || !Call->hasFnAttr("vector-variants"))
     return {};
 
   StringRef VecVariantStringValue =
@@ -162,9 +164,8 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   std::unique_ptr<VectorVariant> VariantForCall =
       getVectorVariantForCallParameters(VPCall, Masked, VF);
 
-  int VariantIdx =
-      TTI->getMatchingVectorVariant(*VariantForCall, Variants,
-                                    Call->getModule());
+  int VariantIdx = TTI->getMatchingVectorVariant(*VariantForCall, Variants,
+                                                 Call->getModule());
 
   if (VariantIdx >= 0) {
     LLVM_DEBUG(dbgs() << "\nMatched call to: " << Variants[VariantIdx].encode()
@@ -203,7 +204,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
 
   // Ignored calls (do we need a new field in VecProperties for this?)
-  if (isa<DbgInfoIntrinsic>(UnderlyingCI))
+  if (isa_and_nonnull<DbgInfoIntrinsic>(UnderlyingCI))
     return;
 
   Function *F = VPCall->getCalledFunction();
@@ -236,17 +237,6 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // call is masked only if its parent VPBB has predicate.
   VPBasicBlock *VPBB = VPCall->getParent();
   bool IsMasked = VPBB->getPredicate() != nullptr;
-  // Vectorizable library function like SVML calls. Set vector function name in
-  // CallVecProperties. NOTE : Vector library calls can be used if call
-  // is known to read memory only (non-default behavior).
-  if (TLI->isFunctionVectorizable(CalledFuncName, ElementCount::getFixed(VF),
-                                  IsMasked) &&
-      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
-    VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName, ElementCount::getFixed(VF),
-                                   IsMasked));
-    return;
-  }
 
   // Function calls with available vector variants.
   if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
@@ -267,6 +257,28 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
                                             true /*UseMaskedForUnmasked*/);
       return;
     }
+  }
+
+  // If underlying CallInst is not available for further analysis, serialize
+  // conservatively.
+  if (!UnderlyingCI) {
+    VPCall->setShouldBeSerialized();
+    return;
+  }
+
+  // For all other scenarios below, underlying CI is a hard-requirement.
+  // TODO: Explore options to relax the hard-requirement for future.
+  assert(UnderlyingCI && "UnderlyingCI is nullptr.");
+
+  // Vectorizable library function like SVML calls. Set vector function name in
+  // CallVecProperties. NOTE : Vector library calls can be used if call
+  // is known to read memory only (non-default behavior).
+  if (TLI->isFunctionVectorizable(CalledFuncName, ElementCount::getFixed(VF),
+                                  IsMasked) &&
+      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
+    VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
+        CalledFuncName, ElementCount::getFixed(VF), IsMasked));
+    return;
   }
 
   // Vectorize by pumping the call for a lower VF. Since pumping is only done

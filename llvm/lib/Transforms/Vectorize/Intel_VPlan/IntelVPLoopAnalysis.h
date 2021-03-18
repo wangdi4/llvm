@@ -56,7 +56,7 @@ class VPLoopEntity {
 public:
   using LinkedVPValuesTy = SetVector<VPValue *>;
 
-  enum { Reduction, IndexReduction, Induction, Private };
+  enum { Reduction, IndexReduction, Induction, Private, PrivateNonPOD };
   unsigned char getID() const { return SubclassID; }
 
   virtual ~VPLoopEntity() = 0;
@@ -277,8 +277,9 @@ public:
   using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
 
   VPPrivate(VPInstruction *FinalI, VPEntityAliasesTy &&InAliases,
-            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
-      : VPLoopEntity(Private, IsMemOnly), FinalInst(FinalI),
+            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false,
+            unsigned char Id = Private)
+      : VPLoopEntity(Id, IsMemOnly), FinalInst(FinalI),
         IsConditional(Conditional), IsLast(Last), IsExplicit(Explicit),
         Aliases(std::move(InAliases)) {}
 
@@ -296,7 +297,7 @@ public:
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
-    return V->getID() == Private;
+    return V->getID() == Private || V->getID() == PrivateNonPOD;
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
@@ -315,6 +316,34 @@ private:
   // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
   // instructions to existing loop-private, which are outside the loop-region.
   VPEntityAliasesTy Aliases;
+};
+
+class VPPrivateNonPOD : public VPPrivate {
+public:
+  VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, bool IsConditional,
+                  bool IsLast, bool IsExplicit, Function *Ctor, Function *Dtor,
+                  Function *CopyAssign)
+      : VPPrivate(nullptr, std::move(InAliases), IsConditional, IsLast,
+                  IsExplicit, true /*IsMemOnly*/, PrivateNonPOD),
+        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {}
+
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
+  Function *getCopyAssign() const { return CopyAssign; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == PrivateNonPOD;
+  }
+
+  static inline bool classof(const VPPrivate *V) {
+    return V->getID() == PrivateNonPOD;
+  }
+
+private:
+  Function *Ctor;
+  Function *Dtor;
+  Function *CopyAssign;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
@@ -402,6 +431,12 @@ public:
   VPPrivate *addPrivate(VPInstruction *FinalI, VPEntityAliasesTy &PtrAliases,
                         bool IsConditional, bool IsLast, bool Explicit,
                         VPValue *AI = nullptr, bool ValidMemOnly = false);
+
+  VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
+                                    bool IsConditional, bool IsLast,
+                                    bool Explicit, Function *Ctor,
+                                    Function *Dtor, Function *CopyAssign,
+                                    VPValue *AI = nullptr);
 
   /// Final stage of importing data from IR. Go through all imported descriptors
   /// and check/create links to VPInstructions.
@@ -682,7 +717,8 @@ private:
                                      VPBasicBlock *PostExit);
 
   // Insert VPInstructions related to VPPrivates.
-  void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader);
+  void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader,
+                                   VPBasicBlock *PostExit);
 
   // Mapping function that returns the underlying raw pointer.
   template <typename EntityType>
@@ -994,6 +1030,9 @@ public:
   bool isLast() const { return IsLast; }
   bool isExplicit() const { return IsExplicit; }
   bool isMemOnly() const { return getValidMemOnly(); }
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
+  Function *getCopyAssign() const { return CopyAssign; }
 
   /// Clear the content.
   void clear() override {
@@ -1024,6 +1063,9 @@ public:
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
   void addAlias(VPValue *Alias, VPInstruction *I) { PtrAliases[Alias] = I; }
+  void setCtor(Function *CtorFn) { Ctor = CtorFn; }
+  void setDtor(Function *DtorFn) { Dtor = DtorFn; }
+  void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
 
 private:
   VPValue *AllocaInst = nullptr;
@@ -1036,6 +1078,9 @@ private:
   bool IsConditional = false;
   bool IsLast = false;
   bool IsExplicit = false;
+  Function *Ctor = nullptr;
+  Function *Dtor = nullptr;
+  Function *CopyAssign = nullptr;
 };
 
 // Base class for loop entities converter. Used to create a list of converters
