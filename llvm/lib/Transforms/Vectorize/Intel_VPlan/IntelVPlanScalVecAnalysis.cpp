@@ -26,7 +26,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static bool isLoopHeaderPHI(VPlan *Plan, const VPPHINode *Phi) {
+static bool isLoopHeaderPHI(VPlanVector *Plan, const VPPHINode *Phi) {
   auto *PhiBlock = Phi->getParent();
   auto *Lp = Plan->getVPLoopInfo()->getLoopFor(PhiBlock);
   if (!Lp)
@@ -88,7 +88,7 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
     const VPInstruction *Inst, unsigned VF, const TargetLibraryInfo *TLI) {
-  auto *DA = Plan->getVPlanDA();
+  auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
 
   switch (Inst->getOpcode()) {
   case Instruction::PHI: {
@@ -543,7 +543,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
   }
 }
 
-void VPlanScalVecAnalysis::compute(VPlan *P, unsigned VF,
+void VPlanScalVecAnalysis::compute(VPlanVector *P, unsigned VF,
                                    const TargetLibraryInfo *TLI) {
   Plan = P;
 

@@ -250,7 +250,7 @@ namespace vpo {
 //                                  BB6
 //
 void mergeLoopExits(VPLoop *VPL) {
-  VPlan *Plan = VPL->getHeader()->getParent();
+  VPlanVector *Plan = cast<VPlanVector>(VPL->getHeader()->getParent());
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
   // Check if the loop has multiple exits.
@@ -581,7 +581,7 @@ void mergeLoopExits(VPLoop *VPL) {
 //                                  BB4
 //
 void singleExitWhileLoopCanonicalization(VPLoop *VPL) {
-  VPlan *Plan = VPL->getHeader()->getParent();
+  VPlanVector *Plan = cast<VPlanVector>(VPL->getHeader()->getParent());
   VPBasicBlock *OrigLoopLatch = VPL->getLoopLatch();
   assert(OrigLoopLatch && "Transformation assumes single loop latch.");
   if (OrigLoopLatch->getNumSuccessors() > 1)

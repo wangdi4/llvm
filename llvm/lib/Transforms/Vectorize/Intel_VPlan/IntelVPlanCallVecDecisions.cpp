@@ -53,9 +53,7 @@ void VPlanCallVecDecisions::reset() {
 
 std::unique_ptr<VectorVariant>
 VPlanCallVecDecisions::getVectorVariantForCallParameters(
-    const VPCallInstruction *VPCall,
-    bool Masked,
-    int VF) {
+    const VPCallInstruction *VPCall, bool Masked, int VF) {
   auto *DA = Plan.getVPlanDA();
   std::vector<VectorKind> ParmKinds;
   for (unsigned I = VPCall->isIntelIndirectCall() ? 1 : 0;

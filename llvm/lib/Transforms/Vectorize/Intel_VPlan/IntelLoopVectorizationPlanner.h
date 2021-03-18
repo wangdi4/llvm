@@ -115,7 +115,7 @@ public:
   /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
   /// was constructed. There are some limitations in CG, CM, and other parts of
   /// VPlan vectorizer on which we better gracefully bail out than assert.
-  bool canProcessVPlan(const VPlan &Plan);
+  bool canProcessVPlan(const VPlanVector &Plan);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor.
@@ -126,7 +126,7 @@ public:
   void predicate(void);
 
   /// Insert all-zero bypasses for \p Plan.
-  void insertAllZeroBypasses(VPlan *Plan, unsigned VF);
+  void insertAllZeroBypasses(VPlanVector *Plan, unsigned VF);
 
   /// Return Loop Unroll Factor either forced by option or pragma
   /// or advised by optimizations.
@@ -135,7 +135,7 @@ public:
 
   /// Perform VPlan loop unrolling if needed
   void
-  unroll(VPlan &Plan,
+  unroll(VPlanVector &Plan,
          VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
   template <typename CostModelTy = VPlanCostModel>
@@ -145,19 +145,17 @@ public:
   /// best selected VPlan.
   // void executeBestPlan(InnerLoopVectorizer &LB);
 
-  /// Return unmasked variant of VPlan for given VF.
-  VPlan *getVPlanForVF(unsigned VF) const {
+  /// Return non-masked variant of VPlan for given VF.
+  VPlanVector *getVPlanForVF(unsigned VF) const {
     auto It = VPlans.find(VF);
     return It != VPlans.end() ? It->second.MainPlan.get() : nullptr;
   }
 
   /// Return masked variant of VPlan for given VF.
-  VPlan *getMaskedVPlanForVF(unsigned VF) const {
+  VPlanMasked *getMaskedVPlanForVF(unsigned VF) const {
     auto It = VPlans.find(VF);
     return It != VPlans.end() ? It->second.MaskedModeLoop.get() : nullptr;
   }
-
-  VPlan *getScalarVPlan(void) const { return getVPlanForVF(1); }
 
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
 
@@ -166,8 +164,8 @@ public:
   }
 
   struct VPlanPair {
-    std::shared_ptr<VPlan> MainPlan;
-    std::shared_ptr<VPlan> MaskedModeLoop;
+    std::shared_ptr<VPlanVector> MainPlan;
+    std::shared_ptr<VPlanMasked> MaskedModeLoop;
   };
 
   void appendVPlanPair(unsigned VF, const VPlanPair &PlanPair) {
@@ -182,26 +180,27 @@ protected:
   /// the given \p EndRangeVF.
   // TODO: If this function becomes more complicated, move common code to base
   // class.
-  virtual std::shared_ptr<VPlan>
+  virtual std::shared_ptr<VPlanVector>
   buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
                     VPExternalValues &Ext,
                     VPUnlinkedInstructions &UnlinkedVPInsts,
                     std::string VPlanName, ScalarEvolution *SE = nullptr);
 
   /// Transform to emit explict uniform Vector loop iv.
-  virtual void emitVecSpecifics(VPlan *Plan);
+  virtual void emitVecSpecifics(VPlanVector *Plan);
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.
   virtual std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const;
 
   /// Create VPLiveIn/VPLiveOut lists for VPEntities.
-  virtual void createLiveInOutLists(VPlan &Plan);
+  virtual void createLiveInOutLists(VPlanVector &Plan);
 
   /// Check whether everything in the loop body is supported at the moment.
   /// We can have some unimplemented things and it's better to gracefully
   /// bailout in such cases than assert or generate incorrect code.
-  virtual bool canProcessLoopBody(const VPlan &Plan, const VPLoop &Loop) const;
+  virtual bool canProcessLoopBody(const VPlanVector &Plan,
+                                  const VPLoop &Loop) const;
 
   /// If the \p Loop has a normalized IV then return upper bound of the loop and
   /// compare instruction where it's used. Otherwise return <nullptr, nullptr>.
@@ -266,16 +265,16 @@ private:
   /// the block that was created for it.
   // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
 
-  void runInitialVecSpecificTransforms(VPlan *Plan);
+  void runInitialVecSpecificTransforms(VPlanVector *Plan);
 
   /// Main function that canonicalizes the CFG and applyies loop massaging
   /// transformations like mergeLoopExits transform.
-  void doLoopMassaging(VPlan *Plan);
+  void doLoopMassaging(VPlanVector *Plan);
 
   /// Use results from VPEntity analysis to emit explicit VPInstruction-based
   /// representation. The analysis results can be invalidated/stale after this
   /// transform.
-  void emitVPEntityInstrs(VPlan *Plan);
+  void emitVPEntityInstrs(VPlanVector *Plan);
 
   /// Emit uniform IV for the vector loop and rewrite backedge condition to use
   /// it.
@@ -291,7 +290,7 @@ private:
   // The order of latch's successors isn't changed which is ensured by selecting
   // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
   // are no remaining uses of it after the transformation above.
-  void emitVectorLoopIV(VPlan *Plan, VPValue *TripCount, VPValue *VF);
+  void emitVectorLoopIV(VPlanVector *Plan, VPValue *TripCount, VPValue *VF);
 
   /// Utility to dump and verify VPlan details after initial set of transforms.
   void printAndVerifyAfterInitialTransforms(VPlan *Plan);

@@ -59,9 +59,9 @@ static void collectRecurrentValuesAndLiveOuts(
   }
 }
 
-std::shared_ptr<VPlan> MaskedModeLoopCreator::createMaskedModeLoop(void) {
-  std::shared_ptr<VPlan> MaskedVPlan =
-      OrigVPlan->clone(VPAF, VPlan::UpdateDA::DoNotUpdateDA);
+std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
+  std::shared_ptr<VPlanMasked> MaskedVPlan =
+      OrigVPlan->cloneMasked(VPAF, VPlanVector::UpdateDA::DoNotUpdateDA);
 
   // Collect information before applying masked mode transformation.
   VPLoop *TopVPLoop = *MaskedVPlan->getVPLoopInfo()->begin();

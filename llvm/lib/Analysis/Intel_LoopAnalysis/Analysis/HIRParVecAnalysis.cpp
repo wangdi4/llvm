@@ -820,6 +820,11 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
           // sequence so bail out on any denominator.
           IdiomKind = HIRVectorIdioms::MMFirstLastVal;
           Msg = "(denom)\n";
+        } else if (Rhs->getSingleCanonExpr()->isInvariantAtLevel(
+                       Loop->getNestingLevel())) {
+          // Can be invariant at that level.
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(invariant)\n";
         }
       }
       if (DisableNonMonotonicIndexes &&

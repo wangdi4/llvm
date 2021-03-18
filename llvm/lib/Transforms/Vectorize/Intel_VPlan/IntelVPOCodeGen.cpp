@@ -83,22 +83,24 @@ static const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
 /// Helper function to check if given VPValue has consecutive pointer stride(1
 /// or -1) and return true if this is the case. IsNegOneStride is set to true if
 /// stride is -1 and false otherwise.
-static bool isVPValueConsecutivePtrStride(const VPValue *Ptr, const VPlan *Plan,
+static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
+                                          const VPlanVector *Plan,
                                           bool &IsNegOneStride) {
-  return Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
+      ->isUnitStridePtr(Ptr, IsNegOneStride);
 }
 
 // Variant of isVPValueConsecutivePtrStride where the client does not care about
 // IsNegOneStride value.
 static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
-                                          const VPlan *Plan) {
+                                          const VPlanVector *Plan) {
   bool IsNegOneStride = false;
   return isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
 }
 
 /// Helper function to check if given VPValue is uniform based on DA.
-static bool isVPValueUniform(VPValue *V, const VPlan *Plan) {
-  return !Plan->getVPlanDA()->isDivergent(*V);
+static bool isVPValueUniform(VPValue *V, const VPlanVector *Plan) {
+  return !cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())->isDivergent(*V);
 }
 
 /// Helper function to check if VPValue is linear and return linear step in \p
@@ -118,13 +120,14 @@ static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
 }
 
 /// Return true if \p Var a variable identified for SOA-layout.
-static bool isSOAAccess(const VPValue *Var, const VPlan *Plan) {
-  return Plan->getVPlanDA()->isSOAShape(Var);
+static bool isSOAAccess(const VPValue *Var, const VPlanVector *Plan) {
+  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())->isSOAShape(Var);
 }
 
 /// Return true if \p Var has a SOA unit-stride access.
-static bool isSOAUnitStride(const VPValue *Var, const VPlan *Plan) {
-  return Plan->getVPlanDA()->isSOAUnitStride(Var);
+static bool isSOAUnitStride(const VPValue *Var, const VPlanVector *Plan) {
+  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
+      ->isSOAUnitStride(Var);
 }
 
 // Generate SOA-type for the given input-type.
@@ -421,7 +424,7 @@ void VPOCodeGen::finalizeLoop() {
     fixNonInductionVPPhis();
 
     // Attach the new loop to the original preheader
-    auto *Plan = const_cast<VPlan *>(this->Plan);
+    auto *Plan = const_cast<VPlanVector *>(this->Plan);
 
     cast<BranchInst>(OrigPreHeader->getTerminator())
         ->setOperand(0, getScalarValue(
@@ -1664,7 +1667,7 @@ const VPValue *VPOCodeGen::getOrigSplatVPValue(const VPValue *V) {
               ->getSplatValue();
       // We need to create a new VPConstant to represent a splat constant
       // vector.
-      return const_cast<VPlan *>(Plan)->getVPConstant(SplatC);
+      return const_cast<VPlanVector *>(Plan)->getVPConstant(SplatC);
     }
   }
 
@@ -3630,8 +3633,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   auto PhiTy = VPPhi->getType();
   PHINode *NewPhi;
   // FIXME: Replace with proper SVA.
-  bool EmitScalarOnly =
-      !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
+  bool EmitScalarOnly = !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
   if (needScalarCode(VPPhi) || EmitScalarOnly) {
     NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
     VPScalarMap[VPPhi][0] = NewPhi;

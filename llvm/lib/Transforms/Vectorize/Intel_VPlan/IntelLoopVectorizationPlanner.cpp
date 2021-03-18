@@ -290,7 +290,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   unsigned i = 0;
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
-    std::shared_ptr<VPlan> Plan = buildInitialVPlan(
+    std::shared_ptr<VPlanVector> Plan = buildInitialVPlan(
         StartRangeVF, EndRangeVF, *Externals, *UnlinkedVPInsts, VPlanName, SE);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
@@ -337,7 +337,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   return i;
 }
 
-void LoopVectorizationPlanner::createLiveInOutLists(VPlan &Plan) {
+void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
   VPLiveInOutCreator LICreator(Plan);
   LICreator.createInOutValues(TheLoop);
   VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
@@ -349,25 +349,25 @@ void LoopVectorizationPlanner::createLiveInOutLists(VPlan &Plan) {
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
-  std::map<VPlan *, VPlanPeelingAnalysis> VPPACache;
+  std::map<VPlanNonMasked *, VPlanPeelingAnalysis> VPPACache;
   VPlanPeelingCostModelSimple CM(*DL);
 
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
-    VPlan &Plan = *Pair.second.MainPlan;
+    auto *Plan = cast<VPlanNonMasked>(Pair.second.MainPlan.get());
 
     if (VF == 1)
       continue;
 
-    auto Found = VPPACache.find(&Plan);
+    auto Found = VPPACache.find(Plan);
     if (Found == VPPACache.end()) {
-      VPlanPeelingAnalysis VPPA(*Plan.getVPSE(), *Plan.getVPVT(), *DL);
-      VPPA.collectMemrefs(Plan);
-      std::tie(Found, std::ignore) = VPPACache.emplace(&Plan, std::move(VPPA));
+      VPlanPeelingAnalysis VPPA(*(Plan->getVPSE()), *(Plan->getVPVT()), *DL);
+      VPPA.collectMemrefs(*Plan);
+      std::tie(Found, std::ignore) = VPPACache.emplace(Plan, std::move(VPPA));
     }
 
-    Plan.setPreferredPeeling(VF,
-                             Found->second.selectBestPeelingVariant(VF, CM));
+    Plan->setPreferredPeeling(VF,
+                              Found->second.selectBestPeelingVariant(VF, CM));
   }
 }
 
@@ -388,7 +388,7 @@ unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
 template <typename CostModelTy>
 unsigned LoopVectorizationPlanner::selectBestPlan() {
   LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
-  VPlan *ScalarPlan = getVPlanForVF(1);
+  VPlanVector *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
   // from the original loop. Has to be revisited after enabling of
@@ -479,7 +479,8 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (TripCount < VF * UF)
       continue; // FIXME: Consider masked low trip later.
 
-    VPlan *Plan = getVPlanForVF(VF);
+    VPlanVector *Plan = getVPlanForVF(VF);
+    assert(Plan && "Unexpected null VPlan");
 
     // Calculate cost for one iteration of the main loop.
     CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
@@ -580,8 +581,8 @@ void LoopVectorizationPlanner::predicate() {
   if (DisableVPlanPredicator)
     return;
 
-  DenseSet<VPlan *> PredicatedVPlans;
-  auto Predicate = [&PredicatedVPlans](VPlan *VPlan) {
+  DenseSet<VPlanVector *> PredicatedVPlans;
+  auto Predicate = [&PredicatedVPlans](VPlanVector *VPlan) {
     if (PredicatedVPlans.count(VPlan))
       return; // Already predicated.
 
@@ -619,15 +620,16 @@ void LoopVectorizationPlanner::predicate() {
   for (auto It : VPlans) {
     if (It.first == 1)
       continue; // Ignore Scalar VPlan;
-    VPlan *MainPlan = It.second.MainPlan.get();
+    VPlanVector *MainPlan = It.second.MainPlan.get();
     Predicate(MainPlan);
     // Masked mode loop might not exist.
-    if (VPlan *MaskedModeLoopPlan = It.second.MaskedModeLoop.get())
+    if (VPlanVector *MaskedModeLoopPlan = It.second.MaskedModeLoop.get())
       Predicate(MaskedModeLoopPlan);
   }
 }
 
-void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
+void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
+                                                     unsigned VF) {
   // Skip multi-exit loops at outer VPlan level. Inner loops will be
   // canonicalized to single exit in VPlan. TODO: this check is only
   // needed due to hacky search loop support. Change to assert in the
@@ -662,7 +664,7 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan, unsigned VF) {
 }
 
 void LoopVectorizationPlanner::unroll(
-    VPlan &Plan,
+    VPlanVector &Plan,
     VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
   unsigned UF = getLoopUnrollFactor();
   if (UF > 1) {
@@ -680,7 +682,8 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
-    VPlan *Plan = getVPlanForVF(VFRequested);
+    VPlanVector *Plan = getVPlanForVF(VFRequested);
+    assert(Plan && "Unexpected null VPlan");
 
 #if INTEL_CUSTOMIZATION
     CostModelTy CM(Plan, VFRequested, TTI, TLI, DL, VLSA);
@@ -730,14 +733,15 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
   return {MinWidth, MaxWidth};
 }
 
-std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
+std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
     unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
     VPUnlinkedInstructions &UnlinkedVPInsts, std::string VPlanName,
     ScalarEvolution *SE) {
-  // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan =
-      std::make_shared<VPlan>(Ext, UnlinkedVPInsts);
-  VPlan *Plan = SharedPlan.get();
+  // Create new empty VPlan. At this stage we want to create only NonMasked
+  // VPlans.
+  std::shared_ptr<VPlanVector> SharedPlan =
+      std::make_shared<VPlanNonMasked>(Ext, UnlinkedVPInsts);
+  VPlanVector *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
 
   if (EnableSOAAnalysis)
@@ -751,14 +755,15 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
   return SharedPlan;
 }
 
-void LoopVectorizationPlanner::runInitialVecSpecificTransforms(VPlan *Plan) {
+void LoopVectorizationPlanner::runInitialVecSpecificTransforms(
+    VPlanVector *Plan) {
   // 1. Convert VPLoopEntities into explicit VPInstructions.
   emitVPEntityInstrs(Plan);
   // 2. Emit explicit uniform vector loop IV.
   emitVecSpecifics(Plan);
 }
 
-void LoopVectorizationPlanner::emitVPEntityInstrs(VPlan *Plan) {
+void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   VPBuilder VPIRBuilder;
@@ -860,7 +865,7 @@ LoopVectorizationPlanner::getLoopUpperBound(const VPLoop *Loop) const {
   return std::make_pair(Cond->getOperand(0), Cond);
 }
 
-void LoopVectorizationPlanner::emitVecSpecifics(VPlan *Plan) {
+void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
 
@@ -887,7 +892,8 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlan *Plan) {
   emitVectorLoopIV(Plan, TC, VF);
 }
 
-void LoopVectorizationPlanner::emitVectorLoopIV(VPlan *Plan, VPValue *TripCount,
+void LoopVectorizationPlanner::emitVectorLoopIV(VPlanVector *Plan,
+                                                VPValue *TripCount,
                                                 VPValue *VF) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
@@ -927,7 +933,7 @@ void LoopVectorizationPlanner::emitVectorLoopIV(VPlan *Plan, VPValue *TripCount,
       Latch->eraseInstruction(Inst);
 }
 
-void LoopVectorizationPlanner::doLoopMassaging(VPlan *Plan) {
+void LoopVectorizationPlanner::doLoopMassaging(VPlanVector *Plan) {
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
   assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
@@ -964,16 +970,16 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
 
   LLVM_DEBUG(Plan->setName("Planner: After initial VPlan transforms\n");
              dbgs() << *Plan);
-  LLVM_DEBUG(dbgs() << "Dominator Tree After initial VPlan transforms\n";
-             Plan->getDT()->print(dbgs()));
-  LLVM_DEBUG(dbgs() << "PostDominator Tree After initial VPlan transforms :\n";
-             Plan->getPDT()->print(dbgs()));
-  LLVM_DEBUG(dbgs() << "VPLoop Info After initial VPlan transforms:\n";
-             Plan->getVPLoopInfo()->print(dbgs()));
 
-  LLVM_DEBUG(
-      Verifier->verifyLoops(Plan, *Plan->getDT(), Plan->getVPLoopInfo()));
-  (void)Verifier;
+  if (auto *VPlanVec = dyn_cast<VPlanVector>(Plan)) {
+
+    LLVM_DEBUG(VPlanVec->printVectorVPlanData());
+
+    LLVM_DEBUG(Verifier->verifyLoops(VPlanVec, *VPlanVec->getDT(),
+                                     VPlanVec->getVPLoopInfo()));
+    (void)VPlanVec;
+    (void)Verifier;
+  }
 
   VPLAN_DUMP(InitialTransformsDumpControl, Plan);
 }
@@ -1084,7 +1090,7 @@ void LoopVectorizationPlanner::EnterExplicitData(
   }
 }
 
-bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
+bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   VPLoop *VPLp = *(Plan.getVPLoopInfo()->begin());
   VPBasicBlock *Header = VPLp->getHeader();
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
@@ -1104,7 +1110,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
   return true;
 }
 
-bool LoopVectorizationPlanner::canProcessLoopBody(const VPlan &Plan,
+bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                                                   const VPLoop &Loop) const {
   // Check for live out values that are not inductions/reductions.
   // Their processing is not ready yet.
@@ -1147,7 +1153,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   VPCallbackILV CallbackILV;
 
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
-  VPlan *Plan = getVPlanForVF(BestVF);
+  VPlanVector *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
 
   // Temporary, until CFG merge is implemented. Replace VPLiveInValue-s by
@@ -1184,7 +1190,7 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops() {
   if (!EnableCFGMerge)
     return;
   assert(BestVF > 1 && "Unexpected VF");
-  VPlan *Plan = getVPlanForVF(BestVF);
+  VPlanVector *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
 
   VPlanCFGMerger CFGMerger(*Plan);

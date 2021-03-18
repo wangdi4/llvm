@@ -37,7 +37,7 @@ class HeuristicBase {
 protected:
   VPlanCostModel *CM;
   // Some utility stuff that is referenced within heuristics quite frequently.
-  const VPlan *Plan;
+  const VPlanVector *Plan;
   unsigned VF;
   unsigned UnknownCost;
   HeuristicBase(VPlanCostModel *CM, std::string Name);

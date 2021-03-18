@@ -260,18 +260,16 @@ void VPBasicBlock::setTerminator() {
   dropTerminatorIfExists();
   VPBranchInst *Instr = new VPBranchInst(Type::getVoidTy(getType()->getContext()));
   insert(Instr, end());
-  if (Parent)
-    if (VPlanDivergenceAnalysis *DA = Parent->getVPlanDA())
-      DA->updateDivergence(*Instr);
+  if (Parent && Parent->getVPlanDA())
+    Parent->getVPlanDA()->updateDivergence(*Instr);
 }
 
 void VPBasicBlock::setTerminator(VPBasicBlock *Succ) {
   dropTerminatorIfExists();
   VPBranchInst *Instr = new VPBranchInst(Succ);
   insert(Instr, end());
-  if (Parent)
-    if (VPlanDivergenceAnalysis *DA = Parent->getVPlanDA())
-      DA->updateDivergence(*Instr);
+  if (Parent && Parent->getVPlanDA())
+    Parent->getVPlanDA()->updateDivergence(*Instr);
 }
 
 void VPBasicBlock::setTerminator(VPBasicBlock *IfTrue, VPBasicBlock *IfFalse,
@@ -279,9 +277,8 @@ void VPBasicBlock::setTerminator(VPBasicBlock *IfTrue, VPBasicBlock *IfFalse,
   dropTerminatorIfExists();
   VPBranchInst *Instr = new VPBranchInst(IfTrue, IfFalse, Cond);
   insert(Instr, end());
-  if (Parent)
-    if (VPlanDivergenceAnalysis *DA = Parent->getVPlanDA())
-      DA->updateDivergence(*Instr);
+  if (Parent && Parent->getVPlanDA())
+    Parent->getVPlanDA()->updateDivergence(*Instr);
 }
 
 void VPBasicBlock::replaceSuccessor(VPBasicBlock *OldSuccessor,

@@ -55,10 +55,10 @@ bool VPlanPrintPrivDescr = false;
 } // namespace llvm
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
-                                   const WRNVecLoopNode *WRL, VPlan *Plan,
+                                   const WRNVecLoopNode *WRL, VPlanVector *Plan,
                                    VPOVectorizationLegality *Legal,
                                    ScalarEvolution *SE)
-  : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal), SE(SE) {
+    : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal), SE(SE) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
@@ -182,7 +182,7 @@ class PlainCFGBuilder : public VPlanLoopCFGBuilder {
 public:
   friend PrivatesListCvt;
 
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlan *Plan)
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlanVector *Plan)
       : VPlanLoopCFGBuilder(Plan, Lp, LI) {}
 
   void
@@ -293,8 +293,8 @@ public:
 // Conversion functor for auto-recognized inductions
 class InductionListCvt : public VPEntityConverterBase {
 public:
-  InductionListCvt(PlainCFGBuilder &Bld, VPlan *Plan, ScalarEvolution *SE) :
-      VPEntityConverterBase(Bld), Plan(Plan), SE(SE) {}
+  InductionListCvt(PlainCFGBuilder &Bld, VPlanVector *Plan, ScalarEvolution *SE)
+      : VPEntityConverterBase(Bld), Plan(Plan), SE(SE) {}
 
   void operator()(InductionDescr &Descriptor,
                   const InductionList::value_type &CurValue) {
@@ -369,7 +369,7 @@ public:
   }
 
 private:
-  VPlan *Plan;
+  VPlanVector *Plan;
   ScalarEvolution *SE;
 };
 
@@ -504,7 +504,7 @@ public:
 class Loop2VPLoopMapper {
 public:
   Loop2VPLoopMapper() = delete;
-  explicit Loop2VPLoopMapper(const Loop *TheLoop, const VPlan *Plan) {
+  explicit Loop2VPLoopMapper(const Loop *TheLoop, const VPlanVector *Plan) {
     DenseMap<const BasicBlock *, const Loop *> Head2Loop;
     // First fill in the header->loop map
     std::function<void(const Loop *)> getLoopHeaders = [&](const Loop *L) {

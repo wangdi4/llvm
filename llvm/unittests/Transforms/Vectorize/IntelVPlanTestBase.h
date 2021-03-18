@@ -80,14 +80,14 @@ protected:
         DT.get(), Legal.get(), nullptr /* no VLSA */));
   }
 
-  std::unique_ptr<VPlan> buildHCFG(BasicBlock *LoopHeader) {
+  std::unique_ptr<VPlanNonMasked> buildHCFG(BasicBlock *LoopHeader) {
     auto F = LoopHeader->getParent();
     doAnalysis(*F, LoopHeader);
 
     // Needed for induction importing
     Legal.get()->canVectorize(*DT, nullptr /* use auto induction detection */);
 
-    auto Plan = std::make_unique<VPlan>(*Externals, *UVPI);
+    auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
                                  nullptr /*WRLp */, Plan.get(), Legal.get(),
                                  SE.get());

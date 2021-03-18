@@ -34,7 +34,7 @@ extern bool VPlanVecNonReadonlyLibCalls;
 class VPlanCallVecDecisions {
 
 public:
-  VPlanCallVecDecisions(VPlan &Plan) : Plan(Plan) {}
+  VPlanCallVecDecisions(VPlanVector &Plan) : Plan(Plan) {}
 
   /// Public interface for analysis that visits all VPCallInstructions in
   /// current VPlan CFG and updates them with appropriate decision on how to
@@ -81,7 +81,7 @@ private:
                                       VectorVariant &Variant, int &Score,
                                       int &MaxArg);
 
-  VPlan &Plan;
+  VPlanVector &Plan;
 };
 
 } // end namespace vpo

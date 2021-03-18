@@ -26,7 +26,7 @@ protected:
     Module &M = parseModule(ModuleString);
     Function *F = M.getFunction("foo");
     BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
-    std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
+    std::unique_ptr<VPlanVector> Plan = buildHCFG(LoopHeader);
 
     VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
     VPlanValueTrackingLLVM VT(VPSE, *DL, &*AC, &*DT);

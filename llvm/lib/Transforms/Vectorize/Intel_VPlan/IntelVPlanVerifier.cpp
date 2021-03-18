@@ -65,7 +65,7 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
 // Public interface to verify the loop and its loop info.
 void VPlanVerifier::verifyLoops(
 #if INTEL_CUSTOMIZATION
-    const VPlan *Plan,
+    const VPlanVector *Plan,
 #endif
     const VPDominatorTree &VPDomTree, VPLoopInfo *VPLI) {
 

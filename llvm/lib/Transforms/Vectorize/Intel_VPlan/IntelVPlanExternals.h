@@ -21,7 +21,7 @@
 namespace llvm {
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
 class VPLoopEntityList;
 class ScalarInOutList;
 class VPLoopEntity;
@@ -522,10 +522,10 @@ private:
 };
 
 class VPLiveInOutCreator {
-  VPlan &Plan;
+  VPlanVector &Plan;
 
 public:
-  VPLiveInOutCreator(VPlan &P) : Plan(P) {}
+  VPLiveInOutCreator(VPlanVector &P) : Plan(P) {}
 
   /// Create VPLiveInValue and VPLiveOutValue lists for VPlan.
   /// Looking through VPEntities of VPlan create live-in counterparts and

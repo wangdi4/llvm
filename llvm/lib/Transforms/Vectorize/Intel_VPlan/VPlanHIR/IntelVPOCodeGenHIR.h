@@ -53,7 +53,7 @@ class VPOCodeGenHIR {
 public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
-                const VPlan *Plan, Function &Fn, HLLoop *Loop,
+                const VPlanVector *Plan, Function &Fn, HLLoop *Loop,
                 LoopOptReportBuilder &LORB,
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
@@ -438,7 +438,8 @@ public:
   // Return true if the given VPPtr has a stride of 1 or -1. IsNegOneStride is
   // set to true if stride is -1 and false otherwise.
   bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const {
-    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
+    return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
+        ->isUnitStridePtr(VPPtr, IsNegOneStride);
   }
 
   // Given a pointer ref that is a selfblob, create and return memory reference
@@ -542,7 +543,7 @@ private:
   HIRSafeReductionAnalysis *SRA;
 
   // VPlan for which vector code is being generated.
-  const VPlan *Plan;
+  const VPlanVector *Plan;
 
   // VPLoop being vectorized - assumes VPlan contains one loop.
   const VPLoop *VLoop;

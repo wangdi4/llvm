@@ -38,7 +38,7 @@ class LoopInfo;
 namespace vpo {
 
 class VPValue;
-class VPlan;
+class VPlanVector;
 class IntelVPlanUtils;
 class VPLoop;
 class VPlan;
@@ -494,7 +494,7 @@ public:
     return nullptr;
   }
 
-  VPLoopEntityList(VPlan &P, VPLoop &L) : Plan(P), Loop(L) {}
+  VPLoopEntityList(VPlanVector &P, VPLoop &L) : Plan(P), Loop(L) {}
 
   VPValue *getReductionIdentity(const VPReduction *Red) const;
   bool isMinMaxLastItem(const VPReduction &Red) const;
@@ -540,7 +540,7 @@ public:
   }
 
 private:
-  VPlan &Plan;
+  VPlanVector &Plan;
   VPLoop &Loop;
 
   VPReductionList ReductionList;
@@ -727,7 +727,7 @@ protected:
 public:
   virtual ~VPEntityImportDescr() {}
 
-  virtual bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const;
+  virtual bool isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const;
 
   VPValue *getAllocaInst() const { return AllocaInst; }
   bool getValidMemOnly() const { return ValidMemOnly; }
@@ -818,12 +818,12 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attempt to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
-  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current reduction descriptor duplicates another that is already
   /// imported.
-  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
+  bool isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const override;
 
 private:
   // Some analysis methods used by tryToCompleteByVPlan
@@ -949,12 +949,12 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
-  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current induction descriptor duplicates another that is already
   /// imported.
-  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
+  bool isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const override;
   /// Check if induction needs close form representation in vector code.
   // NOTE: This analysis is done for both auto-recognized and explicit
   // inductions.
@@ -1013,10 +1013,10 @@ public:
   bool isIncomplete() const { return FinalInst == nullptr; }
 
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
 
   /// Pass the data to VPlan
-  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
 
   void setAllocaInst(VPValue *AllocaI) { AllocaInst = AllocaI; }
   void setIsConditional(bool IsCond) { IsConditional = IsCond; }
@@ -1064,7 +1064,7 @@ public:
       : VPLoopEntitiesConverterBase(K) {}
   VPLoopEntitiesConverterTempl(const VPLoopEntitiesConverterTempl &) = delete;
 
-  virtual void passToVPlan(VPlan *Plan, MapperT &M) = 0;
+  virtual void passToVPlan(VPlanVector *Plan, MapperT &M) = 0;
 
   static bool classof(const VPLoopEntitiesConverterBase *B) {
     return B->getKind() != C_Unknown;
@@ -1087,7 +1087,7 @@ class VPLoopEntitiesConverter : public VPLoopEntitiesConverterTempl<MapperT> {
   typedef SmallVector<LoopListItemT, 2> LoopListT;
 
 public:
-  explicit VPLoopEntitiesConverter(VPlan *P)
+  explicit VPLoopEntitiesConverter(VPlanVector *P)
       : VPLoopEntitiesConverterTempl<MapperT>(
             VPLoopEntitiesConverterBase::C_Final),
         Plan(P) {}
@@ -1106,7 +1106,7 @@ public:
   }
 
   /// Sending pass.
-  void passToVPlan(VPlan *Plan, MapperT &M) override {
+  void passToVPlan(VPlanVector *Plan, MapperT &M) override {
     for (auto &LLItem : LoopList) {
       const VPLoop *Loop = M[LLItem.first];
       assert(Loop != nullptr && "Can't find corresponding VPLoop");
@@ -1142,7 +1142,7 @@ private:
 
   void processIterators(DescrList &Lst) {}
 
-  VPlan *Plan;
+  VPlanVector *Plan;
   LoopListT LoopList;
 };
 

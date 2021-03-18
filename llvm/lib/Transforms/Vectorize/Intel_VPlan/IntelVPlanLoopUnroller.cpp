@@ -60,8 +60,9 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
   SmallVector<VPCloneUtils::Value2ValueMapTy, 8> Clones(UF - 1);
   for (unsigned Part = 0; Part < UF - 1; Part++) {
-    VPCloneUtils::cloneBlocksRange(Header, Latch, Clones[Part],
-                                   Plan.getVPlanDA());
+    VPCloneUtils::cloneBlocksRange(
+        Header, Latch, Clones[Part],
+        cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA()));
   }
 
   // Hold the current last update instruction for each header PHI node.

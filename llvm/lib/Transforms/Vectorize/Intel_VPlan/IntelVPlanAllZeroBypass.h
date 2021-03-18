@@ -51,7 +51,7 @@ public:
 
 private:
   // VPlan for bypass insertion.
-  VPlan &Plan;
+  VPlanVector &Plan;
 
   // VPlan builder used to generate VPInstructions for !all-zero checks.
   VPBuilder Builder;
@@ -125,7 +125,7 @@ private:
                         SetVector<VPBasicBlock *> &RegionBlocks);
 
 public:
-  VPlanAllZeroBypass(VPlan &Plan) : Plan(Plan) {};
+  VPlanAllZeroBypass(VPlanVector &Plan) : Plan(Plan){};
 
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
   /// insertion for non-loops.

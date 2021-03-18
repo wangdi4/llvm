@@ -22,6 +22,7 @@
 namespace llvm {
 namespace vpo {
 
+class VPlanVector;
 class VPlanVLSAnalysis;
 
 class VPVLSClientMemref : public OVLSMemref {
@@ -59,8 +60,9 @@ private:
 
   VPlanScalarEvolutionLLVM &getVPSE() const {
     // FIXME: Get VPSE from VLSA once VLSA is moved into VPlan object as well.
-    return *static_cast<VPlanScalarEvolutionLLVM *>(
-        Inst->getParent()->getParent()->getVPSE());
+    const VPlanVector *Plan =
+        cast<const VPlanVector>(Inst->getParent()->getParent());
+    return *static_cast<VPlanScalarEvolutionLLVM *>(Plan->getVPSE());
   }
 };
 
