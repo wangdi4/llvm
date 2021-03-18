@@ -24,5 +24,6 @@
 // This used to be defined as a function, but that leads to multiple
 // definition errors if the header is included in multiple files.
 #define getDPCPPVersionString() (std::string("@DPCPP_PRODUCT_FULL_VERSION@"))
+#define getDPCPPMajorVersionString() (std::string("@DPCPP_VERSION_MAJOR@"))
 
 #endif // INTEL_CUSTOMIZATION
