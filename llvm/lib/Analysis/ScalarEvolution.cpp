@@ -11414,16 +11414,12 @@ bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
          "LHS is not available at Loop Entry");
   assert(isAvailableAtLoopEntry(RHS, L) &&
          "RHS is not available at Loop Entry");
-<<<<<<< HEAD
-  return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS, // INTEL
-                                        PredContext);                   // INTEL
-=======
 
   if (isKnownViaNonRecursiveReasoning(Pred, LHS, RHS))
     return true;
 
-  return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS);
->>>>>>> 5097143f0e7124d73646daa5de5d205579b9f7d2
+  return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS, // INTEL
+                                        PredContext);                   // INTEL
 }
 
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
