@@ -1738,6 +1738,26 @@ public:
     AANodes.NoAlias = getMetadata(LLVMContext::MD_noalias);
   }
 
+  // Get the HIR memory reference corresponding to the value being loaded
+  // or value being stored into.
+  const loopopt::RegDDRef *getMemoryRef() const {
+    if (!HIR.getUnderlyingNode())
+      return nullptr;
+
+    auto *OpHIR = cast<VPBlob>(HIR.getOperandHIR());
+    auto *RDDR = cast<loopopt::RegDDRef>(OpHIR->getBlob());
+    if (!RDDR->hasGEPInfo()) {
+      // This corresponds to a standalone load instruction.
+      auto *HInst = cast<loopopt::HLInst>(HIR.getUnderlyingNode());
+      assert(isa<LoadInst>(HInst->getLLVMInstruction()) &&
+             "Expected standalone load HLInst.");
+      RDDR = HInst->getRvalDDRef();
+    }
+    assert(RDDR && RDDR->hasGEPInfo() &&
+           "Invalid RegDDRef attached to load/store instruction.");
+    return RDDR;
+  }
+
   // Use underlying IR knowledge to access metadata attached to the incoming
   // instruction.
   void getUnderlyingNonDbgMetadata(MDNodesTy &MDs) const {
@@ -1745,19 +1765,7 @@ public:
     if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
     else if (HIR.getUnderlyingNode()) {
-      auto *OpHIR = dyn_cast_or_null<VPBlob>(HIR.getOperandHIR());
-      assert(OpHIR != nullptr &&
-             "Load/store instruction does not have attached HIR operand.");
-      auto *RDDR = cast<loopopt::RegDDRef>(OpHIR->getBlob());
-      if (!RDDR->hasGEPInfo()) {
-        // This corresponds to a standalone load instruction.
-        auto *HInst = cast<loopopt::HLInst>(HIR.getUnderlyingNode());
-        assert(isa<LoadInst>(HInst->getLLVMInstruction()) &&
-               "Expected standalone load HLInst.");
-        RDDR = HInst->getRvalDDRef();
-      }
-      assert(RDDR->hasGEPInfo() &&
-             "Invalid RegDDRef attached to load/store instruction.");
+      const loopopt::RegDDRef *RDDR = getMemoryRef();
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
     }
   }
@@ -3743,6 +3751,9 @@ public:
 // Several inline functions to hide the #if machinery from the callers.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
+  DEBUG_WITH_TYPE("vplan-dumps",
+                  dbgs() << "VPlan after " << Transformation << ":\n";
+                  Plan->dump(dbgs()));
   if (!Cond)
     return;
   outs() << "VPlan after " << Transformation << ":\n";
@@ -3835,6 +3846,11 @@ struct FuncVecVPlanDumpControl : public VPlanDumpControl {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan &Plan) {
+  DEBUG_WITH_TYPE("vplan-dumps", dbgs()
+                                     << "VPlan after "
+                                     << Control.getPassDescription() << ":\n";
+                  Plan.dump(dbgs()));
+
   if (Control.dumpPlain()) {
     if (Control.PrintPlainDumpPrefix)
       outs() << "VPlan after " << Control.getPassDescription() << ":\n";
