@@ -88,7 +88,14 @@ static bool checkForCUDA() {
   const char *CudaLib = DYNAMIC_CUDA_PATH;
   void *DynlibHandle = dlopen(CudaLib, RTLD_NOW);
   if (!DynlibHandle) {
+#if INTEL_COLLAB
+    char *DlError = dlerror();
+    if (!DlError)
+      DlError = "unknown error";
+    DP("Unable to load library '%s': %s!\n", CudaLib, DlError);
+#else // INTEL_COLLAB
     DP("Unable to load library '%s': %s!\n", CudaLib, dlerror());
+#endif // INTEL_COLLAB
     return false;
   }
 
