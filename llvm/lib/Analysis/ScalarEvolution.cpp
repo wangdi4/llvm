@@ -11297,9 +11297,6 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
     assert(!verifyFunction(*BB->getParent(), &dbgs()) &&
            "This cannot be done on broken IR!");
 
-  if (isKnownViaNonRecursiveReasoning(Pred, LHS, RHS))
-    return true;
-
   // If we cannot prove strict comparison (e.g. a > b), maybe we can prove
   // the facts (a >= b && a != b) separately. A typical situation is when the
   // non-strict comparison is known from ranges and non-equality is known from
@@ -11417,8 +11414,16 @@ bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
          "LHS is not available at Loop Entry");
   assert(isAvailableAtLoopEntry(RHS, L) &&
          "RHS is not available at Loop Entry");
+<<<<<<< HEAD
   return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS, // INTEL
                                         PredContext);                   // INTEL
+=======
+
+  if (isKnownViaNonRecursiveReasoning(Pred, LHS, RHS))
+    return true;
+
+  return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS);
+>>>>>>> 5097143f0e7124d73646daa5de5d205579b9f7d2
 }
 
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
