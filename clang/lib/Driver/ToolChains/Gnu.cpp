@@ -478,6 +478,27 @@ static void addDAALLibs(ArgStringList &CmdArgs,
     CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
 }
 
+// Add AC Types libraries
+static void addACTypesLibs(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
+  // default link type is dynamically link
+  bool linkStatic = false;
+
+  // Additions of libraries are currently not smart enough at an individual
+  // basis to only add the 'switch' before the library.  We must put the link
+  // state back to the original setting.
+  bool curStaticLinkState = isStaticLinkState(CmdArgs);
+  if (curStaticLinkState && !linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+  if (!curStaticLinkState && linkStatic)
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  TC.AddACTypesLibArgs(Args, CmdArgs, "-l");
+  if (curStaticLinkState && !isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
+  if (!curStaticLinkState && isStaticLinkState(CmdArgs))
+    CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
+}
+
 // Add performance library search paths.
 static void addPerfLibPaths(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
@@ -490,6 +511,8 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qdaal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
+  if (Args.hasArg(options::OPT_qactypes))
+    TC.AddACTypesLibPath(Args, CmdArgs, "-L");
 }
 
 static bool mcmodelSet(const llvm::opt::ArgList &Args) {
@@ -932,6 +955,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
       (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
+  if (Args.hasArg(options::OPT_qactypes))
+    addACTypesLibs(CmdArgs, Args, ToolChain);
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lsvml", ToolChain, CmdArgs, Args);
     addIntelLib("-lirng", ToolChain, CmdArgs, Args);

@@ -638,6 +638,8 @@ def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
   Flags<[CC1Option]>, HelpText<"Force certain functions using intrinsics to "
   "promote their architectures and make the intrinsic headers included by default">;
 def intel_mno_intrinsic_promote : Flag<["-"], "mno-intrinsic-promote">, Flags<[NoXarchOption]>;
+def qactypes : Flag<["-"], "qactypes">, HelpText<"Enable compile and link "
+  "support for the Algorithmic C Data-types (AC types)">;
 def qipp_EQ : Joined<["-"], "qipp=">, Flags<[NoXarchOption]>,
   Values<"common,crypto,nonpic,nonpic_crypto">,
   HelpText<"Link commonly used Intel(R) Integrated Performace Primitives "
@@ -6553,6 +6555,8 @@ def _SLASH_Qansi_alias : CLFlag<"Qansi-alias">, Alias<fstrict_aliasing>,
           " user asserts that the program adheres to these rules">;
 def _SLASH_Qalign_branch_EQ :  CLCommaJoined<"Qalign-branch=">, Alias<malign_branch_EQ>;
 def : CLCommaJoined<"Qalign-branch:">, Alias<malign_branch_EQ>;
+def : CLFlag<"Qactypes">, Alias<qactypes>, HelpText<"Enable compile and link "
+  "support for the Algorithmic C Data-types (AC types)">;
 def _SLASH_Qalign_branch_boundary_EQ : CLJoined<"Qalign-branch-boundary=">,
   Alias<malign_branch_boundary_EQ>;
 def : CLJoined<"Qalign-branch-boundary:">, Alias<malign_branch_boundary_EQ>;

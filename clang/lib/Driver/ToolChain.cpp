@@ -1300,6 +1300,44 @@ void ToolChain::AddDAALLibPath(const ArgList &Args, ArgStringList &CmdArgs,
   CmdArgs.push_back(Args.MakeArgString(Opt + GetDAALLibPath()));
 }
 
+// AC Types header and library setup.  Expected location when picked up
+// from the compiler installation is in lib/oclfpga
+static std::string getACTypesBasePath(const std::string DriverDir) {
+  const char * ACTypesRoot = getenv("INTELFPGAOCLSDKROOT");
+  SmallString<128> P;
+  if (ACTypesRoot)
+    P.append(ACTypesRoot);
+  else {
+    P.append(llvm::sys::path::parent_path(DriverDir));
+    llvm::sys::path::append(P, "lib");
+    llvm::sys::path::append(P, "oclfpga");
+  }
+  return std::string(P);
+}
+
+std::string ToolChain::GetACTypesIncludePath(const ArgList &Args) const {
+  SmallString<128> P(getACTypesBasePath(getDriver().Dir));
+  llvm::sys::path::append(P, "include");
+  return std::string(P);
+}
+
+// The AC Types libraries are located in
+// $INTELFPGAOCLSDKROOT/host/windows64/lib
+std::string ToolChain::GetACTypesLibPath(void) const {
+  SmallString<128> P(getACTypesBasePath(getDriver().Dir));
+  llvm::sys::path::append(P, "host");
+  llvm::sys::path::append(P,
+      getTriple().isWindowsMSVCEnvironment() ? "windows64" : "linux64");
+  llvm::sys::path::append(P, "lib");
+  return std::string(P);
+}
+
+// Add AC Types library search path
+void ToolChain::AddACTypesLibPath(const ArgList &Args, ArgStringList &CmdArgs,
+                               std::string Opt) const {
+  CmdArgs.push_back(Args.MakeArgString(Opt + GetACTypesLibPath()));
+}
+
 void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
   if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ)) {
@@ -1399,6 +1437,21 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
         LibName.insert(0, Prefix);
       CmdArgs.push_back(Args.MakeArgString(LibName));
     }
+  }
+}
+
+void ToolChain::AddACTypesLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
+                                  std::string Prefix) const {
+  SmallVector<StringRef, 4> ACTypesLibs;
+  ACTypesLibs.push_back("psg_mpir");
+  ACTypesLibs.push_back("psg_mpfr");
+  ACTypesLibs.push_back("hls_fixed_point_math_x86");
+  ACTypesLibs.push_back("hls_vpfp_library");
+  for (const auto &Lib : ACTypesLibs) {
+    std::string LibName(Lib);
+    if (Prefix.size() > 0)
+      LibName.insert(0, Prefix);
+    CmdArgs.push_back(Args.MakeArgString(LibName));
   }
 }
 #endif // INTEL_CUSTOMIZATION

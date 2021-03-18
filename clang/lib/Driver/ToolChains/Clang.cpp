@@ -1271,6 +1271,13 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
   if (JA.isOffloading(Action::OFK_HIP))
     getToolChain().AddHIPIncludeArgs(Args, CmdArgs);
 
+#if INTEL_CUSTOMIZATION
+  // Add the AC Types header directories before the SYCL headers
+  if (Args.hasArg(options::OPT_qactypes)) {
+    CmdArgs.push_back("-internal-isystem");
+    CmdArgs.push_back(Args.MakeArgString(getToolChain().GetACTypesIncludePath(Args)));
+  }
+#endif // INTEL_CUSTOMIZATION
   if (JA.isOffloading(Action::OFK_SYCL))
     toolchains::SYCLToolChain::AddSYCLIncludeArgs(D, Args, CmdArgs);
 
@@ -7860,6 +7867,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
   if (Args.hasArg(options::OPT_qdaal_EQ))
     getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
+  if (Args.hasArg(options::OPT_qactypes))
+    getToolChain().AddACTypesLibArgs(Args, CmdArgs, "--dependent-lib=");
 
   // Add OpenMP libs
   bool StubsAdded = false;
