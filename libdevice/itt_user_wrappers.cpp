@@ -9,6 +9,11 @@
 #include "device_itt.h"
 
 #ifdef __SPIR__
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 
 DEVICE_EXTERN_C void __itt_offload_wi_start(size_t *group_id, size_t wi_id,
                                             uint32_t wg_size) {
@@ -60,4 +65,9 @@ __itt_offload_atomic_op_finish(void *object, __itt_atomic_mem_op_t op_type,
     __itt_offload_atomic_op_finish_stub(object, op_type, mem_order);
 }
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 #endif // __SPIR__

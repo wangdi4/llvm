@@ -196,6 +196,23 @@ add_spv_file(
   DEPENDS device_math.h device_complex.h device.h
   )
 
+# ITT APIs
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/itt_stubs.cpp
+  ${binary_dir}/libomp-itt-stubs${objext}
+  DEPENDS device_itt.h spirv_vars.h device.h
+  )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/itt_user_wrappers.cpp
+  ${binary_dir}/libomp-itt-user-wrappers${objext}
+  DEPENDS device_itt.h spirv_vars.h device.h
+  )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/itt_compiler_wrappers.cpp
+  ${binary_dir}/libomp-itt-compiler-wrappers${objext}
+  DEPENDS device_itt.h spirv_vars.h device.h
+  )
+
 add_custom_target(libompdevice-obj DEPENDS ${omplib_objs})
 
 add_custom_target(libompdevice-spv DEPENDS ${omplib_spvs})
