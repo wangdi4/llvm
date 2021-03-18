@@ -32,6 +32,8 @@ static std::string getZeroLiteral(const std::string& type){
     return (sizeof(intptr_t) == 4) ? "0" : "0L";
   else if ("float" == type)
     return "0.0f";
+  else if ("half" == type)
+    return "0.0h";
   else if ("double" == type)
     return "0.0";
   else if ("event_t" == type)

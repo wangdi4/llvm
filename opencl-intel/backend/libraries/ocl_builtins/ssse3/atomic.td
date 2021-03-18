@@ -115,6 +115,20 @@ code max_g_fp32 = [{
       if (retValInt == oldValueInt) return oldValue;
     }
   }];
+code max_g_fp16 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      float old_float = __ocl_HalfToFloat(*(short*)&oldValue);
+      float value_float = __ocl_HalfToFloat(*(short*)&$Arg1VarName);
+      int oldFloatInt = *((int*)&old_float);
+      float max = fmax(old_float, value_float);
+      int maxInt = *((int*)&max);
+      if (oldFloatInt == maxInt) return oldValue;
+      short retValInt = __sync_val_compare_and_swap((short*)$Arg0VarName, *(short*)&oldValue, *((short*)&$Arg1VarName));
+      if (retValInt == *(short*)&oldValue) return oldValue;
+    }
+  }];
   code max_g_fp64 = [{
     while (true)
     {
@@ -131,6 +145,18 @@ code max_l_fp = [{
     local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
     $ReturnType oldValue = *tmp;
     *tmp = fmax($Arg1VarName, oldValue);
+    return oldValue;
+  }];
+code max_l_fp16 = [{
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
+    float old_float = __ocl_HalfToFloat(*(short*)&oldValue);
+    float value_float = __ocl_HalfToFloat(*(short*)&$Arg1VarName);
+    int oldFloatInt = *((int*)&old_float);
+    float max = fmax(old_float, value_float);
+    int maxInt = *((int*)&max);
+    if (oldFloatInt == maxInt) return oldValue;
+    *tmp = $Arg1VarName;
     return oldValue;
   }];
 code min_g = [{
@@ -160,6 +186,20 @@ code min_g_fp32 = [{
       if (retValInt == oldValueInt) return oldValue;
     }
   }];
+code min_g_fp16 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      float old_float = __ocl_HalfToFloat(*(short*)&oldValue);
+      float value_float = __ocl_HalfToFloat(*(short*)&$Arg1VarName);
+      int oldFloatInt = *((int*)&old_float);
+      float min = fmin(old_float, value_float);
+      int minInt = *((int*)&min);
+      if (oldFloatInt == minInt) return oldValue;
+      short retValInt = __sync_val_compare_and_swap((short*)$Arg0VarName, *(short*)&oldValue, *((short*)&$Arg1VarName));
+      if (retValInt == *(short*)&oldValue) return oldValue;
+    }
+  }];
 code min_g_fp64 = [{
     while (true)
     {
@@ -176,6 +216,18 @@ code min_l_fp = [{
     local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
     $ReturnType oldValue = *tmp;
     *tmp = fmin($Arg1VarName, oldValue);
+    return oldValue;
+  }];
+code min_l_fp16 = [{
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *$Arg0VarName;
+    float old_float = __ocl_HalfToFloat(*(short*)&oldValue);
+    float value_float = __ocl_HalfToFloat(*(short*)&$Arg1VarName);
+    int oldFloatInt = *((int*)&old_float);
+    float min = fmin(old_float, value_float);
+    int minInt = *((int*)&min);
+    if (oldFloatInt == minInt) return oldValue;
+    *tmp = $Arg1VarName;
     return oldValue;
   }];
 code inc_g = [{
@@ -312,8 +364,10 @@ OclBuiltinImpl atom_max_vl    = OclBuiltinImpl<atom_max_vol_local, [v1i32, v1u32
 OclBuiltinImpl atom_max_l     = OclBuiltinImpl<atom_max_local, [v1i32, v1u32, v1i64, v1u64], 0, max_l>;
 
 OclBuiltinImpl atomic_max_gf  = OclBuiltinImpl<atomic_max_global, [v1f32], 0, max_g_fp32>;
+OclBuiltinImpl atomic_max_gf16  = OclBuiltinImpl<atomic_max_global, [v1f16], 0, max_g_fp16>;
 OclBuiltinImpl atomic_max_gf64  = OclBuiltinImpl<atomic_max_global, [v1f64], 0, max_g_fp64>;
 OclBuiltinImpl atomic_max_lf  = OclBuiltinImpl<atomic_max_local, [v1f32, v1f64], 0, max_l_fp>;
+OclBuiltinImpl atomic_max_lf16  = OclBuiltinImpl<atomic_max_local, [v1f16], 0, max_l_fp16>;
 // min
 OclBuiltinImpl atomic_min_g   = OclBuiltinImpl<atomic_min_global, [v1i32, v1u32], 0, min_g>;
 OclBuiltinImpl atomic_min_l   = OclBuiltinImpl<atomic_min_local, [v1i32, v1u32], 0, min_l>;
@@ -323,8 +377,10 @@ OclBuiltinImpl atom_min_vl    = OclBuiltinImpl<atom_min_vol_local, [v1i32, v1u32
 OclBuiltinImpl atom_min_l     = OclBuiltinImpl<atom_min_local, [v1i32, v1u32, v1i64, v1u64], 0, min_l>;
 
 OclBuiltinImpl atomic_min_gf  = OclBuiltinImpl<atomic_min_global, [v1f32], 0, min_g_fp32>;
+OclBuiltinImpl atomic_min_gf16  = OclBuiltinImpl<atomic_min_global, [v1f16], 0, min_g_fp16>;
 OclBuiltinImpl atomic_min_gf64  = OclBuiltinImpl<atomic_min_global, [v1f64], 0, min_g_fp64>;
 OclBuiltinImpl atomic_min_lf  = OclBuiltinImpl<atomic_min_local, [v1f32, v1f64], 0, min_l_fp>;
+OclBuiltinImpl atomic_min_lf16  = OclBuiltinImpl<atomic_min_local, [v1f16], 0, min_l_fp16>;
 // and
 OclBuiltinImpl atomic_and_g   = OclBuiltinImpl<atomic_and_global, [v1i32, v1u32], 0, and_g>;
 OclBuiltinImpl atomic_and_l   = OclBuiltinImpl<atomic_and_local, [v1i32, v1u32], 0, and_l>;
