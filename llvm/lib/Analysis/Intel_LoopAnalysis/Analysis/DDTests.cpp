@@ -3822,9 +3822,11 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
     // If base value is global we have a memref that looks like
     //       (@s)[0][i3 + nx * i2 + nx * ny * i1].
     // Skip [0] since it doesn't influence the delinearization.
-    if (SrcDDRef->accessesGlobalVar() && DstDDRef->accessesGlobalVar()) {
-      assert(Pair[1].Src->isZero() && Pair[1].Dst->isZero() &&
-             "First subscript must be zero");
+    // Note: out of bound array access could result in non-zero first index.
+    // Be conservative here and only work with zero cases.
+    if (SrcDDRef->accessesGlobalVar() &&
+        DstDDRef->accessesGlobalVar() &&
+        Pair[1].Src->isZero() && Pair[1].Dst->isZero()) {
       HasGlobalBaseValue = true;
       AuxTy = Pair[1].Src->getSrcType();
     } else {
