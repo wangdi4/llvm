@@ -4018,29 +4018,23 @@ class OffloadingActionBuilder final {
       }
 
       // By default, we produce an action for each device arch.
-#if INTEL_CUSTOMIZATION
-      auto TC = ToolChains.begin();
-      for (Action *&A : OpenMPDeviceActions) {
-        if ((*TC)->getTriple().isSPIR() && CurPhase == phases::Backend) {
-          A = C.MakeAction<BackendJobAction>(A, types::TY_LLVM_BC);
-          TC++;
-          continue;
-        }
-        A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A,
-                                               Action::OFK_OpenMP);
-        TC++;
-      }
-#endif // INTEL_CUSTOMIZATION
-
       for (unsigned I = 0; I < ToolChains.size(); ++I) {
         Action *&A = OpenMPDeviceActions[I];
+#if INTEL_CUSTOMIZATION
+        if (ToolChains[I]->getTriple().isSPIR() &&
+            CurPhase == phases::Backend) {
+          A = C.MakeAction<BackendJobAction>(A, types::TY_LLVM_BC);
+          continue;
+        }
         // AMDGPU does not support linking of object files, so we skip
         // assemble and backend actions to produce LLVM IR.
         if (ToolChains[I]->getTriple().isAMDGCN() &&
             (CurPhase == phases::Assemble || CurPhase == phases::Backend))
           continue;
 
-        A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A);
+        A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A,
+                                               Action::OFK_OpenMP);
+#endif // INTEL_CUSTOMIZATION
       }
 
       return ABRT_Success;
