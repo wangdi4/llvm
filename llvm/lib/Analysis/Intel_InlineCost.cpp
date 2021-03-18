@@ -3423,6 +3423,20 @@ static bool worthInliningForSmallApp(CallBase &CB,
 }
 
 //
+// Return 'true' if we have determined heuristically that 'F' should have a
+// function level region in Loop Opt.
+//
+static bool preferFunctionLevelRegion(Function *F, bool PrepareForLTO,
+                                      WholeProgramInfo *WPI) {
+  if (!F || PrepareForLTO  || !DTransInlineHeuristics || !WPI || !F->hasOneUse())
+    return false;
+  auto CB = dyn_cast<CallBase>(*(F->user_begin()));
+  if (!CB)
+    return false;
+  return CB->getCaller() == WPI->getMainFunction();
+}
+
+//
 // Test a series of special conditions to determine if it is worth inlining
 // if any of them appear. (These have been gathered together into a single
 // function to make an early exit easy to accomplish and save compile time.)
@@ -3465,6 +3479,10 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   }
   if (worthInliningForFusion(CB, TLI, CalleeTTI, *ILIC, PrepareForLTO)) {
     YesReasonVector.push_back(InlrForFusion);
+    Function *Caller = CB.getCaller();
+    if (preferFunctionLevelRegion(Caller, PrepareForLTO, WPI))
+      if (!Caller->hasFnAttribute("prefer-function-level-region"))
+        Caller->addFnAttr("prefer-function-level-region");
     return -InlineConstants::InliningHeuristicBonus;
   }
   if (worthInliningForDeeplyNestedIfs(CB, *ILIC, IsCallerRecursive,
