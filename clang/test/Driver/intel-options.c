@@ -657,3 +657,17 @@
 // SAVE_TEMPS_WIN: "-o" "intel-options.asm"
 // SAVE_TEMPS_WIN: "-o" "intel-options.obj"
 // SAVE_TEMPS_WIN: "-out:intel-options.exe"
+
+// -fuse-unaligned-vector-move fno-use-unaligned-vector-move
+// RUN: %clang -### -target x86_64-unknown-linux -fuse-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=UNALIGNED_VECTOR_MOVE %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -fuse-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=UNALIGNED_VECTOR_MOVE %s
+// RUN: %clang -### -target x86_64-unknown-linux --intel -c %s 2>&1 | FileCheck -check-prefix=UNALIGNED_VECTOR_MOVE %s
+// UNALIGNED_VECTOR_MOVE: "-mllvm" "-x86-enable-unaligned-vector-move=true"
+// RUN: %clang -### -target x86_64-unknown-linux -fuse-unaligned-vector-move -flto %s 2>&1 | FileCheck -check-prefix=LTO_MUNALIGNED_VECTOR_MOVE %s
+// RUN: %clang -### -target x86_64-unknown-linux --intel -flto %s 2>&1 | FileCheck -check-prefix=LTO_MUNALIGNED_VECTOR_MOVE %s
+// LTO_MUNALIGNED_VECTOR_MOVE: "-plugin-opt=-x86-enable-unaligned-vector-move=true"
+// RUN: %clang -### -target x86_64-unknown-linux -fno-use-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=NO_UNALIGNED_VECTOR_MOVE %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -fno-use-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=NO_UNALIGNED_VECTOR_MOVE %s
+// NO_UNALIGNED_VECTOR_MOVE: "-mllvm" "-x86-enable-unaligned-vector-move=false"
+// RUN: %clang -### -target x86_64-unknown-linux -fno-use-unaligned-vector-move -flto %s 2>&1 | FileCheck -check-prefix=LTO_NO_MUNALIGNED_VECTOR_MOVE %s
+// LTO_NO_MUNALIGNED_VECTOR_MOVE: "-plugin-opt=-x86-enable-unaligned-vector-move=false"

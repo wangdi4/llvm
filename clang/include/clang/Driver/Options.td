@@ -1790,6 +1790,16 @@ def funsafe_math_optimizations : Flag<["-"], "funsafe-math-optimizations">,
   Group<f_Group>;
 def fno_unsafe_math_optimizations : Flag<["-"], "fno-unsafe-math-optimizations">,
   Group<f_Group>;
+#if INTEL_CUSTOMIZATION
+def fuse_unaligned_vector_move : Flag<["-"], "fuse-unaligned-vector-move">,
+    Group<f_Group>, Flags<[CoreOption, HelpHidden]>,
+    HelpText<"Enable transforming aligned vector move instruction to "
+             "unaligned vector move.">;
+def fno_use_unaligned_vector_move : Flag<["-"], "fno-use-unaligned-vector-move">,
+    Group<f_Group>,  Flags<[CoreOption, HelpHidden]>,
+    HelpText<"Disable transforming aligned vector move instruction to "
+             "unaligned vector move.">;
+#endif // INTEL_CUSTOMIZATION
 def fassociative_math : Flag<["-"], "fassociative-math">, Group<f_Group>;
 def fno_associative_math : Flag<["-"], "fno-associative-math">, Group<f_Group>;
 defm reciprocal_math : OptInFFlag<"reciprocal-math", "Allow division operations to be reassociated", "", "", [],

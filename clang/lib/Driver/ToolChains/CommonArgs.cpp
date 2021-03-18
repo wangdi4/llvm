@@ -675,6 +675,8 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   // All -mllvm flags as provided by the user will be passed through.
   for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
+  addX86UnalignedVectorMoveArgs(ToolChain, Args, CmdArgs, /*IsLTO=*/true,
+                                /*IsIntelMode=*/D.IsIntelMode());
 #endif // INTEL_CUSTOMIZATION
 
   // Handle remark diagnostics on screen options: '-Rpass-*'.
@@ -1898,3 +1900,20 @@ void tools::addMachineOutlinerArgs(const Driver &D,
     }
   }
 }
+
+#if INTEL_CUSTOMIZATION
+void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
+                                          const ArgList &Args,
+                                          ArgStringList &CmdArgs, bool IsLTO,
+                                          bool IsIntelMode) {
+  auto addArg = [&, IsLTO](const char *Opt) {
+      AddllvmOption(TC, Opt, IsLTO, Args, CmdArgs);
+  };
+
+  if (Args.hasArg(options::OPT_fuse_unaligned_vector_move) ||
+      (IsIntelMode && !Args.hasArg(options::OPT_fno_use_unaligned_vector_move)))
+    addArg("-x86-enable-unaligned-vector-move=true");
+  else if (Args.hasArg(options::OPT_fno_use_unaligned_vector_move))
+    addArg("-x86-enable-unaligned-vector-move=false");
+}
+#endif // INTEL_CUSTOMIZATION

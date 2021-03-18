@@ -2245,6 +2245,9 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
       if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
         TuneCPU.clear();
   }
+
+  addX86UnalignedVectorMoveArgs(getToolChain(), Args, CmdArgs, /*IsLTO=*/false,
+                                /*IsIntelMode=*/D.IsIntelMode());
 #endif // INTEL_CUSTOMIZATION
 
   // Override based on -mtune.
