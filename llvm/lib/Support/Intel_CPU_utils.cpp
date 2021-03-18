@@ -98,6 +98,16 @@ public:
 
     return nullptr;
   }
+
+  const FeatureDefType *getFeatureByBitPosition(int BitPos) {
+    auto I = find_if(proc_info_features, [=](const FeatureDefType &Entry) {
+      return (Entry.bitpos == BitPos);
+    });
+    if (I != std::end(proc_info_features))
+      return I;
+
+    return nullptr;
+  }
 };
 } // namespace
 
@@ -165,6 +175,15 @@ X86::getCpuFeatureBitmap(ArrayRef<StringRef> CpuFeatures,
   }
 
   return masks;
+}
+
+StringRef X86::getCpuFeatureFromBitPosition(unsigned BitPos) {
+  const FeatureDefType *Entry = PIF->getFeatureByBitPosition(BitPos);
+
+  if (!Entry)
+    return "";
+
+  return Entry->isa_name;
 }
 
 bool X86::isCpuFeatureValid(StringRef CpuFeature) {

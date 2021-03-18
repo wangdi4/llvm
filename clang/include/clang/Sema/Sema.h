@@ -3572,6 +3572,14 @@ public:
   EnforceTCBLeafAttr *mergeEnforceTCBLeafAttr(Decl *D,
                                               const EnforceTCBLeafAttr &AL);
 
+#if INTEL_CUSTOMIZATION
+  void AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI, Expr *P1,
+                               Expr *P2);
+  AllowCpuFeaturesAttr *
+  MergeAllowCpuFeaturesAttr(Decl *D, const AllowCpuFeaturesAttr &AL);
+#endif // INTEL_CUSTOMIZATION
+  SYCLIntelLoopFuseAttr *
+  mergeSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E);
   void mergeDeclAttributes(NamedDecl *New, Decl *Old,
                            AvailabilityMergeKind AMK = AMK_Redeclaration);
   void MergeTypedefNameDecl(Scope *S, TypedefNameDecl *New,

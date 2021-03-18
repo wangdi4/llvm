@@ -268,3 +268,40 @@ On x86 targets, this attribute changes the calling convention of a function to
 match with the calling convention of Intel OpenCL SVML AVX512 builtin.
  }];
 }
+
+def AllowCPUFeatureDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+    the ``allow_cpu_features`` attribute works similarly to attribute ``target``
+    in that it permits the use of intrinsic functions and architecture specific
+    functionality in the attributed function. Unlike ``target``, it does NOT
+    cause multiversioning, and otherwise follows normal language rules.
+
+    The ``allow_cpu_features`` attribute accepts two integral constant expression
+    arguments that evaluate to a bitmask of permissible features from the libirc
+    cpu-id information. The evaluated type of these is an unsigned 64-bit integer
+    which permits use of template-dependent code. The first parameter is for the
+    page 1 bitmask, and the second parameter is the page 2 bitmask. The second
+    parameter is optional and can be omitted.
+
+.. code-block:: c
+
+  #include <immintrin.h> // contains all of the _FEATURE values.
+  __attribute__((allow_cpu_features(_FEATURE_AVX2)))
+  void my_function() {
+    // Code that either uses AVX2 features, or we want to be optimized for AVX2.
+  }
+
+  [[clang::allow_cpu_features(_FEATURE_SSE3)]]
+  void my_function2() {
+    // Code that either uses SSE3 features, or we want to be optimized for AVX2.
+  }
+
+  template<uint64_t FEATP1, uint64_t FEATP2>
+  __attribute__((allow_cpu_features(FEATP1, FEATP2)))
+  void my_dependent_function() {
+    // Code that we want optimized for the included features.
+  }
+
+  }];
+}
