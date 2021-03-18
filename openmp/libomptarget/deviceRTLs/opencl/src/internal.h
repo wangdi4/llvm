@@ -126,6 +126,10 @@ INLINE void __kmp_acquire_lock(int *lock) {
     bool acquired;
     do {
       expected = 0;
+#if INTEL_CUSTOMIZATION
+      // FIXME: workaround suggested by HW team.
+      *((volatile int *)lock);
+#endif // INTEL_CUSTOMIZATION
       acquired = atomic_compare_exchange_weak_explicit(
           (volatile atomic_int *)lock, &expected, 1, memory_order_acq_rel,
           memory_order_relaxed);
