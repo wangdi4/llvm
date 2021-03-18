@@ -9634,30 +9634,39 @@ private:
   // values used to compute the size matches with the result type of "new".
   bool isValidCallToNew(CallBase *Call, Value *V) {
 
+    // Return V cast as an Instruction if V is a Load instruction
+    // or V is a PtrToInt instruction, else return nullptr
+    auto GetOperandInstruction = [](Value *V) -> Instruction * {
+      if (isa<LoadInst>(V) || isa<PtrToIntInst>(V))
+        return cast<Instruction>(V);
+      return nullptr;
+    };
+
     // Return the dominant aggregate type for the input Value
-    auto CollectDominantAggregateType = [this](Value *V) -> Type * {
+    auto CollectDominantAggregateType = [this, GetOperandInstruction]
+        (Value *V) -> Type * {
       // If V is a binary operator then the dominant aggregate type
       // of the operands must match
       if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
 
-        LoadInst *LoadA = dyn_cast<LoadInst>(BinOp->getOperand(0));
-        LoadInst *LoadB = dyn_cast<LoadInst>(BinOp->getOperand(1));
-        if (!LoadA || !LoadB)
+        Instruction *InstA = GetOperandInstruction(BinOp->getOperand(0));
+        Instruction *InstB = GetOperandInstruction(BinOp->getOperand(1));
+        if (!InstA || !InstB)
           return nullptr;
 
-        LocalPointerInfo &LPILoadA = LPA.getLocalPointerInfo(LoadA);
-        LocalPointerInfo &LPILoadB = LPA.getLocalPointerInfo(LoadB);
+        LocalPointerInfo &LPIInstA = LPA.getLocalPointerInfo(InstA);
+        LocalPointerInfo &LPIInstB = LPA.getLocalPointerInfo(InstB);
 
-        Type *LoadADominantType = LPILoadA.getDominantAggregateTy();
-        Type *LoadBDominantType = LPILoadB.getDominantAggregateTy();
+        Type *InstADominantType = LPIInstA.getDominantAggregateTy();
+        Type *InstBDominantType = LPIInstB.getDominantAggregateTy();
 
-        if (!LoadADominantType || !LoadBDominantType)
+        if (!InstADominantType || !InstBDominantType)
           return nullptr;
 
-        if (LoadADominantType != LoadBDominantType)
+        if (InstADominantType != InstBDominantType)
           return nullptr;
 
-        return LoadADominantType;
+        return InstADominantType;
       }
 
       return nullptr;
