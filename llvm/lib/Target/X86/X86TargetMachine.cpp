@@ -68,6 +68,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeX86SplitVectorValueTypePass(PR);  // INTEL
+  initializeX86LowerAMXIntrinsicsLegacyPassPass(PR);
   initializeX86LowerAMXTypeLegacyPassPass(PR);
   initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
@@ -424,7 +425,14 @@ TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
 
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
+<<<<<<< HEAD
   addPass(createFloat128ExpandPass()); // INTEL
+=======
+
+  // We add both pass anyway and when these two passes run, we skip the pass
+  // based on the option level and option attribute.
+  addPass(createX86LowerAMXIntrinsicsPass());
+>>>>>>> 4f198b0c27b04e830a3069aaf4b39cf203eaae4a
   addPass(createX86LowerAMXTypePass());
 
   TargetPassConfig::addIRPasses();
