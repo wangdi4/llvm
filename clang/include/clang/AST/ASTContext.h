@@ -2935,6 +2935,18 @@ public:
                              const FunctionDecl *) const;
   void getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
                              GlobalDecl GD) const;
+#if INTEL_CUSTOMIZATION
+  // Gets the list of CPU features from libirc given the bitmasks for page1 and
+  // page2 in "+featurename" format.
+  void getAddCpuFeaturesFromBitmask(std::vector<std::string> &Features,
+                                    uint64_t Page1, uint64_t Page2) const;
+
+  // Gets the list of CPU features from libirc given the bitmasks for page1 and
+  // page2 in "featurename" format (no + or -)
+  void getCpuFeaturesFromBitmask(llvm::SmallVectorImpl<StringRef> &Features,
+                                 uint64_t Page1, uint64_t Page2) const;
+  bool isValidCpuFeaturesBitmask(unsigned Page, uint64_t Mask) const;
+#endif // INTEL_CUSTOMIZATION
 
   //===--------------------------------------------------------------------===//
   //                    Statistics
