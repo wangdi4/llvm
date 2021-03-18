@@ -221,7 +221,8 @@ public:
 
   bool hasIOCall() const { return HasIOCall; }
 
-  virtual ~CheckerVisitor() {};
+  virtual ~CheckerVisitor(){};
+
 public:
   HLNode *SkipNode;
   bool IsDone;
@@ -361,7 +362,8 @@ bool CheckerVisitor::isAllowedCallInLoopBody(const HLInst *HInst) const {
 
   Intrinsic::ID Id;
   if (HInst->isIntrinCall(Id) &&
-      (Id == Intrinsic::sin || Id == Intrinsic::exp)) {
+      (Id == Intrinsic::sin || Id == Intrinsic::exp ||
+       Id == Intrinsic::experimental_noalias_scope_decl)) {
     assert(!HInst->isUnknownAliasingCallInst());
     return true;
   }

@@ -267,6 +267,35 @@ DIR.OMP.END.SIMD.3:                               ; preds = %if.end
   ret void
 }
 
+define void @no_side_effect_insts(<8 x i32> %val, i64 %n, i32 *%p) {
+; FIXME: No CHECKs currently because loop is not handled due to vector types.
+; The crash was happenning in SVA invocation inside CM, not the one peformed
+; during CG that has dumps.
+;
+entry:
+  br label %preheader
+
+preheader:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %header
+
+header:
+  %iv = phi i64 [ 0, %preheader ], [ %iv.next, %header ]
+
+  %uni.ld = load i32, i32 *%p
+; SVA used to assert for it to not be side-effect free when trying to keep scalar.
+  %extract = extractelement <8 x i32> %val, i32 %uni.ld
+  store i32 %extract, i32 *%p
+
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, %n
+  br i1 %exitcond, label %exit, label %header
+
+exit:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
 
