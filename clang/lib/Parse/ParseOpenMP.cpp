@@ -464,9 +464,9 @@ void Parser::ParseOpenMPReductionInitializerForDecl(VarDecl *OmpPrivParm) {
     ConsumeToken();
 
     if (Tok.is(tok::code_completion)) {
+      cutOffParsing();
       Actions.CodeCompleteInitializer(getCurScope(), OmpPrivParm);
       Actions.FinalizeDeclaration(OmpPrivParm);
-      cutOffParsing();
       return;
     }
 
