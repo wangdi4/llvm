@@ -1580,7 +1580,7 @@ void VPlanDivergenceAnalysis::improveStrideUsingIR() {
 }
 #endif // INTEL_CUSTOMIZATION
 
-void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
+void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,
                                       VPDominatorTree &VPDomTree,
                                       VPPostDominatorTree &VPPostDomTree,
@@ -1687,10 +1687,11 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 #endif // INTEL_CUSTOMIZATION
 
 void VPlanDivergenceAnalysis::cloneVectorShapes(
-    VPlan *ClonedVPlan, DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
+    VPlanVector *ClonedVPlan,
+    DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
 
-  ClonedVPlan->getVPlanDA()->Plan = ClonedVPlan;
-
+  auto *ClonedVPDA = cast<VPlanDivergenceAnalysis>(ClonedVPlan->getVPlanDA());
+  ClonedVPDA->Plan = ClonedVPlan;
   for (const auto &Pair : OrigClonedValuesMap) {
     VPValue *OrigVal = Pair.first;
     VPValue *ClonedVal = Pair.second;
@@ -1707,7 +1708,7 @@ void VPlanDivergenceAnalysis::cloneVectorShapes(
       ClonedStride =
           (It != OrigClonedValuesMap.end()) ? It->second : OrigStride;
     NewClonedShape->setStride(ClonedStride);
-    ClonedVPlan->getVPlanDA()->updateVectorShape(ClonedVal, *NewClonedShape);
+    ClonedVPDA->updateVectorShape(ClonedVal, *NewClonedShape);
   }
 }
 

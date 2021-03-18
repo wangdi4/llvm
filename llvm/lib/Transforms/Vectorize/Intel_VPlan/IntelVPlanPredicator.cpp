@@ -453,7 +453,7 @@ class LinearizationBlockOrdering {
 
 public:
   LinearizationBlockOrdering(
-      VPlan &Plan, const ReversePostOrderTraversal<VPBasicBlock *> &RPOT)
+      VPlanVector &Plan, const ReversePostOrderTraversal<VPBasicBlock *> &RPOT)
       : DT(Plan.getDT()) {
     Blocks.reserve(Plan.size());
     processBlockRec(*RPOT.begin(), RPOT.begin(), RPOT.end());
@@ -656,10 +656,10 @@ class PhiToBlendUpdater {
 
 public:
   PhiToBlendUpdater(VPBasicBlock *Block, ArrayRef<VPPHINode *> Phis)
-      : VPDomTree(*Block->getParent()->getDT()),
-        VPPostDomTree(*Block->getParent()->getPDT()),
-        VPLI(Block->getParent()->getVPLoopInfo()), Block(Block),
-        Phis(Phis.begin(), Phis.end()) {}
+      : VPDomTree(*(*cast<VPlanVector>(Block->getParent())).getDT()),
+        VPPostDomTree(*(*cast<VPlanVector>(Block->getParent())).getPDT()),
+        VPLI(cast<VPlanVector>(Block->getParent())->getVPLoopInfo()),
+        Block(Block), Phis(Phis.begin(), Phis.end()) {}
 
   void processSingleIncomingValuePhis() {
     assert(Phis[0]->getNumIncomingValues() == 1 &&
@@ -882,9 +882,10 @@ public:
       }
     }
 
-    auto *DA = Block->getParent()->getVPlanDA();
+    auto *VecVPlan = cast<VPlanVector>(Block->getParent());
+    auto *DA = cast<VPlanDivergenceAnalysis>(VecVPlan->getVPlanDA());
     if (is_contained(IDFPHIBlocks, Block)) {
-      if (Block->getParent()->areActiveLaneInstructionsDisabled())
+      if (VecVPlan->areActiveLaneInstructionsDisabled())
         return;
 
       VPActiveLane *ActiveLane = nullptr;
@@ -952,7 +953,7 @@ public:
     if (UniformBlends.empty())
       return;
 
-    if (Block->getParent()->areActiveLaneInstructionsDisabled())
+    if (VecVPlan->areActiveLaneInstructionsDisabled())
       return;
 
     auto SplitIt = Block->getBlockPredicate()
@@ -991,6 +992,7 @@ void VPlanPredicator::transformPhisToBlends() {
 }
 
 void VPlanPredicator::fixupUniformInnerLoops() {
+  VPlanDivergenceAnalysisBase *DA = Plan.getVPlanDA();
   for (auto *Loop : VPLI->getLoopsInPreorder()) {
     VPBasicBlock *Header = Loop->getHeader();
     auto *Predicate = Header->getPredicate();
@@ -1017,16 +1019,16 @@ void VPlanPredicator::fixupUniformInnerLoops() {
     VPBuilder Builder;
     Builder.setInsertPoint(Latch);
     auto *NewAllZeroCheck = Builder.createAllZeroCheck(Predicate);
-    Plan.getVPlanDA()->updateDivergence(*NewAllZeroCheck);
+    DA->updateDivergence(*NewAllZeroCheck);
     VPValue *NewCondBit;
     if (!BackEdgeIsFalseSucc) {
       NewAllZeroCheck = Builder.createNot(NewAllZeroCheck);
-      Plan.getVPlanDA()->updateDivergence(*NewAllZeroCheck);
+      DA->updateDivergence(*NewAllZeroCheck);
       NewCondBit = Builder.createAnd(NewAllZeroCheck, CondBit);
     } else
       NewCondBit = Builder.createOr(NewAllZeroCheck, CondBit);
 
-    Plan.getVPlanDA()->updateDivergence(*NewCondBit);
+    DA->updateDivergence(*NewCondBit);
     Latch->setCondBit(NewCondBit);
   }
 }
@@ -1083,7 +1085,7 @@ void VPlanPredicator::emitPredicates() {
         auto *BlockPredicateInst =
             VPBuilder().setInsertPointAfterBlends(Block).createPred(Predicate);
         Block->setBlockPredicate(BlockPredicateInst);
-        Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
+        DA->updateDivergence(*BlockPredicateInst);
       }
 
       continue;
@@ -1105,7 +1107,7 @@ void VPlanPredicator::emitPredicates() {
         (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
       auto *BlockPredicateInst = Builder.createPred(Predicate);
       Block->setBlockPredicate(BlockPredicateInst);
-      Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
+      DA->updateDivergence(*BlockPredicateInst);
     }
   }
 }
@@ -1171,5 +1173,5 @@ void VPlanPredicator::predicate() {
   LLVM_DEBUG(Plan.dump());
 }
 
-VPlanPredicator::VPlanPredicator(VPlan &Plan)
+VPlanPredicator::VPlanPredicator(VPlanVector &Plan)
     : Plan(Plan), VPLI(Plan.getVPLoopInfo()), RPOT(Plan.getEntryBlock()) {}

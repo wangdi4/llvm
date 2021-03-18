@@ -3036,6 +3036,7 @@ class VPlan {
   friend class VPLiveInOutCreator;
 
 public:
+
   using VPBasicBlockListTy = ilist<VPBasicBlock, ilist_sentinel_tracking<true>>;
   // VPBasicBlock iterators.
   using iterator = VPBasicBlockListTy::iterator;
@@ -3043,58 +3044,17 @@ public:
   using reverse_iterator = VPBasicBlockListTy::reverse_iterator;
   using const_reverse_iterator = VPBasicBlockListTy::const_reverse_iterator;
 
-private:
-  VPExternalValues &Externals;
-  VPUnlinkedInstructions &UnlinkedVPInsts;
-
-  std::unique_ptr<VPLoopInfo> VPLInfo;
-  std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
-  std::unique_ptr<VPlanScalarEvolution> VPSE;
-  std::unique_ptr<VPlanValueTracking> VPVT;
-  std::unique_ptr<VPlanScalVecAnalysis> VPlanSVA;
+protected:
+  // Enum to represent the Kind of VPlan.
+  enum class VPlanKind {
+    ScalarPeel,
+    ScalarRemainder,
+    Masked,
+    NonMasked,
+  };
 
   /// Holds Plan's VPBasicBlocks.
   VPBasicBlockListTy VPBasicBlocks;
-
-  /// Dominator Tree for the Plan.
-  std::unique_ptr<VPDominatorTree> PlanDT;
-
-  /// Post-Dominator Tree for the Plan.
-  std::unique_ptr<VPPostDominatorTree> PlanPDT;
-
-  // We need to force full linearization for certain cases. Currently this
-  // happens for cases where while-loop canonicalization or merge loop exits
-  // transformation break SSA or for HIR vector code generation which needs
-  // to be extended to preserve uniform control flow. This flag is set to true
-  // when we need to force full linearization. Full linearization can still
-  // kick in when this flag is false such as cases where we use a command
-  // line option to do the same.
-  bool FullLinearizationForced = false;
-
-  // HIR CG handles very limited scalar compute and tends to keep most of things
-  // on vectors. As such, the stability issue addressed by
-  // VPActiveLane/VPActiveLaneExtract doesn't seem to exist for HIR case. Also,
-  // implementing the proper CG for them
-  //   1) Doesn't seem to be needed right now - we have some time until we'll
-  //      implement a better approach to the problem.
-  //   2) Might not be easy/possible because the support for the scalar compute
-  //      itself is very weak in HIR CG.
-  bool DisableActiveLaneInstructions = false;
-
-  /// Enable SOA-analysis flag.
-  bool EnableSOAAnalysis = false;
-
-  /// Holds the name of the VPlan, for printing.
-  std::string Name;
-
-  /// Flag showing that a new scheme of CG for loops and basic blocks
-  /// should be used.
-  bool ExplicitRemainderUsed = false;
-
-  /// Map: VF -> PreferredPeeling.
-  std::map<unsigned, std::unique_ptr<VPlanPeelingVariant>> PreferredPeelingMap;
-
-  DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 
   /// Holds the VPLiveInValues.
   SmallVector<std::unique_ptr<VPLiveInValue>, 16> LiveInValues;
@@ -3102,16 +3062,23 @@ private:
   /// Holds the VPLiveOutValues.
   SmallVector<std::unique_ptr<VPLiveOutValue>, 16> LiveOutValues;
 
+  std::unique_ptr<VPlanDivergenceAnalysisBase> VPlanDA;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printLiveIns(raw_ostream &OS) const;
+  void printLiveOuts(raw_ostream &OS) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  VPlan(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)
+      : Kind(K), Externals(E), UnlinkedVPInsts(UVPI) {}
+
+  virtual ~VPlan();
+
 public:
-  VPlan(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
 
-  ~VPlan();
+  VPlanKind getVPlanKind() const { return Kind; }
 
-  /// Generate the IR code for this VPlan.
-  void execute(struct VPTransformState *State);
-#if INTEL_CUSTOMIZATION
-  void executeHIR(VPOCodeGenHIR *CG);
-#endif // INTEL_CUSTOMIZATION
+  VPlanDivergenceAnalysisBase *getVPlanDA() const { return VPlanDA.get(); }
 
   VPExternalValues &getExternals() { return Externals; }
   const VPExternalValues &getExternals() const { return Externals; }
@@ -3120,72 +3087,7 @@ public:
     return UnlinkedVPInsts;
   }
 
-  VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
-
-  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
-
-  VPlanScalarEvolution *getVPSE() const { return VPSE.get(); }
-
-  VPlanValueTracking *getVPVT() const { return VPVT.get(); }
-
-  void setVPLoopInfo(std::unique_ptr<VPLoopInfo> VPLI) {
-    VPLInfo = std::move(VPLI);
-  }
-
-  void setVPlanDA(std::unique_ptr<VPlanDivergenceAnalysis> VPDA) {
-    VPlanDA = std::move(VPDA);
-  }
-
-  void computeDA();
-
-  void setVPSE(std::unique_ptr<VPlanScalarEvolution> A);
-
-  void setVPVT(std::unique_ptr<VPlanValueTracking> A) {
-    VPVT = std::move(A);
-  }
-
   LLVMContext *getLLVMContext(void) const { return Externals.getLLVMContext(); }
-
-  VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
-
-  void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysis> VPSVA) {
-    VPlanSVA = std::move(VPSVA);
-  }
-
-  VPlanScalVecAnalysis *getVPlanSVA() const { return VPlanSVA.get(); }
-
-  // Compute SVA results for this VPlan.
-  void runSVA(unsigned VF, const TargetLibraryInfo *TLI);
-
-  // Clear SVA results for this VPlan. We also reset CallVecDecisions results
-  // here.
-  void clearSVA();
-
-  void markFullLinearizationForced() { FullLinearizationForced = true; }
-  bool isFullLinearizationForced() const { return FullLinearizationForced; }
-
-  void disableActiveLaneInstructions() {
-    DisableActiveLaneInstructions = true;
-  }
-  bool areActiveLaneInstructionsDisabled() {
-    return DisableActiveLaneInstructions;
-  }
-
-  /// Disable SOA-analysis.
-  void disableSOAAnalysis() { EnableSOAAnalysis = false; }
-
-  /// Enable SOA-analysis.
-  void enableSOAAnalysis() { EnableSOAAnalysis = true; }
-
-  /// Return \true if SOA-analysis is enabled.
-  bool isSOAAnalysisEnabled() const { return EnableSOAAnalysis; }
-
-  /// Utility to run/recompute results of analyses specified by \p Analyses.
-  // TODO : Implementation is missing.
-  void requiredAnalyses(ArrayRef<VPAnalysisID> Analyses);
-
-  /// Utility to invalidate results of analyses specified by \p Analyses.
-  void invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses);
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
 
@@ -3222,43 +3124,6 @@ public:
 
   bool hasExplicitRemainder() const { return ExplicitRemainderUsed; }
   void setExplicitRemainderUsed() { ExplicitRemainderUsed = true; }
-
-  /// Return an existing or newly created LoopEntities for the loop \p L.
-  VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
-    // Sanity check
-    VPBasicBlock *HeaderBB = L->getHeader(); (void)HeaderBB;
-    assert(VPLInfo->getLoopFor(HeaderBB) == L &&
-           "the loop does not exist in VPlan");
-
-    std::unique_ptr<VPLoopEntityList> &Ptr = LoopEntities[L];
-    if (!Ptr) {
-      VPLoopEntityList *E =
-          new VPLoopEntityList(*this, *(const_cast<VPLoop *>(L)));
-      Ptr.reset(E);
-    }
-    return Ptr.get();
-  }
-
-  /// Return LoopEntities list for the loop \p L. The nullptr is returned if
-  /// the descriptors were not created for the loop.
-  const VPLoopEntityList *getLoopEntities(const VPLoop *L) const {
-    auto Iter = LoopEntities.find(L);
-    if (Iter == LoopEntities.end())
-      return nullptr;
-    return Iter->second.get();
-  }
-
-  /// Getters for Dominator Tree
-  VPDominatorTree *getDT() { return PlanDT.get(); }
-  const VPDominatorTree *getDT() const { return PlanDT.get(); }
-  /// Getter for Post-Dominator Tree
-  VPPostDominatorTree *getPDT() { return PlanPDT.get(); }
-
-  /// Compute the Dominator Tree for this Plan.
-  void computeDT();
-
-  /// Compute the Post-Dominator Tree for this Plan.
-  void computePDT();
 
   // VPBasicBlock iterator forwarding functions
   iterator begin() { return VPBasicBlocks.begin(); }
@@ -3324,24 +3189,12 @@ public:
   void dump(raw_ostream &OS) const;
   void dump() const;
   void print(raw_ostream &OS, unsigned Indent) const;
+  virtual void printSpecifics(raw_ostream &OS) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   const std::string &getName() const { return Name; }
 
   void setName(const Twine &newName) { Name = newName.str(); }
-
-  void setPreferredPeeling(unsigned VF,
-                           std::unique_ptr<VPlanPeelingVariant> Peeling) {
-    PreferredPeelingMap[VF] = std::move(Peeling);
-  }
-
-  /// Returns preferred peeling or nullptr.
-  VPlanPeelingVariant *getPreferredPeeling(unsigned VF) const {
-    auto Iter = PreferredPeelingMap.find(VF);
-    if (Iter == PreferredPeelingMap.end())
-      return nullptr;
-    return Iter->second.get();
-  }
 
   /// Add unlinked VPInstructions.
   void addUnlinkedVPInst(VPInstruction *I) {
@@ -3402,17 +3255,11 @@ public:
     return Externals.getVPMetadataAsValue(MD);
   }
 
-  // When we clone the plan, we can choose if we want to calculate DA from
-  // scratch or clone DA or none of them. If the plan is cloned after the
-  // predicator, then we just have to clone instructions' vector shapes.
-  enum class UpdateDA : uint8_t {
-    RecalculateDA, // Compute DA from scratch.
-    CloneDA,       // Clone DA of the original plan to the new plan.
-    DoNotUpdateDA  // Do not set DA.
-  };
-  // Clones VPlan. VPAnalysesFactory has methods to create additional analyses
-  // required for cloned VPlan.
-  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, UpdateDA UDA);
+  /// Clone live-in values from OrigVPlan and add them in LiveInValues.
+  void cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
+
+  /// Clone live-out values from OrigVPlan and add them in LiveOutValues.
+  void cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
 
 private:
   void addLiveInValue(VPLiveInValue *V) {
@@ -3449,21 +3296,334 @@ private:
     LiveOutValues.resize(Count);
   }
 
-  /// Clone live-in values from OrigVPlan and add them in LiveInValues.
-  void cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
+private:
+  VPlanKind Kind;
+  VPExternalValues &Externals;
+  VPUnlinkedInstructions &UnlinkedVPInsts;
 
-  /// Clone live-out values from OrigVPlan and add them in LiveOutValues.
-  void cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
+  /// Holds the name of the VPlan, for printing.
+  std::string Name;
+
+  /// Flag showing that a new scheme of CG for loops and basic blocks
+  /// should be used.
+  bool ExplicitRemainderUsed = false;
+};
+
+/// Class to represent VPlan for scalar-loops.
+// Currently there are no VPlan-VPlan analyses/transforms planned for
+// scalar-loops, but this might change in the future.
+class VPlanScalar : public VPlan {
+
+public:
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPlan *V) {
+    return V->getVPlanKind() == VPlanKind::ScalarPeel ||
+           V->getVPlanKind() == VPlanKind::ScalarRemainder;
+  }
+
+  // Set the base-class VPlanDA with input scalar DA-type object.
+  void setVPlanDA(std::unique_ptr<VPlanDivergenceAnalysisScalar> VPDA) {
+    VPlanDA = std::move(VPDA);
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Print Scalar VPlan specific information. Currently, we do not print
+  // anything specific for scalar VPlans.
+  virtual void printSpecifics(raw_ostream &OS) const override {}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+protected:
+  VPlanScalar(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)
+      : VPlan(K, E, UVPI) {}
+};
+
+//class VPlanMasked;
+
+/// Class to represent VPlan for Vector-loops. This class holds pointers and
+/// data specific to analyses required for vectorization and has nothing
+/// specific for masked/non-masked vector loops.
+class VPlanVector : public VPlan {
+
+public:
+  // When we clone the plan, we can choose if we want to calculate DA from
+  // scratch or clone DA or none of them. If the plan is cloned after the
+  // predicator, then we just have to clone instructions' vector shapes.
+  enum class UpdateDA : uint8_t {
+    RecalculateDA, // Compute DA from scratch.
+    CloneDA,       // Clone DA of the original plan to the new plan.
+    DoNotUpdateDA  // Do not set DA.
+  };
+
+  // TODO: Make this pure virtual.
+  void computeDA();
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPlan *V) {
+    return V->getVPlanKind() == VPlanKind::Masked ||
+           V->getVPlanKind() == VPlanKind::NonMasked;
+  }
+
+  /// Generate the LLVM IR code for this VPlan.
+  void execute(struct VPTransformState *State);
+
+#if INTEL_CUSTOMIZATION
+  void executeHIR(VPOCodeGenHIR *CG);
+#endif // INTEL_CUSTOMIZATION
+
+  VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
+
+  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
+
+  VPlanScalarEvolution *getVPSE() const { return VPSE.get(); }
+
+  VPlanValueTracking *getVPVT() const { return VPVT.get(); }
+
+  void setVPLoopInfo(std::unique_ptr<VPLoopInfo> VPLI) {
+    VPLInfo = std::move(VPLI);
+  }
+
+  // Set the base-class VPlanDA with input vector DA-type object.
+  void setVPlanDA(std::unique_ptr<VPlanDivergenceAnalysis> VPDA) {
+    VPlanDA = std::move(VPDA);
+  }
+
+  void setVPSE(std::unique_ptr<VPlanScalarEvolution> A);
+
+  void setVPVT(std::unique_ptr<VPlanValueTracking> A) {
+    VPVT = std::move(A);
+  }
+
+  void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysis> VPSVA) {
+    VPlanSVA = std::move(VPSVA);
+  }
+
+  VPlanScalVecAnalysis *getVPlanSVA() const { return VPlanSVA.get(); }
+
+  // Compute SVA results for this VPlan.
+  void runSVA(unsigned VF, const TargetLibraryInfo *TLI);
+
+  // Clear results of SVA.
+  void clearSVA();
+
+  void markFullLinearizationForced() { FullLinearizationForced = true; }
+  bool isFullLinearizationForced() const { return FullLinearizationForced; }
+
+  void markBackedgeUniformityForced() {
+    ForceOuterLoopBackedgeUniformity = true;
+  }
+
+  bool isBackedgeUniformityForced() const {
+    return ForceOuterLoopBackedgeUniformity;
+  }
+
+  void disableActiveLaneInstructions() { DisableActiveLaneInstructions = true; }
+
+  bool areActiveLaneInstructionsDisabled() {
+    return DisableActiveLaneInstructions;
+  }
+
+  /// Disable SOA-analysis.
+  void disableSOAAnalysis() { EnableSOAAnalysis = false; }
+
+  /// Enable SOA-analysis.
+  void enableSOAAnalysis() { EnableSOAAnalysis = true; }
+
+  /// Getters for Dominator Tree
+  VPDominatorTree *getDT() { return PlanDT.get(); }
+  const VPDominatorTree *getDT() const { return PlanDT.get(); }
+  /// Getter for Post-Dominator Tree
+  VPPostDominatorTree *getPDT() { return PlanPDT.get(); }
+
+  /// Compute the Dominator Tree for this Plan.
+  void computeDT();
+
+  /// Compute the Post-Dominator Tree for this Plan.
+  void computePDT();
+
+  /// Return \true if SOA-analysis is enabled.
+  bool isSOAAnalysisEnabled() const { return EnableSOAAnalysis; }
+
+  /// Return an existing or newly created LoopEntities for the loop \p L.
+  VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
+    // Sanity check
+    VPBasicBlock *HeaderBB = L->getHeader(); (void)HeaderBB;
+    assert(VPLInfo->getLoopFor(HeaderBB) == L &&
+           "the loop does not exist in VPlan");
+
+    std::unique_ptr<VPLoopEntityList> &Ptr = LoopEntities[L];
+    if (!Ptr) {
+      VPLoopEntityList *E =
+          new VPLoopEntityList(*this, *(const_cast<VPLoop *>(L)));
+      Ptr.reset(E);
+    }
+    return Ptr.get();
+  }
+
+  /// Return LoopEntities list for the loop \p L. The nullptr is returned if
+  /// the descriptors were not created for the loop.
+  const VPLoopEntityList *getLoopEntities(const VPLoop *L) const {
+    auto Iter = LoopEntities.find(L);
+    if (Iter == LoopEntities.end())
+      return nullptr;
+    return Iter->second.get();
+  }
+
+  /// Utility to invalidate results of analyses specified by \p Analyses.
+  void invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses);
+
+  /// Utility to run/recompute results of analyses specified by \p Analyses.
+  // TODO : Implementation is missing.
+  void requiredAnalyses(ArrayRef<VPAnalysisID> Analyses);
 
   /// Add to the given dominator tree the header block and every new basic block
   /// that was created between it and the latch block, inclusive.
   static void updateDominatorTree(class DominatorTree *DT,
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
+
+  /// Utility method to clone VPlan. VPAnalysesFactory has methods to
+  /// create additional analyses required for cloned VPlan.
+  virtual std::unique_ptr<VPlanVector> clone(VPAnalysesFactory &VPAF,
+                                             UpdateDA UDA) = 0;
+
+  void setPreferredPeeling(unsigned VF,
+                           std::unique_ptr<VPlanPeelingVariant> Peeling) {
+    PreferredPeelingMap[VF] = std::move(Peeling);
+  }
+
+  /// Returns preferred peeling or nullptr.
+  VPlanPeelingVariant *getPreferredPeeling(unsigned VF) const {
+    auto Iter = PreferredPeelingMap.find(VF);
+    if (Iter == PreferredPeelingMap.end())
+      return nullptr;
+    return Iter->second.get();
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printLiveIns(raw_ostream &OS) const;
-  void printLiveOuts(raw_ostream &OS) const;
+  void printVectorVPlanData() const;
+  /// Print Vector VPlan specific information. Currently, this covers
+  /// Loop-entities information.
+  virtual void printSpecifics(raw_ostream &OS) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+private:
+  /// Dominator Tree for the Plan.
+  std::unique_ptr<VPDominatorTree> PlanDT;
+
+  /// Post-Dominator Tree for the Plan.
+  std::unique_ptr<VPPostDominatorTree> PlanPDT;
+
+  // We need to force full linearization for certain cases. Currently this
+  // happens for cases where while-loop canonicalization or merge loop exits
+  // transformation break SSA or for HIR vector code generation which needs
+  // to be extended to preserve uniform control flow. This flag is set to true
+  // when we need to force full linearization. Full linearization can still
+  // kick in when this flag is false such as cases where we use a command
+  // line option to do the same.
+  bool FullLinearizationForced = false;
+
+  // HIR isn't uplifted for explict vector loop IV - need DA to treat backedge
+  // condition as uniform.
+  bool ForceOuterLoopBackedgeUniformity = false;
+
+  // HIR CG handles very limited scalar compute and tends to keep most of things
+  // on vectors. As such, the stability issue addressed by
+  // VPActiveLane/VPActiveLaneExtract doesn't seem to exist for HIR case. Also,
+  // implementing the proper CG for them
+  //   1) Doesn't seem to be needed right now - we have some time until we'll
+  //      implement a better approach to the problem.
+  //   2) Might not be easy/possible because the support for the scalar compute
+  //      itself is very weak in HIR CG.
+  bool DisableActiveLaneInstructions = false;
+
+  /// Enable SOA-analysis flag.
+  bool EnableSOAAnalysis = false;
+
+  std::unique_ptr<VPLoopInfo> VPLInfo;
+  std::unique_ptr<VPlanScalarEvolution> VPSE;
+  std::unique_ptr<VPlanValueTracking> VPVT;
+  std::unique_ptr<VPlanScalVecAnalysis> VPlanSVA;
+
+  DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
+
+  /// Map: VF -> PreferredPeeling.
+  std::map<unsigned, std::unique_ptr<VPlanPeelingVariant>> PreferredPeelingMap;
+
+protected:
+  VPlanVector(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI);
+
+  // Helper method used by cloning functionality to populate data in the new
+  // VPlan.
+  void copyData(VPAnalysesFactory &VPAF, UpdateDA UDA, VPlanVector *TargetPlan);
+};
+
+/// Class to represent VPlan for scalar-peel loops.
+class VPlanScalarPeel : public VPlanScalar {
+public:
+  VPlanScalarPeel(VPExternalValues &E, VPUnlinkedInstructions &UVPI)
+      : VPlanScalar(VPlanKind::ScalarPeel, E, UVPI) {}
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPlan *V) {
+    return V->getVPlanKind() == VPlanKind::ScalarPeel;
+  }
+};
+
+/// Class to represent VPlan for scalar-remainder loops.
+class VPlanScalarRemainder : public VPlanScalar {
+public:
+  VPlanScalarRemainder(VPExternalValues &E, VPUnlinkedInstructions &UVPI)
+      : VPlanScalar(VPlanKind::ScalarRemainder, E, UVPI) {}
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPlan *V) {
+    return V->getVPlanKind() == VPlanKind::ScalarRemainder;
+  }
+};
+
+/// Class to represent VPlan for masked loop.
+// This is a vector-type VPlan as we would want to, in some cases, execute the
+// main vector-loop in masked mode. E.g., when we statically know the number of
+// iterations and it is less than the VF we decide to vectorize with.
+class VPlanMasked : public VPlanVector {
+
+public:
+  VPlanMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
+
+  /// Utility method to clone Non-Masked-vplan. VPAnalysesFactory has methods to
+  /// create additional analyses required for cloned VPlan.
+  std::unique_ptr<VPlanVector> clone(VPAnalysesFactory &VPAF,
+                                     UpdateDA UDA) override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPlan *V) {
+    return V->getVPlanKind() == VPlanKind::Masked;
+  }
+};
+
+/// Class to represent VPlan for non-masked loop.
+class VPlanNonMasked : public VPlanVector {
+public:
+  VPlanNonMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
+
+  /// Utility method to clone masked-vplan. VPAnalysesFactory has methods to
+  /// create additional analyses required for cloned VPlan.
+  std::unique_ptr<VPlanVector> clone(VPAnalysesFactory &VPAF,
+                                     UpdateDA UDA) override;
+
+  /// Utility method to allow a Non-masked VPlan to clone a masked VPlan.
+  std::unique_ptr<VPlanMasked> cloneMasked(VPAnalysesFactory &VPAF,
+                                           UpdateDA UDA);
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPlan *V) {
+    return V->getVPlanKind() == VPlanKind::NonMasked;
+  }
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

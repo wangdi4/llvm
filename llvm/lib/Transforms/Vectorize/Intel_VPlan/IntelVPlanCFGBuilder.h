@@ -31,7 +31,7 @@ class VPlanCFGBuilderBase {
   }
 
 protected:
-  VPlan *Plan;
+  VPlanVector *Plan;
 
   // Builder of the VPlan instruction-level representation.
   VPBuilder VPIRBuilder;
@@ -82,7 +82,7 @@ protected:
   // Reset the insertion point.
   void resetInsertPoint() { VPIRBuilder.clearInsertionPoint(); }
 
-  VPlanCFGBuilderBase(VPlan *Plan) : Plan(Plan) {}
+  VPlanCFGBuilderBase(VPlanVector *Plan) : Plan(Plan) {}
 
   void processBB(BasicBlock *BB);
 
@@ -99,7 +99,7 @@ public:
     return TheLoop->contains(Inst);
   }
 
-  VPlanLoopCFGBuilder(VPlan *Plan, Loop *Lp, LoopInfo *LI)
+  VPlanLoopCFGBuilder(VPlanVector *Plan, Loop *Lp, LoopInfo *LI)
       : VPlanCFGBuilderBase<VPlanLoopCFGBuilder>(Plan), TheLoop(Lp), LI(LI) {}
 
   void buildCFG();
@@ -115,7 +115,7 @@ public:
     return true;
   }
 
-  VPlanFunctionCFGBuilder(VPlan *Plan, Function &F)
+  VPlanFunctionCFGBuilder(VPlanVector *Plan, Function &F)
       : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan), F(F) {}
 
   void buildCFG();

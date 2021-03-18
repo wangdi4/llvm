@@ -67,7 +67,7 @@ public:
 
 private:
   /// The VPlan we are working on.
-  VPlan *Plan;
+  VPlanVector *Plan;
 
   /// Outermost HLLoop in this VPlan.
   const loopopt::HLLoop *OutermostHLp;
@@ -268,7 +268,7 @@ private:
   };
 
 public:
-  VPDecomposerHIR(VPlan *P, const loopopt::HLLoop *OHLp,
+  VPDecomposerHIR(VPlanVector *P, const loopopt::HLLoop *OHLp,
                   const loopopt::DDGraph &DDG,
                   HIRVectorizationLegality &HIRLegality)
       : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality){};

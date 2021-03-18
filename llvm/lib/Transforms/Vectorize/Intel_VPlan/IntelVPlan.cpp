@@ -415,8 +415,11 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
 
 void VPInstruction::print(raw_ostream &O) const {
   const VPlan *Plan = getParent()->getParent();
-  const VPlanDivergenceAnalysis *DA = Plan->getVPlanDA();
-  const VPlanScalVecAnalysis *SVA = Plan->getVPlanSVA();
+  const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
+  VPlanScalVecAnalysis *SVA = nullptr;
+  if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
+    SVA = VecVPlan->getVPlanSVA();
+
   if (DA || SVA)
     O << "[";
   // Print DA information.
@@ -657,8 +660,14 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
-VPlan::VPlan(VPExternalValues &E, VPUnlinkedInstructions &UVPI)
-    : Externals(E), UnlinkedVPInsts(UVPI) {}
+VPlanVector::VPlanVector(VPlanKind K, VPExternalValues &E,
+                         VPUnlinkedInstructions &UVPI)
+    : VPlan(K, E, UVPI) {}
+VPlanMasked::VPlanMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI)
+    : VPlanVector(VPlanKind::Masked, E, UVPI) {}
+VPlanNonMasked::VPlanNonMasked(VPExternalValues &E,
+                               VPUnlinkedInstructions &UVPI)
+    : VPlanVector(VPlanKind::NonMasked, E, UVPI) {}
 
 VPlan::~VPlan() {
   // After this it is safe to delete instructions.
@@ -670,13 +679,13 @@ VPlan::~VPlan() {
       LOV->dropAllReferences();
 }
 
-void VPlan::computeDT(void) {
+void VPlanVector::computeDT(void) {
   if (!PlanDT)
     PlanDT.reset(new VPDominatorTree);
   PlanDT->recalculate(*this);
 }
 
-void VPlan::computePDT(void) {
+void VPlanVector::computePDT(void) {
   if (!PlanPDT)
     PlanPDT.reset(new VPPostDominatorTree);
   PlanPDT->recalculate(*this);
@@ -684,21 +693,21 @@ void VPlan::computePDT(void) {
 
 #endif // INTEL_CUSTOMIZATION
 
-void VPlan::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
+void VPlanVector::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
   if (!EnableScalVecAnalysis)
     return;
   VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
   VPlanSVA->compute(this, VF, TLI);
 }
 
-void VPlan::clearSVA() {
+void VPlanVector::clearSVA() {
   // Reset CallVecDecisions results that were recorded for this VPlan.
   VPlanCallVecDecisions CVDA(*this);
   CVDA.reset();
   VPlanSVA.reset();
 }
 
-void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
+void VPlanVector::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
   for (auto ID : Analyses) {
     switch (ID) {
     case VPAnalysisID::SVA:
@@ -714,7 +723,7 @@ void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
 // Generate the code inside the body of the vectorized loop. Assumes a single
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
-void VPlan::execute(VPTransformState *State) {
+void VPlanVector::execute(VPTransformState *State) {
   assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
          "Expected single outermost loop!");
   VPLoop *VLoop = *VPLInfo->begin();
@@ -836,7 +845,7 @@ void VPlan::execute(VPTransformState *State) {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPlan::executeHIR(VPOCodeGenHIR *CG) {
+void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
   assert(!isSOAAnalysisEnabled() &&
          "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
@@ -875,7 +884,7 @@ static bool maybePointerToPrivateMemory(const VPValue *V) {
   return true;
 }
 
-void VPlan::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
+void VPlanVector::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
   VPSE = std::move(A);
   for (auto &VPBB : VPBasicBlocks)
     for (auto &VPInst : VPBB)
@@ -891,8 +900,9 @@ void VPlan::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
       }
 }
 
-void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
-                                BasicBlock *LoopLatchBB) {
+void VPlanVector::updateDominatorTree(DominatorTree *DT,
+                                      BasicBlock *LoopPreHeaderBB,
+                                      BasicBlock *LoopLatchBB) {
   BasicBlock *LoopHeaderBB = LoopPreHeaderBB->getSingleSuccessor();
   assert(LoopHeaderBB && "Loop preheader does not have a single successor.");
   DT->addNewBlock(LoopHeaderBB, LoopPreHeaderBB);
@@ -968,11 +978,8 @@ void VPlan::dump(raw_ostream &OS) const {
   if (DumpVPlanLiveInsLiveOuts)
     printLiveIns(FOS);
 
-  for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
-       EIter != End; ++EIter) {
-    VPLoopEntityList *E = EIter->second.get();
-    E->dump(FOS, EIter->first->getHeader());
-  }
+  // Print Scalar/Vector VPlan-specific data.
+  printSpecifics(FOS);
 
   print(FOS, 1);
 
@@ -980,6 +987,26 @@ void VPlan::dump(raw_ostream &OS) const {
     printLiveOuts(FOS);
 
   Externals.dumpExternalUses(FOS, LiveOutValues.size() ? this : nullptr);
+}
+
+void VPlan::dump() const { dump(dbgs()); }
+
+void VPlanVector::printVectorVPlanData() const {
+  LLVM_DEBUG(dbgs() << "Dominator Tree After initial VPlan transforms\n";
+             PlanDT->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree After initial VPlan transforms :\n";
+             PlanPDT->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "VPLoop Info After initial VPlan transforms:\n";
+             VPLInfo->print(dbgs()));
+}
+
+// Iterate over the list of entities and print relevant data.
+void VPlanVector::printSpecifics(raw_ostream &OS) const {
+  for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
+       EIter != End; ++EIter) {
+    VPLoopEntityList *E = EIter->second.get();
+    E->dump(OS, EIter->first->getHeader());
+  }
 }
 
 void VPlan::printLiveIns(raw_ostream &OS) const {
@@ -1004,8 +1031,6 @@ void VPlan::printLiveOuts(raw_ostream &OS) const {
       LO->print(OS);
   }
 }
-
-void VPlan::dump() const { dump(dbgs()); }
 
 void VPlanPrinter::dump(bool CFGOnly) {
 #if INTEL_CUSTOMIZATION
@@ -1311,18 +1336,19 @@ using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif
 
-void VPlan::computeDA() {
+void VPlanVector::computeDA() {
   VPLoopInfo *VPLInfo = getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
-  getVPlanDA()->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
-                        false /*Not in LCSSA form*/);
+  auto *DA = cast<VPlanDivergenceAnalysis>(getVPlanDA());
+  DA->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
+              false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
     // Do SOA-analysis for loop-privates.
     // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
     VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
     SmallPtrSet<VPInstruction *, 32> SOAVars;
     VPSOAA.doSOAAnalysis(SOAVars);
-    getVPlanDA()->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
+    DA->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
   }
 }
 
@@ -1342,65 +1368,94 @@ void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
   }
 }
 
-std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
-  // Create new VPlan
-  std::unique_ptr<VPlan> ClonedVPlan =
-      std::make_unique<VPlan>(getExternals(), getUnlinkedVPInsts());
-
+// Common functionality to do a deep-copy when cloning VPlans.
+void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
+                           VPlanVector *TargetPlan) {
   // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
   VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
-                                 nullptr, "Cloned.", ClonedVPlan.get());
+                                 nullptr, "Cloned.", TargetPlan);
 
   // Clone live in and live out values.
   VPValueMapper Mapper(OrigClonedValuesMap);
-  ClonedVPlan->cloneLiveOutValues(*this, Mapper);
-  ClonedVPlan->cloneLiveInValues(*this, Mapper);
+  TargetPlan->cloneLiveOutValues(*this, Mapper);
+  TargetPlan->cloneLiveInValues(*this, Mapper);
 
   // Update cloned instructions' operands
   for (VPBasicBlock &OrigVPBB : *this)
     Mapper.remapOperands(&OrigVPBB);
 
-  for (auto LO : ClonedVPlan->liveOutValues())
+  for (auto LO : TargetPlan->liveOutValues())
     Mapper.remapInstruction(LO);
 
   // Update FullLinearizationForced
   if (isFullLinearizationForced())
-    ClonedVPlan->markFullLinearizationForced();
+    TargetPlan->markFullLinearizationForced();
 
   if (areActiveLaneInstructionsDisabled())
-    ClonedVPlan->disableActiveLaneInstructions();
+    TargetPlan->disableActiveLaneInstructions();
 
   // Enable SOA-analysis if it was enabled in the original VPlan.
   if (isSOAAnalysisEnabled())
-    ClonedVPlan->enableSOAAnalysis();
+    TargetPlan->enableSOAAnalysis();
 
   // Set SCEV to Cloned Plan
-  ClonedVPlan->setVPSE(VPAF.createVPSE());
+  TargetPlan->setVPSE(VPAF.createVPSE());
 
   // Set Value Tracking to Cloned Plan
-  ClonedVPlan->setVPVT(VPAF.createVPVT(ClonedVPlan->getVPSE()));
+  TargetPlan->setVPVT(VPAF.createVPVT(TargetPlan->getVPSE()));
 
   // Update dominator tree and post-dominator tree of new VPlan
-  ClonedVPlan->computeDT();
-  ClonedVPlan->computePDT();
+  TargetPlan->computeDT();
+  TargetPlan->computePDT();
 
-  // Calclulate VPLoopInfo for the ClonedVPlan
-  ClonedVPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
-  VPLoopInfo *ClonedVPLInfo = ClonedVPlan->getVPLoopInfo();
-  ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
-  LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
+  // Calclulate VPLoopInfo for the TargetPlan
+  TargetPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
+  VPLoopInfo *ClonedVPLInfo = TargetPlan->getVPLoopInfo();
+  ClonedVPLInfo->analyze(*TargetPlan->getDT());
+  LLVM_DEBUG(ClonedVPLInfo->verify(*TargetPlan->getDT()));
 
   // Update DA.
   if (UDA != UpdateDA::DoNotUpdateDA) {
-    auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
-    ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
+    auto TargetPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
+    TargetPlan->setVPlanDA(std::move(TargetPlanDA));
     if (UDA == UpdateDA::RecalculateDA)
-      ClonedVPlan->computeDA();
+      TargetPlan->computeDA();
     else if (UDA == UpdateDA::CloneDA) {
-      getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
-      ClonedVPlan->getVPlanDA()->disableDARecomputation();
+      cast<VPlanDivergenceAnalysis>(getVPlanDA())
+          ->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
+      cast<VPlanDivergenceAnalysis>(TargetPlan->getVPlanDA())
+          ->disableDARecomputation();
     }
   }
+}
+
+std::unique_ptr<VPlanVector> VPlanMasked::clone(VPAnalysesFactory &VPAF,
+                                                UpdateDA UDA) {
+  // Create new masked VPlan
+  std::unique_ptr<VPlanMasked> ClonedVPlan =
+      std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
+
+  copyData(VPAF, UDA, ClonedVPlan.get());
+  return ClonedVPlan;
+}
+
+std::unique_ptr<VPlanVector> VPlanNonMasked::clone(VPAnalysesFactory &VPAF,
+                                                   UpdateDA UDA) {
+  // Create new non-masked VPlan
+  std::unique_ptr<VPlanNonMasked> ClonedVPlan =
+      std::make_unique<VPlanNonMasked>(getExternals(), getUnlinkedVPInsts());
+
+  copyData(VPAF, UDA, ClonedVPlan.get());
+  return ClonedVPlan;
+}
+
+std::unique_ptr<VPlanMasked>
+VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+  // Create new masked VPlan from a non-masked VPlan.
+  std::unique_ptr<VPlanMasked> ClonedVPlan =
+      std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
+
+  copyData(VPAF, UDA, ClonedVPlan.get());
   return ClonedVPlan;
 }

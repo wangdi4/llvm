@@ -29,7 +29,7 @@ class TargetLibraryInfo;
 
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
 class VPInstruction;
 class VPPHINode;
 class VPBasicBlock;
@@ -110,7 +110,7 @@ public:
   /// Optionally a specific vector factor and TLI can be provided to the
   /// analysis to compute more accurate results for Call instructions and their
   /// argument operands.
-  void compute(VPlan *P, unsigned VF = 1,
+  void compute(VPlanVector *P, unsigned VF = 1,
                const TargetLibraryInfo *TLI = nullptr);
 
   void clear(void) { VPlanSVAResults.clear(); }
@@ -168,7 +168,7 @@ private:
   SmallDenseMap<const VPInstruction *, VPInstSVABits> VPlanSVAResults;
 
   // VPlan for which SVA results are computed for.
-  VPlan *Plan;
+  VPlanVector *Plan;
 
   // Container to track loop header PHIs that are skipped during forward
   // propagation. Such PHIs occur when they do not have any processed users i.e.

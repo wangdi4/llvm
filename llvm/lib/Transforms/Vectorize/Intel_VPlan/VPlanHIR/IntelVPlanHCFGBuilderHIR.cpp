@@ -295,7 +295,7 @@ private:
   /// Outermost loop of the input loop nest.
   HLLoop *TheLoop;
 
-  VPlan *Plan;
+  VPlanVector *Plan;
 
   /// Map between loop header VPBasicBlock's and their respective HLLoop's. It
   /// is populated in this phase to keep the information necessary to create
@@ -345,7 +345,7 @@ private:
   void visit(HLLabel *HLabel);
 
 public:
-  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlan *Plan,
+  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlanVector *Plan,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp,
                      HIRVectorizationLegality *HIRLegality)
       : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp),
@@ -717,7 +717,7 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
 }
 
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
-                                         VPlan *Plan,
+                                         VPlanVector *Plan,
                                          HIRVectorizationLegality *Legal,
                                          const DDGraph &DDG)
     : VPlanHCFGBuilder(nullptr, nullptr, Lp->getHLNodeUtils().getDataLayout(),
@@ -1258,7 +1258,7 @@ class HLLoop2VPLoopMapper {
 public:
   HLLoop2VPLoopMapper() = delete;
   explicit HLLoop2VPLoopMapper(
-      const VPlan *Plan,
+      const VPlanVector *Plan,
       SmallDenseMap<VPBasicBlock *, HLLoop *> Header2HLLoop) {
 
     std::function<void(const VPLoop *)> mapLoop2VPLoop =

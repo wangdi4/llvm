@@ -69,22 +69,21 @@ class VPlanCostModel {
 #endif // INTEL_CUSTOMIZATION
 public:
 #if INTEL_CUSTOMIZATION
-  VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI,
-                 const TargetLibraryInfo *TLI,
-                 const DataLayout *DL,
-                 VPlanVLSAnalysis *VLSA = nullptr)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VLSA(VLSA) {
+  VPlanCostModel(const VPlanVector *Plan, const unsigned VF,
+                 const TargetTransformInfo *TTI, const TargetLibraryInfo *TLI,
+                 const DataLayout *DL, VPlanVLSAnalysis *VLSA = nullptr)
+      : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VLSA(VLSA) {
     VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI, *DL);
 
     // CallVecDecisions analysis invocation.
-    VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
+    VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
+
     // Pass native TTI into CallVecDecisions analysis.
     CallVecDecisions.run(VF, TLI, &VPTTI->getTTI());
 
     // Compute SVA results for current VPlan in order to compute cost accurately
     // in CM.
-    const_cast<VPlan *>(Plan)->runSVA(VF, TLI);
+    const_cast<VPlanVector *>(Plan)->runSVA(VF, TLI);
 
     // Fill up HeuristicsPipeline with heuristics in the order they should be
     // applied.
@@ -95,11 +94,10 @@ public:
       std::make_unique<VPlanCostModelHeuristics::HeuristicSpillFill>(this));
   }
 #else
-  VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI,
-                 const TargetLibraryInfo *TLI,
+  VPlanCostModel(const VPlanVector *Plan, const unsigned VF,
+                 const TargetTransformInfo *TTI, const TargetLibraryInfo *TLI,
                  const DataLayout *DL)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL) {
+      : Plan(Plan), VF(VF), TLI(TLI), DL(DL) {
     VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI, *DL);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -116,7 +114,7 @@ public:
   static constexpr unsigned UnknownCost = -1u;
 
 protected:
-  const VPlan *Plan;
+  const VPlanVector *Plan;
   unsigned VF;
   std::unique_ptr<VPlanTTIWrapper> VPTTI;
   const TargetLibraryInfo *TLI;

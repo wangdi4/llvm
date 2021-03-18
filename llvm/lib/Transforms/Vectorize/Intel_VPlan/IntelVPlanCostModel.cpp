@@ -175,7 +175,8 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
 bool VPlanCostModel::isUnitStrideLoadStore(const VPInstruction *VPInst,
                                            bool &NegativeStride) const {
   const VPValue *P = getLoadStorePointerOperand(VPInst);
-  return Plan->getVPlanDA()->isUnitStridePtr(P, NegativeStride);
+  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
+      ->isUnitStridePtr(P, NegativeStride);
 }
 
 unsigned VPlanCostModel::getLoadStoreIndexSize(
