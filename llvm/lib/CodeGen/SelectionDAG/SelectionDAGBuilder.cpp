@@ -5963,10 +5963,12 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     setArgs(getValue(I.getArgOperand(2)), Int8PtrTy);
     setArgs(getValue(I.getArgOperand(3)), IntPtrTy);
     setArgs(getValue(I.getArgOperand(4)), IntPtrTy);
+    bool isVol = cast<ForCpyStrInst>(I).isVolatile();
     bool isTC = I.isTailCall() && isInTailCallPosition(I, DAG.getTarget());
+    SDValue Root = isVol ? getRoot() : getMemoryRoot();
     TargetLowering::CallLoweringInfo CLI(DAG);
     CLI.setDebugLoc(sdl)
-        .setChain(getRoot())
+        .setChain(Root)
         .setLibCallee(CallingConv::C, Type::getVoidTy(*Context),
                       DAG.getExternalSymbol(
                         TLI.getLibcallName(RTLIB::FOR_CPYSTR),

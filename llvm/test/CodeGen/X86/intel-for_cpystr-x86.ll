@@ -20,8 +20,8 @@ define void @for_cpystr_libcall_test_x86(i8* %dst, i32 %dstlen, i8 *%src, i32 %s
 ; CHECK-NEXT:    addl $44, %esp
 ; CHECK-NEXT:    .cfi_adjust_cfa_offset -44
 ; CHECK-NEXT:    retl
-  call void @llvm.for.cpystr.i32.i32.i32(i8 *%dst, i32 %dstlen, i8 *%src, i32 %srclen, i32 %padding)
+  call void @llvm.for.cpystr.i32.i32.i32(i8 *%dst, i32 %dstlen, i8 *%src, i32 %srclen, i32 %padding, i1 1)
   ret void
 }
 
-declare void @llvm.for.cpystr.i32.i32.i32(i8 *, i32, i8 *, i32, i32)
+declare void @llvm.for.cpystr.i32.i32.i32(i8 *, i32, i8 *, i32, i32, i1)
