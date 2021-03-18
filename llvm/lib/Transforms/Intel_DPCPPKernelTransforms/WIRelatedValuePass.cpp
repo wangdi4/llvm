@@ -172,7 +172,7 @@ bool WIRelatedValue::calculateDep(CallInst *CI) {
   // Check if the function is in the table of functions.
   Function *OrigFunc = CI->getCalledFunction();
   if (!OrigFunc) {
-    assert("Unexpected indirect call!");
+    assert(false && "Unexpected indirect call!");
     return true;
   }
 

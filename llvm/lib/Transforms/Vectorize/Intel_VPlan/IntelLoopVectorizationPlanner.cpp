@@ -581,12 +581,9 @@ void LoopVectorizationPlanner::predicate() {
     return;
 
   DenseSet<VPlan *> PredicatedVPlans;
-  for (auto It : VPlans) {
-    if (It.first == 1)
-      continue; // Ignore Scalar VPlan;
-    VPlan *VPlan = It.second.MainPlan.get();
+  auto Predicate = [&PredicatedVPlans](VPlan *VPlan) {
     if (PredicatedVPlans.count(VPlan))
-      continue; // Already predicated.
+      return; // Already predicated.
 
     VPLoopInfo *VPLI = VPlan->getVPLoopInfo();
     assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
@@ -617,6 +614,16 @@ void LoopVectorizationPlanner::predicate() {
     VPLAN_DUMP(LinearizationDumpControl, VPlan);
 
     PredicatedVPlans.insert(VPlan);
+  };
+
+  for (auto It : VPlans) {
+    if (It.first == 1)
+      continue; // Ignore Scalar VPlan;
+    VPlan *MainPlan = It.second.MainPlan.get();
+    Predicate(MainPlan);
+    // Masked mode loop might not exist.
+    if (VPlan *MaskedModeLoopPlan = It.second.MaskedModeLoop.get())
+      Predicate(MaskedModeLoopPlan);
   }
 }
 
