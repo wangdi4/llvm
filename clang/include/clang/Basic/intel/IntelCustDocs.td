@@ -3480,6 +3480,54 @@ variable, which can be used to validate versions on newer hardware.
   }];
 }
 
+def DisplayFullFilePathDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-26876";
+  let RegressionTest = "CodeGenCXX/intel/display-filename-or-path.cpp";
+  let Owner = "smanna";
+  let Content = [{
+Clang currently shows the full build-machine paths of our program files as
+specified on the command-line into the final assembly when using
+``__builtin_FILE`` since CMake always uses full-paths. This change adds a new
+command-line switch that is ON by default in -fintel-compatibility mode to
+control the behavior that ``__builtin_FILE`` should only include the filename
+(not the path) by default.
+
+.. code-block:: c++
+
+   void takes_const_char_ptr(const char * FN = __builtin_FILE());
+
+   int main() {
+     takes_const_char_ptr();
+   }
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -emit-llvm -o - `pwd`/t.cpp
+
+.. code-block:: llvm
+
+   @.str = private unnamed_addr constant [6 x i8] c"t.cpp\00", align 1
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility -fintel-compatibility-disable=DisplayFullFilePath -emit-llvm -o - `pwd`/t.cpp
+
+.. code-block:: llvm
+
+   @.str = private unnamed_addr constant [36 x i8] c"`pwd`/t.cpp\00", align 1
+
+  }];
+  let UserContent = [{
+Clang currently shows the full build-machine paths of our program files as
+specified on the command-line into the final assembly when using
+``__builtin_FILE`` since CMake always uses full-paths. New command-line
+switch controls the behavior to include filename or full file path when
+using ``__builtin_FILE``.
+  }];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------
