@@ -3592,6 +3592,37 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
   RegDDRef *MemRef = getMemoryRef(VPLoad, true /* Lane0Value */);
   auto *ScalarInst = HLNodeUtilities.createLoad(MemRef, ".unifload");
   if (Mask) {
+    // Consider the case of a uniform load under a mask and the subsequent
+    // use of the loaded value.
+    //   if (cond) {
+    //      v = *unifp;
+    //        = v + 1
+    //   }
+    //
+    // The generated HIR can look like the following:
+    //     %0 = bitcast.<4 x i1>.i4(cond.vec);
+    //     %cmp = %0 != 0;
+    //     if (%cmp == 1) {
+    //        %.unifload = (unifp)[0];
+    //     }
+    //        = add %.unifload, 1
+    //
+    // Note that the load itself is done conditionally but the uses of the
+    // loaded value can be unmasked if the use itself is safe such as the
+    // use in an add instruction. However, when we generate the equivalent
+    // LLVM IR, we end with unnecessary PHIs in the loop header due to
+    // what appears to be a potential use of the value assigned in a
+    // previous iteration. These unnecessary PHIs increase register
+    // pressure and we avoid this by assigning undef to %.unifload before
+    // the conditional load.
+    //
+    //     %.unifload = undef
+    //     if (%cmp == 1) {
+    //        %.unifload = (unifp)[0];
+    //     }
+    //
+    HLInst *InitInst = generateInitWithUndef(ScalarInst->getLvalDDRef());
+    addInstUnmasked(InitInst);
     HLIf *If = HLNodeUtilities.createHLIf(
         PredicateTy::ICMP_EQ, Mask->clone(),
         DDRefUtilities.createConstDDRef(Mask->getDestType(), 1));
