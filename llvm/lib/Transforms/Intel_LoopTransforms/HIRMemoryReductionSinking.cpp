@@ -132,7 +132,8 @@ FunctionPass *llvm::createHIRMemoryReductionSinkingPass() {
   return new HIRMemoryReductionSinkingLegacyPass();
 }
 
-static HLInst *getReductionStore(RegDDRef *LoadRef, HLInst *LoadInst) {
+static HLInst *getReductionStore(RegDDRef *LoadRef, HLInst *LoadInst,
+                                 bool CheckSelfBlobRval) {
   // We only handle consecutive load and store instructions when looking for
   // reductions.
   // TODO: Extend logic to handle non-consecutive loads and stores.
@@ -154,9 +155,16 @@ static HLInst *getReductionStore(RegDDRef *LoadRef, HLInst *LoadInst) {
   }
 
   unsigned TempIndex = LoadInst->getLvalDDRef()->getSelfBlobIndex();
-  if (!StoreRvalRef->getSingleCanonExpr()->containsStandAloneBlob(TempIndex,
-                                                                  false)) {
-    return nullptr;
+  if (CheckSelfBlobRval) {
+    if (!StoreRvalRef->isSelfBlob() ||
+        StoreRvalRef->getSelfBlobIndex() != TempIndex) {
+      return nullptr;
+    }
+  } else {
+    if (!StoreRvalRef->getSingleCanonExpr()->containsStandAloneBlob(TempIndex,
+                                                                    false)) {
+      return nullptr;
+    }
   }
 
   return SInst;
@@ -170,6 +178,7 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
   // look like memory reductions. DD based legality is checked later.
   for (auto &Node : make_range(Lp->child_begin(), Lp->child_end())) {
     auto *HInst = dyn_cast<HLInst>(&Node);
+    bool IsFirstPattern = true;
 
     if (!HInst) {
       continue;
@@ -183,6 +192,7 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
 
     if (isa<LoadInst>(LLVMInst)) {
       // Looking for this pattern for integer types-
+      // (first pattern)
       //    %0 = A[5];
       //    A[5] = %0 + t;
       LoadRef = HInst->getRvalDDRef();
@@ -195,6 +205,7 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
 
     } else if (isa<BinaryOperator>(LLVMInst) && HInst->isReductionOp(&Opcode)) {
       // Looking for this pattern-
+      // (second pattern)
       //   %add = A[5]  +  %t;
       //   A[5] = %add;
       auto *FPOp = dyn_cast<FPMathOperator>(LLVMInst);
@@ -213,16 +224,17 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
           AlternateLoadRef = nullptr;
         }
       }
+      IsFirstPattern = false;
 
     } else {
       continue;
     }
 
-    StoreInst = getReductionStore(LoadRef, HInst);
+    StoreInst = getReductionStore(LoadRef, HInst, !IsFirstPattern);
 
     if (!StoreInst && AlternateLoadRef) {
       LoadRef = AlternateLoadRef;
-      StoreInst = getReductionStore(LoadRef, HInst);
+      StoreInst = getReductionStore(LoadRef, HInst, !IsFirstPattern);
     }
 
     if (!StoreInst || !HLNodeUtils::postDominates(StoreInst, FirstChild)) {
