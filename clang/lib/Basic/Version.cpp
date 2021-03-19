@@ -111,12 +111,14 @@ std::string getClangFullCPPVersion() {
 std::string getICXVersionString() {
   // XMAIN_BUILD_DATE_STAMP_STR is expected to be 8 characters of YYYYMMDD.
   // Update the string for our usage in the version, which should resemble
+  // MAJOR.x.PATCH.YYYYMMDD.  Product release builds should resemble
   // MAJOR.MINOR.PATCH.YYYYMMDD
   StringRef Date(XMAIN_BUILD_DATE_STAMP_STR);
   if (Date.size() == 8) {
     std::string buf;
     llvm::raw_string_ostream OS(buf);
-    OS << getDPCPPVersionString() << "." << Date;
+    OS << getDPCPPMajorVersionString() << "." << XMAIN_VERSION_STRING << "."
+       << Date;
     return OS.str();
   }
   return getDPCPPVersionString();

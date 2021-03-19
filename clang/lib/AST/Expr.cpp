@@ -33,6 +33,7 @@
 #include "clang/Lex/LiteralSupport.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h" //INTEL
 #include <algorithm>
 #include <cstring>
 using namespace clang;
@@ -2156,8 +2157,15 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
   };
 
   switch (getIdentKind()) {
-  case SourceLocExpr::File:
-    return MakeStringLiteral(PLoc.getFilename());
+#if INTEL_CUSTOMIZATION
+  case SourceLocExpr::File: {
+     if (Ctx.getLangOpts().isIntelCompat(LangOptions::DisplayFullFilePath)) {
+       StringRef Filename = PLoc.getFilename();
+       return MakeStringLiteral(llvm::sys::path::filename(Filename));
+     }
+     return MakeStringLiteral(PLoc.getFilename());
+  }
+#endif  // INTEL_CUSTOMIZATION
   case SourceLocExpr::Function: {
     const Decl *CurDecl = dyn_cast_or_null<Decl>(Context);
     return MakeStringLiteral(
@@ -3646,7 +3654,7 @@ namespace {
     void VisitCXXBindTemporaryExpr(const CXXBindTemporaryExpr *E) {
       if (
 #if INTEL_CUSTOMIZATION
-          Context.getLangOpts().MSVCCompat || 
+          Context.getLangOpts().MSVCCompat ||
 #endif // INTEL_CUSTOMIZATION
           E->getTemporary()->getDestructor()->isTrivial()) {
         Inherited::VisitStmt(E);
