@@ -33,8 +33,15 @@ namespace intel {
   bool WIRelatedValue::runOnModule(Module &M) {
     //Initialize barrier utils class with current module
     m_util.init(&M);
+
+    // Bypass WIRelatedValue analysis since calculateCallingOrder doesn't
+    // support recursion and this action makes all values become uniform.
+    if (!m_util.getRecursiveFunctionsWithSync().empty())
+      return false;
+
     // Obtain OpenCL C version from this  module
     m_oclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
+
     //Calculate the calling order for the functions to be analyzed
     calculateCallingOrder();
 
@@ -443,7 +450,7 @@ namespace intel {
             continue;
           }
           CallInst *pCallInst = cast<CallInst>(*ui);
-          Function *pCallerFunc = pCallInst->getParent()->getParent();
+          Function *pCallerFunc = pCallInst->getCaller();
           if (functionsToHandle.count(pCallerFunc)) {
             isRoot = false;
             break;

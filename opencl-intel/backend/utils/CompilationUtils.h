@@ -499,6 +499,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Function has subgroup callees.
     static const std::string ATTR_HAS_SUBGROUPS;
 
+    // Indicates the function that calls barrier is recursive.
+    static const std::string ATTR_RECURSION_WITH_BARRIER;
+
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function mem_fence
     //////////////////////////////////////////////////////////////////

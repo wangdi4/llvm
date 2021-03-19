@@ -56,8 +56,9 @@ public:
     const TStringToVFState& GetKernelVFStates() const;
 
     /// @brief recursion was detected after standard LLVM optimizations
-    /// @return true if recursion was detected
-    bool hasRecursion();
+    /// @return for SYCL returns true if the recursive function also calls
+    /// barrier; for OpenCL returns true if any recursive function is present.
+    bool hasUnsupportedRecursion();
 
     /// @brief checks if some pipes access were not resolved statically
     bool hasFpgaPipeDynamicAccess();
@@ -71,9 +72,10 @@ public:
     bool hasFPGAChannelsWithDepthIgnored();
 
     enum InvalidFunctionType {
-        RECURSION,
-        FPGA_PIPE_DYNAMIC_ACCESS,
-        VECTOR_VARIANT_FAILURE
+      RECURSION,
+      RECURSION_WITH_BARRIER,
+      FPGA_PIPE_DYNAMIC_ACCESS,
+      VECTOR_VARIANT_FAILURE
     };
 
     enum InvalidGVType {
@@ -104,7 +106,16 @@ private:
     std::vector<std::string> m_undefinedExternalFunctions;
     bool m_IsFpgaEmulator;
     bool m_IsEyeQEmulator;
-
+    // Indicates whether the module comes from SYCL.
+    // The only noticeable difference between SYCL flow and OpenCL flow is the
+    // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++
+    // (because SYCL does not have a dedicated enum value yet), while in OpenCL
+    // spirv.Source is OpenCL C.
+    //
+    // spirv.Source is an *optional* metadata and can be omitted (optimized)
+    // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
+    // as an intermediate. These two cases are not supported now.
+    bool m_IsSYCL;
     // For OCLVPOCheckVF Pass
     TStringToVFState m_kernelToVFState;
 };

@@ -136,6 +136,10 @@ namespace intel {
     /// @returns TInstructionSet container with found functions
     TFunctionSet& getAllFunctionsWithSynchronization();
 
+    /// @bried return all functions which both call recursive functions and
+    ///        synchronize functions.
+    TFunctionSet getRecursiveFunctionsWithSync();
+
     /// @brief Find calls to WG functions upon their type
     /// @param type - type of WG functions to find
     /// @returns container with calls to WG functions of requested type
