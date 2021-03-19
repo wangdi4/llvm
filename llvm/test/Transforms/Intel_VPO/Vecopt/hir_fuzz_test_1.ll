@@ -2,28 +2,44 @@
 ; C source
 ; #define N 200
 ; unsigned int e2[N], h[N], ek[N][N], f[N], d[N];
-; 
+;
 ; int foo(int jo, int no)
 ; {
 ;   int jc;
-; 
+;
 ;   for (jc = 100; jc > 0; --jc) {
 ;     no -= e2[jc];
-;     
+;
 ;     if (h[jc] == ek[jc+1][jo+1]) {
 ;       d[jc] = f[jc-1];
 ;     }
 ;   }
-; 
+;
 ;   return no;
-; } 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPODriverHIR -print-after=VPODriverHIR -S  -default-vpo-vf=4 < %s 2>&1 | FileCheck %s
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
+; }
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S  -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
-; check hir
-; CHECK:     DO i1 = 0, 99, 4   <DO_LOOP>
-; CHECK:     END LOOP
+; CHECK:      BEGIN REGION { modified }
+; CHECK-NEXT:  %red.var = 0;
+; CHECK-NEXT:  %red.var = insertelement %red.var,  %no.addr.022,  0;
+; CHECK-NEXT:  DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:   %.vec7 = undef;
+; CHECK-NEXT:   %.vec = (<4 x i32>*)(@e2)[0][-1 * i1 + 97];
+; CHECK-NEXT:   %reverse = shufflevector %.vec,  undef,  <i32 3, i32 2, i32 1, i32 0>;
+; CHECK-NEXT:   %red.var = %red.var  -  %reverse;
+; CHECK-NEXT:   %.vec2 = (<4 x i32>*)(@h)[0][-1 * i1 + 97];
+; CHECK-NEXT:   %reverse3 = shufflevector %.vec2,  undef,  <i32 3, i32 2, i32 1, i32 0>;
+; CHECK-NEXT:   %.vec4 = (<4 x i32>*)(@ek)[0][-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3> + 101][%jo + 1];
+; CHECK-NEXT:   %.vec5 = %reverse3 == %.vec4;
+; CHECK-NEXT:   %reverse6 = shufflevector %.vec5,  undef,  <i32 3, i32 2, i32 1, i32 0>;
+; CHECK-NEXT:   %.vec7 = (<4 x i32>*)(@f)[0][-1 * i1 + 96]; Mask = @{%reverse6}
+; CHECK-NEXT:   %reverse8 = shufflevector %.vec7,  undef,  <i32 3, i32 2, i32 1, i32 0>;
+; CHECK-NEXT:   %reverse9 = shufflevector %.vec5,  undef,  <i32 3, i32 2, i32 1, i32 0>;
+; CHECK-NEXT:   %reverse10 = shufflevector %reverse8,  undef,  <i32 3, i32 2, i32 1, i32 0>;
+; CHECK-NEXT:   (<4 x i32>*)(@d)[0][-1 * i1 + 97] = %reverse10; Mask = @{%reverse9}
+; CHECK-NEXT:  END LOOP
+; CHECK-NEXT:  %no.addr.022 = @llvm.vector.reduce.add.v4i32(%red.var);
+; CHECK-NEXT: END REGION
 source_filename = "ts.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -74,9 +90,6 @@ for.end:                                          ; preds = %for.inc
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 4.0.0 (trunk 20746) (llvm/branches/loopopt 20779)"}
 !1 = !{!2, !3, i64 0}
 !2 = !{!"array@_ZTSA200_j", !3, i64 0}
 !3 = !{!"int", !4, i64 0}

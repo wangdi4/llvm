@@ -1,22 +1,20 @@
 ; LLVM IR generated from following source using icx -O1 -S -emit-llvm
 ; float arr1[1024], arr2[1024];
-; 
+;
 ; float foo()
 ; {
 ;   float val = 0.0;
 ;   int index;
-; 
+;
 ;   for (index = 0; index < 1024; index++) {
 ;     val = arr1[index] + 1.0;
 ;     arr2[index] = val;
 ;   }
-; 
+;
 ;   return val;
 ; }
-; 
-;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -default-vpo-vf=4 -VPODriverHIR -hir-cg -mem2reg -S %s -print-after=VPODriverHIR 2>&1 | FileCheck %s
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
+;
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -VPlanDriverHIR -hir-cg -mem2reg -S %s -print-after=VPlanDriverHIR 2>&1 | FileCheck %s
 
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP>
