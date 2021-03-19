@@ -140,6 +140,46 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   }
 };
 
+/// Interop support
+namespace L0Interop {
+  // ID and names from openmp.org
+  const int32_t Vendor = 8;
+  const char *VendorName = GETNAME(intel);
+  const int32_t FrId = 6;
+  const char *FrName = GETNAME(level_zero);
+
+  // targetsync = -9, device_context = -8, ...,  fr_id = -1
+  std::vector<const char *> IprNames {
+    "targetsync",
+    "device_context",
+    "device",
+    "platform",
+    "device_num",
+    "vendor_name",
+    "vendor",
+    "fr_name"
+  };
+
+  std::vector<const char *> IprTypeDescs {
+    "ze_command_queue_handle_t, level_zero command queue handle",
+    "ze_context_handle_t, level_zero context handle",
+    "ze_device_handle_t, level_zero device handle",
+    "ze_driver_handle_t, level_zero driver handle",
+    "intptr_t, OpenMP device ID",
+    "const char *, vendor name",
+    "intptr_t, vendor ID",
+    "const char *, foreign runtime name",
+    "intptr_t, foreign runtime ID"
+  };
+
+  const char *IrcDescs[] = {};
+
+  /// Level Zero interop property
+  struct Property {
+    // TODO: define implementation-defined properties
+  };
+}
+
 int DebugLevel = 0;
 
 /// Forward declarations
@@ -1282,9 +1322,7 @@ public:
       ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
     }
     if (!ThreadLocalHandles[DeviceId].CmdQueue) {
-      auto cmdQueue = createCmdQueue(Context, Devices[DeviceId],
-          CmdQueueGroupOrdinals[DeviceId], CmdQueueIndices[DeviceId],
-          DeviceIdStr[DeviceId]);
+      auto cmdQueue = createCmdQueue(DeviceId);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdQueues[DeviceId].push_back(cmdQueue);
@@ -1359,6 +1397,9 @@ public:
 
   /// Return memory allocation type
   uint32_t getMemAllocType(void *Ptr);
+
+  /// Create command queue with the given device ID
+  ze_command_queue_handle_t createCmdQueue(int32_t DeviceId);
 };
 
 
@@ -1871,6 +1912,15 @@ void RTLDeviceInfoTy::initMemoryStat() {
     if (MemStatDevice.count(Devices[I]) == 0)
       MemStatDevice.emplace(Devices[I], MemStatTy(I, TARGET_ALLOC_DEVICE));
   }
+}
+
+/// Create a new command queue for the given OpenMP device ID
+ze_command_queue_handle_t RTLDeviceInfoTy::createCmdQueue(int32_t DeviceId) {
+  auto cmdQueue = ::createCmdQueue(Context, Devices[DeviceId],
+                                   CmdQueueGroupOrdinals[DeviceId],
+                                   CmdQueueIndices[DeviceId],
+                                   DeviceIdStr[DeviceId]);
+  return cmdQueue;
 }
 
 static void dumpImageToFile(
@@ -3479,11 +3529,7 @@ EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
 
   // Create and return a new command queue for interop
   // TODO: check with MKL team and decide what to do with IsAsync
-  ze_command_queue_handle_t cmdQueue =
-      createCmdQueue(DeviceInfo->Context, DeviceInfo->Devices[deviceId],
-                     DeviceInfo->CmdQueueGroupOrdinals[deviceId],
-                     DeviceInfo->CmdQueueIndices[deviceId],
-                     DeviceInfo->DeviceIdStr[deviceId]);
+  auto cmdQueue = DeviceInfo->createCmdQueue(deviceId);
   obj->queue = cmdQueue;
   IDP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
       DPxPTR(obj->queue));
@@ -3584,6 +3630,94 @@ EXTERN void __tgt_rtl_deinit(void) {
     deinit();
   }
 #endif // _WIN32
+}
+
+EXTERN __tgt_interop *__tgt_rtl_create_interop(int32_t DeviceId,
+                                               int32_t InteropContext) {
+  auto ret = new __tgt_interop();
+  ret->FrId = L0Interop::FrId;
+  ret->FrName = L0Interop::FrName;
+  ret->Vendor = L0Interop::Vendor;
+  ret->VendorName = L0Interop::VendorName;
+  ret->DeviceNum = DeviceId;
+
+  if (InteropContext == OMP_INTEROP_CONTEXT_TARGET) {
+    ret->Platform = DeviceInfo->Driver;
+    ret->Device = DeviceInfo->Devices[DeviceId];
+    ret->DeviceContext = DeviceInfo->Context;
+  }
+  if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
+    ret->TargetSync = DeviceInfo->createCmdQueue(DeviceId);
+  }
+
+  // TODO: define implementation-defined interop properties
+  ret->RTLProperty = new L0Interop::Property();
+
+  return ret;
+}
+
+EXTERN int32_t __tgt_rtl_release_interop(
+    int32_t DeviceId, __tgt_interop *Interop) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
+      Interop->FrId != L0Interop::FrId) {
+    IDP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+
+  if (Interop->TargetSync) {
+    auto cmdQueue = static_cast<ze_command_queue_handle_t>(Interop->TargetSync);
+    CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
+  }
+
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+  delete L0;
+  delete Interop;
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
+  // TODO: decide implementation-defined properties
+  return 0;
+}
+
+/// Return the value of the requested property
+EXTERN int32_t __tgt_rtl_get_interop_property_value(
+    int32_t DeviceId, __tgt_interop *Interop, omp_interop_property_t Ipr,
+    int32_t ValueType, size_t Size, void *Value) {
+
+  if (Interop->RTLProperty == nullptr)
+    return omp_irc_out_of_range;
+
+  int32_t retCode = omp_irc_success;
+
+  switch (Ipr) {
+  // TODO: implementation-defined property
+  default:
+    retCode = omp_irc_out_of_range;
+  }
+
+  return retCode;
+}
+
+EXTERN const char *__tgt_rtl_get_interop_property_info(
+    int32_t DeviceId, omp_interop_property_t Ipr, int32_t InfoType) {
+  int32_t offset = Ipr - omp_ipr_first;
+  if (offset < 0 || (size_t)offset >= L0Interop::IprNames.size())
+    return nullptr;
+
+  if (InfoType == OMP_IPR_INFO_NAME)
+    return L0Interop::IprNames[offset];
+  else if (InfoType == OMP_IPR_INFO_TYPE_DESC)
+    return L0Interop::IprTypeDescs[offset];
+
+  return nullptr;
+}
+
+EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t DeviceId,
+                                                 int32_t RetCode) {
+  // TODO: decide implementation-defined return code.
+  return nullptr;
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(

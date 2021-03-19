@@ -841,6 +841,53 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
   else
     return false;
 }
+
+__tgt_interop *DeviceTy::createInterop(int32_t InteropContext) {
+  if (RTL->create_interop)
+    return RTL->create_interop(RTLDeviceID, InteropContext);
+  else
+    return NULL;
+}
+
+int32_t DeviceTy::releaseInterop(__tgt_interop *Interop) {
+  if (RTL->release_interop)
+    return RTL->release_interop(RTLDeviceID, Interop);
+  else
+    return OFFLOAD_FAIL;
+}
+
+int32_t DeviceTy::getNumInteropProperties(void) {
+  if (RTL->get_num_interop_properties)
+    return RTL->get_num_interop_properties(RTLDeviceID);
+  else
+    return 0;
+}
+
+int32_t DeviceTy::getInteropPropertyValue(__tgt_interop *Interop,
+                                          omp_interop_property_t Property,
+                                          int32_t ValueType, size_t Size,
+                                          void *Value) {
+  if (RTL->get_interop_property_value)
+    return RTL->get_interop_property_value(RTLDeviceID, Interop, Property,
+                                           ValueType, Size, Value);
+  else
+    return OFFLOAD_FAIL;
+}
+
+const char *DeviceTy::getInteropPropertyInfo(omp_interop_property_t Property,
+                                             int32_t InfoType) {
+  if (RTL->get_interop_property_info)
+    return RTL->get_interop_property_info(RTLDeviceID, Property, InfoType);
+  else
+    return NULL;
+}
+
+const char *DeviceTy::getInteropRcDesc(int32_t RetCode) {
+  if (RTL->get_interop_rc_desc)
+    return RTL->get_interop_rc_desc(RTLDeviceID, RetCode);
+  else
+    return NULL;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

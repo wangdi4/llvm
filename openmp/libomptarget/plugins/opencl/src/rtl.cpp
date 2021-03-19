@@ -101,6 +101,46 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
 };
 #endif // !defined(_WIN32)
 
+/// Interop support
+namespace OCLInterop {
+  // ID and names from openmp.org
+  const int32_t Vendor = 8;
+  const char *VendorName = GETNAME(intel);
+  const int32_t FrId = 3;
+  const char *FrName = GETNAME(opencl);
+
+  // targetsync = -9, device_context = -8, ...,  fr_id = -1
+  std::vector<const char *> IprNames {
+    "targetsync",
+    "device_context",
+    "device",
+    "platform",
+    "device_num",
+    "vendor_name",
+    "vendor",
+    "fr_name",
+    "fr_id"
+  };
+
+  std::vector<const char *> IprTypeDescs {
+    "cl_command_queue, opencl command queue handle",
+    "cl_context, opencl context handle",
+    "cl_device_id, opencl device handle",
+    "cl_platform_id, opencl platform handle",
+    "intptr_t, OpenMP device ID",
+    "const char *, vendor name",
+    "intptr_t, vendor ID",
+    "const char *, foreign runtime name",
+    "intptr_t, foreign runtime ID"
+  };
+
+  const char *IrcDescs[] = {};
+
+  struct Property {
+    // TODO
+  };
+}
+
 int DebugLevel = 0;
 
 #ifdef __cplusplus
@@ -3335,6 +3375,88 @@ EXTERN void __tgt_rtl_deinit(void) {
     deinit();
   }
 #endif // _WIN32
+}
+
+EXTERN __tgt_interop *__tgt_rtl_create_interop(int32_t DeviceId,
+                                               int32_t InteropContext) {
+  auto ret = new __tgt_interop();
+  ret->FrId = OCLInterop::FrId;
+  ret->FrName = OCLInterop::FrName;
+  ret->Vendor = OCLInterop::Vendor;
+  ret->VendorName = OCLInterop::VendorName;
+  ret->DeviceNum = DeviceId;
+
+  if (InteropContext == OMP_INTEROP_CONTEXT_TARGET) {
+    ret->Platform = DeviceInfo->Platforms[DeviceId];
+    ret->Device = DeviceInfo->deviceIDs[DeviceId];
+    ret->DeviceContext = DeviceInfo->getContext(DeviceId);
+  }
+  if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
+    ret->TargetSync = DeviceInfo->Queues[DeviceId];
+  }
+
+  ret->RTLProperty = new OCLInterop::Property();
+
+  return ret;
+}
+
+EXTERN int32_t __tgt_rtl_release_interop(
+    int32_t DeviceId, __tgt_interop *Interop) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
+      Interop->FrId != OCLInterop::FrId) {
+    IDP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+
+  auto OCL = static_cast<OCLInterop::Property *>(Interop->RTLProperty);
+  delete OCL;
+  delete Interop;
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
+  // TODO: decide implementation-defined properties
+  return 0;
+}
+
+/// Return the value of the requested property
+EXTERN int32_t __tgt_rtl_get_interop_property_value(
+    int32_t DeviceId, __tgt_interop *Interop, omp_interop_property_t Ipr,
+    int32_t ValueType, size_t Size, void *Value) {
+
+  if (Interop->RTLProperty == nullptr)
+    return omp_irc_out_of_range;
+
+  int32_t retCode = omp_irc_success;
+
+  switch (Ipr) {
+  // TODO
+  default:
+    retCode = omp_irc_out_of_range;
+  }
+
+  return retCode;
+}
+
+EXTERN const char *__tgt_rtl_get_interop_property_info(
+    int32_t DeviceId, omp_interop_property_t Ipr, int32_t InfoType) {
+  int32_t offset = Ipr - omp_ipr_first;
+  if (offset < 0 || (size_t)offset >= OCLInterop::IprNames.size())
+    return nullptr;
+
+  if (InfoType == OMP_IPR_INFO_NAME)
+    return OCLInterop::IprNames[offset];
+  else if (InfoType == OMP_IPR_INFO_TYPE_DESC)
+    return OCLInterop::IprTypeDescs[offset];
+
+  return nullptr;
+}
+
+EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t DeviceId,
+                                                 int32_t RetCode) {
+  // TODO: decide implementation-defined return code.
+  return nullptr;
 }
 
 #ifdef __cplusplus

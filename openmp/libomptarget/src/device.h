@@ -262,6 +262,15 @@ struct DeviceTy {
   int32_t pushSubDevice(int64_t ID);
   int32_t popSubDevice(void);
   int32_t isSupportedDevice(void *DeviceType);
+  __tgt_interop *createInterop(int32_t InteropContext);
+  int32_t releaseInterop(__tgt_interop *Interop);
+  int32_t getNumInteropProperties(void);
+  int32_t getInteropPropertyValue(__tgt_interop *Interop,
+                                  omp_interop_property_t Property,
+                                  int32_t ValueType, size_t Size, void *Value);
+  const char *getInteropPropertyInfo(omp_interop_property_t Property,
+                                     int32_t InfoType);
+  const char *getInteropRcDesc(int32_t RetCode);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return
