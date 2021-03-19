@@ -427,8 +427,14 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
           if (auto AddRec = dyn_cast<SCEVAddRecExpr>(QuerySCEV)) {
             if (auto Inc =
                     dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(SE))) {
-              QuerySize = LocationSize::upperBound(
-                  (Inc->getAPInt() * TripCount->getAPInt()).getZExtValue());
+              const APInt &IncVal = Inc->getAPInt();
+              const APInt &TripCountVal = TripCount->getAPInt();
+              unsigned BitWidth =
+                  std::max(IncVal.getBitWidth(), TripCountVal.getBitWidth());
+              QuerySize =
+                  LocationSize::upperBound((IncVal.zextOrSelf(BitWidth) *
+                                            TripCountVal.zextOrSelf(BitWidth))
+                                               .getZExtValue());
             }
           }
 
