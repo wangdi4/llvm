@@ -19,6 +19,7 @@
 #include "LoopUtils/LoopUtils.h"
 #include "MetadataAPI.h"
 #include "OCLPassSupport.h"
+#include "common_dev_limits.h"
 
 #include "llvm/Analysis/CFG.h"
 #include "llvm/IR/Attributes.h"
@@ -38,6 +39,7 @@
 
 #define DEBUG_TYPE "B-Barrier"
 
+using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
 
 extern bool OptUseTLSGlobals;
@@ -78,7 +80,7 @@ namespace intel {
   }
 
   bool Barrier::runOnModule(Module &M) {
-    //Get Analysis data
+    // Get Analysis data
     m_pDataPerBarrier = &getAnalysis<DataPerBarrier>();
     m_pDataPerValue = &getAnalysis<DataPerValue>();
 
@@ -112,6 +114,12 @@ namespace intel {
 
     //Find all functions that call synchronize instructions
     TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
+
+    // Note: We can't early exit here, otherwise, optimizer will claim the
+    // functions to be resolved in this pass are undefined.
+    TFunctionSet recursiveFunctions = m_util.getRecursiveFunctionsWithSync();
+    for (Function *F : recursiveFunctions)
+      F->addFnAttr(CompilationUtils::ATTR_RECURSION_WITH_BARRIER);
 
     //Collect data for each function with synchronize instruction
     for (TFunctionSet::iterator fi = functionsWithSync.begin(),
@@ -229,7 +237,6 @@ namespace intel {
     std::set<CallInst*> CIsToPatch;
     std::map<ConstantExpr*, Function*> ConstBitcastsToPatch;
     std::vector<std::string> TIDFuncNames;
-    using namespace Intel::OpenCL::DeviceBackend;
     TIDFuncNames.push_back(CompilationUtils::mangledGetLID());
     TIDFuncNames.push_back(CompilationUtils::mangledGetGID());
     // Initialize the set of functions that need patching by selecting the
@@ -642,7 +649,6 @@ namespace intel {
       assert(AI && "container of alloca values has non AllocaInst value!");
 
       // Don't fix implicit GID.
-      using namespace Intel::OpenCL::DeviceBackend;
       if (m_isNativeDBG && CompilationUtils::isImplicitGID(AI))
         continue;
 
@@ -1352,10 +1358,16 @@ namespace intel {
           func = callInst->getCalledFunction();
         // If there is uniform work group builtin, we need to store return value in
         // the special buffer.
-        using namespace Intel::OpenCL::DeviceBackend;
-        if ((pInst != nullptr) && !(func != nullptr &&
-           CompilationUtils::isWorkGroupBuiltin(func->getName().str()) &&
-           CompilationUtils::isWorkGroupUniform(func->getName().str()))) {
+        std::string funcName;
+        if (func) {
+          funcName = func->getName().str();
+          if (CompilationUtils::hasWorkGroupFinalizePrefix(funcName))
+            funcName =
+                CompilationUtils::removeWorkGroupFinalizePrefix(funcName);
+        }
+        if ((pInst != nullptr) &&
+            !(func != nullptr &&
+              CompilationUtils::isWorkGroupUniform(funcName))) {
           //Find next instruction so we can create new instruction before it
           pNextInst = &*(++BasicBlock::iterator(pInst));
           if ( isa<PHINode>(pNextInst) ) {
@@ -1545,16 +1557,20 @@ namespace intel {
     return MaxNumDims;
   }
   // use DFS to calculate a function's non-barrier memory usage.
-  static
-  unsigned getPrivateSize(Function* pFunc, const CallGraph& cg, DataPerValue* dataPerVal,
-                          DenseMap<Function *, uint64_t> &addrAllocaSize,
-                          llvm::DenseMap<Function*, unsigned>& fnPrivSize,
-                          TFunctionSet& fnsWithSync) {
+  static unsigned
+  getPrivateSize(Function *pFunc, const CallGraph &cg, DataPerValue *dataPerVal,
+                 DenseMap<Function *, uint64_t> &addrAllocaSize,
+                 llvm::DenseMap<Function *, unsigned> &fnPrivSize,
+                 TFunctionSet &fnsWithSync, unsigned maxDepth) {
+    --maxDepth;
+
     // external function or function pointer
-    if (!pFunc || pFunc->isDeclaration())
+    if (!pFunc || pFunc->isDeclaration() || !maxDepth)
       return 0;
+
     if (fnPrivSize.count(pFunc))
       return fnPrivSize[pFunc];
+
     unsigned maxSubPrivSize = 0;
     const CallGraphNode *nodeCG = cg[pFunc];
     for (auto &ci : *nodeCG) {
@@ -1562,7 +1578,7 @@ namespace intel {
       maxSubPrivSize =
           std::max(maxSubPrivSize,
                    getPrivateSize(calledFunc, cg, dataPerVal, addrAllocaSize,
-                                  fnPrivSize, fnsWithSync));
+                                  fnPrivSize, fnsWithSync, maxDepth));
     }
     fnPrivSize[pFunc] = maxSubPrivSize +
         (addrAllocaSize.count(pFunc) ? addrAllocaSize[pFunc] : 0) +
@@ -1581,6 +1597,7 @@ namespace intel {
     // Get the kernels using the barrier for work group loops.
     for (auto pFunc : TodoList) {
       auto kimd = KernelInternalMetadataAPI(pFunc);
+      auto FMD = FunctionMetadataAPI(pFunc);
       // Need to check if Vectorized Width Value exists, it is not guaranteed
       // that  Vectorized is running in all scenarios.
       int vecWidth =
@@ -1589,9 +1606,12 @@ namespace intel {
       assert(vecWidth && "vecWidth should not be 0!");
       strideSize = (strideSize + vecWidth - 1) / vecWidth;
 
+      bool isRecursive =
+          FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get();
+      unsigned maxDepth = isRecursive ? MAX_RECURSION_DEPTH : UINT_MAX;
       auto privateSize =
           getPrivateSize(pFunc, cg, m_pDataPerValue, m_addrAllocaSize,
-                         funcToPrivSize, functionsWithSync);
+                         funcToPrivSize, functionsWithSync, maxDepth);
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that
       //KernelAnalysisPass is running in all scenarios.
       // CSSD100016517, CSSD100018743: workaround

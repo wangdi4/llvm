@@ -14,8 +14,9 @@
 
 #include "LocalBuffAnalysis.h"
 #include "CompilationUtils.h"
-#include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
+#include "OCLPassSupport.h"
 #include "common_dev_limits.h"
 
 #include "llvm/IR/Instructions.h"
@@ -23,6 +24,7 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
 
+using namespace Intel::MetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel{
@@ -47,9 +49,14 @@ namespace intel{
     // Initialize localUsageMap
     updateDirectLocals(M);
 
-    // Update localSizeMap
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
-      calculateLocalsSize(&*fi);
+      auto FMD = FunctionMetadataAPI(&*fi);
+      bool isRecursive =
+          FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get();
+      unsigned maxDepth = isRecursive ? MAX_RECURSION_DEPTH : UINT_MAX;
+
+      // Update localSizeMap
+      calculateLocalsSize(&*fi, maxDepth);
     }
 
     return false;
@@ -66,9 +73,7 @@ namespace intel{
             return;
         }
       }
-      // Parent of Instruction is BasicBlock
-      // Parent of BasicBlock is Function
-      Function* pFunc = inst->getParent()->getParent();
+      Function *pFunc = inst->getFunction();
       // Add pLocalVal to the set of local values used by pFunc
       m_localUsageMap[pFunc].insert(pLocalVal);
     } else if ( isa<Constant>(user) ) {
@@ -78,7 +83,7 @@ namespace intel{
       }
     }  else {
       // llvm::Operator is an internal llvm class, so we do not expect it to be a user of GlobalValue
-      assert("Unexpected user type");
+      llvm_unreachable("Unexpected user type");
     }
   }
 
@@ -103,9 +108,11 @@ namespace intel{
     } // Find globals done
   }
 
-  size_t LocalBuffAnalysis::calculateLocalsSize(Function *pFunc) {
+  size_t LocalBuffAnalysis::calculateLocalsSize(Function *pFunc,
+                                                unsigned maxDepth) {
+    --maxDepth;
 
-    if ( !pFunc || pFunc->isDeclaration () ) {
+    if (!pFunc || pFunc->isDeclaration() || !maxDepth) {
       // Not module function, no need for local buffer, return size zero
       return 0;
     }
@@ -144,7 +151,8 @@ namespace intel{
       }
       // Call instruction
 
-      size_t callLocalSize = calculateLocalsSize(pCall->getCalledFunction());
+      size_t callLocalSize =
+          calculateLocalsSize(pCall->getCalledFunction(), maxDepth);
       if ( extraLocalBufferSize < callLocalSize ) {
         // Found Function that needs more local size,
         // update max extraLocalBufferSize
@@ -158,7 +166,5 @@ namespace intel{
     m_localSizeMap[pFunc] = localBufferSize;
     return localBufferSize;
   }
-
-
 }
 

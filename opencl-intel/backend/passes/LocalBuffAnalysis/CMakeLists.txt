@@ -4,6 +4,10 @@ set(TARGET_INCLUDE_FILES
     LocalBuffAnalysis.h
 )
 
+include_directories(
+    ${BACKEND_ROOT_DIR}/metadata_api
+)
+
 set(TARGET_SOURCE_FILES
     LocalBuffAnalysis.cpp
 )

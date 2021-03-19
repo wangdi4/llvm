@@ -101,7 +101,7 @@ namespace intel{
     ///         the max size of local buffer needed by all called functions.
     /// @param  pFunc   The function which need to go over its local values
     /// @param  returns The total size of local buffer needed by given function
-    size_t calculateLocalsSize(Function *pFunc);
+    size_t calculateLocalsSize(Function *pFunc, unsigned maxDepth);
 
   protected:
     /// @brief A mapping between function pointer and the set of local values

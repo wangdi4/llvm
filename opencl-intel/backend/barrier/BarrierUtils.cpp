@@ -190,6 +190,17 @@ namespace intel {
     return m_syncFunctions;
   }
 
+  TFunctionSet BarrierUtils::getRecursiveFunctionsWithSync() {
+    TFunctionSet &SyncFunctions = getAllFunctionsWithSynchronization();
+    TFunctionSet RecursiveFunctions;
+    for (Function *F : SyncFunctions) {
+      auto FMD = FunctionMetadataAPI(F);
+      if (FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get())
+        RecursiveFunctions.insert(F);
+    }
+    return RecursiveFunctions;
+  }
+
   TFunctionVector BarrierUtils::getAllKernelsAndVectorizedCounterparts(
       const SmallVectorImpl<Function *> &KernelList) {
     TFunctionVector Result;
@@ -255,7 +266,9 @@ namespace intel {
         assert(!Failed && "Unexpected widened-size attribute");
         return WidenedSize;
       }
-      return 1;
+      // TODO: Maybe we need to rename KernelInternalMetadataAPI.
+      auto FIMD = KernelInternalMetadataAPI(const_cast<Function *>(F));
+      return FIMD.VectorizedWidth.hasValue() ? FIMD.VectorizedWidth.get() : 1;
     }
     return I->second;
   }

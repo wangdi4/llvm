@@ -72,8 +72,6 @@ namespace intel {
     /// @param pVal pointer to Value
     /// @returns true if and only if given value depends on WI Id
     bool isWIRelated(Value *pVal) {
-      // TODO: if assertion fails ==> replace it with (return false)!
-      //assert( m_specialValues.count(pVal) && "value has no WI related data!" );
       if ( !m_specialValues.count(pVal) ) {
         //This might happen for function parameters
         return false;
