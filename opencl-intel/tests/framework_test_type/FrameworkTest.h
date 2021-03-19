@@ -192,4 +192,5 @@ void clFuncWrongNumParamsOnLinkageTest();
 #if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
 void cl_DumpIRBeforeAndAfterPasses();
 #endif
+void LinearSampleOOBCoord();
 //#define CUDA_DEVICE

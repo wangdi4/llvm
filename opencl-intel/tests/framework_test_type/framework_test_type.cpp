@@ -666,6 +666,10 @@ TEST(FrameworkTestType, Test_clDisableMasterJoinTest)
 }
 #endif
 
+TEST(FrameworkTestType, Test_LinearSampleOOBCoord) {
+  LinearSampleOOBCoord();
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line
