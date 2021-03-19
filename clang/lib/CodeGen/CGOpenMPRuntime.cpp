@@ -7549,7 +7549,7 @@ private:
 
 #if INTEL_COLLAB
 public:
-  bool isDevPoingerMap(const ValueDecl *VD) {
+  bool isDevPoingerMap(const ValueDecl *VD) const{
     return DevPointersMap.count(VD);
   }
 #endif // INTEL_COLLAB
@@ -8694,6 +8694,10 @@ private:
       MapCombinedInfoTy CurInfo;
       const Decl *D = Data.first;
       const ValueDecl *VD = cast_or_null<ValueDecl>(D);
+#if INTEL_COLLAB
+      if (CGF.CGM.getLangOpts().OpenMPLateOutline && isDevPoingerMap(VD))
+        continue;
+#endif  // INTEL_COLLAB
       for (const auto &M : Data.second) {
         for (const MapInfo &L : M) {
           assert(!L.Components.empty() &&
@@ -9739,8 +9743,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         continue;
       }
 
-      if (!CI->capturesThis() &&
-          MEHandler.isDevPoingerMap(CI->getCapturedVar()))
+      if ((CI->capturesThis() && MEHandler.isDevPoingerMap(nullptr)) ||
+          (!CI->capturesThis() &&
+           MEHandler.isDevPoingerMap(CI->getCapturedVar())))
         continue;
 
       MappableExprsHandler::MapCombinedInfoTy CurInfo;
