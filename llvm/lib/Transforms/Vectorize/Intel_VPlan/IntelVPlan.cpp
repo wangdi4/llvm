@@ -1429,7 +1429,7 @@ std::unique_ptr<VPlanVector> VPlanMasked::clone(VPAnalysesFactory &VPAF,
   // Create new masked VPlan
   std::unique_ptr<VPlanMasked> ClonedVPlan =
       std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
-
+  ClonedVPlan->setName(getName() + ".cloned");
   copyData(VPAF, UDA, ClonedVPlan.get());
   return ClonedVPlan;
 }
@@ -1439,7 +1439,7 @@ std::unique_ptr<VPlanVector> VPlanNonMasked::clone(VPAnalysesFactory &VPAF,
   // Create new non-masked VPlan
   std::unique_ptr<VPlanNonMasked> ClonedVPlan =
       std::make_unique<VPlanNonMasked>(getExternals(), getUnlinkedVPInsts());
-
+  ClonedVPlan->setName(getName() + ".cloned");
   copyData(VPAF, UDA, ClonedVPlan.get());
   return ClonedVPlan;
 }
@@ -1449,7 +1449,7 @@ VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new masked VPlan from a non-masked VPlan.
   std::unique_ptr<VPlanMasked> ClonedVPlan =
       std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
-
+  ClonedVPlan->setName(getName() + ".cloned.masked");
   copyData(VPAF, UDA, ClonedVPlan.get());
   return ClonedVPlan;
 }
