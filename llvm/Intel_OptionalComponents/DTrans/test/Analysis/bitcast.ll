@@ -32,7 +32,7 @@ define %struct.test02.b* @test2() {
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test02.a = type { i32, i8 }
-; CHECK: Safety data: Bad casting | Field address taken | Global instance
+; CHECK: Safety data: Bad casting | Global instance | Field address taken return
 ; CHECK: LLVMType: %struct.test02.b = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
@@ -313,9 +313,9 @@ define %struct.test23.b* @test23(%struct.test23.b* %pb) {
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test23.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Field address taken | Address taken | Nested structure
+; CHECK: Safety data: Bad casting | Address taken | Nested structure | Field address taken return
 ; CHECK: LLVMType: %struct.test23.b = type { i32, %struct.test23.a, i32 }
-; CHECK: Safety data: Bad casting | Field address taken | Contains nested structure
+; CHECK: Safety data: Bad casting | Contains nested structure | Field address taken return
 
 ; Cast of inttoptr value through an intermediate i8*
 ; Note: inttoptr will typically be used when a pointer is loaded

@@ -3,11 +3,11 @@
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that storing the address of an element of an array member within a
-; structure type is also treated as "Field address taken" for the structure if it
+; structure type is also treated as "Field address taken memory" for the structure if it
 ; is element 0 of the array.
 
 ; Element 0 of the array is also the address of the structure field. This should
-; be "Field address taken".
+; be "Field address taken memory".
 %struct.test01a = type { i64, float, %struct.test01b }
 %struct.test01b = type { i64, [10 x i8] }
 @var01a = internal global %struct.test01a zeroinitializer
@@ -23,7 +23,7 @@ define void @test01()  {
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01b
-; CHECK: Safety data: Field address taken | Global instance | Nested structure{{ *$}}
+; CHECK: Safety data: Field address taken memory | Global instance | Nested structure{{ *$}}
 
 
 ; Element 3 of the array is not the same address as the structure field. This is not

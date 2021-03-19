@@ -480,8 +480,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Whole structure reference";
   if (SafetyInfo & dtrans::UnsafePointerStore)
     return "Unsafe pointer store";
-  if (SafetyInfo & dtrans::FieldAddressTaken)
-    return "Field address taken";
+  if (SafetyInfo & dtrans::FieldAddressTakenMemory)
+    return "Field address taken memory";
   if (SafetyInfo & dtrans::GlobalPtr)
     return "Global pointer";
   if (SafetyInfo & dtrans::GlobalInstance)
@@ -546,6 +546,10 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Memfunc partial write (nested structure)";
   if (SafetyInfo & dtrans::ComplexAllocSize)
     return "Complex alloc size";
+  if (SafetyInfo & dtrans::FieldAddressTakenCall)
+    return "Field address taken call";
+  if (SafetyInfo & dtrans::FieldAddressTakenReturn)
+    return "Field address taken return";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -563,7 +567,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadCasting | dtrans::BadAllocSizeArg |
       dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
       dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
-      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
+      dtrans::UnsafePointerStore | dtrans::FieldAddressTakenMemory |
       dtrans::GlobalPtr | dtrans::GlobalInstance | dtrans::HasInitializerList |
       dtrans::BadMemFuncSize | dtrans::MemFuncPartialWrite |
       dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
@@ -580,6 +584,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::MismatchedElementAccessRelatedTypes |
       dtrans::UnsafePointerStoreRelatedTypes |
       dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
+      dtrans::FieldAddressTakenCall | dtrans::FieldAddressTakenReturn |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -589,7 +594,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
            dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
            dtrans::WholeStructureReference ^ dtrans::UnsafePointerStore ^
-           dtrans::FieldAddressTaken ^ dtrans::GlobalPtr ^
+           dtrans::FieldAddressTakenMemory ^ dtrans::GlobalPtr ^
            dtrans::GlobalInstance ^ dtrans::HasInitializerList ^
            dtrans::BadMemFuncSize ^ dtrans::MemFuncPartialWrite ^
            dtrans::BadMemFuncManipulation ^ dtrans::AmbiguousPointerTarget ^
@@ -607,6 +612,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::MismatchedElementAccessRelatedTypes ^
            dtrans::UnsafePointerStoreRelatedTypes ^
            dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
+           dtrans::FieldAddressTakenCall ^ dtrans::FieldAddressTakenReturn ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 

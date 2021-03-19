@@ -4,7 +4,7 @@
 
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 
-; This test checks that FieldAddressTaken is a pointer
+; This test checks that FieldAddressTakenCall is a pointer
 ; carried safety condition when -dtrans-outofboundsok is true.
 
 %struct.test01.a = type { i32, i32, %struct.test01.b* }
@@ -17,7 +17,7 @@ define void @test01(%struct.test01.a* %in) {
 }
 ; CHECK-LABEL: LLVMType: %struct.test01.a = type { i32, i32, %struct.test01.b* }
 ; CHECK: Safety data:
-; CHECK-SAME: Field address taken
+; CHECK-SAME: Field address taken call
 ; CHECK-LABEL: LLVMType: %struct.test01.b = type { i64 }
 ; CHECK: Safety data:
-; CHECK-SAME: Field address taken
+; CHECK-SAME: Field address taken call

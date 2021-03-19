@@ -3,12 +3,12 @@
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing the address of an array element which has the same address as a
-; structure type. This should cause the "Field address taken" to be set. When
-; the function takes an i8* type and the array is composed of i8 types, it
+; structure type. This should cause the "Field address taken call" to be set.
+; When the function takes an i8* type and the array is composed of i8 types, it
 ; should not set "Address taken" on the structure's "Safety data" flags for
 ; a call to a safe library function. NOTE: The field is still marked with
-; "AddressTaken" for the fields that trigger the "Field address taken" safety
-; flag.
+; "AddressTaken" for the fields that trigger the "Field address taken call"
+; safety flag.
 
 ; Pass the address to a library function that is known to take i8* parameters.
 %struct.test01 = type { [200 x i8], [200 x i8], i64, i64 }
@@ -28,7 +28,7 @@ define void @test01() {
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 3)Field
 ; CHECK: Field info:{{ *$}}
-; CHECK: Safety data: Field address taken | Global instance{{ *$}}
+; CHECK: Safety data: Global instance | Field address taken call{{ *$}}
 
 
 ; Pass the address in a VarArg position of a library function call. When the
@@ -53,7 +53,7 @@ define void @test02() {
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 3)Field
 ; CHECK: Field info:{{ *$}}
-; CHECK: Safety data: Field address taken | Global instance{{ *$}}
+; CHECK: Safety data:  Global instance | Field address taken call{{ *$}}
 
 
 declare i8* @strcpy(i8*, i8*)

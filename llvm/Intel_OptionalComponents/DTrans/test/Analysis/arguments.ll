@@ -66,7 +66,7 @@ define void @test5(%struct.test05* %s) {
 }
 
 ; CHECK: LLVMType: %struct.test05 = type { i32, i32 }
-; CHECK: Safety data: Field address taken
+; CHECK: Safety data: Field address taken call
 
 ; Call a function with a pointer to an aggregate element.
 %struct.test06.a = type { i32, i32 }
@@ -78,12 +78,12 @@ define void @test6(%struct.test06.b* %s) {
   ret void
 }
 
-; Note: test06.a gets the "Field address taken" condition because safety
+; Note: test06.a gets the "Field address taken call" condition because safety
 ;       conditions are propagated to nested structures.
 ; CHECK: LLVMType: %struct.test06.a = type { i32, i32 }
-; CHECK: Safety data: Field address taken | Nested structure
+; CHECK: Safety data: Nested structure | Field address taken call
 ; CHECK: LLVMType: %struct.test06.b = type { i32, %struct.test06.a, i32 }
-; CHECK: Safety data: Field address taken | Contains nested structure
+; CHECK: Safety data: Contains nested structure | Field address taken call
 
 ; Call an external function with a properly typed pointer to the structure.
 ; This is unsafe because we don't have the function's definition.

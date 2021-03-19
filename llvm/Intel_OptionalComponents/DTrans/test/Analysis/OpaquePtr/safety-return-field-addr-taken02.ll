@@ -4,7 +4,7 @@
 
 ; Test returning a field address with a type that differs than the type
 ; defined for the field. This should result in "Bad casting" in addition to
-; "Field address taken".
+; "Field address taken return".
 
 ; Cast an arbitrary i8* to a structure pointer type.
 %struct.test01a = type { i32, i8 }
@@ -21,7 +21,7 @@ define %struct.test01b* @test2() !dtrans_type !3 {
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i8
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
-; CHECK: Safety data: Bad casting | Field address taken | Global instance{{ *$}}
+; CHECK: Safety data: Bad casting | Global instance | Field address taken return{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01b

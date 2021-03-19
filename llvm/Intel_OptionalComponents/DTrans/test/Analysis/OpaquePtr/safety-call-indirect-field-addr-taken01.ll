@@ -3,7 +3,7 @@
 ; RUN: opt -whole-program-assume -dtrans-usecrulecompat -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing the address of a field to an indirect function call to trigger
-; the "Field address taken" safety bit.
+; the "Field address taken call" safety bit.
 
 %struct.test01a = type { i32, i32 }
 @myarg = internal  global %struct.test01a { i32 3, i32 5 }
@@ -23,7 +23,7 @@ define i32 @main() {
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
-; CHECK: Safety data: Field address taken | Global instance | Has initializer list{{ *$}}
+; CHECK: Safety data: Global instance | Has initializer list | Field address taken call{{ *$}}
 
 
 !1 = !{i32 0, i32 0}  ; i32
