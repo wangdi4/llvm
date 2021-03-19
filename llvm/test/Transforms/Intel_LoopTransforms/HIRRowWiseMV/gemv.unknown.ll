@@ -1,5 +1,8 @@
 ; RUN: opt -whole-program-assume -hir-create-function-level-region -dtransanalysis -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -print-before=hir-rowwise-mv -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
 
+; RUN: opt -whole-program-assume -hir-create-function-level-region -passes='require<dtransanalysis>,function(hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv)' -print-before=hir-rowwise-mv -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
+
+
 ; This test checks that unknown loops don't interfere with the DTrans checks.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

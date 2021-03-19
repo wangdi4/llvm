@@ -1,5 +1,7 @@
 ; RUN: opt -whole-program-assume -dtransanalysis -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -print-before=hir-rowwise-mv -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
 
+; RUN: opt -whole-program-assume -passes='require<dtransanalysis>,function(hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv)' -print-before=hir-rowwise-mv -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
+
 ; This test checks that the basic row-wise multiversioning transformation
 ; generates the expected code when using DTrans analysis to determine likely
 ; values.

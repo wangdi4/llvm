@@ -1527,7 +1527,3 @@ FieldModRefResult DTransFieldModRefResult::run(Module &M,
   return FieldModRefResult();
 }
 
-FieldModRefResult DTransFieldModRefResult::run(Function &F,
-                                               FunctionAnalysisManager &AM) {
-  return FieldModRefResult();
-}

@@ -40,11 +40,6 @@ DTransImmutableInfo DTransImmutableAnalysis::run(Module &M,
   return DTransImmutableInfo();
 }
 
-DTransImmutableInfo DTransImmutableAnalysis::run(Function &F,
-                                                 FunctionAnalysisManager &AM) {
-  return DTransImmutableInfo();
-}
-
 void DTransImmutableInfo::addStructFieldInfo(
     StructType *StructTy, unsigned FieldNum,
     const SetVector<Constant *> &LikelyValues,

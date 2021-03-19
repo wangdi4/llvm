@@ -1,7 +1,6 @@
 ; RUN: opt -whole-program-assume -dtrans-fieldmodref-analysis -hir-ssa-deconstruction -hir-lmm -print-before=hir-lmm -print-after=hir-lmm -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s
 
-; TODO: Look into why transformation does not kick in with the new pass manager.
-; R: opt -whole-program-assume -passes='require<dtrans-fieldmodref-analysis>,function(hir-ssa-deconstruction,print<hir>, hir-lmm,print<hir>)' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtrans-fieldmodref-analysis>,function(hir-ssa-deconstruction,print<hir>,hir-lmm,print<hir>)' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s
 
 ; Verify that we hoist the conditional load (%Pair)[0].0 in loopnest hoisting mode
 ; because of the identical region dominating load %firs.dom.load.
