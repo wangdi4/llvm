@@ -677,8 +677,9 @@ static string_vector saveResultSymbolsLists(string_vector &ResSymbolsLists,
 // we can safely process ESIMD part.
 // TODO: support options like -debug-pass, -print-[before|after], and others
 static void LowerEsimdConstructs(Module &M) {
-  initializeXmainOptLevelWrapperPassPass( // INTEL
-      *PassRegistry::getPassRegistry());  // INTEL
+#if INTEL_CUSTOMIZATION
+  initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
+#endif // INTEL_CUSTOMIZATION
   legacy::PassManager MPM;
   MPM.add(createSYCLLowerESIMDPass());
   if (!OptLevelO0) {
