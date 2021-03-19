@@ -36,6 +36,10 @@
 #include <iomanip>
 #include <sstream>
 
+extern bool EnableDirectFunctionCallVectorization;
+extern bool EnableSubgroupDirectCallVectorization;
+
+using namespace Intel::MetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
@@ -1369,15 +1373,24 @@ bool CanVectorizeImpl::canVectorizeForVPO(Function &F, RuntimeServices *services
     return false;
   }
 
-  if (hasNonInlineUnsupportedFunctions(F)) {
-    LLVM_DEBUG(dbgs() << "Call to unsupported functions, can not vectorize\n");
-    OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,"Unable to vectorize because of calls to functions that can't be inlined",kernelStats);
-    CantVectNonInlineUnsupportedFunctions++;
-    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
-    return false;
+  if (!EnableDirectFunctionCallVectorization) {
+    auto KIMD = KernelInternalMetadataAPI(&F);
+    bool HasSG =
+        KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get();
+    if (!(EnableSubgroupDirectCallVectorization && HasSG)) {
+      if (hasNonInlineUnsupportedFunctions(F)) {
+        LLVM_DEBUG(
+            dbgs() << "Call to unsupported functions, can not vectorize\n");
+        OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,
+                       "Unable to vectorize because of calls to functions that "
+                       "can't be inlined",
+                       kernelStats);
+        CantVectNonInlineUnsupportedFunctions++;
+        intel::Statistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE);
+        return false;
+      }
+    }
   }
-
-  // TODO: Do we need other checks?
 
   OCLSTAT_DEFINE(CanVect,"Code is vectorizable",kernelStats);
   CanVect++;

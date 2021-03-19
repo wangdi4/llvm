@@ -147,10 +147,9 @@ static bool LogKernelVFState(llvm::raw_ostream &logs,
 
        if (vfState.isSubGroupBroken)
        {
-           logs << "Error in kernel <" << kernelName << "> "
-                << "Subgroup calls in scalar kernel or non-inlined subroutine "
-                << "can't be resolved!\n";
-           checkFailed = true;
+         logs << "Error in kernel <" << kernelName << "> "
+              << "Subgroup calls in scalar function can't be resolved!\n";
+         checkFailed = true;
        }
 
        if (vfState.isVFFalledBack)

@@ -1358,9 +1358,16 @@ namespace intel {
           func = callInst->getCalledFunction();
         // If there is uniform work group builtin, we need to store return value in
         // the special buffer.
-        if ((pInst != nullptr) && !(func != nullptr &&
-           CompilationUtils::isWorkGroupBuiltin(func->getName().str()) &&
-           CompilationUtils::isWorkGroupUniform(func->getName().str()))) {
+        std::string funcName;
+        if (func) {
+          funcName = func->getName().str();
+          if (CompilationUtils::hasWorkGroupFinalizePrefix(funcName))
+            funcName =
+                CompilationUtils::removeWorkGroupFinalizePrefix(funcName);
+        }
+        if ((pInst != nullptr) &&
+            !(func != nullptr &&
+              CompilationUtils::isWorkGroupUniform(funcName))) {
           //Find next instruction so we can create new instruction before it
           pNextInst = &*(++BasicBlock::iterator(pInst));
           if ( isa<PHINode>(pNextInst) ) {
