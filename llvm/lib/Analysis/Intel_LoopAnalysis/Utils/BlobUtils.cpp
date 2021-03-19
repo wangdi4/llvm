@@ -17,6 +17,7 @@
 
 #include "llvm/Support/ErrorHandling.h"
 
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -110,7 +111,7 @@ bool BlobUtils::isGuaranteedProperLinear(BlobTy TempBlob) {
   return !isa<Instruction>(UnknownSCEV->getValue());
 }
 
-bool BlobUtils::isUndefBlob(BlobTy Blob) {
+bool BlobUtils::isUndefBlob(BlobTy Blob, UndefValue **UVal) {
   Value *Val = nullptr;
 
   if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
@@ -122,7 +123,17 @@ bool BlobUtils::isUndefBlob(BlobTy Blob) {
   }
 
   assert(Val && "Blob should have a value");
-  return isa<UndefValue>(Val);
+  auto UndefVal = dyn_cast<UndefValue>(Val);
+
+  if (!UndefVal) {
+    return false;
+  }
+
+  if (UVal) {
+    *UVal = UndefVal;
+  }
+
+  return true;
 }
 
 class UndefFinder {
@@ -258,6 +269,28 @@ BlobTy BlobUtils::createConstantBlob(Constant *Const, bool Insert,
                                      unsigned *NewBlobIndex) {
   return getHIRParser().createBlob(Const, ConstantSymbase, Insert,
                                    NewBlobIndex);
+}
+
+BlobTy BlobUtils::createReplicatedConstantBlob(Constant *Const,
+                                               unsigned ReplicationFactor,
+                                               bool Insert,
+                                               unsigned *NewBlobIndex) {
+  Type *ConstTy = Const->getType();
+  assert(ConstTy->isVectorTy() &&
+         "Scalar constant bcast-ing is not supported yet.");
+
+  unsigned NumElts = cast<VectorType>(ConstTy)->getNumElements();
+  SmallVector<int, 8> ShuffleMask;
+  for (unsigned J = 0; J < ReplicationFactor; ++J)
+    for (unsigned I = 0; I < NumElts; ++I)
+      ShuffleMask.push_back((int)I);
+
+  Constant *ReplConstVec = ConstantFoldShuffleVectorInstruction(
+      Const, UndefValue::get(ConstTy), ShuffleMask);
+  assert(ReplConstVec &&
+         "Expected constant folding to succeed for replication.");
+
+  return createConstantBlob(ReplConstVec, Insert, NewBlobIndex);
 }
 
 BlobTy BlobUtils::createBlob(int64_t Val, Type *Ty, bool Insert,
