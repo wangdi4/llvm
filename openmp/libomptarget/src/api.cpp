@@ -365,6 +365,186 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
   return rc;
 }
 
+static int32_t checkInteropCall(const omp_interop_t interop,
+                                const char *FnName) {
+  if (!interop) {
+    DP("Call to %s with invalid interop\n", FnName);
+    return omp_irc_empty;
+  }
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("Device %" PRId64 " is not ready in %s\n", DeviceNum, FnName);
+    return omp_irc_other;
+  }
+
+  return omp_irc_success;
+}
+
+EXTERN int omp_get_num_interop_properties(const omp_interop_t interop) {
+  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(interop));
+
+  int32_t Rc = checkInteropCall(interop, __func__);
+  if (Rc != omp_irc_success)
+    return 0;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+  return Device.getNumInteropProperties();
+}
+
+/// Return interop property value for the given value type
+static int32_t getInteropValue(const omp_interop_t Interop,
+    omp_interop_property_t Ipr, int32_t ValueType, size_t Size, void *Value) {
+
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(Interop);
+  int32_t Rc = omp_irc_success;
+
+  switch (Ipr) {
+  case omp_ipr_fr_id:
+  case omp_ipr_vendor:
+  case omp_ipr_device_num:
+    if (ValueType != OMP_IPR_VALUE_INT)
+      Rc = omp_irc_type_int;
+    else if (Ipr == omp_ipr_fr_id)
+      *static_cast<intptr_t *>(Value) = TgtInterop->FrId;
+    else if (Ipr == omp_ipr_vendor)
+      *static_cast<intptr_t *>(Value) = TgtInterop->Vendor;
+    else
+      *static_cast<intptr_t *>(Value) = TgtInterop->DeviceNum;
+    break;
+
+  case omp_ipr_fr_name:
+  case omp_ipr_vendor_name:
+    if (ValueType != OMP_IPR_VALUE_STR)
+      Rc = omp_irc_type_str;
+    else if (Ipr == omp_ipr_fr_name)
+      *static_cast<const char **>(Value) = TgtInterop->FrName;
+    else
+      *static_cast<const char **>(Value) = TgtInterop->VendorName;
+    break;
+
+  case omp_ipr_platform:
+  case omp_ipr_device:
+  case omp_ipr_device_context:
+  case omp_ipr_targetsync:
+    if (ValueType != OMP_IPR_VALUE_PTR)
+      Rc = omp_irc_type_ptr;
+    else if (Ipr == omp_ipr_platform)
+      *static_cast<void **>(Value) = TgtInterop->Platform;
+    else if (Ipr == omp_ipr_device)
+      *static_cast<void **>(Value) = TgtInterop->Device;
+    else if (Ipr == omp_ipr_device_context)
+      *static_cast<void **>(Value) = TgtInterop->DeviceContext;
+    else
+      *static_cast<void **>(Value) = TgtInterop->TargetSync;
+    break;
+
+  default: {
+    // Get implementation-defined property value
+    DeviceTy &Device = PM->Devices[TgtInterop->DeviceNum];
+    Rc = Device.getInteropPropertyValue(TgtInterop, Ipr, ValueType, Size,
+                                        Value);
+  }
+  }
+
+  return Rc;
+}
+
+EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  omp_intptr_t Ret = 0;
+  int32_t Rc = checkInteropCall(interop, __func__);
+
+  if (Rc == omp_irc_success)
+    Rc = getInteropValue(interop, property_id, OMP_IPR_VALUE_INT, sizeof(Ret),
+                         &Ret);
+  if (ret_code)
+    *ret_code = Rc;
+
+  return Ret;
+}
+
+EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  void *Ret = NULL;
+  int32_t Rc = checkInteropCall(interop, __func__);
+
+  if (Rc == omp_irc_success)
+    Rc = getInteropValue(interop, property_id, OMP_IPR_VALUE_PTR, sizeof(Ret),
+                         &Ret);
+  if (ret_code)
+    *ret_code = Rc;
+
+  return Ret;
+}
+
+EXTERN const char *omp_get_interop_str(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  const char *Ret = NULL;
+  int32_t Rc = checkInteropCall(interop, __func__);
+
+  if (Rc == omp_irc_success)
+    Rc = getInteropValue(interop, property_id, OMP_IPR_VALUE_STR, sizeof(Ret),
+                         &Ret);
+  if (ret_code)
+    *ret_code = Rc;
+
+  return Ret;
+}
+
+EXTERN const char *omp_get_interop_name(const omp_interop_t interop,
+    omp_interop_property_t property_id) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  if (checkInteropCall(interop, __func__) != omp_irc_success)
+    return NULL;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+
+  return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_NAME);
+}
+
+EXTERN const char *omp_get_interop_type_desc(const omp_interop_t interop,
+    omp_interop_property_t property_id) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  if (checkInteropCall(interop, __func__) != omp_irc_success)
+    return NULL;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+
+  return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_TYPE_DESC);
+}
+
+EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
+    omp_interop_rc_t ret_code) {
+  DP("Call to %s with interop " DPxMOD ", ret_code %" PRId32 "\n", __func__,
+     DPxPTR(interop), ret_code);
+
+  if (checkInteropCall(interop, __func__) != omp_irc_success)
+    return NULL;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+
+  return Device.getInteropRcDesc(ret_code);
+}
+
 static void *target_alloc_explicit(
     size_t size, int device_num, int kind, const char *name) {
   DP("Call to %s for device %d requesting %zu bytes\n", name, device_num, size);

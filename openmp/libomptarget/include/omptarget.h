@@ -101,6 +101,73 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEFAULT
 };
 
+///
+/// OpenMP 5.1 interop support types
+///
+typedef intptr_t omp_intptr_t;
+typedef void * omp_interop_t;
+#define omp_interop_none 0
+
+// 0..omp_get_num_interop_properties()-1 are reserved for implementation-defined
+// properties
+typedef enum omp_interop_property {
+    omp_ipr_fr_id = -1,
+    omp_ipr_fr_name = -2,
+    omp_ipr_vendor = -3,
+    omp_ipr_vendor_name = -4,
+    omp_ipr_device_num = -5,
+    omp_ipr_platform = -6,
+    omp_ipr_device = -7,
+    omp_ipr_device_context = -8,
+    omp_ipr_targetsync = -9,
+    omp_ipr_first = -9
+} omp_interop_property_t;
+
+typedef enum omp_interop_rc {
+    omp_irc_no_value = 1,
+    omp_irc_success = 0,
+    omp_irc_empty = -1,
+    omp_irc_out_of_range = -2,
+    omp_irc_type_int = -3,
+    omp_irc_type_ptr = -4,
+    omp_irc_type_str = -5,
+    omp_irc_other = -6
+} omp_interop_rc_t;
+
+enum OmpIprValueTy : int32_t {
+  OMP_IPR_VALUE_INT = 0,
+  OMP_IPR_VALUE_PTR,
+  OMP_IPR_VALUE_STR
+};
+
+enum OmpIprInfoTy : int32_t {
+  OMP_IPR_INFO_NAME = 0,
+  OMP_IPR_INFO_TYPE_DESC
+};
+
+enum OmpInteropContextTy: int32_t {
+  OMP_INTEROP_CONTEXT_TARGET = 0,
+  OMP_INTEROP_CONTEXT_TARGETSYNC
+};
+
+/// Common interop properties defined in OpenMP 5.1
+struct __tgt_interop {
+  intptr_t FrId;
+  const char *FrName;
+  intptr_t Vendor;
+  const char *VendorName;
+  intptr_t DeviceNum;
+  void *Platform;
+  void *Device;
+  void *DeviceContext;
+  void *TargetSync;
+  void *RTLProperty; // implementation-defined interop property
+};
+
+
+///
+/// Custom interop support types
+///
 enum InteropPropertyTy : int32_t {
   INTEROP_DEVICE_ID = 1,
   INTEROP_IS_ASYNC,
@@ -300,6 +367,29 @@ int omp_target_disassociate_ptr(void *host_ptr, int device_num);
 #if INTEL_COLLAB
 EXTERN
 void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+
+///
+/// 5.1 Interop Routines
+///
+EXTERN int omp_get_num_interop_properties(const omp_interop_t interop);
+
+EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+
+EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+
+EXTERN const char *omp_get_interop_str(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+
+EXTERN const char *omp_get_interop_name(const omp_interop_t interop,
+    omp_interop_property_t property_id);
+
+EXTERN const char *omp_get_interop_type_desc(const omp_interop_t interop,
+    omp_interop_property_t property_id);
+
+EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
+    omp_interop_rc_t ret_code);
 
 /// Explicit target memory allocators
 /// Are we OK with omp_ prefix?
