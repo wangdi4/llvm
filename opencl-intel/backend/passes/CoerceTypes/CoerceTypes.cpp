@@ -277,7 +277,10 @@ Type *CoerceTypes::getIntegerType(StructType *T, unsigned Offset) const {
 
   // TODO can do better here, no need to always extend the first eightbyte type
   // of a two-eightbyte struct to 64 bits
-  return IntegerType::get(m_pModule->getContext(), std::min(Size, 8U) * 8);
+  assert(Offset <= Size &&
+         "Offset of struct element should be less than struct size");
+  return IntegerType::get(m_pModule->getContext(),
+                          std::min(Size - Offset, 8U) * 8);
 }
 
 Type *CoerceTypes::getSSEType(StructType *T, unsigned Offset) const {
