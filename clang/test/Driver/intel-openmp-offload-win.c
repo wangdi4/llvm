@@ -19,19 +19,27 @@
 // CHK-PHASES: 2: compiler, {1}, ir, (host-openmp)
 // CHK-PHASES: 3: backend, {2}, assembler, (host-openmp)
 // CHK-PHASES: 4: assembler, {3}, object, (host-openmp)
-// CHK-PHASES: 5: input, "[[INPUT]]", c, (device-openmp)
-// CHK-PHASES: 6: preprocessor, {5}, cpp-output, (device-openmp)
-// CHK-PHASES: 7: compiler, {6}, ir, (device-openmp)
-// CHK-PHASES: 8: offload, "host-openmp (x86_64-pc-windows-msvc)" {2}, "device-openmp (spir64)" {7}, ir
-// CHK-PHASES: 9: backend, {8}, ir, (device-openmp)
-// CHK-PHASES: 10: linker, {9}, ir, (device-openmp)
-// CHK-PHASES: 11: sycl-post-link, {10}, ir, (device-openmp)
-// CHK-PHASES: 12: llvm-spirv, {11}, spirv, (device-openmp)
-// CHK-PHASES: 13: offload, "device-openmp (spir64)" {12}, ir
-// CHK-PHASES: 14: clang-offload-wrapper, {13}, ir, (host-openmp)
-// CHK-PHASES: 15: backend, {14}, assembler, (host-openmp)
-// CHK-PHASES: 16: assembler, {15}, object, (host-openmp)
-// CHK-PHASES: 17: linker, {4, 16}, image, (host-openmp)
+// CHK-PHASES: 5: input, {{.*libomp-spirvdevicertl.o.*}}, object, (host-openmp)
+// CHK-PHASES: 6: clang-offload-unbundler, {5}, object, (host-openmp)
+// CHK-PHASES: 7: input, {{.*libomp-itt-user-wrappers.o.*}}, object, (host-openmp)
+// CHK-PHASES: 8: clang-offload-unbundler, {7}, object, (host-openmp)
+// CHK-PHASES: 9: input, {{.*libomp-itt-compiler-wrappers.o.*}}, object, (host-openmp)
+// CHK-PHASES: 10: clang-offload-unbundler, {9}, object, (host-openmp)
+// CHK-PHASES: 11: input, {{.*libomp-itt-stubs.o.*}}, object, (host-openmp)
+// CHK-PHASES: 12: clang-offload-unbundler, {11}, object, (host-openmp)
+// CHK-PHASES: 13: input, "[[INPUT]]", c, (device-openmp)
+// CHK-PHASES: 14: preprocessor, {13}, cpp-output, (device-openmp)
+// CHK-PHASES: 15: compiler, {14}, ir, (device-openmp)
+// CHK-PHASES: 16: offload, "host-openmp (x86_64-pc-windows-msvc)" {2}, "device-openmp (spir64)" {15}, ir
+// CHK-PHASES: 17: backend, {16}, ir, (device-openmp)
+// CHK-PHASES: 18: linker, {17, 6, 8, 10, 12}, ir, (device-openmp)
+// CHK-PHASES: 19: sycl-post-link, {18}, ir, (device-openmp)
+// CHK-PHASES: 20: llvm-spirv, {19}, spirv, (device-openmp)
+// CHK-PHASES: 21: offload, "device-openmp (spir64)" {20}, ir
+// CHK-PHASES: 22: clang-offload-wrapper, {21}, ir, (host-openmp)
+// CHK-PHASES: 23: backend, {22}, assembler, (host-openmp)
+// CHK-PHASES: 24: assembler, {23}, object, (host-openmp)
+// CHK-PHASES: 25: linker, {4, 6, 8, 10, 12, 24}, image, (host-openmp)
 
 
 
@@ -42,13 +50,17 @@
 // RUN:   | FileCheck -check-prefix=CHK-COMMANDS %s
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-o" "[[HOSTBC:.+\.bc]]"
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
+// CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-spirvdevicertl.obj" "-outputs=[[RTLHOST:.+\.o]],[[RTLTGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-user-wrappers.obj" "-outputs=[[ITT1HOST:.+\.o]],[[ITT1TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-compiler-wrappers.obj" "-outputs=[[ITT2HOST:.+\.o]],[[ITT2TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-stubs.obj" "-outputs=[[ITT3HOST:.+\.o]],[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-pc-windows-msvc" "-fms-extensions" "-fms-compatibility" "-fdelayed-template-parsing" "-fms-compatibility-version={{.*}}" "-disable-intel-proprietary-opts" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[TGTBC:.+\.bc]]"
-// CHK-COMMANDS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
+// CHK-COMMANDS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
 // CHK-COMMANDS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
 // CHK-COMMANDS: llvm-spirv{{(.exe)?}}{{.*}}" "-o" "[[TGTSPIRV:.+\.spv]]" "-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location" "-spirv-allow-unknown-intrinsics" "[[TGTPOSTLINK]]"
 // CHK-COMMANDS: clang-offload-wrapper{{(.exe)?}}{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[TGTSPIRV]]"
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[WRAPPEROBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
-// CHK-COMMANDS: link{{(.exe)?}}{{.*}} "-out:{{.*}}"{{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib"{{.*}} "[[HOSTOBJ]]" "[[WRAPPEROBJ]]"
+// CHK-COMMANDS: link{{(.exe)?}}{{.*}} "-out:{{.*}}"{{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib"{{.*}} "[[HOSTOBJ]]" "[[RTLHOST]]" "[[ITT1HOST]]" "[[ITT2HOST]]" "[[ITT3HOST]]" "[[WRAPPEROBJ]]"
 
 /// ###########################################################################
 
@@ -76,12 +88,22 @@
 // RUN:   | FileCheck -DINPUT=%t.obj -check-prefix=CHK-UBACTIONS %s
 // CHK-UBACTIONS: 0: input, "[[INPUT]]", object, (host-openmp)
 // CHK-UBACTIONS: 1: clang-offload-unbundler, {0}, object, (host-openmp)
-// CHK-UBACTIONS: 2: linker, {1}, ir, (device-openmp)
-// CHK_UBACTIONS: 3: offload, "device-openmp (spir64)" {2}, ir
-// CHK_UBACTIONS: 4: clang-offload-wrapper, {3}, ir, (host-openmp)
-// CHK_UBACTIONS: 5: backend, {4}, assembler, (host-openmp)
-// CHK_UBACTIONS: 6: assembler, {5}, object, (host-openmp)
-// CHK_UBACTIONS: 7: linker, {1, 6}, image, (host-openmp)
+// CHK-UBACTIONS: 2: input, {{.*libomp-spirvdevicertl.o.*}}, object, (host-openmp)
+// CHK-UBACTIONS: 3: clang-offload-unbundler, {2}, object, (host-openmp)
+// CHK-UBACTIONS: 4: input, {{.*libomp-itt-user-wrappers.o.*}}, object, (host-openmp)
+// CHK-UBACTIONS: 5: clang-offload-unbundler, {4}, object, (host-openmp)
+// CHK-UBACTIONS: 6: input, {{.*libomp-itt-compiler-wrappers.o.*}}, object, (host-openmp)
+// CHK-UBACTIONS: 7: clang-offload-unbundler, {6}, object, (host-openmp)
+// CHK-UBACTIONS: 8: input, {{.*libomp-itt-stubs.o.*}}, object, (host-openmp)
+// CHK-UBACTIONS: 9: clang-offload-unbundler, {8}, object, (host-openmp)
+// CHK-UBACTIONS: 10: linker, {1, 3, 5, 7, 9}, ir, (device-openmp)
+// CHK-UBACTIONS: 11: sycl-post-link, {10}, ir, (device-openmp)
+// CHK-UBACTIONS: 12: llvm-spirv, {11}, spirv, (device-openmp)
+// CHK_UBACTIONS: 13: offload, "device-openmp (spir64)" {12}, ir
+// CHK_UBACTIONS: 14: clang-offload-wrapper, {13}, ir, (host-openmp)
+// CHK_UBACTIONS: 15: backend, {14}, assembler, (host-openmp)
+// CHK_UBACTIONS: 16: assembler, {15}, object, (host-openmp)
+// CHK_UBACTIONS: 17: linker, {1, 3, 5, 7, 9, 16}, image, (host-openmp)
 
 /// ###########################################################################
 
@@ -98,12 +120,16 @@
 // RUN:   %clang -### -fiopenmp %t.obj -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 --intel -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
 // CHK-UBJOBS: clang-offload-bundler{{(.exe)?}}{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs=[[FATOBJ:.+\.obj]]" "-outputs=[[HOSTOBJ:.+\.o]],[[TGTBC:.+\.o]]" "-unbundle"
-// CHK-UBJOBS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[TGTLINKEDBC:.+\.bc]]"
+// CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-spirvdevicertl.obj" "-outputs=[[RTLHOST:.+\.o]],[[RTLTGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-user-wrappers.obj" "-outputs=[[ITT1HOST:.+\.o]],[[ITT1TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-compiler-wrappers.obj" "-outputs=[[ITT2HOST:.+\.o]],[[ITT2TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-stubs.obj" "-outputs=[[ITT3HOST:.+\.o]],[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-UBJOBS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
 // CHK-UBJOBS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
 // CHK-UBJOBS: llvm-spirv{{(.exe)?}}{{.*}} "-o" "[[TGTSPIRV:.+\.spv]]" "-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location" "-spirv-allow-unknown-intrinsics" "[[TGTPOSTLINK]]"
 // CHK-UBJOBS: clang-offload-wrapper{{(.exe)?}}{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[TGTSPIRV]]"
 // CHK-UBJOBS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[WRAPPEROBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
-// CHK-UBJOBS: link{{(.exe)?}}{{.*}} "-out:{{.+}}"{{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib"{{.*}} "[[HOSTOBJ]]" "[[WRAPPEROBJ]]"
+// CHK-UBJOBS: link{{(.exe)?}}{{.*}} "-out:{{.+}}"{{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib"{{.*}} "[[HOSTOBJ]]" "[[RTLHOST]]" "[[ITT1HOST]]" "[[ITT2HOST]]" "[[ITT3HOST]]" "[[WRAPPEROBJ]]"
 
 /// Use of /LD not supported
 // RUN: %clang_cl -### /LD /Qiopenmp /Qopenmp-targets=spir64 -c %s 2>&1 \

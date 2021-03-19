@@ -118,6 +118,20 @@ namespace spirv {
     GroupOperationExclusiveScan = 2
   };
 
+  enum MemorySemantics {
+    None =                   0,
+    Acquire =                0x2,
+    Release =                0x4,
+    AcquireRelease =         0x8,
+    SequentiallyConsistent = 0x10,
+    UniformMemory =          0x40,
+    SubgroupMemory =         0x80,
+    WorkgroupMemory =        0x100,
+    CrossWorkgroupMemory =   0x200,
+    AtomicCounterMemory =    0x400,
+    ImageMemory =            0x800
+  };
+
   static const StringRef ExecutionSchemeOptionName(
       "vpo-paropt-gpu-execution-scheme");
 
@@ -1667,6 +1681,16 @@ public:
                            ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
                            bool IsTail = false, bool IsVarArg = false);
+
+  // A genCall() interface where FnArgTypes and Module are omitted;
+  // FnArgTypes will be computed from FnArgs; Module will be computed
+  // from InsertPt.
+  // **WARNING**: do not use this interface for VarArg functions, as the list
+  // of FnArgTypes corresponding to the FnArgs may be longer than the actual
+  // list of params in the FunctionType.
+  static CallInst *genCall(StringRef FnName, Type *ReturnTy,
+                           ArrayRef<Value *> FnArgs,
+                           Instruction *InsertPt, bool IsTail = false);
 
   /// Given a call \p BaseCall, create another call with name \p VariantName
   /// using the same arguments from \p BaseCall. Both functions are expected
