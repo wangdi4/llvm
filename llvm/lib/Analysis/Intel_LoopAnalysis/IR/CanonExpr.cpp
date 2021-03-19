@@ -1640,6 +1640,17 @@ void CanonExpr::verify(unsigned NestingLevel) const {
              (getCanonExprUtils().getTypeSizeInBits(BScalTy) ==
               getCanonExprUtils().getTypeSizeInBits(ScalSrcTy)))) &&
            "Scalar type of all blobs should match canon expr scalar type!");
+
+    // Check that blobs have valid type if this CanonExpr is of VectorType. We
+    // allow only scalar or matching VectorType blobs in a vector CE.
+    if (SrcTy->isVectorTy()) {
+      auto BTy = B->getType();
+      (void)BTy;
+
+      assert((!BTy->isVectorTy() || BTy == SrcTy) &&
+             "Only scalar or matching VectorTy blobs are allowed in vector "
+             "canon expr.");
+    }
   }
 
   if (!hasBlob() && !hasIVBlobCoeffs()) {

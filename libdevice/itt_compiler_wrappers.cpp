@@ -9,6 +9,11 @@
 #include "device_itt.h"
 
 #ifdef __SPIR__
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 
 DEVICE_EXTERN_C
 void __itt_offload_wi_start_wrapper() {
@@ -57,4 +62,9 @@ void __itt_offload_wi_resume_wrapper() {
   __itt_offload_wi_resume_stub(GroupID, WIID);
 }
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 #endif // __SPIR__
