@@ -195,12 +195,6 @@ public:
 
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
-  void widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
-                              const OVLSGroup *Group, int64_t InterleaveFactor,
-                              int64_t InterleaveIndex,
-                              const HLInst *GrpStartInst,
-                              const VPInstruction *VPInst);
-
   void widenInterleavedAccess(const VPLoadStoreInst *VPLdSt, RegDDRef *Mask,
                               const OVLSGroup *Group, int64_t InterleaveFactor,
                               int64_t InterleaveIndex);
@@ -768,9 +762,8 @@ private:
   // using VF as the vector length. This interface is used by the public
   // interface when a VPInstruction has a valid underlying HLInst. This
   // function also adds the mapping between VPInst and the widened value.
-  void widenNodeImpl(const HLInst *Inst, RegDDRef *Mask, const OVLSGroup *Group,
-                     int64_t InterleaveFactor, int64_t InterleaveIndex,
-                     const HLInst *GrpStartInst, const VPInstruction *VPInst);
+  void widenNodeImpl(const HLInst *Inst, RegDDRef *Mask,
+                     const VPInstruction *VPInst);
 
   // Helper utility to get result type corresponding to \p RefTy based on \p
   // Widen.
