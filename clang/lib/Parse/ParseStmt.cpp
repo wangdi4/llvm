@@ -2021,7 +2021,6 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   }
 
   // Parse the second part of the for specifier.
-  getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);
   if (!ForEach && !ForRangeInfo.ParsedForRangeDecl() &&
       !SecondPart.isInvalid()) {
     // Parse the second part of the for specifier.
@@ -2037,7 +2036,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
         ColonProtectionRAIIObject ColonProtection(*this, MightBeForRangeStmt);
         SecondPart =
             ParseCXXCondition(nullptr, ForLoc, Sema::ConditionKind::Boolean,
-                              MightBeForRangeStmt ? &ForRangeInfo : nullptr);
+                              MightBeForRangeStmt ? &ForRangeInfo : nullptr,
+                              /*EnterForConditionScope*/ true);
 
         if (ForRangeInfo.ParsedForRangeDecl()) {
           Diag(FirstPart.get() ? FirstPart.get()->getBeginLoc()
@@ -2054,6 +2054,9 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
           }
         }
       } else {
+        // We permit 'continue' and 'break' in the condition of a for loop.
+        getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);
+
         ExprResult SecondExpr = ParseExpression();
         if (SecondExpr.isInvalid())
           SecondPart = Sema::ConditionError();
@@ -2064,6 +2067,11 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
       }
     }
   }
+
+  // Enter a break / continue scope, if we didn't already enter one while
+  // parsing the second part.
+  if (!(getCurScope()->getFlags() & Scope::ContinueScope))
+    getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);
 
   // Parse the third part of the for statement.
   if (!ForEach && !ForRangeInfo.ParsedForRangeDecl()) {
