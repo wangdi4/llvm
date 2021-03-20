@@ -47,13 +47,14 @@ static void collectRecurrentValuesAndLiveOuts(
     SmallVectorImpl<
         std::pair<VPPHINode * /*header's phi node*/,
                   VPInstruction * /* recurrent value in header's phi node*/>>
-        &RecurrentValsAndLiveOuts) {
+        &RecurrentValsAndLiveOuts,
+    VPInstruction *MainInduction) {
 
   for (VPBasicBlock *VPBB : TopVPLoop->getBlocks()) {
     for (VPInstruction &VPInst : *VPBB) {
       VPUser::user_iterator VPPhiUserIt =
           getLoopHeaderVPPHIUser(VPInst.users(), TopVPLoop);
-      if (VPPhiUserIt != VPInst.users().end())
+      if (&VPInst != MainInduction && VPPhiUserIt != VPInst.users().end())
         RecurrentValsAndLiveOuts.push_back(
             std::make_pair(cast<VPPHINode>(*VPPhiUserIt), &VPInst));
       else if (TopVPLoop->isLiveOut(&VPInst))
@@ -96,7 +97,8 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // backedge.
   SmallVector<std::pair<VPPHINode *, VPInstruction *>, 2>
       RecurrentValsAndLiveOuts;
-  collectRecurrentValuesAndLiveOuts(TopVPLoop, RecurrentValsAndLiveOuts);
+  collectRecurrentValuesAndLiveOuts(TopVPLoop, RecurrentValsAndLiveOuts,
+                                    VPIndIncrement);
 
   // The induction increment and the exit comparison might be in a different
   // basic block than the latch. In this case, we have to move them to the
@@ -128,25 +130,32 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // loop and live-outs through backedge.
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch, NewLoopLatch->begin());
+  auto InsnNotInLoop = [TopVPLoop](VPUser *U) {
+    if (VPInstruction *I = dyn_cast<VPInstruction>(U))
+      return !TopVPLoop->contains(I);
+    return false;
+  };
   for (auto &Pair : RecurrentValsAndLiveOuts) {
     VPInstruction *LiveOutVal = Pair.second;
     VPPHINode *LiveOutVPPhi =
         VPBldr.createPhiInstruction(LiveOutVal->getType());
-    auto InsnNotInLoop = [TopVPLoop](VPUser *U) {
-      if (VPInstruction *I = dyn_cast<VPInstruction>(U))
-        return !TopVPLoop->contains(I);
-      if (VPPHINode *VPPHI = dyn_cast<VPPHINode>(U))
-        return TopVPLoop->contains(VPPHI) &&
-               VPPHI->getParent() == TopVPLoop->getHeader();
-      return false;
-    };
     LiveOutVal->replaceUsesWithIf(LiveOutVPPhi, InsnNotInLoop);
-    LiveOutVPPhi->addIncoming(LiveOutVal, Latch);
+    // New loop latch has two predecessors: loop header and the first part of
+    // the old loop latch.
+    auto NewLoopLatchPred =
+        llvm::find_if(NewLoopLatch->getPredecessors(),
+                      [Header](VPBasicBlock *Pred) { return Pred != Header; });
+    assert(NewLoopLatchPred != NewLoopLatch->getPredecessors().end() &&
+           "Basic block is not a predecessor of the new loop latch.");
+    LiveOutVPPhi->addIncoming(LiveOutVal, *NewLoopLatchPred);
     VPValue *IncomingValFromHeader =
         Pair.first ? cast<VPValue>(Pair.first)
                    : cast<VPValue>(MaskedVPlan->getVPConstant(
                          UndefValue::get(LiveOutVPPhi->getType())));
     LiveOutVPPhi->addIncoming(IncomingValFromHeader, Header);
+    if (Pair.first)
+      Pair.first->setIncomingValue(Pair.first->getBlockIndex(NewLoopLatch),
+                                   LiveOutVPPhi);
   }
 
   MaskedVPlan->getDT()->recalculate(*MaskedVPlan.get());
