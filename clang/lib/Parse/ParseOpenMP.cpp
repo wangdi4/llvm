@@ -3083,7 +3083,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
-  case OMPC_destroy:
     // OpenMP [2.7.1, Restrictions, p. 9]
     //  Only one ordered clause can appear on a loop directive.
     // OpenMP [2.7.1, Restrictions, C/C++, p. 4]
@@ -3147,6 +3146,17 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_uses_allocators:
     Clause = ParseOpenMPUsesAllocatorClause(DKind);
     break;
+  case OMPC_destroy:
+    if (DKind != OMPD_interop) {
+      if (!FirstClause) {
+        Diag(Tok, diag::err_omp_more_one_clause)
+            << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
+        ErrorFound = true;
+      }
+      Clause = ParseOpenMPClause(CKind, WrongDirective);
+      break;
+    }
+    LLVM_FALLTHROUGH;
   case OMPC_init:
   case OMPC_use:
     Clause = ParseOpenMPInteropClause(CKind, WrongDirective);
@@ -3377,6 +3387,10 @@ OMPClause *Parser::ParseOpenMPInteropClause(OpenMPClauseKind Kind,
   if (Kind == OMPC_use)
     return Actions.ActOnOpenMPUseClause(InteropVarExpr.get(), Loc,
                                         T.getOpenLocation(), VarLoc, RLoc);
+
+  if (Kind == OMPC_destroy)
+    return Actions.ActOnOpenMPDestroyClause(InteropVarExpr.get(), Loc,
+                                            T.getOpenLocation(), VarLoc, RLoc);
 
   llvm_unreachable("Unexpected interop variable clause.");
 }
