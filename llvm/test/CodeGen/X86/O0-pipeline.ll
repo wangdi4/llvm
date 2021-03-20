@@ -20,8 +20,6 @@
 ; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
 ; CHECK-NEXT:       Expand fp128 instructions ;INTEL
-; CHECK-NEXT:       Dominator Tree Construction
-; CHECK-NEXT:       Natural Loop Information
 ; CHECK-NEXT:       Lower AMX intrinsics
 ; CHECK-NEXT:       Lower AMX type for load/store
 ; CHECK-NEXT:       Module Verifier
