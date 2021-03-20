@@ -21476,6 +21476,15 @@ OMPClause *Sema::ActOnOpenMPIsDevicePtrClause(ArrayRef<Expr *> VarList,
         D, MC, /*WhereFoundClauseKind=*/OMPC_is_device_ptr);
 
     // Record the expression we've just processed.
+#if INTEL_COLLAB
+    if (LangOpts.OpenMPLateOutline) {
+      DeclRefExpr *Ref = nullptr;
+      auto *VD = dyn_cast<VarDecl>(D);
+      if (!VD && !CurContext->isDependentContext())
+        Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/false);
+      MVLI.ProcessedVarList.push_back(VD ? SimpleRefExpr : Ref);
+    } else
+#endif  // INTEL_COLLAB
     MVLI.ProcessedVarList.push_back(SimpleRefExpr);
 
     // Create a mappable component for the list item. List items in this clause
