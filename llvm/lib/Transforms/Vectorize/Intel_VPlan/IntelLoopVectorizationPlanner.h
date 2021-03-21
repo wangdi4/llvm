@@ -216,21 +216,6 @@ protected:
   virtual bool canProcessLoopBody(const VPlanVector &Plan,
                                   const VPLoop &Loop) const;
 
-  /// If the \p Loop has a normalized IV then return upper bound of the loop and
-  /// compare instruction where it's used. Otherwise return <nullptr, nullptr>.
-  std::pair<VPValue *, VPInstruction *>
-  getLoopUpperBound(const VPLoop *Loop) const;
-
-  /// Returns true if the loop has normalized induction:
-  /// - the main induction is integer
-  /// - the induction is incremented with step 1
-  /// - start value is 0
-  /// - upper bound is invariant
-  /// - the update instruction is used only in latch condition and
-  ///   in the header phi
-  /// - the latch condition is used only as back-edge condition.
-  bool hasNormalizedInduction(const VPLoop *Loop) const;
-
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
 

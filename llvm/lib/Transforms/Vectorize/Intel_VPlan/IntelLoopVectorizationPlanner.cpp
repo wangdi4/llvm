@@ -826,99 +826,6 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
 }
 
-// The following code snippet illustrates what is detected by the
-// function.
-// ...
-// %ind.step = induction-init-step{add} i64 1
-// ...
-// %ind.phi = phi i64 [0, %preheader], [%add, %loop_latch]
-// ...
-// %add = add i64 %ind.phi, %ind.step
-// %cmp = icmp sle i64 %add, %loop.invariant
-//
-bool LoopVectorizationPlanner::hasNormalizedInduction(const VPLoop *Loop) const {
-  VPBasicBlock *Latch = Loop->getLoopLatch();
-  if (!Latch)
-    return false;
-  VPBranchInst *Br = Latch->getTerminator();
-  if (!Br || Br->getCondition() == nullptr)
-    return false;
-  VPCmpInst *Cond = dyn_cast<VPCmpInst>(Br->getCondition());
-  if (!Cond)
-    return false;
-  if (Cond->getNumUsers() != 1)
-    return false;
-  VPInstruction *AddI = nullptr;
-  auto getAddInstr = [&AddI, Cond, Loop](int NumOp) -> bool {
-    // Check that the NumOp-th operand of Cond is an "add" instruction inside
-    // the loop with one of operands equal to InductionInitStep(1) and another
-    // operand of Cond is a loop invariant. The add instriuction is stored to
-    // AddI for further checks.
-    // In the example above it's the %add instruction.
-    AddI = dyn_cast<VPInstruction>(Cond->getOperand(NumOp));
-    if (AddI && AddI->getOpcode() == Instruction::Add && Loop->contains(AddI)) {
-      VPValue *SecOp = Cond->getOperand(NumOp ^ 1);
-      // Check upper bound.
-      if (!Loop->isDefOutside(SecOp) && !isa<VPConstant>(SecOp))
-        return false;
-      // Check step.
-      if (auto *StepInit = dyn_cast<VPInductionInitStep>(AddI->getOperand(0)))
-        SecOp = StepInit->getOperand(0);
-      else {
-        StepInit = cast<VPInductionInitStep>(AddI->getOperand(1));
-        SecOp = StepInit->getOperand(0);
-      }
-      if (VPConstantInt *Step = dyn_cast<VPConstantInt>(SecOp))
-        return Step->getValue() == 1;
-    }
-    return false;
-  };
-  if (getAddInstr(0) || getAddInstr(1)) {
-    VPBasicBlock *Preheader = Loop->getLoopPreheader();
-    VPBasicBlock *Header = Loop->getHeader();
-    // Check that increment is used only in condition and in phi.
-    for (auto *U : AddI->users()) {
-      if (U == Cond)
-        continue;
-      VPPHINode *PN = dyn_cast<VPPHINode>(U);
-      if (!PN)
-        return false;
-      if (PN->getParent() != Header)
-        return false;
-      // Header phi, check start value for 0.
-      VPValue *Init = PN->getIncomingValue(Preheader);
-      if (auto IndInit = dyn_cast<VPInductionInit>(Init)) {
-        Init = IndInit->getStartValueOperand();
-        if (isa<VPConstantInt>(Init) &&
-            cast<VPConstantInt>(Init)->getValue() == 0)
-          continue;
-      }
-      // The starting value is not induction-init(0).
-      return false;
-    }
-    // All checks succeeded.
-    return true;
-  }
-  return false;
-}
-
-std::pair<VPValue *, VPInstruction *>
-LoopVectorizationPlanner::getLoopUpperBound(const VPLoop *Loop) const {
-  if (!hasNormalizedInduction(Loop))
-    return std::make_pair<VPValue *, VPInstruction *>(nullptr, nullptr);
-  VPCmpInst *Cond = cast<VPCmpInst>(
-      Loop->getLoopLatch()->getTerminator()->getCondition());
-  if (VPInstruction *Add = dyn_cast<VPInstruction>(Cond->getOperand(0)))
-    if (Add->getOpcode() == Instruction::Add && Loop->contains(Add))
-      return std::make_pair(Cond->getOperand(1), Cond);
-  auto Add = dyn_cast<VPInstruction>(Cond->getOperand(1));
-  assert((Add != nullptr && Add->getOpcode() == Instruction::Add &&
-          Loop->contains(Add)) &&
-         "Unexpected operand");
-  (void)Add;
-  return std::make_pair(Cond->getOperand(0), Cond);
-}
-
 void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
@@ -929,7 +836,7 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
   VPValue *OrigTC;
-  bool HasNormalizedInd = hasNormalizedInduction(CandidateLoop);
+  bool HasNormalizedInd = CandidateLoop->hasNormalizedInduction();
   if (!HasNormalizedInd) {
     // If loop does not have normalized induction then emit it.
     Type *VectorLoopIVType = Legal->getWidestInductionType();
@@ -952,7 +859,7 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   } else {
     // Having normalized induction we just replace the upper bound.
     VPInstruction *Cond;
-    std::tie(OrigTC, Cond) = getLoopUpperBound(CandidateLoop);
+    std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
     auto *VTC = Builder.create<VPVectorTripCountCalculation>(
         "vector.trip.count", OrigTC);
     // TODO: propagate attributes from OrigTC, if possible.

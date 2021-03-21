@@ -25,6 +25,7 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
 #include "VPlan.h"
@@ -334,6 +335,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "scalar-peel";
   case VPInstruction::ScalarRemainder:
     return "scalar-remainder";
+  case VPInstruction::PlanAdapter:
+    return "vplan-adapter";
+  case VPInstruction::PlanPeelAdapter:
+    return "vplan-peel-adapter";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -496,6 +501,9 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     auto *Self = cast<VPOrigTripCountCalculation>(this);
     O << " for original loop " << Self->getOrigLoop()->getName();
   }
+
+  if (auto *Adapter = dyn_cast<VPlanAdapter>(this))
+    Adapter->printImpl(O);
 
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
@@ -855,6 +863,41 @@ void VPlanVector::updateDominatorTree(DominatorTree *DT,
   }
 }
 
+VPlanAdapter::VPlanAdapter(VPlan &P)
+    : VPlanAdapter(VPInstruction::PlanAdapter, P) {}
+
+VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
+    : VPInstruction(Opcode, Type::getTokenTy(*P.getLLVMContext()), {}),
+      Plan(P) {}
+
+VPScalarPeel *VPlanPeelAdapter::getPeelLoop() const {
+  for (auto &BB : Plan)
+    for (auto &I : BB)
+      if (auto *PeelLoop = dyn_cast<VPScalarPeel>(&I))
+        return PeelLoop;
+  llvm_unreachable("can't find scalar peel");
+}
+
+const VPValue *VPlanPeelAdapter::getUpperBound() const {
+  return getPeelLoop()->getUpperBound();
+}
+
+void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
+  if (isa<VPlanScalarPeel>(Plan)) {
+    VPScalarPeel *PeelLoop = getPeelLoop();
+    PeelLoop->setUpperBound(TC);
+    return;
+  }
+  assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
+
+  VPLoop *TopVPLoop = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
+  VPValue *OrigTC;
+  VPInstruction *Cond;
+  std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
+  assert((OrigTC && Cond) && "A normalized loop expected");
+  Cond->replaceUsesOfWith(OrigTC, TC);
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const Twine VPlanPrinter::getUID(const VPBasicBlock *BB) {
   return "N" + Twine(getOrCreateBID(BB));
@@ -1155,6 +1198,11 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
   }
   }
 }
+
+void VPlanAdapter::printImpl(raw_ostream &O) const {
+  O << " for VPlan {" << Plan.getName() << "}";
+}
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 Use *VPScalarPeel::findUpperBoundUseInLatch() const {

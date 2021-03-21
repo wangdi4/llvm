@@ -106,6 +106,9 @@ class HeuristicSLP;
 class VPlanDivergenceAnalysis;
 class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
+class VPlanMasked;
+class VPlanScalarPeel;
+
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
@@ -763,6 +766,8 @@ public:
     OrigLiveOut,
     PushVF,
     PopVF,
+    PlanAdapter,
+    PlanPeelAdapter,
   };
 
 private:
@@ -3007,6 +3012,84 @@ public:
   Use *getOrigUse(unsigned Idx) const { return getLiveIn(Idx); }
 };
 
+/// The VPlanAdapter is a placeholder for a VPlan in CFG of another VPlan.
+/// In some scenarios we have inner loops or some other additionally created
+/// loops (e.g. peel/remainder) inside a VPlan. We want those loops to be
+/// represented also as VPlans and want to have a separate CFG created for them,
+/// to be able to process them independently. At the same time we want to place
+/// those loops at correct places in the outer VPlan's CFG and keep those places
+/// until we finish processing of the inner loops. The VPlanAdapter keeps
+/// pointer to underlying VPlan and accepts operands which are treated as
+/// incoming values for underlying VPlan. Finally, the VPlanAdapters are
+/// replaced by the code from underlying VPlans, with corresponding replacement
+/// of incoming values.
+class VPlanAdapter : public VPInstruction {
+public:
+  VPlanAdapter(VPlan &P);
+  const VPlan &getVPlan() const { return Plan; }
+  VPlan &getVPlan() { return Plan; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::PlanAdapter ||
+           V->getOpcode() == VPInstruction::PlanPeelAdapter;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+protected:
+  VPlan &Plan;
+
+  // Constructor to have descendants
+  VPlanAdapter(unsigned Opcode, VPlan &P);
+
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+    return nullptr;
+  }
+};
+
+/// VPlanPeelAdapter is an adapter for a peel loop. It provides some
+/// security/restrictions specific for a peel loop. I.e. peel loop can be either
+/// scalar or vectorized masked loop and it always accepts only original
+/// incoming values. The only one parameter is accepted by peel loop, it's peel
+/// count which is set as the upper bound of the underlying loop
+class VPlanPeelAdapter final : public VPlanAdapter {
+  // Declare them private, hiding the public base class methods.
+  using VPInstruction::addOperand;
+  using VPInstruction::removeAllOperands;
+  using VPInstruction::removeOperand;
+  using VPInstruction::setOperand;
+
+public:
+  VPlanPeelAdapter(VPlan &P) : VPlanAdapter(VPInstruction::PlanPeelAdapter, P) {
+    assert((isa<VPlanScalarPeel>(P) || isa<VPlanMasked>(P)) &&
+           "Unexpected Vplan");
+  }
+
+  // Return the upper bound that will be used in the outermost loop of the
+  // underlying VPlan.
+  const VPValue *getUpperBound() const;
+
+  // Set the upper bound for the outermost loop of the underlying VPlan.
+  void setUpperBound(VPValue *TC);
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::PlanPeelAdapter;
+  }
+
+private:
+  VPScalarPeel *getPeelLoop() const;
+};
+
 // VPInstruction to allocate private memory. This is translated into
 // allocation of a private memory in the function entry block. This instruction
 // is not supposed to vectorize alloca instructions that appear inside the loop
@@ -3497,7 +3580,6 @@ protected:
       : VPlan(K, E, UVPI) {}
 };
 
-//class VPlanMasked;
 
 /// Class to represent VPlan for Vector-loops. This class holds pointers and
 /// data specific to analyses required for vectorization and has nothing
