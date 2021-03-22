@@ -735,6 +735,29 @@ bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
   return Idx == 2 && ScalarSelectSet.count(std::string(FnName));
 }
 
+Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize) {
+  Value *MaskToUse = MaskValue;
+  if (!MaskToUse)
+    MaskToUse = ConstantInt::getTrue(
+        FixedVectorType::get(Type::getInt1Ty(WideValueType->getContext()), VF));
+
+  SmallVector<int, 32> ShuffleMask;
+  for (unsigned Lane = 0; Lane < VF; ++Lane)
+    for (int Elt = 0; Elt < GroupSize; ++Elt)
+      ShuffleMask.push_back(Lane);
+
+  // Remaining elements are not read (were created to make type a power-of-two
+  // sized so that it's allocated size matched the bit-width of the type
+  // itself on all the platforms).
+  for (unsigned Idx = VF * GroupSize; Idx < WideValueType->getNumElements();
+       ++Idx)
+    ShuffleMask.push_back(VF);
+
+  auto *False = ConstantInt::getFalse(MaskToUse->getType());
+
+  return Builder.CreateShuffleVector(MaskToUse, False, ShuffleMask);
+}
+
 void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
@@ -1459,6 +1482,119 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalUncond: {
     vectorizePrivateFinalUncond(VPInst);
+    return;
+  }
+  case VPInstruction::VLSLoad: {
+    auto *VLSLoad = cast<VPVLSLoad>(VPInst);
+    assert(isVPValueUniform(VLSLoad, Plan) &&
+           "VLSLoad must produce a uniform value!");
+    auto *Base = getScalarValue(VLSLoad->getOperand(0), 0);
+    auto *VecTy = cast<VectorType>(VLSLoad->getType());
+    auto *CastedBase = Builder.CreateBitCast(
+        Base, VecTy->getPointerTo(
+                  cast<PointerType>(Base->getType())->getAddressSpace()));
+    auto GroupSize = VLSLoad->getGroupSize();
+    if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
+      auto *WideLoad = cast<LoadInst>(Builder.CreateAlignedLoad(
+          CastedBase, VLSLoad->getAlignment(), "vls.load"));
+      VPScalarMap[VLSLoad][0] = WideLoad;
+      OptRptStats.UnmaskedVLSLoads += VLSLoad->getNumOrigLoads();
+      return;
+    }
+
+    auto *LoadMask = getVLSLoadStoreMask(VecTy, GroupSize);
+    auto *WideLoad =
+        Builder.CreateMaskedLoad(CastedBase, VLSLoad->getAlignment(), LoadMask,
+                                 nullptr /* PassThru */, "vls.load");
+    VPScalarMap[VLSLoad][0] = WideLoad;
+    OptRptStats.MaskedVLSLoads += VLSLoad->getNumOrigLoads();
+    return;
+  }
+  case VPInstruction::VLSExtract: {
+    auto *Extract = cast<VPVLSExtract>(VPInst);
+    assert(isVPValueUniform(Extract->getOperand(0), Plan) &&
+           "Operand of VLSExtract must be a uniform value!");
+
+    auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
+
+    auto Offset = Extract->getOffset();
+    auto GroupSize = Extract->getGroupSize();
+    SmallVector<int, 32> ShuffleMask;
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part)
+        ShuffleMask.push_back(Lane * GroupSize + Offset + Part);
+
+    auto *WideValue = getScalarValue(Extract->getOperand(0), 0);
+    auto *ExtractedData =
+        Builder.CreateShuffleVector(WideValue, WideValue, ShuffleMask);
+    auto *ResultType = getWidenedType(Extract->getType(), VF);
+    auto *Result = Builder.CreateBitCast(ExtractedData, ResultType);
+    Result->setName(Extract->getName());
+    VPWidenMap[Extract] = Result;
+    return;
+  }
+  case VPInstruction::VLSInsert: {
+    auto *Insert = cast<VPVLSInsert>(VPInst);
+    assert(isVPValueUniform(Insert, Plan) && "VLSInsert must produce a uniform value!");
+    assert(isVPValueUniform(Insert->getOperand(0), Plan) &&
+           "Orig wide value operand of VLSInsert must be a uniform vlaue!");
+    auto *OrigWideValue = getScalarValue(Insert->getOperand(0), 0);
+    auto *ValueToInsert = getVectorValue(Insert->getOperand(1));
+
+    auto NumEltsPerValue = Insert->getNumGroupEltsPerValue();
+    auto *GroupType = cast<VectorType>(Insert->getOperand(0)->getType());
+    Type *GroupEltType = GroupType->getElementType();
+    auto NumEltsInGroup = GroupType->getNumElements();
+    auto *Casted = Builder.CreateBitCast(
+        ValueToInsert, getWidenedType(GroupEltType, VF * NumEltsPerValue));
+
+    auto *CastedExtended = extendVector(Casted, NumEltsInGroup, Builder);
+
+    auto Offset = Insert->getOffset();
+    auto GroupSize = Insert->getGroupSize();
+    SmallVector<int, 32> ShuffleMask;
+    // Initialize as if we'd want to keep OrigWideValue only.
+    for (unsigned Idx = 0; Idx < NumEltsInGroup; ++Idx)
+      ShuffleMask.push_back(Idx);
+
+    // Now update indices where we'd like to change the data.
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part) {
+        auto TargetIdx = GroupSize * Lane + Offset + Part;
+        auto SrcIdx = NumEltsInGroup + Lane * NumEltsPerValue + Part;
+        ShuffleMask[TargetIdx] = SrcIdx;
+      }
+
+    auto *Result =
+        Builder.CreateShuffleVector(OrigWideValue, CastedExtended, ShuffleMask);
+
+    VPScalarMap[Insert][0] = Result;
+    return;
+  }
+  case VPInstruction::VLSStore: {
+    auto *VLSStore = cast<VPVLSStore>(VPInst);
+    assert(isVPValueUniform(VLSStore->getOperand(0), Plan) &&
+           "Value operand of VLSStore must be uniform!");
+    auto *Base = getScalarValue(VLSStore->getOperand(1), 0);
+    auto *StoredValue = getScalarValue(VLSStore->getOperand(0), 0);
+    auto *VecTy = cast<VectorType>(VLSStore->getOperand(0)->getType());
+    auto *CastedBase = Builder.CreateBitCast(
+        Base, VecTy->getPointerTo(
+                  cast<PointerType>(Base->getType())->getAddressSpace()));
+    auto GroupSize = VLSStore->getGroupSize();
+    if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
+      auto *WideStore = cast<StoreInst>(Builder.CreateAlignedStore(
+          StoredValue, CastedBase, VLSStore->getAlignment()));
+      (void)WideStore;
+      OptRptStats.UnmaskedVLSStores += VLSStore->getNumOrigStores();
+      return;
+    }
+
+    auto *StoreMask = getVLSLoadStoreMask(VecTy, GroupSize);
+    auto *WideStore = Builder.CreateMaskedStore(
+        StoredValue, CastedBase, VLSStore->getAlignment(), StoreMask);
+    (void)WideStore;
+    OptRptStats.MaskedVLSStores += VLSStore->getNumOrigStores();
     return;
   }
   default: {

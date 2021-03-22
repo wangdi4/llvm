@@ -241,6 +241,20 @@ inline bool hasIrregularTypeForUnitStride(Type *Ty, const DataLayout *DL) {
   return DL->getTypeAllocSizeInBits(Ty) != DL->getTypeSizeInBits(Ty);
 }
 
+/// Given a type \p GroupTy of a wide VLS-optimized operation, and a type \p
+/// ValueTy corresponding to an element, calculate how many group's base
+/// elements are fit into the value.
+inline unsigned getNumGroupEltsPerValue(const DataLayout &DL, Type *GroupTy,
+                                        Type *ValueTy) {
+  auto ValueTypeSize = DL.getTypeSizeInBits(ValueTy);
+  Type *GroupEltType = cast<VectorType>(GroupTy)->getElementType();
+  auto GroupElementTypeSize = DL.getTypeSizeInBits(GroupEltType);
+
+  assert(ValueTypeSize % GroupElementTypeSize == 0 &&
+         "Group element type is invalid!");
+  return ValueTypeSize / GroupElementTypeSize;
+}
+
 #if INTEL_CUSTOMIZATION
 // Obtain stride information using loopopt interfaces for the given memory
 // reference MemRef. DDNode specifies the underlying HLDDNode for the

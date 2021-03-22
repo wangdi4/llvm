@@ -53,6 +53,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanValueTracking.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp
+  Intel_VPlan/IntelVPlanVLSTransform.cpp
   Intel_VPlan/IntelVPlanVectorShape.cpp
   Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp

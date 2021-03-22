@@ -556,6 +556,10 @@ public:
                            // finalization during CG.
                            // TODO: Remove when non-explicit remainder loop
                            // support is deprecated.
+    VLSLoad,
+    VLSStore,
+    VLSExtract,
+    VLSInsert,
   };
 
 private:
@@ -1600,6 +1604,12 @@ public:
       return getOperand(0);
     assert(getOpcode() == Instruction::Store && "Unknown LoadStore opcode");
     return getOperand(1);
+  }
+
+  Type *getValueType() const {
+    if (getOpcode() == Instruction::Load)
+      return getType();
+    return getOperand(0)->getType();
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
@@ -3068,6 +3078,220 @@ protected:
   }
 };
 
+
+/// Instruction representing a wide VLS-optimized (Vector Load/Stores) load. It
+/// takes place of several adjacent loads and substitutes several
+/// non-consecutive accesses with a single wider access.
+///
+/// The instruction has a "uniform"/"subgroup cooperative" semantics and is
+/// expected to be a low-level representation used late in the pipeline before
+/// the VPlan CG.
+class VPVLSLoad : public VPInstruction {
+   // Logical size in Type->getElementType()
+  int GroupSize;
+  Align Alignment;
+   // Number of original loads being optimized. For OptReport purposes.
+  int NumOrigLoads;
+
+public:
+  /// \p Ptr should contain the base address for the wide VLSload in its 0th
+  /// lane. Currently other lanes are ignored as we only support the VLS groups
+  /// without gaps. Its type isn't important, it's the CG's job to insert proper
+  /// bitcasts if needed (or move to opaque pointer types in future).
+  ///
+  /// \p Ty is a post-vectorization wide vector type. Its element type is a
+  /// scalar type such that all the individual elements of the groups and offset
+  /// between could be represented as a multiple of that type's width.
+  ///
+  /// \p GroupSize is the size of the group in terms of \p Ty's element type.
+  ///
+  /// \p Alignment is the alignment of the base pointer (the one in the \p Ptr's
+  /// 0th lane)
+  ///
+  /// \p NumOrigLoads describes how many loads were substituted by this single
+  /// VPVLSLoad. This parameter is needed for OptReport purposes.
+  ///
+  /// Note that this instruction is very low-level (i.e. the VF is implicitly
+  /// encoded in the \p Ty) and is expected to be created soon before VPlan CG.
+  VPVLSLoad(VPValue *Ptr, Type *Ty, int GroupSize, Align Alignment,
+            int NumOrigLoads)
+      : VPInstruction(VPInstruction::VLSLoad, Ty, {Ptr}), GroupSize(GroupSize),
+        Alignment(Alignment), NumOrigLoads(NumOrigLoads) {}
+
+  int getGroupSize() const { return GroupSize; }
+  Align getAlignment() const { return Alignment; }
+  int getNumOrigLoads() const { return NumOrigLoads; }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::VLSLoad;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPVLSLoad *cloneImpl() const override {
+    return new VPVLSLoad(getOperand(0), getType(), GroupSize, Alignment, NumOrigLoads);
+  }
+};
+
+/// Instruction representing a wide VLS-optimized (Vector Load/Stores) store. It
+/// takes place of several adjacent stores and substitutes several
+/// non-consecutive accesses with a single wider access.
+///
+/// The instruction has a "uniform"/"subgroup cooperative" semantics and is
+/// expected to be a low-level representation used late in the pipeline before
+/// the VPlan CG.
+class VPVLSStore : public VPInstruction {
+   // Logical size in Type->getElementType()
+  int GroupSize;
+  Align Alignment;
+   // Number of original stores being optimized. For OptReport purposes.
+  int NumOrigStores;
+
+public:
+  /// \p Val is a specially created wide value that can be directly stored as
+  /// a wide operation via this VPVLSStore similar to what VPVLSLoad produces.
+  /// Its type has similar properties as well - it is a post-vectorization wide
+  /// vector type. Its element type is a scalar type such that all the
+  /// individual elements of the groups and offset between them could be
+  /// represented as a multiple of that type's width.
+  ///
+  /// \p Ptr should contain the base address for the wide VLSStore in its 0th
+  /// lane. Currently other lanes are ignored as we only support the VLS groups
+  /// without gaps. Its type isn't important, it's the CG's job to insert proper
+  /// bitcasts if needed (or move to opaque pointer types in future).
+  ///
+  /// \p GroupSize is the size of the group in terms of \p Ty's element type.
+  ///
+  /// \p Alignment is the alignment of the base pointer (the one in the \p Ptr's
+  /// 0th lane)
+  ///
+  /// \p NumOrigLoads describes how many loads were substituted by this single
+  /// VPVLSLoad. This parameter is needed for OptReport purposes.
+  ///
+  /// Note that this instruction is very low-level (i.e. the VF is implicitly
+  /// encoded in the \p Val) and is expected to be created soon before VPlan CG.
+  VPVLSStore(VPValue *Val, VPValue *Ptr, int GroupSize, Align Alignment,
+             int NumOrigStores)
+      : VPInstruction(VPInstruction::VLSStore,
+                      Type::getVoidTy(Val->getType()->getContext()),
+                      {Val, Ptr}),
+        GroupSize(GroupSize), Alignment(Alignment),
+        NumOrigStores(NumOrigStores) {}
+
+  VPValue *getValueOperand() const { return getOperand(0); }
+  VPValue *getPointerOperand() const { return getOperand(1); }
+
+  int getGroupSize() const { return GroupSize; }
+  Align getAlignment() const { return Alignment; }
+  int getNumOrigStores() const { return NumOrigStores; }
+
+    /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::VLSStore;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPVLSStore *cloneImpl() const override {
+    return new VPVLSStore(getValueOperand(), getPointerOperand(), GroupSize,
+                          Alignment, NumOrigStores);
+  }
+};
+
+/// Extract data corresponding to the original non-consecutive load from the
+/// wider VPVLSLoad.
+class VPVLSExtract : public VPInstruction {
+  // Logical size in terms Type->getElementType() elements.
+  int GroupSize;
+  int Offset;
+
+public:
+  /// \p WideVal - the wide value containing data from multiple original loads.
+  /// Normally produced by the VPVLSLoad instruction, but that isn't enforced.
+  ///
+  /// \p Ty - type of the data being extracted to match the original load that
+  /// has been VLS-optimized.
+  ///
+  /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
+  ///
+  /// \p Offset of the data being extracted inside the group, in terms of \p
+  /// WideVal's element type.
+  VPVLSExtract(VPValue *WideVal, Type *Ty, int GroupSize, int Offset)
+      : VPInstruction(VPInstruction::VLSExtract, Ty, {WideVal}),
+        GroupSize(GroupSize), Offset(Offset) {}
+
+  int getGroupSize() const { return GroupSize; }
+  int getOffset() const { return Offset; }
+
+  /// How many GroupTy's scalar elements fit into the type of the value
+  /// extracted.
+  unsigned getNumGroupEltsPerValue() const;
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::VLSExtract;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPVLSExtract *cloneImpl() const override {
+    return new VPVLSExtract(getOperand(0), getType(), GroupSize, Offset);
+  }
+};
+
+/// Prepare data to perform a single VLSStore in place of multiple original
+/// stores. The behavior is similar to insertelement/shufflevector but
+/// interfaces are tuned for VLS purposes.
+class VPVLSInsert : public VPInstruction {
+  // Logical size in terms Type->getElementType() elements.
+  int GroupSize;
+  int Offset;
+
+public:
+  /// \p WideVal - the wide value containing data for other elements of the
+  /// group. In the simplest case it's either an Undef value or the result of
+  /// another VPVLSInsert instruction.
+  ///
+  /// \p Element - data corresponding to an element of the group to be inserted
+  /// into \p WideVal.
+  ///
+  /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
+  ///
+  /// \p Offset of the data being inserted inside the group, in terms of \p
+  /// WideVal's element type.
+  VPVLSInsert(VPValue *WideVal, VPValue *Element, int GroupSize, int Offset)
+      : VPInstruction(VPInstruction::VLSInsert, WideVal->getType(),
+                      {WideVal, Element}),
+        GroupSize(GroupSize), Offset(Offset) {}
+
+  int getGroupSize() const { return GroupSize; }
+  int getOffset() const { return Offset; }
+
+  /// How many GroupTy's scalar elements fit into the type of the value being
+  /// inserted.
+  unsigned getNumGroupEltsPerValue() const;
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::VLSInsert;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPVLSInsert *cloneImpl() const override {
+    return new VPVLSInsert(getOperand(0), getOperand(1), GroupSize, Offset);
+  }
+};
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
@@ -3245,6 +3469,15 @@ public:
   /// existing one.
   VPConstant *getVPConstant(Constant *Const) {
     return Externals.getVPConstant(Const);
+  }
+
+  VPConstant *getVPConstant(const APInt &V) {
+    ConstantInt *C = ConstantInt::get(*getLLVMContext(), V);
+    return getVPConstant(C);
+  }
+
+  VPConstant *getUndef(Type *Ty) {
+    return getVPConstant(UndefValue::get(Ty));
   }
 
   /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.

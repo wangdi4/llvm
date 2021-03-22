@@ -26,6 +26,7 @@
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanMaskedModeLoop.h"
 #include "IntelVPlanScalarEvolution.h"
+#include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DemandedBits.h"  // INTEL
@@ -436,6 +437,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // Run VLS analysis before IR for the current loop is modified.
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
+  applyVLSTransform(*Plan, VLSA, VF);
 
   // Transform SOA-GEPs.
   if (!EnableNewCFGMerge && EnableSOAAnalysis) {
