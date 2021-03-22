@@ -32,12 +32,12 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] float [[VP_ADD7:%.*]] = phi  [ float [[VP_X_RED_INIT]], vector.ph ],  [ float [[VP_ADD:%.*]], [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] float* [[VP_PTR_PHI:%.*]] = phi  [ float* [[VP_PTR_PHI_IND_INIT]], vector.ph ],  [ float* [[VP0:%.*]], [[BB2]] ]
+; CHECK-NEXT:       [DA: Div] float* [[VP0]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 [[VP_PTR_PHI_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Div] float* [[VP_PTR:%.*]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 1
 ; CHECK-NEXT:       [DA: Div] float [[VP_TMP:%.*]] = load float* [[VP_PTR]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP_ADD7]] float* [[VP_PTR]]
 ; CHECK-NEXT:       [DA: Div] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_TMP]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Div] float* [[VP0]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 [[VP_PTR_PHI_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]

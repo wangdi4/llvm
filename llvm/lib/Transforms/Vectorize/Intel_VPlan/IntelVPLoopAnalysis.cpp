@@ -1022,20 +1022,32 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
   auto Opc = Induction->getInductionOpcode();
   Type *Ty = Induction->getStartValue()->getType();
   if (auto BinOp = Induction->getInductionBinOp()) {
+    VPBasicBlock *Latch = Loop.getLoopLatch();
+    assert(Latch && "exected nonnull latch");
+    VPBranchInst *Br = Latch->getTerminator();
+    auto *LatchCond = cast<VPInstruction>(Br->getCondition());
     // Non-memory induction.
     VPPHINode *StartPhi = findInductionStartPhi(Induction);
     assert(StartPhi && "null induction StartPhi");
-    VPBasicBlock *Block = BinOp->getParent();
-    Builder.setInsertPoint(Block);
-    VPValue *NewInd = nullptr;
-    // TODO. Replace by VPInstruction::clone
+    if (isa<VPPHINode>(BinOp)) {
+      VPBasicBlock *Block = BinOp->getParent();
+      Builder.setInsertPointFirstNonPhi(Block);
+    } else {
+      Builder.setInsertPoint(BinOp);
+    }
+    VPInstruction *NewInd = nullptr;
+    // Can't clone as BinOp can be of any opcode (even VPPHINode, see above).
     if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
         Opc == Instruction::GetElementPtr)
       NewInd = Builder.createInBoundsGEP(StartPhi, &InitStep, nullptr);
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {StartPhi, &InitStep});
-    auto Ndx = StartPhi->getOperandIndex(BinOp);
-    StartPhi->setOperand(Ndx, NewInd);
+    // TODO: add copying of other attributes.
+    NewInd->setDebugLocation(BinOp->getDebugLocation());
+
+    StartPhi->replaceUsesOfWith(BinOp, NewInd);
+    LatchCond->replaceUsesOfWith(BinOp, NewInd);
+
     VPInstruction *ExitIns = getInductionLoopExitInstr(Induction);
     if (ExitIns == BinOp)
       relinkLiveOuts(ExitIns, BinOp, Loop);
