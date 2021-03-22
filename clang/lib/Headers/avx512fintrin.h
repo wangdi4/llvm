@@ -162,6 +162,17 @@ typedef enum
   _MM_MANT_SIGN_nan   /* DEST = NaN if sign(SRC) = 1 */
 } _MM_MANTISSA_SIGN_ENUM;
 
+/* INTEL_CUSTOMIZATION */
+/* Constants for index scale (vgather/vscatter). */
+typedef enum
+{
+  _MM_SCALE_1 = 1,
+  _MM_SCALE_2 = 2,
+  _MM_SCALE_4 = 4,
+  _MM_SCALE_8 = 8
+} _MM_INDEX_SCALE_ENUM;
+/* end INTEL_CUSTOMIZATION */
+
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS512 __attribute__((__always_inline__, __nodebug__, __target__("avx512f"), __min_vector_width__(512)))
 #define __DEFAULT_FN_ATTRS128 __attribute__((__always_inline__, __nodebug__, __target__("avx512f"), __min_vector_width__(128)))
