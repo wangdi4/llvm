@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -61,26 +61,25 @@ namespace dtrans {
 // removed.
 class AbstractType {
 public:
-  AbstractType(llvm::Type* Ty) : Ty(Ty) {}
-  AbstractType(DTransType* Ty) : Ty(Ty) {}
+  AbstractType(llvm::Type *Ty) : Ty(Ty) {}
+  AbstractType(dtransOP::DTransType *Ty) : Ty(Ty) {}
 
   // Get the corresponding type in the llvm::Type class hierarchy.
   Type *getLLVMType() const {
-    return Ty.is<llvm::Type *>() ? Ty.get<llvm::Type *>()
-      : Ty.get<DTransType *>()->getLLVMType();
+    return Ty.is<llvm::Type *>()
+               ? Ty.get<llvm::Type *>()
+               : Ty.get<dtransOP::DTransType *>()->getLLVMType();
   }
 
-  bool isDTransType() const {
-    return Ty.is<DTransType*>();
-  }
+  bool isDTransType() const { return Ty.is<dtransOP::DTransType *>(); }
 
-  DTransType *getDTransType() const {
+  dtransOP::DTransType *getDTransType() const {
     assert(isDTransType() && "Only valid when using DTransTypes");
-    return Ty.get<DTransType*>();
+    return Ty.get<dtransOP::DTransType *>();
   }
 
 private:
-  PointerUnion<llvm::Type*, DTransType*> Ty;
+  PointerUnion<llvm::Type *, dtransOP::DTransType *> Ty;
 };
 
 //Type used for DTrans transformation bitmask
@@ -115,7 +114,7 @@ public:
         Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
-  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
 
   bool isRead() const { return Read; }
@@ -794,7 +793,7 @@ protected:
 
 public:
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
-  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
 
   bool testSafetyData(SafetyData Conditions) const {
@@ -991,7 +990,7 @@ public:
 
   TypeInfo *getElementDTransInfo() const { return DTransElemTy; }
   llvm::Type *getElementLLVMType() const { return DTransElemTy->getLLVMType(); }
-  dtrans::DTransType *getElementDTransType() const {
+  dtransOP::DTransType *getElementDTransType() const {
     return DTransElemTy->getDTransType();
   }
   size_t getNumElements() const { return NumElements; }

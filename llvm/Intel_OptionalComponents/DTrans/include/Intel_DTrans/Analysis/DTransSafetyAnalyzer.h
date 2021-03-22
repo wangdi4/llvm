@@ -1,6 +1,6 @@
 //===--------------------DTransSafetyAnalyzer.h--------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -30,10 +30,13 @@ class TargetLibraryInfo;
 class WholeProgramInfo;
 
 namespace dtrans {
+class TypeInfo;
+} // end namespace dtrans
+
+namespace dtransOP {
 class DTransType;
 class DTransTypeManager;
 class PtrTypeAnalyzer;
-class TypeInfo;
 class TypeMetadataReader;
 
 // This class holds the results of the safety analysis of the aggregate
@@ -84,11 +87,11 @@ public:
 
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, create one.
-  TypeInfo *getOrCreateTypeInfo(DTransType *Ty);
+  dtrans::TypeInfo *getOrCreateTypeInfo(DTransType *Ty);
 
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, return nullptr.
-  TypeInfo *getTypeInfo(DTransType *Ty) const;
+  dtrans::TypeInfo *getTypeInfo(DTransType *Ty) const;
 
   // Accessor for the set of TypeInfo objects.
   iterator_range<type_info_iterator> type_info_entries() {
@@ -107,7 +110,7 @@ private:
 
   // A mapping from DTransTypes to the TypeInfo object that is used to
   // store information and safety bits about the types.
-  DenseMap<DTransType *, TypeInfo *> TypeInfoMap;
+  DenseMap<DTransType *, dtrans::TypeInfo *> TypeInfoMap;
 
   // Indicates DTrans safety information could not be computed because a Value
   // object was encountered that the PointerTypeAnalyzer could not collect
@@ -129,7 +132,7 @@ private:
   static char PassID;
 };
 
-} // end namespace dtrans
+} // end namespace dtransOP
 
 ModulePass *createDTransSafetyAnalyzerTestWrapperPass();
 

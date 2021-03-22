@@ -24,9 +24,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
-
 namespace llvm {
-namespace dtrans {
+namespace dtransOP {
 
 class DTransType;
 class DTransFunctionType;
@@ -57,6 +56,7 @@ class TypeMetadataReader {
   // clients should not know about the specific metadata tags, and therefore
   // need to use the getDTransTypeFromMD interface.
   friend class TypeMetadataTester;
+
 public:
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
@@ -92,15 +92,15 @@ private:
 
   // Decode the metadata 'MDTypeListNode' attached to Function 'F'.
   DTransFunctionType *decodeDTransFuncType(Function &F,
-    const MDNode &MDTypeListNode);
+                                           const MDNode &MDTypeListNode);
 
   // Utility methods
   DTransType *createPointerToLevel(DTransType *DTTy, unsigned PtrLevel);
   void cacheMDDecoding(MDNode *MD, DTransType *DTTy);
 
-  dtrans::DTransStructType *constructDTransStructType(MDNode *MD);
+  DTransStructType *constructDTransStructType(MDNode *MD);
   llvm::StructType *populateDTransStructType(Module &M, MDNode *MD,
-                                             dtrans::DTransStructType *DTStTy);
+                                             DTransStructType *DTStTy);
 
   DTransTypeManager &TM;
 
@@ -109,10 +109,10 @@ private:
   // and should not be destroyed by destruction of this class. This also
   // means that the lifetime of the DTransTypeManager must exceed the lifetime
   // of calls to this class.
-  DenseMap<MDNode *, dtrans::DTransType *> MDToDTransTypeMap;
+  DenseMap<MDNode *, DTransType *> MDToDTransTypeMap;
 
   // Map of functions with DTrans metadata tags to a DTransFunctionType.
-  DenseMap<Function *, dtrans::DTransFunctionType *> FunctionToDTransTypeMap;
+  DenseMap<Function *, DTransFunctionType *> FunctionToDTransTypeMap;
 
   // Deprecated:
   // Map of external symbol name to MDNode that describes the type.
@@ -131,7 +131,7 @@ public:
 };
 
 #endif // !INTEL_PRODUCT_RELEASE
-} // end namespace dtrans
+} // end namespace dtransOP
 
 #if !INTEL_PRODUCT_RELEASE
 ModulePass *createDTransMetadataReaderTestWrapperPass();
