@@ -37,11 +37,6 @@
 
 #include "usm_allocator.hpp"
 
-#if INTEL_CUSTOMIZATION
-// temporarily in this location
-#include "ze_exp_ext.h"
-#endif
-
 namespace {
 
 // Controls Level Zero calls serialization to w/a Level Zero driver being not MT
