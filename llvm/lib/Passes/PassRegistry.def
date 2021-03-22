@@ -87,6 +87,7 @@ MODULE_PASS("dtrans-memmanagetrans", dtrans::MemManageTransPass()) // INTEL
 MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
 MODULE_PASS("dtrans-commutecond", dtrans::CommuteCondPass())     // INTEL
 #if !INTEL_PRODUCT_RELEASE
+MODULE_PASS("dtransop-optbasetest", dtransOP::DTransOPOptBaseTestPass()) // INTEL
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 MODULE_PASS("dtrans-typemetadatareader",                         // INTEL
             dtransOP::DTransTypeMetadataReaderTestPass())          // INTEL

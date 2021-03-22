@@ -132,6 +132,22 @@ private:
   static char PassID;
 };
 
+class DTransSafetyAnalyzerWrapper : public ModulePass {
+public:
+  static char ID;
+
+  DTransSafetyAnalyzerWrapper();
+
+  DTransSafetyInfo &getDTransSafetyInfo(Module &M);
+
+  bool runOnModule(Module &M) override;
+  bool doFinalization(Module &M) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  DTransSafetyInfo Result;
+};
+
 } // end namespace dtransOP
 
 ModulePass *createDTransSafetyAnalyzerTestWrapperPass();
