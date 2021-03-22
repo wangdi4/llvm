@@ -1139,7 +1139,8 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
 
   // Create a memref using AllocaRef and update the expensive inst's lval
   RegDDRef *AllocaDDRef = DRU.createMemRef(
-      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex());
+      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
+      OutermostLoopLevel);
 
   RegDDRef *MemRef = getMemRef(InstsInExprTree);
 
@@ -1229,9 +1230,12 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
       createExtractedLoop(Lp, MaxRef, MinRef, ExpensiveInsts[0],
                           InstsInExprTree, AllocaInst, Offsets);
 
+  unsigned OutermostLoopLevel = Lp->getNestingLevel() - NumLoopnestLevel + 1;
+
   // Create a temporary alloca to store the result
   RegDDRef *AllocaDDRef = DRU.createMemRef(
-      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex());
+      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
+      OutermostLoopLevel);
 
   // Handle the transformation of the rest of expression trees in the loop
   for (auto It = ExpensiveInsts.begin(), End = ExpensiveInsts.end(); It != End;
@@ -1641,8 +1645,8 @@ HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
   updateLiveInForBlobs(AllocaLval, NewLoop);
 
   // Create a memref using AllocaRef and update the expensive inst's lval
-  RegDDRef *AllocaDDRef =
-      DRU.createMemRef(AllocaLval->getSingleCanonExpr()->getSingleBlobIndex());
+  RegDDRef *AllocaDDRef = DRU.createMemRef(
+      AllocaLval->getSingleCanonExpr()->getSingleBlobIndex(), OuterLoopLevel);
 
   RegDDRef *AllocaDDRefClone = AllocaDDRef->clone();
 
@@ -1767,9 +1771,13 @@ bool HIRStoreResultIntoTempArray::doBulkLoopCarriedScalarReplacement(
       FirstLoop, MemRef, FirstExpensiveInst, LoopUpperBounds,
       DistsBetweenMemRefs, InstsInExprTree, AllocaInst, Offsets);
 
+  unsigned OutermostLoopLevel =
+      FirstLoop->getNestingLevel() - NumLoopnestLevel + 1;
+
   // Create a temporary alloca to store the result
   RegDDRef *AllocaDDRef = DRU.createMemRef(
-      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex());
+      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
+      OutermostLoopLevel);
 
   // Handle the transformation of the rest of expression trees in the loop
   for (auto &LpInstPair : LpExpensiveInstsPairs) {
@@ -1897,6 +1905,8 @@ bool HIRStoreResultIntoTempArray::run() {
 
   SmallVector<RegDDRef *, NumLoopnestLevel> LoopUpperBounds = {nullptr, nullptr,
                                                                nullptr};
+  SmallVector<HLLoop *> InvalidateLoops;
+
   bool Transformed = false;
 
   if (isLegalForBulkLoopCarriedScalarReplacement(LpExpensiveInstsPairs,
@@ -1909,7 +1919,7 @@ bool HIRStoreResultIntoTempArray::run() {
 
       for (auto &LpInstPair : LpExpensiveInstsPairs) {
         HLLoop *Lp = LpInstPair.first;
-        setInvalidate(Lp);
+        InvalidateLoops.push_back(Lp);
       }
     }
 
@@ -1922,11 +1932,15 @@ bool HIRStoreResultIntoTempArray::run() {
 
       if (Transformed) {
         Lp->getParentRegion()->setGenCode();
-        setInvalidate(Lp);
+        InvalidateLoops.push_back(Lp);
       }
 
       Result = Result || Transformed;
     }
+  }
+
+  for (auto *Lp : InvalidateLoops) {
+    setInvalidate(Lp);
   }
 
   return Result;
