@@ -322,6 +322,10 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_closedir);
     TLI.setUnavailable(LibFunc_ctermid);
 #if INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_cpow);
+    TLI.setUnavailable(LibFunc_cpowf);
+    TLI.setUnavailable(LibFunc_csqrt);
+    TLI.setUnavailable(LibFunc_csqrtf);
     // Enabled for Windows
     // TLI.setUnavailable(LibFunc_fdopen);
 #endif // INTEL_CUSTOMIZATION
@@ -359,6 +363,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_pread);
     TLI.setUnavailable(LibFunc_pwrite);
 #if INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_re_compile_fastmap);
+    TLI.setUnavailable(LibFunc_re_search_2);
     // This function should be available on Windows.
     // TLI.setUnavailable(LibFunc_read);
 #endif // INTEL_CUSTOMIZATION
@@ -405,6 +411,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_fcntl64);
     TLI.setUnavailable(LibFunc_fnmatch);
     TLI.setUnavailable(LibFunc_fork);
+    TLI.setUnavailable(LibFunc_freopen);
     TLI.setUnavailable(LibFunc_freopen64);
     TLI.setUnavailable(LibFunc_fsync);
     TLI.setUnavailable(LibFunc_ftruncate64);
@@ -413,6 +420,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_geteuid);
     TLI.setUnavailable(LibFunc_getgid);
     TLI.setUnavailable(LibFunc_getopt_long);
+    TLI.setUnavailable(LibFunc_getopt_long_only);
     TLI.setUnavailable(LibFunc_getpwuid);
     TLI.setUnavailable(LibFunc_getrlimit);
     TLI.setUnavailable(LibFunc_getrlimit64);
@@ -1467,6 +1475,20 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0) == FTy.getReturnType() &&
             IsSizeTTy(FTy.getParamType(1)));
 #if INTEL_CUSTOMIZATION
+  case LibFunc_re_compile_fastmap:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+  case LibFunc_re_search_2:
+    return (NumParams = 9 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isIntegerTy() &&
+            FTy.getParamType(5)->isIntegerTy() &&
+            FTy.getParamType(6)->isIntegerTy() &&
+            FTy.getParamType(7)->isPointerTy() &&
+            FTy.getParamType(8)->isIntegerTy());
 #ifndef _WIN32
   case LibFunc_read:
     return (NumParams == 3 && FTy.getParamType(1)->isPointerTy());
@@ -1561,6 +1583,40 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_times:
   case LibFunc_vec_free:
     return (NumParams != 0 && FTy.getParamType(0)->isPointerTy());
+
+#if INTEL_CUSTOMIZATION
+  case LibFunc_cpow:
+    return (NumParams == 4 && FTy.getParamType(0)->isDoubleTy() &&
+            FTy.getParamType(1)->isDoubleTy() &&
+            FTy.getParamType(2)->isDoubleTy() &&
+            FTy.getParamType(3)->isDoubleTy() &&
+            FTy.getReturnType()->isStructTy() &&
+            FTy.getReturnType()->getStructNumElements() == 2 &&
+            FTy.getReturnType()->getStructElementType(0)->isDoubleTy() &&
+            FTy.getReturnType()->getStructElementType(1)->isDoubleTy());
+
+  case LibFunc_cpowf:
+    return (NumParams == 2 && FTy.getParamType(0)->isVectorTy() &&
+            FTy.getParamType(0)->getScalarType()->isFloatTy() &&
+            FTy.getParamType(1)->isVectorTy() &&
+            FTy.getParamType(1)->getScalarType()->isFloatTy() &&
+            FTy.getReturnType()->isVectorTy() &&
+            FTy.getReturnType()->getScalarType()->isFloatTy());
+
+  case LibFunc_csqrt:
+    return (NumParams == 2 && FTy.getParamType(0)->isDoubleTy() &&
+            FTy.getParamType(1)->isDoubleTy() &&
+            FTy.getReturnType()->isStructTy() &&
+            FTy.getReturnType()->getStructNumElements() == 2 &&
+            FTy.getReturnType()->getStructElementType(0)->isDoubleTy() &&
+            FTy.getReturnType()->getStructElementType(1)->isDoubleTy());
+
+  case LibFunc_csqrtf:
+    return (NumParams == 1 && FTy.getParamType(0)->isVectorTy() &&
+            FTy.getParamType(0)->getScalarType()->isFloatTy() &&
+            FTy.getReturnType()->isVectorTy() &&
+            FTy.getReturnType()->getScalarType()->isFloatTy());
+#endif // INTEL_CUSTOMIZATION
 
   case LibFunc_fopen:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
@@ -5237,6 +5293,12 @@ case LibFunc_under_commit:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 
+  case LibFunc_freopen:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
   case LibFunc_freopen64:
     return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -5267,6 +5329,14 @@ case LibFunc_under_commit:
     return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
 
   case LibFunc_getopt_long:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+    case LibFunc_getopt_long_only:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
