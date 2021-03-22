@@ -1194,7 +1194,7 @@ void CanonExpr::simplifyConstantCast() {
   Val = IsSExt ? Constant.sextOrTrunc(DstBitWidth).getSExtValue()
                : Constant.zextOrTrunc(DstBitWidth).getSExtValue();
 
-  setSrcType(DstType);
+  setSrcType(getDestType());
   setConstant(Val);
 }
 
