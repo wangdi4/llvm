@@ -3766,8 +3766,7 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
 
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
-                                int64_t InterleaveIndex,
-                                const HLInst *GrpStartInst, bool Widen,
+                                int64_t InterleaveIndex, bool Widen,
                                 unsigned ScalarLaneID) {
   assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
          "Unxpected instruction for scalar constructs");
@@ -4461,8 +4460,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                                   const OVLSGroup *Grp,
                                   int64_t InterleaveFactor,
-                                  int64_t InterleaveIndex,
-                                  const HLInst *GrpStartInst) {
+                                  int64_t InterleaveIndex) {
   // We treat select instruction in HIR specially. When generating code for
   // select instructions, the operands of the compare which generate the select
   // mask are part of the HIR select instruction. The HIR select instruction
@@ -4479,7 +4477,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // Generate wide constructs for all VPInstuctions. This will be changed later
   // to use SVA information.
   generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-              GrpStartInst, true /*Widen*/);
+              true /*Widen*/);
 
   // Generate a scalar instruction for strided/uniform GEPs/subscripts. This is
   // needed to avoid generating extractelement instructions for unit strided
@@ -4489,7 +4487,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     if (Plan->getVPlanDA()->getVectorShape(*VPInst).hasKnownStride() ||
         !Plan->getVPlanDA()->isDivergent(*VPInst))
       generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                  GrpStartInst, false /*Widen*/, 0 /*LaneID*/);
+                  false /*Widen*/, 0 /*LaneID*/);
     return;
   }
 
@@ -4498,7 +4496,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // folding such opcodes. This will be changed later to use SVA information.
   if (isOpcodeForScalarInst(VPInst->getOpcode()))
     generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                GrpStartInst, false /*Widen*/, 0 /*LaneID*/);
+                false /*Widen*/, 0 /*LaneID*/);
 }
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
@@ -4626,8 +4624,7 @@ bool VPOCodeGenHIR::targetHasIntelAVX512() const {
 
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
                               const OVLSGroup *Grp, int64_t InterleaveFactor,
-                              int64_t InterleaveIndex,
-                              const HLInst *GrpStartInst) {
+                              int64_t InterleaveIndex) {
 
   auto It = VPInstUnrollPart.find(VPInst);
   CurrentVPInstUnrollPart = It == VPInstUnrollPart.end() ? 0 : It->second;
@@ -4635,8 +4632,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   // Use VPValue based code generation if it is enabled and mixed CG has not
   // been forced
   if (EnableVPValueCodegenHIR && !getForceMixedCG()) {
-    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                  GrpStartInst);
+    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
     return;
   }
 
@@ -4649,16 +4645,14 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   // on using unrolled part. This now enables generating wide loads/stores
   // in mixed codegen path as well when the loads/stores are invalidated.
   if (MainLoopIVInsts.count(VPInst)) {
-    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                  GrpStartInst);
+    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
     return;
   }
 
   // Always generate code for Phis/Blends in mixed code gen mode except for
   // search loops.
   if (!isSearchLoop() && (isa<VPPHINode>(VPInst) || isa<VPBlendInst>(VPInst))) {
-    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                  GrpStartInst);
+    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
     return;
   }
 
@@ -4720,8 +4714,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
   }
 
-  widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                GrpStartInst);
+  widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
 }
 
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
