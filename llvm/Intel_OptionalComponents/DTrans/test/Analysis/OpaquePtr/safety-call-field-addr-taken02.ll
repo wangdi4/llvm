@@ -3,7 +3,7 @@
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing the address of a field to a function to trigger the "Field
-; address taken" safety bit.
+; address taken call" safety bit.
 
 %struct.test01 = type { [200 x i8], [200 x i8], i64, i64 }
 define void @test01() {
@@ -28,7 +28,7 @@ define void @test01h(i8* %pAddr) !dtrans_type !4 {
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
-; CHECK: Safety data: Field address taken | Local instance | Mismatched argument use{{ *$}}
+; CHECK: Safety data: Local instance | Mismatched argument use | Field address taken call{{ *$}}
 
 !1 = !{!"A", i32 200, !2}  ; [200 x i8]
 !2 = !{i8 0, i32 0}  ; i8

@@ -21,7 +21,7 @@ define void @test01() {
 ; CHECK: Name: struct.test01
 ; CHECK: 0)Field
 ; CHECK: Field info: ComplexUse AddressTaken{{ *$}}
-; CHECK: Safety data: Field address taken | Global instance{{ *$}}
+; CHECK: Safety data:  Global instance | Field address taken call{{ *$}}
 
 
 declare double @strtod(i8*, i8**)

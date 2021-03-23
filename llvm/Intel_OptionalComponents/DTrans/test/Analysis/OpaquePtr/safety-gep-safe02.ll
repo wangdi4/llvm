@@ -28,8 +28,7 @@ define internal void @test01helper(i8* %arg0, i8* %arg1, i8* %arg2, i8* %arg3, i
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
-; TODO: When calls are analyzed, this will also get 'Field address taken' set.
-; CHECK: Local instance{{ *$}}
+; CHECK: Local instance | Field address taken call{{ *$}}
 
 
 ; Access to element of nested structure

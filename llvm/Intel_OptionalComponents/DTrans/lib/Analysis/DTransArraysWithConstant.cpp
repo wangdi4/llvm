@@ -890,6 +890,21 @@ analyzeGEPInstruction(GetElementPtrInst *GEP, DTransAnalysisInfo *DTInfo,
                       DenseMap<llvm::StructType *, StructWithArrayFields *>
                           &StructsWithConstArrays) {
 
+  // Return true if the GEP is used in an indirect call or a function
+  // declaration. If this is the case then disable the structure. The reason
+  // is that we don't have information on how the function will affect the
+  // field.
+  auto IsUsedForAnInvalidCallSite = [GEP]() -> bool {
+    for (auto *U : GEP->users()) {
+      if (auto *Call = dyn_cast<CallBase>(U)) {
+        auto *F = Call->getCalledFunction();
+        if (Call->isIndirectCall() || !F || F->isDeclaration())
+          return true;
+      }
+    }
+    return false;
+  };
+
   if (!GEP)
     return;
 
@@ -906,6 +921,21 @@ analyzeGEPInstruction(GetElementPtrInst *GEP, DTransAnalysisInfo *DTInfo,
 
   // If the GEP is not in bounds then we disable the structure
   if (!GEP->isInBounds()) {
+    StructData->disableStructure();
+    return;
+  }
+
+  // TODO: If the structure is marked as "FieldAddressTakenCall" then we
+  // need check how the pointer is used as an argument. There is a chance
+  // that the information for the array could be modified.
+  // NOTE: For the case that we are interested, the argument is marked
+  // as "read only".
+
+  // If at least one of the fields is used in an indirect call
+  // or a function declaration then disable the structure.
+  // The reason is that we don't have information on how the
+  // function will affect the field.
+  if (IsUsedForAnInvalidCallSite()) {
     StructData->disableStructure();
     return;
   }
@@ -1204,20 +1234,6 @@ cascadeBadResult(llvm::StructType *StructTy,
   }
 }
 
-// Return false if the input StructInfo doesn't pass the safety test
-// for arrays with constant entries, or if at least one field in
-// the structure is address taken. Else, return true.
-static bool checkStructure(dtrans::StructInfo *StrInfo) {
-  if (!StrInfo)
-    return false;
-
-  for (auto &FI : StrInfo->getFields())
-    if (FI.isAddressTaken())
-      return false;
-
-  return true;
-}
-
 // This function is used for analyzing the related types. Related types are
 // types that have a base form and a padded form. For example:
 //
@@ -1241,7 +1257,7 @@ analyzeRelatedType(dtrans::StructInfo *RelatedInfo,
   if (!RelatedInfo || StructsWithConstArrays.empty())
     return false;
 
-  if (!checkStructure(RelatedInfo))
+  if (RelatedInfo->testSafetyData(dtrans::SDArraysWithConstantEntries))
     return false;
 
   llvm::StructType *RelatedType =
@@ -1329,7 +1345,7 @@ static void analyzeData(DTransAnalysisInfo *DTInfo,
 
     // If the structure doesn't pass any of the safety information then
     // disable it.
-    if (!checkStructure(STInfo)) {
+    if (STInfo->testSafetyData(dtrans::SDArraysWithConstantEntries)) {
       DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
         StringRef StructName = dtrans::getStructName(StructureData.first);
         dbgs() << "  Removing: " << StructName << "\n"

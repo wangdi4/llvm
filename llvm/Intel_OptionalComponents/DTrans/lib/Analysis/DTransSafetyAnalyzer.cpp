@@ -997,7 +997,7 @@ public:
     // analyzing any element pointees of the pointer operand.
     if (ValInfo && ValInfo->pointsToSomeElement())
       markFieldAddressTaken(ValInfo, "Address of member stored to memory", &I,
-                            DumpCallback);
+                            dtrans::FieldAddressTakenMemory, DumpCallback);
 
     if (PtrInfo->pointsToSomeElement()) {
       analyzeElementLoadOrStore(I, *PtrInfo, ValInfo);
@@ -1604,17 +1604,30 @@ public:
   // array is a member of a structure.
   // Note, when DTransOutOfBoundsOK is off, all runtime dependent indices of an
   // array are considered to be element zero, rather than BadPtrManipulation.
+  // The argument FieldAddressTakenType is used to identify which form of
+  // FieldAddrssTaken we want set.
   void markFieldAddressTaken(ValueTypeInfo *Info, StringRef Reason, Value *V,
+                             dtrans::SafetyData FieldAddressTakenType,
                              SafetyInfoReportCB Callback = nullptr) {
-    auto MarkStructField = [this, &Reason, &V, &Callback](TypeInfo *TI,
-                                                          size_t FieldNum) {
+    auto MarkStructField = [this, &Reason, &V, &Callback,
+                            FieldAddressTakenType](TypeInfo *TI,
+                                                   size_t FieldNum) {
       assert(isa<dtrans::StructInfo>(TI) && "Expected struct type info*");
 
       auto *ParentStInfo = cast<dtrans::StructInfo>(TI);
-      setBaseTypeInfoSafetyData(TI->getDTransType(), dtrans::FieldAddressTaken,
+      setBaseTypeInfoSafetyData(TI->getDTransType(), FieldAddressTakenType,
                                 Reason, V, Callback);
       ParentStInfo->getField(FieldNum).setAddressTaken();
     };
+
+    switch(FieldAddressTakenType) {
+      case dtrans::FieldAddressTakenMemory:
+      case dtrans::FieldAddressTakenCall:
+      case dtrans::FieldAddressTakenReturn:
+        break;
+      default:
+        llvm_unreachable("Expected a valid FieldAddressTaken safety mask");
+    }
 
     for (auto &PointeePair :
          Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
@@ -2140,7 +2153,7 @@ public:
 
       if (ParamInfo->pointsToSomeElement())
         markFieldAddressTaken(ParamInfo, "Address of member passed to function",
-                              &Call, DumpCallback);
+                              &Call, dtrans::FieldAddressTakenCall, DumpCallback);
 
       // We need to know the signature of the called function in order the check
       // for functions that take i8* parameter types.
@@ -3185,7 +3198,7 @@ public:
                  "Unexpected use of non-field offset");
           size_t Idx = PointeePair.second.getElementNum();
           setBaseTypeInfoSafetyData(PointeePair.first,
-                                    dtrans::FieldAddressTaken,
+                                    dtrans::FieldAddressTakenReturn,
                                     "Field address returned", &I);
           ParentStInfo->getField(Idx).setAddressTaken();
 
@@ -3463,13 +3476,16 @@ private:
       // the conservative approach.
       return true;
 
-    case dtrans::FieldAddressTaken:
-      // FieldAddressTaken is treated as a pointer carried condition based on
-      // how out of bounds field accesses is set because the access is not
-      // permitted under the C/C++ rules, but is allowed within the definition
-      // of llvm IR. If an out of bounds access is permitted, then it would be
-      // possible to access elements of pointed-to objects, as well, in ways
-      // that DTrans would not be able to analyze.
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
+      // Any form of FieldAddressTaken is treated as a pointer carried
+      // condition based on how out of bounds field accesses is set because
+      // the access is not permitted under the C/C++ rules, but is allowed
+      // within the definition of llvm IR. If an out of bounds access is
+      // permitted, then it would be possible to access elements of
+      // pointed-to objects, as well, in ways that DTrans would not be
+      // able to analyze.
       return dtrans::DTransOutOfBoundsOK;
     case dtrans::AmbiguousGEP:
     case dtrans::BadAllocSizeArg:
@@ -3512,7 +3528,9 @@ private:
   bool isCascadingSafetyCondition(dtrans::SafetyData Data) {
 
     switch (Data) {
-    case dtrans::FieldAddressTaken:
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
     case dtrans::HasZeroSizedArray:
       // We can add additional cases here to reduce the conservative behavior
       // as needs dictate. These cases should not cascade to nested elements,

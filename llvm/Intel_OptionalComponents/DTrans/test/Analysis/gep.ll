@@ -244,7 +244,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Written
 ; CHECK: Frequency
 ; CHECK: Field info: Written
-; CHECK: Safety data: Field address taken | Nested structure
+; CHECK: Safety data: Field address taken memory | Nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S2 = type { [32 x i32], %struct.S1, %struct.S2* }
@@ -257,7 +257,7 @@ declare noalias i8* @malloc(i64)
 ; CHECK-NOT: Written
 ; CHECK: Frequency
 ; CHECK: Field info: Written
-; CHECK: Safety data: Field address taken | Contains nested structure
+; CHECK: Safety data: Field address taken memory | Contains nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.S3 = type { %struct.S2*, %struct.S1* }

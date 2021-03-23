@@ -49,7 +49,7 @@ define i32* @test5(%struct.test05* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test05 = type { i32, i32 }
-; CHECK: Safety data: Field address taken
+; CHECK: Safety data: Field address taken return
 
 ; Return the address of element zero of a structure.
 %struct.test06 = type { i32, i32 }
@@ -59,4 +59,4 @@ define i32* @test6(%struct.test06* %p) {
 }
 
 ; CHECK: LLVMType: %struct.test06 = type { i32, i32 }
-; CHECK: Safety data: Field address taken
+; CHECK: Safety data: Field address taken return

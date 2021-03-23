@@ -482,7 +482,7 @@ void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
   // When DTransOutOfBoundsOK is set, the address of any field is assumed to
   // be able to be used to access any other field.
   if (DTInfo->getDTransOutOfBoundsOK())
-    ModRefSafetyMask |= dtrans::FieldAddressTaken;
+    ModRefSafetyMask |= dtrans::AnyFieldAddressTaken;
 
   auto IsDirectCall = [](const Use *U) -> bool {
     if (auto *Call = dyn_cast<CallBase>(U->getUser()))

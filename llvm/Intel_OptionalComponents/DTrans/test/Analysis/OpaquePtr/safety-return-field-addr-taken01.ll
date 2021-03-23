@@ -3,7 +3,7 @@
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=true -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that returning a pointer which is the address of a field results in the
-; "Field address taken" safety flag.
+; "Field address taken return" safety flag.
 
 ; Test with returning a field address
 %struct.test01 = type { i32, i32 }
@@ -17,7 +17,7 @@ define i32* @test01(%struct.test01* %pStruct) !dtrans_type !2 {
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
-; CHECK: Safety data: Field address taken{{ *$}}
+; CHECK: Safety data: Field address taken return{{ *$}}
 
 
 ; Test with returning a field from within a nested structure
@@ -37,7 +37,7 @@ define i32* @test02(%struct.test02a* %pStruct) !dtrans_type !7 {
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
-; CHECK: Safety data: Field address taken | Nested structure{{ *$}}
+; CHECK: Safety data: Nested structure | Field address taken return{{ *$}}
 
 
 ; Test with returning an address that is the nested structure's address
@@ -53,13 +53,13 @@ define %struct.test03b* @test03(%struct.test03a* %pStruct) !dtrans_type !11 {
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: %struct.test03b
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
-; CHECK: Safety data: Field address taken | Contains nested structure{{ *$}}
+; CHECK: Safety data: Contains nested structure | Field address taken return{{ *$}}
 
-; This is marked as "Field address taken" due to "-dtrans-outofboundsok=true",
+; This is marked as "Field address taken return" due to "-dtrans-outofboundsok=true",
 ; otherwise it is safe.
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test03b
-; CHECK: Safety data: Field address taken | Nested structure{{ *$}}
+; CHECK: Safety data: Nested structure | Field address taken return{{ *$}}
 
 
 ; Test with returning the address obtained using a GEPOperator
@@ -75,13 +75,13 @@ define %struct.test04b* @test04() !dtrans_type !16 {
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: %struct.test04b
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
-; CHECK: Safety data: Field address taken | Global instance | Contains nested structure{{ *$}}
+; CHECK: Safety data: Global instance | Contains nested structure | Field address taken return{{ *$}}
 
-; This is marked as "Field address taken" due to "-dtrans-outofboundsok=true",
+; This is marked as "Field address taken return" due to "-dtrans-outofboundsok=true",
 ; otherwise it is safe.
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test04b
-; CHECK: Safety data: Field address taken | Global instance | Nested structure{{ *$}}
+; CHECK: Safety data: Global instance | Nested structure | Field address taken return{{ *$}}
 
 
 !1 = !{i32 0, i32 0}  ; i32

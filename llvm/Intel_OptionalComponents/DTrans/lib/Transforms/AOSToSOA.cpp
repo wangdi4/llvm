@@ -1533,7 +1533,9 @@ private:
     if (DTInfo->testSafetyData(TI, dtrans::DT_AOSToSOADependent))
       return false;
 
-    if (TI->testSafetyData(dtrans::FieldAddressTaken)) {
+    if (TI->testSafetyData(dtrans::FieldAddressTakenMemory) ||
+        TI->testSafetyData(dtrans::FieldAddressTakenCall) ||
+        TI->testSafetyData(dtrans::FieldAddressTakenReturn)) {
       // We know there is no direct address taken for any fields for the type
       // being transformed because that structure was not marked as "Address
       // Taken". However, if the analysis is assuming the address of one field
