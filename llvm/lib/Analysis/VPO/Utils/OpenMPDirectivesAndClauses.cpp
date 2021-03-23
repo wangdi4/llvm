@@ -780,6 +780,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_CANCEL_SECTIONS:
     case QUAL_OMP_CANCEL_TASKGROUP:
     case QUAL_OMP_TARGET_TASK:
+    case QUAL_OMP_IMPLICIT:
     case QUAL_OMP_BIND_TEAMS:
     case QUAL_OMP_BIND_PARALLEL:
     case QUAL_OMP_BIND_THREAD:

@@ -433,6 +433,11 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
                                unsigned Depth, unsigned Verbosity) const {
   bool PrintedSomething = false;
 
+  if (getIsImplicit()) {
+    printBool("IMPLICIT", true, OS, 2 * Depth, Verbosity);
+    PrintedSomething = true;
+  }
+
   if (canHaveDistSchedule())
     PrintedSomething |= getDistSchedule().print(OS, Depth, Verbosity);
 
@@ -669,6 +674,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
     break;
   case QUAL_OMP_TARGET_TASK:
     setIsTargetTask(true);
+    break;
+  case QUAL_OMP_IMPLICIT:
+    setIsImplicit(true);
     break;
   case QUAL_OMP_READ_SEQ_CST:
     setHasSeqCstClause(true);

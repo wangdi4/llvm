@@ -11,6 +11,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/GraphTraits.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -40,6 +42,24 @@ INITIALIZE_PASS_END(DPCPPKernelVecClone, SV_NAME, lv_name,
                     false /* not modifies CFG */, true /* transform pass */)
 
 namespace llvm {
+
+template <> struct GraphTraits<User *> {
+  using NodeRef = User *;
+  using ChildIteratorType = Value::user_iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->user_begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->user_end();
+  }
+};
+
+using DefUseTreeChildSet = SmallPtrSet<Instruction *, 8>;
+using DefUseTree = SmallDenseMap<Instruction *, DefUseTreeChildSet>;
 
 /// The actions to take for the TID builtin functions.
 enum class FnAction {
@@ -193,44 +213,112 @@ static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
   TIDCallInstr->moveBefore(EntryBlock->getTerminator());
 }
 
-// Check if a Value represents the following truncation pattern implemented
-// using shl and ashr instructions -
-// %1 = shl %0, <TruncatedToBitSize>
-// %2 = ashr %1, <TruncatedToBitSize>
-static bool isShlAshrTruncationPattern(Value *V, unsigned TruncatedToBitSize) {
-  if (!isa<Instruction>(V))
-    return false;
+// Find all paths with shl/op.../ashr pattern by DFS, where op can be
+// arbitrary number of add/sub/mul with constant values.
+//
+// Algorithm:
+// For all Shl instructions of TIDCall, we traverse all its subtrees using
+// DFS to find the pattern paths. If a subtree contains a unsupported node
+// (e.g., any instructions other than shl/add/sub/mul/ashr), then we abandon
+// the whole subtree even if it contains some shl/op.../ashr pattern.
+// For example, given IR as follows,
+//
+//  %tid = call get_global_id()
+//  %shl = shl i64 %tid, 32
+//
+//  %add = add i64 %shl, (1<<32)
+//  %call = call @dummy(i64 %add)
+//  %shr = ashr exact i64 %add, 32
+//
+//  %sub = sub i64 %shl, (1<<32)
+//  %shr2 = ashr exact i64 %sub.shl, 32
+//
+// we can obtain its corresponding def-use tree,
+//
+//          %tid
+//            |
+//          %shl
+//         /    \
+//      %add    %sub
+//      /   \     \
+//   %call  %shr  %shr2
+//
+// The right subtree of %shl (%shl - %sub - %shr2) is returned to eliminate
+// shl and ashr, while the left subtree is kept as-is even it contains a
+// shl/add/ashr pattern (%shl - %add - %shr). Because if we eliminate the
+// shl and shift back the constant addend in %add, %call will receive a wrong
+// parameter.
+//
+// TODO:
+// 1) If a shl is followed by a mul, then they can be combined by InstConmbine
+//    pass, and a path may start with mul. We need to detect and handle this
+//    pattern. E.g.,
+//      %shl = shl i64 %gid, 32
+//      %mul = mul i64 %shl, 2
+//    can be combined to
+//      %mul = mul i64 %gid, (2<<32)
+// 2) A path may also terminates with an icmp instruction, then there will be
+//    no ashr. We need also detect these patterns. E.g.,
+//      %shr = ashr exact i64 %add, 32
+//      %cmp = icmp eq i64 %shr, 1
+//    can be combined to
+//      %cmp = icmp eq i64 %add, (1<<32)
+// 3) If a path starts with mul as in 1) and terminates with icmp as in 2),
+//    then there will be no shl and ashr, and we may not handle such case.
+static void findAllShlAShrPaths(
+    Instruction *TIDCallInst, unsigned TruncatedToBitSize, DefUseTree &Paths) {
+  for (User *ShlU : TIDCallInst->users()) {
+    Instruction *Shl = dyn_cast<Instruction>(ShlU);
+    if (!Shl || Shl->getOpcode() != Instruction::Shl)
+      continue;
 
-  Instruction *I = cast<Instruction>(V);
+    for (User *U : Shl->users()) {
+      DefUseTree CurrPaths;
+      // I don't know why it's designed as such, but df_iterator will increase
+      // itself by 1 after calling skipChildren(), so we cannot use ++It in the
+      // for-clause (which makes the code really ugly).
+      for (auto It = df_begin(U), End = df_end(U); It != End;) {
+        Instruction *I = cast<Instruction>(*It);
+        switch (I->getOpcode()) {
+        case Instruction::Add:
+        case Instruction::Sub:
+        case Instruction::Mul:
+          if (!isa<ConstantInt>(I->getOperand(0)) &&
+              !isa<ConstantInt>(I->getOperand(1)))
+            // add/sub/mul has no constant operands, thus abandon this subtree.
+            goto Continue;
+          break;
+        case Instruction::AShr: {
+          ConstantInt *AShrByVal = dyn_cast<ConstantInt>(I->getOperand(1));
+          if (AShrByVal && AShrByVal->getZExtValue() == TruncatedToBitSize) {
+            Instruction *LastI = Shl;
+            // Add the path starting from shl and ending with ashr to CurrPaths
+            for (unsigned i = 0, len = It.getPathLength(); i < len; i++) {
+              Instruction *CurrI = cast<Instruction>(It.getPath(i));
+              CurrPaths[LastI].insert(CurrI);
+              LastI = CurrI;
+            }
+            It.skipChildren();
+            continue;
+          }
+          // The 2nd oprand of Shl isn't expected, thus abandon this subtree.
+          goto Continue;
+        }
+        default:
+          // If we encounter any other instructions, abandon this subtree.
+          goto Continue;
+        }
+        ++It;
+      }
 
-  // Capture only 'shl' instructions.
-  if (I->getOpcode() != Instruction::Shl)
-    return false;
-
-  // Check if shift is done by a constant int value.
-  if (!isa<ConstantInt>(I->getOperand(1)))
-    return false;
-
-  // Check if shift is happening to TruncatedToBitSize.
-  if (cast<ConstantInt>(I->getOperand(1))->getZExtValue() != TruncatedToBitSize)
-    return false;
-
-  // 'shl' is expected to have only a single user, the 'ashr' instruction.
-  if (I->getNumUses() != 1)
-    return false;
-
-  User *ShlSingleUsr = *I->user_begin();
-  if (auto *ShlSingleUsrInst = dyn_cast<Instruction>(ShlSingleUsr)) {
-    if (ShlSingleUsrInst->getOpcode() == Instruction::AShr) {
-      Value *AshrByVal = ShlSingleUsrInst->getOperand(1);
-      if (isa<ConstantInt>(AshrByVal) &&
-          cast<ConstantInt>(AshrByVal)->getZExtValue() == TruncatedToBitSize)
-        return true;
+      // Merge the current paths into the result.
+      Paths[TIDCallInst].insert(Shl);
+      for (auto &KV : CurrPaths)
+        Paths[KV.first].insert(KV.second.begin(), KV.second.end());
+Continue:
+      ;
     }
   }
-
-  // Invalid single user of 'shl'.
-  return false;
 }
 
 static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
@@ -248,30 +336,30 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
   // Sign extend result to 64-bit (TIDCallInst's type)
   Instruction *AddSExt =
       cast<Instruction>(IRB.CreateSExt(Add, TIDCallInst->getType()));
+
+  DefUseTree ShlAShrPaths;
+  findAllShlAShrPaths(TIDCallInst, AddTypeSize, ShlAShrPaths);
+
+  DefUseTreeChildSet &ShlAShrPathHeaders = ShlAShrPaths[TIDCallInst];
+
   // Replace all uses of TID with AddSExt, except truncating sequences that go
   // back to same size as Add. NOTE: This will also exclude TIDTrunc since Add
   // and Phi are of same type.
-  TIDCallInst->replaceUsesWithIf(AddSExt, [Add, AddTypeSize](Use &U) {
+  TIDCallInst->replaceUsesWithIf(AddSExt, [Add](Use &U) {
     User *Usr = U.getUser();
-    if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr)) {
+    if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr))
       if (UsrTruncInst->getDestTy() == Add->getType())
         return false;
-    }
-    if (isShlAshrTruncationPattern(Usr, AddTypeSize))
-      return false;
     return true;
   });
 
-  // All the remaining users of TID are either TIDTrunc, trunc instructions or
-  // truncating sequences (shl + ashr) from incoming IR which go back to same
-  // size as Add. The last two cases are trivial and can be removed, with all
-  // their uses replaced directly by Add (or AddSExt).
+  // All the remaining users of TID are either TIDTrunc, truncating sequences
+  // (shl + add/sub/mul... + ashr), or trunc instructions from incoming IR
+  // which go back to same size as Add. The last case is trivial and can be
+  // removed, with all their uses replaced directly by Add (or AddSExt).
   SmallVector<std::pair<Instruction * /* From */, Instruction * /* To */>, 4>
       ReplacePairs;
   for (auto *User : TIDCallInst->users()) {
-    assert((isa<TruncInst>(User) ||
-            isShlAshrTruncationPattern(User, AddTypeSize)) &&
-           "Invalid remaining user of TID.");
     Instruction *UserInst = cast<Instruction>(User);
 
     if (UserInst == TIDTrunc)
@@ -279,14 +367,50 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
 
     if (isa<TruncInst>(UserInst)) {
       ReplacePairs.emplace_back(UserInst, Add);
-    } else {
-      Instruction *AshrInst = cast<Instruction>(*UserInst->user_begin());
-      ReplacePairs.emplace_back(AshrInst, AddSExt);
-      // The shl instruction using TID call needs to be only removed. A
-      // replacement is not needed since its only user (ashr) is already
-      // removed.
-      ReplacePairs.emplace_back(UserInst, nullptr);
     }
+  }
+
+  // Then, we eliminate shl and ashr in truncating sequences.
+  for (auto Shl : ShlAShrPathHeaders) {
+    for (auto ShlUser : ShlAShrPaths[Shl]) {
+      // Replace Shl with AddSExt.
+      unsigned ShlPos = ShlUser->getOperand(0) == Shl ? 0 : 1;
+      ShlUser->setOperand(ShlPos, AddSExt);
+
+      SmallVector<Instruction *, 8> WorkList;
+      WorkList.push_back(ShlUser);
+      do {
+        Instruction *I = WorkList.pop_back_val();
+        unsigned OpCode = I->getOpcode();
+        // Eliminate AShr by replacing it with its 0-th operand.
+        if (OpCode == Instruction::AShr) {
+          ReplacePairs.emplace_back(I, cast<Instruction>(I->getOperand(0)));
+          continue;
+        }
+
+        auto &Users = ShlAShrPaths[I];
+        WorkList.append(Users.begin(), Users.end());
+
+        // When id < 2^32,
+        //   ((id << 32) * c) >> 32 == id * c,
+        // so, we do nothing for mul instructions.
+        if (OpCode == Instruction::Mul)
+          continue;
+
+        // Shift back all constant values in add/sub instructions.
+        unsigned OpPos = 0;
+        ConstantInt *Val = dyn_cast<ConstantInt>(I->getOperand(0));
+        if (!Val) {
+          Val = cast<ConstantInt>(I->getOperand(1));
+          OpPos = 1;
+        }
+        ConstantInt *NewVal =
+            ConstantInt::get(Val->getType(), Val->getSExtValue() >> AddTypeSize);
+        I->setOperand(OpPos, NewVal);
+      } while (!WorkList.empty());
+    }
+    if (Shl->getNumUses() == 0)
+      Shl->eraseFromParent();
   }
 
   for (auto &ReplacePair : ReplacePairs) {
@@ -342,7 +466,11 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         assert(dim < 3 && "Dimension is not in range");
         if (dim == 0) {
           // Currently, only zero dimension is vectorized.
-          if (FuncName == "__builtin_get_local_id" && LT2GigWorkGroupSize)
+          // If the get-id calls return i32 (e.g., on 32-bit target), there's
+          // no truncation, so we don't need to do special optimization.
+          bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
+          if (!TIDIsInt32 &&
+              FuncName == "__builtin_get_local_id" && LT2GigWorkGroupSize)
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
@@ -354,9 +482,12 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         updateAndMoveTID(CI, Phi, EntryBlock);
         break;
       case FnAction::MoveOnly:
-        // All the other Kernel function built-ins should just be moved at
+        // All the other Kernel function built-ins, if they have constant
+        // arguments or don't have argument, then should just be moved at
         // the entry block.
         CI->moveBefore(EntryBlock->getTerminator());
+        if (CI->arg_empty() || isa<Constant>(CI->getArgOperand(0)))
+          CI->moveBefore(EntryBlock->getTerminator());
         break;
       case FnAction::AssertIfEncountered:
         assert(false && "Case hasn't been ported from OpenCL");

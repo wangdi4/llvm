@@ -5,13 +5,13 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @vec_sum( <2 x i32> %m, <2 x i32> %l) #0 {
-; CHECK:  define void @_ZGVbN4uv_vec_sum(<2 x i32> [[M0:%.*]], <4 x i32> [[L0:%.*]]) #0 {
+; CHECK:  define void @_ZGVbN4uv_vec_sum(<2 x i32> [[M0:%.*]], <8 x i32> [[L0:%.*]]) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_M0:%.*]] = alloca <2 x i32>, align 8
 ; CHECK-NEXT:    store <2 x i32> [[M0]], <2 x i32>* [[ALLOCA_M0]], align 8
-; CHECK-NEXT:    [[VEC_L0:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[VEC_L_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_L0]] to <2 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[L0]], <4 x i32>* [[VEC_L0]], align 16
+; CHECK-NEXT:    [[VEC_L0:%.*]] = alloca <8 x i32>, align 32
+; CHECK-NEXT:    [[VEC_L_CAST0:%.*]] = bitcast <8 x i32>* [[VEC_L0]] to <2 x i32>*
+; CHECK-NEXT:    store <8 x i32> [[L0]], <8 x i32>* [[VEC_L0]], align 32
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:

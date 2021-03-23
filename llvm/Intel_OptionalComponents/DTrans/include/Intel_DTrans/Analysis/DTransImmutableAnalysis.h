@@ -110,7 +110,6 @@ class DTransImmutableAnalysis
 public:
   typedef DTransImmutableInfo Result;
   Result run(Module &M, ModuleAnalysisManager &AM);
-  Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
 class DTransImmutableAnalysisWrapper : public ImmutablePass {

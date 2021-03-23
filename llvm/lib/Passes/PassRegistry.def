@@ -257,7 +257,6 @@ FUNCTION_ANALYSIS("soatoaos-approx", dtrans::SOAToAOSApproximationDebug())      
 FUNCTION_ANALYSIS("soatoaos-array-methods", dtrans::SOAToAOSArrayMethodsCheckDebug())   // INTEL
 FUNCTION_ANALYSIS("soatoaos-struct-methods", dtrans::SOAToAOSStructMethodsCheckDebug()) // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-FUNCTION_ANALYSIS("dtrans-fieldmodref-result", DTransFieldModRefResult()) // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 
 #if INTEL_CUSTOMIZATION

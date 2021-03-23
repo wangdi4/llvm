@@ -302,6 +302,7 @@ def "QUAL.OMP.SA.PIPELINE" : Clause;
 // but are used to carry additional information for OpenMP constructs
 
 def "QUAL.OMP.TARGET.TASK" : Clause;
+def "QUAL.OMP.IMPLICIT" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;

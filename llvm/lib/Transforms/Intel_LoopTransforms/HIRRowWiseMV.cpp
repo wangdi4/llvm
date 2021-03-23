@@ -136,12 +136,12 @@ public:
 class HIRRowWiseMV {
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
-  DTransImmutableInfo &DTII;
-  FieldModRefResult &FieldModRef;
+  DTransImmutableInfo *DTII;
+  FieldModRefResult *FieldModRef;
 
 public:
   HIRRowWiseMV(HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
-               DTransImmutableInfo &DTII, FieldModRefResult &FieldModRef)
+               DTransImmutableInfo *DTII, FieldModRefResult *FieldModRef)
       : HDDA{HDDA}, HLS{HLS}, DTII{DTII}, FieldModRef{FieldModRef} {}
 
   /// Performs row-wise multiversioning on the given loop.
@@ -348,8 +348,8 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
                                        const HLLoop *SafeCheckLevelParent,
                                        HIRDDAnalysis &HDDA,
                                        HIRLoopStatistics &HLS,
-                                       DTransImmutableInfo &DTII,
-                                       FieldModRefResult &FieldModRef) {
+                                       DTransImmutableInfo *DTII,
+                                       FieldModRefResult *FieldModRef) {
 
   // For this to be the case, it must be a load (Rval memory reference).
   if (Ref->isLval())
@@ -423,7 +423,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
   const HLLoop *const OutermostParent =
     Ref->getParentLoop()->getOutermostParentLoop();
   if (!HIRTransformUtils::isLoopInvariant(Ref, OutermostParent, HDDA, HLS,
-                                          &FieldModRef, true)) {
+                                          FieldModRef, true)) {
     LLVM_DEBUG({
       dbgs() << "  Array is not read-only within the loop nest:\n";
       for (const DDEdge *const Edge :
@@ -483,7 +483,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
 
   // Filter the arithmetically convenient values using DTrans unless this should
   // be skipped.
-  if (!SkipDTrans) {
+  if (!SkipDTrans && DTII) {
 
     // See if the base address is a pointer loaded from a struct.
     const RegDDRef *const BaseLoadRef = DDUtils::getSingleBasePtrLoadRef(
@@ -520,7 +520,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
 
     // Retrieve the possible values.
     const auto *const LikelyValues =
-      DTII.getLikelyIndirectArrayConstantValues(BaseStructType, FieldIdx);
+        DTII->getLikelyIndirectArrayConstantValues(BaseStructType, FieldIdx);
     if (!LikelyValues) {
       LLVM_DEBUG(dbgs() << "  No likely values found for struct "
                         << *BaseStructType << " field " << FieldIdx << "\n");
@@ -1397,8 +1397,8 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
 
 /// Performs row-wise multiversioning using the given analysis results.
 static bool runRowWiseMV(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                         HIRLoopStatistics &HLS, DTransImmutableInfo &DTII,
-                         FieldModRefResult &FieldModRef) {
+                         HIRLoopStatistics &HLS, DTransImmutableInfo *DTII,
+                         FieldModRefResult *FieldModRef) {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << OPT_DESC " Disabled\n");
     return false;
@@ -1460,19 +1460,22 @@ bool HIRRowWiseMVLegacyPass::runOnFunction(Function &F) {
   }
 
   return runRowWiseMV(
-    getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-    getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-    getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-    getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
-    getAnalysis<DTransFieldModRefResultWrapper>().getResult());
+      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+      getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+      &getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
+      &getAnalysis<DTransFieldModRefResultWrapper>().getResult());
 }
 
 PreservedAnalyses HIRRowWiseMVPass::runImpl(Function &F,
                                             llvm::FunctionAnalysisManager &AM,
                                             HIRFramework &HIRF) {
-  runRowWiseMV(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-               AM.getResult<HIRLoopStatisticsAnalysis>(F),
-               AM.getResult<DTransImmutableAnalysis>(F),
-               AM.getResult<DTransFieldModRefResult>(F));
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+
+  runRowWiseMV(
+      HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+      MAMProxy.getCachedResult<DTransImmutableAnalysis>(*F.getParent()),
+      MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()));
   return PreservedAnalyses::all();
 }

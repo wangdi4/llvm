@@ -1352,10 +1352,13 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
 PreservedAnalyses HIRLMMPass::runImpl(llvm::Function &F,
                                       llvm::FunctionAnalysisManager &AM,
                                       HIRFramework &HIRF) {
+
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+
   HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
          AM.getResult<HIRLoopStatisticsAnalysis>(F),
          &AM.getResult<DominatorTreeAnalysis>(F),
-         &AM.getResult<DTransFieldModRefResult>(F),
+         MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
          (LoopNestHoistingOnly || ForceLoopNestHoisting))
       .run();
   return PreservedAnalyses::all();
