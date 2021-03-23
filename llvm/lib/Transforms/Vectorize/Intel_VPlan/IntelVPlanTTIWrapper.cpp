@@ -184,7 +184,7 @@ int VPlanTTIWrapper::getNonMaskedMemOpCostAdj(unsigned Opcode, Type *SrcTy,
   float CrossProbability =
       cacheLineCrossingProbability(Alignment, SizeOfMemRef, BytesCross);
   // Add 0.5f to fight the truncation (probability is not negative).
-  return Cost * CrossProbability * NumReg + 0.5f;
+  return static_cast<int>(Cost * CrossProbability + 0.5f) * NumReg;
 }
 
 // Public interface implementation.
