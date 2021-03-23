@@ -1,6 +1,6 @@
 //===-----------DTransTypes.h - Type model for DTrans ---------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -33,7 +33,7 @@
 namespace llvm {
 class LLVMContext;
 
-namespace dtrans {
+namespace dtransOP {
 
 class DTransTypeManager;
 class DTransType;
@@ -429,7 +429,8 @@ public:
     return Fields[N];
   }
 
-  // If the field was resolved to be a single type, return it. Otherwise, nullptr.
+  // If the field was resolved to be a single type, return it. Otherwise,
+  // nullptr.
   DTransType *getFieldType(size_t N) {
     if (getReconstructError())
       return nullptr;
@@ -678,9 +679,9 @@ public:
     return FunctionType::get(FuncRetTy, makeArrayRef(DataTypes), isVarArg());
   }
 
-  static DTransFunctionType *
-  get(DTransTypeManager &TM, dtrans::DTransType *DTRetTy,
-      SmallVectorImpl<dtrans::DTransType *> &ParamTypes, bool IsVarArg);
+  static DTransFunctionType *get(DTransTypeManager &TM, DTransType *DTRetTy,
+                                 SmallVectorImpl<DTransType *> &ParamTypes,
+                                 bool IsVarArg);
 
   // Create a DTransFunctionType, without known types.
   static DTransFunctionType *get(DTransTypeManager &TM, unsigned NumArgs,
@@ -788,8 +789,8 @@ public:
   // Create a DTransFunctionType with a signature based on the \p DTRetTy and \p
   // ParamTypes. Returns existing type, if one already exists.
   DTransFunctionType *
-  getOrCreateFunctionType(dtrans::DTransType *DTRetTy,
-                          SmallVectorImpl<dtrans::DTransType *> &ParamTypes,
+  getOrCreateFunctionType(DTransType *DTRetTy,
+                          SmallVectorImpl<DTransType *> &ParamTypes,
                           bool IsVarArg);
 
   // We don't supply a method for looking up a type based on an
@@ -860,7 +861,7 @@ private:
   SmallVector<DTransFunctionType *, 32> FunctionTypeVec;
 };
 
-} // namespace dtrans
+} // namespace dtransOP
 } // end namespace llvm
 
 #endif // INTEL_DTRANS_ANALYSIS_DTRANSTYPES_H

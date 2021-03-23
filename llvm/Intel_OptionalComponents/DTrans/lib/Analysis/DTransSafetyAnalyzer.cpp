@@ -34,7 +34,7 @@
 #define SAFETY_VERBOSE "dtrans-safetyanalyzer-verbose"
 
 using namespace llvm;
-using namespace dtrans;
+using namespace dtransOP;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -75,11 +75,11 @@ using SafetyInfoReportCB = std::function<void()>;
 // triggered by that Value.
 struct SafetyInfoLog {
   DTransType *Ty;
-  SafetyData SafetyFlag;
+  dtrans::SafetyData SafetyFlag;
   bool IsCascaded;
   bool IsPointerCarried;
 
-  SafetyInfoLog(DTransType *Ty, SafetyData SafetyFlag, bool IsCascaded,
+  SafetyInfoLog(DTransType *Ty, dtrans::SafetyData SafetyFlag, bool IsCascaded,
                 bool IsPointerCarried)
       : Ty(Ty), SafetyFlag(SafetyFlag), IsCascaded(IsCascaded),
         IsPointerCarried(IsPointerCarried) {}
@@ -142,7 +142,8 @@ public:
       std::string OutputVal;
       raw_string_ostream OutputStream(OutputVal);
       OutputStream << "\n    ; -> Safety data: ";
-      OutputStream << *Log.Ty << " : " << getSafetyDataName(Log.SafetyFlag);
+      OutputStream << *Log.Ty << " : "
+                   << dtrans::getSafetyDataName(Log.SafetyFlag);
       if (Log.IsCascaded)
         OutputStream << "[Cascaded]";
       if (Log.IsPointerCarried)
@@ -173,12 +174,13 @@ class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
 public:
   // TODO: Making this public temporarily to avoid an unused variable warning
   // because the variable is not used yet. Change to private when it is used.
-  DTransAllocAnalyzer &DTAA;
+  dtrans::DTransAllocAnalyzer &DTAA;
   DTransSafetyInstVisitor(LLVMContext &Ctx, const DataLayout &DL,
                           DTransSafetyInfo::GetTLIFnType GetTLI,
                           DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
                           DTransTypeManager &TM, TypeMetadataReader &MDReader,
-                          DTransAllocAnalyzer &DTAA, DTransSafetyLogger &Log)
+                          dtrans::DTransAllocAnalyzer &DTAA,
+                          DTransSafetyLogger &Log)
       : DTAA(DTAA), DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA),
         MDReader(MDReader), TM(TM), Log(Log) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
@@ -241,7 +243,7 @@ public:
     // field is a nested structure which ends with a zero-sized array, because
     // it not permitted to nest a flexible structure within an array or another
     // structure.
-    FieldInfo &LastField = StructInfo->getField(NumElements - 1);
+    dtrans::FieldInfo &LastField = StructInfo->getField(NumElements - 1);
     DTransType *LastFieldType = LastField.getDTransType();
     if (auto *ArType = dyn_cast<DTransArrayType>(LastFieldType))
       if (ArType->getNumElements() == 0) {
@@ -278,10 +280,10 @@ public:
                           dbgs() << "dtrans-safety: Has function ptr: "
                                  << *StructInfo->getDTransType() << "\n");
           StructInfo->setSafetyData(dtrans::HasFnPtr);
-        } else if (auto *PtrTy = dyn_cast<dtrans::DTransPointerType>(
+        } else if (auto *PtrTy = dyn_cast<DTransPointerType>(
                        FieldType->getPointerElementType())) {
-          if (auto *FnTy = dyn_cast<dtrans::DTransFunctionType>(
-                  PtrTy->getPointerElementType()))
+          if (auto *FnTy =
+                  dyn_cast<DTransFunctionType>(PtrTy->getPointerElementType()))
             if (FnTy->getNumArgs() == 0 && FnTy->isVarArg()) {
               // Fields matching this check might not actually be vtable
               // pointers, but we will treat them as though they are since the
@@ -622,7 +624,7 @@ public:
           // offset does not correspond to a field boundary.
           if (PointeePair.second.isByteOffset())
             assert(
-                valueOnlyUsedForMemset(GEP) &&
+                dtrans::valueOnlyUsedForMemset(GEP) &&
                 "Non-field accesses expected to only occur for memset operand");
         }
 #endif // !defined(NDEBUG)
@@ -644,7 +646,7 @@ public:
       // A runtime dependent index of an array cannot be guaranteed to be within
       // the bounds. When DTransOutOfBoundsOK is not set, we are explicitly
       // asserting that the access cannot go out of bounds.
-      if (DTransOutOfBoundsOK)
+      if (dtrans::DTransOutOfBoundsOK)
         for (auto &PointeePair : Pointees) {
           if (PointeePair.second.getKind() ==
               ValueTypeInfo::PointeeLoc::PLK_UnknownOffset) {
@@ -932,7 +934,7 @@ public:
       if (auto *StructTy =
               dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
         dtrans::StructInfo *SI =
-            cast<StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
+            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
         if (SI->getNumFields() != 0) {
           collectReadInfo(I, SI, /*FieldNum=*/0, !IsWholeStructureRead);
 
@@ -1178,7 +1180,7 @@ public:
       if (auto *StructTy =
               dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
         dtrans::StructInfo *SI =
-            cast<StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
+            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
         if (SI->getNumFields() != 0) {
           collectWriteInfo(I, SI, /*FieldNum=*/0, Val, !IsWholeStructureWrite);
 
@@ -1254,8 +1256,8 @@ public:
         // Note: For whole structure reference, DTrans does not fill in all the
         // field info details for each field, such as frequency or single value
         // because we do not have any transforms that can handle them.
-        StructInfo *IndexedStTI =
-            cast<StructInfo>(DTInfo.getOrCreateTypeInfo(IndexedType));
+        dtrans::StructInfo *IndexedStTI =
+            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(IndexedType));
         for (auto &FI : IndexedStTI->getFields())
           if (IsLoad) {
             FI.setRead(I);
@@ -1543,7 +1545,7 @@ public:
                                        Instruction &I) {
     auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
 
-    if (DTransOutOfBoundsOK) {
+    if (dtrans::DTransOutOfBoundsOK) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
       setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
@@ -1560,7 +1562,7 @@ public:
     if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       TypeSize FieldSize = DL.getTypeSizeInBits(
           ParentStInfo->getField(ElementNum).getLLVMType());
-      if (DTransOutOfBoundsOK || AccessSize > FieldSize) {
+      if (dtrans::DTransOutOfBoundsOK || AccessSize > FieldSize) {
         for (auto &FI : ParentStInfo->getFields())
           FI.setMismatchedElementAccess();
       } else {
@@ -1610,7 +1612,7 @@ public:
                              dtrans::SafetyData FieldAddressTakenType,
                              SafetyInfoReportCB Callback = nullptr) {
     auto MarkStructField = [this, &Reason, &V, &Callback,
-                            FieldAddressTakenType](TypeInfo *TI,
+                            FieldAddressTakenType](dtrans::TypeInfo *TI,
                                                    size_t FieldNum) {
       assert(isa<dtrans::StructInfo>(TI) && "Expected struct type info*");
 
@@ -1631,7 +1633,8 @@ public:
 
     for (auto &PointeePair :
          Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-      TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(PointeePair.first);
+      dtrans::TypeInfo *ParentTI =
+          DTInfo.getOrCreateTypeInfo(PointeePair.first);
       if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
         MarkStructField(ParentStInfo, PointeePair.second.getElementNum());
         continue;
@@ -1643,7 +1646,8 @@ public:
       auto &ElementOfTypes = PointeePair.second.getElementOf();
       if ((PointeePair.second.isField() &&
            PointeePair.second.getElementNum() == 0) ||
-          (!DTransOutOfBoundsOK && PointeePair.second.isUnknownOffset()))
+          (!dtrans::DTransOutOfBoundsOK &&
+           PointeePair.second.isUnknownOffset()))
         for (auto &ElementOfPair : ElementOfTypes) {
           dtrans::TypeInfo *ElementOfTI =
               DTInfo.getOrCreateTypeInfo(ElementOfPair.first);
@@ -1710,7 +1714,7 @@ public:
         // The address of Field 1 of %struct.A is also the address of the 'i32'
         // within %struct.B
         FieldNum = 0;
-        StInfo = cast<StructInfo>(DTInfo.getOrCreateTypeInfo(StElemTy));
+        StInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StElemTy));
         ElemTy = StInfo->getField(FieldNum).getDTransType();
       } else if (auto *ArElemTy = dyn_cast<DTransArrayType>(ElemTy)) {
         // Handle the case of the element being an array of nested structures by
@@ -1728,7 +1732,7 @@ public:
       }
     }
 
-    FieldInfo &FI = StInfo->getField(FieldNum);
+    dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
     return FI;
   }
 
@@ -2413,9 +2417,9 @@ public:
     // passed in pointer, this function will need to be changed. This assertion
     // is to ensure that any new allocation types handled are also considered
     // here.
-    assert((Kind == AK_Malloc || Kind == AK_Calloc || Kind == AK_Realloc ||
-            Kind == AK_UserMalloc || Kind == AK_UserMalloc0 ||
-            Kind == AK_New) &&
+    assert((Kind == dtrans::AK_Malloc || Kind == dtrans::AK_Calloc ||
+            Kind == dtrans::AK_Realloc || Kind == dtrans::AK_UserMalloc ||
+            Kind == dtrans::AK_UserMalloc0 || Kind == dtrans::AK_New) &&
            "Only functions that use return value of call for allocation "
            "supported");
 
@@ -2633,7 +2637,7 @@ public:
           }
       };
 
-      SafetyData Data;
+      dtrans::SafetyData Data;
       StringRef Reason;
       auto &ElementPointees =
           DstInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
@@ -2666,7 +2670,7 @@ public:
     auto *DestPointeeTy = DestParentTy->getPointerElementType();
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
-      TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
       markAllFieldsWritten(ParentTI, I);
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
@@ -2720,9 +2724,9 @@ public:
                           << I.getFunction()->getName() << "] " << I << "\n");
 
     Value *SetSize = I.getLength();
-    MemfuncCallInfo::MemfuncKind Kind = isa<MemCpyInst>(&I)
-                                            ? MemfuncCallInfo::MK_Memcpy
-                                            : MemfuncCallInfo::MK_Memmove;
+    dtrans::MemfuncCallInfo::MemfuncKind Kind =
+        isa<MemCpyInst>(&I) ? dtrans::MemfuncCallInfo::MK_Memcpy
+                            : dtrans::MemfuncCallInfo::MK_Memmove;
 
     auto *DestArg = I.getRawDest();
     auto *SrcArg = I.getRawSource();
@@ -2769,7 +2773,8 @@ public:
             PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
         for (auto PointeePair : ElementPointees) {
           setBaseTypeInfoSafetyData(PointeePair.first, Data, Reason, I);
-          if (DTransOutOfBoundsOK && isa<DTransArrayType>(PointeePair.first)) {
+          if (dtrans::DTransOutOfBoundsOK &&
+              isa<DTransArrayType>(PointeePair.first)) {
             auto &ElementOfTypes = PointeePair.second.getElementOf();
             for (auto &ElementOfPair : ElementOfTypes)
               if (auto *StTy = dyn_cast<DTransStructType>(ElementOfPair.first))
@@ -2793,7 +2798,7 @@ public:
         // pointee that is a structure type, and the other is a pointer to a
         // structure that is not an element pointee, as long as both pointers
         // represent the same type. For now, mark it as BadMemFuncManipulation.
-        SafetyData Data = dtrans::BadMemFuncManipulation;
+        dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
         StringRef Reason =
             "memcpy/memmove - Element pointee and non-Element pointee";
         setAllAliasedAndPointeeTypeSafetyData(DstInfo, Data, Reason, &I);
@@ -2864,7 +2869,7 @@ public:
       // other structure didn't have the fields deleted.
       if (!(DstStructTy == SrcStructTy && DstFieldNum == SrcFieldNum &&
             DstPrePadBytes == SrcPrePadBytes)) {
-        SafetyData Data = dtrans::BadMemFuncManipulation;
+        dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
         StringRef Reason =
             "memcpy/memmove - non-identical src and dest element pointees";
         SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
@@ -2911,7 +2916,7 @@ public:
     auto SrcParentTy = PTA.getDominantAggregateUsageType(*SrcInfo);
     if (!DestParentTy || !DestParentTy->isPointerTy() || !SrcParentTy ||
         !SrcParentTy->isPointerTy()) {
-      SafetyData Data = dtrans::AmbiguousPointerTarget;
+      dtrans::SafetyData Data = dtrans::AmbiguousPointerTarget;
       StringRef Reason = "memcpy/memmove - unidentified type for src or dest";
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
@@ -2919,7 +2924,7 @@ public:
     }
 
     if (DestParentTy != SrcParentTy) {
-      SafetyData Data = dtrans::BadMemFuncManipulation;
+      dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
       StringRef Reason = "memcpy/memmove - different types for src and dest";
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
@@ -2929,7 +2934,7 @@ public:
     auto *DestPointeeTy = DestParentTy->getPointerElementType();
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
-      TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
       // The call is safe, and is using the entire structure
       markAllFieldsWritten(ParentTI, I);
       dtrans::MemfuncRegion RegionDesc;
@@ -3193,7 +3198,7 @@ public:
            Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
-        if (auto *ParentStInfo = dyn_cast<StructInfo>(ParentTI)) {
+        if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
           assert(PointeePair.second.isField() &&
                  "Unexpected use of non-field offset");
           size_t Idx = PointeePair.second.getElementNum();
@@ -3280,7 +3285,7 @@ public:
   // Process any instruction not handled by other visit functions.
   void visitInstruction(Instruction &I) {
     ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
-    assert((!hasPointerType(I.getType()) || Info) &&
+    assert((!dtrans::hasPointerType(I.getType()) || Info) &&
            "Expected pointer type analyzer to analyze pointer result");
 
     if (Info && Info->canAliasToAggregatePointer()) {
@@ -3592,7 +3597,7 @@ private:
                                    SafetyInfoReportCB Callback) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
       if (!Reason.empty()) {
-        dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
+        dbgs() << "dtrans-safety: " << dtrans::getSafetyDataName(Data) << " -- "
                << Reason << "\n";
         if (V) {
           Function *F = nullptr;
@@ -4006,7 +4011,7 @@ void DTransSafetyInfo::analyzeModule(
   });
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DTransPrintAnalyzedTypes)
+  if (dtrans::DTransPrintAnalyzedTypes)
     printAnalyzedTypes();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
@@ -4056,14 +4061,14 @@ bool DTransSafetyInfo::useDTransSafetyAnalysis() const {
   return !UnhandledPtrType && DTransSafetyAnalysisRan;
 }
 
-TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
+dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   // If we already have this type in our map, just return it.
   auto *TI = getTypeInfo(Ty);
   if (TI)
     return TI;
 
   // Create the DTrans TypeInfo object for this type and any sub-types.
-  TypeInfo *DTransTI;
+  dtrans::TypeInfo *DTransTI;
   if (Ty->isPointerTy()) {
     // For pointer types, we want to record the pointer type info
     // and then record what it points to. We must add the pointer to the
@@ -4100,7 +4105,7 @@ TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   return DTransTI;
 }
 
-TypeInfo *DTransSafetyInfo::getTypeInfo(DTransType *Ty) const {
+dtrans::TypeInfo *DTransSafetyInfo::getTypeInfo(DTransType *Ty) const {
   // If we have this type in our map, return it.
   auto It = TypeInfoMap.find(Ty);
   if (It != TypeInfoMap.end())
@@ -4160,49 +4165,6 @@ DTransSafetyInfo DTransSafetyAnalyzer::run(Module &M,
   return DTResult;
 }
 
-namespace {
-class DTransSafetyAnalyzerWrapper : public ModulePass {
-
-public:
-  static char ID;
-
-  DTransSafetyAnalyzerWrapper() : ModulePass(ID) {
-    initializeDTransSafetyAnalyzerWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  DTransSafetyInfo &getDTransSafetyInfo(Module &M) { return Result; }
-
-  bool runOnModule(Module &M) override {
-    auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-      return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-    };
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-    Result.analyzeModule(M, GetTLI, WPInfo, GetBFI);
-    return false;
-  }
-
-  bool doFinalization(Module &M) override {
-    Result.reset();
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-  }
-
-private:
-  DTransSafetyInfo Result;
-};
-} // end anonymous namespace
-
 INITIALIZE_PASS_BEGIN(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
                       "Data transformation safety analyzer", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -4212,7 +4174,39 @@ INITIALIZE_PASS_END(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
                     "Data transformation safety analyzer", false, true)
 
 char DTransSafetyAnalyzerWrapper::ID = 0;
+DTransSafetyAnalyzerWrapper::DTransSafetyAnalyzerWrapper() : ModulePass(ID) {
+  initializeDTransSafetyAnalyzerWrapperPass(*PassRegistry::getPassRegistry());
+}
+
+DTransSafetyInfo &DTransSafetyAnalyzerWrapper::getDTransSafetyInfo(Module &M) {
+  return Result;
+}
+
+bool DTransSafetyAnalyzerWrapper::runOnModule(Module &M) {
+  auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
+    return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
+  };
+  auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
+
+  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+  Result.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  return false;
+}
+
+bool DTransSafetyAnalyzerWrapper::doFinalization(Module &M) {
+  Result.reset();
+  return false;
+}
+
+void DTransSafetyAnalyzerWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<BlockFrequencyInfoWrapperPass>();
+  AU.addRequired<WholeProgramWrapperPass>();
+}
 
 ModulePass *llvm::createDTransSafetyAnalyzerTestWrapperPass() {
-  return new DTransSafetyAnalyzerWrapper();
+  return new dtransOP::DTransSafetyAnalyzerWrapper();
 }
