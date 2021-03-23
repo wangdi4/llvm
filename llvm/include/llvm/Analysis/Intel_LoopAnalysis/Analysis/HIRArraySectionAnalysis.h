@@ -1,6 +1,6 @@
 //===------- HIRArraySectionAnalysis.h -----------------------*- C++ -*----===//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -125,6 +125,8 @@ public:
     KnownBaseIndices.push_back(BaseIndex);
     return ArraySections[BaseIndex];
   }
+
+  bool empty() const { return knownBaseIndices().empty(); }
 
   ArrayRef<unsigned> knownBaseIndices() const { return KnownBaseIndices; }
   void merge(const ArraySectionAnalysisResult &InResult,

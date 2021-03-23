@@ -1,6 +1,6 @@
 //===---------------- HIRCrossLoopArrayContraction.cpp --------------------===//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -83,47 +83,47 @@ FunctionPass *llvm::createHIRCrossLoopArrayContractionLegacyPass() {
 }
 
 template <typename T> class HLVariant {
-  HLIf *If;
   T *OriginalNode;
   T *OptimizedNode;
 
+  SmallVector<std::function<bool(T *)>> PostProcessors;
+
 public:
-  HLVariant(T *Node) : OriginalNode(Node), OptimizedNode(Node->clone()) {
-    auto &HNU = Node->getHLNodeUtils();
-    If = HNU.createHLIf(PredicateTy::FCMP_TRUE, nullptr, nullptr);
-    HLNodeUtils::replace(Node, If);
-    HLNodeUtils::insertAsFirstThenChild(If, OptimizedNode);
-    HLNodeUtils::insertAsFirstElseChild(If, OriginalNode);
-  }
+  HLVariant(T *Node) : OriginalNode(Node->clone()), OptimizedNode(Node) {}
 
   HLVariant(const HLVariant &) = delete;
 
   HLVariant(HLVariant &&Var)
-      : If(Var.If), OriginalNode(Var.OriginalNode),
-        OptimizedNode(Var.OptimizedNode) {
-    Var.If = nullptr;
+      : OriginalNode(Var.OriginalNode), OptimizedNode(Var.OptimizedNode),
+        PostProcessors(std::move(Var.PostProcessors)) {
+    Var.commit();
   }
 
-  static void invalidate(HLLoop *Lp) {
-    HIRInvalidationUtils::invalidateLoopNestBody(Lp);
-  }
-
-  void commit() {
-    if (If) {
-      invalidate(OriginalNode);
-      HLNodeUtils::replaceNodeWithBody(If, true);
-      If = nullptr;
+  bool commit() {
+    for (auto &Func : PostProcessors) {
+      if (!Func(OptimizedNode)) {
+        return false;
+      }
     }
+
+    PostProcessors.clear();
+    OriginalNode = nullptr;
+
+    return true;
   }
 
   ~HLVariant() {
-    if (If) {
-      HLNodeUtils::replaceNodeWithBody(If, false);
+    if (OriginalNode) {
+      HLNodeUtils::replace(OptimizedNode, OriginalNode);
     }
   }
 
   T *getOriginal() const { return OriginalNode; }
   T *getOptimized() const { return OptimizedNode; }
+
+  void addPostProcessor(std::function<bool(T *)> Func) {
+    PostProcessors.push_back(std::move(Func));
+  }
 };
 
 class HIRCrossLoopArrayContraction {
@@ -149,7 +149,20 @@ private:
   bool contractMemRefsInLoop(HLLoop *Lp, SparseBitVector<> &DefBases,
                              const unsigned NumDimsContracted, HLRegion &Reg,
                              SmallSet<unsigned, 4> &AfterContractSBS);
+
+  HLVariant<HLLoop> &addOptimized(HLLoop *Loop);
 };
+
+HLVariant<HLLoop> &HIRCrossLoopArrayContraction::addOptimized(HLLoop *Loop) {
+  for (auto &Var : Optimizations) {
+    if (Var.getOptimized() == Loop) {
+      return Var;
+    }
+  }
+
+  Optimizations.push_back(Loop);
+  return Optimizations.back();
+}
 
 bool HIRCrossLoopArrayContraction::run() {
   bool Modified = false;
@@ -184,11 +197,21 @@ struct TopSortComparator {
   }
 };
 
+static bool isPassedToMetadataIntrinsic(const RegDDRef *Ref) {
+  auto *Inst = dyn_cast<HLInst>(Ref->getHLDDNode());
+  Intrinsic::ID IntrinId;
+  return Inst->isIntrinCall(IntrinId) &&
+         (IntrinId == Intrinsic::lifetime_start ||
+          IntrinId == Intrinsic::lifetime_end);
+}
+
 static unsigned computeDependencyMaxTopSortNumber(
-    const HLLoop *Loop, SmallPtrSetImpl<RegDDRef *> &IgnoreRefs, DDGraph &DDG) {
-  assert(llvm::all_of(IgnoreRefs,
+    DDGraph &DDG, const HLLoop *Loop,
+    const SmallPtrSetImpl<RegDDRef *> &CandidateRefs,
+    SparseBitVector<> &OutUsesByNonCandidates) {
+  assert(llvm::all_of(CandidateRefs,
                       [](const RegDDRef *Ref) { return Ref->isMemRef(); }) &&
-         "Only MemRefs are expected in IgnoreRefs");
+         "Only MemRefs are expected in CandidateRefs");
 
   using Gatherer = DDRefGatherer<RegDDRef, TerminalRefs | MemRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
@@ -208,16 +231,27 @@ static unsigned computeDependencyMaxTopSortNumber(
   unsigned LoopMaxTopSortNumber = Loop->getMaxTopSortNum();
 
   for (auto *Ref : Refs) {
-    bool IgnoreSrcRef = IgnoreRefs.count(dyn_cast<RegDDRef>(Ref));
+    bool SrcIsCandidate = CandidateRefs.count(dyn_cast<RegDDRef>(Ref));
 
     for (auto &Edge : DDG.outgoing(Ref)) {
       if (!Edge->isFlow() && !Edge->isOutput()) {
         continue;
       }
 
-      // May do cast<> because IgnoreRefs contain only mem refs.
-      if (IgnoreSrcRef && IgnoreRefs.count(cast<RegDDRef>(Edge->getSink()))) {
-        continue;
+      if (SrcIsCandidate) {
+        // May do cast<> because IgnoreRefs contain only mem refs.
+        auto SinkRegDDRef = cast<RegDDRef>(Edge->getSink());
+
+        // Ignore edges between candidates, they will ba handled using Array
+        // Section Analysis.
+        if (CandidateRefs.count(SinkRegDDRef)) {
+          continue;
+        }
+
+        // Sink is not a candidate ref, need to record a non-candidate use.
+        if (!isPassedToMetadataIntrinsic(SinkRegDDRef)) {
+          OutUsesByNonCandidates.set(SinkRegDDRef->getBasePtrBlobIndex());
+        }
       }
 
       HLNode *SinkNode = Edge->getSink()->getHLDDNode();
@@ -414,16 +448,17 @@ static DirectionVector computeDirectionVector(const ArraySectionInfo &InfoA,
   return DV;
 }
 
+static void dumpBasesBitVector(HLLoop *Loop, SparseBitVector<> Bases) {
+  auto &BU = Loop->getBlobUtils();
+  for (auto Bit : Bases) {
+    BU.printBlob(dbgs(), BU.getBlob(Bit));
+    dbgs() << " ";
+  }
+  dbgs() << "\n";
+}
+
 static void removeDeadStores(HLLoop *Loop, SparseBitVector<> Bases) {
-  LLVM_DEBUG({
-    dbgs() << "Unused bases: ";
-    auto &BU = Loop->getBlobUtils();
-    for (auto Bit : Bases) {
-      BU.printBlob(dbgs(), BU.getBlob(Bit));
-      dbgs() << " ";
-    }
-    dbgs() << "\n";
-  });
+  LLVM_DEBUG(dbgs() << "Unused bases: "; dumpBasesBitVector(Loop, Bases));
 
   ForEach<HLInst>::visit(Loop, [&](HLInst *Inst) {
     auto *LVal = Inst->getLvalDDRef();
@@ -434,22 +469,37 @@ static void removeDeadStores(HLLoop *Loop, SparseBitVector<> Bases) {
 
     HLNodeUtils::remove(Inst);
   });
-
-  HLNodeUtils::removeRedundantNodes(Loop);
 }
 
-static SparseBitVector<> getDefBases(const ArraySectionAnalysisResult &ASAR,
-                                     SparseBitVector<> &BasePtrIndices) {
-  LLVM_DEBUG(dump(BasePtrIndices, dbgs()););
-
+template <bool IsDef>
+static SparseBitVector<>
+getDefUseBasesImpl(const ArraySectionAnalysisResult &ASAR,
+                   SparseBitVector<> &BasePtrIndices) {
   SparseBitVector<> Output;
   for (unsigned BasePtr : BasePtrIndices) {
-    if (ASAR.get(BasePtr)->isDef()) {
+    auto *SectionInfo = ASAR.get(BasePtr);
+
+    // ASAR may be missing a base, do not update those bases in Output.
+    if (!SectionInfo) {
+      continue;
+    }
+
+    if (IsDef ? SectionInfo->isDef() : SectionInfo->isUse()) {
       Output.set(BasePtr);
     }
   }
   LLVM_DEBUG(dump(Output, dbgs()););
   return Output;
+}
+
+static SparseBitVector<> getDefBases(const ArraySectionAnalysisResult &ASAR,
+                                     SparseBitVector<> &BasePtrIndices) {
+  return getDefUseBasesImpl<true>(ASAR, BasePtrIndices);
+}
+
+static SparseBitVector<> getUseBases(const ArraySectionAnalysisResult &ASAR,
+                                     SparseBitVector<> &BasePtrIndices) {
+  return getDefUseBasesImpl<false>(ASAR, BasePtrIndices);
 }
 
 class BaseUses {
@@ -480,6 +530,11 @@ public:
   }
 };
 
+static bool isArrayContractionCandidate(const RegDDRef *Ref) {
+    return Ref->isMemRef() && Ref->accessesAlloca() &&
+               Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV();
+}
+
 bool HIRCrossLoopArrayContraction::contractMemRefsInLoop(
     HLLoop *Lp, SparseBitVector<> &DefBases, const unsigned NumDimsContracted,
     HLRegion &Reg, SmallSet<unsigned, 4> &AfterContractSBS) {
@@ -495,8 +550,7 @@ bool HIRCrossLoopArrayContraction::contractMemRefsInLoop(
   // Collect relevant MemRef(s) matching the DefBases
   SmallVector<RegDDRef *, 32> Refs;
   DDRefGathererLambda<RegDDRef>::gather(Lp, Refs, [&](const RegDDRef *Ref) {
-    return Ref->isMemRef() && Ref->accessesAlloca() &&
-           Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV() &&
+    return isArrayContractionCandidate(Ref) &&
            DefBases.test(Ref->getBasePtrBlobIndex());
   });
 
@@ -575,19 +629,23 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
   // Find array contraction candidates.
   SmallVector<RegDDRef *, 32> Refs;
-  DDRefGathererLambda<RegDDRef>::gather(&Reg, Refs, [](const RegDDRef *Ref) {
-    return Ref->isMemRef() && Ref->accessesAlloca() &&
-           Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV();
-  });
+  DDRefGathererLambda<RegDDRef>::gather(&Reg, Refs,
+                                        isArrayContractionCandidate);
+
+  if (Refs.empty()) {
+    LLVM_DEBUG(dbgs() << "No candidate refs found.\n");
+    return false;
+  }
+
   LLVM_DEBUG({
-    dbgs() << "Refs:<" << Refs.size() << ">\n";
-    unsigned Count = 0;
-    for (auto Ref : Refs) {
-      dbgs() << Count++ << ": ";
-      Ref->dump();
-      dbgs() << "\t";
-    }
-    dbgs() << "\n";
+      dbgs() << "Refs:<" << Refs.size() << ">\n";
+      unsigned Count = 0;
+      for (auto Ref : Refs) {
+        dbgs() << Count++ << ": ";
+        Ref->dump();
+        dbgs() << "\t";
+      }
+      dbgs() << "\n";
   });
 
   // Keep set of interesting references to ignore DD between them.
@@ -603,35 +661,55 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     LoopToBasePtr[ParentLoop].set(BlobIdx);
   }
 
+  DenseMap<const HLLoop *, ArraySectionAnalysisResult> ASARCache;
+  auto GetASAR = [&](const HLLoop *Loop) -> ArraySectionAnalysisResult & {
+    auto &DefASAR = ASARCache[Loop];
+    if (DefASAR.empty()) {
+      DefASAR.merge(ASA.getOrCompute(Loop));
+    }
+    return DefASAR;
+  };
+
   DDGraph DDG = DDA.getGraph(&Reg);
 
-  for (auto DefPair : LoopToBasePtr) {
+  for (auto &DefPair : LoopToBasePtr) {
     auto *DefLp = DefPair.first;
 
     LLVM_DEBUG(dbgs() << "\nTaking Def-loop <" << DefLp->getNumber() << ">\n");
 
-    auto &DefASAR = ASA.getOrCompute(DefLp);
-    auto &SparseBitVec = DefPair.second;
-    auto DefBases = getDefBases(DefASAR, SparseBitVec);
-    LLVM_DEBUG(dbgs() << " DefPair.second: "; dump(SparseBitVec, dbgs());
-               dbgs() << "\n";);
+    auto &DefASAR = GetASAR(DefLp);
+
+    auto DefBases = getDefBases(DefASAR, DefPair.second);
+
+    LLVM_DEBUG(dbgs() << "Uses: ";
+               dumpBasesBitVector(DefLp, getUseBases(DefASAR, DefPair.second)));
+    LLVM_DEBUG(dbgs() << "Defines: "; dumpBasesBitVector(DefLp, DefBases));
 
     if (DefBases.empty()) {
       LLVM_DEBUG(dbgs() << "+ Loop has no interesting defs\n");
       continue;
     }
 
-    unsigned LoopDependencyLimits =
-        computeDependencyMaxTopSortNumber(DefLp, RefsSet, DDG);
+    BaseUses UsesTracking;
+
+    SparseBitVector<> NonCandidateUses;
+    unsigned LoopDependencyLimits = computeDependencyMaxTopSortNumber(
+        DDG, DefLp, RefsSet, NonCandidateUses);
+
+    // Add uses by non-candidate refs.
+    UsesTracking.add(NonCandidateUses);
+
+    // Add self uses.
+    UsesTracking.add(getUseBases(DefASAR, DefPair.second));
 
     LLVM_DEBUG(dbgs() << "+ LoopDependencyLimit: " << LoopDependencyLimits
                       << "\n");
 
-    BaseUses DefUses;
     SmallVector<HLLoop *, 2> DefKillLoops;
 
-    for (auto UsePair : make_range(std::next(LoopToBasePtr.find(DefLp)),
-                                   LoopToBasePtr.end())) {
+    for (auto &UsePair :
+         make_range(std::next(LoopToBasePtr.find(DefLp)),
+                    LoopToBasePtr.end())) {
       HLLoop *UseLp = UsePair.first;
       LLVM_DEBUG(dbgs() << "\t* Trying Use-loop <" << UseLp->getNumber()
                         << ">\n");
@@ -646,15 +724,19 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
-      DefUses.add(CommonBases);
-
       // Check if DEF loop dominates USE loop.
       if (!HLNodeUtils::dominates(DefLp, UseLp)) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] Def-loop does not dominate Use-loop.\n");
         continue;
       }
 
-      auto &UseASAR = ASA.getOrCompute(UseLp);
+      UsesTracking.add(CommonBases);
+
+      auto &UseASAR = GetASAR(UseLp);
+      LLVM_DEBUG(dbgs() << "\t* Uses: "; dumpBasesBitVector(
+                     UseLp, getUseBases(UseASAR, UsePair.second)));
+      LLVM_DEBUG(dbgs() << "\t* Defines: "; dumpBasesBitVector(
+                     UseLp, getDefBases(UseASAR, UsePair.second)));
 
       bool OutputDependencyFound = false;
       bool FlowDependencyFound = false;
@@ -681,7 +763,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
           LLVM_DEBUG(dbgs() << "\tUse-loop: ");
           LLVM_DEBUG(UseSection->dump());
         }
-
         if (DefSection->isDef() && UseSection->isDef()) {
           OutputDependencyFound = true;
 
@@ -731,7 +812,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       if (OutputDependencyFound) {
         // Do not count bases that are defined in the use-loop.
-        DefUses.remove(DefBases & getDefBases(UseASAR, UsePair.second));
+        UsesTracking.remove(DefBases & getDefBases(UseASAR, UsePair.second));
         DefKillLoops.push_back(UseLp);
         continue;
       }
@@ -745,7 +826,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         // Do not count this as a USE and continue with other use loops.
         LLVM_DEBUG(
             dbgs() << "\t[SKIP] Def loop is killed by another def-loop\n");
-        DefUses.remove(CommonBases);
+        UsesTracking.remove(CommonBases);
         continue;
       }
 
@@ -754,10 +835,10 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
-      if (CommonBases != DefBases) {
-        LLVM_DEBUG(dbgs() << "\t[SKIP] Unused defs found.\n");
-        continue;
-      }
+//      if (CommonBases != DefBases) {
+//        LLVM_DEBUG(dbgs() << "\t[SKIP] Unused defs found.\n");
+//        continue;
+//      }
 
       if (DefLp->getNestingLevel() != UseLp->getNestingLevel() &&
           DefLp->getNestingLevel() + 1 != UseLp->getNestingLevel()) {
@@ -778,8 +859,8 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         break;
       }
 
-      Optimizations.emplace_back(UseLp);
-      HLLoop *UseLoopClone = Optimizations.back().getOptimized();
+      addOptimized(UseLp);
+
       HLLoop *DefLoopClone = DefLp->clone();
 
       // Do array contraction on qualified memref(s) in a given loop:
@@ -790,14 +871,14 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
                           << DefLoopClone->getNumber() << "\n";);
       }
 
-      if (!contractMemRefsInLoop(UseLoopClone, DefBases, NumDimsContracted, Reg,
+      if (!contractMemRefsInLoop(UseLp, DefBases, NumDimsContracted, Reg,
                                  AfterContractSBS)) {
         LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in UseLpClone: "
-                          << UseLoopClone->getNumber() << "\n";);
+                          << UseLp->getNumber() << "\n";);
       }
 
-      HLNodeUtils::insertBefore(UseLoopClone, DefLoopClone);
-      if (DefLp->getNestingLevel() != UseLoopClone->getNestingLevel()) {
+      HLNodeUtils::insertBefore(UseLp, DefLoopClone);
+      if (DefLp->getNestingLevel() != UseLp->getNestingLevel()) {
         LLVM_DEBUG(dbgs() << "\t+ Need to promote IVs\n");
 
         DefLoopClone->promoteNestingLevel(DefLp->getNestingLevel());
@@ -810,42 +891,62 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         }
       }
 
-      // Merge loops:
-      if (!mergeLoops(DefLoopClone, UseLoopClone,
-                      FusionLevel - UseLoopClone->getNestingLevel() + 1)) {
+      // Merge loops
+      if (!mergeLoops(DefLoopClone, UseLp,
+                      FusionLevel - UseLp->getNestingLevel() + 1)) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
         Optimizations.pop_back();
         continue;
       }
 
+      // Merge array section analysis results.
+      UseASAR.merge(DefASAR);
+      UsePair.second |= DefPair.second;
+
       HLNodeUtils::remove(DefLoopClone);
 
-      DefUses.remove(CommonBases);
+      UsesTracking.remove(CommonBases);
+
       LLVM_DEBUG(dbgs() << "\t[OK] DEF->USE Loops Merged\n");
+
+      LLVM_DEBUG(dbgs() << "While " OPT_DESC "\n");
+      LLVM_DEBUG(Reg.dump());
     }
 
     // Remove array definitions if there is no usages.
-    auto UnusedBases = DefUses.getUnused(DefPair.second);
+    auto UnusedBases = UsesTracking.getUnused(DefBases);
     if (!UnusedBases.empty()) {
+      addOptimized(DefLp);
+
       removeDeadStores(DefLp, UnusedBases);
-      LLVM_DEBUG(dbgs() << "[DEAD] Interesting DEF stores removed\n");
+      LLVM_DEBUG(dbgs() << "[DEAD] Unused candiadate DEF stores removed\n");
+      LLVM_DEBUG(Reg.dump());
     }
+  }
+
+  if (Optimizations.empty()) {
+    return false;
   }
 
   for (auto &Opt : Optimizations) {
     Reg.setGenCode();
 
-    HLLoop *ParentLoop = Opt.getOptimized()->getParentLoop();
+    if (!Opt.commit()) {
+      continue;
+    }
+
+    HLLoop *Loop = Opt.getOptimized();
+    HLLoop *ParentLoop = Loop->getParentLoop();
+    HLNodeUtils::removeRedundantNodes(Loop);
+
     if (ParentLoop) {
       HIRInvalidationUtils::invalidateBody(ParentLoop);
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(&Reg);
     }
-
-    Opt.commit();
   }
 
-  return !Optimizations.empty();
+  return true;
 }
 
 bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
