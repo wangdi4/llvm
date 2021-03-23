@@ -3493,7 +3493,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         !Ty->isIEEE()) {
       Value *Fabs = EmitFAbs(*this, V);
       Constant *Infinity = ConstantFP::getInfinity(V->getType());
-      CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf)
+#if INTEL_CUSTOMIZATION
+      CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf ||
+                                 BuiltinID == Builtin::BI__builtin_isinff ||
+                                 BuiltinID == Builtin::BI__builtin_isinfl)
+#endif   // INTEL_CUSTOMIZATION
                                     ? CmpInst::FCMP_OEQ
                                     : CmpInst::FCMP_ONE;
       Value *FCmp = Builder.CreateFCmp(Pred, Fabs, Infinity, "cmpinf");
