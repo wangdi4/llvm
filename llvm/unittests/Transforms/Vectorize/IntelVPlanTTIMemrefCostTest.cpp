@@ -177,9 +177,9 @@ TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreLowProbility) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreHighProbability) {
-  const int Expected = 1002;
-  const unsigned Alignment = 32;
-  const unsigned VF = 9;
+  const int Expected = 1003;
+  const unsigned Alignment = 8;
+  const unsigned VF = 16;
   // Within 64 byte cache line it has high probability to be unaligned.
   auto VecTy = FixedVectorType::get(Type::getInt32Ty(*Ctx), VF);
   auto Actual =
@@ -228,6 +228,22 @@ TEST_F(VPlanTTIMemrefCostTest, Align64Size32) {
   auto Actual =
       VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
   EXPECT_EQ(Actual, Expected);
+}
+
+// Consistency
+
+TEST_F(VPlanTTIMemrefCostTest, 2xVectorGives2xCost) {
+  // Check that cost of <8 x double> is twice of <16 x double>
+  const unsigned Alignment = 8;
+  auto Ty8xdouble = FixedVectorType::get(Type::getDoubleTy(*Ctx), 8);
+  auto Ty16xdouble = FixedVectorType::get(Type::getDoubleTy(*Ctx), 16);
+  const auto Ty8xdoubleCost =
+    VPTTI->getMemoryOpCost(
+      Instruction::Store, Ty8xdouble, Align(Alignment), AS);
+  const auto Ty16xdoubleCost =
+    VPTTI->getMemoryOpCost(
+      Instruction::Store, Ty16xdouble, Align(Alignment), AS);
+  EXPECT_TRUE(Ty8xdoubleCost * 2 == Ty16xdoubleCost);
 }
 
 } // namespace
