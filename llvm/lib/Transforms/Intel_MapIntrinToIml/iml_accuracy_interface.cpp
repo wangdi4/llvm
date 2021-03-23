@@ -199,6 +199,7 @@ static const char* valid_accuracy_names[] =
 };
 #endif
 
+#if defined USE_ADVANCED_ATTRS
 // note: here we maintain ordered list of accuracies, for ease of
 // compares:
 // accuracy_vector[c_accuracy_ep] < accuracy_vector[c_accuracy_high]
@@ -206,6 +207,7 @@ static const char* valid_accuracy_names[] =
 // description table. Should be removed in the future.
 static const int accuracy_vector[SUPPORTED_ACCURACIES_NUMBER] =
     {1, 0, 3, 2, 4, 5};
+#endif
 
 typedef enum
 {
