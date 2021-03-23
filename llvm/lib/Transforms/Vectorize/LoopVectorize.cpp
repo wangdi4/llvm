@@ -369,14 +369,6 @@ static cl::opt<bool> VectorizeNonReadonlyLibCalls(
         "Vectorize library calls even if they don't have readonly attribute."));
 #endif
 
-#if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-cl::opt<bool> PrintVPlansInDotFormat(
-    "vplan-print-in-dot-format", cl::init(false), cl::Hidden,
-    cl::desc("Use dot format instead of plain text when dumping VPlans"));
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
-
 /// A helper function that returns the type of loaded or stored value.
 static Type *getMemInstValueType(Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
@@ -7848,18 +7840,6 @@ void LoopVectorizationPlanner::executePlan(InnerLoopVectorizer &ILV,
   ILV.printDebugTracesAtEnd();
 }
 
-#if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void LoopVectorizationPlanner::printPlans(raw_ostream &O) {
-  for (const auto &Plan : VPlans)
-    if (PrintVPlansInDotFormat)
-      Plan->printDOT(O);
-    else
-      Plan->print(O);
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
-
 void LoopVectorizationPlanner::collectTriviallyDeadInstructions(
     SmallPtrSetImpl<Instruction *> &DeadInstructions) {
 
@@ -9060,7 +9040,7 @@ void LoopVectorizationPlanner::adjustRecipesForInLoopReductions(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent,
                                VPSlotTracker &SlotTracker) const {
-  O << Indent << "INTERLEAVE-GROUP with factor " << IG->getFactor() << " at ";
+  O << Indent << "\"INTERLEAVE-GROUP with factor " << IG->getFactor() << " at ";
   IG->getInsertPos()->printAsOperand(O, false);
   O << ", ";
   getAddr()->printAsOperand(O, SlotTracker);
@@ -9071,7 +9051,7 @@ void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent,
   }
   for (unsigned i = 0; i < IG->getFactor(); ++i)
     if (Instruction *I = IG->getMember(i))
-      O << "\n" << Indent << "  " << VPlanIngredient(I) << " " << i;
+      O << "\\l\" +\n" << Indent << "\"  " << VPlanIngredient(I) << " " << i;
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION

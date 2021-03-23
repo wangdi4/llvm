@@ -258,7 +258,10 @@ public:
 
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printPlans(raw_ostream &O);
+  void printPlans(raw_ostream &O) {
+    for (const auto &Plan : VPlans)
+      O << *Plan;
+  }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
