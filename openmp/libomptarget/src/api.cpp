@@ -600,5 +600,33 @@ EXTERN void *omp_target_get_context(int device_num) {
      device_num);
   return context;
 }
+
+EXTERN int omp_set_sub_device(int device_num, int level) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s returns 0 for the host device\n", __func__);
+    return 0;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s returns 0 for device %d\n", __func__, device_num);
+    return 0;
+  }
+
+  return PM->Devices[device_num].setSubDevice(level);
+}
+
+EXTERN void omp_unset_sub_device(int device_num) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s does nothing for the host device\n", __func__);
+    return;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s does nothing for device %d\n", __func__, device_num);
+    return;
+  }
+
+  PM->Devices[device_num].unsetSubDevice();
+}
 #endif  // INTEL_COLLAB
 
