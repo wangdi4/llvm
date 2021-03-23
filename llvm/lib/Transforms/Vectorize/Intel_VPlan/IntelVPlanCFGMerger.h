@@ -30,9 +30,12 @@ class VPlanCFGMerger {
   VPlanVector &Plan;
   VPExternalValues &ExtVals;
   VPVectorTripCountCalculation * VectorTripCount = nullptr;
+  unsigned VF;
+  unsigned UF;
 
 public:
-  VPlanCFGMerger(VPlanVector &P) : Plan(P), ExtVals(P.getExternals()) {}
+  VPlanCFGMerger(VPlanVector &P, unsigned V, unsigned U)
+      : Plan(P), ExtVals(P.getExternals()), VF(V), UF(U) {}
 
   //
   // Create a simple chain of vectorized loop and scalar remainder.

@@ -1538,6 +1538,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::OrigLiveOut)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PushVF)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PopVF)
+    NewShape = getUniformVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
