@@ -21,6 +21,7 @@ add_llvm_unittest(VectorizeTests
   IntelVPlanTTIMemrefCostTest.cpp
   IntelVPlanValueTrackingTest.cpp
   IntelVPlanVPSubscriptTest.cpp
+  IntelVPlanCheckPsadbwHeuristic.cpp
 # end INTEL_CUSTOMIZATION
   VPlanDominatorTreeTest.cpp
   VPlanLoopInfoTest.cpp

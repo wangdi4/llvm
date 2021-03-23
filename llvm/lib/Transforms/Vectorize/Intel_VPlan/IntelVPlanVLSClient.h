@@ -16,7 +16,7 @@
 #ifndef LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVLSCLIENT_H
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVLSCLIENT_H
 
-#include "Intel_VPlan/IntelVPlan.h"
+#include "IntelVPlan.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 
 namespace llvm {

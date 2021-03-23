@@ -54,6 +54,7 @@ class VPValue;
 class VPInstruction;
 class VPCmpInst;
 class VPConstantInt;
+class VPCallInstruction;
 }
 
 struct LLVMMatcherTraits {
@@ -64,6 +65,7 @@ struct LLVMMatcherTraits {
   using UnaryOperator = llvm::UnaryOperator;
   using Operator = llvm::Operator;
   using ConstantExpr = llvm::ConstantExpr;
+  using CallInst = llvm::CallInst;
 };
 
 struct VPlanMatcherTraits {
@@ -76,6 +78,7 @@ struct VPlanMatcherTraits {
   using UnaryOperator = vpo::VPInstruction;
   using Operator = vpo::VPInstruction;
   using ConstantExpr = vpo::VPInstruction;
+  using CallInst = vpo::VPCallInstruction;
 };
 
 // MatcherTraitsDeducer deduces a set of basic types basing on input 'T'.
@@ -108,7 +111,8 @@ struct MatcherTraitsDeducer<
   using UnaryOperator = typename MatcherTraits::UnaryOperator;                \
   using ConstantExpr = typename MatcherTraits::ConstantExpr;                  \
   using ConstantInt = typename MatcherTraits::ConstantInt;                    \
-  using Operator = typename MatcherTraits::Operator
+  using Operator = typename MatcherTraits::Operator;                          \
+  using CallInst = typename MatcherTraits::CallInst
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -137,6 +141,7 @@ template <typename T> inline OneUse_match<T> m_OneUse(const T &SubPattern) {
 }
 
 template <typename Class> struct class_match {
+  INTEL_INTRODUCE_USINGS(Class); // INTEL
   template <typename ITy> bool match(ITy *V) { return isa<Class>(V); }
 };
 
@@ -2106,6 +2111,7 @@ m_UAddWithOverflow(const LHS_t &L, const RHS_t &R, const Sum_t &S) {
 }
 
 template <typename Opnd_t> struct Argument_match {
+  INTEL_INTRODUCE_USINGS(Opnd_t); // INTEL
   unsigned OpI;
   Opnd_t Val;
 
@@ -2126,7 +2132,9 @@ inline Argument_match<Opnd_t> m_Argument(const Opnd_t &Op) {
 }
 
 /// Intrinsic matchers.
+template <typename ValueOrMatcherTy>        // INTEL
 struct IntrinsicID_match {
+  INTEL_INTRODUCE_USINGS(ValueOrMatcherTy); // INTEL
   unsigned ID;
 
   IntrinsicID_match(Intrinsic::ID IntrID) : ID(IntrID) {}
@@ -2149,7 +2157,9 @@ template <typename T0 = void, typename T1 = void, typename T2 = void,
           typename T9 = void, typename T10 = void>
 struct m_Intrinsic_Ty;
 template <typename T0> struct m_Intrinsic_Ty<T0> {
-  using Ty = match_combine_and<IntrinsicID_match, Argument_match<T0>>;
+#if INTEL_CUSTOMIZATION
+  using Ty = match_combine_and<IntrinsicID_match<T0>, Argument_match<T0>>;
+#endif // INTEL_CUSTOMIZATION
 };
 template <typename T0, typename T1> struct m_Intrinsic_Ty<T0, T1> {
   using Ty =
@@ -2182,32 +2192,35 @@ struct m_Intrinsic_Ty<T0, T1, T2, T3, T4, T5> {
 
 /// Match intrinsic calls like this:
 /// m_Intrinsic<Intrinsic::fabs>(m_Value(X))
-template <Intrinsic::ID IntrID> inline IntrinsicID_match m_Intrinsic() {
-  return IntrinsicID_match(IntrID);
+#if INTEL_CUSTOMIZATION
+template <Intrinsic::ID IntrID, typename ValueOrMatcherTy = llvm::Value>
+inline IntrinsicID_match<ValueOrMatcherTy> m_Intrinsic() {
+  return IntrinsicID_match<ValueOrMatcherTy>(IntrID);
 }
 
 template <Intrinsic::ID IntrID, typename T0>
 inline typename m_Intrinsic_Ty<T0>::Ty m_Intrinsic(const T0 &Op0) {
-  return m_CombineAnd(m_Intrinsic<IntrID>(), m_Argument<0>(Op0));
+  return m_CombineAnd(m_Intrinsic<IntrID, T0>(), m_Argument<0>(Op0));
 }
 
 template <Intrinsic::ID IntrID, typename T0, typename T1>
 inline typename m_Intrinsic_Ty<T0, T1>::Ty m_Intrinsic(const T0 &Op0,
                                                        const T1 &Op1) {
-  return m_CombineAnd(m_Intrinsic<IntrID>(Op0), m_Argument<1>(Op1));
+  return m_CombineAnd(m_Intrinsic<IntrID, T0>(Op0), m_Argument<1>(Op1));
 }
 
 template <Intrinsic::ID IntrID, typename T0, typename T1, typename T2>
 inline typename m_Intrinsic_Ty<T0, T1, T2>::Ty
 m_Intrinsic(const T0 &Op0, const T1 &Op1, const T2 &Op2) {
-  return m_CombineAnd(m_Intrinsic<IntrID>(Op0, Op1), m_Argument<2>(Op2));
+  return m_CombineAnd(m_Intrinsic<IntrID, T0>(Op0, Op1), m_Argument<2>(Op2));
 }
 
 template <Intrinsic::ID IntrID, typename T0, typename T1, typename T2,
           typename T3>
 inline typename m_Intrinsic_Ty<T0, T1, T2, T3>::Ty
 m_Intrinsic(const T0 &Op0, const T1 &Op1, const T2 &Op2, const T3 &Op3) {
-  return m_CombineAnd(m_Intrinsic<IntrID>(Op0, Op1, Op2), m_Argument<3>(Op3));
+  return m_CombineAnd(m_Intrinsic<IntrID, T0>(Op0, Op1, Op2),
+                      m_Argument<3>(Op3));
 }
 
 template <Intrinsic::ID IntrID, typename T0, typename T1, typename T2,
@@ -2215,7 +2228,7 @@ template <Intrinsic::ID IntrID, typename T0, typename T1, typename T2,
 inline typename m_Intrinsic_Ty<T0, T1, T2, T3, T4>::Ty
 m_Intrinsic(const T0 &Op0, const T1 &Op1, const T2 &Op2, const T3 &Op3,
             const T4 &Op4) {
-  return m_CombineAnd(m_Intrinsic<IntrID>(Op0, Op1, Op2, Op3),
+  return m_CombineAnd(m_Intrinsic<IntrID, T0>(Op0, Op1, Op2, Op3),
                       m_Argument<4>(Op4));
 }
 
@@ -2224,9 +2237,10 @@ template <Intrinsic::ID IntrID, typename T0, typename T1, typename T2,
 inline typename m_Intrinsic_Ty<T0, T1, T2, T3, T4, T5>::Ty
 m_Intrinsic(const T0 &Op0, const T1 &Op1, const T2 &Op2, const T3 &Op3,
             const T4 &Op4, const T5 &Op5) {
-  return m_CombineAnd(m_Intrinsic<IntrID>(Op0, Op1, Op2, Op3, Op4),
+  return m_CombineAnd(m_Intrinsic<IntrID, T0>(Op0, Op1, Op2, Op3, Op4),
                       m_Argument<5>(Op5));
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Helper intrinsic matching specializations.
 template <typename Opnd0>
