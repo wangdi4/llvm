@@ -30,6 +30,8 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/DerivedTypes.h"
 
+#include <vector>
+
 namespace llvm {
 class LLVMContext;
 
@@ -57,6 +59,13 @@ public:
 
   // Get the list of possible type for this field.
   const SmallPtrSetImpl<DTransType *> &getTypes() const { return DTTypes; }
+
+  // Get the field type if decoding the metadata resulted in a unique type.
+  DTransType *getType() const {
+    if (DTTypes.size() != 1)
+      return nullptr;
+    return *DTTypes.begin();
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump() const;
@@ -92,7 +101,8 @@ protected:
   // memory management on them.
   DTransType(const DTransType &) = delete;
   DTransType(DTransType &&) = delete;
-  DTransType &operator=(const DTransType) = delete;
+  DTransType &operator=(const DTransType &) = delete;
+  DTransType &operator=(DTransType &&) = delete;
 
   ~DTransType() = default;
 
@@ -464,6 +474,16 @@ public:
     return LitSt;
   }
 
+  using DTransFieldMemberContainerTy = SmallVector<DTransFieldMember, 16>;
+  using FieldsIterator = DTransFieldMemberContainerTy::iterator;
+  using FieldsConstIterator = DTransFieldMemberContainerTy::const_iterator;
+  iterator_range<FieldsIterator> elements() {
+    return make_range(Fields.begin(), Fields.end());
+  }
+  iterator_range<FieldsConstIterator> elements() const {
+    return make_range(Fields.begin(), Fields.end());
+  }
+
 private:
   // The corresponding LLVMType for non-literal structures, if one exists. We do
   // not map literal structures to llvm types because when there are opaque
@@ -478,7 +498,7 @@ private:
   std::string Name;
 
   // Members of the structure.
-  SmallVector<DTransFieldMember, 16> Fields;
+  DTransFieldMemberContainerTy Fields;
 
   // Various attributes of the structure being represented.
   // TODO: IsPacked may not be needed, include it for now.
@@ -756,6 +776,14 @@ public:
   DTransTypeManager(LLVMContext &Ctx) : Ctx(Ctx) {}
   ~DTransTypeManager();
 
+  // Disallow copying because the class owns all the DTransType pointers.
+  // Disallow movement. The safety analyzer should create the object, and let
+  // the other passes use a reference to it.
+  DTransTypeManager(const DTransTypeManager &) = delete;
+  DTransTypeManager(DTransTypeManager &&) = delete;
+  DTransTypeManager &operator=(const DTransTypeManager &) = delete;
+  DTransTypeManager &operator=(DTransTypeManager &&) = delete;
+
   // Create a DTransAtomicType to represent a void type or first class llvm
   // type. Returns existing type, if one already exists.
   DTransAtomicType *getOrCreateAtomicType(llvm::Type *Ty);
@@ -822,6 +850,10 @@ public:
   // types, because those are the only types that will have a one-to-one mapping
   // between llvm::Type objects and llvm::DTransType objects.
   DTransType *findType(llvm::Type *Ty) const;
+
+  // Return a vector of all the named structures. i.e. No literal structure
+  // types will be included in the vector returned.
+  std::vector<DTransStructType *> getIdentifiedStructTypes() const;
 
 private:
   void DeleteType(DTransType *DTTy);

@@ -70,6 +70,20 @@ public:
 
   ~DTransSafetyInfo();
 
+  // Access methods to get the classes used when constructing the DTransTypes.
+  DTransTypeManager &getTypeManager() {
+    assert(TM.get() && "DTransTypeManager not initialized");
+    return *TM;
+  }
+  TypeMetadataReader &getTypeMetadataReader() {
+    assert(MDReader.get() && "TypeMetadataReader not initialized");
+    return *MDReader;
+  }
+  PtrTypeAnalyzer &getPtrTypeAnalyzer() {
+    assert(PtrAnalyzer.get() && "PtrTypeAnalyzer not initialized");
+    return *PtrAnalyzer;
+  }
+
   // Collect the safety bits for the structure types
   void analyzeModule(Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
                      function_ref<BlockFrequencyInfo &(Function &)> GetBFI);

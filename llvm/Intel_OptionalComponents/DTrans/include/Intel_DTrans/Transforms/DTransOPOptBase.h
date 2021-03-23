@@ -22,10 +22,16 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_DTRANSOPOPTBASE_H
 #define INTEL_DTRANS_TRANSFORMS_DTRANSOPOPTBASE_H
 
+#include "llvm/ADT/SetVector.h"
+
 namespace llvm {
 class Module;
 
 namespace dtransOP {
+
+class DTransStructType;
+class DTransType;
+class DTransTypeManager;
 
 // This is a base class that specific transformations derive from to
 // implement transformations. This class provides the basic framework
@@ -40,7 +46,12 @@ namespace dtransOP {
 //   that are being modified.
 class DTransOPOptBase {
 public:
-  DTransOPOptBase() {}
+  // Data structure for storing the set of types that are dependent types for
+  // another type.
+  using DTransTypeToTypeSetMap =
+      DenseMap<DTransType *, SetVector<DTransType *>>;
+
+  DTransOPOptBase(DTransTypeManager &TM) : TM(TM) {}
 
   DTransOPOptBase(const DTransOPOptBase &) = delete;
   DTransOPOptBase &operator=(const DTransOPOptBase &) = delete;
@@ -67,6 +78,51 @@ public:
   bool run(Module &M);
 
   // TODO: Add the functions needed by the run() method.
+
+private:
+  //===-------------------------------------------------------------------===//
+  // These methods should not be made available to the derived classes.
+  //===-------------------------------------------------------------------===//
+
+  bool prepareTypesBaseImpl(Module &M);
+  void buildTypeDependencyMapping();
+  void collectDependenciesForType(DTransStructType *StructTy);
+  void dumpTypeToTypeSetMapping(StringRef Header,
+                                DTransTypeToTypeSetMap &TypeToDependentTypes);
+
+protected:
+  //===-------------------------------------------------------------------===//
+  // Data that may be shared with the derived class.
+  // TODO: Some of these could be made private, and just have accessors for
+  // use by the derived classes.
+  //===-------------------------------------------------------------------===//
+
+  // Reference to the DTransTypeManager object being used.
+  // NOTE: The same object must be used by the safety analyzer and the
+  // transformation.
+  DTransTypeManager &TM;
+
+  // Collection of all the structure types.
+  std::vector<DTransStructType *> KnownStructTypes;
+
+  // These will be populated with a list of dependent types for each
+  // structure type prior to the call to the prepareTypes() method of derived
+  // classes. This enables derived classes to examine those types, which may
+  // impact how transformed types are constructed.
+  //
+  // One set is maintained for direct dependencies due to nesting of types. This
+  // set is needed because changing the type of a structure nested within
+  // another type requires generating a new type within the outer type. For
+  // example:
+  //   %struct.A = type { %struct.B, [ 4 x %struct.C] }
+  //
+  // A second set is maintained for cases where there is a dependency due to
+  // pointer references. This set is used when opaque pointers are not in use
+  // because in that case changing a referenced type will require changing the
+  // type that references it. For example:
+  //   %struct.D = type { %struct.E*, void (%struct.F*)* }
+  DTransTypeToTypeSetMap TypeToDirectDependentTypes;
+  DTransTypeToTypeSetMap TypeToPtrDependentTypes;
 };
 
 } // namespace dtransOP
