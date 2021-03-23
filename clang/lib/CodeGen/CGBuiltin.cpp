@@ -3489,7 +3489,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Value *V = EmitScalarExpr(E->getArg(0));
     Value *Fabs = EmitFAbs(*this, V);
     Constant *Infinity = ConstantFP::getInfinity(V->getType());
-    CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf)
+    CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf ||
+                               BuiltinID == Builtin::BI__builtin_isinff ||
+                               BuiltinID == Builtin::BI__builtin_isinfl)
                                   ? CmpInst::FCMP_OEQ
                                   : CmpInst::FCMP_ONE;
     Value *FCmp = Builder.CreateFCmp(Pred, Fabs, Infinity, "cmpinf");
