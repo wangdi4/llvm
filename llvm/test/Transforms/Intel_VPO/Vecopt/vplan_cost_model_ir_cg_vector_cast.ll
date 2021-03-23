@@ -5,8 +5,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(<2 x i32>* nocapture readonly %p) {
+;
 ; CHECK-LABEL:  Cost Model for VPlan foo.header with VF = 4:
-; CHECK-NEXT:  Total Cost: 14001
+; CHECK-NEXT:  Total Cost: 14188
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
@@ -14,10 +15,10 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 14001
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 14188
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for <2 x i32>* [[VP_GEP:%.*]] = getelementptr inbounds <2 x i32>* [[P0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:    Cost 1001 for <2 x i32> [[VP_LD:%.*]] = load <2 x i32>* [[VP_GEP]]
+; CHECK-NEXT:    Cost 1188 for <2 x i32> [[VP_LD:%.*]] = load <2 x i32>* [[VP_GEP]]
 ; CHECK-NEXT:    Cost 1000 for <2 x i64> [[VP_SEXT:%.*]] = sext <2 x i32> [[VP_LD]] to <2 x i64>
 ; CHECK-NEXT:    Cost 1000 for <2 x i64> [[VP_ZEXT:%.*]] = zext <2 x i32> [[VP_LD]] to <2 x i64>
 ; CHECK-NEXT:    Cost 1000 for <2 x i8> [[VP_TRUNC:%.*]] = trunc <2 x i32> [[VP_LD]] to <2 x i8>

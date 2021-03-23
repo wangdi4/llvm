@@ -60,8 +60,8 @@
 ; CHECK:      Selecting VF for VPlan #1
 ; CHECK-NEXT: Cost of Scalar VPlan: 92
 ; CHECK-NEXT: '#pragma vector always'/ '#pragma omp simd' is used for the given loop
-; CHECK-NEXT: Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 2 x 112000 + 0 = 224000
-; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 1 x 519001 + 0 = 519001
+; CHECK-NEXT: Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 2 x 112063 + 0 = 224126
+; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 1 x 519188 + 0 = 519188
 ; CHECK:      Selecting VPlan with VF=2
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
