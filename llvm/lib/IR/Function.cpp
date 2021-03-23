@@ -245,6 +245,11 @@ bool Argument::hasNoCaptureAttr() const {
   return hasAttribute(Attribute::NoCapture);
 }
 
+bool Argument::hasNoFreeAttr() const {
+  if (!getType()->isPointerTy()) return false;
+  return hasAttribute(Attribute::NoFree);
+}
+
 bool Argument::hasStructRetAttr() const {
   if (!getType()->isPointerTy()) return false;
   return hasAttribute(Attribute::StructRet);
