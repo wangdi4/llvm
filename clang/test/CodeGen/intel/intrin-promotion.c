@@ -6,19 +6,19 @@
 void uses_builtin_directly(__m128d A){
   (void)__builtin_ia32_vcvtsd2si32(A, 4);
 }
-// CHECK: define{{.*}}void @uses_builtin_directly(<2 x double> %A) #[[ADDAVX512F:[0-9]+]]
+// CHECK: define{{.*}}void @uses_builtin_directly(<2 x double> %A) #[[MVWADDAVX512F:[0-9]+]]
 
 // Should be promoted for usage of an intrinsic function.
 void uses_intrin_function(__m128d A){
-  (void)A; // used to makke this take the same min-vector-width as the others.
+  (void)A; // used to make this take the same min-vector-width as the others.
   avx512f_intrin();
 }
-// CHECK: define{{.*}}void @uses_intrin_function(<2 x double> %A) #[[ADDAVX512F]]
+// CHECK: define{{.*}}void @uses_intrin_function(<2 x double> %A) #[[ADDAVX512F:[0-9]+]]
 
 void uses_intrin_macro(__m128d A) {
   (void) _mm_cvt_roundsd_si32(A, 4);
 }
-// CHECK: define{{.*}}void @uses_intrin_macro(<2 x double> %A) #[[ADDAVX512F]]
+// CHECK: define{{.*}}void @uses_intrin_macro(<2 x double> %A) #[[MVWADDAVX512F]]
 
 // Should be promoted and get feature for all.
 void uses_multiple_intrin_function(__m128d A){
@@ -46,6 +46,7 @@ void calls_fma4_intrin(__m128 A, __m128 B, __m128 C) {
 }
 // CHECK: define{{.*}}void @calls_fma4_intrin(<4 x float> %A, <4 x float> %B, <4 x float> %C) #[[ADDFMA4:[0-9]+]]
 
+// CHECK:#[[MVWADDAVX512F]] = {{{[^}]*}}"min-legal-vector-width"="128"{{.*}}"target-features"="+avx,+avx2,+avx512f,+cx8,+f16c,+fma,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
 // CHECK:#[[ADDAVX512F]] = {{{[^}]*}}"target-features"="+avx,+avx2,+avx512f,+cx8,+f16c,+fma,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
 // CHECK:#[[ADDAVX512F_BMI_LZCNT]] = {{{[^}]*}}"target-features"="+avx,+avx2,+avx512f,+bmi,+cx8,+f16c,+fma,+lzcnt,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
 // CHECK:#[[ADDFMA]] = {{{[^}]*}}"target-features"="+avx,+cx8,+fma,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
