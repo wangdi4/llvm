@@ -527,6 +527,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setWillReturn(F);
     Changed |= setArgNoUndef(F, 1);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  case LibFunc_re_compile_fastmap:
+    return Changed;
+  case LibFunc_re_search_2:
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_read:
 #if INTEL_CUSTOMIZATION
   // NOTE: The libfunc read is an alias to _read in Windows
@@ -632,6 +638,14 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
 #if INTEL_CUSTOMIZATION
+  case LibFunc_cpow:
+  case LibFunc_cpowf:
+  case LibFunc_csqrt:
+  case LibFunc_csqrtf:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setWillReturn(F);
+    return Changed;
   case LibFunc_atexit:
     return Changed;
 #endif // INTEL_CUSTOMIZATION
@@ -2083,6 +2097,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_fork:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_freopen:
   case LibFunc_freopen64:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -2108,6 +2123,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getopt_long:
+  case LibFunc_getopt_long_only:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;

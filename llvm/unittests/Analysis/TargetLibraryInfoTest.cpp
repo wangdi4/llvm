@@ -151,6 +151,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 #if INTEL_CUSTOMIZATION
       "declare double @cospi(double)\n"
       "declare float @cospif(float)\n"
+      "declare { double, double } @cpow(double, double, double, double)\n"
+      "declare <2 x float> @cpowf(<2 x float>, <2 x float>)\n"
+      "declare { double, double } @csqrt(double, double)\n"
+      "declare <2 x float> @csqrtf(<2 x float>)\n"
 #endif // INTEL_CUSTOMIZATION
       "declare i8* @ctermid(i8*)\n"
       "declare double @exp(double)\n"
@@ -411,6 +415,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64 @pread(i32, i8*, i64, i64)\n"
       "declare i64 @pwrite(i32, i8*, i64, i64)\n"
 #if INTEL_CUSTOMIZATION
+      "declare i32 @re_compile_fastmap(%struct*)\n"
+      "declare i32 @re_search_2(%struct*, i8*, i32, i8*, i32, i32, i32, %struct*, i32)\n"
 #ifdef _WIN32
       // NOTE: The libfunc read is an alias to _read in Windows (Libfunc_under_read)
       "declare i32 @read(i32, i8*, i32)\n"
@@ -1187,6 +1193,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...)\n"
       "declare i32 @for_write_seq_lis_xmit(i8*, i8*, i8*)\n"
       "declare i32 @for_write_seq_xmit(i8*, i8*, i8*)\n"
+      "declare %struct* @freopen(i8*, i8*, %struct*)\n"
       "declare i8* @freopen64(i8*, i8*, i8*)\n"
       "declare i32 @fsync(i32)\n"
       "declare i32 @ftruncate64(i32, i32)\n"
@@ -1195,6 +1202,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @geteuid()\n"
       "declare i32 @getgid()\n"
       "declare i32 @getopt_long(i32, i8*, i8*, i8*, i8*)\n"
+      "declare i32 @getopt_long_only(i32, i8**, i8*, %struct*, i32*)\n"
       "declare i32 @getpid()\n"
       "declare i8* @getpwuid(i32)\n"
       "declare i32 @getrlimit(i32, i8*)\n"

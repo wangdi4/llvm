@@ -2389,12 +2389,24 @@ TLI_DEFINE_STRING_INTERNAL("coshl")
 TLI_DEFINE_ENUM_INTERNAL(cosl)
 TLI_DEFINE_STRING_INTERNAL("cosl")
 #if INTEL_CUSTOMIZATION
-// double cospi(double x);
+/// double cospi(double x);
 TLI_DEFINE_ENUM_INTERNAL(intel_cospi)
 TLI_DEFINE_STRING_INTERNAL("cospi")
-// float cospif(float x);
+/// float cospif(float x);
 TLI_DEFINE_ENUM_INTERNAL(intel_cospif)
 TLI_DEFINE_STRING_INTERNAL("cospif")
+/// double complex cpow(double complex x, double complex y);
+TLI_DEFINE_ENUM_INTERNAL(cpow)
+TLI_DEFINE_STRING_INTERNAL("cpow")
+/// float complex cpowf(float complex x, float complex y);
+TLI_DEFINE_ENUM_INTERNAL(cpowf)
+TLI_DEFINE_STRING_INTERNAL("cpowf")
+/// double complex csqrt(double complex z);
+TLI_DEFINE_ENUM_INTERNAL(csqrt)
+TLI_DEFINE_STRING_INTERNAL("csqrt")
+/// float complex csqrtf(float complex z);
+TLI_DEFINE_ENUM_INTERNAL(csqrtf)
+TLI_DEFINE_STRING_INTERNAL("csqrtf")
 #endif // INTEL_CUSTOMIZATION
 /// char *ctermid(char *s);
 TLI_DEFINE_ENUM_INTERNAL(ctermid)
@@ -2821,6 +2833,9 @@ TLI_DEFINE_ENUM_INTERNAL(free)
 TLI_DEFINE_STRING_INTERNAL("free")
 
 #if INTEL_CUSTOMIZATION
+/// FILE * freopen(const char * filename, const char * mode, FILE * stream);
+TLI_DEFINE_ENUM_INTERNAL(freopen)
+TLI_DEFINE_STRING_INTERNAL("freopen")
 /// FILE *freopen64(const char *filename, const char *mode, FILE *fp);
 TLI_DEFINE_ENUM_INTERNAL(freopen64)
 TLI_DEFINE_STRING_INTERNAL("freopen64")
@@ -2943,6 +2958,9 @@ TLI_DEFINE_STRING_INTERNAL("getlogin_r")
 /// int getopt_long(int argc, char * const argv[], const char *optstring, const struct option *longopts, int *longindex);
 TLI_DEFINE_ENUM_INTERNAL(getopt_long)
 TLI_DEFINE_STRING_INTERNAL("getopt_long")
+/// int getopt_long_only(int argc, char * const argv[], const char *optstring, const struct option *longopts, int *longindex);
+TLI_DEFINE_ENUM_INTERNAL(getopt_long_only)
+TLI_DEFINE_STRING_INTERNAL("getopt_long_only")
 /// pid_t getpid(void);
 TLI_DEFINE_ENUM_INTERNAL(getpid)
 TLI_DEFINE_STRING_INTERNAL("getpid")
@@ -3508,6 +3526,12 @@ TLI_DEFINE_STRING_INTERNAL("rand")
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+/// int re_compile_fastmap (struct re_pattern_buffer *pattern_buffer)
+TLI_DEFINE_ENUM_INTERNAL(re_compile_fastmap)
+TLI_DEFINE_STRING_INTERNAL("re_compile_fastmap")
+/// int re_search_2 (struct re_pattern_buffer *buffer, const char *string1, const int size1, const char *string2, const int size2, const int start, const int range, struct re_registers *regs, const int stop)
+TLI_DEFINE_ENUM_INTERNAL(re_search_2)
+TLI_DEFINE_STRING_INTERNAL("re_search_2")
 #ifdef _WIN32
 /// int read(int const fd, void * const buffer, unsigned const buffer_size);
 #else
