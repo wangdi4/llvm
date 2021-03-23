@@ -172,8 +172,6 @@ namespace L0Interop {
     "intptr_t, foreign runtime ID"
   };
 
-  const char *IrcDescs[] = {};
-
   /// Level Zero interop property
   struct Property {
     // TODO: define implementation-defined properties
@@ -3691,11 +3689,11 @@ EXTERN int32_t __tgt_rtl_get_interop_property_value(
 
   int32_t retCode = omp_irc_success;
 
-  switch (Ipr) {
   // TODO: implementation-defined property
-  default:
-    retCode = omp_irc_out_of_range;
-  }
+  //  switch (Ipr) {
+  //default:
+  //    retCode = omp_irc_out_of_range;
+  //}
 
   return retCode;
 }
