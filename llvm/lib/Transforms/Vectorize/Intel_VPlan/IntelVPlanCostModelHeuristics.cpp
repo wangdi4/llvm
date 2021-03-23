@@ -50,7 +50,8 @@ namespace vpo {
 
 namespace VPlanCostModelHeuristics {
 
-HeuristicBase::HeuristicBase(VPlanCostModel *CM, std::string Name) : CM(CM) {
+HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
+  CM(CM) {
   Plan = CM->Plan;
   VF = CM->VF;
   UnknownCost = CM->UnknownCost;
@@ -238,8 +239,8 @@ unsigned HeuristicSpillFill::operator()(
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
   int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
     return !SkipInst(&PHI);});
-  int FreeVecHWRegsNum = CM->VPTTI->getNumberOfRegisters(
-    CM->VPTTI->getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
+  int FreeVecHWRegsNum = CM->VPTTI.getNumberOfRegisters(
+    CM->VPTTI.getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     if (SkipInst(&VPInst))
@@ -250,7 +251,7 @@ unsigned HeuristicSpillFill::operator()(
     //
     // Use TTI Cost model as Proprietary cost can be 0 for loads/stores that
     // are part of OVLS group.
-    unsigned InstCost = CM->VPlanCostModel::getCost(&VPInst);
+    unsigned InstCost = CM->getTTICost(&VPInst);
     if (InstCost == UnknownCost || InstCost == 0)
       continue;
 
@@ -293,7 +294,7 @@ unsigned HeuristicSpillFill::operator()(
         continue;
 
       const VPInstruction *OpInst = cast<VPInstruction>(Op);
-      unsigned OpInstCost = CM->VPlanCostModel::getCost(OpInst);
+      unsigned OpInstCost = CM->getTTICost(OpInst);
       if (OpInstCost == UnknownCost || OpInstCost == 0)
         continue;
 
@@ -301,7 +302,7 @@ unsigned HeuristicSpillFill::operator()(
 
       if (VectorType::isValidElementType(OpScalTy))
         LiveValues[OpInst] = TranslateVPInstRPToHWRP(
-          CM->VPTTI->getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
+          CM->VPTTI.getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
       else
         // RP for aggregate types are modelled as if they serialized with
         // VF instructions.
@@ -351,15 +352,15 @@ unsigned HeuristicSpillFill::operator()(
       // Check for masked unit load/store presence in HW.
       if (CM->isUnitStrideLoadStore(&VPInst, NegativeStride)) {
         if ((IsMasked && IsLoad  &&
-             !CM->VPTTI->isLegalMaskedLoad(VTy, Alignment)) ||
+             !CM->VPTTI.isLegalMaskedLoad(VTy, Alignment)) ||
             (IsMasked && IsStore &&
-             !CM->VPTTI->isLegalMaskedStore(VTy, Alignment)))
+             !CM->VPTTI.isLegalMaskedStore(VTy, Alignment)))
           return true;
       }
       // Check for unsupported gather/scatter instruction.
       // Note: any gather/scatter is considered as masked.
-      else if ((IsLoad  && !CM->VPTTI->isLegalMaskedGather(VTy, Alignment)) ||
-               (IsStore && !CM->VPTTI->isLegalMaskedScatter(VTy, Alignment)))
+      else if ((IsLoad  && !CM->VPTTI.isLegalMaskedGather(VTy, Alignment)) ||
+               (IsStore && !CM->VPTTI.isLegalMaskedScatter(VTy, Alignment)))
         return true;
 
       return false;
@@ -399,13 +400,13 @@ unsigned HeuristicSpillFill::operator()(
     return 0;
 
   unsigned AS = CM->DL->getAllocaAddrSpace();
-  unsigned RegBitWidth = CM->VPTTI->getLoadStoreVecRegBitWidth(AS);
+  unsigned RegBitWidth = CM->VPTTI.getLoadStoreVecRegBitWidth(AS);
   unsigned RegByteWidth = RegBitWidth / 8;
   Type *VecTy = getWidenedType(Type::getInt8Ty(*Plan->getLLVMContext()),
                                RegByteWidth);
-  unsigned StoreCost = CM->VPTTI->getMemoryOpCost(
+  unsigned StoreCost = CM->VPTTI.getMemoryOpCost(
     Instruction::Store, VecTy, Align(RegByteWidth), AS);
-  unsigned LoadCost = CM->VPTTI->getMemoryOpCost(
+  unsigned LoadCost = CM->VPTTI.getMemoryOpCost(
     Instruction::Load, VecTy, Align(RegByteWidth), AS);
 
   return NumberOfSpillsPerExtraReg *
@@ -416,10 +417,10 @@ unsigned HeuristicSpillFill::operator()(
 unsigned HeuristicSpillFill::applyOnPlan(unsigned Cost) const {
   // Don't run register pressure heuristics on TTI models that do not support
   // scalar or vector registers.
-  if (CM->VPTTI->getNumberOfRegisters(
-        CM->VPTTI->getRegisterClassForType(false)) == 0 ||
-      CM->VPTTI->getNumberOfRegisters(
-        CM->VPTTI->getRegisterClassForType(true)) == 0)
+  if (CM->VPTTI.getNumberOfRegisters(
+        CM->VPTTI.getRegisterClassForType(false)) == 0 ||
+      CM->VPTTI.getNumberOfRegisters(
+        CM->VPTTI.getRegisterClassForType(true)) == 0)
     return Cost;
 
   // LiveValues map contains the liveness of the given instruction multiplied
@@ -501,7 +502,7 @@ unsigned HeuristicGatherScatter::operator()(
     // NOTE:
     // VLS groups are ignored here.  We may want to take into consideration
     // that some memrefs are parts of VLS groups eventually.
-    return CM->VPlanCostModel::getLoadStoreCost(VPInst, VF);
+    return CM->getLoadStoreCost(VPInst, VF);
   return 0;
 }
 
@@ -712,7 +713,7 @@ unsigned HeuristicPsadbw::applyOnPlan(unsigned Cost) const {
         unsigned NumberOfExternalUses = 0;
 
         for (const VPInstruction *VPInst : CurrPsadbwPatternInsts) {
-          unsigned InstCost = CM->VPlanCostModel::getCost(VPInst);
+          unsigned InstCost = CM->getTTICost(VPInst);
           if (InstCost != UnknownCost)
             CurrentPatternCost += InstCost;
 

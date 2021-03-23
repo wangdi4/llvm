@@ -149,7 +149,7 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
   // OVLSTTICostModel::getInstructionCost() implementation fetches number of
   // elements using I->getType().
   //
-  VPlanVLSCostModel VLSCM(VF, VPTTI->getTTI(), VLSA->getContext());
+  VPlanVLSCostModel VLSCM(VF, VPTTI.getTTI(), VLSA->getContext());
   /// OptVLSInterface costs are not scaled up yet.
   unsigned VLSGroupCost =
     VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, VLSCM);
