@@ -22,6 +22,18 @@
 ; LT2GB-NEXT: %other.trunc = trunc i64 %non.trunc.user to i32
 ; LT2GB-NEXT: %ret0 = mul i32 %other.trunc, %add
 ; LT2GB-NEXT: %ret1 = mul i64 %non.trunc.user, [[ADD_SEXT]]
+; LT2GB-NEXT: %mul.shl = mul i64 2, [[ADD_SEXT]]
+; LT2GB-NEXT: %add.shl = add i64 %mul.shl, 1
+; LT2GB-NEXT: %sub.shl = add i64 %mul.shl, -1
+; LT2GB-NEXT: %ret3 = mul i64 %non.trunc.user, %add.shl
+; LT2GB-NEXT: %ret4 = mul i64 %non.trunc.user, %sub.shl
+; LT2GB-NEXT: %shl.keep = shl i64 [[ADD_SEXT]], 32
+; LT2GB-NEXT: %add2.shl = add i64 %shl.keep, 4294967296
+; LT2GB-NEXT: %call = call i64 @dummy(i64 %add2.shl)
+; LT2GB-NEXT: %call.ashr = ashr exact i64 %call, 32
+; LT2GB-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
+; LT2GB-NEXT: %add2 = ashr exact i64 %add2.shl, 32
+; LT2GB-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
 ; LT2GB-NEXT: br label %simd.loop.exit
 
 ; Check for non-default case i.e. max work group size > 2GB.
@@ -42,6 +54,20 @@
 ; GT2GB-NEXT: %ashr.inst = ashr exact i64 %shl.user, 32
 ; GT2GB-NEXT: %ret0 = mul i32 %other.trunc, %trunc.user
 ; GT2GB-NEXT: %ret1 = mul i64 %non.trunc.user, %ashr.inst
+; GT2GB-NEXT: %mul.shl = mul i64 2, %shl.user
+; GT2GB-NEXT: %add.shl = add i64 %mul.shl, 4294967296
+; GT2GB-NEXT: %sub.shl = add i64 %mul.shl, -4294967296
+; GT2GB-NEXT: %gid.add = ashr exact i64 %add.shl, 32
+; GT2GB-NEXT: %gid.sub = ashr exact i64 %sub.shl, 32
+; GT2GB-NEXT: %ret3 = mul i64 %non.trunc.user, %gid.add
+; GT2GB-NEXT: %ret4 = mul i64 %non.trunc.user, %gid.sub
+; GT2GB-NEXT: %shl.keep = shl i64 %add, 32
+; GT2GB-NEXT: %add2.shl = add i64 %shl.keep, 4294967296
+; GT2GB-NEXT: %call = call i64 @dummy(i64 %add2.shl)
+; GT2GB-NEXT: %call.ashr = ashr exact i64 %call, 32
+; GT2GB-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
+; GT2GB-NEXT: %add2 = ashr exact i64 %add2.shl, 32
+; GT2GB-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
 ; GT2GB-NEXT: br label %simd.loop.exit
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -58,8 +84,26 @@ entry:
   %ashr.inst = ashr exact i64 %shl.user, 32
   %ret0 = mul i32 %other.trunc, %trunc.user
   %ret1 = mul i64 %non.trunc.user, %ashr.inst
+
+  %mul.shl = mul i64 2, %shl.user ; %mul = 2 * gid
+  %add.shl = add i64 %mul.shl, 4294967296  ; %gid.add = %mul + 1
+  %sub.shl = add i64 %mul.shl, -4294967296 ; %gid.sub = %mul - 1
+  %gid.add = ashr exact i64 %add.shl, 32
+  %gid.sub = ashr exact i64 %sub.shl, 32
+  %ret3 = mul i64 %non.trunc.user, %gid.add
+  %ret4 = mul i64 %non.trunc.user, %gid.sub
+
+  %shl.keep = shl i64 %lid_call, 32
+  %add2.shl = add i64 %shl.keep, 4294967296
+  %call = call i64 @dummy(i64 %add2.shl) ; %call blocks handling this path
+  %call.ashr = ashr exact i64 %call, 32
+  %ret5 = mul i64 %non.trunc.user, %call.ashr
+  %add2 = ashr exact i64 %add2.shl, 32
+  %ret6 = mul i64 %non.trunc.user, %add2
   ret void
 }
+
+declare i64 @dummy(i64)
 
 ;; Remaining non-vectorized function
 ; CHECK-LABEL: _Z30ParallelForNDRangeImplKernel1DPiS_

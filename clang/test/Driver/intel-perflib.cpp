@@ -208,3 +208,15 @@
 // MKL-SHARED-OBJ-PHASES: 7: file-table-tform, {4, 6}, tempfiletable, (device-sycl)
 // MKL-SHARED-OBJ-PHASES: 8: clang-offload-wrapper, {7}, object, (device-sycl)
 // MKL-SHARED-OBJ-PHASES: 9: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {8}, image
+
+// AC Types tests (-qactypes)
+// RUN: env INTELFPGAOCLSDKROOT=/dummy/actypes \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qactypes -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-ACTYPES,CHECK-ACTYPES-LIN %s
+// RUN: env INTELFPGAOCLSDKROOT=/dummy/actypes \
+// RUN: %clang_cl -Qactypes -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-ACTYPES,CHECK-ACTYPES-WIN %s
+// CHECK-ACTYPES-WIN: "--dependent-lib=psg_mpir" "--dependent-lib=psg_mpfr" "--dependent-lib=hls_fixed_point_math_x86" "--dependent-lib=hls_vpfp_library"
+// CHECK-ACTYPES: "-internal-isystem" "{{.*}}actypes{{/|\\\\}}include"
+// CHECK-ACTYPES-LIN: ld{{.*}} "-L{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}linux64{{/|\\\\}}lib" {{.*}} "-lpsg_mpir" "-lpsg_mpfr" "-lhls_fixed_point_math_x86" "-lhls_vpfp_library"
+// CHECK-ACTYPES-WIN: link{{.*}} "-libpath:{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}windows64{{/|\\\\}}lib"

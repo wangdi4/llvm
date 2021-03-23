@@ -68,7 +68,7 @@ protected:
     return nullptr;
   }
 
-  virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
+  virtual OVLSMemref *createVLSMemref(const VPLoadStoreInst *Inst,
                                       const unsigned VF) const;
 
 private:

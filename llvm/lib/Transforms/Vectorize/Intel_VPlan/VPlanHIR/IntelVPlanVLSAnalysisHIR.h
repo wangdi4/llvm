@@ -43,7 +43,7 @@ private:
   mutable DenseMap<const HLDDNode *, DenseSet<const RegDDRef *>>
       DDNodeRefs;
 
-  virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
+  virtual OVLSMemref *createVLSMemref(const VPLoadStoreInst *Inst,
                                       const unsigned VF) const final;
 
   static MemAccessTy getAccessType(const RegDDRef *Ref, const unsigned Level,

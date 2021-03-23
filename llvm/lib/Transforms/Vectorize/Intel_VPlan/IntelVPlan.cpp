@@ -187,7 +187,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   //  3) the decomposed VPInstructions have more than one use.
 
   const OVLSGroup *Group = nullptr;
-  const HLInst *GrpStartInst = nullptr;
   int64_t InterleaveFactor = 0, InterleaveIndex = 0;
 
   // Compute group information if we have a valid master instruction
@@ -226,26 +225,22 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
           // Check that all members of the group have same type. Currently we
           // do not handle groups such as a[i].i, a[i].d for
           //   struct {int i; double d} a[100]
-          // Also setup GrpStartInst, FirstMemref, FirstMemrefDD, and
-          // RefSizeInBytes.
+          // Also setup FirstMemref, FirstMemrefDD, and RefSizeInBytes.
           bool TypesMatch = true;
           for (int64_t Index = 0; Index < Group->size(); ++Index) {
             auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
-            const HLInst *HInst;
             const RegDDRef *MemrefDD;
 
             // Members of the group can be memrefs which are not master
             // VPInstructions (due to HIR Temp cleanup). Assertions for validity
             // and to check if underlying HLInst is master VPI is not needed
-            // anymore. We directly obtain the HInst from memref's RegDDRef.
+            // anymore.
             MemrefDD = Memref->getRegDDRef();
-            HInst = cast<HLInst>(MemrefDD->getHLDDNode());
             if (Index == 0) {
               auto DL = MemrefDD->getDDRefUtils().getDataLayout();
 
               FirstMemref = Memref;
               FirstMemrefDD = MemrefDD;
-              GrpStartInst = HInst;
               RefSizeInBytes =
                   DL.getTypeAllocSize(FirstMemrefDD->getDestType());
             } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
@@ -280,8 +275,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
     }
   }
 
-  CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex,
-                GrpStartInst);
+  CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex);
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
 }

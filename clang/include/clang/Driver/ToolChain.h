@@ -681,13 +681,24 @@ public:
   /// GetDAALLibPath - return the DAAL library path.
   std::string GetDAALLibPath(void) const;
 
-  /// GetDAALIncludePath - return the DAAL include search path.
-  std::string GetDAALIncludePath(const llvm::opt::ArgList &Args) const;
-
   /// AddDAALLibPath - Add the DAAL library search path.
   void AddDAALLibPath(const llvm::opt::ArgList &Args,
                       llvm::opt::ArgStringList &CmdArgs,
                       std::string Opt) const;
+
+  /// GetDAALIncludePath - return the DAAL include search path.
+  std::string GetDAALIncludePath(const llvm::opt::ArgList &Args) const;
+
+  /// GetACTypesIncludePath - return the AC Types include search path.
+  std::string GetACTypesIncludePath(const llvm::opt::ArgList &Args) const;
+
+  /// GetACTypesLibPath - return the AC Types library path.
+  std::string GetACTypesLibPath(void) const;
+
+  /// AddACTypesLibPath - Add the AC Types library search path.
+  void AddACTypesLibPath(const llvm::opt::ArgList &Args,
+                         llvm::opt::ArgStringList &CmdArgs,
+                         std::string Opt) const;
 
   /// AddIPPLibArgs - Add the IPP library arguments.
   void AddIPPLibArgs(const llvm::opt::ArgList &Args,
@@ -708,6 +719,11 @@ public:
   void AddDAALLibArgs(const llvm::opt::ArgList &Args,
                      llvm::opt::ArgStringList &CmdArgs,
                      std::string Prefix) const;
+
+  /// AddACTypesLibArgs - Add the AC Types library arguments.
+  void AddACTypesLibArgs(const llvm::opt::ArgList &Args,
+                         llvm::opt::ArgStringList &CmdArgs,
+                         std::string Prefix) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// If a runtime library exists that sets global flags for unsafe floating

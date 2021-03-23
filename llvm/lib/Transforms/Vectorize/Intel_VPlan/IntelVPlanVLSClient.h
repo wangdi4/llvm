@@ -26,14 +26,14 @@ class VPlanVector;
 class VPlanVLSAnalysis;
 
 class VPVLSClientMemref : public OVLSMemref {
-  const VPInstruction *Inst;
+  const VPLoadStoreInst *Inst;
   const VPlanVLSAnalysis *VLSA;
-  const SCEV *ScevExpr = nullptr;
 
 public:
   VPVLSClientMemref(const OVLSMemrefKind &Kind, OVLSAccessKind AccKind,
-                    const OVLSType &Ty, const VPInstruction *Inst,
-                    const VPlanVLSAnalysis *VLSA);
+                    const OVLSType &Ty, const VPLoadStoreInst *Inst,
+                    const VPlanVLSAnalysis *VLSA)
+      : OVLSMemref(Kind, Ty, AccKind), Inst(Inst), VLSA(VLSA) {}
 
   Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) override;
 
@@ -44,7 +44,7 @@ public:
   bool dominates(const OVLSMemref &Mrf) const override;
   bool postDominates(const OVLSMemref &Mrf) const override;
 
-  const VPInstruction *getInstruction(void) const { return Inst; }
+  const VPLoadStoreInst *getInstruction(void) const { return Inst; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &Os, unsigned Indent) const override;
@@ -56,13 +56,15 @@ public:
   }
 
 private:
-  const SCEV *getSCEVForVPValue(const VPValue *Val) const;
-
   VPlanScalarEvolutionLLVM &getVPSE() const {
     // FIXME: Get VPSE from VLSA once VLSA is moved into VPlan object as well.
     const VPlanVector *Plan =
         cast<const VPlanVector>(Inst->getParent()->getParent());
     return *static_cast<VPlanScalarEvolutionLLVM *>(Plan->getVPSE());
+  }
+
+  static const SCEV *getAddressSCEV(const VPLoadStoreInst *LSI) {
+    return VPlanScalarEvolutionLLVM::toSCEV(LSI->getAddressSCEV());
   }
 };
 

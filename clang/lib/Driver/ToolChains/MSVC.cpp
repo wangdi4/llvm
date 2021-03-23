@@ -483,6 +483,11 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().IsCLMode())
       getToolChain().AddDAALLibArgs(Args, CmdArgs, "-defaultlib:");
   }
+  if (Args.hasArg(options::OPT_qactypes)) {
+    getToolChain().AddACTypesLibPath(Args, CmdArgs, "-libpath:");
+    if (!C.getDriver().IsCLMode())
+      getToolChain().AddACTypesLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_F)) {
     StringRef Value(A->getValue());
     unsigned SSize;
@@ -1448,6 +1453,9 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (DriverArgs.hasArg(clang::driver::options::OPT_qdaal_EQ))
     addSystemInclude(DriverArgs, CC1Args,
                      ToolChain::GetDAALIncludePath(DriverArgs));
+  if (DriverArgs.hasArg(clang::driver::options::OPT_qactypes))
+    addSystemInclude(DriverArgs, CC1Args,
+                     ToolChain::GetACTypesIncludePath(DriverArgs));
 #endif // INTEL_CUSTOMIZATION
 
   // Honor %INCLUDE%. It should know essential search paths with vcvarsall.bat.

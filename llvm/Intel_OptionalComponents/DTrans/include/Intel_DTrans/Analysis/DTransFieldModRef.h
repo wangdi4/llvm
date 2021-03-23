@@ -243,7 +243,6 @@ class DTransFieldModRefResult
 public:
   typedef FieldModRefResult Result;
   Result run(Module &M, ModuleAnalysisManager &AM);
-  Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
 ModulePass *createDTransFieldModRefAnalysisWrapperPass();

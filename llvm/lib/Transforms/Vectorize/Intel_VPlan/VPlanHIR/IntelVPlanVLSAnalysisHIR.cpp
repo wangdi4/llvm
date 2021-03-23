@@ -41,7 +41,7 @@ bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
     ConstStride > 0 && static_cast<uint64_t>(ConstStride) == RefSizeInBytes;
 }
 
-OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
+OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
                                                  const unsigned VF) const {
   unsigned Opcode = Inst->getOpcode();
 
@@ -87,7 +87,7 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
   // FIXME: This code is not needed with proper decomposition and DA.
   // Assume we have original HLInst
   //  a[i] = b[i] + (c[i] - d[i]);
-  // Currently, there's no way to understand if incoming VPInstruction was
+  // Currently, there's no way to understand if incoming VPLoadStoreInst was
   // constructed for d[i] or for c[i], due to absence link to original RegDDRef.
   // In the code we're looking for first unvisited RegDDRef and construct
   // VPVLSClientMemrefHIR for this Ref. It's definitely not accurate, but still

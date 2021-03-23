@@ -99,7 +99,7 @@ class VecCloneImpl {
     /// corresponding to the expanded return and the instruction corresponding
     /// to the mask.
     Instruction *expandVectorParametersAndReturn(
-        Function *Clone, VectorVariant &V, Instruction **Mask,
+        Function *Clone, Function &F, VectorVariant &V, Instruction **Mask,
         BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
         std::vector<ParmRef *> &ParmMap, ValueToValueMapTy &VMap);
 
@@ -117,8 +117,9 @@ class VecCloneImpl {
     /// \brief Expand the function's return value to a vector type. LastAlloca
     /// indicates where the alloca of the return value should be placed in
     /// EntryBlock.
-    Instruction *expandReturn(Function *Clone, BasicBlock *EntryBlock,
-                              BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
+    Instruction *expandReturn(Function *Clone, Function &F,
+                              BasicBlock *EntryBlock, BasicBlock *LoopBlock,
+                              BasicBlock *ReturnBlock,
                               std::vector<ParmRef *> &ParmMap,
                               AllocaInst *&LastAlloca);
 
@@ -165,6 +166,7 @@ class VecCloneImpl {
     /// alloca of the return value should be placed.
     Instruction *createExpandedReturn(Function *F, BasicBlock *BB,
                                       VectorType *ReturnType,
+                                      Type *FuncReturnType,
                                       AllocaInst *&LastAlloca);
 
     /// \brief Return the position of the parameter in the function's parameter
