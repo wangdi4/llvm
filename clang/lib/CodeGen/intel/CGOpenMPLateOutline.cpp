@@ -1867,14 +1867,14 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
 
 void OpenMPLateOutliner::emitOMPNontemporalClause(
     const OMPNontemporalClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_nontemporal);
-  addArg("QUAL.OMP.NONTEMPORAL");
   for (auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_nontemporal, "QUAL.OMP.NONTEMPORAL");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
     E = E->IgnoreParenImpCasts();
     if (E->getType()->isPointerType())
-      addArg(CGF.EmitScalarExpr(E));
-    else
-      addArg(E);
+      CSB.setPtrToPtr();
+    addArg(CSB.getString());
+    addArg(E);
   }
 }
 

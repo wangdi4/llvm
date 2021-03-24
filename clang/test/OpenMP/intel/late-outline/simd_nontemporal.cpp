@@ -45,17 +45,15 @@ int bar(int M, float *FP) {
   float (&ARR_ref)[10] = ARR;
   float VLA[M];
 
-  // CHECK: [[LFPL:%[0-9]+]] = load float*, float** [[FPLOC]], align 8
-  // CHECK: [[LFP:%[0-9]+]] = load float*, float** [[FPADDR]], align 8
   // CHECK: [[LFPR:%[0-9]+]] = load float**, float*** [[FPREF]], align 8
-  // CHECK: [[LFPRR:%[0-9]+]] = load float*, float** [[LFPR]], align 8
   // CHECK: [[LARR:%[0-9]+]] = load [10 x float]*, [10 x float]** [[AREF]],
   //
   // CHECK: DIR.OMP.SIMD
-  // CHECK-SAME: "QUAL.OMP.NONTEMPORAL"(float* [[LFPL]], float* [[LFP]])
+  // CHECK-SAME: "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** [[FPLOC]]
+  // CHECK-SAME: "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** [[FPADDR]])
   // CHECK-SAME: "QUAL.OMP.NONTEMPORAL"([10 x float]* [[ARR]])
   // CHECK-SAME: "QUAL.OMP.NONTEMPORAL"(float* [[VLA]])
-  // CHECK-SAME: "QUAL.OMP.NONTEMPORAL"(float* [[LFPRR]])
+  // CHECK-SAME: "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** [[LFPR]])
   // CHECK-SAME: "QUAL.OMP.NONTEMPORAL"([10 x float]* [[LARR]])
   // CHECK: DIR.OMP.END.SIMD
   #pragma omp simd nontemporal(FP_local,FP) \
