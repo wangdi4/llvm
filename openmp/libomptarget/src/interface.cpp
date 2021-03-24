@@ -120,23 +120,11 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
   TIMESCOPE_WITH_IDENT(loc);
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
-  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
-    encodedId = device_id = omp_get_default_device();
-  else if (encodedId < 0)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
   DP("Entering data begin region for device %" PRId64 " with %d mappings\n",
      device_id, arg_num);
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-    DP("Use default device id %" PRId64 "\n", device_id);
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
@@ -219,26 +207,10 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
   TIMESCOPE_WITH_IDENT(loc);
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
-  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
-    encodedId = device_id = omp_get_default_device();
-  else if (encodedId < 0)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
   DP("Entering data end region with %d mappings\n", arg_num);
   if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
     DP("Not offloading to device %" PRId64 "\n", device_id);
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  PM->RTLsMtx.lock();
-  size_t DevicesSize = PM->Devices.size();
-  PM->RTLsMtx.unlock();
-  if (DevicesSize <= (size_t)device_id) {
-    DP("Device ID  %" PRId64 " does not have a matching RTL.\n", device_id);
-    HandleTargetOutcome(false, loc);
     return;
   }
 
@@ -317,20 +289,9 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
   DP("Entering data update with %d mappings\n", arg_num);
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
-  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
-    encodedId = device_id = omp_get_default_device();
-  else if (encodedId < 0)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
@@ -397,21 +358,12 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
   TIMESCOPE_WITH_IDENT(loc);
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
-  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
-    encodedId = device_id = omp_get_default_device();
-  else if (encodedId < 0)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
-  DP("Entering target region with entry point " DPxMOD " and device Id %"
-      PRId64 "\n", DPxPTR(host_ptr), device_id);
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    REPORT("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
+     "\n",
+     DPxPTR(host_ptr), device_id);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return OFFLOAD_FAIL;
   }
 
@@ -496,21 +448,12 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
                                      int32_t thread_limit) {
 #if INTEL_COLLAB
   int64_t encodedId = GetEncodedDeviceID(device_id);
-  if (encodedId == OFFLOAD_DEVICE_DEFAULT)
-    encodedId = device_id = omp_get_default_device();
-  else if (encodedId < 0)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
 #endif // INTEL_COLLAB
-  DP("Entering target region with entry point " DPxMOD " and device Id %"
-      PRId64 "\n", DPxPTR(host_ptr), device_id);
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    REPORT("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
+     "\n",
+     DPxPTR(host_ptr), device_id);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return OFFLOAD_FAIL;
   }
 
