@@ -51,6 +51,8 @@ class VPlanHCFGBuilder;
 class VPlanCostModel;
 class VPlanRemainderEvaluator;
 class VPlanPeelEvaluator;
+class VPlanCFGMerger;
+class CfgMergerPlanDescr;
 
 extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
@@ -201,6 +203,49 @@ inline raw_ostream &operator<<(raw_ostream &OS,
   return OS;
 }
 
+// Auxiliary class to describe VPlan for CFG merge.
+// After selection of vectorization scenario, the list of the desriptors
+// is created and CFGMerger is run on that list, creating merged CFG.
+class CfgMergerPlanDescr {
+  enum LoopType {
+    LTRemainder,
+    LTMain,
+    LTPeel,
+  };
+  CfgMergerPlanDescr(LoopType LT, unsigned F, VPlan *P)
+      : Type(LT), VF(F), Plan(P) {}
+
+  LoopType Type;
+  unsigned VF; // vector factor
+  VPlan *Plan; // VPlan
+
+  // Basic blocks used during merge
+  VPBasicBlock *AdapterBB = nullptr;
+  VPBasicBlock *PrevMerge = nullptr;
+  VPBasicBlock *MergeBefore = nullptr;
+
+  friend class VPlanCFGMerger;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { dump(dbgs()); }
+  void dump(raw_ostream &OS) const {
+    auto getLoopTypeName = [](LoopType LT) -> StringRef {
+      switch (LT) {
+      case LTRemainder:
+        return "remainder";
+      case LTMain:
+        return "main";
+      case LTPeel:
+        return "peel";
+      };
+      return "";
+    };
+    OS << "VPlan: " << Plan->getName() << "\n";
+    OS << "  Kind: " << getLoopTypeName(Type) << " VF:" << VF << "\n";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
 /// In particular, represent the control-flow of the vectorized version,
@@ -249,6 +294,9 @@ public:
   // cfg. \p UF and \p VF are selected unroll factor and vector factor,
   // correspondingly, for main VPlan.
   void emitPeelRemainderVPLoops(unsigned VF, unsigned UF);
+
+  // Create VPlans that are needed for CFG merge by the selected scenario.
+  void createMergerVPlans(VPAnalysesFactory &VPAF);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
@@ -327,6 +375,10 @@ public:
     VPlans[VF] = PlanPair;
   }
 
+  VPlan *addAuxiliaryVPlan(VPlan &Plan) {
+    AuxVPlans.push_back(std::unique_ptr<VPlan>(&Plan));
+    return AuxVPlans.back().get();
+  }
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -473,6 +525,11 @@ private:
 
   /// VPlans are shared between VFs, use smart pointers.
   DenseMap<unsigned, VPlanPair> VPlans;
+
+  /// A list of other additional VPlans, created during peel/remainders
+  /// creation and cloning.
+  SmallVector<std::unique_ptr<VPlan>, 2> AuxVPlans;
+  std::list<CfgMergerPlanDescr> MergerVPlans;
 };
 
 } // namespace vpo

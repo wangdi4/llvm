@@ -26,17 +26,20 @@ class Loop;
 namespace vpo {
 extern bool EmitPushPopVF;
 
+class SingleLoopVecScenario;
+class LoopVectorizationPlanner;
+class CfgMergerPlanDescr;
+
 // Utility class to merge CFG of VPlan.
 class VPlanCFGMerger {
   VPlanVector &Plan;
   VPExternalValues &ExtVals;
   VPVectorTripCountCalculation * VectorTripCount = nullptr;
-  unsigned VF;
-  unsigned UF;
-
+  unsigned MainVF;
+  unsigned MainUF;
 public:
   VPlanCFGMerger(VPlanVector &P, unsigned V, unsigned U)
-      : Plan(P), ExtVals(P.getExternals()), VF(V), UF(U) {}
+      : Plan(P), ExtVals(P.getExternals()), MainVF(V), MainUF(U) {}
 
   //
   // Create a simple chain of vectorized loop and scalar remainder.
@@ -62,6 +65,13 @@ public:
   //
   void createSimpleVectorRemainderChain(Loop *OrigLoop);
 
+  // Create a list of VPlan descriptors (along with the needed VPlans) by
+  // vectorization scenario \p Scen.
+  static void createPlans(LoopVectorizationPlanner &Planner,
+                          const SingleLoopVecScenario &Scen,
+                          std::list<CfgMergerPlanDescr> &Plans, Loop *OrigLoop,
+                          VPlan &MainPlan,
+                          VPAnalysesFactory &VPAF);
 private:
   // Create a new merge block (i.e. VPBasicBlock with VPPHINodes which have
   // non-undefined MergeId, see VPExternalUse::UndefMergeId) inserting it after

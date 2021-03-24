@@ -55,7 +55,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = re-use-loop omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], [ 0, [[DIR_OMP_SIMD_10:%.*]] ]} -> i64 [[VP1]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_40:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_40]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1

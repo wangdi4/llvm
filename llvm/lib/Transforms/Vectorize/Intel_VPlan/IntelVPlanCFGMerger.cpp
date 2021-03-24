@@ -15,6 +15,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanCFGMerger.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
@@ -34,6 +35,9 @@ namespace vpo {
 bool EmitPushPopVF = false;
 } // namespace vpo
 } // namespace llvm
+
+static LoopVPlanDumpControl MergeNewPlansDumpControl("create-in-merge",
+                                                     "creation during merge");
 
 VPBasicBlock *VPlanCFGMerger::createMergeBlock(VPBasicBlock *InsertAfter,
                                                VPBasicBlock *SplitBlock,
@@ -137,8 +141,8 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
   VPBuilder Builder;
   Builder.setInsertPoint(VectorTopTestBB);
   if (EmitPushPopVF) {
-    VPValue *PushVF =
-        Builder.create<VPPushVF>("pushvf", Plan.getLLVMContext(), VF, UF);
+    VPValue *PushVF = Builder.create<VPPushVF>("pushvf", Plan.getLLVMContext(),
+                                               MainVF, MainUF);
     Plan.getVPlanDA()->markUniform(*PushVF);
   }
 
@@ -490,4 +494,130 @@ void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
 
   Plan.computeDT();
   Plan.computePDT();
+}
+
+void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
+                                 const SingleLoopVecScenario &Scen,
+                                 std::list<CfgMergerPlanDescr> &PlanDescrs,
+                                 Loop *OrigLoop, VPlan &MainPlan,
+                                 VPAnalysesFactory &VPAF) {
+
+  using ScalarPeelVPlanFab = ScalarPeelOrRemainderVPlanFab<true>;
+  using ScalarRemainderVPlanFab = ScalarPeelOrRemainderVPlanFab<false>;
+
+  auto dumpNewVPlan = [](const VPlan *P) -> void {
+    VPLAN_DUMP(MergeNewPlansDumpControl, P);
+  };
+  auto dumpExistingVPlan = [](const VPlan *P) -> void {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    VPLAN_DUMP(MergeNewPlansDumpControl.dumpPlain(),
+               "adding existing one during merge", P);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  };
+  using LK = SingleLoopVecScenario::AuxLoopKind;
+  using LT = CfgMergerPlanDescr::LoopType;
+
+  // The list of original VPlans that are already passed to the PlanDescrs.
+  // We can't use VPlans twice and clone them when it's needed.
+  SmallSet<VPlan *, 4> UsedPlans;
+
+  LK NewMainKind = Scen.getMainKind();
+  assert((NewMainKind == LK::LKVector || NewMainKind == LK::LKMasked) &&
+         "unexpected main loop kind");
+  unsigned MainVF = Scen.getMainVF();
+  VPlan *NewMainPlan = NewMainKind == LK::LKVector
+                           ? &MainPlan
+                           : Planner.getMaskedVPlanForVF(MainVF);
+
+  VPlan *CurPlan = NewMainPlan;
+  UsedPlans.insert(CurPlan);
+
+  bool ScalarUsed = false;
+
+  switch (Scen.getPeelKind()) {
+  case LK::LKNone:
+    break;
+  case LK::LKScalar: {
+    ScalarUsed = true;
+    ScalarPeelVPlanFab Fab;
+    auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
+    CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
+    PlanDescrs.push_front({LT::LTPeel, 1, CurPlan});
+    dumpNewVPlan(CurPlan);
+  } break;
+  case LK::LKMasked:
+    CurPlan = Planner.getMaskedVPlanForVF(Scen.getPeelVF());
+    if (UsedPlans.count(CurPlan)) {
+      auto Clone = cast<VPlanMasked>(CurPlan)->clone(
+          VPAF, VPlanVector::UpdateDA::CloneDA);
+      CurPlan = Planner.addAuxiliaryVPlan(*Clone);
+      dumpNewVPlan(CurPlan);
+    } else {
+      dumpExistingVPlan(CurPlan);
+    }
+    UsedPlans.insert(CurPlan);
+    PlanDescrs.push_front({LT::LTPeel, Scen.getPeelVF(), CurPlan});
+    break;
+  case LK::LKVector:
+    llvm_unreachable("unsupported peel kind");
+    break;
+  }
+
+  CurPlan = NewMainPlan;
+  unsigned MainUF = Scen.getMainUF();
+  PlanDescrs.push_front({LT::LTMain, MainVF * MainUF, CurPlan});
+  dumpExistingVPlan(CurPlan);
+
+  // The order of insertion of remainders in the list is important. We insert
+  // scalar remainder at front while others before the anchor. So the scalar
+  // remainder is inserted in CFG first.
+  auto AnchorIter = PlanDescrs.begin();
+  for (auto Rem : make_range(Scen.rem_begin(), Scen.rem_end()))
+    switch (Rem.Kind) {
+    case LK::LKNone:
+      break;
+    case LK::LKScalar: {
+      ScalarRemainderVPlanFab Fab;
+      auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
+      // Update the NeedClone flag in scalar remainder. We use the original
+      // loop first for peel and create a clone for remainder if that happen.
+      ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
+      CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
+      PlanDescrs.push_front({LT::LTRemainder, 1, CurPlan});
+      dumpNewVPlan(CurPlan);
+    } break;
+    case LK::LKVector:
+      CurPlan = Planner.getVPlanForVF(Rem.VF);
+      if (UsedPlans.count(CurPlan)) {
+        auto Clone = cast<VPlanNonMasked>(CurPlan)->clone(
+            VPAF, VPlanVector::UpdateDA::CloneDA);
+        CurPlan = Planner.addAuxiliaryVPlan(*Clone);
+        dumpNewVPlan(CurPlan);
+      } else {
+        dumpExistingVPlan(CurPlan);
+      }
+      PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      UsedPlans.insert(CurPlan);
+      break;
+    case LK::LKMasked:
+      CurPlan = Planner.getMaskedVPlanForVF(Rem.VF);
+      if (UsedPlans.count(CurPlan)) {
+        auto Clone = cast<VPlanMasked>(CurPlan)->clone(
+            VPAF, VPlanVector::UpdateDA::CloneDA);
+        CurPlan = Planner.addAuxiliaryVPlan(*Clone);
+        dumpNewVPlan(CurPlan);
+      } else {
+        dumpExistingVPlan(CurPlan);
+      }
+      PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      UsedPlans.insert(CurPlan);
+    }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PlanDescrs.size() && MergeNewPlansDumpControl.dumpPlain()) {
+    dbgs() << "List of VPlans added for merging:\n";
+    for (auto P : PlanDescrs)
+      P.dump();
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
