@@ -612,8 +612,11 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
     MemOpVPI = Builder.createLoad(
         cast<PointerType>(MemOpVPI->getType())->getElementType(), MemOpVPI);
 
-    // Save away scalar memref symbase and original alignment for later use.
+    // Copy metadata for the created load instruction.
     auto *MemOpVPInst = cast<VPLoadStoreInst>(MemOpVPI);
+    MemOpVPInst->readUnderlyingMetadata(Ref);
+
+    // Save away scalar memref symbase and original alignment for later use.
     MemOpVPInst->HIR().setSymbase(Ref->getSymbase());
     MemOpVPInst->setAlignment(getAlignForMemref(Ref));
 
@@ -2027,6 +2030,8 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 
   // Create new VPInstruction with previous operands.
   VPInstruction *NewVPInst = createVPInstruction(Node, VPOperands);
+  if (auto *LoadStore = dyn_cast<VPLoadStoreInst>(NewVPInst))
+    LoadStore->readUnderlyingMetadata();
 
   // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
   // resulting from decomposing its operands.

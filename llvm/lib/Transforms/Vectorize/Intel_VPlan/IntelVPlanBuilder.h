@@ -333,8 +333,10 @@ public:
         new VPLoadStoreInst(Instruction::Load, Ty, {Ptr});
     NewLoad->setName(Name);
     insert(NewLoad);
-    if (Inst)
+    if (Inst) {
       NewLoad->setUnderlyingValue(*Inst);
+      NewLoad->readUnderlyingMetadata();
+    }
     return NewLoad;
   }
 
@@ -347,8 +349,10 @@ public:
         {Val, Ptr});
     NewStore->setName(Name);
     insert(NewStore);
-    if (Inst)
+    if (Inst) {
       NewStore->setUnderlyingValue(*Inst);
+      NewStore->readUnderlyingMetadata();
+    }
     return NewStore;
   }
 

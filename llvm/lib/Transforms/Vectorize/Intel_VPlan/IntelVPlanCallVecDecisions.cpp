@@ -338,6 +338,13 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
+  // llvm.experimental.noalias.scope.decl intrinsic calls should not be widened.
+  if (VPCall->isIntrinsicFromList(
+          {Intrinsic::experimental_noalias_scope_decl})) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
   // All other cases implies default properties i.e. call serialization.
   VPCall->setShouldBeSerialized();
   // TODO:

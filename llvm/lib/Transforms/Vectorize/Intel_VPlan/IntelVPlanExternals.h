@@ -336,8 +336,7 @@ public:
   /// Create a new VPMetadataAsValue for Metadata \p MD if it doesn't exist or
   /// retrieve the existing one.
   VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
-    // TODO: implement this method when needed.
-    llvm_unreachable("Not implemented yet!");
+    return getVPMetadataAsValue(MetadataAsValue::get(*Context, MD));
   }
 
   VPValue *getOriginalIncomingValue(int MergeId) const {
