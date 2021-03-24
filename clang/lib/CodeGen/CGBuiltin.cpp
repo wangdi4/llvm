@@ -2093,7 +2093,7 @@ static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
     llvm::Value *OffsetIndicator = CGF.Builder.CreateConstGEP2_64(
         IndicatorPtr, 0, CurPage, "cpu_feature_offset");
     llvm::Value *Indicator = CGF.Builder.CreateAlignedLoad(
-        Ty, OffsetIndicator,
+        CGF.CGM.Int64Ty, OffsetIndicator,
         Context.getTypeAlignInChars(Context.getIntTypeForBitwidth(64, 0)),
         "cpu_feature_indicator");
     llvm::Value *Join =
