@@ -48,6 +48,99 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableX86UnalignedVecMove(
+    "x86-enable-unaligned-vector-move", cl::Hidden,
+    cl::desc("X86: Enable transforming aligned vector move instruction to "
+             "unaligned vector move."),
+    cl::init(false));
+
+static const unsigned AlignedMovToUnalignedMovTable[][2] = {
+  // Replace vmovaps with vmovups.
+  // MOVAPSmr and MOVAPSrm aren't used when AVX is enabled.
+  { X86::VMOVAPSYmr,           X86::VMOVUPSYmr          },
+  { X86::VMOVAPSYrm,           X86::VMOVUPSYrm          },
+  { X86::VMOVAPSZ128mr,        X86::VMOVUPSZ128mr       },
+  { X86::VMOVAPSZ128mr_NOVLX,  X86::VMOVUPSZ128mr_NOVLX },
+  { X86::VMOVAPSZ128mrk,       X86::VMOVUPSZ128mrk      },
+  { X86::VMOVAPSZ128rm,        X86::VMOVUPSZ128rm       },
+  { X86::VMOVAPSZ128rm_NOVLX,  X86::VMOVUPSZ128rm_NOVLX },
+  { X86::VMOVAPSZ128rmk,       X86::VMOVUPSZ128rmk      },
+  { X86::VMOVAPSZ128rmkz,      X86::VMOVUPSZ128rmkz     },
+  { X86::VMOVAPSZ256mr,        X86::VMOVUPSZ256mr       },
+  { X86::VMOVAPSZ256mr_NOVLX,  X86::VMOVUPSZ256mr_NOVLX },
+  { X86::VMOVAPSZ256mrk,       X86::VMOVUPSZ256mrk      },
+  { X86::VMOVAPSZ256rm,        X86::VMOVUPSZ256rm       },
+  { X86::VMOVAPSZ256rm_NOVLX,  X86::VMOVUPSZ256rm_NOVLX },
+  { X86::VMOVAPSZ256rmk,       X86::VMOVUPSZ256rmk      },
+  { X86::VMOVAPSZ256rmkz,      X86::VMOVUPSZ256rmkz     },
+  { X86::VMOVAPSZmr,           X86::VMOVUPSZmr          },
+  { X86::VMOVAPSZmrk,          X86::VMOVUPSZmrk         },
+  { X86::VMOVAPSZrm,           X86::VMOVUPSZrm          },
+  { X86::VMOVAPSZrmk,          X86::VMOVUPSZrmk         },
+  { X86::VMOVAPSZrmkz,         X86::VMOVUPSZrmkz        },
+  { X86::VMOVAPSmr,            X86::VMOVUPSmr           },
+  { X86::VMOVAPSrm,            X86::VMOVUPSrm           },
+  // Replace vmovapd with vmovupd.
+  // MOVAPDmr and MOVAPDrm aren't used when AVX is enabled.
+  { X86::VMOVAPDYmr,           X86::VMOVUPDYmr          },
+  { X86::VMOVAPDYrm,           X86::VMOVUPDYrm          },
+  { X86::VMOVAPDZ128mr,        X86::VMOVUPDZ128mr       },
+  { X86::VMOVAPDZ128mrk,       X86::VMOVUPDZ128mrk      },
+  { X86::VMOVAPDZ128rm,        X86::VMOVUPDZ128rm       },
+  { X86::VMOVAPDZ128rmk,       X86::VMOVUPDZ128rmk      },
+  { X86::VMOVAPDZ128rmkz,      X86::VMOVUPDZ128rmkz     },
+  { X86::VMOVAPDZ256mr,        X86::VMOVUPDZ256mr       },
+  { X86::VMOVAPDZ256mrk,       X86::VMOVUPDZ256mrk      },
+  { X86::VMOVAPDZ256rm,        X86::VMOVUPDZ256rm       },
+  { X86::VMOVAPDZ256rmk,       X86::VMOVUPDZ256rmk      },
+  { X86::VMOVAPDZ256rmkz,      X86::VMOVUPDZ256rmkz     },
+  { X86::VMOVAPDZmr,           X86::VMOVUPDZmr          },
+  { X86::VMOVAPDZmrk,          X86::VMOVUPDZmrk         },
+  { X86::VMOVAPDZrm,           X86::VMOVUPDZrm          },
+  { X86::VMOVAPDZrmk,          X86::VMOVUPDZrmk         },
+  { X86::VMOVAPDZrmkz,         X86::VMOVUPDZrmkz        },
+  { X86::VMOVAPDmr,            X86::VMOVUPDmr           },
+  { X86::VMOVAPDrm,            X86::VMOVUPDrm           },
+  // Replace vmovdqa with vmovdqu.
+  // MOVDQAmr and MOVDQArm aren't used when AVX is enabled.
+  { X86::VMOVDQA32Z128mr,      X86::VMOVDQU32Z128mr     },
+  { X86::VMOVDQA32Z128mrk,     X86::VMOVDQU32Z128mrk    },
+  { X86::VMOVDQA32Z128rm,      X86::VMOVDQU32Z128rm     },
+  { X86::VMOVDQA32Z128rmk,     X86::VMOVDQU32Z128rmk    },
+  { X86::VMOVDQA32Z128rmkz,    X86::VMOVDQU32Z128rmkz   },
+  { X86::VMOVDQA32Z256mr,      X86::VMOVDQU32Z256mr     },
+  { X86::VMOVDQA32Z256mrk,     X86::VMOVDQU32Z256mrk    },
+  { X86::VMOVDQA32Z256rm,      X86::VMOVDQU32Z256rm     },
+  { X86::VMOVDQA32Z256rmk,     X86::VMOVDQU32Z256rmk    },
+  { X86::VMOVDQA32Z256rmkz,    X86::VMOVDQU32Z256rmkz   },
+  { X86::VMOVDQA32Zmr,         X86::VMOVDQU32Zmr        },
+  { X86::VMOVDQA32Zmrk,        X86::VMOVDQU32Zmrk       },
+  { X86::VMOVDQA32Zrm,         X86::VMOVDQU32Zrm        },
+  { X86::VMOVDQA32Zrmk,        X86::VMOVDQU32Zrmk       },
+  { X86::VMOVDQA32Zrmkz,       X86::VMOVDQU32Zrmkz      },
+  { X86::VMOVDQA64Z128mr,      X86::VMOVDQU64Z128mr     },
+  { X86::VMOVDQA64Z128mrk,     X86::VMOVDQU64Z128mrk    },
+  { X86::VMOVDQA64Z128rm,      X86::VMOVDQU64Z128rm     },
+  { X86::VMOVDQA64Z128rmk,     X86::VMOVDQU64Z128rmk    },
+  { X86::VMOVDQA64Z128rmkz,    X86::VMOVDQU64Z128rmkz   },
+  { X86::VMOVDQA64Z256mr,      X86::VMOVDQU64Z256mr     },
+  { X86::VMOVDQA64Z256mrk,     X86::VMOVDQU64Z256mrk    },
+  { X86::VMOVDQA64Z256rm,      X86::VMOVDQU64Z256rm     },
+  { X86::VMOVDQA64Z256rmk,     X86::VMOVDQU64Z256rmk    },
+  { X86::VMOVDQA64Z256rmkz,    X86::VMOVDQU64Z256rmkz   },
+  { X86::VMOVDQA64Zmr,         X86::VMOVDQU64Zmr        },
+  { X86::VMOVDQA64Zmrk,        X86::VMOVDQU64Zmrk       },
+  { X86::VMOVDQA64Zrm,         X86::VMOVDQU64Zrm        },
+  { X86::VMOVDQA64Zrmk,        X86::VMOVDQU64Zrmk       },
+  { X86::VMOVDQA64Zrmkz,       X86::VMOVDQU64Zrmkz      },
+  { X86::VMOVDQAYmr,           X86::VMOVDQUYmr          },
+  { X86::VMOVDQAYrm,           X86::VMOVDQUYrm          },
+  { X86::VMOVDQAmr,            X86::VMOVDQUmr           },
+  { X86::VMOVDQArm,            X86::VMOVDQUrm           },
+};
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 /// X86MCInstLower - This class is used to lower an MachineInstr into an MCInst.
@@ -2611,6 +2704,20 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
 
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
+
+#if INTEL_CUSTOMIZATION
+  // Replace aligned vector move with unaligned vector move when the option is
+  // enabled.
+  if (EnableX86UnalignedVecMove) {
+    for (const auto Pair : AlignedMovToUnalignedMovTable) {
+      if (Pair[0] == TmpInst.getOpcode()) {
+        TmpInst.setOpcode(Pair[1]);
+        OutStreamer->AddComment("AlignMOV convert to UnAlignMOV ", false);
+        break;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Stackmap shadows cannot include branch targets, so we can count the bytes
   // in a call towards the shadow, but must ensure that the no thread returns
