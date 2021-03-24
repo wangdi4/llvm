@@ -131,6 +131,9 @@ def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 def "DIR.OMP.GENERICLOOP" : Directive;
 def "DIR.OMP.END.GENERICLOOP" : Directive;
 
+def "DIR.OMP.INTEROP"     : Directive;
+def "DIR.OMP.END.INTEROP" : Directive;
+
 #if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
 // legality analysis to be legal to vectorize.
@@ -199,6 +202,9 @@ def "QUAL.OMP.SCHEDULE.DYNAMIC" : Clause;
 def "QUAL.OMP.SCHEDULE.GUIDED" : Clause;
 def "QUAL.OMP.SCHEDULE.AUTO" : Clause;
 def "QUAL.OMP.SCHEDULE.RUNTIME" : Clause;
+def "QUAL.OMP.INIT" : Clause;
+def "QUAL.OMP.DESTROY" : Clause;
+def "QUAL.OMP.USE" : Clause;
 def "QUAL.OMP.SHARED" : Clause;
 def "QUAL.OMP.PRIVATE" : Clause;
 def "QUAL.OMP.FIRSTPRIVATE" : Clause;

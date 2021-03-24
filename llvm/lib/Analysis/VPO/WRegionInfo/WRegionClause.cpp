@@ -13,6 +13,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+#define DEBUG_TYPE "wregion-clause"
 
 namespace llvm {
 
@@ -136,6 +137,7 @@ template<>Clause<MapItem>         ::Clause():ClauseID(QUAL_OMP_MAP_TO){}
 template<>Clause<IsDevicePtrItem> ::Clause():ClauseID(QUAL_OMP_IS_DEVICE_PTR){}
 template<>Clause<UseDevicePtrItem>::Clause():ClauseID(QUAL_OMP_USE_DEVICE_PTR){}
 template<>Clause<SubdeviceItem>   ::Clause():ClauseID(QUAL_OMP_SUBDEVICE){}
+template<>Clause<InteropItem>     ::Clause():ClauseID(QUAL_OMP_INIT){}
 template<>Clause<DependItem>      ::Clause():ClauseID(QUAL_OMP_DEPEND_IN){}
 template<>Clause<DepSinkItem>     ::Clause():ClauseID(QUAL_OMP_DEPEND_SINK){}
 template<>Clause<DepSourceItem>   ::Clause():ClauseID(QUAL_OMP_DEPEND_SOURCE){}
@@ -250,6 +252,27 @@ void ArraySectionInfo::populateArraySectionDims(const Use *Args,
     Value *ST = Args[3 * I + 4];
 
     addDimension(std::make_tuple(LB, SZ, ST));
+  }
+}
+
+// This routine populates PreferList from the Args.
+void InteropItem::populatePreferList(const Use *Args, unsigned NumArgs) {
+  setIsPrefer();
+  assert(NumArgs != 0 &&
+         "prefer_type modifier is not allowed with empty preference-list");
+  for (unsigned i = 0; i < NumArgs; i++) {
+    ConstantInt *CI = cast<ConstantInt>(Args[i]);
+    if (CI->getValue() == 3) {
+      setIsPreferOpenCL();
+      PreferList.push_back(InitPreferOpenCL);
+    } else if (CI->getValue() == 4) {
+      setIsPreferSycl();
+      PreferList.push_back(InitPreferSycl);
+    } else if (CI->getValue() == 6) {
+      setIsPreferL0();
+      PreferList.push_back(InitPreferL0);
+    } else
+      assert("Non acceptable option of preference-list");
   }
 }
 

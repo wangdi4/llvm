@@ -134,6 +134,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_DISTRIBUTE_PARLOOP:
       W = new WRNDistributeParLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_INTEROP:
+      W = new WRNInteropNode(EntryBB);
+      break;
     case DIR_OMP_TARGET:
       W = new WRNTargetNode(EntryBB);
       break;

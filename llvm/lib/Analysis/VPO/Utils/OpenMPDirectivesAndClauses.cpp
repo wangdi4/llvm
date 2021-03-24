@@ -47,7 +47,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsUnsigned(false), IsComplex(false), IsConditional(false),
       IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
-      IsMapChainLink(false), IsIV(false) {
+      IsMapChainLink(false), IsIV(false), IsInitTarget(false),
+      IsInitTargetSync(false), IsInitPrefer(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -88,7 +89,20 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
     Mod.split(ModSubString, getModifiersSeparator());
     unsigned NumberOfModifierStrings = ModSubString.size();
 
-    if (VPOAnalysisUtils::isScheduleClause(getId()))
+    if (getId() == QUAL_OMP_INIT)
+      for (unsigned i = 0; i < NumberOfModifierStrings; i++) {
+        LLVM_DEBUG(dbgs() << "ClauseSpecifier: modifier = " << ModSubString[i]
+              << "\n");
+        if (ModSubString[i] == "TARGET")
+          setIsInitTarget();
+        else if (ModSubString[i] == "TARGETSYNC")
+          setIsInitTargetSync();
+        else if (ModSubString[i] == "PREFER")
+          setIsInitPrefer();
+        else
+          llvm_unreachable("Unknown modifier string for the Init clause");
+      }
+    else if (VPOAnalysisUtils::isScheduleClause(getId()))
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
         LLVM_DEBUG(dbgs() << "ClauseSpecifier: modifier = " << ModSubString[i]
                           << "\n");
@@ -434,6 +448,7 @@ bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   case DIR_OMP_CANCEL:
   case DIR_OMP_CANCELLATION_POINT:
   case DIR_OMP_THREADPRIVATE:
+  case DIR_OMP_INTEROP:
     return true;
   }
   return false;
@@ -465,6 +480,7 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
   case DIR_OMP_END_TARGET_UPDATE:
   case DIR_OMP_END_CANCEL:
   case DIR_OMP_END_CANCELLATION_POINT:
+  case DIR_OMP_END_INTEROP:
     return true;
   }
   return false;
@@ -588,6 +604,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_CANCEL;
   case DIR_OMP_CANCELLATION_POINT:
     return DIR_OMP_END_CANCELLATION_POINT;
+  case DIR_OMP_INTEROP:
+      return DIR_OMP_END_INTEROP;
   }
   return -1;
 }
@@ -803,6 +821,8 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
     case QUAL_OMP_OFFLOAD_ENTRY_IDX:
+    case QUAL_OMP_USE:
+    case QUAL_OMP_DESTROY:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     case QUAL_OMP_SA_NUM_WORKERS:

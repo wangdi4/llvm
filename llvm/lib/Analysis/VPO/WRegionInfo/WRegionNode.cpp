@@ -59,6 +59,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNCancel, "cancel"},
     {WRegionNode::WRNCritical, "critical"},
     {WRegionNode::WRNFlush, "flush"},
+    {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
     {WRegionNode::WRNMaster, "master"},
     {WRegionNode::WRNSingle, "single"},
@@ -490,6 +491,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveSubdevice())
     PrintedSomething |= getSubdevice().print(OS, Depth, Verbosity);
 
+  if (canHaveInteropAction())
+    PrintedSomething |= getInteropAction().print(OS, Depth, Verbosity);
+
   if (canHaveIsDevicePtr())
     PrintedSomething |= getIsDevicePtr().print(OS, Depth, Verbosity);
 
@@ -827,6 +831,18 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+  case QUAL_OMP_DESTROY: {
+    InteropActionClause &InteropAction = getInteropAction();
+    InteropAction.add(V);
+    InteropItem *InteropI = InteropAction.back();
+    InteropI->setIsDestroy();
+  } break;
+  case QUAL_OMP_USE: {
+    InteropActionClause &InteropAction = getInteropAction();
+    InteropAction.add(V);
+    InteropItem *InteropI = InteropAction.back();
+    InteropI->setIsUse();
+  } break;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case QUAL_OMP_SA_NUM_WORKERS:
@@ -961,6 +977,23 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
+}
+
+void WRegionNode::extractInitOpndList(InteropActionClause &InteropAction,
+                                      const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo) {
+
+  Value *V = Args[0];
+  InteropAction.add(V);
+  InteropItem *InteropI = InteropAction.back();
+  InteropI->setIsInit();
+
+  if (ClauseInfo.getIsInitTarget())
+    InteropI->setIsTarget();
+  if (ClauseInfo.getIsInitTargetSync())
+    InteropI->setIsTargetSync();
+  if (ClauseInfo.getIsInitPrefer())
+    InteropI->populatePreferList(&Args[1], NumArgs - 1);
 }
 
 void WRegionNode::extractScheduleOpndList(ScheduleClause &Sched,
@@ -1510,6 +1543,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     C.back()->setAllocator(AllocatorHandle);
     break;
   }
+  case QUAL_OMP_INIT: {
+    extractInitOpndList(getInteropAction(), Args, NumArgs, ClauseInfo);
+    break;
+  }
   case QUAL_OMP_SCHEDULE_AUTO: {
     extractScheduleOpndList(getSchedule(), Args, ClauseInfo, WRNScheduleAuto);
     break;
@@ -1908,6 +1945,15 @@ bool WRegionNode::canHaveSubdevice() const {
   case WRNTargetExitData:
   case WRNTargetUpdate:
   case WRNTargetVariant:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInteropAction() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNInterop:
     return true;
   }
   return false;

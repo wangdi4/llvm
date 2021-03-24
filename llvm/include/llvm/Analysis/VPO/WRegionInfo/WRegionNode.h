@@ -237,6 +237,7 @@ public:
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
   bool canHaveSubdevice() const;
+  bool canHaveInteropAction() const;
   bool canHaveDepend() const;
   bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
@@ -334,6 +335,7 @@ public:
   virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual SubdeviceClause &getSubdevice()       {WRNERROR(QUAL_OMP_SUBDEVICE);}
+  virtual InteropActionClause &getInteropAction() {WRNERROR("INTEROP_ACTION");}
 
   // list-type clauses (const getters)
 
@@ -387,6 +389,8 @@ public:
                                          {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual const SubdeviceClause &getSubdevice() const
                                               {WRNERROR(QUAL_OMP_SUBDEVICE);}
+  virtual const InteropActionClause &getInteropAction() const
+                                                {WRNERROR("INTEROP_ACTION");}
 
   // other clauses (both getters and setters)
 
@@ -743,6 +747,7 @@ public:
   void setIsTarget()             { Attributes |= WRNIsTarget; }
   void setIsTask()               { Attributes |= WRNIsTask; }
   void setIsTeams()              { Attributes |= WRNIsTeams; }
+  void setIsInterop()            { Attributes |= WRNIsInterop; }
 
   /// Routines to get WRN primary attributes
   unsigned getAttributes() const { return Attributes; }
@@ -753,6 +758,7 @@ public:
   bool getIsTarget()       const { return Attributes & WRNIsTarget; }
   bool getIsTask()         const { return Attributes & WRNIsTask; }
   bool getIsTeams()        const { return Attributes & WRNIsTeams; }
+  bool getIsInterop()      const { return Attributes & WRNIsInterop; }
 
   /// Routines to get WRN derived attributes
   bool getIsParLoop()      const { return  getIsPar()  && getIsOmpLoop(); }
@@ -822,7 +828,8 @@ public:
     WRNSingle,
     WRNTaskgroup,
     WRNTaskwait,
-    WRNTaskyield
+    WRNTaskyield,
+    WRNInterop
   };
 
   /// WRN primary attributes
@@ -833,7 +840,8 @@ public:
     WRNIsSections   = 0x00000008,
     WRNIsTarget     = 0x00000010,
     WRNIsTask       = 0x00000020,
-    WRNIsTeams      = 0x00000040
+    WRNIsTeams      = 0x00000040,
+    WRNIsInterop    = 0x00000080
   };
 
 private:
@@ -905,6 +913,11 @@ private:
   static void extractScheduleOpndList(ScheduleClause &Sched, const Use *Args,
                                       const ClauseSpecifier &ClauseInfo,
                                       WRNScheduleKind Kind);
+
+  /// Extract operands from an init clause
+  static void extractInitOpndList(InteropActionClause &InteropAction,
+                                  const Use *Args, unsigned NumArgs,
+                                  const ClauseSpecifier &ClauseInfo);
   /// @}
 
 }; // class WRegionNode
