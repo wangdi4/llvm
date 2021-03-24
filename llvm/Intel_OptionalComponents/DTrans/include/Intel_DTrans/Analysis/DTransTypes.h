@@ -140,7 +140,7 @@ public:
   // \p Detailed - When 'true', internals of structure types have their
   //               field types printed.
   LLVM_DUMP_METHOD void print(llvm::raw_ostream &OS,
-                              bool Detailed = false) const;
+                              bool Detailed = true) const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -155,7 +155,7 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static inline raw_ostream &operator<<(raw_ostream &OS,
                                       const DTransType &DTType) {
-  DTType.print(OS, false);
+  DTType.print(OS, true);
   return OS;
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

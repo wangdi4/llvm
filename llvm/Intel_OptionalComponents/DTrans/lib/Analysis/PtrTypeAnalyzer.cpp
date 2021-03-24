@@ -3327,7 +3327,9 @@ bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
       dbgs() << "    Added element:" << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
              << ": ";
       printValue(dbgs(), V);
-      dbgs() << " -- " << *BaseTy << " @ ";
+      dbgs() << " -- ";
+      BaseTy->print(dbgs(), false);
+      dbgs() << " @ ";
       switch (Loc.getKind()) {
       case PointeeLoc::PLK_Field:
         dbgs() << Loc.getElementNum() << "\n";
@@ -3479,7 +3481,9 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
           OutputStream << " ElementOf: ";
           const char *Sep = "";
           for (auto &T : PointeePair.second.ElementOf) {
-            OutputStream << Sep << *T.first << "@" << T.second;
+            OutputStream << Sep;
+            T.first->print(OutputStream, false);
+            OutputStream << "@" << T.second;
             Sep = ", ";
           }
         }

@@ -171,14 +171,27 @@ DTransStructType *DTransStructType::get(DTransTypeManager &TM,
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransStructType::print(raw_ostream &OS, bool Detailed) const {
+  auto PrintStructBody = [](raw_ostream &OS,
+                            const SmallVectorImpl<DTransFieldMember> &Fields) {
+    bool First = true;
+    OS << "{ ";
+    for (auto &Field : Fields) {
+      if (!First)
+        OS << ", ";
+      Field.print(OS, false);
+      First = false;
+    }
+    OS << " }";
+  };
+
   if (getReconstructError())
     OS << "Metadata mismatch: ";
 
   // For compatibility with the way struct names are printed for
   // llvm::StructType, some names will be quoted.
   auto ShouldQuoteName = [](StringRef S) { return S.contains(':'); };
-
-  if (!isLiteralStruct()) {
+  bool IsLiteral = isLiteralStruct();
+  if (!IsLiteral) {
     assert(hasName() && "Non-literal structs should have names");
     if (ShouldQuoteName(getName()))
       OS << "%\"" << getName() << "\"";
@@ -186,34 +199,21 @@ void DTransStructType::print(raw_ostream &OS, bool Detailed) const {
       OS << "%" << getName();
   } else {
     // Print a literal type as its contents
-    OS << "{ ";
-    bool First = true;
-    for (auto &Field : getFields()) {
-      if (!First)
-        OS << ", ";
-      Field.print(OS, false);
-      First = false;
-    }
-    OS << " }";
+    PrintStructBody(OS, getFields());
   }
 
   if (Detailed) {
     // Print the structure members
-    OS << "\n";
     if (getNumFields() == 0) {
       if (IsOpaque)
-        OS << "  opaque";
+        OS << " = type opaque";
       else
-        OS << "  empty";
+        OS << " = type {}";
       return;
     }
 
-    unsigned Number = 0;
-    for (auto &Field : getFields()) {
-      OS << format_decimal(Number++, 3) << ") ";
-      Field.print(OS, false);
-      OS << "\n";
-    }
+    OS << " = type ";
+    PrintStructBody(OS, getFields());
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -296,13 +296,19 @@ void DTransFunctionType::print(raw_ostream &OS) const {
 void DTransFieldMember::print(raw_ostream &OS, bool) const {
   // Warn if multiple types were collected for the field.
   if (DTTypes.size() > 1)
-    OS << "<HAS CONFLICTS>\n";
+    OS << "<HAS CONFLICTS> ";
 
   bool First = true;
   for (auto *DType : DTTypes) {
+    // Structure fields should only have a single type. However, the data
+    // structure allows multiple types to aid in debugging problems with
+    // conflicting information in the metadata. Mark these additional types when
+    // printing.
     if (!First)
-      OS << "\n     ";
+      OS << " #";
     DType->print(OS, false);
+    if (!First)
+      OS << "#";
     First = false;
   }
 }
