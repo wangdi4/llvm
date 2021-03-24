@@ -662,7 +662,9 @@ public:
     RDECL Destructor;
     ArraySectionInfo ArrSecInfo;
     AllocateItem *InAllocate; // AllocateItem with the same opnd
-
+    Value *TaskRedInitOrigArg =
+        nullptr; // Tasks: 2nd argument in kmpc_taskred_init's
+                 // reduction init callback function.
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
@@ -764,6 +766,7 @@ public:
     void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
     void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI;  }
+    void setTaskRedInitOrigArg(Value *V) { TaskRedInitOrigArg = V; }
 
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
@@ -774,6 +777,7 @@ public:
     RDECL getConstructor()     const { return Constructor;   }
     RDECL getDestructor()      const { return Destructor;    }
     AllocateItem *getInAllocate() const { return InAllocate; }
+    Value *getTaskRedInitOrigArg() const { return TaskRedInitOrigArg; }
 
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }

@@ -3614,10 +3614,15 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   Value *OldV = RedI->getOrig();
   Value *NewV = RedI->getNew();
   if (NeedSrc) {
-    IRBuilder<> Builder(InsertPt);
-    // For by-refs, do a pointer dereference to reach the actual operand.
-    if (RedI->getIsByRef())
-      OldV = Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
+    if (Value *OrigArg = RedI->getTaskRedInitOrigArg()) {
+      OldV = OrigArg;
+    } else {
+      IRBuilder<> Builder(InsertPt);
+      // For by-refs, do a pointer dereference to reach the actual operand.
+      if (RedI->getIsByRef())
+        OldV =
+            Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
+    }
   }
 
 #if INTEL_CUSTOMIZATION
@@ -3635,7 +3640,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   }
   IRBuilder<> Builder(InsertPt);
   if (IsUDR) {
-    genReductionUdrInit(RedI, RedI->getOrig(), NewV, AllocaTy, Builder);
+    genReductionUdrInit(RedI, OldV, NewV, AllocaTy, Builder);
     return;
   }
 
