@@ -130,6 +130,9 @@ public:
   // Returns ListNodeType.
   StructType *getListNodeType() { return ListNodeType; }
 
+  // Returns ReusableArenaBlockType.
+  StructType *getReusableArenaBlockType() { return ReusableArenaBlockType; }
+
   // Returns index of ArenaAllocatorObject.
   int32_t getArenaAllocatorObjectIndex() { return ArenaAllocatorObjectIndex; }
   // Returns index of destroyBlockFlag.
@@ -144,6 +147,26 @@ public:
   int32_t getListHeadIndex() { return ListHeadIndex; }
   // Returns index of FreeHead in List.
   int32_t getListFreeHeadIndex() { return ListFreeHeadIndex; }
+  // Returns index of Allocator in BlockBase.
+  int32_t getBasicAllocatorIndex() { return BasicAllocatorIndex; }
+  // Returns index of ObjectCount in BlockBase.
+  int32_t getBlockObjectCountIndex() { return BlockObjectCountIndex; }
+  // Returns index of BlockSize in BlockBase.
+  int32_t getBlockBlockSizeIndex() { return BlockBlockSizeIndex; }
+  // Returns index of StringObject (i.e ObjectBlock) in BlockBase.
+  int32_t getStringObjectIndex() { return StringObjectIndex; }
+  // Returns index of BlockBase class in ReusableArenaBlock.
+  int32_t getBlockBaseObjIndex() { return BlockBaseObjIndex; }
+  // Returns index of FirstFreeBlockIndex in ReusableArenaBlock.
+  int32_t getFirstFreeBlockIndex() { return FirstFreeBlockIndex; }
+  // Returns index of NextFreeBlockIndex in ReusableArenaBlock.
+  int32_t getNextFreeBlockIndex() { return NextFreeBlockIndex; }
+  // Returns index of ReusableArenaBlock in ListNode.
+  int32_t getReusableArenaBlockIndex() { return ReusableArenaBlockIndex; }
+  // Returns index of NodePrevIndex in ListNode.
+  int32_t getNodePrevIndex() { return NodePrevIndex; }
+  // Returns index of NodeNextIndex in ListNode.
+  int32_t getNodeNextIndex() { return NodeNextIndex; }
 
 private:
   Module &M;
@@ -168,6 +191,9 @@ private:
 
   // Type of Node class.
   StructType *ListNodeType = nullptr;
+
+  // Type of ReusableArenaBlockType class.
+  StructType *ReusableArenaBlockType = nullptr;
 
   // Member functions of StringAllocatorType.
   SmallPtrSet<Function *, 8> StringAllocatorFunctions;
@@ -208,6 +234,36 @@ private:
 
   // Index of listFreeHead in List
   int32_t ListFreeHeadIndex = -1;
+
+  // Index of Allocator in BlockBase
+  int32_t BasicAllocatorIndex = -1;
+
+  // Index of ObjectCount in BlockBase
+  int32_t BlockObjectCountIndex = -1;
+
+  // Index of BlockSize in BlockBase
+  int32_t BlockBlockSizeIndex = -1;
+
+  // Index of StringObject in BlockBase
+  int32_t StringObjectIndex = -1;
+
+  // Index of BlockBase class in ReusableArenaBlock.
+  int32_t BlockBaseObjIndex = -1;
+
+  // Index of FirstFreeBlockIndex in ReusableArenaBlock
+  int32_t FirstFreeBlockIndex = -1;
+
+  // Index of NextFreeBlockIndex in ReusableArenaBlock
+  int32_t NextFreeBlockIndex = -1;
+
+  // Index of ReusableArenaBlock in ListNode
+  int32_t ReusableArenaBlockIndex = -1;
+
+  // Index of NodePrevIndex in ListNode
+  int32_t NodePrevIndex = -1;
+
+  // Index of NodeNextIndex in ListNode
+  int32_t NodeNextIndex = -1;
 
   inline StructType *getClassType(const Function *F);
   inline bool isBasicAllocatorType(Type *Ty);
@@ -359,17 +415,29 @@ bool MemManageCandidateInfo::isBlockBaseType(Type *Ty) {
   unsigned NumCounters = 0;
   unsigned NumBasicAllocatons = 0;
   unsigned NumStringPtrs = 0;
+  int32_t FieldCount = -1;
   for (auto *ETy : STy->elements()) {
+    FieldCount++;
     if (ETy->isIntegerTy(16)) {
       NumCounters++;
+      // For now, assume first i16 field as ObjectCount and the second
+      // i16 field as BlockSize.
+      if (BlockObjectCountIndex == -1)
+        BlockObjectCountIndex = FieldCount;
+      else if (BlockBlockSizeIndex == -1)
+        BlockBlockSizeIndex = FieldCount;
+      else
+        return false;
       continue;
     }
     if (isBasicAllocatorType(ETy)) {
       NumBasicAllocatons++;
+      BasicAllocatorIndex = FieldCount;
       continue;
     }
     if (isStringObjectType(ETy)) {
       NumStringPtrs++;
+      StringObjectIndex = FieldCount;
       continue;
     }
     return false;
@@ -391,23 +459,35 @@ bool MemManageCandidateInfo::isReusableArenaBlockType(Type *Ty) {
   unsigned NumCounters = 0;
   unsigned NumBlockBase = 0;
   unsigned NumUnused = 0;
+  int32_t FieldCount = -1;
   for (auto *ETy : STy->elements()) {
+    FieldCount++;
     if (isPotentialPaddingField(ETy)) {
       NumUnused++;
       continue;
     }
     if (ETy->isIntegerTy(16)) {
       NumCounters++;
+      // For now, assume first i16 field as FirstFreeBlock and the second
+      // i16 field as NextFreeBlock.
+      if (FirstFreeBlockIndex == -1)
+        FirstFreeBlockIndex = FieldCount;
+      else if (NextFreeBlockIndex == -1)
+        NextFreeBlockIndex = FieldCount;
+      else
+        return false;
       continue;
     }
     if (isBlockBaseType(ETy)) {
       NumBlockBase++;
+      BlockBaseObjIndex = FieldCount;
       continue;
     }
     return false;
   }
   if (NumCounters != 2 || NumUnused > 1 || NumBlockBase != 1)
     return false;
+  ReusableArenaBlockType = STy;
   return true;
 }
 
@@ -422,16 +502,27 @@ bool MemManageCandidateInfo::isListNodeType(Type *Ty) {
 
   unsigned NumListNodePtrs = 0;
   unsigned NumReusableArenaBlock = 0;
+  int32_t FieldCount = -1;
   for (auto *ETy : STy->elements()) {
     auto *PTy = getPointeeType(ETy);
     if (!PTy)
       return false;
+    FieldCount++;
     if (PTy == Ty) {
       NumListNodePtrs++;
+      // For now, assume first NodeTy field as NodePrev and the second
+      // NodeTy field as NodeNext.
+      if (NodePrevIndex == -1)
+        NodePrevIndex = FieldCount;
+      else if (NodeNextIndex == -1)
+        NodeNextIndex = FieldCount;
+      else
+        return false;
       continue;
     }
     if (isReusableArenaBlockType(PTy)) {
       NumReusableArenaBlock++;
+      ReusableArenaBlockIndex = FieldCount;
       continue;
     }
     return false;

@@ -3056,7 +3056,7 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
       // pattern from the other operand, recursively.
       // If there is no fcmp instruction: unsupport this pattern, just return
       // false;
-      for (int i = 0; i < 2; ++i) {
+      for (int i = 1; i >= 0; --i) {
         auto FCmp = dyn_cast<FCmpInst>(Or->getOperand(i));
         if (!FCmp) {
           OrIndex = i;
@@ -3445,8 +3445,8 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
     return false;
 
   // Check if LHS is the third use of t2x/t2y/t2z.
-  if (LHS[0] != Group2.FMul[1] || LHS[1] != Group0.FMul[1] ||
-      LHS[2] != Group1.FMul[1])
+  if (LHS[0] != Group2.FMul[1] || LHS[1] != Group1.FMul[1] ||
+      LHS[2] != Group0.FMul[1])
     return false;
 
   // Check if RHS is zero.
@@ -3490,8 +3490,8 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
     return false;
 
   // Check if LHS is the third use of t1x/t1y/t1z.
-  if (LHS[0] != Group2.FMul[0] || LHS[1] != Group0.FMul[0] ||
-      LHS[2] != Group1.FMul[0])
+  if (LHS[0] != Group2.FMul[0] || LHS[1] != Group1.FMul[0] ||
+      LHS[2] != Group0.FMul[0])
     return false;
 
   // Check if RHS is splat value.
