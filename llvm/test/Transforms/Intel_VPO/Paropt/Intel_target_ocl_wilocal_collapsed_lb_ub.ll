@@ -14,7 +14,7 @@
 
 ; Check that the collapsed LB and UB variables are properly privatized
 ; by target and teams as WILOCAL, so that there is no barrier required.
-; CHECK-NOT: call{{.*}}work_group_barrier
+; CHECK-NOT: call{{.*}}spirv_ControlBarrier
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

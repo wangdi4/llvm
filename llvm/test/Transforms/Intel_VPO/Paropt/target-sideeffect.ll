@@ -48,10 +48,10 @@ for.body:                                         ; preds = %for.cond
 
   %call = call spir_func float @sinf(float %6) #1
 ; Check that %call is stored to a global and then loaded in other threads
-; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: %call = call spir_func float @sinf(float %{{.*}})
 ; CHECK: store float %call, float addrspace(3)* @call.broadcast.ptr.__local
-; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: %call.new = load float, float addrspace(3)* @call.broadcast.ptr.__local
 
   %7 = load float addrspace(4)*, float addrspace(4)* addrspace(4)* %f.addr.ascast, align 8
@@ -62,10 +62,10 @@ for.body:                                         ; preds = %for.cond
 
   %call5 = call spir_func float @cosf(float %9) #1
 ; Check that %call5 is captured and then broadcast
-; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: %call5 = call spir_func float @cosf(float %{{.*}})
 ; CHECK: store float %call5, float addrspace(3)* @call5.broadcast.ptr.__local
-; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: %call5.new = load float, float addrspace(3)* @call5.broadcast.ptr.__local
 
   %add = fadd float %call, %call5

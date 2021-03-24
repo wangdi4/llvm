@@ -176,12 +176,6 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     for (const auto &II : InputFiles)
       Objs.push_back(II.getFilename());
 
-#if INTEL_CUSTOMIZATION
-  if (C.getDriver().IsIntelMode() && JA.isDeviceOffloading(Action::OFK_OpenMP))
-    Objs.push_back(Args.MakeArgString(C.getDriver().Dir +
-                                         "/../lib/libomptarget-opencl.bc"));
-#endif // INTEL_CUSTOMIZATION
-
   // Get llvm-link path.
   SmallString<128> ExecPath(C.getDriver().Dir);
   llvm::sys::path::append(ExecPath, "llvm-link");

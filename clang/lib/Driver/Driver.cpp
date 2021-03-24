@@ -408,7 +408,16 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
   enum {
     LinkFP32 = 0x1,
     LinkFP64 = 0x2,
-    LinkLibc = 0x4
+    LinkLibc = 0x4,
+    // There is no option to override RTL linking.
+    // It must be linked always.
+    LinkRtl = 0x8,
+    // ITT libraries must be linked always, unless
+    // it is AOT compilation. Since the ITT libraries do not have
+    // AOT images in the bundle, we can just unbundle/link them always.
+    // Moreover, we just have to unbundle them, if both non-AOT
+    // and AOT compilations are requested in one clang invocation.
+    LinkITT = 0x10,
   };
   auto UpdateFlag =
       [](unsigned Flag, StringRef Val, bool Reset, bool OldOpt=false) {
@@ -438,7 +447,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
   // TODO - this will become the default sometime in the future.
   // FIXME - There is a bit of common code in this function that can be
   // cleaned up.
-  unsigned LinkForOMP = LinkFP32 | LinkFP64;
+  unsigned LinkForOMP = LinkFP32 | LinkFP64 | LinkRtl | LinkITT;
 
   // TODO - Clean out -device-math-lib usage when it is removed.  For now
   // it is deprecated.  Also, we do nothing special for when both options
@@ -467,6 +476,9 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
   bool IsMSVC = TC.getTriple().isWindowsMSVCEnvironment();
   StringRef LibCName = IsMSVC ? "libomp-msvc" : "libomp-glibc";
   SmallVector<std::pair<const StringRef, unsigned>, 8> omp_device_libs = {
+    // WARNING: the order will matter here, when we add -only-needed
+    //          for llvm-link linking these libraries.
+    { "libomp-spirvdevicertl", LinkRtl },
     { LibCName, LinkLibc },
     { "libomp-complex", LinkFP32 },
     { "libomp-complex-fp64", LinkFP64 },
@@ -478,7 +490,14 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
     { "libomp-fallback-complex", LinkFP32 },
     { "libomp-fallback-complex-fp64", LinkFP64 },
     { "libomp-fallback-cmath", LinkFP32 },
-    { "libomp-fallback-cmath-fp64", LinkFP64 } };
+    { "libomp-fallback-cmath-fp64", LinkFP64 },
+    // ITT libraries must be last in the unbundling/linking order,
+    // since the other libraries may call ITT APIs.
+    { "libomp-itt-user-wrappers", LinkITT },
+    { "libomp-itt-compiler-wrappers", LinkITT },
+    // The above ITT libraries are calling ITT stubs,
+    // so the stubs must be linked after them.
+    { "libomp-itt-stubs", LinkITT } };
 
   // Go through the lib vectors and add them accordingly.
   auto addInput = [&](const char * LibName) {
@@ -498,8 +517,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
       SmallString<128> LibName(OMPLibLoc);
       llvm::sys::path::append(LibName, Lib.first);
       llvm::sys::path::replace_extension(LibName, Ext);
-      if ((Lib.second & LinkForOMP) == Lib.second &&
-          llvm::sys::fs::exists(LibName))
+      if ((Lib.second & LinkForOMP) == Lib.second)
         addInput(Args.MakeArgString(LibName));
     }
   }
