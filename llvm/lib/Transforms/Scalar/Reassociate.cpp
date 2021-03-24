@@ -74,6 +74,10 @@ static cl::opt<bool>
     EarlyExitBoolExpr("reassoc-early-exit-for-boolean-expr", cl::init(true),
                       cl::Hidden, cl::desc("Exit early from reassociation pass "
                                            "when data type is boolean."));
+static cl::opt<bool>
+    PreserveNWFlags("reassoc-preserve-flags", cl::init(true), cl::Hidden,
+                    cl::desc("Attempt to preserve no-wrap flags "
+                             "when reassociating sums/products"));
 #endif // INTEL_CUSTOMIZATION
 
 STATISTIC(NumChanged, "Number of insts reassociated");
@@ -2328,10 +2332,68 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
   ReassociateExpression(BO);
 }
 
+#if INTEL_CUSTOMIZATION
+// Determine if this BinOp tree allows overflow. If any BinOp in the tree does
+// not have any of the "wanted" flags indicated by WantSigned/WantUnsigned,
+// then the whole tree allows overflow and we return false.
+// For example:
+//   - WantSigned  &&  WantUnsigned: Return true if all BinOps have NUW or if
+//                                    all BinOps have NSW.
+//   - WantSigned  && !WantUnsigned: Return true if all BinOps have NSW.
+//   - !WantSigned &&  WantUnsigned: Return true if all BinOps have NUW.
+//   - !WantSigned && !WantUnsigned: Return true if there are no BinOps.
+static bool IsNonOverflowingTree(Value *V, SmallSet<Value *, 8> &Visited,
+                                 bool WantSigned, bool WantUnsigned) {
+
+  // If we have seen this Value already and it was not conclusive, then it must
+  // have had the flags in question. This avoids infinite recursion.
+  if (!Visited.insert(V).second)
+    return true;
+
+  // If we're not an overflowing operator, then we need not worry about
+  // overflow.
+  auto *RootOp = dyn_cast<OverflowingBinaryOperator>(V);
+  if (!RootOp)
+    return true;
+
+  // Update our "wanted" flags. If we find that a wanted flag is not present,
+  // then our search has ended for that flag type. We may be able to continue
+  // for the other flag type.
+  if (WantSigned && !RootOp->hasNoSignedWrap())
+    WantSigned = false;
+
+  if (WantUnsigned && !RootOp->hasNoUnsignedWrap())
+    WantUnsigned = false;
+
+  // If we find that neither flag of interest is present, then the tree
+  // conclusively allows overflow.
+  if (!WantSigned && !WantUnsigned)
+    return false;
+
+  // We have a required flag. Check if the children do, too.
+  return all_of(
+      RootOp->operand_values(), [WantSigned, WantUnsigned, &Visited](Value *V) {
+        return IsNonOverflowingTree(V, Visited, WantSigned, WantUnsigned);
+      });
+}
+
+// This is a convenience wrapper to instantiate Visited.
+static bool IsNonOverflowingTree(Value *V, bool WantSigned, bool WantUnsigned) {
+  SmallSet<Value *, 8> Visited;
+  return IsNonOverflowingTree(V, Visited, WantSigned, WantUnsigned);
+}
+
+// This is a convenience wrapper to check for *either* NUW or NSW.
+static bool IsNonOverflowingTree(Value *V) {
+  return IsNonOverflowingTree(V, /*WantSigned=*/true, /*WantUnsigned=*/true);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
   // First, walk the expression tree, linearizing the tree, collecting the
   // operand information.
   SmallVector<RepeatedValue, 8> Tree;
+  const bool TreeHasNoWrapFlags = IsNonOverflowingTree(I); // INTEL
   MadeChange |= LinearizeExprTree(I, Tree);
   SmallVector<ValueEntry, 8> Ops;
   Ops.reserve(Tree.size());
@@ -2340,6 +2402,8 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
     Ops.append(E.second.getZExtValue(),
                ValueEntry(getRank(E.first), E.first));
   }
+
+  SmallVector<ValueEntry, 8> OrigOps(Ops); // INTEL
 
   LLVM_DEBUG(dbgs() << "RAIn:\t"; PrintOps(I, Ops); dbgs() << '\n');
 
@@ -2453,6 +2517,31 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
   }
   // Now that we ordered and optimized the expressions, splat them back into
   // the expression tree, removing any unneeded nodes.
+
+#if INTEL_CUSTOMIZATION
+  // Use some rough heuristics to avoid destroying no-wrap flags which may be
+  // helpful later, particularly during IV widening. We bail out if all of the
+  // following are true:
+  // 1. The original expression tree has a full set of NUW or NSW flags
+  // 2. The type is an integer which may be widened to 64-bits later
+  // 3. The potential reassociation is not changing the tree shape/size
+  // 4. The tree is non-trivial, consisting of more than one operation
+  // 5. The tree directly involves a PHI node, likely an IV
+  const bool IsNarrow =
+      I->getType()->getScalarType()->isIntegerTy() &&
+      (I->getType()->getScalarType()->getPrimitiveSizeInBits() < 64);
+  const bool SameTreeShape = (Ops.size() == OrigOps.size());
+  const bool NonTrivial = (OrigOps.size() > 2);
+  const bool HasPhi = any_of(Ops, [](auto &Op) { return isa<PHINode>(Op.Op); });
+
+  if (PreserveNWFlags && TreeHasNoWrapFlags && IsNarrow && SameTreeShape &&
+      NonTrivial && HasPhi) {
+    if (MadeChange)
+      RewriteExprTree(I, OrigOps);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   RewriteExprTree(I, Ops);
 }
 
