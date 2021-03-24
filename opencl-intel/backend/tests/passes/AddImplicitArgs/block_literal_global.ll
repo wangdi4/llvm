@@ -3,6 +3,7 @@
 ; Issue tested: previously kernelBlock_block_invoke was renamed to 
 ;               kernelBlock_block_invoke_before.AddImplicitArgs in bitcast 
 
+; RUN: %oclopt -add-implicit-args -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -23,3 +24,5 @@ entry:
   ret i32 %mul
 }
 
+
+; DEBUGIFY-NOT: WARNING

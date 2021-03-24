@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -S -verify < %s | FileCheck %s
 ; check the metadata is preserved correctly during transformations
 
@@ -19,3 +20,5 @@ entry:
 !4 = !{void ()* @UniformAddKernel}
 
 ; CHECK: ![[KERNELS]] = !{void {{.*}}* @UniformAddKernel}
+
+; DEBUGIFY-NOT: WARNING

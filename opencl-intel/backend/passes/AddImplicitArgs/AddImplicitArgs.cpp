@@ -270,6 +270,7 @@ namespace intel{
       }
       else if (auto *CI = dyn_cast<PtrToIntInst>(user)) {
         auto *NewCE = CastInst::CreatePointerCast(pNewF, CI->getType(), "", CI);
+        NewCE->setDebugLoc(CI->getDebugLoc());
         CI->replaceAllUsesWith(NewCE);
         CI->eraseFromParent();
       }
@@ -286,6 +287,7 @@ namespace intel{
 
         auto *Cast = CastInst::CreatePointerCast(pNewF, OldFPtrTy, "", SI);
         auto *NewSI = new StoreInst(Cast, SI->getPointerOperand(), SI);
+        NewSI->setDebugLoc(SI->getDebugLoc());
         SI->replaceAllUsesWith(NewSI);
         SI->eraseFromParent();
       }
