@@ -1,3 +1,4 @@
+; RUN: %oclopt -ocl-syncfunctionattrs -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -ocl-syncfunctionattrs -verify -S < %s | FileCheck %s
 %opencl.reserve_id_t.5 = type opaque
 %opencl.pipe_wo_t.6 = type opaque
@@ -34,3 +35,5 @@ attributes #0 = { convergent }
 !opencl.ocl.version = !{!0}
 
 !0 = !{i32 2, i32 0}
+
+; DEBUGIFY-NOT: WARNING

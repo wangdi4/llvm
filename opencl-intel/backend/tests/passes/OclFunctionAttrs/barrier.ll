@@ -1,3 +1,4 @@
+; RUN: %oclopt -ocl-syncfunctionattrs -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -ocl-syncfunctionattrs -verify -S < %s | FileCheck %s
 ; CHECK: Function Attrs: convergent
 
@@ -26,3 +27,5 @@ entry:
 ;; Do not expect other attributes to appear
 ; CHECK-NOT: #1
 
+
+; DEBUGIFY-NOT: WARNING

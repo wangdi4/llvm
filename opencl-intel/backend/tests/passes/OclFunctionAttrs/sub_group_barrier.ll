@@ -1,3 +1,4 @@
+; RUN: %oclopt -ocl-syncfunctionattrs -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -ocl-syncfunctionattrs -verify -S < %s | FileCheck %s
 ; This is a hand-written sample mimicking output of llvm-spirv.
 
@@ -28,3 +29,5 @@ attributes #0 = { noduplicate }
 ; CHECK: attributes #0 = { convergent "kernel-call-once" "kernel-convergent-call" }
 ;; Do not expect other attributes to appear
 ; CHECK-NOT: #1
+
+; DEBUGIFY-NOT: WARNING
