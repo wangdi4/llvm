@@ -821,9 +821,12 @@ int32_t DeviceTy::get_data_alloc_info(
     return OFFLOAD_FAIL;
 }
 
-int32_t DeviceTy::pushSubDevice(int64_t ID) {
-  if (RTL->push_subdevice)
-    return RTL->push_subdevice(ID);
+int32_t DeviceTy::pushSubDevice(int64_t EncodedID, int64_t DeviceID) {
+  if (RTL->push_subdevice == nullptr)
+    return OFFLOAD_SUCCESS;
+
+  if (EncodedID != DeviceID)
+    return RTL->push_subdevice(EncodedID);
   else
     return OFFLOAD_SUCCESS;
 }
@@ -887,6 +890,34 @@ const char *DeviceTy::getInteropRcDesc(int32_t RetCode) {
     return RTL->get_interop_rc_desc(RTLDeviceID, RetCode);
   else
     return NULL;
+}
+
+int32_t DeviceTy::setSubDevice(int32_t Level) {
+  if (RTL->get_num_sub_devices) {
+    if (PM->RootDeviceID >= 0 || PM->SubDeviceMask != 0) {
+      DP("WARNING: unexpected sub-device region detected -- "
+         "sub-device environment is not configured.\n");
+      return 0;
+    }
+    int32_t NumSubDevices = RTL->get_num_sub_devices(RTLDeviceID, Level);
+    if (NumSubDevices > 0) {
+      int64_t Mask = 1ULL << 63; // Sub-device is on
+      Mask |= static_cast<int64_t>(Level) << 56; // Level
+      // "start" bits will be written by the ID passed to __tgt* entries.
+      Mask |= 1ULL << 40; // Count
+      Mask |= 1ULL << 32; // Stride
+      PM->RootDeviceID = RTLDeviceID;
+      PM->SubDeviceMask = Mask;
+    }
+    return NumSubDevices;
+  } else {
+    return 0;
+  }
+}
+
+void DeviceTy::unsetSubDevice(void) {
+  PM->RootDeviceID = -1;
+  PM->SubDeviceMask = 0;
 }
 #endif // INTEL_COLLAB
 

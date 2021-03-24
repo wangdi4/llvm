@@ -61,6 +61,8 @@ VERS1.0 {
     omp_get_interop_name;
     omp_get_interop_type_desc;
     omp_get_interop_rc_desc;
+    omp_set_sub_device;
+    omp_unset_sub_device;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount;
