@@ -961,7 +961,6 @@ CallInst *VPOParoptUtils::genTgtRegGeneric(Value *Desc, Instruction *InsertPt,
 //   "_Z14get_local_sizej"
 //   "_Z14get_num_groupsj"
 //   "_Z12get_group_idj"
-//   "_Z18work_group_barrierj"
 //   "_Z9mem_fencej"
 //   "_Z14read_mem_fencej"
 //   "_Z15write_mem_fencej".
@@ -3664,6 +3663,19 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 
   CallInst *Call = genCall(M, FnName, ReturnTy, FnArgs, FnArgTypes, InsertPt,
                            IsTail, IsVarArg);
+  return Call;
+}
+
+// A genCall() interface where FunArgTypes and Module are omitted.
+// FunArgTypes is computed from FnArgs, and Module is computed from
+// InsertPt. The Call is emitted before InsertPt.
+CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
+                                  ArrayRef<Value *> FnArgs,
+                                  Instruction *InsertPt, bool IsTail) {
+  assert (InsertPt && "InsertPt is required to find the Module");
+  Module *M = InsertPt->getModule();
+  CallInst *Call = genCall(M, FnName, ReturnTy, FnArgs, InsertPt,
+                           IsTail, /*IsVarArg=*/false);
   return Call;
 }
 

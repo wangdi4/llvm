@@ -29,6 +29,9 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   set(opencl_device_rtl_tmp_bc
     ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.tmp.bc
     )
+  set(opencl_device_rtl_regularized_tmp_bc
+    ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.reg.tmp.bc
+    )
   set(opencl_device_rtl_bc ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.bc)
   if (WIN32)
     set(objext .obj)
@@ -37,8 +40,9 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     set(objext .o)
     set(host_target_name host-x86_64-unknown-linux-gnu)
   endif()
+  # We use libomp- prefix to unify the naming with libdevice parts.
   set(opencl_device_rtl_obj
-    ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-spirvdevicertl${objext}
+    ${LIBOMPTARGET_LIBRARY_DIR}/libomp-spirvdevicertl${objext}
     )
   set(opencl_flags_spirv
     -cc1 -emit-llvm-bc -triple spir64-unknown-unknown -cl-std=CL2.0
@@ -84,11 +88,36 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
   # Generate regularized LLVM IR for the device RTL.
   add_custom_command(
-    OUTPUT ${opencl_device_rtl_bc}
-    COMMAND llvm-spirv -s -o ${opencl_device_rtl_bc} ${opencl_device_rtl_tmp_bc}
+    OUTPUT ${opencl_device_rtl_regularized_tmp_bc}
+    COMMAND llvm-spirv -s -o ${opencl_device_rtl_regularized_tmp_bc}
+            ${opencl_device_rtl_tmp_bc}
     DEPENDS ${opencl_device_rtl_tmp_bc} llvm-spirv
     VERBATIM
     )
+
+  if(FALSE)
+    # FIXME: enable this after https://github.com/intel/llvm/pull/3377
+    #        is merged.
+
+    # Annotate device RTL code with ITT API calls.
+    # This should be done after the regularization, because the annotation
+    # pass only recognizes __spirv calls, and does not recognize OpenCL calls.
+    add_custom_command(
+      OUTPUT ${opencl_device_rtl_bc}
+      COMMAND opt -SPIRITTAnnotations -o ${opencl_device_rtl_bc}
+              ${opencl_device_rtl_regularized_tmp_bc}
+      DEPENDS ${opencl_device_rtl_regularized_tmp_bc} opt
+      VERBATIM
+      )
+  else()
+    add_custom_command(
+      OUTPUT ${opencl_device_rtl_bc}
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              ${opencl_device_rtl_regularized_tmp_bc} ${opencl_device_rtl_bc}
+      DEPENDS ${opencl_device_rtl_regularized_tmp_bc}
+      VERBATIM
+      )
+  endif()
 
   # Generate bundled object file for the device RTL with an "empty" host part.
   add_custom_command(
@@ -105,7 +134,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
   set(install_dest lib${LIBOMPTARGET_LIBDIR_SUFFIX})
 
-  # FIXME: remove this from install, when the driver switches to
+  # FIXME: remove this from install, when IFX driver switches to
   #        the object file linking.
   install(FILES ${opencl_device_rtl_bc}
     COMPONENT omptarget-opencl-rtl

@@ -529,7 +529,8 @@ static bool ignoreSpecialOperands(const Instruction *I) {
   //   Ignore calls to the following OpenCL functions
   const std::set<std::string> IgnoreCalls = {
       "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
-      "_Z14get_num_groupsj", "_Z12get_group_idj",   "_Z18work_group_barrierj",
+      "_Z14get_num_groupsj", "_Z12get_group_idj",
+      "_Z22__spirv_ControlBarrieriii",
       "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
 #if INTEL_CUSTOMIZATION
       "_f90_dope_vector_init", "_f90_firstprivate_copy",
@@ -605,14 +606,27 @@ void VPOParoptTransform::guardSideEffectStatements(
     //       Moreover, it probably makes sense to guard such instructions
     //       with (get_group_id() == 0) vs (get_local_id() == 0).
     CallInst *CI =
-        VPOParoptUtils::genOCLGenericCall(
-            "_Z18work_group_barrierj", Type::getVoidTy(C),
-            // CLK_LOCAL_MEM_FENCE  == 1
-            // CLK_GLOBAL_MEM_FENCE == 2
-            // CLK_IMAGE_MEM_FENCE  == 4
-            { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
+        VPOParoptUtils::genCall(
+            "_Z22__spirv_ControlBarrieriii", Type::getVoidTy(C),
+            // The arguments are:
+            //   (Scope Execution, Scope Memory, MemorySemantics Semantics)
+            //
+            // work_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
+            // translates into:
+            // __spirv_ControlBarrier(
+            //     vpo::spirv::Scope::Workgroup,
+            //     vpo::spirv::Scope::Workgroup,
+            //     vpo::spirv::MemorySemantics::SequentiallyConsistent |
+            //     vpo::spirv::MemorySemantics::WorkgroupMemory |
+            //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
+            { ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
+              ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
+              ConstantInt::get(Type::getInt32Ty(C),
+                               spirv::SequentiallyConsistent |
+                               spirv::WorkgroupMemory |
+                               spirv::CrossWorkgroupMemory) },
             InsertPt);
-    // work_group_barrier() is a convergent call.
+    // __spirv_ControlBarrier() is a convergent call.
     CI->getCalledFunction()->setConvergent();
   };
 
@@ -816,13 +830,15 @@ void VPOParoptTransform::guardSideEffectStatements(
     //
     //  @c.broadcast.ptr.__local = internal addrspace(3) global i32 0 //  (1)
     //
-    //  call spir_func void @_Z18work_group_barrierj(i32 3)           //  (2)
+    //  call spir_func void @_Z22__spirv_ControlBarrieriii(
+    //      i32 2, i32 2, i32 784)                                    //  (2)
     //  if (is_master) {                                              //  (3)
     //    %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)     // StartI
     //    store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local    //  (4)
     //  }
     //
-    //  call spir_func void @_Z18work_group_barrierj(i32 3)           //  (5)
+    //  call spir_func void @_Z22__spirv_ControlBarrieriii(
+    //      i32 2, i32 2, i32 784)                                    //  (5)
     //  %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local //  (6)
     //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
     //
@@ -863,7 +879,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     if ((SideEffectsInCritical.count(StartI) == 0) &&
         (!PrevI || !isa<CallInst>(PrevI) ||
          dyn_cast<CallInst>(PrevI)->getCalledFunction()->getName() !=
-             "_Z18work_group_barrierj"))
+             "_Z22__spirv_ControlBarrieriii"))
       InsertWorkGroupBarrier(StartI); //         (2)
 
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
