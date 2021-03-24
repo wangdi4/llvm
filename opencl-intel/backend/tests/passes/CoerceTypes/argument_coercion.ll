@@ -1,4 +1,6 @@
+; RUN: %oclopt -coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: %oclopt -coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
 ; This test checks function argument type coercion
 
@@ -196,3 +198,5 @@ attributes #4 = { convergent }
 !4 = !{!"icx (ICX) dev.8.x.0"}
 !5 = !{void ()* @test}
 
+
+; DEBUGIFY-NOT: WARNING

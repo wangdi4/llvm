@@ -1,6 +1,7 @@
 ; This test checks that the pLocalMemBase global variable is modified before and after
 ; each function call.
 
+; RUN: %oclopt -add-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-tls-globals -verify %s -S | FileCheck %s
 
 ; ModuleID = 'main'
@@ -46,3 +47,5 @@ attributes #2 = { convergent }
 !2 = !{}
 !3 = !{!"-cl-opt-disable"}
 !4 = !{!"icx (ICX) dev.8.x.0"}
+
+; DEBUGIFY-NOT: WARNING

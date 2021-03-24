@@ -1,3 +1,4 @@
+; RUN: %oclopt -coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -coerce-types -S %s -o - | FileCheck %s
 ; This test checks caller and callee patching that makes use of the coerced arguments
 
@@ -114,3 +115,5 @@ attributes #4 = { convergent }
 !8 = !{!"omnipotent char", !9, i64 0}
 !9 = !{!"Simple C/C++ TBAA"}
 !10 = !{!7, !7, i64 0}
+
+; DEBUGIFY-NOT: WARNING
