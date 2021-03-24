@@ -2,8 +2,6 @@
 
 ; CHECK: HIR SSA Deconstruction
 
-target triple = "x86_64-unknown-linux-gnu"
-
 define void @foo(i8* nocapture %p, i32 %n) {
 entry:
   %cmp5 = icmp sgt i32 %n, 0

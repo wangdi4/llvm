@@ -27,8 +27,6 @@
 ; CHECK-NEXT:        END REGION
 ;
 
-target triple = "x86_64-unknown-linux-gnu"
-
 ; Function Attrs: nounwind readonly uwtable
 define dso_local i64 @_Z3fooPdi(i64* nocapture readonly %x, i32 %n) local_unnamed_addr #0 {
 entry:

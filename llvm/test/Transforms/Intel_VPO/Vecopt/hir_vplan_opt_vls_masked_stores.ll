@@ -11,8 +11,6 @@
 ; This test must be fixed with proper support of a mask in CG and in OptVLS
 ; itself.
 
-target triple = "i386-unknown-linux-gnu"
-
 @a = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 4
 @b = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 4
 

@@ -19,8 +19,6 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg < %s -disable-output 2>&1 | FileCheck %s
 
-target triple = "x86_64-unknown-linux-gnu"
-
 %union.V512 = type { <16 x float> }
 
 @dsrc1 = dso_local local_unnamed_addr global [100 x %union.V512] zeroinitializer, align 64
