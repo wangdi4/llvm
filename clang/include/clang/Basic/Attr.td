@@ -3408,7 +3408,7 @@ def WeakRef : InheritableAttr {
   let Spellings = [GCC<"weakref">];
   // A WeakRef that has an argument is treated as being an AliasAttr
   let Args = [StringArgument<"Aliasee", 1>];
-  let Subjects = SubjectList<[Var, Function], WarnDiag>; //***INTEL
+  let Subjects = SubjectList<[Var, Function], IntelWarnDiag>; //***INTEL
   let Documentation = [Undocumented];
 }
 
