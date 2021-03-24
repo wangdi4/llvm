@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume  -dtrans-outofboundsok=false -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
-; Check that the OUTERSTRUCT is marked Field Address Taken, with the first
+; Check that the OUTERSTRUCT is marked Field Address Taken Call, with the first
 ; field specifically AddressTaken, and that the INNERSTRUCT is not Field
 ; Address Taken
 
@@ -34,6 +34,6 @@ define i32 @main() {
 ; CHECK: Field LLVM Type: %struct.INNERSTRUCT = type { i32, i32 }
 ; CHECK: Field info:
 ; CHECK: Multiple Value
-; CHECK: Safety data: Field address taken | Global instance | Has initializer list | Contains nested structure
+; CHECK: Safety data: Global instance | Has initializer list | Contains nested structure | Field address taken call
 
 

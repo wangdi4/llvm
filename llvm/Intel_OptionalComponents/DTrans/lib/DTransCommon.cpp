@@ -207,6 +207,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransCommuteCondWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
+  initializeDTransOPOptBaseTestWrapperPass(PR);
   initializeDTransOptBaseTestWrapperPass(PR);
   initializeDTransTypeMetadataReaderTestWrapperPass(PR);
   initializeDTransPtrTypeAnalyzerTestWrapperPass(PR);

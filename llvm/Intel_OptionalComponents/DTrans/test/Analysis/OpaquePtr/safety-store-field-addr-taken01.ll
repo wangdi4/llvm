@@ -6,7 +6,7 @@
 
 
 ; Test that storing the address of a structure field results in the "Field
-; address taken" safety bit.
+; address taken memory" safety bit.
 
 %struct.test01a = type { i64, %struct.test01b* }
 %struct.test01b = type { i32, i32 }
@@ -18,11 +18,11 @@ define void @test01(%struct.test01a* %pStruct) !dtrans_type !6 {
 }
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
 ; CHECK_ALWAYS: Name: struct.test01a
-; CHECK_ALWAYS: Field address taken{{ *$}}
+; CHECK_ALWAYS: Field address taken memory{{ *$}}
 
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
 ; CHECK_ALWAYS: Name: struct.test01b
-; CHECK_OOB_T: Field address taken | Global pointer{{ *$}}
+; CHECK_OOB_T: Field address taken memory | Global pointer{{ *$}}
 ; CHECK_OOB_F: Global pointer{{ *$}}
 
 
@@ -39,11 +39,11 @@ define void @test02(%struct.test02a* %pStruct) !dtrans_type !13 {
 }
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
 ; CHECK_ALWAYS: Name: struct.test02a
-; CHECK_ALWAYS: Field address taken{{ *$}}
+; CHECK_ALWAYS: Field address taken memory{{ *$}}
 
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
 ; CHECK_ALWAYS: Name: struct.test02b
-; CHECK_OOB_T: Field address taken{{ *$}}
+; CHECK_OOB_T: Field address taken memory{{ *$}}
 ; CHECK_OOB_F: No issues found
 
 

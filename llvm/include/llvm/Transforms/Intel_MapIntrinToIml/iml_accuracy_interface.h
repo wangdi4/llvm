@@ -58,9 +58,13 @@ typedef struct ImfAttr {
 //
 // arch
 //    define the architecture currently compiling to, e.g. x86 or x86_64.
+//
+// os
+//    define the operating system currently compiling to, e.g. Win32 or Linux.
 extern const char* get_library_function_name(const char* base_name,
                                              const ImfAttr* attributes,
-                                             llvm::Triple::ArchType arch);
+                                             llvm::Triple::ArchType arch,
+                                             llvm::Triple::OSType os);
 
 // This function returns true if function name is found in the LIBM library
 // description table (check iml_table_libm.inc)

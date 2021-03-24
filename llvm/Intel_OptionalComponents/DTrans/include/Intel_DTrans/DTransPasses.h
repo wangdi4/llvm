@@ -44,6 +44,7 @@
 #include "Intel_DTrans/Transforms/WeakAlign.h"
 
 #if !INTEL_PRODUCT_RELEASE
+#include "Intel_DTrans/Transforms/DTransOPOptBaseTest.h"
 #include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
 #endif // !INTEL_PRODUCT_RELEASE
 

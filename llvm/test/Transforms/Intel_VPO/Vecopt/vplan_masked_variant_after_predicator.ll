@@ -53,6 +53,7 @@ define void @main() {
 ; CHECK-NEXT:  Id: 2   no underlying for i32 [[VP_ADD_PHI_2_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after predication and linearization:
+; CHECK-NEXT:  VPlan IR for: main:header.cloned.masked
 ; CHECK-NEXT:    Cloned.[[BB6:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:

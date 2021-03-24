@@ -1,14 +1,14 @@
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-outofboundsok=false -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
-; Check that the safety check 'Field address taken' does propagate to
+; Check that the safety check 'Field address taken memory' does propagate to
 ; %struct.B because -dtrans-outofboundsok=false but one function @foo
 ; is Fortran.
 
 ; CHECK: LLVMType: %struct.A = type { i32, %struct.B, i32 }
-; CHECK: Safety data: Field address taken | Contains nested structure{{ *$}}
+; CHECK: Safety data: Field address taken memory | Contains nested structure{{ *$}}
 ; CHECK: LLVMType: %struct.B = type { i8, i16, i32 }
-; CHECK: Safety data: Field address taken | Nested structure{{ *$}}
+; CHECK: Safety data: Field address taken memory | Nested structure{{ *$}}
 
 %struct.A = type { i32, %struct.B, i32 }
 %struct.B = type { i8, i16, i32 }

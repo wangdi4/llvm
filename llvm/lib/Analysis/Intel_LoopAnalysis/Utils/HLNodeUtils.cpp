@@ -2799,10 +2799,29 @@ void StructuredFlowChecker::visit(const HLLoop *Lp) {
   }
 }
 
+/// Returns \p Node if it is an HLLoop or the parent loop of \p Node if it is
+/// not.
+static const HLLoop *getNearestLoop(const HLNode *Node) {
+  if (const auto *const NodeLp = dyn_cast<HLLoop>(Node))
+    return NodeLp;
+  if (isa<HLRegion>(Node))
+    return nullptr;
+  return Node->getParentLoop();
+}
+
 bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
                                     const HLNode *TargetNode,
                                     bool PostDomination, bool UpwardTraversal,
                                     HIRLoopStatistics *HLS) {
+
+  // If TargetNode precedes a loop containing Parent (or Parent itself if it is
+  // a loop), this is enough to prove structured flow for dominance queries as
+  // all loops are single-entry.
+  if (!PostDomination && TargetNode)
+    if (const HLLoop *const NearestLoop = getNearestLoop(Parent))
+      if (TargetNode->getTopSortNum() < NearestLoop->getTopSortNum())
+        return true;
+
   const HLNode *FirstNode = nullptr, *LastNode = nullptr;
 
   // For parent loops we should retrieve the absolute first/last lexical child

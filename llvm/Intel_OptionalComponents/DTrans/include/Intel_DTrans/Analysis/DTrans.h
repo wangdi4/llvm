@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -61,26 +61,25 @@ namespace dtrans {
 // removed.
 class AbstractType {
 public:
-  AbstractType(llvm::Type* Ty) : Ty(Ty) {}
-  AbstractType(DTransType* Ty) : Ty(Ty) {}
+  AbstractType(llvm::Type *Ty) : Ty(Ty) {}
+  AbstractType(dtransOP::DTransType *Ty) : Ty(Ty) {}
 
   // Get the corresponding type in the llvm::Type class hierarchy.
   Type *getLLVMType() const {
-    return Ty.is<llvm::Type *>() ? Ty.get<llvm::Type *>()
-      : Ty.get<DTransType *>()->getLLVMType();
+    return Ty.is<llvm::Type *>()
+               ? Ty.get<llvm::Type *>()
+               : Ty.get<dtransOP::DTransType *>()->getLLVMType();
   }
 
-  bool isDTransType() const {
-    return Ty.is<DTransType*>();
-  }
+  bool isDTransType() const { return Ty.is<dtransOP::DTransType *>(); }
 
-  DTransType *getDTransType() const {
+  dtransOP::DTransType *getDTransType() const {
     assert(isDTransType() && "Only valid when using DTransTypes");
-    return Ty.get<DTransType*>();
+    return Ty.get<dtransOP::DTransType *>();
   }
 
 private:
-  PointerUnion<llvm::Type*, DTransType*> Ty;
+  PointerUnion<llvm::Type *, dtransOP::DTransType *> Ty;
 };
 
 //Type used for DTrans transformation bitmask
@@ -115,7 +114,7 @@ public:
         Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
-  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
 
   bool isRead() const { return Read; }
@@ -413,9 +412,8 @@ const SafetyData WholeStructureReference = 0x0000'0000'0000'0040;
 /// pointer to that type.
 const SafetyData UnsafePointerStore = 0x0000'0000'0000'0080;
 
-/// The addresses of one or more fields within the type were written to memory,
-/// passed as an argument to a function call, or returned from a function.
-const SafetyData FieldAddressTaken = 0x0000'0000'0000'0100;
+/// The addresses of one or more fields within the type were written to memory.
+const SafetyData FieldAddressTakenMemory = 0x0000'0000'0000'0100;
 
 /// A global variable was found which is a pointer to the type.
 const SafetyData GlobalPtr = 0x0000'0000'0000'0200;
@@ -550,10 +548,24 @@ const SafetyData MemFuncNestedStructsPartialWrite = 0x0000'0080'0000'0000;
 /// is not a direct multiple of the element size. e.g. ElemSize * 4 + 128
 const SafetyData ComplexAllocSize = 0x0000'0100'0000'0000;
 
+/// This safety data is used when the address of a field is passed as an
+/// argument to a callsite.
+const SafetyData FieldAddressTakenCall = 0x0000'0200'0000'0000;
+
+/// This safety data is used when the address of a field is returned by a
+/// function.
+const SafetyData FieldAddressTakenReturn = 0x0000'0400'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
 const SafetyData UnhandledUse = 0x8000'0000'0000'0000;
+
+/// This condition encapsulates all forms of field address taken
+/// (FieldAddressTakenMemory, FieldAddressTakenCall and
+/// FieldAddressTakenReturn).
+static const SafetyData AnyFieldAddressTaken =
+    FieldAddressTakenMemory | FieldAddressTakenCall | FieldAddressTakenReturn;
 
 // TODO: Create a safety mask for the conditions that are common to all
 //       DTrans optimizations.
@@ -563,7 +575,7 @@ const SafetyData UnhandledUse = 0x8000'0000'0000'0000;
 const SafetyData SDDeleteField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
+    UnsafePointerStore | AnyFieldAddressTaken | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
     HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
@@ -575,7 +587,7 @@ const SafetyData SDDeleteField =
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    UnsafePointerStore | AnyFieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
@@ -606,7 +618,7 @@ const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
-    SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
+    SDFieldSingleValueNoFieldAddressTaken | AnyFieldAddressTaken;
 
 const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
@@ -618,11 +630,11 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
-    SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
+    SDSingleAllocFunctionNoFieldAddressTaken | AnyFieldAddressTaken;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    MismatchedElementAccess | UnsafePointerStore | AnyFieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
     HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
     BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
@@ -636,7 +648,7 @@ const SafetyData SDElimROFieldAccess =
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    UnsafePointerStore | AnyFieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
@@ -682,7 +694,7 @@ const SafetyData SDAOSToSOADependentIndex32 =
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    UnsafePointerStore | AnyFieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
@@ -695,7 +707,7 @@ const SafetyData SDDynClone =
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
-    WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+    WholeStructureReference | UnsafePointerStore | AnyFieldAddressTaken |
     GlobalInstance | HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
@@ -707,7 +719,7 @@ const SafetyData SDSOAToAOS =
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
-    WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+    WholeStructureReference | UnsafePointerStore | AnyFieldAddressTaken |
     GlobalInstance | HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
@@ -725,15 +737,17 @@ const SafetyData SDPaddedStructures =
     AmbiguousPointerTarget | AddressTaken | MismatchedArgUse | UnhandledUse;
 
 // Safety conditions for arrays with constant entries
+// NOTE: FieldAddressTakenReturn is conservative. We can extend the analysis
+// to check if the fields we care about will never be returned by a function.
 const SafetyData SDArraysWithConstantEntries =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | HasInitializerList | GlobalArray |
-    GlobalInstance | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
-    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-    NoFieldsInStruct | SystemObject | MismatchedArgUse | BadCastingPending |
-    BadCastingConditional | UnsafePointerStorePending |
-    UnsafePointerStoreConditional | UnhandledUse;
+    UnsafePointerStore | FieldAddressTakenMemory | HasInitializerList |
+    GlobalArray | GlobalInstance | UnsafePtrMerge | BadMemFuncSize |
+    MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
+    AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
+    BadCastingPending | BadCastingConditional | UnsafePointerStorePending |
+    UnsafePointerStoreConditional | FieldAddressTakenReturn | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -779,7 +793,7 @@ protected:
 
 public:
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
-  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
 
   bool testSafetyData(SafetyData Conditions) const {
@@ -976,7 +990,7 @@ public:
 
   TypeInfo *getElementDTransInfo() const { return DTransElemTy; }
   llvm::Type *getElementLLVMType() const { return DTransElemTy->getLLVMType(); }
-  dtrans::DTransType *getElementDTransType() const {
+  dtransOP::DTransType *getElementDTransType() const {
     return DTransElemTy->getDTransType();
   }
   size_t getNumElements() const { return NumElements; }

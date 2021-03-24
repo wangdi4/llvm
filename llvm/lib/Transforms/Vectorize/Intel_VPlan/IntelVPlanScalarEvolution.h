@@ -20,6 +20,7 @@ namespace llvm {
 namespace vpo {
 
 class VPValue;
+class VPLoadStoreInst;
 
 /// Opaque SCEV-like expression.
 class VPlanSCEV;
@@ -45,15 +46,15 @@ public:
   VPlanScalarEvolution &operator=(const VPlanScalarEvolution &) = delete;
   virtual ~VPlanScalarEvolution() {}
 
-  /// Compute VPlanSCEV expression for value \p V.
-  /// NOTE: Implementations of this method rely on IR-based ScalarEvolution.
-  ///       This means that the method cannot be used after underlying IR is
-  ///       modified. That is, this method cannot be used in VPO CodeGen.
+  /// Compute VPlanSCEV expression for the memory address accessed by \p LSI.
+  /// NOTE: Implementations of this method rely on looking into underlying IR,
+  ///       so this method cannot be used after underlying IR is modified. That
+  ///       is, this method cannot be used in VPO CodeGen.
   /// NOTE: Clients should always prefer using VPLoadStoreInst::getAddressSCEV()
   ///       method. getAddressSCEV() is safe to use even in CodeGen, and it is
   ///       potentially more powerful (AddressSCEV can be set even for values
   ///       without underlying IR).
-  virtual VPlanSCEV *getVPlanSCEV(const VPValue &V) = 0;
+  virtual VPlanSCEV *computeAddressSCEV(const VPLoadStoreInst &LSI) = 0;
 
   /// Return (LHS - RHS).
   virtual VPlanSCEV *getMinusExpr(VPlanSCEV *LHS, VPlanSCEV *RHS) = 0;
@@ -67,6 +68,12 @@ public:
   /// return its components in the corresponding data structure.
   virtual Optional<VPConstStepInduction>
   asConstStepInduction(VPlanSCEV *Expr) const = 0;
+
+  // As of now, any access to private memory can be modified in-place without
+  // invalidating the corresponding load/store instruction (e.g. AOS to SOA
+  // transformation). If it is the case, it is incorrect to compute VPlanSCEV
+  // based on underlying IR or HIR.
+  static bool maybePointerToPrivateMemory(const VPValue &V);
 };
 
 /// Implementation of VPlanScalarEvolution for LLVM IR.
@@ -75,7 +82,7 @@ public:
   VPlanScalarEvolutionLLVM(ScalarEvolution &SE, const Loop *MainLoop)
       : SE(&SE), MainLoop(MainLoop) {}
 
-  VPlanSCEV *getVPlanSCEV(const VPValue &V) override;
+  VPlanSCEV *computeAddressSCEV(const VPLoadStoreInst &LSI) override;
 
   VPlanSCEV *getMinusExpr(VPlanSCEV *LHS, VPlanSCEV *RHS) override;
 

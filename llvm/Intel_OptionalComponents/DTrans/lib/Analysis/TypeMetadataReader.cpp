@@ -19,7 +19,7 @@
 #define DEBUG_TYPE "dtrans-typemetadatareader"
 
 namespace llvm {
-namespace dtrans {
+namespace dtransOP {
 // The tag name for the named metadata nodes that contains the list of structure
 // types. This node is used to identify all the nodes that describe the fields
 // of the structure so that we will know what all the original pointer type
@@ -78,7 +78,7 @@ bool TypeMetadataReader::initialize(Module &M) {
     // are expected to be used as.
     bool HasPointer = false;
     for (auto *FieldTy : StTy->elements()) {
-      HasPointer = hasPointerType(FieldTy);
+      HasPointer = dtrans::hasPointerType(FieldTy);
       if (HasPointer)
         break;
     }
@@ -257,7 +257,7 @@ DTransStructType *TypeMetadataReader::constructDTransStructType(MDNode *MD) {
   if (FieldCount == -1) {
     if (StTy->isOpaque()) {
       // Get a DTransStructType*, creating it, if necessary.
-      auto *DTStTy = dtrans::DTransStructType::get(TM, StTy);
+      auto *DTStTy = DTransStructType::get(TM, StTy);
       cacheMDDecoding(MD, DTStTy);
 
       LLVM_DEBUG(dbgs() << DEBUG_TYPE << ": Created structure: "
@@ -298,7 +298,7 @@ DTransStructType *TypeMetadataReader::constructDTransStructType(MDNode *MD) {
   }
 
   // Create a new DTransStructType that will be used to represent the structure.
-  dtrans::DTransStructType *DTStTy = dtrans::DTransStructType::get(TM, StTy);
+  DTransStructType *DTStTy = DTransStructType::get(TM, StTy);
   cacheMDDecoding(MD, DTStTy);
 
   // The number of fields described in the metadata should match the number of
@@ -368,7 +368,7 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
     auto *FieldMD = dyn_cast<MDNode>(MD->getOperand(Idx));
     assert(FieldMD && "Incorrect MD encoding for structure fields");
 
-    dtrans::DTransType *DTFieldTy = decodeMDNode(FieldMD);
+    DTransType *DTFieldTy = decodeMDNode(FieldMD);
     if (!DTFieldTy) {
       DTStTy->setReconstructError();
       LLVM_DEBUG(dbgs() << *DTStTy << " :Error decoding field: " << FieldNum
@@ -387,7 +387,7 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
       }
     }
 
-    dtrans::DTransFieldMember &Field = DTStTy->getField(FieldNum);
+    DTransFieldMember &Field = DTStTy->getField(FieldNum);
     Field.addResolvedType(DTFieldTy);
   }
 
@@ -448,7 +448,7 @@ DTransType *TypeMetadataReader::getDTransTypeFromMD(Value *V) {
 // This method returns a DTransType* by decoding the information the metadata
 // node.
 DTransType *TypeMetadataReader::decodeMDNode(MDNode *MD) {
-    assert(MD && "Expected metadata constant");
+  assert(MD && "Expected metadata constant");
 
   // Return previously decoded item, if available.
   auto It = MDToDTransTypeMap.find(MD);
@@ -572,8 +572,8 @@ DTransType *TypeMetadataReader::decodeMDFunctionNode(MDNode *MD) {
     }
     ParamTypes.push_back(ArgTy);
   }
-  dtrans::DTransFunctionType *FnTy =
-      dtrans::DTransFunctionType::get(TM, RetTy, ParamTypes, IsVarArg);
+  DTransFunctionType *FnTy =
+      DTransFunctionType::get(TM, RetTy, ParamTypes, IsVarArg);
   cacheMDDecoding(MD, FnTy);
   return FnTy;
 }
@@ -588,14 +588,14 @@ DTransType *TypeMetadataReader::decodeMDVoidNode(MDNode *MD) {
                       << *MD << "\n");
     return nullptr;
   }
-  dtrans::DTransType *DTVoidTy =
+  DTransType *DTVoidTy =
       DTransAtomicType::get(TM, llvm::Type::getVoidTy(MD->getContext()));
 
   auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1));
   assert(PtrLevelMD && "Expected metadata constant");
   unsigned PtrLevel = cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
 
-  dtrans::DTransType *Result = createPointerToLevel(DTVoidTy, PtrLevel);
+  DTransType *Result = createPointerToLevel(DTVoidTy, PtrLevel);
   cacheMDDecoding(MD, Result);
   return Result;
 }
@@ -658,7 +658,7 @@ DTransType *TypeMetadataReader::decodeMDArrayNode(MDNode *MD) {
   auto *ElemType = decodeMDNode(RefMD);
   unsigned NumElem = cast<ConstantInt>(NumElemMD->getValue())->getZExtValue();
 
-  auto Result = dtrans::DTransArrayType::get(TM, ElemType, NumElem);
+  auto Result = DTransArrayType::get(TM, ElemType, NumElem);
   cacheMDDecoding(MD, Result);
   return Result;
 }
@@ -683,7 +683,7 @@ DTransType *TypeMetadataReader::decodeMDVectorNode(MDNode *MD) {
   auto *ElemType = decodeMDNode(RefMD);
   unsigned NumElem = cast<ConstantInt>(NumElemMD->getValue())->getZExtValue();
 
-  auto Result = dtrans::DTransVectorType::get(TM, ElemType, NumElem);
+  auto Result = DTransVectorType::get(TM, ElemType, NumElem);
   cacheMDDecoding(MD, Result);
   return Result;
 }
@@ -724,7 +724,7 @@ DTransType *TypeMetadataReader::decodeMDStructRefNode(MDNode *MD) {
   // for the existing type. Do not try to create a type for a type
   // that doesn't exist yet. If it does not exist, then the metadata
   // is invalid.
-  dtrans::DTransType *DTStTy = TM.getStructType(StTy->getName());
+  DTransType *DTStTy = TM.getStructType(StTy->getName());
   if (!DTStTy) {
     LLVM_DEBUG(
         dbgs() << "Incorrect reference type encoding. Type does not exist:"
@@ -837,7 +837,7 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
   llvm::FunctionType *FuncTy = cast<llvm::FunctionType>(F.getValueType());
   llvm::Type *RetTy = FuncTy->getReturnType();
   DTransType *DTransRetTy = nullptr;
-  if (!hasPointerType(RetTy)) {
+  if (!dtrans::hasPointerType(RetTy)) {
     DTransRetTy = TM.getOrCreateSimpleType(RetTy);
   } else {
     AttributeSet RetAttrs = Attrs.getRetAttributes();
@@ -866,7 +866,7 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
   for (unsigned Idx = 0; Idx < ArgCount; ++Idx) {
     llvm::Type *ParamTy = FuncTy->getParamType(Idx);
     DTransType *DTransParamTy = nullptr;
-    if (!hasPointerType(ParamTy)) {
+    if (!dtrans::hasPointerType(ParamTy)) {
       DTransParamTy = TM.getOrCreateSimpleType(ParamTy);
     } else {
       AttributeSet ParamAttrs = Attrs.getParamAttributes(Idx);
@@ -893,8 +893,8 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
     ParamTypes.push_back(DTransParamTy);
   }
 
-  DTransFunctionType *DTransFuncTy = dtrans::DTransFunctionType::get(
-      TM, DTransRetTy, ParamTypes, F.isVarArg());
+  DTransFunctionType *DTransFuncTy =
+      DTransFunctionType::get(TM, DTransRetTy, ParamTypes, F.isVarArg());
   return DTransFuncTy;
 }
 
@@ -922,18 +922,18 @@ void TypeMetadataReader::cacheMDDecoding(MDNode *MD, DTransType *DTTy) {
   MDToDTransTypeMap.insert(std::make_pair(MD, DTTy));
 }
 
-} // end namespace dtrans
+} // end namespace dtransOP
 } // end namespace llvm
 
 #if !INTEL_PRODUCT_RELEASE
 
 namespace llvm {
-namespace dtrans {
+namespace dtransOP {
 
 class TypeMetadataTester {
 private:
-  dtrans::DTransTypeManager TM;
-  dtrans::TypeMetadataReader Reader;
+  DTransTypeManager TM;
+  TypeMetadataReader Reader;
 
 public:
   TypeMetadataTester(LLVMContext &Ctx) : TM(Ctx), Reader(TM) {}
@@ -964,9 +964,9 @@ public:
     bool ErrorsFound = false;
 
     // Determine whether the IR is using opaque pointers or not. When opaque
-    // pointers are in use, all pointers of an address space should be equivalent. Until
-    // opaque pointers become enabled, it's possible to check whether the
-    // metadata information mataches the pointer type in the IR.
+    // pointers are in use, all pointers of an address space should be
+    // equivalent. Until opaque pointers become enabled, it's possible to check
+    // whether the metadata information mataches the pointer type in the IR.
     bool OpaquePointersEnabled = false;
     LLVMContext &Ctx = M.getContext();
     llvm::Type *I8Ptr = llvm::Type::getInt8Ty(Ctx)->getPointerTo();
@@ -979,12 +979,12 @@ public:
     for (auto &GV : M.globals()) {
       llvm::Type *GVType = GV.getValueType();
       if (dtrans::hasPointerType(GVType)) {
-        MDNode *MD = GV.getMetadata(dtrans::MDDTransTypeTag);
+        MDNode *MD = GV.getMetadata(MDDTransTypeTag);
 
         // Temporary fallback to the legacy tag name for existing LIT tests.
         // TODO: Remove when LIT tests are updated.
         if (!MD)
-          MD = GV.getMetadata(dtrans::MDDTransTypeTagLegacy);
+          MD = GV.getMetadata(MDDTransTypeTagLegacy);
 
         if (!MD) {
           ErrorsFound = true;
@@ -994,7 +994,7 @@ public:
           continue;
         }
 
-        dtrans::DTransType *DType = Reader.decodeMDNode(MD);
+        DTransType *DType = Reader.decodeMDNode(MD);
         if (!DType) {
           ErrorsFound = true;
           LLVM_DEBUG(dbgs() << DEBUG_TYPE
@@ -1042,12 +1042,12 @@ public:
     if (dtrans::hasPointerType(FnType)) {
       // TODO: Remove check for metadata attachment when LIT tests are updated
       // to use new form of tagging.
-      MDNode *MD = F.getMetadata(dtrans::MDDTransTypeTag);
+      MDNode *MD = F.getMetadata(MDDTransTypeTag);
 
       // Temporary fallback to the legacy tag name for existing LIT tests.
       // TODO: Remove when LIT tests are updated.
       if (!MD)
-        MD = F.getMetadata(dtrans::MDDTransTypeTagLegacy);
+        MD = F.getMetadata(MDDTransTypeTagLegacy);
 
       DTransType *DType = nullptr;
       if (!MD) {
@@ -1087,12 +1087,12 @@ public:
       if (auto *AI = dyn_cast<AllocaInst>(&I)) {
         llvm::Type *AllocType = AI->getAllocatedType();
         if (dtrans::hasPointerType(AllocType)) {
-          MDNode *MD = AI->getMetadata(dtrans::MDDTransTypeTag);
+          MDNode *MD = AI->getMetadata(MDDTransTypeTag);
 
           // Temporary fallback to the legacy tag name for existing LIT tests.
           // TODO: Remove when LIT tests are updated.
           if (!MD)
-            MD = AI->getMetadata(dtrans::MDDTransTypeTagLegacy);
+            MD = AI->getMetadata(MDDTransTypeTagLegacy);
 
           if (!MD) {
             ErrorsFound = true;
@@ -1101,7 +1101,7 @@ public:
             continue;
           }
 
-          dtrans::DTransType *DType = Reader.decodeMDNode(MD);
+          DTransType *DType = Reader.decodeMDNode(MD);
           if (!DType) {
             ErrorsFound = true;
             LLVM_DEBUG(dbgs() << DEBUG_TYPE
@@ -1123,12 +1123,12 @@ public:
       } else if (auto *Call = dyn_cast<CallBase>(&I)) {
         if (Call->isIndirectCall() &&
             dtrans::hasPointerType(Call->getFunctionType())) {
-          MDNode *MD = Call->getMetadata(dtrans::MDDTransTypeTag);
+          MDNode *MD = Call->getMetadata(MDDTransTypeTag);
 
           // Temporary fallback to the legacy tag name for existing LIT tests.
           // TODO: Remove when LIT tests are updated.
           if (!MD)
-            MD = Call->getMetadata(dtrans::MDDTransTypeTagLegacy);
+            MD = Call->getMetadata(MDDTransTypeTagLegacy);
 
           if (!MD) {
             ErrorsFound = true;
@@ -1137,7 +1137,7 @@ public:
             continue;
           }
 
-          dtrans::DTransType *DType = Reader.decodeMDNode(MD);
+          DTransType *DType = Reader.decodeMDNode(MD);
           if (!DType) {
             ErrorsFound = true;
             LLVM_DEBUG(dbgs()
@@ -1163,7 +1163,7 @@ public:
     return !ErrorsFound;
   }
 };
-} // end namespace dtrans
+} // end namespace dtransOP
 } // end namespace llvm
 
 using namespace llvm;
@@ -1181,7 +1181,7 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    dtrans::TypeMetadataTester Tester(M.getContext());
+    dtransOP::TypeMetadataTester Tester(M.getContext());
     Tester.runTest(M);
     return false;
   }
@@ -1201,7 +1201,7 @@ ModulePass *llvm::createDTransMetadataReaderTestWrapperPass() {
 }
 
 namespace llvm {
-namespace dtrans {
+namespace dtransOP {
 
 PreservedAnalyses
 DTransTypeMetadataReaderTestPass::run(Module &M, ModuleAnalysisManager &MAM) {
@@ -1209,7 +1209,7 @@ DTransTypeMetadataReaderTestPass::run(Module &M, ModuleAnalysisManager &MAM) {
   Tester.runTest(M);
   return PreservedAnalyses::all();
 }
-} // end namespace dtrans
+} // end namespace dtransOP
 } // end namespace llvm
 
 #endif // !INTEL_PRODUCT_RELEASE

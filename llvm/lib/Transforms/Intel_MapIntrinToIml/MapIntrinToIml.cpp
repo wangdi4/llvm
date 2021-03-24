@@ -777,8 +777,9 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
 
   // External libiml_attr interface that returns the SVML/libm variant if the
   // parent function and IMF attributes match. Return NULL otherwise.
+  Triple T(M->getTargetTriple());
   const char *VariantFuncName = get_library_function_name(
-      ParentFuncName, AttrList, Triple(M->getTargetTriple()).getArch());
+      ParentFuncName, AttrList, T.getArch(), T.getOS());
 
   // No longer need the IMF attribute list at this point, so free up the memory.
   // Note: this does not remove the attributes from the instruction, only the
@@ -1063,10 +1064,9 @@ bool MapIntrinToImlImpl::runImpl() {
 
   const DataLayout DL = M->getDataLayout();
 
-  Triple *T = new Triple(M->getTargetTriple());
-  llvm::Triple::ArchType Arch = T->getArch();
+  Triple T(M->getTargetTriple());
+  llvm::Triple::ArchType Arch = T.getArch();
   bool X86Target = (Arch == Triple::x86 || Arch == Triple::x86_64);
-  delete T;
 
   // Will be populated with the call instructions that will be replaced with
   // legalized/refined svml calls.
@@ -1324,7 +1324,7 @@ bool MapIntrinToImlImpl::runImpl() {
       // If iml accuracy interface returns a non-null variant then replace
       // current scalar function with variant function name.
       if (const char *VariantFuncStr = get_library_function_name(
-              ScalarFuncName.c_str(), AttrList, Arch)) {
+              ScalarFuncName.c_str(), AttrList, Arch, T.getOS())) {
         VariantFuncName = StringRef(VariantFuncStr);
       }
 

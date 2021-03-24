@@ -1,6 +1,6 @@
 //===-----------DTransTypes.cpp - Type model for DTrans -------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,7 +18,7 @@
 #include <map>
 
 namespace llvm {
-namespace dtrans {
+namespace dtransOP {
 
 //////////////////////////////////////////////////////////////////////////////
 // Methods for DTransType
@@ -254,8 +254,8 @@ void DTransVectorType::print(raw_ostream &OS) const {
 // Methods for DTransFunctionType
 //////////////////////////////////////////////////////////////////////////////
 DTransFunctionType *
-DTransFunctionType::get(DTransTypeManager &TM, dtrans::DTransType *DTRetTy,
-                        SmallVectorImpl<dtrans::DTransType *> &ParamTypes,
+DTransFunctionType::get(DTransTypeManager &TM, DTransType *DTRetTy,
+                        SmallVectorImpl<DTransType *> &ParamTypes,
                         bool IsVarArg) {
   return TM.getOrCreateFunctionType(DTRetTy, ParamTypes, IsVarArg);
 }
@@ -474,8 +474,8 @@ DTransVectorType *DTransTypeManager::getOrCreateVectorType(DTransType *ElemType,
 }
 
 DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
-    dtrans::DTransType *DTRetTy,
-    SmallVectorImpl<dtrans::DTransType *> &ParamTypes, bool IsVarArg) {
+    DTransType *DTRetTy, SmallVectorImpl<DTransType *> &ParamTypes,
+    bool IsVarArg) {
 
   auto CompareFunctionTypes = [](DTransFunctionType *DTFnTy,
                                  DTransType *DTRetTy,
@@ -539,7 +539,7 @@ bool DTransTypeManager::isSimpleType(llvm::Type *Ty) const {
     // it.
     return false;
 
-  return !hasPointerType(Ty);
+  return !dtrans::hasPointerType(Ty);
 }
 
 DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
@@ -581,14 +581,14 @@ DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
       return nullptr;
 
     return getOrCreateVectorType(getOrCreateSimpleType(ElemType),
-      VecTy->getElementCount().getKnownMinValue());
+                                 VecTy->getElementCount().getKnownMinValue());
   }
 
   if (auto *StTy = dyn_cast<StructType>(Ty)) {
     if (StTy->isLiteral()) {
       SmallVector<DTransType *, 4> FieldTypes;
       for (auto *ElemTy : StTy->elements()) {
-        dtrans::DTransType *DTy = getOrCreateSimpleType(ElemTy);
+        DTransType *DTy = getOrCreateSimpleType(ElemTy);
         if (!DTy)
           return nullptr;
         FieldTypes.push_back(DTy);
@@ -606,7 +606,7 @@ DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
 
     SmallVector<DTransType *, 8> ParamTypes;
     for (auto *ElemTy : FnTy->params()) {
-      dtrans::DTransType *DTy = getOrCreateSimpleType(ElemTy);
+      DTransType *DTy = getOrCreateSimpleType(ElemTy);
       if (!DTy)
         return nullptr;
       ParamTypes.push_back(DTy);
@@ -616,8 +616,8 @@ DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
   }
 
   assert((Ty->isIntegerTy() || Ty->isFloatingPointTy() || Ty->isVoidTy() ||
-    Ty->isMetadataTy()) &&
-    "Primitive type must be based on scalar type");
+          Ty->isMetadataTy()) &&
+         "Primitive type must be based on scalar type");
   return getOrCreateAtomicType(Ty);
 }
 
@@ -655,7 +655,7 @@ void DTransTypeManager::printTypes() const {
 
   dbgs() << "\n\nArrayTypes\n";
   dbgs() << "--------------------------------------------------------\n";
-  printCollectionSorted(
+  dtrans::printCollectionSorted(
       dbgs(), ArrayTypeInfoMap.begin(), ArrayTypeInfoMap.end(), "\n",
       [](const std::pair<std::pair<DTransType *, uint64_t>, DTransArrayType *>
              Elem) {
@@ -668,7 +668,7 @@ void DTransTypeManager::printTypes() const {
 
   dbgs() << "\n\nPointerTypes\n";
   dbgs() << "--------------------------------------------------------\n";
-  printCollectionSorted(
+  dtrans::printCollectionSorted(
       dbgs(), PointerTypeInfoMap.begin(), PointerTypeInfoMap.end(), "\n",
       [](const std::pair<DTransType *, DTransPointerType *> Elem) {
         std::string OutputVal;
@@ -685,5 +685,5 @@ void DTransTypeManager::printTypes() const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-} // end namespace dtrans
+} // namespace dtransOP
 } // end namespace llvm

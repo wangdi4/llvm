@@ -3,7 +3,7 @@
 ; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; TEST1
-; Check that 'Field address taken' is assigned to correct structure.
+; Check that 'Field address taken memory' is assigned to correct structure.
 %struct.F = type { i64, float, %struct.E }
 %struct.E = type { i64, [10 x i8] }
 
@@ -17,13 +17,13 @@ define dso_local void @foo3(i64 %arg) local_unnamed_addr {
   ret void
 }
 ; CHECK-LABEL:  LLVMType: %struct.E
-; CHECK:  Safety data: Field address taken | Nested structure
+; CHECK:  Safety data: Field address taken memory | Nested structure
 ; CHECK:  LLVMType: %struct.F
 ; CHECK:  Safety data: Contains nested structure
 
 
 ; TEST2
-; Check that 'Field address taken' is not set when storing the address of the
+; Check that 'Field address taken memory' is not set when storing the address of the
 ; third element of the array.
 
 %struct.G = type { i64, [10 x i8] }
@@ -41,7 +41,7 @@ define dso_local void @foo4(i64 %arg) local_unnamed_addr {
 ; CHECK:  Safety data: No issues found
 
 ; TEST3
-; Check that 'Fiend address taken' is correctly set for non-array case.
+; Check that 'Field address taken memory' is correctly set for non-array case.
 
 %struct.H = type { i64, i64 }
 
@@ -56,5 +56,5 @@ define dso_local void @foo5(i64 %arg) local_unnamed_addr {
 }
 
 ; CHECK-LABEL:  LLVMType: %struct.H
-; CHECK:  Safety data: Field address taken
+; CHECK:  Safety data: Field address taken memory
 

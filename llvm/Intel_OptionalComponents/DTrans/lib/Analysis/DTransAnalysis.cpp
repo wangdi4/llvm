@@ -4224,9 +4224,11 @@ public:
 
     bool IsFnLocal = F ? !F->isDeclaration() : false;
 
+    // Check if Arg is a pointer to a field, if so then mark the structure
+    // as field address taken call.
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
     if (LPI.pointsToSomeElement()) {
-      LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken call -- "
                         << "pointer to element passed as argument:\n"
                         << "  " << *Call << "\n  " << *Arg << "\n");
       // Selects and PHIs may have created a pointer that refers to
@@ -4238,7 +4240,7 @@ public:
         size_t Idx = Res.second;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
           ParentStInfo->getField(Idx).setAddressTaken();
-          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTakenCall);
         }
       }
     }
@@ -4318,10 +4320,10 @@ public:
         // If the first element of the dominant type of the pointer is an
         // an array of the actual argument, don't report address taken.
         if (isElementZeroArrayOfType(AliasTy, ArgTy)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken call -- "
                             << "ptr to array element passed as argument:\n"
                             << "  " << *Call << "\n  " << *Arg << "\n");
-          setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTakenCall);
           dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(AliasTy);
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
             ParentStInfo->getField(0).setAddressTaken();
@@ -5279,11 +5281,12 @@ public:
         dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Res.first);
         size_t Idx = Res.second;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken memory:\n"
                             << "  " << *(ParentTI->getLLVMType()) << " @ "
                             << Idx << "\n"
                             << "  " << I << "\n");
-          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first,
+                                    dtrans::FieldAddressTakenMemory);
           ParentStInfo->getField(Idx).setAddressTaken();
         }
       }
@@ -5766,10 +5769,11 @@ public:
         dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Res.first);
         size_t Idx = Res.second;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken return -- "
                             << "Address of a field is returned by function: "
                             << I.getParent()->getParent()->getName() << "\n");
-          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first,
+                                    dtrans::FieldAddressTakenReturn);
           ParentStInfo->getField(Idx).setAddressTaken();
         }
       }
@@ -9989,7 +9993,9 @@ private:
     switch (Data) {
     // We can add additional cases here to reduce the conservative behavior
     // as needs dictate.
-    case dtrans::FieldAddressTaken:
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
     case dtrans::HasZeroSizedArray:
       return false;
     }
@@ -10027,13 +10033,15 @@ private:
 
       return true;
 
-      // FieldAddressTaken is treated as a pointer carried condition based on
-      // how out of bounds field accesses is set because the access is not
-      // permitted under the C/C++ rules, but is allowed within the definition
-      // of llvm IR. If an out of bounds access is permitted, then it would be
-      // possible to access elements of pointed-to objects, as well, in methods
-      // that DTrans would not be able to analyze.
-    case dtrans::FieldAddressTaken:
+      // All forms of FielAddressTaken are treated as a pointer carried
+      // condition based on how out of bounds field accesses is set because the
+      // access is not permitted under the C/C++ rules, but is allowed within
+      // the definition of llvm IR. If an out of bounds access is permitted,
+      // then it would be possible to access elements of pointed-to objects,
+      // as well, in methods that DTrans would not be able to analyze.
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
       return DTInfo.getDTransOutOfBoundsOK();
 
     default:

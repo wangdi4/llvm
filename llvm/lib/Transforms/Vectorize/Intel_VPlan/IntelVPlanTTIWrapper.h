@@ -38,7 +38,7 @@ public:
       : TTI(TTI), DL(DL) {}
 
   /// Required to pass actual TTI along. Ideally it is not exposed.
-  const TargetTransformInfo &getTTI() { return TTI; }
+  const TargetTransformInfo &getTTI() const { return TTI; }
 
   /// TTI methods.
   /// Only the methods required by VPlan Cost Model are listed here.

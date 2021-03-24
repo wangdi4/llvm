@@ -43,4 +43,9 @@ bb2:
   ret i32 %tmp2
 }
 
-; CHECK: Result after data collection: No structure found
+; CHECK: Analyzing results:
+; CHECK:  Removing: class.TestClass
+; CHECK:  Reason: None of the fields qualify as array with constant entries
+
+; CHECK: Final result for fields that are arrays with constant entries:
+; CHECK:  No structure found

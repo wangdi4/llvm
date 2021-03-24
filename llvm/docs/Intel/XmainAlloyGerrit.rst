@@ -52,7 +52,6 @@ Supported Repo
         ocl-spirv-headers
         opencl_headers_worldread
         openmp
-        sycl-xmain
         toolsup
         xalloy
         xdev
@@ -311,12 +310,47 @@ immediately post a message in Gerrit like this.
         !!gralloyid!!lab_icla!!1!!
         To choose a custom load file run, Reply this gerrit post with comma separated loadfile keyword
         Example:
-        #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR 
-        #custom#sycl_checkin#sycl# OR
-        #custom#ocl_checkin#xmain# OR
-        #custom#mainline_checkin#19_0#
+        #custom#xmain_prod#xmain-rel# OR
+        #custom#xmain_post_ocl#xmain# OR
+        #custom#xmain_pre,zperf_xmain_post#xmain# OR
+        #custom#product_checkin#19_1#
 
 **Generic**
+
+The user can reply to this Gerrit post with the desired alloy load file name
+( or a comma separated list if more than one )
+
+::
+
+        > !!gralloyid!!lab_icla!!1!!
+        >
+        > To choose a custom load file run, Reply this gerrit post with comma separated loadfile keyword
+        > Example:
+        > #custom#xmain_prod#xmain-rel# OR
+        > #custom#xmain_post_ocl#xmain# OR
+        > #custom#xmain_pre,zperf_xmain_post#xmain# OR
+        > #custom#product_checkin#19_1#
+
+        #custom#xmain_checkin,zperf_checkin_xmain#xmain-rel#
+
+After replying to this message, the user should expect a Gerrit post like this:
+
+::
+
+        alloy
+        3:35 PM
+        ↩
+        Patch Set 2:
+        !!gralloyid!!lab_icla!!1!!
+        Alloy run -f xmain_checkin -f zperf_checkin_xmain 0 started.
+        Review Log: http://dss-sc.intel.com/review/lab_icla/fresh/1187772.0/review.log
+        To abort this run reply this gerrit post with #abort# keyword.
+
+The user should provide the workspace name as # separated third field as in
+examples above. That will trigger testing for corresponding workspace (e.g.
+xmain-rel).
+
+**Opencl**
 
 The user can reply to this Gerrit post with the desired alloy load file name
 ( or a comma separated list if more than one )
@@ -329,42 +363,6 @@ The user can reply to this Gerrit post with the desired alloy load file name
         > separated loadfile keyword
         > Example:
         > #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR
-        > #custom#sycl_checkin#sycl# OR
-        > #custom#ocl_checkin#xmain# OR
-        > #custom#mainline_checkin#19_0#
-
-        #custom#xmain_checkin,zperf_checkin_xmain#xmain-70#
-
-After replying to this message, the user should expect a Gerrit post like this:
-
-::
-
-        alloy
-        3:35 PM
-        ↩
-        Patch Set 2:
-        !!gralloyid!!lab_icla!!2!!
-        Alloy run -f xmain_checkin -f zperf_checkin_xmain 0 started.
-        Review Log: http://dss-sc.intel.com/review/lab_icla/fresh/1187772.0/review.log
-        To abort this run reply this gerrit post with #abort# keyword.
-
-The user can provide the reference workspace name as # separated third field as
-explained in the `Sycl`_ example.
-
-**Opencl**
-
-The user can reply to this Gerrit post with the desired alloy load file name
-( or a comma separated list if more than one )
-
-::
-
-        > !!gralloyid!!lab_icla!!2!!
-        > 
-        > To choose a custom load file run, Reply this gerrit post with comma
-        > separated loadfile keyword
-        > Example:
-        > #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR
-        > #custom#sycl_checkin#sycl# OR
         > #custom#ocl_checkin#xmain# OR
         > #custom#mainline_checkin#19_0#
 
@@ -381,45 +379,6 @@ After replying to this message, the user should expect a Gerrit post like this:
         !!gralloyid!!lab_icla!!2!!
         Alloy run -f ocl_checkin 0 started.
         Review Log: http://dss-sc.intel.com/review/lab_icla/fresh/1422282.0/review.log
-        To abort this run reply to this gerrit post with #abort# keyword.
-
-.. _Sycl:
-
-**Sycl**
-
-The user can reply to this Gerrit post with the desired alloy load file name
-( or a comma separated list if more than one ). It also needs # separated
-worspace name as the third field ( ``#sycl#`` ). ``#sycl#`` tells the
-auto-reviewer to use the current ``sycl head`` as the reference compiler for
-alloy testing, instead of ``xmain``. The workspace to be tested will contain
-the patch, applied on top of ``sycl head``.
-
-::
-
-        > !!gralloyid!!lab_icla!!1!!
-        > 
-        > To choose a custom load file run, Reply this gerrit post with comma
-        > separated loadfile keyword
-        > Example:
-        > #custom#xmain_checkin,zperf_checkin_xmain#xmain-70# OR
-        > #custom#sycl_checkin#sycl# OR
-        > #custom#ocl_checkin#xmain# OR
-        > #custom#mainline_checkin#19_0#
-
-
-        #custom#sycl_checkin#sycl#
-
-After replying to this message, the user should expect a Gerrit post like this:
-
-::
-
-        alloy
-        6:43 AM
-        ↩
-        Patch Set 1:
-        !!gralloyid!!lab_icla!!1!!
-        Alloy run -f sycl_checkin 0 started.
-        Review Log: http://dss-sc.intel.com/review/lab_icla/fresh/1430071.0/review.log
         To abort this run reply to this gerrit post with #abort# keyword.
 
 Rest of the functionality is same as the regular reviewer ( ``xmain_checkin``,

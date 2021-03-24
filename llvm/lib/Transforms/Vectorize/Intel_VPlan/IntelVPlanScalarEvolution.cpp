@@ -20,10 +20,30 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-VPlanSCEV *VPlanScalarEvolutionLLVM::getVPlanSCEV(const VPValue &V) {
-  const SCEV *Expr = V.isUnderlyingIRValid()
-                         ? SE->getSCEV(V.getUnderlyingValue())
-                         : SE->getCouldNotCompute();
+bool VPlanScalarEvolution::maybePointerToPrivateMemory(const VPValue &V) {
+  if (isa<VPExternalDef>(V) || isa<VPConstant>(V))
+    return false;
+
+  const auto &VPI = cast<VPInstruction>(V);
+  if (VPI.isCast() || isa<VPGEPInstruction>(VPI))
+    return maybePointerToPrivateMemory(*VPI.getOperand(0));
+
+  // TODO: Look through more instruction kinds. Particularly, we may want to
+  //       look through PHI nodes.
+
+  return true;
+}
+
+VPlanSCEV *
+VPlanScalarEvolutionLLVM::computeAddressSCEV(const VPLoadStoreInst &LSI) {
+  assert(!LSI.getAddressSCEV() && "This method must not be invoked once "
+                                  "AddressSCEV is computed for an LSI");
+  const VPValue &Ptr = *LSI.getPointerOperand();
+  if (!Ptr.isUnderlyingIRValid())
+    return nullptr;
+  if (maybePointerToPrivateMemory(Ptr))
+    return nullptr;
+  const SCEV *Expr = SE->getSCEV(Ptr.getUnderlyingValue());
   return toVPlanSCEV(Expr);
 }
 

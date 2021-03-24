@@ -864,34 +864,12 @@ void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
 }
 #endif
 
-static bool maybePointerToPrivateMemory(const VPValue *V) {
-  if (isa<VPExternalDef>(V) || isa<VPConstant>(V))
-    return false;
-
-  const auto *VPI = cast<VPInstruction>(V);
-  if (VPI->isCast() || isa<VPGEPInstruction>(VPI))
-    return maybePointerToPrivateMemory(VPI->getOperand(0));
-
-  // TODO: Look through more instruction kinds. Particularly, we may want to
-  //       look through PHI nodes.
-
-  return true;
-}
-
 void VPlanVector::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
   VPSE = std::move(A);
   for (auto &VPBB : VPBasicBlocks)
     for (auto &VPInst : VPBB)
-      if (auto *Memref = dyn_cast<VPLoadStoreInst>(&VPInst)) {
-        VPValue *Pointer = Memref->getPointerOperand();
-        // FIXME: Remove this check for private memory when VPlanSCEV becomes
-        //        not based on underlying IR/HIR. As of now, any access to
-        //        private memory can be modified in-place without even
-        //        invalidating the corresponding load/store instruction (e.g.
-        //        AOS to SOA transformation).
-        if (!maybePointerToPrivateMemory(Pointer))
-          Memref->setAddressSCEV(VPSE->getVPlanSCEV(*Pointer));
-      }
+      if (auto *Memref = dyn_cast<VPLoadStoreInst>(&VPInst))
+        Memref->setAddressSCEV(VPSE->computeAddressSCEV(*Memref));
 }
 
 void VPlanVector::updateDominatorTree(DominatorTree *DT,
@@ -1307,6 +1285,15 @@ void VPValue::invalidateUnderlyingIR() {
   }
 }
 
+StringRef VPValue::getVPNamePrefix() const {
+  // FIXME: Define the VPNamePrefix in some analogue of the
+  // llvm::Context just like we plan for the 'Name' field.
+  static std::string VPNamePrefix = "vp.";
+  if (isa<VPBasicBlock>(this))
+    return "";
+  return VPNamePrefix;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPValue::printAsOperand(raw_ostream &OS) const {
   if (getType()->isLabelTy()) {
@@ -1429,7 +1416,7 @@ std::unique_ptr<VPlanVector> VPlanMasked::clone(VPAnalysesFactory &VPAF,
   // Create new masked VPlan
   std::unique_ptr<VPlanMasked> ClonedVPlan =
       std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
-
+  ClonedVPlan->setName(getName() + ".cloned");
   copyData(VPAF, UDA, ClonedVPlan.get());
   return ClonedVPlan;
 }
@@ -1439,7 +1426,7 @@ std::unique_ptr<VPlanVector> VPlanNonMasked::clone(VPAnalysesFactory &VPAF,
   // Create new non-masked VPlan
   std::unique_ptr<VPlanNonMasked> ClonedVPlan =
       std::make_unique<VPlanNonMasked>(getExternals(), getUnlinkedVPInsts());
-
+  ClonedVPlan->setName(getName() + ".cloned");
   copyData(VPAF, UDA, ClonedVPlan.get());
   return ClonedVPlan;
 }
@@ -1449,7 +1436,7 @@ VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new masked VPlan from a non-masked VPlan.
   std::unique_ptr<VPlanMasked> ClonedVPlan =
       std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
-
+  ClonedVPlan->setName(getName() + ".cloned.masked");
   copyData(VPAF, UDA, ClonedVPlan.get());
   return ClonedVPlan;
 }

@@ -50,9 +50,10 @@ public:
 };
 
 enum PrecisionEnum {
-  Low,    // ep
-  Medium, // la
-  High,   // ha
+  Low,       // ep
+  Medium,    // la
+  High,      // ha
+  Reference, // rf
 };
 
 const char *precisionEnumToString(PrecisionEnum Value) {
@@ -63,6 +64,8 @@ const char *precisionEnumToString(PrecisionEnum Value) {
     return "medium";
   case High:
     return "high";
+  case Reference:
+    return "reference";
   }
   llvm_unreachable("Fully covered switch");
 }
@@ -105,17 +108,19 @@ struct ImfFuncInfo {
 };
 
 /// Wrapper for libiml_attr's get_library_function_name. Search for a variant of
-/// function specified in \p BaseName with constraints \p Attrs. Returns the
-/// function name for IA-32 and Intel 64 architectures in a pair.
+/// function specified in \p BaseName with constraints \p Attrs for a given \p
+/// OS (default Linux). Returns the function name for IA-32 and Intel 64
+/// architectures in a pair.
 static std::pair<StringRef, StringRef>
-getLibraryFunctionName(const char *BaseName, const ImfFuncInfo &Attrs) {
+getLibraryFunctionName(const char *BaseName, const ImfFuncInfo &Attrs,
+                       llvm::Triple::OSType OS = llvm::Triple::Linux) {
   return std::make_pair(
       get_library_function_name(BaseName,
                                 Attrs.createImfAttrList().getImfAttrList(),
-                                llvm::Triple::x86),
+                                llvm::Triple::x86, OS),
       get_library_function_name(BaseName,
                                 Attrs.createImfAttrList().getImfAttrList(),
-                                llvm::Triple::x86_64));
+                                llvm::Triple::x86_64, OS));
 }
 
 // Helper function to build a pair of function names to compare with the pair
@@ -135,9 +140,13 @@ TEST_F(ImlAttrTest, FuSaTest) {
             makeFuncNamePair("fmaxf", "fmaxf"));
   EXPECT_EQ(getLibraryFunctionName("logf", InfoNoFuSa),
             makeFuncNamePair("logf", "logf"));
-  EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoFuSa),
-            makeFuncNamePair("", ""));
-  EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa),
+  EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoFuSa, llvm::Triple::Linux),
+            makeFuncNamePair("fmaxf", "__libm_fmaxf_ex"));
+  EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa, llvm::Triple::Linux),
+            makeFuncNamePair("logf", "__libm_logf_ex"));
+  EXPECT_EQ(getLibraryFunctionName("fmaxf", InfoFuSa, llvm::Triple::Win32),
+            makeFuncNamePair("fmaxf", "fmaxf"));
+  EXPECT_EQ(getLibraryFunctionName("logf", InfoFuSa, llvm::Triple::Win32),
             makeFuncNamePair("logf", "logf"));
 }
 
@@ -160,6 +169,43 @@ TEST_F(ImlAttrTest, ISASetTest) {
             makeFuncNamePair("__svml_sinf8_ha_s9", "__svml_sinf8_ha_l9"));
   EXPECT_EQ(getLibraryFunctionName("__svml_sinf8", AVX512ZMMHigh),
             makeFuncNamePair("__svml_sinf8_ha_x0", "__svml_sinf8_ha_z0"));
+}
+
+TEST_F(ImlAttrTest, PrecisionTest) {
+  ImfFuncInfo Default;
+
+  ImfFuncInfo LowAccuracy = Default.setPrecision(Low);
+  ImfFuncInfo MediumAccuracy = Default.setPrecision(Medium);
+  ImfFuncInfo HighAccuracy = Default.setPrecision(High);
+  ImfFuncInfo ReferenceAccuracy = Default.setPrecision(Reference);
+
+  EXPECT_EQ(getLibraryFunctionName("powf", LowAccuracy),
+            makeFuncNamePair("powf", "powf"));
+  EXPECT_EQ(getLibraryFunctionName("powf", MediumAccuracy),
+            makeFuncNamePair("powf", "powf"));
+  EXPECT_EQ(getLibraryFunctionName("powf", HighAccuracy),
+            makeFuncNamePair("powf", "powf"));
+  EXPECT_EQ(
+      getLibraryFunctionName("powf", ReferenceAccuracy, llvm::Triple::Linux),
+      makeFuncNamePair("powf", "__libm_powf_rf"));
+  EXPECT_EQ(
+      getLibraryFunctionName("powf", ReferenceAccuracy, llvm::Triple::Win32),
+      makeFuncNamePair("powf", "powf"));
+
+  EXPECT_EQ(getLibraryFunctionName("__svml_powf8", LowAccuracy),
+            makeFuncNamePair("__svml_powf8_ep", "__svml_powf8_ep"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_powf8", LowAccuracy),
+            makeFuncNamePair("__svml_powf8_ep", "__svml_powf8_ep"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_powf8", MediumAccuracy),
+            makeFuncNamePair("__svml_powf8", "__svml_powf8"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_powf8", HighAccuracy),
+            makeFuncNamePair("__svml_powf8_ha", "__svml_powf8_ha"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_powf8", ReferenceAccuracy,
+                                   llvm::Triple::Linux),
+            makeFuncNamePair("__svml_powf8_ha", "__svml_powf8_rf_e9"));
+  EXPECT_EQ(getLibraryFunctionName("__svml_powf8", ReferenceAccuracy,
+                                   llvm::Triple::Win32),
+            makeFuncNamePair("__svml_powf8_ha", "__svml_powf8_ha"));
 }
 
 #if INTEL_FEATURE_ISA_FP16
