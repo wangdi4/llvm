@@ -425,4 +425,4 @@ ed:
   ret void
 }
 
-attributes #0 = { convergent nounwind readnone }
+attributes #0 = { convergent nounwind readnone willreturn }
