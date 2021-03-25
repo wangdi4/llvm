@@ -68,6 +68,7 @@ void foo() {
 
   // expected-warning@+1{{attribute 'max_replicates' is already applied}}
   int __attribute__((max_replicates(2), max_replicates(3))) lc13;
+  //expected-note@-1{{previous attribute is here}}
 
   //expected-warning@+1{{attribute 'simple_dual_port' is already applied}}
   int __attribute__((simple_dual_port, simple_dual_port)) lc14;

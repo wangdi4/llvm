@@ -492,12 +492,9 @@ void foo1()
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: IntelFPGAPrivateCopiesAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //expected-warning@+2{{is already applied}}
+  //expected-warning@+3{{is already applied}}
   __attribute__((__private_copies__(8)))
+  //expected-note@-1{{previous attribute is here}}
   __attribute__((__private_copies__(16)))
   unsigned int pc_three[64];
 
