@@ -52,7 +52,9 @@ define i32 @not_integer_reduce(<4 x i32> %x) {
 }
 
 define i32* @not_pointer_reduce2(<4 x i32*> %x) {
-; CHECK: Intrinsic has incorrect argument type!
+; INTEL_CUSTOMIZATION
+; CHECK-NOT: Intrinsic has incorrect argument type!
+; END INTEL_CUSTOMIZATION
   %r = call i32* @llvm.vector.reduce.fmin.v4p0i32(<4 x i32*> %x)
   ret i32* %r
 }
