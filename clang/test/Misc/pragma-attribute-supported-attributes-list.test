@@ -186,7 +186,7 @@
 // CHECK-NEXT: SYCLIntelSchedulerTargetFmaxMhz (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelUseStallEnableClusters (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLRegisterNum (SubjectMatchRule_variable_is_global)
-// CHECK-NEXT: SYCLSimd (SubjectMatchRule_function)
+// CHECK-NEXT: SYCLSimd (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: SYCLUnmasked (SubjectMatchRule_function, SubjectMatchRule_function_is_member)
 // endif INTEL_CUSTOMIZATION
