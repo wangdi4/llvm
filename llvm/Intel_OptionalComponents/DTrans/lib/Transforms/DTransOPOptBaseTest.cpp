@@ -61,7 +61,7 @@ public:
 // This class tests and demonstrates usage of the DTransOptBase class.
 class DTransOptBaseTest : public DTransOPOptBase {
 public:
-  DTransOptBaseTest() {}
+  DTransOptBaseTest(DTransTypeManager &TM) : DTransOPOptBase(TM) {}
 
   // TODO: Implement the methods that the base class requires from the derived
   // class.
@@ -97,7 +97,7 @@ dtransOP::DTransOPOptBaseTestPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool dtransOP::DTransOPOptBaseTestPass::runImpl(Module &M,
                                                 DTransSafetyInfo *DTInfo) {
-  DTransOptBaseTest Transformer;
+  DTransOptBaseTest Transformer(DTInfo->getTypeManager());
   return Transformer.run(M);
 }
 
