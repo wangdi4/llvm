@@ -260,7 +260,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   StringRef FS =
       FSAttr.isValid() ? FSAttr.getValueAsString() : (StringRef)TargetFS;
 
-  SmallString<512> Key;
+  SmallString<64> Key;
   // The additions here are ordered so that the definitely short strings are
   // added first so we won't exceed the small size. We append the
   // much longer FS string at the end so that we only heap allocate at most
@@ -273,7 +273,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     StringRef Val = PreferVecWidthAttr.getValueAsString();
     unsigned Width;
     if (!Val.getAsInteger(0, Width)) {
-      Key += "prefer-vector-width=";
+      Key += 'p';
       Key += Val;
       PreferVectorWidthOverride = Width;
     }
@@ -286,7 +286,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     StringRef Val = MinLegalVecWidthAttr.getValueAsString();
     unsigned Width;
     if (!Val.getAsInteger(0, Width)) {
-      Key += "min-legal-vector-width=";
+      Key += 'm';
       Key += Val;
       RequiredVectorWidth = Width;
     }
@@ -296,7 +296,6 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   Key += CPU;
 
   // Add tune CPU to the Key.
-  Key += "tune=";
   Key += TuneCPU;
 
   // Keep track of the start of the feature portion of the string.
