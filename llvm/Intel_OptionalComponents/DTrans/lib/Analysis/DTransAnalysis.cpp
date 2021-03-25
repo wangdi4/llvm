@@ -10330,6 +10330,36 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
     if ((CurrNumFields - RelatedNumFields) == 1)
       CurrInfo->getField(CurrNumFields - 1).setPaddedField();
   }
+
+  if (Ty->isStructTy()) {
+    auto STy = cast<StructType>(Ty);
+    // If there is another structure that has base name then generate the
+    // type-info for it. For example, consider that the following structures
+    // are in the module:
+    //
+    //   %class.simple = type { i32, i64 }
+    //   %class.simple.1 = type { i32, i64 }
+    //
+    // Assume that we are generating the type-info for %class.simple.1. The
+    // base name will be %class.simple. In this case we need to generate the
+    // type-info for %class.simple too. The issue is that there is a chance
+    // that the base-named structure is never used in the module, which means
+    // that DTrans analysis will never generate a type-info for it when
+    // traversing the module. DTrans-opt-base collects the base-named structure
+    // and since the type-info wasn't generated then any transformation that
+    // tries to access it will produce a segmentation fault.
+    if (STy->hasName()) {
+      StringRef TyName = STy->getName();
+      StringRef BaseName = dtrans::getTypeBaseName(TyName);
+      if (TyName.size() != BaseName.size()) {
+        StructType *BaseTy =
+            StructType::getTypeByName(STy->getContext(), BaseName);
+        if (BaseTy && !getTypeInfo(BaseTy))
+          getOrCreateTypeInfo(BaseTy);
+      }
+    }
+  }
+
   return DTransTy;
 }
 
