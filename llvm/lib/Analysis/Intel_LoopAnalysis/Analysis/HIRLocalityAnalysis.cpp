@@ -601,6 +601,11 @@ void HIRLoopLocality::initTripCountByLevel(
     uint64_t TripCnt = 0;
     unsigned PragmaTripCnt;
     unsigned Level = Loop->getNestingLevel();
+    int64_t LoopStrideVal = 1;
+    Loop->getStrideDDRef()->isIntConstant(&LoopStrideVal);
+
+    uint64_t SymbolicTC = SymbolicConstTC / LoopStrideVal;
+    SymbolicTC = SymbolicTC > 0 ? SymbolicTC : 1;
 
     if (Loop->isConstTripLoop(&TripCnt)) {
       // In some cases, the loop reports an absurdly high trip count that causes
@@ -616,10 +621,10 @@ void HIRLoopLocality::initTripCountByLevel(
       // headroom for avoiding overflow.
       TripCountByLevel[Level - 1] = PragmaTripCnt;
     } else if ((TripCnt = Loop->getMaxTripCountEstimate())) {
-      // Clamp max trip count to SymbolicConstTC if based on estimate.
-      TripCountByLevel[Level - 1] = std::min(TripCnt, SymbolicConstTC);
+      // Clamp max trip count to SymbolicTC if based on estimate.
+      TripCountByLevel[Level - 1] = std::min(TripCnt, SymbolicTC);
     } else {
-      TripCountByLevel[Level - 1] = SymbolicConstTC;
+      TripCountByLevel[Level - 1] = SymbolicTC;
     }
   }
 }
