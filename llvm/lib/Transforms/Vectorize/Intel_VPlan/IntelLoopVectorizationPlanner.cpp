@@ -1201,14 +1201,14 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   ILV->finalizeLoop();
 }
 
-void LoopVectorizationPlanner::emitPeelRemainderVPLoops() {
+void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF) {
   if (!EnableCFGMerge)
     return;
   assert(BestVF > 1 && "Unexpected VF");
   VPlanVector *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
 
-  VPlanCFGMerger CFGMerger(*Plan);
+  VPlanCFGMerger CFGMerger(*Plan, VF, UF);
   CFGMerger.createSimpleVectorRemainderChain(TheLoop);
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }

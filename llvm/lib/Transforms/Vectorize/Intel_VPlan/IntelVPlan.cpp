@@ -401,7 +401,11 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "re-use-loop";
   case VPInstruction::OrigLiveOut:
     return "orig-live-out";
-#endif
+  case VPInstruction::PushVF:
+    return "pushvf";
+  case VPInstruction::PopVF:
+    return "popvf";
+ #endif
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -545,6 +549,11 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
 
   if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
     LiveOut->printImpl(O);
+    return;
+  }
+
+  if (auto *PushVF = dyn_cast<VPPushVF>(this)) {
+    PushVF->printImpl(O);
     return;
   }
 

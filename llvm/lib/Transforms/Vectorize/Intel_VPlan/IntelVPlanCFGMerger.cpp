@@ -24,6 +24,10 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+static cl::opt<bool>
+    EmitPushPopVF("vplan-enable-pushvf", cl::init(false), cl::Hidden,
+                  cl::desc("Emit pushvf and popvf VPInstrucitons."));
+
 VPBasicBlock *VPlanCFGMerger::createMergeBlock(VPBasicBlock *InsertAfter,
                                                VPBasicBlock *SplitBlock,
                                                bool UseLiveIn) {
@@ -125,11 +129,16 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
   VPOrigTripCountCalculation *OrigTC =
       cast<VPOrigTripCountCalculation>(VectorTC->getOperand(0));
 
-  OrigTC->moveBefore(*VectorTopTestBB, VectorTopTestBB->terminator());
-  VectorTC->moveBefore(*VectorTopTestBB, VectorTopTestBB->terminator());
-
   VPBuilder Builder;
   Builder.setInsertPoint(VectorTopTestBB);
+  if (EmitPushPopVF) {
+    VPValue *PushVF =
+        Builder.create<VPPushVF>("pushvf", Plan.getLLVMContext(), VF, UF);
+    Plan.getVPlanDA()->markUniform(*PushVF);
+  }
+
+  OrigTC->moveBefore(*VectorTopTestBB, VectorTopTestBB->terminator());
+  VectorTC->moveBefore(*VectorTopTestBB, VectorTopTestBB->terminator());
 
   // Generate the check for vector TC is 0 and branch according to the check.
   auto *Zero =
@@ -138,6 +147,16 @@ VPlanCFGMerger::createVPlanLoopTopTest(VPBasicBlock *FallThroughMergeBlock) {
       Builder.createCmpInst(CmpInst::ICMP_EQ, Zero, VectorTC, "vec.tc.check");
   Plan.getVPlanDA()->markUniform(*VectorTopTest);
   VectorTopTestBB->setTerminator(FallThroughMergeBlock, FirstExecutableBB, VectorTopTest);
+
+  if (EmitPushPopVF) {
+    VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
+    VPBasicBlock *ExitBB = Loop->getUniqueExitBlock();
+    assert(ExitBB && "Expecting a unique exit block.");
+    Builder.setInsertPoint(ExitBB);
+    VPValue *PopVF = Builder.createNaryOp(
+        VPInstruction::PopVF, Type::getVoidTy(*Plan.getLLVMContext()), {});
+    Plan.getVPlanDA()->markUniform(*PopVF);
+  }
   return VectorTopTestBB;
 }
 

@@ -58,7 +58,7 @@ public:
         OrigPreHeader(OrigLoop->getLoopPreheader()),
         FatalErrorHandler(FatalErrorHandler) {}
 
-  ~VPOCodeGen() {}
+  ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
 
   /// Initiate the scalar selects set.
   void initOpenCLScalarSelectSet(ArrayRef<const char *> OpenCLScalarSelects);
@@ -416,6 +416,9 @@ private:
 
   // Unroll factor
   unsigned UF;
+
+  // Stack of pairs <vector factor, unroll vactor>.
+  SmallVector<std::pair<unsigned, unsigned>, 2> VFStack;
 
   // IR Builder to use to generate instructions
   IRBuilder<> Builder;

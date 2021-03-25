@@ -1402,6 +1402,22 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
                                      getScalarValue(VPInst->getOperand(1), 0));
     return;
   }
+  case VPInstruction::PushVF: {
+    unsigned NewVF = cast<VPPushVF>(VPInst)->getVF();
+    unsigned NewUF = cast<VPPushVF>(VPInst)->getUF();
+    assert((NewVF != 0 && NewUF != 0) && "expected nonzero VF and UF");
+    VFStack.emplace_back(VF, UF);
+    VF = NewVF;
+    UF = NewUF;
+    return;
+  }
+  case VPInstruction::PopVF: {
+    assert(!VFStack.empty() && "unexpected PopVF");
+    auto V = VFStack.pop_back_val();
+    VF = V.first;
+    UF = V.second;
+    return;
+  }
   case Instruction::Br:
     // Do nothing.
     return;
