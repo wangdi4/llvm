@@ -1,4 +1,5 @@
 ; RUN: llvm-as %S/attr_copy_basic.rtl -o %t.attr_copy_basic.rtl.bc
+; RUN: %oclopt -runtimelib=%t.attr_copy_basic.rtl.bc -builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.attr_copy_basic.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ; ensure that linker inside builtin-import pass imports function attributes
@@ -14,3 +15,5 @@ define spir_func float @test_copy_attr_basic(float %x) {
 declare spir_func float @_Z3cosf(float)
 ; CHECK: define {{.*}} @_Z3cosf
 ; CHECK: attributes {{.*}} nounwind readnone
+
+; DEBUGIFY-NOT: WARNING

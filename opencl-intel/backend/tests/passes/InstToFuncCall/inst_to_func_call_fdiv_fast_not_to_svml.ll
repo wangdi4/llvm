@@ -1,3 +1,4 @@
+; RUN: %oclopt -inst-to-func-call -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -inst-to-func-call -S %s -o - | FileCheck %s
 
 define float @test_fdiv_v1f32(float %x, float %y) nounwind {
@@ -41,3 +42,5 @@ define <16 x float> @test_fdiv_v16f32(<16 x float> %x, <16 x float> %y) nounwind
   %1 = fdiv fast <16 x float> %x, %y
   ret <16 x float> %1
 }
+
+; DEBUGIFY-NOT: WARNING

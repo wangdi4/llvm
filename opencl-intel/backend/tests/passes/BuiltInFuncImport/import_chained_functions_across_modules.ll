@@ -1,5 +1,6 @@
 ; RUN: llvm-as %s.1.rtl -o %t.1.rtl.bc
 ; RUN: llvm-as %s.2.rtl -o %t.2.rtl.bc
+; RUN: %oclopt -runtimelib=%t.1.rtl.bc,%t.2.rtl.bc -builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.1.rtl.bc,%t.2.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
@@ -36,3 +37,5 @@ declare <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
 ; CHECK:  define linkonce_odr <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
 ; CHECK:  define linkonce_odr <3 x i8> @_Z18convert_short3_satDv3_i(<3 x i32> %x)
 ; CHECK:  define linkonce_odr <3 x i8> @_Z17convert_char3_satDv3_i(<3 x i32> %x)
+
+; DEBUGIFY-NOT: WARNING

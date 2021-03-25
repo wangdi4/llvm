@@ -1,5 +1,6 @@
 ; RUN: llvm-as %s.1.rtl -o %t.1.rtl.bc
 ; RUN: llvm-as %s.2.rtl -o %t.2.rtl.bc
+; RUN: %oclopt -runtimelib=%t.1.rtl.bc,%t.2.rtl.bc -builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.1.rtl.bc,%t.2.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;*****************************************************************************
@@ -28,3 +29,5 @@ entry:
 
 ; CHECK: define linkonce_odr <4 x double> @module_2_function(<4 x double> %in)
 ; CHECK: define linkonce_odr <4 x double> @module_1_function(<4 x double> %in)
+
+; DEBUGIFY-NOT: WARNING

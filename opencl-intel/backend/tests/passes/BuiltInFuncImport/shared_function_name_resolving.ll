@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
+; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import -arch=prefix %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import -arch=prefix -verify %s -S | FileCheck %s
 
 ;*****************************************************************************
@@ -39,3 +40,5 @@ declare <4 x double> @function_foo4(<4 x double>) nounwind
 ; CHECK:  declare <4 x double> @__ocl_svml_l9_asin4(<4 x double>)
 ; CHECK:  declare <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double>)
 
+
+; DEBUGIFY-NOT: WARNING

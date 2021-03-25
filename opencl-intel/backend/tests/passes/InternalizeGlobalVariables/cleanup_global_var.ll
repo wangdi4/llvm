@@ -1,3 +1,4 @@
+; RUN: %oclopt -internalize-global-variables -globaldce -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -internalize-global-variables -globaldce -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -44,3 +45,5 @@ define void @test_const_as_global(i8* noalias %pUniformArgs, i64* noalias %pWGId
 !6 = !{!"out", !"image", !"coord"}
 !7 = !{i32 1, i32 2}
 !8 = !{}
+
+; DEBUGIFY-NOT: WARNING
