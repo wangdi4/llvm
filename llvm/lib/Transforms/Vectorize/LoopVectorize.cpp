@@ -7844,7 +7844,6 @@ void LoopVectorizationPlanner::executePlan(InnerLoopVectorizer &ILV,
   ILV.printDebugTracesAtEnd();
 }
 
-#if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void LoopVectorizationPlanner::printPlans(raw_ostream &O) {
   for (const auto &Plan : VPlans)
@@ -7853,8 +7852,7 @@ void LoopVectorizationPlanner::printPlans(raw_ostream &O) {
     else
       Plan->print(O);
 }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
+#endif
 
 void LoopVectorizationPlanner::collectTriviallyDeadInstructions(
     SmallPtrSetImpl<Instruction *> &DeadInstructions) {
@@ -9052,7 +9050,6 @@ void LoopVectorizationPlanner::adjustRecipesForInLoopReductions(
   }
 }
 
-#if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent,
                                VPSlotTracker &SlotTracker) const {
@@ -9069,8 +9066,7 @@ void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent,
     if (Instruction *I = IG->getMember(i))
       O << "\n" << Indent << "  " << VPlanIngredient(I) << " " << i;
 }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
+#endif
 
 void VPWidenCallRecipe::execute(VPTransformState &State) {
   State.ILV->widenCallInstruction(*cast<CallInst>(getUnderlyingInstr()), this,
