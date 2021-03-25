@@ -634,6 +634,17 @@ DTransType *DTransTypeManager::findType(llvm::Type *Ty) const {
   return (*Existing).getSecond();
 }
 
+std::vector<DTransStructType *>
+DTransTypeManager::getIdentifiedStructTypes() const {
+  std::vector<DTransStructType *> TypeList;
+  std::transform(StructTypeInfoMap.begin(), StructTypeInfoMap.end(),
+    std::back_inserter(TypeList),
+    [](const llvm::StringMapEntry<DTransStructType *> &KV) {
+    return KV.second;
+  });
+  return TypeList;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransTypeManager::printTypes() const {
   dbgs() << "\nStructTypes\n";

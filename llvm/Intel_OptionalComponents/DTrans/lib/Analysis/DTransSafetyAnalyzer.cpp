@@ -3956,12 +3956,10 @@ void DTransSafetyInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
 
-  LLVM_DEBUG(dbgs() << "DTransSafetyInfo::analyzeModule running\n");
-  if (!WPInfo.isWholeProgramSafe()) {
-    LLVM_DEBUG(dbgs() << "  DTransSafetyInfo: Not Whole Program Safe\n");
-    return;
-  }
-
+  // Initialize the DTransTypeManager & TypeMetadataReader classes first, so
+  // that the DTrans base class can be run without the complete pointer type
+  // analysis being run because there are some transformations that can be done
+  // without the complete analysis.
   LLVMContext &Ctx = M.getContext();
   const DataLayout &DL = M.getDataLayout();
   TM = std::make_unique<DTransTypeManager>(Ctx);
@@ -3969,6 +3967,12 @@ void DTransSafetyInfo::analyzeModule(
   if (!MDReader->initialize(M)) {
     LLVM_DEBUG(dbgs() << "DTransSafetyInfo: Type metadata reader did not find "
                          "structure type metadata\n");
+    return;
+  }
+
+  LLVM_DEBUG(dbgs() << "DTransSafetyInfo::analyzeModule running\n");
+  if (!WPInfo.isWholeProgramSafe()) {
+    LLVM_DEBUG(dbgs() << "  DTransSafetyInfo: Not Whole Program Safe\n");
     return;
   }
 
