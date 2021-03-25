@@ -83,10 +83,6 @@ private:
   /// only created by framework.
   CanonExpr *createSelfBlobCanonExpr(Value *Val, unsigned Symbase);
 
-  /// Returns a standalone blob canon expr representing a constant like
-  /// ConstantVector, Metadata or Undef.
-  CanonExpr *createConstStandAloneBlobCanonExpr(Value *Val);
-
   /// Returns a standalone blob canon expr. Level is the defined at level for
   /// the blob.
   CanonExpr *createStandAloneBlobCanonExpr(unsigned Index, unsigned Level);
@@ -157,6 +153,10 @@ public:
                                      unsigned Level = NonLinearLevel) {
     return createStandAloneBlobCanonExpr(Index, Level);
   }
+
+  /// Returns a standalone blob canon expr representing a constant like
+  /// ConstantVector, Metadata or Undef.
+  CanonExpr *createConstStandAloneBlobCanonExpr(Value *Val);
 
   /// Destroys the passed in CanonExpr.
   void destroy(CanonExpr *CE);

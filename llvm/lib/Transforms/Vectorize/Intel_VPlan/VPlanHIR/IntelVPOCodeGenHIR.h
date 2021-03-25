@@ -233,6 +233,12 @@ public:
   /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v1, v2, v3, v0, v1, v2, v3 }
   HLInst *replicateVector(RegDDRef *Input, unsigned ReplicationFactor);
 
+  /// Helper method to replicate each element of \p Input vector by \p
+  /// ReplicationFactor number of times. This function mimics the equivalent
+  /// LLVM-IR version in VectorUtils.cpp. Example -
+  /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v0, v1, v1, v2, v2, v3, v3 }
+  HLInst *replicateVectorElts(RegDDRef *Input, unsigned ReplicationFactor);
+
   // Given the LvalRef of a load instruction belonging to an interleaved group,
   // and the result of the corresponding wide interleaved load WLoadRes,
   // generate a shuffle using WLoadRes and the interleave index of the
@@ -463,6 +469,12 @@ public:
   // destination type of canon expr corresponding to Index appropriately.
   RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, int Index,
                                  unsigned NumElements);
+
+  // Returns the widened address-of DDRef for a pointer. The base pointer is
+  // replicated and flattened if we are dealing with re-vectorization scenarios.
+  // In the generated code, the returned DDRef is itself used as operand for
+  // Scatter/Gather memrefs.
+  RegDDRef *getWidenedAddressForScatterGather(const VPValue *VPPtr);
 
   // Given a load/store instruction, setup and return the memory ref to use in
   // generating the load/store HLInst. The given load/store instruction is also

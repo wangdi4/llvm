@@ -2063,6 +2063,28 @@ HLInst *VPOCodeGenHIR::replicateVector(RegDDRef *Input,
   return ReplVecInst;
 }
 
+HLInst *VPOCodeGenHIR::replicateVectorElts(RegDDRef *Input,
+                                           unsigned ReplicationFactor) {
+  assert(ReplicationFactor > 1 && "Unexpected replication factor.");
+  auto *OrigTy = cast<VectorType>(Input->getDestType());
+  unsigned OrigNumElts = OrigTy->getNumElements();
+
+  SmallVector<Constant *, 8> ShuffleMask;
+  for (unsigned J = 0; J < OrigNumElts; ++J) {
+    for (unsigned I = 0; I < ReplicationFactor; ++I) {
+      Constant *Mask = ConstantInt::get(Type::getInt32Ty(Context), J);
+      ShuffleMask.push_back(Mask);
+    }
+  }
+
+  auto *ReplVecInst =
+      createShuffleWithUndef(Input, ShuffleMask, ".replicated.elts");
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] ReplVecInst: "; ReplVecInst->dump();
+             dbgs() << "\n");
+
+  return ReplVecInst;
+}
+
 HLInst *VPOCodeGenHIR::createInterleavedLoad(const RegDDRef *LvalRef,
                                              RegDDRef *WLoadRes,
                                              int64_t InterleaveFactor,
@@ -3170,6 +3192,74 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
   return MemRef;
 }
 
+RegDDRef *
+VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
+  assert(VPPtr->getType()->isPointerTy() && "Expected VPPtr to be PointerTy.");
+
+  // Widened pointer.
+  RegDDRef *WidePtr = widenRef(VPPtr, getVF());
+
+  auto *PtrType = cast<PointerType>(VPPtr->getType());
+  auto *ElemType = dyn_cast<VectorType>(PtrType->getElementType());
+  // No replication is needed for non-vector types.
+  if (!ElemType)
+    return WidePtr;
+
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr for replication : ";
+             WidePtr->dump(1); dbgs() << "\n");
+  unsigned AddrSpace = PtrType->getAddressSpace();
+
+  // Cast the inner vector-type to it's elemental scalar type.
+  // e.g. - <VF x <OriginalVL x Ty> addrspace(x)*>
+  //                          |
+  //                          |
+  //                          V
+  //                <VF x Ty addrspace(x)*>
+  Type *FlattenedTy = FixedVectorType::get(
+      ElemType->getElementType()->getPointerTo(AddrSpace), getVF());
+  WidePtr->setBitCastDestType(FlattenedTy);
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr after flattening : ";
+             WidePtr->dump(1); dbgs() << "\n");
+
+  // Replicate the base-address OriginalVL times
+  //                <VF x Ty addrspace(x)*>
+  //                          |
+  //                          |
+  //                          V
+  //      < 0, 0, .., OriginalVL times, 1, 1, ..., OriginalVL times, ...>
+  unsigned OriginalVL = ElemType->getNumElements();
+  HLInst *ReplWidePtrInst = replicateVectorElts(WidePtr, OriginalVL);
+  addInstUnmasked(ReplWidePtrInst);
+
+  // Create a vector of consecutive numbers from zero to OriginalVL-1 repeated
+  // VF-times.
+  SmallVector<Constant *, 32> Indices;
+  for (unsigned J = 0; J < VF; ++J)
+    for (unsigned I = 0; I < OriginalVL; ++I) {
+      Indices.push_back(
+          ConstantInt::get(Type::getInt64Ty(ElemType->getContext()), I));
+    }
+
+  // Generate a ConstantVector of indices and build a corresponding CanonExpr.
+  auto *Cv = ConstantVector::get(Indices);
+  CanonExpr *IndexCE =
+      CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
+
+  // Create an address-of DDRef that would return the address of each elements
+  // that is to be accessed. Generated address-of ref looks like -
+  //
+  // &(%ReplWidePtr)[< 0, 1, ..., OriginalVL - 1, ... VF times>]
+  RegDDRef *ReplWidePtr = ReplWidePtrInst->getLvalDDRef();
+  RegDDRef *ReplWidePtrAddr = DDRefUtilities.createAddressOfRef(
+      ReplWidePtr->getSelfBlobIndex(), ReplWidePtr->getDefinedAtLevel());
+  ReplWidePtrAddr->setInBounds(WidePtr->isInBounds());
+  ReplWidePtrAddr->addDimension(IndexCE);
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] ReplWidePtrAddr : ";
+             ReplWidePtrAddr->dump(1); dbgs() << "\n");
+
+  return ReplWidePtrAddr;
+}
+
 RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                       bool Lane0Value) {
   const VPValue *VPPtr = getLoadStorePointerOperand(VPLdSt);
@@ -3185,7 +3275,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   if (NeedScalarRef)
     PtrRef = getOrCreateScalarRef(VPPtr, 0 /*LaneID*/);
   else
-    PtrRef = widenRef(VPPtr, getVF());
+    PtrRef = getWidenedAddressForScatterGather(VPPtr);
 
   RegDDRef *MemRef;
   if (PtrRef->isAddressOf()) {
@@ -3788,7 +3878,8 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
   }
 
   makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen, ScalarLaneID);
-  LLVM_DEBUG(dbgs() << "[VPOCGHIR] NewMemRef: "; NewRef->dump(1));
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] NewMemRef: "; NewRef->dump(1);
+             dbgs() << "\n");
 }
 
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
