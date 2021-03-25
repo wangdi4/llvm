@@ -153,6 +153,7 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabled(Features, "avx512dq", true);
     setFeatureEnabled(Features, "avx512bw", true);
     setFeatureEnabled(Features, "avx512vl", true);
+    setFeatureEnabled(Features, "avx512vnni", true);
     return true;
   }
 #endif // INTEL_FEATURE_ICECODE

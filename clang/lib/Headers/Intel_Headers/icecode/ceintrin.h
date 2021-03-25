@@ -325,6 +325,36 @@ _ce_store_tickle_gpa(unsigned long long addr) {
 #define _ce_set_tracker(imm) __builtin_ia32_icecode_set_tracker(imm)
 #define _ce_flush_ifu() __asm__ __volatile__ ("flush_ifu")
 
+static __inline__ unsigned short __DEFAULT_FN_ATTRS
+_ce_loadlin16(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadlin_16(addr);
+}
+
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
+_ce_loadlin32(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadlin_32(addr);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_loadlin64(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadlin_64(addr);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storelin16(unsigned short reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storelin_16(reg, addr);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storelin32(unsigned int reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storelin_32(reg, addr);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storelin64(unsigned long long reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storelin_64(reg, addr);
+}
+
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __x86_64__ */

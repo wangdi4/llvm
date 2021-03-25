@@ -39,19 +39,41 @@ multiclass ce_xchg<bits<8> O, Format F, string asm> {
 }
 
 multiclass ce_read<bits<8> O, Format F, string asm> {
-    def 32r : I<O, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
-                !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
-                [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") GR32:$src))]>;
-    def 32i : Ii32<0x81, F, (outs GR32:$dst), (ins i32u32imm:$src),
-                   !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
-                   [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") imm:$src))]>;
+  def 32r : I<O, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
+              !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
+              [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") GR32:$src))]>;
+  def 32i : Ii32<0x81, F, (outs GR32:$dst), (ins i32u32imm:$src),
+                 !strconcat(asm, "{l}\t{$src, $dst|$dst, $src}"),
+                 [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_32") imm:$src))]>;
 
-    def 64r : RI<O, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
-                 !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
-                 [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") GR32:$src))]>;
-    def 64i : RIi32<0x81, F, (outs GR64:$dst), (ins i32u32imm:$src),
-                    !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
-                    [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") imm:$src))]>;
+  def 64r : RI<O, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
+               !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
+               [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") GR32:$src))]>;
+  def 64i : RIi32<0x81, F, (outs GR64:$dst), (ins i32u32imm:$src),
+                  !strconcat(asm, "{q}\t{$src, $dst|$dst, $src}"),
+                  [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") imm:$src))]>;
+}
+
+multiclass ce_load_store<bits<8> O, string asm> {
+  def 16rm : I<O, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
+               !strconcat("gmov", asm, "{w}\t{$src, $dst|$dst, $src}"),
+               [(set GR16:$dst, (!cast<Intrinsic>("int_x86_icecode_load" # asm # "_16") addr:$src))]>, XS, OpSize16;
+  def 32rm : I<O, MRMSrcMem, (outs GR32:$dst), (ins opaquemem:$src),
+               !strconcat("gmov", asm, "{l}\t{$src, $dst|$dst, $src}"),
+               [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_load" # asm # "_32") addr:$src))]>, XS, OpSize32;
+  def 64rm : RI<O, MRMSrcMem, (outs GR64:$dst), (ins opaquemem:$src),
+                !strconcat("gmov", asm, "{q}\t{$src, $dst|$dst, $src}"),
+                [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_load" # asm # "_64") addr:$src))]>, XS;
+
+  def 16mr : I<O, MRMDestMem, (outs), (ins opaquemem:$dst, GR16:$src),
+               !strconcat("gmov", asm, "{w}\t{$src, $dst|$dst, $src}"),
+               [(!cast<Intrinsic>("int_x86_icecode_store" # asm # "_16") GR16:$src, addr:$dst)]>, XD, OpSize16;
+  def 32mr : I<O, MRMDestMem, (outs), (ins opaquemem:$dst, GR32:$src),
+               !strconcat("gmov", asm, "{l}\t{$src, $dst|$dst, $src}"),
+               [(!cast<Intrinsic>("int_x86_icecode_store" # asm # "_32") GR32:$src, addr:$dst)]>, XD, OpSize32;
+  def 64mr : RI<O, MRMDestMem, (outs), (ins opaquemem:$dst, GR64:$src),
+                !strconcat("gmov", asm, "{q}\t{$src, $dst|$dst, $src}"),
+                [(!cast<Intrinsic>("int_x86_icecode_store" # asm # "_64") GR64:$src, addr:$dst)]>, XD;
 }
 
 let Predicates = [InIceCodeMode] in {
@@ -60,25 +82,8 @@ let Predicates = [InIceCodeMode] in {
   def STORESEGmr : I<0xb2, MRM0m, (outs), (ins i128mem:$mem),
                      "storeseg\t$mem", []>, PD;
 
-  def GMOVPPHYS16rm : I<0xb4, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
-                        "gmovpphys{w}\t{$src, $dst|$dst, $src}",
-                        [(set GR16:$dst, (int_x86_icecode_loadpphys_16 addr:$src))]>, XS, OpSize16;
-  def GMOVPPHYS32rm : I<0xb4, MRMSrcMem, (outs GR32:$dst), (ins opaquemem:$src),
-                        "gmovpphys{l}\t{$src, $dst|$dst, $src}",
-                        [(set GR32:$dst, (int_x86_icecode_loadpphys_32 addr:$src))]>, XS, OpSize32;
-  def GMOVPPHYS64rm : RI<0xb4, MRMSrcMem, (outs GR64:$dst), (ins opaquemem:$src),
-                         "gmovpphys{q}\t{$src, $dst|$dst, $src}",
-                         [(set GR64:$dst, (int_x86_icecode_loadpphys_64 addr:$src))]>, XS;
-
-  def GMOVPPHYS16mr : I<0xb4, MRMDestMem, (outs), (ins opaquemem:$dst, GR16:$src),
-                        "gmovpphys{w}\t{$src, $dst|$dst, $src}",
-                        [(int_x86_icecode_storepphys_16 GR16:$src, addr:$dst)]>, XD, OpSize16;
-  def GMOVPPHYS32mr : I<0xb4, MRMDestMem, (outs), (ins opaquemem:$dst, GR32:$src),
-                        "gmovpphys{l}\t{$src, $dst|$dst, $src}",
-                        [(int_x86_icecode_storepphys_32 GR32:$src, addr:$dst)]>, XD, OpSize32;
-  def GMOVPPHYS64mr : RI<0xb4, MRMDestMem, (outs), (ins opaquemem:$dst, GR64:$src),
-                         "gmovpphys{q}\t{$src, $dst|$dst, $src}",
-                         [(int_x86_icecode_storepphys_64 GR64:$src, addr:$dst)]>, XD;
+  defm GMOVPPHYS : ce_load_store<0xb4, "pphys">;
+  defm GMOVLIN   : ce_load_store<0x02, "lin">;
 
   let Defs = [RAX, RCX, RDX, RBX] in {
     def GTRANSLATERD_EPCm : I<0x00, MRM4m, (outs), (ins anymem:$mem),
