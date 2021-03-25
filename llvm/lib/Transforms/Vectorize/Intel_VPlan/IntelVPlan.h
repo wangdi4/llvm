@@ -760,6 +760,8 @@ public:
       ConstStepVector,
       ReuseLoop,
       OrigLiveOut,
+      PushVF,
+      PopVF,
   };
 
 private:
@@ -1028,6 +1030,44 @@ public:
     Cloned->copyAttributesFrom(*this);
     return Cloned;
   }
+};
+
+/// Instruction to set vector factor and unroll factor explicitly.
+/// Can uppear in VPlan after cost model. Appears at the beginning of VPlan
+/// and is accompanied by VPPopVF in the end of VPlan. The pairing is possible
+/// since VPlan is SESE region. This provides possibility to have "inner" VPlans
+/// with their own VF inside an outer one.
+/// No code generation is expected, CG just updates its internal VF and UF on
+/// the fly. The VF-dependent analyses should account this instruction too.
+class VPPushVF final : public VPInstruction {
+public:
+  VPPushVF(LLVMContext *Ctx, unsigned V, unsigned U)
+      : VPInstruction(VPInstruction::PushVF, Type::getVoidTy(*Ctx), {}), VF(V),
+        UF(U) {}
+
+  unsigned getVF() const { return VF; }
+  unsigned getUF() const { return UF; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::PushVF;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    void printImpl(raw_ostream &OS) const {
+      OS << " VF=" << VF << " UF=" << UF;
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+protected:
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+  }
+  unsigned VF;
+  unsigned UF;
 };
 
 /// Concrete class for comparison. Represents both integers and floats.

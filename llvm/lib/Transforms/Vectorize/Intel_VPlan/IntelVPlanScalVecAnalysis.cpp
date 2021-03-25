@@ -428,6 +428,11 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PushVF:
+  case VPInstruction::PopVF:
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    return true;
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -468,6 +473,8 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
   if (computeSpecialInstruction(VPInst, VF, TLI)) {
     LLVM_DEBUG(dbgs() << "[SVA] Specially processed instruction ";
                VPInst->dump());
+    assert(isSVASpecialProcessedInst(VPInst) &&
+           "Specially processed instruction interface not updated");
     return;
   }
 
@@ -720,6 +727,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
   case VPInstruction::Pred:
+  case VPInstruction::AllocatePrivate:
   case VPInstruction::AllZeroCheck:
   case VPInstruction::VectorTripCountCalculation:
   case VPInstruction::OrigTripCountCalculation:
@@ -727,6 +735,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ActiveLaneExtract:
   case VPInstruction::ReuseLoop:
   case VPInstruction::OrigLiveOut:
+  case VPInstruction::PushVF:
+  case VPInstruction::PopVF:
     return true;
   default:
     return false;

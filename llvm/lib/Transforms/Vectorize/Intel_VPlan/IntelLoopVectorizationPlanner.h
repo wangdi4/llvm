@@ -98,8 +98,9 @@ public:
 
   // Preprocess best VPlan before CG, creating the needed auxiliary loops
   // (peel/remainder of different kinds) and merging them into flattened
-  // cfg.
-  void emitPeelRemainderVPLoops();
+  // cfg. \p UF and \p VF are selected unroll factor and vector factor,
+  // correspondingly, for main VPlan.
+  void emitPeelRemainderVPLoops(unsigned VF, unsigned UF);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
