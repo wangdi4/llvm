@@ -1734,6 +1734,35 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
         return typeName;
       };
 
+#if INTEL_CUSTOMIZATION
+      bool IsHostAccessible = ty->isPipeType() &&
+	      parm->getAttr<OpenCLHostAccessibleAttr>();
+
+      argHostAccessible.push_back(
+		      llvm::ConstantAsMetadata::get(
+			      (IsHostAccessible) ? llvm::ConstantInt::getTrue(VMContext)
+			      : llvm::ConstantInt::getFalse(VMContext)));
+
+      auto *DepthAttr = parm->getAttr<OpenCLDepthAttr>();
+
+      argPipeDepthAttr.push_back(
+		      llvm::ConstantAsMetadata::get(
+			      (DepthAttr) ? CGF->Builder.getInt32(DepthAttr->getDepth())
+			      : CGF->Builder.getInt32(0)));
+
+      auto *IOAttr = parm->getAttr<OpenCLIOAttr>();
+      argPipeIOAttr.push_back(
+		      (IOAttr) ? llvm::MDString::get(VMContext, IOAttr->getIOName())
+		      : llvm::MDString::get(VMContext, ""));
+
+      auto *BufferLocationAttr = parm->getAttr<OpenCLBufferLocationAttr>();
+      argBufferLocationAttr.push_back(
+		      (BufferLocationAttr)
+		      ? llvm::MDString::get(VMContext,
+			      BufferLocationAttr->getBufferLocation())
+		      : llvm::MDString::get(VMContext, ""));
+#endif // INTEL_CUSTOMIZATION
+
       if (ty->isPointerType()) {
         QualType pointeeTy = ty->getPointeeType();
 
@@ -1789,35 +1818,6 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
           typeQuals = "pipe";
       }
       argTypeQuals.push_back(llvm::MDString::get(VMContext, typeQuals));
-
-#if INTEL_CUSTOMIZATION
-      bool IsHostAccessible = ty->isPipeType() &&
-	      parm->getAttr<OpenCLHostAccessibleAttr>();
-
-      argHostAccessible.push_back(
-		      llvm::ConstantAsMetadata::get(
-			      (IsHostAccessible) ? llvm::ConstantInt::getTrue(VMContext)
-			      : llvm::ConstantInt::getFalse(VMContext)));
-
-      auto *DepthAttr = parm->getAttr<OpenCLDepthAttr>();
-
-      argPipeDepthAttr.push_back(
-		      llvm::ConstantAsMetadata::get(
-			      (DepthAttr) ? CGF->Builder.getInt32(DepthAttr->getDepth())
-			      : CGF->Builder.getInt32(0)));
-
-      auto *IOAttr = parm->getAttr<OpenCLIOAttr>();
-      argPipeIOAttr.push_back(
-		      (IOAttr) ? llvm::MDString::get(VMContext, IOAttr->getIOName())
-		      : llvm::MDString::get(VMContext, ""));
-
-      auto *BufferLocationAttr = parm->getAttr<OpenCLBufferLocationAttr>();
-      argBufferLocationAttr.push_back(
-		      (BufferLocationAttr)
-		      ? llvm::MDString::get(VMContext,
-			      BufferLocationAttr->getBufferLocation())
-		      : llvm::MDString::get(VMContext, ""));
-#endif // INTEL_CUSTOMIZATION
 
       auto *SYCLBufferLocationAttr =
           parm->getAttr<SYCLIntelBufferLocationAttr>();
