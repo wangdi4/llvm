@@ -172,6 +172,10 @@ static cl::opt<bool>
 static cl::opt<bool> DisableFcmpMinMaxCombine(
     "disable-fcmp-min-max-combine",
     cl::desc("disable combine fcmp to min/max optimization"));
+
+static cl::opt<bool> DisableUpcasting(
+    "disable-combine-upcasting",
+    cl::desc("disable the generation of pointer up casting"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
@@ -4221,7 +4225,8 @@ static bool combineInstructionsOverFunction(
     DominatorTree &DT, OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, unsigned MaxIterations, bool TypeLoweringOpts,
-    bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute, LoopInfo *LI) {
+    bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
+    bool EnableUpCasting, LoopInfo *LI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
@@ -4231,6 +4236,8 @@ static bool combineInstructionsOverFunction(
     PreserveAddrCompute = true;     // INTEL
   if (DisableFcmpMinMaxCombine)     // INTEL
     EnableFcmpMinMaxCombine = false;  // INTEL
+  if (DisableUpcasting)       // INTEL
+    EnableUpCasting = false;  // INTEL
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -4274,8 +4281,9 @@ static bool combineInstructionsOverFunction(
 
 #if INTEL_CUSTOMIZATION
     InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), TypeLoweringOpts,
-                        EnableFcmpMinMaxCombine, PreserveAddrCompute, AA, AC,
-                        TLI, TTI, DT, ORE, BFI, PSI, DL, LI);
+                        EnableFcmpMinMaxCombine, PreserveAddrCompute,
+                        EnableUpCasting, AA, AC, TLI, TTI, DT,
+                        ORE, BFI, PSI, DL, LI);
 #endif // INTEL_CUSTOMIZATION
     IC.MaxArraySizeForCombine = MaxArraySize;
 
@@ -4291,19 +4299,23 @@ static bool combineInstructionsOverFunction(
 #if INTEL_CUSTOMIZATION
 InstCombinePass::InstCombinePass(bool TypeLoweringOpts,
                                  bool PreserveAddrCompute,
-                                 bool EnableFcmpMinMaxCombine)
+                                 bool EnableFcmpMinMaxCombine,
+                                 bool EnableUpCasting)
     : TypeLoweringOpts(TypeLoweringOpts),
       PreserveAddrCompute(PreserveAddrCompute),
       MaxIterations(LimitMaxIterations),
-      EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine) {}
+      EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
+      EnableUpCasting(EnableUpCasting) {}
 
 InstCombinePass::InstCombinePass(bool TypeLoweringOpts,
                                  bool PreserveAddrCompute,
                                  unsigned MaxIterations,
-                                 bool EnableFcmpMinMaxCombine)
+                                 bool EnableFcmpMinMaxCombine,
+                                 bool EnableUpCasting)
     : TypeLoweringOpts(TypeLoweringOpts),
       PreserveAddrCompute(PreserveAddrCompute), MaxIterations(MaxIterations),
-      EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine) {}
+      EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
+      EnableUpCasting(EnableUpCasting) {}
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses InstCombinePass::run(Function &F,
@@ -4328,7 +4340,8 @@ PreservedAnalyses InstCombinePass::run(Function &F,
                                        MaxIterations,                 // INTEL
                                        TypeLoweringOpts,              // INTEL
                                        EnableFcmpMinMaxCombine,       // INTEL
-                                       PreserveAddrCompute, LI))      // INTEL
+                                       PreserveAddrCompute,           // INTEL
+                                       EnableUpCasting, LI))    // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -4388,7 +4401,8 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
                                          MaxIterations,                 // INTEL
                                          TypeLoweringOpts,              // INTEL
                                          EnableFcmpMinMaxCombine,       // INTEL
-                                         PreserveAddrCompute, LI);      // INTEL
+                                         PreserveAddrCompute,           // INTEL
+                                         EnableUpCasting, LI);    // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -4396,10 +4410,12 @@ char InstructionCombiningPass::ID = 0;
 #if INTEL_CUSTOMIZATION
 InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
                                                    bool PreserveAddrCompute,
-                                                   bool EnableFcmpMinMaxCombine)
+                                                   bool EnableFcmpMinMaxCombine,
+                                                   bool EnableUpCasting)
     : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
+      EnableUpCasting(EnableUpCasting),
 #endif // INTEL_CUSTOMIZATION
       MaxIterations(InstCombineDefaultMaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
@@ -4409,10 +4425,12 @@ InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
 InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
                                                    bool PreserveAddrCompute,
                                                    unsigned MaxIterations,
-                                                   bool EnableFcmpMinMaxCombine)
+                                                   bool EnableFcmpMinMaxCombine,
+                                                   bool EnableUpCasting)
     : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
+      EnableUpCasting(EnableUpCasting),
 #endif // INTEL_CUSTOMIZATION
       MaxIterations(MaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
@@ -4446,16 +4464,19 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 FunctionPass *
 llvm::createInstructionCombiningPass(bool TypeLoweringOpts,
                                      bool PreserveAddrCompute,
-                                     bool EnableFcmpMinMaxCombine) {
+                                     bool EnableFcmpMinMaxCombine,
+                                     bool EnableUpCasting) {
   return new InstructionCombiningPass(TypeLoweringOpts, PreserveAddrCompute,
-                                      EnableFcmpMinMaxCombine);
+                                      EnableFcmpMinMaxCombine,
+                                      EnableUpCasting);
 }
 
 FunctionPass *llvm::createInstructionCombiningPass(
     bool TypeLoweringOpts, bool PreserveAddrCompute, unsigned MaxIterations,
-    bool EnableFcmpMinMaxCombine) {
+    bool EnableFcmpMinMaxCombine, bool EnableUpCasting) {
   return new InstructionCombiningPass(TypeLoweringOpts, PreserveAddrCompute,
-                                      MaxIterations, EnableFcmpMinMaxCombine);
+                                      MaxIterations, EnableFcmpMinMaxCombine,
+                                      EnableUpCasting);
 }
 #endif // INTEL_CUSTOMIZATION
 
