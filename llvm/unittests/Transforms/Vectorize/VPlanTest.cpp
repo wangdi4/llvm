@@ -324,10 +324,6 @@ TEST(VPBasicBlockTest, getPlan) {
   }
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 92205cb27fd80bcb605cc0a424c8d9e9dde374c5
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 TEST(VPBasicBlockTest, print) {
   VPInstruction *I1 = new VPInstruction(Instruction::Add, {});
@@ -427,12 +423,7 @@ No successors
     EXPECT_EQ("EMIT vp<%3> = mul vp<%1> vp<%0>", I4Dump);
   }
 }
-<<<<<<< HEAD
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
-=======
 #endif
->>>>>>> 92205cb27fd80bcb605cc0a424c8d9e9dde374c5
 
 TEST(VPRecipeTest, CastVPInstructionToVPUser) {
   VPValue Op1;
