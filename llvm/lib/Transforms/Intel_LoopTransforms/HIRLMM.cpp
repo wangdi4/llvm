@@ -708,7 +708,10 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
   }
 
   if (!UnknownAliasingCallInsts.empty()) {
-    assert(FieldModRef && "FieldModRef expected!");
+    // Bail out if analysis is not available.
+    if (!FieldModRef) {
+      return false;
+    }
 
     // Use BasePtrLoadRef for mod-ref queries as it returns result for both
     // itself and its dereference(FirstRef).
