@@ -1692,18 +1692,21 @@ public:
       OuterNodeToInnermostLoop.emplace_back(NodeToMove, LoopAndDimInfo.first);
     }
 
-    unsigned StartTopSortNum = AnchorNode->getTopSortNum();
-    unsigned LastTopSortNum =
-        InnermostLoopToDimInfos.back().first->getTopSortNum();
+    HLNode *LastByStripNode = findTheLowestAncestor(
+      (InnermostLoopToDimInfos.back()).first, OutermostNode);
 
-    DDGraph DDG;
-    if (OutermostLoop) {
-      collectAdditionalLiveInsToByStripLoops(StartTopSortNum, LastTopSortNum,
-                                             OutermostLoop);
-    } else {
-      collectAdditionalLiveInsToByStripLoops(StartTopSortNum, LastTopSortNum,
-                                             Region);
-    }
+    // TODO: Verify skipping this phase when OutermostLoop is nullptr (i.e.
+    // OuterIf)
+    //       Using region's live-in/out in addByStripLoops() is conservative but
+    //       should be enough.
+    collectLiveInsToByStripLoops(AnchorNode, LastByStripNode);
+
+    // LiveIns defined after ByStripLoops -- omitted for now
+
+    // TODO: consider avoiding this phase for advanced options
+    //       for compile time.
+    SmallVector<unsigned, 16> LiveOutsOfByStrip =
+      collectLiveOutsOfByStripLoops(AnchorNode, LastByStripNode);
 
     // Note that invalidation only happens here because DDG of original
     // HLNodes are needed before this point. For example,
@@ -1740,7 +1743,8 @@ public:
     }
 
     HLLoop *InnermostByStripLoop =
-        addByStripLoops(AnchorNode, LoadInstsToClone, AuxRefsForByStripBounds);
+        addByStripLoops(AnchorNode, LoadInstsToClone, LiveOutsOfByStrip,
+                        AuxRefsForByStripBounds);
 
     LLVM_DEBUG(dbgs() << "InnermostByStripLoop: \n");
     LLVM_DEBUG(InnermostByStripLoop->dump());
@@ -1841,42 +1845,127 @@ private:
     assert(InnermostLoopToRepRef.size() == InnermostLoopToAdjustingRef.size());
   }
 
-  // Collect Lvals in OutermostLoop, that has outgoing edge
-  // into ByStripLoops. StartTopSortNum, and LastTopSortNum indicates
-  // the beginning and ending of ByStripLoops. Lvals in OutermostLoop
-  // before StartTopSortNum, and whose sinks are between StartTopSortNum
-  // and  LastTopSortNum  are collected.
-  template <typename T>
-  void collectAdditionalLiveInsToByStripLoops(unsigned StartTopSortNum,
-                                              unsigned LastTopSortNum,
-                                              T LoopOrRegion) {
+  // TODO: Non of the arguments are being changed by this function, but
+  //       only scanned. See if "const" canbe used.
+  void collectLiveInsToByStripLoops(HLNode *AnchorNode,
+                                    HLNode *LastByStripNode) {
 
-    DDGraph DDG = DDA.getGraph(LoopOrRegion);
+    // LiveIns to ByStripLoops
+    //
+    // DefRange - before the potential ByStripLoop
+    // UseRange - the range of the potential ByStripLoop
+    HLContainerTy::iterator DefBeginIt;
+    DDGraph DDG;
 
-    for (auto &Node :
-         make_range(LoopOrRegion->child_begin(), LoopOrRegion->child_end())) {
-      const HLDDNode *DDNode = dyn_cast<HLDDNode>(&Node);
+    if (OutermostLoop) {
+      DefBeginIt = OutermostLoop->child_begin();
+      DDG = DDA.getGraph(OutermostLoop);
+    } else {
+      HLRegion *Region = OuterIf->getParentRegion();
+      DefBeginIt = Region->child_begin();
+      DDG = DDA.getGraph(Region);
+    }
+
+    HLContainerTy::iterator DefEndIt = AnchorNode->getIterator();
+    unsigned UseStartTopSortNum = AnchorNode->getTopSortNum();
+    unsigned UseLastTopSortNum = LastByStripNode->getMaxTopSortNum();
+
+    SmallVector<unsigned, 16> LiveInsToByStrip;
+    collectLiveInOutForByStripLoops<true>(DefBeginIt, DefEndIt,
+                                          UseStartTopSortNum, UseLastTopSortNum,
+                                          DDG, LiveInsToByStrip);
+    std::copy(LiveInsToByStrip.begin(), LiveInsToByStrip.end(),
+              std::back_inserter(LiveInsOfAllSpatialLoop));
+  }
+
+  SmallVector<unsigned, 16>
+  collectLiveOutsOfByStripLoops(HLNode *AnchorNode, HLNode *LastByStripNode) {
+    // LiveOuts of ByStripLoops
+    //
+    // DefRange - the range of the potential ByStripLoop
+    // UseRange - after the potential ByStripLoop
+
+    HLContainerTy::iterator DefBeginIt = AnchorNode->getIterator();
+    HLContainerTy::iterator DefEndIt =
+        std::next(LastByStripNode->getIterator());
+    DDGraph DDG;
+    HLNode *OutermostNode = nullptr;
+    HLContainerTy::iterator OutermostEndIt;
+    HLNode *EnclosingNodeWithLiveInfo = nullptr;
+    HLRegion *Region = nullptr;
+
+    if (OutermostLoop) {
+      Region = OutermostLoop->getParentRegion();
+      DDG = DDA.getGraph(OutermostLoop);
+      OutermostNode = EnclosingNodeWithLiveInfo = OutermostLoop;
+      OutermostEndIt = OutermostLoop->child_end();
+    } else {
+      Region = OuterIf->getParentRegion();
+      DDG = DDA.getGraph(Region);
+      OutermostNode = OuterIf;
+      OutermostEndIt = OuterIf->child_end();
+      EnclosingNodeWithLiveInfo = Region;
+    }
+
+    SmallVector<unsigned, 16> LiveOutsOfByStrip;
+    if (DefEndIt != OutermostEndIt) {
+      collectLiveInOutForByStripLoops<true>(
+          DefBeginIt, DefEndIt, (*DefEndIt).getTopSortNum(),
+          EnclosingNodeWithLiveInfo->getMaxTopSortNum(), DDG,
+          LiveOutsOfByStrip);
+    } else if (std::next(OutermostNode->getIterator()) != Region->child_end()) {
+      // Same as the following in effect
+      // OuterIf && std::next(OuterIf->getIterator()) != Region->child_end()
+      // UseBegin should  be std::next of OuterIf.
+      collectLiveInOutForByStripLoops<false>(
+          DefBeginIt, DefEndIt,
+          (*std::next(OutermostNode->getIterator())).getTopSortNum(),
+          EnclosingNodeWithLiveInfo->getMaxTopSortNum(), DDG,
+          LiveOutsOfByStrip);
+    }
+
+    return LiveOutsOfByStrip;
+  }
+
+  // Collect LiveIns and LiveOuts.
+  // [DefBeginIt, DefEndIt) is the range where Lvals are found.
+  // [UseStartTopSortNum, UseTopSortNum] is the range of TopSortNumbers where
+  // uses are found. If an edge from the def-range to use-range exists, the
+  // symbase of the corresponding lval(ddref)'s symbase is populated into
+  // LiveInOrOut. Being LiveIn or LiveOut are dependent on the caller site of
+  // this function.
+  template <bool IsAllRefer = false>
+  void collectLiveInOutForByStripLoops(HLContainerTy::iterator DefBeginIt,
+                                       HLContainerTy::iterator DefEndIt,
+                                       unsigned UseStartTopSortNum,
+                                       unsigned UseLastTopSortNum, DDGraph DDG,
+                                       SmallVectorImpl<unsigned> &LiveInOrOut) {
+
+    for (HLRangeIterator It = HLRangeIterator(DefBeginIt),
+                         EIt = HLRangeIterator(DefEndIt);
+         It != EIt; ++It) {
+
+      // Currently, EIt is alwasy dereferencible in the caller site.
+      if (IsAllRefer && (*It) && (*EIt) && *It == *EIt)
+        break;
+
+      const HLDDNode *DDNode = dyn_cast<HLDDNode>(*It);
       if (!DDNode)
-        continue;
-      unsigned CurrentNum = DDNode->getTopSortNum();
-
-      if (CurrentNum >= StartTopSortNum)
         continue;
 
       const RegDDRef *Lval = DDNode->getLvalDDRef();
-      if (!Lval)
+      if (!Lval || !Lval->isSelfBlob())
         continue;
 
       // Assume no blob ddrefs from Lval
       for (auto *Edge : DDG.outgoing(Lval)) {
         const HLDDNode *SinkNode = Edge->getSink()->getHLDDNode();
-        unsigned UseTopSortNum = SinkNode->getTopSortNum();
+        unsigned TopSortNum = SinkNode->getTopSortNum();
 
-        if (UseTopSortNum < StartTopSortNum || UseTopSortNum > LastTopSortNum) {
-          continue;
+        if (TopSortNum >= UseStartTopSortNum &&
+            TopSortNum <= UseLastTopSortNum) {
+          LiveInOrOut.push_back(Lval->getSymbase());
         }
-
-        LiveInsOfAllSpatialLoop.push_back(Lval->getSymbase());
       }
     }
   }
@@ -2473,6 +2562,7 @@ private:
   HLLoop *
   addByStripLoops(HLNode *AnchorNode,
                   const SmallPtrSetImpl<const HLInst *> &LoadInstsToClone,
+                  const SmallVectorImpl<unsigned> &LiveOutsOfByStrip,
                   ArrayRef<const RegDDRef *> AuxRefsFromSpatialLoops) {
 
     HLRegion *Region = AnchorNode->getParentRegion();
@@ -2513,6 +2603,11 @@ private:
           ByStrip->getUpperDDRef(), ByStripLoopUpperBlobs[DimNum - 1].first,
           ByStripLoopUpperBlobs[DimNum - 1].second);
 
+      // TODO: These may not be needed. LiveIns are populated in other two
+      // places.
+      //       (1) Through pre-transformation DDG of the outermost loop or
+      //       region. (2) From cloned load instruction. The above two might
+      //       cover the following. However, I did not verify fully yet.
       ByStrip->getLowerDDRef()->populateTempBlobSymbases(
           LiveInsOfAllSpatialLoop);
       ByStrip->getUpperDDRef()->populateTempBlobSymbases(
@@ -2552,11 +2647,22 @@ private:
         ByStrip->addLiveInTemp(ArrayRef<unsigned>(
             OutermostLoop->live_in_begin(), OutermostLoop->live_in_end()));
       } else {
+        // TODO: This might not be needed because now region's DDG is scanned
+        //       from its child_begin() using function
+        //       collectLiveInOutForByStrip. However, using Region's live_in as
+        //       shown below is fater in compile time than scanning through DDG
+        //       with a tradeoff of accuracy. Consider using the following
+        //       instead of collectLiveInOutForBystrip.
         for (auto &Pair :
              make_range(Region->live_in_begin(), Region->live_in_end())) {
           ByStrip->addLiveInTemp(Pair.first);
         }
       }
+
+      // TODO: replace with the latest util eating the array.
+      std::for_each(
+          LiveOutsOfByStrip.begin(), LiveOutsOfByStrip.end(),
+          [ByStrip](unsigned Symbase) { ByStrip->addLiveOutTemp(Symbase); });
 
       // TileEnd is IV + (step capped by UB
       HLInst *TileEnd = createTileEnd(ByStrip);
