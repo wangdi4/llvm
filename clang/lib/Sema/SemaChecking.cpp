@@ -4216,7 +4216,6 @@ bool Sema::CheckX86BuiltinGatherScatterScale(unsigned BuiltinID,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
 bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
                                     ArrayRef<int> ArgNums,
                                     int Low, int High) {
@@ -4258,50 +4257,6 @@ bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
   return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums, Low, High) ||
          CheckX86BuiltinTileDuplicate(TheCall, ArgNums);
 }
-
-#else // INTEL_FEATURE_ISA_AMX
-enum { TileRegLow = 0, TileRegHigh = 7 };
-
-bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
-                                             ArrayRef<int> ArgNums) {
-  for (int ArgNum : ArgNums) {
-    if (SemaBuiltinConstantArgRange(TheCall, ArgNum, TileRegLow, TileRegHigh))
-      return true;
-  }
-  return false;
-}
-
-bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
-                                        ArrayRef<int> ArgNums) {
-  // Because the max number of tile register is TileRegHigh + 1, so here we use
-  // each bit to represent the usage of them in bitset.
-  std::bitset<TileRegHigh + 1> ArgValues;
-  for (int ArgNum : ArgNums) {
-    Expr *Arg = TheCall->getArg(ArgNum);
-    if (Arg->isTypeDependent() || Arg->isValueDependent())
-      continue;
-
-    llvm::APSInt Result;
-    if (SemaBuiltinConstantArg(TheCall, ArgNum, Result))
-      return true;
-    int ArgExtValue = Result.getExtValue();
-    assert((ArgExtValue >= TileRegLow || ArgExtValue <= TileRegHigh) &&
-           "Incorrect tile register num.");
-    if (ArgValues.test(ArgExtValue))
-      return Diag(TheCall->getBeginLoc(),
-                  diag::err_x86_builtin_tile_arg_duplicate)
-             << TheCall->getArg(ArgNum)->getSourceRange();
-    ArgValues.set(ArgExtValue);
-  }
-  return false;
-}
-
-bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
-                                                ArrayRef<int> ArgNums) {
-  return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums) ||
-         CheckX86BuiltinTileDuplicate(TheCall, ArgNums);
-}
-#endif // INTEL_FEATURE_ISA_AMX
 
 bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   switch (BuiltinID) {

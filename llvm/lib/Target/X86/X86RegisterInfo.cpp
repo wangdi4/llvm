@@ -674,15 +674,6 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  // FIXME Just to keep tile register spill test case pass. Or may add an option
-  // to constrain the tile register number for the test case. In long term,
-  // we need another register class for tmm0 ~ tmm15.
-  for (unsigned n = 8; n != 16; ++n) {
-    for (MCRegAliasIterator AI(X86::TMM0 + n, this, true); AI.isValid(); ++AI)
-      Reserved.set(*AI);
-  }
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ICECODE
   // Reserve the registers ZMM0~15 in IceCode mode.
   if (IsIceCode)

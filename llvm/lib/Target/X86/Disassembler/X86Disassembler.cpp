@@ -763,35 +763,31 @@ static int readModRM(struct InternalInstruction *insn) {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
 #define TMM_TYPE(prefix)                                                       \
     case TYPE_TMM:                                                             \
       return prefix##_TMM0 + index;
 #define TMM_TYPE_PAIR(prefix)                                                  \
     case TYPE_TMM_PAIR:                                                        \
-      return prefix##_TMM0_TMM1 + (index / 2 );
-#else // INTEL_FEATURE_ISA_AMX
+      return prefix##_TMM0_TMM1 + (index / 2);
+// We don't use tuple registers here. Just pick either ZMM0 or ZMM16.
+#define ZMM16_TYPE_TUPLES(prefix)                                              \
+    case TYPE_ZMM16_TUPLES:                                                    \
+      return prefix##_ZMM0 + (index / 16) * 16;
+#else // INTEL_FEATURE_ISA_AMX_LNC
 #define TMM_TYPE(prefix)                                                       \
     case TYPE_TMM:                                                             \
       if (index > 7)                                                           \
         *valid = 0;                                                            \
       return prefix##_TMM0 + index;
 #define TMM_TYPE_PAIR(prefix)
-#endif // INTEL_FEATURE_ISA_AMX
-
-#if INTEL_FEATURE_ISA_AMX_LNC
-// We don't use tuple registers here. Just pick either ZMM0 or ZMM16.
-#define ZMM16_TYPE_TUPLES(prefix)                                              \
-    case TYPE_ZMM16_TUPLES:                                                    \
-      return prefix##_ZMM0 + (index / 16) * 16;
-#else // INTEL_FEATURE_ISA_AMX_LNC
 #define ZMM16_TYPE_TUPLES(prefix)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #define TMM_TYPE_QUAD(prefix)                                                  \
     case TYPE_TMM_QUAD:                                                        \
-      return prefix##_TMM0_TMM1_TMM2_TMM3 + (index / 4 );
+      return prefix##_TMM0_TMM1_TMM2_TMM3 + (index / 4);
 #else // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #define TMM_TYPE_QUAD(prefix)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
@@ -2359,10 +2355,8 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_YMM:
   case TYPE_ZMM:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  case TYPE_TMM_PAIR:
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
+  case TYPE_TMM_PAIR:
   case TYPE_ZMM16_TUPLES:
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2

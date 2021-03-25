@@ -584,7 +584,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   bool isTILEPair() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
@@ -594,6 +594,8 @@ struct X86Operand final : public MCParsedAsmOperand {
     assert(N == 1 && "Invalid number of operands!");
     unsigned Reg = getReg();
     switch (Reg) {
+    default:
+      llvm_unreachable("Invalid tile register!");
     case X86::TMM0:
     case X86::TMM1:
       Reg = X86::TMM0_TMM1;
@@ -610,6 +612,7 @@ struct X86Operand final : public MCParsedAsmOperand {
     case X86::TMM7:
       Reg = X86::TMM6_TMM7;
       break;
+    // ISA_AMX_FUTURE
     case X86::TMM8:
     case X86::TMM9:
       Reg = X86::TMM8_TMM9;
@@ -626,6 +629,39 @@ struct X86Operand final : public MCParsedAsmOperand {
     case X86::TMM15:
       Reg = X86::TMM14_TMM15;
       break;
+    case X86::TMM16:
+    case X86::TMM17:
+      Reg = X86::TMM16_TMM17;
+      break;
+    case X86::TMM18:
+    case X86::TMM19:
+      Reg = X86::TMM18_TMM19;
+      break;
+    case X86::TMM20:
+    case X86::TMM21:
+      Reg = X86::TMM20_TMM21;
+      break;
+    case X86::TMM22:
+    case X86::TMM23:
+      Reg = X86::TMM22_TMM23;
+      break;
+    case X86::TMM24:
+    case X86::TMM25:
+      Reg = X86::TMM24_TMM25;
+      break;
+    case X86::TMM26:
+    case X86::TMM27:
+      Reg = X86::TMM26_TMM27;
+      break;
+    case X86::TMM28:
+    case X86::TMM29:
+      Reg = X86::TMM28_TMM29;
+      break;
+    case X86::TMM30:
+    case X86::TMM31:
+      Reg = X86::TMM30_TMM31;
+      break;
+    // end ISA_AMX_FUTURE
     }
     Inst.addOperand(MCOperand::createReg(Reg));
   }
@@ -635,6 +671,9 @@ struct X86Operand final : public MCParsedAsmOperand {
       X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
   }
 
+  // ISA_AMX_FUTURE
+  // Currently only VEX encoding instructions use TILEQUAD operands, therefore
+  // we only defined 2 sets of TILEQUAD registers here.
   void addTILEQuadOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     unsigned Reg = getReg();
@@ -653,24 +692,11 @@ struct X86Operand final : public MCParsedAsmOperand {
     case X86::TMM7:
       Reg = X86::TMM4_TMM5_TMM6_TMM7;
       break;
-    case X86::TMM8:
-    case X86::TMM9:
-    case X86::TMM10:
-    case X86::TMM11:
-      Reg = X86::TMM8_TMM9_TMM10_TMM11;
-      break;
-    case X86::TMM12:
-    case X86::TMM13:
-    case X86::TMM14:
-    case X86::TMM15:
-      Reg = X86::TMM12_TMM13_TMM14_TMM15;
-      break;
     }
     Inst.addOperand(MCOperand::createReg(Reg));
   }
-#endif // INTEL_FEATURE_ISA_AMX
+  // end ISA_AMX_FUTURE
 
-#if INTEL_FEATURE_ISA_AMX_LNC
   bool isZMM16Tuples() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VR512RegClassID].contains(getReg());

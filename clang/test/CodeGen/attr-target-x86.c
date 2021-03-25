@@ -1,6 +1,8 @@
-// if INTEL_CUSTOMIZATION
-// UNSUPPORTED: intel_feature_isa_amx
-// endif INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ISA_AMX_LNC
+// UNSUPPORTED: intel_feature_isa_amx_lnc
+// end INTEL_FEATURE_ISA_AMX_LNC
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple i686-linux-gnu -target-cpu i686 -tune-cpu i686 -emit-llvm %s -o - | FileCheck %s
 
 int baz(int a) { return 4; }

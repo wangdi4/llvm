@@ -10,15 +10,15 @@
 ; CHECK:    t4rqntlvbz0 (%{{.*}},%{{.*}}), %tmm0
 ; CHECK:    t4rqntlvbz0t1 (%{{.*}},%{{.*}}), %tmm4
 ; CHECK:    t4rqntlvbz1 (%{{.*}},%{{.*}}), %tmm0
-; CHECK:    t4rqntlvbz1t1 (%{{.*}},%{{.*}}), %tmm8
-; CHECK:    t4rqntlvbz2 (%{{.*}},%{{.*}}), %tmm12
+; CHECK:    t4rqntlvbz1t1 (%{{.*}},%{{.*}}), %tmm4
+; CHECK:    t4rqntlvbz2 (%{{.*}},%{{.*}}), %tmm4
 ; CHECK:    t4rqntlvbz2t1 (%{{.*}},%{{.*}}), %tmm0
 ; CHECK:    t4rqntlvbz3 (%{{.*}},%{{.*}}), %tmm4
-; CHECK:    t4rqntlvbz3t1 (%{{.*}},%{{.*}}), %tmm8
+; CHECK:    t4rqntlvbz3t1 (%{{.*}},%{{.*}}), %tmm4
 ; CHECK:    ttdpbssd        %tmm1, %tmm2, %tmm3
 ; CHECK:    ttdpbsud        %tmm6, %tmm5, %tmm4
-; CHECK:    ttdpbusd        %tmm9, %tmm8, %tmm7
-; CHECK:    ttdpbuud        %tmm12, %tmm11, %tmm10
+; CHECK:    ttdpbusd        %tmm5, %tmm6, %tmm7
+; CHECK:    ttdpbuud        %tmm5, %tmm6, %tmm7
 
 define void @test_amx(i64 %addr, i64 %addrx, i32 %rv32, i64 %stride, i64 %rvalue, i8* %addr1) {
 call void @llvm.x86.t2transposew  (i8 3, i8* %addr1, i64 %stride, i64 %rvalue)
@@ -26,15 +26,15 @@ call void @llvm.x86.t2transposewt1(i8 4, i8* %addr1, i64 %stride, i64 %rvalue)
 call void @llvm.x86.t4rqntlvbz0(i8 0, i8* %addr1, i64 %stride)
 call void @llvm.x86.t4rqntlvbz0t1(i8 4, i8* %addr1, i64 %stride)
 call void @llvm.x86.t4rqntlvbz1(i8 0, i8* %addr1, i64 %stride)
-call void @llvm.x86.t4rqntlvbz1t1(i8 8, i8* %addr1, i64 %stride)
-call void @llvm.x86.t4rqntlvbz2(i8 12, i8* %addr1, i64 %stride)
+call void @llvm.x86.t4rqntlvbz1t1(i8 7, i8* %addr1, i64 %stride)
+call void @llvm.x86.t4rqntlvbz2(i8 7, i8* %addr1, i64 %stride)
 call void @llvm.x86.t4rqntlvbz2t1(i8 0, i8* %addr1, i64 %stride)
 call void @llvm.x86.t4rqntlvbz3(i8 4, i8* %addr1, i64 %stride)
-call void @llvm.x86.t4rqntlvbz3t1(i8 8, i8* %addr1, i64 %stride)
+call void @llvm.x86.t4rqntlvbz3t1(i8 7, i8* %addr1, i64 %stride)
 call void @llvm.x86.ttdpbssd(i8 3, i8 2, i8 1)
 call void @llvm.x86.ttdpbsud(i8 4, i8 5, i8 6)
-call void @llvm.x86.ttdpbusd(i8 7, i8 8, i8 9)
-call void @llvm.x86.ttdpbuud(i8 10, i8 11, i8 12)
+call void @llvm.x86.ttdpbusd(i8 7, i8 6, i8 5)
+call void @llvm.x86.ttdpbuud(i8 7, i8 6, i8 5)
 
 ret void
 }

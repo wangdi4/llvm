@@ -31,13 +31,11 @@ let Namespace = "X86" in {
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   def sub_t0   : SubRegIndex<-1>;
   def sub_t1   : SubRegIndex<-1, -1>;
   def sub_t2   : SubRegIndex<-1, -1>;
   def sub_t3   : SubRegIndex<-1, -1>;
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   def sub_z0   : SubRegIndex<512>;
   def sub_z1   : SubRegIndex<512, 512>;
   def sub_z2   : SubRegIndex<512, 1024>;
@@ -304,8 +302,7 @@ def TMM5:  X86Reg<"tmm5",   5>;
 def TMM6:  X86Reg<"tmm6",   6>;
 def TMM7:  X86Reg<"tmm7",   7>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-// FIXME Just align with ICC, tmm8-15 is not supported by HW.
+#if INTEL_FEATURE_ISA_AMX_FUTURE
 def TMM8:  X86Reg<"tmm8",   8>;
 def TMM9:  X86Reg<"tmm9",   9>;
 def TMM10: X86Reg<"tmm10", 10>;
@@ -314,7 +311,6 @@ def TMM12: X86Reg<"tmm12", 12>;
 def TMM13: X86Reg<"tmm13", 13>;
 def TMM14: X86Reg<"tmm14", 14>;
 def TMM15: X86Reg<"tmm15", 15>;
-
 def TMM16: X86Reg<"tmm16", 16>;
 def TMM17: X86Reg<"tmm17", 17>;
 def TMM18: X86Reg<"tmm18", 18>;
@@ -331,7 +327,7 @@ def TMM28: X86Reg<"tmm28", 28>;
 def TMM29: X86Reg<"tmm29", 29>;
 def TMM30: X86Reg<"tmm30", 30>;
 def TMM31: X86Reg<"tmm31", 31>;
-#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #endif // INTEL_CUSTOMIZATION
 
 // Mask Registers, used by AVX-512 instructions.
@@ -727,45 +723,21 @@ def VK64WM  : RegisterClass<"X86", [v64i1], 64, (add VK32WM)> {let Size = 64;}
 // Bound registers
 def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
 // Tiles
 let CopyCost = -1 in // Don't allow copying of tile registers
 def TILE : RegisterClass<"X86", [x86amx], 8192,
-                         (sequence "TMM%u", 0, 15)> {let Size = 8192;}
-
-// Tiles
-let isAllocatable = 0 in
-def TILEX : RegisterClass<"X86", [untyped], 0,
-                          (sequence "TMM%u", 0, 31)> {let Size = 8192;}
-
+                         (sequence "TMM%u", 0, 7)> {let Size = 8192;}
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_LNC
 // TMM register pairs
 def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
-                            [(add TMM0, TMM2, TMM4, TMM6, TMM8, TMM10, TMM12, TMM14),
-                             (add TMM1, TMM3, TMM5, TMM7, TMM9, TMM11, TMM13, TMM15)]>;
+                            [(add TMM0, TMM2, TMM4, TMM6),
+                             (add TMM1, TMM3, TMM5, TMM7)]>;
 
 // Need check alignment 3rd operand size=1024*2*8
 let isAllocatable = 0 in
 def TILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
 
-// TMM register quad
-def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
-                            [(add TMM0, TMM4, TMM8,  TMM12),
-                             (add TMM1, TMM5, TMM9,  TMM13),
-                             (add TMM2, TMM6, TMM10, TMM14),
-                             (add TMM3, TMM7, TMM11, TMM15)]>;
-
-// Need check alignment 3rd operand size=1024*4*8
-let isAllocatable = 0 in
-def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
-#else // INTEL_FEATURE_ISA_AMX
-// Tiles
-let CopyCost = -1 in // Don't allow copying of tile registers
-def TILE : RegisterClass<"X86", [x86amx], 8192,
-                         (sequence "TMM%u", 0, 7)> {let Size = 8192;}
-#endif // INTEL_FEATURE_ISA_AMX
-
-#if INTEL_FEATURE_ISA_AMX_LNC
 // FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
 // can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.
 def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, sub_z6,
@@ -781,4 +753,32 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 // Need check alignment 3rd operand size=512*16
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+// Tiles
+let isAllocatable = 0 in
+def TILEX : RegisterClass<"X86", [x86amx], 0,
+                          (sequence "TMM%u", 0, 31)> {let Size = 8192;}
+
+// TMM0-TMM31 register pairs
+def TPAIRSX : RegisterTuples<[sub_t0, sub_t1],
+                             [(add TMM8, TMM10, TMM12,
+                               TMM14, TMM16, TMM18, TMM20, TMM22, TMM24, TMM26,
+                               TMM28, TMM30),
+                              (add TMM9, TMM11, TMM13,
+                               TMM15, TMM17, TMM19, TMM21, TMM23, TMM25, TMM27,
+                               TMM29, TMM31)]>;
+
+// Need check alignment 3rd operand size=1024*2*8
+let isAllocatable = 0 in
+def TILEPAIRX : RegisterClass<"X86", [untyped], 0, (add TPAIRSX)> {let Size = 16384;}
+
+// TMM register quad
+def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
+                            [(add TMM0, TMM4), (add TMM1, TMM5),
+                             (add TMM2, TMM6), (add TMM3, TMM7)]>;
+
+// Need check alignment 3rd operand size=1024*4*8
+let isAllocatable = 0 in
+def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #endif // INTEL_CUSTOMIZATION
