@@ -3361,19 +3361,7 @@ void Generic_GCC::AddMultilibPaths(const Driver &D,
                         SelectedMultilib.osSuffix(),
                     Paths);
 
-    // If the GCC installation we found is inside of the sysroot, we want to
-    // prefer libraries installed in the parent prefix of the GCC installation.
-    // It is important to *not* use these paths when the GCC installation is
-    // outside of the system root as that can pick up unintended libraries.
-    // This usually happens when there is an external cross compiler on the
-    // host system, and a more minimal sysroot available that is the target of
-    // the cross. Note that GCC does include some of these directories in some
-    // configurations but this seems somewhere between questionable and simply
-    // a bug.
-    if (StringRef(LibPath).startswith(SysRoot)) {
-      addPathIfExists(D, LibPath + "/" + MultiarchTriple, Paths);
-      addPathIfExists(D, LibPath + "/../" + OSLibDir, Paths);
-    }
+    addPathIfExists(D, LibPath + "/../" + OSLibDir, Paths);
   }
 }
 
@@ -3384,11 +3372,6 @@ void Generic_GCC::AddMultiarchPaths(const Driver &D,
   // Try walking via the GCC triple path in case of biarch or multiarch GCC
   // installations with strange symlinks.
   if (GCCInstallation.isValid()) {
-    addPathIfExists(D,
-                    SysRoot + "/usr/lib/" + GCCInstallation.getTriple().str() +
-                        "/../../" + OSLibDir,
-                    Paths);
-
     // Add the 'other' biarch variant path
     Multilib BiarchSibling;
     if (GCCInstallation.getBiarchSibling(BiarchSibling)) {
@@ -3397,8 +3380,6 @@ void Generic_GCC::AddMultiarchPaths(const Driver &D,
                       Paths);
     }
 
-    // See comments above on the multilib variant for details of why this is
-    // included even from outside the sysroot.
     const std::string &LibPath =
         std::string(GCCInstallation.getParentLibPath());
     const llvm::Triple &GCCTriple = GCCInstallation.getTriple();
@@ -3406,11 +3387,7 @@ void Generic_GCC::AddMultiarchPaths(const Driver &D,
     addPathIfExists(
         D, LibPath + "/../" + GCCTriple.str() + "/lib" + Multilib.osSuffix(),
                     Paths);
-
-    // See comments above on the multilib variant for details of why this is
-    // only included from within the sysroot.
-    if (StringRef(LibPath).startswith(SysRoot))
-      addPathIfExists(D, LibPath, Paths);
+    addPathIfExists(D, LibPath, Paths);
   }
 }
 
