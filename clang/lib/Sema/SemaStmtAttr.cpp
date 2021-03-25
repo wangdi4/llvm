@@ -118,9 +118,6 @@ static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
 
 template <typename FPGALoopAttrT>
 static Attr *handleIntelFPGALoopAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
-  if(S.LangOpts.SYCLIsHost)
-    return nullptr;
-
   if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
     S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
         << A << "'for', 'while', and 'do' statements";
@@ -128,16 +125,6 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
   }
 
   unsigned NumArgs = A.getNumArgs();
-#if INTEL_CUSTOMIZATION
-  // Warn if this is not spelled as the pragma since pragma can take
-  // five arguments and SYCL form can only take one argument.
-  if ((NumArgs > 1) &&
-      (A.getSyntax() != AttributeCommonInfo::AS_Pragma)) {
-#endif // INTEL_CUSTOMIZATION
-    S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 1;
-    return nullptr;
-  }
-
   if (NumArgs == 0) {
     if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAInitiationInterval ||
         A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency ||
@@ -161,23 +148,9 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
 template <>
 Attr *handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
     Sema &S, Stmt *St, const ParsedAttr &A) {
-  if (S.LangOpts.SYCLIsHost)
-    return nullptr;
-
   if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
     S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
         << A << "'for', 'while', and 'do' statements";
-    return nullptr;
-  }
-
-  unsigned NumArgs = A.getNumArgs();
-#if INTEL_CUSTOMIZATION
-  // Warn if this is not spelled as the pragma since pragma can take
-  // five arguments and SYCL form can take zero argument.
-  if ((NumArgs > 0) &&
-      (A.getSyntax() != AttributeCommonInfo::AS_Pragma)) {
-#endif // INTEL_CUSTOMIZATION
-    S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 0;
     return nullptr;
   }
 
@@ -345,10 +318,6 @@ static Attr *handleIntelFPGAIVDepAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
   }
 
   unsigned NumArgs = A.getNumArgs();
-  if (NumArgs > 2) {
-    S.Diag(A.getLoc(), diag::err_attribute_too_many_arguments) << A << 2;
-    return nullptr;
-  }
 
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
@@ -371,18 +340,9 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
 
 static Attr *handleIntelFPGANofusionAttr(Sema &S, Stmt *St,
                                          const ParsedAttr &A) {
-  if (S.LangOpts.SYCLIsHost)
-    return nullptr;
-
   if (!isa<ForStmt, CXXForRangeStmt, DoStmt, WhileStmt>(St)) {
     S.Diag(A.getLoc(), diag::err_attribute_wrong_decl_type_str)
         << A << "'for', 'while', and 'do' statements";
-    return nullptr;
-  }
-
-  unsigned NumArgs = A.getNumArgs();
-  if (NumArgs > 0) {
-    S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 0;
     return nullptr;
   }
 
@@ -1540,14 +1500,7 @@ static Attr *handleLoopUnrollHint(Sema &S, Stmt *St, const ParsedAttr &A,
     return nullptr;
   }
 
-  unsigned NumArgs = A.getNumArgs();
-
-  if (NumArgs > 1) {
-    S.Diag(A.getLoc(), diag::err_attribute_too_many_arguments) << A << 1;
-    return nullptr;
-  }
-
-  Expr *E = NumArgs ? A.getArgAsExpr(0) : nullptr;
+  Expr *E = A.getNumArgs() ? A.getArgAsExpr(0) : nullptr;
   if (A.getParsedKind() == ParsedAttr::AT_OpenCLUnrollHint)
     return S.BuildOpenCLLoopUnrollHintAttr(A, E);
   else if (A.getParsedKind() == ParsedAttr::AT_LoopUnrollHint) {

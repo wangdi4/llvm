@@ -2825,7 +2825,7 @@ def fsycl_instrument_device_code : Flag<["-"], "fsycl-instrument-device-code">,
 defm sycl_id_queries_fit_in_int: BoolFOption<"sycl-id-queries-fit-in-int",
   LangOpts<"SYCLValueFitInMaxInt">, DefaultFalse,
   PosFlag<SetTrue, [], "Assume">, NegFlag<SetFalse, [], "Do not assume">,
-  BothFlags<[CC1Option, CoreOption, DpcppOption], " that SYCL ID queries fit within MAX_INT.">>;
+  BothFlags<[CC1Option, CoreOption], " that SYCL ID queries fit within MAX_INT.">>;
 def fsycl_use_bitcode : Flag<["-"], "fsycl-use-bitcode">,
   Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Use LLVM bitcode instead of SPIR-V in fat objects">;
 def fno_sycl_use_bitcode : Flag<["-"], "fno-sycl-use-bitcode">,
