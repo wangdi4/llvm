@@ -859,9 +859,8 @@ int32_t DeviceTy::getNumInteropProperties(void) {
 }
 
 int32_t DeviceTy::getInteropPropertyValue(__tgt_interop *Interop,
-                                          omp_interop_property_t Property,
-                                          int32_t ValueType, size_t Size,
-                                          void *Value) {
+                                          int32_t Property, int32_t ValueType,
+                                          size_t Size, void *Value) {
   if (RTL->get_interop_property_value)
     return RTL->get_interop_property_value(RTLDeviceID, Interop, Property,
                                            ValueType, Size, Value);
@@ -869,7 +868,7 @@ int32_t DeviceTy::getInteropPropertyValue(__tgt_interop *Interop,
     return OFFLOAD_FAIL;
 }
 
-const char *DeviceTy::getInteropPropertyInfo(omp_interop_property_t Property,
+const char *DeviceTy::getInteropPropertyInfo(int32_t Property,
                                              int32_t InfoType) {
   if (RTL->get_interop_property_info)
     return RTL->get_interop_property_info(RTLDeviceID, Property, InfoType);
