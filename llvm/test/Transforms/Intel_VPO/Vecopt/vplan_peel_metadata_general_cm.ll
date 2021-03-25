@@ -1,27 +1,14 @@
-; RUN: opt -S -mattr=avx2 -VPlanDriver -vplan-enable-peeling < %s | FileCheck %s
+; RUN: opt -S -mattr=avx2 -VPlanDriver < %s \
+; RUN:     -vplan-enable-peeling -vplan-enable-general-peeling-cost-model \
+; RUN: | FileCheck %s
+
+; This is a test for VPlanPeelingCostModelGeneral. The test checks
+; that the cost model works correctly at least in some cases. The cost
+; model needs to be properly tuned before it can be applied to more
+; cases.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
-
-; CHECK-LABEL: test_store
-define void @test_store(i64* nocapture %ary) {
-entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2) ]
-  br label %for.body
-
-for.body:
-  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
-  ; CHECK: store <2 x i64> %{{.*}}, <2 x i64>* %{{.*}}, align 8, !intel.preferred_alignment ![[MD_ST:.*]]
-  store i64 %indvars.iv, i64* %ptr, align 8
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %cmp = icmp ult i64 %indvars.iv.next, 1024
-  br i1 %cmp, label %for.body, label %for.end
-
-for.end:
-  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  ret void
-}
 
 ; CHECK-LABEL: test_load
 define void @test_load(i32* nocapture %dst, i32* nocapture %src, i64 %size) {
@@ -47,7 +34,6 @@ for.end:
   ret void
 }
 
-; CHECK: ![[MD_ST]] = !{i32 16}
 ; CHECK: ![[MD_LD]] = !{i32 32}
 
 declare token @llvm.directive.region.entry()

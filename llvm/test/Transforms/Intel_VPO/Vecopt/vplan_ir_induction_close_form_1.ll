@@ -39,17 +39,16 @@ define dso_local i32 @_Z3fooPiii(i32* nocapture readonly %ptr, i32 %step, i32 %n
 ; CHECK-NEXT:     i32* [[VP_PTR_ADDR_019:%.*]] = phi  [ i32* [[VP0:%.*]], [[BB2]] ],  [ i32* [[VP_PTR_ADDR_019_IND_INIT]], [[BB1]] ]
 ; CHECK-NEXT:     i8 [[VP_C_018:%.*]] = phi  [ i8 [[VP1:%.*]], [[BB2]] ],  [ i8 [[VP_C_018_IND_INIT]], [[BB1]] ]
 ;
-; Check induction binops
-; CHECK:          i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 1
+; Check induction binops and close-form instructions
+; CHECK:          i32* [[VP0]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 [[VP_PTR_ADDR_019_IND_INIT_STEP]]
+; CHECK-NEXT:     i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 1
+; CHECK-NEXT:     i8 [[VP1]] = add i8 [[VP_C_018]] i8 [[VP_C_018_IND_INIT_STEP]]
 ; CHECK-NEXT:     i8 [[VP_INC:%.*]] = add i8 [[VP_C_018]] i8 1
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = load i32* [[VP_INCDEC_PTR]]
 ; CHECK-NEXT:     i32 [[VP_CONV6:%.*]] = sext i8 [[VP_INC]] to i32
 ; CHECK-NEXT:     i32 [[VP_MUL7:%.*]] = mul i32 [[VP2]] i32 [[VP_CONV6]]
 ; CHECK-NEXT:     i32 [[VP_ADD8]] = add i32 [[VP_MUL7]] i32 [[VP_ADD824]]
 ;
-; Check induction close-form instructions
-; CHECK:          i32* [[VP0]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 [[VP_PTR_ADDR_019_IND_INIT_STEP]]
-; CHECK-NEXT:     i8 [[VP1]] = add i8 [[VP_C_018]] i8 [[VP_C_018_IND_INIT_STEP]]
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end

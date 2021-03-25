@@ -142,8 +142,8 @@ public:
       std::string OutputVal;
       raw_string_ostream OutputStream(OutputVal);
       OutputStream << "\n    ; -> Safety data: ";
-      OutputStream << *Log.Ty << " : "
-                   << dtrans::getSafetyDataName(Log.SafetyFlag);
+      Log.Ty->print(OutputStream, false);
+      OutputStream << " : " << dtrans::getSafetyDataName(Log.SafetyFlag);
       if (Log.IsCascaded)
         OutputStream << "[Cascaded]";
       if (Log.IsPointerCarried)

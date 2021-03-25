@@ -148,7 +148,7 @@ public:
 
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
   // its underlying Instruction.
-  VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
+  VPInstruction *createNaryOp(unsigned Opcode, Type *BaseTy,
                         ArrayRef<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
     VPInstruction *NewVPInst = createInstruction(Opcode, BaseTy, Operands);
@@ -156,7 +156,7 @@ public:
       NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
   }
-  VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
+  VPInstruction *createNaryOp(unsigned Opcode, Type *BaseTy,
                         std::initializer_list<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
     return createNaryOp(Opcode, BaseTy, ArrayRef<VPValue *>(Operands), Inst);

@@ -27,6 +27,9 @@ cl::opt<bool> EnableMaskedVariant("vplan-enable-masked-variant",
                                   cl::init(false), cl::Hidden,
                                   cl::desc("Enable masked variant"));
 
+static LoopVPlanDumpControl
+    MaskedVariantDumpControl("create-masked-vplan", "emitting masked variant");
+
 VPUser::user_iterator getLoopHeaderVPPHIUser(const VPUser::user_range &Users,
                                              VPLoop *TopVPLoop) {
   return llvm::find_if(Users, [TopVPLoop](auto &User) {
@@ -152,8 +155,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   MaskedVPlan->setVPlanDA(std::move(MaskedVPlanDA));
   MaskedVPlan->computeDA();
 
-  VPLAN_DUMP(EnableMaskedVariant, "After emitting masked variant",
-             MaskedVPlan.get());
+  VPLAN_DUMP(MaskedVariantDumpControl, MaskedVPlan.get());
 
   return MaskedVPlan;
 }

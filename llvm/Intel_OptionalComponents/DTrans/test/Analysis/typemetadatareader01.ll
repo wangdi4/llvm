@@ -7,76 +7,54 @@
 
 ; Test simple structure
 %struct.test01 = type { i32, i32 }
-; CHECK-LABEL: StructType: %struct.test01
-; CHECK-NEXT: 0) i32
-; CHECK-NEXT: 1) i32
+; CHECK: StructType: %struct.test01 = type { i32, i32 }
 
 ; Test structure with pointers and pointers to pointers
 ; With opaque pointers, this will change to "type { ptr, ptr }",
 ; but the metadata will be able to produce the original form.
 %struct.test02 = type { i64**, i8* }
-; CHECK-LABEL: StructType: %struct.test02
-; CHECK-NEXT: 0) i64**
-; CHECK-NEXT: 1) i8*
+; CHECK: StructType: %struct.test02 = type { i64**, i8* }
 
 ; Test structure which also contains pointers to structures
 ; With opaque pointers, this will change to "type {ptr, ptr, ptr}"
 %struct.test03 = type { %struct.test01*, %struct.test02*, %struct.test03* }
-; CHECK-LABEL: StructType: %struct.test03
-; CHECK-NEXT: 0) %struct.test01*
-; CHECK-NEXT: 1) %struct.test02*
-; CHECK-NEXT: 2) %struct.test03*
+; CHECK: StructType: %struct.test03  = type { %struct.test01*, %struct.test02*, %struct.test03* }
 
 ; Test structure with nested structures. For this structure, it is not
 ; required that metadata is present, but for now we will include it for
 ; completeness.
 %struct.test04 = type { %struct.test01, %struct.test02 }
-; CHECK-LABEL: StructType: %struct.test04
-; CHECK-NEXT: 0) %struct.test01
-; CHECK-NEXT: 1) %struct.test02
+; CHECK: StructType: %struct.test04 = type { %struct.test01, %struct.test02 }
 
 ; Test structure with function pointer containing pointer to structure type, and void type.
 %struct.test05 = type { i32, void (%struct.test05*)* }
-; CHECK-LABEL: StructType: %struct.test05
-; CHECK-NEXT: 0) i32
-; CHECK-NEXT: 1) void (%struct.test05*)*
+; CHECK: StructType: %struct.test05 = type { i32, void (%struct.test05*)* }
 
 ; Test structure with arrays, and arrays of pointers
 %struct.test06 = type {[ 256 x i8], [128 x i16]*, [64 x i8**] }
-; CHECK-LABEL: StructType: %struct.test06
-; CHECK-NEXT: 0) [256 x i8]
-; CHECK-NEXT: 1) [128 x i16]*
-; CHECK-NEXT: 2) [64 x i8**]
+; CHECK: StructType: %struct.test06 = type { [256 x i8], [128 x i16]*, [64 x i8**] }
 
 ; Test structure with literal struct
 %struct.test07 = type { i32, { double, i16 } }
-; CHECK-LABEL: StructType: %struct.test07
-; CHECK-NEXT: 0)  i32
-; CHECK-NEXT: 1)  { double,  i16 }
+; CHECK: StructType: %struct.test07 = type { i32, { double, i16 } }
 
 ; Test with opaque structure definition
 %struct.test08 = type opaque
-; CHECK-LABEL: StructType: %struct.test08
-; CHECK-NEXT: opaque
+; CHECK: StructType: %struct.test08 = type opaque
 
 ; Test with empty structure definition
 %struct.test09 = type {}
-; CHECK-LABEL: StructType: %struct.test09
-; CHECK-NEXT: empty
+; CHECK: StructType: %struct.test09 = type {}
 
 ; Test with base/derived class with vtable
 %struct.test10base = type { i32 (...)** }
 %struct.test10derived = type { %struct.test10base }
-; CHECK-LABEL: StructType: %struct.test10base
-; CHECK-NEXT: 0) i32 (...)**
-; CHECK-LABEL: StructType: %struct.test10derived
-; CHECK-NEXT: 0) %struct.test10base
-
+; CHECK: StructType: %struct.test10base = type { i32 (...)** }
+; CHECK: StructType: %struct.test10derived = type { %struct.test10base }
 
 ; Test with vector type
 %struct.test11 = type { <4 x i32> }
-; CHECK-LABEL: StructType: %struct.test11
-; CHECK-NEXT: 0) <4 x i32>
+; CHECK: StructType: %struct.test11 = type { <4 x i32> }
 
 !intel.dtrans.types = !{ !10, !20, !30, !40, !50, !60, !70, !80, !90, !100, !105, !110 }
 

@@ -179,6 +179,11 @@ private:
   bool IsMapChainLink:1;
   bool IsIV:1;
 
+  // Modidifers for init clause of the interop construct
+  bool IsInitTarget:1;
+  bool IsInitTargetSync:1;
+  bool IsInitPrefer:1;
+
 public:
 
   // Constructor
@@ -197,6 +202,9 @@ public:
   void setIsPresent()              { IsPresent = true; }
   void setIsUnsigned()             { IsUnsigned = true; }
   void setIsConditional()          { IsConditional = true; }
+  void setIsInitTarget()           { IsInitTarget = true; }
+  void setIsInitTargetSync()       { IsInitTargetSync = true; }
+  void setIsInitPrefer()           { IsInitPrefer = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
@@ -223,6 +231,9 @@ public:
   bool getIsPresent() const { return IsPresent; }
   bool getIsUnsigned() const { return IsUnsigned; }
   bool getIsConditional() const { return IsConditional; }
+  bool getIsInitTarget() const { return IsInitTarget; }
+  bool getIsInitTargetSync() const { return IsInitTargetSync; }
+  bool getIsInitPrefer() const { return IsInitPrefer; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }

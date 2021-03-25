@@ -1000,6 +1000,40 @@ public:
   }
 };
 
+/// WRN for
+/// \code
+///   #pragma omp interop
+/// \endcode
+class WRNInteropNode : public WRegionNode {
+private:
+  EXPR Device;
+  DependClause Depend;
+  InteropActionClause InteropAction;
+  bool Nowait;
+
+public:
+  WRNInteropNode(BasicBlock *BB);
+
+protected:
+  void setDevice(EXPR E) override { Device = E; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
+
+public:
+  DEFINE_GETTER(DependClause, getDepend, Depend)
+  DEFINE_GETTER(InteropActionClause, getInteropAction, InteropAction)
+
+  EXPR getDevice() const override { return Device; }
+  bool getNowait() const override { return Nowait; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNInterop;
+  }
+};
+
 /// \brief Task flags used to invoke tasking RTL for both Task and Taskloop
 enum WRNTaskFlag : uint32_t {
   Tied         = 0x00000001,  // bit 1
@@ -1845,6 +1879,11 @@ extern void printExtraForOmpLoop(WRegionNode const *W,
 extern void printExtraForTarget(WRegionNode const *W,
                                 formatted_raw_ostream &OS, int Depth,
                                 unsigned Verbosity=1);
+
+/// \brief Print the fields of the Interop clause
+extern void printExtraForInterop(WRegionNode const* W,
+                          formatted_raw_ostream& OS, int Depth,
+                           unsigned Verbosity = 1);
 
 /// \brief Print the fields common to WRNs for which getIsTask()==true.
 /// Possible constructs are: WRNTask, WRNTaskloop

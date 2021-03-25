@@ -29,9 +29,9 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:     i64 [[VP_K_IV]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP0]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP_K_IV_N1]] = add i64 [[VP_K_IV]] i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i64 [[VP_K_IV_NEXT]] = add i64 [[VP_K_IV_N1]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
-; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]

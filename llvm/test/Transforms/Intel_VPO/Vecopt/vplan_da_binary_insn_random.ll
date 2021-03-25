@@ -18,9 +18,9 @@ define dso_local void @XNU(i64 %step) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP0]] = add i64 [[VP_ADD_PHI]] i64 [[VP_ADD_PHI_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_ADD:%.*]] = add i64 [[VP_ADD_PHI]] i64 [[STEP0:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_SUB:%.*]] = sub i64 [[VP_ADD]] i64 [[VP_FIRST_INDUCTION_PHI]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP0]] = add i64 [[VP_ADD_PHI]] i64 [[VP_ADD_PHI_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]

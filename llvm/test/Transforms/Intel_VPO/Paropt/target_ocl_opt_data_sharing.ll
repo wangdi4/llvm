@@ -44,7 +44,7 @@
 ; CHECK: store i32 10, i32 addrspace(1)* @xvar{{.*}}
 ; CHECK: br label %[[FALLTHRU]]
 ; CHECK: [[FALLTHRU]]:
-; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 
 ; 'xvar' must be WI local, because it is only modified inside "target"
 ; and only read by WI threads:

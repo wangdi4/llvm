@@ -12,6 +12,7 @@
 #include "IntelVPlanAlignmentAnalysis.h"
 
 #include "IntelVPlan.h"
+#include "IntelVPlanCostModel.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanValueTracking.h"
 
@@ -88,6 +89,11 @@ int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
     return 3;
 
   llvm_unreachable("Unexpected Opcode");
+}
+
+int VPlanPeelingCostModelGeneral::getCost(VPInstruction *Mrf, int VF,
+                                          Align Alignment) {
+  return CM->getLoadStoreCost(Mrf, Alignment, VF);
 }
 
 VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
