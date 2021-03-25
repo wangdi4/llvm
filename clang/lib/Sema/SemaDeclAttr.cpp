@@ -2982,14 +2982,17 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 #if INTEL_CUSTOMIZATION
-static bool checkValidSYCLSpelling(Sema &S, const ParsedAttr &Attr) {
-  if (S.getLangOpts().SYCLIsDevice) {
-    if (!Attr.isCXX11Attribute() || !Attr.hasScope() || !Attr.getScopeName() ||
-        !(Attr.getScopeName()->isStr("intel") ||
-          Attr.getScopeName()->isStr("intelfpga"))) {
-      S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
-      return true;
-    }
+static bool checkValidSYCLSpelling(Sema &S, const ParsedAttr &A) {
+  if ((A.getSyntax() == AttributeCommonInfo::AS_GNU &&
+       !(S.getLangOpts().HLS ||
+         S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment())) ||
+      (S.getLangOpts().SYCLIsDevice &&
+       (!A.isCXX11Attribute() ||
+        (A.hasScope() &&
+         !(A.getScopeName()->isStr("intel") ||
+           A.getScopeName()->isStr("intelfpga")))))) {
+    S.Diag(A.getLoc(), diag::warn_unknown_attribute_ignored) << A;
+    return true;
   }
   return false;
 }
@@ -4096,6 +4099,11 @@ SYCLIntelNumSimdWorkItemsAttr *Sema::MergeSYCLIntelNumSimdWorkItemsAttr(
 
 static void handleSYCLIntelNumSimdWorkItemsAttr(Sema &S, Decl *D,
                                                 const ParsedAttr &A) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, A))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
   Expr *E = A.getArgAsExpr(0);
