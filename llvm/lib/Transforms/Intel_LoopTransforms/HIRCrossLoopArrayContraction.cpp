@@ -724,13 +724,13 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
+      UsesTracking.add(CommonBases);
+
       // Check if DEF loop dominates USE loop.
       if (!HLNodeUtils::dominates(DefLp, UseLp)) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] Def-loop does not dominate Use-loop.\n");
         continue;
       }
-
-      UsesTracking.add(CommonBases);
 
       auto &UseASAR = GetASAR(UseLp);
       LLVM_DEBUG(dbgs() << "\t* Uses: "; dumpBasesBitVector(
