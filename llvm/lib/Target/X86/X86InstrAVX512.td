@@ -9180,8 +9180,8 @@ multiclass avx512_cvttps2qq<bits<8> opc, string OpcodeStr, SDPatternOperator OpN
 // Also Convert Signed/Unsigned Doubleword to Half
 // TODO: Change this name to avx512_cvtqq2ps_dq2ph
 #endif // INTEL_FEATURE_ISA_FP16
-multiclass avx512_cvtqq2ps<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                           SDNode MaskOpNode, SDNode OpNode128,
+multiclass avx512_cvtqq2ps<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                           SDNode MaskOpNode, SDPatternOperator OpNode128,
                            SDNode OpNode128M,
                            SDNode OpNodeRnd, AVX512VLVectorVTInfo _dst,
                            AVX512VLVectorVTInfo _src, X86SchedWriteWidths sched,
