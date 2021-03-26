@@ -767,12 +767,13 @@ unsigned VPlanCostModel::getBlockRangeCost(const VPBasicBlock *Begin,
   return Cost;
 }
 
-unsigned VPlanCostModel::applyHeuristics(unsigned Cost) {
-  assert(Cost != UnknownCost &&
+unsigned VPlanCostModel::applyHeuristics(unsigned TTICost) {
+  assert(TTICost != UnknownCost &&
          "Heuristics do not expect UnknownCost on input.");
 
+  unsigned Cost = TTICost;
   for (auto &H : heuristics()) {
-    Cost = H.applyOnPlan(Cost);
+    H.apply(TTICost, Cost, Plan);
     // Once any heuristics in the pipeline returns Unknown cost
     // return it immediately.
     if (Cost == UnknownCost) {
@@ -833,20 +834,18 @@ void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
   unsigned TTICost = getTTICost();
   if (TTICost != Cost) {
     OS << "Base Cost: " << TTICost << '\n';
-    Cost = TTICost;
     for (auto &H : heuristics()) {
-      unsigned HCost = H.applyOnPlan(Cost);
-      if (HCost > Cost)
-        OS << "Extra cost due to " << H.getName() << " heuristic is "
-           << HCost - Cost << '\n';
-      else if (Cost > HCost)
-        OS << "Cost decrease due to " << H.getName() << " heuristic is "
-           << Cost - HCost << '\n';
+      Cost = TTICost;
+      H.apply(TTICost, Cost, Plan);
 
-      Cost = HCost;
-      if (Cost == UnknownCost) {
+      if (Cost == UnknownCost)
         break;
-      }
+      else if (Cost > TTICost)
+        OS << "Extra cost due to " << H.getName() << " heuristic is "
+           << Cost - TTICost << '\n';
+      else if (TTICost > Cost)
+        OS << "Cost decrease due to " << H.getName() << " heuristic is "
+           << TTICost - Cost << '\n';
     }
   }
 
