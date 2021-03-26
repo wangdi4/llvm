@@ -1464,8 +1464,6 @@ void PassManagerBuilder::populateModulePassManager(
   // resulted in single-entry-single-exit or empty blocks. Clean up the CFG.
   MPM.add(createCFGSimplificationPass());
 
-  MPM.add(createRelLookupTableConverterPass());
-
   addExtensionsToPM(EP_OptimizerLast, MPM);
 
   if (PrepareForLTO) {
