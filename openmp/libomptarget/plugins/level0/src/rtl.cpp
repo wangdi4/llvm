@@ -3630,8 +3630,17 @@ EXTERN void __tgt_rtl_deinit(void) {
 #endif // _WIN32
 }
 
-EXTERN __tgt_interop *__tgt_rtl_create_interop(int32_t DeviceId,
-                                               int32_t InteropContext) {
+EXTERN __tgt_interop *__tgt_rtl_create_interop(
+    int32_t DeviceId, int32_t InteropContext, intptr_t PreferID) {
+#if 0
+  // Disabled due to unclear interpretation of 5.1 specification
+  // Check preferred ID first
+  if (PreferID >= 0 && PreferID != L0Interop::FrId) {
+    IDP("%s returns omp_interop_none due to preference mismatch\n", __func__);
+    return omp_interop_none;
+  }
+#endif
+  // RTL is preferred or device is specified.
   auto ret = new __tgt_interop();
   ret->FrId = L0Interop::FrId;
   ret->FrName = L0Interop::FrName;
@@ -3639,7 +3648,8 @@ EXTERN __tgt_interop *__tgt_rtl_create_interop(int32_t DeviceId,
   ret->VendorName = L0Interop::VendorName;
   ret->DeviceNum = DeviceId;
 
-  if (InteropContext == OMP_INTEROP_CONTEXT_TARGET) {
+  if (InteropContext == OMP_INTEROP_CONTEXT_TARGET ||
+      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
     ret->Platform = DeviceInfo->Driver;
     ret->Device = DeviceInfo->Devices[DeviceId];
     ret->DeviceContext = DeviceInfo->Context;

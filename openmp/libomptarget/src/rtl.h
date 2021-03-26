@@ -88,7 +88,7 @@ struct RTLInfoTy {
   typedef void (add_build_options_ty)(const char *, const char *);
   typedef int32_t(is_supported_device_ty)(int32_t, void *);
   typedef void (deinit_ty)(void);
-  typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t);
+  typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, intptr_t);
   typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
   typedef int32_t(get_num_interop_properties_ty)(int32_t);
   typedef int32_t(get_interop_property_value_ty)(int32_t, __tgt_interop *,

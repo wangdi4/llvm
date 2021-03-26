@@ -837,9 +837,10 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
     return false;
 }
 
-__tgt_interop *DeviceTy::createInterop(int32_t InteropContext) {
+__tgt_interop *DeviceTy::createInterop(int32_t InteropContext,
+                                       intptr_t PreferID) {
   if (RTL->create_interop)
-    return RTL->create_interop(RTLDeviceID, InteropContext);
+    return RTL->create_interop(RTLDeviceID, InteropContext, PreferID);
   else
     return NULL;
 }
