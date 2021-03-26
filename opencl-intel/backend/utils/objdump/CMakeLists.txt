@@ -1,5 +1,9 @@
 set(TARGET_NAME ObjDump)
 
+if (NOT WIN32)
+    llvm_replace_compiler_option(CMAKE_CXX_FLAGS "-Werror" "")
+endif()
+
 # Copy and modify files from llvm-objdump dir to current build dir
 set(ORIGINAL_OBJDUMP_DIR ${LLVM_MAIN_SRC_DIR}/tools/llvm-objdump)
 file(GLOB ORIGINAL_OBJDUMP_FILES ${ORIGINAL_OBJDUMP_DIR}/*.h

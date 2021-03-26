@@ -10,7 +10,8 @@ add_definitions( -DUSE_ITT )
 # Disable warning about converting null pointer to long int.
 if (NOT WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function -Wno-conversion-null -Wno-attributes")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-fallthrough")
+# The C flag is only used for compiling ittnotify_static.c file
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-fallthrough -Wno-self-assign")
 endif(NOT WIN32)
 
 add_opencl_library( ${TARGET_NAME} STATIC
