@@ -83,7 +83,7 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
 
   // Collect vector length information from the existing functions.
   for (auto &F : M) {
-    int VecLength;
+    int VecLength = 0;
     // Analyze if vectorization of direct function calls is enabled, or
     // functions has subgroup callees down the call graph as indicated
     // by the attribute.
