@@ -558,6 +558,8 @@ static void collectFromMultipleIndicesGEP(GetElementPtrInst *GEP,
 
   assert(NumIndices > 2 && "Number of indices lower than the required");
 
+  // If the first entry is not zero then there is a potential for an
+  // out of bounds access
   if (!match(GEP->getOperand(1), m_Zero())) {
     StructData->disableStructure();
     return;
@@ -675,6 +677,13 @@ static void collectFromMultipleGEPs(GetElementPtrInst *GEP,
   if (StructData->isStructureDisabled() || FieldData->isFieldDisabled())
     return;
 
+  // If the first entry is not zero then there is a potential for an
+  // out of bounds access
+  if (!match(GEP->getOperand(1), m_Zero())) {
+    StructData->disableStructure();
+    return;
+  }
+
   // If the field is an array of integers, then ArrayGEP will be GEP. Else,
   // if the field is a structure with one field, then we need to collect
   // the GetElementPtrInst instruction that accesses the entries in the
@@ -743,6 +752,41 @@ static void collectFromMultipleGEPs(GetElementPtrInst *GEP,
         return;
       }
     } else {
+      // If we reach this point then it means that the field is being used for
+      // something else than just storing or loading constants. Disable the field.
+      //
+      // TODO: This is a conservative check. We could have the case where
+      // the address of the field is passed to a function that initializes
+      // the constants. For example:
+      //
+      //   %class.TestClass = type <{i32, [4 x i32]}>
+      //
+      //   define void @bar([4 x i32]* %arr, i32 %var) {
+      //     %tmp1 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 0
+      //     store i32 1, i32* %tmp1
+      //     %tmp2 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 1
+      //     store i32 2, i32* %tmp2
+      //     %tmp3 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 2
+      //     store i32 %var, i32* %tmp3
+      //     %tmp4 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 3
+      //     store i32 %var, i32* %tmp4
+      //     ret void
+      //   }
+      //
+      //   define void @foo(%class.TestClass* %0, i32 %var) {
+      //     %tmp1 = getelementptr inbounds %class.TestClass,
+      //             %class.TestClass* %0, i64 0, i32 1
+      //     call void @bar([4 x i32]* %tmp1, i32 %var)
+      //     ret void
+      //   }
+      //
+      // In the example above, function @foo takes the address of field 1 in
+      // %class.TestClass and passes it to @bar. The function @bar will
+      // initialize and assign the constants. We need to handle this case.
       FieldData->disableField();
       return;
     }
@@ -924,12 +968,6 @@ analyzeGEPInstruction(GetElementPtrInst *GEP, DTransAnalysisInfo *DTInfo,
     StructData->disableStructure();
     return;
   }
-
-  // TODO: If the structure is marked as "FieldAddressTakenCall" then we
-  // need check how the pointer is used as an argument. There is a chance
-  // that the information for the array could be modified.
-  // NOTE: For the case that we are interested, the argument is marked
-  // as "read only".
 
   // If at least one of the fields is used in an indirect call
   // or a function declaration then disable the structure.
