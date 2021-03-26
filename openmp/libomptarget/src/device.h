@@ -263,10 +263,9 @@ struct DeviceTy {
   int32_t releaseInterop(__tgt_interop *Interop);
   int32_t getNumInteropProperties(void);
   int32_t getInteropPropertyValue(__tgt_interop *Interop,
-                                  omp_interop_property_t Property,
-                                  int32_t ValueType, size_t Size, void *Value);
-  const char *getInteropPropertyInfo(omp_interop_property_t Property,
-                                     int32_t InfoType);
+                                  int32_t Property, int32_t ValueType,
+                                  size_t Size, void *Value);
+  const char *getInteropPropertyInfo(int32_t Property, int32_t InfoType);
   const char *getInteropRcDesc(int32_t RetCode);
   int32_t setSubDevice(int32_t Level);
   void unsetSubDevice(void);

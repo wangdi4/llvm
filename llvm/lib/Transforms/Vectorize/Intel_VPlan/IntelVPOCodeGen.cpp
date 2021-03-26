@@ -1091,13 +1091,13 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
   case Instruction::Call: {
     VPCallInstruction *VPCall = cast<VPCallInstruction>(VPInst);
-    CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
-    assert(UnderlyingCI &&
-           "VPVALCG: Need underlying CallInst for call-site attributes.");
+    auto *UnderlyingCI =
+        dyn_cast_or_null<CallInst>(VPCall->getUnderlyingValue());
 
     // Ignore dbg intrinsics. This might change after discussion on
     // CMPLRLLVM-10839.
-    if (isa<DbgInfoIntrinsic>(UnderlyingCI))
+    // TODO: Check if DbgInfoIntrinsic can be identified without underlying CI.
+    if (UnderlyingCI && isa<DbgInfoIntrinsic>(UnderlyingCI))
       return;
 
     // For all other calls vectorization scenario should be available for
@@ -1111,7 +1111,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         VPCall->getVectorizationScenario() !=
         VPCallInstruction::CallVecScenariosTy::VectorVariant) {
       if (FatalErrorHandler)
-        FatalErrorHandler(UnderlyingCI->getParent()->getParent());
+        FatalErrorHandler(OrigLoop->getHeader()->getParent());
       else
         llvm_unreachable("Intel indirect call should have vector-variants!");
     }
@@ -1828,10 +1828,6 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // haven't been decided yet).  That way the vector code-generation does not
   // have to shuffle function arguments.
 
-  CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
-  assert(UnderlyingCI &&
-         "VPVALCG: Need underlying CallInst for call-site attributes.");
-
   SmallVector<Value *, 3> VecArgs;
   SmallVector<Type *, 3> VecArgTys;
   // For CallInsts represented as VPInstructions, arg operands are added first.
@@ -1869,7 +1865,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
-  copyRequiredAttributes(UnderlyingCI, VecCall);
+  setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall);
 
   // Set calling convention for SVML function calls
   if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
@@ -2769,11 +2765,7 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
   auto *ExtractCosInst =
       Builder.CreateExtractValue(CallResult, {1}, "sincos.cos");
 
-  CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
-  assert(UnderlyingCI &&
-         "VPVALCG: Need underlying CallInst for call-site attributes.");
-
-  const DataLayout &DL = UnderlyingCI->getModule()->getDataLayout();
+  const DataLayout &DL = *Plan->getDataLayout();
   Align Alignment = Align(DL.getABITypeAlignment(
       cast<VectorType>(ExtractSinInst->getType())->getElementType()));
 
@@ -2851,11 +2843,7 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
-    // TODO: Call attributes are not represented in VPValue yet. Peek at
-    // underlying instruction. Update: Not applicable anymore, should be
-    // refactored in a follow-up patch.
-    const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
-    copyRequiredAttributes(UnderlyingCI, VecCall, VecArgAttrs);
+    setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, VecArgAttrs);
 
 #if 0
     // TODO: Need a VPValue based analysis for call arg memory references.

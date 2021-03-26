@@ -4543,6 +4543,8 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
     bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
                            .Case("always", true)
                            .Case("aligned", true)
+                           .Case("dynamic_align", true)
+                           .Case("nodynamic_align", true)
                            .Default(false);
     if (!OptionValid) {
       PP.Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)

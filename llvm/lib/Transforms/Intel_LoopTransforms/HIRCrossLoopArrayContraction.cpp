@@ -86,6 +86,9 @@ template <typename T> class HLVariant {
   T *OriginalNode;
   T *OptimizedNode;
 
+  // Contains operations executed at the end of the transformation.
+  // Note: this is used to completely unroll the inner loops and do the scalar
+  // replacement.
   SmallVector<std::function<bool(T *)>> PostProcessors;
 
 public:
@@ -99,7 +102,7 @@ public:
     Var.commit();
   }
 
-  bool commit() {
+  bool runPostProcessors() {
     for (auto &Func : PostProcessors) {
       if (!Func(OptimizedNode)) {
         return false;
@@ -107,9 +110,12 @@ public:
     }
 
     PostProcessors.clear();
-    OriginalNode = nullptr;
-
     return true;
+  }
+
+  void commit() {
+    assert(PostProcessors.empty() && "There are post-processors not run.");
+    OriginalNode = nullptr;
   }
 
   ~HLVariant() {
@@ -835,11 +841,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
-//      if (CommonBases != DefBases) {
-//        LLVM_DEBUG(dbgs() << "\t[SKIP] Unused defs found.\n");
-//        continue;
-//      }
-
       if (DefLp->getNestingLevel() != UseLp->getNestingLevel() &&
           DefLp->getNestingLevel() + 1 != UseLp->getNestingLevel()) {
         // This is a limitation of the current implementation.
@@ -928,12 +929,18 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     return false;
   }
 
+  // Run post-processors for each optimized loop. Revert everything if any
+  // post-optimization fails.
+  for (auto &Opt : Optimizations) {
+    if (!Opt.runPostProcessors()) {
+      return false;
+    }
+  }
+
   for (auto &Opt : Optimizations) {
     Reg.setGenCode();
 
-    if (!Opt.commit()) {
-      continue;
-    }
+    Opt.commit();
 
     HLLoop *Loop = Opt.getOptimized();
     HLLoop *ParentLoop = Loop->getParentLoop();

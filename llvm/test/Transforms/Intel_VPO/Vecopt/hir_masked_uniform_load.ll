@@ -21,6 +21,7 @@ define void @foo(i64* nocapture readonly %lp, double* nocapture %darr, i64* noca
 ; CHECK-NEXT:       %.vec2 = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK-NEXT:       %0 = bitcast.<4 x i1>.i4(%.vec1);
 ; CHECK-NEXT:       %cmp = %0 != 0;
+; CHECK-NEXT:       %.unifload = undef;
 ; CHECK-NEXT:       if (%cmp == 1)
 ; CHECK-NEXT:       {
 ; CHECK-NEXT:          %.unifload = (%lp)[0];

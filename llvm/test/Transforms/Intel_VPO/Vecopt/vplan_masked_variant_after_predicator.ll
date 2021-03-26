@@ -70,45 +70,44 @@ define void @main() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]], new_latch
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = phi  [ i32 0, Cloned.[[BB7]] ],  [ i32 [[VP9:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_1:%.*]] = phi  [ i32 [[VP1]], Cloned.[[BB7]] ],  [ i32 [[VP_IV_NEXT_1:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI_1:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB7]] ],  [ i32 [[VP_ADD_1:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI_2_1:%.*]] = phi  [ i32 [[VP3]], Cloned.[[BB7]] ],  [ i32 [[VP_ADD_2_1:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP10:%.*]] = icmp uge i32 [[VP8]] i32 [[VP7]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP10]], [[BB9:BB[0-9]+]], new_latch
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_1:%.*]] = phi  [ i32 [[VP1]], Cloned.[[BB7]] ],  [ i32 [[VP10:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI_1:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB7]] ],  [ i32 [[VP11:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI_2_1:%.*]] = phi  [ i32 [[VP3]], Cloned.[[BB7]] ],  [ i32 [[VP12:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP13:%.*]] = icmp uge i32 [[VP8]] i32 [[VP7]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP13]], [[BB9:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]]: # preds: Cloned.[[BB8]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_IV_NEXT_1]] = add i32 [[VP_IV_1]] i32 [[VP2]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_IV_NEXT_1:%.*]] = add i32 [[VP_IV_1]] i32 [[VP2]]
 ; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      Cloned.[[BB10]]: # preds: [[BB9]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_ADD_1]] = add i32 [[VP_ADD_PHI_1]] i32 1
-; CHECK-NEXT:       [DA: Div] i32 [[VP_ADD_2_1]] = add i32 [[VP_ADD_PHI_2_1]] i32 [[VP4]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_ADD_1:%.*]] = add i32 [[VP_ADD_PHI_1]] i32 1
+; CHECK-NEXT:       [DA: Div] i32 [[VP_ADD_2_1:%.*]] = add i32 [[VP_ADD_PHI_2_1]] i32 [[VP4]]
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: Cloned.[[BB10]], Cloned.[[BB8]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = phi  [ i32 [[VP_IV_NEXT_1]], Cloned.[[BB10]] ],  [ i32 [[VP_IV_1]], Cloned.[[BB8]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = phi  [ i32 [[VP_ADD_1]], Cloned.[[BB10]] ],  [ i32 [[VP_ADD_PHI_1]], Cloned.[[BB8]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = phi  [ i32 [[VP_ADD_2_1]], Cloned.[[BB10]] ],  [ i32 [[VP_ADD_PHI_2_1]], Cloned.[[BB8]] ]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP14:%.*]] = phi  [ i32 [[VP9]], Cloned.[[BB10]] ],  [ i32 [[VP8]], Cloned.[[BB8]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP10]] = phi  [ i32 [[VP_IV_NEXT_1]], Cloned.[[BB10]] ],  [ i32 [[VP_IV_1]], Cloned.[[BB8]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP11]] = phi  [ i32 [[VP_ADD_1]], Cloned.[[BB10]] ],  [ i32 [[VP_ADD_PHI_1]], Cloned.[[BB8]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP12]] = phi  [ i32 [[VP_ADD_2_1]], Cloned.[[BB10]] ],  [ i32 [[VP_ADD_PHI_2_1]], Cloned.[[BB8]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP9]] = add i32 [[VP8]] i32 [[VP5]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp uge i32 [[VP9]] i32 [[VP7]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP15]], Cloned.[[BB11:BB[0-9]+]], Cloned.[[BB8]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP14:%.*]] = icmp uge i32 [[VP9]] i32 [[VP7]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP14]], Cloned.[[BB11:BB[0-9]+]], Cloned.[[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB11]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP16:%.*]] = reduction-final{u_add} i32 [[VP12]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP17:%.*]] = induction-final{add} i32 live-in1 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP18:%.*]] = induction-final{add} i32 live-in2 i32 2
+; CHECK-NEXT:     [DA: Uni] i32 [[VP15:%.*]] = reduction-final{u_add} i32 [[VP11]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP16:%.*]] = induction-final{add} i32 live-in1 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP17:%.*]] = induction-final{add} i32 live-in2 i32 2
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB12]]: # preds: Cloned.[[BB11]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0]] = phi i32 [ [[ADD0]], [[LATCH0]] ] i32 [[VP16]] -> i32 [[ADD0]]
+; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0]] = phi i32 [ [[ADD0]], [[LATCH0]] ] i32 [[VP15]] -> i32 [[ADD0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   no underlying for i32 [[VP17]]
+; CHECK-NEXT:  Id: 1   no underlying for i32 [[VP16]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 2   no underlying for i32 [[VP18]]
+; CHECK-NEXT:  Id: 2   no underlying for i32 [[VP17]]
 ;
 entry:
   br label %preheader
