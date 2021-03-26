@@ -23,8 +23,6 @@
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 #endif
 
-// First, test that Clang gracefully handles missing types.
-#ifdef NO_HEADER
 void test_without_header() {
   barrier(0);
   // expected-note@-1 0+{{candidate function not viable}}
@@ -32,10 +30,8 @@ void test_without_header() {
   // expected-error@-3 0+{{no matching function for call to 'barrier'}}
   // expected-error@* {{typedef type cl_mem_fence_flags not found; include the base header with -finclude-default-header}}
 }
-#endif
 
 // Provide typedefs when invoking clang without -finclude-default-header.
-#ifdef NO_HEADER
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
@@ -76,18 +72,6 @@ kernel void test_pointers(volatile global void *global_p, global const int4 *a) 
   atom_add((volatile __global int *)global_p, i);
   atom_cmpxchg((volatile __global unsigned int *)global_p, ui, ui);
 }
-
-// Only test enum arguments when the base header is included, because we need
-// the enum declarations.
-#if !defined(NO_HEADER) && (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
-kernel void test_enum_args(volatile global atomic_int *global_p, global int *expected) {
-  int desired;
-  atomic_compare_exchange_strong_explicit(global_p, expected, desired,
-                                          memory_order_acq_rel,
-                                          memory_order_relaxed,
-                                          memory_scope_work_group);
-}
-#endif
 
 #if defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200
 void test_typedef_args(clk_event_t evt, volatile atomic_flag *flg, global unsigned long long *values) {
@@ -197,10 +181,6 @@ kernel void basic_subgroup(global uint *out) {
   // expected-error@-3{{implicit conversion changes signedness}}
 #endif
 
-// Only test when the base header is included, because we need the enum declarations.
-#if !defined(NO_HEADER) && (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
-  sub_group_barrier(CLK_GLOBAL_MEM_FENCE, memory_scope_device);
-#endif
 }
 
 kernel void extended_subgroup(global uint4 *out, global int *scalar, global char2 *c2) {
