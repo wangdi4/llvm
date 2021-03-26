@@ -269,6 +269,7 @@ declare void @f()
 define i32 @test_diamond_simple(i32* %p, i32* %q, i32 %a, i32 %b) {
 ; CHECK-LABEL: @test_diamond_simple(
 ; CHECK-NEXT:  entry:
+; TODO: this test should be fixed after the pulldown from llorg
 ; CHECK-NEXT:    [[X1:%.*]] = icmp eq i32 [[A:%.*]], 0
 ; CHECK-NEXT:    [[Z2:%.*]] = select i1 [[X1]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    [[X2:%.*]] = icmp eq i32 [[B]], 0
