@@ -751,6 +751,12 @@ typedef SmallVector<DimInfoTy, 4> DimInfoVecTy;
 typedef SmallVectorImpl<DimInfoTy> DimInfoVecImplTy;
 
 typedef DenseMap<unsigned, const RegDDRef *> BaseIndexToLowersAndStridesTy;
+typedef SmallVector<SmallVector<int64_t, 64>, MaxLoopNestLevel>
+    InnermostLoopToShiftTy;
+typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+
+typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
+typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
 
 // Legality checker for an innermost loop.
 // It examines if the memrefs are spatial accesses. Also it checks
@@ -760,9 +766,6 @@ typedef DenseMap<unsigned, const RegDDRef *> BaseIndexToLowersAndStridesTy;
 // For a given innermost loop, its reads dependencies to upward loops
 // are verified.
 class InnermostLoopAnalyzer {
-  typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
-  typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
-  typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
 
 public:
   InnermostLoopAnalyzer(
@@ -976,6 +979,11 @@ InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
   if (!areMostlyStructuallyStencilRefs(Groups)) {
     printDiag("Failed Stencil check", Func, InnermostLoop);
     return nullptr;
+  }
+
+  // Interim quick fix
+  if (ForceTestDriver) {
+    return RepDefRef;
   }
 
   // Check DEP against previous loops
@@ -1571,10 +1579,12 @@ public:
   Transformer(ArrayRef<unsigned> StripmineSizes,
               const LoopToDimInfoTy &InnermostLoopToDimInfos,
               const LoopToConstRefTy &InnermostLoopToRepRef,
+              const InnermostLoopToShiftTy &InnermostLoopToShift,
               HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA)
       : DDA(DDA), StripmineSizes(StripmineSizes),
         InnermostLoopToDimInfos(InnermostLoopToDimInfos),
         InnermostLoopToRepRef(InnermostLoopToRepRef),
+        InnermostLoopToShift(InnermostLoopToShift),
         OutermostLoop(OutermostLoop), OuterIf(OuterIf), NumByStripLoops(0) {
     unsigned NumDims = StripmineSizes.size();
     ByStripLoopLowerBlobs.resize(NumDims);
@@ -1583,6 +1593,8 @@ public:
 
     // Initialize the number of ByStripLoops.
     NumByStripLoops = getNumByStripLoops(StripmineSizes);
+
+    assert((!OutermostLoop && OuterIf) || (OutermostLoop && !OuterIf));
   }
 
   static unsigned getNumByStripLoops(ArrayRef<unsigned> StripmineSizes) {
@@ -1624,8 +1636,6 @@ public:
   }
 
   bool rewrite() {
-
-    assert((!OutermostLoop && OuterIf) || (OutermostLoop && !OuterIf));
 
     HLNode *OutermostNode = OutermostLoop ? static_cast<HLNode *>(OutermostLoop)
                                           : static_cast<HLNode *>(OuterIf);
@@ -1693,7 +1703,7 @@ public:
     }
 
     HLNode *LastByStripNode = findTheLowestAncestor(
-      (InnermostLoopToDimInfos.back()).first, OutermostNode);
+        (InnermostLoopToDimInfos.back()).first, OutermostNode);
 
     // TODO: Verify skipping this phase when OutermostLoop is nullptr (i.e.
     // OuterIf)
@@ -1706,7 +1716,7 @@ public:
     // TODO: consider avoiding this phase for advanced options
     //       for compile time.
     SmallVector<unsigned, 16> LiveOutsOfByStrip =
-      collectLiveOutsOfByStripLoops(AnchorNode, LastByStripNode);
+        collectLiveOutsOfByStripLoops(AnchorNode, LastByStripNode);
 
     // Note that invalidation only happens here because DDG of original
     // HLNodes are needed before this point. For example,
@@ -1777,7 +1787,7 @@ public:
       assert(OuterNodeToInnermostLoop[I].second ==
              InnermostLoopToDimInfos[I].first);
 
-      applyBlockingGuardsToSpatialLoops(InnermostLoopToDimInfos[I].first,
+      applyBlockingGuardsToSpatialLoops(InnermostLoopToDimInfos[I].first, I,
                                         InnermostLoopToDimInfos[I].second,
                                         InnermostLoopToAdjustingRef);
     }
@@ -2435,6 +2445,11 @@ private:
     std::copy(OrigToCloneIndexMap.begin(), OrigToCloneIndexMap.end(),
               std::back_inserter(BlobIndexMap));
 
+    assert(InnermostLoopToAdjustingRef.size() > 0);
+    LLVMContext &Context = (*InnermostLoopToAdjustingRef.begin())
+                               .first->getHLNodeUtils()
+                               .getContext();
+
     int GlobalNumDims = StripmineSizes.size();
     SmallVector<SmallVector<CanonExpr *, 32>, 4> AlignedLowerBounds(
         GlobalNumDims);
@@ -2486,6 +2501,21 @@ private:
           getGlobalMinMaxBlob<false>(AlignedUpperBounds[DimNum - 1]);
       if (!MaxBlob.first)
         return false;
+
+      if (!InnermostLoopToShift[DimNum - 1].empty()) {
+        int64_t ShiftVal = InnermostLoopToShift[DimNum - 1].back() + 1;
+        BlobUtils &BU = AlignedUpperBounds[DimNum - 1].front()->getBlobUtils();
+        BlobTy ShiftBlob = BU.createBlob(
+            ShiftVal, Type::getInt64Ty(
+                          // AlignedUpperBounds[DimNum -
+                          // 1].front()->getHLNodeUtils().getContext()));
+                          Context));
+
+        unsigned BlobIndex;
+        ShiftBlob = BU.createAddBlob(MaxBlob.first, ShiftBlob,
+                                     true /* insert ? */, &BlobIndex);
+        MaxBlob = {ShiftBlob, BlobIndex};
+      }
 
       LLVM_DEBUG(dbgs() << "== Alinged LowerBounds == \n";
                  for (auto *Ref
@@ -2736,7 +2766,7 @@ private:
   // that dimension, if-stmt is added.
   // Also, update live-in temps.
   void applyBlockingGuardsToSpatialLoops(
-      HLLoop *InnermostLoop, ArrayRef<DimInfoTy> DimInfos,
+      HLLoop *InnermostLoop, int InnermostLoopID, ArrayRef<DimInfoTy> DimInfos,
       const LoopToRefTy &InnermostLoopToAdjustingRef) {
 
     SmallVector<unsigned, 2> ConstOrBlobDimNums;
@@ -2762,7 +2792,12 @@ private:
       HIRInvalidationUtils::invalidateBounds(TargetLoop);
       HIRInvalidationUtils::invalidateBody(TargetLoop);
 
-      unsigned NewLiveIn = addLoopBoundsGuards(TargetLoop, DimNum);
+      int64_t Shift = 0;
+      if (!InnermostLoopToShift[DimNum - 1].empty()) {
+        Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
+      }
+      unsigned NewLiveIn = addLoopBoundsGuards(TargetLoop, DimNum, Shift);
+
       AllNewLiveIn.push_back(NewLiveIn);
       TargetLoop->addLiveInTemp(AllNewLiveIn);
       TargetLoop->createZtt(true, true);
@@ -2784,6 +2819,11 @@ private:
       const HLLoop *ByStripLoop = ByStripLoops[DimNum - 1];
       CanonExpr *CE = AdjustingRef->getDimensionIndex(DimNum)->clone();
 
+      int64_t Shift = 0;
+      if (!InnermostLoopToShift[DimNum - 1].empty()) {
+        Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
+      }
+
       if (DimInfos[DimNum - 1].isConstant()) {
         RegDDRef *Ref = AdjustingRef->getDDRefUtils().createConstDDRef(
             ByStripLoop->getIVType(), CE->getConstant());
@@ -2791,7 +2831,7 @@ private:
         // TODO: OutermostSpatialLoop is not always correct.
         //       Hoisting might not be valid.
         //       SpatialLoops contains only the blocked loops.
-        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop);
+        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, Shift);
 
       } else {
         // blob or blob + constant
@@ -2804,7 +2844,8 @@ private:
         std::pair<const RegDDRef *, unsigned> AuxRef =
             findAuxRefWithCE(InnermostLoop, CE);
 
-        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, AuxRef.first);
+        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, Shift,
+                    AuxRef.first);
 
         // Add AuxRef's BlobDDRef's symbase to LiveInTemp of ByStripLoop
         // Using getTempBlobSymbase from CE->getSingleBlobIndex() does not
@@ -2889,31 +2930,59 @@ private:
             DimNum, DimInfos, const_cast<HLLoop *>(InnermostLoop)));
   }
 
+  // Sweep through all rvals by calling makeConsistent().
+  // Added to take care of operands of createMin/Max
+  // createMin/Max generates extra operands than passed arguments.
+  // Temp blobs defAtLevels are all up to date already.
+  void MakeConsistentRvals(HLInst *HInst) const {
+    for (auto *Ref :
+         make_range(HInst->op_ddref_begin(), HInst->op_ddref_end())) {
+      Ref->makeConsistent({});
+    }
+  }
+
   // Add "if (ByStripIV <= Ref <= TileEndRef)"
   // Ref: dimension index, either constant or a blob.
   // ByStripIV: tile begin,
   // TileEndRef : last element of the tile.
   void addIfGuards(RegDDRef *Ref, const HLLoop *ByStripLoop,
-                   HLNode *NodeToEnclose,
+                   HLNode *NodeToEnclose, int64_t Shift,
                    const RegDDRef *AuxRef = nullptr) const {
     RegDDRef *ByStripIV = ByStripLoop->getDDRefUtils().createConstDDRef(
         ByStripLoop->getIVType(), 0);
     ByStripIV->getSingleCanonExpr()->addIV(ByStripLoop->getNestingLevel(),
                                            InvalidBlobIndex, 1, true);
 
+    if (Shift) {
+      int64_t temp = 0 - Shift;
+      ByStripIV->getSingleCanonExpr()->addConstant(temp, false);
+    }
+
     RegDDRef *TileEndRef =
         cast<HLInst>(ByStripLoop->getFirstChild())->getLvalDDRef()->clone();
 
+    RegDDRef *ShiftedTileEnd = TileEndRef;
+    if (Shift) {
+      HLNodeUtils &HNU = NodeToEnclose->getHLNodeUtils();
+      HLInst *ShiftInst = HNU.createSub(
+          TileEndRef,
+          (TileEndRef->getDDRefUtils())
+              .createConstDDRef(Type::getInt64Ty(HNU.getContext()), Shift));
+      ShiftedTileEnd = ShiftInst->getLvalDDRef()->clone();
+      HLNodeUtils::insertBefore(NodeToEnclose, ShiftInst);
+      MakeConsistentRvals(ShiftInst);
+    }
+
     HLIf *Guard = NodeToEnclose->getHLNodeUtils().createHLIf(
         PredicateTy::ICMP_SLE, ByStripIV, Ref->clone());
-    Guard->addPredicate(PredicateTy::ICMP_SLE, Ref->clone(), TileEndRef);
+    Guard->addPredicate(PredicateTy::ICMP_SLE, Ref->clone(), ShiftedTileEnd);
     if (HLLoop *Loop = dyn_cast<HLLoop>(NodeToEnclose)) {
       Loop->extractPreheaderAndPostexit();
     }
     NodeToEnclose->getHLNodeUtils().insertBefore(NodeToEnclose, Guard);
     HLNodeUtils::moveAsFirstThenChild(Guard, NodeToEnclose);
 
-    SmallVector<const RegDDRef *, 2> AuxRefs({TileEndRef});
+    SmallVector<const RegDDRef *, 2> AuxRefs({ShiftedTileEnd});
     if (AuxRef)
       AuxRefs.push_back(AuxRef);
 
@@ -2934,18 +3003,8 @@ private:
   // corresponding by-strip loop.
   // TODO: consider make it a lambda to its caller. It is used only in that
   // context
-  unsigned addLoopBoundsGuards(HLLoop *Loop, unsigned DimNum) const {
-
-    // Sweep through all rvals by calling makeConsistent().
-    // Added to take care of operands of createMin/Max
-    // createMin/Max generates extra operands than passed arguments.
-    // Temp blobs defAtLevels are all up to date already.
-    auto MakeConsistentRvals = [](HLInst *HInst) {
-      for (auto *Ref :
-           make_range(HInst->op_ddref_begin(), HInst->op_ddref_end())) {
-        Ref->makeConsistent({});
-      }
-    };
+  unsigned addLoopBoundsGuards(HLLoop *Loop, unsigned DimNum,
+                               int64_t Shift) const {
 
     const HLLoop *ByStripLoop = ByStripLoops[DimNum - 1];
 
@@ -2953,6 +3012,11 @@ private:
         ByStripLoop->getIVType(), 0);
     ByStripIV->getSingleCanonExpr()->addIV(ByStripLoop->getNestingLevel(),
                                            InvalidBlobIndex, 1, true);
+
+    if (Shift) {
+      int64_t temp = 0 - Shift;
+      ByStripIV->getSingleCanonExpr()->addConstant(temp, false);
+    }
 
     HLNodeUtils &HNU = Loop->getHLNodeUtils();
     // By default, signed min/max
@@ -2966,8 +3030,20 @@ private:
     // min(UB', TileEnd)
     RegDDRef *TileEndRef =
         cast<HLInst>(ByStripLoop->getFirstChild())->getLvalDDRef()->clone();
+    RegDDRef *ShiftedTileEnd = TileEndRef;
+
+    if (Shift) {
+      HLInst *ShiftInst = HNU.createSub(
+          TileEndRef,
+          (TileEndRef->getDDRefUtils())
+              .createConstDDRef(Type::getInt64Ty(HNU.getContext()), Shift));
+      ShiftedTileEnd = ShiftInst->getLvalDDRef()->clone();
+      HLNodeUtils::insertBefore(Loop, ShiftInst);
+      MakeConsistentRvals(ShiftInst);
+    }
+
     RegDDRef *MinOp1 = Loop->getUpperDDRef()->clone();
-    HLInst *UBInst = HNU.createMin(MinOp1, TileEndRef, nullptr, true, true,
+    HLInst *UBInst = HNU.createMin(MinOp1, ShiftedTileEnd, nullptr, true, true,
                                    FastMathFlags(), "ub_min");
     HLNodeUtils::insertBefore(Loop, UBInst);
     MakeConsistentRvals(UBInst);
@@ -3079,6 +3155,7 @@ private:
 
   const LoopToDimInfoTy &InnermostLoopToDimInfos;
   const LoopToConstRefTy &InnermostLoopToRepRef;
+  const InnermostLoopToShiftTy &InnermostLoopToShift;
   // Loop enclosing all the spatial loopnests.
   // Inside OutermostLoop, by-strip loops are generated.
   HLLoop *OutermostLoop;
@@ -3113,7 +3190,6 @@ private:
 // which is legal but not profitable.
 class ProfitablityAndLegalityChecker : public ProfitabilityChecker {
   typedef SmallVector<HLLoop *, 8> LoopSetTy;
-  typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
 public:
   ProfitablityAndLegalityChecker(HIRFramework &HIRF,
@@ -3358,6 +3434,7 @@ bool isOptVarPredNeeded(const ProfitabilityChecker &PC) {
 
 bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
                       const LoopToConstRefTy &InnermostLoopToRepRef,
+                      const InnermostLoopToShiftTy &InnermostLoopToShift,
                       HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
                       StringRef Func) {
 
@@ -3395,10 +3472,228 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
   }
 
   Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
-              InnermostLoopToRepRef, OutermostLoop, OuterIf, DDA)
+              InnermostLoopToRepRef, InnermostLoopToShift, OutermostLoop,
+              OuterIf, DDA)
       .rewrite();
 
   return true;
+}
+
+template <bool isNeg = false>
+static int64_t getMaxUseDist(ArrayRef<const RegDDRef *> Rvals,
+                             const RegDDRef *RepRef, unsigned DimIndex) {
+  const CanonExpr *RepCE = RepRef->getDimensionIndex(DimIndex);
+  int64_t Kmax = 0;
+  for (auto *Rval : Rvals) {
+    assert(DimIndex <= Rval->getNumDimensions());
+
+    const CanonExpr *CE = Rval->getDimensionIndex(DimIndex);
+    int64_t Dist = -1;
+    if (isNeg)
+      CanonExprUtils::getConstDistance(RepCE, CE, &Dist);
+    else
+      CanonExprUtils::getConstDistance(CE, RepCE, &Dist);
+    Kmax = std::max(Kmax, Dist);
+  }
+
+  assert(Kmax >= 0);
+  return Kmax;
+}
+
+static void
+calcShiftAmountBeforeDef(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                         const LoopToConstRefTy &InnermostLoopToRepRef,
+                         unsigned DimIndex,
+                         SmallVectorImpl<int64_t> &ShiftAmt) {
+
+  std::unordered_map<unsigned, int> BaseToLastDefLoopID;
+
+  unsigned NumLoops = InnermostLoopToDimInfo.size();
+  assert(ShiftAmt.size() == NumLoops);
+
+  // Base to Kmax(A[i - k] of use, k > 0) for each LoopID
+  std::unordered_map<unsigned, SmallVector<int64_t, 16>> MaxNegUseDist;
+
+  // TODO: merge the loop body with the other function
+  //       to do gathering and grouping of refs once per loop.
+  for (auto &V : enumerate(InnermostLoopToDimInfo)) {
+    const HLLoop *Loop = V.value().first;
+    int LoopID = V.index();
+    const RegDDRef *RepRef = InnermostLoopToRepRef.at(Loop);
+
+    MemRefGatherer::VectorTy Refs;
+    MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), Refs);
+    RefGroupVecTy Groups;
+    DDRefIndexGrouping(Groups, Refs);
+
+    for (auto Group : Groups) { // for each base index
+      unsigned BaseIndex = Group.front()->getBasePtrBlobIndex();
+      auto &Vec = MaxNegUseDist[BaseIndex];
+      if (Vec.size() == 0) {
+        Vec.resize(NumLoops);
+      }
+
+      bool IsLvalFound = false;
+      SmallVector<const RegDDRef *, 16> Rvals;
+
+      for (auto *Ref : Group) {
+        if (Ref->isLval()) {
+          IsLvalFound = true;
+        } else {
+          Rvals.push_back(Ref);
+        }
+      } // Refs
+
+      int64_t KMaxInCurLoop = getMaxUseDist<true>(Rvals, RepRef, DimIndex);
+      if (!IsLvalFound) {
+        // Record Negative Use Kmax
+        MaxNegUseDist[BaseIndex][LoopID] = KMaxInCurLoop;
+        continue;
+      }
+
+      auto LI = BaseToLastDefLoopID.find(BaseIndex);
+
+      int DefLoopID = LI == BaseToLastDefLoopID.end() ? -1 : LI->second;
+      int64_t KNegUseMax = 0;
+      int64_t ShiftAmtSoFar = 0;
+      for (int I = DefLoopID + 1; I < LoopID; I++) {
+        KNegUseMax = std::max(MaxNegUseDist[BaseIndex][I], KNegUseMax);
+        ShiftAmtSoFar += ShiftAmt[I];
+      }
+      ShiftAmtSoFar += ShiftAmt[LoopID];
+
+      // Meaning:
+      // ShiftAmt[LoopID] = ShiftAmt[LoopID] + std::max((int64_t)0, KNegUseMax -
+      // ShiftAmtSoFar);
+      if (ShiftAmtSoFar < KNegUseMax) {
+        ShiftAmt[LoopID] += (KNegUseMax - ShiftAmtSoFar);
+
+        LLVM_DEBUG(dbgs() << "++ LoopID: " << Loop->getNumber() << "\n");
+        LLVM_DEBUG(dbgs() << "++++Group front: ");
+        LLVM_DEBUG(Group.front()->dump(); dbgs() << "\n");
+      }
+
+      // This loop has a def
+      // BaseToLastDefLoopID.emplace(BaseIndex, LoopID);
+      BaseToLastDefLoopID[BaseIndex] = LoopID;
+
+      LLVM_DEBUG(dbgs() << "+Def update: " << Loop->getNumber() << " ");
+      LLVM_DEBUG(Group.front()->dump(); dbgs() << "\n");
+
+      MaxNegUseDist[BaseIndex][LoopID] = KMaxInCurLoop;
+    } // BaseIndex
+  }   // Loop
+}
+
+static void
+calcShiftAmountBeforeUse(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                         const LoopToConstRefTy &InnermostLoopToRepRef,
+                         unsigned DimIndex,
+                         SmallVectorImpl<int64_t> &ShiftAmt) {
+
+  unsigned NumLoops = InnermostLoopToDimInfo.size();
+  // TODO: do resize outside in the caller.
+  ShiftAmt.resize(NumLoops);
+  std::unordered_map<unsigned, int> BaseToLastDefLoopID;
+
+  for (auto V : enumerate(InnermostLoopToDimInfo)) {
+    const HLLoop *Loop = V.value().first;
+    int LoopID = V.index();
+    const RegDDRef *RepRef = InnermostLoopToRepRef.at(Loop);
+
+    MemRefGatherer::VectorTy Refs;
+    MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), Refs);
+    RefGroupVecTy Groups;
+    DDRefIndexGrouping(Groups, Refs);
+
+    for (auto Group : Groups) { // for each base index
+      unsigned BaseIndex = Group.front()->getBasePtrBlobIndex();
+
+      bool IsLvalFound = false;
+      SmallVector<const RegDDRef *, 16> Rvals;
+
+      for (auto *Ref : Group) {
+        if (Ref->isLval()) {
+          IsLvalFound = true;
+        } else {
+          Rvals.push_back(Ref);
+        }
+      } // Refs
+
+      auto LI = BaseToLastDefLoopID.find(BaseIndex);
+      if (LI != BaseToLastDefLoopID.end()) {
+
+        // Find Kmax by Ref - RepDefRef
+        // Do it for every DimIndex - for now for a given DimIndex
+        // To calc for all DimNums, Kmax should be scalar expanded by DimNums
+        int64_t Kmax = getMaxUseDist(Rvals, RepRef, DimIndex);
+
+        // No Rval in the form of A[i + k], k > 0 if Kmax <= 0.
+        if (Kmax > 0) {
+
+          // Meaning
+          // int64_t ShiftAmtSoFar =
+          //   std::accumulate(std::next(ShiftAmt.begin(),
+          //   BaseToLastDefLoopID[BaseIndex] + 1),
+          //                   std::next(ShiftAmt.begin(), LoopID), 0);
+          int64_t ShiftAmtSoFar = 0;
+          for (int J = BaseToLastDefLoopID[BaseIndex] + 1; J <= LoopID; J++)
+            ShiftAmtSoFar += ShiftAmt[J];
+
+          // Meaning
+          // ShiftAmt[LoopID] = ShiftAmt[LoopID] + std::max((int64_t) 0, (Kmax -
+          // ShiftAmtSoFar));
+          if (ShiftAmtSoFar < Kmax) {
+
+            LLVM_DEBUG(dbgs() << "-- LoopID: " << Loop->getNumber() << "\n");
+            LLVM_DEBUG(dbgs() << "-----Group front: ");
+            LLVM_DEBUG(Group.front()->dump(); dbgs() << "\n");
+            LLVM_DEBUG(dbgs() << "-----Base Index: " << BaseIndex << "\n");
+
+            ShiftAmt[LoopID] += (Kmax - ShiftAmtSoFar);
+          }
+        }
+      }
+
+      if (IsLvalFound) {
+        BaseToLastDefLoopID[BaseIndex] = LoopID;
+
+        LLVM_DEBUG(dbgs() << "-Def update: " << Loop->getNumber() << " ");
+        LLVM_DEBUG(Group.front()->dump(); dbgs() << "\n");
+      }
+
+    } // Group - BaseIndex
+  }   // Loop
+}
+
+void testCalcShiftAmtFuncs(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                           const LoopToConstRefTy &InnermostLoopToRepRef,
+                           unsigned DimNum,
+                           SmallVectorImpl<int64_t> &ShiftAmt) {
+
+  unsigned NumLoops = InnermostLoopToDimInfo.size();
+  ShiftAmt.resize(NumLoops, 0);
+
+  calcShiftAmountBeforeUse(InnermostLoopToDimInfo, InnermostLoopToRepRef,
+                           DimNum, ShiftAmt);
+
+  calcShiftAmountBeforeDef(InnermostLoopToDimInfo, InnermostLoopToRepRef,
+                           DimNum, ShiftAmt);
+
+  // Print ShiftAmt
+  LLVM_DEBUG(dbgs() << "ShiftAmts for Loops\n";
+             bool IsNonZeroAmtFound = false; for (auto V
+                                                  : enumerate(ShiftAmt)) {
+               int I = V.index();
+               int64_t Amt = V.value();
+               const HLLoop *Loop = InnermostLoopToDimInfo.at(I).first;
+
+               if (Amt) {
+                 IsNonZeroAmtFound = true;
+                 dbgs() << Loop->getNumber() << ": " << Amt << "\n";
+               }
+             } dbgs() << "IsNonZeroAmtFound: "
+                      << IsNonZeroAmtFound << "\n";);
 }
 
 bool funcFilter(const Function &F) {
@@ -3423,10 +3718,17 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   }
 
   SmallVector<HLLoop *, 4> InnermostLoops;
-  (HIRF.getHLNodeUtils()).gatherInnermostLoops(InnermostLoops);
 
-  const HLRegion *Reg = cast<HLRegion>(&*HIRF.hir_begin());
-  DDGraph DDG = DDA.getGraph(Reg);
+  // Collect only the innermost loops of the first region
+  HLRegion *Reg = cast<HLRegion>(&*HIRF.hir_begin());
+  for (auto It = HLRangeIterator(Reg->child_begin()),
+            EIt = HLRangeIterator(Reg->child_end());
+       It != EIt; ++It) {
+    if (HLLoop *Lp = dyn_cast<HLLoop>(*It)) {
+      if (Lp->isInnermost())
+        InnermostLoops.push_back(Lp);
+    }
+  }
 
   HLNode *OuterNode = findTheLowestAncestor(InnermostLoops.front(), Reg);
   unsigned Level = OuterNode->getNodeLevel();
@@ -3438,6 +3740,7 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   LoopToDimInfoTy InnermostLoopToDimInfo;
   LoopToConstRefTy InnermostLoopToRepRef;
 
+  DDGraph DDG = DDA.getGraph(Reg);
   for (auto *Lp : InnermostLoops) {
 
     SmallVector<DimInfoTy, 4> DimInfos;
@@ -3448,15 +3751,58 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
         IA.couldBeAMember(DefinedBasePtr, ReadOnlyBasePtr, DDG, nullptr);
 
     // Pass should be guaranteed.
-    assert(RepRef);
+    assert(RepRef && "couldBeAMember() failed");
 
     InnermostLoopToDimInfo.emplace_back(Lp, DimInfos);
     InnermostLoopToRepRef.emplace(Lp, RepRef);
   }
 
-  doTransformation(InnermostLoopToDimInfo, InnermostLoopToRepRef, nullptr,
-                   cast<HLIf>(OuterNode), DDA, F.getName());
+  // Calc Shift amount for a loop, given a DimNum
+  unsigned DimNum = 1;
+  SmallVector<int64_t, 32> ShiftAmt;
+  testCalcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, DimNum,
+                        ShiftAmt);
+
+  InnermostLoopToShiftTy InnermostLoopToShiftVec(3);
+  int64_t SumShifts = 0;
+  for (auto LI : enumerate(InnermostLoopToDimInfo)) {
+    int LoopID = LI.index();
+    SumShifts += ShiftAmt[LoopID];
+
+    InnermostLoopToShiftVec[DimNum - 1].push_back(SumShifts);
+  }
+
+  // All members are zero, then clean-up shifts.
+  if (!InnermostLoopToShiftVec[DimNum - 1].empty() &&
+      InnermostLoopToShiftVec[DimNum - 1].back() == 0) {
+    InnermostLoopToShiftVec[DimNum - 1].clear();
+  }
+
+  HLLoop *OutermostLoop = dyn_cast<HLLoop>(OuterNode);
+  HLIf *OuterIf = dyn_cast<HLIf>(OuterNode);
+  doTransformation(InnermostLoopToDimInfo, InnermostLoopToRepRef,
+                   InnermostLoopToShiftVec, OutermostLoop, OuterIf, DDA,
+                   F.getName());
   return true;
+}
+
+bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
+                  HIRDDAnalysis &DDA, StringRef FuncName,
+                  HLLoop *OutermostLoop) {
+
+  ProfitablityAndLegalityChecker Checker(HIRF, HASA, DDA, OutermostLoop,
+                                         FuncName);
+
+  bool FoundLegalAndProfitableCand = Checker.run();
+  if (FoundLegalAndProfitableCand) {
+    InnermostLoopToShiftTy InnermostLoopToShiftVec(3);
+    return doTransformation(Checker.getInnermostLoopToDimInfos(),
+                            Checker.getInnermostLoopToRepRef(),
+                            InnermostLoopToShiftVec, Checker.getOutermostLoop(),
+                            nullptr, DDA, FuncName);
+  }
+
+  return false;
 }
 
 // Main driver for HIRInterLoopBlocking.
@@ -3494,14 +3840,10 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     // Needed to lit-test cases
     LLVM_DEBUG(PC.getOutermostLoop()->dump());
 
-    ProfitablityAndLegalityChecker Checker(HIRF, HASA, DDA,
-                                           PC.getOutermostLoop(), FuncName);
-    bool FoundLegalAndProfitableCand = Checker.run();
-    if (FoundLegalAndProfitableCand) {
-      return doTransformation(Checker.getInnermostLoopToDimInfos(),
-                              Checker.getInnermostLoopToRepRef(),
-                              Checker.getOutermostLoop(), nullptr, DDA,
-                              FuncName);
+    bool Success =
+        tryTransform(HIRF, HASA, DDA, FuncName, PC.getOutermostLoop());
+    if (Success) {
+      return true;
     }
   }
 
@@ -3535,26 +3877,18 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   }
 
   // Heuristic: try to work only on OutLoops.back()
-  ProfitablityAndLegalityChecker Checker(
-      HIRF, HASA, DDA, OutLoops[OutLoops.size() - 1], FuncName);
-  bool FoundLegalAndProfitableCand = Checker.run();
-  if (FoundLegalAndProfitableCand) {
-    return doTransformation(Checker.getInnermostLoopToDimInfos(),
-                            Checker.getInnermostLoopToRepRef(),
-                            Checker.getOutermostLoop(), nullptr, DDA, FuncName);
-  }
-
-  return false;
+  bool Success =
+      tryTransform(HIRF, HASA, DDA, FuncName, OutLoops[OutLoops.size() - 1]);
+  return Success;
 }
 } // namespace
 
 PreservedAnalyses HIRInterLoopBlockingPass::runImpl(
-  llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
 
   if (ForceTestDriver) {
-    testDriver(HIRF,
-      AM.getResult<HIRArraySectionAnalysisPass>(F),
-      AM.getResult<HIRDDAnalysisPass>(F), F);
+    testDriver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
+               AM.getResult<HIRDDAnalysisPass>(F), F);
   } else {
     driver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
            AM.getResult<HIRDDAnalysisPass>(F), F);
