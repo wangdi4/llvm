@@ -48,15 +48,16 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
                      VEX, T8XD;
 
     // Pseduo instruction for RA.
-    def PTILELOADDV : PseudoI<(outs TILE: $dst), (ins GR16:$src1,
-                                                      GR16:$src2,
-                                                      opaquemem:$src3), []>;
+    def PTILELOADDV : PseudoI<(outs TILE:$dst), (ins GR16:$src1,
+                                                     GR16:$src2,
+                                                     opaquemem:$src3), []>;
     def PTILESTOREDV : PseudoI<(outs), (ins GR16:$src1,
                                             GR16:$src2, opaquemem:$src3,
                                             TILE:$src4), []>;
     let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1 in
-      def PTILEZEROV : PseudoI<(outs TILE:$dst), (ins GR16:$src1,
-                                                     GR16:$src2), []>;
+      def PTILEZEROV : PseudoI<(outs TILE:$dst), (ins GR16:$src1, GR16:$src2),
+                                [(set TILE:$dst, (int_x86_tilezero_internal
+                                  GR16:$src1, GR16:$src2))]>;
 
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
