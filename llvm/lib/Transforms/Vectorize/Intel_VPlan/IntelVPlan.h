@@ -1781,7 +1781,7 @@ public:
 
   // Get the HIR memory reference corresponding to the value being loaded
   // or value being stored into.
-  const loopopt::RegDDRef *getMemoryRef() const {
+  const loopopt::RegDDRef *getHIRMemoryRef() const {
     if (!HIR.getUnderlyingNode())
       return nullptr;
 
@@ -1806,7 +1806,7 @@ public:
     if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
     else if (HIR.getUnderlyingNode()) {
-      const loopopt::RegDDRef *RDDR = getMemoryRef();
+      const loopopt::RegDDRef *RDDR = getHIRMemoryRef();
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
     }
   }

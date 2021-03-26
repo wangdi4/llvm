@@ -24,24 +24,14 @@
 ; <15>    + END LOOP
 
 
-; TODO: Currently we bail out of VLS analysis by restricting the creation of VLS memrefs only for loads/stores
-; with a single memref. This is to ensure that correct vector code is generated since VLS HIR codegen handles
-; only these cases. This test must be updated to check shuffles/wide store when VLS is made an explicit VPlan transformation (JR : CMPLRLLVM-7613)
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -enable-vp-value-codegen-hir -disable-output -print-after=VPlanDriverHIR -tbaa < %s 2>&1 | FileCheck %s
 
-
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -disable-output -print-after=VPlanDriverHIR -tbaa < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir -disable-output -print-after=VPlanDriverHIR -tbaa < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
-
-; CHECK: DO i1 = 0, 1023, 4
-; CHECK:   (<4 x i32>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>].0 = (<4 x i32>*)(@ip)[0][i1];
-; CHECK:   (<4 x i32>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>].1 = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK: END LOOP
-
-; VPCHECK:       DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPCHECK-NEXT:    %.vec = (<4 x i32>*)(@ip)[0][i1];
-; VPCHECK-NEXT:    (<4 x i32>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>].0 = %.vec;
-; VPCHECK-NEXT:    (<4 x i32>*)(@arr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>].1 = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; VPCHECK-NEXT:  END LOOP
+; CHECK:       DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:    %.vec = (<4 x i32>*)(@ip)[0][i1];
+; CHECK-NEXT:    %comb.shuf = shufflevector %.vec,  i1 + <i64 0, i64 1, i64 2, i64 3>,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
+; CHECK-NEXT:    %vls.interleave = shufflevector %comb.shuf,  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>;
+; CHECK-NEXT:    (<8 x i32>*)(@arr)[0][i1].0 = %vls.interleave;
+; CHECK-NEXT:  END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
