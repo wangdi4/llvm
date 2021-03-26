@@ -234,21 +234,14 @@ inline bool hasIrregularTypeForUnitStride(Type *Ty, const DataLayout *DL) {
 }
 
 #if INTEL_CUSTOMIZATION
-// Obtain stride information using loopopt interfaces. HNode is expected to
-// specify the underlying node for a load/store VPInstruction. We return false
-// if this is not the case. Function returns true if the memory reference
-// corresponding to pointer operand of load/store VPInst has known stride. The
-// stride value is returned in Stride. Function returns false for unknown
-// stride.
-inline bool getStrideUsingHIR(const loopopt::HLNode &HNode, int64_t &Stride) {
-  const loopopt::HLInst *HInst = dyn_cast<loopopt::HLInst>(&HNode);
-  if (!HInst)
-    return false;
-
-  const loopopt::RegDDRef *MemRef =
-      HInst->getLLVMInstruction()->getOpcode() == Instruction::Load
-          ? HInst->getRvalDDRef()
-          : HInst->getLvalDDRef();
+// Obtain stride information using loopopt interfaces for the given memory
+// reference MemRef. DDNode specifies the underlying HLDDNode for the
+// load/store VPInstruction. Function returns true if the given memory
+// reference has known stride. The stride value is returned in Stride.
+// Function returns false for unknown stride.
+inline bool getStrideUsingHIR(const loopopt::RegDDRef *MemRef,
+                              const loopopt::HLDDNode &DDNode,
+                              int64_t &Stride) {
 
   // Memref is expected to be non-null and a memory reference. If this is not
   // the case, return false. We assert in debug mode.
@@ -257,7 +250,9 @@ inline bool getStrideUsingHIR(const loopopt::HLNode &HNode, int64_t &Stride) {
     return false;
   }
 
-  const loopopt::HLLoop *HLoop = HInst->getParentLoop();
+  assert(MemRef->getHLDDNode() == &DDNode &&
+         "MemRef expected to be a ref in DDNode");
+  const loopopt::HLLoop *HLoop = DDNode.getParentLoop();
   // The code here assumes inner loop vectorization. TODO: Once we start
   // supporting outer loop vectorization, this interface will need to be changed
   // to also take the HLLoop being vectorized.

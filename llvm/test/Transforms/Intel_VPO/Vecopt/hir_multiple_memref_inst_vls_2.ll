@@ -14,23 +14,18 @@
 ; appropriate shuffles. TODO - look into why we still generate scatters
 ; for the two stores.
 ;
-; TODO - HIR based stride information improvements need to be extended to cases
-; such as t1 = a[i].0 + a[i].1 to get rid of the wide GEP and extractelement
-; uses seen here.
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize> <ivdep>
-; CHECK-NEXT:    %extract.0. = extractelement &((<4 x float*>)(%src2)[i1 + <i64 0, i64 1, i64 2, i64 3>].0),  0;
-; CHECK-NEXT:    %.vls.load = (<8 x float>*)(%extract.0.)[0];
+; CHECK-NEXT:    %.vls.load = (<8 x float>*)(%src2)[i1].0;
 ; CHECK-NEXT:    %vls.shuf = shufflevector %.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; CHECK-NEXT:    %extract.0.1 = extractelement &((<4 x float*>)(%src1)[i1 + <i64 0, i64 1, i64 2, i64 3>].0),  0;
-; CHECK-NEXT:    %.vls.load2 = (<8 x float>*)(%extract.0.1)[0];
-; CHECK-NEXT:    %vls.shuf3 = shufflevector %.vls.load2,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; CHECK-NEXT:    %.vec = %vls.shuf  +  %vls.shuf3;
-; CHECK-NEXT:    %vls.shuf4 = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:    %vls.shuf5 = shufflevector %.vls.load2,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:    %.vec6 = %vls.shuf4  +  %vls.shuf5;
+; CHECK-NEXT:    %.vls.load1 = (<8 x float>*)(%src1)[i1].0;
+; CHECK-NEXT:    %vls.shuf2 = shufflevector %.vls.load1,  undef,  <i32 0, i32 2, i32 4, i32 6>;
+; CHECK-NEXT:    %.vec = %vls.shuf  +  %vls.shuf2;
+; CHECK-NEXT:    %vls.shuf3 = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
+; CHECK-NEXT:    %vls.shuf4 = shufflevector %.vls.load1,  undef,  <i32 1, i32 3, i32 5, i32 7>;
+; CHECK-NEXT:    %.vec5 = %vls.shuf3  +  %vls.shuf4;
 ; CHECK-NEXT:    (<4 x float>*)(%dest)[i1 + <i64 0, i64 1, i64 2, i64 3>].0 = %.vec;
-; CHECK-NEXT:    (<4 x float>*)(%dest)[i1 + <i64 0, i64 1, i64 2, i64 3>].1 = %.vec6;
-; CHECK:       END LOOP
+; CHECK-NEXT:    (<4 x float>*)(%dest)[i1 + <i64 0, i64 1, i64 2, i64 3>].1 = %.vec5;
+; CHECK-NEXT:  END LOOP
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
