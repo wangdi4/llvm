@@ -308,12 +308,12 @@ EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t ID);
 
 // Get interop property value from plugin
 EXTERN int32_t __tgt_rtl_get_interop_property_value(
-    int32_t ID, __tgt_interop *Interop, omp_interop_property_t Property,
-    int32_t ValueType, size_t Size, void *Value);
+    int32_t ID, __tgt_interop *Interop, int32_t Property, int32_t ValueType,
+    size_t Size, void *Value);
 
 // Get interop property info from plugin
 EXTERN const char *__tgt_rtl_get_interop_property_info(
-    int32_t ID, omp_interop_property_t Property, int32_t InfoType);
+    int32_t ID, int32_t Property, int32_t InfoType);
 
 // Get interop return code description from plugin
 EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t ID, int32_t Rc);

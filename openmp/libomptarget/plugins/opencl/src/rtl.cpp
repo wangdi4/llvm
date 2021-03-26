@@ -3420,8 +3420,8 @@ EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
 
 /// Return the value of the requested property
 EXTERN int32_t __tgt_rtl_get_interop_property_value(
-    int32_t DeviceId, __tgt_interop *Interop, omp_interop_property_t Ipr,
-    int32_t ValueType, size_t Size, void *Value) {
+    int32_t DeviceId, __tgt_interop *Interop, int32_t Ipr, int32_t ValueType,
+    size_t Size, void *Value) {
 
   if (Interop->RTLProperty == nullptr)
     return omp_irc_out_of_range;
@@ -3438,7 +3438,7 @@ EXTERN int32_t __tgt_rtl_get_interop_property_value(
 }
 
 EXTERN const char *__tgt_rtl_get_interop_property_info(
-    int32_t DeviceId, omp_interop_property_t Ipr, int32_t InfoType) {
+    int32_t DeviceId, int32_t Ipr, int32_t InfoType) {
   int32_t offset = Ipr - omp_ipr_first;
   if (offset < 0 || (size_t)offset >= OCLInterop::IprNames.size())
     return nullptr;

@@ -499,8 +499,10 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
   }
 
   // Factor in VF into return type and Args type when it is vectorizable.
-  auto MaybeVectorizeType =
-    [](bool NeedsVectorCode, Type *Ty, unsigned VF) -> Type * {
+  auto MaybeVectorizeType = [](bool NeedsVectorCode, Type *Ty,
+                               unsigned VF) -> Type * {
+    if (VF == 1)
+      return Ty;
     if (NeedsVectorCode && isVectorizableTy(Ty) && !Ty->isVoidTy())
       return getWidenedType(Ty, VF);
     return Ty;
@@ -513,10 +515,12 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
     FMF = VPCall->getFastMathFlags();
 
   SmallVector<Type *> ParamTys;
-  transform(enumerate(VPCall->arg_operands()), ParamTys.begin(), [&](auto Arg) {
-    return MaybeVectorizeType(
-      Plan->getVPlanSVA()->operandNeedsVectorCode(VPCall, Arg.index()),
-      Arg.value()->getType(), VF); });
+  for (auto Arg : enumerate(VPCall->arg_operands())) {
+    Type *Ty = MaybeVectorizeType(
+        Plan->getVPlanSVA()->operandNeedsVectorCode(VPCall, Arg.index()),
+        Arg.value()->getType(), VF);
+    ParamTys.push_back(Ty);
+  }
 
   return VPTTI.getIntrinsicInstrCost(
     IntrinsicCostAttributes(ID, RetTy, ParamTys, FMF,

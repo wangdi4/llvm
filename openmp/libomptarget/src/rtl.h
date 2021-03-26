@@ -92,11 +92,9 @@ struct RTLInfoTy {
   typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
   typedef int32_t(get_num_interop_properties_ty)(int32_t);
   typedef int32_t(get_interop_property_value_ty)(int32_t, __tgt_interop *,
-                                                 omp_interop_property_t,
-                                                 int32_t, size_t, void *);
-  typedef const char *(get_interop_property_info_ty)(int32_t,
-                                                     omp_interop_property_t,
-                                                     int32_t);
+                                                 int32_t, int32_t, size_t,
+                                                 void *);
+  typedef const char *(get_interop_property_info_ty)(int32_t, int32_t, int32_t);
   typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
   typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
 #endif // INTEL_COLLAB

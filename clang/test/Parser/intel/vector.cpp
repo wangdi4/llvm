@@ -13,4 +13,8 @@ void foo1(int lb, int ub, int *a, int *b) {
 void foo2(int lb, int ub, int *a, int *b) {
 #pragma vector enable // expected-warning {{invalid option 'enable'; expected always}}
   for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+
+#pragma vector dynamic_align (x) // expected-warning {{extra tokens at end of '#pragma vector' - ignored}}
+  for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+
 }

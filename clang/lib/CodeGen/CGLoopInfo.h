@@ -109,6 +109,12 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.vector_aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
+  /// Value for llvm.loop.intel.vector_dynamic_align.enable metadata.
+  bool VectorizeDynamicAlignEnable;
+
+  /// Value for llvm.loop.intel.vector_dddynamic_align.enable metadata.
+  bool VectorizeNoDynamicAlignEnable;
+
   /// Value for llvm.loop.intel.loopcount
   llvm::SmallVector<unsigned, 2> LoopCount;
 
@@ -466,6 +472,17 @@ public:
   /// Set next pushed loop  'vector_aligned.enable'
   void setVectorizeAlignedEnable() {
     StagedAttrs.VectorizeAlignedEnable = true;
+  }
+
+
+  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  void setVectorizeDynamicAlignEnable() {
+    StagedAttrs.VectorizeDynamicAlignEnable = true;
+  }
+
+  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  void setVectorizeNoDynamicAlignEnable() {
+    StagedAttrs.VectorizeNoDynamicAlignEnable = true;
   }
 
   /// Set the LoopCount for the next loop pushed.

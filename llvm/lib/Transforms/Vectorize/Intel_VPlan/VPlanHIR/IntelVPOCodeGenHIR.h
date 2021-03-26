@@ -366,6 +366,13 @@ public:
     addInst(Inst, nullptr, IsThenChild);
   }
 
+  // Generate and return an HLInst to initialize the given reference with undef
+  // value. The generated HLInst is used to avoid unnecessary false dependences.
+  HLInst *generateInitWithUndef(const RegDDRef *Ref) {
+    RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(Ref->getDestType());
+    return HLNodeUtilities.createCopyInst(UndefRef, "undef.init", Ref->clone());
+  }
+
   // Add the given instruction at the end of the main loop and mask
   // it with the provided mask value if non-null. If the masked instruction
   // writes into a loop private temp ref, then initialize the temp with undef
@@ -382,10 +389,7 @@ public:
       if (LvalRef && LvalRef->isTerminalRef() &&
           !MainLoop->isLiveIn(LvalRef->getSymbase()) &&
           InitializedPrivateTempSymbases.insert(LvalRef->getSymbase()).second) {
-        RegDDRef *Init =
-            DDRefUtilities.createUndefDDRef(LvalRef->getDestType());
-        auto InitInst =
-            HLNodeUtilities.createCopyInst(Init, "priv.init", LvalRef->clone());
+        auto InitInst = generateInitWithUndef(LvalRef);
         // We handle only innermost loop vectorization today, so initialize
         // temp in MainLoop header.
         HLNodeUtils::insertAsFirstChild(MainLoop, InitInst);

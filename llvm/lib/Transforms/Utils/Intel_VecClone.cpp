@@ -1023,9 +1023,10 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
         PointerType *BitCastType = cast<PointerType>(BitCast->getType());
         Type *PointeeType = BitCastType->getElementType();
 
-        GetElementPtrInst *VecGep =
-            GetElementPtrInst::Create(PointeeType, BitCast, Phi,
-                                      BitCast->getName() + ".gep", User);
+        GetElementPtrInst *VecGep = nullptr;
+        if (!isa<PHINode>(User))
+          VecGep = GetElementPtrInst::Create(PointeeType, BitCast, Phi,
+                                             BitCast->getName() + ".gep", User);
 
         unsigned NumOps = User->getNumOperands();
         for (unsigned I = 0; I < NumOps; ++I) {
@@ -1050,6 +1051,12 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
               // Otherwise, we need to load the value from the gep first before
               // using it. This effectively loads the particular element from
               // the vector parameter.
+              if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
+                BasicBlock *IncommingBB = PHIUser->getIncomingBlock(I);
+                VecGep = GetElementPtrInst::Create(
+                    PointeeType, BitCast, Phi, BitCast->getName() + ".gep",
+                    IncommingBB->getTerminator());
+              }
               Type *LoadTy = VecGep->getResultElementType();
               LoadInst *ParmElemLoad = new LoadInst(
                   LoadTy, VecGep, "vec." + Parm->getName() + ".elem",

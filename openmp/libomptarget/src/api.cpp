@@ -407,8 +407,8 @@ EXTERN int omp_get_num_interop_properties(const omp_interop_t interop) {
 }
 
 /// Return interop property value for the given value type
-static int32_t getInteropValue(const omp_interop_t Interop,
-    omp_interop_property_t Ipr, int32_t ValueType, size_t Size, void *Value) {
+static int32_t getInteropValue(const omp_interop_t Interop, int32_t Ipr,
+                               int32_t ValueType, size_t Size, void *Value) {
 
   __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(Interop);
   int32_t Rc = omp_irc_success;
@@ -473,8 +473,8 @@ EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
   int32_t Rc = checkInteropCall(interop, __func__);
 
   if (Rc == omp_irc_success)
-    Rc = getInteropValue(interop, property_id, OMP_IPR_VALUE_INT, sizeof(Ret),
-                         &Ret);
+    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_INT,
+                         sizeof(Ret), &Ret);
   if (ret_code)
     *ret_code = Rc;
 
@@ -490,8 +490,8 @@ EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
   int32_t Rc = checkInteropCall(interop, __func__);
 
   if (Rc == omp_irc_success)
-    Rc = getInteropValue(interop, property_id, OMP_IPR_VALUE_PTR, sizeof(Ret),
-                         &Ret);
+    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_PTR,
+                         sizeof(Ret), &Ret);
   if (ret_code)
     *ret_code = Rc;
 
@@ -507,8 +507,8 @@ EXTERN const char *omp_get_interop_str(const omp_interop_t interop,
   int32_t Rc = checkInteropCall(interop, __func__);
 
   if (Rc == omp_irc_success)
-    Rc = getInteropValue(interop, property_id, OMP_IPR_VALUE_STR, sizeof(Ret),
-                         &Ret);
+    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_STR,
+                         sizeof(Ret), &Ret);
   if (ret_code)
     *ret_code = Rc;
 
