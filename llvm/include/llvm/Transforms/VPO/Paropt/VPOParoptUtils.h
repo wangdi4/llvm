@@ -1547,9 +1547,13 @@ public:
                                         Value *SharedGep, Instruction *InsertPt,
                                         bool UseTbb);
 
-  /// Generate a call to `__kmpc_task_reduction_init`. Prototype:
+  /// Generate a call to `__kmpc_taskred_init`. Prototype:
   /// \code
-  ///   i8* @__kmpc_task_reduction_init(i32, i32, i8*)
+  ///   i8* @__kmpc_taskred_init(i32, i32, i8*)
+  /// \endcode
+  /// Or, if UseTbb is true:
+  /// \code
+  ///   i8* @__tbb_omp_task_reduction_init(i32, i32, i8*)
   /// \endcode
   static CallInst *genKmpcTaskReductionInit(WRegionNode *W, Value *TidPtr,
                                             int ParmNum, Value *RedRecord,

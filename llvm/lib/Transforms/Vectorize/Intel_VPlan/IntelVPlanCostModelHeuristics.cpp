@@ -149,7 +149,9 @@ bool HeuristicSLP::ProcessSLPHIRMemrefs(
   return PatternFound;
 }
 
-unsigned HeuristicSLP::applyOnPlan(unsigned Cost) const {
+void HeuristicSLP::apply(
+  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  (void)TTICost;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
   // Gather all Store and Load Memrefs since SLP starts pattern search on
@@ -165,43 +167,42 @@ unsigned HeuristicSLP::applyOnPlan(unsigned Cost) const {
 
   if (ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
       ProcessSLPHIRMemrefs(HIRLoadMemrefs,  VPlanSLPLoadPatternSize))
-    return VF * Cost;
-
-  return Cost;
+    Cost *= VF;
 }
 
-unsigned HeuristicSearchLoop::applyOnPlan(unsigned Cost) const {
+void HeuristicSearchLoop::apply(
+  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  (void)TTICost;
   // Array ref which needs to be aligned via loop peeling, if any.
   RegDDRef *PeelArrayRef = nullptr;
   switch (VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef)) {
   case VPlanIdioms::Unsafe:
-    return UnknownCost;
+    Cost = UnknownCost;
+    break;
   case VPlanIdioms::SearchLoopStrEq:
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
     if (VF == 1)
-      return VPlanTTIWrapper::Multiplier * 1000;
-    if (VF != 32)
+      Cost = VPlanTTIWrapper::Multiplier * 1000;
+    else if (VF != 32)
       // Return some huge value, so that VectorCost still could be computed.
-      return UnknownCost;
+      Cost = UnknownCost;
     break;
   case VPlanIdioms::SearchLoopStructPtrEq:
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
     if (VF == 1)
-      return VPlanTTIWrapper::Multiplier * 1000;
-    if (VF != 4)
+      Cost = VPlanTTIWrapper::Multiplier * 1000;
+    else if (VF != 4)
       // Return some huge value, so that VectorCost still could be computed.
-      return UnknownCost;
+      Cost = UnknownCost;
     break;
   default:
     // FIXME: Keep VF = 32 as unsupported right now due to huge perf
     // regressions.
     if (VF == 32)
-      return UnknownCost;
+      Cost = UnknownCost;
   }
-
-  return Cost;
 }
 
 unsigned HeuristicSpillFill::operator()(
@@ -414,14 +415,16 @@ unsigned HeuristicSpillFill::operator()(
     (StoreCost + LoadCost);
 }
 
-unsigned HeuristicSpillFill::applyOnPlan(unsigned Cost) const {
+void HeuristicSpillFill::apply(
+  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  (void)TTICost;
   // Don't run register pressure heuristics on TTI models that do not support
   // scalar or vector registers.
   if (CM->VPTTI.getNumberOfRegisters(
         CM->VPTTI.getRegisterClassForType(false)) == 0 ||
       CM->VPTTI.getNumberOfRegisters(
         CM->VPTTI.getRegisterClassForType(true)) == 0)
-    return Cost;
+    return;
 
   // LiveValues map contains the liveness of the given instruction multiplied
   // by its legalization factor.  The map is updated on each VPInstruction in
@@ -460,11 +463,10 @@ unsigned HeuristicSpillFill::applyOnPlan(unsigned Cost) const {
     if (VF > 1)
       Cost += (*this)(Block, VecLiveValues, true);
   }
-
-  return Cost;
 }
 
-unsigned HeuristicGatherScatter::applyOnPlan(unsigned Cost) const {
+void HeuristicGatherScatter::apply(
+  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
   unsigned GSCost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
@@ -473,10 +475,8 @@ unsigned HeuristicGatherScatter::applyOnPlan(unsigned Cost) const {
 
   // Double GatherScatter cost contribution in case Gathers/Scatters take too
   // much to make it harder to choose this VF.
-  if (Cost * CMGatherScatterThreshold < GSCost * 100)
+  if (TTICost * CMGatherScatterThreshold < GSCost * 100)
     Cost += CMGatherScatterPenaltyFactor * GSCost;
-
-  return Cost;
 }
 
 unsigned HeuristicGatherScatter::operator()(
@@ -544,7 +544,9 @@ bool HeuristicPsadbw::checkPsadwbPattern(
 }
 
 // Does all neccesary target checks and return corrected VPlan Cost.
-unsigned HeuristicPsadbw::applyOnPlan(unsigned Cost) const {
+void HeuristicPsadbw::apply(
+  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  (void)TTICost;
   unsigned PatternCost = 0;
 
   // Scaled PSADBW cost in terms of number of intructions.
@@ -746,9 +748,9 @@ unsigned HeuristicPsadbw::applyOnPlan(unsigned Cost) const {
   if (PatternCost > Cost)
     // TODO:
     // Consider returning PsadbwCost here.
-    return 0;
-
-  return Cost - PatternCost;
+    Cost = 0;
+  else
+    Cost -= PatternCost;
 }
 
 } // namespace VPlanCostModelHeuristics

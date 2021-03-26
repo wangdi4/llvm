@@ -190,87 +190,83 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   int64_t InterleaveFactor = 0, InterleaveIndex = 0;
 
   // Compute group information if we have a valid master instruction
-  if (HIR.isMaster() && isUnderlyingIRValid()) {
-    HLNode *HNode = HIR.getUnderlyingNode();
-    if (isa<HLInst>(HNode)) {
-      unsigned Opcode = getOpcode();
+  if (isUnderlyingIRValid()) {
+    unsigned Opcode = getOpcode();
 
-      if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
-        VPlanVLSAnalysis *VLSA = CG->getVLS();
-        const VPlan *Plan = CG->getPlan();
-        int32_t GrpSize = 0;
+    if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
+      VPlanVLSAnalysis *VLSA = CG->getVLS();
+      const VPlan *Plan = CG->getPlan();
+      int32_t GrpSize = 0;
 
-        // Get OPTVLS group for current load/store instruction
-        Group = VLSA->getGroupsFor(Plan, this);
-        Optional<int64_t> GroupStride = Group ? Group->getConstStride() : None;
+      // Get OPTVLS group for current load/store instruction
+      Group = VLSA->getGroupsFor(Plan, this);
+      Optional<int64_t> GroupStride = Group ? Group->getConstStride() : None;
 
-        // Only handle strided OptVLS Groups with no access gaps for now.
-        if (GroupStride) {
-          GrpSize = Group->size();
-          APInt AccessMask = Group->computeByteAccessMask();
+      // Only handle strided OptVLS Groups with no access gaps for now.
+      if (GroupStride) {
+        GrpSize = Group->size();
+        APInt AccessMask = Group->computeByteAccessMask();
 
-          // Access mask is currently 64 bits, skip groups with group stride >
-          // 64 and access gaps.
-          if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
-              AccessMask.getBitWidth() != *GroupStride)
-            Group = nullptr;
-        } else
+        // Access mask is currently 64 bits, skip groups with group stride >
+        // 64 and access gaps.
+        if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
+            AccessMask.getBitWidth() != *GroupStride)
           Group = nullptr;
+      } else
+        Group = nullptr;
 
-        if (Group) {
-          VPVLSClientMemrefHIR *FirstMemref = nullptr;
-          const RegDDRef *FirstMemrefDD = nullptr;
-          uint64_t RefSizeInBytes = 0;
+      if (Group) {
+        VPVLSClientMemrefHIR *FirstMemref = nullptr;
+        const RegDDRef *FirstMemrefDD = nullptr;
+        uint64_t RefSizeInBytes = 0;
 
-          // Check that all members of the group have same type. Currently we
-          // do not handle groups such as a[i].i, a[i].d for
-          //   struct {int i; double d} a[100]
-          // Also setup FirstMemref, FirstMemrefDD, and RefSizeInBytes.
-          bool TypesMatch = true;
-          for (int64_t Index = 0; Index < Group->size(); ++Index) {
-            auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
-            const RegDDRef *MemrefDD;
+        // Check that all members of the group have same type. Currently we
+        // do not handle groups such as a[i].i, a[i].d for
+        //   struct {int i; double d} a[100]
+        // Also setup FirstMemref, FirstMemrefDD, and RefSizeInBytes.
+        bool TypesMatch = true;
+        for (int64_t Index = 0; Index < Group->size(); ++Index) {
+          auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
+          const RegDDRef *MemrefDD;
 
-            // Members of the group can be memrefs which are not master
-            // VPInstructions (due to HIR Temp cleanup). Assertions for validity
-            // and to check if underlying HLInst is master VPI is not needed
-            // anymore.
-            MemrefDD = Memref->getRegDDRef();
-            if (Index == 0) {
-              auto DL = MemrefDD->getDDRefUtils().getDataLayout();
+          // Members of the group can be memrefs which are not master
+          // VPInstructions (due to HIR Temp cleanup). Assertions for validity
+          // and to check if underlying HLInst is master VPI is not needed
+          // anymore.
+          MemrefDD = Memref->getRegDDRef();
+          if (Index == 0) {
+            auto DL = MemrefDD->getDDRefUtils().getDataLayout();
 
-              FirstMemref = Memref;
-              FirstMemrefDD = MemrefDD;
-              RefSizeInBytes =
-                  DL.getTypeAllocSize(FirstMemrefDD->getDestType());
-            } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
-              TypesMatch = false;
+            FirstMemref = Memref;
+            FirstMemrefDD = MemrefDD;
+            RefSizeInBytes = DL.getTypeAllocSize(FirstMemrefDD->getDestType());
+          } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
+            TypesMatch = false;
 
-            // Setup the interleave index of the current instruction within the
-            // VLS group.
-            if (Memref->getInstruction() == this) {
-              auto DistOrNone = Memref->getConstDistanceFrom(*FirstMemref);
-              InterleaveIndex = DistOrNone.getValueOr(0) / RefSizeInBytes;
-            }
+          // Setup the interleave index of the current instruction within the
+          // VLS group.
+          if (Memref->getInstruction() == this) {
+            auto DistOrNone = Memref->getConstDistanceFrom(*FirstMemref);
+            InterleaveIndex = DistOrNone.getValueOr(0) / RefSizeInBytes;
           }
-
-          // Compute interleave factor based on the distance of the last memref
-          // in the group from the first memref. This may not be the same as
-          // the group size as we may see duplicate accesses like:
-          //     a[2*i]
-          //     a[2*i+1]
-          //     a[2*i]
-          auto *LastMemref =
-              cast<VPVLSClientMemrefHIR>(Group->getMemref(GrpSize - 1));
-          auto LastDistOrNone = LastMemref->getConstDistanceFrom(*FirstMemref);
-          InterleaveFactor = LastDistOrNone.getValueOr(0) / RefSizeInBytes + 1;
-
-          // If interleave factor is less than 2, nothing special needs to be
-          // done. Similarly, we do not handle the case where all memrefs in the
-          // group are not of the same type.
-          if (InterleaveFactor < 2 || !TypesMatch)
-            Group = nullptr;
         }
+
+        // Compute interleave factor based on the distance of the last memref
+        // in the group from the first memref. This may not be the same as
+        // the group size as we may see duplicate accesses like:
+        //     a[2*i]
+        //     a[2*i+1]
+        //     a[2*i]
+        auto *LastMemref =
+            cast<VPVLSClientMemrefHIR>(Group->getMemref(GrpSize - 1));
+        auto LastDistOrNone = LastMemref->getConstDistanceFrom(*FirstMemref);
+        InterleaveFactor = LastDistOrNone.getValueOr(0) / RefSizeInBytes + 1;
+
+        // If interleave factor is less than 2, nothing special needs to be
+        // done. Similarly, we do not handle the case where all memrefs in the
+        // group are not of the same type.
+        if (InterleaveFactor < 2 || !TypesMatch)
+          Group = nullptr;
       }
     }
   }

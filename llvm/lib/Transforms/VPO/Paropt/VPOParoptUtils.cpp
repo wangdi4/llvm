@@ -1507,7 +1507,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 }
 
 // This function generates a call as follows.
-//    i8* @__kmpc_task_reduction_init(i32, i32, i8*)
+//    i8* @__kmpc_taskred_init(i32, i32, i8*)
 CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
                                                    Value *TidPtr, int ParmNum,
                                                    Value *RedRecord,
@@ -1528,7 +1528,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_task_reduction_init" :
-                              "__kmpc_task_reduction_init";
+                              "__kmpc_taskred_init";
 
   Function *FnTaskRedInit = M->getFunction(FnName);
 

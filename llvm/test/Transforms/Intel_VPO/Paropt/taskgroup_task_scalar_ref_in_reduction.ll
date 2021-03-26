@@ -32,16 +32,19 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Check that the shared struct has space for %a.addr, and
 ; reduction item struct type is defined.
 ; CHECK: %__struct.kmp_privates.t = type {}
-; CHECK: %__struct.kmp_task_t_red_item = type { i8*, i64, i8*, i8*, i8*, i32 }
+; CHECK: %__struct.kmp_taskred_input_t = type { i8*, i8*, i64, i8*, i8*, i8*, i32 }
 ; CHECK: %__struct.shared.t = type { i16** }
 
 ; Check that the reduction struct is correctly initialized
 ; using the size of i16, and a dereference of the byref %a.addr
-; CHECK: [[RED_ITEM_PTR_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_task_t_red_item, %__struct.kmp_task_t_red_item* %{{[^ ,]+}}, i32 0, i32 0
+; CHECK: [[RED_ITEM_PTR_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_taskred_input_t, %__struct.kmp_taskred_input_t* %{{[^ ,]+}}, i32 0, i32 0
 ; CHECK: [[A_BYREF_DREF:%[^ ]+]] = load i16*, i16** %a.addr
 ; CHECK: [[A_BYREF_DEREF_CAST:%[^ ]+]] = bitcast i16* [[A_BYREF_DREF]] to i8*
 ; CHECK: store i8* [[A_BYREF_DEREF_CAST]], i8** [[RED_ITEM_PTR_GEP]]
-; CHECK: [[RED_ITEM_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_task_t_red_item, %__struct.kmp_task_t_red_item* %{{[^ ,]+}}, i32 0, i32 1
+; CHECK: [[ORIG_ITEM_PTR_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_taskred_input_t, %__struct.kmp_taskred_input_t* %{{[^ ,]+}}, i32 0, i32 1
+; CHECK: [[A_BYREF_DEREF_CAST1:%[^ ]+]] = bitcast i16* [[A_BYREF_DREF]] to i8*
+; CHECK: store i8* [[A_BYREF_DEREF_CAST1]], i8** [[ORIG_ITEM_PTR_GEP]]
+; CHECK: [[RED_ITEM_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_taskred_input_t, %__struct.kmp_taskred_input_t* %{{[^ ,]+}}, i32 0, i32 2
 ; CHECK: store i64 2, i64* [[RED_ITEM_SIZE_GEP]]
 
 ; Check that the replacement var for the reduction operand is the correct type
@@ -50,8 +53,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: store i16* [[A_RED_CAST]], i16** {{%[^ ]+}}
 
 ; Check that the initializer/combiner functions are as expected.
-; CHECK: define internal void @{{.*}}task_red_init{{.*}}(i16* [[INIT_ARG:%[^ ]+]]) {
-; CHECK: store i16 0, i16* [[INIT_ARG]]
+; CHECK: define internal void @{{.*}}task_red_init{{.*}}(i16* [[PRIV_ARG:%[^ ]+]], i16* [[ORIG_ARG:%[^ ]+]]) {
+; CHECK: store i16 0, i16* [[PRIV_ARG]]
 
 ; CHECK: define internal void @{{.*}}task_red_comb{{.*}}(i16* [[RHS:%[^ ]+]], i16* [[LHS:%[^ ]+]]) {
 ; CHECK: [[LHS_VAL:%[^ ]]] = load i16, i16* [[LHS]]

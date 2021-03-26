@@ -40,17 +40,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Check that the shared struct has space for @b, and
 ; reduction item struct type is defined.
 ; CHECK: %__struct.kmp_privates.t = type {}
-; CHECK: %__struct.kmp_task_t_red_item = type { i8*, i64, i8*, i8*, i8*, i32 }
+; CHECK: %__struct.kmp_taskred_input_t = type { i8*, i8*, i64, i8*, i8*, i8*, i32 }
 ; CHECK: %__struct.shared.t = type { i32** }
 
 ; Check that the reduction struct is correctly initialized
 ; using the size of i16, and a dereference of the byref %a.addr
-; CHECK: [[RED_ITEM_PTR_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_task_t_red_item, %__struct.kmp_task_t_red_item* %{{[^ ,]+}}, i32 0, i32 0
+; CHECK: [[RED_ITEM_PTR_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_taskred_input_t, %__struct.kmp_taskred_input_t* %{{[^ ,]+}}, i32 0, i32 0
 ; CHECK: [[B_LOAD:%[^ ]+]] = load i32*, i32** @b
 ; CHECK: [[B_LOAD_PLUS_OFFSET:%[^ ]+]] = getelementptr i32, i32* [[B_LOAD]], i64 1
 ; CHECK: [[B_LOAD_PLUS_OFFSET_CAST:%[^ ]+]] = bitcast i32* [[B_LOAD_PLUS_OFFSET]] to i8*
 ; CHECK: store i8* [[B_LOAD_PLUS_OFFSET_CAST]], i8** [[RED_ITEM_PTR_GEP]]
-; CHECK: [[RED_ITEM_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_task_t_red_item, %__struct.kmp_task_t_red_item* %{{[^ ,]+}}, i32 0, i32 1
+; CHECK: [[ORIG_ITEM_PTR_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_taskred_input_t, %__struct.kmp_taskred_input_t* %{{[^ ,]+}}, i32 0, i32 1
+; CHECK: [[B_LOAD_PLUS_OFFSET_CAST1:%[^ ]+]] = bitcast i32* [[B_LOAD_PLUS_OFFSET]] to i8*
+; CHECK: store i8* [[B_LOAD_PLUS_OFFSET_CAST1]], i8** [[ORIG_ITEM_PTR_GEP]]
+; CHECK: [[RED_ITEM_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_taskred_input_t, %__struct.kmp_taskred_input_t* %{{[^ ,]+}}, i32 0, i32 2
 ; CHECK: store i64 16, i64* [[RED_ITEM_SIZE_GEP]]
 
 ; Check that the replacement var for the reduction operand is the correct type
@@ -60,9 +63,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: store i32* [[B_RED_CAST_MINUS_OFFSET]], i32** {{%[^ ]+}}
 
 ; Check that the initializer/combiner functions are as expected.
-; CHECK: define internal void @{{.*}}task_red_init{{.*}}(i32* [[INIT_ARG:%[^ ]+]]) {
+; CHECK: define internal void @{{.*}}task_red_init{{.*}}(i32* [[PRIV_ARG:%[^ ]+]], i32* [[ORIG_ARG:%[^ ]+]]) {
 ; Check that the ending GEP for the array to be initialized is being computed
-; CHECK: {{%[^ ]+}} = getelementptr i32, i32* [[INIT_ARG]], i64 4
+; CHECK: {{%[^ ]+}} = getelementptr i32, i32* [[PRIV_ARG]], i64 4
 ; CHECK: store i32 1, i32* {{.*}}
 
 ; CHECK: define internal void @{{.*}}task_red_comb{{.*}}(i32* [[RHS:%[^ ]+]], i32* [[LHS:%[^ ]+]]) {
