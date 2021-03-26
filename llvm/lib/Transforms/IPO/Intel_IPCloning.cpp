@@ -15,6 +15,8 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
@@ -96,6 +98,18 @@ static cl::opt<unsigned>
 // would not normally be enabled.
 static cl::opt<bool>
     ForceIFSwitchHeuristic("ip-gen-cloning-force-if-switch-heuristic",
+                           cl::init(false), cl::ReallyHidden);
+
+// Used to force off cloning of callback functions called from cloned functions
+// even when it would not normally be enabled.
+static cl::opt<bool>
+    ForceOffCallbackCloning("ip-gen-cloning-force-off-callback-cloning",
+                            cl::init(true), cl::ReallyHidden);
+
+// Used to force on cloning of callback functions called from cloned functions
+// even when it would not normally be enabled.
+static cl::opt<bool>
+    ForceOnCallbackCloning("ip-gen-cloning-force-on-callback-cloning",
                            cl::init(false), cl::ReallyHidden);
 
 // Used to force the enabling of the dtrans-related heuristics even when they
@@ -2231,27 +2245,411 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
   }
 }
 
-// It does actual cloning and fixes recursion calls if possible.
 //
-static void cloneFunction(void) {
+// Class that provides cloning of calls to callback functions within
+// a cloning target. The case we are trying to handle has the form:
+//    define ... foo(..., arg X, ...) {
+//      ...
+//      call broker_fxn(..., callback_fxn, ..., arg X, ...)
+//      ...
+//    }
+// Here we are cloning the primary function foo on arg X, which has a
+// constant value, and that constant value is passed down to the broker
+// function which then passes arg X to the callback function. So, if we
+// clone foo for arg X, we also want to clone the callback function for arg X.
+// Note that we can handle arbitrary argument sets with this technique.
+// Also, an arbitrary number of callback functions for each call to the
+// broker function can be considered.
+//
+// Here are the basic steps in the process. First, before the cloning of
+// the primary function, we:
+//   (1) createCompleteArgSets(): The standard cloning in cloneFunction()
+//       is based on constant values for worthy formals. We use the
+//       'CallInstArgumentSetIndexMap' to create an extended version of
+//       'FunctionAllArgumentsSets' called CFAAS which contains arg sets
+//       for all of the constants on which we will be cloning. This is
+//       necessary, because in a key case, we would do no callback cloning
+//       unless we consider the full sets of constants over which we clone.
+//   (2) createCBVec(): The CVec is a vector with one element for each
+//       clone we are making of the primary function. Each CVec[I] maps
+//       a CallInst to a broker function to a second map. The second map
+//       has a key of the form std::pair<unsigned, Function *>, where the
+//       the unsigned value is the number of the AbstractCallSite of the
+//       broker function, and the Function * refers to the callback function
+//       which will be invoked by the broker function. The target of the
+//       second map is an arg set for the callback function. Thus, for
+//       each clone we are creating of the primary function, we can create
+//       clones for the callback functions. We create each CBVec[I] with the
+//       following three steps:
+//       (a) createCBMap(): Create the initial map by propagating the arg
+//           set for this clone through the calls to the broker functions.
+//       (b) sortCBMap(): Sort the map so that the args sets are ordered
+//           with lower arg indices first.  This is necessary because the
+//           map was created by tracing through the values of each of the
+//           constant args of the primary function, so the constant args
+//           of each callback function are added to the map in arbitrary
+//           order.
+//       (c) removeConflictsCBMap(): Remove any conflicts in the map. A
+//           conflict can happen if the broker function can invoke a
+//           paticular callback function more than once with different
+//           arguments. Here we reject any cases where the args sets for
+//           a particular callback function do not match. We could extend
+//           this by taking the intersection of the arg sets, but we expect
+//           that to be a rare case.
+// During the cloning of the primary function, we call remapCBVec() to
+// remap the CallInsts in CBVec from those in the primary function to each
+// clone. Once the cloning of the primary function is complete, we create
+// the clones of the callback functions by calling cloneCallbackFunctions().
+// This is done for each callback function clone by:
+//   (1) createCBIMap(): Creating a CBIMap which is a mapping from the
+//       CallInsts in each of the clones of the callback functions to an
+//       clone index number, similar to 'CallInstArgumentSetIndexMap'.
+//   (2) cloneCallbackFunction(): Use the CBIMap to create the specific clone
+//       of the callback function.
+// Note that this techinique allows us to share callback function clones
+// among all of the clones of the primary function.
+//
+
+class CallbackCloner {
+
+public:
+  CallbackCloner(Function &F) : F(F) {}
+  void createCompleteArgSets();
+  void createCBVec();
+  void remapCBVec(unsigned Index, ValueToValueMapTy &VMap);
+  void cloneCallbackFunctions();
+
+private:
+  // Types for internal data structures. If the general cloning mechanism
+  // is converted to a class, we may want to export these out.
+  typedef std::pair<unsigned, Value *> AVTy;
+  typedef std::vector<AVTy> AVVecTy;
+  typedef std::pair<unsigned, Function *> AFTy;
+  typedef DenseMap<AFTy, AVVecTy> ACSFMapTy;
+  typedef DenseMap<unsigned, AVVecTy> CFAASTy;
+  typedef DenseMap<CallInst *, ACSFMapTy> CBMapTy;
+  typedef std::vector<CBMapTy> CBVecTy;
+  typedef DenseMap<CallInst *, unsigned> CBIMapTy;
+
+  // Local objects
+  Function &F;     // Primary function being cloned
+  CFAASTy CFAAS;   // Complete version of FunctionAllArgumentsSets
+  CBVecTy CBVec;   // Vector of maps from primary clone arg sets to
+                   //   arg sets of callback functions
+  SmallPtrSet<Function *, 2> CBCloneSet; // Callback functions eligible to
+                                         // be cloned
+
+  // Private functions
+  void createCBMap(AVVecTy &AVVec, CBMapTy &CBMap);
+  void sortCBMap(CBMapTy &CBMap);
+  void removeConflictsCBMap(CBMapTy &CBMap);
+  void createCBIMap(Function &F, CBIMapTy &CBIMap);
+  void cloneCallbackFunction(Function &F, CBIMapTy &CBIMap);
+};
+
+//
+// Create CFAAS, the complete version of FunctionAllArgumentsSets.
+//
+void CallbackCloner::createCompleteArgSets() {
+  auto &CIASIMap = CallInstArgumentSetIndexMap;
+  for (unsigned I = 0, IE = CurrCallList.size(); I != IE; ++I) {
+    CallInst *CI = CurrCallList[I];
+    auto CIIt = CIASIMap.find(CI);
+    if (CIIt == CIASIMap.end())
+      continue;
+    unsigned Index = CIIt->second;
+    auto CFIt = CFAAS.find(Index);
+    if (CFIt == CFAAS.end()) {
+     std::vector<std::pair<unsigned, Value *>> ConstantArgs;
+     for (unsigned J = 0, JE = CI->getNumArgOperands(); J != JE; ++J)
+       if (auto C = dyn_cast<Constant>(CI->getArgOperand(J)))
+         ConstantArgs.push_back(std::make_pair(J, C));
+     auto &CArgs = CFAAS[Index];
+     std::copy(ConstantArgs.begin(), ConstantArgs.end(),
+         std::back_inserter(CArgs));
+   } else {
+     auto &CArgs = CFIt->second;
+     for (unsigned J = 0, JE = CI->getNumArgOperands(); J != JE; ++J)
+       if (auto C = dyn_cast<Constant>(CI->getArgOperand(J)))
+         for (unsigned K = 0, KE = CArgs.size(); K != KE; ++K)
+           if (CArgs[K].first == J) {
+             if (CArgs[K].second == C)
+               break;
+             CArgs.erase(CArgs.begin() + K);
+             break;
+           }
+    }
+  }
+}
+
+//
+// Create a 'CBMap', given the vector of arg sets 'AVVec' for a specific
+// clone of the primary function.
+//
+void CallbackCloner::createCBMap(AVVecTy &AVVec, CBMapTy &CBMap) {
+  for (unsigned I = 0, E = AVVec.size(); I != E; ++I) {
+    Argument *A = F.getArg(AVVec[I].first);
+    Value *VC = AVVec[I].second;
+    SmallVector<Value *, 16> Worklist;
+    Worklist.push_back(A);
+    while (!Worklist.empty()) {
+      Value *V = Worklist.pop_back_val();
+      for (User *U : V->users()) {
+        if (auto CI = dyn_cast<CastInst>(U)) {
+          Worklist.push_back(CI);
+        } else if (auto CB = dyn_cast<CallInst>(U)) {
+          SmallVector<const Use *, 4> CallbackUses;
+          AbstractCallSite::getCallbackUses(*CB, CallbackUses);
+          unsigned ACDIndex = 0;
+          for (const Use *UU : CallbackUses) {
+            AbstractCallSite ACS(UU);
+            if (!ACS.isCallbackCall())
+              continue;
+            Function *F = ACS.getCalledFunction();
+            for (unsigned J = 0, JE = ACS.getNumArgOperands(); J != JE; ++J) {
+              if (ACS.getCallArgOperand(J) == V) {
+                ACSFMapTy &ACSFMap = CBMap[CB];
+                auto P = std::make_pair(ACDIndex, F);
+                CBCloneSet.insert(F);
+                ACSFMap[P].push_back(std::make_pair(J, VC));
+              }
+            }
+          }
+          ACDIndex++;
+        }
+      }
+    }
+  }
+}
+
+//
+// Sort the 'CBMap' so that the args sets are with lower numbered
+// arguments first.
+//
+void CallbackCloner::sortCBMap(CBMapTy &CBMap) {
+  for (auto I = CBMap.begin(), IE = CBMap.end(); I != IE; ++I) {
+    ACSFMapTy &AMap = I->second;
+    for (auto J = AMap.begin(), JE = AMap.end(); J != JE; ++J) {
+      auto &Vec = J->second;
+      std::sort(Vec.begin(), Vec.end(), [](AVTy A, AVTy B)
+                                          { return A.first < B.first; });
+    }
+  }
+}
+
+//
+// Remove conflicts from the 'CBMap', so that there are no conflicting
+// arg sets for any callback function.  For example, if we have the
+// map entries:
+//    (0, callback_function_A) -> ((0, 5), (1, 10))
+//    (1, callback_function_A) -> ((0, 7), (1, 10))
+// we remove the entries from the 'CBMap'.  But if we have:
+//    (0, callback_function_A) -> ((0, 5), (1, 10))
+//    (1, callback_function_A) -> ((0, 5), (1, 10))
+// we retain them.
+//
+void CallbackCloner::removeConflictsCBMap(CBMapTy &CBMap) {
+  bool SawConflict = false;
+  for (auto I = CBMap.begin(), IE = CBMap.end(); I != IE; ++I) {
+    ACSFMapTy &AMap = I->second;
+    for (auto J = AMap.begin(), JE = AMap.end(); J != JE; ++J) {
+      unsigned J1 = J->first.first;
+      Function *JF = J->first.second;
+      auto &J2Vec = J->second;
+      if (J2Vec.empty())
+        continue;
+      for (auto K = next(J, 1), KE = AMap.end(); K != KE; ++K) {
+        unsigned K1 = K->first.first;
+        Function *KF = K->first.second;
+        auto &K2Vec = K->second;
+        if (K2Vec.empty())
+          continue;
+        if (J1 != K1 && JF == KF && J2Vec != K2Vec) {
+          SawConflict = true;
+          J2Vec.clear();
+          K2Vec.clear();
+        }
+      }
+    }
+  }
+  if (!SawConflict)
+    return;
+  for (auto I = CBMap.begin(), IE = CBMap.end(), II = I; I != IE; I = II) {
+    II = next(I, 1);
+    bool FoundOne = false;
+    ACSFMapTy &AMap = I->second;
+    for (auto J = AMap.begin(), JE = AMap.end(), JJ = J; J != JE; J = JJ) {
+       JJ = next(J, 1);
+       if (J->second.empty())
+         AMap.erase(J);
+       else
+         FoundOne = true;
+    }
+    if (!FoundOne)
+      CBMap.erase(I);
+  }
+}
+
+//
+// Create the 'CBVec' which for each clone of the primary function maps
+// the arg sets of that clone to the args sets of the callback functions
+// called by the clone.
+//
+void CallbackCloner::createCBVec() {
+  for (auto I = CFAAS.begin(), E = CFAAS.end(); I != E; ++I) {
+    CBMapTy CBMap;
+    createCBMap(I->second, CBMap);
+    sortCBMap(CBMap);
+    removeConflictsCBMap(CBMap);
+    CBVec.push_back(CBMap);
+  }
+}
+
+//
+// Remap 'CBVec[Index]' using 'VMap' to use the CallInsts to broker
+// functions in the clone rather than those in the primary function.
+//
+void CallbackCloner::remapCBVec(unsigned Index, ValueToValueMapTy &VMap) {
+  auto &CBMap = CBVec[Index];
+  CBMapTy CBNewMap;
+  for (auto I = CBMap.begin(), E = CBMap.end(), II = I; I != E; I = II) {
+    II = next(I, 1);
+    CallInst *CB = I->first;
+    ACSFMapTy &ACSFMap = I->second;
+    if (auto CBNew = dyn_cast<CallInst>(VMap[CB]))
+      CBNewMap[CBNew] = ACSFMap;
+    CBMap.erase(I);
+  }
+  CBVec[Index] = CBNewMap;
+}
+
+//
+// Create a 'CBIMap', similar to 'CallInstArgumentSetIndexMap' for 'F',
+// which is a callback function eligible for cloning.
+//
+void CallbackCloner::createCBIMap(Function &F, CBIMapTy &CBIMap) {
+  CFAASTy FAMap;
+  for (unsigned J = 0, JE = CBVec.size(); J != JE; ++J) {
+    auto &CBMap = CBVec[J];
+    for (auto K = CBMap.begin(), KE = CBMap.end(); K != KE; ++K) {
+      CallInst *CB = K->first;
+      auto &AMap = K->second;
+      for (auto L = AMap.begin(), LE = AMap.end(); L != LE; ++L) {
+        Function *TF = L->first.second;
+        if (TF != &F)
+          continue;
+        std::vector<AVTy> &AV = L->second;
+        bool FoundIndex = false;
+        unsigned Index = 0;
+        for (auto M = FAMap.begin(), ME = FAMap.end(); M != ME; ++M) {
+          if (M->second == AV) {
+            FoundIndex = true;
+            CBIMap[CB] = Index;
+            break;
+           }
+           ++Index;
+        }
+        if (!FoundIndex) {
+          CBIMap[CB] = Index;
+          std::vector<AVTy> &CArgs = FAMap[Index];
+          std::copy(AV.begin(), AV.end(), std::back_inserter(CArgs));
+        }
+      }
+    }
+  }
+}
+
+//
+// Use the 'CBIMap' to create a clone of the callback function 'F'.
+//
+void CallbackCloner::cloneCallbackFunction(Function &F, CBIMapTy &CBIMap) {
+  DenseMap<unsigned, Function *> FCloneMap;
+  for (auto I = CBIMap.begin(), IE = CBIMap.end(); I != IE; ++I) {
+    CallInst *CB = I->first;
+    unsigned Index = I->second;
+    Function *NewF = FCloneMap[Index];
+    if (!NewF) {
+      ValueToValueMapTy VMap;
+      NewF = CloneFunction(&F, VMap);
+      FCloneMap[Index] = NewF;
+      NumIPCloned++;
+    }
+    SmallVector<const Use *, 4> CallbackUses;
+    AbstractCallSite::getCallbackUses(*CB, CallbackUses);
+    for (const Use *UU : CallbackUses) {
+      AbstractCallSite ACS(UU);
+      assert(ACS.isCallbackCall() && "Expecting callback call");
+      if (ACS.getCalledFunction() == &F) {
+        unsigned I = ACS.getCallArgOperandNoForCallee();
+        std::vector<Value *> Args(CB->op_begin(), CB->op_end() - 1);
+        if (auto BCO = dyn_cast<BitCastOperator>(Args[I]))
+          Args[I] = ConstantExpr::getBitCast(NewF, BCO->getDestTy());
+        else
+          Args[I] = NewF;
+        std::string New_Name = CB->hasName() ? CB->getName().str() +
+            ".clone.callback.cs" : "";
+        auto NewCI = CallInst::Create(CB->getCalledFunction(), Args,
+            New_Name, CB);
+        NewCI->setDebugLoc(CB->getDebugLoc());
+        NewCI->setCallingConv(CB->getCallingConv());
+        NewCI->setAttributes(CB->getAttributes());
+        CB->eraseFromParent();
+        LLVM_DEBUG(dbgs() << " Cloned callback in "
+                          << NewCI->getCaller()->getName()<< ":   "
+                          << *NewCI << "\n");
+        NumIPCallsCloned++;
+      }
+    }
+  }
+}
+
+//
+// Create clones of all of the callback functions, as needed.
+//
+void CallbackCloner::cloneCallbackFunctions() {
+  for (auto I = CBCloneSet.begin(), E = CBCloneSet.end(); I != E; ++I) {
+    Function *F = *I;
+    DenseMap<CallInst *, unsigned> CBIMap;
+    createCBIMap(*F, CBIMap);
+    cloneCallbackFunction(*F, CBIMap);
+  }
+}
+
+// End of code for class CallbackCloner
+
+// It does actual cloning and fixes recursion calls if possible. If
+// 'AttemptCallbackCloning' is 'true', attempt to also clone the callback
+// functions which obtain constant arguments through the cloning of the
+// primary source function.
+//
+static void cloneFunction(bool AttemptCallbackCloning) {
+
+  std::unique_ptr<CallbackCloner> CBCloner;
+  Function *SrcFn = CurrCallList[0]->getCalledFunction();
+  if (AttemptCallbackCloning) {
+    CBCloner = std::make_unique<CallbackCloner>(*SrcFn);
+    CBCloner->createCompleteArgSets();
+    CBCloner->createCBVec();
+  }
+
   for (unsigned I = 0, E = CurrCallList.size(); I != E; ++I) {
     ValueToValueMapTy VMap;
     CallInst *CI = CurrCallList[I];
 
     // Skip callsite if  no constant argument set is collected.
-    if (CallInstArgumentSetIndexMap.find(CI) ==
-        CallInstArgumentSetIndexMap.end()) {
+    auto MapIt = CallInstArgumentSetIndexMap.find(CI);
+    if (MapIt == CallInstArgumentSetIndexMap.end())
       continue;
-    }
-    Function *SrcFn = CI->getCalledFunction();
 
     // Get cloned function for constant argument set if it is already there
-    unsigned index = CallInstArgumentSetIndexMap[CI];
+    unsigned index = MapIt->second;
     Function *NewFn = ArgSetIndexClonedFunctionMap[index];
 
     // Create new clone if it is not there for constant argument set
     if (NewFn == nullptr) {
       NewFn = CloneFunction(SrcFn, VMap);
+      if (CBCloner)
+        CBCloner->remapCBVec(index, VMap);
       ArgSetIndexClonedFunctionMap[index] = NewFn;
       ClonedFunctionList.insert(NewFn);
       NumIPCloned++;
@@ -2262,6 +2660,9 @@ static void cloneFunction(void) {
     eliminateRecursionIfPossible(NewFn, SrcFn, index);
     LLVM_DEBUG(dbgs() << " Cloned call:   " << *CI << "\n");
   }
+
+  if (CBCloner)
+    CBCloner->cloneCallbackFunctions();
 }
 
 // Returns true if there is a specialization constant value
@@ -5002,7 +5403,10 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       continue;
     }
 
-    cloneFunction();
+    bool AttemptCallbackCloning = ForceOnCallbackCloning ||
+        !ForceOffCallbackCloning && IFSwitchHeuristic &&
+        vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(F);
+    cloneFunction(AttemptCallbackCloning);
   }
 
   LLVM_DEBUG(dbgs() << " Total clones:  " << NumIPCloned << "\n");
