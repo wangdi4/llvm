@@ -789,9 +789,9 @@ rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
 
 #if INTEL_CUSTOMIZATION
   if (Sink3AddrInstr && KillMI->isCompare()) {
-    // KillNext can't be the last MI of current MBB
+    // KillNext can be the last MI of current MBB
     MachineBasicBlock::iterator KillNext = std::next(KillMI->getIterator());
-    if (KillNext->isConditionalBranch()) {
+    if (KillNext != MBB->end() && KillNext->isConditionalBranch()) {
       bool UseOtherReg = false;
       for (const MachineOperand &MO : KillMI->operands()) {
         if (!MO.isReg())
