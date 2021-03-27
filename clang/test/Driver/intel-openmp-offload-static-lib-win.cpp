@@ -82,7 +82,7 @@
 // RUN:  | FileCheck %s -check-prefix=STATIC_LIB_WIN_LIBENV
 // STATIC_LIB_WIN_LIBENV: clang-offload-bundler{{.*}} "-type=a" "-targets=openmp-spir64" "-inputs={{.*}}liboffload.lib" "-outputs=[[DEVICELIB:.+\.a]]" "-unbundle"
 // STATIC_LIB_WIN_LIBENV: llvm-link{{.*}} "[[DEVICELIB]]" "-o" "[[LINKOUT:.+\.bc]]"
-// STATIC_LIB_WIN_LIBENV: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-spec-const=rt" "-o" "[[POSTLINKBC:.+\.bc]]" "[[LINKOUT]]"
+// STATIC_LIB_WIN_LIBENV: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-o" "[[POSTLINKBC:.+\.bc]]" "[[LINKOUT]]"
 // STATIC_LIB_WIN_LIBENV: llvm-spirv{{.*}} "-o" "[[SPIRVOUT:.+\.spv]]" "-spirv-ext={{.*}}" "[[POSTLINKBC]]"
 // STATIC_LIB_WIN_LIBENV: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPEROUT:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[SPIRVOUT]]"
 // STATIC_LIB_WIN_LIBENV: clang{{.*}} "-o" "[[WRAPOBJ:.+\.obj]]" "-x" "ir" "[[WRAPPEROUT]]"
