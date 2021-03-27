@@ -398,9 +398,10 @@ namespace intel {
       m_getBaseGIDFunc = createFunctionDeclaration(FuncName, pResult, funcTyArgs);
       SetFunctionAttributeReadNone(m_getBaseGIDFunc);
     }
-    return CallInst::Create(m_getBaseGIDFunc, dim,
-                            AppendWithDimension("BaseGlobalId_", dim),
-                            pInsertBefore);
+    return CallInst::Create(
+        m_getBaseGIDFunc, dim,
+        CompilationUtils::AppendWithDimension("BaseGlobalId_", dim),
+        pInsertBefore);
   }
 
   Instruction* BarrierUtils::createGetSGSize(BasicBlock* pBB) {
@@ -433,7 +434,7 @@ namespace intel {
     Type *uintType = IntegerType::get(m_pModule->getContext(), 32);
     Value *constDim = ConstantInt::get(uintType, dim, false);
     return B.CreateCall(m_getLIDFunc, constDim,
-                        AppendWithDimension("LocalID_", dim));
+                        CompilationUtils::AppendWithDimension("LocalID_", dim));
   }
 
   Instruction *BarrierUtils::createGetGlobalId(unsigned dim, IRBuilderBase &B) {
@@ -452,8 +453,9 @@ namespace intel {
     }
     Type *uintType = IntegerType::get(m_pModule->getContext(), 32);
     Value *constDim = ConstantInt::get(uintType, dim, false);
-    return B.CreateCall(m_getGIDFunc, constDim,
-                        AppendWithDimension("GlobalID_", dim));
+    return B.CreateCall(
+        m_getGIDFunc, constDim,
+        CompilationUtils::AppendWithDimension("GlobalID_", dim));
   }
 
   bool BarrierUtils::doesCallModuleFunction(Function *pFunc) {
@@ -543,9 +545,10 @@ namespace intel {
       SetFunctionAttributeReadNone(m_getLocalSizeFunc);
     }
     Value* const_dim = ConstantInt::get(m_I32Ty, dim, false);
-    return CallInst::Create(m_getLocalSizeFunc, const_dim,
-                            AppendWithDimension("LocalSize_", dim),
-                            pInsertBefore);
+    return CallInst::Create(
+        m_getLocalSizeFunc, const_dim,
+        CompilationUtils::AppendWithDimension("LocalSize_", dim),
+        pInsertBefore);
 }
 
   Function* BarrierUtils::createFunctionDeclaration(const llvm::Twine& name, Type *pResult, std::vector<Type*>& funcTyArgs) {

@@ -49,17 +49,17 @@ namespace intel {
     ~DataPerValue() {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "Intel OpenCL DataPerValue";
     }
 
     /// @brief execute pass on given module
     /// @param M module to analyze
     /// @returns True if module was modified
-    virtual bool runOnModule(Module &M);
+    virtual bool runOnModule(Module &M) override;
 
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<DataPerBarrier>();
       AU.addRequired<WIRelatedValue>();
       // Analysis pass preserve all
@@ -69,7 +69,7 @@ namespace intel {
     /// @brief print data collected by the pass on the given module
     /// @param OS stream to print the info regarding the module into
     /// @param M pointer to the Module
-    void print(raw_ostream &OS, const Module *M = 0) const;
+    void print(raw_ostream &OS, const Module *M = 0) const override;
 
     /// @brief return all values to handle in given function
     /// @param pFunc pointer to Function

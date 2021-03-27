@@ -39,14 +39,14 @@ namespace intel {
     ~SplitBBonBarrier() {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "Intel OpenCL SplitBBonBarrier";
     }
 
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    virtual bool runOnModule(Module &M);
+    virtual bool runOnModule(Module &M) override;
 
   private:
     /// This is barrier utility class
