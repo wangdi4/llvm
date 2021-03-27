@@ -61,35 +61,33 @@ Class("class", cl::desc("Print Enum list for this class"),
 
 bool OCLTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     switch (Action) {
-      default:
-        assert(1 && "Invalid Action");
-        return true;
       case PrintRecords:
         OS << Records;
-        break;
+        return false;
       case PrintEnums:
         {
           std::vector<Record*> Recs = Records.getAllDerivedDefinitions(Class);
           for (unsigned i = 0, e = Recs.size(); i != e; ++i)
             OS << Recs[i]->getName() << ", ";
           OS << "\n";
-          break;
+          return false;
         }
       case GenOCLBuiltin:
         OclBuiltinEmitter(Records).run(OS);
-        break;
+        return false;
       case GenOCLBuiltisnHeader:
         OclBuiltinsHeaderGen(Records).run(OS);
-        break;
+        return false;
       case GenVectorizerMap:
         VectorizerTableGen(Records).run(OS);
-        break;
+        return false;
       case GenVectorizationInfo:
         VectInfoGenerator(Records).run(OS);
-        break;
+        return false;
     }
 
-    return false;
+    assert(false && "Invalid Action");
+    return true;
   }
 
 int

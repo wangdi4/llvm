@@ -41,6 +41,7 @@ public:
     virtual void DeclareLocal(void* addr, const llvm::MDNode* description, const llvm::MDNode* expression) = 0;
     virtual void DeclareGlobal(void* addr, const llvm::MDNode* description) = 0;
     virtual bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z) = 0;
+    virtual ~ICLDebuggingService() {}
 };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

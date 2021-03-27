@@ -208,7 +208,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             bool UnrollLoops,
                                             int rtLoopUnrollFactor,
                                             bool allowAllocaModificationOpt,
-                                            bool UseVplan) {
+                                            bool /*UseVplan*/) {
   if (OptLevel == 0) {
     return;
   }
@@ -322,17 +322,11 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createUnifyFunctionExitNodesPass());
 }
 
-static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
-                                       llvm::Module *M,
-                                       SmallVector<Module*, 2> & pRtlModuleList,
-                                       unsigned OptLevel,
-                                       const intel::OptimizerConfig *pConfig,
-                                       bool isOcl20,
-                                       bool isFpgaEmulator,
-                                       bool UnrollLoops,
-                                       bool EnableInferAS,
-                                       bool isSPIRV,
-                                       bool UseVplan) {
+static void populatePassesPreFailCheck(
+    llvm::legacy::PassManagerBase &PM, llvm::Module * /*M*/,
+    SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
+    const intel::OptimizerConfig *pConfig, bool isOcl20, bool isFpgaEmulator,
+    bool UnrollLoops, bool EnableInferAS, bool isSPIRV, bool UseVplan) {
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
@@ -951,11 +945,12 @@ void Optimizer::Optimize() {
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
   materializerPM.add(createLLVMEqualizerPass());
   Triple TargetTriple(m_pModule->getTargetTriple());
-  if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit())
+  if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
       materializerPM.add(createCoerceTypesPass());
     else if (TargetTriple.isOSWindows())
       materializerPM.add(createCoerceWin64TypesPass());
+  }
   if (m_IsFpgaEmulator) {
     materializerPM.add(createRemoveAtExitPass());
   }

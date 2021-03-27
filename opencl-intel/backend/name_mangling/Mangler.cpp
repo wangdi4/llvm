@@ -33,11 +33,12 @@ typedef std::vector<reflection::TypeAttributeEnum> TypeAttrVec;
 class MangleVisitor : public reflection::TypeVisitor {
 public:
   MangleVisitor(std::stringstream &s) : m_stream(s) {}
+  virtual ~MangleVisitor() {}
 
   void operator()(const reflection::ParamType *t) { t->accept(this); }
 
   // visit methods
-  void visit(const reflection::PrimitiveType *t) {
+  void visit(const reflection::PrimitiveType *t) override {
     int typeIndex = getTypeIndex(t);
     if (-1 != typeIndex) {
       m_stream << reflection::getDuplicateString(typeIndex);
@@ -49,7 +50,7 @@ public:
       m_dupList.push_back((reflection::ParamType *)t);
   }
 
-  void visit(const reflection::PointerType *p) {
+  void visit(const reflection::PointerType *p) override {
     int typeIndex = getTypeIndex(p);
     if (-1 != typeIndex) {
       m_stream << reflection::getDuplicateString(typeIndex);
@@ -72,7 +73,7 @@ public:
     m_dupList.push_back((reflection::ParamType *)p);
   }
 
-  void visit(const reflection::VectorType *v) {
+  void visit(const reflection::VectorType *v) override {
     int typeIndex = getTypeIndex(v);
     if (-1 != typeIndex) {
       m_stream << reflection::getDuplicateString(typeIndex);
@@ -83,7 +84,7 @@ public:
     m_dupList.push_back((reflection::ParamType *)v);
   }
 
-  void visit(const reflection::AtomicType *p) {
+  void visit(const reflection::AtomicType *p) override {
     int typeIndex = getTypeIndex(p);
     if (-1 != typeIndex) {
       m_stream << reflection::getDuplicateString(typeIndex);
@@ -95,7 +96,7 @@ public:
     m_dupList.push_back((reflection::ParamType *)p);
   }
 
-  void visit(const reflection::BlockType *p) {
+  void visit(const reflection::BlockType *p) override {
     int typeIndex = getTypeIndex(p);
     if (-1 != typeIndex) {
       m_stream << reflection::getDuplicateString(typeIndex);
@@ -110,7 +111,7 @@ public:
     m_stream << "E";
   }
 
-  void visit(const reflection::UserDefinedType *pTy) {
+  void visit(const reflection::UserDefinedType *pTy) override {
     int typeIndex = getTypeIndex(pTy);
     if (-1 != typeIndex) {
       m_stream << reflection::getDuplicateString(typeIndex);

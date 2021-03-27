@@ -71,62 +71,65 @@ typedef std::pair<const OclBuiltin*,std::string> TypedBi;
 typedef std::list<TypedBi> TypedBiList;
 typedef TypedBiList::const_iterator TypedBiIter;
 
-  ~MangledNameEmmiter(){
-    const char* fileName = "builtins.ll";
-    llvm::SMDiagnostic errDiagnostic;
-    llvm::LLVMContext context;
-    std::list<const OclBuiltin*>::const_iterator biit = m_builtins.begin(),
-    bie = m_builtins.end();
-    TypedBiList typedbiList;
-    for(; biit != bie ; ++biit){
-      OclBuiltin::const_type_iterator typeIter, typeEnd = (*biit)->type_end();
-      for (typeIter=(*biit)->type_begin() ; typeIter!=typeEnd; ++typeIter){
-        TypedBi typedBi( *biit, (*typeIter)->getName() );
-        typedbiList.push_back( typedBi );
-      }
+virtual ~MangledNameEmmiter() {
+  const char *fileName = "builtins.ll";
+  llvm::SMDiagnostic errDiagnostic;
+  llvm::LLVMContext context;
+  std::list<const OclBuiltin *>::const_iterator biit = m_builtins.begin(),
+                                                bie = m_builtins.end();
+  TypedBiList typedbiList;
+  for (; biit != bie; ++biit) {
+    OclBuiltin::const_type_iterator typeIter, typeEnd = (*biit)->type_end();
+    for (typeIter = (*biit)->type_begin(); typeIter != typeEnd; ++typeIter) {
+      TypedBi typedBi(*biit, (*typeIter)->getName());
+      typedbiList.push_back(typedBi);
     }
-    //enable 64-bit atomic extentions in clang
-    std::string code = "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable\n"
-        "#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable\n";
-    typedbiList.sort(isLess);
-    TypedBiIter typeit, typee = typedbiList.end();
-    OclBuiltinAttr IA = OclBuiltinAttr::CreateInilineAttribute();
-    for(typeit = typedbiList.begin(); typeit != typee ; ++typeit){
-      OclBuiltin *B = const_cast<OclBuiltin*>(typeit->first);
-      B->removeAttribute(IA);
-      code += generateBuiltinOverload(B, typeit->second).append("\n");
-    }
-    build(code, fileName);
-    std::unique_ptr<llvm::Module> pModule = llvm::parseIRFile(fileName, errDiagnostic, context);
-    assert(pModule && "module parsing failed");
-    //deleting the temporary output file
-    remove(fileName);
-    llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();
-    assert(pModule && "null llvm module");
-    assert(it != e && "module contains no functions!" );
-    int biCounter = 0;
-    while (it != e){
-      m_formatter << "\"" << it->getName() << "\"" << ",//" << biCounter++;
-      m_formatter.endl();
-      ++it;
-    }
-    m_formatter.unindent();
-    m_formatter << "}; //end mangled names";
+  }
+  // enable 64-bit atomic extentions in clang
+  std::string code =
+      "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable\n"
+      "#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable\n";
+  typedbiList.sort(isLess);
+  TypedBiIter typeit, typee = typedbiList.end();
+  OclBuiltinAttr IA = OclBuiltinAttr::CreateInilineAttribute();
+  for (typeit = typedbiList.begin(); typeit != typee; ++typeit) {
+    OclBuiltin *B = const_cast<OclBuiltin *>(typeit->first);
+    B->removeAttribute(IA);
+    code += generateBuiltinOverload(B, typeit->second).append("\n");
+  }
+  build(code, fileName);
+  std::unique_ptr<llvm::Module> pModule =
+      llvm::parseIRFile(fileName, errDiagnostic, context);
+  assert(pModule && "module parsing failed");
+  // deleting the temporary output file
+  remove(fileName);
+  llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();
+  assert(pModule && "null llvm module");
+  assert(it != e && "module contains no functions!");
+  int biCounter = 0;
+  while (it != e) {
+    m_formatter << "\"" << it->getName() << "\""
+                << ",//" << biCounter++;
     m_formatter.endl();
-    //generating the corresponding BI prototypes array
-    m_formatter << "const char* UNUSED(prototypes[]) = {";
-    m_formatter.endl();
-    m_formatter.indent();
-    biCounter = 0;
-    for(typeit = typedbiList.begin(); typeit != typee ; ++typeit){
-      m_formatter << "\"" << getPrototype(typeit->first, typeit->second) <<
-      "\", //" << biCounter++;
-      m_formatter.endl();
-    }
-    m_formatter.unindent();
-    m_formatter << "};//end prototypes;";
+    ++it;
+  }
+  m_formatter.unindent();
+  m_formatter << "}; //end mangled names";
+  m_formatter.endl();
+  // generating the corresponding BI prototypes array
+  m_formatter << "const char* UNUSED(prototypes[]) = {";
+  m_formatter.endl();
+  m_formatter.indent();
+  biCounter = 0;
+  for (typeit = typedbiList.begin(); typeit != typee; ++typeit) {
+    m_formatter << "\"" << getPrototype(typeit->first, typeit->second)
+                << "\", //" << biCounter++;
     m_formatter.endl();
   }
+  m_formatter.unindent();
+  m_formatter << "};//end prototypes;";
+  m_formatter.endl();
+}
 
   virtual void operator () (const std::pair<std::string, llvm::OclBuiltin*>& it){
     const OclBuiltin* pBuiltin = it.second;
