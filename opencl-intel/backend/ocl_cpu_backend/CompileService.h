@@ -30,8 +30,8 @@ public:
     CompileService();
     virtual ~CompileService() { }
 
-    cl_dev_err_code CheckProgramBinary( const void* pBinary,
-                                        size_t uiBinarySize ) = 0;
+    cl_dev_err_code CheckProgramBinary(const void *pBinary,
+                                       size_t uiBinarySize) override = 0;
 
     /**
      * Creates program from the specified bytecode, it should verify the byte code before
@@ -101,26 +101,27 @@ public:
      *  CL_DEV_INVALID_BUILD_OPTIONS  - if the build options specified by pOptions are invalid
      *  CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory
      */
-    cl_dev_err_code DumpCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                                       const ICLDevBackendOptions* pOptions ) const;
+    cl_dev_err_code
+    DumpCodeContainer(const ICLDevBackendCodeContainer *pCodeContainer,
+                      const ICLDevBackendOptions *pOptions) const override;
 
     /**
      * Releases the Compilation Service
      */
-    void Release();
+    void Release() override;
 
-     /**
+    /**
      * Prints the JIT code in assembly x86
      *
      * @param codeContainer Code container
      * @param options Pointer to the options object which may contain the dump
      *                settings. /see cl_dev_backend_dump_options
      */
-    cl_dev_err_code DumpJITCodeContainer(
-        const ICLDevBackendCodeContainer* codeContainer,
-        const ICLDevBackendOptions* options) const;
+    cl_dev_err_code
+    DumpJITCodeContainer(const ICLDevBackendCodeContainer *codeContainer,
+                         const ICLDevBackendOptions *options) const override;
 
-protected:
+  protected:
     virtual const ProgramBuilder* GetProgramBuilder() const = 0;
     virtual ProgramBuilder* GetProgramBuilder() = 0;
 

@@ -94,7 +94,7 @@ int CacheBinaryReader::GetSectionSize(const char* sectionName) const
         int index = GetSectionIndexByName(m_pReader, sectionName);
         if(index < 0) return 0;
 
-        char* pData = nullptr;
+        const char *pData = nullptr;
         size_t sectionSize = 0;
         m_pReader->GetSectionData(index, pData, sectionSize);
         return sectionSize;
@@ -111,7 +111,7 @@ const void* CacheBinaryReader::GetSectionData(const char* sectionName) const
         int index = GetSectionIndexByName(m_pReader, sectionName);
         if(index < 0) return nullptr;
 
-        char* pData = nullptr;
+        const char *pData = nullptr;
         size_t sectionSize = 0;
         m_pReader->GetSectionData(index, pData, sectionSize);
         return pData;

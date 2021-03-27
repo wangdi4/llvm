@@ -195,10 +195,10 @@ static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
           continue;
 
         // look through bitcast
-        if (const auto *CE = llvm::dyn_cast<llvm::ConstantExpr>(VI))
+        if (const auto *CE = llvm::dyn_cast<llvm::ConstantExpr>(VI)) {
           if (CE->getOpcode() == llvm::Instruction::BitCast)
             VI = CE->getOperand(0);
-        else if (const auto *BCI = llvm::dyn_cast<llvm::BitCastInst>(VI))
+        } else if (const auto *BCI = llvm::dyn_cast<llvm::BitCastInst>(VI))
           VI = BCI->getOperand(0);
         else
           continue;
@@ -319,7 +319,7 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
 // ClangFECompilerLinkTask calls implementation
 //
 int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
-  std::vector<void *> m_Binaries;
+  std::vector<const void *> m_Binaries;
   std::vector<size_t> m_BinariesSizes;
 
   for (unsigned int i = 0; i < m_pProgDesc->uiNumBinaries; ++i) {
@@ -328,20 +328,20 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
             m_pProgDesc->puiBinariesSizes[i])) {
       CacheBinaryReader reader(m_pProgDesc->pBinaryContainers[i],
                                m_pProgDesc->puiBinariesSizes[i]);
-      m_Binaries.push_back((void *)reader.GetSectionData(g_irSectionName));
+      m_Binaries.push_back(reader.GetSectionData(g_irSectionName));
       m_BinariesSizes.push_back(reader.GetSectionSize(g_irSectionName));
     } else if (OCLElfBinaryReader::IsValidOpenCLBinary(
                    (const char *)m_pProgDesc->pBinaryContainers[i],
                    m_pProgDesc->puiBinariesSizes[i])) {
       OCLElfBinaryReader reader((const char *)m_pProgDesc->pBinaryContainers[i],
                                 m_pProgDesc->puiBinariesSizes[i]);
-      char *pBinaryData = nullptr;
+      const char *pBinaryData = nullptr;
       size_t uiBinaryDataSize = 0;
       reader.GetIR(pBinaryData, uiBinaryDataSize);
       m_Binaries.push_back(pBinaryData);
       m_BinariesSizes.push_back(uiBinaryDataSize);
     } else {
-      m_Binaries.push_back((void *)m_pProgDesc->pBinaryContainers[i]);
+      m_Binaries.push_back(m_pProgDesc->pBinaryContainers[i]);
       m_BinariesSizes.push_back(m_pProgDesc->puiBinariesSizes[i]);
     }
   }
@@ -349,9 +349,9 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
   std::unique_ptr<OCLFEBinaryResult> pResult;
   int resultCode = CL_SUCCESS;
   try {
-    pResult.reset(LinkInternal(
-        (const void **)m_Binaries.data(), m_pProgDesc->uiNumBinaries,
-        m_BinariesSizes.data(), m_pProgDesc->pszOptions));
+    pResult.reset(LinkInternal(m_Binaries.data(), m_pProgDesc->uiNumBinaries,
+                               m_BinariesSizes.data(),
+                               m_pProgDesc->pszOptions));
     resultCode = pResult->getResult();
   } catch (std::bad_alloc &) {
     resultCode = CL_OUT_OF_HOST_MEMORY;

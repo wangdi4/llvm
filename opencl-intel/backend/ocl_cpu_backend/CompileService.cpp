@@ -63,7 +63,7 @@ cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
         if( OCLElfBinaryReader::IsValidOpenCLBinary((const char*)pBinary, uiBinarySize))
         {
             OCLElfBinaryReader reader((const char*)pBinary,uiBinarySize);
-            reader.GetIR(const_cast<char*&>(pBinaryData), uiBinaryDataSize);
+            reader.GetIR(pBinaryData, uiBinaryDataSize);
             spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
             GetProgramBuilder()->ParseProgram(spProgram.get());
         }
@@ -204,10 +204,9 @@ void CompileService::Release()
 
 //prints the JIT file in assembly x86
 cl_dev_err_code CompileService::DumpJITCodeContainer(
-    const ICLDevBackendCodeContainer* codeContainer,
-    const ICLDevBackendOptions* options) const
-{
-    assert(false);
-    return CL_DEV_NOT_SUPPORTED;
+    const ICLDevBackendCodeContainer * /*codeContainer*/,
+    const ICLDevBackendOptions * /*options*/) const {
+  assert(false);
+  return CL_DEV_NOT_SUPPORTED;
 }
 }}}

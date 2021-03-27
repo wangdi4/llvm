@@ -29,35 +29,35 @@ public:
   // IOCLFECompiler
   int CompileProgram(
       Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor *pProgDesc,
-      IOCLFEBinaryResult **pBinaryResult);
+      IOCLFEBinaryResult **pBinaryResult) override;
 
   int LinkPrograms(
       Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc,
-      IOCLFEBinaryResult **pBinaryResult);
+      IOCLFEBinaryResult **pBinaryResult) override;
 
   int ParseSPIRV(
       Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
-      IOCLFEBinaryResult **pBinaryResult);
+      IOCLFEBinaryResult **pBinaryResult) override;
 
   int MaterializeSPIR(
       Intel::OpenCL::FECompilerAPI::FESPIRProgramDescriptor *pProgDesc,
-      IOCLFEBinaryResult **pBinaryResult);
+      IOCLFEBinaryResult **pBinaryResult) override;
 
-  int GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
-                       const char *szKernelName,
-                       Intel::OpenCL::ClangFE::IOCLFEKernelArgInfo **pArgInfo);
+  int GetKernelArgInfo(
+      const void *pBin, size_t uiBinarySize, const char *szKernelName,
+      Intel::OpenCL::ClangFE::IOCLFEKernelArgInfo **pArgInfo) override;
 
   bool CheckCompileOptions(const char *szOptions, char *szUnrecognizedOptions,
-                           size_t uiUnrecognizedOptionsSize);
+                           size_t uiUnrecognizedOptionsSize) override;
 
   bool CheckLinkOptions(const char *szOptions, char *szUnrecognizedOptions,
-                        size_t uiUnrecognizedOptionsSize);
+                        size_t uiUnrecognizedOptionsSize) override;
 
   void GetSpecConstInfo(
       Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
-      IOCLFESpecConstInfo **pSpecConstInfo);
+      IOCLFESpecConstInfo **pSpecConstInfo) override;
 
-  void Release() { delete this; }
+  void Release() override { delete this; }
 
   static void ShutDown();
 
