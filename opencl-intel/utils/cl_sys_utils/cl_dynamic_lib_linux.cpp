@@ -141,17 +141,15 @@ unsigned int OclDynamicLib::GetNumberOfFunctions() const
 }
 
 // Returns a pointer to function name
-const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
-{
-    assert(0 && "Not implemented on Linux");
-    return nullptr;
+const char *OclDynamicLib::GetFunctionName(unsigned int /*uiFuncId*/) const {
+  assert(0 && "Not implemented on Linux");
+  return nullptr;
 }
 
 // Returns a function pointer
-const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
-{
-    assert(0 && "Not implemented on Linux");
-    return nullptr;
+const void *OclDynamicLib::GetFunctionPtr(unsigned int /*uiFuncId*/) const {
+  assert(0 && "Not implemented on Linux");
+  return nullptr;
 }
 
 // Returns a function pointer

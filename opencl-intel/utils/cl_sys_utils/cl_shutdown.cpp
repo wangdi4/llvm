@@ -105,40 +105,29 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState(
     AT_EXIT_GLB_PROCESSING processing_state, AT_EXIT_UNLOADING_MODE mode,
     bool needToDisableAPIAtShutdown )
 {
-    switch (processing_state)
-    {
-        case AT_EXIT_GLB_PROCESSING_STARTED:
-            if (WORKING == shutdown_mode)
-            {
-                shutdown_mode           = EXIT_STARTED;
-                global_at_exit_callback = nullptr;
-                OclDynamicLib::SetGlobalAtExitNotification( nullptr );
-            }
-            return;
-
-        case AT_EXIT_GLB_PROCESSING_DONE:
-        default:
-            if (EXIT_DONE != shutdown_mode)
-            {
-                if (nullptr != local_at_exit_callback)
-                {
-                    if (needToDisableAPIAtShutdown)
-                    {
-                        if (AT_EXIT_DLL_UNLOADING_MODE == mode)
-                        {
-                            local_at_exit_callback();
-                        }
-                    }
-                    else
-                    {
-                        local_at_exit_callback();
-                    }
-                    local_at_exit_callback = nullptr;
-                }
-                shutdown_mode           = EXIT_DONE;
-            }
-            return;
+  if (processing_state == AT_EXIT_GLB_PROCESSING_STARTED) {
+    if (WORKING == shutdown_mode) {
+      shutdown_mode = EXIT_STARTED;
+      global_at_exit_callback = nullptr;
+      OclDynamicLib::SetGlobalAtExitNotification(nullptr);
     }
+  } else {
+    assert((processing_state == AT_EXIT_GLB_PROCESSING_DONE) &&
+           "Invalid processing state");
+    if (EXIT_DONE != shutdown_mode) {
+      if (nullptr != local_at_exit_callback) {
+        if (needToDisableAPIAtShutdown) {
+          if (AT_EXIT_DLL_UNLOADING_MODE == mode) {
+            local_at_exit_callback();
+          }
+        } else {
+          local_at_exit_callback();
+        }
+        local_at_exit_callback = nullptr;
+      }
+      shutdown_mode = EXIT_DONE;
+    }
+  }
 }
 
 void UseShutdownHandler::OS_atexit()

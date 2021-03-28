@@ -457,7 +457,11 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
     }
     return true;
 #else
-    return false;
+  // The parameters are used if USE_NUMA macro is defined
+  (void)node;
+  (void)pMask;
+  (void)nodeSize;
+  return false;
 #endif // USE_NUMA
 }
 

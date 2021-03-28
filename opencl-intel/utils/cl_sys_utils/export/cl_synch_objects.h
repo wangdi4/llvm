@@ -120,7 +120,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         virtual ~IMutex(){}
     private:
         //Disallow copying
-        IMutex(const IMutex& im) {}
+      IMutex(const IMutex &) {}
     };
 
     /************************************************************************
@@ -196,9 +196,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
     public:
         OclMutex(unsigned int uiSpinCount = DEFAULT_SPIN_COUNT, bool recursive = NO_RECURSIVE_LOCK );
         virtual ~OclMutex ();
-        void Lock();
-        void Unlock();
-    protected:
+        void Lock() override;
+        void Unlock() override;
+
+      protected:
         MUTEX m_mutex;
     private:
         OclMutex(const OclMutex& o);
@@ -213,8 +214,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
     {
     public:
         OclSpinMutex();
-        void Lock();
-        void Unlock();
+        void Lock() override;
+        void Unlock() override;
         bool lockedRecursively() const { return (lMutex > 1); }
     protected:
         AtomicCounter lMutex;
@@ -225,28 +226,26 @@ namespace Intel { namespace OpenCL { namespace Utils {
     {
     public:
         OclNonReentrantSpinMutex() : m_val(0) {}
-        void Lock()
-        {
-            while (CAS( &m_val, 0, 1 ))
-            {
-                hw_pause();
-            };
+        void Lock() override {
+          while (CAS(&m_val, 0, 1)) {
+            hw_pause();
+          };
 
-            // Notify Intel Inspector that the lock is acquired
-            __itt_sync_acquired(this);
-            assert( 1 == m_val && "Mutex expected to be in locked");
+          // Notify Intel Inspector that the lock is acquired
+          __itt_sync_acquired(this);
+          assert(1 == m_val && "Mutex expected to be in locked");
         }
 
-        void Unlock()
-        {
-            assert( 1 == m_val && "Mutex expected to be in locked");
-            _mm_mfence(); // ensure all memory accesses inside critical sections are flushed by HW
+        void Unlock() override {
+          assert(1 == m_val && "Mutex expected to be in locked");
+          _mm_mfence(); // ensure all memory accesses inside critical sections
+                        // are flushed by HW
 
-            // Notify Intel Inspector that the lock is releasing
-            __itt_sync_releasing(this);
-            m_val = 0;
+          // Notify Intel Inspector that the lock is releasing
+          __itt_sync_releasing(this);
+          m_val = 0;
         }
-        
+
     protected:
         volatile size_t m_val;
     };

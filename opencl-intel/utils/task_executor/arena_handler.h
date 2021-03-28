@@ -175,42 +175,44 @@ public:
      * @return an object representing the sub-device in the TaskExecutor module
      * @param  user_handle - handle to be returned to used during GetCurrentDevice() calls
      */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = nullptr );
+    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice>
+    CreateSubDevice(unsigned int uiNumSubdevComputeUnits,
+                    void *user_handle = nullptr) override;
 
     /**
      * Reset ITaskExecutorObserver passed during device creation. Note: sub-devices share the same observer, so it will be reset for sub-devices also.
      * Reaset means no observer calls will be done after from this device and its sub-devices.
      */
-    virtual void ResetObserver();
-
+    virtual void ResetObserver() override;
 
     // Set observer for the TEDevice
-    virtual void SetObserver(ITaskExecutorObserver* pObserver);
+    virtual void SetObserver(ITaskExecutorObserver *pObserver) override;
 
     /**
      * Retrives concurrency level for the device
      * @return pointer to the new list or NULL on error
      */
-    virtual int GetConcurrency() const;
+    virtual int GetConcurrency() const override;
 
 #ifdef __HARD_TRAPPING__
-    virtual bool AcquireWorkerThreads(int num_workers, int timeout);
-    virtual void RelinquishWorkerThreads();
+    virtual bool AcquireWorkerThreads(int num_workers, int timeout) override;
+    virtual void RelinquishWorkerThreads() override;
 #endif // __HARD_TRAPPING__
 
-    virtual void AttachMasterThread(void* user_tls);
-    virtual void DetachMasterThread();
+    virtual void AttachMasterThread(void *user_tls) override;
+    virtual void DetachMasterThread() override;
 
     /**
      * Create Task Execution List to the given sub-device
      * @return pointer to the new list or NULL on error
      */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
+    virtual Intel::OpenCL::Utils::SharedPtr<ITaskList>
+    CreateTaskList(const CommandListCreationParam &param) override;
 
     /**
      * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
      */
-    virtual void ShutDown();
+    virtual void ShutDown() override;
 
     //
     //   Extra methods

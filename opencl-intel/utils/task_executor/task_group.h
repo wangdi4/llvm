@@ -147,7 +147,7 @@ public:
    */
   template <typename F> void Spawn(const F &f);
 
-  virtual void WaitForAll();
+  virtual void WaitForAll() override;
 
 private:
   SpawningTaskGroup(TEDevice *pDevice) : TaskGroupBase(pDevice) {}

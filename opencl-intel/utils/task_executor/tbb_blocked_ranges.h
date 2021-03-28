@@ -36,11 +36,10 @@ public:
                   BlockedRangeSizeType grain = 1 ) : 
         m_min(left), m_max(right), m_grain(grain) {};
 
-    BlockedRange( const BlockedRange& o ) : 
-        m_min(o.m_min), m_max(o.m_max), m_grain(o.m_grain) {};
+    BlockedRange(const BlockedRange &o) = default;
 
-	BlockedRange(const size_t dims[], size_t grainsize) :
-		m_min(0), m_max(dims[0]), m_grain(grainsize) {}
+    BlockedRange(const size_t dims[], size_t grainsize)
+        : m_min(0), m_max(dims[0]), m_grain(grainsize) {}
 
     BlockedRange(const size_t dimsBegin[], const size_t dimsEnd[],
                  size_t grainsize)

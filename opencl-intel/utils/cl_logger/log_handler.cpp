@@ -91,42 +91,42 @@ FileDescriptorLogHandler::~FileDescriptorLogHandler()
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code FileDescriptorLogHandler::Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc)
-{
-    if (nullptr == m_handle)
-	{
-        return CL_ERR_INITILIZATION_FAILED;
-	}
+cl_err_code FileDescriptorLogHandler::Init(ELogLevel level,
+                                           const char * /*fileName*/,
+                                           const char *title, FILE *fileDesc) {
+  if (nullptr == m_handle) {
+    return CL_ERR_INITILIZATION_FAILED;
+  }
 
-	if (nullptr == fileDesc)
-	{
-		return CL_ERR_LOGGER_FAILED;
-	}
+  if (nullptr == fileDesc) {
+    return CL_ERR_LOGGER_FAILED;
+  }
 
-	m_fileHandler = fileDesc;
+  m_fileHandler = fileDesc;
 
-    m_logLevel = level;       // retrieve this info from Logger (not implemented yet)
+  m_logLevel = level; // retrieve this info from Logger (not implemented yet)
 
-    // redirect stderr to fileDesc (in order to get log messages from MIC device)
-	fflush(stderr);
-	m_dupStderr = DUP(fileno(stderr));
-	assert(-1 != m_dupStderr && "duplicate stderr failed");
-	DUP2(fileno(m_fileHandler), fileno(stderr));
+  // redirect stderr to fileDesc (in order to get log messages from MIC device)
+  fflush(stderr);
+  m_dupStderr = DUP(fileno(stderr));
+  assert(-1 != m_dupStderr && "duplicate stderr failed");
+  DUP2(fileno(m_fileHandler), fileno(stderr));
 
-	const char* pTitle = (nullptr == title) ?
-		"\n##########################################################################################################\n" :
-		title;
+  const char *pTitle =
+      (nullptr == title)
+          ? "\n################################################################"
+            "##########################################\n"
+          : title;
 
-	// fputs is thread safe.
-	if (EOF == fputs(pTitle, m_fileHandler))
-	{
-		printf("fwrite failed\n");
-		assert(false);
-		return CL_ERR_LOGGER_FAILED;
-	}
-	Flush();
-	
-	return CL_SUCCESS;
+  // fputs is thread safe.
+  if (EOF == fputs(pTitle, m_fileHandler)) {
+    printf("fwrite failed\n");
+    assert(false);
+    return CL_ERR_LOGGER_FAILED;
+  }
+  Flush();
+
+  return CL_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -195,27 +195,23 @@ FileLogHandler::~FileLogHandler()
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code FileLogHandler::Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc)
-{
-	if (m_handle == nullptr)
-	{
-        return CL_ERR_INITILIZATION_FAILED;
-	}
-	if (nullptr == fileName)
-	{
-		printf("logger initialization failed, fileName must be valid pointer\n");
-		return CL_ERR_LOGGER_FAILED;
-	}
-    m_fileName = strdup_safe(fileName);
-	FILE* tFileHandler = nullptr;
-    if (m_fileName)
-    {
-        tFileHandler = fopen(m_fileName, "w" );
-        if (nullptr == tFileHandler)
-        {
-            printf("can't open log file for writing\n");
-            return CL_ERR_LOGGER_FAILED;
-        }
-	}
-	return FileDescriptorLogHandler::Init(level, fileName, title, tFileHandler);
+cl_err_code FileLogHandler::Init(ELogLevel level, const char *fileName,
+                                 const char *title, FILE * /*fileDesc*/) {
+  if (m_handle == nullptr) {
+    return CL_ERR_INITILIZATION_FAILED;
+  }
+  if (nullptr == fileName) {
+    printf("logger initialization failed, fileName must be valid pointer\n");
+    return CL_ERR_LOGGER_FAILED;
+  }
+  m_fileName = strdup_safe(fileName);
+  FILE *tFileHandler = nullptr;
+  if (m_fileName) {
+    tFileHandler = fopen(m_fileName, "w");
+    if (nullptr == tFileHandler) {
+      printf("can't open log file for writing\n");
+      return CL_ERR_LOGGER_FAILED;
+    }
+  }
+  return FileDescriptorLogHandler::Init(level, fileName, title, tFileHandler);
 }

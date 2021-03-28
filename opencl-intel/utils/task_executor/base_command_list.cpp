@@ -42,10 +42,10 @@ IThreadLibTaskGroup::TaskGroupStatus TbbTaskGroup::Wait()
         return IThreadLibTaskGroup::COMPLETE;
     case tbb::canceled:
         return IThreadLibTaskGroup::CANCELED;
-    default:
-        assert(false && "invalid return code from task_group_with_reference::wait");
-        return (IThreadLibTaskGroup::TaskGroupStatus)-1;
     }
+
+    assert(false && "invalid return code from task_group_with_reference::wait");
+    return (IThreadLibTaskGroup::TaskGroupStatus)-1;
 }
 
 base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bProfilingEnabled) :
@@ -255,16 +255,18 @@ void out_of_order_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITas
     static_cast<TbbTaskGroup&>(taskGroup).Run(functor);
 }
 
-void in_order_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup)
-{
-    ExecuteContainerBody functor(pTask, *this);
-    functor();
+void in_order_command_list::Spawn(
+    const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask,
+    IThreadLibTaskGroup & /*taskGroup*/) {
+  ExecuteContainerBody functor(pTask, *this);
+  functor();
 }
 
-void immediate_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup)
-{
-    ExecuteContainerBody functor(pTask, *this);
-    functor();
+void immediate_command_list::Spawn(
+    const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask,
+    IThreadLibTaskGroup & /*taskGroup*/) {
+  ExecuteContainerBody functor(pTask, *this);
+  functor();
 }
 
 unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)

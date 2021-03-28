@@ -47,9 +47,7 @@ void __attribute__ ((destructor)) dll_fini(void);
 ITaskExecutor* g_pTaskExecutor = nullptr;
 pthread_key_t thkShedMaster;
 
-static void thread_cleanup_callback(void* _NULL)
-{
-}
+static void thread_cleanup_callback(void * /*_NULL*/) {}
 
 void dll_init(void)
 {

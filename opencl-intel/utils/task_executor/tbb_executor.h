@@ -51,27 +51,29 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         TBBTaskExecutor();
         virtual ~TBBTaskExecutor();
 
-        int  Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger,
-                  unsigned int uiNumOfThreads = TE_AUTO_THREADS,
-                  ocl_gpa_data * pGPAData = nullptr,
-                  size_t ulAdditionalRequiredStackSize = 0,
-                  DeviceMode deviceMode = CPU_DEVICE);
-        void Finalize();
+        int Init(Intel::OpenCL::Utils::FrameworkUserLogger *pUserLogger,
+                 unsigned int uiNumOfThreads = TE_AUTO_THREADS,
+                 ocl_gpa_data *pGPAData = nullptr,
+                 size_t ulAdditionalRequiredStackSize = 0,
+                 DeviceMode deviceMode = CPU_DEVICE) override;
+        void Finalize() override;
 
         // Initialize TBB NUMA and check if it is supported
         void InitTBBNuma();
 
-        Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice(
-                                                const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
-                                                void* user_data = nullptr, ITaskExecutorObserver* my_observer = nullptr );
+        Intel::OpenCL::Utils::SharedPtr<ITEDevice>
+        CreateRootDevice(const RootDeviceCreationParam &device_desc =
+                             RootDeviceCreationParam(),
+                         void *user_data = nullptr,
+                         ITaskExecutorObserver *my_observer = nullptr) override;
 
-        unsigned int GetMaxNumOfConcurrentThreads() const;
+        unsigned int GetMaxNumOfConcurrentThreads() const override;
 
-        ocl_gpa_data* GetGPAData() const;
+        ocl_gpa_data *GetGPAData() const override;
 
-        virtual DeviceHandleStruct GetCurrentDevice() const;
-        virtual bool IsMaster() const;
-        virtual unsigned int GetPosition( unsigned int level = 0 ) const;
+        virtual DeviceHandleStruct GetCurrentDevice() const override;
+        virtual bool IsMaster() const override;
+        virtual unsigned int GetPosition(unsigned int level = 0) const override;
 
         virtual bool IsTBBNumaEnabled() const override {
             return m_tbbNumaEnabled;
@@ -87,13 +89,15 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         ThreadManager& GetThreadManager() { return m_threadManager; }
         const ThreadManager& GetThreadManager() const { return m_threadManager; }
 
-        virtual SharedPtr<IThreadLibTaskGroup> CreateTaskGroup(const SharedPtr<ITEDevice>& device);
+        virtual SharedPtr<IThreadLibTaskGroup>
+        CreateTaskGroup(const SharedPtr<ITEDevice> &device) override;
 
         ITaskList* GetDebugInOrderDeviceQueue() { return m_pDebugInOrderDeviceQueue.GetPtr(); }
 
-        virtual void CreateDebugDeviceQueue(const SharedPtr<ITEDevice>& rootDevice);
+        virtual void
+        CreateDebugDeviceQueue(const SharedPtr<ITEDevice> &rootDevice) override;
 
-        virtual void DestroyDebugDeviceQueue();
+        virtual void DestroyDebugDeviceQueue() override;
 
         int GetErrorCode() override { return m_err; }
 

@@ -12,14 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define INSTANTIATE_THREAD_MANAGER(Data)                                       \
-  template <>                                                                  \
-  THREAD_LOCAL TBB_ThreadDescriptor<Data> *Intel::OpenCL::TaskExecutor::       \
-      TBB_ThreadManager<Data>::m_CurrentThreadGlobalID = nullptr;              \
-  template <>                                                                  \
-  bool Intel::OpenCL::TaskExecutor::TBB_ThreadManager<Data>::m_object_exists = \
-      false
-
 template <class Data>
 TBB_ThreadManager<Data>::TBB_ThreadManager() :
     m_DescriptorsArray(nullptr), m_uiNumberOfStaticEntries(0), m_nextFreeEntry(0), m_bOverflowed(false)

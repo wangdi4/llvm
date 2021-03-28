@@ -62,9 +62,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 void RegisterReleaseSchedulerForMasterThread();
 
-// TBB thread manager
-INSTANTIATE_THREAD_MANAGER( TBB_PerActiveThreadData );
-
 //! global TBB task scheduler objects
 unsigned int gWorker_threads = 0;
 AtomicCounter    glTaskSchedCounter;
@@ -552,9 +549,8 @@ unsigned int TBBTaskExecutor::GetPosition( unsigned int level ) const
     return (((NULL != tls) && (NULL != tls->device) && (level < tls->device->GetNumOfLevels())) ? tls->position[level] : TE_UNKNOWN);
 }
 
-SharedPtr<IThreadLibTaskGroup> TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice>& device)
-{ 
-    return TbbTaskGroup::Allocate();
+SharedPtr<IThreadLibTaskGroup>
+TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice> & /*device*/) {
+  return TbbTaskGroup::Allocate();
 }
-
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor

@@ -101,18 +101,17 @@ static void RemoveAll( ClHeapInfo_t* phHeap )
 /////////////////////////////////////////////////////////////////
 
 // Create local heap
-int	clCreateHeap(int node, size_t maxHeapSize, ClHeap* phHeap)
-{
-	assert(phHeap);
+int clCreateHeap(int /*node*/, size_t maxHeapSize, ClHeap *phHeap) {
+  assert(phHeap);
 
-	ClHeapInfo_t *heapInfo = new ClHeapInfo_t();
+  ClHeapInfo_t *heapInfo = new ClHeapInfo_t();
 
-	heapInfo->maxSize			   = (0 != maxHeapSize) ? maxHeapSize : (size_t)(-1);
-	heapInfo->userAllocatedSpace   = 0;
-	heapInfo->actualAllocatedSpace = 0;
+  heapInfo->maxSize = (0 != maxHeapSize) ? maxHeapSize : (size_t)(-1);
+  heapInfo->userAllocatedSpace = 0;
+  heapInfo->actualAllocatedSpace = 0;
 
-	*phHeap = heapInfo;
-	return 0;
+  *phHeap = heapInfo;
+  return 0;
 }
 
 int	clDeleteHeap(ClHeap hHeap)

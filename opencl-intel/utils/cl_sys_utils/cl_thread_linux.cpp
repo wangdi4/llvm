@@ -182,22 +182,20 @@ int OclThread::WaitForCompletion()
  * Note that only user space thread is terminate. Kernel space threads such
  * as the Graphics driver thread may continue to work.
  ************************************************************************/
-void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT exitCode)
-{
-	if ( nullptr != m_threadHandle )
-	{
-		// The exitCode doesn't exist in Linux
-		pthread_cancel((*(pthread_t*)m_threadHandle));
-	}
-	Clean();
+void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT /*exitCode*/) {
+  if (nullptr != m_threadHandle) {
+    // The exitCode doesn't exist in Linux
+    pthread_cancel((*(pthread_t *)m_threadHandle));
+  }
+  Clean();
 }
 
-void OclThread::SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode)
-{
-	// The exitCode doesn't exist in Linux
-	pthread_cancel(pthread_self());
-	// As default, A cancellation request is deferred until the thread next calls a function that is a cancellation point.
-	pthread_testcancel();
+void OclThread::SelfTerminate(RETURN_TYPE_ENTRY_POINT /*exitCode*/) {
+  // The exitCode doesn't exist in Linux
+  pthread_cancel(pthread_self());
+  // As default, A cancellation request is deferred until the thread next calls
+  // a function that is a cancellation point.
+  pthread_testcancel();
 }
 
 bool OclThread::isSelf()

@@ -683,7 +683,7 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
     else
     {
         // for single-byte patterns memset is the fastest
-        memset(pBuffer, ((char*)pPattern)[0], szBufferSize);
+        memset(pBuffer, ((const char *)pPattern)[0], szBufferSize);
     }
 }
 
