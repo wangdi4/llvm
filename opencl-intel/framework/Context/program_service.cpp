@@ -103,19 +103,15 @@ Intel::OpenCL::Utils::OclMutex DeviceBuildTask::m_deviceBuildMtx;
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 
-CompileTask::CompileTask(_cl_context_int*           context,
-                         const SharedPtr<Program>&  pProg,
-                         const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
-                         DeviceProgram*             pDeviceProgram,
-                         unsigned int               uiNumHeaders,
-                         const char**               pszHeaders,
-                         char**                     pszHeadersNames,
-                         const char*                szOptions) :
-BuildTask(context, pProg, pFECompiler),
-m_pDeviceProgram(pDeviceProgram), m_uiNumHeaders(uiNumHeaders),
-m_pszHeaders(pszHeaders), m_pszHeadersNames((const char**)pszHeadersNames), m_sOptions(szOptions)
-{
-}
+CompileTask::CompileTask(_cl_context_int *context,
+                         const SharedPtr<Program> &pProg,
+                         const ConstSharedPtr<FrontEndCompiler> &pFECompiler,
+                         DeviceProgram *pDeviceProgram,
+                         unsigned int uiNumHeaders, const char **pszHeaders,
+                         const char **pszHeadersNames, const char *szOptions)
+    : BuildTask(context, pProg, pFECompiler), m_pDeviceProgram(pDeviceProgram),
+      m_uiNumHeaders(uiNumHeaders), m_pszHeaders(pszHeaders),
+      m_pszHeadersNames(pszHeadersNames), m_sOptions(szOptions) {}
 
 CompileTask::~CompileTask()
 {
@@ -944,11 +940,14 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
                 // Building from source
                 bNeedToBuild = true;
                 ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_FE_COMPILING);
-                arrCompileTasks[i] = CompileTask::Allocate(context, program, arrFeCompilers[i], ppDevicePrograms[i],
-                                            num_input_headers, pszHeaders, pszHeadersNames, buildOptions.c_str());
-                if (NULL == arrCompileTasks[i])
-                {
-                    ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+                arrCompileTasks[i] = CompileTask::Allocate(
+                    context, program, arrFeCompilers[i], ppDevicePrograms[i],
+                    num_input_headers, pszHeaders,
+                    const_cast<const char **>(pszHeadersNames),
+                    buildOptions.c_str());
+                if (NULL == arrCompileTasks[i].GetPtr()) {
+                  ppDevicePrograms[i]->SetStateInternal(
+                      DEVICE_PROGRAM_BUILD_FAILED);
                 }
                 break;
             }
@@ -973,26 +972,23 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
                                                                     num_input_headers, input_headers, pszHeadersNames,
                                                                     0, NULL,
                                                                     pfn_notify, user_data);
-    if (NULL == pPostBuildTask)
-    {
-        delete[] ppDevicePrograms;
-        return CL_OUT_OF_HOST_MEMORY;
+    if (NULL == pPostBuildTask.GetPtr()) {
+      delete[] ppDevicePrograms;
+      return CL_OUT_OF_HOST_MEMORY;
     }
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != arrCompileTasks[i])
-        {
-            pPostBuildTask->AddDependentOn(arrCompileTasks[i]);
-        }
+      if (NULL != arrCompileTasks[i].GetPtr()) {
+        pPostBuildTask->AddDependentOn(arrCompileTasks[i]);
+      }
     }
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != arrCompileTasks[i])
-        {
-            arrCompileTasks[i]->Launch();
-        }
+      if (NULL != arrCompileTasks[i].GetPtr()) {
+        arrCompileTasks[i]->Launch();
+      }
     }
 
     // If no build required, launch post build task
@@ -1197,9 +1193,9 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
                     ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_FE_LINKING);
                     arrLinkTasks[i] = LinkTask::Allocate(context, program, arrFeCompilers[i], ppDevicePrograms[i], input_programs, num_input_programs,
                                                 buildOptions.c_str());
-                    if (NULL == arrLinkTasks[i])
-                    {
-                        ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+                    if (NULL == arrLinkTasks[i].GetPtr()) {
+                      ppDevicePrograms[i]->SetStateInternal(
+                          DEVICE_PROGRAM_BUILD_FAILED);
                     }
                 }
             } //Intentional fall through.
@@ -1242,13 +1238,11 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
                     arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(
                         context, program, ppDevicePrograms[i],
                         mergedOptions.c_str());
-                    if (NULL == arrDeviceBuildTasks[i])
-                    {
-                        ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
-                    }
-                    else if (NULL != arrLinkTasks[i])
-                    {
-                        arrDeviceBuildTasks[i]->AddDependentOn(arrLinkTasks[i]);
+                    if (NULL == arrDeviceBuildTasks[i].GetPtr()) {
+                      ppDevicePrograms[i]->SetStateInternal(
+                          DEVICE_PROGRAM_BUILD_FAILED);
+                    } else if (NULL != arrLinkTasks[i].GetPtr()) {
+                      arrDeviceBuildTasks[i]->AddDependentOn(arrLinkTasks[i]);
                     }
 
                     ppDevicePrograms[i]->ClearBuildLogInternal();
@@ -1276,11 +1270,10 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
                                                                     num_input_programs, input_programs,
                                                                     pfn_notify, user_data);
 
-    if (NULL == pPostBuildTask)
-    {
-        delete[] ppDevicePrograms;
-        delete[] input_programs;
-        return CL_OUT_OF_HOST_MEMORY;
+    if (NULL == pPostBuildTask.GetPtr()) {
+      delete[] ppDevicePrograms;
+      delete[] input_programs;
+      return CL_OUT_OF_HOST_MEMORY;
     }
 
     cl_bool isFPGAEmulator = program->GetContext()->IsFPGAEmulator();
@@ -1302,18 +1295,13 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != arrDeviceBuildTasks[i])
-        {
-            if (isFPGAEmulator)
-            {
-                pCreateAutorunKernelsTask->AddDependentOn(
-                    arrDeviceBuildTasks[i]);
-            }
-            else
-            {
-                pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
-            }
+      if (NULL != arrDeviceBuildTasks[i].GetPtr()) {
+        if (isFPGAEmulator) {
+          pCreateAutorunKernelsTask->AddDependentOn(arrDeviceBuildTasks[i]);
+        } else {
+          pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
         }
+      }
     }
 
     if (isFPGAEmulator)
@@ -1324,14 +1312,11 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
     // launch the required task for each device
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != arrLinkTasks[i])
-        {
-            arrLinkTasks[i]->Launch();
-        }
-        else if (NULL != arrDeviceBuildTasks[i])
-        {
-            arrDeviceBuildTasks[i]->Launch();
-        }
+      if (NULL != arrLinkTasks[i].GetPtr()) {
+        arrLinkTasks[i]->Launch();
+      } else if (NULL != arrDeviceBuildTasks[i].GetPtr()) {
+        arrDeviceBuildTasks[i]->Launch();
+      }
     }
 
     // If no build required, launch post build task
@@ -1369,9 +1354,8 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         return CL_INVALID_OPERATION;
     }
 
-    if ( NULL != program.DynamicCast<ProgramWithBuiltInKernels>())
-    {
-        return CL_INVALID_OPERATION;
+    if (NULL != program.DynamicCast<ProgramWithBuiltInKernels>().GetPtr()) {
+      return CL_INVALID_OPERATION;
     }
 
     if ((0 == num_devices) && (NULL != device_list))
@@ -1536,9 +1520,9 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 arrCompileTasks[i] = CompileTask::Allocate(context, program, arrFeCompilers[i], ppDevicePrograms[i],
                                                     0, NULL, NULL, buildOptions.c_str());
 
-                if (NULL == arrCompileTasks[i])
-                {
-                    ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+                if (NULL == arrCompileTasks[i].GetPtr()) {
+                  ppDevicePrograms[i]->SetStateInternal(
+                      DEVICE_PROGRAM_BUILD_FAILED);
                 }
                 //Intentional fall through.
             }
@@ -1550,13 +1534,11 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_FE_LINKING);
                 arrLinkTasks[i] = LinkTask::Allocate(context, program, arrFeCompilers[i], ppDevicePrograms[i],
                                                 NULL, 0, buildOptions.c_str());
-                if (NULL == arrLinkTasks[i])
-                {
-                    ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
-                }
-                else if (NULL != arrCompileTasks[i])
-                {
-                    arrLinkTasks[i]->AddDependentOn(arrCompileTasks[i]);
+                if (NULL == arrLinkTasks[i].GetPtr()) {
+                  ppDevicePrograms[i]->SetStateInternal(
+                      DEVICE_PROGRAM_BUILD_FAILED);
+                } else if (NULL != arrCompileTasks[i].GetPtr()) {
+                  arrLinkTasks[i]->AddDependentOn(arrCompileTasks[i]);
                 }
                 //Intentional fall through.
             }
@@ -1568,13 +1550,11 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 bNeedToBuild = true;
                 ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BE_BUILDING);
                 arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(context, program, ppDevicePrograms[i], buildOptions.c_str());
-                if (NULL == arrDeviceBuildTasks[i])
-                {
-                    ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
-                }
-                else if (NULL != arrLinkTasks[i])
-                {
-                    arrDeviceBuildTasks[i]->AddDependentOn(arrLinkTasks[i]);
+                if (NULL == arrDeviceBuildTasks[i].GetPtr()) {
+                  ppDevicePrograms[i]->SetStateInternal(
+                      DEVICE_PROGRAM_BUILD_FAILED);
+                } else if (NULL != arrLinkTasks[i].GetPtr()) {
+                  arrDeviceBuildTasks[i]->AddDependentOn(arrLinkTasks[i]);
                 }
 
                 ppDevicePrograms[i]->ClearBuildLogInternal();
@@ -1595,10 +1575,9 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                                                                       0, NULL,
                                                                       pfn_notify, user_data);
 
-    if (NULL == pPostBuildTask)
-    {
-        delete[] ppDevicePrograms;
-        return CL_OUT_OF_HOST_MEMORY;
+    if (NULL == pPostBuildTask.GetPtr()) {
+      delete[] ppDevicePrograms;
+      return CL_OUT_OF_HOST_MEMORY;
     }
 
     cl_bool isFPGAEmulator = program->GetContext()->IsFPGAEmulator();
@@ -1620,18 +1599,13 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != arrDeviceBuildTasks[i])
-        {
-            if (isFPGAEmulator)
-            {
-                pCreateAutorunKernelsTask->AddDependentOn(
-                    arrDeviceBuildTasks[i]);
-            }
-            else
-            {
-                pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
-            }
+      if (NULL != arrDeviceBuildTasks[i].GetPtr()) {
+        if (isFPGAEmulator) {
+          pCreateAutorunKernelsTask->AddDependentOn(arrDeviceBuildTasks[i]);
+        } else {
+          pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
         }
+      }
     }
 
     if (isFPGAEmulator)
@@ -1642,18 +1616,13 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
     // launch the required task for each device
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != arrCompileTasks[i])
-        {
-            arrCompileTasks[i]->Launch();
-        }
-        else if (NULL != arrLinkTasks[i])
-        {
-            arrLinkTasks[i]->Launch();
-        }
-        else if (NULL != arrDeviceBuildTasks[i])
-        {
-            arrDeviceBuildTasks[i]->Launch();
-        }
+      if (NULL != arrCompileTasks[i].GetPtr()) {
+        arrCompileTasks[i]->Launch();
+      } else if (NULL != arrLinkTasks[i].GetPtr()) {
+        arrLinkTasks[i]->Launch();
+      } else if (NULL != arrDeviceBuildTasks[i].GetPtr()) {
+        arrDeviceBuildTasks[i]->Launch();
+      }
     }
 
     // If no build required, launch post build task

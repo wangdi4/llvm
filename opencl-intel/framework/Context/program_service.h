@@ -163,29 +163,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         PREPARE_SHARED_PTR(BuildTask)
 
-        virtual bool    Execute() = 0;
+        virtual long Release() override;
 
-        virtual long    Release();
-
-        virtual void    DoneWithDependencies(const SharedPtr<OclEvent>& pEvent);
+        virtual void
+        DoneWithDependencies(const SharedPtr<OclEvent> &pEvent) override;
 
         bool            Launch();
 
-        virtual void    SetComplete(cl_int returnCode);
+        virtual void SetComplete(cl_int returnCode) override;
 
-        virtual void    Cleanup(bool bIsTerminate = false) { delete this; }
+        virtual void Cleanup(bool = false) override { delete this; }
 
-        virtual Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const
-                        { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
+        virtual Intel::OpenCL::TaskExecutor::TASK_PRIORITY
+        GetPriority() const override {
+          return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;
+        }
 
-        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+        GetNDRangeChildrenTaskGroup() override {
+          return NULL;
+        }
 
-        bool            SetAsSyncPoint()            {assert(0&&"Should not be called");return false;}
-        bool            IsCompleted() const         {assert(0&&"Should not be called");return true;}
-        bool            CompleteAndCheckSyncPoint() {return false;}
+        bool SetAsSyncPoint() override {
+          assert(0 && "Should not be called");
+          return false;
+        }
+        bool IsCompleted() const override {
+          assert(0 && "Should not be called");
+          return true;
+        }
+        bool CompleteAndCheckSyncPoint() override { return false; }
 
-    protected:
-
+      protected:
         BuildTask(_cl_context_int*                          context,
                     const SharedPtr<Program>&               pProg,
                     const ConstSharedPtr<FrontEndCompiler>& pFECompiler);
@@ -202,32 +211,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         PREPARE_SHARED_PTR(CompileTask)
 
-        static SharedPtr<CompileTask> Allocate(
-            _cl_context_int*            context,
-            const SharedPtr<Program>&   pProg,
-            const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
-            DeviceProgram*              pDeviceProgram,
-            unsigned int                uiNumHeaders,
-            const char**                pszHeaders,
-            char**                      pszHeadersNames,
-            const char*                 szOptions)
-        {
-            return new CompileTask(context, pProg, pFECompiler, pDeviceProgram, uiNumHeaders, pszHeaders, pszHeadersNames, szOptions);
+        static SharedPtr<CompileTask>
+        Allocate(_cl_context_int *context, const SharedPtr<Program> &pProg,
+                 const ConstSharedPtr<FrontEndCompiler> &pFECompiler,
+                 DeviceProgram *pDeviceProgram, unsigned int uiNumHeaders,
+                 const char **pszHeaders, const char **pszHeadersNames,
+                 const char *szOptions) {
+          return new CompileTask(context, pProg, pFECompiler, pDeviceProgram,
+                                 uiNumHeaders, pszHeaders, pszHeadersNames,
+                                 szOptions);
         }
 
-        virtual bool    Execute();
-        virtual void    Cancel();
+        virtual bool Execute() override;
+        virtual void Cancel() override;
 
-    protected:
-
-        CompileTask(_cl_context_int*            context,
-                    const SharedPtr<Program>&   pProg,
-                    const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
-                    DeviceProgram*              pDeviceProgram,
-                    unsigned int                uiNumHeaders,
-                    const char**                pszHeaders,
-                    char**                      pszHeadersNames,
-                    const char*                 szOptions);
+      protected:
+        CompileTask(_cl_context_int *context, const SharedPtr<Program> &pProg,
+                    const ConstSharedPtr<FrontEndCompiler> &pFECompiler,
+                    DeviceProgram *pDeviceProgram, unsigned int uiNumHeaders,
+                    const char **pszHeaders, const char **pszHeadersNames,
+                    const char *szOptions);
 
         ~CompileTask();
 
@@ -260,11 +263,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return new LinkTask(context, pProg, pFECompiler, pDeviceProgram, ppBinaries, uiNumBinaries, szOptions);
         }
 
-        virtual bool    Execute();
-        virtual void    Cancel();
+        virtual bool Execute() override;
+        virtual void Cancel() override;
 
-    protected:
-
+      protected:
         LinkTask(_cl_context_int*           context,
                  const SharedPtr<Program>&  pProg,
                  const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
@@ -299,11 +301,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return new DeviceBuildTask(context, pProg, pDeviceProgram, szOptions);
         }
 
-        virtual bool    Execute();
-        virtual void    Cancel();
+        virtual bool Execute() override;
+        virtual void Cancel() override;
 
-    protected:
-
+      protected:
         DeviceBuildTask(_cl_context_int*    context,
                  const SharedPtr<Program>&  pProg,
                  DeviceProgram*             pDeviceProgram,
@@ -341,11 +342,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
                 ppBinaries, pfn_notify, user_data);
         }
 
-        virtual bool    Execute();
-        virtual void    Cancel();
+        virtual bool Execute() override;
+        virtual void Cancel() override;
 
-    protected:
-
+      protected:
         PostBuildTask(_cl_context_int*          context,
                       const SharedPtr<Program>& pProg,
                       cl_uint                   num_devices,
@@ -390,11 +390,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return new CreateAutorunKernelsTask(context, pProg);
         }
 
-        virtual bool Execute();
-        virtual void Cancel();
+        virtual bool Execute() override;
+        virtual void Cancel() override;
 
-    protected:
-
+      protected:
         CreateAutorunKernelsTask(_cl_context_int*          context,
                                  const SharedPtr<Program>& pProg);
 

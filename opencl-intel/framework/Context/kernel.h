@@ -242,25 +242,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
 
         /******************************************************************************************
-        * Function:     GetInfo    
-        * Description:    get object specific information (inherited from OCLObject) the function 
-        *                query the desirable parameter value from the device
-        * Arguments:    iParamName [in]                parameter's name
-        *                szParamValueSize [in out]    parameter's value size (in bytes)
-        *                pParamValue [out]            parameter's value
-        *                pszParamValueSizeRet [out]    parameter's value return size
-        * Return value:    CL_SUCCESS - operation succeeded
-        *                CL_INVALID_VALUE - if iParamName is not valid, or if size in bytes 
-        *                                   specified by szParamValueSize is < size of return type 
-        *                                    and pParamValue is not NULL
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        cl_err_code    GetInfo(cl_int iParamName, 
-                            size_t szParamValueSize, 
-                            void * pParamValue, 
-                            size_t * pszParamValueSizeRet) const;
-
+         * Function:     GetInfo
+         * Description:  get object specific information (inherited from
+         *               OCLObject) the function query the desirable parameter
+         *               value from the device
+         * Arguments:    iParamName [in]              parameter's name
+         *               szParamValueSize [in out]    parameter's value size (in
+         *                                            bytes)
+         *               pParamValue [out]            parameter's value
+         *               pszParamValueSizeRet [out]   parameter's value return
+         *                                            size
+         * Return value: CL_SUCCESS - operation succeeded
+         *               CL_INVALID_VALUE - if iParamName is not valid, or if
+         *                                  size in bytes specified by
+         *                                  szParamValueSize is < size of return
+         *                                  type and pParamValue is not NULL
+         * Author:        Uri Levy
+         * Date:          December 2008
+         ******************************************************************************************/
+        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
+                            void *pParamValue,
+                            size_t *pszParamValueSizeRet) const override;
 
         /******************************************************************************************
         * Function:      GetSubGroupInfo

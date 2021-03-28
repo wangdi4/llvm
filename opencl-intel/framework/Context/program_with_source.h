@@ -38,16 +38,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                                       piRet));
         }
 
-		cl_err_code	GetInfo(cl_int  param_name,
-                            size_t  param_value_size,
-                            void*   param_value,
-                            size_t* param_value_size_ret) const;
+        cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
+                            void *param_value,
+                            size_t *param_value_size_ret) const override;
 
         // Returns a read only pointer to internal source, used for build stages by program service
-        virtual const char*     GetSourceInternal() { return m_SourceString.data(); };
+        virtual const char *GetSourceInternal() override {
+          return m_SourceString.data();
+        };
 
-	protected:
-
+      protected:
         ProgramWithSource(SharedPtr<Context> pContext,
                           cl_uint uiNumStrings,
                           const char** pSources,
