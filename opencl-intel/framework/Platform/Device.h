@@ -131,10 +131,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
-        virtual cl_err_code GetInfo(cl_int        param_name,
-                            size_t        param_value_size,
-                            void *        param_value,
-                            size_t *    param_value_size_ret) const = 0;
+        virtual cl_err_code
+        GetInfo(cl_int param_name, size_t param_value_size, void *param_value,
+                size_t *param_value_size_ret) const override = 0;
 
         virtual size_t        GetMaxWorkGroupSize()       const = 0;
         virtual cl_uint       GetMaxWorkItemDimensions()  const = 0;
@@ -235,10 +234,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
-        cl_err_code    GetInfo(cl_int        param_name,
-                            size_t        param_value_size,
-                            void *        param_value,
-                            size_t *    param_value_size_ret) const;
+        cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
+                            void *param_value,
+                            size_t *param_value_size_ret) const override;
 
         /******************************************************************************************
         * Function:     CreateInstance
@@ -271,45 +269,54 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ******************************************************************************************/
         const SharedPtr<FrontEndCompiler>& GetFrontEndCompiler() const;
 
-        IOCLDeviceAgent*    GetDeviceAgent() {return m_pDevice;}
+        IOCLDeviceAgent *GetDeviceAgent() override { return m_pDevice; }
 
-        const IOCLDeviceAgent* GetDeviceAgent() const { return m_pDevice; }
+        const IOCLDeviceAgent *GetDeviceAgent() const override {
+          return m_pDevice;
+        }
 
         cl_device_type        GetDeviceType() {return m_deviceType;}
 
         void SetGLProperties(cl_context_properties hGLCtx, cl_context_properties hHDC)
                              { m_hGLContext = hGLCtx; m_hHDC = hHDC;}
 
-        cl_ulong GetMaxLocalMemorySize() const {return m_stMaxLocalMemorySize;}
-        
-        size_t                      GetMaxWorkGroupSize()       const { return m_CL_DEVICE_MAX_WORK_GROUP_SIZE; }
-        cl_uint                     GetMaxWorkItemDimensions()  const { return m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS; }
-        const size_t*               GetMaxWorkItemSizes()       const { return m_CL_DEVICE_MAX_WORK_ITEM_SIZES; }
-        cl_ulong                    GetDeviceTimer() const;
-        bool                        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const 
-                                                                    { 
-                                                                        *svm_cap = m_CL_DEVICE_SVM_CAPABILITIES; 
-                                                                        return m_bSvmSupported; 
-                                                                    }
-        cl_device_unified_shared_memory_capabilities_intel GetUSMCapabilities(
-            cl_device_info param_name) const;
+        cl_ulong GetMaxLocalMemorySize() const override {
+          return m_stMaxLocalMemorySize;
+        }
+
+        size_t GetMaxWorkGroupSize() const override {
+          return m_CL_DEVICE_MAX_WORK_GROUP_SIZE;
+        }
+        cl_uint GetMaxWorkItemDimensions() const override {
+          return m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS;
+        }
+        const size_t *GetMaxWorkItemSizes() const override {
+          return m_CL_DEVICE_MAX_WORK_ITEM_SIZES;
+        }
+        cl_ulong GetDeviceTimer() const override;
+        bool
+        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const override {
+          *svm_cap = m_CL_DEVICE_SVM_CAPABILITIES;
+          return m_bSvmSupported;
+        }
+        cl_device_unified_shared_memory_capabilities_intel
+        GetUSMCapabilities(cl_device_info param_name) const override;
 
         // Inherited from FissionableDevice
-        
-        SharedPtr<Device> GetRootDevice() { return this; }
-        ConstSharedPtr<Device> GetRootDevice() const { return this; }
 
-        bool    IsRootLevelDevice() { return true; }
+        SharedPtr<Device> GetRootDevice() override { return this; }
+        ConstSharedPtr<Device> GetRootDevice() const override { return this; }
+
+        bool IsRootLevelDevice() override { return true; }
 
         //Override the OCLObject defaults
         // Cannot release root-level devices, always pretend to have another reference
-        long Release() { return 1; }
+        long Release() override { return 1; }
         // Cannot retains root-level devices
-        cl_err_code Retain() { return CL_SUCCESS; }
-        void Cleanup( bool bIsTerminate = false );
+        cl_err_code Retain() override { return CL_SUCCESS; }
+        void Cleanup(bool bIsTerminate = false) override;
 
-    protected:
-
+      protected:
         /******************************************************************************************
         * Function:     ~Device
         * Description:    The OCLObject class destructor
@@ -350,14 +357,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // IOCLFrameworkCallbacks
         void clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus);
-        void clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer);
-        Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor();
-
+        void clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void *pData,
+                                   cl_int cmd_status, cl_int status_result,
+                                   cl_ulong timer) override;
+        Intel::OpenCL::TaskExecutor::ITaskExecutor *
+        clDevGetTaskExecutor() override;
 
         // IOCLLoggerDescriptor
-        cl_int clLogCreateClient(cl_int device_id, const char* client_name, cl_int * client_id);
-        cl_int clLogReleaseClient(cl_int client_id);
-        cl_int clLogAddLine(cl_int client_id, cl_int log_level, const char* IN source_file, const char* IN function_name, cl_int IN line_num, const char* IN message, ...);
+        cl_int clLogCreateClient(cl_int device_id, const char *client_name,
+                                 cl_int *client_id) override;
+        cl_int clLogReleaseClient(cl_int client_id) override;
+        cl_int clLogAddLine(cl_int client_id, cl_int log_level,
+                            const char *IN source_file,
+                            const char *IN function_name, cl_int IN line_num,
+                            const char *IN message, ...) override;
 
         void InitFECompiler() const;
 
@@ -438,41 +451,60 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Doron Singer
         * Date:            March 2011
         ******************************************************************************************/
-        cl_err_code    GetInfo(cl_int        param_name,
-                            size_t        param_value_size,
-                            void *        param_value,
-                            size_t *    param_value_size_ret) const;
+        cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
+                            void *param_value,
+                            size_t *param_value_size_ret) const override;
 
         // Inherited from FissionableDevice
-        SharedPtr<Device> GetRootDevice() { return m_pRootDevice; }
-        ConstSharedPtr<Device> GetRootDevice() const { return m_pRootDevice; }
-        bool    IsRootLevelDevice() { return false; }
+        SharedPtr<Device> GetRootDevice() override { return m_pRootDevice; }
+        ConstSharedPtr<Device> GetRootDevice() const override {
+          return m_pRootDevice;
+        }
+        bool IsRootLevelDevice() override { return false; }
 
         size_t              GetNumComputeUnits() { return m_numComputeUnits; }
-        cl_dev_subdevice_id GetSubdeviceId()     { return m_deviceId; }
+        cl_dev_subdevice_id GetSubdeviceId() override { return m_deviceId; }
         SharedPtr<FissionableDevice>  GetParentDevice()    { return m_pParentDevice; }
-        IOCLDeviceAgent*    GetDeviceAgent()     { return m_pRootDevice->GetDeviceAgent(); }
-        const IOCLDeviceAgent* GetDeviceAgent() const { return m_pRootDevice->GetDeviceAgent(); }
+        IOCLDeviceAgent *GetDeviceAgent() override {
+          return m_pRootDevice->GetDeviceAgent();
+        }
+        const IOCLDeviceAgent *GetDeviceAgent() const override {
+          return m_pRootDevice->GetDeviceAgent();
+        }
 
-        cl_ulong                    GetMaxLocalMemorySize()     const { return m_pRootDevice->GetMaxLocalMemorySize(); }
-        size_t                      GetMaxWorkGroupSize()       const { return m_pRootDevice->GetMaxWorkGroupSize(); }
-        cl_uint                     GetMaxWorkItemDimensions()  const { return m_pRootDevice->GetMaxWorkItemDimensions(); }
-        const size_t*               GetMaxWorkItemSizes()       const { return m_pRootDevice->GetMaxWorkItemSizes(); }
-        cl_ulong                    GetDeviceTimer()            const { return m_pRootDevice->GetDeviceTimer(); }
-        bool                        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const 
-                                                                      { return m_pRootDevice->GetSVMCapabilities(svm_cap); }
-        cl_device_unified_shared_memory_capabilities_intel GetUSMCapabilities(
-            cl_device_info param_name) const {
-            return m_pRootDevice->GetUSMCapabilities(param_name);
+        cl_ulong GetMaxLocalMemorySize() const override {
+          return m_pRootDevice->GetMaxLocalMemorySize();
+        }
+        size_t GetMaxWorkGroupSize() const override {
+          return m_pRootDevice->GetMaxWorkGroupSize();
+        }
+        cl_uint GetMaxWorkItemDimensions() const override {
+          return m_pRootDevice->GetMaxWorkItemDimensions();
+        }
+        const size_t *GetMaxWorkItemSizes() const override {
+          return m_pRootDevice->GetMaxWorkItemSizes();
+        }
+        cl_ulong GetDeviceTimer() const override {
+          return m_pRootDevice->GetDeviceTimer();
+        }
+        bool
+        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const override {
+          return m_pRootDevice->GetSVMCapabilities(svm_cap);
+        }
+        cl_device_unified_shared_memory_capabilities_intel
+        GetUSMCapabilities(cl_device_info param_name) const override {
+          return m_pRootDevice->GetUSMCapabilities(param_name);
         };
 
     protected:
         
         SubDevice(SharedPtr<FissionableDevice> pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props);
 
-        void CacheFissionProperties(const cl_device_partition_property* props); 
+        void CacheFissionProperties(const cl_device_partition_property *props);
 
-        virtual cl_dev_subdevice_id GetSubdeviceId() const { return m_deviceId; }
+        virtual cl_dev_subdevice_id GetSubdeviceId() const override {
+          return m_deviceId;
+        }
 
         SharedPtr<Device>             m_pRootDevice;
         SharedPtr<FissionableDevice>  m_pParentDevice;   // Can be a sub-device or a device 

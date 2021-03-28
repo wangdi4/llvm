@@ -62,10 +62,9 @@ void OCLObjectsMap<HandleType, ParentHandleType>::EnableAdding()
 template <class HandleType, class ParentHandleType>
 cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::AddObject(const SharedPtr<OCLObject<HandleType, ParentHandleType> >& pObject, bool bAssignId)
 {
-    if (NULL == pObject)
-    {
-        return CL_INVALID_VALUE;
-    }
+  if (NULL == pObject.GetPtr()) {
+    return CL_INVALID_VALUE;
+  }
     HandleType* hObjectHandle = pObject->GetHandle();
     if (bAssignId)
     {

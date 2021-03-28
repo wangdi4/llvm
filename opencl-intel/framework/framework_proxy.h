@@ -182,11 +182,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         /******************************************************************************************
         * Manage process shutdown (IAtExitCentralPoint)
         ******************************************************************************************/
-        void RegisterDllCallback( Intel::OpenCL::Utils::at_exit_dll_callback_fn fn );
-        void UnregisterDllCallback( Intel::OpenCL::Utils::at_exit_dll_callback_fn fn );
-        void SetDllUnloadingState( bool value ) { m_bIgnoreAtExit = value; }
-        bool isDllUnloadingState() const        { return m_bIgnoreAtExit; }
-        void AtExitTrigger( Intel::OpenCL::Utils::at_exit_dll_callback_fn cb );
+        void RegisterDllCallback(
+            Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
+        void UnregisterDllCallback(
+            Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
+        void SetDllUnloadingState(bool value) override {
+          m_bIgnoreAtExit = value;
+        }
+        bool isDllUnloadingState() const override { return m_bIgnoreAtExit; }
+        void AtExitTrigger(
+            Intel::OpenCL::Utils::at_exit_dll_callback_fn cb) override;
         const OCLConfig* GetOCLConfig(){ return m_pConfig; };
 
     private:

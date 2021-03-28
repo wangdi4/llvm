@@ -32,12 +32,11 @@ public:
     class SpecialOutputParamPrinter
     {
     public:
-
-        /**
-         * @return the string to print
-         */
-        virtual std::string GetStringToPrint() const = 0;
-
+      virtual ~SpecialOutputParamPrinter() {}
+      /**
+       * @return the string to print
+       */
+      virtual std::string GetStringToPrint() const = 0;
     };
 
     /**

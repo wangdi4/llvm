@@ -131,11 +131,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ///////////////////////////////////////////////////////////////////////////////////////////
         // IPlatform methods
         ///////////////////////////////////////////////////////////////////////////////////////////
-        virtual cl_int GetPlatformIDs(cl_uint uiNumEntries, cl_platform_id * pclPlatforms, cl_uint * puiNumPlatforms);
-        virtual cl_int GetPlatformInfo(cl_platform_id clPlatform, cl_platform_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
-        virtual cl_int GetDeviceIDs(cl_platform_id clPlatform, cl_device_type clDeviceType, cl_uint uiNumEntries, cl_device_id* pclDevices, cl_uint* puiNumDevices);
-        virtual cl_int GetDeviceInfo(cl_device_id  clDevice, cl_device_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
-        virtual cl_int UnloadCompiler(void);
+        virtual cl_int GetPlatformIDs(cl_uint uiNumEntries,
+                                      cl_platform_id *pclPlatforms,
+                                      cl_uint *puiNumPlatforms) override;
+        virtual cl_int GetPlatformInfo(cl_platform_id clPlatform,
+                                       cl_platform_info clParamName,
+                                       size_t szParamValueSize,
+                                       void *pParamValue,
+                                       size_t *pszParamValueSizeRet) override;
+        virtual cl_int GetDeviceIDs(cl_platform_id clPlatform,
+                                    cl_device_type clDeviceType,
+                                    cl_uint uiNumEntries,
+                                    cl_device_id *pclDevices,
+                                    cl_uint *puiNumDevices) override;
+        virtual cl_int GetDeviceInfo(cl_device_id clDevice,
+                                     cl_device_info clParamName,
+                                     size_t szParamValueSize, void *pParamValue,
+                                     size_t *pszParamValueSizeRet) override;
+        virtual cl_int UnloadCompiler(void) override;
         virtual cl_err_code UnloadPlatformCompiler(cl_platform_id pclPlatforms);
 
         // Device Fission support

@@ -7393,28 +7393,28 @@ class clUnloadCompilerTracer {
   public:
     clUnloadCompilerTracer() {}
 
-    void enter(void* null) {
-        assert(state == TRACING_NOTIFY_STATE_NOTHING_CALLED);
+    void enter(void * /*null*/) {
+      assert(state == TRACING_NOTIFY_STATE_NOTHING_CALLED);
 
-        data.site = CL_CALLBACK_SITE_ENTER;
-        data.correlationId = tracingCorrelationId.fetch_add(1,
-            std::memory_order_acq_rel);
-        data.functionName = "clUnloadCompiler";
-        data.functionParams = nullptr;
-        data.functionReturnValue = nullptr;
+      data.site = CL_CALLBACK_SITE_ENTER;
+      data.correlationId =
+          tracingCorrelationId.fetch_add(1, std::memory_order_acq_rel);
+      data.functionName = "clUnloadCompiler";
+      data.functionParams = nullptr;
+      data.functionReturnValue = nullptr;
 
-        assert(tracingHandle.size() > 0);
-        assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
-        for (size_t i = 0; i < tracingHandle.size(); ++i) {
-            TracingHandle *handle = tracingHandle[i];
-            assert(handle != nullptr);
-            if (handle->getTracingPoint(CL_FUNCTION_clUnloadCompiler)) {
-                data.correlationData = correlationData + i;
-                handle->call(CL_FUNCTION_clUnloadCompiler, &data);
-            }
+      assert(tracingHandle.size() > 0);
+      assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
+      for (size_t i = 0; i < tracingHandle.size(); ++i) {
+        TracingHandle *handle = tracingHandle[i];
+        assert(handle != nullptr);
+        if (handle->getTracingPoint(CL_FUNCTION_clUnloadCompiler)) {
+          data.correlationData = correlationData + i;
+          handle->call(CL_FUNCTION_clUnloadCompiler, &data);
         }
+      }
 
-        state = TRACING_NOTIFY_STATE_ENTER_CALLED;
+      state = TRACING_NOTIFY_STATE_ENTER_CALLED;
     }
 
     void exit(cl_int *retVal) {

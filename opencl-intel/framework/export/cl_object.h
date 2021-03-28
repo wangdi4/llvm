@@ -143,7 +143,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		void SetTerminate(bool bTerminate) { m_bTerminate = bTerminate;}
 
-        const char* GetTypeName() const { return m_typename.c_str(); }
+                const char *GetTypeName() const override {
+                  return m_typename.c_str();
+                }
 
         /******************************************************************************************
         * Do not delete object itself during process ShutDown in order to preserve user handle
@@ -162,7 +164,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Date:            December 2008
         ******************************************************************************************/            
         virtual ~OCLObject() {};
-        OCLObject(const OCLObject& O){}        
+        OCLObject(const OCLObject & /*O*/) {}
 
         HandleType                           m_handle;           // the OpenCL handle of the object        
         cl_int                               m_iId;              // object id
