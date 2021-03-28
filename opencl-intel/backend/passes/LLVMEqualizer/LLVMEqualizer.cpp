@@ -52,7 +52,7 @@ public:
   MaterializeBlockFunctor(BuiltinLibInfo &BLI,
                           llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove)
     : BLI(BLI), FuncDeclToRemove(FuncDeclToRemove) {}
-  void operator()(llvm::BasicBlock &BB) {
+  void operator()(llvm::BasicBlock &BB) override {
     llvm::SmallVector<Instruction *, 4> InstToRemove;
 
     for (auto &b : BB) {
@@ -248,7 +248,7 @@ public:
                              llvm::SmallPtrSetImpl<Function *> &FuncDeclToRemove)
     : BLI(BLI), FuncDeclToRemove(FuncDeclToRemove) {}
 
-  void operator()(llvm::Function &F) {
+  void operator()(llvm::Function &F) override {
     llvm::CallingConv::ID CConv = F.getCallingConv();
     if (llvm::CallingConv::SPIR_FUNC == CConv ||
         llvm::CallingConv::SPIR_KERNEL == CConv) {

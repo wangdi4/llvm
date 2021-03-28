@@ -32,8 +32,10 @@ public:
 
   OclFunctionAttrs();
 
-  virtual llvm::StringRef getPassName() const { return "OclFunctionAttrs"; }
-  virtual bool runOnModule(Module &M);
+  virtual llvm::StringRef getPassName() const override {
+    return "OclFunctionAttrs";
+  }
+  virtual bool runOnModule(Module &M) override;
 };
 
 
@@ -48,8 +50,10 @@ public:
 
   OclSyncFunctionAttrs();
 
-  virtual llvm::StringRef getPassName() const { return "OclSyncFunctionAttrs"; }
-  virtual bool runOnModule(Module &M);
+  virtual llvm::StringRef getPassName() const override {
+    return "OclSyncFunctionAttrs";
+  }
+  virtual bool runOnModule(Module &M) override;
 };
 
 } // namespace intel

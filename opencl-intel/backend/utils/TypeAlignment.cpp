@@ -67,12 +67,11 @@ size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
   case CL_KRNL_ARG_PTR_PIPE_T:
   case CL_KRNL_ARG_PTR_CLK_EVENT_T:
     return arg.size_in_bytes;
-  
-  default:
-  // TODO : exception? assert?
-    assert(0 && "Unknown cl_kernel_argument type");
-    return 0;
   }
+
+  // TODO : exception? assert?
+  assert(false && "Unknown cl_kernel_argument type");
+  return 0;
 }
 
 size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {

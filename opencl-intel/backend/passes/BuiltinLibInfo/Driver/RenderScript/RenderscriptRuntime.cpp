@@ -61,8 +61,7 @@ const char* g_rs_BuiltinReturnByPtr[] = {
   "modf",
   "sincos",
 };
-const size_t g_rs_BuiltinReturnByPtrLength = sizeof(g_rs_BuiltinReturnByPtr) / sizeof(g_rs_BuiltinReturnByPtr[0]);
-  
+
 // TODO[MA]: need to modify the content to match RS
 const char *g_rs_scalarSelects[] = {
   nullptr
@@ -103,23 +102,27 @@ Function * RenderscriptRuntime::findInRuntimeModule(StringRef Name) const {
   return nullptr;
 }
 
-bool RenderscriptRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
+bool RenderscriptRuntime::needPreVectorizationFakeFunction(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
-bool RenderscriptRuntime::isWriteImage(const std::string &funcName) const {
+bool RenderscriptRuntime::isWriteImage(const std::string & /*funcName*/) const {
   return false;
 }
 
-bool RenderscriptRuntime::isFakeWriteImage(const std::string &funcName) const {
+bool RenderscriptRuntime::isFakeWriteImage(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
-bool RenderscriptRuntime::isTransposedReadImg(const std::string &func_name) const {
+bool RenderscriptRuntime::isTransposedReadImg(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
-bool RenderscriptRuntime::isTransposedWriteImg(const std::string &func_name) const {
+bool RenderscriptRuntime::isTransposedWriteImg(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
@@ -131,7 +134,7 @@ Function *RenderscriptRuntime::getWriteStream() const {
   return nullptr;
 }
 
-bool RenderscriptRuntime::isStreamFunc(const std::string &funcName) const {
+bool RenderscriptRuntime::isStreamFunc(const std::string & /*funcName*/) const {
   return false;
 }
 
@@ -221,7 +224,8 @@ bool RenderscriptRuntime::isSafeToSpeculativeExecute(const std::string &func_nam
   return (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow());
 }
 
-bool RenderscriptRuntime::isExpensiveCall(const std::string &func_name) const {
+bool RenderscriptRuntime::isExpensiveCall(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
@@ -230,15 +234,18 @@ bool RenderscriptRuntime::isWorkItemBuiltin(const std::string &func_name) const 
   return false;
 }
 
-bool RenderscriptRuntime::isSyncWithSideEfffect(const std::string &func_name) const {
+bool RenderscriptRuntime::isSyncWithSideEfffect(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
-bool RenderscriptRuntime::isSyncWithNoSideEfffect(const std::string &func_name) const {
+bool RenderscriptRuntime::isSyncWithNoSideEfffect(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
-bool RenderscriptRuntime::isImageDescBuiltin(const std::string &func_name) const {
+bool RenderscriptRuntime::isImageDescBuiltin(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
@@ -270,11 +277,12 @@ bool RenderscriptRuntime::isScalarSelect(const std::string &funcName) const{
   return false;
 }
 
-bool RenderscriptRuntime::isMaskedFunctionCall(const std::string &func_name) const{
+bool RenderscriptRuntime::isMaskedFunctionCall(
+    const std::string & /*funcName*/) const {
   return false;
 }
 
-bool RenderscriptRuntime::needsVPlanStyleMask(StringRef name) const {
+bool RenderscriptRuntime::needsVPlanStyleMask(StringRef /*name*/) const {
   return false;
 }
 

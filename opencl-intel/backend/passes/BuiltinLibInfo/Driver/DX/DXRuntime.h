@@ -34,56 +34,58 @@ public:
 
   /// @brief Find a function in the runtime's built-in functions
   /// @param Name Function name to look for
-  virtual Function *findInRuntimeModule(StringRef Name) const;
+  virtual Function *findInRuntimeModule(StringRef Name) const override;
 
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
   virtual std::unique_ptr<VectorizerFunction>
-  findBuiltinFunction(StringRef inp_name) const;
+  findBuiltinFunction(StringRef inp_name) const override;
 
   /// @brief DX is not ordered. WIAnalysis is not needed
   ///  since everything is assumed to be random.
   /// @return True
-  virtual bool orderedWI() const;
+  virtual bool orderedWI() const override;
 
   /// @brief Check if specified Instruction is an ID generator
   /// @param inst The instruction
   /// @param err Returns TRUE, if unable to determine ID generation
   /// @param dim Dimention of TIDGenerator
-  virtual bool isTIDGenerator(const Instruction *inst, bool *err, unsigned* dim) const;
+  virtual bool isTIDGenerator(const Instruction *inst, bool *err,
+                              unsigned *dim) const override;
 
   /// @brief Check the desired packetization width
   /// @return vector width for packetizing the function
-  virtual unsigned getPacketizationWidth() const;
+  virtual unsigned getPacketizationWidth() const override;
 
   /// @brief Sets the desired packetization width  
   /// @param width vector width for packetizing the function
-  virtual void setPacketizationWidth(unsigned width);
+  virtual void setPacketizationWidth(unsigned width) override;
 
   /// @brief Check if function is a synchronization built-in
   /// @param inp_name Function name to look for
-  virtual bool isSyncFunc(const std::string &func_name) const;
+  virtual bool isSyncFunc(const std::string &func_name) const override;
 
   /// @brief Checks if function is a 'faked function', (i.e., if the given name is
   //  has a definition in the builtin-runtime module, or is it just a
   //  synthesized name for internal usage.
-  virtual bool isFakedFunction(StringRef fname) const;
+  virtual bool isFakedFunction(StringRef fname) const override;
 
   /// @brief returns true if the function has no side effects 
   ///  this means it can be safely vectorized regardless if it is being masked 
   /// @param func_name Function name to check
   /// @return true if function has no side effects
-  virtual bool hasNoSideEffect(const std::string &func_name) const;
+  virtual bool hasNoSideEffect(const std::string &func_name) const override;
 
   /// @brief returns true if func_name is a known expensive call.
   /// @param func_name name of the function.
-  virtual bool isExpensiveCall(const std::string &func_name) const;
+  virtual bool isExpensiveCall(const std::string &func_name) const override;
 
   /// @brief returns true if the function is a masked version that support 
   ///  i1 vector as first parameter
   /// @param func_name Function name to check
   /// @return true if function is masked version
-  virtual bool isMaskedFunctionCall(const std::string &func_name) const;
+  virtual bool
+  isMaskedFunctionCall(const std::string &func_name) const override;
 
   /// @brief Check wether the function needs 'VPlan' style masking,
   ///  meaning it has i32 mask as the last argument.
@@ -94,7 +96,7 @@ public:
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 
   ///        foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 x float> %a.y)
-  virtual bool alwaysSpreadVectorParams() const {return false;}
+  virtual bool alwaysSpreadVectorParams() const override { return false; }
 
   /// @brief returns true iff whenever there is a vector return
   ///        of a vectorizeable scalar built-in it should be concatenated

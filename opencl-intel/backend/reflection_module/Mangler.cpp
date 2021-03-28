@@ -134,6 +134,9 @@ std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gathe
 
   const char *type = 0;
 
+  V_ASSERT((gatherType == Gather || gatherType == Scatter ||
+            gatherType == GatherPrefetch || gatherType == ScatterPrefetch) &&
+           "Invalid GatherScatter type");
   switch (gatherType) {
   case Gather:
     type = "gather.v";
@@ -147,8 +150,6 @@ std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gathe
   case ScatterPrefetch:
     type = "scatterpf.v";
     break;
-  default:
-    V_ASSERT(false && "Invalid GatherScatter type");
   };
 
   result << type;
@@ -170,6 +171,9 @@ std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, 
 
   const char *prefix = 0;
 
+  V_ASSERT((gatherType == Gather || gatherType == Scatter ||
+            gatherType == GatherPrefetch || gatherType == ScatterPrefetch) &&
+           "Invalid gather/scatter type.");
   switch (gatherType) {
   case Gather:
     prefix = prefix_gather.c_str();
@@ -183,8 +187,6 @@ std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, 
   case ScatterPrefetch:
     prefix = prefix_scatter_prefetch.c_str();
     break;
-  default:
-    V_ASSERT(false && "Invalid GatherScatter type");
   };
 
   result << prefix;

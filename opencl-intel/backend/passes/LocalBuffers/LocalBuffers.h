@@ -42,17 +42,17 @@ namespace intel{
     LocalBuffers(bool isNativeDBG, bool useTLSGlobals = false);
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "LocalBuffers";
     }
 
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<LocalBuffAnalysis>();
     }
 

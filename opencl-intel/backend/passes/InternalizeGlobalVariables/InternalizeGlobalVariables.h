@@ -13,7 +13,7 @@
 // License.
 
 #ifndef __INTERNALIZE_GLOBAL_VARIABLES_H__
-#define __INTERNALIZE_GLOBAL_VARiABLES_H__
+#define __INTERNALIZE_GLOBAL_VARIABLES_H__
 
 #include <llvm/IR/Module.h>
 #include <llvm/Pass.h>

@@ -36,9 +36,9 @@ public:
     {
     }
 
-    bool runOnModule(Module& M);
+    bool runOnModule(Module &M) override;
 
-private:
+  private:
     // Invoked on each user-implemented function in the module
     //
     void runOnUserFunction(Function* pFunc);

@@ -47,16 +47,16 @@ namespace intel{
         BuiltinCallToInst() : FunctionPass(ID) {}
 
         /// @brief Provides name of pass
-        virtual llvm::StringRef getPassName() const {
-            return "BuiltinCallToInst";
+        virtual llvm::StringRef getPassName() const override {
+          return "BuiltinCallToInst";
         }
 
         /// @brief  LLVM Function pass entry
         /// @param  F  Function to transform
         /// @return true if changed
-        virtual bool runOnFunction(Function &F);
+        virtual bool runOnFunction(Function &F) override;
 
-    private:
+      private:
         /// @brief built-in function type
         typedef enum {
             SHUFFLE1,

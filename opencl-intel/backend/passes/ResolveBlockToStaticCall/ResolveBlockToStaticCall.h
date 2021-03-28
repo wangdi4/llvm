@@ -39,7 +39,7 @@ namespace intel {
     ResolveBlockToStaticCall() : FunctionPass(ID) {}
 
     /// parse function
-    virtual bool runOnFunction(llvm::Function &F);
+    virtual bool runOnFunction(llvm::Function &F) override;
 
   protected:
     /// resolve call instruction to static call

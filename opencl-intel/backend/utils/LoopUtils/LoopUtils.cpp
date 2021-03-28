@@ -183,7 +183,7 @@ void fillInstructionUsers(Function *F,
   }
 }
 
-void fillInternalFuncUsers(Module &m, const OpenclRuntime *rt,
+void fillInternalFuncUsers(Module &m, const OpenclRuntime * /*rt*/,
                            std::set<Function *> &userFuncs) {
   std::set<Function *> internalFuncs;
   for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit)
@@ -203,7 +203,7 @@ void fillAtomicBuiltinUsers(Module &m, const OpenclRuntime *rt,
   fillFuncUsersSet(atomicFuncs, userFuncs);
 }
 
-void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
+void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime * /*rt*/,
                                   std::set<Function *> &userFuncs) {
   std::set<Function *> pipeFuncs;
   for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit) {
@@ -215,7 +215,7 @@ void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
   fillFuncUsersSet(pipeFuncs, userFuncs);
 }
 
-void fillPrintfs(Module &m, const OpenclRuntime *rt,
+void fillPrintfs(Module &m, const OpenclRuntime * /*rt*/,
                  std::set<Function *> &userFuncs) {
   std::set<Function *> printfFuncs;
   for (Function &f : m) {

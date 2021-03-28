@@ -39,18 +39,18 @@ namespace intel {
         ModulePass(ID), m_pUndefinedExternalFunctions(&undefinedExternalFunctions) {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "UndefExternalFuncs";
     }
 
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns true if changed
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
     /// @brief LLVM Interface
     /// @param AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Analysis pass preserve all
       AU.setPreservesAll();
       AU.addRequired<intel::BuiltinLibInfo>();

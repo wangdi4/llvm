@@ -39,16 +39,16 @@ namespace intel {
     ResolveWICall(bool isUniformWG = false, bool useTLSGlobals = false);
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "ResolveWICall";
     }
 
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns true if changed
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<ImplicitArgsAnalysis>();
     }
 

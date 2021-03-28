@@ -34,37 +34,40 @@ namespace intel {
     /// @brief returns true the function needs to be replaced with fake function
     ///   used by OCLBuiltinPreVectorizationPass - currently disabled in Volcano
     /// @param funcName Function name to check
-    virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const;
-    
+    virtual bool needPreVectorizationFakeFunction(
+        const std::string &funcName) const override;
+
     /// @brief returns true the function is writeImage which need scalarizing of
     ///  input used by OCLBuiltinPreVectorizationPass - currently disabled in
     ///  Volcano
     /// @param funcName Function name to check
-    virtual bool isWriteImage(const std::string &funcName) const;
-    
+    virtual bool isWriteImage(const std::string &funcName) const override;
+
     /// @brief returns true the function is fake writeImage which produced in
     /// Pre-Scalarization used AppleWiDepPrePacketizationPass
     /// @param funcName Function name to check
-    virtual bool isFakeWriteImage(const std::string &funcName) const;
-    
+    virtual bool isFakeWriteImage(const std::string &funcName) const override;
+
     /// @brief returns true iff this is name of transposed_read_image.
     /// @param funcName Function name to check
-    virtual bool isTransposedReadImg(const std::string &func_name) const;
-    
+    virtual bool
+    isTransposedReadImg(const std::string &func_name) const override;
+
     /// @brief returns true iff this is name of transposed_write_image.
     /// @param funcName Function name to check
-    virtual bool isTransposedWriteImg(const std::string &func_name) const;
-    
+    virtual bool
+    isTransposedWriteImg(const std::string &func_name) const override;
+
     /// @brief returns the read stream function from the runtime module.
     /// @param isPointer64Bit true if pointer size is 64bit, false otherwise.
-    virtual Function *getReadStream(bool isPointer64Bit) const;
-    
+    virtual Function *getReadStream(bool isPointer64Bit) const override;
+
     /// @brief returns the write stream function from the runtime module.
     /// @param isPointer64Bit true if pointer size is 64bit, false otherwise.
-    virtual Function *getWriteStream(bool isPointer64Bit) const;
-    
+    virtual Function *getWriteStream(bool isPointer64Bit) const override;
+
     // @brief return true if this name of stream built-in.
-    virtual bool isStreamFunc(const std::string &funcName) const;
+    virtual bool isStreamFunc(const std::string &funcName) const override;
   };
   
 }

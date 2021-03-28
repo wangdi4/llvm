@@ -54,6 +54,7 @@ namespace intel {
         void allUsesReplacedWith(Value *New) override;
       public:
         OCLAAACallbackVH(Value *V, OCLAAResult *OCLAAR = nullptr);
+        virtual ~OCLAAACallbackVH() {}
       };
 
       // Helper class to hold the result of address space resolution

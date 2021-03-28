@@ -279,7 +279,7 @@ Value *ResolveSubGroupWICall::replaceGetSubGroupSize(Instruction *InsertBefore,
 
 Value *
 ResolveSubGroupWICall::replaceGetMaxSubGroupSize(Instruction *InsertBefore,
-                                                 Value *VFVal, int32_t VD) {
+                                                 Value *VFVal, int32_t /*VD*/) {
   return CastInst::CreateTruncOrBitCast(
       VFVal, IntegerType::get(m_pModule->getContext(), 32), "max.sg.size",
       InsertBefore);
@@ -428,7 +428,7 @@ Value *ResolveSubGroupWICall::replaceGetSubGroupId(Instruction *InsertBefore,
 }
 
 Value *ResolveSubGroupWICall::replaceSubGroupBarrier(Instruction *InsertBefore,
-                                                     Value *VFVal, int32_t VD) {
+                                                     Value *, int32_t) {
   CallInst *CI = cast<CallInst>(InsertBefore);
   std::string AtomicWIFenceName =
       CompilationUtils::mangledAtomicWorkItemFence();

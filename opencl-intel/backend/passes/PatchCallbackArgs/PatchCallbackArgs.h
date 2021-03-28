@@ -42,9 +42,11 @@ public:
   static char ID;
   PatchCallbackArgs(bool UseTLSGlobals = false)
       : ModulePass(ID), UseTLSGlobals(UseTLSGlobals || OptUseTLSGlobals) {}
-  virtual llvm::StringRef getPassName() const { return "PatchCallbackArgs"; }
-  bool runOnModule(Module &M);
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual llvm::StringRef getPassName() const override {
+    return "PatchCallbackArgs";
+  }
+  bool runOnModule(Module &M) override;
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<ImplicitArgsAnalysis>();
   }
 };

@@ -30,18 +30,15 @@ class LLVMEqualizer : public llvm::ModulePass {
 public:
   LLVMEqualizer();
 
-  bool runOnModule(llvm::Module &);
+  bool runOnModule(llvm::Module &) override;
 
-  virtual StringRef getPassName() const {
-    return "LLVMEqualizer";
-  }
+  virtual StringRef getPassName() const override { return "LLVMEqualizer"; }
 
   static char ID;
 
-  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
     AU.addRequired<BuiltinLibInfo>();
   }
-
 };
 }
 

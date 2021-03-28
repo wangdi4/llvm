@@ -46,12 +46,14 @@ public:
       : ModulePass(ID), MangledGetGID(CompilationUtils::mangledGetGID()),
         MangledGetLID(CompilationUtils::mangledGetLID()) {}
 
-  virtual llvm::StringRef getPassName() const { return "DeduceMaxWGDim"; }
+  virtual llvm::StringRef getPassName() const override {
+    return "DeduceMaxWGDim";
+  }
 
-  bool runOnModule(Module &M);
+  bool runOnModule(Module &M) override;
   bool runOnFunction(Function &F);
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     // Only modifies metadata
     AU.setPreservesAll();
     AU.addRequired<BuiltinLibInfo>();

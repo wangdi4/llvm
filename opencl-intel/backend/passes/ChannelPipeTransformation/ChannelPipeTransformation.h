@@ -25,13 +25,13 @@ public:
   static char ID;
   ChannelPipeTransformation();
 
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "ChannelPipeTransformation";
   }
 
-  bool runOnModule(llvm::Module &M);
+  bool runOnModule(llvm::Module &M) override;
 
-  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
+  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 };
 
 } // namespace intel

@@ -20,7 +20,6 @@
 #include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 struct ArgData {
   const char *name;
   bool        initByWrapper;

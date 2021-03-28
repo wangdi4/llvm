@@ -41,14 +41,14 @@ namespace intel {
     PreventDivCrashes() : FunctionPass(ID) {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "PreventDivCrashes";
     }
 
     /// @brief    LLVM Function pass entry
     /// @param F  Function to transform
     /// @returns  true if changed
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnFunction(Function &F) override;
 
   private:
     /// @brief    Finds all division instructions (div and rem) in F
@@ -79,16 +79,16 @@ namespace intel {
     OptimizeIDiv() : FunctionPass(ID){}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "OptimizeIDiv";
     }
 
     /// @brief    LLVM Function pass entry
     /// @param F  Function to transform
     /// @returns  true if changed
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnFunction(Function &F) override;
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<BuiltinLibInfo>();
     }
   };

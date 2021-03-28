@@ -33,12 +33,13 @@ public:
   SinCosFold();
 
   // replace cos and sin with a single sincos function
-  bool runOnModule(llvm::Module &M);
+  bool runOnModule(llvm::Module &M) override;
 
-   /// @brief Inform about usage/mofication/dependency of this pass
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  /// @brief Inform about usage/mofication/dependency of this pass
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<BuiltinLibInfo>();
   }
+
 private:
   /// @brief stores information about sin and cos instructions
   class InstructionData

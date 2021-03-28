@@ -191,8 +191,8 @@ static void updateCallInst(CallInst *CI, Function *NewFun,
         } else {
           Value *Alloca = CreateAllocaInst(ElementTy, CI->getFunction(),
                                            Alignment, PT->getAddressSpace());
-          Value *DstPtr = Builder.CreateInBoundsGEP(ElementTy, Alloca,
-                                                    { Builder.getInt32(0) });
+          Value *DstPtr =
+              Builder.CreateInBoundsGEP(ElementTy, Alloca, Builder.getInt32(0));
           Builder.CreateMemCpy(DstPtr, MaybeAlign(Alignment), ArgI,
                                MaybeAlign(Alignment), MemSize);
           Args.push_back(Alloca);

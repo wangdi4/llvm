@@ -164,7 +164,7 @@ namespace intel {
     }
   }
 
-  bool GenericAddressDynamicResolution::resolveGASUsages(Function *pFunc) {
+  bool GenericAddressDynamicResolution::resolveGASUsages(Function * /*pFunc*/) {
 
     bool changed = false;
 

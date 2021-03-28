@@ -66,8 +66,6 @@ const char* BuiltinReturnByPtr[] = {
   "native_sincos",
   "sincos",
 };
-const size_t BuiltinReturnByPtrLength = sizeof(BuiltinReturnByPtr) / sizeof(BuiltinReturnByPtr[0]);
-
 
 /// @brief Constructor which get arbitraty table as input
 OpenclRuntime::OpenclRuntime(SmallVector<Module*, 2> runtimeModuleList,

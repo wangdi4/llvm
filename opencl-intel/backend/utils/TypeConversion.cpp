@@ -49,7 +49,7 @@ public:
   ConversionVisitor(llvm::LLVMContext &ctx): m_Ctx(ctx){
   }
 
-  virtual void visit(const reflection::PrimitiveType *Ty){
+  virtual void visit(const reflection::PrimitiveType *Ty) override {
     switch (Ty->getPrimitive()){
     case reflection::PRIMITIVE_BOOL:
       m_llvmTy = llvm::IntegerType::get(m_Ctx, 1U);
@@ -109,12 +109,12 @@ public:
     }
   }
 
-  virtual void visit(const reflection::VectorType *VTy){
+  virtual void visit(const reflection::VectorType *VTy) override {
     VTy->getScalarType()->accept(this);
     m_llvmTy = llvm::FixedVectorType::get(m_llvmTy, VTy->getLength());
   }
 
-  virtual void visit(const reflection::PointerType *PTy){
+  virtual void visit(const reflection::PointerType *PTy) override {
     PTy->getPointee()->accept(this);
     unsigned AS = 0U;
     for(unsigned int i=0; i< PTy->getAttributes().size(); ++i ) {
@@ -127,15 +127,15 @@ public:
     m_llvmTy = llvm::PointerType::get(m_llvmTy, AS);
   }
 
-  void visit(const reflection::AtomicType* p) {
+  void visit(const reflection::AtomicType * /*ATy*/) override {
     assert(false && "need to support Atomic Parameter type");
   }
 
-  void visit(const reflection::BlockType *BTy) {
+  void visit(const reflection::BlockType * /*BTy*/) override {
     assert(false && "need to support Block Parameter type");
   }
 
-  virtual void visit(const reflection::UserDefinedType *UdTy){
+  virtual void visit(const reflection::UserDefinedType *UdTy) override {
     std::string Name = UdTy->toString();
     m_llvmTy = llvm::StructType::create(m_Ctx, Name);
   }

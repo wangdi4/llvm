@@ -25,45 +25,51 @@ namespace intel {
     "_Z6selectddl", "_Z6selectddm",
     nullptr
   };
-  
-  bool VolcanoOpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
+
+  bool VolcanoOpenclRuntime::needPreVectorizationFakeFunction(
+      const std::string & /*funcName*/) const {
     return false;
   }
-  
-  bool VolcanoOpenclRuntime::isWriteImage(const std::string &funcName) const{
+
+  bool
+  VolcanoOpenclRuntime::isWriteImage(const std::string & /*funcName*/) const {
     return false;
   }
-  
-  bool VolcanoOpenclRuntime::isFakeWriteImage(const std::string &funcName) const{
+
+  bool VolcanoOpenclRuntime::isFakeWriteImage(
+      const std::string & /*funcName*/) const {
     return false;
   }
-  
+
   VolcanoOpenclRuntime::VolcanoOpenclRuntime(SmallVector<Module*, 2> runtimeModuleList) :
   OpenclRuntime(runtimeModuleList, volacanoScalarSelect)
   {
     
   }
-  
-  bool VolcanoOpenclRuntime::isTransposedReadImg(const std::string &func_name) const {
+
+  bool VolcanoOpenclRuntime::isTransposedReadImg(
+      const std::string & /*funcName*/) const {
     return false;
   }
-  
-  Function *VolcanoOpenclRuntime::getWriteStream(bool isPointer64Bit) const {
+
+  Function *
+  VolcanoOpenclRuntime::getWriteStream(bool /*isPointer64Bit*/) const {
     return nullptr;
   }
-  
-  bool VolcanoOpenclRuntime::isTransposedWriteImg(const std::string &func_name) const {
+
+  bool VolcanoOpenclRuntime::isTransposedWriteImg(
+      const std::string & /*funcName*/) const {
     return false;
   }
-  
-  Function *VolcanoOpenclRuntime::getReadStream(bool isPointer64Bit) const {
+
+  Function *VolcanoOpenclRuntime::getReadStream(bool /*isPointer64Bit*/) const {
     return nullptr;
   }
-  
-  bool VolcanoOpenclRuntime::isStreamFunc(const std::string &funcName) const {
+
+  bool
+  VolcanoOpenclRuntime::isStreamFunc(const std::string & /*funcName*/) const {
     return false;
   }
-  
 }
 
 

@@ -50,7 +50,8 @@ DXRuntime::findBuiltinFunction(StringRef inp_name) const {
 
 bool DXRuntime::orderedWI() const { return false; }
 
-bool DXRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigned *dim) const {
+bool DXRuntime::isTIDGenerator(const Instruction * /*inst*/, bool * /*err*/,
+                               unsigned * /*dim*/) const {
   return false;// Everything is a TID generator.
 }
 
@@ -62,20 +63,18 @@ void DXRuntime::setPacketizationWidth(unsigned width) {
   m_packetizationWidth = width;
 }
 
-bool DXRuntime::isSyncFunc(const std::string &func_name) const {
+bool DXRuntime::isSyncFunc(const std::string & /*funcName*/) const {
   // TODO: ComputeShader is defined with SYNC() function
   return false;
 }
 
-bool DXRuntime::isFakedFunction(StringRef fname) const {
-   return false;
-}
+bool DXRuntime::isFakedFunction(StringRef) const { return false; }
 
-bool DXRuntime::hasNoSideEffect(const std::string &func_name) const {
+bool DXRuntime::hasNoSideEffect(const std::string & /*funcName*/) const {
   return true;
 }
 
-bool DXRuntime::isExpensiveCall(const std::string &func_name) const {
+bool DXRuntime::isExpensiveCall(const std::string & /*funcName*/) const {
   return false;
 }
 

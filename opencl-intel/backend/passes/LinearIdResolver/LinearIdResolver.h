@@ -35,11 +35,11 @@ namespace intel {
 
     LinearIdResolver() : FunctionPass(ID) { }
 
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "LinearIdResolver";
     }
 
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnFunction(Function &F) override;
 
   private:
 

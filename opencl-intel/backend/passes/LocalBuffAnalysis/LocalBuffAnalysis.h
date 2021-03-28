@@ -44,14 +44,14 @@ namespace intel{
     LocalBuffAnalysis() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "LocalBuffAnalysis";
     }
 
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns True if changed
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
     /// @brief Returns the set of local values used directly by the given function
     /// @param pFunc   A function for which should return the local values that were
@@ -77,7 +77,7 @@ namespace intel{
 
     /// @brief LLVM Interface
     /// @param AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Analysis pass preserve all
       AU.setPreservesAll();
     }

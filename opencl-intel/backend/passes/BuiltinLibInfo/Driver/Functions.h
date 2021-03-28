@@ -31,11 +31,12 @@ namespace intel {
 struct funcEntry : VectorizerFunction{
   funcEntry(const hashEntry*, unsigned width);
   funcEntry();
-  unsigned getWidth()const;
-  bool isPacketizable()const;
-  bool isScalarizable()const;
-  std::string getVersion(unsigned)const;
-  bool isNull()const;
+  unsigned getWidth() const override;
+  bool isPacketizable() const override;
+  bool isScalarizable() const override;
+  std::string getVersion(unsigned) const override;
+  bool isNull() const override;
+
 private:
   int getIndex()const;
   const hashEntry* m_hashEntry;
