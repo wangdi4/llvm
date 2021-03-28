@@ -54,12 +54,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_command_queue GetEventQueueHandle()  const { return m_pEventQueueHandle; }
         cl_int           GetEventQueueId()      const { return m_pEventQueueId; }
 
-        cl_int           GetReturnCode() const;
+        cl_int GetReturnCode() const override;
         // OCLObject implementation
-        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
+        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
+                            void *paramValue,
+                            size_t *szParamValueSizeRet) const override;
 
         //Override to notify my command about failed events it depended on
-        virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode); 
+        virtual cl_err_code
+        ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                                  cl_int returnCode) override;
 
         // profiling support
         cl_err_code GetProfilingInfo(cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
@@ -92,8 +96,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         QueueEvent( const SharedPtr<IOclCommandQueueBase>& cmdQueue);
 
         //overrides from OclEvent
-        virtual void   DoneWithDependencies(const SharedPtr<OclEvent>& pEvent);
-        virtual void   NotifyComplete(cl_int returnCode = CL_SUCCESS);
+        virtual void
+        DoneWithDependencies(const SharedPtr<OclEvent> &pEvent) override;
+        virtual void NotifyComplete(cl_int returnCode = CL_SUCCESS) override;
 
         SProfilingInfo          m_sProfilingInfo;
         bool                    m_bProfilingEnabled;

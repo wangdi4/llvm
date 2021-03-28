@@ -45,11 +45,15 @@ public:
 
 	// overriden methods:
 
-	cl_err_code Execute();
+        cl_err_code Execute() override;
 
-	cl_command_type GetCommandType() const { return CL_COMMAND_SVM_FREE; }
+        cl_command_type GetCommandType() const override {
+          return CL_COMMAND_SVM_FREE;
+        }
 
-	const char* GetCommandName() const { return "CL_COMMAND_SVM_FREE"; }
+        const char *GetCommandName() const override {
+          return "CL_COMMAND_SVM_FREE";
+        }
 
 private:
 
@@ -79,11 +83,15 @@ public:
 
 	// overriden methods:
 
-	cl_err_code Execute();
+        cl_err_code Execute() override;
 
-	cl_command_type GetCommandType() const { return CL_COMMAND_SVM_MEMCPY; }
+        cl_command_type GetCommandType() const override {
+          return CL_COMMAND_SVM_MEMCPY;
+        }
 
-	const char* GetCommandName() const { return "CL_COMMAND_SVM_MEMCPY"; }
+        const char *GetCommandName() const override {
+          return "CL_COMMAND_SVM_MEMCPY";
+        }
 
 private:
 
@@ -114,11 +122,15 @@ public:
 
 	// overriden methods:
 
-	cl_err_code Execute();
+        cl_err_code Execute() override;
 
-	cl_command_type GetCommandType() const { return CL_COMMAND_SVM_MEMFILL; }
+        cl_command_type GetCommandType() const override {
+          return CL_COMMAND_SVM_MEMFILL;
+        }
 
-	const char* GetCommandName() const { return "CL_COMMAND_SVM_MEMFILL"; }
+        const char *GetCommandName() const override {
+          return "CL_COMMAND_SVM_MEMFILL";
+        }
 
 private:
 

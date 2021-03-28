@@ -36,15 +36,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Get the context to which the event belongs.
 		// Get the return code of the command associated with the event.
-		cl_int     GetReturnCode() const {return 0;}
-		cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
-			{return CL_INVALID_OPERATION;}
+        cl_int GetReturnCode() const override { return 0; }
+        cl_err_code GetInfo(cl_int /*iParamName*/, size_t /*szParamValueSize*/,
+                            void * /*pParamValue*/,
+                            size_t * /*pszParamValueSizeRet*/) const override {
+          return CL_INVALID_OPERATION;
+        }
 
-		// IEventObserver
-		cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode);
+        // IEventObserver
+        cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                                              cl_int returnCode) override;
 
-	protected:
-
+      protected:
         MemoryObjectEvent( IOCLDevMemoryObject* *ppDevMemObj, const SharedPtr<MemoryObject>& pMemObject, const SharedPtr<FissionableDevice>& pDevice );
 
 		virtual ~MemoryObjectEvent();        

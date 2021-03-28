@@ -41,6 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code Flush(bool bBlocking)  = 0;
         virtual cl_err_code SendCommandsToDevice() = 0;
         virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
+        virtual ~ICommandQueue() {}
     };
 
     class IOclCommandQueueBase : public OclCommandQueue, public ICommandQueue
@@ -59,14 +60,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
         virtual cl_err_code EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAND_TYPE type, 
             Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* pApiLogger);
-        virtual cl_err_code WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );            
-        virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
+        virtual cl_err_code
+        WaitForCompletion(const SharedPtr<QueueEvent> &pEvent) override;
+        virtual ocl_gpa_data *GetGPAData() const override {
+          return m_pContext->GetGPAData();
+        }
 
         virtual void        AddFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const { pCmdEvent->AddFloatingDependence(); }
         virtual void        RemoveFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const { pCmdEvent->RemoveFloatingDependence(); }
 
         // manage lifetime slightly differently from another ReferenceCounted objects
-        virtual void EnterZombieState( EnterZombieStateLevel call_level );
+        virtual void
+        EnterZombieState(EnterZombieStateLevel call_level) override;
         void NotifyCommandFailed( cl_err_code err , const CommandSharedPtr<>&  command ) const;
 
     protected:
@@ -80,10 +85,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~IOclCommandQueueBase() {}
 
-        virtual  void BecomeVisible();        
+        virtual void BecomeVisible() override;
 
-    private:
-
+      private:
         cl_err_code EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
     };
 }}}    // Intel::OpenCL::Framework

@@ -60,8 +60,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             EventsManager*              pEventManager
             );
         virtual  cl_err_code     Initialize();
-        cl_err_code        GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
-
+        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
+                            void *pParamValue,
+                            size_t *pszParamValueSizeRet) const override;
 
         //These make little sense. Here for legacy support - deprecated in 1.1
         cl_bool         EnableProfiling( cl_bool bEnabled );

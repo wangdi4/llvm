@@ -135,21 +135,22 @@ void OclEvent::AddDependentOnMulti(unsigned int count, SharedPtr<OclEvent>* pDep
     for (unsigned int i = 0; i < count; ++i)
     {
         SharedPtr<OclEvent>& evt = pDependencyList[i];
-        if (evt != NULL)
-        {
-            // Normal flow, add the dependency
-            //AddPendency(evt); //BugFix: When command waits for queue event and user event,
-            // and user event is set with failure, the second notification will fail
-            // do not: SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-            evt->AddObserver(SharedPtr<OclEvent>(this)); // might trigger this immediately, if evt already occurred.
-            bLastWasNull = false;
+        if (evt.GetPtr() != NULL) {
+          // Normal flow, add the dependency
+          // AddPendency(evt);
+          // BugFix: When command waits for queue event and user event, and user
+          // event is set with failure, the second notification will fail do
+          // not: SetEventState (EVENT_STATE_HAS_DEPENDENCIES);
+          evt->AddObserver(
+              SharedPtr<OclEvent>(this)); // might trigger this immediately, if
+                                          // evt already occurred.
+          bLastWasNull = false;
         } else {
-            cl_int depsLeft = --m_numOfDependencies;
-            if (0 == depsLeft)
-            {
-                // we dropped the list to 0 on a bogus NULL event.
-                bLastWasNull = true;
-            }
+          cl_int depsLeft = --m_numOfDependencies;
+          if (0 == depsLeft) {
+            // we dropped the list to 0 on a bogus NULL event.
+            bLastWasNull = true;
+          }
         }
     }
 
@@ -305,15 +306,11 @@ void OclEvent::NotifyRunning()
     NotifyObservers(CL_RUNNING);
 }
 
-
-void OclEvent::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
-{
-    if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
-    {
-        SetEventState(EVENT_STATE_READY_TO_EXECUTE);
-    }
+void OclEvent::DoneWithDependencies(const SharedPtr<OclEvent> & /*pEvent*/) {
+  if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState()) {
+    SetEventState(EVENT_STATE_READY_TO_EXECUTE);
+  }
 }
-
 
 void OclEvent::NotifyObservers(const cl_int retCode)
 {
@@ -472,8 +469,10 @@ cl_int OclEvent::GetEventExecState(const OclEventState state) const
     case EVENT_STATE_DONE_EXECUTING_ON_DEVICE:
         return CL_RUNNING;
     case EVENT_STATE_DONE:
-    default:
         return CL_COMPLETE;
-    }        
+    }
+
+    assert(false && "Invalid event state");
+    return CL_COMPLETE;
 }
 

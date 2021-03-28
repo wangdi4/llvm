@@ -323,14 +323,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~ReadMemObjCommand();
 
-        virtual ECommandExecutionType GetExecutionType() const
-        { return m_commandType != CL_COMMAND_MARKER ? DEVICE_EXECUTION_TYPE : RUNTIME_EXECUTION_TYPE; }
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return m_commandType != CL_COMMAND_MARKER ? DEVICE_EXECUTION_TYPE
+                                                    : RUNTIME_EXECUTION_TYPE;
+        }
 
-        virtual cl_err_code             Init();
-        virtual cl_err_code             Execute();
-        virtual cl_err_code             CommandDone();
-        
-    protected:
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
+
+      protected:
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         size_t          m_szMemObjRowPitch;
@@ -454,13 +456,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~WriteMemObjCommand();
 
-        virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
+        }
 
-        virtual cl_err_code   Init();
-        virtual cl_err_code   Execute();
-        virtual cl_err_code   CommandDone();
-        
-    private:
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
+
+      private:
         size_t          m_szOrigin[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_bool         m_bBlocking;
@@ -527,13 +531,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~FillMemObjCommand();
 
-        virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
+        }
 
-        virtual cl_err_code   Init();
-        virtual cl_err_code   Execute();
-        virtual cl_err_code   CommandDone();
-        
-    protected:
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
+
+      protected:
         size_t          m_szOffset[MAX_WORK_DIM];
         size_t          m_szRegion[MAX_WORK_DIM];
         cl_uint         m_numOfDimms;
@@ -732,15 +738,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t    szDstSlicePitch
         );
         virtual ~CopyMemObjCommand();
-        
-        virtual cl_err_code Init();
-        virtual cl_err_code Execute();
-        virtual cl_err_code CommandDone();
-        
-        virtual ECommandExecutionType GetExecutionType() const
-        {return m_commandType != CL_COMMAND_MARKER ? DEVICE_EXECUTION_TYPE : RUNTIME_EXECUTION_TYPE;}
-        
-        
+
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
+
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return m_commandType != CL_COMMAND_MARKER ? DEVICE_EXECUTION_TYPE
+                                                    : RUNTIME_EXECUTION_TYPE;
+        }
+
     protected:
         SharedPtr<MemoryObject>   m_pSrcMemObj;
         SharedPtr<MemoryObject>   m_pDstMemObj;
@@ -915,15 +922,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t*         pszImageSlicePitch
         );
         virtual ~MapMemObjCommand();
-        
-        virtual cl_err_code Init();
-        virtual cl_err_code Execute();
-        virtual cl_err_code CommandDone();
 
-        ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
-        
-        virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
-        virtual cl_err_code    PostfixExecute();
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
+
+        ECommandExecutionType GetExecutionType() const override {
+          return m_ExecutionType;
+        }
+
+        virtual cl_err_code EnqueueSelf(cl_bool bBlocking,
+                                        cl_uint uNumEventsInWaitList,
+                                        const cl_event *cpEeventWaitList,
+                                        cl_event *pEvent,
+                                        ApiLogger *apiLogger) override;
+        virtual cl_err_code PostfixExecute() override;
 
         // Object only function
         void*           GetMappedPtr() const { return m_pHostDataPtr; }
@@ -1014,16 +1027,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
             void*                  pMappedRegion
         );
         virtual ~UnmapMemObjectCommand();
-        
-        cl_err_code             Init();
-        cl_err_code             Execute();
-        cl_err_code             CommandDone();
 
-        cl_err_code                EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
-        cl_err_code                PrefixExecute();
+        cl_err_code Init() override;
+        cl_err_code Execute() override;
+        cl_err_code CommandDone() override;
 
-        ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
-        
+        cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList,
+                                const cl_event *cpEeventWaitList,
+                                cl_event *pEvent,
+                                ApiLogger *apiLogger) override;
+        cl_err_code PrefixExecute() override;
+
+        ECommandExecutionType GetExecutionType() const override {
+          return m_ExecutionType;
+        }
+
     private:
         void*                   m_pMappedPtr;
         cl_dev_cmd_param_map*   m_pMappedRegion;       
@@ -1060,22 +1078,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         NDRangeKernelCommand(const SharedPtr<IOclCommandQueueBase>& cmdQueue, ocl_entry_points* pOclEntryPoints, const SharedPtr<Kernel>& pKernel, cl_uint uWorkDim, const size_t* szGlobalWorkOffset, const size_t* szGlobalWorkSize, const size_t* szLocalWorkSize);
         virtual ~NDRangeKernelCommand();
-        
-        virtual cl_err_code     Init();
-        virtual cl_err_code     Execute();
-        virtual cl_err_code     CommandDone();
-        ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
-        
+
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
+        ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
+        }
+
         // GPA related functions
         virtual const char*     GPA_GetCommandName() const override {
           return (CL_COMMAND_NDRANGE_KERNEL == m_commandType)
                      ? m_pKernel->GetName()
                      : Command::GPA_GetCommandName();
         }
-        virtual void            GPA_WriteCommandMetadata();
-        
+        virtual void GPA_WriteCommandMetadata() override;
 
-    protected:
+      protected:
         cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
         SharedPtr<Kernel>       m_pKernel;
@@ -1105,8 +1124,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~TaskCommand();
         
         // Override Init only to set a different device type
-        cl_err_code             Init();
-        ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE; }
+        cl_err_code Init() override;
+        ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
+        }
 
     private:
         size_t m_szStaticWorkSize; // Set to 1 to support NDRangeKernel execution with work_size=1
@@ -1131,12 +1152,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const void**                            ppArgsMemLoc
         );
         virtual ~NativeKernelCommand();
-        
-        cl_err_code             Init();
-        cl_err_code             Execute();
-        cl_err_code             CommandDone();
-        ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;     }
-        
+
+        cl_err_code Init() override;
+        cl_err_code Execute() override;
+        cl_err_code CommandDone() override;
+        ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
+        }
+
     protected:
         cl_dev_cmd_param_native m_nativeParams;
         
@@ -1164,16 +1187,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const size_t*          sizes
         );
 
-        virtual                         ~MigrateSVMMemCommand();
+        virtual ~MigrateSVMMemCommand();
 
-        virtual ECommandExecutionType   GetExecutionType() const  { return DEVICE_EXECUTION_TYPE; }
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
+        }
 
-        virtual cl_err_code             Init();
-        virtual cl_err_code             Execute();
-        virtual cl_err_code             CommandDone();
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
 
-    protected:
-
+      protected:
         const void**                m_pMemObjects;      // used temporary to pass info from contructor to init()
         const size_t*               m_pSizes;
         ContextModule*              m_pContextModule;
@@ -1199,14 +1223,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual                         ~MigrateMemObjCommand();
 
-        virtual ECommandExecutionType   GetExecutionType() const{ return DEVICE_EXECUTION_TYPE;   }
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
+        }
 
-        virtual cl_err_code             Init();
-        virtual cl_err_code             Execute();
-        virtual cl_err_code             CommandDone();
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
 
-    protected:
-
+      protected:
         const cl_mem*               m_pMemObjects;      // used temporary to pass info from contructor to init()
         ContextModule*              m_pContextModule;
 
@@ -1229,18 +1254,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t size
         );
 
-        virtual                         ~MigrateUSMMemCommand() {}
+        virtual ~MigrateUSMMemCommand() {}
 
-        virtual ECommandExecutionType   GetExecutionType() const {
-            return DEVICE_EXECUTION_TYPE;
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
         }
 
-        virtual cl_err_code             Init();
-        virtual cl_err_code             Execute();
-        virtual cl_err_code             CommandDone();
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
 
-    protected:
-
+      protected:
         const void*                  m_ptr;
         ContextModule*               m_contextModule;
 
@@ -1261,18 +1285,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
             cl_mem_advice_intel advice
         );
 
-        virtual                         ~AdviseUSMMemCommand() {}
+        virtual ~AdviseUSMMemCommand() {}
 
-        virtual ECommandExecutionType   GetExecutionType() const {
-            return DEVICE_EXECUTION_TYPE;
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return DEVICE_EXECUTION_TYPE;
         }
 
-        virtual cl_err_code             Init();
-        virtual cl_err_code             Execute();
-        virtual cl_err_code             CommandDone();
+        virtual cl_err_code Init() override;
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override;
 
-    protected:
-
+      protected:
         const void*                 m_ptr;
         ContextModule*              m_contextModule;
 
@@ -1294,12 +1317,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
             m_commandType = CL_COMMAND_RUNTIME;
         }
         virtual ~RuntimeCommand()                               {}
-        virtual cl_err_code             Init()                  { return CL_SUCCESS; }
-        virtual cl_err_code             Execute();
-        virtual cl_err_code             CommandDone()           { return CL_SUCCESS; }
-        virtual ECommandExecutionType   GetExecutionType() const{ return RUNTIME_EXECUTION_TYPE;  }
-        virtual bool isControlCommand() const { return true; }
-        virtual bool IsDependentOnEvents() const { return m_bIsDependentOnEvents; }
+        virtual cl_err_code Init() override { return CL_SUCCESS; }
+        virtual cl_err_code Execute() override;
+        virtual cl_err_code CommandDone() override { return CL_SUCCESS; }
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return RUNTIME_EXECUTION_TYPE;
+        }
+        virtual bool isControlCommand() const override { return true; }
+        virtual bool IsDependentOnEvents() const override {
+          return m_bIsDependentOnEvents;
+        }
 
     private:
 
@@ -1400,15 +1427,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
         //Override to notify my command about failed events it depended on
-        virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode);
+        virtual cl_err_code
+        ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                                  cl_int returnCode) override;
 
         // Get the return code of the command associated with the event.
-        virtual cl_int     GetReturnCode() const; 
+        virtual cl_int GetReturnCode() const override;
 
-        virtual cl_err_code    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
+        virtual cl_err_code
+        GetInfo(cl_int iParamName, size_t szParamValueSize, void *pParamValue,
+                size_t *pszParamValueSizeRet) const override;
 
-    private:
-
+      private:
         ErrorQueueEvent(_cl_context_int* context) : OclEvent(context), m_owner(nullptr) {};
 
         PrePostFixRuntimeCommand* m_owner;
@@ -1425,17 +1455,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
         // ITask interface
-        bool    SetAsSyncPoint();
-        bool    IsCompleted() const {return m_bIsCompleted;}
-        bool    CompleteAndCheckSyncPoint();
-        bool    Execute();
-        void    Cancel();
-        long    Release(); 
+        bool SetAsSyncPoint() override;
+        bool IsCompleted() const override { return m_bIsCompleted; }
+        bool CompleteAndCheckSyncPoint() override;
+        bool Execute() override;
+        void Cancel() override;
+        long Release() override;
 
-        Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
-                        { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
+        Intel::OpenCL::TaskExecutor::TASK_PRIORITY
+        GetPriority() const override {
+          return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;
+        }
 
-        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
+        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+        GetNDRangeChildrenTaskGroup() override {
+          return nullptr;
+        }
 
     private:
 
@@ -1454,9 +1489,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                     Mode working_mode, 
                                     const SharedPtr<IOclCommandQueueBase>& cmdQueue );
 
-        cl_err_code             Init();
-        cl_err_code                Execute();
-        cl_err_code             CommandDone();
+        cl_err_code Init() override;
+        cl_err_code Execute() override;
+        cl_err_code CommandDone() override;
 
         // called possibly from another thread
         void                    DoAction();

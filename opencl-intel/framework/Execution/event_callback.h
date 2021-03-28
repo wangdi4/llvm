@@ -26,24 +26,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class EventCallback : public IEventObserver
 	{
 	public:
-		
-        PREPARE_SHARED_PTR(EventCallback)
+          EventCallback(eventCallbackFn callback, void *pUserData,
+                        const cl_int expectedExecState);
+          PREPARE_SHARED_PTR(EventCallback)
 
-        static SharedPtr<EventCallback> Allocate(eventCallbackFn callback, void* pUserData, const cl_int expectedExecState)
-        {
-            return SharedPtr<EventCallback>(new EventCallback(callback, pUserData, expectedExecState)); }
+          static SharedPtr<EventCallback>
+          Allocate(eventCallbackFn callback, void *pUserData,
+                   const cl_int expectedExecState) {
+            return SharedPtr<EventCallback>(new EventCallback(callback, pUserData, expectedExecState));
+          }
 
-		virtual ~EventCallback() {}
+                virtual ~EventCallback() {}
 
 		// IEventObserver
-        cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode);
-		cl_int GetExpectedExecState() const { return m_eventCallbackExecState; }
+                cl_err_code
+                ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                                          cl_int returnCode) override;
+                cl_int GetExpectedExecState() const override {
+                  return m_eventCallbackExecState;
+                }
 
-	private:
-
-        EventCallback(eventCallbackFn callback, void* pUserData, const cl_int expectedExecState);
-
-		eventCallbackFn  m_callback;
+              private:
+                eventCallbackFn  m_callback;
 		void*            m_pUserData;
 		const cl_int     m_eventCallbackExecState;
 	};

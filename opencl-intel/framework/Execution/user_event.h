@@ -31,14 +31,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
 
         // OCLObject implementation
-        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
+        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
+                            void *paramValue,
+                            size_t *szParamValueSizeRet) const override;
 
         void        SetComplete(cl_int returnCode);
 
-        void        NotifyInvisible();
+        void NotifyInvisible() override;
 
-    protected:
-        
+      protected:
         UserEvent( _cl_context_int* context );
 
         virtual ~UserEvent();        

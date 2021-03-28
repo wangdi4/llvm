@@ -85,8 +85,7 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
     return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
-{
+cl_err_code InOrderCommandQueue::Flush(bool /*bBlocking*/) {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
@@ -108,8 +107,10 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
     return CL_SUCCESS;
 }
 
-cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
-{
+cl_err_code
+InOrderCommandQueue::NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
+                                       OclEventState /*prevColor*/,
+                                       OclEventState newColor) {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {

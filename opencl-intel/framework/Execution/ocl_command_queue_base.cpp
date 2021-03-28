@@ -46,7 +46,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 
     const SharedPtr<QueueEvent>& pQueueEvent  = pCommand->GetEvent();
     cl_event                     pEventHandle = pQueueEvent->GetHandle();
-    assert(NULL != pQueueEvent);    // klocwork
+    assert(NULL != pQueueEvent.GetPtr()); // klocwork
     if (m_bProfilingEnabled)
     {
         pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
@@ -151,7 +151,7 @@ cl_err_code IOclCommandQueueBase::EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAN
 {
     const SharedPtr<QueueEvent>& pQueueEvent  = pCommand->GetEvent();
     cl_event                     pEventHandle = pQueueEvent->GetHandle();
-    assert(NULL != pQueueEvent);    // klocwork
+    assert(NULL != pQueueEvent.GetPtr()); // klocwork
 
     cl_err_code errVal = CL_SUCCESS;
 
@@ -174,23 +174,23 @@ cl_err_code IOclCommandQueueBase::EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAN
         return errVal;
     }
 
-    switch (type)
-    {
-        case JUST_WAIT:
-            errVal = EnqueueWaitForEvents(pCommand);
-            break;
+    if (type != JUST_WAIT && type != MARKER && type != BARRIER) {
+      assert(false && "Unknown runtime command type");
+      errVal = CL_ERR_FAILURE;
+    } else {
+      switch (type) {
+      case JUST_WAIT:
+        errVal = EnqueueWaitForEvents(pCommand);
+        break;
 
-        case MARKER:
-            errVal = EnqueueMarkerWaitForEvents(pCommand);
-            break;
+      case MARKER:
+        errVal = EnqueueMarkerWaitForEvents(pCommand);
+        break;
 
-        case BARRIER:
-            errVal = EnqueueBarrierWaitForEvents(pCommand);
-            break;
-
-        default:
-            assert( 0 && "Unknown runtime command type" );
-            errVal = CL_ERR_FAILURE;
+      case BARRIER:
+        errVal = EnqueueBarrierWaitForEvents(pCommand);
+        break;
+      }
     }
 
     // RemoveFloatingDependence() must to be after Enqueue; this prevents a situation where the current
@@ -263,40 +263,40 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>&
  /******************************************************************
  * This object holds extra reference count as it is recorded in ContextModule
  ******************************************************************/
-void IOclCommandQueueBase::EnterZombieState( EnterZombieStateLevel call_level )
-{
-    m_pContext->GetContextModule().CommandQueueRemoved( this );
-    OclCommandQueue::EnterZombieState(RECURSIVE_CALL);
+void IOclCommandQueueBase::EnterZombieState(
+    EnterZombieStateLevel /*call_level*/) {
+  m_pContext->GetContextModule().CommandQueueRemoved(this);
+  OclCommandQueue::EnterZombieState(RECURSIVE_CALL);
 }
-
 
 void IOclCommandQueueBase::NotifyCommandFailed( cl_err_code err , const CommandSharedPtr<>& command ) const
 {
-    if ( NULL != command)
-    {
-        std::stringstream stream;
-        _cl_event_int* handle = NULL;
-        if(command->GetEvent()->GetVisibleToUser())
-        {
-            handle = command->GetEvent()->GetHandle();
-        }
-
-        if (g_pUserLogger->IsErrorLoggingEnabled())
-        {
-            stream << "Command failed. " << "command type: " << command->GetCommandName();
-            stream << ", command id: " << command->GetEvent()->GetId();
-            stream << ", result value: " << err;
-            stream << ", The cl_event value associated with the command: 0x" << handle;
-            g_pUserLogger->PrintError(stream.str());
-            stream.str(std::string());
-        }
-      
-        stream << "A command failed with return value: " << err;
-        stream << ", the cl_event value associated with the command is in the private_info "<<
-            "parameter, and its value is: 0x"<< handle <<". for more information use logging.";
-        const std::string& tmp = stream.str();
-        GetContext()->NotifyError( tmp.c_str() , handle , sizeof(handle) );
+  if (NULL != command.GetPtr()) {
+    std::stringstream stream;
+    _cl_event_int *handle = NULL;
+    if (command->GetEvent()->GetVisibleToUser()) {
+      handle = command->GetEvent()->GetHandle();
     }
+
+    if (g_pUserLogger->IsErrorLoggingEnabled()) {
+      stream << "Command failed. "
+             << "command type: " << command->GetCommandName();
+      stream << ", command id: " << command->GetEvent()->GetId();
+      stream << ", result value: " << err;
+      stream << ", The cl_event value associated with the command: 0x"
+             << handle;
+      g_pUserLogger->PrintError(stream.str());
+      stream.str(std::string());
+    }
+
+    stream << "A command failed with return value: " << err;
+    stream << ", the cl_event value associated with the command is in the "
+              "private_info "
+           << "parameter, and its value is: 0x" << handle
+           << ". for more information use logging.";
+    const std::string &tmp = stream.str();
+    GetContext()->NotifyError(tmp.c_str(), handle, sizeof(handle));
+  }
 }
 
 void IOclCommandQueueBase::BecomeVisible()

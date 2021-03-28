@@ -43,58 +43,52 @@ cl_err_code ImmediateCommandQueue::Initialize()
     return ret;
 }
 
-cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
-{
-    cl_err_code ret         = CL_SUCCESS;
-    SharedPtr<QueueEvent> pQueueEvent = pCommand->GetEvent();
-    if (m_bProfilingEnabled)
-    {
-        pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
-    }
-    if (!m_bOutOfOrderEnabled)
-    {
-        m_CS.Lock();
-    }
-    if (uNumEventsInWaitList > 0)
-    {
-        ret = m_pEventsManager->WaitForEvents(uNumEventsInWaitList, cpEeventWaitList);
-    }
-    if (CL_SUCCESS != ret)
-    {
-        if (!m_bOutOfOrderEnabled)
-        {
-            m_CS.Unlock();
-        }
-        return ret;
-    }
-    if (nullptr != pEvent)
-    {
-        pQueueEvent->SetVisibleToUser();
-        m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
-    }
-
-    if (apiLogger != nullptr)
-    {
-        apiLogger->SetCmdId(pQueueEvent->GetId());
-    }
-
-    ret = Enqueue(pCommand);
-
-    if (!m_bOutOfOrderEnabled)
-    {
-        m_CS.Unlock();
-    }
-
-    if (nullptr == pEvent)
-    {
-        pQueueEvent->Release();
-    }
-
-    if (CL_SUCCESS != ret)
-    {
-        NotifyCommandFailed(ret,pCommand);
+cl_err_code ImmediateCommandQueue::EnqueueCommand(
+    Command *pCommand, cl_bool /*bBlocking*/, cl_uint uNumEventsInWaitList,
+    const cl_event *cpEeventWaitList, cl_event *pEvent, ApiLogger *apiLogger) {
+  cl_err_code ret = CL_SUCCESS;
+  SharedPtr<QueueEvent> pQueueEvent = pCommand->GetEvent();
+  if (m_bProfilingEnabled) {
+    pQueueEvent->SetProfilingInfo(
+        CL_PROFILING_COMMAND_QUEUED,
+        m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
+  }
+  if (!m_bOutOfOrderEnabled) {
+    m_CS.Lock();
+  }
+  if (uNumEventsInWaitList > 0) {
+    ret =
+        m_pEventsManager->WaitForEvents(uNumEventsInWaitList, cpEeventWaitList);
+  }
+  if (CL_SUCCESS != ret) {
+    if (!m_bOutOfOrderEnabled) {
+      m_CS.Unlock();
     }
     return ret;
+  }
+  if (nullptr != pEvent) {
+    pQueueEvent->SetVisibleToUser();
+    m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
+  }
+
+  if (apiLogger != nullptr) {
+    apiLogger->SetCmdId(pQueueEvent->GetId());
+  }
+
+  ret = Enqueue(pCommand);
+
+  if (!m_bOutOfOrderEnabled) {
+    m_CS.Unlock();
+  }
+
+  if (nullptr == pEvent) {
+    pQueueEvent->Release();
+  }
+
+  if (CL_SUCCESS != ret) {
+    NotifyCommandFailed(ret, pCommand);
+  }
+  return ret;
 }
 
 cl_err_code ImmediateCommandQueue::Enqueue(Command* cmd)
@@ -149,23 +143,17 @@ cl_err_code ImmediateCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier)
     return EnqueueMarkerWaitForEvents(barrier);
 }
 
-cl_err_code ImmediateCommandQueue::Flush(bool bBlocking)
-{
-	return CL_SUCCESS;
+cl_err_code ImmediateCommandQueue::Flush(bool /*bBlocking*/) {
+  return CL_SUCCESS;
 }
 
-cl_err_code ImmediateCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
-{
-	return CL_SUCCESS;
+cl_err_code ImmediateCommandQueue::NotifyStateChange(
+    const SharedPtr<QueueEvent> & /*pEvent*/, OclEventState /*prevColor*/,
+    OclEventState /*newColor*/) {
+  return CL_SUCCESS;
 }
 
 cl_err_code ImmediateCommandQueue::SendCommandsToDevice()
 {
     return CL_SUCCESS;
 }
-/*
-bool ImmediateCommandQueue::WaitForCompletion(SharedPtr<OclEvent> pEvent)
-{
-
-}
-*/

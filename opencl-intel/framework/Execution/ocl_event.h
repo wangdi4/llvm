@@ -148,7 +148,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool               HasDependencies() const    { return m_numOfDependencies > 0;}
 
         // Implementation IEventObserver
-        virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode = CL_SUCCESS);
+        virtual cl_err_code
+        ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                                  cl_int returnCode = CL_SUCCESS) override;
 
         // Blocking function, returns after NotifyComplete is done
         virtual void    Wait();
@@ -156,15 +158,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_int GetEventExecState(const OclEventState state) const;
         cl_int GetEventExecState() const;
 
-        virtual cl_int  GetExpectedExecState() const { return CL_COMPLETE; }
-
+        virtual cl_int GetExpectedExecState() const override {
+          return CL_COMPLETE;
+        }
 
         // Get the return code of the command associated with the event.
         virtual cl_int     GetReturnCode() const        { return m_returnCode; }
 
-        virtual void Cleanup(bool bIsTerminate = false) { delete this; }
+        virtual void Cleanup(bool /*bTerminate*/ = false) override {
+          delete this;
+        }
 
-    protected:
+      protected:
         OclEvent(const std::string& typeName);
         virtual ~OclEvent();
 

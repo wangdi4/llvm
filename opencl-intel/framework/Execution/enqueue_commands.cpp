@@ -446,42 +446,31 @@ void MemoryCommand::create_dev_cmd_rw(
  *
  ******************************************************************/
 CopyMemObjCommand::CopyMemObjCommand(
-                  const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-                  ocl_entry_points *    pOclEntryPoints,
-                        const SharedPtr<MemoryObject>&   pSrcMemObj,
-                        const SharedPtr<MemoryObject>&   pDstMemObj,
-                        const size_t*   szSrcOrigin,
-                        const size_t*   szDstOrigin,
-                        const size_t*   szRegion,
-                        const size_t    szSrcRowPitch    = 0,
-                        const size_t    szSrcSlicePitch = 0,
-                        const size_t    szDstRowPitch    = 0,
-                        const size_t    szDstSlicePitch    = 0):
-    MemoryCommand(cmdQueue),
-    m_pSrcMemObj(pSrcMemObj),
-    m_pDstMemObj(pDstMemObj),
-    m_szSrcRowPitch(szSrcRowPitch),
-    m_szSrcSlicePitch(szSrcSlicePitch),
-    m_szDstRowPitch(szDstRowPitch),
-    m_szDstSlicePitch(szDstSlicePitch)
-{
-    for( int i=0; i<MAX_WORK_DIM; i++ )
-    {
-        m_szSrcOrigin[i] = szSrcOrigin[i];
-    }
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/,
+    const SharedPtr<MemoryObject> &pSrcMemObj,
+    const SharedPtr<MemoryObject> &pDstMemObj, const size_t *szSrcOrigin,
+    const size_t *szDstOrigin, const size_t *szRegion,
+    const size_t szSrcRowPitch = 0, const size_t szSrcSlicePitch = 0,
+    const size_t szDstRowPitch = 0, const size_t szDstSlicePitch = 0)
+    : MemoryCommand(cmdQueue), m_pSrcMemObj(pSrcMemObj),
+      m_pDstMemObj(pDstMemObj), m_szSrcRowPitch(szSrcRowPitch),
+      m_szSrcSlicePitch(szSrcSlicePitch), m_szDstRowPitch(szDstRowPitch),
+      m_szDstSlicePitch(szDstSlicePitch) {
+  for (int i = 0; i < MAX_WORK_DIM; i++) {
+    m_szSrcOrigin[i] = szSrcOrigin[i];
+  }
 
-    for( int i=0; i<MAX_WORK_DIM; i++ )
-    {
-        m_szDstOrigin[i] = szDstOrigin[i];
-    }
+  for (int i = 0; i < MAX_WORK_DIM; i++) {
+    m_szDstOrigin[i] = szDstOrigin[i];
+  }
 
-    for( int i=0; i<MAX_WORK_DIM; i++ )
-    {
-        m_szRegion[i] = szRegion[i];
-    }
+  for (int i = 0; i < MAX_WORK_DIM; i++) {
+    m_szRegion[i] = szRegion[i];
+  }
 
-    m_uiSrcNumDims = m_pSrcMemObj->GetNumDimensions();
-    m_uiDstNumDims = m_pDstMemObj->GetNumDimensions();
+  m_uiSrcNumDims = m_pSrcMemObj->GetNumDimensions();
+  m_uiDstNumDims = m_pDstMemObj->GetNumDimensions();
 }
 
 /******************************************************************
@@ -1388,23 +1377,14 @@ cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEv
  *
  ******************************************************************/
 NativeKernelCommand::NativeKernelCommand(
-    const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-    ocl_entry_points *    pOclEntryPoints,
-    void              (CL_CALLBACK*pUserFnc)(void *),
-           void*               pArgs,
-           size_t              szCbArgs,
-           cl_uint             uNumMemObjects,
-           SharedPtr<MemoryObject>*      ppMemObjList,
-           const void**        ppArgsMemLoc):
-    Command(cmdQueue),
-    m_pUserFnc(pUserFnc),
-    m_pArgs(pArgs),
-    m_szCbArgs(szCbArgs),
-    m_uNumMemObjects(uNumMemObjects),
-    m_ppMemObjList(ppMemObjList),
-    m_ppArgsMemLoc(ppArgsMemLoc)
-{
-    m_commandType = CL_COMMAND_NATIVE_KERNEL;
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/, void(CL_CALLBACK *pUserFnc)(void *),
+    void *pArgs, size_t szCbArgs, cl_uint uNumMemObjects,
+    SharedPtr<MemoryObject> *ppMemObjList, const void **ppArgsMemLoc)
+    : Command(cmdQueue), m_pUserFnc(pUserFnc), m_pArgs(pArgs),
+      m_szCbArgs(szCbArgs), m_uNumMemObjects(uNumMemObjects),
+      m_ppMemObjList(ppMemObjList), m_ppArgsMemLoc(ppArgsMemLoc) {
+  m_commandType = CL_COMMAND_NATIVE_KERNEL;
 }
 
 /******************************************************************
@@ -1460,7 +1440,8 @@ cl_err_code NativeKernelCommand::Init()
             break;
         }
 
-        size_t stObjOffset = (size_t)((char*)(m_ppArgsMemLoc[i]) - (char*)m_pArgs);
+        size_t stObjOffset =
+            (size_t)((const char *)(m_ppArgsMemLoc[i]) - (char *)m_pArgs);
         cl_dev_memobj_handle* pNewMemObjLocation = (cl_dev_memobj_handle*)(pNewArgs + stObjOffset);
 
         // Set the new args list
@@ -1547,23 +1528,15 @@ cl_err_code NativeKernelCommand::CommandDone()
  *
  ******************************************************************/
 NDRangeKernelCommand::NDRangeKernelCommand(
-    const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-    ocl_entry_points*     pOclEntryPoints,
-    const SharedPtr<Kernel>&   pKernel,
-    cl_uint         uiWorkDim,
-    const size_t*   cpszGlobalWorkOffset,
-    const size_t*   cpszGlobalWorkSize,
-    const size_t*   cpszLocalWorkSize
-    ):
-Command(cmdQueue),
-m_pKernel(pKernel),
-m_pDeviceKernel(nullptr),
-m_uiWorkDim(uiWorkDim),
-m_cpszGlobalWorkOffset(cpszGlobalWorkOffset),
-m_cpszGlobalWorkSize(cpszGlobalWorkSize),
-m_cpszLocalWorkSize(cpszLocalWorkSize)
-{
-    m_commandType = CL_COMMAND_NDRANGE_KERNEL;
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/, const SharedPtr<Kernel> &pKernel,
+    cl_uint uiWorkDim, const size_t *cpszGlobalWorkOffset,
+    const size_t *cpszGlobalWorkSize, const size_t *cpszLocalWorkSize)
+    : Command(cmdQueue), m_pKernel(pKernel), m_pDeviceKernel(nullptr),
+      m_uiWorkDim(uiWorkDim), m_cpszGlobalWorkOffset(cpszGlobalWorkOffset),
+      m_cpszGlobalWorkSize(cpszGlobalWorkSize),
+      m_cpszLocalWorkSize(cpszLocalWorkSize) {
+  m_commandType = CL_COMMAND_NDRANGE_KERNEL;
 }
 
 /******************************************************************
@@ -2132,56 +2105,39 @@ ReadImageCommand::~ReadImageCommand()
  *
  ******************************************************************/
 ReadMemObjCommand::ReadMemObjCommand(
-    const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-    ocl_entry_points *    pOclEntryPoints,
-    const SharedPtr<MemoryObject>&   pMemObj,
-    const size_t*   pszOrigin,
-    const size_t*   pszRegion,
-    size_t          szRowPitch,
-    size_t          szSlicePitch,
-    void*           pDst,
-    const size_t*    pszDstOrigin,
-    const size_t    szDstRowPitch,
-    const size_t    szDstSlicePitch
-    ):
-    MemoryCommand(cmdQueue),
-    m_szMemObjRowPitch(szRowPitch),
-    m_szMemObjSlicePitch(szSlicePitch),
-    m_pDst(pDst),
-    m_szDstRowPitch(szDstRowPitch),
-    m_szDstSlicePitch(szDstSlicePitch)
-{
-    m_commandType = CL_COMMAND_READ_MEM_OBJECT;
-//    size_t uiDimCount = m_pMemObj->GetNumDimensions();
-    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_ONLY );
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/,
+    const SharedPtr<MemoryObject> &pMemObj, const size_t *pszOrigin,
+    const size_t *pszRegion, size_t szRowPitch, size_t szSlicePitch, void *pDst,
+    const size_t *pszDstOrigin, const size_t szDstRowPitch,
+    const size_t szDstSlicePitch)
+    : MemoryCommand(cmdQueue), m_szMemObjRowPitch(szRowPitch),
+      m_szMemObjSlicePitch(szSlicePitch), m_pDst(pDst),
+      m_szDstRowPitch(szDstRowPitch), m_szDstSlicePitch(szDstSlicePitch) {
+  m_commandType = CL_COMMAND_READ_MEM_OBJECT;
+  //    size_t uiDimCount = m_pMemObj->GetNumDimensions();
+  AddToMemoryObjectArgList(m_MemOclObjects, pMemObj, MemoryObject::READ_ONLY);
 
-    // Set region
-    for( cl_uint i =0; i<MAX_WORK_DIM; i++)
-    {
-        m_szOrigin[i] = pszOrigin[i];
-        m_szRegion[i] = pszRegion[i];
+  // Set region
+  for (cl_uint i = 0; i < MAX_WORK_DIM; i++) {
+    m_szOrigin[i] = pszOrigin[i];
+    m_szRegion[i] = pszRegion[i];
 
-        if (pszDstOrigin)
-        {
-            m_szDstOrigin[i] = pszDstOrigin[i];
-        }
-        else
-        {
-            m_szDstOrigin[i] = 0;
-        }
+    if (pszDstOrigin) {
+      m_szDstOrigin[i] = pszDstOrigin[i];
+    } else {
+      m_szDstOrigin[i] = 0;
     }
+  }
 
-    if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
-    {
-        if( 0 == szDstRowPitch  )
-        {
-            m_szDstRowPitch = pszRegion[0] * pMemObj->GetPixelSize();
-        }
-        if( 0 == szDstSlicePitch )
-        {
-            m_szDstSlicePitch = m_szDstRowPitch * pszRegion[1];
-        }
+  if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER) {
+    if (0 == szDstRowPitch) {
+      m_szDstRowPitch = pszRegion[0] * pMemObj->GetPixelSize();
     }
+    if (0 == szDstSlicePitch) {
+      m_szDstSlicePitch = m_szDstRowPitch * pszRegion[1];
+    }
+  }
 }
 
 /******************************************************************
@@ -2391,70 +2347,48 @@ WriteImageCommand::~WriteImageCommand()
  *
  ******************************************************************/
 WriteMemObjCommand::WriteMemObjCommand(
-    const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-    ocl_entry_points *    pOclEntryPoints,
-    cl_bool            bBlocking,
-    const SharedPtr<MemoryObject>&   pMemObj,
-    const size_t*   pszOrigin,
-    const size_t*   pszRegion,
-    size_t          szRowPitch,
-    size_t          szSlicePitch,
-    const void *    cpSrc,
-    const size_t*   pszSrcOrigin,
-    const size_t    szSrcRowPitch,
-    const size_t    szSrcSlicePitch
-    ):
-    MemoryCommand(cmdQueue),
-    m_bBlocking(bBlocking),
-    m_szMemObjRowPitch(szRowPitch),
-    m_szMemObjSlicePitch(szSlicePitch),
-    m_cpSrc(cpSrc),
-    m_szSrcRowPitch(szSrcRowPitch),
-    m_szSrcSlicePitch(szSrcSlicePitch)
-{
-    m_commandType = CL_COMMAND_WRITE_MEM_OBJECT;
-    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
-    // Set region
-    for( cl_uint i =0; i<MAX_WORK_DIM; i++)
-    {
-        m_szOrigin[i] = pszOrigin[i];
-        m_szRegion[i] = pszRegion[i];
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/, cl_bool bBlocking,
+    const SharedPtr<MemoryObject> &pMemObj, const size_t *pszOrigin,
+    const size_t *pszRegion, size_t szRowPitch, size_t szSlicePitch,
+    const void *cpSrc, const size_t *pszSrcOrigin, const size_t szSrcRowPitch,
+    const size_t szSrcSlicePitch)
+    : MemoryCommand(cmdQueue), m_bBlocking(bBlocking),
+      m_szMemObjRowPitch(szRowPitch), m_szMemObjSlicePitch(szSlicePitch),
+      m_cpSrc(cpSrc), m_szSrcRowPitch(szSrcRowPitch),
+      m_szSrcSlicePitch(szSrcSlicePitch) {
+  m_commandType = CL_COMMAND_WRITE_MEM_OBJECT;
+  AddToMemoryObjectArgList(m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE);
+  // Set region
+  for (cl_uint i = 0; i < MAX_WORK_DIM; i++) {
+    m_szOrigin[i] = pszOrigin[i];
+    m_szRegion[i] = pszRegion[i];
 
-        if (pszSrcOrigin)
-        {
-            m_szSrcOrigin[i] = pszSrcOrigin[i];
-        }
-        else
-        {
-            m_szSrcOrigin[i] = 0;
-        }
+    if (pszSrcOrigin) {
+      m_szSrcOrigin[i] = pszSrcOrigin[i];
+    } else {
+      m_szSrcOrigin[i] = 0;
     }
+  }
 
-    if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
-    {
-        if( 0 == szSrcRowPitch  )
-        {
-            // Get original image pitch
-            m_szSrcRowPitch = pszRegion[0]*pMemObj->GetPixelSize();
-        }
-        if( 0 == szSrcSlicePitch )
-        {
-            // Get original image pitch
-            m_szSrcSlicePitch = m_szSrcRowPitch*pszRegion[1];
-        }
+  if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER) {
+    if (0 == szSrcRowPitch) {
+      // Get original image pitch
+      m_szSrcRowPitch = pszRegion[0] * pMemObj->GetPixelSize();
     }
-    else
-    {
-        // For buffers, if not set row_pitch == slice_pitch == lenght
-        if ( 0 == m_szSrcRowPitch )
-        {
-            m_szSrcRowPitch = m_szRegion[0];
-        }
-        if ( 0 == m_szSrcSlicePitch )
-        {
-            m_szSrcSlicePitch = m_szRegion[0];
-        }
+    if (0 == szSrcSlicePitch) {
+      // Get original image pitch
+      m_szSrcSlicePitch = m_szSrcRowPitch * pszRegion[1];
     }
+  } else {
+    // For buffers, if not set row_pitch == slice_pitch == lenght
+    if (0 == m_szSrcRowPitch) {
+      m_szSrcRowPitch = m_szRegion[0];
+    }
+    if (0 == m_szSrcSlicePitch) {
+      m_szSrcSlicePitch = m_szRegion[0];
+    }
+  }
 }
 
 /******************************************************************
@@ -2499,7 +2433,10 @@ cl_err_code WriteMemObjCommand::Init()
         sCpyParam.pDst = (cl_char*)m_pTempBuffer;
         sCpyParam.vDstPitch[0] = sCpyParam.vRegion[0];
         sCpyParam.vDstPitch[1] = sCpyParam.vDstPitch[0] * m_szRegion[1];
-        sCpyParam.pSrc = (cl_char*)m_cpSrc + m_szSrcOrigin[0]*pMemObj->GetPixelSize() + m_szSrcOrigin[1]*m_szSrcRowPitch + m_szSrcOrigin[2]*m_szSrcSlicePitch;
+        sCpyParam.pSrc = (const cl_char *)m_cpSrc +
+                         m_szSrcOrigin[0] * pMemObj->GetPixelSize() +
+                         m_szSrcOrigin[1] * m_szSrcRowPitch +
+                         m_szSrcOrigin[2] * m_szSrcSlicePitch;
         sCpyParam.vSrcPitch[0] = m_szSrcRowPitch;
         sCpyParam.vSrcPitch[1] = m_szSrcSlicePitch;
 
@@ -2563,11 +2500,13 @@ cl_err_code WriteMemObjCommand::Execute()
         return res;
     }
 
-    create_dev_cmd_rw(
-            m_commandType == CL_COMMAND_WRITE_BUFFER_RECT ? MAX_WORK_DIM  : pMemObj->GetNumDimensions(),
-            m_bBlocking ? m_pTempBuffer : (void*)m_cpSrc,
-            m_szOrigin, m_szSrcOrigin, m_szRegion, m_szSrcRowPitch, m_szSrcSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch,
-            CL_DEV_CMD_WRITE ) ;
+    create_dev_cmd_rw(m_commandType == CL_COMMAND_WRITE_BUFFER_RECT
+                          ? MAX_WORK_DIM
+                          : pMemObj->GetNumDimensions(),
+                      m_bBlocking ? m_pTempBuffer : const_cast<void *>(m_cpSrc),
+                      m_szOrigin, m_szSrcOrigin, m_szRegion, m_szSrcRowPitch,
+                      m_szSrcSlicePitch, m_szMemObjRowPitch,
+                      m_szMemObjSlicePitch, CL_DEV_CMD_WRITE);
 
     LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
     // Sending 1 command to the device where the buffer is located now
@@ -2614,53 +2553,40 @@ cl_err_code RuntimeCommand::Execute()
  *
  ******************************************************************/
 FillMemObjCommand::FillMemObjCommand(
-        const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-        ocl_entry_points *    pOclEntryPoints,
-        const SharedPtr<MemoryObject>&   pMemObj,
-        const size_t*   pszOffset,
-        const size_t*   pszRegion,
-        const cl_uint   numOfDimms,
-        const void*     pattern,
-        const size_t    pattern_size
-    ) :
-    Command(cmdQueue),
-    m_numOfDimms(numOfDimms), m_pattern_size(pattern_size),
-    m_internalErr(CL_SUCCESS)
-{
-    m_commandType = CL_COMMAND_FILL_MEM_OBJECT;
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/,
+    const SharedPtr<MemoryObject> &pMemObj, const size_t *pszOffset,
+    const size_t *pszRegion, const cl_uint numOfDimms, const void *pattern,
+    const size_t pattern_size)
+    : Command(cmdQueue), m_numOfDimms(numOfDimms), m_pattern_size(pattern_size),
+      m_internalErr(CL_SUCCESS) {
+  m_commandType = CL_COMMAND_FILL_MEM_OBJECT;
 
-    // Set region
-    for( int i=0 ; i<MAX_WORK_DIM ; ++i)
-    {
-        m_szOffset[i] = pszOffset[i];
-        m_szRegion[i] = pszRegion[i];
-    }
+  // Set region
+  for (int i = 0; i < MAX_WORK_DIM; ++i) {
+    m_szOffset[i] = pszOffset[i];
+    m_szRegion[i] = pszRegion[i];
+  }
 
-    MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
-    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
+  MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
+  AddToMemoryObjectArgList(m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE);
 }
 
 FillMemObjCommand::FillMemObjCommand(
-            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ocl_entry_points *    pOclEntryPoints,
-            const SharedPtr<MemoryObject>&   pMemObj,
-            const size_t    pszOffset,
-            const size_t    pszRegion,
-            const void*     pattern,
-            const size_t    pattern_size
-        ) :
-        Command(cmdQueue),
-        m_numOfDimms(1), m_pattern_size(pattern_size),
-        m_internalErr(CL_SUCCESS)
-{
-    m_commandType = CL_DEV_CMD_FILL_BUFFER;
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/,
+    const SharedPtr<MemoryObject> &pMemObj, const size_t pszOffset,
+    const size_t pszRegion, const void *pattern, const size_t pattern_size)
+    : Command(cmdQueue), m_numOfDimms(1), m_pattern_size(pattern_size),
+      m_internalErr(CL_SUCCESS) {
+  m_commandType = CL_DEV_CMD_FILL_BUFFER;
 
-    // Set region
-    m_szOffset[0] = pszOffset;
-    m_szRegion[0] = pszRegion;
+  // Set region
+  m_szOffset[0] = pszOffset;
+  m_szRegion[0] = pszRegion;
 
-    MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
-    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
+  MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
+  AddToMemoryObjectArgList(m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE);
 }
 
 /******************************************************************
@@ -2875,24 +2801,20 @@ cl_err_code MigrateSVMMemCommand::CommandDone()
  *
  ******************************************************************/
 MigrateMemObjCommand::MigrateMemObjCommand(
-        const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
-        ocl_entry_points *     pOclEntryPoints,
-        ContextModule*         pContextModule,
-        cl_mem_migration_flags clFlags,
-        cl_uint                uNumMemObjects,
-        const cl_mem*          pMemObjects
-    ): 
-    Command(cmdQueue),
-    m_pMemObjects(pMemObjects), m_pContextModule( pContextModule )
-{
-    assert( 0 != uNumMemObjects );
-    assert( nullptr != pMemObjects );
-    assert( nullptr != pContextModule );
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+    ocl_entry_points * /*pOclEntryPoints*/, ContextModule *pContextModule,
+    cl_mem_migration_flags clFlags, cl_uint uNumMemObjects,
+    const cl_mem *pMemObjects)
+    : Command(cmdQueue), m_pMemObjects(pMemObjects),
+      m_pContextModule(pContextModule) {
+  assert(0 != uNumMemObjects);
+  assert(nullptr != pMemObjects);
+  assert(nullptr != pContextModule);
 
-    m_commandType = CL_COMMAND_MIGRATE_MEM_OBJECTS;
-    memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
-    m_migrateCmdParams.flags    = clFlags;
-    m_migrateCmdParams.mem_num  = uNumMemObjects;
+  m_commandType = CL_COMMAND_MIGRATE_MEM_OBJECTS;
+  memset(&m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
+  m_migrateCmdParams.flags = clFlags;
+  m_migrateCmdParams.mem_num = uNumMemObjects;
 }
 
 /******************************************************************
@@ -3173,9 +3095,11 @@ cl_err_code AdviseUSMMemCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code ErrorQueueEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode)
-{
-    return m_owner->GetEvent()->ObservedEventStateChanged( pEvent, m_owner->GetForcedErrorCode() ); 
+cl_err_code
+ErrorQueueEvent::ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                                           cl_int /*returnCode*/) {
+  return m_owner->GetEvent()->ObservedEventStateChanged(
+      pEvent, m_owner->GetForcedErrorCode());
 }
 
 /******************************************************************
