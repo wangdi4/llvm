@@ -55,13 +55,13 @@ public:
   /// @brief D'tor
   ~SpecialCaseBuiltinResolver();
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "Special Case Builtin Resolver";
   }
 
-  virtual bool runOnModule(Module &M);
+  virtual bool runOnModule(Module &M) override;
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<BuiltinLibInfo>();
   }

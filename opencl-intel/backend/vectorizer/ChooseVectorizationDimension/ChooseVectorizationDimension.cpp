@@ -182,9 +182,8 @@ bool ChooseVectorizationDimensionImpl::hasDim(Function* F, unsigned int dim) {
 /// @param goodLoadStores write the number of good load/stores into this param.
 /// @param badLoadStores write the number of bad load/stores into this param.
 /// @param dim the dimension we are counting. Only needed for statistics.
-static void countLoadStores(
-    WIAnalysis* wi, BasicBlock* BB,
-    int& goodLoadStores, int& badLoadStores, int dim) {
+static void countLoadStores(WIAnalysis *wi, BasicBlock *BB, int &goodLoadStores,
+                            int &badLoadStores, int /*dim*/) {
   goodLoadStores = badLoadStores = 0;
   for (auto &I : *BB) {
     Value* pointerOperand = nullptr;

@@ -82,9 +82,9 @@ bool PacketizeFunction::isInsertNeededToObtainVectorizedValue(Value * origValue)
   return true;
 }
 
-void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValue,
-                                              Instruction * origInst)
-{
+void PacketizeFunction::obtainVectorizedValue(Value **retValue,
+                                              Value *origValue,
+                                              Instruction * /*origInst*/) {
   V_ASSERT((
     origValue->getType()->isIntegerTy() ||
     origValue->getType()->isFloatingPointTy())
@@ -192,8 +192,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
 
 void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
                                                 Value *origValue,
-                                                Instruction *origInst)
-{
+                                                Instruction * /*origInst*/) {
   if (!isa<Instruction>(origValue))
   {
     // Original value is not an instruction. So simply broadcast it

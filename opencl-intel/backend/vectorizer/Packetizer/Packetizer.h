@@ -89,13 +89,13 @@ public:
   ~PacketizeFunction();
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "PacketizeFunction";
   }
 
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(Function &F) override;
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<WIAnalysis>();
     AU.addRequired<SoaAllocaAnalysis>();

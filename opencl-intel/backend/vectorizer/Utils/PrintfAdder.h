@@ -63,13 +63,11 @@ public:
   };
   
   ~PrintfAdder()  {}
-  virtual llvm::StringRef getPassName() const {
-    return "PrintfAdder";
-  }
-  
+  virtual llvm::StringRef getPassName() const override { return "PrintfAdder"; }
+
   ///@brief LLVM interface.
-  bool runOnFunction (Function &F);
-  
+  bool runOnFunction(Function &F) override;
+
   ///@brief main function adds debug prints 
   ///       This function is changed according to the value we would like to print.
   void addDebugPrints(Function *F);

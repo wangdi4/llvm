@@ -476,7 +476,7 @@ void WIAnalysis::markDependentPhiRandom() {
 
 void WIAnalysis::updateCfDependency(const Instruction *inst) {
   assert(inst->isTerminator() && "Expect a terminator instruction!");
-  BasicBlock *blk = (BasicBlock *)(inst->getParent());
+  BasicBlock *blk = const_cast<BasicBlock *>(inst->getParent());
 
   // If the root block is marked as divergent then we should not add
   // scheduling constraints for this region because it is part of a larger region
@@ -997,11 +997,10 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CastInst* inst) {
   }
 }
 
-WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const VAArgInst* inst) {
+WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const VAArgInst * /*inst*/) {
   V_ASSERT(false && "Are we supporting this ??");
   return WIAnalysis::RANDOM;
 }
-
 
 // Calculating the influence region, partial joins, and block uniformity
 void WIAnalysis::calcInfoForBranch(const Instruction *inst)
@@ -1011,10 +1010,12 @@ void WIAnalysis::calcInfoForBranch(const Instruction *inst)
   assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
   assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
 
-  DomTreeNode * postDomNode = m_PDT->getNode((BasicBlock*)(inst->getParent()));
+  DomTreeNode *postDomNode =
+      m_PDT->getNode(const_cast<BasicBlock *>(inst->getParent()));
 
- // If we are in an infinite loop then there is no post-dominant
- // In this case, we mark everything reachable from the divergent branch as its influence region (conservative)
+  // If we are in an infinite loop then there is no post-dominant
+  // In this case, we mark everything reachable from the divergent branch as its
+  // influence region (conservative)
   if (postDomNode)  {
     // Because inst is a conditional branch then it is not the last basic block
     // and therefore getIDom does not return null
@@ -1040,7 +1041,7 @@ void WIAnalysis::calcInfoForBranch(const Instruction *inst)
     schedConstraints.clear();
 
     // adding the root of the predicated region for the scheduling constraints
-    schedConstraints.push_back((BasicBlock*) inst->getParent());
+    schedConstraints.push_back(const_cast<BasicBlock *>(inst->getParent()));
 
     Loop *fullJoinLoop = m_LI->getLoopFor(m_fullJoin);
     SmallPtrSet<BasicBlock *, 4> fullJoinLoopLatches;

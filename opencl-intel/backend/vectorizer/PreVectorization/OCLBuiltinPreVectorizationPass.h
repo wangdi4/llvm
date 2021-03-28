@@ -45,13 +45,13 @@ public:
   ~OCLBuiltinPreVectorizationPass();
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "OCL Builtin Pre Vectorization Pass";
   }
 
-  virtual bool runOnFunction(Function &M);
+  virtual bool runOnFunction(Function &M) override;
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<BuiltinLibInfo>();
   }

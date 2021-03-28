@@ -85,15 +85,13 @@ public:
   /// @brief D'tor
   ~IRInjectModule(){}
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "IRInjectModule";
   }
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-  }
+  virtual void getAnalysisUsage(AnalysisUsage & /*AU*/) const override {}
 
-
-  virtual bool runOnModule(Module &M) {
+  virtual bool runOnModule(Module &M) override {
     errs() << "\n init val:@" << newModPath << "@\n";
 
 
@@ -138,7 +136,6 @@ public:
     //MapMetaData(newM);
     return true;
   }
-
 
 private:
 

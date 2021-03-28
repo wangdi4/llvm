@@ -46,9 +46,9 @@ public:
   /// @brief LLVM Function pass entry
   /// @param F Function to transform
   /// @return True if changed
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(Function &F) override;
   /// Standard LLVM interface - Nothing to preserve
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<BuiltinLibInfo>();
   }
 
@@ -58,7 +58,9 @@ private:
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller) = 0;
 
-  virtual bool isBitMask(const FixedVectorType& vecType) const { return false; }
+  virtual bool isBitMask(const FixedVectorType & /*vecType*/) const {
+    return false;
+  }
 
   /// @brief Resolve a call-site
   /// @param caller Instruction to resolve
@@ -208,14 +210,12 @@ public:
   X86Resolver() : FuncResolver(ID) {}
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
-    return "X86Resolver";
-  }
+  virtual llvm::StringRef getPassName() const override { return "X86Resolver"; }
 
   /// @brief Resolve a call-site. This is a target specific hook.
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
-  virtual bool TargetSpecificResolve(CallInst* caller) { return false; }
+  virtual bool TargetSpecificResolve(CallInst *) override { return false; }
 };
 
 }

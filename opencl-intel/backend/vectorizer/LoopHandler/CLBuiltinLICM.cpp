@@ -33,7 +33,7 @@ CLBuiltinLICM::CLBuiltinLICM() : LoopPass(ID), m_rtServices(nullptr) {
   initializeCLBuiltinLICMPass(*PassRegistry::getPassRegistry());
 }
 
-bool CLBuiltinLICM::runOnLoop(Loop *L, LPPassManager &LPM) {
+bool CLBuiltinLICM::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
   //errs() << "CLBuiltinLICM on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
 

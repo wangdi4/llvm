@@ -39,21 +39,21 @@ namespace intel {
       WeightedInstCounter(bool preVec = true, Intel::CPUId cpuId = Intel::CPUId());
 
     // Provides name of pass
-    virtual llvm::StringRef getPassName() const {
-      return "WeightedInstCounter";
-    }
+      virtual llvm::StringRef getPassName() const override {
+        return "WeightedInstCounter";
+      }
 
-    bool runOnFunction(Function &F);
+      bool runOnFunction(Function &F) override;
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<ScalarEvolutionWrapperPass>();
-      AU.addRequired<LoopInfoWrapperPass>();
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<PostDominatorTreeWrapperPass>();
-      AU.addRequired<PostDominanceFrontier>();
-      AU.addRequired<BuiltinLibInfo>();
-      AU.setPreservesAll();
-    }
+      virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
+        AU.addRequired<ScalarEvolutionWrapperPass>();
+        AU.addRequired<LoopInfoWrapperPass>();
+        AU.addRequired<DominatorTreeWrapperPass>();
+        AU.addRequired<PostDominatorTreeWrapperPass>();
+        AU.addRequired<PostDominanceFrontier>();
+        AU.addRequired<BuiltinLibInfo>();
+        AU.setPreservesAll();
+      }
 
     // Returns the desired vectorization width (4/8/16).
     // This is only calculated by the "pre" version of the pass.
@@ -239,9 +239,9 @@ public:
     static char ID; // Pass ID, replacement for typeid
     VectorizationPossibilityPass(): FunctionPass(ID), m_canVectorize(false) {}
 
-    bool runOnFunction(Function &F);
+    bool runOnFunction(Function &F) override;
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
     }

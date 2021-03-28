@@ -26,27 +26,12 @@
 #include <sstream>
 #include <vector>
 
-static bool isGatherScatterType(FixedVectorType *VecTy) {
-  return VecTy->getNumElements() == 16;
-}
 
 namespace intel {
 
 char AVX512Resolver::ID = 0;
 
 OCL_INITIALIZE_PASS(AVX512Resolver, "avx512resolve", "Resolves masked and vectorized function calls for AVX512", false, false)
-
-
-static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
-  std::vector<Constant*> constList;
-  uint64_t constVal = 0;
-
-  for (unsigned j = 0; j < count; ++j) {
-    constList.push_back(ConstantInt::get(type, constVal++));
-  }
-  return ConstantVector::get(ArrayRef<Constant*>(constList));
-}
-
 
 bool AVX512Resolver::TargetSpecificResolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
@@ -152,9 +137,9 @@ Instruction* AVX512Resolver::CreateGatherScatterAndReplaceCall(
   return newCaller;
 }
 
-void AVX512Resolver::FixBaseAndIndexIfNeeded(
-                  CallInst* caller, Value *Mask, Value *ValidBits,
-                  Value *IsSigned, Value *&Ptr, Value *&Index) {
+void AVX512Resolver::FixBaseAndIndexIfNeeded(CallInst *caller, Value * /*Mask*/,
+                                             Value *ValidBits, Value *IsSigned,
+                                             Value *&Ptr, Value *&Index) {
   V_ASSERT(ValidBits && isa<ConstantInt>(ValidBits) && "ValidBits argument is not constant");
   V_ASSERT(IsSigned && isa<ConstantInt>(IsSigned) && "IsSigned argument is not constant");
   V_ASSERT(Ptr && Ptr->getType()->isPointerTy() && "Ptr type is not a pointer");

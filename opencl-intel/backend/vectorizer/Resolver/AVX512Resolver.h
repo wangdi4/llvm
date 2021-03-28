@@ -30,14 +30,14 @@ public:
   AVX512Resolver() : FuncResolver(ID) {}
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "AVX512Resolver";
   }
 
   /// @brief Resolve a call-site. This is a target specific hook.
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
-  virtual bool TargetSpecificResolve(CallInst* caller);
+  virtual bool TargetSpecificResolve(CallInst *caller) override;
 
   virtual bool isBitMask(const FixedVectorType& vecType) const override;
 private:

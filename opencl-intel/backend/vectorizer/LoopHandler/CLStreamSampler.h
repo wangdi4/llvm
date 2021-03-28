@@ -51,15 +51,15 @@ public:
   /// @param L - Loop to transform.
   /// @param LPM - Loop Pass manager (unused).
   /// @returns true if the pass made changes.
-  virtual bool runOnLoop(Loop *L, LPPassManager &LPM);
+  virtual bool runOnLoop(Loop *L, LPPassManager &LPM) override;
 
   /// @brief LLVM interface.
   /// @param AU - usage of analysis.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<LoopWIAnalysis>();
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<BuiltinLibInfo>();
-      AU.setPreservesCFG();
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<LoopWIAnalysis>();
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<BuiltinLibInfo>();
+    AU.setPreservesCFG();
   };
 
 private:

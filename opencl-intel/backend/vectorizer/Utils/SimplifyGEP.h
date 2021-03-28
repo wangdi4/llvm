@@ -37,13 +37,13 @@ namespace intel {
     SimplifyGEP();
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "SimplifyGEP";
     }
 
     /// @brief  LLVM Interface
     /// @param AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
       AU.addRequired<WIAnalysis>();
     }
@@ -51,7 +51,7 @@ namespace intel {
     /// @brief LLVM Function pass entry
     /// @param F Function to transform
     /// @return True if changed
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnFunction(Function &F) override;
 
   private:
     /// @brief Fix PhiNodes with GEP entries

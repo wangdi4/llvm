@@ -93,7 +93,7 @@ LoopWIAnalysis::ValDependancy LoopWIAnalysis::getDependency(Value *val) {
   return res;
 }
 
-bool LoopWIAnalysis::runOnLoop(Loop *L, LPPassManager &LPM) {
+bool LoopWIAnalysis::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
   //errs() << "LoopWIAnalysis on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
   m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();

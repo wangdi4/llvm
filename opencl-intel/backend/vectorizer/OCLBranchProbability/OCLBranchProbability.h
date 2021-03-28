@@ -45,7 +45,7 @@ namespace intel {
       OCLBranchProbability() : FunctionPass(ID) {}
 
       /// @brief Provides name of pass
-      virtual llvm::StringRef getPassName() const {
+      virtual llvm::StringRef getPassName() const override {
         return "OCLBranchProbability";
       }
 
@@ -53,13 +53,13 @@ namespace intel {
       /// @param F  Function to transform
       /// @returns  true if changed    F.dump();
 
-      virtual bool runOnFunction(Function &F);
+      virtual bool runOnFunction(Function &F) override;
 
     private:
 
       /// @brief  LLVM Interface
       /// @param AU Analysis
-      virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
         AU.setPreservesAll();
         AU.addRequired<WIAnalysis>();
         AU.addRequired<BranchProbabilityInfoWrapperPass>();

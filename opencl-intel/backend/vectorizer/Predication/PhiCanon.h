@@ -44,14 +44,12 @@ public:
   PhiCanon();
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
-    return "PhiCanon";
-  }
+  virtual llvm::StringRef getPassName() const override { return "PhiCanon"; }
 
   /// @brief LLVM Function pass entry
   /// @param F Function to transform
   /// @return True if changed
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(Function &F) override;
   /// @brief Perform the modifications to the BasicBlock
   /// Create a new BasicBlock with incoming edges
   /// @param toFix BasicBlock to fix
@@ -72,11 +70,10 @@ public:
                              BasicBlock* old_target,
                              BasicBlock* new_target);
   // Need Dominator Tree and PostDominator tree prior to Phi Canonization
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-        AU.addRequired<DominatorTreeWrapperPass>();
-        AU.addRequired<PostDominatorTreeWrapperPass>();
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
   }
-
 };
 
 }

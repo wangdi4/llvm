@@ -46,11 +46,9 @@ public:
   /// @brief D'tor
   ~nameRemove(){}
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
-    return "nameRemove";
-  }
+  virtual llvm::StringRef getPassName() const override { return "nameRemove"; }
 
-  virtual bool runOnFunction(Function &F) {
+  virtual bool runOnFunction(Function &F) override {
     for (Function::arg_iterator argIt = F.arg_begin(), argE = F.arg_end();
          argIt != argE; ++argIt) {
       argIt->setName("");
@@ -64,8 +62,7 @@ public:
     return true;
   }
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-  };
+  virtual void getAnalysisUsage(AnalysisUsage & /*AU*/) const override{};
 };
 
 

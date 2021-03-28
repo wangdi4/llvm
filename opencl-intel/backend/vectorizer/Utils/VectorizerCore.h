@@ -36,17 +36,17 @@ public:
     /// @brief D'tor
     ~VectorizerCore();
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
-        return "Intel OpenCL VectorizerCore";
+    virtual llvm::StringRef getPassName() const override {
+      return "Intel OpenCL VectorizerCore";
     }
 
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    virtual bool runOnFunction(llvm::Function &F);
+    virtual bool runOnFunction(llvm::Function &F) override;
 
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
     }
