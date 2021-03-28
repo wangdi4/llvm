@@ -38,9 +38,6 @@ public:
   void Log(LogLevel level, const wchar_t * message, ...);
 
 private:
-  IOCLDevLogDescriptor* m_pLogDescriptor;
-  cl_int                m_iLogHandle;
-
   std::wfstream filestr;
 
 };

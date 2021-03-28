@@ -161,8 +161,9 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
     // Check does cached binary have up-to-date version. If not - return CL_INVALID_BINARY
     // So there's no backward compatibility between cached binaries with
     // different versions.
-    if (*((unsigned int*)binaryVersion) != (unsigned int)OCL_CACHED_BINARY_VERSION) {
-        return CL_DEV_INVALID_BINARY;
+    if (*((const unsigned int *)binaryVersion) !=
+        (unsigned int)OCL_CACHED_BINARY_VERSION) {
+      return CL_DEV_INVALID_BINARY;
     }
 
     // check maximum supported instruction

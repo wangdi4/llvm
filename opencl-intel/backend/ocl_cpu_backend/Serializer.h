@@ -66,6 +66,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     {
     public:
         virtual IOutputStream& Write(const char* s, size_t count) = 0;
+        virtual ~IOutputStream() {}
     };
 
     /**
@@ -75,6 +76,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     {
     public:
         virtual IInputStream& Read(char* s, size_t count) = 0;
+        virtual ~IInputStream() {}
     };
 
     /**
@@ -144,10 +146,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         template<class T>
         static void SerialPrimitivesBuffer(const T* item, unsigned int length, IOutputStream& stream)
         {
-            stream.Write((const char*)length, sizeof(length));
-            if(0 == length) return ;
+          stream.Write((const char *)&length, sizeof(length));
+          if (0 == length)
+            return;
 
-            stream.Write((const char*)item, sizeof(T) * length);
+          stream.Write((const char *)item, sizeof(T) * length);
         }
 
         template<class T>

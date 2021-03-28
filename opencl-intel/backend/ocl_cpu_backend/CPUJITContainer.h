@@ -41,22 +41,25 @@ public:
     /*
      * ICLDevBackendJITContainer methods
      */
-    virtual const void* GetJITCode() const { return m_pFuncCode; }
-    virtual size_t GetJITCodeSize() const { return 0; } // TODO: Check this later
-    virtual int GetLineNumber(void* pointer) const { return -1; }
+    virtual const void *GetJITCode() const override { return m_pFuncCode; }
+    virtual size_t GetJITCodeSize() const override {
+      return 0;
+    } // TODO: Check this later
+    virtual int GetLineNumber(void * /*pointer*/) const override { return -1; }
 
     /*
      * IJITContainer methods
      */
-    KernelJITProperties* GetProps() const  { return m_pProps; }
+    KernelJITProperties *GetProps() const override { return m_pProps; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
      */
-    void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-    void Deserialize(IInputStream& ist, SerializationStatus* stats);
+    void Serialize(IOutputStream &ost,
+                   SerializationStatus *stats) const override;
+    void Deserialize(IInputStream &ist, SerializationStatus *stats) override;
 
-private:
+  private:
     const void*            m_pFuncCode;
     llvm::Function*        m_pFunction;
     llvm::Module*          m_pModule; // not owned by the class 

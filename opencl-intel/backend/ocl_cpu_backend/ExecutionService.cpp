@@ -29,13 +29,13 @@ size_t ExecutionService::GetTargetMachineDescriptionSize() const
     return 0;
 }
 
-cl_dev_err_code ExecutionService::GetTargetMachineDescription(
-        void* pTargetDescription,
-        size_t descriptionSize) const
+cl_dev_err_code
+ExecutionService::GetTargetMachineDescription(void * /*pTargetDescription*/,
+                                              size_t /*descriptionSize*/) const
 
 {
-    assert(false && "NotImplemented");
-    return CL_DEV_NOT_SUPPORTED;
+  assert(false && "NotImplemented");
+  return CL_DEV_NOT_SUPPORTED;
 }
 
 void ExecutionService::Release()

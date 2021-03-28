@@ -26,9 +26,9 @@ public:
     CPUBuiltinLibrary(const Intel::CPUId &cpuId, bool useDynamicSvmlLibrary = true) :
     BuiltinLibrary(cpuId), m_useDynamicSvmlLibrary(useDynamicSvmlLibrary) { }
 
-    virtual void Load();
+    virtual void Load() override;
 
-private:
+  private:
     bool m_useDynamicSvmlLibrary;
 };
 

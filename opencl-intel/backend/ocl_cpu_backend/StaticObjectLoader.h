@@ -77,7 +77,8 @@ public:
                         const_cast<llvm::MemoryBuffer*>(MemBuff)))));
   }
 
-  virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef) {
+  virtual void notifyObjectCompiled(const llvm::Module *,
+                                    llvm::MemoryBufferRef) override {
     // A module has been compiled and the resulting object is in a MemoryBuffer
     assert(0 && "TODO: implement module compiled notification handler");
   }
@@ -85,7 +86,8 @@ public:
   /// getObject - Returns a pointer to a pre-compiled object buffer previously
   /// added to the cache (with addLocation or notifyCompiledObject) or 0 if the
   /// Module pointer M is not associated with a statically compiled object.
-  virtual std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
+  virtual std::unique_ptr<llvm::MemoryBuffer>
+  getObject(const llvm::Module *M) override {
     ModuleMemBuffers::iterator i = StaticObjects.find(M);
     if (i == StaticObjects.end()) {
       return 0;

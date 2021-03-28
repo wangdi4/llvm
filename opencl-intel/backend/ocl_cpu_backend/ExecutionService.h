@@ -32,7 +32,7 @@ public:
     /**
      * @returns the target machine description size in bytes
      */
-    virtual size_t GetTargetMachineDescriptionSize() const;
+    virtual size_t GetTargetMachineDescriptionSize() const override;
 
     /**
      * Gets the target machine description in the already allocated buffer
@@ -46,16 +46,16 @@ public:
      *  CL_DEV_INVALID_VALUE in case pTargetDescription == NULL
      *  CL_DEV_ERROR_FAIL in any other error
      */
-    virtual cl_dev_err_code GetTargetMachineDescription(
-        void* pTargetDescription,
-        size_t descriptionSize) const;
+    virtual cl_dev_err_code
+    GetTargetMachineDescription(void *pTargetDescription,
+                                size_t descriptionSize) const override;
 
     /**
      * Releases the Execution Service
      */
-    virtual void Release();
+    virtual void Release() override;
 
-protected:
+  protected:
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_pBackendFactory;
 

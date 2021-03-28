@@ -42,10 +42,12 @@ public:
     // Finalize output
     //
     virtual void finalize() = 0;
-    
+
     // The amount of characters requested to output so far.
     //
     virtual int output_count() = 0;
+
+    virtual ~OutputAccumulator() {}
 };
 
 // An accumulator that writes into a FILE* stream.
@@ -55,12 +57,13 @@ class StreamOutputAccumulator : public OutputAccumulator
 public:
     StreamOutputAccumulator(FILE* stream);
 
-    virtual void append(char c);
+    virtual void append(char c) override;
 
-    virtual void finalize();
+    virtual void finalize() override;
 
-    virtual int output_count();
-private:
+    virtual int output_count() override;
+
+  private:
     FILE* stream;
     int count;
 #if (defined(_WIN32) || defined(_WIN64)) 
@@ -77,12 +80,13 @@ class StringOutputAccumulator : public OutputAccumulator
 public:
     StringOutputAccumulator(char* outstr_, size_t outstr_size_);
 
-    virtual void append(char c);
+    virtual void append(char c) override;
 
-    virtual void finalize();
+    virtual void finalize() override;
 
-    virtual int output_count();
-private:
+    virtual int output_count() override;
+
+  private:
     char* outstr;
     size_t outstr_size;
     size_t outstr_ptr;

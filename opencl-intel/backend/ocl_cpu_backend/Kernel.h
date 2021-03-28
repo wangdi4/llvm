@@ -88,13 +88,13 @@ public:
    * unique
    *  per kernel - ; in case of failure 0 will be returned
    */
-  virtual unsigned long long int GetKernelID() const;
+  virtual unsigned long long int GetKernelID() const override;
 
   /**
    * @returns a pointer to the kernel name, in case of failure NULL will be
    * returned
    */
-  virtual const char *GetKernelName() const;
+  virtual const char *GetKernelName() const override;
 
   /**
    * Gets the kernels paramaters count
@@ -102,7 +102,7 @@ public:
    * @returns the count of the parameters, in case of failure -1 will be
    *returned
    */
-  virtual int GetKernelParamsCount() const;
+  virtual int GetKernelParamsCount() const override;
 
   /**
    * Gets the kernel parameters description
@@ -111,7 +111,7 @@ public:
    *  In success will return the kernel arguments descriptor; otherwise, NULL
    *  value will be returned
    */
-  virtual const cl_kernel_argument *GetKernelParams() const;
+  virtual const cl_kernel_argument *GetKernelParams() const override;
 
   /**
    * Gets the kernel parameters extended information
@@ -120,7 +120,7 @@ public:
    *  In success will return the kernel arguments information; otherwise, NULL
    *  value will be returned
    */
-  virtual const cl_kernel_argument_info *GetKernelArgInfo() const;
+  virtual const cl_kernel_argument_info *GetKernelArgInfo() const override;
 
   /**
    * Set the kernel parameters extended information.
@@ -134,7 +134,8 @@ public:
    *
    * @returns reference to IKernelDescription object
    */
-  virtual const ICLDevBackendKernelProporties *GetKernelProporties() const;
+  virtual const ICLDevBackendKernelProporties *
+  GetKernelProporties() const override;
 
   /**
    * @param pointer Pointer to an instruction contained in this kernel's
@@ -144,34 +145,34 @@ public:
    * instruction in this kernel, or if line number information is missing,
    * this returns -1.
    */
-  virtual int GetLineNumber(void *pointer) const;
+  virtual int GetLineNumber(void *pointer) const override;
 
   /**
    * @returns the size of argument/parameter buffer requried by the kernel
    */
-  virtual size_t GetExplicitArgumentBufferSize() const;
+  virtual size_t GetExplicitArgumentBufferSize() const override;
 
   /**
    * @returns the required alignement of the argument buffer
    */
-  virtual size_t GetArgumentBufferRequiredAlignment() const;
+  virtual size_t GetArgumentBufferRequiredAlignment() const override;
 
   /**
   * @returns the number of memory object arguments passed to the kernel
   */
-  virtual unsigned int GetMemoryObjectArgumentCount() const;
+  virtual unsigned int GetMemoryObjectArgumentCount() const override;
 
   /**
   * @returns the array of indexes of memory object arguments passed to the
   * kernel
   */
-  virtual const unsigned int *GetMemoryObjectArgumentIndexes() const;
+  virtual const unsigned int *GetMemoryObjectArgumentIndexes() const override;
 
   /**
    * @retruns the kernelRunner object which is responsible for running the
    * kernel
    */
-  virtual const ICLDevBackendKernelRunner *GetKernelRunner() const {
+  virtual const ICLDevBackendKernelRunner *GetKernelRunner() const override {
     return this;
   }
 
@@ -200,12 +201,14 @@ public:
     return Handle;
   }
 
-  virtual const ICLDevBackendKernel_ *GetKernel() const { return this; }
+  virtual const ICLDevBackendKernel_ *GetKernel() const override {
+    return this;
+  }
 
   // InitRunner - Prepares the kernel's implicit uniform arguments
   // Called on the device at most once per NDRange.
   // See description of cl_uniform_kernel_args for interpreting pKernelUniformArgs.
-  virtual cl_dev_err_code InitRunner(void *pKernelUniformArgs) const;
+  virtual cl_dev_err_code InitRunner(void *pKernelUniformArgs) const override;
 
   /**
    * @effects prepares the thread for kernel execution
@@ -215,7 +218,8 @@ public:
    * @param state object to save the old state in
    * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
    */
-  virtual cl_dev_err_code PrepareThreadState(ICLDevExecutionState &state) const;
+  virtual cl_dev_err_code
+  PrepareThreadState(ICLDevExecutionState &state) const override;
 
   /**
    * Prepares the kernel implicit uniform arguments
@@ -234,7 +238,7 @@ public:
   PrepareKernelArguments(void *pKernelUniformArgs,
                          const cl_mem_obj_descriptor **pDevMemObjArray,
                          unsigned int devMemObjArrayLength,
-                         size_t numOfComputeUnits) const;
+                         size_t numOfComputeUnits) const override;
 
   /**
    * Execute the specified kernel with the given arguments
@@ -245,7 +249,7 @@ public:
    */
   virtual cl_dev_err_code RunGroup(const void *pKernelUniformArgs,
                                    const size_t *pGroupID,
-                                   void *pRuntimeHandle) const;
+                                   void *pRuntimeHandle) const override;
 
   /**
    * @effects restore the thread state after kernel execution
@@ -253,7 +257,8 @@ public:
    * @param state object to restore from
    * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
    */
-  virtual cl_dev_err_code RestoreThreadState(ICLDevExecutionState &state) const;
+  virtual cl_dev_err_code
+  RestoreThreadState(ICLDevExecutionState &state) const override;
 
   /*
    * Kernel class methods

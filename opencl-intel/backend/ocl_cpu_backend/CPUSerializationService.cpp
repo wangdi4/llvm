@@ -24,13 +24,12 @@ class CountingOutputStream : public IOutputStream
 {
 public:
     CountingOutputStream() : m_Counter(0) { }
-    
-    CountingOutputStream& Write(const char* s, size_t count)
-    {
-        m_Counter += count;
-        return *this;
+
+    CountingOutputStream &Write(const char *, size_t count) override {
+      m_Counter += count;
+      return *this;
     }
-    
+
     size_t GetCount()
     {
         return m_Counter;
@@ -45,17 +44,18 @@ class OutputBufferStream : public IOutputStream
 public:
     OutputBufferStream(char* pBuffer, size_t size) 
         : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) { }
-        
-    OutputBufferStream& Write(const char* s, size_t count)
-    {
-        if(m_Pos == m_Size) return *this;
-        
-        size_t copySize = std::min(count, m_Size - m_Pos);
-        std::copy(s, s + copySize, m_pBuffer + m_Pos);
-        m_Pos += copySize;
-        
+
+    OutputBufferStream &Write(const char *s, size_t count) override {
+      if (m_Pos == m_Size)
         return *this;
+
+      size_t copySize = std::min(count, m_Size - m_Pos);
+      std::copy(s, s + copySize, m_pBuffer + m_Pos);
+      m_Pos += copySize;
+
+      return *this;
     }
+
 private:
     char* m_pBuffer;
     size_t m_Size;
@@ -67,28 +67,28 @@ class InputBufferStream : public IInputStream
 public:
     InputBufferStream(const char* pBuffer, size_t size) 
         : m_pBuffer(pBuffer), m_Size(size), m_Pos(0) { };
-        
-    InputBufferStream& Read(char* s, size_t count)
-    {
-        if(m_Pos == m_Size) return *this;
-        
-        size_t copySize = std::min(count, m_Size - m_Pos);
-        std::copy(m_pBuffer + m_Pos, m_pBuffer + m_Pos + copySize, s);
-        m_Pos += copySize;
-        
+
+    InputBufferStream &Read(char *s, size_t count) override {
+      if (m_Pos == m_Size)
         return *this;
+
+      size_t copySize = std::min(count, m_Size - m_Pos);
+      std::copy(m_pBuffer + m_Pos, m_pBuffer + m_Pos + copySize, s);
+      m_Pos += copySize;
+
+      return *this;
     }
-    
+
 private:
     const char* m_pBuffer;
     size_t m_Size;
     size_t m_Pos;
 };
 
-CPUSerializationService::CPUSerializationService(const ICLDevBackendOptions* pBackendOptions)
-{ 
-    m_pBackendFactory = CPUDeviceBackendFactory::GetInstance(); 
-    assert(m_pBackendFactory && "Backend Factory is null");
+CPUSerializationService::CPUSerializationService(
+    const ICLDevBackendOptions * /*pBackendOptions*/) {
+  m_pBackendFactory = CPUDeviceBackendFactory::GetInstance();
+  assert(m_pBackendFactory && "Backend Factory is null");
 }
 
 cl_dev_err_code CPUSerializationService::GetSerializationBlobSize(
@@ -127,33 +127,26 @@ void CPUSerializationService::ReleaseProgram(ICLDevBackendProgram_* pProgram) co
 }
 
 cl_dev_err_code CPUSerializationService::ReloadProgram(
-        cl_serialization_type serializationType, 
-        ICLDevBackendProgram_* pProgram, 
-        const void* pBlob, size_t blobSize,
-        size_t maxPrivateMemSize) const
-{
-    try
-    {
-        SerializationStatus stats;
-        stats.SetBackendFactory(m_pBackendFactory);
+    cl_serialization_type /*serializationType*/,
+    ICLDevBackendProgram_ *pProgram, const void *pBlob, size_t blobSize,
+    size_t maxPrivateMemSize) const {
+  try {
+    SerializationStatus stats;
+    stats.SetBackendFactory(m_pBackendFactory);
 
-        InputBufferStream ibs((char*)pBlob, blobSize);
-        stats.DeserialVersion(ibs);
-        
-        static_cast<CPUProgram*>(pProgram)->Deserialize(ibs, &stats, maxPrivateMemSize);
+    InputBufferStream ibs((const char *)pBlob, blobSize);
+    stats.DeserialVersion(ibs);
 
-        return CL_DEV_SUCCESS;
-    }
-    catch( Exceptions::SerializationException& )
-    {
-        return CL_DEV_ERROR_FAIL;
-    }
-    catch( std::bad_alloc& )
-    {
-        return CL_DEV_OUT_OF_MEMORY; 
-    }
+    static_cast<CPUProgram *>(pProgram)->Deserialize(ibs, &stats,
+                                                     maxPrivateMemSize);
+
+    return CL_DEV_SUCCESS;
+  } catch (Exceptions::SerializationException &) {
+    return CL_DEV_ERROR_FAIL;
+  } catch (std::bad_alloc &) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 }
-
 
 cl_dev_err_code CPUSerializationService::DeSerializeProgram(
         cl_serialization_type serializationType, 

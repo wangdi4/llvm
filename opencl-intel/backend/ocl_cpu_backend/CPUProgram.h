@@ -33,7 +33,10 @@ public:
     CPUProgram() : m_pExecutionEngine(nullptr) {}
     virtual ~CPUProgram();
 
-    virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module*, 2> bltnFuncList) { m_bltnFuncList = bltnFuncList; }
+    virtual void SetBuiltinModule(
+        llvm::SmallVector<llvm::Module *, 2> bltnFuncList) override {
+      m_bltnFuncList = bltnFuncList;
+    }
 
     virtual void SetExecutionEngine(void* ee) override {
         m_pExecutionEngine = (llvm::ExecutionEngine*)ee;
@@ -59,8 +62,8 @@ public:
     /**
      * Serialization methods for the class (used by the serialization service)
      */
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats,
-                             size_t maxPrivateMemSize = 0);
+    virtual void Deserialize(IInputStream &ist, SerializationStatus *stats,
+                             size_t maxPrivateMemSize = 0) override;
 
     void SetObjectCache(ObjectCodeCache *);
 

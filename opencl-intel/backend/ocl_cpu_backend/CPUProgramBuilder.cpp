@@ -123,51 +123,57 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
 
 bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
-    const char* pCachedObject =
-        (char*)(pProgram->GetObjectCodeContainer()->GetCode());
-    size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
-    assert(pCachedObject && "Object Code Container is null");
+  const char *pCachedObject =
+      (const char *)(pProgram->GetObjectCodeContainer()->GetCode());
+  size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
+  assert(pCachedObject && "Object Code Container is null");
 
-    // get sizes
-    CacheBinaryReader reader(pCachedObject,cacheSize);
-    size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
-    size_t irSize = reader.GetSectionSize(g_irSectionName);
-    size_t objectSize = reader.GetSectionSize(g_objSectionName);
+  // get sizes
+  CacheBinaryReader reader(pCachedObject, cacheSize);
+  size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
+  size_t irSize = reader.GetSectionSize(g_irSectionName);
+  size_t objectSize = reader.GetSectionSize(g_objSectionName);
 
-    // get the buffers entries
-    const char* bitCodeBuffer = (const char*)reader.GetSectionData(g_irSectionName);
-    assert(bitCodeBuffer && "BitCode Buffer is null");
+  // get the buffers entries
+  const char *bitCodeBuffer =
+      (const char *)reader.GetSectionData(g_irSectionName);
+  assert(bitCodeBuffer && "BitCode Buffer is null");
 
-    const char* serializationBuffer = (const char*)reader.GetSectionData(g_metaSectionName);
-    assert(serializationBuffer && "Serialization Buffer is null");
+  const char *serializationBuffer =
+      (const char *)reader.GetSectionData(g_metaSectionName);
+  assert(serializationBuffer && "Serialization Buffer is null");
 
-    const char* objectBuffer = (const char*)reader.GetSectionData(g_objSectionName);
-    assert(objectBuffer && "Object Buffer is null");
+  const char *objectBuffer =
+      (const char *)reader.GetSectionData(g_objSectionName);
+  assert(objectBuffer && "Object Buffer is null");
 
-    // Set IR
-    BitCodeContainer* bcc = new BitCodeContainer(bitCodeBuffer, reader.GetSectionSize(g_irSectionName));
-    pProgram->SetBitCodeContainer(bcc);
+  // Set IR
+  BitCodeContainer *bcc = new BitCodeContainer(
+      bitCodeBuffer, reader.GetSectionSize(g_irSectionName));
+  pProgram->SetBitCodeContainer(bcc);
 
-    // update the builtin module
-    pProgram->SetBuiltinModule(GetCompiler()->GetBuiltinModuleList());
+  // update the builtin module
+  pProgram->SetBuiltinModule(GetCompiler()->GetBuiltinModuleList());
 
-    // parse the IR bit code
-    llvm::StringRef data = llvm::StringRef(bitCodeBuffer, irSize);
-    std::unique_ptr<llvm::MemoryBuffer> Buffer = llvm::MemoryBuffer::getMemBufferCopy(data);
+  // parse the IR bit code
+  llvm::StringRef data = llvm::StringRef(bitCodeBuffer, irSize);
+  std::unique_ptr<llvm::MemoryBuffer> Buffer =
+      llvm::MemoryBuffer::getMemBufferCopy(data);
 
-    Compiler* pCompiler = GetCompiler();
-    std::unique_ptr<llvm::Module> M = pCompiler->ParseModuleIR(Buffer.get());
+  Compiler *pCompiler = GetCompiler();
+  std::unique_ptr<llvm::Module> M = pCompiler->ParseModuleIR(Buffer.get());
 
-    bool useLLDJIT = m_compiler.isObjectFromLLDJIT(llvm::StringRef(objectBuffer,
-                                                                   objectSize));
-    if (useLLDJIT) {
-        intel::DebuggingServiceType userType = intel::getUserDefinedDebuggingServiceType();
+  bool useLLDJIT =
+      m_compiler.isObjectFromLLDJIT(llvm::StringRef(objectBuffer, objectSize));
+  if (useLLDJIT) {
+    intel::DebuggingServiceType userType =
+        intel::getUserDefinedDebuggingServiceType();
 
-        if (userType != intel::None && userType != intel::Native) {
-            // user has overriden cached object type
-            pProgram->SetModule(std::move(M));
-            return false;
-        }
+    if (userType != intel::None && userType != intel::Native) {
+      // user has overriden cached object type
+      pProgram->SetModule(std::move(M));
+      return false;
+    }
     }
     pCompiler->materializeSpirTriple(M.get());
 
@@ -409,7 +415,7 @@ void CPUProgramBuilder::JitProcessing(
     auto LLJIT =
         m_compiler.CreateLLJIT(module, std::move(targetMachine), objCache);
     llvm::orc::IRCompileLayer::NotifyCompiledFunction notifyCompiled =
-        [&](llvm::orc::MaterializationResponsibility &R,
+        [&](llvm::orc::MaterializationResponsibility & /*R*/,
             llvm::orc::ThreadSafeModule TSM) -> void {
       program->SetModule(std::move(TSM));
     };
@@ -462,7 +468,7 @@ void CPUProgramBuilder::JitProcessing(
   llvm::orc::LLJIT *LLJIT = program->GetLLJIT();
   if (!kernelNames.empty()) {
     if (auto err = LLJIT->addIRModule(llvm::orc::ThreadSafeModule(
-            std::move(program->GetModuleOwner()),
+            program->GetModuleOwner(),
             std::make_unique<llvm::LLVMContext>()))) {
       llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
       throw Exceptions::CompilerException("Failed to add IR Module");
@@ -473,8 +479,8 @@ void CPUProgramBuilder::JitProcessing(
   } else {
     // There are no kernels to lookup and LLJIT won't be triggered.
     // So we need to compile the module into object buffer.
-    if (auto err = LLJIT->addObjectFile(
-            std::move(m_compiler.SimpleCompile(module, objCache)))) {
+    if (auto err =
+            LLJIT->addObjectFile(m_compiler.SimpleCompile(module, objCache))) {
       llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
       throw Exceptions::CompilerException("Failed to add object file");
     }
@@ -486,8 +492,8 @@ IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pPr
     return new CPUBlockToKernelMapper(pProgram, pModule);
 }
 
-void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, const ICLDevBackendOptions* pOptions) const
-{
+void CPUProgramBuilder::PostBuildProgramStep(
+    Program *pProgram, const ICLDevBackendOptions * /*pOptions*/) const {
   assert(pProgram && "Invalid program");
   llvm::Module* pModule = pProgram->GetModule();
   assert(pModule && "Invalid module");

@@ -112,9 +112,10 @@ const string VecSizeToPrefix(VecSize _size)
         return "soa8_";
     case SOA16:
         return "soa16_";
-    default:
-        throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error. Unsupported vector size"));
     }
+
+    throw Exceptions::DeviceBackendExceptionBase(
+        std::string("Internal error. Unsupported vector size"));
 }
 
 const string FilterToPrefix(cl_filter_mode _filterMode)
@@ -162,6 +163,7 @@ Size(_vecSize)
 std::string UndefCbkDesc::GetName() const
 {
     std::string vecStr = VecSizeToPrefix(Size);
+
     switch(Type)
     {
     case READ_CBK_UNDEF_INT:
@@ -172,9 +174,10 @@ std::string UndefCbkDesc::GetName() const
         return vecStr + "trans_coord_float_UNDEFINED";
     case TRANS_CBK_UNDEF_FLOAT_FLOAT:
         return vecStr + "trans_coord_float_float_UNDEFINED";
-    default:
-        throw Exceptions::DeviceBackendExceptionBase("Type of undefined callback is invalid!");
     }
+
+    throw Exceptions::DeviceBackendExceptionBase(
+        "Type of undefined callback is invalid!");
 }
 
 TransCbkDesc::TransCbkDesc(bool _isInt, SamplerType _sampler, VecSize _vectorSize):
@@ -296,7 +299,7 @@ void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
 }
 
 struct TrapDescriptor: public CbkDesc{
-    std::string GetName() const { return TRAP_NAME; }
+  std::string GetName() const override { return TRAP_NAME; }
 };
 
 void* ImageCallbackFunctions::GetTrapCbk()

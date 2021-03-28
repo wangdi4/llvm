@@ -40,9 +40,9 @@ public:
     BitCodeContainer(std::unique_ptr<llvm::MemoryBuffer> memBuffer);
     ~BitCodeContainer();
 
-    const void* GetCode() const;
+    const void *GetCode() const override;
 
-    size_t GetCodeSize() const;
+    size_t GetCodeSize() const override;
 
     /**
      * Get ownership on passed module
