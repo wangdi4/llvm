@@ -81,7 +81,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
-        virtual cl_err_code    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
+        virtual cl_err_code
+        GetInfo(cl_int iParamName, size_t szParamValueSize, void *pParamValue,
+                size_t *pszParamValueSizeRet) const override;
 
         /******************************************************************************************
         * Function:     GetImageInfo
@@ -95,8 +97,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Arnon Peleg
         * Date:            April 2009
         ******************************************************************************************/
-        virtual cl_err_code    GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
-            {return CL_INVALID_MEM_OBJECT; }
+        virtual cl_err_code
+        GetImageInfo(cl_image_info /*clParamName*/, size_t /*szParamValueSize*/,
+                     void * /*pParamValue*/,
+                     size_t * /*pszParamValueSizeRet*/) const {
+          return CL_INVALID_MEM_OBJECT;
+        }
 
         // initialize the memory object
         virtual cl_err_code Initialize(
@@ -340,7 +346,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // We need to trace all objects that were mapped in order to remove all mappings in the case of shutdown
         // Implement own life cycle management
-        virtual void EnterZombieState( EnterZombieStateLevel call_level );
+        virtual void
+        EnterZombieState(EnterZombieStateLevel call_level) override;
 
         // returns the address of the host pointer or NULL if there is none
         const void* GetHostPtr() const { return m_pHostPtr; }
@@ -393,7 +400,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @return number of Image2D objects in this Array
          ************************************************************************/
         virtual size_t GetNumObjects() const = 0;
-
+        virtual ~IMemoryObjectArray() {}
     };
 
 }}}

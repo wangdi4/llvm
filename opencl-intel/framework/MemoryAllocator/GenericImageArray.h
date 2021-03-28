@@ -49,10 +49,9 @@ public:
 
     // overridden methods:
 
-	size_t GetNumObjects() const;
-    
-private:
+    size_t GetNumObjects() const override;
 
+  private:
     /**
      * Constructor
      */

@@ -70,46 +70,68 @@ namespace Intel { namespace OpenCL { namespace Framework
         cl_err_code ClearAcquireCmdEvent(); // Clear Event of Acquire command that belongs to the object.
 
         // inherited methods:
-        virtual cl_err_code LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutUsageLocked, OUT SharedPtr<OclEvent>& pOutEvent );
-        virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
+        virtual cl_err_code
+        LockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                     IN MemObjUsage usage, OUT MemObjUsage *pOutUsageLocked,
+                     OUT SharedPtr<OclEvent> &pOutEvent) override;
+        virtual cl_err_code
+        UnLockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                       IN MemObjUsage usage) override;
 
-        virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);        
-        
-        virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion,
-            size_t szRowPitch, size_t szSlicePitch) const;
+        virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags,
+                                          void *pHostPtr) override;
 
-        virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const;
+        virtual cl_err_code CheckBoundsRect(const size_t *pszOrigin,
+                                            const size_t *pszRegion,
+                                            size_t szRowPitch,
+                                            size_t szSlicePitch) const override;
 
-        virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
+        virtual void *
+        GetBackingStoreData(const size_t *pszOrigin = NULL) const override;
 
-        virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice,
-            IOCLDevMemoryObject** ppDevObject, SharedPtr<OclEvent>* ppEvent);
+        virtual cl_err_code CreateDeviceResource(
+            const SharedPtr<FissionableDevice> &pDevice) override;
 
-        virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice,
-            IOCLDevMemoryObject* OUT *ppDevObject);
+        virtual cl_err_code
+        GetDeviceDescriptor(const SharedPtr<FissionableDevice> &pDevice,
+                            IOCLDevMemoryObject **ppDevObject,
+                            SharedPtr<OclEvent> *ppEvent) override;
 
-        virtual bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
+        virtual cl_err_code
+        UpdateDeviceDescriptor(const SharedPtr<FissionableDevice> &IN pDevice,
+                               IOCLDevMemoryObject *OUT *ppDevObject) override;
+
+        virtual bool IsSupportedByDevice(
+            const SharedPtr<FissionableDevice> &pDevice) override;
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
         //
-        virtual bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const;
-        virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
-        virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
+        virtual bool
+        IsSynchDataWithHostRequired(cl_dev_cmd_param_map *IN pMapInfo,
+                                    void *IN pHostMapDataPtr) const override;
+        virtual cl_err_code SynchDataToHost(cl_dev_cmd_param_map *IN pMapInfo,
+                                            void *IN pHostMapDataPtr) override;
+        virtual cl_err_code
+        SynchDataFromHost(cl_dev_cmd_param_map *IN pMapInfo,
+                          void *IN pHostMapDataPtr) override;
 
-    protected:
-
+      protected:
         // This function is responsible for creating a supporting child object
         virtual cl_err_code CreateChildObject() = 0;
 
         // inherited methods:
 
-        virtual    cl_err_code    MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
-            cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr);
+        virtual cl_err_code
+        MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
+                                    cl_dev_cmd_param_map *cmd_param_map,
+                                    void **pHostMapDataPtr) override;
 
-        virtual    cl_err_code    MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
-            cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr, bool force_unmap = false);
-
+        virtual cl_err_code
+        MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice> &,
+                                     cl_dev_cmd_param_map *cmd_param_map,
+                                     void *pHostMapDataPtr,
+                                     bool force_unmap = false) override;
 
         mutable Intel::OpenCL::Utils::OclSpinMutex m_muAcquireRelease;
         // This list hold the ordered events which represent acquire commands and appropriate child object,

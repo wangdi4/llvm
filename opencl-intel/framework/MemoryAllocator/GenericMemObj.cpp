@@ -95,17 +95,16 @@ static inline bool is_buffer_ok_for_device(  size_t buffer_size,
     return ok;
 }
 
-static inline bool is_image_ok_for_device( unsigned int        dim_count,
-                                           const size_t*    dimension,
-                                           const size_t*    pitches,
-                                           const cl_dev_alloc_prop& properies )
-{
-    bool ok = true;
+static inline bool is_image_ok_for_device(unsigned int /*dim_count*/,
+                                          const size_t * /*dimension*/,
+                                          const size_t * /*pitches*/,
+                                          const cl_dev_alloc_prop &properies) {
+  bool ok = true;
 
-    ok &= properies.imagesSupported;
+  ok &= properies.imagesSupported;
 
-    // TODO: DK: Need to check for image format device limitations.
-    return ok;
+  // TODO: DK: Need to check for image format device limitations.
+  return ok;
 }
 
 // initialize the memory object
@@ -480,21 +479,14 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
     return CL_SUCCESS;
 }
 
-cl_err_code GenericMemObject::create_device_object( cl_mem_flags clMemFlags,
-                                                    const SharedPtr<FissionableDevice>& dev,
-                                                    GenericMemObjectBackingStore* bs,
-                                                    IOCLDevMemoryObject** dev_object )
-{
-    cl_dev_err_code devErr = dev->GetDeviceAgent()->clDevCreateMemoryObject(
-                                    dev->GetSubdeviceId(),
-                                    clMemFlags,
-                                    &(m_BS->GetFormat()),
-                                    m_BS->GetDimCount(),
-                                    m_BS->GetDimentions(),
-                                    this,
-                                    dev_object);
+cl_err_code GenericMemObject::create_device_object(
+    cl_mem_flags clMemFlags, const SharedPtr<FissionableDevice> &dev,
+    GenericMemObjectBackingStore * /*bs*/, IOCLDevMemoryObject **dev_object) {
+  cl_dev_err_code devErr = dev->GetDeviceAgent()->clDevCreateMemoryObject(
+      dev->GetSubdeviceId(), clMemFlags, &(m_BS->GetFormat()),
+      m_BS->GetDimCount(), m_BS->GetDimentions(), this, dev_object);
 
-    return CL_DEV_FAILED(devErr) ? CL_OUT_OF_RESOURCES : CL_SUCCESS;
+  return CL_DEV_FAILED(devErr) ? CL_OUT_OF_RESOURCES : CL_SUCCESS;
 }
 
 cl_err_code GenericMemObject::CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice)
@@ -515,27 +507,28 @@ cl_err_code GenericMemObject::CreateDeviceResource(const SharedPtr<FissionableDe
     return allocate_object_for_sharing_group((unsigned int)desc->m_sharing_group_id);
 }
 
-cl_err_code GenericMemObject::GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
-{
-    assert(nullptr != ppDevObject);
+cl_err_code GenericMemObject::GetDeviceDescriptor(
+    const SharedPtr<FissionableDevice> &pDevice,
+    IOCLDevMemoryObject **ppDevObject, SharedPtr<OclEvent> * /*ppEvent*/) {
+  assert(nullptr != ppDevObject);
 
-    DeviceDescriptor* desc = get_device( pDevice.GetPtr() );
+  DeviceDescriptor *desc = get_device(pDevice.GetPtr());
 
-    if (nullptr == desc)
-    {
-        return CL_INVALID_DEVICE;
-    }
+  if (nullptr == desc) {
+    return CL_INVALID_DEVICE;
+  }
 
-    *ppDevObject = device_object( *desc );
-    assert(nullptr != *ppDevObject);
+  *ppDevObject = device_object(*desc);
+  assert(nullptr != *ppDevObject);
 
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 
-cl_err_code GenericMemObject::UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject)
-{
-    assert(0 && "GenericMemObject is not supporting this operation");
-    return CL_INVALID_OPERATION;
+cl_err_code GenericMemObject::UpdateDeviceDescriptor(
+    const SharedPtr<FissionableDevice> & /*pDevice*/,
+    IOCLDevMemoryObject ** /*ppDevObject*/) {
+  assert(0 && "GenericMemObject is not supporting this operation");
+  return CL_INVALID_OPERATION;
 }
 
 cl_err_code    GenericMemObject::MemObjCreateDevMappedRegion(
@@ -570,28 +563,25 @@ cl_err_code    GenericMemObject::MemObjCreateDevMappedRegion(
     return CL_OUT_OF_RESOURCES;
 }
 
-cl_err_code    GenericMemObject::MemObjReleaseDevMappedRegion(
-                                            const SharedPtr<FissionableDevice>& pDevice,
-                                            cl_dev_cmd_param_map*    cmd_param_map,
-                                            void* pHostMapDataPtr,
-                                            bool force_unmap )
-{
-    IOCLDevMemoryObject* dev_object;
-    cl_err_code          err;
+cl_err_code GenericMemObject::MemObjReleaseDevMappedRegion(
+    const SharedPtr<FissionableDevice> &pDevice,
+    cl_dev_cmd_param_map *cmd_param_map, void * /*pHostMapDataPtr*/,
+    bool force_unmap) {
+  IOCLDevMemoryObject *dev_object;
+  cl_err_code err;
 
-    err = GetDeviceDescriptor(pDevice, &dev_object, nullptr );
+  err = GetDeviceDescriptor(pDevice, &dev_object, nullptr);
 
-    if (CL_FAILED(err))
-    {
-        return err;
-    }
+  if (CL_FAILED(err)) {
+    return err;
+  }
 
-    cl_dev_err_code dev_err =  (force_unmap) ? 
-                            dev_object->clDevMemObjUnmapAndReleaseMappedRegion(cmd_param_map)
-                            :
-                            dev_object->clDevMemObjReleaseMappedRegion(cmd_param_map);
+  cl_dev_err_code dev_err =
+      (force_unmap)
+          ? dev_object->clDevMemObjUnmapAndReleaseMappedRegion(cmd_param_map)
+          : dev_object->clDevMemObjReleaseMappedRegion(cmd_param_map);
 
-    return CL_DEV_SUCCEEDED(dev_err) ? CL_SUCCESS : CL_INVALID_VALUE;
+  return CL_DEV_SUCCEEDED(dev_err) ? CL_SUCCESS : CL_INVALID_VALUE;
 }
 
 bool GenericMemObject::IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const
@@ -625,30 +615,32 @@ cl_err_code GenericMemObject::SynchDataFromHost( cl_dev_cmd_param_map* IN pMapIn
                       pMapInfo->pitch[0], pMapInfo->pitch[1] );
 }
 
-cl_err_code GenericMemObject::NotifyDeviceFissioned(const SharedPtr<FissionableDevice>& parent, size_t count, SharedPtr<FissionableDevice>* children)
-{
-    // TODO: DK: What should I do here?
-    return CL_SUCCESS;
+cl_err_code GenericMemObject::NotifyDeviceFissioned(
+    const SharedPtr<FissionableDevice> & /*parent*/, size_t /*count*/,
+    SharedPtr<FissionableDevice> * /*children*/) {
+  // TODO: DK: What should I do here?
+  return CL_SUCCESS;
 }
 
 // IOCLDevRTMemObjectService Methods
-cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS)
-{
-    assert(nullptr!= ppBS);
-    assert(nullptr!= m_pBackingStore);
+cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags /*flags*/,
+                                                  IOCLDevBackingStore **ppBS) {
+  assert(nullptr != ppBS);
+  assert(nullptr != m_pBackingStore);
 
-    *ppBS = m_pBackingStore;
-    return CL_DEV_SUCCESS;
+  *ppBS = m_pBackingStore;
+  return CL_DEV_SUCCESS;
 }
 
 // IOCLDevRTMemObjectService Methods
-cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore* *ppBS) const
-{
-    assert(nullptr!= ppBS);
-    assert(nullptr!= m_pBackingStore);
+cl_dev_err_code
+GenericMemObject::GetBackingStore(cl_dev_bs_flags /*flags*/,
+                                  const IOCLDevBackingStore **ppBS) const {
+  assert(nullptr != ppBS);
+  assert(nullptr != m_pBackingStore);
 
-    *ppBS = m_pBackingStore;
-    return CL_DEV_SUCCESS;
+  *ppBS = m_pBackingStore;
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code GenericMemObject::SetBackingStore(IOCLDevBackingStore* pBS)
@@ -724,7 +716,7 @@ cl_err_code GenericMemObject::WriteData(const void * pData,
     sCpyParam.uiDimCount = (cl_uint)m_BS->GetDimCount();
 
     // set source pointer (them)
-    sCpyParam.pSrc = (cl_char*)pData;
+    sCpyParam.pSrc = (const cl_char *)pData;
 
     // set destination (we)
     sCpyParam.pDst = (cl_char*)m_pBackingStore->GetRawData() + m_BS->GetRawDataOffset( pszOrigin );
@@ -957,57 +949,52 @@ void * GenericMemObject::GetBackingStoreData( const size_t * pszOrigin ) const
 }
 
 cl_err_code GenericMemObject::CreateSubBuffer(
-    cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+    cl_mem_flags clFlags, cl_buffer_create_type /*buffer_create_type*/,
     const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
-    bool RequireAlign)
-{
-    const cl_buffer_region* region = static_cast<const cl_buffer_region*>(buffer_create_info);
+    bool RequireAlign) {
+  const cl_buffer_region *region =
+      static_cast<const cl_buffer_region *>(buffer_create_info);
 
-    size_t pSzOrigin[MAX_WORK_DIM] = {region->origin};
-    size_t pSzSize[MAX_WORK_DIM] = {region->size};
+  size_t pSzOrigin[MAX_WORK_DIM] = {region->origin};
+  size_t pSzSize[MAX_WORK_DIM] = {region->size};
 
-    if (m_clMemObjectType != CL_MEM_OBJECT_BUFFER)
-    {
-        return CL_INVALID_VALUE;
-    }
+  if (m_clMemObjectType != CL_MEM_OBJECT_BUFFER) {
+    return CL_INVALID_VALUE;
+  }
 
-    // alignment must be power of 2
-    if (0 != (region->origin & (m_BS->GetRequiredAlignment() - 1)) &&
-        RequireAlign)
-    {
-        return CL_MISALIGNED_SUB_BUFFER_OFFSET;
-    }
+  // alignment must be power of 2
+  if (0 != (region->origin & (m_BS->GetRequiredAlignment() - 1)) &&
+      RequireAlign) {
+    return CL_MISALIGNED_SUB_BUFFER_OFFSET;
+  }
 
-    if ( 0 == clFlags )
-    {
-        clFlags = m_clFlags;
-    }
+  if (0 == clFlags) {
+    clFlags = m_clFlags;
+  }
 
-    GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, m_clMemObjectType, *this);
-    if ( nullptr == pSubBuffer )
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
+  GenericMemObjectSubBuffer *pSubBuffer =
+      new GenericMemObjectSubBuffer(m_pContext, m_clMemObjectType, *this);
+  if (nullptr == pSubBuffer) {
+    return CL_OUT_OF_HOST_MEMORY;
+  }
 
-    cl_err_code err = pSubBuffer->InitializeSubObject(clFlags, *this, pSzOrigin,
-                                                      pSzSize, RequireAlign);
-    if ( CL_FAILED(err) )
-    {
-        pSubBuffer->Release();
-        LOG_ERROR(TEXT("SubBuffer creation error: %x"), err);
-        return err;
-    }
+  cl_err_code err = pSubBuffer->InitializeSubObject(clFlags, *this, pSzOrigin,
+                                                    pSzSize, RequireAlign);
+  if (CL_FAILED(err)) {
+    pSubBuffer->Release();
+    LOG_ERROR(TEXT("SubBuffer creation error: %x"), err);
+    return err;
+  }
 
-    // If shared context (more than one device)
-    if (m_active_groups_count > 1)
-    {
-        // add pSubBuffer to parent m_subBuffersList
-        addSubBuffer(pSubBuffer);
-    }
+  // If shared context (more than one device)
+  if (m_active_groups_count > 1) {
+    // add pSubBuffer to parent m_subBuffersList
+    addSubBuffer(pSubBuffer);
+  }
 
-    assert(nullptr != ppBuffer);
-    *ppBuffer = pSubBuffer;
-    return CL_SUCCESS;
+  assert(nullptr != ppBuffer);
+  *ppBuffer = pSubBuffer;
+  return CL_SUCCESS;
 }
 
 void GenericMemObject::addSubBuffer(GenericMemObjectSubBuffer* pSubBuffer)
@@ -1404,27 +1391,22 @@ GenericMemObjectSubBuffer::GenericMemObjectSubBuffer(const SharedPtr<Context>& p
 }
 
 cl_err_code GenericMemObjectSubBuffer::Initialize(
-            cl_mem_flags        clMemFlags,
-            const cl_image_format*    pclImageFormat,
-            unsigned int        dim_count,
-            const size_t*        dimension,  // size == region
-            const size_t*       pitches,    // origin
-            void*                pHostPtr
-            )
-{
-    assert(0);
-    return CL_INVALID_OPERATION;
+    cl_mem_flags /*clMemFlags*/, const cl_image_format * /*pclImageFormat*/,
+    unsigned int /*dim_count*/, const size_t * /*dimension*/, // size == region
+    const size_t * /*pitches*/,                               // origin
+    void *                                                    /*pHostPtr*/
+) {
+  assert(0);
+  return CL_INVALID_OPERATION;
 }
 
-void GenericMemObjectSubBuffer::EnterZombieState( EnterZombieStateLevel call_level )
-{
-    if (m_bRegisteredByParent)
-    {
-        const_cast<GenericMemObjectSubBuffer*>(this)->ZombieFlashToParent();
-    }
-    GenericMemObject::EnterZombieState(RECURSIVE_CALL);
+void GenericMemObjectSubBuffer::EnterZombieState(
+    EnterZombieStateLevel /*call_level*/) {
+  if (m_bRegisteredByParent) {
+    const_cast<GenericMemObjectSubBuffer *>(this)->ZombieFlashToParent();
+  }
+  GenericMemObject::EnterZombieState(RECURSIVE_CALL);
 }
-
 
 cl_err_code GenericMemObjectSubBuffer::create_device_object(
                                                     cl_mem_flags clMemFlags,
@@ -1493,7 +1475,8 @@ cl_err_code    GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szPa
         assert(nullptr != pUserHostPtr);
         err = GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBackingStore);
         assert(CL_SUCCEEDED(err));
-        pHostPtr = (char*)pUserHostPtr + pBackingStore->GetDimentions()[0];
+        pHostPtr =
+            (const char *)pUserHostPtr + pBackingStore->GetDimentions()[0];
 
         if (nullptr != pParamValue && szParamValueSize < szSize)
         {

@@ -19,69 +19,85 @@ using namespace Intel::OpenCL::Framework;
 
 // SharedPointerArg methods:
 
-cl_err_code SharedPointerArg::Initialize(cl_mem_flags clMemFlags,
-                                         const cl_image_format* pclImageFormat,
-                                         unsigned int dim_count,
-                                         const size_t* dimension,
-                                         const size_t* pitches,
-                                         void* pHostPtr,
-                                         cl_rt_memobj_creation_flags creation_flags,
-                                         size_t force_alignment)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code SharedPointerArg::Initialize(
+    cl_mem_flags /*clMemFlags*/, const cl_image_format * /*pclImageFormat*/,
+    unsigned int /*dim_count*/, const size_t * /*dimension*/,
+    const size_t * /*pitches*/, void * /*pHostPtr*/,
+    cl_rt_memobj_creation_flags /*creation_flags*/,
+    size_t /*force_alignment*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
-cl_err_code SharedPointerArg::UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code SharedPointerArg::UpdateHostPtr(cl_mem_flags /*clMemFlags*/,
+                                            void * /*pHostPtr*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
-cl_err_code SharedPointerArg::ReadData(void* pOutData, const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code SharedPointerArg::ReadData(void * /*pOutData*/,
+                                       const size_t * /*pszOrigin*/,
+                                       const size_t * /*pszRegion*/,
+                                       size_t /*szRowPitch*/,
+                                       size_t /*szSlicePitch*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
-cl_err_code SharedPointerArg::WriteData(const void* pOutData,    const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code SharedPointerArg::WriteData(const void * /*pOutData*/,
+                                        const size_t * /*pszOrigin*/,
+                                        const size_t * /*pszRegion*/,
+                                        size_t /*szRowPitch*/,
+                                        size_t /*szSlicePitch*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
-bool SharedPointerArg::IsSynchDataWithHostRequired(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr) const
-{
-    ASSERT_RET_VAL(false, "this method should never be called", false);
+bool SharedPointerArg::IsSynchDataWithHostRequired(
+    cl_dev_cmd_param_map *IN /*pMapInfo*/, void *IN /*pHostMapDataPtr*/) const {
+  ASSERT_RET_VAL(false, "this method should never be called", false);
 }
 
-cl_err_code SharedPointerArg::SynchDataToHost(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code
+SharedPointerArg::SynchDataToHost(cl_dev_cmd_param_map *IN /*pMapInfo*/,
+                                  void *IN /*pHostMapDataPtr*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
-cl_err_code SharedPointerArg::SynchDataFromHost(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code
+SharedPointerArg::SynchDataFromHost(cl_dev_cmd_param_map *IN /*pMapInfo*/,
+                                    void *IN /*pHostMapDataPtr*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
 cl_err_code SharedPointerArg::CreateSubBuffer(
-    cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-    const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
-    bool RequireAlign)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+    cl_mem_flags /*clFlags*/, cl_buffer_create_type /*buffer_create_type*/,
+    const void * /*buffer_create_info*/, SharedPtr<MemoryObject> * /*ppBuffer*/,
+    bool /*RequireAlign*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
-bool SharedPointerArg::IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", false);
+bool SharedPointerArg::IsSupportedByDevice(
+    const SharedPtr<FissionableDevice> & /*pDevice*/) {
+  ASSERT_RET_VAL(false, "this method should never be called", false);
 }
 
-cl_err_code    SharedPointerArg::MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice>&, cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code SharedPointerArg::MemObjCreateDevMappedRegion(
+    const SharedPtr<FissionableDevice> &,
+    cl_dev_cmd_param_map * /*cmd_param_map*/, void ** /*pHostMapDataPtr*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
-cl_err_code    SharedPointerArg::MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&, cl_dev_cmd_param_map*    cmd_param_map, void* pHostMapDataPtr, bool force_unmap)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
+cl_err_code SharedPointerArg::MemObjReleaseDevMappedRegion(
+    const SharedPtr<FissionableDevice> &,
+    cl_dev_cmd_param_map * /*cmd_param_map*/, void * /*pHostMapDataPtr*/,
+    bool /*force_unmap*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_INVALID_OPERATION);
 }
 
 // BufferPointerArg methods:
@@ -131,9 +147,9 @@ cl_err_code BufferPointerArg::CheckBoundsRect(const size_t* pszOrigin, const siz
     return m_pBuf->CheckBoundsRect(pszOrigin, pszRegion, szRowPitch, szSlicePitch);
 }
 
-void* BufferPointerArg::GetBackingStoreData(const size_t* pszOrigin) const
-{
-    return (char*)m_pBuf->GetAddr() + m_szOffset;
+void *
+BufferPointerArg::GetBackingStoreData(const size_t * /*pszOrigin*/) const {
+  return (char *)m_pBuf->GetAddr() + m_szOffset;
 }
 
 cl_err_code BufferPointerArg::CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice)
@@ -160,40 +176,52 @@ cl_err_code BufferPointerArg::UpdateDeviceDescriptor(const SharedPtr<Fissionable
 
 // SharedPointerArg::PointerArgDevMemoryObject methods:
 
-SharedPointerArg::PointerArgDevMemoryObject::PointerArgDevMemoryObject(const SharedPtr<SharedPointerArg>& pPtrArg, IOCLDevMemoryObject* pBufDevMemObj, size_t szOffset) :
-    m_pBufDevMemObj(pBufDevMemObj)
-{
-    m_objDecr.dimensions.buffer_size = 0;    // unknown
-    m_objDecr.dim_count = 1;
-    m_objDecr.memObjType = CL_MEM_OBJECT_BUFFER;
-    m_objDecr.pData = pPtrArg->GetBackingStoreData();
+SharedPointerArg::PointerArgDevMemoryObject::PointerArgDevMemoryObject(
+    const SharedPtr<SharedPointerArg> &pPtrArg,
+    IOCLDevMemoryObject *pBufDevMemObj, size_t /*szOffset*/)
+    : m_pBufDevMemObj(pBufDevMemObj) {
+  m_objDecr.dimensions.buffer_size = 0; // unknown
+  m_objDecr.dim_count = 1;
+  m_objDecr.memObjType = CL_MEM_OBJECT_BUFFER;
+  m_objDecr.pData = pPtrArg->GetBackingStoreData();
 }
 
-cl_dev_err_code SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_param_map* pMapParams)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_DEV_INVALID_OPERATION);
+cl_dev_err_code
+SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjCreateMappedRegion(
+    cl_dev_cmd_param_map * /*pMapParams*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_DEV_INVALID_OPERATION);
 }
 
-cl_dev_err_code SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjUnmapAndReleaseMappedRegion(cl_dev_cmd_param_map* pMapParams)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_DEV_INVALID_OPERATION);
+cl_dev_err_code SharedPointerArg::PointerArgDevMemoryObject::
+    clDevMemObjUnmapAndReleaseMappedRegion(
+        cl_dev_cmd_param_map * /*pMapParams*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_DEV_INVALID_OPERATION);
 }
 
-cl_dev_err_code SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjReleaseMappedRegion(cl_dev_cmd_param_map* pMapParams)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_DEV_INVALID_OPERATION);
+cl_dev_err_code
+SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjReleaseMappedRegion(
+    cl_dev_cmd_param_map * /*pMapParams*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_DEV_INVALID_OPERATION);
 }
 
-cl_dev_err_code SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle* handle)
-{
-    *handle = &m_objDecr;
-    return CL_DEV_SUCCESS;
+cl_dev_err_code
+SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjGetDescriptor(
+    cl_device_type /*dev_type*/, cl_dev_subdevice_id /*node_id*/,
+    cl_dev_memobj_handle *handle) {
+  *handle = &m_objDecr;
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjCreateSubObject(cl_mem_flags mem_flags, const size_t IN* origin, const size_t IN* size, IOCLDevRTMemObjectService IN* pBSService,
-    IOCLDevMemoryObject* OUT* ppSubObject)
-{
-    ASSERT_RET_VAL(false, "this method should never be called", CL_DEV_INVALID_OPERATION);
+cl_dev_err_code
+SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjCreateSubObject(
+    cl_mem_flags /*mem_flags*/, const size_t IN * /*origin*/,
+    const size_t IN * /*size*/, IOCLDevRTMemObjectService IN * /*pBSService*/,
+    IOCLDevMemoryObject *OUT * /*ppSubObject*/) {
+  ASSERT_RET_VAL(false, "this method should never be called",
+                 CL_DEV_INVALID_OPERATION);
 }
 
 cl_dev_err_code SharedPointerArg::PointerArgDevMemoryObject::clDevMemObjUpdateBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState)

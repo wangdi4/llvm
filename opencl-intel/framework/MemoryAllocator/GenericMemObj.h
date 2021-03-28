@@ -67,35 +67,47 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // initialize the data on the memory object
         // initialize the memory object
-        virtual cl_err_code Initialize(
-            cl_mem_flags            clMemFlags,
-            const cl_image_format*    pclImageFormat,
-            unsigned int            dim_count,
-            const size_t*            dimension,
-            const size_t*            pitches,
-            void*                    pHostPtr,
-            cl_rt_memobj_creation_flags    creation_flags,
-            size_t                         force_alignment = 0
-            );
+        virtual cl_err_code
+        Initialize(cl_mem_flags clMemFlags,
+                   const cl_image_format *pclImageFormat,
+                   unsigned int dim_count, const size_t *dimension,
+                   const size_t *pitches, void *pHostPtr,
+                   cl_rt_memobj_creation_flags creation_flags,
+                   size_t force_alignment = 0) override;
 
-        cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
+        cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags,
+                                  void *pHostPtr) override;
 
         // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        virtual cl_err_code LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
+        virtual cl_err_code
+        LockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                     IN MemObjUsage usage, OUT MemObjUsage *pOutActuallyUsage,
+                     OUT SharedPtr<OclEvent> &pOutEvent) override;
 
         // release data locking on device. 
         // MUST pass the same usage value as set in pOutActuallyUsage during LockOnDevice execution.
-        virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
+        virtual cl_err_code
+        UnLockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                       IN MemObjUsage usage) override;
 
-        cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
-        cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent);
-        cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject);
+        cl_err_code CreateDeviceResource(
+            const SharedPtr<FissionableDevice> &pDevice) override;
+        cl_err_code
+        GetDeviceDescriptor(const SharedPtr<FissionableDevice> &pDevice,
+                            IOCLDevMemoryObject **ppDevObject,
+                            SharedPtr<OclEvent> *ppEvent) override;
+        cl_err_code
+        UpdateDeviceDescriptor(const SharedPtr<FissionableDevice> &pDevice,
+                               IOCLDevMemoryObject **ppDevObject) override;
 
         // return TRUE is device can support this sub-buffer - as for alignment and other requirements.
         // assume that all devices do support all sub-buffer alignments.
-        bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice) { return true; }
+        bool
+        IsSupportedByDevice(const SharedPtr<FissionableDevice> &) override {
+          return true;
+        }
 
         /// Create sub buffer.
         ///
@@ -117,47 +129,67 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Assumed Read/Write is used only for data mirroring for the cases when BackingStore differ from
         // user provided host map buffer
         // This Read/Write methods DO NOT really access device memory!!!!
-        cl_err_code ReadData(void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
-        cl_err_code WriteData(const void * pData, const size_t * pszOrigin, const size_t * pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
+        cl_err_code ReadData(void *pData, const size_t *pszOrigin,
+                             const size_t *pszRegion, size_t szRowPitch = 0,
+                             size_t szSlicePitch = 0) override;
+        cl_err_code WriteData(const void *pData, const size_t *pszOrigin,
+                              const size_t *pszRegion, size_t szRowPitch = 0,
+                              size_t szSlicePitch = 0) override;
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
         //
-        bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const;
-        cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
-        cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
+        bool
+        IsSynchDataWithHostRequired(cl_dev_cmd_param_map *IN pMapInfo,
+                                    void *IN pHostMapDataPtr) const override;
+        cl_err_code SynchDataToHost(cl_dev_cmd_param_map *IN pMapInfo,
+                                    void *IN pHostMapDataPtr) override;
+        cl_err_code SynchDataFromHost(cl_dev_cmd_param_map *IN pMapInfo,
+                                      void *IN pHostMapDataPtr) override;
 
-        cl_err_code GetDimensionSizes( size_t* pszRegion ) const;
-        void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
-        cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
-        cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
-        void * GetBackingStoreData( const size_t * pszOrigin = nullptr ) const;
+        cl_err_code GetDimensionSizes(size_t *pszRegion) const override;
+        void GetLayout(OUT size_t *dimensions, OUT size_t *rowPitch,
+                       OUT size_t *slicePitch) const override;
+        cl_err_code CheckBounds(const size_t *pszOrigin,
+                                const size_t *pszRegion) const override;
+        cl_err_code CheckBoundsRect(const size_t *pszOrigin,
+                                    const size_t *pszRegion, size_t szRowPitch,
+                                    size_t szSlicePitch) const override;
+        void *
+        GetBackingStoreData(const size_t *pszOrigin = nullptr) const override;
 
-        cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
+        cl_err_code GetImageInfo(cl_image_info clParamName,
+                                 size_t szParamValueSize, void *pParamValue,
+                                 size_t *pszParamValueSizeRet) const override;
 
-        size_t GetPixelSize() const;
+        size_t GetPixelSize() const override;
 
         // Get object pitches. If pitch is irrelevant to the memory object, zero pitch is returned
-        size_t GetRowPitchSize() const;
-        size_t GetSlicePitchSize() const;
+        size_t GetRowPitchSize() const override;
+        size_t GetSlicePitchSize() const override;
 
         // IDeviceFissionObserver interface
         cl_err_code NotifyDeviceFissioned(const SharedPtr<FissionableDevice>& parent, size_t count, SharedPtr<FissionableDevice>* children);
 
         // IOCLDevRTMemObjectService Methods
-        cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS);
-        cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore** ppBS) const;
-        cl_dev_err_code SetBackingStore(IOCLDevBackingStore* pBS);
-        size_t GetDeviceAgentListSize() const;
-        const IOCLDeviceAgent* const *GetDeviceAgentList() const;
+        cl_dev_err_code GetBackingStore(cl_dev_bs_flags flags,
+                                        IOCLDevBackingStore **ppBS) override;
+        cl_dev_err_code
+        GetBackingStore(cl_dev_bs_flags flags,
+                        const IOCLDevBackingStore **ppBS) const override;
+        cl_dev_err_code SetBackingStore(IOCLDevBackingStore *pBS) override;
+        size_t GetDeviceAgentListSize() const override;
+        const IOCLDeviceAgent *const *GetDeviceAgentList() const override;
         virtual ~GenericMemObject();
-        cl_mem_object_type GetMemObjectType() const { return GetType(); }
+        cl_mem_object_type GetMemObjectType() const override {
+          return GetType();
+        }
         // Device Agent should notify when long update to/from backing store operations finished.
         //      Pass HANDLE value that was provided to Device Agent when update API was called
-        void BackingStoreUpdateFinished( IN void* handle, cl_dev_err_code dev_error );		
+        void BackingStoreUpdateFinished(IN void *handle,
+                                        cl_dev_err_code dev_error) override;
 
-    protected:
-
+      protected:
         unsigned int                        m_active_groups_count; // groups with allocated device objects
 
         typedef vector< SharedPtr<GenericMemObjectSubBuffer> >            TSubBufferList;
@@ -292,9 +324,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
             }
 
             // Get the return code of the command associated with the event.
-            cl_int     GetReturnCode() const {return 0;}
-            cl_err_code    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
-                {return CL_INVALID_OPERATION;}
+            cl_int GetReturnCode() const override { return 0; }
+            cl_err_code GetInfo(cl_int, size_t, void *,
+                                size_t *) const override {
+              return CL_INVALID_OPERATION;
+            }
 
         protected:
 
@@ -387,18 +421,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
             // Overwrite OCLEvent method.
             // Will call when all the events that this event dependent on will complete.
             // It call to the next stage of UpdateParent pipeline.
-            virtual void DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
-            {
-                cl_err_code errCode = CL_SUCCESS;
-                errCode = m_pMemObj->updateParentInt(m_destDevSharingGroupId, m_memoryUsage, m_isParent, this, m_nextStage, m_pOutEvent);
-                (void)errCode;
-                assert(CL_SUCCESS == errCode && "In case that errCode is not CL_SUCCESS ==> invalidate the event //TODO");
-                if (EVENT_STATE_DONE == GetEventState())
-                {
-                    // we are done, no more callbacks from Devices possible
-                    m_pOutEvent = nullptr;
-                }
+          virtual void
+          DoneWithDependencies(const SharedPtr<OclEvent> &) override {
+            cl_err_code errCode = CL_SUCCESS;
+            errCode = m_pMemObj->updateParentInt(
+                m_destDevSharingGroupId, m_memoryUsage, m_isParent, this,
+                m_nextStage, m_pOutEvent);
+            (void)errCode;
+            assert(CL_SUCCESS == errCode &&
+                   "In case that errCode is not CL_SUCCESS ==> invalidate the "
+                   "event //TODO");
+            if (EVENT_STATE_DONE == GetEventState()) {
+              // we are done, no more callbacks from Devices possible
+              m_pOutEvent = nullptr;
             }
+          }
 
         private:
 
@@ -434,11 +471,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
 
         // Low level mapped region creation function
-        virtual    cl_err_code    MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice>&,
-            cl_dev_cmd_param_map*    cmd_param_map, void** pHostMapDataPtr);
+        virtual cl_err_code
+        MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
+                                    cl_dev_cmd_param_map *cmd_param_map,
+                                    void **pHostMapDataPtr) override;
         // Low level mapped region release function
-        virtual    cl_err_code    MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
-            cl_dev_cmd_param_map*    cmd_param_map, void* pHostMapDataPtr, bool force_unmap = false );
+        virtual cl_err_code
+        MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice> &,
+                                     cl_dev_cmd_param_map *cmd_param_map,
+                                     void *pHostMapDataPtr,
+                                     bool force_unmap = false) override;
 
         struct DeviceDescriptor
         {
@@ -698,39 +740,44 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return new GenericMemObjectSubBuffer(pContext, pOclEntryPoints, clObjType, buffer);
         }
 
-        cl_err_code Initialize(
-            cl_mem_flags        clMemFlags,
-            const cl_image_format*    pclImageFormat,
-            unsigned int        dim_count,
-            const size_t*        dimension,
-            const size_t*       pitches,
-            void*                pHostPtr
-            );
+        using GenericMemObject::Initialize;
+        virtual cl_err_code Initialize(cl_mem_flags clMemFlags,
+                                       const cl_image_format *pclImageFormat,
+                                       unsigned int dim_count,
+                                       const size_t *dimension,
+                                       const size_t *pitches, void *pHostPtr);
 
-
-        cl_err_code CreateSubBuffer(
-            cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-            const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
-            bool RequireAlign) override {
+        cl_err_code CreateSubBuffer(cl_mem_flags, cl_buffer_create_type,
+                                    const void *, SharedPtr<MemoryObject> *,
+                                    bool) override {
           return CL_INVALID_MEM_OBJECT;
         }
 
-        bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
+        bool IsSupportedByDevice(
+            const SharedPtr<FissionableDevice> &pDevice) override;
 
-        cl_err_code    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
+        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
+                            void *pParamValue,
+                            size_t *pszParamValueSizeRet) const override;
 
         // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list by the caller
         // Overwrite parent implementation.
-        virtual cl_err_code LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
+        virtual cl_err_code
+        LockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                     IN MemObjUsage usage, OUT MemObjUsage *pOutActuallyUsage,
+                     OUT SharedPtr<OclEvent> &pOutEvent) override;
 
         // release data locking on device. 
         // MUST pass the same usage value as LockOnDevice
         // Overwrite parent implementation.
-        virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
+        virtual cl_err_code
+        UnLockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                       IN MemObjUsage usage) override;
 
         // SubBuffers are saved inside parent buffer list using SmartPointers so we need to manage it's lifetime by ourselve
-        virtual void EnterZombieState( EnterZombieStateLevel call_level ); // override ReferenceCountedObject method
+        virtual void EnterZombieState(EnterZombieStateLevel call_level)
+            override; // override ReferenceCountedObject method
         void RegisteredByParent() 
         { 
             IncZombieCnt(); 
@@ -741,13 +788,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         GenericMemObjectSubBuffer(const SharedPtr<Context>& pContext, ocl_entry_points * pOclEntryPoints, cl_mem_object_type clObjType, GenericMemObject& buffer);
 
-        virtual cl_err_code create_device_object( cl_mem_flags clMemFlags,
-                                                  const SharedPtr<FissionableDevice>& dev,
-                                                  GenericMemObjectBackingStore* bs,
-                                                  IOCLDevMemoryObject** dev_object );
+        virtual cl_err_code
+        create_device_object(cl_mem_flags clMemFlags,
+                             const SharedPtr<FissionableDevice> &dev,
+                             GenericMemObjectBackingStore *bs,
+                             IOCLDevMemoryObject **dev_object) override;
 
         // Return parent memory object.
-        virtual GenericMemObject& getParentMemObj() { return (GenericMemObject&)m_rBuffer; };
+        virtual GenericMemObject &getParentMemObj() override {
+          return const_cast<GenericMemObject &>(m_rBuffer);
+        };
 
         // synch me with my parent
         void ZombieFlashToParent();
@@ -789,27 +839,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool AllocateData( void );
 
-        void*                   GetRawData()     const {return m_ptr;}
-        size_t                  GetRawDataSize() const {return m_raw_data_size;}
-        size_t                  GetRawDataOffset( const size_t* origin ) const;
+        void *GetRawData() const override { return m_ptr; }
+        size_t GetRawDataSize() const override { return m_raw_data_size; }
+        size_t GetRawDataOffset(const size_t *origin) const override;
 
-        size_t                  GetDimCount()    const {return m_dim_count;}
-        const size_t*           GetDimentions()  const {return m_dimensions;}
-        bool                    IsDataValid()    const {return m_data_valid;}
-        void                    SetDataValid(bool value)  { m_data_valid = value; }
-        const size_t*           GetPitch()       const {return m_pitches;}
-        const cl_image_format&  GetFormat()      const {return m_format;}
-        size_t                  GetElementSize() const {return m_element_size;}
+        size_t GetDimCount() const override { return m_dim_count; }
+        const size_t *GetDimentions() const override { return m_dimensions; }
+        bool IsDataValid() const override { return m_data_valid; }
+        void SetDataValid(bool value) override { m_data_valid = value; }
+        const size_t *GetPitch() const override { return m_pitches; }
+        const cl_image_format &GetFormat() const override { return m_format; }
+        size_t GetElementSize() const override { return m_element_size; }
 
         size_t                  GetRequiredAlignment() const {return m_alignment;}
 
-        int AddPendency();
-        int RemovePendency();
+        int AddPendency() override;
+        int RemovePendency() override;
 
         // pointer where user should expect the data
         void* GetHostMapPtr( void )  const { return m_pHostPtr ? m_pHostPtr : m_ptr; }
         // same as GetHostMapPtr but NULL if used did not provide this pointer
-        void* GetUserProvidedHostMapPtr( void )  const { return m_pHostPtr; }
+        void *GetUserProvidedHostMapPtr(void) const override {
+          return m_pHostPtr;
+        }
 
         // helper function to calculate offsets
         static size_t calculate_offset( size_t elem_size, unsigned int  dim_count,
