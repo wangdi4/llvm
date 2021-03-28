@@ -90,7 +90,7 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
     }    
     if (nullptr != m_pExecTimeUserPtr)
     {
-        ((cl_long*)m_pExecTimeUserPtr)[1] = m_ulCompleteTime;
+      ((volatile cl_long *)m_pExecTimeUserPtr)[1] = m_ulCompleteTime;
     }
   }
 
@@ -121,9 +121,9 @@ void DeviceCommand::StopExecutionProfiling()
 		m_ulExecTime = ulEndExecTime - m_ulStartExecTime;
 		if (nullptr != m_pExecTimeUserPtr)
 		{
-			*(cl_long*)m_pExecTimeUserPtr = m_ulExecTime;
-		}
-	}
+                  *(volatile cl_long *)m_pExecTimeUserPtr = m_ulExecTime;
+                }
+        }
 }
 
 bool DeviceCommand::SetExecTimeUserPtr(volatile void* pExecTimeUserPtr)

@@ -59,32 +59,38 @@ public:
         const _ndrange_t* pNDRange) const = 0;
 
     // inherited methods:
-    virtual void Launch();
+    virtual void Launch() override;
 
     // IDeviceCommandManager interface
-    int EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet,
-		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-        const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSize, size_t stLocalSizeCount,
-        const _ndrange_t* pNDRange, const void* pHandle);
+    int EnqueueKernel(
+        queue_t queue, kernel_enqueue_flags_t flags,
+        cl_uint uiNumEventsInWaitList, const clk_event_t *pEventWaitList,
+        clk_event_t *pEventRet,
+        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_ *pKernel,
+        const void *pBlockLiteral, size_t stBlockSize, const size_t *pLocalSize,
+        size_t stLocalSizeCount, const _ndrange_t *pNDRange,
+        const void *pHandle) override;
 
-    int EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet);
+    int EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList,
+                      const clk_event_t *pEventWaitList,
+                      clk_event_t *pEventRet) override;
 
-    int RetainEvent(clk_event_t event);
+    int RetainEvent(clk_event_t event) override;
 
-    int ReleaseEvent(clk_event_t event);
+    int ReleaseEvent(clk_event_t event) override;
 
-    clk_event_t CreateUserEvent(int* piErrcodeRet);
+    clk_event_t CreateUserEvent(int *piErrcodeRet) override;
 
-    virtual bool IsValidEvent(clk_event_t event) const;
+    virtual bool IsValidEvent(clk_event_t event) const override;
 
-    int SetEventStatus(clk_event_t event, int iStatus);
+    int SetEventStatus(clk_event_t event, int iStatus) override;
 
-    void CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name, volatile void* pValue);
+    void CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name,
+                                   volatile void *pValue) override;
 
-    queue_t GetDefaultQueueForDevice() const;
+    queue_t GetDefaultQueueForDevice() const override;
 
-protected:
-
+  protected:
     /**
      * Constructor
      * @param list				the ITaskList that implements the command-queue on which this DeviceCommand executes

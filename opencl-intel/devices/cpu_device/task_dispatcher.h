@@ -76,6 +76,7 @@ public:
      * @return true if master thread will be pinned.
      */
     virtual bool IsPinMasterAllowed() const = 0;
+    virtual ~IAffinityChangeObserver() {}
 };
 
 class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
@@ -116,9 +117,9 @@ public:
 
     ITEDevice*              GetRootDevice() { return m_pRootDevice.GetPtr(); }
     // ITaskExecutorObserver
-    void*                   OnThreadEntry(bool registerThread);
-    void                    OnThreadExit( void* currentThreadData );
-    TE_BOOLEAN_ANSWER       MayThreadLeaveDevice( void* currentThreadData );
+    void *OnThreadEntry(bool registerThread) override;
+    void OnThreadExit(void *currentThreadData) override;
+    TE_BOOLEAN_ANSWER MayThreadLeaveDevice(void *currentThreadData) override;
 
 #if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
@@ -166,14 +167,26 @@ protected:
         virtual ~TaskFailureNotification() {};
 
         // ITask interface
-        bool	        CompleteAndCheckSyncPoint() {return false;}
-        bool	        SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
-        bool	        IsCompleted() const {assert(0&&"Should not be called");return true;}
-        bool	        Execute() { return Shoot( CL_DEV_ERROR_FAIL ); }
-        void            Cancel()  { Shoot( CL_DEV_COMMAND_CANCELLED ); }
-        long	        Release() { return 0; }
-        TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-        Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
+        bool CompleteAndCheckSyncPoint() override { return false; }
+        bool SetAsSyncPoint() override {
+          assert(0 && "Should not be called");
+          return false;
+        }
+        bool IsCompleted() const override {
+          assert(0 && "Should not be called");
+          return true;
+        }
+        bool Execute() override { return Shoot(CL_DEV_ERROR_FAIL); }
+        void Cancel() override { Shoot(CL_DEV_COMMAND_CANCELLED); }
+        long Release() override { return 0; }
+        TASK_PRIORITY GetPriority() const override {
+          return TASK_PRIORITY_MEDIUM;
+        }
+        Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+        GetNDRangeChildrenTaskGroup() override {
+          return nullptr;
+        }
+
     protected:
         TaskDispatcher*			m_pTaskDispatcher;
         const cl_dev_cmd_desc*	m_pCmd;
@@ -212,20 +225,30 @@ public:
     virtual ~AffinitizeThreads();
 
     // ITaskSet interface
-    bool    SetAsSyncPoint()  { return false;}
-    bool    CompleteAndCheckSyncPoint() { return true;}
-    bool    IsCompleted() const { return true;}
-    int     Init(size_t region[], unsigned int &regCount, size_t numberOfThreads);
-    void*   AttachToThread(void* tls, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-    void	  DetachFromThread(void* data);
-    bool	  ExecuteIteration(size_t x, size_t y, size_t z, void* data);
-    bool	  Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
-    long    Release() { return 0;}
-    void    Cancel() { Finish(FINISH_EXECUTION_FAILED); };
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
+    bool SetAsSyncPoint() override { return false; }
+    bool CompleteAndCheckSyncPoint() override { return true; }
+    bool IsCompleted() const override { return true; }
+    int Init(size_t region[], unsigned int &regCount,
+             size_t numberOfThreads) override;
+    void *AttachToThread(void *tls, size_t uiNumberOfWorkGroups,
+                         size_t firstWGID[], size_t lastWGID[]) override;
+    void DetachFromThread(void *data) override;
+    bool ExecuteIteration(size_t x, size_t y, size_t z, void *data) override;
+    bool Finish(FINISH_REASON /*reason*/) override {
+      ++m_endBarrier;
+      return false;
+    }
+    long Release() override { return 0; }
+    void Cancel() override { Finish(FINISH_EXECUTION_FAILED); };
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+    GetNDRangeChildrenTaskGroup() override {
+      return nullptr;
+    }
 
-    TASK_PRIORITY	        GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
-    TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    TASK_PRIORITY GetPriority() const override { return TASK_PRIORITY_MEDIUM; }
+    TASK_SET_OPTIMIZATION OptimizeBy() const override {
+      return TASK_SET_OPTIMIZE_DEFAULT;
+    }
     size_t PreferredSequentialItemsPerThread() const override { return 1; }
     bool PreferNumaNodes() const override { return false; }
 

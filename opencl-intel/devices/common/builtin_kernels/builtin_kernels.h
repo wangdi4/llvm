@@ -37,22 +37,38 @@ public:
 
     cl_dev_err_code ParseFunctionList(const char* szBuiltInKernelList);
 
-    unsigned long long int GetProgramID() const {return (unsigned long long int)this;}
-    const char* GetBuildLog() const {return nullptr;}
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramCodeContainer() const {return nullptr;}
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const {return nullptr;}
+    unsigned long long int GetProgramID() const override {
+      return (unsigned long long int)this;
+    }
+    const char *GetBuildLog() const override { return nullptr; }
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer *
+    GetProgramCodeContainer() const override {
+      return nullptr;
+    }
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer *
+    GetProgramIRCodeContainer() const override {
+      return nullptr;
+    }
 
-    cl_dev_err_code GetKernelByName(const char* pKernelName,
-                                    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const;
+    cl_dev_err_code
+    GetKernelByName(const char *pKernelName,
+                    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_ *
+                        *ppKernel) const override;
 
-    int GetNonBlockKernelsCount() const { return GetKernelsCount(); }
-    int GetKernelsCount() const { return (int)m_mapKernels.size(); }
+    int GetNonBlockKernelsCount() const override { return GetKernelsCount(); }
+    int GetKernelsCount() const override { return (int)m_mapKernels.size(); }
 
-    virtual cl_dev_err_code GetKernel(int kernelIndex,
-                                      const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** pKernel) const;
+    virtual cl_dev_err_code
+    GetKernel(int kernelIndex,
+              const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_ *
+                  *pKernel) const override;
 
-    virtual const Intel::OpenCL::DeviceBackend::ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const {return nullptr;}
-    virtual size_t GetGlobalVariableTotalSize() const {return 0;}
+    virtual const Intel::OpenCL::DeviceBackend::
+        ICLDevBackendProgramJITCodeProperties *
+        GetProgramJITCodeProperties() const override {
+      return nullptr;
+    }
+    virtual size_t GetGlobalVariableTotalSize() const override { return 0; }
 
     cl_ulong GetFunctionPointerFor(const char *) const override { return 0; }
 
@@ -69,7 +85,8 @@ protected:
 class IBuiltInKernelExecutor
 {
 public:
-    virtual cl_dev_err_code Execute() const = 0;
+  virtual ~IBuiltInKernelExecutor() {}
+  virtual cl_dev_err_code Execute() const = 0;
 };
 
 class IBuiltInKernel : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_
@@ -81,38 +98,52 @@ public:
     virtual cl_dev_err_code Execute(const Intel::OpenCL::TaskExecutor::ITaskList* pList, const void* pParamBuffer) const = 0;
 #endif
 
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return &m_mklProperties;}
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties *
+    GetKernelProporties() const override {
+      return &m_mklProperties;
+    }
 
 protected:
     class BuiltInKernelProperties : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties
     {
     public:
-        unsigned int GetKernelPackCount() const {return 1;}
-        const size_t* GetRequiredWorkGroupSize() const {return nullptr;}
-        size_t GetBarrierBufferSize() const {return 1;}
-        size_t GetPrivateMemorySize() const {return 1;}
-        size_t GetMaxWorkGroupSize(size_t const maxWGSize, size_t const) const {return maxWGSize;}
-        size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const {return 1;}
-        size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const {return 1;}
-        size_t GetMaxNumSubGroups(size_t const) const {return 0;}
-        size_t GetRequiredNumSubGroups() const {return 0;};
-        size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
-        size_t GetKernelExecutionLength() const {return -1;}
-        void GetLocalSizeForSubGroupCount(
-            size_t const, size_t const, size_t const, size_t*, size_t const) const { }
-        bool HasPrintOperation() const {return false;}
-        bool HasBarrierOperation() const {return false;}
-        bool HasDebugInfo() const {return false;}
-        bool HasKernelCallOperation() const {return false;}
-        bool IsNonUniformWGSizeSupported() const {return false;}
-        unsigned int GetMinGroupSizeFactorial() const { return 0;}
-        bool IsBlock() const { return false;}
-        bool IsAutorun() const { return false; }
-        bool IsTask() const { return false; }
-        bool CanUseGlobalWorkOffset() const { return true; }
-        bool NeedSerializeWGs() const { return false; }
-        const char* GetKernelAttributes() const { return attributes; }
-        size_t GetRequiredSubGroupSize() const { return 0; }
+      unsigned int GetKernelPackCount() const override { return 1; }
+      const size_t *GetRequiredWorkGroupSize() const override {
+        return nullptr;
+      }
+      size_t GetBarrierBufferSize() const override { return 1; }
+      size_t GetPrivateMemorySize() const override { return 1; }
+      size_t GetMaxWorkGroupSize(size_t const maxWGSize,
+                                 size_t const) const override {
+        return maxWGSize;
+      }
+      size_t GetMaxSubGroupSize(size_t, const size_t *) const override {
+        return 1;
+      }
+      size_t GetNumberOfSubGroups(size_t, const size_t *) const override {
+        return 1;
+      }
+      size_t GetMaxNumSubGroups(size_t const) const override { return 0; }
+      size_t GetRequiredNumSubGroups() const override { return 0; };
+      size_t GetImplicitLocalMemoryBufferSize() const override { return 0; }
+      size_t GetKernelExecutionLength() const override { return -1; }
+      void GetLocalSizeForSubGroupCount(size_t const, size_t const,
+                                        size_t const, size_t *,
+                                        size_t const) const override {}
+      bool HasPrintOperation() const override { return false; }
+      bool HasBarrierOperation() const override { return false; }
+      bool HasDebugInfo() const override { return false; }
+      bool HasKernelCallOperation() const override { return false; }
+      bool IsNonUniformWGSizeSupported() const override { return false; }
+      unsigned int GetMinGroupSizeFactorial() const override { return 0; }
+      bool IsBlock() const override { return false; }
+      bool IsAutorun() const override { return false; }
+      bool IsTask() const override { return false; }
+      bool CanUseGlobalWorkOffset() const override { return true; }
+      bool NeedSerializeWGs() const override { return false; }
+      const char *GetKernelAttributes() const override { return attributes; }
+      size_t GetRequiredSubGroupSize() const override { return 0; }
+
     protected:
         static const char* attributes;
     };
@@ -170,11 +201,12 @@ public:
 	cl_dev_err_code Execute(Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor& kernelToExecute);
 
 	// OclThread overides
-	int         Join();
+        int Join() override;
 
-	static OMPExecutorThread*  Create(unsigned int uiNumOfWorkers);
-protected:
-	OMPExecutorThread(unsigned int uiNumOfThreads);
+        static OMPExecutorThread *Create(unsigned int uiNumOfWorkers);
+
+      protected:
+        OMPExecutorThread(unsigned int uiNumOfThreads);
 
 	typedef pair<Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor*, Intel::OpenCL::Utils::OclOsDependentEvent*> ExecutionRecord;
 
@@ -187,7 +219,7 @@ protected:
 	Intel::OpenCL::Utils::OclOsDependentEvent					m_StartEvent;
 
 	// OclThread overides
-	RETURN_TYPE_ENTRY_POINT    Run();
+        RETURN_TYPE_ENTRY_POINT Run() override;
 };
 #endif
 }}}

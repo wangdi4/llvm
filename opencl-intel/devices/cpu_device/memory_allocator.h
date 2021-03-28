@@ -66,25 +66,33 @@ public:
 
     cl_dev_err_code Init();
 
-    cl_dev_err_code clDevMemObjCreateMappedRegion( cl_dev_cmd_param_map*    pMapParams );
-    cl_dev_err_code clDevMemObjUnmapAndReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams ) 
-                                        { return clDevMemObjReleaseMappedRegion( pMapParams ); }
-    cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams );
-    cl_dev_err_code clDevMemObjRelease();
-    cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle);
+    cl_dev_err_code
+    clDevMemObjCreateMappedRegion(cl_dev_cmd_param_map *pMapParams) override;
+    cl_dev_err_code clDevMemObjUnmapAndReleaseMappedRegion(
+        cl_dev_cmd_param_map *pMapParams) override {
+      return clDevMemObjReleaseMappedRegion(pMapParams);
+    }
+    cl_dev_err_code
+    clDevMemObjReleaseMappedRegion(cl_dev_cmd_param_map *pMapParams) override;
+    cl_dev_err_code clDevMemObjRelease() override;
+    cl_dev_err_code
+    clDevMemObjGetDescriptor(cl_device_type dev_type,
+                             cl_dev_subdevice_id node_id,
+                             cl_dev_memobj_handle *handle) override;
 
-    cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
-                    const size_t *origin, const size_t *size, 
-                    IOCLDevRTMemObjectService IN *pBSService, 
-                    IOCLDevMemoryObject** ppSubObject );
+    cl_dev_err_code
+    clDevMemObjCreateSubObject(cl_mem_flags mem_flags, const size_t *origin,
+                               const size_t *size,
+                               IOCLDevRTMemObjectService IN *pBSService,
+                               IOCLDevMemoryObject **ppSubObject) override;
 
-    cl_dev_err_code clDevMemObjUpdateBackingStore( 
-                                void* operation_handle, cl_dev_bs_update_state* pUpdateState );
-    cl_dev_err_code clDevMemObjUpdateFromBackingStore( 
-                                void* operation_handle, cl_dev_bs_update_state* pUpdateState );
-    cl_dev_err_code clDevMemObjInvalidateData( );
+    cl_dev_err_code clDevMemObjUpdateBackingStore(
+        void *operation_handle, cl_dev_bs_update_state *pUpdateState) override;
+    cl_dev_err_code clDevMemObjUpdateFromBackingStore(
+        void *operation_handle, cl_dev_bs_update_state *pUpdateState) override;
+    cl_dev_err_code clDevMemObjInvalidateData() override;
 
-protected:
+  protected:
     CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
             m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
             m_nodeId(nullptr), m_memFlags(0),

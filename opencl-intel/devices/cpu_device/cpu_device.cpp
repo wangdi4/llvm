@@ -104,18 +104,19 @@ cl_ulong GetLocalMemorySize(const CPUDeviceConfig &config)
         // fallback to default local memory size
         else
         {
-            switch (config.GetDeviceMode())
-            {
-                case CPU_DEVICE:
-                case EYEQ_EMU_DEVICE:
-                    localMemSize = CPU_DEV_LCL_MEM_SIZE;
-                    break;
-                case FPGA_EMU_DEVICE:
-                    localMemSize = FPGA_DEV_LCL_MEM_SIZE;
-                    break;
-                default:
-                    return CL_DEV_INVALID_VALUE;
-            }
+          auto deviceMode = config.GetDeviceMode();
+          if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+              deviceMode != EYEQ_EMU_DEVICE)
+            return CL_DEV_INVALID_VALUE;
+          switch (deviceMode) {
+          case CPU_DEVICE:
+          case EYEQ_EMU_DEVICE:
+            localMemSize = CPU_DEV_LCL_MEM_SIZE;
+            break;
+          case FPGA_EMU_DEVICE:
+            localMemSize = FPGA_DEV_LCL_MEM_SIZE;
+            break;
+          }
         }
     }
     return localMemSize;
@@ -780,703 +781,618 @@ cl_ulong CPUDevice::clDevGetDeviceTimer()
 
 //Device Information function prototypes
 //
-/************************************************************************************************************************
-   clDevGetDeviceInfo
+/*******************************************************************************
+  clDevGetDeviceInfo
     Description
-        This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
-    Input
-        dev_id                  The device ID in specific device type.
-        param                   An enumeration that identifies the device information being queried. It can be one of
-                                the following values as specified in OCL spec. table 4.3
-        valSize                 Specifies the size in bytes of memory pointed to by paramValue. This size in
-                                bytes must be >= size of return type
-    Output
-        paramVal                A pointer to memory location where appropriate values for a given param as specified in OCL spec. table 4.3 will be returned. If paramVal is NULL, it is ignored
-        paramValSize_ret        Returns the actual size in bytes of data being queried by paramVal. If paramValSize_ret is NULL, it is ignored
-    Returns
+      This function return device specific information defined by cl_device_info
+      enumeration as specified in OCL spec. table 4.3.
+      Input
+        dev_id  The device ID in specific device type.
+        param   An enumeration that identifies the device information being
+                queried. It can be one of the following values as specified in
+                OCL spec. table 4.3
+        valSize Specifies the size in bytes of memory pointed to by paramValue.
+                This size in bytes must be >= size of return type
+      Output
+        paramVal A pointer to memory location where appropriate values for a
+                 given param as specified in OCL spec. table 4.3 will be
+                 returned. If paramVal is NULL, it is ignored
+        paramValSize_ret Returns the actual size in bytes of data being queried
+                         by paramVal. If paramValSize_ret is NULL, it is ignored
+      Returns
         CL_DEV_SUCCESS          If functions is executed successfully.
-        CL_DEV_INVALID_VALUE    If param_name is not one of the supported values or if size in bytes specified by paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value
-**************************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_info IN param, size_t IN valSize, void* OUT paramVal,
-                size_t* OUT paramValSizeRet)
-{
-    size_t  internalRetunedValueSize = valSize;
-    size_t  *pinternalRetunedValueSize;
-    unsigned int viCPUInfo[4] = {(unsigned int)-1};
+        CL_DEV_INVALID_VALUE    If param_name is not one of the supported values
+                                or if size in bytes specified by paramValSize is
+                                < size of return type as specified in OCL spec.
+                                table 4.3 and paramVal is not a NULL value
+*******************************************************************************/
+cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
+                                              cl_device_info IN param,
+                                              size_t IN valSize,
+                                              void *OUT paramVal,
+                                              size_t *OUT paramValSizeRet) {
+  size_t internalRetunedValueSize = valSize;
+  size_t *pinternalRetunedValueSize;
+  unsigned int viCPUInfo[4] = {(unsigned int)-1};
 
-    // Do static initialize of the OpenCL Version
-    static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
-    if ( OPENCL_VERSION_UNKNOWN == ver )
-    {
-        if (!m_CPUDeviceConfig.IsInitialized())
-        {
-            m_CPUDeviceConfig.Initialize(GetConfigFilePath());
-        }
-        ver = m_CPUDeviceConfig.GetOpenCLVersion();
+  // Do static initialize of the OpenCL Version
+  static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
+  if (OPENCL_VERSION_UNKNOWN == ver) {
+    if (!m_CPUDeviceConfig.IsInitialized()) {
+      m_CPUDeviceConfig.Initialize(GetConfigFilePath());
     }
+    ver = m_CPUDeviceConfig.GetOpenCLVersion();
+  }
 
-    //if OUT paramValSize_ret is NULL it should be ignopred
-    if(paramValSizeRet)
-    {
-        pinternalRetunedValueSize = paramValSizeRet;
-    }
-    else
-    {
-        pinternalRetunedValueSize = &internalRetunedValueSize;
-    }
+  // if OUT paramValSize_ret is NULL it should be ignopred
+  if (paramValSizeRet) {
+    pinternalRetunedValueSize = paramValSizeRet;
+  } else {
+    pinternalRetunedValueSize = &internalRetunedValueSize;
+  }
 
-    static const char sOpenCL10Str[] = "OpenCL 1.0 ",
-                      sOpenCL12Str[] = "OpenCL 1.2 ",
-                      sOpenCL20Str[] = "OpenCL 2.0 ",
-                      sOpenCL21Str[] = "OpenCL 2.1 ",
-                      sOpenCL22Str[] = "OpenCL 2.2 ";
+  static const char sOpenCL10Str[] = "OpenCL 1.0 ",
+                    sOpenCL12Str[] = "OpenCL 1.2 ",
+                    sOpenCL20Str[] = "OpenCL 2.0 ",
+                    sOpenCL21Str[] = "OpenCL 2.1 ",
+                    sOpenCL22Str[] = "OpenCL 2.2 ";
 
-    static const char sOpenCLC10Str[] = "OpenCL C 1.0 ",
-                      sOpenCLC12Str[] = "OpenCL C 1.2 ",
-                      sOpenCLC20Str[] = "OpenCL C 2.0 ";
+  static const char sOpenCLC10Str[] = "OpenCL C 1.0 ",
+                    sOpenCLC12Str[] = "OpenCL C 1.2 ",
+                    sOpenCLC20Str[] = "OpenCL C 2.0 ";
 
-    static bool isCPUDeviceMode =
-      CPU_DEVICE == m_CPUDeviceConfig.GetDeviceMode();
-    static bool isFPGAEmuDeviceMode =
+  static bool isCPUDeviceMode = CPU_DEVICE == m_CPUDeviceConfig.GetDeviceMode();
+  static bool isFPGAEmuDeviceMode =
       FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode();
 
-    switch (param)
-    {
-        case( CL_DEVICE_TYPE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_device_type);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                switch (m_CPUDeviceConfig.GetDeviceMode())
-                {
-                    case CPU_DEVICE:
-                        *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
-                        break;
-                    case FPGA_EMU_DEVICE:
-                    case EYEQ_EMU_DEVICE:
-                        *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
-                        break;
-                    default:
-                        return CL_DEV_INVALID_VALUE;
-                }
-            }
-            return CL_DEV_SUCCESS;
-        }
+  switch (param) {
+  case (CL_DEVICE_TYPE): {
+    *pinternalRetunedValueSize = sizeof(cl_device_type);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+          deviceMode != EYEQ_EMU_DEVICE)
+        return CL_DEV_INVALID_VALUE;
+      switch (deviceMode) {
+      case CPU_DEVICE:
+        *(cl_device_type *)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
+        break;
+      case FPGA_EMU_DEVICE:
+      case EYEQ_EMU_DEVICE:
+        *(cl_device_type *)paramVal =
+            (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
+        break;
+      }
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_VENDOR_ID):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                switch (m_CPUDeviceConfig.GetDeviceMode())
-                {
-                    case CPU_DEVICE:
-                        *(cl_uint*)paramVal = 0x8086;
-                        break;
-                    case FPGA_EMU_DEVICE:
-                        *(cl_uint*)paramVal = 4466;
-                        break;
-                    case EYEQ_EMU_DEVICE:
-                        *(cl_uint*)paramVal = 1337;
-                        break;
-                    default:
-                        return CL_DEV_INVALID_VALUE;
-                }
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_VENDOR_ID): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+          deviceMode != EYEQ_EMU_DEVICE)
+        return CL_DEV_INVALID_VALUE;
+      switch (deviceMode) {
+      case CPU_DEVICE:
+        *(cl_uint *)paramVal = 0x8086;
+        break;
+      case FPGA_EMU_DEVICE:
+        *(cl_uint *)paramVal = 4466;
+        break;
+      case EYEQ_EMU_DEVICE:
+        *(cl_uint *)paramVal = 1337;
+        break;
+      }
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_PARTITION_MAX_SUB_DEVICES):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = GetNumberOfProcessors();
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_PARTITION_MAX_SUB_DEVICES): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = GetNumberOfProcessors();
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_MAX_COMPUTE_UNITS):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = GetNumberOfProcessors();
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_MAX_COMPUTE_UNITS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = GetNumberOfProcessors();
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):   //FALL THROUGH
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT):  //FALL THROUGH
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):  //FALL THROUGH
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):    //FALL THROUGH
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG):   //FALL THROUGH
-        {
-            //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = 1;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF ):
-        {
-            //We prefer the users won't use half
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = 0;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the CPU config
-        {
-            //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                if (m_CPUDeviceConfig.IsDoubleSupported())
-                {
-                    *(cl_uint*)paramVal = 1;
-                }
-                else
-                {
-                    *(cl_uint*)paramVal = 0;
-                }
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):  // FALL THROUGH
+  case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT): // FALL THROUGH
+  case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT): // FALL THROUGH
+  case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):   // FALL THROUGH
+  case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG):  // FALL THROUGH
+  {
+    // For all supported types, we currently prefer scalars so the vectorizer
+    // doesn't have to scalarize
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = 1;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF): {
+    // We prefer the users won't use half
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = 0;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): // Keeping double separate to
+                                                  // allow control via the CPU
+                                                  // config
+  {
+    // For all supported types, we currently prefer scalars so the vectorizer
+    // doesn't have to scalarize
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      if (m_CPUDeviceConfig.IsDoubleSupported()) {
+        *(cl_uint *)paramVal = 1;
+      } else {
+        *(cl_uint *)paramVal = 0;
+      }
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR ): //FALL THROUGH
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT): //FALL THROUGH
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):   //FALL THROUGH
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT): //FALL THROUGH
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG):  //FALL THROUGH
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ): //FALL THROUGH
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-               CPUDeviceDataTypes dataType = NativeVectorToCPUDeviceDataType(param);
-                *(cl_uint*)paramVal        = GetNativeVectorWidth(dataType);
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the CPU config
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                if (m_CPUDeviceConfig.IsDoubleSupported())
-                {
-                    *(cl_uint*)paramVal = GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
-                }
-                else
-                {
-                    *(cl_uint*)paramVal = 0;
-                }
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR):  // FALL THROUGH
+  case (CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT): // FALL THROUGH
+  case (CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):   // FALL THROUGH
+  case (CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT): // FALL THROUGH
+  case (CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG):  // FALL THROUGH
+  case (CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF):  // FALL THROUGH
+  {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      CPUDeviceDataTypes dataType = NativeVectorToCPUDeviceDataType(param);
+      *(cl_uint *)paramVal = GetNativeVectorWidth(dataType);
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (
+      CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE): // Keeping double separate to allow
+                                             // control via the CPU config
+  {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      if (m_CPUDeviceConfig.IsDoubleSupported()) {
+        *(cl_uint *)paramVal =
+            GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
+      } else {
+        *(cl_uint *)paramVal = 0;
+      }
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_IMAGE_SUPPORT):
-            {
-                *pinternalRetunedValueSize = sizeof(cl_bool);
-                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-                {
-                    return CL_DEV_INVALID_VALUE;
-                }
-                //if OUT paramVal is NULL it should be ignored
-                if(nullptr != paramVal)
-                {
-                    switch (m_CPUDeviceConfig.GetDeviceMode())
-                    {
-                        case CPU_DEVICE:
-                            *(cl_bool*)paramVal = CL_TRUE;
-                            break;
-                        case FPGA_EMU_DEVICE:
-                        case EYEQ_EMU_DEVICE:
-                            *(cl_bool*)paramVal = CL_FALSE;
-                            break;
-                        default:
-                            return CL_DEV_INVALID_VALUE;
-                    }
-                }
-                return CL_DEV_SUCCESS;
-            }
+  case (CL_DEVICE_IMAGE_SUPPORT): {
+    *pinternalRetunedValueSize = sizeof(cl_bool);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+          deviceMode != EYEQ_EMU_DEVICE)
+        return CL_DEV_INVALID_VALUE;
+      switch (deviceMode) {
+      case CPU_DEVICE:
+        *(cl_bool *)paramVal = CL_TRUE;
+        break;
+      case FPGA_EMU_DEVICE:
+      case EYEQ_EMU_DEVICE:
+        *(cl_bool *)paramVal = CL_FALSE;
+        break;
+      }
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = sizeof(cl_long16);
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_SINGLE_FP_CONFIG):
-        {
-            cl_device_fp_config fpConfig = 0;
-            switch (m_CPUDeviceConfig.GetDeviceMode())
-            {
-                case CPU_DEVICE:
-                case FPGA_EMU_DEVICE:
-                    fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM;
-                    break;
-                case EYEQ_EMU_DEVICE:
-                    fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT;
-                    break;
-                default:
-                    return CL_DEV_INVALID_VALUE;
-            }
-            *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_device_fp_config*)paramVal = fpConfig;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case(CL_DEVICE_DOUBLE_FP_CONFIG):
-        {
-            cl_device_fp_config fpConfig = 0;
-            if (m_CPUDeviceConfig.IsDoubleSupported())
-            {
-                fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF;
-            }
-            *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_device_fp_config*)paramVal = fpConfig;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_IMAGE2D_MAX_WIDTH): // FALL THROUGH
-        case( CL_DEVICE_IMAGE2D_MAX_HEIGHT):// FALL THROUGH
-            {
-                *pinternalRetunedValueSize = sizeof(size_t);
-                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-                {
-                    return CL_DEV_INVALID_VALUE;
-                }
-                //if OUT paramVal is NULL it should be ignored
-                if(nullptr != paramVal)
-                {
-                    *(size_t*)paramVal = CPU_IMAGE2D_MAX_DIM_SIZE;
-                }
-                return CL_DEV_SUCCESS;
-            }
-        case( CL_DEVICE_IMAGE3D_MAX_WIDTH): // FALL THROUGH
-        case( CL_DEVICE_IMAGE3D_MAX_HEIGHT):// FALL THROUGH
-        case( CL_DEVICE_IMAGE3D_MAX_DEPTH):
-        {
-            *pinternalRetunedValueSize = sizeof(size_t);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(size_t*)paramVal = CPU_IMAGE3D_MAX_DIM_SIZE;
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = sizeof(cl_long16);
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_SINGLE_FP_CONFIG): {
+    cl_device_fp_config fpConfig = 0;
+    auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+    if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+        deviceMode != EYEQ_EMU_DEVICE)
+      return CL_DEV_INVALID_VALUE;
+    switch (deviceMode) {
+    case CPU_DEVICE:
+    case FPGA_EMU_DEVICE:
+      fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM;
+      break;
+    case EYEQ_EMU_DEVICE:
+      fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN |
+                 CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT;
+      break;
+    }
+    *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_device_fp_config *)paramVal = fpConfig;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_DOUBLE_FP_CONFIG): {
+    cl_device_fp_config fpConfig = 0;
+    if (m_CPUDeviceConfig.IsDoubleSupported()) {
+      fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM |
+                 CL_FP_FMA | CL_FP_ROUND_TO_ZERO | CL_FP_ROUND_TO_INF;
+    }
+    *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_device_fp_config *)paramVal = fpConfig;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_IMAGE2D_MAX_WIDTH):  // FALL THROUGH
+  case (CL_DEVICE_IMAGE2D_MAX_HEIGHT): // FALL THROUGH
+  {
+    *pinternalRetunedValueSize = sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(size_t *)paramVal = CPU_IMAGE2D_MAX_DIM_SIZE;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_IMAGE3D_MAX_WIDTH):  // FALL THROUGH
+  case (CL_DEVICE_IMAGE3D_MAX_HEIGHT): // FALL THROUGH
+  case (CL_DEVICE_IMAGE3D_MAX_DEPTH): {
+    *pinternalRetunedValueSize = sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(size_t *)paramVal = CPU_IMAGE3D_MAX_DIM_SIZE;
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_MAX_PARAMETER_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(size_t);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(size_t*)paramVal = CPU_MAX_PARAMETER_SIZE;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_SAMPLERS):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = CPU_MAX_SAMPLERS;
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_MAX_PARAMETER_SIZE): {
+    *pinternalRetunedValueSize = sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(size_t *)paramVal = CPU_MAX_PARAMETER_SIZE;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_SAMPLERS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = CPU_MAX_SAMPLERS;
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_MAX_READ_IMAGE_ARGS):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = CPU_MAX_READ_IMAGE_ARGS;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_WRITE_IMAGE_ARGS):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = CPU_MAX_WRITE_IMAGE_ARGS;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = CPU_MAX_READ_WRITE_IMAGE_ARGS;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_ulong*)paramVal = CPU_MAX_CONSTANT_BUFFER_SIZE;
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_MAX_READ_IMAGE_ARGS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = CPU_MAX_READ_IMAGE_ARGS;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_WRITE_IMAGE_ARGS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = CPU_MAX_WRITE_IMAGE_ARGS;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = CPU_MAX_READ_WRITE_IMAGE_ARGS;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE): {
+    *pinternalRetunedValueSize = sizeof(cl_ulong);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_ulong *)paramVal = CPU_MAX_CONSTANT_BUFFER_SIZE;
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_MAX_CONSTANT_ARGS ):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = CPU_MAX_CONSTANT_ARGS;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MEM_BASE_ADDR_ALIGN):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = CPU_MEM_BASE_ADDR_ALIGN;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = CPU_MAX_WORK_ITEM_DIMENSIONS;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_WORK_GROUP_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(size_t);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                switch (m_CPUDeviceConfig.GetDeviceMode())
-                {
-                    case CPU_DEVICE:
-                        *(size_t*)paramVal = m_CPUDeviceConfig.GetCpuMaxWGSize();
-                        break;
-                    case EYEQ_EMU_DEVICE:
-                        *(size_t*)paramVal = CPU_MAX_WORK_GROUP_SIZE;
-                        break;
-                    case FPGA_EMU_DEVICE:
-                        *(size_t*)paramVal = FPGA_MAX_WORK_GROUP_SIZE;
-                        break;
-                    default:
-                        return CL_DEV_INVALID_VALUE;
-                }
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_WORK_ITEM_SIZES):
-        {
-            *pinternalRetunedValueSize = CPU_MAX_WORK_ITEM_DIMENSIONS * sizeof(size_t);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                switch (m_CPUDeviceConfig.GetDeviceMode())
-                {
-                    case CPU_DEVICE:
-                    {
-                        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
-                        const size_t cpuMaxWISizes[CPU_MAX_WORK_ITEM_DIMENSIONS] =
-                            {cpuMaxWGSize, cpuMaxWGSize, cpuMaxWGSize};
-                        MEMCPY_S(paramVal, valSize, cpuMaxWISizes,
-                                 *pinternalRetunedValueSize);
-                        break;
-                    }
-                    case EYEQ_EMU_DEVICE:
-                        MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
-                                 *pinternalRetunedValueSize);
-                        break;
-                    case FPGA_EMU_DEVICE:
-                        MEMCPY_S(paramVal, valSize, FPGA_MAX_WORK_ITEM_SIZES,
-                                 *pinternalRetunedValueSize);
-                        break;
-                    default:
-                        return CL_DEV_INVALID_VALUE;
-                }
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_MAX_CONSTANT_ARGS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = CPU_MAX_CONSTANT_ARGS;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MEM_BASE_ADDR_ALIGN): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = CPU_MEM_BASE_ADDR_ALIGN;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = CPU_MAX_WORK_ITEM_DIMENSIONS;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_WORK_GROUP_SIZE): {
+    *pinternalRetunedValueSize = sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+          deviceMode != EYEQ_EMU_DEVICE)
+        return CL_DEV_INVALID_VALUE;
+      switch (deviceMode) {
+      case CPU_DEVICE:
+        *(size_t *)paramVal = m_CPUDeviceConfig.GetCpuMaxWGSize();
+        break;
+      case EYEQ_EMU_DEVICE:
+        *(size_t *)paramVal = CPU_MAX_WORK_GROUP_SIZE;
+        break;
+      case FPGA_EMU_DEVICE:
+        *(size_t *)paramVal = FPGA_MAX_WORK_GROUP_SIZE;
+        break;
+      }
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_WORK_ITEM_SIZES): {
+    *pinternalRetunedValueSize = CPU_MAX_WORK_ITEM_DIMENSIONS * sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+      if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+          deviceMode != EYEQ_EMU_DEVICE)
+        return CL_DEV_INVALID_VALUE;
+      switch (deviceMode) {
+      case CPU_DEVICE: {
+        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
+        const size_t cpuMaxWISizes[CPU_MAX_WORK_ITEM_DIMENSIONS] = {
+            cpuMaxWGSize, cpuMaxWGSize, cpuMaxWGSize};
+        MEMCPY_S(paramVal, valSize, cpuMaxWISizes, *pinternalRetunedValueSize);
+        break;
+      }
+      case EYEQ_EMU_DEVICE:
+        MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
+                 *pinternalRetunedValueSize);
+        break;
+      case FPGA_EMU_DEVICE:
+        MEMCPY_S(paramVal, valSize, FPGA_MAX_WORK_ITEM_SIZES,
+                 *pinternalRetunedValueSize);
+        break;
+      }
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE:
-        case CL_DEVICE_IMAGE_PITCH_ALIGNMENT:    // BE recommends that these two queries will also return cache line size
-        case CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT:
-        case CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: // Anat says that performance-wise the preferred alignment is cache line size
-        case CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT:
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
+  case CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE:
+  case CL_DEVICE_IMAGE_PITCH_ALIGNMENT: // BE recommends that these two queries
+                                        // will also return cache line size
+  case CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT:
+  case CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: // Anat says that
+                                                      // performance-wise the
+                                                      // preferred alignment is
+                                                      // cache line size
+  case CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT: {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
 
-                //Get the Cache info
-                CPUID(viCPUInfo, 0x80000006);
-                *(cl_uint*)paramVal = (cl_uint)viCPUInfo[2] & 0xff;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_GLOBAL_MEM_CACHE_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
+      // Get the Cache info
+      CPUID(viCPUInfo, 0x80000006);
+      *(cl_uint *)paramVal = (cl_uint)viCPUInfo[2] & 0xff;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_GLOBAL_MEM_CACHE_SIZE): {
+    *pinternalRetunedValueSize = sizeof(cl_ulong);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
 
-                //Get the Cache info
-                CPUID(viCPUInfo, 0x80000006);
-                *(cl_ulong*)paramVal = (cl_ulong)(((viCPUInfo[2] >> 16) & 0xffff)*1024);
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_LOCAL_MEM_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_ulong*)paramVal = GetLocalMemorySize(m_CPUDeviceConfig);
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_MAX_CLOCK_FREQUENCY):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = (cl_uint)MaxClockFrequency();
-            }
-            return CL_DEV_SUCCESS;
-        }
+      // Get the Cache info
+      CPUID(viCPUInfo, 0x80000006);
+      *(cl_ulong *)paramVal =
+          (cl_ulong)(((viCPUInfo[2] >> 16) & 0xffff) * 1024);
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_LOCAL_MEM_SIZE): {
+    *pinternalRetunedValueSize = sizeof(cl_ulong);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_ulong *)paramVal = GetLocalMemorySize(m_CPUDeviceConfig);
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_MAX_CLOCK_FREQUENCY): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = (cl_uint)MaxClockFrequency();
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_ADDRESS_BITS):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_uint*)paramVal = sizeof( void* ) * 8;
-            }
-            return CL_DEV_SUCCESS;
-        }
+  case (CL_DEVICE_ADDRESS_BITS): {
+    *pinternalRetunedValueSize = sizeof(cl_uint);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_uint *)paramVal = sizeof(void *) * 8;
+    }
+    return CL_DEV_SUCCESS;
+  }
 
-        case( CL_DEVICE_PROFILING_TIMER_RESOLUTION):
-        {
-            *pinternalRetunedValueSize = sizeof(size_t);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(size_t*)paramVal = (size_t)ProfilingTimerResolution();
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_PRINTF_BUFFER_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(size_t);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(size_t*)paramVal = CPU_MAX_PRINTF_BUFFER_SIZE;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_device_mem_cache_type);
-            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(nullptr != paramVal)
-            {
-                *(cl_device_mem_cache_type*)paramVal = CL_READ_WRITE_CACHE;
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(size_t);
-            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            if (nullptr != paramVal)
-            {
-                *(size_t*)paramVal = GetMaxMemAllocSize(m_CPUDeviceConfig);
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_GLOBAL_MEM_SIZE):
+  case (CL_DEVICE_PROFILING_TIMER_RESOLUTION): {
+    *pinternalRetunedValueSize = sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(size_t *)paramVal = (size_t)ProfilingTimerResolution();
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_PRINTF_BUFFER_SIZE): {
+    *pinternalRetunedValueSize = sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(size_t *)paramVal = CPU_MAX_PRINTF_BUFFER_SIZE;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_GLOBAL_MEM_CACHE_TYPE): {
+    *pinternalRetunedValueSize = sizeof(cl_device_mem_cache_type);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      *(cl_device_mem_cache_type *)paramVal = CL_READ_WRITE_CACHE;
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE): {
+    *pinternalRetunedValueSize = sizeof(size_t);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    if (nullptr != paramVal) {
+      *(size_t *)paramVal = GetMaxMemAllocSize(m_CPUDeviceConfig);
+    }
+    return CL_DEV_SUCCESS;
+  }
+  case (CL_DEVICE_GLOBAL_MEM_SIZE):
 // It's hack for conformance tests which allocate amount of memory returned
 // by CL_DEVICE_GLOBAL_MEM_SIZE query. On 32 bits system it causes crash.
 // So for 32 bits system we return CL_DEVICE_MAX_MEM_ALLOC_SIZE instead of CL_DEVICE_GLOBAL_MEM_SIZE.
 #if defined (_M_X64) || defined (__x86_64__)
-        {
+  {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1488,7 +1404,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(cl_ulong*)paramVal = GetGlobalMemorySize(m_CPUDeviceConfig);
             }
             return CL_DEV_SUCCESS;
-        }
+  }
 #endif
         case( CL_DEVICE_MAX_MEM_ALLOC_SIZE):
         {
@@ -1608,23 +1524,23 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_NAME):
         {
             const char* name = NULL;
-            switch (m_CPUDeviceConfig.GetDeviceMode())
-            {
-                case CPU_DEVICE:
-                    name = CPUDetect::GetInstance()->GetCPUBrandString();
-                    if (!strcmp("", name))
-                    {
-                        name = "Unknown CPU";
-                    }
-                    break;
-                case FPGA_EMU_DEVICE:
-                    name = "Intel(R) FPGA Emulation Device";
-                    break;
-                case EYEQ_EMU_DEVICE:
-                    name = "Mobileye(R) EyeQ(R) Emulation Device";
-                    break;
-                default:
-                    return CL_DEV_INVALID_VALUE;
+            auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+                deviceMode != EYEQ_EMU_DEVICE)
+              return CL_DEV_INVALID_VALUE;
+            switch (deviceMode) {
+            case CPU_DEVICE:
+              name = CPUDetect::GetInstance()->GetCPUBrandString();
+              if (!strcmp("", name)) {
+                name = "Unknown CPU";
+              }
+              break;
+            case FPGA_EMU_DEVICE:
+              name = "Intel(R) FPGA Emulation Device";
+              break;
+            case EYEQ_EMU_DEVICE:
+              name = "Mobileye(R) EyeQ(R) Emulation Device";
+              break;
             }
 
             *pinternalRetunedValueSize = strlen(name) + 1;
@@ -1657,17 +1573,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_PROFILE):
         {
             const char* profile = NULL;
-            switch (m_CPUDeviceConfig.GetDeviceMode())
-            {
-                case CPU_DEVICE:
-                    profile = "FULL_PROFILE";
-                    break;
-                case FPGA_EMU_DEVICE:
-                case EYEQ_EMU_DEVICE:
-                    profile = "EMBEDDED_PROFILE";
-                    break;
-                default:
-                    return CL_DEV_INVALID_VALUE;
+            auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+                deviceMode != EYEQ_EMU_DEVICE)
+              return CL_DEV_INVALID_VALUE;
+            switch (deviceMode) {
+            case CPU_DEVICE:
+              profile = "FULL_PROFILE";
+              break;
+            case FPGA_EMU_DEVICE:
+            case EYEQ_EMU_DEVICE:
+              profile = "EMBEDDED_PROFILE";
+              break;
             }
             *pinternalRetunedValueSize = strlen(profile) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1772,17 +1689,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DRIVER_VERSION ):
         {
             std::string driverVer;
-            switch (m_CPUDeviceConfig.GetDeviceMode())
-            {
-                case CPU_DEVICE:
-                case FPGA_EMU_DEVICE:
-                    driverVer = GetModuleProductVersion();
-                    break;
-                case EYEQ_EMU_DEVICE:
-                    driverVer = "1.0";
-                    break;
-                default:
-                    return CL_DEV_INVALID_VALUE;
+            auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+            if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+                deviceMode != EYEQ_EMU_DEVICE)
+              return CL_DEV_INVALID_VALUE;
+            switch (deviceMode) {
+            case CPU_DEVICE:
+            case FPGA_EMU_DEVICE:
+              driverVer = GetModuleProductVersion();
+              break;
+            case EYEQ_EMU_DEVICE:
+              driverVer = "1.0";
+              break;
             }
             *pinternalRetunedValueSize = driverVer.length() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1929,26 +1847,26 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (nullptr != paramVal)
             {
-                switch (m_CPUDeviceConfig.GetDeviceMode())
-                {
-                    case CPU_DEVICE:
-                    {
-                        // This value depends on pipe algorithm limitations,
-                        // max. compute units and max. work-group size.
-                        cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
-                        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
-                        *(cl_uint*)paramVal = totalPerPipeReservationsLimit /
-                          (GetNumberOfProcessors() * cpuMaxWGSize);
-                        break;
-                    }
+              auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
+              if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE &&
+                  deviceMode != EYEQ_EMU_DEVICE)
+                return CL_DEV_INVALID_VALUE;
+              switch (deviceMode) {
+              case CPU_DEVICE: {
+                // This value depends on pipe algorithm limitations,
+                // max. compute units and max. work-group size.
+                cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
+                size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
+                *(cl_uint *)paramVal = totalPerPipeReservationsLimit /
+                                       (GetNumberOfProcessors() * cpuMaxWGSize);
+                break;
+              }
                     case FPGA_EMU_DEVICE:
                     case EYEQ_EMU_DEVICE:
                        // FPGA and EyeQ emulators do not support pipe reservation.
                        *(cl_uint*)paramVal = 0;
                         break;
-                    default:
-                        return CL_DEV_INVALID_VALUE;
-                }
+                    }
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_PACKET_SIZE:
@@ -2134,9 +2052,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         default:
             return CL_DEV_INVALID_VALUE;
-    };
+        };
     return CL_DEV_SUCCESS;
-
 }
 
 //! This function return IDs list for all devices in the same device type.
@@ -2247,6 +2164,9 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     {
         availableComputeUnits = pParent->num_compute_units;
     }
+    if ((int)props < CL_DEV_PARTITION_EQUALLY &&
+        (int)props > CL_DEV_PARTITION_AFFINITY_NEXT)
+      return CL_DEV_INVALID_VALUE;
 
     switch (props)
     {
@@ -2437,9 +2357,6 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     case CL_DEV_PARTITION_AFFINITY_NUMA:
     case CL_DEV_PARTITION_AFFINITY_NEXT:
         return CL_DEV_INVALID_PROPERTIES;
-    default:
-        return CL_DEV_INVALID_VALUE;
-
     }
 
     // create sub-devices in TaskExecutor

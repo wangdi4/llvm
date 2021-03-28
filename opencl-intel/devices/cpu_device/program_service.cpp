@@ -765,16 +765,20 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     cl_uint stValSize = 0;
     std::vector<size_t> vValues(1,0);
     unsigned long long ullValue = 0;
-    const void*        pValue   = &ullValue;
+    void *pValue = &ullValue;
     cl_dev_dispatch_buffer_prop dispatchProperties;
+
+    if ((int)param < CL_DEV_KERNEL_NAME ||
+        (int)param > CL_DEV_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL)
+      return CL_DEV_INVALID_VALUE;
 
     switch (param)
     {
     case CL_DEV_KERNEL_NAME:
-        pValue = pKernel->GetKernelName();
-        assert(strlen((const char*)pValue) + 1 <= UINT_MAX);//MAXUINT32);
-        stValSize = (cl_uint)strlen((const char*)pValue)+1;
-        break;
+      pValue = const_cast<char *>(pKernel->GetKernelName());
+      assert(strlen((const char *)pValue) + 1 <= UINT_MAX); // MAXUINT32);
+      stValSize = (cl_uint)strlen((const char *)pValue) + 1;
+      break;
 
     case CL_DEV_KERNEL_PROTOTYPE:
         stValSize = pKernel->GetKernelParamsCount();
@@ -783,9 +787,9 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         break;
 
     case CL_DEV_KERNEL_WG_SIZE_REQUIRED:
-        pValue = pKernelProps->GetRequiredWorkGroupSize();
-        stValSize = sizeof(size_t) * MAX_WORK_DIM;
-        break;
+      pValue = const_cast<size_t *>(pKernelProps->GetRequiredWorkGroupSize());
+      stValSize = sizeof(size_t) * MAX_WORK_DIM;
+      break;
 
     case CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT:
         *(cl_bool*)pValue = (cl_bool)pKernelProps->IsNonUniformWGSizeSupported();
@@ -859,9 +863,10 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         break;
 
     case CL_DEV_KERNEL_ATTRIBUTES:
-        pValue = pKernel->GetKernelProporties()->GetKernelAttributes();
-        stValSize = (cl_uint)strlen((const char*)pValue)+1;
-        break;
+      pValue = const_cast<char *>(
+          pKernel->GetKernelProporties()->GetKernelAttributes());
+      stValSize = (cl_uint)strlen((const char *)pValue) + 1;
+      break;
     case CL_DEV_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE:
     {
         const size_t* pInVal = (const size_t*)input_value;
@@ -972,9 +977,6 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         stValSize = sizeof(size_t);
         break;
     }
-
-    default:
-        return CL_DEV_INVALID_VALUE;
     }
 
     if (nullptr != value && value_size < stValSize)

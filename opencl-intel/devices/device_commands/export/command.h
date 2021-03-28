@@ -189,40 +189,45 @@ public:
 
 	// inherited methods:
 
-	virtual bool Execute()
-	{ 
-		StartExecutionProfiling();
-		SignalComplete(CL_DEV_SUCCESS);
-		StopExecutionProfiling();
-		return true;
-	}
+        virtual bool Execute() override {
+          StartExecutionProfiling();
+          SignalComplete(CL_DEV_SUCCESS);
+          StopExecutionProfiling();
+          return true;
+        }
 
-	bool IsTaskSet() const { return false; }
+        bool IsTaskSet() const override { return false; }
 
-	bool IsCompleted() const  { return IsCompleted(); }
+        bool IsCompleted() const override {
+          return DeviceCommand::IsCompleted();
+        }
 
-	virtual TASK_PRIORITY GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM; }
+        virtual TASK_PRIORITY GetPriority() const override {
+          return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;
+        }
 
-	virtual bool CompleteAndCheckSyncPoint() { return false; }
-	
-	virtual bool SetAsSyncPoint()
-	{
-		ASSERT_RET_VAL(false, "Device commands can't be used as a synchronization point", IsCompleted());
-		return IsCompleted();
-	}
+        virtual bool CompleteAndCheckSyncPoint() override { return false; }
 
-	virtual long Release() { return 0; }
+        virtual bool SetAsSyncPoint() override {
+          ASSERT_RET_VAL(
+              false, "Device commands can't be used as a synchronization point",
+              IsCompleted());
+          return IsCompleted();
+        }
 
-	void Cancel() { SetError(CL_DEV_COMMAND_CANCELLED); }
+        virtual long Release() override { return 0; }
 
-	virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
+        void Cancel() override { SetError(CL_DEV_COMMAND_CANCELLED); }
 
-    virtual void Launch() { Execute(); }
+        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+        GetNDRangeChildrenTaskGroup() override {
+          return nullptr;
+        }
 
-private:
+        virtual void Launch() override { Execute(); }
 
-	Marker(ITaskList* list) : DeviceCommand(list, this) { }
-
+      private:
+        Marker(ITaskList *list) : DeviceCommand(list, this) {}
 };
 
 /**
@@ -255,14 +260,12 @@ public:
 
 	// inherited methods
 
-	bool IsUserCommand() const { return true; }
+        bool IsUserCommand() const override { return true; }
 
-    virtual void Launch()
-    {
-        assert(false && "UserEvent shouldn't be launched");
-    }
+        virtual void Launch() override {
+          assert(false && "UserEvent shouldn't be launched");
+        }
 
-  
 protected:
 	UserEvent() : DeviceCommand(nullptr, nullptr) { }
 };

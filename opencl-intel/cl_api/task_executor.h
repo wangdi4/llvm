@@ -291,7 +291,7 @@ public:
 
     PREPARE_SHARED_PTR(ITask)
 
-    bool    IsTaskSet() const {return false;}
+    bool IsTaskSet() const override { return false; }
     // Task execution routine, will be called by task executor
     // return false when task execution fails
     virtual bool    Execute() = 0;
@@ -308,7 +308,7 @@ class ITaskSet: public ITaskBase
 public:
     PREPARE_SHARED_PTR(ITaskSet)
 
-    bool    IsTaskSet() const {return true;}
+    bool IsTaskSet() const override { return true; }
     // Initialization function. This functions is called before the "main loop"
     // Generally initializes internal data structures
     // Fills the buffer with 3D number of iterations to run
@@ -513,6 +513,8 @@ public:
      * @return TE_YES - may leave, TE_NO - prefer not to leave, TE_USE_DEFAULT - decide yourself
      */
     virtual TE_BOOLEAN_ANSWER MayThreadLeaveDevice( void* currentThreadData ) = 0;
+
+    virtual ~ITaskExecutorObserver() {}
 };
 
 // Implementation specific class
@@ -625,8 +627,9 @@ public:
     /// Retrieve error code, e.g. LoadLibraryEx error code.
     virtual int GetErrorCode() = 0;
 
-protected:
+    virtual ~ITaskExecutor() {}
 
+  protected:
     ITaskExecutor() : m_pGPAData(nullptr) { }
 
     ocl_gpa_data *m_pGPAData;    

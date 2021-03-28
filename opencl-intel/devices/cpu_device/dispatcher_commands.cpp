@@ -199,21 +199,23 @@ template <class ITaskClass>
 ///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
 
-cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
-    ReadWriteMemObject* pCommand = new ReadWriteMemObject(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code
+ReadWriteMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
+                           SharedPtr<ITaskBase> *pTask,
+                           const SharedPtr<ITaskList> & /*pList*/) {
+  ReadWriteMemObject *pCommand = new ReadWriteMemObject(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 
-    // run CheckCommandParams only in Debug mode
-    assert( CL_DEV_SUCCESS == pCommand->CheckCommandParams(pCmd) && "Wrong params" );
+  // run CheckCommandParams only in Debug mode
+  assert(CL_DEV_SUCCESS == pCommand->CheckCommandParams(pCmd) &&
+         "Wrong params");
 
-    assert(pTask);
-    *pTask = pCommand;
+  assert(pTask);
+  *pTask = pCommand;
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
 ReadWriteMemObject::ReadWriteMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
@@ -341,13 +343,14 @@ bool ReadWriteMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Copy memory object execution
-cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
-    CopyMemObject* pCommand = new CopyMemObject(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code CopyMemObject::Create(TaskDispatcher *pTD,
+                                      cl_dev_cmd_desc *pCmd,
+                                      SharedPtr<ITaskBase> *pTask,
+                                      const SharedPtr<ITaskList> & /*pList*/) {
+  CopyMemObject *pCommand = new CopyMemObject(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 #ifdef _DEBUG
     cl_dev_err_code rc;
     rc = pCommand->CheckCommandParams(pCmd);
@@ -492,13 +495,14 @@ bool CopyMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Native function execution
-cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
-    NativeFunction* pCommand = new NativeFunction(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code NativeFunction::Create(TaskDispatcher *pTD,
+                                       cl_dev_cmd_desc *pCmd,
+                                       SharedPtr<ITaskBase> *pTask,
+                                       const SharedPtr<ITaskList> & /*pList*/) {
+  NativeFunction *pCommand = new NativeFunction(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 #ifdef _DEBUG
     cl_dev_err_code rc;
     rc = pCommand->CheckCommandParams(pCmd);
@@ -591,13 +595,13 @@ bool NativeFunction::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Map buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
-    MapMemObject* pCommand = new MapMemObject(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code MapMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
+                                     SharedPtr<ITaskBase> *pTask,
+                                     const SharedPtr<ITaskList> & /*pList*/) {
+  MapMemObject *pCommand = new MapMemObject(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 #ifdef _DEBUG
     cl_dev_err_code rc;
     rc = pCommand->CheckCommandParams(pCmd);
@@ -675,13 +679,14 @@ bool MapMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Unmap buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
-    UnmapMemObject* pCommand = new UnmapMemObject(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code UnmapMemObject::Create(TaskDispatcher *pTD,
+                                       cl_dev_cmd_desc *pCmd,
+                                       SharedPtr<ITaskBase> *pTask,
+                                       const SharedPtr<ITaskList> & /*pList*/) {
+  UnmapMemObject *pCommand = new UnmapMemObject(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 #ifdef _DEBUG
     cl_dev_err_code rc;
     rc = pCommand->CheckCommandParams(pCmd);
@@ -959,23 +964,21 @@ size_t NDRange::PreferredSequentialItemsPerThread() const
     return preferredSize;
 }
 
-bool NDRange::Finish(FINISH_REASON reason)
-{
-    StopExecutionProfiling();
+bool NDRange::Finish(FINISH_REASON /*reason*/) {
+  StopExecutionProfiling();
 
-    // Mark command as CL_ENDED_RUNNING if it has any kernel
-    // children. Otherwise, we skip this step and mark command as CL_COMPLETE
-    // later for making profiling time of CL_PROFILING_COMMAND_END equal to
-    // CL_PROFILING_COMMAND_COMPLETE.
-    if (nullptr != m_waitingChildrenForKernelGlobal)
-    {
-        NotifyCommandStatusChanged(m_pCmd, CL_ENDED_RUNNING, m_lastError);
-    }
+  // Mark command as CL_ENDED_RUNNING if it has any kernel
+  // children. Otherwise, we skip this step and mark command as CL_COMPLETE
+  // later for making profiling time of CL_PROFILING_COMMAND_END equal to
+  // CL_PROFILING_COMMAND_COMPLETE.
+  if (nullptr != m_waitingChildrenForKernelGlobal) {
+    NotifyCommandStatusChanged(m_pCmd, CL_ENDED_RUNNING, m_lastError);
+  }
 
-    // Need to notify all kernel children and wait for their completion
-    WaitForChildrenCompletion();
+  // Need to notify all kernel children and wait for their completion
+  WaitForChildrenCompletion();
 
-    // regular stuff:
+  // regular stuff:
 #ifdef _DEBUG
     long lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
     assert(lVal == 0);
@@ -1067,9 +1070,8 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
     return pWgContextBase;
 }
 
-void NDRange::DetachFromThread(void* pWgContext)
-{
-    // End execution task
+void NDRange::DetachFromThread(void * /*pWgContext*/) {
+  // End execution task
 #if defined(USE_ITT)
     if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
@@ -1167,13 +1169,14 @@ queue_t NDRange::GetDefaultQueueForDevice() const
 ///////////////////////////////////////////////////////////////////////////
 // OCL Fill buffer/image execution
 
-cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
-    FillMemObject* pCommand = new FillMemObject(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code FillMemObject::Create(TaskDispatcher *pTD,
+                                      cl_dev_cmd_desc *pCmd,
+                                      SharedPtr<ITaskBase> *pTask,
+                                      const SharedPtr<ITaskList> & /*pList*/) {
+  FillMemObject *pCommand = new FillMemObject(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 #ifdef _DEBUG
     cl_dev_err_code rc;
     rc = pCommand->CheckCommandParams(pCmd);
@@ -1185,7 +1188,6 @@ cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd
 
     return CL_DEV_SUCCESS;
 }
-
 
 FillMemObject::FillMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
     CommandBaseClass<ITask>(pTD, pCmd)
@@ -1294,13 +1296,14 @@ bool FillMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Migrate buffer/image execution
 
-cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
-{
-    MigrateMemObject* pCommand = new MigrateMemObject(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code
+MigrateMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
+                         SharedPtr<ITaskBase> *pTask,
+                         const SharedPtr<ITaskList> & /*pList*/) {
+  MigrateMemObject *pCommand = new MigrateMemObject(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 #ifdef _DEBUG
     cl_dev_err_code rc;
     rc = pCommand->CheckCommandParams(pCmd);
@@ -1363,16 +1366,14 @@ bool MigrateMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Migrate USM buffer execution
 
-cl_dev_err_code MigrateUSMMemObject::Create(TaskDispatcher* pTD,
-                                            cl_dev_cmd_desc* pCmd,
-                                            SharedPtr<ITaskBase>* pTask,
-                                            const SharedPtr<ITaskList>& pList)
-{
-    MigrateUSMMemObject* pCommand = new MigrateUSMMemObject(pTD, pCmd);
-    if (nullptr == pCommand)
-    {
-        return CL_DEV_OUT_OF_MEMORY;
-    }
+cl_dev_err_code
+MigrateUSMMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
+                            SharedPtr<ITaskBase> *pTask,
+                            const SharedPtr<ITaskList> & /*pList*/) {
+  MigrateUSMMemObject *pCommand = new MigrateUSMMemObject(pTD, pCmd);
+  if (nullptr == pCommand) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
 #ifdef _DEBUG
     cl_dev_err_code rc;
     rc = pCommand->CheckCommandParams(pCmd);
@@ -1485,24 +1486,24 @@ void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevB
     m_cmdDesc.param_size = sizeof(m_paramKernel);
 }
 
-void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr)
-{
-    switch (uStatus)
-    {
-    case CL_RUNNING:
-        StartExecutionProfiling();
-        break;
-    case CL_ENDED_RUNNING:
-        // do nothing
-        break;
-    case CL_COMPLETE:
-        SignalComplete( (cl_dev_err_code)iErr );
-        GetParent()->ChildCompleted(GetError());
-        break;
-    default:
-        assert(0 && "Invalid execution status");
-    }
-    // no need to call DispatcherCommand::NotifyCommandStatusChanged because we don't need to return to RT
+void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc * /*cmd*/,
+                                               unsigned uStatus, int iErr) {
+  switch (uStatus) {
+  case CL_RUNNING:
+    StartExecutionProfiling();
+    break;
+  case CL_ENDED_RUNNING:
+    // do nothing
+    break;
+  case CL_COMPLETE:
+    SignalComplete((cl_dev_err_code)iErr);
+    GetParent()->ChildCompleted(GetError());
+    break;
+  default:
+    assert(0 && "Invalid execution status");
+  }
+  // no need to call DispatcherCommand::NotifyCommandStatusChanged because we
+  // don't need to return to RT
 }
 
 #ifdef __INCLUDE_MKL__
@@ -1597,13 +1598,11 @@ bool NativeKernelTask::Execute()
 /////////////////////////////////////////////////////////////////////////
 // OCL advise USM mem command
 
-
-cl_dev_err_code AdviseUSMMemObject::Create(TaskDispatcher* pTD,
-                                           cl_dev_cmd_desc* pCmd,
-                                           SharedPtr<ITaskBase>* pTask,
-                                           const SharedPtr<ITaskList>& pList)
-{
-    AdviseUSMMemObject* pCommand = new AdviseUSMMemObject(pTD, pCmd);
+cl_dev_err_code
+AdviseUSMMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
+                           SharedPtr<ITaskBase> *pTask,
+                           const SharedPtr<ITaskList> & /*pList*/) {
+  AdviseUSMMemObject *pCommand = new AdviseUSMMemObject(pTD, pCmd);
 
 #ifdef _DEBUG
     cl_dev_err_code rc;
