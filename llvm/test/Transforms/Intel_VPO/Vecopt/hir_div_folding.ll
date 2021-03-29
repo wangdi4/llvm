@@ -2,8 +2,10 @@
 ; LIT test to check folding of divide by constant into linear canon expressions
 ; in VPValue based CG.
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -print-after=vplan-driver-hir -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1 | FileCheck %s
+
 define void @foo(i64* noalias nocapture %larr, i64* noalias nocapture %larr2, i64 %n1) {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   (<4 x i64>*)(%larr)[i1] = (i1 + <i64 0, i64 1, i64 2, i64 3>)/u9;
 ; CHECK-NEXT:          |   (<4 x i64>*)(%larr2)[i1] = (i1 + %n1 + <i64 0, i64 1, i64 2, i64 3>)/9;

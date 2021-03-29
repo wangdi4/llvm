@@ -1,4 +1,6 @@
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -disable-output -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
 ;
 ; The test checks that HIRParVecAnalysis doesn't look into loop preheader or
 ; postexit blocks when checking legality of vectorization. The test code has
@@ -17,7 +19,7 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ;   }
 ; }
 ;
-; CHECK:   *** IR Dump After HIR Vec Directive Insertion Pass (hir-vec-dir-insert) ***
+; CHECK:   *** IR Dump After{{.+}}Vec{{.*}}Dir{{.*}}Insert{{.*}}Pass{{.*}} ***
 ; CHECK:       BEGIN REGION { }
 ; CHECK-NEXT:        + DO i1 = 0, 127, 1   <DO_LOOP>
 ; CHECK-NEXT:        |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
@@ -32,7 +34,7 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ; CHECK-NEXT:        + END LOOP
 ; CHECK-NEXT:  END REGION
 ;
-; CHECK:   *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CHECK:   *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 127, 1   <DO_LOOP>
 ; CHECK-NEXT:        |   if (%size.inner != 0)

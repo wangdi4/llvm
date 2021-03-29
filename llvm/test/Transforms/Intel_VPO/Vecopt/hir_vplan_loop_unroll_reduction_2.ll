@@ -3,8 +3,14 @@
 ; Test to check VPlan unroller for an auto-vectorized loop with SafeReduction.
 
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -print-after=vplan-driver-hir -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
+
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=vplan-driver-hir -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
+
 
 ; int foo(int *a, int n) {
 ;   int acc = 0;
@@ -86,7 +92,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ;
-; CGCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CGCHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CGCHECK-NEXT:  Function: foo
 ; CGCHECK-EMPTY:
 ; CGCHECK-NEXT:  <0>          BEGIN REGION { modified }

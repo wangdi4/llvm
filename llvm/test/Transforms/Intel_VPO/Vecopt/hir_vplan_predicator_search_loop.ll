@@ -2,7 +2,9 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-linearization -disable-output \
 ; RUN:     | FileCheck %s
-;
+
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     -vplan-print-after-linearization -disable-output | FileCheck %s
 
 ; Test to verify predicator behavior for our hacky support of search loops
 ; vectorization. The main issue is that we don't merge loop exits nor perform

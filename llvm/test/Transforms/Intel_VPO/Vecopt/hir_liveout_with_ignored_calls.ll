@@ -7,6 +7,8 @@
 ; to handle liveouts.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+
 
 define float @foo1(float* nocapture %a, float %const, i64* %lt.arg) {
 ; CHECK:          BEGIN REGION { modified }

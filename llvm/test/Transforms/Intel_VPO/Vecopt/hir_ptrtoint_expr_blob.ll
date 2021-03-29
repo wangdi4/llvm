@@ -3,7 +3,11 @@
 ; HIR decomposer and vector CG.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -vplan-print-after-plain-cfg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-output -vplan-print-after-plain-cfg -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=false < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir -enable-vp-value-codegen-hir=false < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
+
 
 define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
@@ -35,7 +39,7 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CHECK-NEXT:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
@@ -48,7 +52,7 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-NEXT:  <16>               + END LOOP
 ; CHECK-NEXT:  <0>          END REGION
 ;
-; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; MIXED-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; MIXED-CG-NEXT:  Function: foo
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }

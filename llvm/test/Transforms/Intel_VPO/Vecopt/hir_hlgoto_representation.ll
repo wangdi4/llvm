@@ -1,6 +1,8 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation \
 ; RUN:     -debug -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     < %s -S -allow-memory-speculation -debug -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck %s
 ;
 ; REQUIRES: asserts
 

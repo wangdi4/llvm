@@ -46,6 +46,8 @@
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Check decomposed VPInstructions
 ; CHECK: i32 [[PHI:%vp.*]] = phi  [ i32 [[IFT:%vp.*]], [[TBB:BB.*]] ],  [ i32 [[IFF:%vp.*]], [[FBB:BB.*]] ]

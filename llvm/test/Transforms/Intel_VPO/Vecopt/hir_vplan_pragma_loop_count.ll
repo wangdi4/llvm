@@ -2,6 +2,10 @@
 ; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
 ; RUN:     | FileCheck %s
 
+; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
+; RUN:     | FileCheck %s
+
 ; REQUIRES: asserts
 
 ; CHECK: Max trip count is {{[0-9]+}} set by pragma loop count

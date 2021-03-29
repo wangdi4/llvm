@@ -13,6 +13,8 @@
 ; <0>          END REGION
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir,print<hir>" -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; CHECK:          + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:     |   %and.vec = %uni1  &  127;

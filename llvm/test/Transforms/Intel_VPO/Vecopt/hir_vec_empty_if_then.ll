@@ -8,6 +8,8 @@
 ; }
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+
 ; CHECK: DO i1 = 0, {{.*}}, 4 
 ; CHECK:   [[Cmp1:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3> >= (%element * %scale);
 ; CHECK:   [[Cmp2:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3> < ((1 + %element) * %scale);

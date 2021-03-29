@@ -1,5 +1,9 @@
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir,print<hir>" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output 2>&1 | FileCheck %s --check-prefix=VPCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir,print<hir>" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -disable-output 2>&1 | FileCheck %s --check-prefix=VPCHECK
+
 
 define dso_local void @foo(i64 %n) local_unnamed_addr {
 ; CHECK:      [[CONV_VEC0:%.*]] = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>)

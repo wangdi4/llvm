@@ -29,7 +29,11 @@
 ; Note: -hir-vec-dir-insert is not explicitly used below to ensure that SIMD loop is recognized
 ; and vectorized by VPlan.
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir=0 < %s  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir,print<hir>" -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir < %s  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir,print<hir>" -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+
 
 ; CHECK:                 %red.var = 0.000000e+00;
 ; CHECK-NEXT:         + DO i2 = 0, 32 * %tgu + -1, 32   <DO_LOOP>  <MAX_TC_EST = 134217727> <simd-vectorized> <nounroll> <novectorize>

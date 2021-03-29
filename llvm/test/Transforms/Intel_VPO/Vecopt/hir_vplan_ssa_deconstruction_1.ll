@@ -30,7 +30,11 @@
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
+
 
 define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
@@ -88,7 +92,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   float [[VP__RED_FINAL]] -> [[VP14:%.*]] = {%red.phi}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CHECK-NEXT:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
@@ -123,7 +127,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <48>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
-; MIXED-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; MIXED-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; MIXED-NEXT:  Function: foo
 ; MIXED-EMPTY:
 ; MIXED-NEXT:  <0>          BEGIN REGION { modified }

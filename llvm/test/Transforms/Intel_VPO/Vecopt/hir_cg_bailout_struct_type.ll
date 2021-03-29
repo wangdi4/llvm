@@ -15,6 +15,8 @@
 ;    END REGION
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; CHECK-LABEL: Function: autovec_test
 ; CHECK:           BEGIN REGION { }

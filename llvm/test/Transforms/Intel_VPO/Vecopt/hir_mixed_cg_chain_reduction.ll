@@ -17,6 +17,8 @@
 ; <0>     END REGION
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=false -print-after=VPlanDriverHIR -vplan-print-after-initial-transforms -vplan-entities-dump -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -enable-vp-value-codegen-hir=false -vplan-print-after-initial-transforms -vplan-entities-dump -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+
 
 ; Check that reduction is imported as VPReduction.
 ; CHECK:      Reduction list

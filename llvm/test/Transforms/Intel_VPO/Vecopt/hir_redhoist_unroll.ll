@@ -18,6 +18,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ;}
 
 ; RUN: opt -S -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -S -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK-NEXT: %red.var = 0;

@@ -11,6 +11,8 @@
 ; }
 ;   
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -S -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -S -vplan-force-vf=4 < %s | FileCheck %s
+
 ; CHECK: llvm.masked.gather.v4i32
 ; CHECK-NEXT: store <4 x i32>
 ; 

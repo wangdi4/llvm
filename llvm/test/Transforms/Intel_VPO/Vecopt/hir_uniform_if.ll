@@ -1,13 +1,25 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S -disable-output -vplan-force-linearization-hir < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-LIN
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -S -disable-output -vplan-force-linearization-hir < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-LIN
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -S -disable-output -vplan-force-linearization-hir < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-LIN
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -S -disable-output -vplan-force-linearization-hir < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-LIN
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S -disable-output -vplan-force-linearization-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -S -disable-output -vplan-force-linearization-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -S -disable-output -vplan-force-linearization-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -S -disable-output -vplan-force-linearization-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+
 
 ; Test to check default value of vplan-force-linearization-hir switch. The check prefixes need to be
 ; updated appropriately when this default value is changed. Use CHECK,CHECK-LIN if the default is true
 ; and CHECK,CHECK-UNI if the default is false.
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -S -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -S -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -S -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-UNI
+
 
 ; The loop in the test here does a store to %arr under a uniform condition.
 ; The test checks for linearization of control flow by checking that the store
