@@ -21,7 +21,11 @@
 ;}
 ;
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg,verify" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg,verify" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
+
 
 ; Check to see that the main vector loop was vectorized with svml and
 ; remainder loop broadcasts the call arguments and uses svml to match the main

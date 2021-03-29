@@ -3,8 +3,10 @@
 ; HIR vectorizer is WIP.
 
 ; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir" -vector-library=SVML -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK-LABEL: IR Dump After VPlan Vectorization Driver HIR
+
+; CHECK-LABEL: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:            + DO i1 = 0, 129, 1   <DO_LOOP> <simd> <vectorize>
 ; CHECK-NEXT:       |   %0 = (%a)[i1 + sext.i32.i64(%i)];
 ; CHECK-NEXT:       |   @sincosf(%0,  &((%vsin)[0]),  &((%vcos)[0]));

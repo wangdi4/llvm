@@ -4,6 +4,8 @@
 ; Input LLVM IR is generated for below code with command:  icx -O2 -mllvm -print-module-before-loopopt
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Source code
 ; #define N 1600

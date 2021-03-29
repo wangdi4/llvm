@@ -1,5 +1,7 @@
 ; Test to check HIR vector codegen support for vectorizable intrinsic calls with always scalar operands.
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -vplan-force-vf=4 -print-after=vplan-driver-hir -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Check that intrinsic calls are vectorized.
 ; CHECK-LABEL: ctlz_f64

@@ -1,10 +1,12 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir" -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
 
 ; Test for loop is not vectorized if there are non-recognized phis. Currently,
 ; the last private phi are not processed correctly.
 ;
 define i64 @foo(i64* nocapture %larr) {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK-NOT:                      + DO i1 = 0, 99, 4
 ;
 entry:

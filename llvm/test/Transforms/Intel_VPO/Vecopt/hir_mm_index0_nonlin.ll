@@ -2,8 +2,14 @@
 ;
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1  -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1  -disable-nonlinear-mmindex=1 -print-after=VPlanDriverHIR  -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1 -disable-nonlinear-mmindex=1 -print-after=vplan-driver-hir -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=VPlanDriverHIR  < %s 2>&1 | FileCheck --check-prefixes=CG_ENABLE %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4 -S -print-after=vplan-driver-hir < %s 2>&1 | FileCheck --check-prefixes=CG_ENABLE %s
+
 ;
 ; CHECK:       External Defs Start:
 ; CHECK:         [[VPMPLUS:%.*]] = {%m + -1}

@@ -1,4 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Verify that decomposer properly materializes the IV phi, IV Next and
 ; bottom test condition.

@@ -1,4 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
 ;
 ; Test to check that VLS optimized code generation is suppressed in HIR
 ; mixed vector code generation mode. Currently we default to mixed CG mode
@@ -21,7 +23,7 @@
 ; once liveout privates are represented explicitly and when we stop defaulting
 ; to mixed CG mode.
 ;
-; CHECK-LABEL: IR Dump After VPlan Vectorization Driver HIR
+; CHECK-LABEL: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:       Function: f_noliveout
 ; CHECK:         BEGIN REGION { modified }
 ; CHECK-NEXT:    + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
@@ -34,7 +36,7 @@
 ; CHECK-NEXT:    + END LOOP
 ; CHECK-NEXT:    END REGION
 ;
-; CHECK-LABEL: IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CHECK-LABEL: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK:       Function: f_liveout
 ; CHECK:         BEGIN REGION { modified }
 ; CHECK-NEXT:    + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>

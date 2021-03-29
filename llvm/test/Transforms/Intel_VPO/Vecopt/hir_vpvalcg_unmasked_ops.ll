@@ -1,4 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir" -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s
+
 ;
 ; Test to check that safe operations such as multiply remain unmasked in VPValue
 ; code generation. This is important for stability as well as performance of
@@ -33,7 +35,7 @@
 @larr2 = global [100 x [100 x i64]] zeroinitializer, align 16
 
 define void @foo(i64* nocapture readonly %unif, i64 %n2) local_unnamed_addr #0 {
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; CHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    %.unifload = (%unif)[0];
 ; CHECK-NEXT:    %.vec = (<4 x i64>*)(@larr)[0][i1];

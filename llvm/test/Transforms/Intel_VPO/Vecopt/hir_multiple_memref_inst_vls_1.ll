@@ -25,6 +25,8 @@
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -enable-vp-value-codegen-hir -disable-output -print-after=VPlanDriverHIR -tbaa < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -enable-vplan-vls-cg -enable-vp-value-codegen-hir -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
 
 ; CHECK:       DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:    %.vec = (<4 x i32>*)(@ip)[0][i1];

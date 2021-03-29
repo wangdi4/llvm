@@ -18,7 +18,11 @@
 ; <0>     END REGION
 
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-vp-value-codegen-hir -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-vp-value-codegen-hir -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
+
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -S -vplan-force-vf=4 -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
+
 
 ; Check that loop is vectorized if compiled for AVX512 target.
 ; VEC:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>

@@ -1,5 +1,7 @@
 ; Test VPValue based code generation
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -vplan-force-vf=4  -disable-output -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir %s 2>&1 | FileCheck %s
+
 ; CHECK:        DO i1 = 0, 99, 4
 ; CHECK-NEXT:         (<4 x i64>*)(@ip)[0][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  2
 ; CHECK:        END LOOP

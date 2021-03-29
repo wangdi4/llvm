@@ -18,15 +18,17 @@
 ; is not vectorized. VPlan does not vectorize loops with constant trip counts lesser
 ; than the value specified in the switch.
 ; RUN: opt -vplan-vectorizer-min-trip-count=1030 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after-all -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-vectorizer-min-trip-count=1030 -print-after-all -S < %s 2>&1 | FileCheck %s
+
 ;
 ; HIR Test.
-; CHECK: IR Dump After HIR Vec Directive Insertion Pass 
+; CHECK: IR Dump After{{.+}}Vec{{.*}}Dir{{.*}}Insert{{.*}}Pass{{.*}}
 ; CHECK: BEGIN REGION   
 ; CHECK: llvm.directive.region.entry
 ; CHECK: DO i1 = 0, 1023, 1
 ; CHECK: llvm.directive.region.exit
 ; CHECK: END REGION
-; CHECK: IR Dump After VPlan Vectorization Driver HIR 
+; CHECK: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK: BEGIN REGION   
 ; CHECK-NOT: llvm.directive.region.entry
 ; CHECK: DO i1 = 0, 1023, 1

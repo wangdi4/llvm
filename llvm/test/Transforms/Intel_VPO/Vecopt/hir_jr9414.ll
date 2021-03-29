@@ -1,4 +1,6 @@
 ; RUN: opt -hir-framework -VPlanDriverHIR -VPlanDriver -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-driver-hir,vplan-driver" -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+
 ;
 ; Test checks that we do not crash during HIR decomposition. Currently HIR CG
 ; cannot handle vector types and we bail out during vectorization - we check
@@ -7,7 +9,7 @@
 ;
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0
-; CHECK-LABEL:    IR Dump After VPlan Vectorization Driver HIR
+; CHECK-LABEL:    IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:          DO i1 = 0, %len + -1, 1
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0

@@ -2,6 +2,8 @@
 ; Test VPlan unrolling feature for HIR loops with Call instructions.
 
 ; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir,print<hir>" -vector-library=SVML -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+
 
 define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
