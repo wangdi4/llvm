@@ -125,7 +125,7 @@ INLINE void __kmp_acquire_lock(int *lock) {
     int expected;
     bool acquired;
 #if INTEL_CUSTOMIZATION
-    int cmpxchg_cnt = 0, cmpxchg_ub = 128;
+    int cmpxchg_cnt = 0, cmpxchg_ub = 2048;
 #endif // INTEL_CUSTOMIZATION
     do {
       expected = 0;
