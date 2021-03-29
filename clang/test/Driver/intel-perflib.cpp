@@ -216,7 +216,7 @@
 // RUN: env INTELFPGAOCLSDKROOT=/dummy/actypes \
 // RUN: %clang_cl -Qactypes -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-ACTYPES,CHECK-ACTYPES-WIN %s
-// CHECK-ACTYPES-WIN: "--dependent-lib=psg_mpir" "--dependent-lib=psg_mpfr" "--dependent-lib=hls_fixed_point_math_x86" "--dependent-lib=hls_vpfp_library"
+// CHECK-ACTYPES-WIN: "--dependent-lib=dspba_mpir" "--dependent-lib=dspba_mpfr" "--dependent-lib=hls_fixed_point_math_x86" "--dependent-lib=hls_vpfp_library"
 // CHECK-ACTYPES: "-internal-isystem" "{{.*}}actypes{{/|\\\\}}include"
-// CHECK-ACTYPES-LIN: ld{{.*}} "-L{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}linux64{{/|\\\\}}lib" {{.*}} "-lpsg_mpir" "-lpsg_mpfr" "-lhls_fixed_point_math_x86" "-lhls_vpfp_library"
+// CHECK-ACTYPES-LIN: ld{{.*}} "-L{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}linux64{{/|\\\\}}lib" {{.*}} "-ldspba_mpir" "-ldspba_mpfr" "-lhls_fixed_point_math_x86" "-lhls_vpfp_library"
 // CHECK-ACTYPES-WIN: link{{.*}} "-libpath:{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}windows64{{/|\\\\}}lib"

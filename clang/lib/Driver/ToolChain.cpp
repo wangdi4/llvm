@@ -1443,8 +1443,8 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 void ToolChain::AddACTypesLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                                   std::string Prefix) const {
   SmallVector<StringRef, 4> ACTypesLibs;
-  ACTypesLibs.push_back("psg_mpir");
-  ACTypesLibs.push_back("psg_mpfr");
+  ACTypesLibs.push_back("dspba_mpir");
+  ACTypesLibs.push_back("dspba_mpfr");
   ACTypesLibs.push_back("hls_fixed_point_math_x86");
   ACTypesLibs.push_back("hls_vpfp_library");
   for (const auto &Lib : ACTypesLibs) {
