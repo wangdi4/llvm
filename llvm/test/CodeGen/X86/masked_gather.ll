@@ -1004,7 +1004,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    testb $-128, %al
 ; SSE-NEXT:    jne .LBB4_17
 ; SSE-NEXT:    jmp .LBB4_18
-; SSE-NEXT:  .LBB4_19: # %else20
+; SSE-NEXT:  .LBB4_19:
 ; SSE-NEXT:    # implicit-def: $xmm4
 ; SSE-NEXT:    testb $2, %al
 ; SSE-NEXT:    je .LBB4_23
@@ -1032,7 +1032,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    pinsrd $3, c+{{.*}}(%rip), %xmm4
 ; SSE-NEXT:    testb $16, %al
 ; SSE-NEXT:    jne .LBB4_29
-; SSE-NEXT:  .LBB4_28: # %else41
+; SSE-NEXT:  .LBB4_28:
 ; SSE-NEXT:    # implicit-def: $xmm5
 ; SSE-NEXT:    testb $32, %al
 ; SSE-NEXT:    je .LBB4_32
@@ -1370,18 +1370,13 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX512-NEXT:    vpaddd %ymm2, %ymm2, %ymm0
 ; AVX512-NEXT:    vpaddd %ymm0, %ymm1, %ymm0
 ; AVX512-NEXT:    retq
-  %1 = insertelement <8 x %struct.a*> undef, %struct.a* @c, i32 0
-  %2 = shufflevector <8 x %struct.a*> %1, <8 x %struct.a*> undef, <8 x i32> zeroinitializer
-  %3 = getelementptr %struct.a, <8 x %struct.a*> %2, <8 x i32> zeroinitializer, i32 0, i32 3
-  %4 = icmp eq <8 x i32> %trigger, zeroinitializer
-  %5 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %3, i32 4, <8 x i1> %4, <8 x i32> undef)
-  %6 = getelementptr %struct.a, <8 x %struct.a*> %2, <8 x i32> zeroinitializer, i32 3
-  %7 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %6, i32 4, <8 x i1> %4, <8 x i32> undef)
-  %8 = add <8 x i32> %5, %7
-  %9 = getelementptr %struct.a, <8 x %struct.a*> %2, i32 0, <8 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>
-  %10 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %9, i32 4, <8 x i1> %4, <8 x i32> undef)
-  %11 = add <8 x i32> %8, %10
-  ret <8 x i32> %11
+  %1 = icmp eq <8 x i32> %trigger, zeroinitializer
+  %2 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> getelementptr (%struct.a, <8 x %struct.a*> <%struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c>, <8 x i64> zeroinitializer, i32 0, <8 x i64> <i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3>), i32 4, <8 x i1> %1, <8 x i32> undef)
+  %3 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> getelementptr (%struct.a, <8 x %struct.a*> <%struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c>, <8 x i64> zeroinitializer, i32 3), i32 4, <8 x i1> %1, <8 x i32> undef)
+  %4 = add <8 x i32> %2, %3
+  %5 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> getelementptr (%struct.a, <8 x %struct.a*> <%struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c>, <8 x i64> zeroinitializer, i32 3), i32 4, <8 x i1> %1, <8 x i32> undef)
+  %6 = add <8 x i32> %4, %5
+  ret <8 x i32> %6
 }
 
 declare <2 x double> @llvm.masked.gather.v2f64.v2p0f64(<2 x double*>, i32, <2 x i1>, <2 x double>)
