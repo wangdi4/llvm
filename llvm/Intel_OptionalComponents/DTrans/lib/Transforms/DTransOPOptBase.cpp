@@ -458,14 +458,14 @@ void DTransOPOptBase::buildTypeDependencyMapping() {
   for (auto *StTy : KnownStructTypes)
     collectDependenciesForType(StTy);
 
-#if !defined(NDEBUG)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DEBUG({
     dumpTypeToTypeSetMapping("\nType dependency direct mapping table:",
                              TypeToDirectDependentTypes);
     dumpTypeToTypeSetMapping("\nType dependency pointer mapping table:",
                              TypeToPtrDependentTypes);
   });
-#endif // !defined(NDEBUG)
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
 // Collect the dependency mapping information by analyzing the body of
@@ -683,7 +683,7 @@ void DTransOPOptBase::populateDependentTypes(
   }
 }
 
-#if !defined(NDEBUG)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Print the table of type dependences
 void DTransOPOptBase::dumpTypeToTypeSetMapping(
     StringRef Header, DTransTypeToTypeSetMap &TypeToDependentTypes) {
@@ -708,7 +708,7 @@ void DTransOPOptBase::dumpTypeToTypeSetMapping(
     dbgs() << "\n";
   }
 }
-#endif // !defined(NDEBUG)
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 } // namespace dtransOP
 } // namespace llvm

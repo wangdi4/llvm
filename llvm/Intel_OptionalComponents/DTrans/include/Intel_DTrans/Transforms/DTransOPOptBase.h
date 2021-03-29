@@ -235,8 +235,10 @@ private:
   void collectDependenciesForType(DTransStructType *StructTy);
   void prepareDependentTypes(Module &M,
                              LLVMTypeToTypeMap &DependentTypeMapping);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpTypeToTypeSetMapping(StringRef Header,
                                 DTransTypeToTypeSetMap &TypeToDependentTypes);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 protected:
   //===-------------------------------------------------------------------===//
