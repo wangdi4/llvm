@@ -291,6 +291,43 @@ void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI) {
   assert(STy && "Expected non-empty structure type");
   (void) GenFieldsForStruct(MI, STy, StrippedSrc, StrippedDest, 0);
 }
+
+// Return true if the given struct-path style TBAA MD node results in a
+// scalar type, valid for load/store instructions.
+// We assume that the TBAA MD is otherwise well formed (no illegal operands).
+// Details are in the code comments.
+static bool IsScalarTBAANode(const MDNode *MD) {
+  const MDNode *currMD = MD;
+  SmallPtrSet<const MDNode *, 4> Cache;
+  // New-style TBAA, let the verifier handle it.
+  if (MD->getNumOperands() == 4)
+    return true;
+
+  // All nodes up to the root must be types with <= 3 operands: either scalar
+  // or single-field structs.
+  while (currMD) {
+    // Root, or old-style scalar.
+    if (currMD->getNumOperands() < 3)
+      return true;
+    // Multi-field struct, not allowed.
+    if (currMD->getNumOperands() > 3)
+      return false;
+
+    // Either a path node or scalar type node. We assume the nodes are
+    // well formed, so we just move on to the parent (operand 1).
+    // {!2, !3, i64 4} ; path node
+    // {"int", !1, i64 0} ; type node
+    auto *Parent = dyn_cast_or_null<MDNode>(currMD->getOperand(1));
+    if (!Parent)
+      return false;
+    // Circular path? "insert" returns false if the node has been seen.
+    if (!(Cache.insert(currMD).second))
+      return false;
+    currMD = Parent;
+  }
+  llvm_unreachable("Null TBAA tag found.");
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
@@ -382,8 +419,22 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   LoadInst *L = Builder.CreateLoad(IntType, Src);
   // Alignment from the mem intrinsic will be better, so use it.
   L->setAlignment(*CopySrcAlign);
+#if INTEL_CUSTOMIZATION
+  auto Kind = LLVMContext::MD_tbaa;
+  // 26995: If the original MD was tbaa_struct and we converted it into tbaa,
+  // verify that the result is scalar. If not, use the original tbaa_struct
+  // node instead.
+  if (CopyMD) {
+    MDNode *StructFormMD = MI->getMetadata(LLVMContext::MD_tbaa_struct);
+    if (StructFormMD && !IsScalarTBAANode(CopyMD)) {
+      Kind = LLVMContext::MD_tbaa_struct;
+      CopyMD = StructFormMD;
+    }
+  }
+
   if (CopyMD)
-    L->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+    L->setMetadata(Kind, CopyMD);
+#endif // INTEL_CUSTOMIZATION
   MDNode *LoopMemParallelMD =
     MI->getMetadata(LLVMContext::MD_mem_parallel_loop_access);
   if (LoopMemParallelMD)
@@ -395,8 +446,10 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   StoreInst *S = Builder.CreateStore(L, Dest);
   // Alignment from the mem intrinsic will be better, so use it.
   S->setAlignment(*CopyDstAlign);
+#if INTEL_CUSTOMIZATION
   if (CopyMD)
-    S->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+    S->setMetadata(Kind, CopyMD);
+#endif // INTEL_CUSTOMIZATION
   if (LoopMemParallelMD)
     S->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopMemParallelMD);
   if (AccessGroupMD)
