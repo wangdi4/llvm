@@ -1972,6 +1972,11 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (AC)
+    // Force assumptions in the old function to be rescanned on the next access.
+    AC->clear();
+#else // INTEL_CUSTOMIZATION
   // Remove @llvm.assume calls that will be moved to the new function from the
   // old function's assumption cache.
   for (BasicBlock *Block : Blocks) {
@@ -1986,6 +1991,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
       }
     }
   }
+#endif // INTEL_CUSTOMIZATION
 
   // If we have any return instructions in the region, split those blocks so
   // that the return is not in the region.

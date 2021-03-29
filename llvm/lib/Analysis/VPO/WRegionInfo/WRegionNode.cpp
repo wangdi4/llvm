@@ -1521,10 +1521,16 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     }
     break;
   }
-  case QUAL_OMP_NONTEMPORAL:
-    extractQualOpndList<NontemporalClause>(Args, NumArgs, ClauseID,
-                                           getNontemporal());
+  case QUAL_OMP_NONTEMPORAL: {
+    NontemporalClause &C = getNontemporal();
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = Args[I];
+      C.add(V);
+      if (ClauseInfo.getIsPointerToPointer())
+        C.back()->setIsPointerToPointer(true);
+    }
     break;
+  }
   case QUAL_OMP_FLUSH: {
     extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID, getFlush());
     break;

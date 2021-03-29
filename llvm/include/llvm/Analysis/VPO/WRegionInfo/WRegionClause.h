@@ -1338,13 +1338,18 @@ class AlignedItem
 class NontemporalItem
 {
   private:
-    VAR Base; // pointer or base of array
+    VAR Base;                // pointer or base of array
+    bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
 
   public:
-    NontemporalItem(VAR V=nullptr) : Base(V) {}
+    NontemporalItem(VAR V = nullptr) : Base(V), IsPointerToPointer(false) {}
     VAR getOrig() const { return Base; }
+    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    bool getIsPointerToPointer() const { return IsPointerToPointer; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsPointerToPointer())
+        OS << "PTR_TO_PTR";
       OS << "(";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
