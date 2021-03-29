@@ -4614,7 +4614,12 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
       }
     };
 
-    growWorkList(NtmpItem->getOrig());
+    if (NtmpItem->getIsPointerToPointer()) {
+      for (auto *U : NtmpItem->getOrig()->users())
+        if (auto *Load = dyn_cast<LoadInst>(U))
+          growWorkList(Load);
+    } else
+      growWorkList(NtmpItem->getOrig());
 
     while (!WorkList.empty()) {
       Use *U = WorkList.pop_back_val();
