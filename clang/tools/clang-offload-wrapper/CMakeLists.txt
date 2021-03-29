@@ -1,4 +1,8 @@
+if(INTEL_COLLAB)
+set(LLVM_LINK_COMPONENTS BitWriter Core Object Support TransformUtils)
+else(INTEL_COLLAB)
 set(LLVM_LINK_COMPONENTS BitWriter Core Support TransformUtils)
+endif(INTEL_COLLAB)
 
 add_clang_tool(clang-offload-wrapper
   ClangOffloadWrapper.cpp
