@@ -161,7 +161,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: IndVarSimplifyPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on Loop
-; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy<llvm::AnalysisManager<llvm::Function>, llvm::Loop, llvm::LoopStandardAnalysisResults&> on Loop at depth 1 containing: %loop<header><latch><exiting> ;INTEL
+; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Loop, llvm::LoopStandardAnalysisResults &> on Loop at depth 1 containing: %loop<header><latch><exiting> ;INTEL
 ; CHECK-O23SZ-NEXT: Finished Loop pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
