@@ -6026,10 +6026,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasFlag(options::OPT__SLASH_Qvla_, options::OPT__SLASH_Qvla, false))
     CmdArgs.push_back("-Werror=vla");
-
-  if (Args.hasFlag(options::OPT_fpermissive, options::OPT_fno_permissive,
-                   false))
-    CmdArgs.push_back("-gnu-permissive");
 #endif // INTEL_CUSTOMIZATION
 
   // Pass -fmessage-length=.
