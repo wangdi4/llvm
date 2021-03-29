@@ -1594,6 +1594,8 @@ public:
     // Initialize the number of ByStripLoops.
     NumByStripLoops = getNumByStripLoops(StripmineSizes);
 
+    calcLoopMatchingDimNum();
+
     assert((!OutermostLoop && OuterIf) || (OutermostLoop && !OuterIf));
   }
 
@@ -1602,8 +1604,8 @@ public:
   }
 
   // Make sure every dimension has a target loop.
-  static bool checkDimsToLoops(ArrayRef<unsigned> StripmineSizes,
-                               const LoopToDimInfoTy &InnermostLoopToDimInfos) {
+  bool checkDimsToLoops(ArrayRef<unsigned> StripmineSizes,
+                        const LoopToDimInfoTy &InnermostLoopToDimInfos) {
 
     unsigned GlobalNumDims = StripmineSizes.size();
 
@@ -1636,6 +1638,15 @@ public:
   }
 
   bool rewrite() {
+
+    // This check is done after StripmineSizes are determined.
+    // If the check fails, transformation does not happen.
+    if (getNumByStripLoops(StripmineSizes) == 0 ||
+        !checkDimsToLoops(StripmineSizes, InnermostLoopToDimInfos)) {
+      LLVM_DEBUG_PROFIT_REPORT(dbgs() << "No transformation: Some dimensions "
+                                         "have no matching loop level.\n");
+      return false;
+    }
 
     HLNode *OutermostNode = OutermostLoop ? static_cast<HLNode *>(OutermostLoop)
                                           : static_cast<HLNode *>(OuterIf);
@@ -2895,11 +2906,48 @@ private:
     CEs.erase(Last, CEs.end());
   }
 
+  void calcLoopMatchingDimNum() {
+    for (auto Pair : InnermostLoopToDimInfos) {
+      int NumDims = Pair.second.size();
+      Innermost2TargetLoop[Pair.first].resize(NumDims);
+
+      for (int I = 1; I <= NumDims; I++)
+        calcLoopMatchingDimNum(I, Pair.second, Pair.first);
+    }
+  }
+
   // Return the loop matching DimNum.
   // InnermostLoop and DimInfos are data to consult with.
-  static const HLLoop *getLoopMatchingDimNum(unsigned DimNum,
-                                             ArrayRef<DimInfoTy> DimInfos,
-                                             const HLLoop *InnermostLoop) {
+  void calcLoopMatchingDimNum(unsigned DimNum, ArrayRef<DimInfoTy> DimInfos,
+                              const HLLoop *InnermostLoop) {
+
+    // Dimension for DimNum doesn't exist. This can happen
+    // when there are arrays with different dimenseions.
+    // e.g. A[][], B[][][][][] - A only has upto DimNum = 2,
+    // while B has upto DimNum = 5.
+    if (DimNum > DimInfos.size()) {
+      return;
+    }
+
+    // Subscript is either constant or blobs.
+    if (!DimInfos[DimNum - 1].hasIV()) {
+      Innermost2TargetLoop[InnermostLoop][DimNum - 1] = nullptr;
+      return;
+    }
+
+    const HLLoop *TargetLoop = InnermostLoop;
+    for (int I = 0; I < DimInfos[DimNum - 1].LevelOffset; I++) {
+      TargetLoop = TargetLoop->getParentLoop();
+    }
+
+    Innermost2TargetLoop[InnermostLoop][DimNum - 1] = TargetLoop;
+  }
+
+  // Return the loop matching DimNum.
+  // InnermostLoop and DimInfos are data to consult with.
+  const HLLoop *getLoopMatchingDimNum(unsigned DimNum,
+                                      ArrayRef<DimInfoTy> DimInfos,
+                                      const HLLoop *InnermostLoop) const {
 
     // Dimension for DimNum doesn't exist. This can happen
     // when there are arrays with different dimenseions.
@@ -2909,17 +2957,7 @@ private:
       return nullptr;
     }
 
-    // Subscript is either constant or blobs.
-    if (!DimInfos[DimNum - 1].hasIV()) {
-      return nullptr;
-    }
-
-    const HLLoop *TargetLoop = InnermostLoop;
-    for (int I = 0; I < DimInfos[DimNum - 1].LevelOffset; I++) {
-      TargetLoop = TargetLoop->getParentLoop();
-    }
-
-    return TargetLoop;
+    return Innermost2TargetLoop.at(InnermostLoop)[DimNum - 1];
   }
 
   HLLoop *getLoopMatchingDimNum(unsigned DimNum, ArrayRef<DimInfoTy> DimInfos,
@@ -3171,6 +3209,11 @@ private:
   // Number of ByStrip loops. Could be different from StripmineSizes.size()
   // because StripmineSizes can contain zeros.
   unsigned NumByStripLoops;
+
+  // A map from an innermost loop to its outer enclosing loops
+  // matching to dimnum (includes the innermost loop).
+  std::unordered_map<const HLLoop *, SmallVector<const HLLoop *, 4>>
+      Innermost2TargetLoop;
 };
 
 // Collects a candidate set of spatial loops by
@@ -3460,23 +3503,10 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
     PreSetStripmineSizes[2] = 8;
   }
 
-  // This check is done after StripmineSizes are determined.
-  // If the check fails, transformation does not happen.
-  if ((Transformer::getNumByStripLoops(PreSetStripmineSizes) == 0) ||
-      !Transformer::checkDimsToLoops(PreSetStripmineSizes,
-                                     InnermostLoopToDimInfos)) {
-    LLVM_DEBUG_PROFIT_REPORT(
-        dbgs()
-        << "No transformation: Some dimensions have no matching loop level.\n");
-    return false;
-  }
-
-  Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
-              InnermostLoopToRepRef, InnermostLoopToShift, OutermostLoop,
-              OuterIf, DDA)
+  return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
+                     InnermostLoopToRepRef, InnermostLoopToShift, OutermostLoop,
+                     OuterIf, DDA)
       .rewrite();
-
-  return true;
 }
 
 template <bool isNeg = false>
