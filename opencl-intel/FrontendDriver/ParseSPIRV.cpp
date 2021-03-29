@@ -193,6 +193,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityFPFastMathModeINTEL:
       // SPV_EXT_shader_atomic_float_add extension
     case spv::CapabilityAtomicFloat32AddEXT:
+    case spv::CapabilityAtomicFloat16MinMaxEXT:
     case spv::CapabilityAtomicFloat32MinMaxEXT:
     case spv::CapabilityAtomicFloat64MinMaxEXT:
       break;
