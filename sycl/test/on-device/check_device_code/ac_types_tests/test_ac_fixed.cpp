@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t.out
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_fpga-unknown-unknown-sycldevice %s -o %t.out
 // env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 
