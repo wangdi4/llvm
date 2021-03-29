@@ -5,8 +5,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -vplan-print-after-plain-cfg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=false < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
 
-target triple = "x86_64-unknown-linux-gnu"
-
 define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR

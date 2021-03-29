@@ -15,8 +15,6 @@
 ; as the order of printing of external defs is non-deterministic. Auto
 ; generated checks that were unnecessary were also removed.
 
-target triple = "x86_64-unknown-linux-gnu"
-
 @arr = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 @arr2 = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 

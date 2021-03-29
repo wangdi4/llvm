@@ -16,8 +16,6 @@
 ; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: %call = @llvm.powi.f64(%0,  i1)
 
-target triple = "x86_64-unknown-linux-gnu"
-
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone
 
 define void @ctlz_f64(i32 %n, i64* noalias nocapture readonly %y, i64* noalias nocapture %x) local_unnamed_addr #1 {

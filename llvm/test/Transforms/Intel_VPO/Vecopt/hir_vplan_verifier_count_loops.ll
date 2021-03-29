@@ -10,8 +10,6 @@
 ; Please, enable this check when the support for nested blobs is committed.
 ; TODO-CHECK: vector.body:
 
-target triple = "x86_64-unknown-linux-gnu"
-
 define i32 @quant_4x4(i16* noalias nocapture %dct, i16* nocapture readonly %mf, i16* nocapture readonly %bias) {
 entry:
   br label %for.body
