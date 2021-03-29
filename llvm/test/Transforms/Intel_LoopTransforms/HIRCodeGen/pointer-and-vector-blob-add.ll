@@ -2,7 +2,7 @@
 
 ; Verify that we successfully generate code for this case. An assert was
 ; triggered during codgen because we were trying to convert the pointer blob in
-; the subscript (src) to a vector type (<16 * i32>) instead of vector's scalar
+; the subscript (src) to a vector type (<4 * i32>) instead of vector's scalar
 ; type (i32).
 
 
@@ -14,14 +14,13 @@
 
 
 ; The loop just before CG-
-; CHECK:   + DO i1 = 0, 16 * %tgu + -1, 16   <DO_LOOP>  <MAX_TC_EST = 268435455> <auto-vectorized> <nounroll> <novectorize>
-; CHECK:   |   %.vec = (<16 x i8>*)(%src)[-1 * i1 + -1 * %src + umax((1 + %src), (%len + %src)) + -16];
-; CHECK:   |   %reverse = shufflevector %.vec,  undef, <i32 15, i32 14, i32 13, i32 12, i32 11, i32 10, i32 9, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 0>;
-; CHECK:   |   (<16 x i8>*)(%dest)[i1 + %src + %len + -1 * umax((1 + %src), (%len + %src))] = %reverse;
+; CHECK:   + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:   |   %.vec = (<4 x i8>*)(%src)[-1 * i1 + -1 * %src + umax((1 + %src), (%len + %src)) + -4];
+; CHECK:   |   %reverse = shufflevector %.vec,  undef, <i32 3, i32 2, i32 1, i32 0>;
+; CHECK:   |   (<4 x i8>*)(%dest)[i1 + %src + %len + -1 * umax((1 + %src), (%len + %src))] = %reverse;
 ; CHECK:   + END LOOP
 
 target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
-target triple = "x86_64-unknown-linux-gnu"
 
 define internal i8* @memcpy_76543210(i8* returned %dest, i8* readonly %src, i32 %len) #5 {
 entry:

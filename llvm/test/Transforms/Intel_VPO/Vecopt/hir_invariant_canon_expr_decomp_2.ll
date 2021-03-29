@@ -21,8 +21,6 @@
 ; generated checks that were unnecessary were also removed.
 ;
 
-target triple = "x86_64-unknown-linux-gnu"
-
 @longarr = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 @intarr = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
