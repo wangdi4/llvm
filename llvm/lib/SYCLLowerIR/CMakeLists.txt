@@ -8,7 +8,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
     if( INTEL_CUSTOMIZATION )
       set( IS_INTERNAL_ESIMD_BUILD FALSE )
 # INTEL_FEATURE_ESIMD_EMBARGO
-      is_intel_feature_enabled(IS_INTERNAL_ESIMD_BUILD ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
+      # TODO the following line is commented out to w/a CMPLRLLVM-27163 -
+      # this reverts xisa build to use public vc-intrinsics repo. This will
+      # make ESIMD tests using PVC features fail for now.
+      #is_intel_feature_enabled(IS_INTERNAL_ESIMD_BUILD ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
 # end INTEL_FEATURE_ESIMD_EMBARGO
 
       set( LLVMGenXIntrinsics_GIT_REPO_PATH ssh://git-amr-2.devtools.intel.com:29418 )
