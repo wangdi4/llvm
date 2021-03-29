@@ -176,6 +176,11 @@ private:
   // This set is used to track instructions that are processed.
   std::set<Instruction *> Visited;
 
+  // This StructType is not really used in interface functions except for
+  // type casting. NextBlockTy helps to make sure that the same StructType
+  // is used in all interface functions.
+  StructType *NextBlockTy = nullptr;
+
   bool gatherCandidates(void);
   bool analyzeCandidates(void);
   bool categorizeFunctions(void);
@@ -188,7 +193,12 @@ private:
   bool processBBTerminator(BasicBlock *, Value **, Value **, BasicBlock **,
                            BasicBlock **, ICmpInst::Predicate *);
   BasicBlock *getSingleSucc(BasicBlock *);
+  void collectStoreInst(BasicBlock *, SmallVectorImpl<StoreInst *> &);
+  Instruction *getFirstNonDbg(BasicBlock *);
   bool isUnreachableOK(BasicBlock *);
+  bool isIncrementByOne(Value *, Value **);
+  bool isNextBlockFieldAccess(Value *, Value **, Value **, int32_t *);
+  bool isNextBlockFieldLoad(Value *, Value **, Value **, int32_t *);
   bool getAllocDeallocCommonSucc(Instruction *, Instruction *, BasicBlock **,
                                  BasicBlock **);
   bool identifyDevirtChecks(BasicBlock *, Value *, Function **, BasicBlock **,
@@ -200,6 +210,17 @@ private:
                                  BasicBlock **, Value **, bool);
   bool identifyListHead(BasicBlock *, Value *, BasicBlock **, BasicBlock **,
                         Value **);
+  bool identifyGetListHead(BasicBlock *, Value *, BasicBlock **, Value **);
+  bool identifyListEmpty(BasicBlock *, Value *, BasicBlock **, BasicBlock **);
+  bool identifyBlockAvailable(BasicBlock *, Value *, BasicBlock **,
+                              BasicBlock **);
+  bool identifyCreate(BasicBlock *, Value *, BasicBlock **, Value **);
+  bool identifyArenaBlockInit(BasicBlock *, Value *, Value *, Value *,
+                              BasicBlock **);
+  bool identifyRABAllocateBlock(BasicBlock *, Value *);
+  bool identifyPushFront(BasicBlock *, Value *, Value *, BasicBlock *);
+  bool identifyPushAtPos(BasicBlock *, Value *, Value *, Value *, Value *,
+                         Value *);
   bool getGEPBaseAddrIndex(Value *V, Value **BaseOp, int32_t *Idx);
   bool isArenaAllocatorAddr(Value *V, Value *Obj);
   bool isAllocatorBlockSizeAddr(Value *V, Value *Obj);
@@ -212,6 +233,33 @@ private:
   bool isListHeadAddr(Value *V, Value *Obj);
   bool isListHeadLoad(Value *V, Value *Obj);
   bool isListFreeHeadLoad(Value *V, Value *Obj);
+  bool isListFreeHeadNextLoad(Value *V, Value *Obj);
+  bool isNodeNextAddr(Value *V, Value *Obj);
+  bool isListBegin(Value *V, Value *Obj);
+  bool isListFrontNodeArenaBlockAddr(Value *V, Value *Obj);
+  bool isFrontNodeObjectCountAddr(Value *V, Value *Obj);
+  bool isFrontNodeObjectCountLoad(Value *V, Value *Obj);
+  bool isFrontNodeBlockSizeLoad(Value *V, Value *Obj);
+  bool isNodePosNextPrev(Value *V, Value *NodePos);
+  bool isNodePosPrevNext(Value *V, Value *NodePos);
+  bool isNodePosPrevLoad(Value *V, Value *NodePos);
+  bool isNodePosNextLoad(Value *V, Value *NodePos);
+  bool isNodePosNext(Value *V, Value *NodePos);
+  bool isNodePosPrev(Value *V, Value *NodePos);
+  bool isNodePosReusableArenaBlock(Value *V, Value *NodePos);
+  bool isArenaBlockAddrFromRAB(Value *V, Value *Obj);
+  bool isFirstFreeBlockAddrFromRAB(Value *V, Value *Obj);
+  bool isFirstFreeBlockLoadFromRAB(Value *V, Value *Obj);
+  bool isNextFreeBlockAddrFromRAB(Value *V, Value *Obj);
+  bool isNextFreeBlockLoadFromRAB(Value *V, Value *Obj);
+  bool isAllocatorAddrFromRAB(Value *V, Value *Obj);
+  bool isObjectCountAddrFromRAB(Value *V, Value *Obj);
+  bool isObjectCountLoadFromRAB(Value *V, Value *Obj);
+  bool isBlockSizeAddrFromRAB(Value *V, Value *Obj);
+  bool isBlockSizeLoadFromRAB(Value *V, Value *Obj);
+  bool isObjectBlockAddrFromRAB(Value *V, Value *Obj);
+  bool isObjectBlockLoadFromRAB(Value *V, Value *Obj);
+  bool isAllocatorMemAddrFromRAB(Value *V, Value *Obj);
   bool isVTableAddrInReusableArenaAllocator(Value *V, Value *ThisObj);
   bool verifyAllInstsProcessed(Function *);
 };
@@ -720,6 +768,134 @@ bool MemManageTransImpl::isListFreeHeadLoad(Value *V, Value *Obj) {
   return true;
 }
 
+// Returns true if "V" represents Load of Next from FreeHead in List.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.List.FreeHead->Next
+//  }
+bool MemManageTransImpl::isListFreeHeadNextLoad(Value *V, Value *Obj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(LI->getPointerOperand(), &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNodeNextIndex())
+    return false;
+  if (!isListFreeHeadLoad(BasePtr, Obj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents Prev field of Node.
+// Ex:
+//   NodePos->Prev
+bool MemManageTransImpl::isNodePosPrev(Value *V, Value *NodePos) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNodePrevIndex())
+    return false;
+  if (BasePtr != NodePos)
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents Next field of Node.
+// Ex:
+//   NodePos->Next
+bool MemManageTransImpl::isNodePosNext(Value *V, Value *NodePos) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNodeNextIndex())
+    return false;
+  if (BasePtr != NodePos)
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents load of Next field of Node.
+// Ex:
+//   NodePos->Next
+bool MemManageTransImpl::isNodePosNextLoad(Value *V, Value *NodePos) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isNodePosNext(LI->getPointerOperand(), NodePos))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents load of Prev field of Node.
+// Ex:
+//   NodePos->Prev
+bool MemManageTransImpl::isNodePosPrevLoad(Value *V, Value *NodePos) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isNodePosPrev(LI->getPointerOperand(), NodePos))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents Prev of Next field of Node.
+// Ex:
+//   NodePos->Next->Prev
+bool MemManageTransImpl::isNodePosNextPrev(Value *V, Value *NodePos) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNodePrevIndex())
+    return false;
+  if (!isNodePosNextLoad(BasePtr, NodePos))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents Next of Prev field of Node.
+// Ex:
+//   NodePos->Prev->Next
+bool MemManageTransImpl::isNodePosPrevNext(Value *V, Value *NodePos) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNodeNextIndex())
+    return false;
+  if (!isNodePosPrevLoad(BasePtr, NodePos))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents ReusableArenaBlock field of Node.
+// Ex:
+//   NodePos->ReusableArenaBlock
+bool MemManageTransImpl::isNodePosReusableArenaBlock(Value *V, Value *NodePos) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getReusableArenaBlockIndex())
+    return false;
+  if (BasePtr != NodePos)
+    return false;
+  return true;
+}
+
 // Returns true if "V" represents address of destroyBlock in
 // ReusableArenaAllocator. Ex:
 //  foo(ReusableArenaAllocator *Obj) {
@@ -760,6 +936,7 @@ bool MemManageTransImpl::isListMemManagerLoad(Value *V, Value *Obj) {
     assert(CB->arg_size() == 1 && "Unexpected arguments");
     if (!isArenaAllocatorAddr(CB->getArgOperand(0), Obj))
       return false;
+    Visited.insert(CB);
     return true;
   }
   auto *LI = dyn_cast<LoadInst>(V);
@@ -769,6 +946,322 @@ bool MemManageTransImpl::isListMemManagerLoad(Value *V, Value *Obj) {
   if (!isListMemManagerAddr(LoadAddr, Obj))
     return false;
   Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents address of Next of Head in List.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.List.Head->Next
+//  }
+bool MemManageTransImpl::isNodeNextAddr(Value *V, Value *Obj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNodeNextIndex())
+    return false;
+  if (!isListHeadLoad(BasePtr, Obj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents Load of Next of Head in List.
+// Ex:
+//  foo(ReusableArenaAllocator *Obj) {
+//     Obj->ArenaAllocator.List.Head->Next
+//  }
+bool MemManageTransImpl::isListBegin(Value *V, Value *Obj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isNodeNextAddr(LI->getPointerOperand(), Obj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents the pattern below.
+//
+//  *((ReusableArenaBlock*)Obj->ArenaAllocator.List.Head->Next)
+//   or
+//  *((ArenaBlock*)Obj->ArenaAllocator.List.Head->Next)
+//
+bool MemManageTransImpl::isListFrontNodeArenaBlockAddr(Value *V, Value *Obj) {
+
+  auto IsBitCastOkay = [this](Value *Ptr) {
+    auto *PTy = dyn_cast<PointerType>(Ptr->getType());
+    if (!PTy)
+      return false;
+    Type *ElemTy = PTy->getElementType();
+    auto Cand = getCurrentCandidate();
+    if (ElemTy != Cand->getBlockBaseType())
+      return false;
+    if (Cand->getReusableArenaBlockIndex() != 0 ||
+        Cand->getBlockBaseObjIndex() != 0)
+      return false;
+    return true;
+  };
+
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  Value *Ptr = LI->getPointerOperand();
+  auto *BC = dyn_cast<BitCastInst>(Ptr);
+  if (!BC)
+    return false;
+  if (!IsBitCastOkay(LI))
+    return false;
+
+  if (!isListBegin(BC->getOperand(0), Obj))
+    return false;
+  Visited.insert(BC);
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents the pattern below.
+//
+//  (((ArenaBlock*)Obj->ArenaAllocator.List.Head->Next))->ObjectCount
+bool MemManageTransImpl::isFrontNodeObjectCountAddr(Value *V, Value *Obj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getBlockObjectCountIndex())
+    return false;
+  if (!isListFrontNodeArenaBlockAddr(BasePtr, Obj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents load of the pattern below.
+//
+//  (((ArenaBlock*)Obj->ArenaAllocator.List.Head->Next))->ObjectCount
+//
+bool MemManageTransImpl::isFrontNodeObjectCountLoad(Value *V, Value *Obj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isFrontNodeObjectCountAddr(LI->getPointerOperand(), Obj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents load of the pattern below.
+//  (((ArenaBlock*)Obj->ArenaAllocator.List.Head->Next))->BlockSize
+//
+bool MemManageTransImpl::isFrontNodeBlockSizeLoad(Value *V, Value *Obj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(LI->getPointerOperand(), &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getBlockBlockSizeIndex())
+    return false;
+  if (!isListFrontNodeArenaBlockAddr(BasePtr, Obj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents ArenaBlock in ReusableArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock
+bool MemManageTransImpl::isArenaBlockAddrFromRAB(Value *V, Value *RABObj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getBlockBaseObjIndex())
+    return false;
+  if (BasePtr != RABObj)
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents address of FirstFreeBlock in
+// ReusableArenaBlock. Ex:
+//     RABObj->FirstFreeBlock
+bool MemManageTransImpl::isFirstFreeBlockAddrFromRAB(Value *V, Value *RABObj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getFirstFreeBlockIndex())
+    return false;
+  if (BasePtr != RABObj)
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents load of FirstFreeBlock in ReusableArenaBlock.
+// Ex:
+//     RABObj->FirstFreeBlock
+bool MemManageTransImpl::isFirstFreeBlockLoadFromRAB(Value *V, Value *RABObj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isFirstFreeBlockAddrFromRAB(LI->getPointerOperand(), RABObj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents load of NextFreeBlock in ReusableArenaBlock.
+// Ex:
+//     RABObj->NextFreeBlock
+bool MemManageTransImpl::isNextFreeBlockLoadFromRAB(Value *V, Value *RABObj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isNextFreeBlockAddrFromRAB(LI->getPointerOperand(), RABObj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents address of NextFreeBlock in
+// ReusableArenaBlock.
+// Ex:
+//     RABObj->NextFreeBlock
+bool MemManageTransImpl::isNextFreeBlockAddrFromRAB(Value *V, Value *RABObj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getNextFreeBlockIndex())
+    return false;
+  if (BasePtr != RABObj)
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents address of BasicAllocator in ArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock.BasicAllocator
+bool MemManageTransImpl::isAllocatorAddrFromRAB(Value *V, Value *RABObj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getBasicAllocatorIndex())
+    return false;
+  if (!isArenaBlockAddrFromRAB(BasePtr, RABObj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents address of ObjectCount in ArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock.ObjectCount
+bool MemManageTransImpl::isObjectCountAddrFromRAB(Value *V, Value *RABObj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getBlockObjectCountIndex())
+    return false;
+  if (!isArenaBlockAddrFromRAB(BasePtr, RABObj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents load of ObjectCount in ArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock.ObjectCount
+bool MemManageTransImpl::isObjectCountLoadFromRAB(Value *V, Value *RABObj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isObjectCountAddrFromRAB(LI->getPointerOperand(), RABObj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents load of BlockSize in ArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock.BlockSize
+bool MemManageTransImpl::isBlockSizeLoadFromRAB(Value *V, Value *RABObj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isBlockSizeAddrFromRAB(LI->getPointerOperand(), RABObj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents address of BlockSize in ArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock.BlockSize
+bool MemManageTransImpl::isBlockSizeAddrFromRAB(Value *V, Value *RABObj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getBlockBlockSizeIndex())
+    return false;
+  if (!isArenaBlockAddrFromRAB(BasePtr, RABObj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents address of ObjectBlock in ArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock.ObjectBlock
+bool MemManageTransImpl::isObjectBlockAddrFromRAB(Value *V, Value *RABObj) {
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getStringObjectIndex())
+    return false;
+  if (!isArenaBlockAddrFromRAB(BasePtr, RABObj))
+    return false;
+  return true;
+}
+
+// Returns true if "V" represents load of ObjectBlock in ArenaBlock.
+// Ex:
+//     RABObj->ArenaBlock.ObjectBlock
+bool MemManageTransImpl::isObjectBlockLoadFromRAB(Value *V, Value *RABObj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isObjectBlockAddrFromRAB(LI->getPointerOperand(), RABObj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "V" represents address of MemManager in BasicAllocator.
+// Ex:
+//     RABObj->ArenaBlock.BasicAllocator.MemManager
+bool MemManageTransImpl::isAllocatorMemAddrFromRAB(Value *V, Value *RABObj) {
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
+    return false;
+  // BasicAllocator has only one field.
+  if (Idx != 0)
+    return false;
+  if (!isAllocatorAddrFromRAB(BasePtr, RABObj))
+    return false;
   return true;
 }
 
@@ -809,6 +1302,100 @@ BasicBlock *MemManageTransImpl::getSingleSucc(BasicBlock *BB) {
     return nullptr;
   Visited.insert(BI);
   return BI->getSuccessor(0);
+}
+
+// StoreInst in "BB" are collected in StoreVec.
+void MemManageTransImpl::collectStoreInst(
+    BasicBlock *BB, SmallVectorImpl<StoreInst *> &StoreVec) {
+  for (auto &I : *BB) {
+    auto *SI = dyn_cast<StoreInst>(&I);
+    if (!SI)
+      continue;
+    StoreVec.push_back(SI);
+  }
+}
+
+// Returns first NonDbg instruction (including PHI) in BB.
+Instruction *MemManageTransImpl::getFirstNonDbg(BasicBlock *BB) {
+  for (Instruction &I : *BB) {
+    if (isa<DbgInfoIntrinsic>(I))
+      continue;
+    return &I;
+  }
+  return nullptr;
+}
+
+// Returns true if "V" looks like below. Updates "AddOp" when returns true.
+//  "*AddOp" + 1
+bool MemManageTransImpl::isIncrementByOne(Value *V, Value **AddOp) {
+  auto *AddI = dyn_cast<Instruction>(V);
+  if (!AddI || AddI->getOpcode() != Instruction::Add)
+    return false;
+  auto *Inc = dyn_cast<ConstantInt>(AddI->getOperand(1));
+  if (!Inc || !Inc->isOne())
+    return false;
+  *AddOp = AddI->getOperand(0);
+  Visited.insert(AddI);
+  return true;
+}
+
+// Returns true if "V" looks like below. Updates "BaseAddr", "IndexAddr" and
+// "Idx" when returns true.
+// Ex:
+// %GEP = getelementptr %"String", %"String"* %BaseAddr, i64 %IndexAddr
+// %BC = bitcast %"String"* %GEP to %"NextBlock"*
+// %Ptr = getelementptr %"NextBlock", %"NextBlock"* %BC, i64 0, i32 Idx
+//
+// When this routine is called first time, NextBlockTy is assigned to
+// "NextBlock" type. The type should match for all other calls.
+bool MemManageTransImpl::isNextBlockFieldAccess(Value *Ptr, Value **BaseAddr,
+                                                Value **IndexAddr,
+                                                int32_t *Idx) {
+  Value *BasePtr = nullptr;
+  if (!getGEPBaseAddrIndex(Ptr, &BasePtr, Idx))
+    return false;
+  auto *GEPTy = cast<GetElementPtrInst>(Ptr)->getSourceElementType();
+  auto *StTy = dyn_cast<StructType>(GEPTy);
+  if (!StTy)
+    return false;
+
+  auto *BC = dyn_cast<BitCastInst>(BasePtr);
+  if (!BC)
+    return false;
+
+  auto *GEP = dyn_cast<GetElementPtrInst>(BC->getOperand(0));
+  if (!GEP || GEP->getNumIndices() != 1)
+    return false;
+
+  // Get type of NextBlockTy when this routine is called first time.
+  if (!NextBlockTy)
+    NextBlockTy = StTy;
+  else if (NextBlockTy != StTy)
+    return false;
+  *BaseAddr = GEP->getPointerOperand();
+  *IndexAddr = GEP->getOperand(1);
+  Visited.insert(BC);
+  Visited.insert(GEP);
+  return true;
+}
+
+// Returns true if "V" looks like below. Updates "BaseAddr", "IndexAddr" and
+// "Idx" when returns true.
+// %GEP = getelementptr %"String", %"String"* %BaseAddr, i64 %IndexAddr
+// %BC = bitcast %"String"* %GEP to %"NextBlock"*
+// %Val = getelementptr %"NextBlock", %"NextBlock"* %BC, i64 0, i32 Idx
+// %Ptr = load i16, 16* %Val
+//
+bool MemManageTransImpl::isNextBlockFieldLoad(Value *Ptr, Value **BaseAddr,
+                                              Value **IndexAddr, int32_t *Idx) {
+  auto *LI = dyn_cast<LoadInst>(Ptr);
+  if (!LI)
+    return false;
+  if (!isNextBlockFieldAccess(LI->getPointerOperand(), BaseAddr, IndexAddr,
+                              Idx))
+    return false;
+  Visited.insert(LI);
+  return true;
 }
 
 // Returns true if "BB" has checks related to devirtualization using
@@ -1268,7 +1855,7 @@ bool MemManageTransImpl::identifyCheckAndAllocNode(BasicBlock *BB, Value *Obj,
   BasicBlock *FBlock;
   ICmpInst::Predicate Predi;
   if (!processBBTerminator(BB, &LValue, &RValue, &TBlock, &FBlock, &Predi))
-    return true;
+    return false;
   if (Predi != ICmpInst::ICMP_EQ)
     return false;
   if (IsListHead) {
@@ -1367,6 +1954,71 @@ bool MemManageTransImpl::identifyListHead(BasicBlock *BB, Value *Obj,
     Visited.insert(SI);
   }
   if (NodePrevAssigned != 1 || NodeNextAssigned != 1 || NodeAssigned != 1)
+    return false;
+  return true;
+}
+
+// Returns true if it identifies the pattern below.
+// It updates "EmptyBB" and "NotEmptyBB".
+//
+// if (Obj->List->listHead == nullptr) {
+//   // allocate new Node and initialize it.
+// } else {
+//   // EmptyCheckBB
+//   if ((begin() == end()) != 0) { // Check List is empty.
+//     // EmptyBB
+//   } else {
+//     // NotEmptyBB
+//   }
+// }
+bool MemManageTransImpl::identifyListEmpty(BasicBlock *BB, Value *Obj,
+                                           BasicBlock **EmptyBB,
+                                           BasicBlock **NotEmptyBB) {
+  BasicBlock *CreatedHeadBB = nullptr;
+  BasicBlock *EmptyCheckBB = nullptr;
+  Value *NodePtr = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &EmptyCheckBB, &NodePtr))
+    return false;
+  Value *LValue = nullptr;
+  Value *RValue = nullptr;
+  ICmpInst::Predicate Predi = ICmpInst::ICMP_NE;
+  if (!processBBTerminator(EmptyCheckBB, &LValue, &RValue, EmptyBB, NotEmptyBB,
+                           &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_EQ)
+    return false;
+  if (!isListHeadLoad(RValue, Obj))
+    return false;
+  if (!isListBegin(LValue, Obj))
+    return false;
+  if (*EmptyBB != CreatedHeadBB)
+    return false;
+  return true;
+}
+
+// Returns true if it identifies the pattern below.
+// It updates "EmptyBB" and "NotEmptyBB".
+//
+// if (Obj->List->listHead->RAB.ArenaBlock.ObjectCount <
+//     Obj->List->listHead->RAB.ArenaBlock.BlockSize) {
+//     // AvailableBB
+// } else {
+//     // NotAvailableBB
+// }
+bool MemManageTransImpl::identifyBlockAvailable(BasicBlock *BB, Value *Obj,
+                                                BasicBlock **AvailableBB,
+                                                BasicBlock **NotAvailableBB) {
+  Value *LValue = nullptr;
+  Value *RValue = nullptr;
+  ICmpInst::Predicate Predi = ICmpInst::ICMP_NE;
+  if (!processBBTerminator(BB, &LValue, &RValue, AvailableBB, NotAvailableBB,
+                           &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_ULT)
+    return false;
+  if (!isFrontNodeBlockSizeLoad(RValue, Obj))
+    return false;
+  if (!isFrontNodeObjectCountLoad(LValue, Obj))
     return false;
   return true;
 }
@@ -1522,12 +2174,19 @@ bool MemManageTransImpl::recognizeAllocateBlock(Function *F) {
     dbgs() << "   Recognizing AllocateBlock Functionality " << F->getName()
            << "\n";
   });
+  Visited.clear();
   Argument *ThisObj = &*F->arg_begin();
-  BasicBlock *TBlock = nullptr;
-  BasicBlock *FBlock = nullptr;
-  Value *NodePtr = nullptr;
-  if (!identifyListHead(&F->getEntryBlock(), ThisObj, &TBlock, &FBlock,
-                        &NodePtr))
+  BasicBlock *CreateNewHeadBB = nullptr;
+  BasicBlock *NotEmptyBB = nullptr;
+  if (!identifyListEmpty(&F->getEntryBlock(), ThisObj, &CreateNewHeadBB,
+                         &NotEmptyBB))
+    return false;
+  BasicBlock *BlockAvailableBB = nullptr;
+  BasicBlock *NoBlockAvailableBB = nullptr;
+  if (!identifyBlockAvailable(NotEmptyBB, ThisObj, &BlockAvailableBB,
+                              &NoBlockAvailableBB))
+    return false;
+  if (CreateNewHeadBB != NoBlockAvailableBB)
     return false;
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
     dbgs() << "   Recognized AllocateBlock partially: " << F->getName() << "\n";
