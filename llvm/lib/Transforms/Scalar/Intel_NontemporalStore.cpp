@@ -43,6 +43,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -51,6 +52,10 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "unaligned-nontemporal"
+
+// XXX: choose number better
+static cl::opt<uint64_t> NumBufferElements(DEBUG_TYPE "-buffer-elements",
+                                           cl::Hidden, cl::init(128));
 
 namespace {
 
@@ -186,7 +191,6 @@ void NontemporalStore::run() {
     StringRef Name = SI->getPointerOperand()->getName();
     Type *StoreType = SI->getValueOperand()->getType();
     uint64_t StoreSize = DL.getTypeStoreSize(StoreType).getFixedSize();
-    uint64_t NumBufferElements = 128; // XXX: choose number better
     uint64_t BufferCount = StoreSize * NumBufferElements;
     Type *StoreArrayTy = PointerType::getUnqual(StoreType);
     Builder.SetInstDebugLocation(SI);

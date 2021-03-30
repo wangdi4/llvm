@@ -498,3 +498,64 @@ define void @set_tracker() {
   call void @llvm.x86.icecode.set.tracker(i32 255)
   ret void
 }
+
+declare i16 @llvm.x86.icecode.loadlin.16(i64)
+declare i32 @llvm.x86.icecode.loadlin.32(i64)
+declare i64 @llvm.x86.icecode.loadlin.64(i64)
+declare void @llvm.x86.icecode.storelin.16(i16, i64)
+declare void @llvm.x86.icecode.storelin.32(i32, i64)
+declare void @llvm.x86.icecode.storelin.64(i64, i64)
+
+define i16 @loadlin16(i64 %addr) {
+; CHECK-LABEL: loadlin16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovlinw (%rdi), %ax
+; CHECK-NEXT:    retq
+  %res = call i16 @llvm.x86.icecode.loadlin.16(i64 %addr)
+  ret i16 %res
+}
+
+define i32 @loadlin32(i64 %addr) {
+; CHECK-LABEL: loadlin32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovlinl (%rdi), %eax
+; CHECK-NEXT:    retq
+  %res = call i32 @llvm.x86.icecode.loadlin.32(i64 %addr)
+  ret i32 %res
+}
+
+define i64 @loadlin64(i64 %addr) {
+; CHECK-LABEL: loadlin64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovlinq (%rdi), %rax
+; CHECK-NEXT:    retq
+  %res = call i64 @llvm.x86.icecode.loadlin.64(i64 %addr)
+  ret i64 %res
+}
+
+define void @storelin16(i16 %val, i64 %addr) {
+; CHECK-LABEL: storelin16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovlinw %di, (%rsi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storelin.16(i16 %val, i64 %addr)
+  ret void
+}
+
+define void @storelin32(i32 %val, i64 %addr) {
+; CHECK-LABEL: storelin32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovlinl %edi, (%rsi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storelin.32(i32 %val, i64 %addr)
+  ret void
+}
+
+define void @storelin64(i64 %val, i64 %addr) {
+; CHECK-LABEL: storelin64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovlinq %rdi, (%rsi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storelin.64(i64 %val, i64 %addr)
+  ret void
+}

@@ -11,7 +11,7 @@
 /* Begin of libiml_attr table */
 {
 "acos", //const char * parent_function_name;
-41, //int index;
+0, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -20,7 +20,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -43,7 +43,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "acos", //const char * parent_function_name;
-41, //int index;
+1, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -52,7 +52,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -75,7 +75,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "acosf", //const char * parent_function_name;
-44, //int index;
+2, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -84,7 +84,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -107,7 +107,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "acosf", //const char * parent_function_name;
-44, //int index;
+3, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -116,7 +116,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -139,7 +139,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "acosh", //const char * parent_function_name;
-45, //int index;
+4, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -148,7 +148,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -171,7 +171,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "acosh", //const char * parent_function_name;
-45, //int index;
+5, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -180,7 +180,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -203,7 +203,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "acoshf", //const char * parent_function_name;
-46, //int index;
+6, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -212,7 +212,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -235,7 +235,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "acoshf", //const char * parent_function_name;
-46, //int index;
+7, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -244,7 +244,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -267,7 +267,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asin", //const char * parent_function_name;
-53, //int index;
+8, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -276,7 +276,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -299,7 +299,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asin", //const char * parent_function_name;
-53, //int index;
+9, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -308,7 +308,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -331,7 +331,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asinf", //const char * parent_function_name;
-56, //int index;
+10, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -340,7 +340,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -363,7 +363,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asinf", //const char * parent_function_name;
-56, //int index;
+11, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -372,7 +372,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -395,7 +395,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asinh", //const char * parent_function_name;
-57, //int index;
+12, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -404,7 +404,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -427,7 +427,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asinh", //const char * parent_function_name;
-57, //int index;
+13, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -436,7 +436,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -459,7 +459,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asinhf", //const char * parent_function_name;
-58, //int index;
+14, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -468,7 +468,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -491,7 +491,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "asinhf", //const char * parent_function_name;
-58, //int index;
+15, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -500,7 +500,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -523,7 +523,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atan", //const char * parent_function_name;
-63, //int index;
+16, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -532,7 +532,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -555,7 +555,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atan", //const char * parent_function_name;
-63, //int index;
+17, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -564,7 +564,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -587,7 +587,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atan2", //const char * parent_function_name;
-64, //int index;
+18, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -596,7 +596,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -619,7 +619,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atan2", //const char * parent_function_name;
-64, //int index;
+19, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -628,7 +628,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -651,7 +651,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atan2f", //const char * parent_function_name;
-68, //int index;
+20, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -660,7 +660,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -683,7 +683,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atan2f", //const char * parent_function_name;
-68, //int index;
+21, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -692,7 +692,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -715,7 +715,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atanf", //const char * parent_function_name;
-77, //int index;
+22, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -724,7 +724,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -747,7 +747,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atanf", //const char * parent_function_name;
-77, //int index;
+23, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -756,7 +756,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -779,7 +779,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atanh", //const char * parent_function_name;
-78, //int index;
+24, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -788,7 +788,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -811,7 +811,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atanh", //const char * parent_function_name;
-78, //int index;
+25, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -820,7 +820,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -843,7 +843,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atanhf", //const char * parent_function_name;
-79, //int index;
+26, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -852,7 +852,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -875,7 +875,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "atanhf", //const char * parent_function_name;
-79, //int index;
+27, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -884,7 +884,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -907,7 +907,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cabs", //const char * parent_function_name;
-84, //int index;
+28, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -916,7 +916,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -939,7 +939,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cabsf", //const char * parent_function_name;
-85, //int index;
+29, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -948,7 +948,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -971,7 +971,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cacos", //const char * parent_function_name;
-86, //int index;
+30, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -980,7 +980,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1003,7 +1003,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cacosh", //const char * parent_function_name;
-87, //int index;
+31, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1012,7 +1012,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1035,7 +1035,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "casin", //const char * parent_function_name;
-90, //int index;
+32, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1044,7 +1044,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1067,7 +1067,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "casinf", //const char * parent_function_name;
-91, //int index;
+33, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1076,7 +1076,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1099,7 +1099,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "casinh", //const char * parent_function_name;
-92, //int index;
+34, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1108,7 +1108,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1131,7 +1131,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "casinhf", //const char * parent_function_name;
-93, //int index;
+35, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1140,7 +1140,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1163,7 +1163,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "catanh", //const char * parent_function_name;
-95, //int index;
+36, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1172,7 +1172,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1195,7 +1195,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "catanhf", //const char * parent_function_name;
-96, //int index;
+37, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1204,7 +1204,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1227,7 +1227,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cbrt", //const char * parent_function_name;
-98, //int index;
+38, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1236,7 +1236,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1259,7 +1259,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cbrt", //const char * parent_function_name;
-98, //int index;
+39, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1268,7 +1268,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1291,7 +1291,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cbrtf", //const char * parent_function_name;
-99, //int index;
+40, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1300,7 +1300,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1323,7 +1323,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cbrtf", //const char * parent_function_name;
-99, //int index;
+41, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1332,7 +1332,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1355,7 +1355,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ccosh", //const char * parent_function_name;
-101, //int index;
+42, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1364,7 +1364,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1387,7 +1387,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ccoshf", //const char * parent_function_name;
-102, //int index;
+43, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1396,7 +1396,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1419,7 +1419,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ceil", //const char * parent_function_name;
-108, //int index;
+44, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1428,7 +1428,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1451,7 +1451,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ceil", //const char * parent_function_name;
-108, //int index;
+45, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1460,7 +1460,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1483,7 +1483,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ceilf", //const char * parent_function_name;
-109, //int index;
+46, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1492,7 +1492,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1515,7 +1515,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ceilf", //const char * parent_function_name;
-109, //int index;
+47, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1524,7 +1524,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1547,7 +1547,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cexp", //const char * parent_function_name;
-110, //int index;
+48, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1556,7 +1556,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1579,7 +1579,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cexp", //const char * parent_function_name;
-110, //int index;
+49, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1588,7 +1588,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1611,7 +1611,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cexpf", //const char * parent_function_name;
-111, //int index;
+50, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1620,7 +1620,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1643,7 +1643,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cexpf", //const char * parent_function_name;
-111, //int index;
+51, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1652,7 +1652,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1675,7 +1675,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cimag", //const char * parent_function_name;
-113, //int index;
+52, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1684,7 +1684,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1707,7 +1707,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cimagf", //const char * parent_function_name;
-114, //int index;
+53, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1716,7 +1716,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1739,7 +1739,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "clog", //const char * parent_function_name;
-121, //int index;
+54, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1748,7 +1748,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1771,7 +1771,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "clogf", //const char * parent_function_name;
-122, //int index;
+55, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1780,7 +1780,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1803,7 +1803,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "conj", //const char * parent_function_name;
-126, //int index;
+56, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1812,7 +1812,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1835,7 +1835,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "conjf", //const char * parent_function_name;
-127, //int index;
+57, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1844,7 +1844,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1867,7 +1867,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "copysign", //const char * parent_function_name;
-128, //int index;
+58, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1876,7 +1876,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1899,7 +1899,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "copysign", //const char * parent_function_name;
-128, //int index;
+59, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1908,7 +1908,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1931,7 +1931,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "copysignf", //const char * parent_function_name;
-129, //int index;
+60, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1940,7 +1940,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1963,7 +1963,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "copysignf", //const char * parent_function_name;
-129, //int index;
+61, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -1972,7 +1972,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -1995,7 +1995,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cos", //const char * parent_function_name;
-130, //int index;
+62, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2004,7 +2004,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2027,7 +2027,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cos", //const char * parent_function_name;
-130, //int index;
+63, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2036,7 +2036,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2059,7 +2059,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cosf", //const char * parent_function_name;
-134, //int index;
+64, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2068,7 +2068,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2091,7 +2091,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cosf", //const char * parent_function_name;
-134, //int index;
+65, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2100,7 +2100,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2123,7 +2123,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cosh", //const char * parent_function_name;
-135, //int index;
+66, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2132,7 +2132,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2155,7 +2155,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cosh", //const char * parent_function_name;
-135, //int index;
+67, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2164,7 +2164,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2187,7 +2187,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "coshf", //const char * parent_function_name;
-136, //int index;
+68, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2196,7 +2196,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2219,7 +2219,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "coshf", //const char * parent_function_name;
-136, //int index;
+69, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2228,7 +2228,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2251,7 +2251,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cproj", //const char * parent_function_name;
-145, //int index;
+70, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2260,7 +2260,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2283,7 +2283,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "cprojf", //const char * parent_function_name;
-146, //int index;
+71, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2292,7 +2292,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2315,7 +2315,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "creal", //const char * parent_function_name;
-147, //int index;
+72, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2324,7 +2324,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2347,7 +2347,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "crealf", //const char * parent_function_name;
-148, //int index;
+73, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2356,7 +2356,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2379,7 +2379,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "csinh", //const char * parent_function_name;
-149, //int index;
+74, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2388,7 +2388,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2411,7 +2411,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "csinhf", //const char * parent_function_name;
-150, //int index;
+75, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2420,7 +2420,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2443,7 +2443,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "csqrt", //const char * parent_function_name;
-152, //int index;
+76, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2452,7 +2452,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2475,7 +2475,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "csqrt", //const char * parent_function_name;
-152, //int index;
+77, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2484,7 +2484,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2507,7 +2507,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "csqrtf", //const char * parent_function_name;
-153, //int index;
+78, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2516,7 +2516,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2539,7 +2539,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "csqrtf", //const char * parent_function_name;
-153, //int index;
+79, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2548,7 +2548,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2571,7 +2571,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ctanh", //const char * parent_function_name;
-154, //int index;
+80, //int index;
 c_precision_double_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2580,7 +2580,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2603,7 +2603,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ctanhf", //const char * parent_function_name;
-155, //int index;
+81, //int index;
 c_precision_single_complex, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2612,7 +2612,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2635,7 +2635,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erf", //const char * parent_function_name;
-157, //int index;
+82, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2644,7 +2644,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2667,7 +2667,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erf", //const char * parent_function_name;
-157, //int index;
+83, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2676,7 +2676,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2699,7 +2699,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erfc", //const char * parent_function_name;
-158, //int index;
+84, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2708,7 +2708,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2731,7 +2731,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erfc", //const char * parent_function_name;
-158, //int index;
+85, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2740,7 +2740,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2763,7 +2763,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erfcf", //const char * parent_function_name;
-159, //int index;
+86, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2772,7 +2772,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2795,7 +2795,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erfcf", //const char * parent_function_name;
-159, //int index;
+87, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2804,7 +2804,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2827,7 +2827,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erff", //const char * parent_function_name;
-164, //int index;
+88, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2836,7 +2836,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2859,7 +2859,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "erff", //const char * parent_function_name;
-164, //int index;
+89, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2868,7 +2868,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2891,7 +2891,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "exp", //const char * parent_function_name;
-167, //int index;
+90, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2900,7 +2900,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2923,7 +2923,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "exp", //const char * parent_function_name;
-167, //int index;
+91, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2932,7 +2932,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2955,7 +2955,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "exp2", //const char * parent_function_name;
-171, //int index;
+92, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2964,7 +2964,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -2987,7 +2987,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "exp2", //const char * parent_function_name;
-171, //int index;
+93, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -2996,7 +2996,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3019,7 +3019,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "exp2f", //const char * parent_function_name;
-172, //int index;
+94, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3028,7 +3028,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3051,7 +3051,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "exp2f", //const char * parent_function_name;
-172, //int index;
+95, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3060,7 +3060,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3083,7 +3083,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "expf", //const char * parent_function_name;
-174, //int index;
+96, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3092,7 +3092,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3115,7 +3115,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "expf", //const char * parent_function_name;
-174, //int index;
+97, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3124,7 +3124,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3147,7 +3147,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "expm1", //const char * parent_function_name;
-176, //int index;
+98, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3156,7 +3156,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3179,7 +3179,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "expm1", //const char * parent_function_name;
-176, //int index;
+99, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3188,7 +3188,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3211,7 +3211,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "expm1f", //const char * parent_function_name;
-177, //int index;
+100, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3220,7 +3220,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3243,7 +3243,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "expm1f", //const char * parent_function_name;
-177, //int index;
+101, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3252,7 +3252,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3275,7 +3275,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fabs", //const char * parent_function_name;
-178, //int index;
+102, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3284,7 +3284,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3307,7 +3307,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fabs", //const char * parent_function_name;
-178, //int index;
+103, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3316,7 +3316,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3339,7 +3339,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fabsf", //const char * parent_function_name;
-179, //int index;
+104, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3348,7 +3348,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3371,7 +3371,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fabsf", //const char * parent_function_name;
-179, //int index;
+105, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3380,7 +3380,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3403,7 +3403,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fdim", //const char * parent_function_name;
-181, //int index;
+106, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3412,7 +3412,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3435,7 +3435,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fdim", //const char * parent_function_name;
-181, //int index;
+107, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3444,7 +3444,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3467,7 +3467,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fdimf", //const char * parent_function_name;
-182, //int index;
+108, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3476,7 +3476,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3499,7 +3499,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fdimf", //const char * parent_function_name;
-182, //int index;
+109, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3508,7 +3508,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3531,7 +3531,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "floor", //const char * parent_function_name;
-196, //int index;
+110, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3540,7 +3540,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3563,7 +3563,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "floor", //const char * parent_function_name;
-196, //int index;
+111, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3572,7 +3572,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3595,7 +3595,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "floorf", //const char * parent_function_name;
-197, //int index;
+112, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3604,7 +3604,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3627,7 +3627,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "floorf", //const char * parent_function_name;
-197, //int index;
+113, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3636,7 +3636,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3659,7 +3659,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fma", //const char * parent_function_name;
-198, //int index;
+114, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3668,7 +3668,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3691,7 +3691,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fma", //const char * parent_function_name;
-198, //int index;
+115, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3700,7 +3700,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3723,7 +3723,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmaf", //const char * parent_function_name;
-199, //int index;
+116, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3732,7 +3732,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3755,7 +3755,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmaf", //const char * parent_function_name;
-199, //int index;
+117, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3764,7 +3764,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3787,7 +3787,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmax", //const char * parent_function_name;
-200, //int index;
+118, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3796,7 +3796,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3819,7 +3819,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmax", //const char * parent_function_name;
-200, //int index;
+119, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3828,7 +3828,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3851,7 +3851,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmaxf", //const char * parent_function_name;
-201, //int index;
+120, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3860,7 +3860,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3883,7 +3883,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmaxf", //const char * parent_function_name;
-201, //int index;
+121, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3892,7 +3892,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3915,7 +3915,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmin", //const char * parent_function_name;
-202, //int index;
+122, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3924,7 +3924,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3947,7 +3947,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmin", //const char * parent_function_name;
-202, //int index;
+123, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3956,7 +3956,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -3979,7 +3979,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fminf", //const char * parent_function_name;
-203, //int index;
+124, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -3988,7 +3988,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4011,7 +4011,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fminf", //const char * parent_function_name;
-203, //int index;
+125, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4020,7 +4020,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4043,7 +4043,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmod", //const char * parent_function_name;
-204, //int index;
+126, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4052,7 +4052,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4075,7 +4075,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmod", //const char * parent_function_name;
-204, //int index;
+127, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4084,7 +4084,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4107,7 +4107,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmodf", //const char * parent_function_name;
-205, //int index;
+128, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4116,7 +4116,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4139,7 +4139,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fmodf", //const char * parent_function_name;
-205, //int index;
+129, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4148,7 +4148,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4171,7 +4171,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fpclassify", //const char * parent_function_name;
-206, //int index;
+130, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4180,7 +4180,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4203,7 +4203,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fpclassify", //const char * parent_function_name;
-206, //int index;
+131, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4212,7 +4212,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4235,7 +4235,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fpclassifyf", //const char * parent_function_name;
-207, //int index;
+132, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4244,7 +4244,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4267,7 +4267,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "fpclassifyf", //const char * parent_function_name;
-207, //int index;
+133, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4276,7 +4276,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4299,7 +4299,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "frexp", //const char * parent_function_name;
-208, //int index;
+134, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4308,7 +4308,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4331,7 +4331,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "frexp", //const char * parent_function_name;
-208, //int index;
+135, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4340,7 +4340,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4363,7 +4363,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "frexpf", //const char * parent_function_name;
-209, //int index;
+136, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4372,7 +4372,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4395,7 +4395,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "frexpf", //const char * parent_function_name;
-209, //int index;
+137, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4404,7 +4404,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4427,7 +4427,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "hypot", //const char * parent_function_name;
-211, //int index;
+138, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4436,7 +4436,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4459,7 +4459,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "hypot", //const char * parent_function_name;
-211, //int index;
+139, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4468,7 +4468,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4491,7 +4491,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "hypotf", //const char * parent_function_name;
-212, //int index;
+140, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4500,7 +4500,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4523,7 +4523,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "hypotf", //const char * parent_function_name;
-212, //int index;
+141, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4532,7 +4532,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4555,7 +4555,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ilogb", //const char * parent_function_name;
-214, //int index;
+142, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4564,7 +4564,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4587,7 +4587,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ilogb", //const char * parent_function_name;
-214, //int index;
+143, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4596,7 +4596,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4619,7 +4619,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ilogbf", //const char * parent_function_name;
-215, //int index;
+144, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4628,7 +4628,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4651,7 +4651,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ilogbf", //const char * parent_function_name;
-215, //int index;
+145, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4660,7 +4660,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4683,7 +4683,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isfinite", //const char * parent_function_name;
-219, //int index;
+146, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4692,7 +4692,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4715,7 +4715,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isfinite", //const char * parent_function_name;
-219, //int index;
+147, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4724,7 +4724,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4747,7 +4747,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isfinitef", //const char * parent_function_name;
-220, //int index;
+148, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4756,7 +4756,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4779,7 +4779,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isfinitef", //const char * parent_function_name;
-220, //int index;
+149, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4788,7 +4788,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4811,7 +4811,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreater", //const char * parent_function_name;
-221, //int index;
+150, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4820,7 +4820,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4843,7 +4843,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreater", //const char * parent_function_name;
-221, //int index;
+151, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4852,7 +4852,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4875,7 +4875,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreaterequal", //const char * parent_function_name;
-222, //int index;
+152, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4884,7 +4884,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4907,7 +4907,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreaterequal", //const char * parent_function_name;
-222, //int index;
+153, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4916,7 +4916,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4939,7 +4939,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreaterequalf", //const char * parent_function_name;
-223, //int index;
+154, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4948,7 +4948,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -4971,7 +4971,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreaterequalf", //const char * parent_function_name;
-223, //int index;
+155, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -4980,7 +4980,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5003,7 +5003,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreaterf", //const char * parent_function_name;
-224, //int index;
+156, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5012,7 +5012,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5035,7 +5035,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isgreaterf", //const char * parent_function_name;
-224, //int index;
+157, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5044,7 +5044,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5067,7 +5067,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isinf", //const char * parent_function_name;
-225, //int index;
+158, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5076,7 +5076,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5099,7 +5099,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isinf", //const char * parent_function_name;
-225, //int index;
+159, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5108,7 +5108,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5131,7 +5131,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isinff", //const char * parent_function_name;
-226, //int index;
+160, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5140,7 +5140,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5163,7 +5163,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isinff", //const char * parent_function_name;
-226, //int index;
+161, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5172,7 +5172,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5195,7 +5195,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isless", //const char * parent_function_name;
-227, //int index;
+162, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5204,7 +5204,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5227,7 +5227,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isless", //const char * parent_function_name;
-227, //int index;
+163, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5236,7 +5236,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5259,7 +5259,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessequal", //const char * parent_function_name;
-228, //int index;
+164, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5268,7 +5268,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5291,7 +5291,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessequal", //const char * parent_function_name;
-228, //int index;
+165, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5300,7 +5300,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5323,7 +5323,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessequalf", //const char * parent_function_name;
-229, //int index;
+166, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5332,7 +5332,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5355,7 +5355,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessequalf", //const char * parent_function_name;
-229, //int index;
+167, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5364,7 +5364,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5387,7 +5387,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessf", //const char * parent_function_name;
-230, //int index;
+168, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5396,7 +5396,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5419,7 +5419,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessf", //const char * parent_function_name;
-230, //int index;
+169, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5428,7 +5428,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5451,7 +5451,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessgreater", //const char * parent_function_name;
-231, //int index;
+170, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5460,7 +5460,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5483,7 +5483,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessgreater", //const char * parent_function_name;
-231, //int index;
+171, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5492,7 +5492,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5515,7 +5515,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessgreaterf", //const char * parent_function_name;
-232, //int index;
+172, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5524,7 +5524,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5547,7 +5547,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "islessgreaterf", //const char * parent_function_name;
-232, //int index;
+173, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5556,7 +5556,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5579,7 +5579,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnan", //const char * parent_function_name;
-233, //int index;
+174, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5588,7 +5588,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5611,7 +5611,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnan", //const char * parent_function_name;
-233, //int index;
+175, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5620,7 +5620,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5643,7 +5643,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnanf", //const char * parent_function_name;
-234, //int index;
+176, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5652,7 +5652,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5675,7 +5675,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnanf", //const char * parent_function_name;
-234, //int index;
+177, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5684,7 +5684,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5707,7 +5707,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnormal", //const char * parent_function_name;
-235, //int index;
+178, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5716,7 +5716,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5739,7 +5739,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnormal", //const char * parent_function_name;
-235, //int index;
+179, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5748,7 +5748,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5771,7 +5771,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnormalf", //const char * parent_function_name;
-236, //int index;
+180, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5780,7 +5780,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5803,7 +5803,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isnormalf", //const char * parent_function_name;
-236, //int index;
+181, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5812,7 +5812,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5835,7 +5835,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isunordered", //const char * parent_function_name;
-237, //int index;
+182, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5844,7 +5844,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5867,7 +5867,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isunordered", //const char * parent_function_name;
-237, //int index;
+183, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5876,7 +5876,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5899,7 +5899,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isunorderedf", //const char * parent_function_name;
-238, //int index;
+184, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5908,7 +5908,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5931,7 +5931,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "isunorderedf", //const char * parent_function_name;
-238, //int index;
+185, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5940,7 +5940,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5963,7 +5963,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ldexp", //const char * parent_function_name;
-245, //int index;
+186, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -5972,7 +5972,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -5995,7 +5995,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ldexp", //const char * parent_function_name;
-245, //int index;
+187, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6004,7 +6004,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6027,7 +6027,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ldexpf", //const char * parent_function_name;
-246, //int index;
+188, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6036,7 +6036,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6059,7 +6059,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "ldexpf", //const char * parent_function_name;
-246, //int index;
+189, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6068,7 +6068,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6091,7 +6091,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lgamma", //const char * parent_function_name;
-247, //int index;
+190, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6100,7 +6100,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6123,7 +6123,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lgamma", //const char * parent_function_name;
-247, //int index;
+191, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6132,12 +6132,12 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
     {
-    "lgamma", //const char * cpu_specific_names[generic];
+    "__libm_lgamma_rf", //const char * cpu_specific_names[generic];
     "", //const char * cpu_specific_names[x87];
     "", //const char * cpu_specific_names[sse];
     "", //const char * cpu_specific_names[sse2];
@@ -6155,7 +6155,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lgammaf", //const char * parent_function_name;
-248, //int index;
+192, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6164,7 +6164,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6187,7 +6187,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lgammaf", //const char * parent_function_name;
-248, //int index;
+193, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6196,12 +6196,12 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
     {
-    "lgammaf", //const char * cpu_specific_names[generic];
+    "__libm_lgammaf_rf", //const char * cpu_specific_names[generic];
     "", //const char * cpu_specific_names[x87];
     "", //const char * cpu_specific_names[sse];
     "", //const char * cpu_specific_names[sse2];
@@ -6219,7 +6219,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llrint", //const char * parent_function_name;
-249, //int index;
+194, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6228,7 +6228,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6251,7 +6251,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llrint", //const char * parent_function_name;
-249, //int index;
+195, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6260,7 +6260,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6283,7 +6283,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llrintf", //const char * parent_function_name;
-250, //int index;
+196, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6292,7 +6292,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6315,7 +6315,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llrintf", //const char * parent_function_name;
-250, //int index;
+197, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6324,7 +6324,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6347,7 +6347,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llround", //const char * parent_function_name;
-251, //int index;
+198, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6356,7 +6356,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6379,7 +6379,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llround", //const char * parent_function_name;
-251, //int index;
+199, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6388,7 +6388,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6411,7 +6411,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llroundf", //const char * parent_function_name;
-252, //int index;
+200, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6420,7 +6420,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6443,7 +6443,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "llroundf", //const char * parent_function_name;
-252, //int index;
+201, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6452,7 +6452,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6475,7 +6475,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log", //const char * parent_function_name;
-253, //int index;
+202, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6484,7 +6484,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6507,7 +6507,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log", //const char * parent_function_name;
-253, //int index;
+203, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6516,7 +6516,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6539,7 +6539,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log10", //const char * parent_function_name;
-254, //int index;
+204, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6548,7 +6548,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6571,7 +6571,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log10", //const char * parent_function_name;
-254, //int index;
+205, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6580,7 +6580,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6603,7 +6603,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log10f", //const char * parent_function_name;
-255, //int index;
+206, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6612,7 +6612,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6635,7 +6635,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log10f", //const char * parent_function_name;
-255, //int index;
+207, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6644,7 +6644,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6667,7 +6667,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log1p", //const char * parent_function_name;
-256, //int index;
+208, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6676,7 +6676,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6699,7 +6699,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log1p", //const char * parent_function_name;
-256, //int index;
+209, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6708,7 +6708,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6731,7 +6731,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log1pf", //const char * parent_function_name;
-257, //int index;
+210, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6740,7 +6740,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6763,7 +6763,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log1pf", //const char * parent_function_name;
-257, //int index;
+211, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6772,7 +6772,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6795,7 +6795,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log2", //const char * parent_function_name;
-259, //int index;
+212, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6804,7 +6804,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6827,7 +6827,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log2", //const char * parent_function_name;
-259, //int index;
+213, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6836,7 +6836,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6859,7 +6859,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log2f", //const char * parent_function_name;
-260, //int index;
+214, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6868,7 +6868,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6891,7 +6891,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "log2f", //const char * parent_function_name;
-260, //int index;
+215, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6900,7 +6900,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6923,7 +6923,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "logb", //const char * parent_function_name;
-261, //int index;
+216, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6932,7 +6932,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6955,7 +6955,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "logb", //const char * parent_function_name;
-261, //int index;
+217, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6964,7 +6964,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -6987,7 +6987,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "logbf", //const char * parent_function_name;
-262, //int index;
+218, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -6996,7 +6996,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7019,7 +7019,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "logbf", //const char * parent_function_name;
-262, //int index;
+219, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7028,7 +7028,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7051,7 +7051,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "logf", //const char * parent_function_name;
-263, //int index;
+220, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7060,7 +7060,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7083,7 +7083,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "logf", //const char * parent_function_name;
-263, //int index;
+221, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7092,7 +7092,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7115,7 +7115,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lrint", //const char * parent_function_name;
-265, //int index;
+222, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7124,7 +7124,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7147,7 +7147,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lrint", //const char * parent_function_name;
-265, //int index;
+223, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7156,7 +7156,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7179,7 +7179,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lrintf", //const char * parent_function_name;
-266, //int index;
+224, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7188,7 +7188,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7211,7 +7211,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lrintf", //const char * parent_function_name;
-266, //int index;
+225, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7220,7 +7220,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7243,7 +7243,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lround", //const char * parent_function_name;
-267, //int index;
+226, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7252,7 +7252,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7275,7 +7275,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lround", //const char * parent_function_name;
-267, //int index;
+227, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7284,7 +7284,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7307,7 +7307,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lroundf", //const char * parent_function_name;
-268, //int index;
+228, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7316,7 +7316,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7339,7 +7339,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "lroundf", //const char * parent_function_name;
-268, //int index;
+229, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7348,7 +7348,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7371,7 +7371,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "modf", //const char * parent_function_name;
-276, //int index;
+230, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7380,7 +7380,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7403,7 +7403,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "modf", //const char * parent_function_name;
-276, //int index;
+231, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7412,7 +7412,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7435,7 +7435,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "modff", //const char * parent_function_name;
-277, //int index;
+232, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7444,7 +7444,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7467,7 +7467,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "modff", //const char * parent_function_name;
-277, //int index;
+233, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7476,7 +7476,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7499,7 +7499,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nan", //const char * parent_function_name;
-278, //int index;
+234, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7508,7 +7508,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7531,7 +7531,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nan", //const char * parent_function_name;
-278, //int index;
+235, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7540,7 +7540,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7563,7 +7563,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nanf", //const char * parent_function_name;
-279, //int index;
+236, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7572,7 +7572,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7595,7 +7595,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nanf", //const char * parent_function_name;
-279, //int index;
+237, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7604,7 +7604,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7627,7 +7627,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nearbyint", //const char * parent_function_name;
-280, //int index;
+238, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7636,7 +7636,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7659,7 +7659,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nearbyint", //const char * parent_function_name;
-280, //int index;
+239, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7668,7 +7668,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7691,7 +7691,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nearbyintf", //const char * parent_function_name;
-281, //int index;
+240, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7700,7 +7700,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7723,7 +7723,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nearbyintf", //const char * parent_function_name;
-281, //int index;
+241, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7732,7 +7732,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7755,7 +7755,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nextafter", //const char * parent_function_name;
-283, //int index;
+242, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7764,7 +7764,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7787,7 +7787,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nextafter", //const char * parent_function_name;
-283, //int index;
+243, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7796,7 +7796,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7819,7 +7819,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nextafterf", //const char * parent_function_name;
-284, //int index;
+244, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7828,7 +7828,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7851,7 +7851,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nextafterf", //const char * parent_function_name;
-284, //int index;
+245, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7860,7 +7860,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7883,7 +7883,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nexttoward", //const char * parent_function_name;
-285, //int index;
+246, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7892,7 +7892,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7915,7 +7915,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nexttoward", //const char * parent_function_name;
-285, //int index;
+247, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7924,7 +7924,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7947,7 +7947,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nexttowardf", //const char * parent_function_name;
-286, //int index;
+248, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7956,7 +7956,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -7979,7 +7979,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "nexttowardf", //const char * parent_function_name;
-286, //int index;
+249, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -7988,7 +7988,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8011,7 +8011,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "pow", //const char * parent_function_name;
-287, //int index;
+250, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8020,7 +8020,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8043,7 +8043,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "pow", //const char * parent_function_name;
-287, //int index;
+251, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8052,7 +8052,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8075,7 +8075,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "powf", //const char * parent_function_name;
-292, //int index;
+252, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8084,7 +8084,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8107,7 +8107,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "powf", //const char * parent_function_name;
-292, //int index;
+253, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8116,7 +8116,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8139,7 +8139,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remainder", //const char * parent_function_name;
-296, //int index;
+254, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8148,7 +8148,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8171,7 +8171,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remainder", //const char * parent_function_name;
-296, //int index;
+255, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8180,7 +8180,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8203,7 +8203,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remainderf", //const char * parent_function_name;
-297, //int index;
+256, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8212,7 +8212,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8235,7 +8235,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remainderf", //const char * parent_function_name;
-297, //int index;
+257, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8244,7 +8244,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8267,7 +8267,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remquo", //const char * parent_function_name;
-298, //int index;
+258, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8276,7 +8276,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8299,7 +8299,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remquo", //const char * parent_function_name;
-298, //int index;
+259, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8308,7 +8308,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8331,7 +8331,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remquof", //const char * parent_function_name;
-299, //int index;
+260, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8340,7 +8340,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8363,7 +8363,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "remquof", //const char * parent_function_name;
-299, //int index;
+261, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8372,7 +8372,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8395,7 +8395,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "rint", //const char * parent_function_name;
-300, //int index;
+262, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8404,7 +8404,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8427,7 +8427,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "rint", //const char * parent_function_name;
-300, //int index;
+263, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8436,7 +8436,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8459,7 +8459,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "rintf", //const char * parent_function_name;
-301, //int index;
+264, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8468,7 +8468,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8491,7 +8491,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "rintf", //const char * parent_function_name;
-301, //int index;
+265, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8500,7 +8500,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8523,7 +8523,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "round", //const char * parent_function_name;
-302, //int index;
+266, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8532,7 +8532,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8555,7 +8555,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "round", //const char * parent_function_name;
-302, //int index;
+267, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8564,7 +8564,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8587,7 +8587,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "roundf", //const char * parent_function_name;
-303, //int index;
+268, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8596,7 +8596,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8619,7 +8619,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "roundf", //const char * parent_function_name;
-303, //int index;
+269, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8628,7 +8628,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8651,7 +8651,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalbln", //const char * parent_function_name;
-306, //int index;
+270, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8660,7 +8660,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8683,7 +8683,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalbln", //const char * parent_function_name;
-306, //int index;
+271, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8692,7 +8692,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8715,7 +8715,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalblnf", //const char * parent_function_name;
-307, //int index;
+272, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8724,7 +8724,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8747,7 +8747,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalblnf", //const char * parent_function_name;
-307, //int index;
+273, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8756,7 +8756,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8779,7 +8779,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalbn", //const char * parent_function_name;
-308, //int index;
+274, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8788,7 +8788,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8811,7 +8811,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalbn", //const char * parent_function_name;
-308, //int index;
+275, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8820,7 +8820,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8843,7 +8843,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalbnf", //const char * parent_function_name;
-309, //int index;
+276, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8852,7 +8852,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8875,7 +8875,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "scalbnf", //const char * parent_function_name;
-309, //int index;
+277, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8884,7 +8884,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8907,7 +8907,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "signbit", //const char * parent_function_name;
-310, //int index;
+278, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8916,7 +8916,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8939,7 +8939,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "signbit", //const char * parent_function_name;
-310, //int index;
+279, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8948,7 +8948,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -8971,7 +8971,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "signbitf", //const char * parent_function_name;
-311, //int index;
+280, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -8980,7 +8980,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9003,7 +9003,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "signbitf", //const char * parent_function_name;
-311, //int index;
+281, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9012,7 +9012,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9035,7 +9035,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sin", //const char * parent_function_name;
-314, //int index;
+282, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9044,7 +9044,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9067,7 +9067,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sin", //const char * parent_function_name;
-314, //int index;
+283, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9076,7 +9076,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9099,7 +9099,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sincos", //const char * parent_function_name;
-315, //int index;
+284, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9108,7 +9108,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9131,7 +9131,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sincos", //const char * parent_function_name;
-315, //int index;
+285, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9140,7 +9140,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9163,7 +9163,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sincosf", //const char * parent_function_name;
-319, //int index;
+286, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9172,7 +9172,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9195,7 +9195,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sincosf", //const char * parent_function_name;
-319, //int index;
+287, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9204,7 +9204,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9224,10 +9224,73 @@ c_cpu_all, //SupportedCpusEnum  configuration;
     "", //const char * cpu_specific_names[avx512zmmlow];
     },
 },
+{
+"sincospi", //const char * parent_function_name;
+288, //int index;
+c_precision_double, // PrecisionEnum  precision;
+c_accuracy_high, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+0.6, //float ulp_error;
+1e30f, //float absolute_error;
+52, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+1, //int valid_status_bits;
+0, //int use_svml_allowed;
+0, //int zmm_low;
+1, //int fusa;
+    {
+    "__libm_sincospi_ex", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
+
+{
+"sincospif", //const char * parent_function_name;
+289, //int index;
+c_precision_single, // PrecisionEnum  precision;
+c_accuracy_high, // AccuracyEnum  accuracy;
+c_cpu_all, //SupportedCpusEnum  configuration;
+0.6, //float ulp_error;
+1e30f, //float absolute_error;
+23, //float accurate_bits;
+0, //int domain_exclusion;
+0, //int arch_consistency;
+1, //int valid_status_bits;
+0, //int use_svml_allowed;
+0, //int zmm_low;
+1, //int fusa;
+    {
+    "__libm_sincospif_ex", //const char * cpu_specific_names[generic];
+    "", //const char * cpu_specific_names[x87];
+    "", //const char * cpu_specific_names[sse];
+    "", //const char * cpu_specific_names[sse2];
+    "", //const char * cpu_specific_names[sse3];
+    "", //const char * cpu_specific_names[ssse3];
+    "", //const char * cpu_specific_names[sse41];
+    "", //const char * cpu_specific_names[sse42];
+    "", //const char * cpu_specific_names[avx];
+    "", //const char * cpu_specific_names[avx2];
+    "", //const char * cpu_specific_names[avx512mic];
+    "", //const char * cpu_specific_names[avx512core];
+    "", //const char * cpu_specific_names[avx512zmmlow];
+    },
+},
 
 {
 "sinf", //const char * parent_function_name;
-324, //int index;
+290, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9236,7 +9299,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9259,7 +9322,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sinf", //const char * parent_function_name;
-324, //int index;
+291, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9268,7 +9331,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9291,7 +9354,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sinh", //const char * parent_function_name;
-325, //int index;
+292, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9300,7 +9363,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9323,7 +9386,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sinh", //const char * parent_function_name;
-325, //int index;
+293, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9332,7 +9395,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9355,7 +9418,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sinhf", //const char * parent_function_name;
-329, //int index;
+294, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9364,7 +9427,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9387,7 +9450,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sinhf", //const char * parent_function_name;
-329, //int index;
+295, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9396,7 +9459,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9419,7 +9482,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sqrt", //const char * parent_function_name;
-334, //int index;
+296, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9428,7 +9491,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9451,7 +9514,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sqrt", //const char * parent_function_name;
-334, //int index;
+297, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9460,7 +9523,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9483,7 +9546,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sqrtf", //const char * parent_function_name;
-335, //int index;
+298, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9492,7 +9555,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9515,7 +9578,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "sqrtf", //const char * parent_function_name;
-335, //int index;
+299, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9524,7 +9587,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9547,7 +9610,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tan", //const char * parent_function_name;
-337, //int index;
+300, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9556,7 +9619,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9579,7 +9642,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tan", //const char * parent_function_name;
-337, //int index;
+301, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9588,7 +9651,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9611,7 +9674,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tanf", //const char * parent_function_name;
-340, //int index;
+302, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9620,7 +9683,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9643,7 +9706,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tanf", //const char * parent_function_name;
-340, //int index;
+303, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9652,7 +9715,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9675,7 +9738,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tanh", //const char * parent_function_name;
-341, //int index;
+304, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9684,7 +9747,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9707,7 +9770,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tanh", //const char * parent_function_name;
-341, //int index;
+305, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9716,7 +9779,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9739,7 +9802,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tanhf", //const char * parent_function_name;
-342, //int index;
+306, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9748,7 +9811,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9771,7 +9834,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tanhf", //const char * parent_function_name;
-342, //int index;
+307, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9780,7 +9843,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9803,7 +9866,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tgamma", //const char * parent_function_name;
-347, //int index;
+308, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9812,7 +9875,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9835,7 +9898,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tgamma", //const char * parent_function_name;
-347, //int index;
+309, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9844,7 +9907,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9867,7 +9930,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tgammaf", //const char * parent_function_name;
-348, //int index;
+310, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9876,7 +9939,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9899,7 +9962,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "tgammaf", //const char * parent_function_name;
-348, //int index;
+311, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9908,7 +9971,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9931,7 +9994,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "trunc", //const char * parent_function_name;
-349, //int index;
+312, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9940,7 +10003,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9963,7 +10026,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "trunc", //const char * parent_function_name;
-349, //int index;
+313, //int index;
 c_precision_double, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -9972,7 +10035,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 52, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -9995,7 +10058,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "truncf", //const char * parent_function_name;
-350, //int index;
+314, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_reference, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -10004,7 +10067,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -10027,7 +10090,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 
 {
 "truncf", //const char * parent_function_name;
-350, //int index;
+315, //int index;
 c_precision_single, // PrecisionEnum  precision;
 c_accuracy_high, // AccuracyEnum  accuracy;
 c_cpu_all, //SupportedCpusEnum  configuration;
@@ -10036,7 +10099,7 @@ c_cpu_all, //SupportedCpusEnum  configuration;
 23, //float accurate_bits;
 0, //int domain_exclusion;
 0, //int arch_consistency;
-0, //int valid_status_bits;
+1, //int valid_status_bits;
 0, //int use_svml_allowed;
 0, //int zmm_low;
 1, //int fusa;
@@ -10057,4 +10120,3 @@ c_cpu_all, //SupportedCpusEnum  configuration;
     },
 },
 
-/* End of libiml_attr table */

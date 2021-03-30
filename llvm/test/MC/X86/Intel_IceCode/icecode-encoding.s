@@ -340,3 +340,27 @@
 // CHECK: flush_ifu
 // CHECK: encoding: [0xf3,0x0f,0x01,0xd4]
           flush_ifu
+
+// CHECK: gmovlinw (%rdx), %ax
+// CHECK: encoding: [0x66,0xf3,0x0f,0x02,0x02]
+          gmovlin (%rdx), %ax
+
+// CHECK: gmovlinl (%rdx), %eax
+// CHECK: encoding: [0xf3,0x0f,0x02,0x02]
+          gmovlin (%rdx), %eax
+
+// CHECK: gmovlinq (%rdx), %rax
+// CHECK: encoding: [0xf3,0x48,0x0f,0x02,0x02]
+          gmovlin (%rdx), %rax
+
+// CHECK: gmovlinw %ax, (%rdx)
+// CHECK: encoding: [0x66,0xf2,0x0f,0x02,0x02]
+          gmovlin %ax, (%rdx)
+
+// CHECK: gmovlinl %eax, (%rdx)
+// CHECK: encoding: [0xf2,0x0f,0x02,0x02]
+          gmovlin %eax, (%rdx)
+
+// CHECK: gmovlinq %rax, (%rdx)
+// CHECK: encoding: [0xf2,0x48,0x0f,0x02,0x02]
+          gmovlin %rax, (%rdx)
