@@ -39,10 +39,6 @@
 // RUN:  FileCheck -check-prefix=CHECK-AX %s
 // CHECK-AX: argument unused
 
-// -fpermissive support
-// RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
-// CHECK-FPERMISSIVE: "-gnu-permissive"
-
 // -Qfreestanding
 // RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
 // CHECK-QFREESTANDING: "-ffreestanding"
