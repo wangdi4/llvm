@@ -9255,6 +9255,8 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
 
   BasicBlock *ThenMasterBB = MasterTestBB->getTerminator()->getSuccessor(0);
   BasicBlock *SuccEndMasterBB = MasterBB->getTerminator()->getSuccessor(0);
+  bool IDomOfSuccEndMasterBBNeedsUpdating =
+      DT->properlyDominates(MasterTestBB, SuccEndMasterBB);
 
   ThenMasterBB->setName("if.then.master." + Twine(W->getNumber()));
 
@@ -9272,10 +9274,11 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
                                                    SuccEndMasterBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(ThenMasterBB,
-                               MasterCI->getParent());
-  DT->changeImmediateDominator(ThenMasterBB->getTerminator()->getSuccessor(0),
-                               MasterCI->getParent());
+  DT->changeImmediateDominator(ThenMasterBB, MasterTestBB);
+  if (IDomOfSuccEndMasterBBNeedsUpdating)
+    DT->changeImmediateDominator(SuccEndMasterBB, MasterTestBB);
+
+  assert(DT->verify() && "DominatorTree update failed after Master codegen.");
 
   W->resetBBSet(); // Invalidate BBSet
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMasterThreadCode\n");
@@ -9351,6 +9354,8 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
 
   BasicBlock *ThenSingleBB = SingleTestBB->getTerminator()->getSuccessor(0);
   BasicBlock *EndSingleSuccBB = EndSingleBB->getTerminator()->getSuccessor(0);
+  bool IDomOfEndSingleSuccBBNeedsUpdating =
+      DT->properlyDominates(SingleTestBB, EndSingleSuccBB);
 
   ThenSingleBB->setName("if.then.single." + Twine(W->getNumber()));
 
@@ -9368,9 +9373,11 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
                                                    EndSingleSuccBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(ThenSingleBB, SingleCI->getParent());
-  DT->changeImmediateDominator(ThenSingleBB->getTerminator()->getSuccessor(0),
-                               SingleCI->getParent());
+  DT->changeImmediateDominator(ThenSingleBB, SingleTestBB);
+  if (IDomOfEndSingleSuccBBNeedsUpdating)
+    DT->changeImmediateDominator(EndSingleSuccBB, SingleTestBB);
+
+  assert(DT->verify() && "DominatorTree update failed after Single codegen.");
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genSingleThreadCode\n");
 

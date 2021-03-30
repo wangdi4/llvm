@@ -1,4 +1,5 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
+  DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp
   DPCPPKernelVecClone.cpp
   DPCPPPrepareKernelForVecClone.cpp
@@ -18,6 +19,12 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   BarrierInFunctionPass.cpp
   PostBarrierPass.cpp
 
+  Utils/FunctionDescriptor.cpp
+  Utils/ImplicitArgsUtils.cpp
+  Utils/NameMangleAPI.cpp
+  Utils/ParameterType.cpp
+  Utils/TypeAlignment.cpp
+
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms
 
@@ -31,3 +38,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Support
   TransformUtils
 )
+
+target_include_directories(LLVMIntel_DPCPPKernelTransforms
+  PRIVATE ${OpenCL_INCLUDE_DIR}
+  PRIVATE ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)
