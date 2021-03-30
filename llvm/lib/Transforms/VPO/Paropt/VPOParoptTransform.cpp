@@ -4547,13 +4547,7 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       // Generate llvm.assume call for the specified value.
       IRBuilder<> Builder(GetAlignedBlock()->getTerminator());
       auto &DL = F->getParent()->getDataLayout();
-#if INTEL_CUSTOMIZATION
-      // As soon as https://reviews.llvm.org/D82703 is committed and pulled down
-      // to xmain, this call to CreateAlignmentAssumptionOld needs to be
-      // replaced with CreateAlignmentAssumption and the customization markers
-      // need to be dropped.
-      CallInst *Call = Builder.CreateAlignmentAssumptionOld(DL, Ptr, Align);
-#endif // INTEL_CUSTOMIZATION
+      CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
 
       // And then add it to the assumption cache.
       AC->registerAssumption(Call);

@@ -2703,27 +2703,6 @@ public:
   CallInst *CreateAlignmentAssumption(const DataLayout &DL, Value *PtrValue,
                                       Value *Alignment,
                                       Value *OffsetValue = nullptr);
-
-#if INTEL_CUSTOMIZATION
-  /// This interface creates old-style alignment assumptions without operand
-  /// bundles. The reason for that is that the ValueTracking does not understand
-  /// assumptions with operand bundles yet. As soon as
-  /// https://reviews.llvm.org/D82703 is merged and pulled down to xmain, we
-  /// need to remove this customization and replace its uses with calls to
-  /// CreateAlignmentAssumption.
-  CallInst *CreateAlignmentAssumptionOld(const DataLayout &DL, Value *PtrValue,
-                                         unsigned Alignment,
-                                         Value *OffsetValue = nullptr,
-                                         Value **TheCheck = nullptr);
-
-private:
-  CallInst *CreateAlignmentAssumptionHelperOld(const DataLayout &DL,
-                                               Value *PtrValue, Value *Mask,
-                                               Type *IntPtrTy,
-                                               Value *OffsetValue,
-                                               Value **TheCheck);
-  CallInst *CreateAssumptionOld(Value *Cond);
-#endif // INTEL_CUSTOMIZATION
 };
 
 /// This provides a uniform API for creating instructions and inserting

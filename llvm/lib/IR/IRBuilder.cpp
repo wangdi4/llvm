@@ -1268,61 +1268,6 @@ CallInst *IRBuilderBase::CreateAlignmentAssumption(const DataLayout &DL,
   return CreateAlignmentAssumptionHelper(DL, PtrValue, Alignment, OffsetValue);
 }
 
-#if INTEL_CUSTOMIZATION
-CallInst *IRBuilderBase::CreateAssumptionOld(Value *Cond) {
-  assert(Cond->getType() == getInt1Ty() &&
-         "an assumption condition must be of type i1");
-
-  Value *Ops[] = { Cond };
-  Module *M = BB->getParent()->getParent();
-  Function *FnAssume = Intrinsic::getDeclaration(M, Intrinsic::assume);
-  return createCallHelper(FnAssume, Ops, this);
-}
-
-CallInst *IRBuilderBase::CreateAlignmentAssumptionHelperOld(
-    const DataLayout &DL, Value *PtrValue, Value *Mask, Type *IntPtrTy,
-    Value *OffsetValue, Value **TheCheck) {
-  Value *PtrIntValue = CreatePtrToInt(PtrValue, IntPtrTy, "ptrint");
-
-  if (OffsetValue) {
-    bool IsOffsetZero = false;
-    if (const auto *CI = dyn_cast<ConstantInt>(OffsetValue))
-      IsOffsetZero = CI->isZero();
-
-    if (!IsOffsetZero) {
-      if (OffsetValue->getType() != IntPtrTy)
-        OffsetValue = CreateIntCast(OffsetValue, IntPtrTy, /*isSigned*/ true,
-                                    "offsetcast");
-      PtrIntValue = CreateSub(PtrIntValue, OffsetValue, "offsetptr");
-    }
-  }
-
-  Value *Zero = ConstantInt::get(IntPtrTy, 0);
-  Value *MaskedPtr = CreateAnd(PtrIntValue, Mask, "maskedptr");
-  Value *InvCond = CreateICmpEQ(MaskedPtr, Zero, "maskcond");
-  if (TheCheck)
-    *TheCheck = InvCond;
-
-  return CreateAssumptionOld(InvCond);
-}
-
-CallInst *IRBuilderBase::CreateAlignmentAssumptionOld(const DataLayout &DL,
-                                                      Value *PtrValue,
-                                                      unsigned Alignment,
-                                                      Value *OffsetValue,
-                                                      Value **TheCheck) {
-  assert(isa<PointerType>(PtrValue->getType()) &&
-         "trying to create an alignment assumption on a non-pointer?");
-  assert(Alignment != 0 && "Invalid Alignment");
-  auto *PtrTy = cast<PointerType>(PtrValue->getType());
-  Type *IntPtrTy = getIntPtrTy(DL, PtrTy->getAddressSpace());
-
-  Value *Mask = ConstantInt::get(IntPtrTy, Alignment - 1);
-  return CreateAlignmentAssumptionHelperOld(DL, PtrValue, Mask, IntPtrTy,
-                                            OffsetValue, TheCheck);
-}
-#endif // INTEL_CUSTOMIZATION
-
 IRBuilderDefaultInserter::~IRBuilderDefaultInserter() {}
 IRBuilderCallbackInserter::~IRBuilderCallbackInserter() {}
 IRBuilderFolder::~IRBuilderFolder() {}
