@@ -2023,6 +2023,753 @@ bool MemManageTransImpl::identifyBlockAvailable(BasicBlock *BB, Value *Obj,
   return true;
 }
 
+// Returns true if it identified the pattern below.
+//
+// BB:
+//  %RABAllocPtr = call AllocateMemoryForRAB(%RABSizeVal)
+//  Initialize ArenaBlock (i.e using %RABAllocPtr)
+//  BlockAllocPtr = invoke AllocateMemoryForStringObjects(BlockSizeVal)
+//                   label %NBB unwind label %UnBB
+// NBB:
+//   Initialize ReusableArenaBlock
+//   ...
+// UnBB:
+//   %LPI = LandingPad
+//   invoke DeallocateCall(MemManager, %RABAllocPtr)
+//          label %EndBB unwind label %UnReachableBB
+// EndBB:
+//   resume %LPI
+//  ...
+// UnReachableBB:
+//   ...
+//   unreachable
+//
+bool MemManageTransImpl::identifyCreate(BasicBlock *BB, Value *Obj,
+                                        BasicBlock **ABlock,
+                                        Value **RABAllocPtr) {
+  // Check memory allocation for ReusableArenaBlock
+  Value *RABSizeVal = nullptr;
+  BasicBlock *UnBB = nullptr;
+  if (!identifyAllocCall(BB, Obj, RABAllocPtr, &RABSizeVal, &UnBB) || UnBB)
+    return false;
+  auto Cand = getCurrentCandidate();
+  StructType *RABType = Cand->getReusableArenaBlockType();
+  assert(RABType && "Unexpected RABType Type");
+  int64_t RABSize = DL.getTypeAllocSize(RABType);
+  if (!checkConstantSize(RABSizeVal, RABSize))
+    return false;
+  auto *RABAllocBC = dyn_cast<BitCastInst>(*RABAllocPtr);
+  assert(RABAllocBC && "Expected BitCastInst");
+  auto *PTy = dyn_cast<PointerType>(RABAllocBC->getType());
+  if (!PTy || PTy->getElementType() != RABType)
+    return false;
+
+  // Check memory allocation for StringObject
+  BasicBlock *InitBB = RABAllocBC->getParent();
+  Value *BlockSizeVal = nullptr;
+  Value *BlockAllocPtr = nullptr;
+  UnBB = nullptr;
+  if (!identifyAllocCall(InitBB, Obj, &BlockAllocPtr, &BlockSizeVal, &UnBB))
+    return false;
+  if (!UnBB)
+    return false;
+  StructType *StrObjType = Cand->getStringObjectType();
+  assert(StrObjType && "Unexpected StrObjType Type");
+  int64_t StrObjSize = DL.getTypeAllocSize(StrObjType);
+  if (!checkSizeValue(BlockSizeVal, StrObjSize, Obj))
+    return false;
+  auto *BlkAllocBC = dyn_cast<BitCastInst>(BlockAllocPtr);
+  assert(BlkAllocBC && "Expected BitCastInst");
+  PTy = dyn_cast<PointerType>(BlkAllocBC->getType());
+  if (!PTy || PTy->getElementType() != StrObjType)
+    return false;
+
+  // Check EH code
+  Instruction *I = UnBB->getFirstNonPHIOrDbg();
+  auto *LPI = dyn_cast_or_null<LandingPadInst>(I);
+  if (!LPI || LPI->getNumClauses() != 0 || !LPI->isCleanup())
+    return false;
+  BasicBlock *EndBB = nullptr;
+  if (!identifyDeallocCall(UnBB, Obj, RABAllocBC->getOperand(0), &EndBB))
+    return false;
+  BasicBlock *Succ = getSingleSucc(EndBB);
+  if (Succ)
+    EndBB = Succ;
+  auto *Res = dyn_cast<ResumeInst>(EndBB->getTerminator());
+  if (!Res || Res->getValue() != LPI)
+    return false;
+  Visited.insert(LPI);
+  Visited.insert(Res);
+
+  // Check for initialization of ArenaBlock and ReusableArenaBlock
+  if (!identifyArenaBlockInit(InitBB, Obj, *RABAllocPtr, BlockAllocPtr, ABlock))
+    return false;
+
+  return true;
+}
+
+// Checks initialization of ArenaBlock and ReusableArenaBlock.
+//
+// Returns true if it identifies the the pattern below.
+// BB: (Initialization of ArenaBlock)
+//   RABObj->ArenaBlock.BlockSize = Obj->ArenaAllocator.blockSize
+//   RABObj->ArenaBlock.ObjectCount = 0
+//   RABObj->ArenaBlock.Allocator.MemManager = Obj->ArenaAllocator.MemManager
+//
+// AllocBB:
+//   RABObj->ObjectBlock = BlockAllocPtr;
+//   RABObj->FirstFreeBlock = 0;
+//   RABObj->NextFreeBlock = 0;
+//   for (int I = 0; I < RABObj->ArenaBlock.BlockSize; I++) {
+//     int J = I + 1;
+//     *(i16*((BlockAllocPtr + I) + 0)) = J;
+//     *(i32*((BlockAllocPtr + I) + 1)) = Some_constant;
+//   }
+//
+bool MemManageTransImpl::identifyArenaBlockInit(BasicBlock *BB, Value *Obj,
+                                                Value *RABObj,
+                                                Value *BlockAllocPtr,
+                                                BasicBlock **ABlock) {
+
+  auto IsLoopCounter = [this](Value *V, Value *AddI) {
+    auto *I = dyn_cast<TruncInst>(V);
+    if (!I)
+      return false;
+    if (!I->getType()->isIntegerTy(16) || I->getOperand(0) != AddI)
+      return false;
+    Visited.insert(I);
+    return true;
+  };
+
+  // Initialization of ArenaBlock
+  //  RABObj->ArenaBlock.BlockSize = Obj->ArenaAllocator.blockSize
+  //  RABObj->ArenaBlock.ObjectCount = 0
+  //  RABObj->ArenaBlock.Allocator.MemManager = Obj->ArenaAllocator.MemManager
+  SmallVector<StoreInst *, 4> StoreVec;
+
+  collectStoreInst(BB, StoreVec);
+  if (StoreVec.size() != 3)
+    return false;
+  StoreInst *ObjCountSI = nullptr;
+  StoreInst *BlockSizeSI = nullptr;
+  StoreInst *MemSI = nullptr;
+  for (auto *SI : StoreVec) {
+    Value *Ptr = SI->getPointerOperand();
+    Value *Val = SI->getValueOperand();
+    if (isAllocatorBlockSizeLoad(Val, Obj)) {
+      if (!isBlockSizeAddrFromRAB(Ptr, RABObj))
+        return false;
+      if (BlockSizeSI)
+        return false;
+      BlockSizeSI = SI;
+    } else if (isListMemManagerLoad(Val, Obj)) {
+      if (!isAllocatorMemAddrFromRAB(Ptr, RABObj))
+        return false;
+      if (MemSI)
+        return false;
+      MemSI = SI;
+    } else if (isa<ConstantInt>(Val) && cast<ConstantInt>(Val)->isZeroValue()) {
+      if (!isObjectCountAddrFromRAB(Ptr, RABObj))
+        return false;
+      if (ObjCountSI)
+        return false;
+      ObjCountSI = SI;
+    } else {
+      return false;
+    }
+  }
+  if (!ObjCountSI || !BlockSizeSI || !MemSI)
+    return false;
+  Visited.insert(ObjCountSI);
+  Visited.insert(BlockSizeSI);
+  Visited.insert(MemSI);
+
+  assert(isa<BitCastInst>(BlockAllocPtr) && "Unexpected allocation pointer");
+  BasicBlock *AllocBB = cast<BitCastInst>(BlockAllocPtr)->getParent();
+
+  // Initialization of ReusableArenaBlock
+  //  RABObj->ObjectBlock = BlockAllocPtr;
+  //  RABObj->FirstFreeBlock = 0;
+  //  RABObj->NextFreeBlock = 0;
+  SmallVector<StoreInst *, 4> AllocStoreVec;
+  collectStoreInst(AllocBB, AllocStoreVec);
+  if (AllocStoreVec.size() != 3)
+    return false;
+  StoreInst *ObjBlockSI = nullptr;
+  StoreInst *FirstFreeBlockSI = nullptr;
+  StoreInst *NextFreeBlockSI = nullptr;
+  for (auto *SI : AllocStoreVec) {
+    Value *Ptr = SI->getPointerOperand();
+    Value *Val = SI->getValueOperand();
+    if (isObjectBlockAddrFromRAB(Ptr, RABObj)) {
+      if (Val != BlockAllocPtr)
+        if (ObjBlockSI)
+          return false;
+      ObjBlockSI = SI;
+    } else if (isFirstFreeBlockAddrFromRAB(Ptr, RABObj)) {
+      if (!isa<ConstantInt>(Val) || !cast<ConstantInt>(Val)->isZeroValue())
+        return false;
+      if (FirstFreeBlockSI)
+        return false;
+      FirstFreeBlockSI = SI;
+    } else if (isNextFreeBlockAddrFromRAB(Ptr, RABObj)) {
+      if (!isa<ConstantInt>(Val) || !cast<ConstantInt>(Val)->isZeroValue())
+        return false;
+      if (NextFreeBlockSI)
+        return false;
+      NextFreeBlockSI = SI;
+    } else {
+      return false;
+    }
+  }
+  if (!ObjBlockSI || !FirstFreeBlockSI || !NextFreeBlockSI)
+    return false;
+  Visited.insert(ObjBlockSI);
+  Visited.insert(FirstFreeBlockSI);
+  Visited.insert(NextFreeBlockSI);
+
+  // Check for the pattern below.
+  //   for (int I = 0; I < RABObj->ArenaBlock.BlockSize; I++) {
+  //     int J = I + 1;
+  //     *(i16*((BlockAllocPtr + I) + 0)) = J;
+  //     *(i32*((BlockAllocPtr + I) + 1)) = Some_constant;
+  //   }
+  //
+  // Check ZTT for the loop
+  Value *LValue = nullptr;
+  Value *RValue = nullptr;
+  ICmpInst::Predicate Predi = ICmpInst::ICMP_NE;
+  BasicBlock *LoopEarlyExitBB = nullptr;
+  BasicBlock *LoopHead = nullptr;
+  if (!processBBTerminator(AllocBB, &LValue, &RValue, &LoopEarlyExitBB,
+                           &LoopHead, &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_EQ)
+    return false;
+  if (!isa<ConstantInt>(RValue) || !cast<ConstantInt>(RValue)->isZeroValue())
+    return false;
+  if (!isBlockSizeLoadFromRAB(LValue, RABObj))
+    return false;
+
+  // Check Loop
+  BasicBlock *LoopBB = getSingleSucc(LoopHead);
+  if (!LoopBB)
+    return false;
+  BasicBlock *LoopExitBB = nullptr;
+  BasicBlock *TargetBB = nullptr;
+  Value *AddI = nullptr;
+  Value *BlockSizeI = nullptr;
+  if (!processBBTerminator(LoopBB, &AddI, &BlockSizeI, &LoopExitBB, &TargetBB,
+                           &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_EQ)
+    return false;
+  auto *ZExt = dyn_cast<ZExtInst>(BlockSizeI);
+  if (ZExt) {
+    BlockSizeI = ZExt->getOperand(0);
+    Visited.insert(ZExt);
+  }
+  if (TargetBB != LoopBB)
+    return false;
+  if (!isBlockSizeLoadFromRAB(BlockSizeI, RABObj))
+    return false;
+
+  Value *AddOp = nullptr;
+  if (!isIncrementByOne(AddI, &AddOp))
+    return false;
+  auto *PHI = dyn_cast<PHINode>(AddOp);
+  if (!PHI || PHI->getNumIncomingValues() != 2)
+    return false;
+  if (LoopBB != PHI->getParent())
+    return false;
+  Value *V1 = PHI->getIncomingValueForBlock(LoopHead);
+  Value *V2 = PHI->getIncomingValueForBlock(LoopBB);
+  ConstantInt *Init = dyn_cast<ConstantInt>(V1);
+  if (!Init || !Init->isZero())
+    return false;
+  if (V2 != AddI)
+    return false;
+  Visited.insert(PHI);
+
+  SmallVector<StoreInst *, 2> InitStoreVec;
+  collectStoreInst(LoopBB, InitStoreVec);
+  if (InitStoreVec.size() != 2)
+    return false;
+  StoreInst *NextFBlockSI = nullptr;
+  StoreInst *VerifySI = nullptr;
+  for (auto SI : InitStoreVec) {
+    Value *Ptr = SI->getPointerOperand();
+    Value *Val = SI->getValueOperand();
+    Value *BasePtr = nullptr;
+    Value *IndexPtr = nullptr;
+    int32_t Idx = 0;
+    if (!isNextBlockFieldAccess(Ptr, &BasePtr, &IndexPtr, &Idx))
+      return false;
+    if (BasePtr != BlockAllocPtr || IndexPtr != PHI)
+      return false;
+    // Not checking the constant Value (i.e 0xffddffdd) here.
+    if (isa<ConstantInt>(Val)) {
+      if (VerifySI)
+        return false;
+      if (!Val->getType()->isIntegerTy(32) || Idx != 1)
+        return false;
+      VerifySI = SI;
+    } else if (IsLoopCounter(Val, AddI)) {
+      if (NextFBlockSI)
+        return false;
+      if (Idx != 0)
+        return false;
+      NextFBlockSI = SI;
+    } else {
+      return false;
+    }
+  }
+  if (!NextFBlockSI || !VerifySI)
+    return false;
+  if (LoopExitBB != LoopEarlyExitBB)
+    return false;
+  Visited.insert(NextFBlockSI);
+  Visited.insert(VerifySI);
+  *ABlock = LoopExitBB;
+  return true;
+}
+
+// Returns true if IR matches the pattern below starting "BB".
+// Updates TargetBB and NPtr when it returns true.
+//
+// BB:
+//   if (Obj->ArenaBlock.List.ListHead == nullptr) {
+//     // NodeBB:
+//     NodePtr = allocNode();
+//   } else {
+//     // HasHeadBB:
+//     NodeLI = Obj->ArenaBlock.List.ListHead->Next
+//   }
+//   // CreatedHeadBB:
+//   PHI <- [NodePtr, CreatedHeadBB], [NodeLI, HasHeadBB]
+//   *Nptr = PHI
+bool MemManageTransImpl::identifyGetListHead(BasicBlock *BB, Value *Obj,
+                                             BasicBlock **TargetB,
+                                             Value **NPtr) {
+  Value *NodePtr = nullptr;
+  BasicBlock *CreatedHeadBB = nullptr;
+  BasicBlock *HasHeadBB = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &HasHeadBB, &NodePtr))
+    return false;
+  BasicBlock *SuccBB = getSingleSucc(HasHeadBB);
+  if (!SuccBB)
+    return false;
+  if (SuccBB != CreatedHeadBB)
+    return false;
+  auto *BI = dyn_cast<BranchInst>(HasHeadBB->getTerminator());
+  assert(BI && " Expected BranchInst");
+  auto *NodeLI = dyn_cast_or_null<LoadInst>(BI->getPrevNonDebugInstruction());
+  if (!NodeLI)
+    return false;
+  if (!isListBegin(NodeLI, Obj))
+    return false;
+  auto *PHI = dyn_cast_or_null<PHINode>(getFirstNonDbg(SuccBB));
+  if (!PHI)
+    return false;
+  if (NodeLI != PHI->getIncomingValueForBlock(HasHeadBB))
+    return false;
+  BasicBlock *NodeBB = cast<Instruction>(NodePtr)->getParent();
+  if (PHI->getBasicBlockIndex(NodeBB) < 0 ||
+      NodePtr != PHI->getIncomingValueForBlock(NodeBB))
+    return false;
+  *TargetB = CreatedHeadBB;
+  *NPtr = PHI;
+  Visited.insert(PHI);
+  return true;
+}
+
+// Returns true if IR matches the pattern below starting with "BB".
+//
+// BB:
+// if (Obj->ArenaBlock.List.ListHead == nullptr) {
+//   CreteNode()
+// } else {
+//   GetHead
+// }
+// // CreatedHeadBB:
+// PHI <- [NodePtr, CreatedHeadBB], [NodeLI, HasHeadBB]
+// ListHeadPtr = PHI;
+// if (Obj->ArenaBlock.List.FreeListHead == nullptr) {
+//   // AllocBB:
+//   FreeListHeadPtr = CreteNode()
+//   // FreeListHeadNext is considered nullptr
+// } else {
+//   // HasFreeListHeadBB:
+//   NewNode1 = GetFreeListHead
+//   FreeListHeadNextLI = GetFreeListHeadNextLI
+// }
+// // CreateFreeListHeadBB:
+// NewNodePHI = phi [NewNode1, HasFreeListHeadBB], [FreeListHeadPtr, AllocBB]
+// NextFreeNodePHI = phi [FreeListHeadNextLI, HasFreeListHeadBB], [null,
+// AllocBB]
+// // Push BlockAllocPtr at front using NewNodePHI and NextFreeNodePHI.
+// // AllocateBlock using RABPtr.
+bool MemManageTransImpl::identifyPushFront(BasicBlock *BB, Value *Obj,
+                                           Value *BlockAllocPtr,
+                                           BasicBlock *BlockAvailableBB) {
+  BasicBlock *ListHeadBlock = nullptr;
+  Value *ListHeadPtr = nullptr;
+  if (!identifyGetListHead(BB, Obj, &ListHeadBlock, &ListHeadPtr))
+    return false;
+
+  BasicBlock *CreateFreeListHeadBB = nullptr;
+  BasicBlock *HasFreeListHeadBB = nullptr;
+  Value *FreeListHeadPtr = nullptr;
+  if (!identifyCheckAndAllocNode(ListHeadBlock, Obj, &CreateFreeListHeadBB,
+                                 &HasFreeListHeadBB, &FreeListHeadPtr, false))
+    return false;
+  BasicBlock *PushBlock = CreateFreeListHeadBB;
+  if (!PushBlock || PushBlock != getSingleSucc(HasFreeListHeadBB))
+    return false;
+  Instruction *LastI = HasFreeListHeadBB->getTerminator();
+  auto *FreeListHeadNextLI =
+      dyn_cast_or_null<LoadInst>(LastI->getPrevNonDebugInstruction());
+  if (!FreeListHeadNextLI || !isListFreeHeadNextLoad(FreeListHeadNextLI, Obj))
+    return false;
+  // GEP should be FreeListHeadNext.
+  auto *GEP =
+      dyn_cast<GetElementPtrInst>(FreeListHeadNextLI->getPointerOperand());
+  assert(GEP && "Expected GEP");
+  // GEP->getPointerOperand() should be FreeListHead since FreeListHeadNextLI
+  // is proved to be ListFreeHeadNextLoad.
+  Value *NewNode1 = GEP->getPointerOperand();
+  Value *NextFreeNode1 = FreeListHeadNextLI;
+  Value *NewNode2 = FreeListHeadPtr;
+  Value *NewNodePHI = nullptr;
+  Value *NextFreeNodePHI = nullptr;
+  BasicBlock *AllocBB = cast<BitCastInst>(FreeListHeadPtr)->getParent();
+  if (PushBlock != getSingleSucc(AllocBB))
+    return false;
+  // Makes sure NextFreeNode and NewNode from HasFreeListHeadBB and AllocBB
+  // are merged properly.
+  for (auto &I : *PushBlock) {
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    auto *PHI = dyn_cast<PHINode>(&I);
+    if (!PHI)
+      break;
+    Value *Ptr = PHI->getIncomingValueForBlock(HasFreeListHeadBB);
+    if (Ptr == NewNode1) {
+      if (NewNodePHI)
+        return false;
+      if (NewNode2 != PHI->getIncomingValueForBlock(AllocBB))
+        return false;
+      NewNodePHI = PHI;
+    } else if (Ptr == NextFreeNode1) {
+      if (NextFreeNodePHI)
+        return false;
+      Value *NextFreePtr = PHI->getIncomingValueForBlock(AllocBB);
+      if (!isa<Constant>(NextFreePtr) ||
+          !cast<Constant>(NextFreePtr)->isNullValue())
+
+        return false;
+      NextFreeNodePHI = PHI;
+    } else {
+      return false;
+    }
+  }
+  if (!NextFreeNodePHI || !NewNodePHI)
+    return false;
+  Visited.insert(cast<Instruction>(NextFreeNodePHI));
+  Visited.insert(cast<Instruction>(NewNodePHI));
+  if (!identifyPushAtPos(PushBlock, Obj, ListHeadPtr, NewNodePHI,
+                         NextFreeNodePHI, BlockAllocPtr))
+    return false;
+  BasicBlock *CreateHeadBB = nullptr;
+  BasicBlock *HasHeadBB = nullptr;
+  Value *HeadPtr = nullptr;
+  if (!identifyListHead(PushBlock, Obj, &CreateHeadBB, &HasHeadBB, &HeadPtr))
+    return false;
+
+  // Check the Preds of CreateHeadBB: One coming from blockAvailable()
+  BasicBlock *Succ = getSingleSucc(HasHeadBB);
+  if (!Succ || Succ != CreateHeadBB)
+    return false;
+  if (BlockAvailableBB != HasHeadBB)
+    return false;
+
+  // Get PHI node that merge ListHead values.
+  auto *NodePHI = dyn_cast_or_null<PHINode>(getFirstNonDbg(HasHeadBB));
+  if (!NodePHI || NodePHI->getNumIncomingValues() != 2)
+    return false;
+  if (!isListHeadLoad(NodePHI->getIncomingValue(0), Obj) ||
+      !isListHeadLoad(NodePHI->getIncomingValue(1), Obj))
+    return false;
+  Visited.insert(NodePHI);
+
+  auto *PHI = dyn_cast_or_null<PHINode>(getFirstNonDbg(CreateHeadBB));
+  if (!PHI)
+    return false;
+  auto *PredBB = cast<BitCastInst>(HeadPtr)->getParent();
+  if (HeadPtr != PHI->getIncomingValueForBlock(PredBB))
+    return false;
+  Value *NextNodeVal = PHI->getIncomingValueForBlock(HasHeadBB);
+  auto *NextNodeLI = dyn_cast<LoadInst>(NextNodeVal);
+  if (!NextNodeLI || !isNodePosNextLoad(NextNodeLI, NodePHI))
+    return false;
+
+  // Check for the pattern below to get load of ReusableArenaBlock
+  // from PHI node.
+  //  %214 = phi %Node* [ %210, %209 ], [ %190, %187 ]
+  //  %215 = getelementptr %Node, %Node* %214, i64 0, i32 0
+  //  %216 = load %"ReusableArenaBlock"*, %"ReusableArenaBlock"** %215
+  if (!PHI->hasOneUse())
+    return false;
+  auto *II = dyn_cast<GetElementPtrInst>(*PHI->user_begin());
+  if (!II || !II->hasOneUse() || !isNodePosReusableArenaBlock(II, PHI))
+    return false;
+  auto *RABPtr = dyn_cast<LoadInst>(*II->user_begin());
+  if (!RABPtr)
+    return false;
+  Visited.insert(PHI);
+  Visited.insert(II);
+  Visited.insert(RABPtr);
+
+  // Identify the functionality of ReusableArenaBlock's allocation.
+  if (!identifyRABAllocateBlock(CreateHeadBB, RABPtr))
+    return false;
+
+  return true;
+}
+
+//
+// BB:
+//  ObjectType* theResult;
+//  if ( this->m_objectCount == this->m_blockSize ) {
+//    theResult =0;
+//  } else {
+//    // AllocInitBB:
+//    if(this->m_firstFreeBlock != this->m_nextFreeBlock) {
+//      // IncrementBB:
+//      theResult = this->m_objectBlock + this->m_firstFreeBlock;
+//      this->m_nextFreeBlock = NextBlock::cast(theResult)->next;
+//      ++this->m_objectCount;
+//    } else {
+//      // NoIncrementBB:
+//      theResult = this->m_objectBlock + this->m_firstFreeBlock;
+//    }
+//  }
+//  // RetBB:
+//  retun theResult;
+//
+bool MemManageTransImpl::identifyRABAllocateBlock(BasicBlock *BB,
+                                                  Value *RABPtr) {
+
+  // Returns true if "V" represents the pattern below.
+  // %229 = zext i16 RABPtr->FirstFreeBlock to i64
+  auto IsFirstFreeBlock = [this](Value *V, Value *RABPtr) {
+    auto *ZExt = dyn_cast<ZExtInst>(V);
+    if (!ZExt)
+      return false;
+    if (!isFirstFreeBlockLoadFromRAB(ZExt->getOperand(0), RABPtr))
+      return false;
+    Visited.insert(ZExt);
+    return true;
+  };
+
+  // Returns true if "Val" represents the pattern below.
+  // %2 = zext i16 RABPtr->FirstFreeBlock to i64
+  // %3 = getelementptr %"SObj", %"SObj"* RABPtr->ArenaBlock.ObjBlock, i64 %2
+  auto IsFirstFreeRABBlock = [this, &IsFirstFreeBlock](Value *Val,
+                                                       Value *RABPtr) {
+    auto *GEP = dyn_cast<GetElementPtrInst>(Val);
+    if (!GEP || GEP->getNumIndices() != 1)
+      return false;
+    if (!isObjectBlockLoadFromRAB(GEP->getPointerOperand(), RABPtr))
+      return false;
+    if (!IsFirstFreeBlock(GEP->getOperand(1), RABPtr))
+      return false;
+    Visited.insert(GEP);
+    return true;
+  };
+
+  // Check for RABPtr->m_objectCount == RABPtr->m_blockSize
+  Value *LValue = nullptr;
+  Value *RValue = nullptr;
+  ICmpInst::Predicate Predi = ICmpInst::ICMP_NE;
+  BasicBlock *AllocInitBB = nullptr;
+  BasicBlock *RetBB = nullptr;
+  if (!processBBTerminator(BB, &LValue, &RValue, &RetBB, &AllocInitBB, &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_EQ)
+    return false;
+  if (!isObjectCountLoadFromRAB(LValue, RABPtr))
+    return false;
+  if (!isBlockSizeLoadFromRAB(RValue, RABPtr))
+    return false;
+
+  // Check for this->m_firstFreeBlock == this->m_nextFreeBlock
+  BasicBlock *NoIncrementBB = nullptr;
+  BasicBlock *IncrementBB = nullptr;
+  if (!processBBTerminator(AllocInitBB, &LValue, &RValue, &IncrementBB,
+                           &NoIncrementBB, &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_EQ)
+    return false;
+  if (!isFirstFreeBlockLoadFromRAB(LValue, RABPtr))
+    return false;
+  if (!isNextFreeBlockLoadFromRAB(RValue, RABPtr))
+    return false;
+
+  // Check CFG here. Makes sure single successor of NoIncrementBB and
+  // IncrementBB is RetBB
+  BasicBlock *BB1 = getSingleSucc(NoIncrementBB);
+  if (!BB1 || BB1 != RetBB)
+    return false;
+  BB1 = getSingleSucc(IncrementBB);
+  if (!BB1 || BB1 != RetBB)
+    return false;
+
+  // Check for the following store instructions in IncrementBB.
+  //
+  // temp = RABPtr->objectBlock + RABPtr->firstFreeBlock;
+  // RABPtr->NextFreeBlock = NextBlock::cast(temp)->next;
+  // ++RABPtr->objectCount;
+  //
+  SmallVector<StoreInst *, 8> InitStoreVec;
+  collectStoreInst(IncrementBB, InitStoreVec);
+  if (InitStoreVec.size() != 2)
+    return false;
+  StoreInst *NewObjCountSI = nullptr;
+  StoreInst *NewNextFreeBlockSI = nullptr;
+  for (auto *SI : InitStoreVec) {
+    Value *Ptr = SI->getPointerOperand();
+    Value *Val = SI->getValueOperand();
+    if (isObjectCountAddrFromRAB(Ptr, RABPtr)) {
+      if (NewObjCountSI)
+        return false;
+      Value *AddOp = nullptr;
+      if (!isIncrementByOne(Val, &AddOp))
+        return false;
+      if (!isObjectCountLoadFromRAB(AddOp, RABPtr))
+        return false;
+      NewObjCountSI = SI;
+    } else if (isNextFreeBlockAddrFromRAB(Ptr, RABPtr)) {
+      if (NewNextFreeBlockSI)
+        return false;
+      Value *BaseAddr = nullptr;
+      Value *IndexAddr = nullptr;
+      int32_t Idx = 0;
+      if (!isNextBlockFieldLoad(Val, &BaseAddr, &IndexAddr, &Idx))
+        return false;
+      if (Idx != 0 || !isObjectBlockLoadFromRAB(BaseAddr, RABPtr) ||
+          !IsFirstFreeBlock(IndexAddr, RABPtr))
+        return false;
+      NewNextFreeBlockSI = SI;
+    } else {
+      return false;
+    }
+  }
+  if (!NewObjCountSI || !NewNextFreeBlockSI)
+    return false;
+  Visited.insert(NewObjCountSI);
+  Visited.insert(NewNextFreeBlockSI);
+
+  // BB:
+  //
+  // NoIncrementBB:
+  //   %2 = zext i16 RABPtr->FirstFreeBlock to i64
+  //   %3 = getelementptr %S, %S* RABPtr->ArenaBlock.ObjBlock, i64 %2
+  //
+  // IncrementBB:
+  //   %4 = zext i16 RABPtr->FirstFreeBlock to i64
+  //   %5 = getelementptr %S, %S* RABPtr->ArenaBlock.ObjBlock, i64 %4
+  //
+  // RetBB:
+  //   %7 = phi %S* [ null, %BB ], [ %3, %NoIncrementBB ], [ %4, %IncrementBB ]
+  //   ret %S* %7
+
+  auto *Ret = dyn_cast<ReturnInst>(RetBB->getTerminator());
+  assert(Ret && "Expected Ret instruction");
+  Value *RetVal = Ret->getReturnValue();
+  assert(RetVal && "Unexpected Return Value");
+  auto *RetPHI = dyn_cast<PHINode>(RetVal);
+  if (!RetPHI)
+    return false;
+  Value *IncPtr = RetPHI->getIncomingValueForBlock(NoIncrementBB);
+  if (!IsFirstFreeRABBlock(IncPtr, RABPtr))
+    return false;
+  IncPtr = RetPHI->getIncomingValueForBlock(IncrementBB);
+  if (!IsFirstFreeRABBlock(IncPtr, RABPtr))
+    return false;
+  IncPtr = RetPHI->getIncomingValueForBlock(BB);
+  if (!isa<Constant>(IncPtr) || !cast<Constant>(IncPtr)->isNullValue())
+    return false;
+  Visited.insert(Ret);
+  Visited.insert(RetPHI);
+  return true;
+}
+
+// Returns true if BB has the following StoreInsts in the same order.
+//
+// newNode->ReusableArenaBlock = FullBlock;
+// newNode->prev = NodePos.prev
+// newNode->next = NodePos
+// NodePos.prev->next = newNode;
+// NodePos.prev = newNode;
+// Obj->ArenaAllocator->List->freeListHeadPtr = nextFreeNode
+//
+bool MemManageTransImpl::identifyPushAtPos(BasicBlock *BB, Value *Obj,
+                                           Value *NodePos, Value *NewNode,
+                                           Value *NextFreeNode,
+                                           Value *FullBlock) {
+  SmallVector<StoreInst *, 8> StoreVec;
+
+  collectStoreInst(BB, StoreVec);
+  if (StoreVec.size() != 6)
+    return false;
+  StoreInst *SI;
+
+  SI = StoreVec[0];
+  if (SI->getValueOperand() != FullBlock)
+    return false;
+  if (!isNodePosReusableArenaBlock(SI->getPointerOperand(), NewNode))
+    return false;
+  Visited.insert(SI);
+
+  SI = StoreVec[1];
+  if (!isNodePosPrevLoad(SI->getValueOperand(), NodePos))
+    return false;
+  if (!isNodePosPrev(SI->getPointerOperand(), NewNode))
+    return false;
+  Visited.insert(SI);
+
+  SI = StoreVec[2];
+  if (SI->getValueOperand() != NodePos)
+    return false;
+  if (!isNodePosNext(SI->getPointerOperand(), NewNode))
+    return false;
+  Visited.insert(SI);
+
+  SI = StoreVec[3];
+  if (SI->getValueOperand() != NewNode)
+    return false;
+  if (!isNodePosPrevNext(SI->getPointerOperand(), NodePos))
+    return false;
+  Visited.insert(SI);
+
+  SI = StoreVec[4];
+  if (SI->getValueOperand() != NewNode)
+    return false;
+  if (!isNodePosPrev(SI->getPointerOperand(), NodePos))
+    return false;
+  Visited.insert(SI);
+
+  SI = StoreVec[5];
+  if (SI->getValueOperand() != NextFreeNode)
+    return false;
+  if (!isListFreeHeadAddr(SI->getPointerOperand(), Obj))
+    return false;
+  Visited.insert(SI);
+
+  return true;
+}
+
 // Returns true if "F" is recognized as "GetMemManager".
 // Ex:
 //   MemManager *getMemManager(ArenaAllocatorTy *Obj) {
@@ -2188,8 +2935,17 @@ bool MemManageTransImpl::recognizeAllocateBlock(Function *F) {
     return false;
   if (CreateNewHeadBB != NoBlockAvailableBB)
     return false;
+  BasicBlock *ABlock = nullptr;
+  Value *RABAllocPtr = nullptr;
+  if (!identifyCreate(NoBlockAvailableBB, ThisObj, &ABlock, &RABAllocPtr))
+    return false;
+  if (!identifyPushFront(ABlock, ThisObj, RABAllocPtr, BlockAvailableBB))
+    return false;
+
+  if (!verifyAllInstsProcessed(F))
+    return false;
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
-    dbgs() << "   Recognized AllocateBlock partially: " << F->getName() << "\n";
+    dbgs() << "   Recognized AllocateBlock: " << F->getName() << "\n";
   });
   return true;
 }
