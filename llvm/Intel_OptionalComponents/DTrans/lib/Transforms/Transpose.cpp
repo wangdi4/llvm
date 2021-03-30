@@ -83,7 +83,7 @@ public:
                      uint64_t ArrayLength, uint64_t ElementSize,
                      llvm::Type *ElementType)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
 #endif
         ElementType(ElementType), IsValid(false),
@@ -753,7 +753,7 @@ private:
   // the same length in all dimensions)
   uint64_t ArrayLength;
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Size of one element in the array, in bytes.
   uint64_t ElementSize;
 #endif

@@ -1,4 +1,4 @@
-; This test verifies the following function is recognized as AllocateBlock
+; This test verifies the following function is NOT recognized as AllocateBlock
 ; for MemManageTrans:
 ;
 ; _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: MemManageTrans transformation:
 ; CHECK:   Considering candidate: %XStringCachedAllocator
 ; CHECK:   Recognizing AllocateBlock Functionality _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
-; CHECK-NOT: Recognized AllocateBlock partially: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
+; CHECK-NOT: Recognized AllocateBlock: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
 
 %"XStringCachedAllocator" = type { %"ReusableArenaAllocator" }
 %"ReusableArenaAllocator" = type <{ %"ArenaAllocator", i8, [7 x i8] }>
