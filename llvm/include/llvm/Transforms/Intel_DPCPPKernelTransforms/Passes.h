@@ -15,6 +15,7 @@ namespace llvm {
 class ModulePass;
 
 Pass *createParseAnnotateAttributesPass();
+ModulePass *createDPCPPEqualizerLegacyPass();
 ModulePass* createDPCPPKernelVecClonePass();
 ModulePass* createDPCPPKernelPostVecPass();
 ModulePass* createDPCPPKernelWGLoopCreatorPass();
