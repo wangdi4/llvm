@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include "frontend_api.h"
+#include "LLVMSPIRVOpts.h"
+
 namespace llvm {
 class Module;
 }
@@ -25,14 +28,15 @@ namespace ClangFE {
 class ClangFECompilerMaterializeSPIRVTask {
 public:
   ClangFECompilerMaterializeSPIRVTask(
-      Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc)
-      : m_pProgDesc(pProgDesc) {}
+      Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
+      SPIRV::TranslatorOpts opts)
+      : m_pProgDesc(pProgDesc), m_opts(opts) {}
 
   /// \brief Correct the given module to be processed by the BE.
   ///
   /// More concretely:
   /// - updates LLVM IR for some possible improvements
-  int MaterializeSPIRV(llvm::Module &M);
+  bool MaterializeSPIRV(llvm::Module *&pM);
 
 private:
   /// If the program was compiled with optimization.
@@ -40,6 +44,7 @@ private:
 
 private:
   Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *m_pProgDesc;
+  SPIRV::TranslatorOpts m_opts;
 };
 
 } // namespace ClangFE
