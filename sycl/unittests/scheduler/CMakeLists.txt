@@ -10,5 +10,6 @@ add_sycl_unittest(SchedulerTests OBJECT
     LeavesCollection.cpp
     StreamInitDependencyOnHost.cpp
     InOrderQueueDeps.cpp
+    AllocaLinking.cpp
     utils.cpp
 )
