@@ -136,31 +136,37 @@ unsigned X86TTIImpl::getNumberOfRegisters(unsigned ClassID) const {
   return 8;
 }
 
-unsigned X86TTIImpl::getRegisterBitWidth(bool Vector) const {
+TypeSize
+X86TTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
   unsigned PreferVectorWidth = ST->getPreferVectorWidth();
-  if (Vector) {
+  switch (K) {
+  case TargetTransformInfo::RGK_Scalar:
+    return TypeSize::getFixed(ST->is64Bit() ? 64 : 32);
+  case TargetTransformInfo::RGK_FixedWidthVector:
     if (ST->hasAVX512() && PreferVectorWidth >= 512)
-      return 512;
+      return TypeSize::getFixed(512);
     if (ST->hasAVX() && PreferVectorWidth >= 256)
-      return 256;
+      return TypeSize::getFixed(256);
 #if INTEL_CUSTOMIZATION
     // Avoid vectorization for SSE1 targets which will just need to be undone
     // in the backend for vXf64 and integer vectors. Also prevents creation
     // of v2f64 SVML functions the backend can't handle until SSE2.
     if (ST->hasSSE2() && PreferVectorWidth >= 128)
+      return TypeSize::getFixed(128);
 #endif
-      return 128;
-    return 0;
+    if (ST->hasSSE1() && PreferVectorWidth >= 128)
+      return TypeSize::getFixed(128);
+    return TypeSize::getFixed(0);
+  case TargetTransformInfo::RGK_ScalableVector:
+    return TypeSize::getScalable(0);
   }
 
-  if (ST->is64Bit())
-    return 64;
-
-  return 32;
+  llvm_unreachable("Unsupported register kind");
 }
 
 unsigned X86TTIImpl::getLoadStoreVecRegBitWidth(unsigned) const {
-  return getRegisterBitWidth(true);
+  return getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+      .getFixedSize();
 }
 
 unsigned X86TTIImpl::getMaxInterleaveFactor(unsigned VF) {
@@ -1140,7 +1146,7 @@ int X86TTIImpl::getMatchingVectorVariant(
 
 const char *X86TTIImpl::getISASetForIMLFunctions() const {
   if (ST->hasAVX512()) {
-    if (getRegisterBitWidth(true) > 256)
+    if (getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) > 256)
       return "coreavx512";
     else
       return "coreavx512zmmlow";
@@ -5056,12 +5062,13 @@ bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
     return false;
 
   // Check if array size is bigger than max simd register size.
-  if (ArrayElemTy->getScalarSizeInBits() * ArrayNum > getRegisterBitWidth(true))
+  if (ArrayElemTy->getScalarSizeInBits() * ArrayNum >
+      getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector))
     return false;
 
   // Check if gather size is bigger than max simd register size.
   if (ArrayElemTy->getScalarSizeInBits() * GatherNum >
-      getRegisterBitWidth(true))
+      getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector))
     return false;
 
   // Only enable 256-bit load and permute currently, will enable 512-bit

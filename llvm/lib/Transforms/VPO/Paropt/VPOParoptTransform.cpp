@@ -4542,7 +4542,7 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       // alignment to be equal to the size of the largest vector register.
       int Align = AI->getAlign();
       if (!Align)
-        Align = TTI->getRegisterBitWidth(true) / 8;
+        Align = TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 8;
 
       // Generate llvm.assume call for the specified value.
       IRBuilder<> Builder(GetAlignedBlock()->getTerminator());

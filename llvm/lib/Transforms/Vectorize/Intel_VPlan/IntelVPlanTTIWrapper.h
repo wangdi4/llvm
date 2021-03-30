@@ -49,8 +49,8 @@ public:
   unsigned getRegisterClassForType(bool Vector, Type *Ty = nullptr) const {
     return TTI.getRegisterClassForType(Vector, Ty);
   }
-  unsigned getRegisterBitWidth(bool Vector) const {
-    return TTI.getRegisterBitWidth(Vector);
+  unsigned getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
+    return TTI.getRegisterBitWidth(K);
   }
   unsigned getCacheLineSize() const { return TTI.getCacheLineSize(); }
   Optional<unsigned> getCacheSize(TargetTransformInfo::CacheLevel Level) const {
