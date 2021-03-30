@@ -5404,8 +5404,8 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     }
 
     bool AttemptCallbackCloning = ForceOnCallbackCloning ||
-        !ForceOffCallbackCloning && IFSwitchHeuristic &&
-        vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(F);
+        (!ForceOffCallbackCloning && IFSwitchHeuristic &&
+        vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(F));
     cloneFunction(AttemptCallbackCloning);
   }
 
