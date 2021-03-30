@@ -1849,7 +1849,7 @@ pi_result piDevicePartition(pi_device Device,
     return PI_SUCCESS;
   }
 
-  // Get the number of subdevices/tiles available. // INTEL
+  // Get the number of subdevices available.
   // TODO: maybe add interface to create the specified # of subdevices.
   uint32_t Count = 0;
   ZE_CALL(zeDeviceGetSubDevices(Device->ZeDevice, &Count, nullptr));
