@@ -83,6 +83,7 @@
 
 #include "HIRPrintDiag.h"
 #include "HIRStencilPattern.h"
+#include <unordered_set>
 
 #define OPT_SWITCH "hir-inter-loop-blocking"
 #define OPT_DESC "HIR Spatial blocking over multiple loopnests"
@@ -100,10 +101,6 @@ static cl::opt<int>
     PresetStripmineSize(OPT_SWITCH "-stripmine-size", cl::init(2),
                         cl::ReallyHidden,
                         cl::desc("Preset stripmine size for " OPT_DESC));
-
-static cl::opt<bool> SkipNormalizingByStripLoops(
-    OPT_SWITCH "-skip-normalize", cl::init(true), cl::Hidden,
-    cl::desc("Skip normalization of byStripLoops in " OPT_DESC "."));
 
 static cl::opt<std::string>
     FilterFunc(OPT_SWITCH "-filter-func", cl::ReallyHidden,
@@ -1619,7 +1616,7 @@ public:
         const HLLoop *InnermostLoop = E.first;
 
         const HLLoop *TargetLoop =
-            getLoopMatchingDimNum(DimNum, E.second, InnermostLoop);
+            getLoopMatchingDimNum(DimNum, E.second.size(), InnermostLoop);
         if (TargetLoop) {
           FoundTargetLoop = true;
           break;
@@ -1794,50 +1791,10 @@ public:
     // Note: Step 3 should come after Step 2.
     assert(OuterNodeToInnermostLoop.size() == InnermostLoopToDimInfos.size());
 
-    for (int I = 0, E = OuterNodeToInnermostLoop.size(); I < E; I++) {
-      assert(OuterNodeToInnermostLoop[I].second ==
-             InnermostLoopToDimInfos[I].first);
-
-      applyBlockingGuardsToSpatialLoops(InnermostLoopToDimInfos[I].first, I,
-                                        InnermostLoopToDimInfos[I].second,
-                                        InnermostLoopToAdjustingRef);
-    }
+    applyBlockingGuardsToSpatialLoops(InnermostLoopToAdjustingRef);
 
     // Normalize all spatial Loops and byStripLoops.
-    for (auto &LoopAndDimInfo : InnermostLoopToDimInfos) {
-      HLLoop *InnermostLoop = LoopAndDimInfo.first;
-      SmallVector<HLLoop *, 4> Loops;
-
-      auto CollectSpatialLoops = [InnermostLoop,
-                                  &Loops](HLLoop *Limit) -> HLLoop * {
-        HLLoop *Lp = InnermostLoop;
-        HLLoop *PrevLp = nullptr;
-        while (Lp != Limit) {
-          PrevLp = Lp;
-          Loops.push_back(PrevLp);
-          Lp = Lp->getParentLoop();
-        }
-        return PrevLp;
-      };
-
-      if (SkipNormalizingByStripLoops) {
-        CollectSpatialLoops(InnermostByStripLoop);
-      } else {
-        CollectSpatialLoops(OutermostLoop);
-      }
-
-      SmallVector<unsigned, 8> LiveInsFromNormalization;
-      // SL will be all spatial loops and/or by strip loops.
-      for (HLLoop *SL : make_range(Loops.rbegin(), Loops.rend())) {
-        SL->normalize();
-        SL->getLowerDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
-        SL->getUpperDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
-        SL->addLiveInTemp(LiveInsFromNormalization);
-
-        // MarkNotBlock to inhibit regular loop blocking pass coming later
-        SL->markDoNotBlock();
-      }
-    }
+    normalizeSpatialLoops();
 
     LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating: \n";
                              OutermostNode->dump());
@@ -2178,6 +2135,8 @@ private:
       alignSpatialLoopBody(LoopAndDimInfo, InnermostLoopToAdjustingRef);
     }
 
+    std::unordered_set<const HLLoop *> ProcessedTargetLoops;
+
     int GlobalNumDims = StripmineSizes.size();
     for (int DimNum = 1; DimNum <= GlobalNumDims; DimNum++) {
 
@@ -2189,9 +2148,14 @@ private:
         const HLLoop *InnermostLoop = LoopAndDimInfoVec.first;
 
         const HLLoop *TargetLoop = getLoopMatchingDimNum(
-            DimNum, LoopAndDimInfoVec.second, InnermostLoop);
+            DimNum, LoopAndDimInfoVec.second.size(), InnermostLoop);
         if (!TargetLoop)
           continue;
+
+        if (ProcessedTargetLoops.count(TargetLoop))
+          continue;
+        else
+          ProcessedTargetLoops.insert(TargetLoop);
 
         const RegDDRef *AdjustingRef =
             InnermostLoopToAdjustingRef.at(InnermostLoop);
@@ -2414,7 +2378,7 @@ private:
         const HLLoop *InnermostLoop = E.first;
 
         const HLLoop *TargetLoop =
-            getLoopMatchingDimNum(DimNum, E.second, InnermostLoop);
+            getLoopMatchingDimNum(DimNum, E.second.size(), InnermostLoop);
         if (!TargetLoop)
           continue;
 
@@ -2475,7 +2439,7 @@ private:
         const HLLoop *InnermostLoop = E.first;
 
         const HLLoop *TargetLoop =
-            getLoopMatchingDimNum(DimNum, E.second, InnermostLoop);
+            getLoopMatchingDimNum(DimNum, E.second.size(), InnermostLoop);
         if (!TargetLoop)
           continue;
 
@@ -2516,11 +2480,7 @@ private:
       if (!InnermostLoopToShift[DimNum - 1].empty()) {
         int64_t ShiftVal = InnermostLoopToShift[DimNum - 1].back() + 1;
         BlobUtils &BU = AlignedUpperBounds[DimNum - 1].front()->getBlobUtils();
-        BlobTy ShiftBlob = BU.createBlob(
-            ShiftVal, Type::getInt64Ty(
-                          // AlignedUpperBounds[DimNum -
-                          // 1].front()->getHLNodeUtils().getContext()));
-                          Context));
+        BlobTy ShiftBlob = BU.createBlob(ShiftVal, Type::getInt64Ty(Context));
 
         unsigned BlobIndex;
         ShiftBlob = BU.createAddBlob(MaxBlob.first, ShiftBlob,
@@ -2777,107 +2737,126 @@ private:
   // that dimension, if-stmt is added.
   // Also, update live-in temps.
   void applyBlockingGuardsToSpatialLoops(
-      HLLoop *InnermostLoop, int InnermostLoopID, ArrayRef<DimInfoTy> DimInfos,
       const LoopToRefTy &InnermostLoopToAdjustingRef) {
 
-    SmallVector<unsigned, 2> ConstOrBlobDimNums;
+    std::unordered_set<HLLoop *> ProcessedTargetLoops;
 
-    SmallVector<unsigned, 4> AllNewLiveIn;
-    SmallVector<HLLoop *, 3> SpatialLoops;
+    for (int InnermostLoopID = 0, E = InnermostLoopToDimInfos.size();
+         InnermostLoopID < E; InnermostLoopID++) {
 
-    // Scan through from the innermost spatial loop to facilitate adding LiveIns
-    for (unsigned DimNum = 1, Sizes = DimInfos.size(); DimNum <= Sizes;
-         DimNum++) {
+      HLLoop *InnermostLoop = InnermostLoopToDimInfos[InnermostLoopID].first;
+      const DimInfoVecTy &DimInfos =
+          InnermostLoopToDimInfos[InnermostLoopID].second;
 
-      if (isNoBlockDim(DimNum))
-        continue;
+      SmallVector<unsigned, 2> ConstOrBlobDimNums;
 
-      HLLoop *TargetLoop =
-          getLoopMatchingDimNum(DimNum, DimInfos, InnermostLoop);
-      if (!TargetLoop) {
-        ConstOrBlobDimNums.push_back(DimNum);
-        continue;
-      }
-      SpatialLoops.push_back(TargetLoop);
+      SmallVector<unsigned, 4> AllNewLiveIn;
+      SmallVector<HLLoop *, 3> SpatialLoops;
 
-      HIRInvalidationUtils::invalidateBounds(TargetLoop);
-      HIRInvalidationUtils::invalidateBody(TargetLoop);
+      // Scan through from the innermost spatial loop to facilitate adding
+      // LiveIns
+      for (unsigned DimNum = 1, Sizes = DimInfos.size(); DimNum <= Sizes;
+           DimNum++) {
 
-      int64_t Shift = 0;
-      if (!InnermostLoopToShift[DimNum - 1].empty()) {
-        Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
-      }
-      unsigned NewLiveIn = addLoopBoundsGuards(TargetLoop, DimNum, Shift);
+        if (isNoBlockDim(DimNum))
+          continue;
 
-      AllNewLiveIn.push_back(NewLiveIn);
-      TargetLoop->addLiveInTemp(AllNewLiveIn);
-      TargetLoop->createZtt(true, true);
+        HLLoop *TargetLoop =
+            getLoopMatchingDimNum(DimNum, Sizes, InnermostLoop);
 
-      // After addLoopBoundsGuards,
-      // Lower and Upper bounds are always self blobs.
-      assert(TargetLoop->getLowerDDRef()->isSelfBlob() &&
-             TargetLoop->getUpperDDRef()->isSelfBlob());
-    }
-
-    const RegDDRef *AdjustingRef =
-        InnermostLoopToAdjustingRef.at(InnermostLoop);
-    HLLoop *OutermostSpatialLoop = SpatialLoops.back();
-
-    for (auto DimNum : ConstOrBlobDimNums) {
-
-      assert(ByStripLoops.size() >= DimNum);
-
-      const HLLoop *ByStripLoop = ByStripLoops[DimNum - 1];
-      CanonExpr *CE = AdjustingRef->getDimensionIndex(DimNum)->clone();
-
-      int64_t Shift = 0;
-      if (!InnermostLoopToShift[DimNum - 1].empty()) {
-        Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
-      }
-
-      if (DimInfos[DimNum - 1].isConstant()) {
-        RegDDRef *Ref = AdjustingRef->getDDRefUtils().createConstDDRef(
-            ByStripLoop->getIVType(), CE->getConstant());
-
-        // TODO: OutermostSpatialLoop is not always correct.
-        //       Hoisting might not be valid.
-        //       SpatialLoops contains only the blocked loops.
-        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, Shift);
-
-      } else {
-        // blob or blob + constant
-        RegDDRef *Ref = AdjustingRef->getDDRefUtils().createScalarRegDDRef(
-            GenericRvalSymbase, CE->clone());
-
-        // Look for a ref in the innermost
-        // TODO: Consider return a AuxRef, which is a copy of CE.
-        //       We only need CE, not whole AuxRef.
-        std::pair<const RegDDRef *, unsigned> AuxRef =
-            findAuxRefWithCE(InnermostLoop, CE);
-
-        addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, Shift,
-                    AuxRef.first);
-
-        // Add AuxRef's BlobDDRef's symbase to LiveInTemp of ByStripLoop
-        // Using getTempBlobSymbase from CE->getSingleBlobIndex() does not
-        // work. For example, CE, sext.i32.i64(%2677) + 1, temp blob symbase
-        // could be InvalidSymbase.
-        // unsigned AuxTempSymbase = AuxRef->getBlobUtils().getTempBlobSymbase(
-        //  CE->getSingleBlobIndex());
-        // Can use CE->collectTempBlobIndices(.), but we can approximate with
-        // blob ddrefs of AuxRef.
-        SmallVector<unsigned, 4> AuxTempSymbases;
-        for (auto *BRef :
-             make_range(AuxRef.first->blob_begin(), AuxRef.first->blob_end())) {
-          AuxTempSymbases.push_back(BRef->getSymbase());
+        if (!TargetLoop) {
+          ConstOrBlobDimNums.push_back(DimNum);
+          continue;
         }
 
-        llvm::for_each(ByStripLoops, [AuxTempSymbases](HLLoop *Lp) {
-          if (!Lp)
-            return;
+        // Notice that nullptr is not pushed into the set.
+        if (ProcessedTargetLoops.count(TargetLoop))
+          continue;
+        else
+          ProcessedTargetLoops.insert(TargetLoop);
 
-          Lp->addLiveInTemp(AuxTempSymbases);
-        });
+        SpatialLoops.push_back(TargetLoop);
+
+        HIRInvalidationUtils::invalidateBounds(TargetLoop);
+        HIRInvalidationUtils::invalidateBody(TargetLoop);
+
+        int64_t Shift = 0;
+        if (!InnermostLoopToShift[DimNum - 1].empty()) {
+          Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
+        }
+        unsigned NewLiveIn = addLoopBoundsGuards(TargetLoop, DimNum, Shift);
+
+        AllNewLiveIn.push_back(NewLiveIn);
+        TargetLoop->addLiveInTemp(AllNewLiveIn);
+        TargetLoop->createZtt(true, true);
+
+        // After addLoopBoundsGuards,
+        // Lower and Upper bounds are always self blobs.
+        assert(TargetLoop->getLowerDDRef()->isSelfBlob() &&
+               TargetLoop->getUpperDDRef()->isSelfBlob());
+      }
+
+      const RegDDRef *AdjustingRef =
+          InnermostLoopToAdjustingRef.at(InnermostLoop);
+      HLLoop *OutermostSpatialLoop = SpatialLoops.back();
+
+      for (auto DimNum : ConstOrBlobDimNums) {
+
+        assert(ByStripLoops.size() >= DimNum);
+
+        const HLLoop *ByStripLoop = ByStripLoops[DimNum - 1];
+        CanonExpr *CE = AdjustingRef->getDimensionIndex(DimNum)->clone();
+
+        int64_t Shift = 0;
+        if (!InnermostLoopToShift[DimNum - 1].empty()) {
+          Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
+        }
+
+        if (DimInfos[DimNum - 1].isConstant()) {
+          RegDDRef *Ref = AdjustingRef->getDDRefUtils().createConstDDRef(
+              ByStripLoop->getIVType(), CE->getConstant());
+
+          // TODO: OutermostSpatialLoop is not always correct.
+          //       Hoisting might not be valid.
+          //       SpatialLoops contains only the blocked loops.
+          addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, Shift);
+
+        } else {
+          // blob or blob + constant
+          RegDDRef *Ref = AdjustingRef->getDDRefUtils().createScalarRegDDRef(
+              GenericRvalSymbase, CE->clone());
+
+          // Look for a ref in the innermost
+          // TODO: Consider return a AuxRef, which is a copy of CE.
+          //       We only need CE, not whole AuxRef.
+          std::pair<const RegDDRef *, unsigned> AuxRef =
+              findAuxRefWithCE(InnermostLoop, CE);
+
+          addIfGuards(Ref, ByStripLoop, OutermostSpatialLoop, Shift,
+                      AuxRef.first);
+
+          // Add AuxRef's BlobDDRef's symbase to LiveInTemp of ByStripLoop
+          // Using getTempBlobSymbase from CE->getSingleBlobIndex() does not
+          // work. For example, CE, sext.i32.i64(%2677) + 1, temp blob symbase
+          // could be InvalidSymbase.
+          // unsigned AuxTempSymbase =
+          // AuxRef->getBlobUtils().getTempBlobSymbase(
+          //  CE->getSingleBlobIndex());
+          // Can use CE->collectTempBlobIndices(.), but we can approximate with
+          // blob ddrefs of AuxRef.
+          SmallVector<unsigned, 4> AuxTempSymbases;
+          for (auto *BRef : make_range(AuxRef.first->blob_begin(),
+                                       AuxRef.first->blob_end())) {
+            AuxTempSymbases.push_back(BRef->getSymbase());
+          }
+
+          llvm::for_each(ByStripLoops, [AuxTempSymbases](HLLoop *Lp) {
+            if (!Lp)
+              return;
+
+            Lp->addLiveInTemp(AuxTempSymbases);
+          });
+        }
       }
     }
   }
@@ -2945,27 +2924,26 @@ private:
 
   // Return the loop matching DimNum.
   // InnermostLoop and DimInfos are data to consult with.
-  const HLLoop *getLoopMatchingDimNum(unsigned DimNum,
-                                      ArrayRef<DimInfoTy> DimInfos,
+  const HLLoop *getLoopMatchingDimNum(unsigned DimNum, unsigned DimInfoSize,
                                       const HLLoop *InnermostLoop) const {
 
     // Dimension for DimNum doesn't exist. This can happen
     // when there are arrays with different dimenseions.
     // e.g. A[][], B[][][][][] - A only has upto DimNum = 2,
     // while B has upto DimNum = 5.
-    if (DimNum > DimInfos.size()) {
+    if (DimNum > DimInfoSize) {
       return nullptr;
     }
 
     return Innermost2TargetLoop.at(InnermostLoop)[DimNum - 1];
   }
 
-  HLLoop *getLoopMatchingDimNum(unsigned DimNum, ArrayRef<DimInfoTy> DimInfos,
+  HLLoop *getLoopMatchingDimNum(unsigned DimNum, unsigned DimInfoSize,
                                 HLLoop *InnermostLoop) {
 
     return const_cast<HLLoop *>(
         static_cast<const Transformer &>(*this).getLoopMatchingDimNum(
-            DimNum, DimInfos, const_cast<HLLoop *>(InnermostLoop)));
+            DimNum, DimInfoSize, const_cast<HLLoop *>(InnermostLoop)));
   }
 
   // Sweep through all rvals by calling makeConsistent().
@@ -3185,6 +3163,39 @@ private:
         FastMathFlags(), "tile_e_min");
 
     return TileEnd;
+  }
+
+  // Notice that ByStripLoops are not normalized.
+  // Only the children loops of ByStripLoops are normalized.
+  void normalizeSpatialLoops() {
+
+    std::unordered_set<HLLoop *> ProcessedTargetLoops;
+    for (auto &LoopAndDimInfo : InnermostLoopToDimInfos) {
+
+      SmallVector<unsigned, 8> LiveInsFromNormalization;
+
+      // SL will be all spatial loops and/or by strip loops.
+      for (const HLLoop *Loop :
+           make_range(Innermost2TargetLoop[LoopAndDimInfo.first].rbegin(),
+                      Innermost2TargetLoop[LoopAndDimInfo.first].rend())) {
+        if (!Loop)
+          continue;
+
+        HLLoop *SL = const_cast<HLLoop *>(Loop);
+        if (ProcessedTargetLoops.count(SL))
+          continue;
+        else
+          ProcessedTargetLoops.insert(SL);
+
+        SL->normalize();
+        SL->getLowerDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
+        SL->getUpperDDRef()->populateTempBlobSymbases(LiveInsFromNormalization);
+        SL->addLiveInTemp(LiveInsFromNormalization);
+
+        // MarkNotBlock to inhibit regular loop blocking pass coming later
+        SL->markDoNotBlock();
+      }
+    }
   }
 
 private:
