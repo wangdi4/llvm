@@ -38,6 +38,8 @@ VERS1.0 {
     __tgt_get_num_devices;
     __tgt_get_target_memory_info;
     __tgt_add_build_options;
+    __tgt_create_interop;
+    __tgt_release_interop;
 # end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;

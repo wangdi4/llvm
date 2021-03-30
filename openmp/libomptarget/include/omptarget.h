@@ -637,6 +637,14 @@ EXTERN void * __tgt_create_interop_obj(
 // Releases an interop object.
 EXTERN int __tgt_release_interop_obj(void *interop_obj);
 
+// Create an OpenMP 5.1 interop object.
+EXTERN omp_interop_t __tgt_create_interop(
+    int64_t device_id, int32_t interop_type, int32_t num_prefers,
+    intptr_t *prefer_ids);
+
+// Release an OpenMP 5.1 interop object.
+EXTERN int __tgt_release_interop(omp_interop_t interop);
+
 // Returns an interop property from the given interop object.
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value);

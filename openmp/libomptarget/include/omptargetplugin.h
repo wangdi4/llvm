@@ -296,8 +296,8 @@ EXTERN int32_t __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
 EXTERN void __tgt_rtl_deinit(void);
 
 // Create OpenMP interop with the given interop context
-EXTERN __tgt_interop *__tgt_rtl_create_interop(int32_t ID,
-                                               int32_t InteropContext);
+EXTERN __tgt_interop *__tgt_rtl_create_interop(
+    int32_t ID, int32_t InteropContext, intptr_t PreferID);
 
 // Release OpenMP interop
 EXTERN int32_t __tgt_rtl_release_interop(int32_t ID, __tgt_interop *Interop);
