@@ -4,6 +4,10 @@ set(TARGET_NAME ReflectionModuleTest)
 
 project (${TARGET_NAME})
 
+if (NOT WIN32)
+  llvm_replace_compiler_option(CMAKE_CXX_FLAGS "-Werror" "")
+endif()
+
 include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/name_mangling

@@ -44,7 +44,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
     uiIRBufferSize = reader.GetSectionSize(g_irSectionName);
   } else if (OCLElfBinaryReader::IsValidOpenCLBinary(psBin, uiBinarySize)) {
     OCLElfBinaryReader reader(psBin, uiBinarySize);
-    char *tmpBuf = nullptr;
+    const char *tmpBuf = nullptr;
     reader.GetIR(tmpBuf, uiIRBufferSize);
     pIRBuffer = tmpBuf;
   } else {

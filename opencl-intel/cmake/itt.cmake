@@ -7,7 +7,7 @@ add_definitions( -DUSE_ITT )
 
 # disable "implicit-fallthrough" warning in itt/ittnotify/ittnotify.c
 if (NOT WIN32)
-  add_compile_options(-Wno-implicit-fallthrough)
+  add_compile_options(-Wno-implicit-fallthrough -Wno-self-assign)
 endif (NOT WIN32)
 
 # From CMake documentation:

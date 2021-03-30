@@ -1,3 +1,7 @@
+if (NOT WIN32)
+  llvm_replace_compiler_option(CMAKE_CXX_FLAGS "-Werror" "")
+endif()
+
 add_subdirectory(type_conversion)
 add_subdirectory(debugger_test_type)
 

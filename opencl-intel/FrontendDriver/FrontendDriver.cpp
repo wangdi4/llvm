@@ -70,7 +70,7 @@ bool ClangCompilerInitialize() {
 
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
-  CLANG_DEV_INFO *pDevInfo = (CLANG_DEV_INFO *)pszDeviceInfo;
+  const CLANG_DEV_INFO *pDevInfo = (const CLANG_DEV_INFO *)pszDeviceInfo;
 
   memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
 
@@ -109,7 +109,10 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
 
   FESPIRVProgramDescriptor SPIRVProgDesc{pSPIRVResult->GetIR(),
                                          pSPIRVResult->GetIRSize(),
-                                         pProgDesc->pszOptions};
+                                         pProgDesc->pszOptions,
+                                         0,
+                                         nullptr,
+                                         nullptr};
 
   result = ClangFECompilerParseSPIRVTask(&SPIRVProgDesc, m_sDeviceInfo)
       .ParseSPIRV(pBinaryResult);

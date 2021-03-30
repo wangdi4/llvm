@@ -57,14 +57,14 @@ namespace intel {
     ~DataPerBarrier() {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "Intel OpenCL DataPerBarrier";
     }
 
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    virtual bool runOnModule(Module &M) {
+    virtual bool runOnModule(Module &M) override {
       //Initialize barrier utils class with current module
       m_util.init(&M);
       InitSynchronizeData();
@@ -75,7 +75,7 @@ namespace intel {
     }
 
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Analysis pass preserve all
       AU.setPreservesAll();
     }
@@ -83,7 +83,7 @@ namespace intel {
     /// @brief print data collected by the pass on the given module
     /// @param OS stream to print the info regarding the module into
     /// @param M pointer to the Module
-    void print(raw_ostream &OS, const Module *M = 0) const;
+    void print(raw_ostream &OS, const Module *M = 0) const override;
 
     /// @brief return sync instruction calls of given function
     /// @param pFunc pointer to Function

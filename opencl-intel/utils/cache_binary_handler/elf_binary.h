@@ -54,7 +54,7 @@ public:
 
     OCLElfBinaryReader(const char* pBinary, size_t uiBinarySize);
 
-    void GetIR(char*& pData, size_t&uiSize) const;
+    void GetIR(const char *&pData, size_t &uiSize) const;
 
     cl_prog_binary_type GetBinaryType() const;
 

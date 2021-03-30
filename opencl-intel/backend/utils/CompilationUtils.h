@@ -791,6 +791,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param AI Alloca instruction.
     /// @return true if the instruction is implicit GID, false otherwise.
     static bool isImplicitGID(AllocaInst *AI);
+
+    static std::string AppendWithDimension(std::string S, int Dimension);
+    static std::string AppendWithDimension(std::string S,
+                                           const Value *Dimension);
   };
 
   class OCLBuiltins {
