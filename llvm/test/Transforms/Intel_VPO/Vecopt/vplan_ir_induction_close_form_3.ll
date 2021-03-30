@@ -25,9 +25,9 @@ define void  @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B,
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     i64 [[VP_K_IV_N1:%.*]] = add i64 [[VP_INDVARS_IV_NEXT]] i64 2
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP0]] i64 [[N0:%.*]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND_1:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0]]
 ; CHECK-NEXT:     i64 [[VP_K_TMP:%.*]] = add i64 [[VP_K_IV_N1]] i64 1
-; This line is incorrect. Should not use VP_EXITCOND here.
-; CHECK-NEXT:     i64 [[VP_K_IV_NEXT:%.*]] = select i1 [[VP_EXITCOND]] i64 [[VP_K_TMP]] i64 [[VP_K_IV_N1]]
+; CHECK-NEXT:     i64 [[VP_K_IV_NEXT:%.*]] = select i1 [[VP_EXITCOND_1]] i64 [[VP_K_TMP]] i64 [[VP_K_IV_N1]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]

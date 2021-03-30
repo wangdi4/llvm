@@ -1023,7 +1023,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
   Type *Ty = Induction->getStartValue()->getType();
   if (auto BinOp = Induction->getInductionBinOp()) {
     VPBasicBlock *Latch = Loop.getLoopLatch();
-    assert(Latch && "exected nonnull latch");
+    assert(Latch && "expected non-null latch");
     VPBranchInst *Br = Latch->getTerminator();
     auto *LatchCond = cast<VPInstruction>(Br->getCondition());
     // Non-memory induction.
@@ -1046,6 +1046,17 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     NewInd->setDebugLocation(BinOp->getDebugLocation());
 
     StartPhi->replaceUsesOfWith(BinOp, NewInd);
+    if (LatchCond->getNumOperandsFrom(BinOp) != 0 &&
+        LatchCond->getNumUsers() > 1) {
+      // If the latch condition uses this induction and is used somewhere else
+      // we need to duplicate it and leave all old uses untouched except one
+      // in the back edge.
+      VPInstruction *LatchCond2 = LatchCond->clone();
+      Builder.setInsertPoint(LatchCond);
+      Builder.insert(LatchCond2);
+      Latch->setCondBit(LatchCond2);
+      LatchCond = LatchCond2;
+    }
     LatchCond->replaceUsesOfWith(BinOp, NewInd);
 
     VPInstruction *ExitIns = getInductionLoopExitInstr(Induction);
