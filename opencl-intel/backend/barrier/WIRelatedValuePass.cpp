@@ -282,12 +282,12 @@ namespace intel {
     return (dep0 || dep1);
   }
 
-  bool WIRelatedValue::calculate_dep(InsertValueInst *pInst) {
+  bool WIRelatedValue::calculate_dep(InsertValueInst * /*pInst*/) {
     //TODO: why should we always return related?
     return true;
   }
 
-  bool WIRelatedValue::calculate_dep(PHINode *pInst) {
+  bool WIRelatedValue::calculate_dep(PHINode * /*pInst*/) {
     //Calculate the WI relation for each of the operands
     //unsigned int num = pInst->getNumIncomingValues();
     //bool dep = false;
@@ -313,7 +313,7 @@ namespace intel {
     return (dep0 || dep1);
   }
 
-  bool WIRelatedValue::calculate_dep(StoreInst *pInst) {
+  bool WIRelatedValue::calculate_dep(StoreInst * /*pInst*/) {
     //No need to handle store/load instructions as alloca is handled separately
     return false;
   }
@@ -357,7 +357,7 @@ namespace intel {
     return (dep0 || dep1 || dep2);
   }
 
-  bool WIRelatedValue::calculate_dep(AllocaInst *pInst) {
+  bool WIRelatedValue::calculate_dep(AllocaInst * /*pInst*/) {
     //Alloca instruction is assumed to be non-uniform.
     //In fact, It is stored in special buffer always in the current design!
     return true;
@@ -372,7 +372,7 @@ namespace intel {
     return dep0;
   }
 
-  bool WIRelatedValue::calculate_dep(ExtractValueInst *pInst) {
+  bool WIRelatedValue::calculate_dep(ExtractValueInst * /*pInst*/) {
     //TODO: why should we always return related?
     return true;
   }
@@ -387,7 +387,7 @@ namespace intel {
     return dep0;
   }
 
-  bool WIRelatedValue::calculate_dep(VAArgInst *pInst) {
+  bool WIRelatedValue::calculate_dep(VAArgInst * /*pInst*/) {
     assert(false && "Are we supporting this ??");
     return false;
   }

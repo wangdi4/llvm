@@ -28,6 +28,7 @@
 #include "llvm/Pass.h"
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -65,14 +66,14 @@ namespace intel {
     ~Barrier() {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "Intel OpenCL Barrier";
     }
 
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    virtual bool runOnModule(Module &M);
+    virtual bool runOnModule(Module &M) override;
 
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -215,18 +216,21 @@ namespace intel {
     }
     Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(Dim);
-      return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+      return B.CreateLoad(
+          Ptr, CompilationUtils::AppendWithDimension("LocalId_", Dim));
     }
     Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                   IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(LocalIdValues, Dim, B);
-      return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+      return B.CreateLoad(
+          Ptr, CompilationUtils::AppendWithDimension("LocalId_", Dim));
     }
     Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                   IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(
           LocalIdValues, ConstantInt::get(m_I32Type, APInt(32, Dim)), B);
-      return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+      return B.CreateLoad(
+          Ptr, CompilationUtils::AppendWithDimension("LocalId_", Dim));
     }
     Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(Dim);
@@ -270,8 +274,9 @@ namespace intel {
       SmallVector<Value *, 4> Indices;
       Indices.push_back(m_Zero);
       Indices.push_back(Dim);
-      return B.CreateInBoundsGEP(LocalIdValues, Indices,
-                                 AppendWithDimension("pLocalId_", Dim));
+      return B.CreateInBoundsGEP(
+          LocalIdValues, Indices,
+          CompilationUtils::AppendWithDimension("pLocalId_", Dim));
     }
     Value *getLocalSize(unsigned Dim) {
       return m_currBarrierKeyValues->m_pLocalSize[Dim];

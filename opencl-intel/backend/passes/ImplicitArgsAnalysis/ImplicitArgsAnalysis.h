@@ -27,17 +27,12 @@
 #include "common_dev_limits.h"
 #include <cassert>
 
+#include "CompilationUtils.h"
+
 using namespace llvm;
 
 using namespace Intel::OpenCL::DeviceBackend;
 namespace intel {
-
-static void AppendWithDimension(std::string &S, const Value *Dimension) {
-  if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
-    S += '0' + C->getZExtValue();
-  else
-    S += "var";
-}
 
 void initializeImplicitArgsAnalysisPass(PassRegistry &);
 /// ImplicitArgsAnalysis - TODO: document
@@ -144,7 +139,7 @@ public:
     auto *pAddr = cast<GEPOperator>(
         Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(RecordID));
-    AppendWithDimension(Name, Dimension);
+    Name = CompilationUtils::AppendWithDimension(Name, Dimension);
     return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr, "",
                                        false /*volatile*/, Align()),
                           Name);
@@ -236,7 +231,7 @@ private:
     auto *pAddr = cast<GEPOperator>(
         Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(NDInfo::LOCAL_SIZE));
-    AppendWithDimension(Name, Dimension);
+    Name = CompilationUtils::AppendWithDimension(Name, Dimension);
     return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr, "",
                                        false /*volatile*/, Align()),
                           Name);
@@ -253,7 +248,7 @@ public:
                                   IRBuilder<> &Builder) {
     auto *pIdAddr = cast<GEPOperator>(Builder.CreateGEP(GroupID, Dimension));
     std::string Name("GroupID_");
-    AppendWithDimension(Name, Dimension);
+    Name = CompilationUtils::AppendWithDimension(Name, Dimension);
     return Builder.Insert(new LoadInst(pIdAddr->getResultElementType(), pIdAddr,
                                        "", false /*volatile*/, Align()),
                           Name);
@@ -262,7 +257,7 @@ public:
   Value *GenerateGetBaseGlobalID(Value *BaseGlobalID, Value *Dimension,
                                        IRBuilder<> &Builder) {
     std::string Name("BaseGlobalID_");
-    AppendWithDimension(Name, Dimension);
+    Name = CompilationUtils::AppendWithDimension(Name, Dimension);
     if (ConstantInt *Dim = dyn_cast<ConstantInt>(Dimension)) {
       unsigned D = Dim->getZExtValue();
       return Builder.CreateExtractValue(BaseGlobalID, ArrayRef<unsigned>(D),

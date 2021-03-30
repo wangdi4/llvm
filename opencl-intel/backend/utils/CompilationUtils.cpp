@@ -1153,9 +1153,9 @@ std::string CompilationUtils::mangledWGBarrier(BARRIER_TYPE wgBarrierType) {
 
     return mangleWithParam(WG_BARRIER_FUNC_NAME.c_str(), Params);
   }
-  default:
-    llvm_unreachable("Unknown work_group_barrier version");
   }
+
+  llvm_unreachable("Unknown work_group_barrier version");
   return "";
 }
 
@@ -1176,9 +1176,9 @@ std::string CompilationUtils::mangledSGBarrier(BARRIER_TYPE sgBarrierType) {
 
     return mangleWithParam(SG_BARRIER_FUNC_NAME.c_str(), Params);
   }
-  default:
-    llvm_unreachable("Unknown sub_group_barrier version");
   }
+
+  llvm_unreachable("Unknown sub_group_barrier version");
   return "";
 }
 std::string CompilationUtils::mangledGetMaxSubGroupSize() {
@@ -2095,5 +2095,22 @@ bool CompilationUtils::isImplicitGID(AllocaInst *AI) {
       return true;
   }
   return false;
+}
+
+std::string CompilationUtils::AppendWithDimension(std::string S,
+                                                  int Dimension) {
+  if (Dimension >= 0)
+    S += '0' + Dimension;
+  else
+    S += "var";
+  return S;
+}
+
+std::string CompilationUtils::AppendWithDimension(std::string S,
+                                                  const Value *Dimension) {
+  int D = -1;
+  if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
+    D = C->getZExtValue();
+  return AppendWithDimension(S, D);
 }
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

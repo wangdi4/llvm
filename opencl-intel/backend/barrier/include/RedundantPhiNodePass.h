@@ -36,15 +36,14 @@ namespace intel {
     ~RedundantPhiNode() {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "Intel OpenCL RedundantPhiNode";
     }
 
     /// @brief execute pass on given function
     /// @param M function to optimize
     /// @returns True if function was modified
-    virtual bool runOnFunction(Function &F);
-
+    virtual bool runOnFunction(Function &F) override;
 
   private:
 

@@ -44,10 +44,9 @@ public:
 
     static void ELF_CALL Delete( 
         CElfReader* pElfObject );
-    
-    static bool ELF_CALL IsValidElf64( 
-        const void* pBinary, 
-        const size_t binarySize );
+
+    static bool ELF_CALL IsValidElf64(const char *pBinary,
+                                      const size_t binarySize);
 
     const SElf64Header* ELF_CALL GetElfHeader();
     
@@ -57,27 +56,21 @@ public:
     const char* ELF_CALL GetSectionName( 
         unsigned int sectionIndex );
 
-    E_RETVAL ELF_CALL GetSectionData( 
-        const unsigned int sectionIndex, 
-        char* &pData, 
-        size_t &dataSize );
+    E_RETVAL ELF_CALL GetSectionData(const unsigned int sectionIndex,
+                                     const char *&pData, size_t &dataSize);
 
-    E_RETVAL ELF_CALL GetSectionData( 
-        const char* sectionName, 
-        char* &pData, 
-        size_t &dataSize );
+    E_RETVAL ELF_CALL GetSectionData(const char *sectionName,
+                                     const char *&pData, size_t &dataSize);
 
-protected:
-    ELF_CALL CElfReader( 
-        const char* pElfBinary, 
-        const size_t elfBinarySize );
-    
+  protected:
+    ELF_CALL CElfReader(const char *pElfBinary);
+
     ELF_CALL ~CElfReader();
 
-    SElf64Header*  m_pElfHeader;    // pointer to the ELF header
-    const char*    m_pBinary;       // portable ELF binary
-    char*          m_pNameTable;    // pointer to the string table
-    size_t         m_nameTableSize; // size of string table in bytes
+    const SElf64Header *m_pElfHeader; // pointer to the ELF header
+    const char *m_pBinary;            // portable ELF binary
+    const char *m_pNameTable;         // pointer to the string table
+    size_t m_nameTableSize;           // size of string table in bytes
 };
 
 } // namespace CLElfLib

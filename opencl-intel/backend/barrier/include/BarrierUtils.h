@@ -22,6 +22,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
 
+#include "CompilationUtils.h"
+
 //Forward declaration
 namespace llvm {
   class Module;
@@ -77,19 +79,6 @@ namespace intel {
 
   typedef std::map<const Function*, unsigned> TFunctionToUnsigned;
 
-  static std::string AppendWithDimension(std::string S, int Dimension) {
-    if (Dimension >= 0)
-      S += '0' + Dimension;
-    else
-      S += "var";
-    return S;
-  }
-  static std::string AppendWithDimension(std::string S, const Value *Dimension) {
-    int D = -1;
-    if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
-      D = C->getZExtValue();
-    return AppendWithDimension(S, D);
-  }
   /// @brief BarrierUtils is utility class that collects several data
   /// and processes several functionality on a given module
   class BarrierUtils {

@@ -43,12 +43,11 @@ namespace Intel{ namespace OpenCL{ namespace ELFUtils{
         }
     }
 
-    void OCLElfBinaryReader::GetIR(char*& pData, size_t&uiSize) const
-    {
-        if(CLElfLib::SUCCESS != m_pReader->GetSectionData(".ocl.ir", pData, uiSize))
-        {
-            throw "no .ocl.ir section";
-        }
+    void OCLElfBinaryReader::GetIR(const char *&pData, size_t &uiSize) const {
+      if (CLElfLib::SUCCESS !=
+          m_pReader->GetSectionData(".ocl.ir", pData, uiSize)) {
+        throw "no .ocl.ir section";
+      }
     }
 
     cl_prog_binary_type OCLElfBinaryReader::GetBinaryType() const

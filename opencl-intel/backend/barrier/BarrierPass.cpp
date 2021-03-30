@@ -877,8 +877,8 @@ namespace intel {
     LLVMContext &C = Body->getContext();
     Function *F = Body->getParent();
     // BB that is jumped to if loop in current nesting finishes
-    BasicBlock *LoopEnd =
-        BasicBlock::Create(C, AppendWithDimension("LoopEnd_", Dim), F, Dispatch);
+    BasicBlock *LoopEnd = BasicBlock::Create(
+        C, CompilationUtils::AppendWithDimension("LoopEnd_", Dim), F, Dispatch);
 
     {
       IRBuilder<> B(Body);
@@ -1092,7 +1092,8 @@ namespace intel {
 
   }
 
-  void Barrier::createBarrierKeyValues(Function* pFunc, bool hasNoInternalCalls) {
+  void Barrier::createBarrierKeyValues(Function *pFunc,
+                                       bool /*hasNoInternalCalls*/) {
     SBarrierKeyValues* pBarrierKeyValues = &m_pBarrierKeyValuesPerFunction[pFunc];
 
     const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
@@ -1129,7 +1130,7 @@ namespace intel {
       ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, structureSize));
     pBarrierKeyValues->m_currVectorizedWidthValue =
         ConstantInt::get(m_sizeTType, m_util.getFunctionVectorizationWidth(pFunc));
- }
+  }
 
   void Barrier::getBarrierKeyValues(Function* pFunc) {
     m_currFunction = pFunc;
@@ -1249,7 +1250,7 @@ namespace intel {
     return createOOBCheckGetLocalId(Call);
   }
 
-  bool Barrier::fixGetWIIdFunctions(Module &M) {
+  bool Barrier::fixGetWIIdFunctions(Module & /*M*/) {
     //clear container for new iteration on new function
     m_toRemoveInstructions.clear();
 
@@ -1304,7 +1305,7 @@ namespace intel {
         } else {
           Value *LID = resolveGetLocalIDCall(pOldCall);
           // Replace get_global_id(arg) with global_base_id + local_id
-          Name = AppendWithDimension("GlobalID_", Dim);
+          Name = CompilationUtils::AppendWithDimension("GlobalID_", Dim);
           Value *GlobalID =
               BinaryOperator::CreateAdd(LID, BaseGID, Name, pOldCall);
           pOldCall->replaceAllUsesWith(GlobalID);

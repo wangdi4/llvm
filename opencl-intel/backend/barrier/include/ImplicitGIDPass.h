@@ -46,17 +46,17 @@ namespace intel {
     ~ImplicitGlobalIdPass() {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "Intel OpenCL Implicit GID Debugging Pass";
     }
 
     /// @brief execute pass on given module
     /// @param M module to update
     /// @returns True if module was modified
-    virtual bool runOnModule(Module& M);
+    virtual bool runOnModule(Module &M) override;
 
     /// @brief Inform about usage/modification/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<DataPerBarrier>();
       AU.addPreserved<DataPerBarrier>();
     }
