@@ -396,6 +396,7 @@ set(files
   opencl-c-platform.h
 # end INTEL_CUSTOMIZATION
   opencl-c.h
+  opencl-c-base.h
   pkuintrin.h
   pmmintrin.h
   pconfigintrin.h
