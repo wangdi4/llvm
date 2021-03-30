@@ -198,6 +198,12 @@ private:
   /// ExtensionList - This is list of all of the extensions that are registered.
   std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 
+#if INTEL_CUSTOMIZATION
+  /// True if the compiler is built to include DTrans and the option
+  /// EnableDTrans is turned on.
+  bool DTransEnabled;
+#endif //INTEL_INCLUDE_DTRANS
+
 public:
   PassManagerBuilder();
   ~PassManagerBuilder();
@@ -226,7 +232,8 @@ private:
   void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM) const;
 #if INTEL_CUSTOMIZATION
-  void addInstructionCombiningPass(legacy::PassManagerBase &MPM) const;
+  void addInstructionCombiningPass(legacy::PassManagerBase &MPM,
+                                   bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

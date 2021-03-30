@@ -61,6 +61,8 @@ public:
   bool preserveAddrCompute() const { return PreserveAddrCompute; }
 
   bool enableFcmpMinMaxCombine() const { return EnableFcmpMinMaxCombine; }
+
+  bool enableUpCasting() const { return EnableUpCasting; }
 #endif // INTEL_CUSTOMIZATION
 
 protected:
@@ -85,6 +87,10 @@ protected:
   /// in LTO phase 1 to preserve memrefs in IR for IP ArrayTranspose if this
   /// pass is enabled.
   const bool PreserveAddrCompute;
+
+  /// Enable the simplification of a load instruction into a bitcast if the
+  /// it produces an upcasting.
+  const bool EnableUpCasting;
 #endif // INTEL_CUSTOMIZATION
 
   AAResults *AA;
@@ -110,14 +116,16 @@ public:
 #if INTEL_CUSTOMIZATION
                bool MinimizeSize, bool TypeLoweringOpts,
                bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-               AAResults *AA, AssumptionCache &AC, TargetLibraryInfo &TLI,
-               TargetTransformInfo &TTI, DominatorTree &DT,
-               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
+               bool EnableUpCasting, AAResults *AA, AssumptionCache &AC,
+               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+               DominatorTree &DT, OptimizationRemarkEmitter &ORE,
+               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
+               const DataLayout &DL, LoopInfo *LI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts),
         EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
-        PreserveAddrCompute(PreserveAddrCompute), AA(AA), AC(AC), TLI(TLI),
+        PreserveAddrCompute(PreserveAddrCompute),
+        EnableUpCasting(EnableUpCasting), AA(AA), AC(AC), TLI(TLI),
         DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI),
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {
   }
