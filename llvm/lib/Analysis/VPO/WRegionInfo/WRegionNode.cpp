@@ -1518,6 +1518,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       }
       C.add(V);
       C.back()->setAlign(Alignment);
+      if (ClauseInfo.getIsPointerToPointer())
+        C.back()->setIsPointerToPointer(true);
     }
     break;
   }

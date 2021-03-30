@@ -4556,13 +4556,27 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       if (!Align)
         Align = TTI->getRegisterBitWidth(true) / 8;
 
-      // Generate llvm.assume call for the specified value.
-      IRBuilder<> Builder(GetAlignedBlock()->getTerminator());
-      auto &DL = F->getParent()->getDataLayout();
-      CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
+      auto AddAlignAssumption = [this, Align](Value *Ptr, Instruction *InsPt) {
+        // Generate llvm.assume call for the specified value.
+        IRBuilder<> Builder(InsPt);
+        auto &DL = F->getParent()->getDataLayout();
+        CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
 
-      // And then add it to the assumption cache.
-      AC->registerAssumption(Call);
+        // And then add it to the assumption cache.
+        AC->registerAssumption(Call);
+      };
+
+      // For ptr-to-ptr values create llvm.assume call after the instruction
+      // that loads the aligned pointer. All other items should be defined
+      // before the region, so put assumption calls for them into the successor
+      // of the region entry block.
+      if (AI->getIsPointerToPointer()) {
+        for (auto *U : Ptr->users())
+          if (auto *LI = dyn_cast<LoadInst>(U))
+            if (W->contains(LI->getParent()))
+              AddAlignAssumption(LI, &*++LI->getIterator());
+      } else
+        AddAlignAssumption(Ptr, GetAlignedBlock()->getTerminator());
 
       Changed = true;
     }
