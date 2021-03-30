@@ -53,6 +53,10 @@ using namespace llvm;
 
 #define DEBUG_TYPE "unaligned-nontemporal"
 
+static cl::opt<bool> DisableUnalignedNontemporal(
+    "disable-" DEBUG_TYPE, cl::init(false), cl::Hidden,
+    cl::desc("Disable handling of unaligned nontemporal stores"));
+
 // XXX: choose number better
 static cl::opt<uint64_t> NumBufferElements(DEBUG_TYPE "-buffer-elements",
                                            cl::Hidden, cl::init(128));
@@ -780,6 +784,12 @@ FunctionPass *llvm::createNontemporalStoreWrapperPass() {
 }
 
 bool NontemporalStoreWrapperPass::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
+  if (DisableUnalignedNontemporal)
+    return false;
+
   NontemporalStore Impl(F,
     getAnalysis<AAResultsWrapperPass>().getAAResults(),
     getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
@@ -787,5 +797,8 @@ bool NontemporalStoreWrapperPass::runOnFunction(Function &F) {
     getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
     getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F));
   Impl.run();
+
+  // TODO: this is conservative. We still may not have actually made any
+  // changes.
   return true;
 }
