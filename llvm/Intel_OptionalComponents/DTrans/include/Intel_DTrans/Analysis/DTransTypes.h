@@ -385,6 +385,20 @@ public:
       IsOpaque = false;
   }
 
+  // Set the body of an opaque structure type.
+  void setBody(ArrayRef<DTransType*> Fields) {
+    assert(IsOpaque && "Adding a body requires structure type to be opaque");
+    size_t FieldCount = Fields.size();
+    IsOpaque = false;
+    if (FieldCount == 0)
+      return;
+
+    resizeFieldCount(FieldCount);
+    unsigned Idx = 0;
+    for (auto *FieldType : Fields)
+      getField(Idx++).addResolvedType(FieldType);
+  }
+
   bool compare(const DTransStructType &Other) const {
     // For non-literal structures, we will assume for now that structures with
     // the same name are equal, because otherwise walking the elements member by

@@ -20,12 +20,15 @@
 #include "Intel_DTrans/Transforms/DTransOPOptBaseTest.h"
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace dtransOP;
+
+#define DEBUG_TYPE "dtransop-optbasetest"
 
 // This option is used to supply a comma separated list of structure types that
 // should be renamed as part of the DTransOPOptBaseTestPass class test to verify
@@ -61,10 +64,67 @@ public:
 // This class tests and demonstrates usage of the DTransOptBase class.
 class DTransOptBaseTest : public DTransOPOptBase {
 public:
-  DTransOptBaseTest(DTransTypeManager &TM) : DTransOPOptBase(TM) {}
+  DTransOptBaseTest(LLVMContext &Ctx, DTransTypeManager &TM,
+                    StringRef DepTypePrefix)
+      : DTransOPOptBase(Ctx, TM, DepTypePrefix) {}
 
-  // TODO: Implement the methods that the base class requires from the derived
-  // class.
+  virtual bool prepareTypes(Module &M) override {
+    SmallVector<StringRef, 16> SubStrings;
+    SplitString(DTransOPOptBaseOpaquePtrTestTypeList, SubStrings, ",");
+
+    // Gether the types to be converted by this class.
+    SmallPtrSet<DTransStructType *, 16> TypesToConvert;
+    for (auto *DTransSructTy : KnownStructTypes) {
+      if (!DTransSructTy->hasName())
+        continue;
+
+      if (std::find(SubStrings.begin(), SubStrings.end(),
+                    DTransSructTy->getName()) == SubStrings.end())
+        continue;
+
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASETEST: Type marked for conversion: "
+                        << DTransSructTy->getName() << "\n");
+      TypesToConvert.insert(DTransSructTy);
+    }
+
+    if (TypesToConvert.empty())
+      return false;
+
+    LLVMContext &Ctx = M.getContext();
+    for (auto *DTransSructTy : TypesToConvert) {
+      // Create an Opaque type as a placeholder, until we know all the
+      // types that need to be created.
+      llvm::Type *LLVMTy = DTransSructTy->getLLVMType();
+      assert(LLVMTy && "Failed to convert DTransStructType to llvm type");
+      auto *LLVMStructTy = cast<llvm::StructType>(LLVMTy);
+      llvm::StructType *NewStructTy = StructType::create(
+          Ctx, (Twine("__DTT_" + LLVMStructTy->getName()).str()));
+
+      // Also, create an opaque type in the DTransType representation.
+      DTransType *NewDTransStructTy = TM.getOrCreateStructType(NewStructTy);
+      getTypeRemapper()->addTypeMapping(LLVMStructTy, NewStructTy,
+                                        DTransSructTy, NewDTransStructTy);
+      OrigToNewTypeMapping[LLVMStructTy] = NewStructTy;
+
+      LLVM_DEBUG(dbgs() << "DTransOPOptBaseTest: New type created: "
+                        << *NewStructTy << " as replacement for "
+                        << *LLVMStructTy << "\n");
+    }
+
+    return true;
+  }
+
+  virtual void populateTypes(Module &M) override {
+    // Because this test pass is simply renaming an existing type without
+    // changing anything within the body of the type other than renaming
+    // any dependent types, it can rely on the base class functionality to
+    // fill in the body for the new type.
+    DTransOPOptBase::populateDependentTypes(M, OrigToNewTypeMapping);
+  }
+
+private:
+  // A mapping from the original structure type to the new structure type
+  LLVMTypeToTypeMap OrigToNewTypeMapping;
 };
 
 } // end anonymous namespace
@@ -97,7 +157,8 @@ dtransOP::DTransOPOptBaseTestPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool dtransOP::DTransOPOptBaseTestPass::runImpl(Module &M,
                                                 DTransSafetyInfo *DTInfo) {
-  DTransOptBaseTest Transformer(DTInfo->getTypeManager());
+  DTransOptBaseTest Transformer(M.getContext(), DTInfo->getTypeManager(),
+                                "__DDT_");
   return Transformer.run(M);
 }
 

@@ -23,6 +23,7 @@
 #define INTEL_DTRANS_TRANSFORMS_DTRANSOPOPTBASE_H
 
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 namespace llvm {
 class Module;
@@ -32,6 +33,118 @@ namespace dtransOP {
 class DTransStructType;
 class DTransType;
 class DTransTypeManager;
+
+// This class handles the remapping of types during the transformation and
+// cloning of functions for DTrans.
+//
+// Clients should first populate the old type to new type mapping for types the
+// transformation needs to replace with the addTypeMapping() method. New
+// types that derive from the type mapping can be then be computed using the
+// remapType() method.
+//
+// For example: if %struct.t1 is to be replaced with %struct.xyz_trans.t1,
+// then a call should be made to addTypeMapping() to indicate the llvm::Type
+// and DTransOp:DTransType mapping from old type to new type.
+//
+// After all the mappings are done by the base class and derived class, lookups
+// of replacements for types can then be performed using the remapType()
+// method. For example, when the transformation needs to know what the
+// replacement for the array type "[5 x %struct.t1]" or the function type "void
+// (%struct.t1)" should be, a call to remapType() can be made.
+//
+//
+// After all type mappings for the structures being modified are added, the
+// setAllTypeMappingsAdded() method must be called, which will allow the
+// remapType() routine to be used to compute and cache results.
+//
+class DTransOPTypeRemapper : public ValueMapTypeRemapper {
+public:
+  DTransOPTypeRemapper(DTransTypeManager &TM, bool UsingOpaquePtrs)
+      : TM(TM), UsingOpaquePtrs(UsingOpaquePtrs), AllTypeMappingsAdded(false) {}
+
+  DTransOPTypeRemapper(const DTransOPTypeRemapper &) = delete;
+  DTransOPTypeRemapper &operator=(const DTransOPTypeRemapper &) = delete;
+  DTransOPTypeRemapper(DTransOPTypeRemapper &&) = delete;
+  DTransOPTypeRemapper &operator=(DTransOPTypeRemapper &&) = delete;
+
+  // Return the type to use for 'SrcTy'.
+  //
+  // If the type is not being changed, then 'SrcTy' will be returned. Otherwise
+  // the replacement type will be returned. This is the method that will be used
+  // by the ValueMapper class when rewriting IR.
+  //
+  // This method caches the results for subsequent lookups, and may only be
+  // used after all the base types being replaced have been populated via
+  // the addTypeMapping() method.
+  llvm::Type *remapType(llvm::Type *SrcTy) override;
+
+  // This method can be used by the base class and derived class to get the
+  // DTransType that should be used for 'SrcTy'.
+  //
+  // If the type is not being changed, then 'SrcTy' will be returned. Otherwise
+  // the replacement type will be returned.
+  DTransType *remapType(DTransType *SrcTy);
+
+  // Add a type 'SrcTy' that needs to be remapped to 'DestTy'. Also, the
+  // corresponding DTransTypes objects are required parameters.
+  void addTypeMapping(llvm::Type *SrcTy, llvm::Type *DestTy,
+                      DTransType *DTSrcTy, DTransType *DTDestTy);
+
+  // Indicate that all structure types that DTrans needs to rewrite have
+  // been added.
+  void setAllTypeMappingsAdded() { AllTypeMappingsAdded = true; }
+
+  // Check if the 'SrcTy' type has a mapping in the type list.
+  bool hasRemappedType(llvm::Type *SrcTy) const;
+  bool hasRemappedType(DTransType *SrcTy) const;
+
+  // Return the type mapping for 'SrcTy' type, if there is one. If there is
+  // not one, return nullptr. This differs from remapType(), in that it will
+  // not create and cache a new type mapping for 'SrcTy'.
+  llvm::Type *lookupTypeMapping(llvm::Type *SrcTy) const;
+  DTransType *lookupTypeMapping(DTransType *SrcTy) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private: // methods
+  // Compute the replacement type for 'SrcTy' based on the 'SrcTypeToNewType'
+  // mapping. If the type needs to be replaced, return the type to be used. If
+  // the type should not be replaced, return nullptr.
+  llvm::Type *computeReplacementType(llvm::Type *SrcTy) const;
+  DTransType *computeReplacementType(DTransType *SrcTy) const;
+
+  // Return the cached result for a type mapping for 'SrcTy' type, if the type
+  // has been evaluated previously. Otherwise, return nullptr.
+  llvm::Type *lookupCachedTypeMapping(llvm::Type *SrcTy) const;
+  DTransType *lookupCachedTypeMapping(DTransType *SrcTy) const;
+
+private: // data
+  // Reference to the DTransTypeManager object being used.
+  // NOTE: The same object must be used by the safety analyzer and the
+  // transformation.
+  DTransTypeManager &TM;
+
+  // Indicates whether opaque pointers are being used. This affects whether or
+  // not to try to get a pointer element type from a llvm::PointerType object
+  // when computing replacement types.
+  bool UsingOpaquePtrs;
+
+  // Mapping from original type to the replacement type.
+  DenseMap<llvm::Type *, llvm::Type *> SrcTypeToNewType;
+  DenseMap<DTransType *, DTransType *> DTransSrcTypeToNewType;
+
+  // During the remapping process, a cache is built up to avoid repeated
+  // computations on complex types that have been determine to need or not need
+  // to be replaced.
+  DenseMap<llvm::Type *, llvm::Type *> RemapSrcToDestTypeCache;
+  DenseMap<DTransType *, DTransType *> DTransRemapSrcToDestTypeCache;
+
+  // This indicates the client has added all the structure types the
+  // transformation needs to replace.
+  bool AllTypeMappingsAdded;
+};
 
 // This is a base class that specific transformations derive from to
 // implement transformations. This class provides the basic framework
@@ -46,12 +159,16 @@ class DTransTypeManager;
 //   that are being modified.
 class DTransOPOptBase {
 public:
+  // Data structure to use for mapping one type to another type.
+  using LLVMTypeToTypeMap = DenseMap<llvm::Type *, llvm::Type *>;
+
   // Data structure for storing the set of types that are dependent types for
   // another type.
   using DTransTypeToTypeSetMap =
       DenseMap<DTransType *, SetVector<DTransType *>>;
 
-  DTransOPOptBase(DTransTypeManager &TM) : TM(TM) {}
+  DTransOPOptBase(LLVMContext &Ctx, DTransTypeManager &TM,
+                  StringRef DepTypePrefix);
 
   DTransOPOptBase(const DTransOPOptBase &) = delete;
   DTransOPOptBase &operator=(const DTransOPOptBase &) = delete;
@@ -77,7 +194,36 @@ public:
   //    (postProcessFunction)
   bool run(Module &M);
 
-  // TODO: Add the functions needed by the run() method.
+protected:
+  //===-------------------------------------------------------------------===//
+  // Methods that must be implemented by the derived classes that perform some
+  // transformation.
+  //===-------------------------------------------------------------------===//
+
+  // Derived classes need to implement this method to construct 'llvm::Type' and
+  // 'DTransType' objects for any structures they are directly converting. When
+  // new types are created they must be added to the TypeRemapper. Generally,
+  // the derived class will create an opaque type within this routine because
+  // the structure being converted may contain pointers to other structures that
+  // need to be remapped. The body elements of the type will be populated after
+  // all types have been created.
+  virtual bool prepareTypes(Module &M) = 0;
+
+  // Derived classes need to implement this method to populate the body for any
+  // types they are directly converting to contain the body elements of the new
+  // type based on the remapped types returned by calls to the TypeRemapper.
+  virtual void populateTypes(Module &M) = 0;
+
+  //===-------------------------------------------------------------------===//
+  // Methods that are exposed to the derived classes
+  //===-------------------------------------------------------------------===//
+
+  DTransOPTypeRemapper *getTypeRemapper() { return &TypeRemapper; }
+
+  // Sets the body for the all the types in the \p DependentTypeMapping based
+  // on types computed by the TypeRemapper.
+  void populateDependentTypes(Module &M,
+                              const LLVMTypeToTypeMap &DependentTypeMapping);
 
 private:
   //===-------------------------------------------------------------------===//
@@ -87,8 +233,12 @@ private:
   bool prepareTypesBaseImpl(Module &M);
   void buildTypeDependencyMapping();
   void collectDependenciesForType(DTransStructType *StructTy);
+  void prepareDependentTypes(Module &M,
+                             LLVMTypeToTypeMap &DependentTypeMapping);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpTypeToTypeSetMapping(StringRef Header,
                                 DTransTypeToTypeSetMap &TypeToDependentTypes);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 protected:
   //===-------------------------------------------------------------------===//
@@ -101,6 +251,12 @@ protected:
   // NOTE: The same object must be used by the safety analyzer and the
   // transformation.
   DTransTypeManager &TM;
+
+  // Optional string to precede names of dependent types that get renamed.
+  std::string DepTypePrefix;
+
+  // 'true' if pointers are opaque.
+  bool UsingOpaquePtrs;
 
   // Collection of all the structure types.
   std::vector<DTransStructType *> KnownStructTypes;
@@ -123,6 +279,8 @@ protected:
   //   %struct.D = type { %struct.E*, void (%struct.F*)* }
   DTransTypeToTypeSetMap TypeToDirectDependentTypes;
   DTransTypeToTypeSetMap TypeToPtrDependentTypes;
+
+  DTransOPTypeRemapper TypeRemapper;
 };
 
 } // namespace dtransOP
