@@ -4490,6 +4490,32 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   return Changed;
 }
 
+// Replace all uses of value 'Val' in all ClauseID clauses in the given
+// begin directive call 'Entry' with 'null'.
+template <int ClauseID>
+static bool removeAllUsesInClauses(IntrinsicInst *Entry, Value *Val) {
+  assert(VPOAnalysisUtils::isBeginDirective(Entry));
+
+  bool Changed = false;
+  for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
+                              Entry->bundle_op_info_end())) {
+    // Get clause ID and check if it is a clause of interest.
+    ClauseSpecifier CS(BOI.Tag->getKey());
+    if (CS.getId() != ClauseID)
+      continue;
+
+    // Check bundle operand uses and zap the ones matching given value.
+    for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+      Use &U = Entry->getOperandUse(I);
+      if (Val != U.get())
+        continue;
+      U.set(Constant::getNullValue(U->getType()));
+      Changed = true;
+    }
+  }
+  return Changed;
+}
+
 // Generate code for aligned clause.
 bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
   bool Changed = false;
@@ -4521,21 +4547,7 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       // Replace reference to the 'orig' value with 'null' in the directive
       // since there is no need to keep it in the directive after paropt
       // lowering.
-      for (auto &BOI : make_range(std::next(EntryDir->bundle_op_info_begin()),
-                                  EntryDir->bundle_op_info_end())) {
-        // Get clause ID and check if it is a clause of interest.
-        ClauseSpecifier CS(BOI.Tag->getKey());
-        if (CS.getId() != QUAL_OMP_ALIGNED)
-          continue;
-
-        // Check bundle operand uses and zap the ones matching.
-        for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
-          Use &U = EntryDir->getOperandUse(I);
-          if (Ptr != U.get())
-            continue;
-          U.set(Constant::getNullValue(U->getType()));
-        }
-      }
+      removeAllUsesInClauses<QUAL_OMP_ALIGNED>(EntryDir, Ptr);
 
       // According to the specification 'alignmnent' value is optional and when
       // it is not provided FE sets 'alignment' to 0. If this is the case, set
@@ -4608,12 +4620,21 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
       }
     };
 
+    Value *Val = NtmpItem->getOrig();
+    if (!Val)
+      continue;
+
+    // Remove references to a nontemporal value from bundle clauses since there
+    // is no need to keep it there after processing.
+    Changed |= removeAllUsesInClauses<QUAL_OMP_NONTEMPORAL>(
+        cast<IntrinsicInst>(W->getEntryDirective()), Val);
+
     if (NtmpItem->getIsPointerToPointer()) {
-      for (auto *U : NtmpItem->getOrig()->users())
+      for (auto *U : Val->users())
         if (auto *Load = dyn_cast<LoadInst>(U))
           growWorkList(Load);
     } else
-      growWorkList(NtmpItem->getOrig());
+      growWorkList(Val);
 
     while (!WorkList.empty()) {
       Use *U = WorkList.pop_back_val();

@@ -86,6 +86,7 @@ omp.precond.then12:                               ; preds = %omp.inner.for.body
   %12 = load i32, i32* %.capture_expr.1, align 4
   store i32 %12, i32* %.omp.ub14, align 4
   %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** %A.addr), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv13), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub14), "QUAL.OMP.LINEAR:IV"(i32* %X, i32 1) ]
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** null),
   store i32 0, i32* %.omp.iv13, align 4
   br label %omp.inner.for.cond15
 
