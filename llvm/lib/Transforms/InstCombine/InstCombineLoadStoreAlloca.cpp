@@ -1095,6 +1095,115 @@ static Value *matchDeBruijnTableLookup(InstCombiner &IC, LoadInst &LI) {
                                        ConstantInt::get(X->getType(), ZVal));
   return IC.Builder.CreateZExtOrTrunc(Sel, LI.getType());
 }
+
+#if INTEL_INCLUDE_DTRANS
+// Return true if there is a possible upcasting from SrcTy to DestTy. This
+// means that the field 0 in DestTy encloses SrcTy.
+static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
+
+  // Return the structure type from the input pointer type
+  auto GetStructFromPtr = [](Type *InTy) -> StructType * {
+    assert(InTy && "Trying to collect type data from a nullptr");
+    Type *CurrType = InTy;
+    // NOTE: This won't work with opaque pointers type. We may need to return
+    // to this once we fix the issue with opaque pointers in DTrans.
+    if (CurrType->isPointerTy())
+      CurrType = CurrType->getPointerElementType();
+    return dyn_cast<StructType>(CurrType);
+  };
+
+  // Return true if BaseStr is a possible base form of PaddedStr. For example,
+  // consider the following classes:
+  //
+  // class A {
+  //   int a;
+  //   int b;
+  //   int c;
+  // }
+  //
+  // class B : public A {
+  //   int d;
+  // }
+  //
+  // Also consider that if there is an instantiation of A and B, then we will
+  // see something like this in the IR:
+  //
+  // %class.A = type <{i32, i32, i32, [ 4 x i8 ]}>
+  // %class.A.base = type <{i32, i32, i32}>
+  // %class.B = type {%class.A.base, i32}
+  //
+  // The IR creates two forms of class A. The ".base" form is used for the
+  // structure hierarchy, and the padded form (non ".base") is used across
+  // the whole IR (bitcasting, GEPs, etc.). The padding is added by the CFE
+  // and is used by the application binary interface (ABI). These types are
+  // treated as related types in DTrans and the analysis' results are merged.
+  // We identify a base and padded structure as follows:
+  //
+  //   1) Base structure have the same name as padded structure with
+  //      ".base" at the end.
+  //
+  //   2) They have the same fields, but the padded structure have an extra
+  //      field at the end (array of integers) that used for padding.
+  //
+  auto StructsAreBaseAndPadded = [](StructType *BaseStr,
+                                    StructType *PaddedStr) -> bool {
+
+    assert((BaseStr && PaddedStr) && "Trying to collect structures from"
+                                 " null pointers");
+
+    // Both structures must have name
+    if (!BaseStr->hasName() || !PaddedStr->hasName())
+      return false;
+
+    // Padded structures only have one more extra field
+    if (PaddedStr->getNumElements() - BaseStr->getNumElements() != 1)
+      return false;
+
+    // Padded field is the last one and must be an array of integers
+    Type *PaddedField =
+        PaddedStr->getElementType(PaddedStr->getNumElements() - 1);
+    if (!PaddedField->isArrayTy() ||
+        !PaddedField->getArrayElementType()->isIntegerTy())
+      return false;
+
+    // Base name must be the same as padded structure + ".base"
+    std::string BaseName = PaddedStr->getName().str() + ".base";
+    StringRef BaseNameRef = StringRef(BaseName);
+    if (BaseNameRef != BaseStr->getName())
+      return false;
+
+    // The rest of the fields must be the same
+    for (unsigned I = 0, E = BaseStr->getNumElements(); I < E; I++)
+      if (PaddedStr->getElementType(I) != BaseStr->getElementType(I))
+        return false;
+
+    return true;
+  };
+
+  if (!SrcTy || !DestTy || SrcTy == DestTy)
+    return false;
+
+  // Source and destination must be structures
+  auto *SrcTyStr = GetStructFromPtr(SrcTy);
+  auto *DestTyStr = GetStructFromPtr(DestTy);
+  if (!SrcTyStr || !DestTyStr)
+    return false;
+
+  // Check if the destination type encloses the source type
+  StructType *CurrTy = DestTyStr;
+  while (CurrTy && CurrTy->getNumElements() != 0) {
+    if (CurrTy == SrcTyStr)
+      return true;
+    else if (StructsAreBaseAndPadded(CurrTy, SrcTyStr) ||
+             StructsAreBaseAndPadded(SrcTyStr, CurrTy))
+      return true;
+
+    CurrTy = dyn_cast<StructType>(CurrTy->getElementType(0));
+  }
+
+  return false;
+}
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
@@ -1124,6 +1233,17 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
   // separated by a few arithmetic operations.
   bool IsLoadCSE = false;
   if (Value *AvailableVal = FindAvailableLoadedValue(&LI, *AA, &IsLoadCSE)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // If DTrans is enabled and we are in the LTO phase, then we may want to
+    // disable the process of simplifying a load into a bitcast if it could
+    // produce an upcasting. It could produce misleading information in the
+    // DTrans analysis.
+    if (!enableUpCasting() &&
+        possibleUpcasting(AvailableVal->getType(), LI.getType()))
+      return nullptr;
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
     if (IsLoadCSE)
       combineMetadataForCSE(cast<LoadInst>(AvailableVal), &LI, false);
 

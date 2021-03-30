@@ -66,12 +66,14 @@ public:
 #if INTEL_CUSTOMIZATION
                    bool MinimizeSize, bool TypeLoweringOpts,
                    bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-                   AAResults *AA, AssumptionCache &AC, TargetLibraryInfo &TLI,
+                   bool EnableUpCasting, AAResults *AA,
+                   AssumptionCache &AC, TargetLibraryInfo &TLI,
                    TargetTransformInfo &TTI, DominatorTree &DT,
                    OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                    ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : InstCombiner(Worklist, Builder, MinimizeSize, TypeLoweringOpts,
-                     EnableFcmpMinMaxCombine, PreserveAddrCompute, AA, AC, TLI,
+                     EnableFcmpMinMaxCombine, PreserveAddrCompute,
+                     EnableUpCasting, AA, AC, TLI,
                      TTI, DT, ORE, BFI, PSI, DL, LI) {
   }
 #endif // INTEL_CUSTOMIZATION

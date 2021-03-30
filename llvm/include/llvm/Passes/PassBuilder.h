@@ -539,8 +539,12 @@ public:
   bool isAnalysisPassName(StringRef PassName);
 
 #if INTEL_CUSTOMIZATION
-  /// Add Inst Combine Pass
-  void addInstCombinePass(FunctionPassManager &FPM) const;
+  /// Add Inst Combine Pass. If EnableUpCasting is true then it will enable
+  /// simplifying load instructions into bitcast instructions that could
+  /// produce an upcasting. If DTrans is disabled then the simplification
+  /// will always be true.
+  void addInstCombinePass(FunctionPassManager &FPM,
+                          bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Print pass names.
@@ -801,6 +805,12 @@ private:
   // AA callbacks
   SmallVector<std::function<bool(StringRef Name, AAManager &AA)>, 2>
       AAParsingCallbacks;
+
+#if INTEL_CUSTOMIZATION
+  // True if the compiler is built to include DTrans and the option
+  // EnableDTrans is turned on.
+  bool DTransEnabled;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// This utility template takes care of adding require<> and invalidate<>
