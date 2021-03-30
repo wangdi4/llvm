@@ -1565,17 +1565,13 @@ void VPlanDivergenceAnalysis::improveStrideUsingIR() {
       if (!getVectorShape(*PtrOp).isRandom())
         continue;
 
-      // HIR allows instructions like t1 = a[i] + b[i]. We can reliably
-      // determine the underlying memory reference only for master instructions.
-      // For stores, it is the LVAL ref. For loads, it is the RVAL ref.
-      if (!VPInst.HIR.isMaster())
+      const loopopt::HLNode *HNode = VPInst.HIR.getUnderlyingNode();
+      if (!HNode)
         continue;
 
-      const loopopt::HLNode *HNode = VPInst.HIR.getUnderlyingNode();
-      assert(HNode && "Unexpected null underlying node for master");
-
       int64_t Stride;
-      if (getStrideUsingHIR(*HNode, Stride)) {
+      if (getStrideUsingHIR((cast<VPLoadStoreInst>(&VPInst))->getHIRMemoryRef(),
+                            *(cast<loopopt::HLDDNode>(HNode)), Stride)) {
         LLVM_DEBUG(dbgs() << "Improved stride information for: " << VPInst);
         updateVectorShape(PtrOp, getStridedVectorShape(Stride));
       }
