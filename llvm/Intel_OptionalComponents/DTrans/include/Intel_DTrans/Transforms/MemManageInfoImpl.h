@@ -133,6 +133,9 @@ public:
   // Returns ReusableArenaBlockType.
   StructType *getReusableArenaBlockType() { return ReusableArenaBlockType; }
 
+  // Returns BlockBaseType.
+  StructType *getBlockBaseType() { return BlockBaseType; }
+
   // Returns index of ArenaAllocatorObject.
   int32_t getArenaAllocatorObjectIndex() { return ArenaAllocatorObjectIndex; }
   // Returns index of destroyBlockFlag.
@@ -194,6 +197,9 @@ private:
 
   // Type of ReusableArenaBlockType class.
   StructType *ReusableArenaBlockType = nullptr;
+
+  // Type of BlockBaseType class.
+  StructType *BlockBaseType = nullptr;
 
   // Member functions of StringAllocatorType.
   SmallPtrSet<Function *, 8> StringAllocatorFunctions;
@@ -444,6 +450,7 @@ bool MemManageCandidateInfo::isBlockBaseType(Type *Ty) {
   }
   if (NumCounters != 2 || NumStringPtrs != 1 || NumBasicAllocatons != 1)
     return false;
+  BlockBaseType = STy;
   return true;
 }
 
