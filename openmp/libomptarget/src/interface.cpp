@@ -772,6 +772,71 @@ EXTERN int __tgt_get_interop_property(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN omp_interop_t __tgt_create_interop(
+    int64_t device_num, int32_t interop_type, int32_t num_prefers,
+    intptr_t *prefer_ids) {
+  DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
+     ", num_prefers %" PRId32 ", prefer_ids " DPxMOD "\n",
+     __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids));
+
+  if (isOffloadDisabled())
+    return omp_interop_none;
+
+  omp_interop_t Interop = omp_interop_none;
+
+#if 0
+  // Disabled due to unclear interpretation of 5.1 specification
+  // First, try to create an interop with preferred ids.
+  if (num_prefers > 0 && prefer_ids != nullptr) {
+    PM->RTLsMtx.lock();
+    size_t NumDevices = PM->Devices.size();
+    PM->RTLsMtx.unlock();
+    for (int32_t I = 0; I < num_prefers; I++) {
+      for (size_t D = 0; D < NumDevices; D++) {
+        if (!device_is_ready(D))
+          continue;
+        Interop = PM->Devices[D].createInterop(interop_type, prefer_ids[I]);
+        if (Interop != omp_interop_none) {
+          DP("Created an interop " DPxMOD " from preferred ids\n",
+             DPxPTR(Interop));
+          return Interop;
+        }
+      }
+    }
+  }
+#endif
+
+  // Now, try to create an interop with device_num.
+  if (device_num == OFFLOAD_DEVICE_DEFAULT)
+    device_num = omp_get_default_device();
+
+  if (device_is_ready(device_num)) {
+    Interop = PM->Devices[device_num].createInterop(interop_type);
+    DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
+       DPxPTR(Interop), device_num);
+  }
+
+  return Interop;
+}
+
+EXTERN int __tgt_release_interop(omp_interop_t interop) {
+  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(interop));
+
+  if (isOffloadDisabled() || !interop)
+    return OFFLOAD_FAIL;
+
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
+  int64_t DeviceNum = TgtInterop->DeviceNum;
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("Device %" PRId64 " is not ready when releasing an interop " DPxMOD "\n",
+       DeviceNum, DPxPTR(interop));
+    return OFFLOAD_FAIL;
+  }
+
+  return PM->Devices[DeviceNum].releaseInterop(TgtInterop);
+}
+
 EXTERN int __tgt_get_target_memory_info(
     void *interop_obj, int32_t num_ptrs, void *tgt_ptrs, void *ptr_info) {
   DP("Call to __tgt_get_target_memory_info with interop_obj " DPxMOD
