@@ -405,6 +405,9 @@ namespace {
       (void) llvm::createKernelBarrierPass(false, false);
       (void) llvm::createBarrierInFunctionPass();
       (void) llvm::createPostBarrierPass();
+      (void)llvm::createImplicitArgsAnalysisLegacyPass();
+      (void)llvm::createLocalBufferAnalysisLegacyPass();
+      (void)llvm::createAddImplicitArgsLegacyPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

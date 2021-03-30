@@ -29,7 +29,9 @@ ModulePass* createDataPerValuePass();
 ModulePass* createKernelBarrierPass(bool isNativeDebug, bool useTLSGlobals);
 ModulePass* createBarrierInFunctionPass();
 ModulePass* createPostBarrierPass();
-
+ModulePass *createImplicitArgsAnalysisLegacyPass();
+ModulePass *createLocalBufferAnalysisLegacyPass();
+ModulePass *createAddImplicitArgsLegacyPass();
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
