@@ -452,7 +452,7 @@ void ArrayUseInfo::print(raw_ostream &OS) const {
 
 ArrayUse::ArrayUse(Function &F, LoopInfo &LI, ScalarEvolution &SE)
 :
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   F(F),
 #endif
   LI(LI), SE(SE), ArrayUseMap(std::make_unique<ArrayUse::ArrayMapTy>()) {
