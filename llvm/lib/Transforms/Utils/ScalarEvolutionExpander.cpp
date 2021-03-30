@@ -38,6 +38,14 @@ cl::opt<unsigned> llvm::SCEVCheapExpansionBudget(
 
 using namespace PatternMatch;
 
+#if INTEL_COLLAB
+static bool isTargetSPIRV(Function *F) {
+  Triple TargetTriple(F->getParent()->getTargetTriple());
+  return TargetTriple.getArch() == Triple::ArchType::spir ||
+         TargetTriple.getArch() == Triple::ArchType::spir64;
+}
+
+#endif // INTEL_COLLAB
 /// ReuseOrCreateCast - Arrange for there to be a cast of V to Ty at IP,
 /// reusing an existing cast if a suitable one (= dominating IP) exists, or
 /// creating a new one.
@@ -1706,6 +1714,10 @@ Value *SCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *S) {
 Value *SCEVExpander::visitSMaxExpr(const SCEVSMaxExpr *S) {
   Value *LHS = expand(S->getOperand(S->getNumOperands()-1));
   Type *Ty = LHS->getType();
+#if INTEL_COLLAB
+  assert(Builder.GetInsertBlock());
+  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
+#endif // INTEL_COLLAB
   for (int i = S->getNumOperands()-2; i >= 0; --i) {
     // In the case of mixed integer and pointer types, do the
     // rest of the comparisons as integer.
@@ -1716,7 +1728,11 @@ Value *SCEVExpander::visitSMaxExpr(const SCEVSMaxExpr *S) {
     }
     Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
     Value *Sel;
+#if INTEL_COLLAB
+    if (Ty->isIntegerTy() && !isSPIRV)
+#else
     if (Ty->isIntegerTy())
+#endif // INTEL_COLLAB
       Sel = Builder.CreateIntrinsic(Intrinsic::smax, {Ty}, {LHS, RHS},
                                     /*FMFSource=*/nullptr, "smax");
     else {
@@ -1735,6 +1751,10 @@ Value *SCEVExpander::visitSMaxExpr(const SCEVSMaxExpr *S) {
 Value *SCEVExpander::visitUMaxExpr(const SCEVUMaxExpr *S) {
   Value *LHS = expand(S->getOperand(S->getNumOperands()-1));
   Type *Ty = LHS->getType();
+#if INTEL_COLLAB
+  assert(Builder.GetInsertBlock());
+  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
+#endif // INTEL_COLLAB
   for (int i = S->getNumOperands()-2; i >= 0; --i) {
     // In the case of mixed integer and pointer types, do the
     // rest of the comparisons as integer.
@@ -1745,7 +1765,11 @@ Value *SCEVExpander::visitUMaxExpr(const SCEVUMaxExpr *S) {
     }
     Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
     Value *Sel;
+#if INTEL_COLLAB
+    if (Ty->isIntegerTy() && !isSPIRV)
+#else
     if (Ty->isIntegerTy())
+#endif // INTEL_COLLAB
       Sel = Builder.CreateIntrinsic(Intrinsic::umax, {Ty}, {LHS, RHS},
                                     /*FMFSource=*/nullptr, "umax");
     else {
@@ -1764,6 +1788,10 @@ Value *SCEVExpander::visitUMaxExpr(const SCEVUMaxExpr *S) {
 Value *SCEVExpander::visitSMinExpr(const SCEVSMinExpr *S) {
   Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
   Type *Ty = LHS->getType();
+#if INTEL_COLLAB
+  assert(Builder.GetInsertBlock());
+  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
+#endif // INTEL_COLLAB
   for (int i = S->getNumOperands() - 2; i >= 0; --i) {
     // In the case of mixed integer and pointer types, do the
     // rest of the comparisons as integer.
@@ -1774,7 +1802,11 @@ Value *SCEVExpander::visitSMinExpr(const SCEVSMinExpr *S) {
     }
     Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
     Value *Sel;
+#if INTEL_COLLAB
+    if (Ty->isIntegerTy() && !isSPIRV)
+#else
     if (Ty->isIntegerTy())
+#endif // INTEL_COLLAB
       Sel = Builder.CreateIntrinsic(Intrinsic::smin, {Ty}, {LHS, RHS},
                                     /*FMFSource=*/nullptr, "smin");
     else {
@@ -1793,6 +1825,10 @@ Value *SCEVExpander::visitSMinExpr(const SCEVSMinExpr *S) {
 Value *SCEVExpander::visitUMinExpr(const SCEVUMinExpr *S) {
   Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
   Type *Ty = LHS->getType();
+#if INTEL_COLLAB
+  assert(Builder.GetInsertBlock());
+  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
+#endif // INTEL_COLLAB
   for (int i = S->getNumOperands() - 2; i >= 0; --i) {
     // In the case of mixed integer and pointer types, do the
     // rest of the comparisons as integer.
@@ -1803,7 +1839,11 @@ Value *SCEVExpander::visitUMinExpr(const SCEVUMinExpr *S) {
     }
     Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
     Value *Sel;
+#if INTEL_COLLAB
+    if (Ty->isIntegerTy() && !isSPIRV)
+#else
     if (Ty->isIntegerTy())
+#endif // INTEL_COLLAB
       Sel = Builder.CreateIntrinsic(Intrinsic::umin, {Ty}, {LHS, RHS},
                                     /*FMFSource=*/nullptr, "umin");
     else {
