@@ -34,6 +34,7 @@
 
 namespace llvm {
 class LLVMContext;
+class MDNode;
 
 namespace dtransOP {
 
@@ -120,10 +121,14 @@ public:
   // This is needed to support getLLVMType().
   llvm::LLVMContext &getContext() const { return Ctx; }
 
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
+
   // Compare two DTrans types for equivalence.
   bool compare(const DTransType &Other) const;
 
   // Helper utilities that match frequently used methods of llvm::Type.
+  bool isAtomicTy() const { return getTypeID() == DTransAtomicTypeID; }
   bool isPointerTy() const { return getTypeID() == DTransPointerTypeID; }
   bool isStructTy() const { return getTypeID() == DTransStructTypeID; }
   bool isArrayTy() const { return getTypeID() == DTransArrayTypeID; }
@@ -218,6 +223,11 @@ public:
   }
 
   llvm::Type *getLLVMType() const { return LLVMType; }
+  bool isVoidTy() const { return LLVMType->isVoidTy(); }
+  bool isMetadataTy() const { return LLVMType->isMetadataTy(); }
+
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference(unsigned PtrLevel = 0) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void print(llvm::raw_ostream &OS) const;
@@ -272,6 +282,9 @@ public:
   llvm::Type *getLLVMType() const {
     return getPointerElementType()->getLLVMType()->getPointerTo();
   }
+
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
 
 private:
   // The "pointed-to" object type.
@@ -386,7 +399,7 @@ public:
   }
 
   // Set the body of an opaque structure type.
-  void setBody(ArrayRef<DTransType*> Fields) {
+  void setBody(ArrayRef<DTransType *> Fields) {
     assert(IsOpaque && "Adding a body requires structure type to be opaque");
     size_t FieldCount = Fields.size();
     IsOpaque = false;
@@ -488,6 +501,12 @@ public:
     return LitSt;
   }
 
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference(unsigned PtrLevel = 0) const;
+
+  // Return a metadata node that is used to describe the body of the structure.
+  MDNode *createMetadataStructureDescriptor() const;
+
   using DTransFieldMemberContainerTy = SmallVector<DTransFieldMember, 16>;
   using FieldsIterator = DTransFieldMemberContainerTy::iterator;
   using FieldsConstIterator = DTransFieldMemberContainerTy::const_iterator;
@@ -559,6 +578,9 @@ public:
   llvm::Type *getLLVMType() const {
     return ArrayType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements());
   }
+
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
 
   bool compare(const DTransSequentialType &Other) const {
     return getNumElements() == Other.getNumElements() &&
@@ -712,6 +734,9 @@ public:
 
     return FunctionType::get(FuncRetTy, makeArrayRef(DataTypes), isVarArg());
   }
+
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
 
   static DTransFunctionType *get(DTransTypeManager &TM, DTransType *DTRetTy,
                                  SmallVectorImpl<DTransType *> &ParamTypes,

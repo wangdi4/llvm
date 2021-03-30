@@ -25,6 +25,8 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+class NamedMDNode;
+
 namespace dtransOP {
 
 class DTransType;
@@ -58,6 +60,10 @@ class TypeMetadataReader {
   friend class TypeMetadataTester;
 
 public:
+  // Get the NameMDNode for the module that contains the list of metadata nodes
+  // used to describe all the structure types.
+  static NamedMDNode* getDTransTypesMetadata(Module &M);
+
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
   // This method should be called first to walk the named metadata node,
@@ -69,7 +75,6 @@ public:
   // If the Value has DTrans type metadata that can be decoded, return the
   // DTransType, otherwise nullptr.
   DTransType *getDTransTypeFromMD(Value *V);
-
 private:
   // This method returns a DTransType* by decoding the information in the
   // metadata node. Returns nullptr, if an error occurs during decoding.

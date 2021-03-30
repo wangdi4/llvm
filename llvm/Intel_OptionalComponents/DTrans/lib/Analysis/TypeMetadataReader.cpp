@@ -51,14 +51,19 @@ const char *MDDeclTypesTag = "dtrans_decl_types";
 // and parameters.
 const char *DTransFuncTypeMDTag = "intel.dtrans.func.type";
 
-bool TypeMetadataReader::initialize(Module &M) {
+NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
+  if (DTMDTypes)
+    return DTMDTypes;
 
   // Temporary fallback to the legacy tag name for existing LIT tests.
   // TODO: Remove when LIT tests are updated.
-  if (!DTMDTypes)
-    DTMDTypes = M.getNamedMetadata(MDStructTypesTagLegacy);
+  DTMDTypes = M.getNamedMetadata(MDStructTypesTagLegacy);
+  return DTMDTypes;
+}
 
+bool TypeMetadataReader::initialize(Module &M) {
+  NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)
     return false;
 

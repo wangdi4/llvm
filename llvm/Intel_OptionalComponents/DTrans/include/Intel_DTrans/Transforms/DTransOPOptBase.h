@@ -235,6 +235,7 @@ private:
   void collectDependenciesForType(DTransStructType *StructTy);
   void prepareDependentTypes(Module &M,
                              LLVMTypeToTypeMap &DependentTypeMapping);
+  void updateDTransTypesMetadata(Module &M, ValueMapper &Mapper);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpTypeToTypeSetMapping(StringRef Header,
                                 DTransTypeToTypeSetMap &TypeToDependentTypes);
@@ -281,6 +282,20 @@ protected:
   DTransTypeToTypeSetMap TypeToPtrDependentTypes;
 
   DTransOPTypeRemapper TypeRemapper;
+
+  // Mapping of original Value* to the replacement Value*. This mapping serves
+  // two purposes.
+  // 1: It is used by the ValueMapper to lookup whether a replacement for
+  //    a value has been defined. Therefore, transformations can put items into
+  //    this map prior to running the remapping to get those replacements to
+  //    occur. This will be done for things like changing a function call to
+  //    instead go to a cloned function.
+  //  2: This mapping also gets populated as the replacements are created during
+  //     the remapping process. This allows finding what value was used as
+  //     the replacement.
+  // Initially, it will be primed with the global variables and functions that
+  // need cloning. As the ValueMapper replaces values those will get inserted.
+  ValueToValueMapTy VMap;
 };
 
 } // namespace dtransOP
