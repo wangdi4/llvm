@@ -1231,6 +1231,7 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
   // Do really simple store-to-load forwarding and load CSE, to catch cases
   // where there are several consecutive memory accesses to the same location,
   // separated by a few arithmetic operations.
+  BasicBlock::iterator BBI = LI.getIterator();
   bool IsLoadCSE = false;
   if (Value *AvailableVal = FindAvailableLoadedValue(
           &LI, LI.getParent(), BBI, DefMaxInstsToScan, AA, &IsLoadCSE)) {

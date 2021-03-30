@@ -1264,7 +1264,7 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
       isBaseOfObject(DecompGEP2.Base))
     return NoAlias;
 
-  if (const AddressOperator *GEP2 = dyn_cast<AddressOperator>(V2)) { // INTEL
+  if (dyn_cast<AddressOperator>(V2)) { // INTEL
     // Symmetric case to above.
     if (*DecompGEP2.InBounds && DecompGEP1.VarIndices.empty() &&
         V1Size.hasValue() && DecompGEP1.Offset.sle(-V1Size.getValue()) &&
