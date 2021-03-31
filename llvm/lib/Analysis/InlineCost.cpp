@@ -559,6 +559,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // sense that it's not weighted by profile counts at all.
   int ColdSize = 0;
 
+  // Whether inlining is decided by cost-benefit analysis.
+  bool DecidedByCostBenefit = false;
+
+  bool SingleBB = true;
+
   unsigned SROACostSavings = 0;
   unsigned SROACostSavingsLost = 0;
 
@@ -939,6 +944,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #endif // INTEL_CUSTOMIZATION
 
     if (auto Result = costBenefitAnalysis()) {
+      DecidedByCostBenefit = true;
       if (Result.getValue())
         return InlineResult::success();
       else
@@ -1120,6 +1126,7 @@ public:
   bool onDynamicAllocaInstException(AllocaInst &I) override;
 #endif // INTEL_CUSTOMIZATION
 
+  bool wasDecidedByCostBenefit() { return DecidedByCostBenefit; }
 };
 SmallPtrSet<Function *, 10> InlineCostCallAnalyzer::QueuedCallers; // INTEL
 } // namespace
@@ -2946,6 +2953,16 @@ InlineCost llvm::getInlineCost(
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(CA.dump());
+
+  // Always make cost benefit based decision explicit.
+  // We use always/never here since threshold is not meaningful,
+  // as it's not what drives cost-benefit analysis.
+  if (CA.wasDecidedByCostBenefit()) {
+    if (ShouldInline.isSuccess())
+      return InlineCost::getAlways("benefit over cost");
+    else
+      return InlineCost::getNever("cost over benefit");
+  }
 
   // Check if there was a reason to force inlining or no inlining.
   if (!ShouldInline.isSuccess() && CA.getCost() < CA.getThreshold())
