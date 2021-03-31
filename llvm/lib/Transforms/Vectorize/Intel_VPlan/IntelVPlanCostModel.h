@@ -92,12 +92,21 @@ public:
   bool isUnitStrideLoadStore(const VPInstruction *VPInst,
                              bool &NegativeStride) const;
 
+  /// \Returns true if VPInst is part of an optimized VLS group.
+  bool isOptimizedVLSGroupMember(const VPInstruction *VPInst) const {
+    return getOptimizedVLSGroupData(VPInst, VLSA, Plan).hasValue();
+  }
+
 protected:
+#if INTEL_CUSTOMIZATION
+  VPlanVLSAnalysis *VLSA;
+#endif // INTEL_CUSTOMIZATION
+
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
                     const TargetTransformInfo *TTI,
-                    const TargetLibraryInfo *TLI,
-                    const DataLayout *DL)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL) {
+                    const TargetLibraryInfo *TLI, const DataLayout *DL,
+                    VPlanVLSAnalysis *VLSA)
+      : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL), VLSA(VLSA) {
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
@@ -168,12 +177,10 @@ private:
 class VPlanCostModel : public VPlanTTICostModel {
 public:
   VPlanCostModel(const VPlanVector *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI,
-                 const TargetLibraryInfo *TLI,
-                 const DataLayout *DL,
-                 VPlanVLSAnalysis *VLSA = nullptr)
-    : VPlanTTICostModel(Plan, VF, TTI, TLI, DL), VLSA(VLSA),
-      VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
+                 const TargetTransformInfo *TTI, const TargetLibraryInfo *TLI,
+                 const DataLayout *DL, VPlanVLSAnalysis *VLSA = nullptr)
+      : VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
+        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // Fill up HeuristicsPipeline with heuristics in the order they should be
     // applied.
@@ -201,9 +208,6 @@ protected:
   // Keeps Heuristics queue in order they are applied.
   SmallVector<std::unique_ptr<VPlanCostModelHeuristics::HeuristicBase>, 8>
     HeuristicsPipeline;
-#if INTEL_CUSTOMIZATION
-  VPlanVLSAnalysis *VLSA;
-#endif // INTEL_CUSTOMIZATION
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
   VPlanAlignmentAnalysis VPAA;
 

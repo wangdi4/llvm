@@ -498,10 +498,8 @@ unsigned HeuristicGatherScatter::operator()(
   bool NegativeStride;
   if ((VPInst->getOpcode() == Instruction::Load ||
        VPInst->getOpcode() == Instruction::Store) &&
+      !CM->isOptimizedVLSGroupMember(VPInst) &&
       !CM->isUnitStrideLoadStore(VPInst, NegativeStride))
-    // NOTE:
-    // VLS groups are ignored here.  We may want to take into consideration
-    // that some memrefs are parts of VLS groups eventually.
     return CM->getLoadStoreCost(VPInst, VF);
   return 0;
 }
