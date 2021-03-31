@@ -68,6 +68,10 @@ public:
   // the transformations to be able to update the metadata when changing types.
   static MDNode *getDTransMDNode(const Value &V);
 
+  // Set the metadata on the Value using an appropriate tag based on the Value
+  // type. If MD is nullptr, clear any existing DTrans metadata from the object.
+  static void addDTransMDNode(Value &V, MDNode *MD);
+
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
   // This method should be called first to walk the named metadata node,

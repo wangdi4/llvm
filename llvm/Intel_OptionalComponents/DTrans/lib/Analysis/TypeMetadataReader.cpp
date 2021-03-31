@@ -96,6 +96,17 @@ MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   return nullptr;
 }
 
+void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
+  if (auto *F = dyn_cast<Function>(&V))
+    F->setMetadata(DTransFuncTypeMDTag, MD);
+  else if (auto *I = dyn_cast<Instruction>(&V))
+    I->setMetadata(MDDTransTypeTag, MD);
+  else if (auto *G = dyn_cast<GlobalObject>(&V))
+    G->setMetadata(MDDTransTypeTag, MD);
+  else
+    llvm_unreachable("Unexpected Value type passed into addDTransMDNode");
+}
+
 bool TypeMetadataReader::initialize(Module &M) {
   NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)

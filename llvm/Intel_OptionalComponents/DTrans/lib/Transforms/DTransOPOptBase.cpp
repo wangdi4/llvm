@@ -403,7 +403,20 @@ bool DTransOPOptBase::run(Module &M) {
 
   updateDTransTypesMetadata(M, Mapper);
 
-  // TODO: Implement the calls to perform the function transformation.
+  // Identify and clone any function prototypes for functions that will need
+  // to be cloned because of function signature changes due to type changing.
+  // This needs to be done before converting global variables to handle any
+  // initializers of the variables that refer to a function address.
+  createCloneFunctionDeclarations(M);
+
+  // Remap global variables that have type changes to their new types.
+  convertGlobalVariables(M, Mapper);
+
+  // Transform all the functions.
+  transformIR(M, Mapper);
+
+  // Cleanup the IR for functions and variables that have been replaced.
+  removeDeadValues();
   return true;
 }
 
@@ -720,6 +733,164 @@ void DTransOPOptBase::updateDTransTypesMetadata(Module &M,
     for (auto *M : Remaps)
       DTMDTypes->addOperand(M);
   }
+}
+
+// Identify and create new function prototypes for dependent functions
+void DTransOPOptBase::createCloneFunctionDeclarations(Module &M) {
+  // TODO: Create functions
+}
+
+// Remap global variables to new types.
+void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
+  LLVM_DEBUG(dbgs() << "\nIdentifying global variables to replace:\n");
+
+  // Build a work list of global variables that are going to need to be
+  // remapped due to their types getting changed. Store the existing
+  // global variable and the value type of the replacement in the work list.
+  SmallVector<std::pair<GlobalVariable *, Type *>, 8> GlobalToRemapValueTyWL;
+  for (auto &GV : M.globals()) {
+    // If the type changes as a result of the type remapping
+    // then a clone of the variable will be necessary.
+    Type *ValueTy = GV.getValueType();
+    Type *ValueRemapTy = TypeRemapper.remapType(ValueTy);
+    if (ValueRemapTy != ValueTy) {
+      LLVM_DEBUG(dbgs() << "Need to replace global variable: " << GV << "\n");
+      GlobalToRemapValueTyWL.push_back(std::make_pair(&GV, ValueRemapTy));
+    } else {
+      // The GlobalVariable type may not be changing, because the type is 'p0'.
+      // However, the DTrans type metadata attached to the variable may need to
+      // be updated in this case.
+      if (MDNode *MD = TypeMetadataReader::getDTransMDNode(GV))
+        TypeMetadataReader::addDTransMDNode(GV, Mapper.mapMDNode(*MD));
+    }
+  }
+
+  // Create the new variables for the ones to be replaced. Some replacements
+  // will be managed by the derived class, so a list of those is kept as well to
+  // facilitate how the new variable will be initialized.
+  DenseMap<GlobalVariable *, GlobalVariable *> LocalVMap;
+  SmallPtrSet<GlobalVariable *, 4> SubclassHandledGVMap;
+  for (auto &GVTypePair : GlobalToRemapValueTyWL) {
+    GlobalVariable *GV = GVTypePair.first;
+
+    // Give the derived class a chance to handle replacing the global variable.
+    // This is necessary for cases where only the derived class will know how to
+    // initialize the new variable, such as if fields are being deleted.
+    GlobalVariable *NewGV = createGlobalVariableReplacement(GV);
+    if (NewGV) {
+      SubclassHandledGVMap.insert(GV);
+    } else {
+      // Globals are always pointers, so the variable we want to create is
+      // the element type of the pointer.
+      Type *NewValueType = GVTypePair.second;
+
+      // Create and set the properties of the variable. The initialization of
+      // the variable will not occur until all variables have been created
+      // because there may be references to other variables being replaced in
+      // the initializer list which have not been processed yet.
+      NewGV = new GlobalVariable(
+          M, NewValueType, GV->isConstant(), GV->getLinkage(),
+          /*init=*/nullptr, GV->getName(),
+          /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
+          GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
+      NewGV->setAlignment(MaybeAlign(GV->getAlignment()));
+      NewGV->copyAttributesFrom(GV);
+      NewGV->copyMetadata(GV, /*Offset=*/0);
+
+      if (MDNode *MD = TypeMetadataReader::getDTransMDNode(*NewGV))
+        TypeMetadataReader::addDTransMDNode(*NewGV, Mapper.mapMDNode(*MD));
+    }
+
+    // Save the mapping in our local list for use when filling in the
+    // initializers.
+    LocalVMap[GV] = NewGV;
+
+    // Save the mapping in the remapping that will be used for modifying the IR
+    // during cloning and function body remapping.
+    VMap[GV] = NewGV;
+
+    // The original global will no longer be referenced after all the IR is
+    // remapped. Save a list of variables that need to be completely removed
+    // after everything is processed.
+    GlobalsForRemoval.push_back(GV);
+  }
+
+  // Create and initialize new aliases for all the aliases that have their type
+  // changed. The original alias will be removed after all the functions
+  // have been processed. The aliases need to be processed before the global
+  // variable initializers are remapped in case a variable makes use of an
+  // alias instead of the original variable or function.
+  for (auto &Alias : M.getAliasList()) {
+    Constant *Aliasee = Alias.getAliasee();
+    // If the Aliasee is being mapped to something other than itself,
+    // then this GlobalAlias needs to be updated.
+    auto VMapIt = VMap.find(Aliasee);
+    if (VMapIt != VMap.end() && VMapIt->second != Aliasee) {
+      llvm::Type *ValTy = Alias.getValueType();
+      llvm::Type *RemapValTy = TypeRemapper.remapType(ValTy);
+      auto *NewAlias = GlobalAlias::create(
+          RemapValTy, Alias.getType()->getAddressSpace(), Alias.getLinkage(),
+          "", Mapper.mapConstant(*Aliasee), &M);
+      NewAlias->takeName(&Alias);
+      VMap[&Alias] = NewAlias;
+      GlobalsForRemoval.push_back(&Alias);
+      LLVM_DEBUG(dbgs() << "Global alias replacement:\n  Orig: " << Alias
+                        << "  New : " << *NewAlias << "\n");
+    }
+  }
+
+  // Create or update the initializers for all the global variables. This
+  // handles newly created variables that had their types changed, and
+  // existing variables that may have been initialized with the address of a
+  // function or global that is being remapped.
+  for (auto &GV : M.globals()) {
+    GlobalVariable *OrigGV = &GV;
+    GlobalVariable *VarToRemap = OrigGV;
+    auto LocalVMapIt = LocalVMap.find(OrigGV);
+    if (LocalVMapIt != LocalVMap.end())
+      VarToRemap = LocalVMapIt->second;
+
+    if (OrigGV->hasInitializer()) {
+      // If the derived class handled the replacement variable creation, then
+      // the derived class needs to handle the initialization.
+      if (SubclassHandledGVMap.count(OrigGV))
+        initializeGlobalVariableReplacement(OrigGV, VarToRemap, Mapper);
+      else
+        VarToRemap->setInitializer(
+            Mapper.mapConstant(*OrigGV->getInitializer()));
+
+      if (VarToRemap != OrigGV) {
+        VarToRemap->takeName(OrigGV);
+        postprocessGlobalVariable(OrigGV, VarToRemap);
+        LLVM_DEBUG(dbgs() << "Global Var replacement:\n  Orig: " << *OrigGV
+                          << "\n  New : " << *VarToRemap << "\n");
+      }
+    }
+  }
+}
+
+void DTransOPOptBase::initializeGlobalVariableReplacementBaseImpl(
+    GlobalVariable *OrigGV, GlobalVariable *NewGV, ValueMapper &Mapper) {
+  NewGV->setInitializer(Mapper.mapConstant(*OrigGV->getInitializer()));
+}
+
+void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
+  // TODO: Change the IR to use the new types.
+}
+
+// Remove functions and global variables that have been completely
+// replaced due to the remapping.
+void DTransOPOptBase::removeDeadValues() {
+  // An initialized global may hold references to other globals or functions
+  // being deleted. Let go of everything first so there are no dangling
+  // references when deleting the objects.
+  for (auto *GV : GlobalsForRemoval)
+    GV->dropAllReferences();
+
+  for (auto *GV : GlobalsForRemoval)
+    GV->eraseFromParent();
+
+  GlobalsForRemoval.clear();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
