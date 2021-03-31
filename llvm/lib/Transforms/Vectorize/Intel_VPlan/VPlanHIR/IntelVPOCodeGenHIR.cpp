@@ -3267,7 +3267,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   bool IsNegOneStride;
   bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
-  unsigned ScalSymbase = VPLdSt->getSymbase();
+  unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
   Align Alignment = VPLdSt->getAlignment();
   AAMDNodes AANodes;
   VPLdSt->getAAMetadata(AANodes);
@@ -4254,7 +4254,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       // to canon expression source type. In order to preserve linear canon
       // expressions, we flagged such converts during decomposition. Fold such
       // converts.
-      if (VPInst->getFoldIVConvert()) {
+      if (VPInst->HIR().getFoldIVConvert()) {
         if (Widen) {
           // The type of blobs in the canon expression needs to match the source
           // type of canon expression. For a widened IV, the type of the blob

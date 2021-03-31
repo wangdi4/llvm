@@ -340,7 +340,7 @@ class HIRSpecificsData {
   PointerUnion<MasterVPInstData *, VPInstruction *, void *> ExtraData =
       (int *)nullptr;
 
-  HIRSpecificsData() {}
+  HIRSpecificsData(const VPInstruction &Inst);
 
 public:
   ~HIRSpecificsData() {
@@ -476,13 +476,13 @@ public:
        << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
   }
 
-  void setSymbase(unsigned SB) { HIRData().Symbase = SB; }
-  unsigned getSymbase(void) const { return HIRData().Symbase; }
+  void setSymbase(unsigned SB);
+  unsigned getSymbase() const;
 
-  void setFoldIVConvert(bool Fold) { HIRData().FoldIVConvert = Fold; }
-  bool getFoldIVConvert(void) const { return HIRData().FoldIVConvert; }
+  void setFoldIVConvert(bool Fold);
+  bool getFoldIVConvert() const;
 
-  void cloneFrom(const HIRSpecifics HIR, bool CopySymbase);
+  void cloneFrom(const HIRSpecifics HIR);
 };
 
 } // namespace vpo

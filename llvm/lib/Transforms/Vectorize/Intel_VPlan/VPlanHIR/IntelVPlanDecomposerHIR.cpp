@@ -231,7 +231,7 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
     // Mark that the IV convert needs to be folded into the containing canon
     // expression. This is important for preserving linear canon expressions in
     // generated vector code.
-    cast<VPInstruction>(VPIndVar)->setFoldIVConvert(true);
+    cast<VPInstruction>(VPIndVar)->HIR().setFoldIVConvert(true);
   }
 
   DecompIV = combineDecompDefs(DecompIV, VPIndVar, Ty, Instruction::Mul);
@@ -614,7 +614,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
     // Save away scalar memref symbase and original alignment for later use.
     auto *MemOpVPInst = cast<VPLoadStoreInst>(MemOpVPI);
-    MemOpVPInst->setSymbase(Ref->getSymbase());
+    MemOpVPInst->HIR().setSymbase(Ref->getSymbase());
     MemOpVPInst->setAlignment(getAlignForMemref(Ref));
 
     // FIXME: This special-casing for loads that are HLInst is becoming more
@@ -938,7 +938,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       if (NewVPInst->getOpcode() == Instruction::Store) {
         assert(LvalDDR->isMemRef() &&
                "Expected Lval of a store HLInst to be a memref");
-        NewVPInst->setSymbase(LvalDDR->getSymbase());
+        NewVPInst->HIR().setSymbase(LvalDDR->getSymbase());
         cast<VPLoadStoreInst>(NewVPInst)->setAlignment(
             getAlignForMemref(LvalDDR));
       }
