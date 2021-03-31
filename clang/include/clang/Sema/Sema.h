@@ -10376,11 +10376,6 @@ public:
   void AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD, SourceLocation Loc);
 
   template <typename AttrType>
-  bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
-                                   ExprResult &Result);
-  template <typename AttrType>
-  void AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E);
-  template <typename AttrType>
   void AddOneConstantPowerTwoValueAttr(Decl *D, const AttributeCommonInfo &CI,
                                        Expr *E);
 
@@ -10426,6 +10421,11 @@ public:
                                      Expr *E);
   IntelFPGAMaxReplicatesAttr *
   MergeIntelFPGAMaxReplicatesAttr(Decl *D, const IntelFPGAMaxReplicatesAttr &A);
+  void AddIntelFPGAForcePow2DepthAttr(Decl *D, const AttributeCommonInfo &CI,
+                                      Expr *E);
+  IntelFPGAForcePow2DepthAttr *
+  MergeIntelFPGAForcePow2DepthAttr(Decl *D,
+                                   const IntelFPGAForcePow2DepthAttr &A);
 
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
@@ -13545,6 +13545,7 @@ void Sema::addIntelTripleArgAttr(Decl *D, const AttributeCommonInfo &CI,
 }
 
 template <typename AttrType>
+<<<<<<< HEAD
 void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
                                    Expr *E) {
   AttrType TmpAttr(Context, CI, E);
@@ -13560,6 +13561,8 @@ void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
 }
 
 template <typename AttrType>
+=======
+>>>>>>> d02879c94e3e7f227c18956a64465ab8994419c2
 void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
                                            const AttributeCommonInfo &CI,
                                            Expr *E) {

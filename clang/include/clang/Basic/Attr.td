@@ -2213,7 +2213,7 @@ def IntelFPGABankBits : Attr {
   let Documentation = [IntelFPGABankBitsDocs];
 }
 
-def IntelFPGAForcePow2Depth : Attr {
+def IntelFPGAForcePow2Depth : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","force_pow2_depth">,
                    GNU<"force_pow2_depth">, // INTEL
                    CXX11<"intel","force_pow2_depth">];
@@ -2222,14 +2222,6 @@ def IntelFPGAForcePow2Depth : Attr {
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGAForcePow2DepthAttrDocs];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 0;
-    }
-    static unsigned getMaxValue() {
-      return 1;
-    }
-  }];
 }
 
 def Naked : InheritableAttr {
