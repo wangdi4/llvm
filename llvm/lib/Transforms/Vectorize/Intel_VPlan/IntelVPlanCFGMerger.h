@@ -24,6 +24,7 @@ namespace llvm {
 class Loop;
 
 namespace vpo {
+extern bool EmitPushPopVF;
 
 // Utility class to merge CFG of VPlan.
 class VPlanCFGMerger {

@@ -112,7 +112,7 @@ protected:
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
 
     // Pass native TTI into CallVecDecisions analysis.
-    CallVecDecisions.run(VF, TLI, &VPTTI.getTTI());
+    CallVecDecisions.runForVF(VF, TLI, &VPTTI.getTTI());
 
     // Compute SVA results for current VPlan in order to compute cost
     // accurately in CM.

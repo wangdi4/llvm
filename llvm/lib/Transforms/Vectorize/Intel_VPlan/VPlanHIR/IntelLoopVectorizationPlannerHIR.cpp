@@ -63,7 +63,9 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
 
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
-  CallVecDecisions.run(BestVF, TLI, TTI);
+  // TODO: Update to use runForMergedCFG when CFGMerger is available for HIR
+  // path.
+  CallVecDecisions.runForVF(BestVF, TLI, TTI);
   std::string Label("CallVecDecisions analysis for VF=" +
                     std::to_string(BestVF));
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);

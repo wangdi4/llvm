@@ -24,9 +24,16 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static cl::opt<bool>
-    EmitPushPopVF("vplan-enable-pushvf", cl::init(false), cl::Hidden,
-                  cl::desc("Emit pushvf and popvf VPInstrucitons."));
+static cl::opt<bool, true>
+    EmitPushPopVFOpt("vplan-enable-pushvf", cl::location(EmitPushPopVF),
+                     cl::Hidden,
+                     cl::desc("Emit pushvf and popvf VPInstrucitons."));
+
+namespace llvm {
+namespace vpo {
+bool EmitPushPopVF = false;
+} // namespace vpo
+} // namespace llvm
 
 VPBasicBlock *VPlanCFGMerger::createMergeBlock(VPBasicBlock *InsertAfter,
                                                VPBasicBlock *SplitBlock,
