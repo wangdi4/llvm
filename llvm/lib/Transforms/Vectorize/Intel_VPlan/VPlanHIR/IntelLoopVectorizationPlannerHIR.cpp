@@ -124,11 +124,24 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   if (EnableInMemoryEntities)
     return true;
 
+  const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+
+  // Entities code and CG need to be uplifted to handle vector type inductions
+  // and reductions.
+  for (auto *BB : Loop.blocks())
+    for (VPInstruction &Inst : *BB)
+      if (LE->getReduction(&Inst) || LE->getInduction(&Inst))
+        if (isa<VectorType>(Inst.getType())) {
+          LLVM_DEBUG(dbgs() << "LVP: Vector type reduction/induction currently"
+                            << " not supported.\n"
+                            << Inst << "\n");
+          return false;
+        }
+
   // HIR-CG is not setup to deal with instructions related to in-memory entities
   // such as VPAllocatePrivate. Check and bail out for any in-memory entities.
   // Walking the VPlan instructions will not work as this check is done before
   // we insert entity related instructions.
-  const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
   return !LE->hasInMemoryEntity();
 }
 
