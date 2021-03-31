@@ -18,10 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-LABEL: @test_01
 define void @test_01(float* %P1, float* %P2, i64 %M, i64 %N) {
 ; CHECK-LABEL: entry:
-; CHECK-NEXT:    [[PTRINT:%.*]] = ptrtoint float* %P2 to i64
-; CHECK-NEXT:    [[MASKEDPTR:%.*]] = and i64 [[PTRINT]], 15
-; CHECK-NEXT:    [[MASKCOND:%.*]] = icmp eq i64 [[MASKEDPTR]], 0
-; CHECK-NEXT:    call void @llvm.assume(i1 [[MASKCOND]])
+; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(float* %P2, i64 16) ]
 ; CHECK-NEXT:    br label %for.outer
 entry:
   br label %for.outer
@@ -67,10 +64,7 @@ entry:
 
 ; CHECK-LABEL: for.outer:
 ; CHECK-NEXT:    %I = phi i64 [ 0, %entry ], [ %I.inc, %for.outer.latch ]
-; CHECK-NEXT:    [[PTRINT:%.*]] = ptrtoint float* %P1 to i64
-; CHECK-NEXT:    [[MASKEDPTR:%.*]] = and i64 [[PTRINT]], 15
-; CHECK-NEXT:    [[MASKCOND:%.*]] = icmp eq i64 [[MASKEDPTR]], 0
-; CHECK-NEXT:    call void @llvm.assume(i1 [[MASKCOND]])
+; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(float* %P1, i64 16) ]
 ; CHECK-NEXT:    br label %for.inner
 for.outer:
   %I = phi i64 [ 0, %entry ], [ %I.inc, %for.outer.latch ]
