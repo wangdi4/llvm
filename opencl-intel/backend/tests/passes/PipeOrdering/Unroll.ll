@@ -24,6 +24,7 @@
 ; Optimizer options:
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
 
 ; CHECK:   define void @foo
@@ -198,3 +199,5 @@ attributes #3 = { nounwind }
 !18 = !{!14, !14, i64 0}
 !19 = distinct !{!19, !20}
 !20 = !{!"llvm.loop.unroll.enable"}
+
+; DEBUGIFY-NOT: WARNING

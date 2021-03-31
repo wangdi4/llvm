@@ -16,6 +16,7 @@
 ; Optimizer options:
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
 
 ; CHECK-LABEL: while.body:
@@ -92,3 +93,5 @@ attributes #1 = { nounwind readnone }
 !6 = !{!7, !7, i64 0}
 !7 = !{!"omnipotent char", !8, i64 0}
 !8 = !{!"Simple C/C++ TBAA"}
+
+; DEBUGIFY-NOT: WARNING

@@ -15,6 +15,7 @@
 ; Optimizer options:
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
 
 ; CHECK-LABEL: for.cond:
@@ -133,3 +134,5 @@ attributes #3 = { nounwind }
 !16 = !{!17, !17, i64 0}
 !17 = !{!"int", !14, i64 0}
 !18 = !{!14, !14, i64 0}
+
+; DEBUGIFY-NOT: WARNING

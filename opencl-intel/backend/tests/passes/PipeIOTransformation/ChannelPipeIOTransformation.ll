@@ -26,6 +26,7 @@
 ; Optimizer options:
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation -verify %s -S | FileCheck %s
 
 ; CHECK: @llvm.global_dtors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_dtor, i8* null }]
@@ -222,3 +223,5 @@ attributes #3 = { nounwind }
 !22 = !{!"any pointer", !17, i64 0}
 !23 = !{!24, !24, i64 0}
 !24 = !{!"long", !17, i64 0}
+
+; DEBUGIFY-NOT: WARNING: Missing line

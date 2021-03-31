@@ -21,6 +21,7 @@
 ; Optimizer options:
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
 
 ; CHECK-LABEL: for.cond:
@@ -147,3 +148,5 @@ attributes #5 = { convergent }
 !16 = !{!"any pointer", !7, i64 0}
 !17 = !{!18, !18, i64 0}
 !18 = !{!"int", !7, i64 0}
+
+; DEBUGIFY-NOT: WARNING

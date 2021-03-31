@@ -11,6 +11,7 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2 -finclude-default-header
 ; ----------------------------------------------------
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify %s -S | FileCheck %s
 
 ; CHECK: @[[PIPE1:.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
@@ -73,3 +74,5 @@ attributes #2 = { convergent nounwind }
 !12 = !{!"int", !13, i64 0}
 !13 = !{!"omnipotent char", !14, i64 0}
 !14 = !{!"Simple C/C++ TBAA"}
+
+; DEBUGIFY-NOT: WARNING: Missing line

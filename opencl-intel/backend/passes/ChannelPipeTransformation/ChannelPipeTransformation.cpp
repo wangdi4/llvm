@@ -366,42 +366,42 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
   }
 
   auto *ChannelInst = cast<Instruction>(ChannelUser);
+  IRBuilder<> Builder(ChannelInst);
 
   if (auto *Alloca = dyn_cast<AllocaInst>(ChannelInst)) {
-    return new AllocaInst(PipeTy, Alloca->getType()->getAddressSpace(),
-                          Alloca->getArraySize(), "pipe." + Alloca->getName(),
-                          Alloca);
+    return Builder.CreateAlloca(PipeTy, Alloca->getType()->getAddressSpace(),
+                                Alloca->getArraySize(),
+                                "pipe." + Alloca->getName());
   }
 
   if (auto *Store = dyn_cast<StoreInst>(ChannelInst)) {
     Value *DestPtr = UndefValue::get(PointerType::getUnqual(PipeTy));
-    return new StoreInst(UndefPipe, DestPtr, Store->isVolatile(),
-                         Store->getAlign(),
-                         Store->getOrdering(),
-                         Store->getSyncScopeID(), Store);
+    auto *NewStore = Builder.CreateAlignedStore(
+        UndefPipe, DestPtr, Store->getAlign(), Store->isVolatile());
+    NewStore->setOrdering(Store->getOrdering());
+    NewStore->setSyncScopeID(Store->getSyncScopeID());
+    return NewStore;
   }
 
   if (auto *GEP = dyn_cast<GetElementPtrInst>(ChannelInst)) {
     SmallVector<Value *, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
-
-    return GetElementPtrInst::Create(PipeTy->getPointerElementType(), UndefPipe,
-                                     IdxList, ChannelInst->getName(),
-                                     ChannelInst);
+    return Builder.CreateGEP(PipeTy->getPointerElementType(), UndefPipe, IdxList,
+                      ChannelInst->getName());
   }
 
   if (auto *Load = dyn_cast<LoadInst>(ChannelInst)) {
-    return new LoadInst(PipeTy->getPointerElementType(), UndefPipe,
-                        Load->getName(), Load->isVolatile(), ChannelInst);
+    return Builder.CreateLoad(PipeTy->getPointerElementType(), UndefPipe,
+                              Load->isVolatile(), Load->getName());
   }
 
   if (auto *Select = dyn_cast<SelectInst>(ChannelInst)) {
-    return SelectInst::Create(Select->getCondition(), UndefPipe, UndefPipe,
-                              ChannelInst->getName(), ChannelInst);
+    return Builder.CreateSelect(Select->getCondition(), UndefPipe, UndefPipe,
+                                ChannelInst->getName());
   }
 
   if (auto *Phi = dyn_cast<PHINode>(ChannelInst)) {
-    auto *NewPhi = PHINode::Create(PipeTy, Phi->getNumIncomingValues(),
-                                   ChannelInst->getName(), ChannelInst);
+    auto *NewPhi = Builder.CreatePHI(PipeTy, Phi->getNumIncomingValues(),
+                                     ChannelInst->getName());
     for (auto *BB : Phi->blocks()) {
       NewPhi->addIncoming(UndefPipe, BB);
     }
@@ -467,6 +467,7 @@ static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
 
   assert(ChannelCall->getNumArgOperands() <= 3 &&
                "Too many arguments for channel write function!");
+  IRBuilder<> Builder(ChannelCall);
   if(ChannelCall->getNumArgOperands() == 3) {
     // This is a channel write with coerced arguments
     // At this time, struct size is > 8 bytes and <= 16 bytes
@@ -486,15 +487,15 @@ static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
       WritePacketPtr = new AllocaInst(structMergeTy, DL.getAllocaAddrSpace(),
                "write.src", &*AllocaInsertionPt);
 
-    SmallVector<Value *, 2> Indices(2,
-               ConstantInt::get(IntegerType::get(M.getContext(), 32), 0));
-    GetElementPtrInst *gepArg1 = GetElementPtrInst::Create(structMergeTy,
-                                    WritePacketPtr, Indices, "", ChannelCall);
-    new StoreInst(PacketArg1, gepArg1, ChannelCall);
+    SmallVector<Value *, 2> Indices(
+        2, ConstantInt::get(IntegerType::get(M.getContext(), 32), 0));
+    auto *gepArg1 =
+        Builder.CreateGEP(structMergeTy, WritePacketPtr, Indices, "");
+    Builder.CreateStore(PacketArg1, gepArg1);
     Indices[1] = ConstantInt::get(IntegerType::get(M.getContext(), 32), 1);
-    GetElementPtrInst *gepArg2 = GetElementPtrInst::Create(structMergeTy,
-                                    WritePacketPtr, Indices, "", ChannelCall);
-    new StoreInst(PacketArg2, gepArg2, ChannelCall);
+    auto *gepArg2 =
+        Builder.CreateGEP(structMergeTy, WritePacketPtr, Indices, "");
+    Builder.CreateStore(PacketArg2, gepArg2);
 
     return WritePacketPtr;
   }
@@ -517,7 +518,7 @@ static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
     WritePacketPtr = new AllocaInst(Packet->getType(), DL.getAllocaAddrSpace(),
                                     "write.src", &*AllocaInsertionPt);
 
-  new StoreInst(Packet, WritePacketPtr, ChannelCall);
+  Builder.CreateStore(Packet, WritePacketPtr);
 
   return WritePacketPtr;
 }
@@ -586,17 +587,16 @@ static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall, Value *G
 
   auto PipeMD = GlobalVariableMetadataAPI(cast<GlobalVariable>(GlobalPipe));
 
+  IRBuilder<> Builder(ChannelCall);
   Value *Args[] = {
       // %opencl.pipe_rw_t to %opencl.pipe_ro_t/%opencl.pipe_wo_t
-      CastInst::CreatePointerCast(Pipe, FTy->getParamType(0), "", ChannelCall),
-      CastInst::CreatePointerCast(PacketPtr, FTy->getParamType(1), "",
-                                  ChannelCall),
+      Builder.CreatePointerCast(Pipe, FTy->getParamType(0), ""),
+      Builder.CreatePointerCast(PacketPtr, FTy->getParamType(1), ""),
       ConstantInt::get(FTy->getParamType(2), PipeMD.PipePacketSize.get()),
       ConstantInt::get(FTy->getParamType(3), PipeMD.PipePacketAlign.get())
   };
 
-  Value *BoolRet =
-      CallInst::Create(Builtin, Args, ChannelCall->getName(), ChannelCall);
+  CallInst *BoolRet = Builder.CreateCall(Builtin, Args, ChannelCall->getName());
 
   replaceChannelCallResult(ChannelCall, CK, PacketPtr, BoolRet);
 }

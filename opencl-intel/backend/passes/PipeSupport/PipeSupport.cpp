@@ -151,8 +151,9 @@ static void insertFlushAtExit(Function &F, Instruction *FlushReadCall,
     if (!isa<ReturnInst>(Term))
       continue;
 
-    FlushReadCall->insertBefore(Term);
-    FlushWriteCall->insertBefore(Term);
+    IRBuilder<> Builder(Term);
+    Builder.Insert(FlushReadCall);
+    Builder.Insert(FlushWriteCall);
 
     return;
   }
@@ -243,8 +244,9 @@ static BasicBlock *insertFlushAtNonBlockingCall(const PipeCallInfo &PC,
     IsCallFailed, cast<Instruction>(IsCallFailed)->getNextNode(),
     /*Unreachable=*/false);
 
-  FlushReadCall->insertBefore(ThenTerm);
-  FlushWriteCall->insertBefore(ThenTerm);
+  Builder.SetInsertPoint(ThenTerm);
+  Builder.Insert(FlushReadCall);
+  Builder.Insert(FlushWriteCall);
 
   return ThenTerm->getParent();
 }
