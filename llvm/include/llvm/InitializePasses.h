@@ -669,6 +669,9 @@ void initializeDataPerValuePass(PassRegistry&);
 void initializeKernelBarrierPass(PassRegistry&);
 void initializeBarrierInFunctionPass(PassRegistry&);
 void initializePostBarrierPass(PassRegistry&);
+void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
+void initializeLocalBufferAnalysisLegacyPass(PassRegistry &);
+void initializeAddImplicitArgsLegacyPass(PassRegistry &);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

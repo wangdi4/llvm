@@ -1,4 +1,5 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
+  AddImplicitArgs.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp
   DPCPPKernelVecClone.cpp
@@ -8,6 +9,8 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelLoopUtils.cpp
   DPCPPKernelWGLoopCreator.cpp
   DPCPPKernelAnalysis.cpp
+  ImplicitArgsAnalysis.cpp
+  LocalBufferAnalysis.cpp
   PhiCanonicalization.cpp
   RedundantPhiNodePass.cpp
   SplitBBonBarrierPass.cpp
