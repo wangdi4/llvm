@@ -1954,6 +1954,9 @@ LIBBUILTIN(omp_set_num_threads, "vi", "nf", "omp.h", OMP_LANG)
 LIBBUILTIN(omp_set_nested, "vi", "nf", "omp.h", OMP_LANG)
 #endif // INTEL_COLLAB
 
+// CUDA/HIP
+LANGBUILTIN(__builtin_get_device_side_mangled_name, "cC*.", "ncT", CUDA_LANG)
+
 // Builtins for XRay
 BUILTIN(__xray_customevent, "vcC*z", "")
 BUILTIN(__xray_typedevent, "vzcC*z", "")
