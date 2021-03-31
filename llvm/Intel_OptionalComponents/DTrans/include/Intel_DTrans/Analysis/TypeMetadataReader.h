@@ -64,6 +64,10 @@ public:
   // used to describe all the structure types.
   static NamedMDNode* getDTransTypesMetadata(Module &M);
 
+  // Get the DTrans metadata node for a specific value. This can be used by
+  // the transformations to be able to update the metadata when changing types.
+  static MDNode *getDTransMDNode(const Value &V);
+
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
   // This method should be called first to walk the named metadata node,
