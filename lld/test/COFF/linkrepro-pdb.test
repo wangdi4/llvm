@@ -1,5 +1,7 @@
 REQUIRES: x86, gnutar
 
+UNSUPPORTED: windows
+
 RUN: rm -rf %t && mkdir -p %t && cd %t
 RUN: yaml2obj %S/Inputs/pdb-type-server-simple-a.yaml -o a.obj
 RUN: yaml2obj %S/Inputs/pdb-type-server-simple-b.yaml -o b.obj
