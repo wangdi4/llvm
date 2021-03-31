@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -157,11 +157,19 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     Compiler* pCompiler = GetCompiler();
     std::unique_ptr<llvm::Module> M = pCompiler->ParseModuleIR(Buffer.get());
-    pCompiler->materializeSpirTriple(M.get());
 
-    // create LLJIT
-    std::unique_ptr<llvm::orc::LLJIT> LLJIT =
-        pCompiler->CreateLLJIT(M.get(), nullptr, nullptr);
+    bool useLLDJIT = m_compiler.isObjectFromLLDJIT(llvm::StringRef(objectBuffer,
+                                                                   objectSize));
+    if (useLLDJIT) {
+        intel::DebuggingServiceType userType = intel::getUserDefinedDebuggingServiceType();
+
+        if (userType != intel::None && userType != intel::Native) {
+            // user has overriden cached object type
+            pProgram->SetModule(std::move(M));
+            return false;
+        }
+    }
+    pCompiler->materializeSpirTriple(M.get());
 
     // create cache manager
     pProgram->SetModule(std::move(M));
@@ -169,14 +177,28 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     ObjectCodeCache* pCache = new ObjectCodeCache(pProgram->GetModule(),
                                                   objectBuffer, objectSize);
 
-    // add object buffer to LLJIT
-    if (llvm::Error err = LLJIT->addObjectFile(pCache->getObject(nullptr))) {
-        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
-        throw Exceptions::CompilerException("Failed to add object to LLJIT");
+    CPUProgram *cpuProgram = static_cast<CPUProgram *>(pProgram);
+
+    if (useLLDJIT) {
+        m_compiler.CreateExecutionEngine(pProgram->GetModule());
+        m_compiler.SetObjectCache(pCache);
+        cpuProgram->SetExecutionEngine(m_compiler.GetExecutionEngine());
+        cpuProgram->GetExecutionEngine()->generateCodeForModule(pProgram->GetModule());
+    } else {
+        // create LLJIT
+        std::unique_ptr<llvm::orc::LLJIT> LLJIT =
+            pCompiler->CreateLLJIT(pProgram->GetModule(), nullptr, nullptr);
+
+        // add object buffer to LLJIT
+        if (llvm::Error err = LLJIT->addObjectFile(pCache->getObject(nullptr))) {
+            llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+            throw Exceptions::CompilerException("Failed to add object to LLJIT");
+        }
+
+        pProgram->SetLLJIT(std::move(LLJIT));
     }
 
-    static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
-    pProgram->SetLLJIT(std::move(LLJIT));
+    cpuProgram->SetObjectCache(pCache);
 
     // deserialize the management objects
     std::unique_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
@@ -422,8 +444,11 @@ void CPUProgramBuilder::JitProcessing(
     }
   }
 
-  if (useLLDJIT)
+  if (useLLDJIT) {
+    CPUProgram *cpuProgram = static_cast<CPUProgram *>(program);
+    cpuProgram->GetExecutionEngine()->generateCodeForModule(module);
     return;
+  }
 
   // Record kernel names and trigger JIT compilation of kernels
   std::vector<std::string> kernelNames;
