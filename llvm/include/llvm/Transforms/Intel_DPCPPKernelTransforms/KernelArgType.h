@@ -67,7 +67,6 @@ enum KernelArgumentType {
 struct KernelArgument {
   KernelArgumentType Ty;      //!< Type of the argument.
   unsigned int SizeInBytes;   //!< Size of the argument in bytes
-  unsigned int Access;        //!< Access type for pointers
   unsigned int OffsetInBytes; //!< Offset of the argument in argument buffer
 };
 

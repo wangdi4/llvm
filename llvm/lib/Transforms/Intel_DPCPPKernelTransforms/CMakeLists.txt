@@ -40,5 +40,4 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
 )
 
 target_include_directories(LLVMIntel_DPCPPKernelTransforms
-  PRIVATE ${OpenCL_INCLUDE_DIR}
   PRIVATE ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)
