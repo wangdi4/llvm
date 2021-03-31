@@ -48,6 +48,10 @@ __attribute__((weak))
 __attribute__((visibility("hidden")))
 #endif
 void __compilerrt_abort_impl(const char *file, int line, const char *function) {
+  (void)file;
+  (void)line;
+  (void)function;
+
   __builtin_trap();
 }
 
@@ -61,6 +65,10 @@ __attribute__((weak))
 __attribute__((visibility("hidden")))
 #endif
 void __compilerrt_abort_impl(const char *file, int line, const char *function) {
+  (void)file;
+  (void)line;
+  (void)function;
+
   abort();
 }
 

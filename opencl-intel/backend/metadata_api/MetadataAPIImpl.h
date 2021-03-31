@@ -46,7 +46,7 @@ struct MDValueTraits {
     return pT;
   }
 
-  static llvm::Metadata *generateValue(llvm::LLVMContext &Context,
+  static llvm::Metadata *generateValue(llvm::LLVMContext & /*Context*/,
                                        const value_type &Value) {
     return const_cast<value_type>(Value);
   }
@@ -155,7 +155,7 @@ struct MDValueTraits<llvm::Type, void> {
     return pT->getType();
   }
 
-  static llvm::Metadata *generateValue(llvm::LLVMContext &Context,
+  static llvm::Metadata *generateValue(llvm::LLVMContext & /*Context*/,
                                        const value_type &Value) {
     return llvm::ConstantAsMetadata::get(llvm::UndefValue::get(Value));
   }
@@ -177,7 +177,7 @@ struct MDValueTraits<llvm::Function, void> {
     return pT;
   }
 
-  static llvm::Metadata *generateValue(llvm::LLVMContext &Context,
+  static llvm::Metadata *generateValue(llvm::LLVMContext & /*Context*/,
                                        const value_type &Value) {
     if (!Value)
       return nullptr;
@@ -511,6 +511,8 @@ public:
 
   NamedHeteroTupleMDList(const llvm::Function *pFunction, const char *Name)
       : m_pID(Name), m_pNode(pFunction->getMetadata(Name)), m_isLoaded(false) {}
+
+  virtual ~NamedHeteroTupleMDList() {}
 
   Uitem_type getFirstItem() {
     load();
