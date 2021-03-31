@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -226,10 +226,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
     {
         if(pProgram->HasCachedExecutable())
         {
-             std::string log = "Reload Program Binary Object.";
-             ReloadProgramFromCachedExecutable(pProgram);
-             pProgram->SetBuildLog(log);
-             return CL_DEV_SUCCESS;
+            if (ReloadProgramFromCachedExecutable(pProgram)) {
+                std::string log = "Reload Program Binary Object.";
+                pProgram->SetBuildLog(log);
+                return CL_DEV_SUCCESS;
+            }
         }
         Compiler* pCompiler = GetCompiler();
         llvm::Module* pModule = pProgram->GetModule();

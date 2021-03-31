@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019 Intel Corporation.
+// Copyright 2019-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -69,7 +69,7 @@ ExecutionEngine *LLDJIT::createJIT(std::unique_ptr<Module> M,
 
 LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)
     : ExecutionEngine(TM->createDataLayout(), std::move(M)), TM(std::move(TM)),
-      DLLHandle(nullptr) {
+      DLLHandle(nullptr), ObjCache(nullptr) {
   // FIXME: We are managing our modules, so we do not want the base class
   // ExecutionEngine to manage them as well. To avoid double destruction
   // of the first (and only) module added in ExecutionEngine constructor
@@ -150,9 +150,8 @@ void LLDJIT::addArchive(object::OwningBinary<object::Archive> A) {
 }
 
 void LLDJIT::setObjectCache(ObjectCache *NewCache) {
-  // This function can be called, but caching will not work.
-  /*MutexGuard Locked(lock);
-  ObjCache = NewCache;*/
+  std::lock_guard<sys::Mutex> locked(lock);
+  ObjCache = NewCache;
 }
 
 std::string LLDJIT::getLastErrorMessage() {
@@ -187,6 +186,33 @@ void LLDJIT::dllExportGlobalVariables(llvm::Module *M) {
   }
 }
 
+bool LLDJIT::isObjectFromLLDJIT(llvm::StringRef ObjBuf) {
+  // LLDJIT produces a COFF object file containing debugging information
+  bool IsFromLLDJIT = false;
+  bool IsCOFF = false;
+  llvm::MemoryBufferRef memRef(ObjBuf, "<LLDJIT obj>");
+  auto OFOrErr = llvm::object::ObjectFile::createObjectFile(memRef);
+  if (OFOrErr) {
+    auto &OF = OFOrErr.get();
+    IsCOFF = isa<llvm::object::COFFObjectFile>(*OF);
+    if (IsCOFF) {
+      for (auto &Section : OF->sections()) {
+        StringRef Name;
+        if (Expected<StringRef> NameOrErr = Section.getName()) {
+          Name = *NameOrErr;
+          if (Name == ".debug$T" || Name == ".debug$S") {
+            IsFromLLDJIT = true;
+            break;
+          }
+        }
+      }
+    }
+  } else {
+    llvm::consumeError(OFOrErr.takeError());
+  }
+  return IsFromLLDJIT;
+}
+
 std::string LLDJIT::emitObject(Module *M) {
   assert(M && "Can not emit a null module");
 
@@ -203,16 +229,31 @@ std::string LLDJIT::emitObject(Module *M) {
                        M->getContext(), ObjFile.FileName().c_str(), true));
 
   llvm::legacy::PassManager PM;
-  TM->addPassesToEmitFile(PM, ObjFile.OS(),
+
+  // Buffer the object bytes for writing to disk as well as caching in memory
+  SmallVector<char, 4096> ObjBufferSV;
+  raw_svector_ostream ObjStream(ObjBufferSV);
+
+  TM->addPassesToEmitFile(PM, ObjStream,
                           /*raw_pwrite_stream*/ nullptr,
                           CGFT_ObjectFile,
                           /*DisableVerify*/ true);
 
   // Initialize passes.
   PM.run(*M);
+
+  // Flush object bytes to disk
+  ObjFile.OS() << ObjBufferSV;
   ObjFile.OS().flush();
 
   OwnedTempFiles.emplace_back(std::move(ObjFile));
+
+  // If we have an object cache, tell it about the new object.
+  if (ObjCache) {
+    SmallVectorMemoryBuffer smvb(std::move(ObjBufferSV));
+    MemoryBufferRef MB = smvb.getMemBufferRef();
+    ObjCache->notifyObjectCompiled(M, MB);
+  }
 
   return OwnedTempFiles.back().FileName();
 }
@@ -231,16 +272,37 @@ void LLDJIT::generateCodeForModule(Module *M) {
   if (OwnedModules.hasModuleBeenLoaded(M))
     return;
 
-  // Change DLLStorageClass to dllexport for global variables.
-  dllExportGlobalVariables(M);
-
   std::string ObjectToLoad;
 
   assert(TM->isCompatibleDataLayout(M->getDataLayout()) &&
          "DataLayout Mismatch");
 
+  // Change DLLStorageClass to dllexport for global variables.
+  dllExportGlobalVariables(M);
+
+  // Try to load the pre-compiled object from cache if possible
+  if (ObjCache) {
+    std::unique_ptr<MemoryBuffer> ObjectInCache;
+    ObjectInCache = ObjCache->getObject(M);
+
+    if (ObjectInCache) {
+      // recreate the on-disk temp file
+      TmpFile ObjFile = TmpFile("OpenCLKernel", "obj");
+      M->addModuleFlag(llvm::Module::Warning, "ObjFilePath",
+                       llvm::ConstantDataArray::getString(
+                           M->getContext(), ObjFile.FileName().c_str(), true));
+      ObjFile.OS().write(ObjectInCache->getBufferStart(),
+                         ObjectInCache->getBufferSize());
+      ObjFile.OS().flush();
+      OwnedTempFiles.emplace_back(std::move(ObjFile));
+      ObjectToLoad = OwnedTempFiles.back().FileName();
+    }
+  }
+
   // If the cache did not contain a suitable object, compile the object
-  ObjectToLoad = emitObject(M);
+  if (ObjectToLoad.empty()) {
+    ObjectToLoad = emitObject(M);
+  }
 
   LoadedObjects.push_back(ObjectToLoad);
   LoadDLL(M);

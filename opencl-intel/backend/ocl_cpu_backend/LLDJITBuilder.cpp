@@ -49,8 +49,6 @@ LLDJITBuilder::CreateExecutionEngine(llvm::Module *M, llvm::TargetMachine *TM) {
         "Failed to create LLDJIT execution engine");
   }
 
-  EE->generateCodeForModule(M);
-
   return EE;
 }
 

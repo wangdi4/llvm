@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -210,6 +210,7 @@ public:
     void materializeSpirTriple(llvm::Module *M);
 
     virtual bool useLLDJITForExecution(llvm::Module* pModule) const = 0;
+    virtual bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const = 0;
 
 protected:
     void LoadBuiltinModules(BuiltinLibrary* pLibrary,
