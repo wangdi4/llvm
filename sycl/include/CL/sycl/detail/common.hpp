@@ -99,16 +99,15 @@ static inline std::string codeToString(cl_int code) {
 #define __SYCL_ASSERT(x) assert(x)
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 
-/* INTEL_CUSTOMIZATION */
 #define __SYCL_OCL_ERROR_REPORT                                                \
   "Native API failed. " /*__FILE__*/                                           \
   /* TODO: replace __FILE__ to report only relative path*/                     \
   /* ":" __SYCL_STRINGIFY_LINE(__LINE__) ": " */                               \
                                "Native API returns: "
-/* end INTEL_CUSTOMIZATION */
 
 #ifndef __SYCL_SUPPRESS_OCL_ERROR_REPORT
 #include <iostream>
+// TODO: rename all names with direct use of OCL/OPENCL to be backend agnostic.
 #define __SYCL_REPORT_OCL_ERR_TO_STREAM(expr)                                  \
   {                                                                            \
     auto code = expr;                                                          \
