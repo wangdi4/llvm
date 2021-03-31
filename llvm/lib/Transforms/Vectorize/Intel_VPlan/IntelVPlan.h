@@ -821,6 +821,28 @@ public:
     Cloned->copyAttributesFrom(*this);
     return Cloned;
   }
+
+  bool isUnderlyingIRValid() const {
+    return IsUnderlyingValueValid || HIR.isValid();
+  }
+
+  void invalidateUnderlyingIR() {
+    IsUnderlyingValueValid = false;
+    // Temporary hook-up to ignore loop induction related instructions during CG
+    // by not invalidating them.
+    // TODO: Remove this code after VPInduction support is added to HIR CG.
+    const loopopt::HLNode *HNode = HIR.getUnderlyingNode();
+    if (HNode && isa<loopopt::HLLoop>(HNode))
+      return;
+    HIR.invalidate();
+    // At this point, we don't have a use-case where invalidation of users of
+    // instruction is needed. This is because VPInstructions mostly represent
+    // r-value of a HLInst and modifying the r-value should not affect l-value
+    // temp refs. For stores this was never an issue since store instructions
+    // cannot have users. In case of LLVM-IR invalidating an instruction might
+    // mean that the underlying bit value is different. If this is the case then
+    // invalidation should be propagated to users as well.
+  }
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.

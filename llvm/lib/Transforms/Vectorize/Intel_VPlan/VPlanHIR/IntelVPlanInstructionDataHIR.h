@@ -305,7 +305,7 @@ public:
 
 /// Hold all the HIR-specific data and interfaces for a VPInstruction.
 class HIRSpecifics {
-  friend class VPValue;
+  friend class VPInstruction;
 
 private:
   /// Return true if the underlying HIR data is valid. If it's a decomposed
