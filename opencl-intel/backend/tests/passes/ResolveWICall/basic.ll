@@ -1,4 +1,6 @@
+; RUN: %oclopt -add-implicit-args -debugify -resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -resolve-wi-call -S %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-ARG
+; RUN: %oclopt -add-tls-globals -debugify -resolve-wi-call -check-debugify -use-tls-globals -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-tls-globals -resolve-wi-call -use-tls-globals -S %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-TLS
 
 ; TODO: add checks...
@@ -273,3 +275,5 @@ declare i64 @_Z14get_num_groupsj(i32)
 declare i64 @_Z12get_group_idj(i32)
 declare i64 @_Z17get_global_offsetj(i32)
 declare i8* @get_special_buffer.()
+
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args -debugify -resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -resolve-wi-call -S %s -o - | FileCheck %s
 ; TODO: add checks...
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i32:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
@@ -84,3 +85,5 @@ declare i32 @_Z23get_enqueued_local_sizej(i32)
 
 !opencl.ocl.version = !{!0}
 !0 = !{i32 2, i32 0}
+
+; DEBUGIFY-NOT: WARNING

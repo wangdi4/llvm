@@ -299,13 +299,16 @@ namespace intel {
     // Entry:2. add the entry tail code (as described up)
     ConstantInt *max_work_dim_i32 = ConstantInt::get(I32Ty, MAX_WORK_DIM);
     ICmpInst *checkIndex = new ICmpInst(ICmpInst::ICMP_ULT, pCall->getArgOperand(0), max_work_dim_i32, "check.index.inbound");
+    checkIndex->setDebugLoc(pCall->getDebugLoc());
     pBlock->getInstList().push_back(checkIndex);
-    BranchInst::Create(getWIProperties, splitContinue, checkIndex, pBlock);
+    BranchInst *NewBI = BranchInst::Create(getWIProperties, splitContinue, checkIndex, pBlock);
+    NewBI->setDebugLoc(pCall->getDebugLoc());
 
     // B.Build the get.wi.properties block
     // Now retrieve address of the DIM count
 
-    BranchInst::Create(splitContinue, getWIProperties);
+    NewBI = BranchInst::Create(splitContinue, getWIProperties);
+    NewBI->setDebugLoc(pCall->getDebugLoc());
     Instruction *pInsertBefore = getWIProperties->getTerminator();
     pResult = updateGetFunctionInBound(pCall, type, pInsertBefore);
 
