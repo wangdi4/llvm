@@ -112,6 +112,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
             bool isCallback, // INTEL
             Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                 ReplaceCallSite) {
+  getInlineReport()->initFunctionClosure(F); // INTEL
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
   FunctionType *FTy = F->getFunctionType();
@@ -420,6 +421,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     MDNode *MD = CB.getMetadata(LLVMContext::MD_intel_profx);
     if (MD)
       NewCS->setMetadata(LLVMContext::MD_intel_profx, MD);
+    getInlineReport()->replaceCallBaseWithCallBase(&CB, NewCS);
 #endif // INTEL_CUSTOMIZATION
     Args.clear();
     ArgAttrVec.clear();

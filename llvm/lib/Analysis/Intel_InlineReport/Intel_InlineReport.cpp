@@ -669,8 +669,9 @@ void InlineReport::print() const {
     return;
   llvm::errs() << "---- Begin Inlining Report ----\n";
   printOptionValues();
-  for (unsigned I = 0, E = IRDeadFunctionVector.size(); I < E; ++I) {
-    InlineReportFunction *IRF = IRDeadFunctionVector[I];
+  auto &IRDFS = IRDeadFunctionSet;
+  for (auto I = IRDFS.begin(), E = IRDFS.end(); I != E; ++I) {
+    InlineReportFunction *IRF = *I;
     // Suppress inline report on any Function with Suppress mark on
     if (IRF->getSuppressPrint())
       continue;
@@ -831,7 +832,7 @@ void InlineReport::replaceAllUsesWith(Function *OldFunction,
   }
 }
 
-void InlineReport::initFunctionForPartialInlining(Function *F) {
+void InlineReport::initFunctionClosure(Function *F) {
   if (!isClassicIREnabled())
     return;
   initFunction(F);
@@ -858,7 +859,54 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
   IRF->setLinkageChar(NewFunction);
   IRF->setLanguageChar(NewFunction);
   IRF->setName(std::string(NewFunction->getName()));
+  removeCallback(OldFunction);
   addCallback(NewFunction);
+}
+
+void InlineReport::replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1) {
+  if (!isClassicIREnabled())
+    return;
+  if (CB0 == CB1)
+    return;
+  auto MapIt = IRCallBaseCallSiteMap.find(CB0);
+  if (MapIt == IRCallBaseCallSiteMap.end())
+    return;
+  InlineReportCallSite *IRCS = MapIt->second;
+  IRCS->setCall(CB1);
+  IRCallBaseCallSiteMap.erase(MapIt);
+  IRCallBaseCallSiteMap.insert(std::make_pair(CB1, IRCS));
+  removeCallback(CB0);
+  addCallback(CB1);
+}
+
+void InlineReport::cloneCallBaseToCallBase(CallBase *CB0, CallBase *CB1) {
+  if (!isClassicIREnabled())
+    return;
+  if (CB0 == CB1)
+    return;
+  auto MapIt = IRCallBaseCallSiteMap.find(CB0);
+  if (MapIt == IRCallBaseCallSiteMap.end())
+    return;
+  InlineReportCallSite *IRCS = MapIt->second;
+  InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
+  NewIRCS->setCall(CB1);
+  InlineReportFunction *IRCaller = IRCS->getIRCaller();
+  NewIRCS->setIRCaller(IRCaller);
+  InlineReportCallSite *IRParent = IRCS->getIRParent();
+  NewIRCS->setIRParent(IRParent);
+  if (IRParent)
+    IRParent->addChild(NewIRCS);
+  else
+    IRCaller->addCallSite(NewIRCS);
+  IRCallBaseCallSiteMap.insert(std::make_pair(CB1, NewIRCS));
+  addCallback(CB1);
+}
+
+void InlineReport::initModule(Module *M) {
+  if (!isClassicIREnabled())
+    return;
+  for (auto &F : M->functions())
+    initFunction(&F);
 }
 
 InlineReportCallSite *InlineReport::copyAndSetup(InlineReportCallSite *IRCS,
@@ -911,10 +959,10 @@ InlineReportCallSite *InlineReport::getCallSite(CallBase *Call) {
 }
 
 InlineReport::~InlineReport(void) {
-  while (!IRCallbackVector.empty()) {
-    InlineReportCallback *IRCB = IRCallbackVector.back();
-    IRCallbackVector.pop_back();
-    delete IRCB;
+  while (!CallbackMap.empty()) {
+    auto MapIt = CallbackMap.begin();
+    CallbackMap.erase(MapIt);
+    delete MapIt->second;
   }
   InlineReportFunctionMap::const_iterator FI, FE;
   for (FI = IRFunctionMap.begin(), FE = IRFunctionMap.end(); FI != FE; ++FI)
