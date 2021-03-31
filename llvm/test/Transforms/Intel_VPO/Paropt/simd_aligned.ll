@@ -13,15 +13,8 @@
 ; CHECK-LABEL: define {{[^@]+}}@foo
 ; CHECK-SAME:    (i32* [[PTR_A:%.+]], i32* [[PTR_B:%.+]], i32 %{{.+}})
 ;
-; CHECK:         [[PTRINT:%.*]] = ptrtoint i32* [[PTR_A]] to i64
-; CHECK-NEXT:    [[MASKEDPTR:%.*]] = and i64 [[PTRINT]], 31
-; CHECK-NEXT:    [[MASKCOND:%.*]] = icmp eq i64 [[MASKEDPTR]], 0
-; CHECK-NEXT:    call void @llvm.assume(i1 [[MASKCOND]])
-;
-; CHECK-NEXT:    [[PTRINT1:%.*]] = ptrtoint i32* [[PTR_B]] to i64
-; CHECK-NEXT:    [[MASKEDPTR1:%.*]] = and i64 [[PTRINT1]], 63
-; CHECK-NEXT:    [[MASKCOND1:%.*]] = icmp eq i64 [[MASKEDPTR1]], 0
-; CHECK-NEXT:    call void @llvm.assume(i1 [[MASKCOND1]])
+; CHECK:         call void @llvm.assume(i1 true) [ "align"(i32* [[PTR_A]], i64 32) ]
+; CHECK:         call void @llvm.assume(i1 true) [ "align"(i32* [[PTR_B]], i64 64) ]
 ;
 ; CHECK:         [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.ALIGNED"(i32* null, i32 32),
 ; CHECK-NEXT:    br label %[[LOOPBODY:[^,]+]]
