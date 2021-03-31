@@ -571,7 +571,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
                         << VF << ". Original cost = " << VectorCost << '\n');
-      VectorCost = (uint64_t)(VectorCost * (100.0 - VecThreshold)) / 100.0f;
+      VectorCost = (VectorCost * VecThreshold) / 100;
     }
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
