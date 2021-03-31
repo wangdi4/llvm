@@ -1495,6 +1495,7 @@ bool VPOParoptTransform::paroptTransforms() {
     BasicBlock::iterator I = F->getEntryBlock().begin();
     CallInst *RI = VPOParoptUtils::genKmpcBeginCall(F, &*I, IdentTy);
     RI->insertBefore(&*I);
+    VPOParoptUtils::addFuncletOperandBundle(RI, DT);
 
     for (BasicBlock &BB : *F) {
       if (isa<ReturnInst>(BB.getTerminator())) {
@@ -1502,6 +1503,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
         CallInst *RI = VPOParoptUtils::genKmpcEndCall(F, Inst, IdentTy);
         RI->insertBefore(Inst);
+        VPOParoptUtils::addFuncletOperandBundle(RI, DT);
       }
     }
   }
@@ -1612,6 +1614,7 @@ bool VPOParoptTransform::paroptTransforms() {
   for (auto I = WRegionList.begin(), E = WRegionList.end(); I != E; ++I) {
 
     WRegionNode *W = *I;
+    W->setDT(DT);
 
     assert(W->isBBSetEmpty() &&
            "WRNs should not have BBSET populated initially");
@@ -8469,6 +8472,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
             Stride, StrideVal,
             IsDistForLoop ? DistChunkVal : ChunkVal,
             IsUnsigned, IndValTy, PHTerm);
+     VPOParoptUtils::addFuncletOperandBundle(KmpcInitCI, W->getDT(), PHTerm);
 
     if (WRegionUtils::isDistributeParLoopNode(W) &&
         VPOParoptUtils::getDistLoopScheduleKind(W) ==
@@ -9371,6 +9375,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
   CallInst *MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(
       W, IdentTy, TidPtrHolder, InsertPt, true, IsTargetSPIRV);
   MasterCI->insertBefore(InsertPt);
+  VPOParoptUtils::addFuncletOperandBundle(MasterCI, W->getDT());
 
   // LLVM_DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
 
@@ -9380,6 +9385,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
   CallInst *EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(
       W, IdentTy, TidPtrHolder, InsertEndPt, false, IsTargetSPIRV);
   EndMasterCI->insertBefore(InsertEndPt);
+  VPOParoptUtils::addFuncletOperandBundle(EndMasterCI, W->getDT());
 
   // Generate (int)__kmpc_master(&loc, tid) test for executing code using
   // Master thread.
@@ -9455,6 +9461,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
   CallInst *SingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(
       W, IdentTy, TidPtrHolder, InsertPt, true);
   SingleCI->insertBefore(InsertPt);
+  VPOParoptUtils::addFuncletOperandBundle(SingleCI, W->getDT());
 
   // InsertEndPt should be right before ExitBB->begin(), so create a new BB
   // that is split from the ExitBB to be used as InsertEndPt.
@@ -9477,6 +9484,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
   CallInst *EndSingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(
       W, IdentTy, TidPtrHolder, InsertEndPt, false);
   EndSingleCI->insertBefore(InsertEndPt);
+  VPOParoptUtils::addFuncletOperandBundle(EndSingleCI, W->getDT());
 
   // Generate (int)__kmpc_single(&loc, tid) test for executing code using
   // Single thread, the  __kmpc_single return:
@@ -9558,6 +9566,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   CallInst *OrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(
       W, IdentTy, TidPtrHolder, InsertPt, true);
   OrderedCI->insertBefore(InsertPt);
+  VPOParoptUtils::addFuncletOperandBundle(OrderedCI, W->getDT());
 
   Instruction *InsertEndPt = ExitBB->getTerminator();
 
@@ -9565,6 +9574,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   CallInst *EndOrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(
       W, IdentTy, TidPtrHolder, InsertEndPt, false);
   EndOrderedCI->insertBefore(InsertEndPt);
+  VPOParoptUtils::addFuncletOperandBundle(EndOrderedCI, W->getDT());
 
   // BasicBlock *OrderedBB = OrderedCI->getParent();
   // LLVM_DEBUG(dbgs() << " Ordered Entry BBlock: " << *OrderedBB << "\n\n");

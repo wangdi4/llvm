@@ -1966,12 +1966,14 @@ bool VPOParoptTransform::genTaskgroupRegion(WRegionNode *W) {
       VPOParoptUtils::genKmpcTaskgroupCall(W, IdentTy, TidPtrHolder, InsertPt);
   TaskgroupCI->insertBefore(InsertPt);
   genRedInitForTask(W, InsertPt);
+  VPOParoptUtils::addFuncletOperandBundle(TaskgroupCI, W->getDT());
 
   Instruction *InsertEndPt = ExitBB->getTerminator();
 
   CallInst *EndTaskgroupCI = VPOParoptUtils::genKmpcEndTaskgroupCall(
       W, IdentTy, TidPtrHolder, InsertEndPt);
   EndTaskgroupCI->insertBefore(InsertEndPt);
+  VPOParoptUtils::addFuncletOperandBundle(EndTaskgroupCI, W->getDT());
 
   W->resetBBSet();
   return true;

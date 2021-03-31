@@ -994,6 +994,8 @@ bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
 
   VPOParoptUtils::insertCallsAtRegionBoundary(W, PopCall, PushCall,
                                               InsideRegion);
+  VPOParoptUtils::addFuncletOperandBundle(PushCall, W->getDT());
+  VPOParoptUtils::addFuncletOperandBundle(PopCall, W->getDT());
   return true;
 }
 
@@ -1013,6 +1015,8 @@ bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
 
   VPOParoptUtils::insertCallsAtRegionBoundary(W, PushCall, PopCall,
                                               InsideRegion);
+  VPOParoptUtils::addFuncletOperandBundle(PushCall, W->getDT());
+  VPOParoptUtils::addFuncletOperandBundle(PopCall, W->getDT());
   return true;
 }
 
