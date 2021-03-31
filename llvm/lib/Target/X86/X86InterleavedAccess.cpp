@@ -356,7 +356,7 @@ public:
     // Maps each LLVM-IR Instruction to an int.
     DenseMap<uint64_t, Value *> InstMap;
     // Generate optimized-sequence for each OVLSGroup.
-    for (OVLSGroup *Grp : Grps) {
+    for (auto &Grp : Grps) {
       OVLSInstructionVector InstVec;
       // Get the optimized-sequence computed by OptVLS.
       if (OptVLSInterface::getSequence(*Grp, CM, InstVec, &MemrefToInstMap)) {

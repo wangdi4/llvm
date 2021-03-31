@@ -1159,7 +1159,7 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
   OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
-  for (const OVLSGroup *G : Grps)
+  for (const auto& G : Grps)
     G->print(OS, 3);
   OS << '\n';
 }
@@ -1216,8 +1216,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
     auto AdjMemrefSetIt = AdjMemrefSet->begin();
 
     OVLSAccessKind AccessKind = AdjMemrefSetIt->first->getAccessKind();
-    OVLSGroup *CurrGrp =
-        new OVLSGroup(AdjMemrefSetIt->first, VectorLength, AccessKind);
+    std::unique_ptr<OVLSGroup> CurrGrp = std::make_unique<OVLSGroup>(
+        AdjMemrefSetIt->first, VectorLength, AccessKind);
     int64_t GrpFirstMDist = 0;
     int64_t GrpLastMDist = 0;
     assert(AdjMemrefSetIt->second == 0 &&
@@ -1247,8 +1247,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
         sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
           return *RHS->getConstDistanceFrom(*LHS) > 0;
         });
-        OVLSGrps.push_back(CurrGrp);
-        CurrGrp = new OVLSGroup(Memref, VectorLength, AccessKind);
+        OVLSGrps.push_back(std::move(CurrGrp));
+        CurrGrp = std::make_unique<OVLSGroup>(Memref, VectorLength, AccessKind);
 
         // Reset range information for the new group.
         GrpFirstMDist = Dist;
@@ -1261,14 +1261,14 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
       CurrGrp->insert(Memref);
       if (MemrefToGroupMap)
         (*MemrefToGroupMap)
-            .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp));
+            .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp.get()));
     }
 
     // Sort memrefs in the group using their offsets.
     sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
       return *RHS->getConstDistanceFrom(*LHS) > 0;
     });
-    OVLSGrps.push_back(CurrGrp);
+    OVLSGrps.push_back(std::move(CurrGrp));
   }
 
   // dump OVLSGroups

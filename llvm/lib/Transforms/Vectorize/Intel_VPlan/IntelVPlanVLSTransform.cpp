@@ -194,8 +194,8 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
                                   unsigned VF) {
   const DataLayout &DL = *Plan.getDataLayout();
   DenseSet<VPInstruction *> InstsToRemove;
-  for (OVLSGroup *Group : VLSA.groups(&Plan)) {
-    if (!isTransformableVLSGroup(Group))
+  for (auto &Group : VLSA.groups(&Plan)) {
+    if (!isTransformableVLSGroup(Group.get()))
       continue;
 
     auto *LeaderMemref = cast<VPVLSClientMemref>(Group->getInsertPoint());
@@ -206,7 +206,7 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
              "Expected VLS group for loads!");
       VPVLSLoad *WideLoad;
       unsigned Size;
-      std::tie(WideLoad, Size) = createGroupLoad(Group, VF);
+      std::tie(WideLoad, Size) = createGroupLoad(Group.get(), VF);
 
       VPBuilder Builder;
       Builder.setInsertPoint(WideLoad->getParent(), ++WideLoad->getIterator());
@@ -215,7 +215,7 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
         auto *OrigLoad = const_cast<VPLoadStoreInst *>(instruction(Memref));
         assert(OrigLoad->getOpcode() == Instruction::Load &&
                "Expected a load!");
-        auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
+        auto InterleaveIndex = computeInterleaveIndex(Memref, Group.get());
         auto InterleaveFactor = computeInterleaveFactor(Memref);
         (void)InterleaveFactor;
         assert(InterleaveIndex < InterleaveFactor &&
@@ -241,7 +241,7 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
     Type *VLSSmallestType;
     unsigned Size;
     std::tie(VLSSmallestType, Size) =
-        getGroupGranularity(Group, *Plan.getDataLayout());
+        getGroupGranularity(Group.get(), *Plan.getDataLayout());
 
     // Only same size elements are supported currently.
     Type *GroupTy =
@@ -252,7 +252,7 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
     VPValue *WideValue = Plan.getUndef(GroupTy);
 
     for (OVLSMemref *Memref : *Group) {
-      auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
+      auto InterleaveIndex = computeInterleaveIndex(Memref, Group.get());
       auto *Store = const_cast<VPLoadStoreInst *>(instruction(Memref));
       InstsToRemove.insert(Store);
       VPValue *V = Store->getOperand(0);

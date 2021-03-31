@@ -127,7 +127,6 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
   // we may simply change OVLSType for each collected memref.
   auto VLSInfoIt = Plan2VLSInfo.find(Plan);
   if (!Force && VLSInfoIt != Plan2VLSInfo.end()) {
-    VLSInfoIt->second.eraseGroups();
     for (auto *Memref : VLSInfoIt->second.Memrefs)
       Memref->setNumElements(VF);
     LLVM_DEBUG(
@@ -136,9 +135,9 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
   } else {
     if (VLSInfoIt != Plan2VLSInfo.end())
       VLSInfoIt->second.erase();
-    else
-      std::tie(VLSInfoIt, std::ignore) = Plan2VLSInfo.insert({Plan, {}});
-
+    else {
+      VLSInfoIt = Plan2VLSInfo.insert(std::make_pair(Plan, VLSInfo{})).first;
+    }
     collectMemrefs(VLSInfoIt->second.Memrefs, Plan, VF);
   }
 

@@ -87,17 +87,9 @@ private:
     OVLSGroupVector Groups;
     OVLSMemrefToGroupMap Mem2Group;
 
-    void eraseGroups() {
-      for (OVLSGroup *X : Groups)
-        delete X;
-      Groups.clear();
-      Mem2Group.clear();
-    }
-
     void erase() {
       for (OVLSMemref *X : Memrefs)
         delete X;
-      eraseGroups();
     }
   };
 
