@@ -348,6 +348,7 @@ bool DeadArgumentEliminationPass::RemoveDeadArgumentsFromCallers(Function &Fn) {
         Changed = true;
       }
       UnusedArgs.push_back(Arg.getArgNo());
+      Fn.removeParamUndefImplyingAttrs(Arg.getArgNo());
     }
   }
 
@@ -365,6 +366,8 @@ bool DeadArgumentEliminationPass::RemoveDeadArgumentsFromCallers(Function &Fn) {
 
       Value *Arg = CB->getArgOperand(ArgNo);
       CB->setArgOperand(ArgNo, UndefValue::get(Arg->getType()));
+      CB->removeParamUndefImplyingAttrs(ArgNo);
+
       ++NumArgumentsReplacedWithUndef;
       Changed = true;
     }
