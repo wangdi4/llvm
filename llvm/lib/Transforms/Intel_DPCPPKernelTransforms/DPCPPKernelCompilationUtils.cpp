@@ -20,7 +20,6 @@
 #include "NameMangleAPI.h"
 #include "ParameterType.h"
 #include "TypeAlignment.h"
-#include <CL/cl.h>
 
 using namespace llvm::NameMangleAPI;
 
@@ -44,7 +43,6 @@ const StringRef NAME_GET_WORK_DIM = "get_work_dim";
 const StringRef NAME_GET_GLOBAL_OFFSET = "get_global_offset";
 const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
 const StringRef NAME_PREFETCH = "prefetch";
-const StringRef READ_ONLY = "read_only";
 const StringRef SAMPLER = "sampler_t";
 
 /// Not mangled names.
@@ -497,7 +495,6 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
   for (unsigned i = 0; i < ArgsCount; ++i) {
     KernelArgument CurArg;
     bool isMemoryObject = false;
-    CurArg.Access = CL_KERNEL_ARG_ACCESS_NONE;
 
     Argument *pArg = &*arg_it;
     // Set argument sizes and offsets
@@ -578,10 +575,8 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
             CurArg.Ty = KRNL_ARG_PTR_IMG_3D;
           else if (structName.startswith("pipe_ro_t")) {
             CurArg.Ty = KRNL_ARG_PTR_PIPE_T;
-            CurArg.Access = CL_KERNEL_ARG_ACCESS_READ_ONLY;
           } else if (structName.startswith("pipe_wo_t")) {
             CurArg.Ty = KRNL_ARG_PTR_PIPE_T;
-            CurArg.Access = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
           } else if (structName.startswith("queue_t"))
             CurArg.Ty = KRNL_ARG_PTR_QUEUE_T;
           else if (structName.startswith("clk_event_t"))
@@ -606,11 +601,6 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
           case KRNL_ARG_PTR_IMG_3D:
             // Setup image pointer
             isMemoryObject = true;
-            CurArg.Access =
-                (getFnAttributeStringInList(
-                     *OriginalFunc, "kernel_arg_access_qual", i) == READ_ONLY)
-                    ? CL_KERNEL_ARG_ACCESS_READ_ONLY
-                    : CL_KERNEL_ARG_ACCESS_READ_WRITE; // Set RW/WR flag
             break;
           case KRNL_ARG_PTR_PIPE_T:
             isMemoryObject = true;
