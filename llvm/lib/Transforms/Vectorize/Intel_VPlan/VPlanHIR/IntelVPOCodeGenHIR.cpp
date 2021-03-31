@@ -4779,7 +4779,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   HLInst *WInst = nullptr;
-  const VPInstruction::HIRSpecifics &HIR = VPInst->HIR;
+  const HIRSpecifics &HIR = VPInst->HIR;
   if (!Mask)
     Mask = CurMaskValue;
 

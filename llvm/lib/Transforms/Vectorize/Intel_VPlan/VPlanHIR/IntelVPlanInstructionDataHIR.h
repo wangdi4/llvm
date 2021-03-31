@@ -32,6 +32,7 @@ class HLNode;
 
 namespace vpo {
 
+class VPInstruction;
 struct SymbaseIVLevelMapInfo;
 
 /// Class to hold the underlying HLNode of a master VPInstruction and its
@@ -301,6 +302,173 @@ public:
     return U->getSubclassID() == VPCanonExprSC;
   }
 };
+
+/// Hold all the HIR-specific data and interfaces for a VPInstruction.
+class HIRSpecifics {
+  friend class VPValue;
+
+private:
+  /// Return true if the underlying HIR data is valid. If it's a decomposed
+  /// VPInstruction, the HIR of the attached master VPInstruction is checked.
+  bool isValid() const {
+    if (isMaster() || isDecomposed())
+      return getVPInstData()->isValid();
+
+    // For other VPInstructions without underlying HIR.
+    assert(!isSet() && "HIR data must be unset!");
+    return false;
+  }
+
+  /// Invalidate underlying HIR deta. If decomposed VPInstruction, the HIR of
+  /// its master VPInstruction is invalidated.
+  void invalidate() {
+    if (isMaster() || isDecomposed())
+      getVPInstData()->setInvalid();
+  }
+
+public:
+  HIRSpecifics() {}
+  ~HIRSpecifics() {
+    if (isMaster())
+      delete getVPInstData();
+  }
+
+  // DESIGN PRINCIPLE: IR-independent algorithms don't need to know about
+  // HIR-specific master, decomposed and new VPInstructions or underlying HIR
+  // information. For that reason, access to the following HIR-specific
+  // methods must be restricted. We achieve that goal by making
+  // VPInstruction's HIRSpecifics member private.
+
+  // Hold the underlying HIR information related to the LHS operand of this
+  // VPInstruction.
+  std::unique_ptr<VPOperandHIR> LHSHIROperand;
+
+  // Union used to save needed information based on instruction opcode.
+  // 1) For a load/store instruction, save the symbase of the corresponding
+  //    scalar memref. Vector memref generated during vector CG is assigned
+  //    the same symbase.
+  // 2) For convert instructions, save whether the convert represents a
+  //    convert of a loop IV that needs to be folded into the containing canon
+  //    expression.
+  union {
+    unsigned Symbase = loopopt::InvalidSymbase;
+    bool FoldIVConvert;
+  };
+
+  /// Pointer to access the underlying HIR data attached to this
+  /// VPInstruction, if any, depending on its sub-type:
+  ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
+  ///      the actual HIR data.
+  ///   2) Decomposed VPInstruction: MasterData points to master VPInstruction
+  ///      holding the actual HIR data.
+  ///   3) Other VPInstruction (!Master and !Decomposed): MasterData is null.
+  ///      We use a void pointer to represent this case.
+  PointerUnion<MasterVPInstData *, VPInstruction *, void *> MasterData =
+      (int *)nullptr;
+
+  // Return the VPInstruction data of this VPInstruction if it's a master or
+  // decomposed. Return nullptr otherwise.
+  MasterVPInstData *getVPInstData();
+  const MasterVPInstData *getVPInstData() const {
+    return const_cast<HIRSpecifics *>(this)->getVPInstData();
+  }
+
+  void verifyState() const;
+
+  /// Return true if this is a master VPInstruction.
+  bool isMaster() const {
+    verifyState();
+    return MasterData.is<MasterVPInstData *>();
+  }
+
+  /// Return true if this is a decomposed VPInstruction.
+  bool isDecomposed() const {
+    verifyState();
+    return MasterData.is<VPInstruction *>();
+  }
+
+  // Return true if MasterData contains actual HIR data.
+  bool isSet() const {
+    verifyState();
+    return !MasterData.is<void *>();
+  }
+
+  /// Return the underlying HIR attached to this master VPInstruction. Return
+  /// nullptr if the VPInstruction doesn't have underlying HIR.
+  loopopt::HLNode *getUnderlyingNode() {
+    MasterVPInstData *MastData = getVPInstData();
+    if (!MastData)
+      return nullptr;
+    return MastData->getNode();
+  }
+  loopopt::HLNode *getUnderlyingNode() const {
+    return const_cast<HIRSpecifics *>(this)->getUnderlyingNode();
+  }
+
+  /// Attach \p UnderlyingNode to this VPInstruction and turn it into a master
+  /// VPInstruction.
+  void setUnderlyingNode(loopopt::HLNode *UnderlyingNode) {
+    assert(!isSet() && "MasterData is already set!");
+    MasterData = new MasterVPInstData(UnderlyingNode);
+  }
+
+  /// Attach \p Def to this VPInstruction as its VPOperandHIR.
+  void setOperandDDR(const loopopt::DDRef *Def) {
+    assert(!LHSHIROperand && "LHSHIROperand is already set!");
+    LHSHIROperand.reset(new VPBlob(Def));
+  }
+
+  /// Attach \p IVLevel to this VPInstruction as its VPOperandHIR.
+  void setOperandIV(unsigned IVLevel) {
+    assert(!LHSHIROperand && "LHSHIROperand is already set!");
+    LHSHIROperand.reset(new VPIndVar(IVLevel));
+  }
+
+  /// Return the VPOperandHIR with the underlying HIR information of the LHS
+  /// operand.
+  VPOperandHIR *getOperandHIR() const { return LHSHIROperand.get(); }
+
+  /// Return the master VPInstruction attached to a decomposed VPInstruction.
+  VPInstruction *getMaster() {
+    assert(isDecomposed() && "Only decomposed VPInstructions have a pointer "
+                             "to a master VPInstruction!");
+    return MasterData.get<VPInstruction *>();
+  }
+  VPInstruction *getMaster() const {
+    return const_cast<HIRSpecifics *>(this)->getMaster();
+  }
+
+  /// Attach \p MasterVPI as master VPInstruction of a decomposed
+  /// VPInstruction.
+  void setMaster(VPInstruction *MasterVPI) {
+    assert(MasterVPI && "Master VPInstruction cannot be set to null!");
+    assert(!isMaster() &&
+           "A master VPInstruction can't point to a master VPInstruction!");
+    assert(!isSet() && "Master VPInstruction is already set!");
+    MasterData = MasterVPI;
+  }
+
+  /// Mark the underlying HIR data as valid.
+  void setValid() {
+    assert(isMaster() && "Only a master VPInstruction must set HIR!");
+    getVPInstData()->setValid();
+  }
+
+  /// Print HIR-specific flags. It's mainly for debugging purposes.
+  void printHIRFlags(raw_ostream &OS) const {
+    OS << "IsMaster=" << isMaster() << " IsDecomp=" << isDecomposed()
+       << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
+  }
+
+  void setSymbase(unsigned SB) { Symbase = SB; }
+  unsigned getSymbase(void) const { return Symbase; }
+
+  void setFoldIVConvert(bool Fold) { FoldIVConvert = Fold; }
+  bool getFoldIVConvert(void) const { return FoldIVConvert; }
+
+  void cloneFrom(const HIRSpecifics &HIR, bool CopySymbase);
+};
+
 } // namespace vpo
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANINSTRUCTION_DATA_HIR_H
