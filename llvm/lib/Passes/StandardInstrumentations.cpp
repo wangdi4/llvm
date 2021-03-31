@@ -83,19 +83,26 @@ enum class ChangePrinter {
   PrintChangedVerbose,
   PrintChangedQuiet,
   PrintChangedDiffVerbose,
-  PrintChangedDiffQuiet
+  PrintChangedDiffQuiet,
+  PrintChangedColourDiffVerbose,
+  PrintChangedColourDiffQuiet
 };
 static cl::opt<ChangePrinter> PrintChanged(
     "print-changed", cl::desc("Print changed IRs"), cl::Hidden,
     cl::ValueOptional, cl::init(ChangePrinter::NoChangePrinter),
-    cl::values(clEnumValN(ChangePrinter::PrintChangedQuiet, "quiet",
-                          "Run in quiet mode"),
-               clEnumValN(ChangePrinter::PrintChangedDiffVerbose, "diff",
-                          "Display patch-like changes"),
-               clEnumValN(ChangePrinter::PrintChangedDiffQuiet, "diff-quiet",
-                          "Display patch-like changes in quiet mode"),
-               // Sentinel value for unspecified option.
-               clEnumValN(ChangePrinter::PrintChangedVerbose, "", "")));
+    cl::values(
+        clEnumValN(ChangePrinter::PrintChangedQuiet, "quiet",
+                   "Run in quiet mode"),
+        clEnumValN(ChangePrinter::PrintChangedDiffVerbose, "diff",
+                   "Display patch-like changes"),
+        clEnumValN(ChangePrinter::PrintChangedDiffQuiet, "diff-quiet",
+                   "Display patch-like changes in quiet mode"),
+        clEnumValN(ChangePrinter::PrintChangedColourDiffVerbose, "cdiff",
+                   "Display patch-like changes with color"),
+        clEnumValN(ChangePrinter::PrintChangedColourDiffQuiet, "cdiff-quiet",
+                   "Display patch-like changes in quiet mode with color"),
+        // Sentinel value for unspecified option.
+        clEnumValN(ChangePrinter::PrintChangedVerbose, "", "")));
 
 // An option that supports the -print-changed option.  See
 // the description for -print-changed for an explanation of the use
@@ -1209,7 +1216,8 @@ void InLineChangePrinter::handleAfter(StringRef PassID, std::string &Name,
   Out << Banner;
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  ChangedIRComparer(Out, Before, After).compare(IR, "", PassID, Name);
+      ChangedIRComparer(Out, Before, After, UseColour)
+          .compare(IR, "", PassID, Name);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
   Out << "\n";
@@ -1234,8 +1242,9 @@ void ChangedIRComparer::handleFunctionCompare(StringRef Name, StringRef Prefix,
       Before, After, [&](const ChangedBlockData *B, const ChangedBlockData *A) {
         StringRef BStr = B ? B->getBody() : "\n";
         StringRef AStr = A ? A->getBody() : "\n";
-        const std::string Removed = "\033[31m-%l\033[0m\n";
-        const std::string Added = "\033[32m+%l\033[0m\n";
+        const std::string Removed =
+            UseColour ? "\033[31m-%l\033[0m\n" : "-%l\n";
+        const std::string Added = UseColour ? "\033[32m+%l\033[0m\n" : "+%l\n";
         const std::string NoChange = " %l\n";
         Out << doSystemDiff(BStr, AStr, Removed, Added, NoChange);
       });
@@ -1247,7 +1256,9 @@ void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintChanged == ChangePrinter::PrintChangedDiffVerbose ||
-      PrintChanged == ChangePrinter::PrintChangedDiffQuiet)
+      PrintChanged == ChangePrinter::PrintChangedDiffQuiet ||
+      PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose ||
+      PrintChanged == ChangePrinter::PrintChangedColourDiffQuiet)
     TextChangeReporter<ChangedIRData>::registerRequiredCallbacks(PIC);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
