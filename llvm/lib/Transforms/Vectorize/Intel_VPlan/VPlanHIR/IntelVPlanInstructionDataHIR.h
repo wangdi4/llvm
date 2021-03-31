@@ -361,8 +361,7 @@ class HIRSpecifics {
   VPInstruction &Inst;
 
 private:
-  HIRSpecifics(const VPInstruction &Inst)
-      : Inst(const_cast<VPInstruction &>(Inst)) {}
+  HIRSpecifics(const VPInstruction &Inst);
 
   // VPInstruction is incomplete at this point, yet we have lots of one-liners
   // that would benefit from accessing it. Enable that by providing this helper.
@@ -395,23 +394,18 @@ public:
     return const_cast<HIRSpecifics *>(this)->getVPInstData();
   }
 
-  void verifyState() const;
-
   /// Return true if this is a master VPInstruction.
   bool isMaster() const {
-    verifyState();
     return HIRData().MasterData.is<MasterVPInstData *>();
   }
 
   /// Return true if this is a decomposed VPInstruction.
   bool isDecomposed() const {
-    verifyState();
     return HIRData().MasterData.is<VPInstruction *>();
   }
 
   // Return true if MasterData contains actual HIR data.
   bool isSet() const {
-    verifyState();
     return !HIRData().MasterData.is<void *>();
   }
 

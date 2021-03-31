@@ -16,6 +16,13 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::vpo;
 
+HIRSpecifics::HIRSpecifics(const VPInstruction &Inst)
+    : Inst(const_cast<VPInstruction &>(Inst)) {
+  assert(
+      (!HIRData().MasterData.isNull() || HIRData().MasterData.is<void *>()) &&
+      "Defined state can't contain nullptr!");
+}
+
 const HIRSpecificsData &HIRSpecifics::HIRData() const { return Inst.HIRData; }
 HIRSpecificsData &HIRSpecifics::HIRData() { return Inst.HIRData; }
 
@@ -26,19 +33,6 @@ MasterVPInstData *HIRSpecifics::getVPInstData() {
     return getMaster()->HIR().getVPInstData();
   // New VPInstructions don't have VPInstruction data.
   return nullptr;
-}
-
-void HIRSpecifics::verifyState() const {
-  if (HIRData().MasterData.is<MasterVPInstData *>())
-    assert(!HIRData().MasterData.isNull() &&
-           "MasterData can't be null for master VPInstruction!");
-  else if (HIRData().MasterData.is<VPInstruction *>())
-    assert(!HIRData().MasterData.isNull() &&
-           "MasterData can't be null for decomposed VPInstruction!");
-  else
-    assert(HIRData().MasterData.is<void *>() && HIRData().MasterData.isNull() &&
-           "MasterData must be null for VPInstruction that is not master "
-           "or decomposed!");
 }
 
 void HIRSpecifics::cloneFrom(const HIRSpecifics HIR, bool CopySymbase) {
