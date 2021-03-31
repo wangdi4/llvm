@@ -44,7 +44,7 @@ bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
 OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
                                                  const unsigned VF) const {
 
-  const HLNode *Node = Inst->HIR.getUnderlyingNode();
+  const HLNode *Node = Inst->HIR().getUnderlyingNode();
   const HLDDNode *DDNode = cast_or_null<HLDDNode>(Node);
   if (!DDNode)
     return nullptr;
@@ -92,7 +92,7 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
 }
 
 const DDGraph VPVLSClientMemrefHIR::getDDGraph() const {
-  const HLNode *Node = getInstruction()->HIR.getUnderlyingNode();
+  const HLNode *Node = getInstruction()->HIR().getUnderlyingNode();
   assert(Node && "Expected underlying HLNode!");
   const HLLoop *Loop = Node->getParentLoop();
   const DDGraph &DDG = DDA->getGraph(Loop);

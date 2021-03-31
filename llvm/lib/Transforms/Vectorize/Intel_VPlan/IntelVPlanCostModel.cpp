@@ -118,9 +118,9 @@ unsigned VPlanTTICostModel::getMemInstAddressSpace(
     return ::getMemInstAddressSpace(Val);
 
 #if INTEL_CUSTOMIZATION
-  if (!VPInst->HIR.isMaster())
+  if (!VPInst->HIR().isMaster())
     return 0; // CHECKME: Is that correct?
-  const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
+  const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR().getUnderlyingNode());
   if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
     if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))
       return ::getMemInstAddressSpace(Inst);
@@ -150,8 +150,8 @@ VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
       return Align;
 
 #if INTEL_CUSTOMIZATION
-  if (VPInst->HIR.isMaster()) {
-    const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
+  if (VPInst->HIR().isMaster()) {
+    const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR().getUnderlyingNode());
     if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
       if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
         if (unsigned Align = ::getMemInstAlignment(Inst))

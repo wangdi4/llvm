@@ -565,11 +565,13 @@ private:
   // Hold operator-related metadata attributes attached to this VPInstruction.
   VPOperatorIRFlags OperatorFlags;
 
-protected:
   // Hold the underlying HIR information, if any, attached to this
-  // VPInstruction. This field is protected to provide access to derived
-  // subclasses of VPInstruction.
-  HIRSpecifics HIR;
+  // VPInstruction.
+  HIRSpecificsData HIRData;
+
+protected:
+  HIRSpecifics HIR() { return HIRSpecifics(*this); }
+  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
 
 private:
   /// Utility method serving execute(): generates a single instance of the
@@ -580,7 +582,7 @@ private:
 
   void copyUnderlyingFrom(const VPInstruction &Inst) {
 #if INTEL_CUSTOMIZATION
-    HIR.cloneFrom(Inst.HIR, canHaveSymbase());
+    HIR().cloneFrom(Inst.HIR(), canHaveSymbase());
 #endif // INTEL_CUSTOMIZATION
     Value *V = Inst.getUnderlyingValue();
     if (V)
@@ -609,7 +611,9 @@ protected:
 #if INTEL_CUSTOMIZATION
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
-  bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
+  bool isNew() const {
+    return getUnderlyingValue() == nullptr && !HIR().isSet();
+  }
 
   void setSymbase(unsigned Symbase) {
     assert(Opcode == Instruction::Store ||
@@ -617,16 +621,16 @@ protected:
                "setSymbase called for invalid VPInstruction");
     assert(Symbase != loopopt::InvalidSymbase &&
            "Unexpected invalid symbase assignment");
-    HIR.setSymbase(Symbase);
+    HIR().setSymbase(Symbase);
   }
 
   unsigned getSymbase(void) const {
     assert(Opcode == Instruction::Store ||
            Opcode == Instruction::Load &&
                "getSymbase called for invalid VPInstruction");
-    assert(HIR.Symbase != loopopt::InvalidSymbase &&
+    assert(HIR().getSymbase() != loopopt::InvalidSymbase &&
            "Unexpected invalid symbase");
-    return HIR.getSymbase();
+    return HIR().getSymbase();
   }
 
   void setFoldIVConvert(bool Fold) {
@@ -634,14 +638,14 @@ protected:
            Opcode == Instruction::Trunc ||
            Opcode == Instruction::ZExt &&
                "unexpected call to setFoldIVConvert");
-    HIR.setFoldIVConvert(Fold);
+    HIR().setFoldIVConvert(Fold);
   }
 
   bool getFoldIVConvert(void) const {
     assert(Opcode == Instruction::SExt || Opcode == Instruction::Trunc ||
            Opcode == Instruction::ZExt &&
                "getFoldIVConvert called for invalid VPInstruction");
-    return HIR.getFoldIVConvert();
+    return HIR().getFoldIVConvert();
   }
 #endif
 
@@ -823,7 +827,7 @@ public:
   }
 
   bool isUnderlyingIRValid() const {
-    return IsUnderlyingValueValid || HIR.isValid();
+    return IsUnderlyingValueValid || HIR().isValid();
   }
 
   void invalidateUnderlyingIR() {
@@ -831,10 +835,10 @@ public:
     // Temporary hook-up to ignore loop induction related instructions during CG
     // by not invalidating them.
     // TODO: Remove this code after VPInduction support is added to HIR CG.
-    const loopopt::HLNode *HNode = HIR.getUnderlyingNode();
+    const loopopt::HLNode *HNode = HIR().getUnderlyingNode();
     if (HNode && isa<loopopt::HLLoop>(HNode))
       return;
-    HIR.invalidate();
+    HIR().invalidate();
     // At this point, we don't have a use-case where invalidation of users of
     // instruction is needed. This is because VPInstructions mostly represent
     // r-value of a HLInst and modifying the r-value should not affect l-value
@@ -843,6 +847,7 @@ public:
     // mean that the underlying bit value is different. If this is the case then
     // invalidation should be propagated to users as well.
   }
+
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.
@@ -955,7 +960,7 @@ public:
 
   /// Returns underlying HLGoto node if any or nullptr otherwise.
   const loopopt::HLGoto *getHLGoto() const {
-    loopopt::HLNode *Node = HIR.getUnderlyingNode();
+    loopopt::HLNode *Node = HIR().getUnderlyingNode();
     if (!Node)
       return nullptr;
     return cast<loopopt::HLGoto>(Node);
@@ -1595,14 +1600,14 @@ public:
   // Get the HIR memory reference corresponding to the value being loaded
   // or value being stored into.
   const loopopt::RegDDRef *getHIRMemoryRef() const {
-    if (!HIR.getUnderlyingNode())
+    if (!HIR().getUnderlyingNode())
       return nullptr;
 
-    auto *OpHIR = cast<VPBlob>(HIR.getOperandHIR());
+    auto *OpHIR = cast<VPBlob>(HIR().getOperandHIR());
     auto *RDDR = cast<loopopt::RegDDRef>(OpHIR->getBlob());
     if (!RDDR->hasGEPInfo()) {
       // This corresponds to a standalone load instruction.
-      auto *HInst = cast<loopopt::HLInst>(HIR.getUnderlyingNode());
+      auto *HInst = cast<loopopt::HLInst>(HIR().getUnderlyingNode());
       assert(isa<LoadInst>(HInst->getLLVMInstruction()) &&
              "Expected standalone load HLInst.");
       RDDR = HInst->getRvalDDRef();
@@ -1618,7 +1623,7 @@ public:
     MDs.clear();
     if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
-    else if (HIR.getUnderlyingNode()) {
+    else if (HIR().getUnderlyingNode()) {
       const loopopt::RegDDRef *RDDR = getHIRMemoryRef();
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
     }
@@ -1815,7 +1820,7 @@ public:
   const CallInst *getUnderlyingCallInst() const {
     if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction()))
       return IRCall;
-    else if (auto *HIRCall = HIR.getUnderlyingNode()) {
+    else if (auto *HIRCall = HIR().getUnderlyingNode()) {
       auto *IRCall = cast<loopopt::HLInst>(HIRCall)->getCallInst();
       assert (IRCall && "Underlying call instruction expected here.");
       return IRCall;

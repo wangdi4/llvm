@@ -215,10 +215,10 @@ Type *VPInstruction::getCMType() const {
   if (getUnderlyingValue())
     return getUnderlyingValue()->getType();
 
-  if (!HIR.isMaster())
+  if (!HIR().isMaster())
     return nullptr;
 
-  const loopopt::HLNode *Node = HIR.getUnderlyingNode();
+  const loopopt::HLNode *Node = HIR().getUnderlyingNode();
   const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
 
   if (!Inst)

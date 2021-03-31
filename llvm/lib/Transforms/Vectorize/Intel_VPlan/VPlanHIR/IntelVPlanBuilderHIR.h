@@ -29,8 +29,8 @@ public:
   T *create(loopopt::HLDDNode *DDNode, const NameType &Name, Args &&... args) {
     auto *New = VPBuilder::create<T>(Name, std::forward<Args>(args)...);
     if (DDNode) {
-      New->HIR.setUnderlyingNode(DDNode);
-      New->HIR.setValid();
+      New->HIR().setUnderlyingNode(DDNode);
+      New->HIR().setValid();
     }
     return New;
   }
@@ -42,7 +42,7 @@ public:
     VPInstruction *NewVPInst =
         cast<VPInstruction>(VPBuilder::createNaryOp(Opcode, BaseTy, Operands));
     if (DDNode)
-      NewVPInst->HIR.setUnderlyingNode(DDNode);
+      NewVPInst->HIR().setUnderlyingNode(DDNode);
     return NewVPInst;
   }
   VPValue *createNaryOp(unsigned Opcode,
@@ -56,7 +56,7 @@ public:
   VPValue *createAdd(VPValue *LHS, VPValue *RHS, loopopt::HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
     auto *NewAdd = cast<VPInstruction>(VPBuilder::createAdd(LHS, RHS));
-    NewAdd->HIR.setUnderlyingNode(DDNode);
+    NewAdd->HIR().setUnderlyingNode(DDNode);
     return NewAdd;
   }
 
@@ -66,7 +66,7 @@ public:
                            loopopt::HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
     VPCmpInst *NewVPCmp = VPBuilder::createCmpInst(Pred, LHS, RHS);
-    NewVPCmp->HIR.setUnderlyingNode(DDNode);
+    NewVPCmp->HIR().setUnderlyingNode(DDNode);
     return NewVPCmp;
   }
 
@@ -85,7 +85,7 @@ public:
   VPPHINode *createPhiInstruction(Type *BaseTy, loopopt::HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
     VPPHINode *NewPhi = VPBuilder::createPhiInstruction(BaseTy);
-    NewPhi->HIR.setUnderlyingNode(DDNode);
+    NewPhi->HIR().setUnderlyingNode(DDNode);
     return NewPhi;
   }
 
@@ -99,7 +99,7 @@ public:
     VPHIRCopyInst *CopyInst = new VPHIRCopyInst(CopyFrom);
     insert(CopyInst);
     if (DDNode)
-      CopyInst->HIR.setUnderlyingNode(DDNode);
+      CopyInst->HIR().setUnderlyingNode(DDNode);
     return CopyInst;
   }
 
@@ -117,14 +117,14 @@ public:
     NewVPCall->setName(HInst->getLLVMInstruction()->getName());
     insert(NewVPCall);
     if (DDNode)
-      NewVPCall->HIR.setUnderlyingNode(DDNode);
+      NewVPCall->HIR().setUnderlyingNode(DDNode);
     return NewVPCall;
   }
 
   VPInstruction *createAbs(VPValue *Operand, loopopt::HLDDNode *DDNode) {
     VPInstruction *AbsInst = cast<VPInstruction>(VPBuilder::createAbs(Operand));
     if (DDNode)
-      AbsInst->HIR.setUnderlyingNode(DDNode);
+      AbsInst->HIR().setUnderlyingNode(DDNode);
     return AbsInst;
   }
 
@@ -134,7 +134,7 @@ public:
     VPInstruction *NewVPLoad =
         VPBuilder::createLoad(Ty, Ptr, nullptr /*Inst*/, Name);
     if (DDNode)
-      NewVPLoad->HIR.setUnderlyingNode(DDNode);
+      NewVPLoad->HIR().setUnderlyingNode(DDNode);
     return NewVPLoad;
   }
 
@@ -144,7 +144,7 @@ public:
     VPInstruction *NewVPStore =
         VPBuilder::createStore(Val, Ptr, nullptr /*Inst*/, Name);
     if (DDNode)
-      NewVPStore->HIR.setUnderlyingNode(DDNode);
+      NewVPStore->HIR().setUnderlyingNode(DDNode);
     return NewVPStore;
   }
 };

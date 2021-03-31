@@ -16,29 +16,32 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::vpo;
 
+const HIRSpecificsData &HIRSpecifics::HIRData() const { return Inst.HIRData; }
+HIRSpecificsData &HIRSpecifics::HIRData() { return Inst.HIRData; }
+
 MasterVPInstData *HIRSpecifics::getVPInstData() {
   if (isMaster())
-    return MasterData.get<MasterVPInstData *>();
+    return HIRData().MasterData.get<MasterVPInstData *>();
   if (isDecomposed())
-    return getMaster()->HIR.getVPInstData();
+    return getMaster()->HIR().getVPInstData();
   // New VPInstructions don't have VPInstruction data.
   return nullptr;
 }
 
 void HIRSpecifics::verifyState() const {
-  if (MasterData.is<MasterVPInstData *>())
-    assert(!MasterData.isNull() &&
+  if (HIRData().MasterData.is<MasterVPInstData *>())
+    assert(!HIRData().MasterData.isNull() &&
            "MasterData can't be null for master VPInstruction!");
-  else if (MasterData.is<VPInstruction *>())
-    assert(!MasterData.isNull() &&
+  else if (HIRData().MasterData.is<VPInstruction *>())
+    assert(!HIRData().MasterData.isNull() &&
            "MasterData can't be null for decomposed VPInstruction!");
   else
-    assert(MasterData.is<void *>() && MasterData.isNull() &&
+    assert(HIRData().MasterData.is<void *>() && HIRData().MasterData.isNull() &&
            "MasterData must be null for VPInstruction that is not master "
            "or decomposed!");
 }
 
-void HIRSpecifics::cloneFrom(const HIRSpecifics &HIR, bool CopySymbase) {
+void HIRSpecifics::cloneFrom(const HIRSpecifics HIR, bool CopySymbase) {
   if (HIR.isMaster()) {
     setUnderlyingNode(HIR.getUnderlyingNode());
     if (HIR.isValid())

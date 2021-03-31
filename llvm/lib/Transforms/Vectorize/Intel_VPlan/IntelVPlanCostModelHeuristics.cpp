@@ -68,9 +68,9 @@ const RegDDRef* HeuristicSLP::getHIRMemref(
   if (Opcode != Instruction::Load && Opcode != Instruction::Store)
     return nullptr;
 
-  if (!VPInst->HIR.isMaster())
+  if (!VPInst->HIR().isMaster())
     return nullptr;
-  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
+  auto *HInst = dyn_cast<HLInst>(VPInst->HIR().getUnderlyingNode());
 
   if (!HInst)
     return nullptr;
