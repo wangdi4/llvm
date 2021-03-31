@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "TypeAlignment.h"
-#include "CL/cl.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 
@@ -38,7 +37,7 @@ size_t TypeAlignment::getSize(const KernelArgument &Arg) {
   }
 
   case KRNL_ARG_SAMPLER:
-    return sizeof(cl_int);
+    return sizeof(int);
 
   case KRNL_ARG_COMPOSITE:
     return Arg.SizeInBytes;
