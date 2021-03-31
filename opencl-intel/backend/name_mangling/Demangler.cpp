@@ -85,7 +85,7 @@ reflection::FunctionDescriptor demangle(const char *rawstring,
 
 class DemanglerException : public std::exception {
 public:
-  const char *what() const throw() { return "invalid prefix"; }
+  const char *what() const throw() override { return "invalid prefix"; }
 };
 
 // Implementation of an API function.

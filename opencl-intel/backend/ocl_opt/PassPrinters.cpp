@@ -144,7 +144,7 @@ struct LoopPassPrinter : public LoopPass {
     PassName = "LoopPass Printer: " + PassToPrintName;
   }
 
-  bool runOnLoop(Loop *L, LPPassManager &LPM) override {
+  bool runOnLoop(Loop *L, LPPassManager & /*LPM*/) override {
     if (!QuietPass)
       Out << "Printing analysis '" << PassToPrint->getPassName() << "':\n";
 
@@ -177,7 +177,7 @@ struct RegionPassPrinter : public RegionPass {
     PassName = "RegionPass Printer: " + PassToPrintName;
   }
 
-  bool runOnRegion(Region *R, RGPassManager &RGM) override {
+  bool runOnRegion(Region *R, RGPassManager & /*RGM*/) override {
     if (!QuietPass) {
       Out << "Printing analysis '" << PassToPrint->getPassName() << "' for "
           << "region: '" << R->getNameStr() << "' in function '"

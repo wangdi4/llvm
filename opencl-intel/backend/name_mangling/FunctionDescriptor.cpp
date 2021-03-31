@@ -25,21 +25,23 @@ namespace reflection {
 // inheritance tree, when it is only needed here.
 ///////////////////////////////////////////////////////////////////////////////
 struct VWidthResolver : TypeVisitor {
-  void visit(const PrimitiveType *) { m_width = width::SCALAR; }
+  void visit(const PrimitiveType *) override { m_width = width::SCALAR; }
 
-  void visit(const VectorType *v) {
+  void visit(const VectorType *v) override {
     m_width = static_cast<width::V>(v->getLength());
   }
 
-  void visit(const PointerType *p) { p->getPointee()->accept(this); }
+  void visit(const PointerType *p) override { p->getPointee()->accept(this); }
 
-  void visit(const AtomicType *) { m_width = width::SCALAR; }
+  void visit(const AtomicType *) override { m_width = width::SCALAR; }
 
-  void visit(const BlockType *) { m_width = width::SCALAR; }
+  void visit(const BlockType *) override { m_width = width::SCALAR; }
 
-  void visit(const UserDefinedType *) { m_width = width::SCALAR; }
+  void visit(const UserDefinedType *) override { m_width = width::SCALAR; }
 
   width::V width() const { return m_width; }
+
+  virtual ~VWidthResolver() {}
 
 private:
   width::V m_width;

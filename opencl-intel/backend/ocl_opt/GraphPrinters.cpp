@@ -34,7 +34,7 @@ namespace {
       AU.addRequired<DominatorTreeWrapperPass>();
     }
 
-    bool runOnFunction(Function &F) override {
+    bool runOnFunction(Function & /*F*/) override {
       getAnalysis<DominatorTreeWrapperPass>().print(dbgs());
       return false;
     }

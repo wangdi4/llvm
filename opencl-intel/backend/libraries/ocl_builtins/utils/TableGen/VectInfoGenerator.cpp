@@ -114,7 +114,7 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
                  [=](const std::vector<Record *> &rs) {
                    std::vector<const OclType *> ts(rs.size());
                    std::transform(rs.begin(), rs.end(), ts.begin(), getOclType);
-                   return std::move(ts);
+                   return ts;
                  });
 
   m_types = transpose(oclTypes);

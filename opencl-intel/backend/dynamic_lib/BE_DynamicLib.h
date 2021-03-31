@@ -47,10 +47,6 @@ public:
 
   // Returns the pointer to exported function within a loaded module
   ptrdiff_t GetFuncPtr(const char* funcName);
-
-private:
-  void* m_hLibrary;		// A handle to loaded library
-
 };
 
 }}}}

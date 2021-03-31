@@ -115,7 +115,7 @@ class OclGenType : public OclType {
 public:
   explicit OclGenType(const OclBuiltinDB&, const Record*);
 
-  virtual const std::string& getGenType(const std::string&) const;
+  virtual const std::string &getGenType(const std::string &) const override;
 
 protected:
   std::map<std::string, std::string> m_GenMap;

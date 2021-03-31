@@ -123,43 +123,40 @@ bool tryParsePipelineText(PassBuilder &PB, StringRef PipelineText) {
 
 /// If one of the EPPipeline command line options was given, register callbacks
 /// for parsing and inserting the given pipeline
-static void registerEPCallbacks(PassBuilder &PB, bool DebugLogging) {
+static void registerEPCallbacks(PassBuilder &PB, bool /*DebugLogging*/) {
   if (tryParsePipelineText<FunctionPassManager>(PB, PeepholeEPPipeline))
     PB.registerPeepholeEPCallback(
-        [&PB, DebugLogging](FunctionPassManager &PM,
-                            PassBuilder::OptimizationLevel Level) {
+        [&PB](FunctionPassManager &PM,
+              PassBuilder::OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, PeepholeEPPipeline);
         });
   if (tryParsePipelineText<LoopPassManager>(PB,
                                             LateLoopOptimizationsEPPipeline))
     PB.registerLateLoopOptimizationsEPCallback(
-        [&PB, DebugLogging](LoopPassManager &PM,
-                            PassBuilder::OptimizationLevel Level) {
+        [&PB](LoopPassManager &PM, PassBuilder::OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, LateLoopOptimizationsEPPipeline);
         });
   if (tryParsePipelineText<LoopPassManager>(PB, LoopOptimizerEndEPPipeline))
     PB.registerLoopOptimizerEndEPCallback(
-        [&PB, DebugLogging](LoopPassManager &PM,
-                            PassBuilder::OptimizationLevel Level) {
+        [&PB](LoopPassManager &PM, PassBuilder::OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, LoopOptimizerEndEPPipeline);
         });
   if (tryParsePipelineText<FunctionPassManager>(PB,
                                                 ScalarOptimizerLateEPPipeline))
     PB.registerScalarOptimizerLateEPCallback(
-        [&PB, DebugLogging](FunctionPassManager &PM,
-                            PassBuilder::OptimizationLevel Level) {
+        [&PB](FunctionPassManager &PM,
+              PassBuilder::OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, ScalarOptimizerLateEPPipeline);
         });
   if (tryParsePipelineText<CGSCCPassManager>(PB, CGSCCOptimizerLateEPPipeline))
     PB.registerCGSCCOptimizerLateEPCallback(
-        [&PB, DebugLogging](CGSCCPassManager &PM,
-                            PassBuilder::OptimizationLevel Level) {
+        [&PB](CGSCCPassManager &PM, PassBuilder::OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, CGSCCOptimizerLateEPPipeline);
         });
   if (tryParsePipelineText<FunctionPassManager>(PB, VectorizerStartEPPipeline))
     PB.registerVectorizerStartEPCallback(
-        [&PB, DebugLogging](FunctionPassManager &PM,
-                            PassBuilder::OptimizationLevel Level) {
+        [&PB](FunctionPassManager &PM,
+              PassBuilder::OptimizationLevel /*Level*/) {
           (void)PB.parsePassPipeline(PM, VectorizerStartEPPipeline);
         });
 }
