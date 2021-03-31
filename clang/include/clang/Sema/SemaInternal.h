@@ -332,6 +332,7 @@ operator=(Sema::TypoExprState &&other) noexcept {
   return *this;
 }
 
+#if INTEL_CUSTOMIZATION
 template <typename AttrType>
 bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                        ExprResult &Result) {
@@ -349,6 +350,7 @@ bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
   }
   return false;
 }
+#endif // INTEL_CUSTOMIZATION
 
 } // end namespace clang
 

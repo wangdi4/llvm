@@ -7074,16 +7074,6 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   S.AddIntelFPGAPrivateCopiesAttr(D, A, A.getArgAsExpr(0));
 }
 
-<<<<<<< HEAD
-static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
-                                              const ParsedAttr &A) {
-#if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, A))
-   return;
-#endif // INTEL_CUSTOMIZATION
-
-  checkForDuplicateAttribute<IntelFPGAForcePow2DepthAttr>(S, D, A);
-=======
 void Sema::AddIntelFPGAForcePow2DepthAttr(Decl *D,
                                           const AttributeCommonInfo &CI,
                                           Expr *E) {
@@ -7096,7 +7086,6 @@ void Sema::AddIntelFPGAForcePow2DepthAttr(Decl *D,
     if (Res.isInvalid())
       return;
     E = Res.get();
->>>>>>> d02879c94e3e7f227c18956a64465ab8994419c2
 
     // This attribute requires a range of values.
     if (ArgVal < 0 || ArgVal > 1) {
@@ -7164,6 +7153,11 @@ Sema::MergeIntelFPGAForcePow2DepthAttr(Decl *D,
 
 static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
                                               const ParsedAttr &A) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, A))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
   S.AddIntelFPGAForcePow2DepthAttr(D, A, A.getArgAsExpr(0));
