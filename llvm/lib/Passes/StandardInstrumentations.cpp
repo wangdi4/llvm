@@ -1270,10 +1270,10 @@ StandardInstrumentations::StandardInstrumentations(bool DebugLogging,
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       PrintChangedIR(PrintChanged != ChangePrinter::PrintChangedQuiet),
-      PrintChangedDiff(PrintChanged != ChangePrinter::PrintChangedDiffQuiet),
+      PrintChangedDiff(PrintChanged != ChangePrinter::PrintChangedDiffQuiet, false),
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       PrintChangedIR(false),
-      PrintChangedDiff(false),
+      PrintChangedDiff(false, false),
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
       Verify(DebugLogging), VerifyEach(VerifyEach) {}
