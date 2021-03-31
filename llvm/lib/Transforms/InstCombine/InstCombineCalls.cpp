@@ -1008,47 +1008,88 @@ static bool isRedundantStacksaveStackrestore(CallInst *SSCI,
     return false;
   if (SSCI->user_back() != SRCI)
     return false;
-  // Be conservative and optimize only if the stacksave
-  // and the stackrestore are in the same basic block.
-  if (SSCI->getParent() != SRCI->getParent())
-    return false;
 
-  // Walk from the stacksave to the stackrestore and make sure
-  // the stack pointer is not used in any unknown way.
-  BasicBlock::iterator BI(SSCI);
-  Instruction *TI = SSCI->getParent()->getTerminator();
-  for (++BI; &*BI != TI && &*BI != SRCI; ++BI) {
-    if (isa<AllocaInst>(BI))
-      return false;
-
-    // This may happen when variable allocas are DCE'd.
-    // In addition, the inliner may insert stacksave/stackrestore
-    // for allocas of known size to guarantee correctness (e.g.
-    // when the inlining is done within an OpenMP region). These allocas
-    // may be hoisted later leaving redundant pairs of stacksave/stackrestore.
-    // See CMPLRLLVM-26364 for details.
-    if (CallBase *CB = dyn_cast<CallBase>(BI)) {
-      if (auto *II2 = dyn_cast<IntrinsicInst>(CB)) {
-        // Bail if we cross over an intrinsic with side effects, such as
-        // llvm.stacksave, or llvm.read_register. At the same time, allow
-        // some known intrinsics (e.g. memset).
-        if (isa<AnyMemSetInst>(II2))
-          continue;
-
-        if (II2->mayHaveSideEffects())
-          return false;
-      } else {
-        // If we found a non-intrinsic call or invoke, we cannot optimize.
+  // Walk instructions in [BI, BE) range and make sure the stack pointer is not
+  // used in any unknown way. BI and BE must be in the same basic block.
+  auto IsStackSafe = [](BasicBlock::const_iterator BI,
+                        BasicBlock::const_iterator BE) {
+    for (auto BT = BI->getParent()->end(); BI != BE && BI != BT; ++BI) {
+      if (isa<AllocaInst>(BI))
         return false;
+
+      // This may happen when variable allocas are DCE'd.
+      // In addition, the inliner may insert stacksave/stackrestore
+      // for allocas of known size to guarantee correctness (e.g.
+      // when the inlining is done within an OpenMP region). These allocas
+      // may be hoisted later leaving redundant pairs of stacksave/stackrestore.
+      // See CMPLRLLVM-26364 for details.
+      if (const CallBase *CB = dyn_cast<CallBase>(BI)) {
+        if (auto *II2 = dyn_cast<IntrinsicInst>(CB)) {
+          // Bail if we cross over an intrinsic with side effects, such as
+          // llvm.stacksave, or llvm.read_register. At the same time, allow
+          // some known intrinsics (e.g. memset).
+          if (isa<AnyMemSetInst>(II2))
+            continue;
+
+          if (II2->mayHaveSideEffects())
+            return false;
+        } else {
+          // If we found a non-intrinsic call or invoke, we cannot optimize.
+          return false;
+        }
       }
     }
-  }
 
-  // If we have not reached the corresponding stackrestore, then
-  // something is wrong, so just avoid optimizing.
-  if (&*BI != SRCI)
+    // If we have not reached the 'To' instruction in the range, then
+    // something is wrong, so just avoid optimizing.
+    if (BI != BE)
+      return false;
+
+    return true;
+  };
+
+  BasicBlock *SSBB = SSCI->getParent();
+  BasicBlock *SRBB = SRCI->getParent();
+
+  // If stacksave/stackrestore pair is in the same block, just check
+  // instructions between them for side effects.
+  if (SSBB == SRBB)
+    return IsStackSafe(++SSCI->getIterator(), SRCI->getIterator());
+
+  // Othewrwise first check instructions in stacksave and stackrestore blocks
+  // for stack side effects.
+  if (!IsStackSafe(++SSCI->getIterator(), SSBB->end()) ||
+      !IsStackSafe(SRBB->begin(), SRCI->getIterator()))
     return false;
 
+  // And then BFS all paths in CFG between these two blocks and check if any
+  // block can modify stack.
+  SmallPtrSet<BasicBlock *, 8> Visited{SRBB};
+  std::queue<BasicBlock *> Worklist;
+  auto GrowWorklist = [&Worklist, &Visited](BasicBlock *BB) {
+    Visited.insert(BB);
+    for (BasicBlock *Succ : successors(BB))
+      if (!Visited.contains(Succ))
+        Worklist.push(Succ);
+  };
+
+  GrowWorklist(SSBB);
+  while (!Worklist.empty()) {
+    BasicBlock *BB = Worklist.front();
+    Worklist.pop();
+
+    // If block is terminated by something other than branch or switch
+    // instruction we cannot guarantee that every path from the stacksave block
+    // leads to the stackrestore block.
+    Instruction *TI = BB->getTerminator();
+    if (!TI || !(isa<BranchInst>(TI) || isa<SwitchInst>(TI)))
+      return false;
+
+    if (!IsStackSafe(BB->begin(), BB->end()))
+      return false;
+
+    GrowWorklist(BB);
+  }
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
