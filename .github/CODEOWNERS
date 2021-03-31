@@ -1,7 +1,7 @@
 * @bader @xmain/llvm-generic-owner # INTEL
 
 # Front-end compiler
-clang/ @premanandrao @elizabethandrews @xmain/llvm-clang-front-end # INTEL
+clang/ @premanandrao @elizabethandrews @AaronBallman @xmain/llvm-clang-front-end # INTEL
 
 # Driver
 clang/**/Driver @mdtoguchi @AGindinson @xmain/llvm-driver # INTEL
