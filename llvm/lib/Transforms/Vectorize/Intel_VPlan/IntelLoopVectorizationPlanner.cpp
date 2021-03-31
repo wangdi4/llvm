@@ -1175,13 +1175,25 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
     return true;
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
   for (auto *BB : Loop.blocks())
-    for (VPInstruction &Inst : *BB)
-      if (Loop.isLiveOut(&Inst) && !LE->getReduction(&Inst) &&
-          !LE->getInduction(&Inst)) {
+    for (VPInstruction &Inst : *BB) {
+      if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
+        // Entities code and CG need to be uplifted to handle vector type
+        // inductions and reductions.
+        if (isa<VectorType>(Inst.getType())) {
+          LLVM_DEBUG(dbgs() << "LVP: Vector type reduction/induction currently"
+                            << " not supported.\n"
+                            << Inst << "\n");
+          return false;
+        }
+      } else if (Loop.isLiveOut(&Inst)) {
+        // Liveout that is not an induction or reduction is not supported
+        // currently.
         LLVM_DEBUG(dbgs() << "LVP: Unsupported liveout found.\n"
                           << Inst << "\n");
         return false;
       }
+    }
+
   return true;
 }
 
