@@ -3451,7 +3451,7 @@ public:
   VPlanScalVecAnalysis *getVPlanSVA() const { return VPlanSVA.get(); }
 
   // Compute SVA results for this VPlan.
-  void runSVA(unsigned VF, const TargetLibraryInfo *TLI);
+  void runSVA();
 
   // Clear results of SVA.
   void clearSVA();

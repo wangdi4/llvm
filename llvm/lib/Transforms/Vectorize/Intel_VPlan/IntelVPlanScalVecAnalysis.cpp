@@ -87,7 +87,7 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
 }
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
-    const VPInstruction *Inst, unsigned VF, const TargetLibraryInfo *TLI) {
+    const VPInstruction *Inst) {
   auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
 
   switch (Inst->getOpcode()) {
@@ -115,7 +115,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
         setSVABitsForInst(Phi, ExistingSVABits);
         setSVABitsForAllOperands(Phi, ExistingSVABits);
         // Special back propagation needed for loop header PHIs.
-        backPropagateSVABitsForRecurrentPHI(Phi, ExistingSVABits, VF, TLI);
+        backPropagateSVABitsForRecurrentPHI(Phi, ExistingSVABits);
         // Remove skipped phi from the list after it's processed (triggered via
         // back propagation).
         if (SkippedPHIs.count(Phi))
@@ -192,7 +192,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     };
 
     const VPCallInstruction *VPCall = cast<VPCallInstruction>(Inst);
-    assert(VPCall->getVFForScenario() == VF && "No available scenario for VF.");
+    assert(VPCall->getVFForScenario() > 0 &&
+           "CallVecScenario is not recorded for a valid VF.");
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::Undefined: {
       // No knowledge available for call, conservatively vectorize.
@@ -459,8 +460,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 }
 
-void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
-                                   const TargetLibraryInfo *TLI) {
+void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
   auto *DA = Plan->getVPlanDA();
 
   // Allocate expected number of elements for OperandBits. Default state is
@@ -470,7 +470,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
     VPlanSVAResults[VPInst].OperandBits.resize(VPInst->getNumOperands());
 
   // Case 1: Specially processed instruction in SVA.
-  if (computeSpecialInstruction(VPInst, VF, TLI)) {
+  if (computeSpecialInstruction(VPInst)) {
     LLVM_DEBUG(dbgs() << "[SVA] Specially processed instruction ";
                VPInst->dump());
     assert(isSVASpecialProcessedInst(VPInst) &&
@@ -550,8 +550,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
   }
 }
 
-void VPlanScalVecAnalysis::compute(VPlanVector *P, unsigned VF,
-                                   const TargetLibraryInfo *TLI) {
+void VPlanScalVecAnalysis::compute(VPlanVector *P) {
   Plan = P;
 
   // TODO: Is it okay to clear the table before a fresh compute cycle?
@@ -561,7 +560,7 @@ void VPlanScalVecAnalysis::compute(VPlanVector *P, unsigned VF,
     LLVM_DEBUG(dbgs() << "[SVA] Visiting BB " << VPBB->getName() << "\n");
     for (VPInstruction &Inst : reverse(*VPBB)) {
       // Compute SVA results for instruction during forward propagation.
-      compute(&Inst, VF, TLI);
+      compute(&Inst);
     }
   }
 }
@@ -654,8 +653,7 @@ void VPlanScalVecAnalysis::orSVABitsForAllOperands(const VPInstruction *Inst,
 }
 
 void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
-    const VPPHINode *Phi, SVABits &SetBits, unsigned VF,
-    const TargetLibraryInfo *TLI) {
+    const VPPHINode *Phi, SVABits &SetBits) {
   SetVector<const VPInstruction *> Worklist;
   auto AddInstOperandsToWorklist =
       [&Worklist, this, &SetBits](const VPInstruction *VPI) -> void {
@@ -704,7 +702,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
     assert((OrigBits.any() || SkippedPHIs.count(cast<VPPHINode>(Inst))) &&
            "Trying to back propagate to an unprocessed instruction.");
     // Compute SVA results for instruction during back propagation.
-    compute(Inst, VF, TLI);
+    compute(Inst);
     SVABits NewBits = getSVABitsForInst(Inst);
     // Continue back propagation into operands only if nature of instruction has
     // changed.

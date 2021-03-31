@@ -116,7 +116,7 @@ protected:
 
     // Compute SVA results for current VPlan in order to compute cost
     // accurately in CM.
-    const_cast<VPlanVector *>(Plan)->runSVA(VF, TLI);
+    const_cast<VPlanVector *>(Plan)->runSVA();
   }
 
   // We prefer protected dtor over virtual one as there is no plan to

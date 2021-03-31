@@ -71,7 +71,7 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
-  Plan->runSVA(BestVF, TLI);
+  Plan->runSVA();
   VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
   Plan->executeHIR(CG);
