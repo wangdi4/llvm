@@ -198,6 +198,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityAtomicFloat64MinMaxEXT:
       // optnone attribute support
     case spv::internal::CapabilityOptNoneINTEL:
+      // SPV_INTEL_memory_access_aliasing
+    case spv::internal::CapabilityMemoryAccessAliasingINTEL:
       break;
     case spv::CapabilityInt64Atomics:
     case spv::CapabilityAtomicFloat64AddEXT:
