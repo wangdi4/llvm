@@ -544,19 +544,16 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
       if (CliquesI.empty()) {
         MDNode *M = MDB.createAnonymousAliasScope(NewDomain, Name);
         CliquesI.insert(M);
-        generateScopeMD(Ins, M);
-      } else if (CliquesI.size() == 1) {
-        // 1 clique, attach the MDNode directly to the inst instead of
-        // creating a 1-element list.
-        generateScopeMD(Ins, CliquesI[0]);
-      } else {
-        // Multiple cliques, create a list of clique MDNodes.
-        // !3 = distinct !{!3, !99, "OMPAliasScope"}
-        // !4 = distinct !{!4, !99, "OMPAliasScope"}
-        // !8 = {!3, !4}
-        MDNode *M = MDNode::get(C, CliquesI.getArrayRef());
-        generateScopeMD(Ins, M);
       }
+
+      // Create a list of clique MDNodes.
+      // There may be one or more of them:
+      // !3 = distinct !{!3, !99, "OMPAliasScope"}
+      // !4 = distinct !{!4, !99, "OMPAliasScope"}
+      // !8 = {!3, !4}
+      //
+      MDNode *M = MDNode::get(C, CliquesI.getArrayRef());
+      generateScopeMD(Ins, M);
     }
 
     // For each pair of Insns: (I,J), if I and J do not alias,
@@ -585,13 +582,9 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
     for (unsigned I = 0; I < Insns.size(); ++I) {
       ScopeSetType &NoAliasMDI = NoAliasMDs[I];
       if (!NoAliasMDI.empty()) {
-        if (NoAliasMDI.size() == 1) {
-          generateNoAliasMD(Insns[I], NoAliasMDI[0]);
-        } else {
-          // Multiple scopes, make a list.
-          MDNode *M = MDNode::get(C, NoAliasMDI.getArrayRef());
-          generateNoAliasMD(Insns[I], M);
-        }
+        // Make a list.
+        MDNode *M = MDNode::get(C, NoAliasMDI.getArrayRef());
+        generateNoAliasMD(Insns[I], M);
       }
     }
   };
