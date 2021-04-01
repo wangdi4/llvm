@@ -10472,6 +10472,9 @@ public:
   SYCLIntelFPGAInitiationIntervalAttr *MergeSYCLIntelFPGAInitiationIntervalAttr(
       Decl *D, const SYCLIntelFPGAInitiationIntervalAttr &A);
 
+  SYCLIntelFPGAMaxConcurrencyAttr *MergeSYCLIntelFPGAMaxConcurrencyAttr(
+      Decl *D, const SYCLIntelFPGAMaxConcurrencyAttr &A);
+
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                       bool IsPackExpansion);
@@ -10525,6 +10528,12 @@ public:
   /// addSYCLIntelPipeIOAttr - Adds a pipe I/O attribute to a particular
   /// declaration.
   void addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &CI, Expr *ID);
+
+  /// AddSYCLIntelFPGAMaxConcurrencyAttr - Adds a max_concurrency attribute to a
+  /// particular declaration.
+  void AddSYCLIntelFPGAMaxConcurrencyAttr(Decl *D,
+                                          const AttributeCommonInfo &CI,
+                                          Expr *E);
 
   bool checkNSReturnsRetainedReturnType(SourceLocation loc, QualType type);
   bool checkAllowedSYCLInitializer(VarDecl *VD,

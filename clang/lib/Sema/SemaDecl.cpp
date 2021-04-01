@@ -2639,6 +2639,8 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = S.MergeSYCLIntelNoGlobalWorkOffsetAttr(D, *A);
   else if (const auto *A = dyn_cast<IntelFPGAMaxReplicatesAttr>(Attr))
     NewAttr = S.MergeIntelFPGAMaxReplicatesAttr(D, *A);
+  else if (const auto *A = dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(Attr))
+    NewAttr = S.MergeSYCLIntelFPGAMaxConcurrencyAttr(D, *A);
   else if (const auto *A = dyn_cast<IntelFPGAForcePow2DepthAttr>(Attr))
     NewAttr = S.MergeIntelFPGAForcePow2DepthAttr(D, *A);
   else if (const auto *A = dyn_cast<SYCLIntelFPGAInitiationIntervalAttr>(Attr))
