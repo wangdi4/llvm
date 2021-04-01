@@ -19,7 +19,7 @@ using namespace llvm::vpo;
 HIRSpecifics::HIRSpecifics(const VPInstruction &Inst)
     : Inst(const_cast<VPInstruction &>(Inst)) {
   assert(
-      (!HIRData().MasterData.isNull() || HIRData().MasterData.is<void *>()) &&
+      (!HIRData().ExtraData.isNull() || HIRData().ExtraData.is<void *>()) &&
       "Defined state can't contain nullptr!");
 }
 
@@ -28,7 +28,7 @@ HIRSpecificsData &HIRSpecifics::HIRData() { return Inst.HIRData; }
 
 MasterVPInstData *HIRSpecifics::getVPInstData() {
   if (isMaster())
-    return HIRData().MasterData.get<MasterVPInstData *>();
+    return HIRData().ExtraData.get<MasterVPInstData *>();
   if (isDecomposed())
     return getMaster()->HIR().getVPInstData();
   // New VPInstructions don't have VPInstruction data.
