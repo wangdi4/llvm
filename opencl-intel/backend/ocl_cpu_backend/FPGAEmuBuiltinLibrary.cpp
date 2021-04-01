@@ -30,8 +30,8 @@ void FPGAEmuBuiltinLibrary::Load() {
   std::string file_prefix = "lib";
   std::string file_ext = ".so";
 #endif
-  std::string MPIRPath = file_prefix + "psg_mpir" + file_ext;
-  std::string MPFRPath = file_prefix + "psg_mpfr" + file_ext;
+  std::string MPIRPath = file_prefix + "dspba_mpir" + file_ext;
+  std::string MPFRPath = file_prefix + "dspba_mpfr" + file_ext;
   std::string FIX_P_M_Path = file_prefix + "hls_fixed_point_math_x86" + file_ext;
   std::string HLS_VPFP_Path = file_prefix + "hls_vpfp_library" + file_ext;
   bool continue_load = true;
