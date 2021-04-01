@@ -64,9 +64,8 @@ FunctionPass *createDeadCodeEliminationPass();
 // DeadStoreElimination - This pass deletes stores that are post-dominated by
 // must-aliased stores and are not loaded used between the stores.
 //
-#if INTEL_CUSTOMIZATION
-FunctionPass *createDeadStoreEliminationPass(bool UseSSA = true);
-#endif // INTEL_CUSTOMIZATION
+FunctionPass *createDeadStoreEliminationPass();
+
 
 //===----------------------------------------------------------------------===//
 //

@@ -559,7 +559,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     if (UseOpenMP)
       // Use the atomic exchange in case we are using OpenMP
       Builder.CreateAtomicRMW(AtomicRMWInst::BinOp::Xchg, GlobalCounter,
-                              PMLimitVal,
+                              PMLimitVal, llvm::MaybeAlign(),
                               AtomicOrdering::SequentiallyConsistent, 1);
     else
       // Else use the regular store
@@ -583,7 +583,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     // Increase the global variable
     if (UseOpenMP)
       Builder.CreateAtomicRMW(AtomicRMWInst::BinOp::Add, GlobalCounter,
-                              Builder.getInt32(1),
+                              Builder.getInt32(1), llvm::MaybeAlign(),
                               AtomicOrdering::SequentiallyConsistent, 1);
     else {
       Value *addOp = Builder.CreateAdd(Builder.getInt32(1), LoadGlobal);

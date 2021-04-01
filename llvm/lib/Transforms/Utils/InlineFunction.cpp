@@ -2104,8 +2104,8 @@ bool isTargetSPIRV(Function *F) {
 ///    is a claimRV call, a call to objc_release is emitted.
 ///
 /// 2. If there is a call in the callee return block that doesn't have operand
-///    bundle "clang.arc.rv", the operand bundle on the original call is
-///    transferred to the call in the callee.
+///    bundle "clang.arc.attachedcall", the operand bundle on the original call
+///    is transferred to the call in the callee.
 ///
 /// 3. Otherwise, a call to objc_retain is inserted if the call in the caller is
 ///    a retainRV call.
@@ -2113,7 +2113,8 @@ static void
 inlineRetainOrClaimRVCalls(CallBase &CB,
                            const SmallVectorImpl<ReturnInst *> &Returns) {
   Module *Mod = CB.getModule();
-  bool IsRetainRV = objcarc::hasRVOpBundle(&CB, true), IsClaimRV = !IsRetainRV;
+  bool IsRetainRV = objcarc::hasAttachedCallOpBundle(&CB, true),
+       IsClaimRV = !IsRetainRV;
 
   for (auto *RI : Returns) {
     Value *RetOpnd = objcarc::GetRCIdentityRoot(RI->getOperand(0));
@@ -2136,10 +2137,10 @@ inlineRetainOrClaimRVCalls(CallBase &CB,
             II->hasNUses(0) &&
             objcarc::GetRCIdentityRoot(II->getOperand(0)) == RetOpnd) {
           // If we've found a matching authoreleaseRV call:
-          // - If the call is annotated with claimRV, insert a call to
-          //   objc_release and erase the autoreleaseRV call.
-          // - If the call is annotated with retainRV, just erase the
-          //   autoreleaseRV call.
+          // - If claimRV is attached to the call, insert a call to objc_release
+          //   and erase the autoreleaseRV call.
+          // - If retainRV is attached to the call, just erase the autoreleaseRV
+          //   call.
           if (IsClaimRV) {
             Builder.SetInsertPoint(II);
             Function *IFn =
@@ -2153,15 +2154,15 @@ inlineRetainOrClaimRVCalls(CallBase &CB,
         }
       } else if (auto *CI = dyn_cast<CallInst>(&*CurI)) {
         if (objcarc::GetRCIdentityRoot(CI) == RetOpnd &&
-            !objcarc::hasRVOpBundle(CI)) {
+            !objcarc::hasAttachedCallOpBundle(CI)) {
           // If we've found an unannotated call that defines RetOpnd, add a
-          // "clang.arc.rv" operand bundle.
-          Value *BundleArgs[] = {
-              ConstantInt::get(Builder.getInt64Ty(),
-                               objcarc::getRVOperandBundleEnum(IsRetainRV))};
-          OperandBundleDef OB("clang.arc.rv", BundleArgs);
+          // "clang.arc.attachedcall" operand bundle.
+          Value *BundleArgs[] = {ConstantInt::get(
+              Builder.getInt64Ty(),
+              objcarc::getAttachedCallOperandBundleEnum(IsRetainRV))};
+          OperandBundleDef OB("clang.arc.attachedcall", BundleArgs);
           auto *NewCall = CallBase::addOperandBundle(
-              CI, LLVMContext::OB_clang_arc_rv, OB, CI);
+              CI, LLVMContext::OB_clang_arc_attachedcall, OB, CI);
           NewCall->copyMetadata(*CI);
           CI->replaceAllUsesWith(NewCall);
           CI->eraseFromParent();
@@ -2173,9 +2174,9 @@ inlineRetainOrClaimRVCalls(CallBase &CB,
     }
 
     if (InsertRetainCall) {
-      // The call has operand bundle "clang.arc.rv"="retain" and we've failed to
-      // find a matching autoreleaseRV or an annotated call in the callee. Emit
-      // a call to objc_retain.
+      // The retainRV is attached to the call and we've failed to find a
+      // matching autoreleaseRV or an annotated call in the callee. Emit a call
+      // to objc_retain.
       Builder.SetInsertPoint(RI);
       Function *IFn = Intrinsic::getDeclaration(Mod, Intrinsic::objc_retain);
       Value *BC = Builder.CreateBitCast(RetOpnd, IFn->getArg(0)->getType());
@@ -2245,7 +2246,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       // ... and "funclet" operand bundles.
       if (Tag == LLVMContext::OB_funclet)
         continue;
-      if (Tag == LLVMContext::OB_clang_arc_rv)
+      if (Tag == LLVMContext::OB_clang_arc_attachedcall)
         continue;
 
       return InlineResult::failure("unsupported operand bundle") // INTEL
@@ -2420,7 +2421,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     FirstNewBlock = LastBlock; ++FirstNewBlock;
 
     // Insert retainRV/clainRV runtime calls.
-    if (objcarc::hasRVOpBundle(&CB))
+    if (objcarc::hasAttachedCallOpBundle(&CB))
       inlineRetainOrClaimRVCalls(CB, Returns);
 
     if (IFI.CallerBFI != nullptr && IFI.CalleeBFI != nullptr)

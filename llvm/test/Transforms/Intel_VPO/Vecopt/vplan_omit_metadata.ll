@@ -4,21 +4,21 @@
 ; dereferenceable_or_null get dropped from the vector reference after
 ; vectorization.
 define void @foo(i64** nocapture %arr) {
-; HIR-CHECK:        *** IR Dump Before VPlan Vectorization Driver HIR ***
+; HIR-CHECK:        *** IR Dump Before VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIR-CHECK:                   {{.*}} = (%arr)[i1]
 ; HIR-CHECK:                         <RVAL-REG> {{.*}}(LINEAR i64** %arr){{.*}} !nonnull
-; HIR-CHECK:        *** IR Dump After VPlan Vectorization Driver HIR ***
+; HIR-CHECK:        *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIR-CHECK:                   {{.*}} = (<4 x i64*>*)(%arr)[i1]
 ; HIR-CHECK:                         <RVAL-REG> {{.*}}(<4 x i64*>*)(LINEAR i64** %arr)
 ; HIR-CHECK-NOT:   !nonnull
 ; HIR-CHECK-NOT:   !dereferenceable
 ; HIR-CHECK-SAME:  inbounds {{.*}}
 ;
-; LLVM-CHECK:        *** IR Dump Before VPlan Vectorization Driver ***
+; LLVM-CHECK:        *** IR Dump Before VPlan Vectorization Driver (VPlanDriver) ***
 ; LLVM-CHECK:         [[I1_04:%.*]] = phi i64 [ 0, {{.*}} ], [ [[INC:%.*]], {{.*}} ]
 ; LLVM-CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i64*, i64** [[ARR:%.*]], i64 [[I1_04]]
 ; LLVM-CHECK-NEXT:    [[TMP0:%.*]] = load i64*, i64** [[ARRAYIDX]], align 8, !nonnull !0, !dereferenceable !1, !dereferenceable_or_null !1
-; LLVM-CHECK:        *** IR Dump After VPlan Vectorization Driver ***
+; LLVM-CHECK:        *** IR Dump After VPlan Vectorization Driver (VPlanDriver) ***
 ; LLVM-CHECK:         [[UNI_PHI:%uni.*]] = phi i64 [ 0, {{.*}} ], [ [[TMP3:%.*]], {{.*}} ]
 ; LLVM-CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i64*, i64** [[ARR:%.*]], i64 [[UNI_PHI]]
 ; LLVM-CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64** [[SCALAR_GEP]] to <4 x i64*>*

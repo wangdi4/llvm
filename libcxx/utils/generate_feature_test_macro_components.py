@@ -123,7 +123,6 @@ feature_test_macros = [ add_version_header(x) for x in [
     "name": "__cpp_lib_bind_front",
     "values": { "c++20": 201907 },
     "headers": ["functional"],
-    "unimplemented": True,
   }, {
     "name": "__cpp_lib_bit_cast",
     "values": { "c++20": 201806 },
@@ -204,7 +203,6 @@ feature_test_macros = [ add_version_header(x) for x in [
     "name": "__cpp_lib_constexpr_memory",
     "values": { "c++20": 201811 },
     "headers": ["memory"],
-    "unimplemented": True,
   }, {
     "name": "__cpp_lib_constexpr_numeric",
     "values": { "c++20": 201911 },
@@ -423,8 +421,8 @@ feature_test_macros = [ add_version_header(x) for x in [
     "name": "__cpp_lib_math_constants",
     "values": { "c++20": 201907 },
     "headers": ["numbers"],
-    "depends": "defined(__cpp_concepts) && __cpp_concepts >= 201811L",
-    "internal_depends": "defined(__cpp_concepts) && __cpp_concepts >= 201811L",
+    "depends": "defined(__cpp_concepts) && __cpp_concepts >= 201907L",
+    "internal_depends": "defined(__cpp_concepts) && __cpp_concepts >= 201907L",
   }, {
     "name": "__cpp_lib_math_special_functions",
     "values": { "c++17": 201603 },
@@ -595,6 +593,10 @@ feature_test_macros = [ add_version_header(x) for x in [
     "values": { "c++17": 201611 },
     "headers": ["utility"],
     "unimplemented": True,
+  }, {
+    "name": "__cpp_lib_to_underlying",
+    "values": { "c++2b": 202102 },
+    "headers": ["utility"],
   }, {
     "name": "__cpp_lib_transformation_trait_aliases",
     "values": { "c++14": 201304 },
@@ -821,7 +823,11 @@ def produce_version_header():
 #pragma GCC system_header
 #endif
 
+// clang-format off
+
 {cxx_macros}
+
+// clang-format on
 
 #endif // _LIBCPP_VERSIONH
 """

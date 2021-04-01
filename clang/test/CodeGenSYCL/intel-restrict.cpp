@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown-sycldevice -o - | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown-sycldevice -o - | FileCheck %s
 // INTEL_CUSTOMIZATION
 // INTEL_FEATURE_CSA
 // INTEL - Disable test for CSA compiler as it is flaky.

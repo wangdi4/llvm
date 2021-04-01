@@ -67,6 +67,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
+#include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
 #include <algorithm>
@@ -112,6 +113,10 @@ static cl::opt<unsigned> GuardWideningWindow(
     cl::init(3),
     cl::desc("How wide an instruction window to bypass looking for "
              "another guard"));
+
+/// enable preservation of attributes in assume like:
+/// call void @llvm.assume(i1 true) [ "nonnull"(i32* %PTR) ]
+extern cl::opt<bool> EnableKnowledgeRetention;
 
 /// Return the specified type promoted as it would be to pass though a va_arg
 /// area.
@@ -286,6 +291,43 @@ void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI) {
   assert(STy && "Expected non-empty structure type");
   (void) GenFieldsForStruct(MI, STy, StrippedSrc, StrippedDest, 0);
 }
+
+// Return true if the given struct-path style TBAA MD node results in a
+// scalar type, valid for load/store instructions.
+// We assume that the TBAA MD is otherwise well formed (no illegal operands).
+// Details are in the code comments.
+static bool IsScalarTBAANode(const MDNode *MD) {
+  const MDNode *currMD = MD;
+  SmallPtrSet<const MDNode *, 4> Cache;
+  // New-style TBAA, let the verifier handle it.
+  if (MD->getNumOperands() == 4)
+    return true;
+
+  // All nodes up to the root must be types with <= 3 operands: either scalar
+  // or single-field structs.
+  while (currMD) {
+    // Root, or old-style scalar.
+    if (currMD->getNumOperands() < 3)
+      return true;
+    // Multi-field struct, not allowed.
+    if (currMD->getNumOperands() > 3)
+      return false;
+
+    // Either a path node or scalar type node. We assume the nodes are
+    // well formed, so we just move on to the parent (operand 1).
+    // {!2, !3, i64 4} ; path node
+    // {"int", !1, i64 0} ; type node
+    auto *Parent = dyn_cast_or_null<MDNode>(currMD->getOperand(1));
+    if (!Parent)
+      return false;
+    // Circular path? "insert" returns false if the node has been seen.
+    if (!(Cache.insert(currMD).second))
+      return false;
+    currMD = Parent;
+  }
+  llvm_unreachable("Null TBAA tag found.");
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
@@ -377,8 +419,22 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   LoadInst *L = Builder.CreateLoad(IntType, Src);
   // Alignment from the mem intrinsic will be better, so use it.
   L->setAlignment(*CopySrcAlign);
+#if INTEL_CUSTOMIZATION
+  auto Kind = LLVMContext::MD_tbaa;
+  // 26995: If the original MD was tbaa_struct and we converted it into tbaa,
+  // verify that the result is scalar. If not, use the original tbaa_struct
+  // node instead.
+  if (CopyMD) {
+    MDNode *StructFormMD = MI->getMetadata(LLVMContext::MD_tbaa_struct);
+    if (StructFormMD && !IsScalarTBAANode(CopyMD)) {
+      Kind = LLVMContext::MD_tbaa_struct;
+      CopyMD = StructFormMD;
+    }
+  }
+
   if (CopyMD)
-    L->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+    L->setMetadata(Kind, CopyMD);
+#endif // INTEL_CUSTOMIZATION
   MDNode *LoopMemParallelMD =
     MI->getMetadata(LLVMContext::MD_mem_parallel_loop_access);
   if (LoopMemParallelMD)
@@ -390,8 +446,10 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   StoreInst *S = Builder.CreateStore(L, Dest);
   // Alignment from the mem intrinsic will be better, so use it.
   S->setAlignment(*CopyDstAlign);
+#if INTEL_CUSTOMIZATION
   if (CopyMD)
-    S->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+    S->setMetadata(Kind, CopyMD);
+#endif // INTEL_CUSTOMIZATION
   if (LoopMemParallelMD)
     S->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopMemParallelMD);
   if (AccessGroupMD)
@@ -641,7 +699,13 @@ static Instruction *simplifyInvariantGroupIntrinsic(IntrinsicInst &II,
                                                     InstCombinerImpl &IC) {
   auto *Arg = II.getArgOperand(0);
   auto *StrippedArg = Arg->stripPointerCasts();
-  auto *StrippedInvariantGroupsArg = Arg->stripPointerCastsAndInvariantGroups();
+  auto *StrippedInvariantGroupsArg = StrippedArg;
+  while (auto *Intr = dyn_cast<IntrinsicInst>(StrippedInvariantGroupsArg)) {
+    if (Intr->getIntrinsicID() != Intrinsic::launder_invariant_group &&
+        Intr->getIntrinsicID() != Intrinsic::strip_invariant_group)
+      break;
+    StrippedInvariantGroupsArg = Intr->getArgOperand(0)->stripPointerCasts();
+  }
   if (StrippedArg == StrippedInvariantGroupsArg)
     return nullptr; // No launders/strips to remove.
 
@@ -1108,15 +1172,10 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
   }
 
   Intrinsic::ID IID = II->getIntrinsicID();
-  switch (IID) {
-  case Intrinsic::objectsize:
-    if (Value *V = lowerObjectSizeCall(II, DL, &TLI, /*MustSucceed=*/false))
-      return replaceInstUsesWith(CI, V);
-    return nullptr;
 #if INTEL_CUSTOMIZATION
-  case Intrinsic::vector_reduce_and:
-  case Intrinsic::vector_reduce_or:
-  case Intrinsic::vector_reduce_xor: {
+  if (IID == Intrinsic::vector_reduce_and ||
+      IID == Intrinsic::vector_reduce_or ||
+      IID == Intrinsic::vector_reduce_xor) {
     // Pull sign/zero extend through vector reduce intrinsics to reduce
     // the maximum vector size needed.
     Value *X;
@@ -1131,10 +1190,13 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         return new SExtInst(NewCall, II->getType());
       return new ZExtInst(NewCall, II->getType());
     }
-
-    break;
   }
 #endif
+  switch (IID) {
+  case Intrinsic::objectsize:
+    if (Value *V = lowerObjectSizeCall(II, DL, &TLI, /*MustSucceed=*/false))
+      return replaceInstUsesWith(CI, V);
+    return nullptr;
   case Intrinsic::abs: {
     Value *IIOperand = II->getArgOperand(0);
     bool IntMinIsPoison = cast<Constant>(II->getArgOperand(1))->isOneValue();
@@ -1201,6 +1263,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       Value *NarrowMaxMin = Builder.CreateBinaryIntrinsic(IID, X, Y);
       return CastInst::Create(Instruction::SExt, NarrowMaxMin, II->getType());
     }
+
     Constant *C;
     if (match(I0, m_SExt(m_Value(X))) && match(I1, m_Constant(C)) &&
         I0->hasOneUse()) {
@@ -1210,6 +1273,23 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         return CastInst::Create(Instruction::SExt, NarrowMaxMin, II->getType());
       }
     }
+
+    if (match(I0, m_Not(m_Value(X)))) {
+      // max (not X), (not Y) --> not (min X, Y)
+      Intrinsic::ID InvID = getInverseMinMaxIntrinsic(IID);
+      if (match(I1, m_Not(m_Value(Y))) &&
+          (I0->hasOneUse() || I1->hasOneUse())) {
+        Value *InvMaxMin = Builder.CreateBinaryIntrinsic(InvID, X, Y);
+        return BinaryOperator::CreateNot(InvMaxMin);
+      }
+      // max (not X), C --> not(min X, ~C)
+      if (match(I1, m_Constant(C)) && I0->hasOneUse()) {
+        Constant *NotC = ConstantExpr::getNot(C);
+        Value *InvMaxMin = Builder.CreateBinaryIntrinsic(InvID, X, NotC);
+        return BinaryOperator::CreateNot(InvMaxMin);
+      }
+    }
+
     break;
   }
   case Intrinsic::bswap: {
@@ -1855,15 +1935,23 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     Value *IIOperand = II->getArgOperand(0);
     SmallVector<OperandBundleDef, 4> OpBundles;
     II->getOperandBundlesAsDefs(OpBundles);
-    bool HasOpBundles = !OpBundles.empty();
+
+    /// This will remove the boolean Condition from the assume given as
+    /// argument and remove the assume if it becomes useless.
+    /// always returns nullptr for use as a return values.
+    auto RemoveConditionFromAssume = [&](Instruction *Assume) -> Instruction * {
+      assert(isa<IntrinsicInst>(Assume));
+      if (isAssumeWithEmptyBundle(*cast<IntrinsicInst>(II)))
+        return eraseInstFromFunction(CI);
+      replaceUse(II->getOperandUse(0), ConstantInt::getTrue(II->getContext()));
+      return nullptr;
+    };
     // Remove an assume if it is followed by an identical assume.
     // TODO: Do we need this? Unless there are conflicting assumptions, the
     // computeKnownBits(IIOperand) below here eliminates redundant assumes.
     Instruction *Next = II->getNextNonDebugInstruction();
-    if (HasOpBundles &&
-        match(Next, m_Intrinsic<Intrinsic::assume>(m_Specific(IIOperand))) &&
-        !cast<IntrinsicInst>(Next)->hasOperandBundles())
-      return eraseInstFromFunction(CI);
+    if (match(Next, m_Intrinsic<Intrinsic::assume>(m_Specific(IIOperand))))
+      return RemoveConditionFromAssume(Next);
 
     // Canonicalize assume(a && b) -> assume(a); assume(b);
     // Note: New assumption intrinsics created here are registered by
@@ -1896,11 +1984,93 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         isValidAssumeForContext(II, LHS, &DT)) {
       MDNode *MD = MDNode::get(II->getContext(), None);
       LHS->setMetadata(LLVMContext::MD_nonnull, MD);
-      if (!HasOpBundles)
-        return eraseInstFromFunction(*II);
+      return RemoveConditionFromAssume(II);
 
       // TODO: apply nonnull return attributes to calls and invokes
       // TODO: apply range metadata for range check patterns?
+    }
+
+    // Convert nonnull assume like:
+    // %A = icmp ne i32* %PTR, null
+    // call void @llvm.assume(i1 %A)
+    // into
+    // call void @llvm.assume(i1 true) [ "nonnull"(i32* %PTR) ]
+    if (EnableKnowledgeRetention &&
+        match(IIOperand, m_Cmp(Pred, m_Value(A), m_Zero())) &&
+        Pred == CmpInst::ICMP_NE && A->getType()->isPointerTy()) {
+      if (IntrinsicInst *Replacement = buildAssumeFromKnowledge(
+              {RetainedKnowledge{Attribute::NonNull, 0, A}}, Next, &AC, &DT)) {
+
+        Replacement->insertBefore(Next);
+        AC.registerAssumption(Replacement);
+        return RemoveConditionFromAssume(II);
+      }
+    }
+
+    // Convert alignment assume like:
+    // %B = ptrtoint i32* %A to i64
+    // %C = and i64 %B, Constant
+    // %D = icmp eq i64 %C, 0
+    // call void @llvm.assume(i1 %D)
+    // into
+    // call void @llvm.assume(i1 true) [ "align"(i32* [[A]], i64  Constant + 1)]
+    uint64_t AlignMask;
+    if (EnableKnowledgeRetention &&
+        match(IIOperand,
+              m_Cmp(Pred, m_And(m_Value(A), m_ConstantInt(AlignMask)),
+                    m_Zero())) &&
+        Pred == CmpInst::ICMP_EQ) {
+      if (isPowerOf2_64(AlignMask + 1)) {
+        uint64_t Offset = 0;
+        match(A, m_Add(m_Value(A), m_ConstantInt(Offset)));
+        if (match(A, m_PtrToInt(m_Value(A)))) {
+          /// Note: this doesn't preserve the offset information but merges
+          /// offset and alignment.
+          /// TODO: we can generate a GEP instead of merging the alignment with
+          /// the offset.
+          RetainedKnowledge RK{Attribute::Alignment,
+                               (unsigned)MinAlign(Offset, AlignMask + 1), A};
+          if (IntrinsicInst *Replacement =
+                  buildAssumeFromKnowledge(RK, Next, &AC, &DT)) {
+
+            Replacement->insertAfter(II);
+            AC.registerAssumption(Replacement);
+          }
+          return RemoveConditionFromAssume(II);
+        }
+      }
+    }
+
+    /// Canonicalize Knowledge in operand bundles.
+    if (EnableKnowledgeRetention && II->hasOperandBundles()) {
+      for (unsigned Idx = 0; Idx < II->getNumOperandBundles(); Idx++) {
+        auto &BOI = II->bundle_op_info_begin()[Idx];
+        RetainedKnowledge RK = llvm::getKnowledgeFromBundle(*II, BOI);
+        if (BOI.End - BOI.Begin > 2)
+          continue; // Prevent reducing knowledge in an align with offset since
+                    // extracting a RetainedKnowledge form them looses offset
+                    // information
+        RetainedKnowledge CanonRK = llvm::simplifyRetainedKnowledge(
+            II, RK, &getAssumptionCache(), &getDominatorTree());
+        if (CanonRK == RK)
+          continue;
+        if (!CanonRK) {
+          if (BOI.End - BOI.Begin > 0) {
+            Worklist.pushValue(II->op_begin()[BOI.Begin]);
+            Value::dropDroppableUse(II->op_begin()[BOI.Begin]);
+          }
+          continue;
+        }
+        assert(RK.AttrKind == CanonRK.AttrKind);
+        if (BOI.End - BOI.Begin > 0)
+          II->op_begin()[BOI.Begin].set(CanonRK.WasOn);
+        if (BOI.End - BOI.Begin > 1)
+          II->op_begin()[BOI.Begin + 1].set(ConstantInt::get(
+              Type::getInt64Ty(II->getContext()), CanonRK.ArgValue));
+        if (RK.WasOn)
+          Worklist.pushValue(RK.WasOn);
+        return II;
+      }
     }
 
     // If there is a dominating assume with the same condition as this one,
@@ -1913,104 +2083,6 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     // Update the cache of affected values for this assumption (we might be
     // here because we just simplified the condition).
     AC.updateAffectedValues(II);
-    break;
-  }
-  case Intrinsic::experimental_gc_statepoint: {
-    GCStatepointInst &GCSP = *cast<GCStatepointInst>(II);
-    SmallPtrSet<Value *, 32> LiveGcValues;
-    for (const GCRelocateInst *Reloc : GCSP.getGCRelocates()) {
-      GCRelocateInst &GCR = *const_cast<GCRelocateInst *>(Reloc);
-
-      // Remove the relocation if unused.
-      if (GCR.use_empty()) {
-        eraseInstFromFunction(GCR);
-        continue;
-      }
-
-      Value *DerivedPtr = GCR.getDerivedPtr();
-      Value *BasePtr = GCR.getBasePtr();
-
-      // Undef is undef, even after relocation.
-      if (isa<UndefValue>(DerivedPtr) || isa<UndefValue>(BasePtr)) {
-        replaceInstUsesWith(GCR, UndefValue::get(GCR.getType()));
-        eraseInstFromFunction(GCR);
-        continue;
-      }
-
-      if (auto *PT = dyn_cast<PointerType>(GCR.getType())) {
-        // The relocation of null will be null for most any collector.
-        // TODO: provide a hook for this in GCStrategy.  There might be some
-        // weird collector this property does not hold for.
-        if (isa<ConstantPointerNull>(DerivedPtr)) {
-          // Use null-pointer of gc_relocate's type to replace it.
-          replaceInstUsesWith(GCR, ConstantPointerNull::get(PT));
-          eraseInstFromFunction(GCR);
-          continue;
-        }
-
-        // isKnownNonNull -> nonnull attribute
-        if (!GCR.hasRetAttr(Attribute::NonNull) &&
-            isKnownNonZero(DerivedPtr, DL, 0, &AC, II, &DT)) {
-          GCR.addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
-          // We discovered new fact, re-check users.
-          Worklist.pushUsersToWorkList(GCR);
-        }
-      }
-
-      // If we have two copies of the same pointer in the statepoint argument
-      // list, canonicalize to one.  This may let us common gc.relocates.
-      if (GCR.getBasePtr() == GCR.getDerivedPtr() &&
-          GCR.getBasePtrIndex() != GCR.getDerivedPtrIndex()) {
-        auto *OpIntTy = GCR.getOperand(2)->getType();
-        GCR.setOperand(2, ConstantInt::get(OpIntTy, GCR.getBasePtrIndex()));
-      }
-
-      // TODO: bitcast(relocate(p)) -> relocate(bitcast(p))
-      // Canonicalize on the type from the uses to the defs
-
-      // TODO: relocate((gep p, C, C2, ...)) -> gep(relocate(p), C, C2, ...)
-      LiveGcValues.insert(BasePtr);
-      LiveGcValues.insert(DerivedPtr);
-    }
-    Optional<OperandBundleUse> Bundle =
-        GCSP.getOperandBundle(LLVMContext::OB_gc_live);
-    unsigned NumOfGCLives = LiveGcValues.size();
-    if (!Bundle.hasValue() || NumOfGCLives == Bundle->Inputs.size())
-      break;
-    // We can reduce the size of gc live bundle.
-    DenseMap<Value *, unsigned> Val2Idx;
-    std::vector<Value *> NewLiveGc;
-    for (unsigned I = 0, E = Bundle->Inputs.size(); I < E; ++I) {
-      Value *V = Bundle->Inputs[I];
-      if (Val2Idx.count(V))
-        continue;
-      if (LiveGcValues.count(V)) {
-        Val2Idx[V] = NewLiveGc.size();
-        NewLiveGc.push_back(V);
-      } else
-        Val2Idx[V] = NumOfGCLives;
-    }
-    // Update all gc.relocates
-    for (const GCRelocateInst *Reloc : GCSP.getGCRelocates()) {
-      GCRelocateInst &GCR = *const_cast<GCRelocateInst *>(Reloc);
-      Value *BasePtr = GCR.getBasePtr();
-      assert(Val2Idx.count(BasePtr) && Val2Idx[BasePtr] != NumOfGCLives &&
-             "Missed live gc for base pointer");
-      auto *OpIntTy1 = GCR.getOperand(1)->getType();
-      GCR.setOperand(1, ConstantInt::get(OpIntTy1, Val2Idx[BasePtr]));
-      Value *DerivedPtr = GCR.getDerivedPtr();
-      assert(Val2Idx.count(DerivedPtr) && Val2Idx[DerivedPtr] != NumOfGCLives &&
-             "Missed live gc for derived pointer");
-      auto *OpIntTy2 = GCR.getOperand(2)->getType();
-      GCR.setOperand(2, ConstantInt::get(OpIntTy2, Val2Idx[DerivedPtr]));
-    }
-    // Create new statepoint instruction.
-    OperandBundleDef NewBundle("gc-live", NewLiveGc);
-    if (isa<CallInst>(II))
-      return CallInst::CreateWithReplacedBundle(cast<CallInst>(II), NewBundle);
-    else
-      return InvokeInst::CreateWithReplacedBundle(cast<InvokeInst>(II),
-                                                  NewBundle);
     break;
   }
   case Intrinsic::experimental_guard: {
@@ -2140,6 +2212,34 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     }
     break;
   }
+  case Intrinsic::vector_reduce_or:
+  case Intrinsic::vector_reduce_and: {
+    // Canonicalize logical or/and reductions:
+    // Or reduction for i1 is represented as:
+    // %val = bitcast <ReduxWidth x i1> to iReduxWidth
+    // %res = cmp ne iReduxWidth %val, 0
+    // And reduction for i1 is represented as:
+    // %val = bitcast <ReduxWidth x i1> to iReduxWidth
+    // %res = cmp eq iReduxWidth %val, 11111
+    Value *Arg = II->getArgOperand(0);
+    Type *RetTy = II->getType();
+    if (RetTy == Builder.getInt1Ty())
+      if (auto *FVTy = dyn_cast<FixedVectorType>(Arg->getType())) {
+        Value *Res = Builder.CreateBitCast(
+            Arg, Builder.getIntNTy(FVTy->getNumElements()));
+        if (IID == Intrinsic::vector_reduce_and) {
+          Res = Builder.CreateICmpEQ(
+              Res, ConstantInt::getAllOnesValue(Res->getType()));
+        } else {
+          assert(IID == Intrinsic::vector_reduce_or &&
+                 "Expected or reduction.");
+          Res = Builder.CreateIsNotNull(Res);
+        }
+        replaceInstUsesWith(CI, Res);
+        return eraseInstFromFunction(CI);
+      }
+    break;
+  }
   default: {
     // Handle target specific intrinsics
     Optional<Instruction *> V = targetInstCombineIntrinsic(*II);
@@ -2148,6 +2248,8 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     break;
   }
   }
+  // Some intrinsics (like experimental_gc_statepoint) can be used in invoke
+  // context, so it is handled in visitCallBase and we should trigger it.
   return visitCallBase(*II);
 }
 
@@ -2509,6 +2611,104 @@ Instruction *InstCombinerImpl::visitCallBase(CallBase &Call) {
 
   if (isAllocLikeFn(&Call, &TLI))
     return visitAllocSite(Call);
+
+  // Handle intrinsics which can be used in both call and invoke context.
+  switch (Call.getIntrinsicID()) {
+  case Intrinsic::experimental_gc_statepoint: {
+    GCStatepointInst &GCSP = *cast<GCStatepointInst>(&Call);
+    SmallPtrSet<Value *, 32> LiveGcValues;
+    for (const GCRelocateInst *Reloc : GCSP.getGCRelocates()) {
+      GCRelocateInst &GCR = *const_cast<GCRelocateInst *>(Reloc);
+
+      // Remove the relocation if unused.
+      if (GCR.use_empty()) {
+        eraseInstFromFunction(GCR);
+        continue;
+      }
+
+      Value *DerivedPtr = GCR.getDerivedPtr();
+      Value *BasePtr = GCR.getBasePtr();
+
+      // Undef is undef, even after relocation.
+      if (isa<UndefValue>(DerivedPtr) || isa<UndefValue>(BasePtr)) {
+        replaceInstUsesWith(GCR, UndefValue::get(GCR.getType()));
+        eraseInstFromFunction(GCR);
+        continue;
+      }
+
+      if (auto *PT = dyn_cast<PointerType>(GCR.getType())) {
+        // The relocation of null will be null for most any collector.
+        // TODO: provide a hook for this in GCStrategy.  There might be some
+        // weird collector this property does not hold for.
+        if (isa<ConstantPointerNull>(DerivedPtr)) {
+          // Use null-pointer of gc_relocate's type to replace it.
+          replaceInstUsesWith(GCR, ConstantPointerNull::get(PT));
+          eraseInstFromFunction(GCR);
+          continue;
+        }
+
+        // isKnownNonNull -> nonnull attribute
+        if (!GCR.hasRetAttr(Attribute::NonNull) &&
+            isKnownNonZero(DerivedPtr, DL, 0, &AC, &Call, &DT)) {
+          GCR.addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
+          // We discovered new fact, re-check users.
+          Worklist.pushUsersToWorkList(GCR);
+        }
+      }
+
+      // If we have two copies of the same pointer in the statepoint argument
+      // list, canonicalize to one.  This may let us common gc.relocates.
+      if (GCR.getBasePtr() == GCR.getDerivedPtr() &&
+          GCR.getBasePtrIndex() != GCR.getDerivedPtrIndex()) {
+        auto *OpIntTy = GCR.getOperand(2)->getType();
+        GCR.setOperand(2, ConstantInt::get(OpIntTy, GCR.getBasePtrIndex()));
+      }
+
+      // TODO: bitcast(relocate(p)) -> relocate(bitcast(p))
+      // Canonicalize on the type from the uses to the defs
+
+      // TODO: relocate((gep p, C, C2, ...)) -> gep(relocate(p), C, C2, ...)
+      LiveGcValues.insert(BasePtr);
+      LiveGcValues.insert(DerivedPtr);
+    }
+    Optional<OperandBundleUse> Bundle =
+        GCSP.getOperandBundle(LLVMContext::OB_gc_live);
+    unsigned NumOfGCLives = LiveGcValues.size();
+    if (!Bundle.hasValue() || NumOfGCLives == Bundle->Inputs.size())
+      break;
+    // We can reduce the size of gc live bundle.
+    DenseMap<Value *, unsigned> Val2Idx;
+    std::vector<Value *> NewLiveGc;
+    for (unsigned I = 0, E = Bundle->Inputs.size(); I < E; ++I) {
+      Value *V = Bundle->Inputs[I];
+      if (Val2Idx.count(V))
+        continue;
+      if (LiveGcValues.count(V)) {
+        Val2Idx[V] = NewLiveGc.size();
+        NewLiveGc.push_back(V);
+      } else
+        Val2Idx[V] = NumOfGCLives;
+    }
+    // Update all gc.relocates
+    for (const GCRelocateInst *Reloc : GCSP.getGCRelocates()) {
+      GCRelocateInst &GCR = *const_cast<GCRelocateInst *>(Reloc);
+      Value *BasePtr = GCR.getBasePtr();
+      assert(Val2Idx.count(BasePtr) && Val2Idx[BasePtr] != NumOfGCLives &&
+             "Missed live gc for base pointer");
+      auto *OpIntTy1 = GCR.getOperand(1)->getType();
+      GCR.setOperand(1, ConstantInt::get(OpIntTy1, Val2Idx[BasePtr]));
+      Value *DerivedPtr = GCR.getDerivedPtr();
+      assert(Val2Idx.count(DerivedPtr) && Val2Idx[DerivedPtr] != NumOfGCLives &&
+             "Missed live gc for derived pointer");
+      auto *OpIntTy2 = GCR.getOperand(2)->getType();
+      GCR.setOperand(2, ConstantInt::get(OpIntTy2, Val2Idx[DerivedPtr]));
+    }
+    // Create new statepoint instruction.
+    OperandBundleDef NewBundle("gc-live", NewLiveGc);
+    return CallBase::Create(&Call, NewBundle);
+  }
+  default: { break; }
+  }
 
   return Changed ? &Call : nullptr;
 }

@@ -55,6 +55,7 @@ VERS1.0 {
 # end INTEL_COLLAB
     __tgt_rtl_register_lib;
     __tgt_rtl_unregister_lib;
+    __tgt_rtl_supports_empty_images;
   local:
     *;
 };

@@ -204,10 +204,7 @@ static Error optimizeELF_x86_64_GOTAndStubs(LinkGraph &G) {
 }
 
 static bool isDwarfSection(StringRef SectionName) {
-  for (auto &DwarfSectionName : DwarfSectionNames)
-    if (SectionName == DwarfSectionName)
-      return true;
-  return false;
+  return llvm::is_contained(DwarfSectionNames, SectionName);
 }
 
 namespace llvm {
@@ -599,8 +596,8 @@ private:
         }
 
         if (SymRef.isDefined() &&
-            (Type == ELF::STT_FUNC || Type == ELF::STT_OBJECT ||
-             Type == ELF::STT_SECTION)) {
+            (Type == ELF::STT_NOTYPE || Type == ELF::STT_FUNC ||
+             Type == ELF::STT_OBJECT || Type == ELF::STT_SECTION)) {
 
           auto DefinedSection = Obj.getSection(SymRef.st_shndx);
           if (!DefinedSection)
@@ -771,6 +768,7 @@ void link_ELF_x86_64(std::unique_ptr<LinkGraph> G,
     Config.PrePrunePasses.push_back(EHFrameSplitter(".eh_frame"));
     Config.PrePrunePasses.push_back(EHFrameEdgeFixer(
         ".eh_frame", G->getPointerSize(), Delta64, Delta32, NegDelta32));
+    Config.PrePrunePasses.push_back(EHFrameNullTerminator(".eh_frame"));
 
     // Construct a JITLinker and run the link function.
     // Add a mark-live pass.

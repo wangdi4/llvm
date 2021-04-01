@@ -1,6 +1,4 @@
-// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-allow-func-ptr -DINTEL_CUSTOMIZATION -internal-isystem %S/Inputs -disable-llvm-passes -triple spir64-unknown-unknown-sycldevice -emit-llvm -o - %s | FileCheck %s
-
-// XFAIL: *
+// RUN: %clang_cc1 -fsycl-is-device -fsycl-allow-func-ptr -DINTEL_CUSTOMIZATION -internal-isystem %S/Inputs -disable-llvm-passes -triple spir64-unknown-unknown-sycldevice -emit-llvm -o - %s | FileCheck %s
 
 #include "sycl.hpp"
 

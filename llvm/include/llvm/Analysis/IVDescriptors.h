@@ -164,13 +164,13 @@ public:
   RecurrenceDescriptor() = default;
 
   RecurrenceDescriptor(Value *Start, Instruction *Exit, RecurKind K,
-                       FastMathFlags FMF, Instruction *UAI, Type *RT,
+                       FastMathFlags FMF, Instruction *ExactFP, Type *RT,
                        bool Signed, SmallPtrSetImpl<Instruction *> &CI)
 #if INTEL_CUSTOMIZATION
-      : RDTempl(Start, Exit, K, FMF, RT, Signed), UnsafeAlgebraInst(UAI) {
+      : RDTempl(Start, Exit, K, FMF, RT, Signed), ExactFPMathInst(ExactFP) {
 #else
       : StartValue(Start), LoopExitInstr(Exit), Kind(K), FMF(FMF),
-        UnsafeAlgebraInst(UAI), RecurrenceType(RT), IsSigned(Signed) {
+        ExactFPMathInst(ExactFP), RecurrenceType(RT), IsSigned(Signed) {
 #endif
     CastInsts.insert(CI.begin(), CI.end());
   }
@@ -178,19 +178,19 @@ public:
   /// This POD struct holds information about a potential recurrence operation.
   class InstDesc {
   public:
-    InstDesc(bool IsRecur, Instruction *I, Instruction *UAI = nullptr)
+    InstDesc(bool IsRecur, Instruction *I, Instruction *ExactFP = nullptr)
         : IsRecurrence(IsRecur), PatternLastInst(I),
-          RecKind(RecurKind::None), UnsafeAlgebraInst(UAI) {}
+          RecKind(RecurKind::None), ExactFPMathInst(ExactFP) {}
 
-    InstDesc(Instruction *I, RecurKind K, Instruction *UAI = nullptr)
+    InstDesc(Instruction *I, RecurKind K, Instruction *ExactFP = nullptr)
         : IsRecurrence(true), PatternLastInst(I), RecKind(K),
-          UnsafeAlgebraInst(UAI) {}
+          ExactFPMathInst(ExactFP) {}
 
     bool isRecurrence() const { return IsRecurrence; }
 
-    bool hasUnsafeAlgebra() const { return UnsafeAlgebraInst != nullptr; }
+    bool needsExactFPMath() const { return ExactFPMathInst != nullptr; }
 
-    Instruction *getUnsafeAlgebraInst() const { return UnsafeAlgebraInst; }
+    Instruction *getExactFPMathInst() const { return ExactFPMathInst; }
 
     RecurKind getRecKind() const { return RecKind; }
 
@@ -204,8 +204,8 @@ public:
     Instruction *PatternLastInst;
     // If this is a min/max pattern.
     RecurKind RecKind;
-    // Recurrence has unsafe algebra.
-    Instruction *UnsafeAlgebraInst;
+    // Recurrence does not allow floating-point reassociation.
+    Instruction *ExactFPMathInst;
   };
 
   /// Returns a struct describing if the instruction 'I' can be a recurrence
@@ -214,7 +214,7 @@ public:
   /// compare instruction to the select instruction and stores this pointer in
   /// 'PatternLastInst' member of the returned struct.
   static InstDesc isRecurrenceInstr(Instruction *I, RecurKind Kind,
-                                    InstDesc &Prev, bool HasFunNoNaNAttr);
+                                    InstDesc &Prev, FastMathFlags FMF);
 
   /// Returns true if instruction I has multiple uses in Insts
   static bool hasMultipleUsesOf(Instruction *I,
@@ -248,7 +248,7 @@ public:
   /// non-null, the minimal bit width needed to compute the reduction will be
   /// computed.
   static bool AddReductionVar(PHINode *Phi, RecurKind Kind, Loop *TheLoop,
-                              bool HasFunNoNaNAttr,
+                              FastMathFlags FMF,
                               RecurrenceDescriptor &RedDes,
                               DemandedBits *DB = nullptr,
                               AssumptionCache *AC = nullptr,
@@ -288,12 +288,12 @@ public:
   Instruction *getLoopExitInstr() const { return LoopExitInstr; }
 
 #endif
-  /// Returns true if the recurrence has unsafe algebra which requires a relaxed
-  /// floating-point model.
-  bool hasUnsafeAlgebra() const { return UnsafeAlgebraInst != nullptr; }
+  /// Returns true if the recurrence has floating-point math that requires
+  /// precise (ordered) operations.
+  bool hasExactFPMath() const { return ExactFPMathInst != nullptr; }
 
-  /// Returns first unsafe algebra instruction in the PHI node's use-chain.
-  Instruction *getUnsafeAlgebraInst() const { return UnsafeAlgebraInst; }
+  /// Returns 1st non-reassociative FP instruction in the PHI node's use-chain.
+  Instruction *getExactFPMathInst() const { return ExactFPMathInst; }
 
 #if !INTEL_CUSTOMIZATION
   /// Returns true if the recurrence kind is an integer kind.
@@ -353,8 +353,8 @@ private:
   // fast-math flags into the vectorized FP instructions we generate.
   FastMathFlags FMF;
 #endif
-  // First occurrence of unasfe algebra in the PHI's use-chain.
-  Instruction *UnsafeAlgebraInst = nullptr;
+  // First instance of non-reassociative floating-point in the PHI's use-chain.
+  Instruction *ExactFPMathInst = nullptr;
 #if !INTEL_CUSTOMIZATION
   // The type of the recurrence.
   Type *RecurrenceType = nullptr;
@@ -473,23 +473,15 @@ public:
                              PredicatedScalarEvolution &PSE,
                              InductionDescriptor &D, bool Assume = false);
 
-  /// Returns true if the induction type is FP and the binary operator does
-  /// not have the "fast-math" property. Such operation requires a relaxed FP
-  /// mode.
-  bool hasUnsafeAlgebra() {
-    return (IK == IK_FpInduction) && InductionBinOp &&
-           !cast<FPMathOperator>(InductionBinOp)->isFast();
-  }
-
-  /// Returns induction operator that does not have "fast-math" property
-  /// and requires FP unsafe mode.
-  Instruction *getUnsafeAlgebraInst() {
-    if (IK != IK_FpInduction)
-      return nullptr;
-
-    if (!InductionBinOp || cast<FPMathOperator>(InductionBinOp)->isFast())
-      return nullptr;
-    return InductionBinOp;
+  /// Returns floating-point induction operator that does not allow
+  /// reassociation (transforming the induction requires an override of normal
+  /// floating-point rules).
+  /// TODO: This should not require the full 'fast' FMF, but caller code
+  ///       may need to be fixed to propagate FMF correctly.
+  Instruction *getExactFPMathInst() {
+    if (IK == IK_FpInduction && InductionBinOp && !InductionBinOp->isFast())
+      return InductionBinOp;
+    return nullptr;
   }
 
 #if !INTEL_CUSTOMIZATION

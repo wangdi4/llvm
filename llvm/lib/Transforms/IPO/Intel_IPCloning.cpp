@@ -4394,7 +4394,8 @@ Function *Splitter::makeNewFxnWithExtraArg(Type *ArgTy, Argument **Arg,
   ValueToValueMapTy VMap;
   for (auto I = F->arg_begin(), E = F->arg_end(); I != E; ++I, ++A)
     VMap[&*I] = &*A;
-  CloneFunctionInto(NewF, F, VMap, true, Rets);
+  CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
+                    Rets);
   Argument *ArgLast = nullptr;
   for (auto &ArgNew : NewF->args())
     ArgLast = &ArgNew;

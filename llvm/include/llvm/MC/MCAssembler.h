@@ -215,9 +215,11 @@ private:
 
 public:
   struct Symver {
-    StringRef Name;
-    const MCSymbol *Sym;
     SMLoc Loc;
+    const MCSymbol *Sym;
+    StringRef Name;
+    // True if .symver *, *@@@* or .symver *, *, remove.
+    bool KeepOriginalSym;
   };
   std::vector<Symver> Symvers;
 

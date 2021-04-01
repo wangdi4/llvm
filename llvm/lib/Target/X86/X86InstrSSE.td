@@ -7192,7 +7192,8 @@ defm VMASKMOVPD : avx_movmask_rm<0x2D, 0x2F, "vmaskmovpd",
 //===----------------------------------------------------------------------===//
 // AVX_VNNI
 //===----------------------------------------------------------------------===//
-let Predicates = [HasAVXVNNI, NoVLX_Or_NoVNNI], Constraints = "$src1 = $dst" in
+let Predicates = [HasAVXVNNI, NoVLX_Or_NoVNNI], Constraints = "$src1 = $dst",
+    ExplicitVEXPrefix = 1, checkVEXPredicate = 1 in
 multiclass avx_vnni_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
                        bit IsCommutable> {
   let isCommutable = IsCommutable in
@@ -7226,10 +7227,10 @@ multiclass avx_vnni_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
              VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.XMM]>;
 }
 
-defm VPDPBUSD   : avx_vnni_rm<0x50, "vpdpbusd", X86Vpdpbusd, 0>, ExplicitVEXPrefix;
-defm VPDPBUSDS  : avx_vnni_rm<0x51, "vpdpbusds", X86Vpdpbusds, 0>, ExplicitVEXPrefix;
-defm VPDPWSSD   : avx_vnni_rm<0x52, "vpdpwssd",  X86Vpdpwssd, 1>, ExplicitVEXPrefix;
-defm VPDPWSSDS  : avx_vnni_rm<0x53, "vpdpwssds", X86Vpdpwssds, 1>, ExplicitVEXPrefix;
+defm VPDPBUSD   : avx_vnni_rm<0x50, "vpdpbusd", X86Vpdpbusd, 0>;
+defm VPDPBUSDS  : avx_vnni_rm<0x51, "vpdpbusds", X86Vpdpbusds, 0>;
+defm VPDPWSSD   : avx_vnni_rm<0x52, "vpdpwssd",  X86Vpdpwssd, 1>;
+defm VPDPWSSDS  : avx_vnni_rm<0x53, "vpdpwssds", X86Vpdpwssds, 1>;
 
 def X86vpmaddwd_su : PatFrag<(ops node:$lhs, node:$rhs),
                              (X86vpmaddwd node:$lhs, node:$rhs), [{
@@ -8041,7 +8042,7 @@ multiclass avx_dotprod_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
              VEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
 }
 
-let Uses = [MXCSR],
+let Uses = [MXCSR], checkVEXPredicate = 1,
     Predicates = [HasAVXDOTPRODPHPS, NoVLX_Or_NoAVX512DOTPRODPHPS] in {
   // FIXME: Using SchedWriteCvtPD2PS is a workaround.
   defm VDPPHPS  :  avx_dotprod_rm<0x52, "vdpphps", v4f32, VR128, loadv4f32,
@@ -8054,7 +8055,8 @@ let Uses = [MXCSR],
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-  let Predicates = [HasAVXDOTPRODINT8, NoVLX_Or_NoAVX512DOTPRODINT8] in {
+  let Predicates = [HasAVXDOTPRODINT8, NoVLX_Or_NoAVX512DOTPRODINT8],
+  checkVEXPredicate = 1 in {
   defm VPDPBSSD   : avx_dotprod_rm<0x50,"vpdpbssd",  v4i32, VR128, loadv4i32,
                                    i128mem, X86vpdpbssd, SchedWriteVecIMul.XMM,
                                    1>,  T8XD;
@@ -8100,7 +8102,8 @@ let Uses = [MXCSR],
 multiclass avx_vcvt2ps2ph_rm<ValueType OpVT, RegisterClass RC,
                              PatFrag MemOpFrag, X86MemOperand X86MemOp,
                              X86FoldableSchedWrite sched> {
-  let Predicates = [HasAVXCONVERT, NoVLX_Or_NoCONVERT] in {
+  let Predicates = [HasAVXCONVERT, NoVLX_Or_NoCONVERT],
+      checkVEXPredicate = 1 in {
     def rr : I<0x67, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2),
                "vcvt2ps2ph\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                [(set RC:$dst, (OpVT (X86vcvt2ps2ph RC:$src1, RC:$src2)))]>,
@@ -8119,7 +8122,8 @@ defm VCVT2PS2PHY : avx_vcvt2ps2ph_rm<v16f16, VR256, loadv8f32, f256mem, SchedWri
 multiclass VCVTPHBF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                           X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode,
                           X86FoldableSchedWrite sched> {
-  let Uses = [MXCSR], Predicates = [HasAVXCONVERT, NoVLX_Or_NoCONVERT] in {
+  let Uses = [MXCSR], Predicates = [HasAVXCONVERT, NoVLX_Or_NoCONVERT],
+      checkVEXPredicate = 1 in {
     def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src),
                !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
                [(set RC:$dst, (OpNode RC:$src))]>, Sched<[sched]>, VEX;
@@ -8146,7 +8150,7 @@ defm VCVTNEPH2BF16Y : VCVTPHBF16_rm<0x67, "vcvtneph2bf16", VR256, f256mem, loadv
 multiclass VCVTBF16_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, PatFrag MemOpFrag, X86MemOperand X86MemOp,
                         SDNode OpNode> {
-  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16] in {
+  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16], checkVEXPredicate = 1 in {
     def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2),
                OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2)))]>, VEX_4V;
@@ -8161,7 +8165,7 @@ let Constraints = "$src1 = $dst" in {
 multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, PatFrag MemOpFrag, X86MemOperand X86MemOp,
                         SDNode OpNode> {
-  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16] in {
+  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16], checkVEXPredicate = 1 in {
     def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2, RC:$src3),
                OpcodeStr#"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, RC:$src3)))]>, VEX_4V;
@@ -8183,7 +8187,7 @@ multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
 
 multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                           X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode> {
-  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16] in {
+  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16], checkVEXPredicate = 1 in {
     def rr : I<opc, MRMSrcReg, (outs VR128:$dst), (ins RC:$src),
                !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
                [(set VR128:$dst, (OpNode RC:$src))]>, VEX;
@@ -8204,7 +8208,8 @@ multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
-let Predicates = [HasAVXIFMA, NoVLX_Or_NoIFMA], Constraints = "$src1 = $dst" in
+let Predicates = [HasAVXIFMA, NoVLX_Or_NoIFMA], Constraints = "$src1 = $dst",
+    checkVEXPredicate = 1 in
 multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
   // NOTE: The SDNode have the multiply operands first with the add last.
   // This enables commuted load patterns to be autogenerated by tablegen.
@@ -8249,7 +8254,7 @@ multiclass VMOVADVISEW_mr<string OpcodeStr, RegisterClass RC,
                           X86MemOperand X86MemOp,
                           Intrinsic IntrLoad, Intrinsic IntrStore,
                           X86SchedWriteMoveLS sched> {
-  let Predicates  = [HasAVXMEMADVISE, In64BitMode] in {
+  let Predicates  = [HasAVXMEMADVISE, In64BitMode], checkVEXPredicate = 1 in {
       def rmi : Ii8<0x10, MRMSrcMem, (outs RC:$dst),
                     (ins X86MemOp:$src1, u8imm:$src2),
                     OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
@@ -8275,7 +8280,8 @@ defm VMOVADVISEW256 : VMOVADVISEW_mr<"vmovadvisew", VR256, i256mem,
                                      SchedWriteFMoveLS.YMM>, VEX_L;
 
 multiclass VMEMADVISE_mi {
-  let Predicates  = [HasAVXMEMADVISE, NoVLX_Or_NoMEMADVISE, In64BitMode] in {
+  let Predicates  = [HasAVXMEMADVISE, NoVLX_Or_NoMEMADVISE, In64BitMode],
+      checkVEXPredicate = 1 in {
       def mr  : Ii8<0x71, MRMDestMemImm8, (outs),
                     (ins i128mem:$dst, u8imm:$src),
                     "vmemadvise{x}\t{$src, $dst|$dst, $src}",
@@ -8298,7 +8304,7 @@ defm VMEMADVISE : VMEMADVISE_mi;
 multiclass VPCOMPRESS_mr<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, X86MemOperand X86MemOp,
                         X86FoldableSchedWrite sched> {
-  let Predicates  = [HasAVXCOMPRESS, In64BitMode] in {
+  let Predicates  = [HasAVXCOMPRESS, In64BitMode], checkVEXPredicate = 1 in {
       def rr : AVX28I<opc, MRMDestReg4VOp3, (outs RC:$dst),
                      (ins RC:$src1, RC:$src2),
                      OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
@@ -8334,7 +8340,8 @@ defm VPCOMPRESSWY   : VPCOMPRESS_mr<0x63, "vpcompressw", v16i16, VR256, i256mem,
 multiclass avx_compress_2op_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
                 ValueType OpVT, PatFrag MemOpFrag, X86MemOperand X86MemOp,
                 RegisterClass RC, X86FoldableSchedWrite sched, Predicate prd> {
-  let Predicates = [HasAVXCOMPRESS, In64BitMode, prd] in {
+  let Predicates = [HasAVXCOMPRESS, In64BitMode, prd],
+      checkVEXPredicate = 1 in {
     def rr  : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1),
                !strconcat(OpcodeStr, "\t{$src1, $dst|$dst, $src1}"),
                [(set RC:$dst, (OpVT (OpNode (OpVT RC:$src1))))]>,
@@ -8436,7 +8443,8 @@ multiclass avxcompress_shift_rmi<Format ImmFormR, Format ImmFormM,
                           X86FoldableSchedWrite sched, ValueType OpVT,
                           PatFrag MemOpFrag, X86MemOperand X86MemOp,
                           RegisterClass RC> {
-  let Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX], ImmT = Imm8 in {
+  let Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX], ImmT = Imm8,
+      checkVEXPredicate = 1 in {
   def ri : I<0x72, ImmFormR, (outs RC:$dst), (ins RC:$src1, u8imm:$src2),
              OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
              [(set RC:$dst, (OpVT (OpNode RC:$src1, timm:$src2)))]>,
@@ -8509,7 +8517,8 @@ multiclass avxcompress_shift_var_rm<bits<8> Op, string OpcodeStr, SDNode OpNode,
                               PatFrag MemOpFrag, X86MemOperand X86MemOp,
                               RegisterClass RC> {
   let Constraints = "$src1 = $dst",
-      Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX_Or_NoVBMI2] in {
+      Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX_Or_NoVBMI2],
+      checkVEXPredicate = 1 in {
     def rr:   AVX28I<Op, MRMSrcReg, (outs RC:$dst),
                 (ins RC:$src1, RC:$src2, RC:$src3),
                 OpcodeStr#"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
@@ -8551,7 +8560,8 @@ defm VPSHRDV : avxcompress_shift_var<0x73, 0x72, "vpshrdv", X86VShrdv,
 multiclass avxcompress_3Op_rm_imm8<bits<8> Op, string OpcodeStr, SDNode OpNode,
                    X86FoldableSchedWrite sched, ValueType OpVT, PatFrag MemOpFrag,
                    X86MemOperand X86MemOp, RegisterClass RC> {
-  let Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX_Or_NoVBMI2] in {
+  let Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX_Or_NoVBMI2],
+      checkVEXPredicate = 1 in {
     def rri : AVX2AIi8<Op, MRMSrcReg, (outs RC:$dst),
         (ins RC:$src1, RC:$src2, u8imm:$src3),
         OpcodeStr#"\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
@@ -8590,7 +8600,8 @@ defm VPSHRD : avxcompress_3Op_imm8<0x73, 0x72, "vpshrd", X86VShrd,
 
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 multiclass VMOVGET_rm {
-  let Predicates = [HasAVXMOVGET, NoVLX_Or_NoMOVGET] in {
+  let Predicates = [HasAVXMOVGET, NoVLX_Or_NoMOVGET],
+      checkVEXPredicate = 1 in {
     def rm : I<0xc5, MRMSrcMem, (outs VR128:$dst), (ins i128mem:$src),
                "vmovget\t{$src, $dst|$dst, $src}",
                [(set VR128:$dst, (int_x86_vmovget128 addr:$src))]>,
@@ -8626,7 +8637,7 @@ multiclass AVX_RAOINT_BASE<string OpcodeStr> {
 }
 
 
-let Predicates = [HasAVXRAOINT, NoVLX_Or_NoRAOINT] in {
+let Predicates = [HasAVXRAOINT, NoVLX_Or_NoRAOINT], checkVEXPredicate = 1 in {
   defm VPAADD : AVX_RAOINT_BASE<"vpaadd">, T8PS;
   defm VPAAND : AVX_RAOINT_BASE<"vpaand">, T8PD;
   defm VPAOR  : AVX_RAOINT_BASE<"vpaor">, T8XD;
@@ -8653,7 +8664,7 @@ class AVX_RAO_FP_BASE2<bits<8> Opcode, string OpcodeStr, X86MemOperand MemOp> :
               [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"128")
                 addr:$dst, VR128:$src)]>, VEX, VEX_LIG;
 
-let Predicates = [HasAVXRAOFP, NoVLX_Or_NoRAOFP] in {
+let Predicates = [HasAVXRAOFP, NoVLX_Or_NoRAOFP], checkVEXPredicate = 1 in {
   defm VAADDPBF16 : AVX_RAO_FP_BASE<0x94, "vaaddpbf16", i128mem, i256mem>, T8PD;
   defm VAADDPD    : AVX_RAO_FP_BASE<0x84, "vaaddpd", f128mem, f256mem>, T8PD, VEX_W;
   defm VAADDPH    : AVX_RAO_FP_BASE<0x94, "vaaddph", f128mem, f256mem>, T8PS;

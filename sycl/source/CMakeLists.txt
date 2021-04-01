@@ -67,22 +67,22 @@ function(add_sycl_rt_library LIB_NAME)
   endif()
 
   target_include_directories(
-      ${LIB_OBJ_NAME}
-      PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        "${sycl_inc_dir}"
-        ${OpenCL_INCLUDE_DIRS}
+    ${LIB_OBJ_NAME}
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}
+      "${sycl_inc_dir}"
+      ${OpenCL_INCLUDE_DIRS}
   )
 
   find_package(Threads REQUIRED)
 
   target_link_libraries(${LIB_NAME}
-      PRIVATE
-        ${OpenCL_LIBRARIES}
-        ${CMAKE_DL_LIBS}
-        ${CMAKE_THREAD_LIBS_INIT}
-      PUBLIC
-        $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
+    PRIVATE
+      ${OpenCL_LIBRARIES}
+      ${CMAKE_DL_LIBS}
+      ${CMAKE_THREAD_LIBS_INIT}
+    PUBLIC
+      $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
   )
 # INTEL_CUSTOMIZATION
 # FIXME: Temporary fix for self-build after (#1597), needed for
@@ -181,6 +181,7 @@ set(SYCL_SOURCES
     "interop_handle.cpp"
     "interop_handler.cpp"
     "kernel.cpp"
+    "kernel_bundle.cpp"
     "platform.cpp"
     "program.cpp"
     "queue.cpp"
@@ -256,9 +257,9 @@ set(SYCL_LIBRARY_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_RUNTIME_INSTALL_DIR "bin")
 
 install(TARGETS ${SYCL_RT_LIBS}
-    ARCHIVE DESTINATION ${SYCL_ARCHIVE_INSTALL_DIR} COMPONENT sycl
-    LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
-    RUNTIME DESTINATION ${SYCL_RUNTIME_INSTALL_DIR} COMPONENT sycl)
+  ARCHIVE DESTINATION ${SYCL_ARCHIVE_INSTALL_DIR} COMPONENT sycl
+  LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
+  RUNTIME DESTINATION ${SYCL_RUNTIME_INSTALL_DIR} COMPONENT sycl)
 
 # Copy SYCL config to build location
 add_custom_target(sycl-config-file ALL

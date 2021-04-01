@@ -474,7 +474,7 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__FAST_RELAXED_MATH__");
   }
 
-  if (LangOpts.SYCL) {
+  if (LangOpts.SYCLIsDevice || LangOpts.SYCLIsHost) {
 #if INTEL_CUSTOMIZATION
     Builder.defineMacro("__INTEL_DPCPP_COMPILER__");
 #endif // INTEL_CUSTOMIZATION
@@ -579,7 +579,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_aggregate_bases", "201603L");
     Builder.defineMacro("__cpp_structured_bindings", "201606L");
     Builder.defineMacro("__cpp_nontype_template_args",
-                        LangOpts.CPlusPlus20 ? "201911L" : "201411L");
+                        "201411L"); // (not latest)
     Builder.defineMacro("__cpp_fold_expressions", "201603L");
     Builder.defineMacro("__cpp_guaranteed_copy_elision", "201606L");
     Builder.defineMacro("__cpp_nontype_template_parameter_auto", "201606L");
@@ -1017,8 +1017,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // As a result,__FINITE_MATH_ONLY__ was defined and errors were thrown
   // due to incompatibility with Intel headers. To avoid this, the condition
   // was expanded to include SYCL compilations as well.
-  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) &&
-      !LangOpts.IntelCompat && !LangOpts.SYCL)
+  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat &&
+      !LangOpts.SYCLIsDevice && !LangOpts.SYCLIsHost)
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");

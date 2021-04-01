@@ -29,7 +29,7 @@ define dso_local void @foo(i64* nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-NEXT:  |   (<4 x i64>*)([[EXTRACT_0]])[0] = i1 + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:  + END LOOP
 
-; CHECK:       *** IR Dump After SROA ***
+; CHECK:       *** IR Dump After SROA{{.*}} ***
 ;
 ; CHECK:  define dso_local void @foo(i64* nocapture [[LARR0]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:

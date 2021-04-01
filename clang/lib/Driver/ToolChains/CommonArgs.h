@@ -154,6 +154,10 @@ void addMachineOutlinerArgs(const Driver &D, const llvm::opt::ArgList &Args,
                             llvm::opt::ArgStringList &CmdArgs,
                             const llvm::Triple &Triple, bool IsLTO);
 
+void addOpenMPDeviceRTL(const Driver &D, const llvm::opt::ArgList &DriverArgs,
+                        llvm::opt::ArgStringList &CC1Args,
+                        StringRef BitcodeSuffix, const llvm::Triple &Triple);
+
 #if INTEL_CUSTOMIZATION
 void addX86UnalignedVectorMoveArgs(const ToolChain &TC,
                                    const llvm::opt::ArgList &Args,

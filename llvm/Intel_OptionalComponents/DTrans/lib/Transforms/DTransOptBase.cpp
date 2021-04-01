@@ -609,8 +609,9 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       assert(CloneFuncToOrigFuncMap[CloneFunc] == &F &&
              "CloneFuncToOrigFuncMap is invalid");
 
-      CloneFunctionInto(CloneFunc, &F, VMap, true, Returns, "", &CodeInfo,
-                        TypeRemapper, Materializer);
+      CloneFunctionInto(CloneFunc, &F, VMap,
+                        CloneFunctionChangeType::LocalChangesOnly, Returns,"",
+                        &CodeInfo, TypeRemapper, Materializer);
       updateCallInfoForFunction(&F, /* IsCloned=*/true);
 
       // CloneFunctionInto() copies all the parameter attributes of the original

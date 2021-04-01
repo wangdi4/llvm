@@ -150,73 +150,6 @@ static bool performCustomAdjustments(MachineInstr &MI, unsigned NewOpc,
   (void)NewOpc;
   unsigned Opc = MI.getOpcode();
   switch (Opc) {
-#if INTEL_CUSTOMIZATION
-    // FIXME: Adding other AVX512 instructions here to prevent EVEX to VEX.
-#endif // INTEL_CUSTOMIZATION
-  case X86::VPDPBUSDSZ256m:
-  case X86::VPDPBUSDSZ256r:
-  case X86::VPDPBUSDSZ128m:
-  case X86::VPDPBUSDSZ128r:
-  case X86::VPDPBUSDZ256m:
-  case X86::VPDPBUSDZ256r:
-  case X86::VPDPBUSDZ128m:
-  case X86::VPDPBUSDZ128r:
-  case X86::VPDPWSSDSZ256m:
-  case X86::VPDPWSSDSZ256r:
-  case X86::VPDPWSSDSZ128m:
-  case X86::VPDPWSSDSZ128r:
-  case X86::VPDPWSSDZ256m:
-  case X86::VPDPWSSDZ256r:
-  case X86::VPDPWSSDZ128m:
-  case X86::VPDPWSSDZ128r:
-    // These can only VEX convert if AVXVNNI is enabled.
-    return ST->hasAVXVNNI();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-  case X86::VMEMADVISEZ256mr:
-  case X86::VMEMADVISEZ128mr:
-    return ST->hasAVXMEMADVISE();
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX512_MOVGET
-  case X86::VMOVGETZ128rm:
-  case X86::VMOVGETZ256rm:
-    return ST->hasAVXMOVGET();
-#endif // INTEL_FEATURE_ISA_AVX512_MOVGET
-#if INTEL_FEATURE_ISA_AVX512_RAO_INT
-  case X86::VPAADDDZ128mr:
-  case X86::VPAADDDZ256mr:
-  case X86::VPAADDQZ128mr:
-  case X86::VPAADDQZ256mr:
-  case X86::VPAANDDZ128mr:
-  case X86::VPAANDDZ256mr:
-  case X86::VPAANDQZ128mr:
-  case X86::VPAANDQZ256mr:
-  case X86::VPAORDZ128mr:
-  case X86::VPAORDZ256mr:
-  case X86::VPAORQZ128mr:
-  case X86::VPAORQZ256mr:
-  case X86::VPAXORDZ128mr:
-  case X86::VPAXORDZ256mr:
-  case X86::VPAXORQZ128mr:
-  case X86::VPAXORQZ256mr:
-    return ST->hasAVXRAOINT();
-#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
-#if INTEL_FEATURE_ISA_AVX512_RAO_FP
-  case X86::VAADDPDZ128mr:
-  case X86::VAADDPDZ256mr:
-  case X86::VAADDPSZ128mr:
-  case X86::VAADDPSZ256mr:
-  case X86::VAADDPHZ128mr:
-  case X86::VAADDPHZ256mr:
-  case X86::VAADDPBF16Z128mr:
-  case X86::VAADDPBF16Z256mr:
-  case X86::VAADDSDZ128mr:
-  case X86::VAADDSSZ128mr:
-  case X86::VAADDSHZ128mr:
-  case X86::VAADDSBF16Z128mr:
-    return ST->hasAVXRAOFP();
-#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
-#endif // INTEL_CUSTOMIZATION
   case X86::VALIGNDZ128rri:
   case X86::VALIGNDZ128rmi:
   case X86::VALIGNQZ128rri:
@@ -326,6 +259,9 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
   unsigned NewOpc = I->VexOpcode;
 
   if (usesExtendedRegister(MI))
+    return false;
+
+  if (!CheckVEXInstPredicate(MI, ST))
     return false;
 
   if (!performCustomAdjustments(MI, NewOpc, ST))

@@ -244,6 +244,9 @@ namespace CallingConv {
     /// Calling convention used for AMD graphics targets.
     AMDGPU_Gfx = 100,
 
+    /// M68k_INTR - Calling convention used for M68k interrupt routines.
+    M68k_INTR = 101,
+
 #if INTEL_CUSTOMIZATION
     /// Calling convention for SVML functions. Callee-saved registers are
     /// different for 128-bit, 256-bit and 512-bit SVML functions. We use
@@ -251,16 +254,16 @@ namespace CallingConv {
     /// When creating SVML calls, the 128-bit calling convention is used since
     /// it's the most conservative one. MapIntrinToIml will choose the optimal
     /// convention during legalization.
-    SVML = 101,
-    SVML_AVX = 102,
-    SVML_AVX512 = 103,
+    SVML = 102,
+    SVML_AVX = 103,
+    SVML_AVX512 = 104,
     /// \brief Calling convention for functions only touch AVX2 vector registers
-    X86_AVX2_C = 104,
+    X86_AVX2_C = 105,
     /// Intel_OCL_BI_AVX - Calling conventions for Intel OpenCL AVX built-ins
-    Intel_OCL_BI_AVX = 105,
+    Intel_OCL_BI_AVX = 106,
     /// Intel_OCL_BI_AVX512 - Calling conventions for Intel OpenCL AVX512
     /// built-ins
-    Intel_OCL_BI_AVX512 = 106,
+    Intel_OCL_BI_AVX512 = 107,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

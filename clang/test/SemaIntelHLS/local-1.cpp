@@ -59,15 +59,16 @@ void foo() {
   //CHECK: SimpleDualPortAttr
 
   int __attribute__((max_replicates(2), simple_dual_port)) lc6;
-  //expected-error@+1{{'max_replicates' attribute requires integer constant between 1 and 1048576 inclusive}}
+  //expected-error@+1{{'max_replicates' attribute requires a positive integral compile time constant expression}}
   int __attribute__((max_replicates(0))) lc7;
-  //expected-error@+1{{'max_replicates' attribute requires integer constant between 1 and 1048576 inclusive}}
+  //expected-error@+1{{'max_replicates' attribute requires a positive integral compile time constant expression}}
   int __attribute__((max_replicates(-1))) lc8;
   //expected-error@+1{{'simple_dual_port' attribute takes no arguments}}
   int __attribute__((simple_dual_port(0))) lc12;
 
   // expected-warning@+1{{attribute 'max_replicates' is already applied}}
   int __attribute__((max_replicates(2), max_replicates(3))) lc13;
+  //expected-note@-1{{previous attribute is here}}
 
   //expected-warning@+1{{attribute 'simple_dual_port' is already applied}}
   int __attribute__((simple_dual_port, simple_dual_port)) lc14;

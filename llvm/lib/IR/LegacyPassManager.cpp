@@ -53,15 +53,14 @@ enum PassDebugLevel {
 };
 } // namespace
 
-static cl::opt<enum PassDebugLevel>
-PassDebugging("debug-pass", cl::Hidden,
-                  cl::desc("Print PassManager debugging information"),
-                  cl::values(
-  clEnumVal(Disabled  , "disable debug output"),
-  clEnumVal(Arguments , "print pass arguments to pass to 'opt'"),
-  clEnumVal(Structure , "print pass structure before run()"),
-  clEnumVal(Executions, "print pass name before it is executed"),
-  clEnumVal(Details   , "print pass details when it is executed")));
+static cl::opt<enum PassDebugLevel> PassDebugging(
+    "debug-pass", cl::Hidden,
+    cl::desc("Print legacy PassManager debugging information"),
+    cl::values(clEnumVal(Disabled, "disable debug output"),
+               clEnumVal(Arguments, "print pass arguments to pass to 'opt'"),
+               clEnumVal(Structure, "print pass structure before run()"),
+               clEnumVal(Executions, "print pass name before it is executed"),
+               clEnumVal(Details, "print pass details when it is executed")));
 #endif  // !INTEL_PRODUCT_RELEASE
 
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
@@ -249,6 +248,10 @@ void PassManagerPrettyStackEntry::print(raw_ostream &OS) const {
 
 namespace llvm {
 namespace legacy {
+#if !INTEL_PRODUCT_RELEASE
+bool debugPassSpecified() { return PassDebugging != Disabled; }
+#endif // !INTEL_PRODUCT_RELEASE
+
 //===----------------------------------------------------------------------===//
 // FunctionPassManagerImpl
 //
@@ -767,8 +770,10 @@ void PMTopLevelManager::schedulePass(Pass *P) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PI && !PI->isAnalysis() && shouldPrintBeforePass(PI->getPassArgument())) {
-    Pass *PP = P->createPrinterPass(
-        dbgs(), ("*** IR Dump Before " + P->getPassName() + " ***").str());
+    Pass *PP =
+        P->createPrinterPass(dbgs(), ("*** IR Dump Before " + P->getPassName() +
+                                      " (" + PI->getPassArgument() + ") ***")
+                                         .str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -778,8 +783,10 @@ void PMTopLevelManager::schedulePass(Pass *P) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PI && !PI->isAnalysis() && shouldPrintAfterPass(PI->getPassArgument())) {
-    Pass *PP = P->createPrinterPass(
-        dbgs(), ("*** IR Dump After " + P->getPassName() + " ***").str());
+    Pass *PP =
+        P->createPrinterPass(dbgs(), ("*** IR Dump After " + P->getPassName() +
+                                      " (" + PI->getPassArgument() + ") ***")
+                                         .str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -997,14 +1004,13 @@ void PMDataManager::removeNotPreservedAnalysis(Pass *P) {
 
   // Check inherited analysis also. If P is not preserving analysis
   // provided by parent manager then remove it here.
-  for (unsigned Index = 0; Index < PMT_Last; ++Index) {
-
-    if (!InheritedAnalysis[Index])
+  for (DenseMap<AnalysisID, Pass *> *IA : InheritedAnalysis) {
+    if (!IA)
       continue;
 
-    for (DenseMap<AnalysisID, Pass*>::iterator
-           I = InheritedAnalysis[Index]->begin(),
-           E = InheritedAnalysis[Index]->end(); I != E; ) {
+    for (DenseMap<AnalysisID, Pass *>::iterator I = IA->begin(),
+                                                E = IA->end();
+         I != E;) {
       DenseMap<AnalysisID, Pass *>::iterator Info = I++;
       if (Info->second->getAsImmutablePass() == nullptr &&
           !is_contained(PreservedSet, Info->first)) {
@@ -1016,7 +1022,7 @@ void PMDataManager::removeNotPreservedAnalysis(Pass *P) {
           dbgs() << S->getPassName() << "'\n";
         }
 #endif // !INTEL_PRODUCT_RELEASE
-        InheritedAnalysis[Index]->erase(Info);
+        IA->erase(Info);
       }
     }
   }

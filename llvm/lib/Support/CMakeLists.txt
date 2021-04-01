@@ -170,6 +170,7 @@ set (SUPPORT_SOURCES
   ScaledNumber.cpp
   ScopedPrinter.cpp
   SHA1.cpp
+  SHA256.cpp
   Signposts.cpp
   SimpleTable.cpp
   SmallPtrSet.cpp

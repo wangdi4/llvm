@@ -189,7 +189,7 @@ static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
     return false;
   }
 
-  auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
+  auto *V1 = LI->getPointerOperand()->stripPointerCastsForAliasAnalysis();
   V1 = getUnderlyingObject(V1, MaxLookupSearchDepth);
 
   auto *A = dyn_cast<Argument>(V1);
@@ -639,6 +639,15 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       }
 
 #if INTEL_CUSTOMIZATION
+      // We are not a GEP, but GEPOrSubsOperators may still be in bounds.
+      // Note that upstream does this for GEPs below.
+      if (auto *GOS = dyn_cast<GEPOrSubsOperator>(V)) {
+        if (Decomposed.InBounds == None)
+          Decomposed.InBounds = GOS->isInBounds();
+        else if (!GOS->isInBounds())
+          Decomposed.InBounds = false;
+      }
+
       // Matches getUnderlyingObject
       if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
         const Value *Stride = Subs->getStride();
@@ -664,6 +673,13 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       Decomposed.Base = V;
       return Decomposed;
     }
+
+    // Track whether we've seen at least one in bounds gep, and if so, whether
+    // all geps parsed were in bounds.
+    if (Decomposed.InBounds == None)
+      Decomposed.InBounds = GEPOp->isInBounds();
+    else if (!GEPOp->isInBounds())
+      Decomposed.InBounds = false;
 
     // Don't attempt to analyze GEPs over unsized objects.
     if (!GEPOp->getSourceElementType()->isSized()) {
@@ -1205,69 +1221,17 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call1,
   return AAResultBase::getModRefInfo(Call1, Call2, AAQI);
 }
 
-// If a we have (a) a GEP and (b) a pointer based on an alloca, and the
-// beginning of the object the GEP points would have a negative offset with
-// repsect to the alloca, that means the GEP can not alias pointer (b).
-// Note that the pointer based on the alloca may not be a GEP. For
-// example, it may be the alloca itself.
-// The same applies if (b) is based on a GlobalVariable. Note that just being
-// based on isIdentifiedObject() is not enough - we need an identified object
-// that does not permit access to negative offsets. For example, a negative
-// offset from a noalias argument or call can be inbounds w.r.t the actual
-// underlying object.
-//
-// For example, consider:
-//
-//   struct { int f0, int f1, ...} foo;
-//   foo alloca;
-//   foo* random = bar(alloca);
-//   int *f0 = &alloca.f0
-//   int *f1 = &random->f1;
-//
-// Which is lowered, approximately, to:
-//
-//  %alloca = alloca %struct.foo
-//  %random = call %struct.foo* @random(%struct.foo* %alloca)
-//  %f0 = getelementptr inbounds %struct, %struct.foo* %alloca, i32 0, i32 0
-//  %f1 = getelementptr inbounds %struct, %struct.foo* %random, i32 0, i32 1
-//
-// Assume %f1 and %f0 alias. Then %f1 would point into the object allocated
-// by %alloca. Since the %f1 GEP is inbounds, that means %random must also
-// point into the same object. But since %f0 points to the beginning of %alloca,
-// the highest %f1 can be is (%alloca + 3). This means %random can not be higher
-// than (%alloca - 1), and so is not inbounds, a contradiction.
-bool BasicAAResult::isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // INTEL
-      const DecomposedGEP &DecompGEP, const DecomposedGEP &DecompObject,
-      LocationSize MaybeObjectAccessSize) {
-  // If the object access size is unknown, or the GEP isn't inbounds, bail.
-  // INTEL:
-  // SubscriptInst, GetElementPtrInst and FakeloadInst are structured
-  // address computations and/or pointer annotations.
-  if (!MaybeObjectAccessSize.hasValue()) // INTEL
-    return false;
-
-  if (auto *S = dyn_cast<GEPOrSubsOperator>(GEPOp)) // INTEL
-    if (!S->isInBounds())                           // INTEL
-      return false;                                 // INTEL
-
-  const uint64_t ObjectAccessSize = MaybeObjectAccessSize.getValue();
-
-  // We need the object to be an alloca or a globalvariable, and want to know
-  // the offset of the pointer from the object precisely, so no variable
-  // indices are allowed.
-  if (!(isa<AllocaInst>(DecompObject.Base) ||
-        isa<GlobalVariable>(DecompObject.Base)) ||
-      !DecompObject.VarIndices.empty())
-    return false;
-
-  // If the GEP has no variable indices, we know the precise offset
-  // from the base, then use it. If the GEP has variable indices,
-  // we can't get exact GEP offset to identify pointer alias. So return
-  // false in that case.
-  if (!DecompGEP.VarIndices.empty())
-    return false;
-
-  return DecompGEP.Offset.sge(DecompObject.Offset + (int64_t)ObjectAccessSize);
+/// Return true if we know V to the base address of the corresponding memory
+/// object.  This implies that any address less than V must be out of bounds
+/// for the underlying object.  Note that just being isIdentifiedObject() is
+/// not enough - For example, a negative offset from a noalias argument or call
+/// can be inbounds w.r.t the actual underlying object.
+static bool isBaseOfObject(const Value *V) {
+  // TODO: We can handle other cases here
+  // 1) For GC languages, arguments to functions are often required to be
+  //    base pointers.
+  // 2) Result of allocation routines are often base pointers.  Leverage TLI.
+  return (isa<AllocaInst>(V) || isa<GlobalVariable>(V));
 }
 
 /// Provides a bunch of ad-hoc rules to disambiguate a GEP instruction against
@@ -1297,173 +1261,159 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
          "DecomposeGEPExpression returned a result different from "
          "getUnderlyingObject");
 
-  // If the GEP's offset relative to its base is such that the base would
-  // fall below the start of the object underlying V2, then the GEP and V2
-  // cannot alias.
-  if (isGEPBaseAtNegativeOffset(GEP1, DecompGEP1, DecompGEP2, V2Size))
+  // Subtract the GEP2 pointer from the GEP1 pointer to find out their
+  // symbolic difference.
+  DecompGEP1.Offset -= DecompGEP2.Offset;
+  GetIndexDifference(DecompGEP1.VarIndices, DecompGEP2.VarIndices);
+
+  // If an inbounds GEP would have to start from an out of bounds address
+  // for the two to alias, then we can assume noalias.
+  if (*DecompGEP1.InBounds && DecompGEP1.VarIndices.empty() &&
+      V2Size.hasValue() && DecompGEP1.Offset.sge(V2Size.getValue()) &&
+      isBaseOfObject(DecompGEP2.Base))
     return NoAlias;
-  // If we have two gep instructions with must-alias or not-alias'ing base
-  // pointers, figure out if the indexes to the GEP tell us anything about the
-  // derived pointer.
-  if (const AddressOperator *GEP2 = dyn_cast<AddressOperator>(V2)) { // INTEL
-    // Check for the GEP base being at a negative offset, this time in the other
-    // direction.
-    if (isGEPBaseAtNegativeOffset(GEP2, DecompGEP2, DecompGEP1, V1Size))
-      return NoAlias;
-    // Do the base pointers alias?
-#if INTEL_CUSTOMIZATION
-    AliasResult BaseAlias;
-    if (AAQI.NeedLoopCarried)
-      BaseAlias = getBestAAResults().loopCarriedAlias(
-          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-          MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
-    else
-      BaseAlias = getBestAAResults().alias(
-          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-          MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
-#endif // INTEL_CUSTOMIZATION
 
-    // For GEPs with identical offsets, we can preserve the size and AAInfo
-    // when performing the alias check on the underlying objects.
-    if (BaseAlias == MayAlias && DecompGEP1.Offset == DecompGEP2.Offset &&
-        DecompGEP1.Base == UnderlyingV1 && // INTEL
-        DecompGEP2.Base == UnderlyingV2 && // INTEL
-        DecompGEP1.VarIndices == DecompGEP2.VarIndices) {
-#if INTEL_CUSTOMIZATION
-        AliasResult PreciseBaseAlias;
-        if (AAQI.NeedLoopCarried)
-          PreciseBaseAlias = getBestAAResults().loopCarriedAlias(
-              MemoryLocation(UnderlyingV1, V1Size, V1AAInfo),
-              MemoryLocation(UnderlyingV2, V2Size, V2AAInfo), AAQI);
-        else
-          PreciseBaseAlias = getBestAAResults().alias(
-              MemoryLocation(UnderlyingV1, V1Size, V1AAInfo),
-              MemoryLocation(UnderlyingV2, V2Size, V2AAInfo), AAQI);
-#endif // INTEL_CUSTOMIZATION
-      if (PreciseBaseAlias == NoAlias)
-        return NoAlias;
-    }
-
-    // If we get a No or May, then return it immediately, no amount of analysis
-    // will improve this situation.
-    if (BaseAlias != MustAlias) {
-      assert(BaseAlias == NoAlias || BaseAlias == MayAlias);
-      return BaseAlias;
-    }
-
-    // Subtract the GEP2 pointer from the GEP1 pointer to find out their
-    // symbolic difference.
-    DecompGEP1.Offset -= DecompGEP2.Offset;
-    GetIndexDifference(DecompGEP1.VarIndices, DecompGEP2.VarIndices);
-
-#if INTEL_CUSTOMIZATION
-    // GCD test for same base. https://en.wikipedia.org/wiki/GCD_test
-    // aliasSameBasePointerGEPs.
-    if (DecompGEP1.Base == DecompGEP2.Base && DecompGEP1.Offset != 0 &&
-        V1Size != MemoryLocation::UnknownSize &&
-        V2Size != MemoryLocation::UnknownSize &&
-        // Safe to convert V1Size to int64_t.
-        V1Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
-        // Safe to convert V2Size to int64_t.
-        V2Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
-        !DecompGEP1.VarIndices.empty()) {
-
-      APInt MinCoeff = DecompGEP1.VarIndices[0].Scale.abs();
-      for (unsigned i = 1, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-        MinCoeff = MinCoeff.sle(DecompGEP1.VarIndices[i].Scale.abs()) ?
-                   MinCoeff : DecompGEP1.VarIndices[i].Scale.abs();
-
-      bool CoeffsAreDivisible = true;
-      for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-        if (!!(DecompGEP1.VarIndices[i].Scale.srem(MinCoeff))) {
-          CoeffsAreDivisible = false;
-          break;
-        }
-
-      if (CoeffsAreDivisible && MinCoeff.sge((int64_t)V1Size.getValue()) &&
-          MinCoeff.sge((int64_t)V2Size.getValue())) {
-        APInt GEP1BaseOffsetReduced = DecompGEP1.Offset.srem(MinCoeff);
-        if (GEP1BaseOffsetReduced.sgt(0)) {
-          // | V2 ... V2 + V2Size |
-          // | GEP1BaseOffsetReduced | V1 ... V1 + V1Size
-          // | MinCoeff                                     |
-          if (GEP1BaseOffsetReduced.sge((int64_t)V2Size.getValue()) &&
-              GEP1BaseOffsetReduced.sle(MinCoeff - (int64_t)V1Size.getValue()))
-            return NoAlias;
-        } else if (GEP1BaseOffsetReduced.slt(0)) {
-          // | V1 ... V1 + V1Size |
-          // | GEP1BaseOffsetReduced | V2 ... V2 + V2Size
-          // | MinCoeff                                     |
-          if ((-GEP1BaseOffsetReduced).sge((int64_t)V1Size.getValue()) &&
-              (-GEP1BaseOffsetReduced).sle(MinCoeff - (int64_t)V2Size.getValue()))
-            return NoAlias;
-        }
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
+  if (isa<AddressOperator>(V2)) { // INTEL
+    // Symmetric case to above.
+    if (*DecompGEP2.InBounds && DecompGEP1.VarIndices.empty() &&
+        V1Size.hasValue() && DecompGEP1.Offset.sle(-V1Size.getValue()) &&
+        isBaseOfObject(DecompGEP1.Base))
+    return NoAlias;
   } else {
-    // Check to see if these two pointers are related by the getelementptr
-    // instruction.  If one pointer is a GEP with a non-zero index of the other
-    // pointer, we know they cannot alias.
-
-    // If both accesses are unknown size, we can't do anything useful here.
+    // TODO: This limitation exists for compile-time reasons. Relax it if we
+    // can avoid exponential pathological cases.
     if (!V1Size.hasValue() && !V2Size.hasValue())
       return MayAlias;
-
-#if INTEL_CUSTOMIZATION
-    AliasResult R;
-    if (AAQI.NeedLoopCarried)
-      R = getBestAAResults().loopCarriedAlias(
-          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-          MemoryLocation(V2, V2Size, V2AAInfo), AAQI);
-    else
-      R = getBestAAResults().alias(
-          MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-          MemoryLocation(V2, V2Size, V2AAInfo), AAQI);
-#endif // INTEL_CUSTOMIZATION
-    if (R != MustAlias) {
-      // If V2 may alias GEP base pointer, conservatively returns MayAlias.
-      // If V2 is known not to alias GEP base pointer, then the two values
-      // cannot alias per GEP semantics: "Any memory access must be done through
-      // a pointer value associated with an address range of the memory access,
-      // otherwise the behavior is undefined.".
-      assert(R == NoAlias || R == MayAlias);
-      return R;
-    }
   }
 
-  // In the two GEP Case, if there is no difference in the offsets of the
-  // computed pointers, the resultant pointers are a must alias.  This
-  // happens when we have two lexically identical GEP's (for example).
-  //
-  // In the other case, if we have getelementptr <ptr>, 0, 0, 0, 0, ... and V2
-  // must aliases the GEP, the end result is a must alias also.
-  if (DecompGEP1.Offset == 0 && DecompGEP1.VarIndices.empty())
-    return MustAlias;
+  // For GEPs with identical offsets, we can preserve the size and AAInfo
+  // when performing the alias check on the underlying objects.
+  if (DecompGEP1.Offset == 0 &&
+      DecompGEP1.Base == UnderlyingV1 && // INTEL
+      DecompGEP2.Base == UnderlyingV2 && // INTEL
+      DecompGEP1.VarIndices.empty()) {
+#if INTEL_CUSTOMIZATION
+    AliasResult PreciseBaseAlias;
+    if (AAQI.NeedLoopCarried)
+      PreciseBaseAlias = getBestAAResults().loopCarriedAlias(
+          MemoryLocation(UnderlyingV1, V1Size, V1AAInfo),
+          MemoryLocation(UnderlyingV2, V2Size, V2AAInfo), AAQI);
+    else
+      PreciseBaseAlias = getBestAAResults().alias(
+          MemoryLocation(UnderlyingV1, V1Size, V1AAInfo),
+          MemoryLocation(UnderlyingV2, V2Size, V2AAInfo), AAQI);
+    return PreciseBaseAlias;
+#endif // INTEL_CUSTOMIZATION
+  }
+
+  // Do the base pointers alias?
+#if INTEL_CUSTOMIZATION
+  AliasResult BaseAlias;
+  if (AAQI.NeedLoopCarried)
+    BaseAlias = getBestAAResults().loopCarriedAlias(
+        MemoryLocation::getBeforeOrAfter(UnderlyingV1),
+        MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+  else
+    BaseAlias = getBestAAResults().alias(
+        MemoryLocation::getBeforeOrAfter(UnderlyingV1),
+        MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+#endif // INTEL_CUSTOMIZATION
+
+  // If we get a No or May, then return it immediately, no amount of analysis
+  // will improve this situation.
+  if (BaseAlias != MustAlias) {
+    assert(BaseAlias == NoAlias || BaseAlias == MayAlias);
+    return BaseAlias;
+  }
+
+#if INTEL_CUSTOMIZATION
+  // GCD test for same base. https://en.wikipedia.org/wiki/GCD_test
+  // aliasSameBasePointerGEPs.
+  if (DecompGEP1.Base == DecompGEP2.Base && DecompGEP1.Offset != 0 &&
+      V1Size != MemoryLocation::UnknownSize &&
+      V2Size != MemoryLocation::UnknownSize &&
+      // Safe to convert V1Size to int64_t.
+      V1Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
+      // Safe to convert V2Size to int64_t.
+      V2Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
+      !DecompGEP1.VarIndices.empty()) {
+
+    APInt MinCoeff = DecompGEP1.VarIndices[0].Scale.abs();
+    for (unsigned i = 1, e = DecompGEP1.VarIndices.size(); i != e; ++i)
+      MinCoeff = MinCoeff.sle(DecompGEP1.VarIndices[i].Scale.abs()) ?
+                  MinCoeff : DecompGEP1.VarIndices[i].Scale.abs();
+
+    bool CoeffsAreDivisible = true;
+    for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i)
+      if (!!(DecompGEP1.VarIndices[i].Scale.srem(MinCoeff))) {
+        CoeffsAreDivisible = false;
+        break;
+      }
+
+    if (CoeffsAreDivisible && MinCoeff.sge((int64_t)V1Size.getValue()) &&
+        MinCoeff.sge((int64_t)V2Size.getValue())) {
+      APInt GEP1BaseOffsetReduced = DecompGEP1.Offset.srem(MinCoeff);
+      if (GEP1BaseOffsetReduced.sgt(0)) {
+        // | V2 ... V2 + V2Size |
+        // | GEP1BaseOffsetReduced | V1 ... V1 + V1Size
+        // | MinCoeff                                     |
+        if (GEP1BaseOffsetReduced.sge((int64_t)V2Size.getValue()) &&
+            GEP1BaseOffsetReduced.sle(MinCoeff - (int64_t)V1Size.getValue()))
+          return NoAlias;
+      } else if (GEP1BaseOffsetReduced.slt(0)) {
+        // | V1 ... V1 + V1Size |
+        // | GEP1BaseOffsetReduced | V2 ... V2 + V2Size
+        // | MinCoeff                                     |
+        if ((-GEP1BaseOffsetReduced).sge((int64_t)V1Size.getValue()) &&
+            (-GEP1BaseOffsetReduced).sle(MinCoeff - (int64_t)V2Size.getValue()))
+          return NoAlias;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If there is a constant difference between the pointers, but the difference
   // is less than the size of the associated memory object, then we know
   // that the objects are partially overlapping.  If the difference is
   // greater, we know they do not overlap.
   if (DecompGEP1.Offset != 0 && DecompGEP1.VarIndices.empty()) {
-    if (DecompGEP1.Offset.sge(0)) {
-      if (V2Size.hasValue()) {
-        if (DecompGEP1.Offset.ult(V2Size.getValue()))
-          return PartialAlias;
-        return NoAlias;
-      }
-    } else {
-      // We have the situation where:
+    APInt &Off = DecompGEP1.Offset;
+
+    // Initialize for Off >= 0 (V2 <= GEP1) case.
+    const Value *LeftPtr = V2;
+    const Value *RightPtr = GEP1;
+    LocationSize VLeftSize = V2Size;
+    LocationSize VRightSize = V1Size;
+
+    if (Off.isNegative()) {
+      // Swap if we have the situation where:
       // +                +
       // | BaseOffset     |
       // ---------------->|
       // |-->V1Size       |-------> V2Size
       // GEP1             V2
-      if (V1Size.hasValue()) {
-        if ((-DecompGEP1.Offset).ult(V1Size.getValue()))
-          return PartialAlias;
-        return NoAlias;
+      std::swap(LeftPtr, RightPtr);
+      std::swap(VLeftSize, VRightSize);
+      Off = -Off;
+    }
+
+    if (VLeftSize.hasValue()) {
+      const uint64_t LSize = VLeftSize.getValue();
+      if (Off.ult(LSize)) {
+        // Conservatively drop processing if a phi was visited and/or offset is
+        // too big.
+        if (VisitedPhiBBs.empty() && VRightSize.hasValue() &&
+            Off.ule(INT64_MAX)) {
+          // Memory referenced by right pointer is nested. Save the offset in
+          // cache.
+          const uint64_t RSize = VRightSize.getValue();
+          if ((Off + RSize).ule(LSize))
+            AAQI.setClobberOffset(LeftPtr, RightPtr, LSize, RSize,
+                                  Off.getSExtValue());
+        }
+        return PartialAlias;
       }
+      return NoAlias;
     }
   }
 
@@ -1733,13 +1683,19 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     // If we don't have PhiInfo then just look at the operands of the phi itself
     // FIXME: Remove this once we can guarantee that we have PhiInfo always
     SmallPtrSet<Value *, 4> UniqueSrc;
+    Value *OnePhi = nullptr;
     for (Value *PV1 : PN->incoming_values()) {
-      if (isa<PHINode>(PV1))
-        // If any of the source itself is a PHI, return MayAlias conservatively
-        // to avoid compile time explosion. The worst possible case is if both
-        // sides are PHI nodes. In which case, this is O(m x n) time where 'm'
-        // and 'n' are the number of PHI sources.
-        return MayAlias;
+      if (isa<PHINode>(PV1)) {
+        if (OnePhi && OnePhi != PV1) {
+          // To control potential compile time explosion, we choose to be
+          // conserviate when we have more than one Phi input.  It is important
+          // that we handle the single phi case as that lets us handle LCSSA
+          // phi nodes and (combined with the recursive phi handling) simple
+          // pointer induction variable patterns.
+          return MayAlias;
+        }
+        OnePhi = PV1;
+      }
 
       if (CheckForRecPhi(PV1))
         continue;
@@ -1770,6 +1726,11 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
       if (UniqueSrc.insert(PV1).second)
         V1Srcs.push_back(PV1);
     }
+
+    if (OnePhi && UniqueSrc.size() > 1)
+      // Out of an abundance of caution, allow only the trivial lcssa and
+      // recursive phi cases.
+      return MayAlias;
   }
 
   // If V1Srcs is empty then that means that the phi has no underlying non-phi
@@ -1811,7 +1772,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If we inserted a block into VisitedPhiBBs, alias analysis results that
   // have been cached earlier may no longer be valid. Perform recursive queries
   // with a new AAQueryInfo.
-  AAQueryInfo NewAAQI;
+  AAQueryInfo NewAAQI = AAQI.withEmptyCache();
   AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
 #endif // INTEL_CUSTOMIZATION
 
@@ -1985,8 +1946,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     return NoAlias;
 
   // Strip off any casts if they exist.
-  V1 = V1->stripPointerCastsAndInvariantGroups();
-  V2 = V2->stripPointerCastsAndInvariantGroups();
+  V1 = V1->stripPointerCastsForAliasAnalysis();
+  V2 = V2->stripPointerCastsForAliasAnalysis();
 
   // If V1 or V2 is undef, the result is NoAlias because we can always pick a
   // value for undef that aliases nothing in the program.
@@ -2151,6 +2112,13 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     V1Size = LocationSize::afterPointer();
     V2Size = LocationSize::afterPointer();
   }
+
+  // FIXME: If this depth limit is hit, then we may cache sub-optimal results
+  // for recursive queries. For this reason, this limit is chosen to be large
+  // enough to be very rarely hit, while still being small enough to avoid
+  // stack overflows.
+  if (AAQI.Depth >= 512)
+    return MayAlias;
 
   // Check the cache before climbing up use-def chains. This also terminates
   // otherwise infinitely recursive queries.

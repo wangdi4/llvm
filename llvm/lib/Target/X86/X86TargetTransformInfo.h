@@ -269,14 +269,6 @@ public:
                                                     bool IsZeroCmp) const;
   bool enableInterleavedAccessVectorization();
 
-  /// Allow vectorizers to form reduction intrinsics in IR. The IR is expanded
-  /// into shuffles and vector math/logic by the backend
-  /// (see TTI::shouldExpandReduction)
-  bool useReductionIntrinsic(unsigned Opcode, Type *Ty,
-                             TTI::ReductionFlags Flags) const {
-    return true;
-  }
-
 private:
 #if INTEL_CUSTOMIZATION
   int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,

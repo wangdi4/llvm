@@ -20,6 +20,7 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
+#include "llvm/CodeGen/MachineSizeOpts.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
@@ -486,6 +487,42 @@ bool llvm::isKnownNeverNaN(Register Val, const MachineRegisterInfo &MRI,
   if (DefMI->getFlag(MachineInstr::FmNoNans) || TM.Options.NoNaNsFPMath)
     return true;
 
+  // If the value is a constant, we can obviously see if it is a NaN or not.
+  if (const ConstantFP *FPVal = getConstantFPVRegVal(Val, MRI)) {
+    return !FPVal->getValueAPF().isNaN() ||
+           (SNaN && !FPVal->getValueAPF().isSignaling());
+  }
+
+  if (DefMI->getOpcode() == TargetOpcode::G_BUILD_VECTOR) {
+    for (const auto &Op : DefMI->uses())
+      if (!isKnownNeverNaN(Op.getReg(), MRI, SNaN))
+        return false;
+    return true;
+  }
+
+  switch (DefMI->getOpcode()) {
+  default:
+    break;
+  case TargetOpcode::G_FMINNUM_IEEE:
+  case TargetOpcode::G_FMAXNUM_IEEE: {
+    if (SNaN)
+      return true;
+    // This can return a NaN if either operand is an sNaN, or if both operands
+    // are NaN.
+    return (isKnownNeverNaN(DefMI->getOperand(1).getReg(), MRI) &&
+            isKnownNeverSNaN(DefMI->getOperand(2).getReg(), MRI)) ||
+           (isKnownNeverSNaN(DefMI->getOperand(1).getReg(), MRI) &&
+            isKnownNeverNaN(DefMI->getOperand(2).getReg(), MRI));
+  }
+  case TargetOpcode::G_FMINNUM:
+  case TargetOpcode::G_FMAXNUM: {
+    // Only one needs to be known not-nan, since it will be returned if the
+    // other ends up being one.
+    return isKnownNeverNaN(DefMI->getOperand(1).getReg(), MRI, SNaN) ||
+           isKnownNeverNaN(DefMI->getOperand(2).getReg(), MRI, SNaN);
+  }
+  }
+
   if (SNaN) {
     // FP operations quiet. For now, just handle the ones inserted during
     // legalization.
@@ -791,6 +828,20 @@ bool llvm::isBuildVectorAllOnes(const MachineInstr &MI,
   return isBuildVectorConstantSplat(MI, MRI, -1);
 }
 
+Optional<RegOrConstant> llvm::getVectorSplat(const MachineInstr &MI,
+                                             const MachineRegisterInfo &MRI) {
+  unsigned Opc = MI.getOpcode();
+  if (!isBuildVectorOp(Opc))
+    return None;
+  if (auto Splat = getBuildVectorConstantSplat(MI, MRI))
+    return RegOrConstant(*Splat);
+  auto Reg = MI.getOperand(1).getReg();
+  if (any_of(make_range(MI.operands_begin() + 2, MI.operands_end()),
+             [&Reg](const MachineOperand &Op) { return Op.getReg() != Reg; }))
+    return None;
+  return RegOrConstant(Reg);
+}
+
 bool llvm::isConstTrueVal(const TargetLowering &TLI, int64_t Val, bool IsVector,
                           bool IsFP) {
   switch (TLI.getBooleanContents(IsVector, IsFP)) {
@@ -814,4 +865,11 @@ int64_t llvm::getICmpTrueVal(const TargetLowering &TLI, bool IsVector,
     return -1;
   }
   llvm_unreachable("Invalid boolean contents");
+}
+
+bool llvm::shouldOptForSize(const MachineBasicBlock &MBB,
+                            ProfileSummaryInfo *PSI, BlockFrequencyInfo *BFI) {
+  const auto &F = MBB.getParent()->getFunction();
+  return F.hasOptSize() || F.hasMinSize() ||
+         llvm::shouldOptimizeForSize(MBB.getBasicBlock(), PSI, BFI);
 }

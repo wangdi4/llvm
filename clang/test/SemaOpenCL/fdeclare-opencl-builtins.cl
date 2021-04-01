@@ -19,6 +19,19 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #endif
 
+#if __OPENCL_C_VERSION__ <= CL_VERSION_1_2
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
+#endif
+
+void test_without_header() {
+  barrier(0);
+  // expected-note@-1 0+{{candidate function not viable}}
+  // expected-error@-2 0+{{argument type 'void' is incomplete}}
+  // expected-error@-3 0+{{no matching function for call to 'barrier'}}
+  // expected-error@* {{typedef type cl_mem_fence_flags not found; include the base header with -finclude-default-header}}
+}
+
+// Provide typedefs when invoking clang without -finclude-default-header.
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
@@ -34,9 +47,20 @@ typedef int int4 __attribute__((ext_vector_type(4)));
 typedef uint uint4 __attribute__((ext_vector_type(4)));
 typedef long long2 __attribute__((ext_vector_type(2)));
 
+typedef int clk_profiling_info;
+#define CLK_PROFILING_COMMAND_EXEC_TIME 0x1
+
+typedef uint cl_mem_fence_flags;
+#define CLK_GLOBAL_MEM_FENCE 0x02
+
+typedef struct {int a;} ndrange_t;
+
 // Enable extensions that are enabled in opencl-c-base.h.
 #if (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
+#define cl_khr_subgroup_extended_types 1
 #define cl_khr_subgroup_ballot 1
+#define cl_khr_subgroup_non_uniform_arithmetic 1
+#define cl_khr_subgroup_clustered_reduce 1
 #endif
 
 kernel void test_pointers(volatile global void *global_p, global const int4 *a) {
@@ -48,6 +72,18 @@ kernel void test_pointers(volatile global void *global_p, global const int4 *a) 
   atom_add((volatile __global int *)global_p, i);
   atom_cmpxchg((volatile __global unsigned int *)global_p, ui, ui);
 }
+
+#if defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200
+void test_typedef_args(clk_event_t evt, volatile atomic_flag *flg, global unsigned long long *values) {
+  capture_event_profiling_info(evt, CLK_PROFILING_COMMAND_EXEC_TIME, values);
+
+  atomic_flag_clear(flg);
+  bool result = atomic_flag_test_and_set(flg);
+
+  size_t ws[2] = {2, 8};
+  ndrange_t r = ndrange_2D(ws);
+}
+#endif
 
 kernel void basic_conversion() {
   double d;
@@ -122,13 +158,20 @@ kernel void basic_image_readwrite(read_write image3d_t image_read_write_image3d)
 }
 #endif // __OPENCL_C_VERSION__ >= CL_VERSION_2_0
 
-kernel void basic_image_writeonly(write_only image1d_buffer_t image_write_only_image1d_buffer) {
+kernel void basic_image_writeonly(write_only image1d_buffer_t image_write_only_image1d_buffer, write_only image3d_t image3dwo) {
   half4 h4;
   float4 f4;
   int i;
 
   write_imagef(image_write_only_image1d_buffer, i, f4);
   write_imageh(image_write_only_image1d_buffer, i, h4);
+
+  int4 i4;
+  write_imagef(image3dwo, i4, i, f4);
+#if __OPENCL_C_VERSION__ <= CL_VERSION_1_2 && !defined(__OPENCL_CPP_VERSION__)
+  // expected-error@-2{{no matching function for call to 'write_imagef'}}
+  // expected-note@-3 + {{candidate function not viable}}
+#endif
 }
 
 kernel void basic_subgroup(global uint *out) {
@@ -137,13 +180,21 @@ kernel void basic_subgroup(global uint *out) {
   // expected-error@-2{{implicit declaration of function 'get_sub_group_size' is invalid in OpenCL}}
   // expected-error@-3{{implicit conversion changes signedness}}
 #endif
+
 }
 
-kernel void extended_subgroup(global uint4 *out) {
+kernel void extended_subgroup(global uint4 *out, global int *scalar, global char2 *c2) {
   out[0] = get_sub_group_eq_mask();
+  scalar[0] = sub_group_non_uniform_scan_inclusive_or(3);
+  scalar[1] = sub_group_clustered_reduce_logical_xor(2, 4);
+  *c2 = sub_group_broadcast(*c2, 2);
 #if __OPENCL_C_VERSION__ < CL_VERSION_2_0 && !defined(__OPENCL_CPP_VERSION__)
-  // expected-error@-2{{implicit declaration of function 'get_sub_group_eq_mask' is invalid in OpenCL}}
-  // expected-error@-3{{implicit conversion changes signedness}}
+  // expected-error@-5{{implicit declaration of function 'get_sub_group_eq_mask' is invalid in OpenCL}}
+  // expected-error@-6{{implicit conversion changes signedness}}
+  // expected-error@-6{{implicit declaration of function 'sub_group_non_uniform_scan_inclusive_or' is invalid in OpenCL}}
+  // expected-error@-6{{implicit declaration of function 'sub_group_clustered_reduce_logical_xor' is invalid in OpenCL}}
+  // expected-error@-6{{implicit declaration of function 'sub_group_broadcast' is invalid in OpenCL}}
+  // expected-error@-7{{implicit conversion loses integer precision}}
 #endif
 }
 
@@ -172,6 +223,8 @@ kernel void basic_vector_data() {
 
 kernel void basic_work_item() {
   uint ui;
+
+  barrier(CLK_GLOBAL_MEM_FENCE);
 
   get_enqueued_local_size(ui);
 #if !defined(__OPENCL_CPP_VERSION__) && __OPENCL_C_VERSION__ < CL_VERSION_2_0

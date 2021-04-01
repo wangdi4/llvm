@@ -448,6 +448,9 @@ entry:
 ; from A get vectorized instead of the loads from B.
 ;
 define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, double *%D, double *%S, double *%Ext1, double *%Ext2, double *%Ext3, double *%Ext4, double *%Ext5) {
+; INTEL_CUSTOMIZATION
+; Test behaves differently on xmain due to TTI cost customizations
+; Checks were regenerated to match xmain behavior
 ; CHECK-LABEL: @lookahead_limit_users_budget(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0
@@ -483,7 +486,6 @@ define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, do
 ; CHECK-NEXT:    store double [[B1]], double* [[EXT5:%.*]], align 8
 ; CHECK-NEXT:    ret void
 ;
-; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @lookahead_limit_users_budget(
 ; XMAIN-NEXT:  entry:
 ; XMAIN-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0

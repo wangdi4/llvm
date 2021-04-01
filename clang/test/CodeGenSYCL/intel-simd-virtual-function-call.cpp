@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl -fsycl-is-device\
+// RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
 // RUN: -fenable-variant-virtual-calls \
 // RUN:  -triple spir64-unknown-linux-sycldevice %s | FileCheck %s
 

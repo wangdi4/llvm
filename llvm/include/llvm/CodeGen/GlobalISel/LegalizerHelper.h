@@ -315,6 +315,8 @@ public:
                                              LLT HalfTy, LLT ShiftAmtTy);
 
   LegalizeResult narrowScalarShift(MachineInstr &MI, unsigned TypeIdx, LLT Ty);
+  LegalizeResult narrowScalarAddSub(MachineInstr &MI, unsigned TypeIdx,
+                                    LLT NarrowTy);
   LegalizeResult narrowScalarMul(MachineInstr &MI, LLT Ty);
   LegalizeResult narrowScalarExtract(MachineInstr &MI, unsigned TypeIdx, LLT Ty);
   LegalizeResult narrowScalarInsert(MachineInstr &MI, unsigned TypeIdx, LLT Ty);
@@ -371,7 +373,7 @@ public:
   LegalizeResult lowerReadWriteRegister(MachineInstr &MI);
   LegalizeResult lowerSMULH_UMULH(MachineInstr &MI);
   LegalizeResult lowerSelect(MachineInstr &MI);
-
+  LegalizeResult lowerDIVREM(MachineInstr &MI);
 };
 
 /// Helper function that creates a libcall to the given \p Name using the given

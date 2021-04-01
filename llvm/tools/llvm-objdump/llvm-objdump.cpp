@@ -3055,9 +3055,9 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
       !(MachOOpt &&
         (Bind || DataInCode || DylibId || DylibsUsed || ExportsTrie ||
-         FirstPrivateHeader || IndirectSymbols || InfoPlist || LazyBind ||
-         LinkOptHints || ObjcMetaData || Rebase || UniversalHeaders ||
-         WeakBind || !FilterSections.empty()))) {
+         FirstPrivateHeader || FunctionStarts || IndirectSymbols || InfoPlist ||
+         LazyBind || LinkOptHints || ObjcMetaData || Rebase ||
+         UniversalHeaders || WeakBind || !FilterSections.empty()))) {
     cl::PrintHelpMessage();
     return 2;
   }

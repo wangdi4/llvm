@@ -3,7 +3,7 @@
 ; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s --check-prefix=SCEV
 
 ; Verify that %bf.ashr3579 has signed range info.
-; SCEV: -->  %bf.ashr3579 U: full-set S: [-268435456,268435456)
+; SCEV: -->  %bf.ashr3579 U: [-268435456,268435456) S: [-268435456,268435456)
 
 
 ; Verify that we do not form SCC (%bf.ashr3579 -> %dec -> %bf.ashr35) because %bf.ashr3579 has signed range info.

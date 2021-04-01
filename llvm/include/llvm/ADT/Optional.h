@@ -110,7 +110,7 @@ public:
 
   template <class... Args> void emplace(Args &&... args) {
     reset();
-    ::new ((void *)std::addressof(value)) T(std::forward<Args>(args)...);
+    ::new (const_cast<void *>((const void *)std::addressof(value))) T(std::forward<Args>(args)...);
     hasVal = true;
   }
 

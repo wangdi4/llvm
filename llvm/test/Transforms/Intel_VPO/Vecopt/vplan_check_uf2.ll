@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() {
-; CHECK-HIR-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-HIR-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; CHECK-HIR-NEXT:  Function: foo
 ; CHECK-HIR-EMPTY:
 ; CHECK-HIR-NEXT:  <0>          BEGIN REGION { }
@@ -39,7 +39,7 @@ define dso_local void @foo() {
 ; CHECK-HIR-NEXT:  <16>               ret
 ; CHECK-HIR-NEXT:  <0>          END REGION
 ;
-; CHECK-LLVM-IR-LABEL:  *** IR Dump After VPlan Vectorization Driver ***
+; CHECK-LLVM-IR-LABEL:  *** IR Dump After VPlan Vectorization Driver (VPlanDriver) ***
 ;
 ; CHECK-LLVM-IR:  define dso_local void @foo() {
 ; CHECK-LLVM-IR-NEXT:  entry:

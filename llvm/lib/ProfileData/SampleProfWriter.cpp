@@ -204,6 +204,17 @@ std::error_code SampleProfileWriterExtBinaryBase::writeNameTableSection(
     addName(I.first());
     addNames(I.second);
   }
+
+  // If NameTable contains ".__uniq." suffix, set SecFlagUniqSuffix flag
+  // so compiler won't strip the suffix during profile matching after
+  // seeing the flag in the profile.
+  for (const auto &I : NameTable) {
+    if (I.first.find(FunctionSamples::UniqSuffix) != StringRef::npos) {
+      addSectionFlag(SecNameTable, SecNameTableFlags::SecFlagUniqSuffix);
+      break;
+    }
+  }
+
   if (auto EC = writeNameTable())
     return EC;
   return sampleprof_error::success;
@@ -360,10 +371,7 @@ std::error_code SampleProfileWriterCompactBinary::write(
 /// it needs to be parsed by the SampleProfileReaderText class.
 std::error_code SampleProfileWriterText::writeSample(const FunctionSamples &S) {
   auto &OS = *OutputStream;
-  if (FunctionSamples::ProfileIsCS)
-    OS << "[" << S.getNameWithContext() << "]:" << S.getTotalSamples();
-  else
-    OS << S.getName() << ":" << S.getTotalSamples();
+  OS << S.getNameWithContext(true) << ":" << S.getTotalSamples();
   if (Indent == 0)
     OS << ":" << S.getHeadSamples();
   OS << "\n";

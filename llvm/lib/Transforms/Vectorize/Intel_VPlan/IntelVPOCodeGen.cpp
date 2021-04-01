@@ -245,7 +245,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     auto *OrigAtomicRMW = cast<AtomicRMWInst>(VPInst->getUnderlyingValue());
     AtomicRMWInst *SerialAtomicRMW = Builder.CreateAtomicRMW(
         OrigAtomicRMW->getOperation(), Ops[0], Ops[1],
-        OrigAtomicRMW->getOrdering(), OrigAtomicRMW->getSyncScopeID());
+        OrigAtomicRMW->getAlign(), OrigAtomicRMW->getOrdering(),
+        OrigAtomicRMW->getSyncScopeID());
     SerialAtomicRMW->setVolatile(OrigAtomicRMW->isVolatile());
     if (SerialAtomicRMW->isFloatingPointOperation())
       SerialAtomicRMW->setFastMathFlags(OrigAtomicRMW->getFastMathFlags());
@@ -261,7 +262,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     // Create a Scalar variant copying over the attributes from the original
     // instruction.
     AtomicCmpXchgInst *SerialAtomicCmpXchg = Builder.CreateAtomicCmpXchg(
-        Ops[0], Ops[1], Ops[2], OrigAtomicCmpXchg->getSuccessOrdering(),
+        Ops[0], Ops[1], Ops[2], OrigAtomicCmpXchg->getAlign(),
+        OrigAtomicCmpXchg->getSuccessOrdering(),
         OrigAtomicCmpXchg->getFailureOrdering(),
         OrigAtomicCmpXchg->getSyncScopeID());
 
@@ -1981,7 +1983,9 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // in the future if we need very clean outgoing vector code.
   Value *PumpPartMaskValue =
       generateExtractSubVector(MaskValue, PumpPart, PumpFactor, Builder);
-  StringRef VecFnName = TLI->getVectorizedFunction(FnName, PumpedVF, IsMasked);
+  StringRef VecFnName =
+      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(PumpedVF),
+                                 IsMasked);
   if (IsMasked && !VecFnName.empty() &&
       isSVMLFunction(TLI, FnName, VecFnName)) {
     addMaskToSVMLCall(F, PumpPartMaskValue, Attrs, VecArgs, VecArgTys,

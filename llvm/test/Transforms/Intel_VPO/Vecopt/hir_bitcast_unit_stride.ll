@@ -25,7 +25,7 @@ define void @foo() {
 ; CHECK-NEXT:          |   (<4 x i32>*)(@arr1)[0][i1] = %.vec;
 ; CHECK-NEXT:          + END LOOP
 ;
-; CHECK:  *** IR Dump After SROA ***
+; CHECK:  *** IR Dump After SROA{{.*}} ***
 ;
 ; CHECK:       define void @foo() {
 ; CHECK:       loop.17:

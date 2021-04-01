@@ -1,5 +1,11 @@
 ; Verify the behavior of the IntelJITEventListener.
-; RUN: llvm-jitlistener %s | FileCheck %s
+; INTEL_CUSTOMIZATION
+; Until a similar change is made upstream, keep all xmain changes.
+; As a workaround to avoid problems with list ordering in the notification
+; we run the test three times.
+; RUN: llvm-jitlistener %s | FileCheck --check-prefixes=CHECK-ALL,CHECK-FOO  %s
+; RUN: llvm-jitlistener %s | FileCheck --check-prefixes=CHECK-ALL,CHECK-BAR  %s
+; RUN: llvm-jitlistener %s | FileCheck --check-prefixes=CHECK-ALL,CHECK-FUBAR  %s
 
 ; This test was created using the following file:
 ;
@@ -26,26 +32,26 @@
 ; 21: }
 ;
 
-; CHECK: Method load [1]: bar, Size = {{[0-9]+}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+; CHECK-BAR: Method load [{{[123]}}]: bar, Size = {{[0-9]+}}
+; CHECK-BAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+; CHECK-BAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+; CHECK-BAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+; CHECK-BAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
 
-; CHECK: Method load [2]: foo, Size = {{[0-9]+}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[1,2]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[1,2]}}
+; CHECK-FOO: Method load [{{[123]}}]: foo, Size = {{[0-9]+}}
+; CHECK-FOO-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[1,2]}}
+; CHECK-FOO-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[1,2]}}
 
-; CHECK: Method load [3]: fubar, Size = {{[0-9]+}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
-; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK-FUBAR: Method load [{{[123]}}]: fubar, Size = {{[0-9]+}}
+; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
 
-; CHECK: Method unload [1]
-; CHECK: Method unload [2]
-; CHECK: Method unload [3]
+; CHECK-ALL: Method unload [1]
+; CHECK-ALL: Method unload [2]
+; CHECK-ALL: Method unload [3]
 
 ; ModuleID = 'multiple.c'
 
@@ -164,3 +170,4 @@ attributes #1 = { nounwind readnone }
 !37 = !DILocation(line: 17, column: 7, scope: !36)
 !38 = !DILocation(line: 19, column: 7, scope: !36)
 !39 = !DILocation(line: 21, column: 1, scope: !10)
+; END INTEL_CUSTOMIZATION

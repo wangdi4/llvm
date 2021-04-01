@@ -20,8 +20,8 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
@@ -937,17 +937,12 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
             Intrinsic::getDeclaration(F->getParent(), Intrinsic::prefetch, Tys);
         return true;
       }
-#if INTEL_CUSTOMIZATION
-    // This same change is being upstreamed in llorg. When that patch lands
-    // it should replace this customization with any upstream changes
-    // replacing this code.
     } else if (Name.startswith("ptr.annotation.") && F->arg_size() == 4) {
       rename(F);
       NewFn = Intrinsic::getDeclaration(F->getParent(),
                                         Intrinsic::ptr_annotation,
                                         F->arg_begin()->getType());
       return true;
-#endif // INTEL_CUSTOMIZATION
     }
     break;
 
@@ -958,10 +953,6 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
     }
     break;
 
-#if INTEL_CUSTOMIZATION
-  // This same change is being upstreamed in llorg. When that patch lands
-  // it should replace this customization with any upstream changes
-  // replacing this code.
   case 'v': {
     if (Name == "var.annotation" && F->arg_size() == 4) {
       rename(F);
@@ -969,7 +960,6 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
                                         Intrinsic::var_annotation);
       return true;
     }
-#endif // INTEL_CUSTOMIZATION
     break;
   }
 
@@ -3604,7 +3594,7 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
                           Name.startswith("atomic.load.add.f64.p"))) {
       Value *Ptr = CI->getArgOperand(0);
       Value *Val = CI->getArgOperand(1);
-      Rep = Builder.CreateAtomicRMW(AtomicRMWInst::FAdd, Ptr, Val,
+      Rep = Builder.CreateAtomicRMW(AtomicRMWInst::FAdd, Ptr, Val, MaybeAlign(),
                                     AtomicOrdering::SequentiallyConsistent);
     } else if (IsNVVM && (Name == "max.i" || Name == "max.ll" ||
                           Name == "max.ui" || Name == "max.ull")) {
@@ -3756,30 +3746,24 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
     CI->eraseFromParent();
     return;
 
-#if INTEL_CUSTOMIZATION
-  // This same change is being upstreamed in llorg. When that patch lands
-  // it should replace this customization with any upstream changes
-  // replacing this code.
   case Intrinsic::ptr_annotation:
     // Upgrade from versions that lacked the annotation attribute argument.
-    assert(CI->getNumArgOperands() == 4);
+    assert(CI->getNumArgOperands() == 4 &&
+           "Before LLVM 12.0 this intrinsic took four arguments");
     // Create a new call with an added null annotation attribute argument.
     NewCall = Builder.CreateCall(
         NewFn,
         {CI->getArgOperand(0), CI->getArgOperand(1), CI->getArgOperand(2),
          CI->getArgOperand(3), Constant::getNullValue(Builder.getInt8PtrTy())});
-    // If the call has users, bitcast the return value back to the type of
-    // the old call and replace the uses.
-    if (!CI->use_empty()) {
-      Value *NewRetVal = Builder.CreateBitCast(NewCall, CI->getType());
-      CI->replaceAllUsesWith(NewRetVal);
-    }
+    NewCall->takeName(CI);
+    CI->replaceAllUsesWith(NewCall);
     CI->eraseFromParent();
     return;
 
   case Intrinsic::var_annotation:
     // Upgrade from versions that lacked the annotation attribute argument.
-    assert(CI->getNumArgOperands() == 4);
+    assert(CI->getNumArgOperands() == 4 &&
+           "Before LLVM 12.0 this intrinsic took four arguments");
     // Create a new call with an added null annotation attribute argument.
     NewCall = Builder.CreateCall(
         NewFn,
@@ -3787,7 +3771,6 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
          CI->getArgOperand(3), Constant::getNullValue(Builder.getInt8PtrTy())});
     CI->eraseFromParent();
     return;
-#endif // INTEL_CUSTOMIZATION
 
   case Intrinsic::x86_xop_vfrcz_ss:
   case Intrinsic::x86_xop_vfrcz_sd:

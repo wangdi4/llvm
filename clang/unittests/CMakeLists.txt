@@ -30,7 +30,7 @@ add_subdirectory(AST)
 add_subdirectory(CrossTU)
 if(NOT WIN32)  # INTEL_CUSTOMIZATION, Tooling needs bigobj on windows.
 add_subdirectory(Tooling)
-endif()
+endif()  # end INTEL_CUSTOMIZATION
 add_subdirectory(Format)
 add_subdirectory(Frontend)
 add_subdirectory(Rewrite)

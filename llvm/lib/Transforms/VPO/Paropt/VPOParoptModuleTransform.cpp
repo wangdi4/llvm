@@ -698,9 +698,10 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
 void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   // Collect the set "used" values from the "llvm.used" and "llvm.compiler.used"
   // initializers. These objects need to be retained in the target IR.
-  SmallPtrSet<GlobalValue *, 16u> UsedSet;
-  auto *UsedVar = collectUsedGlobalVariables(M, UsedSet, false);
-  auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedSet, true);
+  SmallVector<GlobalValue *, 16u> UsedVec;
+  auto *UsedVar = collectUsedGlobalVariables(M, UsedVec, false);
+  auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedVec, true);
+  SmallPtrSet<GlobalValue *, 16u> UsedSet(UsedVec.begin(), UsedVec.end());
 
   SmallPtrSet<GlobalAlias *, 16u> DeadAlias; // Keep track of dead Alias
   for (GlobalAlias &A : M.aliases()) {

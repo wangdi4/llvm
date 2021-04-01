@@ -297,7 +297,8 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   }
 
   SmallVector<ReturnInst*, 8> Returns;
-  CloneFunctionInto(Clone, &F, VMap, true, Returns);
+  CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
+                    Returns);
   // For some reason, this causes DCE to remove calls to these functions.
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);

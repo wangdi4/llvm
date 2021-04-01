@@ -794,8 +794,9 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
 
     SmallVector<ReturnInst *, 8> Returns;
     ClonedCodeInfo CodeInfo;
-    CloneFunctionInto(NewF, OrigF, VMap, true, Returns, "", &CodeInfo,
-                      &TypeRemapper);
+    CloneFunctionInto(NewF, OrigF, VMap,
+                      CloneFunctionChangeType::LocalChangesOnly, Returns, "",
+                      &CodeInfo, &TypeRemapper);
 
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "    Cloning " << OrigF->getName() << "\n";
@@ -2020,7 +2021,8 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       A++;
     }
     SmallVector<ReturnInst *, 8> Rets;
-    CloneFunctionInto(NewF, CtorF, VMap1, true, Rets);
+    CloneFunctionInto(NewF, CtorF, VMap1,
+                      CloneFunctionChangeType::LocalChangesOnly, Rets);
 
     // Fix store instructions in the cloned routines.
     Argument *CopyArg = NewF->getArg(1);

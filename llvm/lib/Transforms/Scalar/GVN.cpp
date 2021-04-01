@@ -65,6 +65,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/Statepoint.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
@@ -292,9 +293,17 @@ GVN::Expression GVN::ValueTable::createExpr(Instruction *I) {
   Expression e;
   e.type = I->getType();
   e.opcode = I->getOpcode();
-  for (Instruction::op_iterator OI = I->op_begin(), OE = I->op_end();
-       OI != OE; ++OI)
-    e.varargs.push_back(lookupOrAdd(*OI));
+  if (const GCRelocateInst *GCR = dyn_cast<GCRelocateInst>(I)) {
+    // gc.relocate is 'special' call: its second and third operands are
+    // not real values, but indices into statepoint's argument list.
+    // Use the refered to values for purposes of identity.
+    e.varargs.push_back(lookupOrAdd(GCR->getOperand(0)));
+    e.varargs.push_back(lookupOrAdd(GCR->getBasePtr()));
+    e.varargs.push_back(lookupOrAdd(GCR->getDerivedPtr()));
+  } else {
+    for (Use &Op : I->operands())
+      e.varargs.push_back(lookupOrAdd(Op));
+  }
   if (I->isCommutative()) {
     // Ensure that commutative instructions that only differ by a permutation
     // of their operands get the same value number by sorting the operand value
@@ -365,9 +374,8 @@ GVN::Expression GVN::ValueTable::createExtractvalueExpr(ExtractValueInst *EI) {
   // Not a recognised intrinsic. Fall back to producing an extract value
   // expression.
   e.opcode = EI->getOpcode();
-  for (Instruction::op_iterator OI = EI->op_begin(), OE = EI->op_end();
-       OI != OE; ++OI)
-    e.varargs.push_back(lookupOrAdd(*OI));
+  for (Use &Op : EI->operands())
+    e.varargs.push_back(lookupOrAdd(Op));
 
   append_range(e.varargs, EI->indices());
 
@@ -686,10 +694,9 @@ PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void GVN::dump(DenseMap<uint32_t, Value*>& d) const {
   errs() << "{\n";
-  for (DenseMap<uint32_t, Value*>::iterator I = d.begin(),
-       E = d.end(); I != E; ++I) {
-      errs() << I->first << "\n";
-      I->second->dump();
+  for (auto &I : d) {
+    errs() << I.first << "\n";
+    I.second->dump();
   }
   errs() << "}\n";
 }
@@ -853,6 +860,9 @@ static Value *ConstructSSAForLoadSet(LoadInst *LI,
   for (const AvailableValueInBlock &AV : ValuesPerBlock) {
     BasicBlock *BB = AV.BB;
 
+    if (AV.AV.isUndefValue())
+      continue;
+
     if (SSAUpdate.HasValueForBlock(BB))
       continue;
 
@@ -913,9 +923,7 @@ Value *AvailableValue::MaterializeAdjustedValue(LoadInst *LI,
                       << *Res << '\n'
                       << "\n\n\n");
   } else {
-    assert(isUndefValue() && "Should be UndefVal");
-    LLVM_DEBUG(dbgs() << "GVN COERCED NONLOCAL Undef:\n";);
-    return UndefValue::get(LoadTy);
+    llvm_unreachable("Should not materialize value from dead block");
   }
   assert(Res && "failed to materialize?");
   return Res;
@@ -1982,7 +1990,7 @@ bool GVN::processLoad(LoadInst *L) {
       MSSAU->removeMemoryAccess(L);
     ++NumGVNLoad;
     reportLoadElim(L, AvailableValue, ORE);
-    // Tell MDA to rexamine the reused pointer since we might have more
+    // Tell MDA to reexamine the reused pointer since we might have more
     // information after forwarding it.
     if (MD && AvailableValue->getType()->isPtrOrPtrVectorTy())
       MD->invalidateCachedPointerInfo(AvailableValue);
@@ -2058,8 +2066,8 @@ bool GVN::ValueTable::areCallValsEqual(uint32_t Num, uint32_t NewNum,
       MD->getNonLocalCallDependency(Call);
 
   // Check to see if the Call has no function local clobber.
-  for (unsigned i = 0; i < deps.size(); i++) {
-    if (deps[i].getResult().isNonFuncLocal())
+  for (const NonLocalDepEntry &D : deps) {
+    if (D.getResult().isNonFuncLocal())
       return true;
   }
   return false;
@@ -2571,6 +2579,12 @@ bool GVN::processBlock(BasicBlock *BB) {
   ReplaceOperandsWithMap.clear();
   bool ChangedFunction = false;
 
+  // Since we may not have visited the input blocks of the phis, we can't
+  // use our normal hash approach for phis.  Instead, simply look for
+  // obvious duplicates.  The first pass of GVN will tend to create
+  // identical phis, and the second or later passes can eliminate them.
+  ChangedFunction |= EliminateDuplicatePHINodes(BB);
+
   for (BasicBlock::iterator BI = BB->begin(), BE = BB->end();
        BI != BE;) {
     if (!ReplaceOperandsWithMap.empty())
@@ -2941,9 +2955,8 @@ void GVN::verifyRemoved(const Instruction *Inst) const {
 
   // Walk through the value number scope to make sure the instruction isn't
   // ferreted away in it.
-  for (DenseMap<uint32_t, LeaderTableEntry>::const_iterator
-       I = LeaderTable.begin(), E = LeaderTable.end(); I != E; ++I) {
-    const LeaderTableEntry *Node = &I->second;
+  for (const auto &I : LeaderTable) {
+    const LeaderTableEntry *Node = &I.second;
     assert(Node->Val != Inst && "Inst still in value numbering scope!");
 
     while (Node->Next) {

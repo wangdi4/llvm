@@ -19,6 +19,7 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
@@ -128,9 +129,6 @@ public:
   /// Tuning option to enable/disable function merging. Its default value is
   /// false.
   bool MergeFunctions;
-
-  /// Uniquefy function linkage name. Its default value is false.
-  bool UniqueLinkageNames;
 };
 
 /// This class provides access to building LLVM's passes.
@@ -548,6 +546,9 @@ public:
   void addInstCombinePass(FunctionPassManager &FPM,
                           bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Print pass names.
+  void printPassNames(raw_ostream &OS);
 
   /// Register a callback for a default optimizer pipeline extension
   /// point

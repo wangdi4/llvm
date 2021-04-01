@@ -751,7 +751,7 @@ define void @pointer_bitcast_baseinst(i16* %arg, i8* %arg1, i64 %arg2) {
 ; CHECK-NEXT:    %indvar = phi i64 [ %indvar.next, %bb3 ], [ 0, %bb ]
 ; CHECK-NEXT:    %4 = shl nuw i64 %indvar, 3
 ; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT:    %5 = add nuw i64 %4, 1
+; CHECK-NEXT:    %5 = add nuw nsw i64 %4, 1
 ; CHECK-NEXT:    %tmp5 = shl nuw i64 %5, 1
 ; CHECK-NEXT:    %tmp6 = getelementptr i8, i8* %arg1, i64 %tmp5
 ; CHECK-NEXT:    %tmp7 = bitcast i8* %tmp6 to <8 x i16>*

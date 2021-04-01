@@ -148,7 +148,6 @@ private:
   mutable std::unique_ptr<Tool> SPIRVTranslator;
   mutable std::unique_ptr<Tool> SPIRCheck;
   mutable std::unique_ptr<Tool> SYCLPostLink;
-  mutable std::unique_ptr<Tool> PartialLink;
   mutable std::unique_ptr<Tool> BackendCompiler;
   mutable std::unique_ptr<Tool> FileTableTform;
 
@@ -165,7 +164,6 @@ private:
   Tool *getSPIRVTranslator() const;
   Tool *getSPIRCheck() const;
   Tool *getSYCLPostLink() const;
-  Tool *getPartialLink() const;
   Tool *getBackendCompiler() const;
   Tool *getTableTform() const;
 
@@ -179,6 +177,10 @@ private:
   void setEffectiveTriple(llvm::Triple ET) const {
     EffectiveTriple = std::move(ET);
   }
+
+  mutable llvm::Optional<CXXStdlibType> cxxStdlibType;
+  mutable llvm::Optional<RuntimeLibType> runtimeLibType;
+  mutable llvm::Optional<UnwindLibType> unwindLibType;
 
 protected:
   MultilibSet Multilibs;
@@ -194,6 +196,11 @@ protected:
   virtual Tool *buildBackendCompiler() const;
   virtual Tool *buildStaticLibTool() const;
   virtual Tool *getTool(Action::ActionClass AC) const;
+
+  virtual std::string buildCompilerRTBasename(const llvm::opt::ArgList &Args,
+                                              StringRef Component,
+                                              FileType Type,
+                                              bool AddArch) const;
 
   /// \name Utilities for implementing subclasses.
   ///@{
@@ -445,10 +452,9 @@ public:
   getCompilerRTArgString(const llvm::opt::ArgList &Args, StringRef Component,
                          FileType Type = ToolChain::FT_Static) const;
 
-  virtual std::string
-  getCompilerRTBasename(const llvm::opt::ArgList &Args, StringRef Component,
-                        FileType Type = ToolChain::FT_Static,
-                        bool AddArch = true) const;
+  std::string getCompilerRTBasename(const llvm::opt::ArgList &Args,
+                                    StringRef Component,
+                                    FileType Type = ToolChain::FT_Static) const;
 
   // Returns target specific runtime path if it exists.
   virtual Optional<std::string> getRuntimePath() const;
@@ -754,6 +760,10 @@ public:
   /// On Windows, returns the MSVC compatibility version.
   virtual VersionTuple computeMSVCVersion(const Driver *D,
                                           const llvm::opt::ArgList &Args) const;
+
+  /// Get paths of HIP device libraries.
+  virtual llvm::SmallVector<std::string, 12>
+  getHIPDeviceLibs(const llvm::opt::ArgList &Args) const;
 
   /// Return sanitizers which are available in this toolchain.
   virtual SanitizerMask getSupportedSanitizers() const;

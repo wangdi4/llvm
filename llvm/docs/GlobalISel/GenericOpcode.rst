@@ -245,6 +245,15 @@ These each perform their respective integer arithmetic on a scalar.
 
   %2:_(s32) = G_ADD %0:_(s32), %1:_(s32)
 
+G_SDIVREM, G_UDIVREM
+^^^^^^^^^^^^^^^^^^^^
+
+Perform integer division and remainder thereby producing two results.
+
+.. code-block:: none
+
+  %div:_(s32), %rem:_(s32) = G_SDIVREM %0:_(s32), %1:_(s32)
+
 G_SADDSAT, G_UADDSAT, G_SSUBSAT, G_USUBSAT, G_SSHLSAT, G_USHLSAT
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -742,10 +751,10 @@ Optimization Hints
 These instructions do not correspond to any target instructions. They act as
 hints for various combines.
 
-G_ASSERT_ZEXT
-^^^^^^^^^^^^^
+G_ASSERT_SEXT, G_ASSERT_ZEXT
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Signifies that the contents of a register were previously zero-extended from a
+Signifies that the contents of a register were previously extended from a
 smaller type.
 
 The smaller type is denoted using an immediate operand. For scalars, this is the
@@ -754,10 +763,12 @@ element type.
 
 .. code-block:: none
 
-  %x_assert:_(s32) = G_ASSERT_ZEXT %x(s32), 16
-  %y_assert:_(<2 x s32>) = G_ASSERT_ZEXT %y(<2 x s32>), 16
+  %x_was_zexted:_(s32) = G_ASSERT_ZEXT %x(s32), 16
+  %y_was_zexted:_(<2 x s32>) = G_ASSERT_ZEXT %y(<2 x s32>), 16
 
-G_ASSERT_ZEXT acts like a restricted form of copy.
+  %z_was_sexted:_(s32) = G_ASSERT_SEXT %z(s32), 8
+
+G_ASSERT_SEXT and G_ASSERT_ZEXT act like copies, albeit with some restrictions.
 
 The source and destination registers must
 

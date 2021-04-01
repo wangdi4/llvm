@@ -3098,7 +3098,8 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
       ++NewI;
     }
   SmallVector<ReturnInst *, 8> Rets;
-  CloneFunctionInto(Clone, F, Old2New, true, Rets);
+  CloneFunctionInto(Clone, F, Old2New,
+                    CloneFunctionChangeType::LocalChangesOnly, Rets);
 
   // Redirect the calls in the input map to the cloned functions they map to.
   // Also fix the actual parameter lists removing the constants

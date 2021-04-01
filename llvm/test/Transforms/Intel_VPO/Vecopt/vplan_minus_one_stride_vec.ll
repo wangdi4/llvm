@@ -5,7 +5,7 @@
 ; we generate wide load/store with appropriate vector and mask reversal.
 ;
 define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
-; IRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver ***
+; IRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver (VPlanDriver) ***
 ;
 ; IRCHECK:  define dso_local void @foo(i64* noalias nocapture [[LARR0:%.*]]) local_unnamed_addr {
 ; IRCHECK:       vector.body:
@@ -38,7 +38,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; IRCHECK-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], 100
 ; IRCHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
 ;
-; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIRCHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIRCHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[-1 * i1 + -3];
 ; HIRCHECK-NEXT:          |   %reverse = shufflevector %.vec,  undef,  <i32 3, i32 2, i32 1, i32 0>;

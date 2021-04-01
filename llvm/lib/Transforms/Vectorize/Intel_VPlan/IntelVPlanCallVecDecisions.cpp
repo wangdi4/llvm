@@ -196,10 +196,12 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // Vectorizable library function like SVML calls. Set vector function name in
   // CallVecProperties. NOTE : Vector library calls can be used if call
   // is known to read memory only (non-default behavior).
-  if (TLI->isFunctionVectorizable(CalledFuncName, VF, IsMasked) &&
+  if (TLI->isFunctionVectorizable(CalledFuncName, ElementCount::getFixed(VF),
+                                  IsMasked) &&
       (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
     VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName, VF, IsMasked));
+        TLI->getVectorizedFunction(CalledFuncName, ElementCount::getFixed(VF),
+                                   IsMasked));
     return;
   }
 
@@ -232,10 +234,13 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (PumpFactor > 1 &&
       (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
     unsigned LowerVF = VF / PumpFactor;
-    assert(TLI->isFunctionVectorizable(CalledFuncName, LowerVF, IsMasked) &&
+    assert(TLI->isFunctionVectorizable(CalledFuncName,
+                                       ElementCount::getFixed(LowerVF),
+                                       IsMasked) &&
            "Library function cannot be vectorized with lower VF.");
     VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName, LowerVF, IsMasked),
+        TLI->getVectorizedFunction(CalledFuncName,
+                                   ElementCount::getFixed(LowerVF), IsMasked),
         PumpFactor);
     return;
   }

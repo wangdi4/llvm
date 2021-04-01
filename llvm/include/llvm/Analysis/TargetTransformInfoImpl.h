@@ -22,7 +22,10 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
+
+using namespace llvm::PatternMatch;
 
 namespace llvm {
 
@@ -210,9 +213,10 @@ public:
     return false;
   }
 
-  bool shouldFavorPostInc() const { return false; }
-
-  bool shouldFavorBackedgeIndex(const Loop *L) const { return false; }
+  TTI::AddressingModeKind
+    getPreferredAddressingMode(const Loop *L, ScalarEvolution *SE) const {
+    return TTI::AMK_None;
+  }
 
   bool isLegalMaskedStore(Type *DataType, Align Alignment) const {
     return false;
@@ -323,7 +327,7 @@ public:
   }
 
   unsigned getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
-                                            unsigned VF) const {
+                                            ArrayRef<Type *> Tys) const {
     return 0;
   }
 
@@ -409,7 +413,9 @@ public:
 
   bool shouldMaximizeVectorBandwidth(bool OptSize) const { return false; }
 
-  unsigned getMinimumVF(unsigned ElemWidth) const { return 0; }
+  ElementCount getMinimumVF(unsigned ElemWidth, bool IsScalable) const {
+    return ElementCount::get(0, IsScalable);
+  }
 
   unsigned getMaximumVF(unsigned ElemWidth, unsigned Opcode) const { return 0; }
 
@@ -758,6 +764,11 @@ public:
     return true;
   }
 
+  bool isLegalToVectorizeReduction(RecurrenceDescriptor RdxDesc,
+                                   ElementCount VF) const {
+    return true;
+  }
+
   unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
                                unsigned ChainSizeInBytes,
                                VectorType *VecTy) const {
@@ -768,11 +779,6 @@ public:
                                 unsigned ChainSizeInBytes,
                                 VectorType *VecTy) const {
     return VF;
-  }
-
-  bool useReductionIntrinsic(unsigned Opcode, Type *Ty,
-                             TTI::ReductionFlags Flags) const {
-    return false;
   }
 
   bool preferInLoopReduction(unsigned Opcode, Type *Ty,
@@ -1059,6 +1065,23 @@ public:
                                         CostKind, I);
     }
     case Instruction::Select: {
+      const Value *Op0, *Op1;
+      if (match(U, m_LogicalAnd(m_Value(Op0), m_Value(Op1))) ||
+          match(U, m_LogicalOr(m_Value(Op0), m_Value(Op1)))) {
+        // select x, y, false --> x & y
+        // select x, true, y --> x | y
+        TTI::OperandValueProperties Op1VP = TTI::OP_None;
+        TTI::OperandValueProperties Op2VP = TTI::OP_None;
+        TTI::OperandValueKind Op1VK = TTI::getOperandInfo(Op0, Op1VP);
+        TTI::OperandValueKind Op2VK = TTI::getOperandInfo(Op1, Op2VP);
+        assert(Op0->getType()->getScalarSizeInBits() == 1 &&
+               Op1->getType()->getScalarSizeInBits() == 1);
+
+        SmallVector<const Value *, 2> Operands{Op0, Op1};
+        return TargetTTI->getArithmeticInstrCost(
+            match(U, m_LogicalOr()) ? Instruction::Or : Instruction::And, Ty,
+            CostKind, Op1VK, Op2VK, Op1VP, Op2VP, Operands, I);
+      }
       Type *CondTy = U->getOperand(0)->getType();
       return TargetTTI->getCmpSelInstrCost(Opcode, U->getType(), CondTy,
                                            CmpInst::BAD_ICMP_PREDICATE,

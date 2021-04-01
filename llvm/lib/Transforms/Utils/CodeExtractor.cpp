@@ -481,9 +481,8 @@ CodeExtractor::findOrCreateBlockForHoisting(BasicBlock *CommonExitBlock) {
   BasicBlock *NewExitBlock = CommonExitBlock->splitBasicBlock(
       CommonExitBlock->getFirstNonPHI()->getIterator());
 
-  for (auto PI = pred_begin(CommonExitBlock), PE = pred_end(CommonExitBlock);
-       PI != PE;) {
-    BasicBlock *Pred = *PI++;
+  for (BasicBlock *Pred :
+       llvm::make_early_inc_range(predecessors(CommonExitBlock))) {
     if (Blocks.count(Pred))
       continue;
     Pred->getTerminator()->replaceUsesOfWith(CommonExitBlock, NewExitBlock);
@@ -1639,20 +1638,19 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
       continue;
     }
 
-    // If the location isn't a constant or an instruction, delete the
-    // intrinsic.
-    auto *DVI = cast<DbgVariableIntrinsic>(DII);
-    Value *Location = DVI->getVariableLocation();
-    if (!Location ||
-        (!isa<Constant>(Location) && !isa<Instruction>(Location))) {
-      DebugIntrinsicsToDelete.push_back(DVI);
-      continue;
-    }
+    auto IsInvalidLocation = [&NewFunc](Value *Location) {
+      // Location is invalid if it isn't a constant or an instruction, or is an
+      // instruction but isn't in the new function.
+      if (!Location ||
+          (!isa<Constant>(Location) && !isa<Instruction>(Location)))
+        return true;
+      Instruction *LocationInst = dyn_cast<Instruction>(Location);
+      return LocationInst && LocationInst->getFunction() != &NewFunc;
+    };
 
-    // If the variable location is an instruction but isn't in the new
-    // function, delete the intrinsic.
-    Instruction *LocationInst = dyn_cast<Instruction>(Location);
-    if (LocationInst && LocationInst->getFunction() != &NewFunc) {
+    auto *DVI = cast<DbgVariableIntrinsic>(DII);
+    // If any of the used locations are invalid, delete the intrinsic.
+    if (any_of(DVI->location_ops(), IsInvalidLocation)) {
       DebugIntrinsicsToDelete.push_back(DVI);
       continue;
     }
@@ -1665,7 +1663,7 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
           NewSP, OldVar->getName(), OldVar->getFile(), OldVar->getLine(),
           OldVar->getType(), /*AlwaysPreserve=*/false, DINode::FlagZero,
           OldVar->getAlignInBits());
-    DVI->setArgOperand(1, MetadataAsValue::get(Ctx, NewVar));
+    DVI->setVariable(cast<DILocalVariable>(NewVar));
   }
   for (auto *DII : DebugIntrinsicsToDelete)
     DII->eraseFromParent();
@@ -1802,7 +1800,7 @@ void CodeExtractor::updateDebugInfo(
   }
 
   for (DbgVariableIntrinsic *DVI : DebugVariableIntrinsics) {
-    Value *Storage = DVI->getVariableLocation();
+    Value *Storage = DVI->getVariableLocationOp(0);
     DIExpression *Expression = DVI->getExpression();
     DILocalVariable *Variable = DVI->getVariable();
     DILocation *Location = DVI->getDebugLoc().get();
@@ -2268,8 +2266,10 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
 bool CodeExtractor::verifyAssumptionCache(const Function &OldFunc,
                                           const Function &NewFunc,
                                           AssumptionCache *AC) {
-  for (auto &AssumeVH : AC->assumptions()) {
-    auto *I = AssumeVH.getAssumeCI();
+  for (auto AssumeVH : AC->assumptions()) {
+    auto *I = dyn_cast_or_null<CallInst>(AssumeVH);
+    if (!I)
+      continue;
 
     // There shouldn't be any llvm.assume intrinsics in the new function.
     if (I->getFunction() != &OldFunc)

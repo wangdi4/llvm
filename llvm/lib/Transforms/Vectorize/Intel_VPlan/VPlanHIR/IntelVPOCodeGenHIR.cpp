@@ -700,7 +700,8 @@ void HandledCheck::visit(HLDDNode *Node) {
         TrivialVectorIntrinsic = false;
       if (isa<HLIf>(Inst->getParent()) &&
           (VF > 1 && !TrivialVectorIntrinsic &&
-           !TLI->isFunctionVectorizable(CalledFunc, VF))) {
+           !TLI->isFunctionVectorizable(CalledFunc,
+                                        ElementCount::getFixed(VF)))) {
         // Masked svml calls are supported, but masked non-trivially
         // vectorizable intrinsics are not at the moment.
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
@@ -729,7 +730,8 @@ void HandledCheck::visit(HLDDNode *Node) {
       // cannot be vectorized. Current default behavior is to relax readonly
       // restriction.
       if ((VF > 1 &&
-           (!TLI->isFunctionVectorizable(CalledFunc, VF) ||
+           (!TLI->isFunctionVectorizable(CalledFunc,
+                                         ElementCount::getFixed(VF)) ||
             (!VPlanVecNonReadonlyLibCalls && !Call->onlyReadsMemory()))) &&
           !ID) {
         DEBUG_WITH_TYPE("VPOCGHIR-bailout",
@@ -1218,7 +1220,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   StringRef FnName = F->getName();
 
   // Check to see if the call was vectorized in the main loop.
-  if (TLI->isFunctionVectorizable(FnName, VF)) {
+  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VF))) {
     ++OptRptStats.VectorMathCalls;
 
     SmallVector<RegDDRef *, 1> CallArgs;
@@ -2808,7 +2810,8 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
     assert(VectorIntrinID == Intrinsic::not_intrinsic &&
            "Vectorization of trivial intrinsics is not expected to be masked.");
     StringRef VecFuncName =
-        TLI->getVectorizedFunction(Fn->getName(), VF, Masked);
+        TLI->getVectorizedFunction(Fn->getName(), ElementCount::getFixed(VF),
+                                   Masked);
     // Masks of SVML function calls need special treatment, it's different from
     // the normal case for AVX512.
     if (!VecFuncName.empty() &&

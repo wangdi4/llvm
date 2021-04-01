@@ -1079,17 +1079,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> SPRFeatures =
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
-  // Alderlake
-  list<SubtargetFeature> ADLAdditionalFeatures = [FeatureAVXVNNI,
-                                                  FeatureCLDEMOTE,
-                                                  FeatureHRESET,
-                                                  FeaturePTWRITE,
-                                                  FeatureSERIALIZE,
-                                                  FeatureWAITPKG];
-  list<SubtargetFeature> ADLTuning = SKLTuning;
-  list<SubtargetFeature> ADLFeatures =
-    !listconcat(SKLFeatures, ADLAdditionalFeatures);
-
   // Atom
   list<SubtargetFeature> AtomFeatures = [FeatureX87,
                                          FeatureCMPXCHG8B,
@@ -1206,6 +1195,31 @@ def ProcessorFeatures {
                                                   FeatureSlowIncDec,
                                                   FeatureInsertVZEROUPPER];
 #endif // INTEL_CUSTOMIZATION
+
+  // Alderlake
+  list<SubtargetFeature> ADLAdditionalFeatures = [FeatureSERIALIZE,
+                                                  FeaturePCONFIG,
+                                                  FeatureSHSTK,
+                                                  FeatureWIDEKL,
+                                                  FeatureINVPCID,
+                                                  FeatureADX,
+                                                  FeatureFMA,
+                                                  FeatureVAES,
+                                                  FeatureVPCLMULQDQ,
+                                                  FeatureF16C,
+                                                  FeatureBMI,
+                                                  FeatureBMI2,
+                                                  FeatureLZCNT,
+                                                  FeatureAVXVNNI,
+                                                  FeaturePKU,
+                                                  FeatureHRESET,
+                                                  FeatureCLDEMOTE,
+                                                  FeatureMOVDIRI,
+                                                  FeatureMOVDIR64B,
+                                                  FeatureWAITPKG];
+  list<SubtargetFeature> ADLTuning = SKLTuning;
+  list<SubtargetFeature> ADLFeatures =
+    !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,

@@ -174,7 +174,7 @@ __attribute__((scheduler_target_fmax_mhz("sch"))) // expected-error{{integer con
 __kernel void kernel_7c() {
 }
 
-__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires integer constant between 0 and 1048576 inclusive}}
+__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires a non-negative integral compile time constant expression}}
 __kernel void kernel_7d() {
 }
 
@@ -200,13 +200,13 @@ __attribute__((num_simd_work_items(4)))
 __kernel void kernel_8d() {
 }
 
-__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute conflicts with ''reqd_work_group_size'' attribute}}
+__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute must evenly divide the work-group size for the 'reqd_work_group_size' attribute}}
 __attribute__((reqd_work_group_size(5, 5, 5))) //expected-note{{conflicting attribute is here}}
 __kernel void kernel_8e() {
 }
 
 __attribute__((reqd_work_group_size(5, 5, 5))) //expected-note{{conflicting attribute is here}}
-__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute conflicts with 'reqd_work_group_size' attribute}}
+__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute must evenly divide the work-group size for the 'reqd_work_group_size' attribute}}
 __kernel void kernel_8f() {
 }
 

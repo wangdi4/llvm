@@ -256,6 +256,13 @@ constexpr FeatureBitset FeaturesAlderlake =
     FeaturesSkylakeClient | FeatureCLDEMOTE | FeatureHRESET | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureWAITPKG | FeatureAVXVNNI;
 #endif // INTEL_FEATURE_CPU_ADL
+#else  // INTEL_CUSTOMIZATION
+constexpr FeatureBitset FeaturesAlderlake =
+    FeaturesTremont | FeatureADX | FeatureBMI | FeatureBMI2 | FeatureF16C |
+    FeatureFMA | FeatureINVPCID | FeatureLZCNT | FeaturePCONFIG | FeaturePKU |
+    FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
+    FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
+    FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
 #endif // INTEL_CUSTOMIZATION
 
 // Geode Processor.
