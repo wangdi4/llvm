@@ -446,7 +446,6 @@ bool HIROptVarPredicate::run() {
 
   for (HLNode *Node : NodesToInvalidate) {
     if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
-      assert(Loop->isAttached() && "Every invalidated loop should be attached");
       HIRInvalidationUtils::invalidateBody(Loop);
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
