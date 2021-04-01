@@ -1387,7 +1387,7 @@ public:
   /// Return the cost model decision for the given instruction \p I and vector
   /// width \p VF. Return CM_Unknown if this instruction did not pass
   /// through the cost modeling.
-  InstWidening getWideningDecision(Instruction *I, ElementCount VF) {
+  InstWidening getWideningDecision(Instruction *I, ElementCount VF) const {
     assert(VF.isVector() && "Expected VF to be a vector VF");
     // Cost model is not run in the VPlan-native path - return conservative
     // result until this changes.
@@ -1590,7 +1590,7 @@ public:
   /// Estimate cost of an intrinsic call instruction CI if it were vectorized
   /// with factor VF.  Return the cost of the instruction, including
   /// scalarization overhead if it's needed.
-  InstructionCost getVectorIntrinsicCost(CallInst *CI, ElementCount VF);
+  InstructionCost getVectorIntrinsicCost(CallInst *CI, ElementCount VF) const;
 
   /// Estimate cost of a call instruction CI if it were vectorized with factor
   /// VF. Return the cost of the instruction, including scalarization overhead
@@ -1598,7 +1598,7 @@ public:
   /// scalarized -
   /// i.e. either vector version isn't available, or is too expensive.
   InstructionCost getVectorCallCost(CallInst *CI, ElementCount VF,
-                                    bool &NeedToScalarize);
+                                    bool &NeedToScalarize) const;
 
   /// Invalidates decisions already taken by the cost model.
   void invalidateCostModelingDecisions() {
@@ -1670,7 +1670,8 @@ private:
 
   /// Estimate the overhead of scalarizing an instruction. This is a
   /// convenience wrapper for the type-based getScalarizationOverhead API.
-  InstructionCost getScalarizationOverhead(Instruction *I, ElementCount VF);
+  InstructionCost getScalarizationOverhead(Instruction *I,
+                                           ElementCount VF) const;
 
   /// Returns whether the instruction is a load or store and will be a emitted
   /// as a vector operation.
@@ -1788,7 +1789,7 @@ private:
 
   /// Returns a range containing only operands needing to be extracted.
   SmallVector<Value *, 4> filterExtractingOperands(Instruction::op_range Ops,
-                                                   ElementCount VF) {
+                                                   ElementCount VF) const {
     return SmallVector<Value *, 4>(make_filter_range(
         Ops, [this, VF](Value *V) { return this->needsExtract(V, VF); }));
   }
@@ -3756,7 +3757,7 @@ static void cse(BasicBlock *BB) {
 
 InstructionCost
 LoopVectorizationCostModel::getVectorCallCost(CallInst *CI, ElementCount VF,
-                                              bool &NeedToScalarize) {
+                                              bool &NeedToScalarize) const {
   Function *F = CI->getCalledFunction();
   Type *ScalarRetTy = CI->getType();
   SmallVector<Type *, 4> Tys, ScalarTys;
@@ -3826,7 +3827,7 @@ static Type *MaybeVectorizeType(Type *Elt, ElementCount VF) {
 
 InstructionCost
 LoopVectorizationCostModel::getVectorIntrinsicCost(CallInst *CI,
-                                                   ElementCount VF) {
+                                                   ElementCount VF) const {
   Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
   assert(ID && "Expected intrinsic call!");
   Type *RetTy = MaybeVectorizeType(CI->getType(), VF);
@@ -7087,7 +7088,7 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I,
 
 InstructionCost
 LoopVectorizationCostModel::getScalarizationOverhead(Instruction *I,
-                                                     ElementCount VF) {
+                                                     ElementCount VF) const {
 
   if (VF.isScalable())
     return InstructionCost::getInvalid();

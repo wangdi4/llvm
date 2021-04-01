@@ -4172,7 +4172,6 @@ shouldFoldCondBranchesToCommonDestination(BranchInst *BI, BranchInst *PBI,
 static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
                                              DomTreeUpdater *DTU,
                                              MemorySSAUpdater *MSSAU,
-                                             bool PoisonSafe,
                                              const TargetTransformInfo *TTI) {
   BasicBlock *BB = BI->getParent();
   BasicBlock *PredBlock = PBI->getParent();
@@ -4274,9 +4273,8 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
   // or/and the two conditions together.
   Value *NewCond = nullptr;
   Value *BICond = VMap[BI->getCondition()];
-  bool UseBinOp = !PoisonSafe || impliesPoison(BICond, PBI->getCondition());
 
-  if (UseBinOp)
+  if (impliesPoison(BICond, PBI->getCondition()))
     NewCond = Builder.CreateBinOp(Opc, PBI->getCondition(), BICond, "or.cond");
   else
     NewCond =
@@ -4305,8 +4303,7 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
 bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
                                   MemorySSAUpdater *MSSAU,
                                   const TargetTransformInfo *TTI,
-                                  unsigned BonusInstThreshold,
-                                  bool PoisonSafe) {
+                                  unsigned BonusInstThreshold) {
   // If this block ends with an unconditional branch,
   // let SpeculativelyExecuteBB() deal with it.
   if (!BI->isConditional())
@@ -4410,8 +4407,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   // Ok, we have the budget. Perform the transformation.
   for (BasicBlock *PredBlock : Preds) {
     auto *PBI = cast<BranchInst>(PredBlock->getTerminator());
-    return performBranchToCommonDestFolding(BI, PBI, DTU, MSSAU, PoisonSafe,
-                                            TTI);
+    return performBranchToCommonDestFolding(BI, PBI, DTU, MSSAU, TTI);
   }
   return Changed;
 }
@@ -7920,7 +7916,7 @@ bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
   // predecessor and use logical operations to update the incoming value
   // for PHI nodes in common successor.
   if (FoldBranchToCommonDest(BI, DTU, /*MSSAU=*/nullptr, &TTI,
-                             Options.BonusInstThreshold, true))
+                             Options.BonusInstThreshold))
     return requestResimplify();
   return false;
 }
@@ -7995,7 +7991,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   // branches to us and one of our successors, fold the comparison into the
   // predecessor and use logical operations to pick the right destination.
   if (FoldBranchToCommonDest(BI, DTU, /*MSSAU=*/nullptr, &TTI,
-                             Options.BonusInstThreshold, true))
+                             Options.BonusInstThreshold))
     return requestResimplify();
 
   // We have a conditional branch to two blocks that are only reachable
