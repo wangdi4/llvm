@@ -410,21 +410,24 @@ endif()
 ## floating-point extend/truncate builtins
 add_subdirectory(fp_extend_trunc)
 
-if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/eyeq_builtins")
+# Disabling eyeq_builtins project. It's not maintained anymore and it requires
+# update for new opencl headers comming from community for builtins.
+#
+#if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/eyeq_builtins")
   # Configuring and adding the EyeQ builtins
-  set(EYEQ_BUILTINS_ARCHS "x86-64" CACHE STRING "Architecture to compile the eyeq builtins for (-march)")
-  set(EYEQ_BUILTINS_TARGETS "eyeqemu")
-  set(EYEQ_BUILTINS_TARGET_SPECIFIC_ARGS "-D__INTELEYEQ_CL__")
-  set(EYEQ_BUILTINS_OUTPUT_DIR ${BUILTINS_OUTPUT_DIR}/eyeq_builtins)
-  set(EYEQ_BUILTINS_INSTALL_DIR bin)
-  set(EYEQ_BUILTINS_INCLUDE_X86 ON)
-  option(EYEQ_BUILTINS_BITCODE_OUTPUT_REQUIRES_LTO "Is bitcode output only supported with LTO" ON)
-  option(EYEQ_BUILTINS_OCL_FAKE_ADDRESS_SPACE_MAP_MANGLING "Does ocl bitcode compliation requires fake address space map mangling" ON)
-  option(EYEQ_BUILTINS_OCL_FORCE_VECTOR_ABI "Does ocl bitcode compliation requires forcing vector ABI for compatibility" ON)
-  add_subdirectory (eyeq_builtins)
-
-  install_to(${EYEQ_BUILTINS_OUTPUT_DIR} DESTINATION lib COMPONENT ocl-eyeq-builtins)
-endif()
+#  set(EYEQ_BUILTINS_ARCHS "x86-64" CACHE STRING "Architecture to compile the eyeq builtins for (-march)")
+#  set(EYEQ_BUILTINS_TARGETS "eyeqemu")
+#  set(EYEQ_BUILTINS_TARGET_SPECIFIC_ARGS "-D__INTELEYEQ_CL__")
+#  set(EYEQ_BUILTINS_OUTPUT_DIR ${BUILTINS_OUTPUT_DIR}/eyeq_builtins)
+#  set(EYEQ_BUILTINS_INSTALL_DIR bin)
+#  set(EYEQ_BUILTINS_INCLUDE_X86 ON)
+#  option(EYEQ_BUILTINS_BITCODE_OUTPUT_REQUIRES_LTO "Is bitcode output only supported with LTO" ON)
+#  option(EYEQ_BUILTINS_OCL_FAKE_ADDRESS_SPACE_MAP_MANGLING "Does ocl bitcode compliation requires fake address space map mangling" ON)
+#  option(EYEQ_BUILTINS_OCL_FORCE_VECTOR_ABI "Does ocl bitcode compliation requires forcing vector ABI for compatibility" ON)
+#  add_subdirectory (eyeq_builtins)
+#
+#  install_to(${EYEQ_BUILTINS_OUTPUT_DIR} DESTINATION lib COMPONENT ocl-eyeq-builtins)
+#endif()
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set(MINIMAL_SUFFIX n8)

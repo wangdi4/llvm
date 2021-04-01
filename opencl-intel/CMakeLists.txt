@@ -464,7 +464,7 @@ if (NOT OPENCL_INTREE_BUILD)
     ocl-builtins-shared
     ocl-cl_logger
     ocl-gdb-plugin
-    ocl-eyeq-builtins
+#    ocl-eyeq-builtins
   )
 
   if(WIN32)
