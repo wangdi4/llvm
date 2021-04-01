@@ -302,7 +302,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   // We pass "false" to DSE here (and in all other instances) to disable
   // the MemorySSA algorithm, to improve compile speed. We can re-enable it
   // later if the community improves it.
-  PM->add(llvm::createDeadStoreEliminationPass(false)); // Delete dead stores
+  PM->add(llvm::createDeadStoreEliminationPass()); // Delete dead stores
   PM->add(llvm::createAggressiveDCEPass());        // Delete dead instructions
   PM->add(llvm::createCFGSimplificationPass());    // Merge & remove BBs
   PM->add(llvm::createInstructionCombiningPass()); // Clean up after everything.
@@ -828,7 +828,7 @@ static void populatePassesPostFailCheck(
   if (OptLevel > 0) {
     PM.add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
-    PM.add(llvm::createDeadStoreEliminationPass(false)); // Delete dead stores
+    PM.add(llvm::createDeadStoreEliminationPass()); // Delete dead stores
     PM.add(llvm::createAggressiveDCEPass());        // Delete dead instructions
     PM.add(llvm::createCFGSimplificationPass());    // Merge & remove BBs
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
@@ -851,7 +851,7 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
     PM.add(llvm::createCFGSimplificationPass());   // Simplify CFG
     PM.add(llvm::createInstructionCombiningPass()); // Instruction combining
-    PM.add(llvm::createDeadStoreEliminationPass(false)); // Eliminated dead stores
+    PM.add(llvm::createDeadStoreEliminationPass()); // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
     PM.add(createSmartGVNPass(true)); // GVN with "no load" heuristic
 #ifdef _DEBUG

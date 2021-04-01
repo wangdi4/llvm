@@ -468,19 +468,19 @@
 
 // Define deprecated prefixes and suffixes to ensure compilation
 // in case they are not pre-defined
-#if !defined(CL_EXT_PREFIX__VERSION_1_1_DEPRECATED)
-#define CL_EXT_PREFIX__VERSION_1_1_DEPRECATED  
-#endif // #if !defined(CL_EXT_PREFIX__VERSION_1_1_DEPRECATED)
-#if !defined(CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED)
-#define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
-#endif // #if !defined(CL_EXT_PREFIX__VERSION_1_1_DEPRECATED)
+#if !defined(CL_API_PREFIX__VERSION_1_1_DEPRECATED)
+#define CL_API_PREFIX__VERSION_1_1_DEPRECATED
+#endif // #if !defined(CL_API_PREFIX__VERSION_1_1_DEPRECATED)
+#if !defined(CL_API_SUFFIX__VERSION_1_1_DEPRECATED)
+#define CL_API_SUFFIX__VERSION_1_1_DEPRECATED
+#endif // #if !defined(CL_API_PREFIX__VERSION_1_1_DEPRECATED)
 
-#if !defined(CL_EXT_PREFIX__VERSION_1_2_DEPRECATED)
-#define CL_EXT_PREFIX__VERSION_1_2_DEPRECATED  
-#endif // #if !defined(CL_EXT_PREFIX__VERSION_1_2_DEPRECATED)
-#if !defined(CL_EXT_SUFFIX__VERSION_1_2_DEPRECATED)
-#define CL_EXT_SUFFIX__VERSION_1_2_DEPRECATED
-#endif // #if !defined(CL_EXT_PREFIX__VERSION_1_2_DEPRECATED)
+#if !defined(CL_API_PREFIX__VERSION_1_2_DEPRECATED)
+#define CL_API_PREFIX__VERSION_1_2_DEPRECATED
+#endif // #if !defined(CL_API_PREFIX__VERSION_1_2_DEPRECATED)
+#if !defined(CL_API_SUFFIX__VERSION_1_2_DEPRECATED)
+#define CL_API_SUFFIX__VERSION_1_2_DEPRECATED
+#endif // #if !defined(CL_API_PREFIX__VERSION_1_2_DEPRECATED)
 
 #if !defined(CL_CALLBACK)
 #define CL_CALLBACK
@@ -2096,7 +2096,7 @@ public:
                 const cl_device_partition_property_ext * /* properties */,
                 cl_uint /*num_entries*/,
                 cl_device_id * /*out_devices*/,
-                cl_uint * /*num_devices*/ ) CL_EXT_SUFFIX__VERSION_1_1;
+                cl_uint * /*num_devices*/ ) CL_API_SUFFIX__VERSION_1_1;
 
         static PFN_clCreateSubDevicesEXT pfn_clCreateSubDevicesEXT = NULL;
         CL_HPP_INIT_CL_EXT_FCN_PTR_(clCreateSubDevicesEXT);
@@ -2503,8 +2503,8 @@ CL_HPP_DEFINE_STATIC_MEMBER_ cl_int Platform::default_error_ = CL_SUCCESS;
  * Unload the OpenCL compiler.
  * \note Deprecated for OpenCL 1.2. Use Platform::unloadCompiler instead.
  */
-inline CL_EXT_PREFIX__VERSION_1_1_DEPRECATED cl_int
-UnloadCompiler() CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
+inline CL_API_PREFIX__VERSION_1_1_DEPRECATED cl_int
+UnloadCompiler() CL_API_SUFFIX__VERSION_1_1_DEPRECATED;
 inline cl_int
 UnloadCompiler()
 {
@@ -4714,7 +4714,7 @@ public:
  *  \see Memory
  *  \note Deprecated for OpenCL 1.2. Please use ImageGL instead.
  */
-class CL_EXT_PREFIX__VERSION_1_1_DEPRECATED Image2DGL : public Image2D 
+class CL_API_PREFIX__VERSION_1_1_DEPRECATED Image2DGL : public Image2D
 {
 public:
     /*! \brief Constructs an Image2DGL in a specified context, from a given
@@ -4797,7 +4797,7 @@ public:
         return *this;
     }
 
-} CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
+} CL_API_SUFFIX__VERSION_1_1_DEPRECATED;
 #endif // CL_USE_DEPRECATED_OPENCL_1_1_APIS
 
 #if CL_HPP_TARGET_OPENCL_VERSION >= 120
@@ -7837,10 +7837,10 @@ public:
     }
 
 #if defined(CL_USE_DEPRECATED_OPENCL_1_2_APIS)
-    CL_EXT_PREFIX__VERSION_1_2_DEPRECATED cl_int enqueueTask(
+    CL_API_PREFIX__VERSION_1_2_DEPRECATED cl_int enqueueTask(
         const Kernel& kernel,
         const vector<Event>* events = NULL,
-        Event* event = NULL) CL_EXT_SUFFIX__VERSION_1_2_DEPRECATED const
+        Event* event = NULL) CL_API_SUFFIX__VERSION_1_2_DEPRECATED const
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
@@ -7897,8 +7897,8 @@ public:
  * Deprecated APIs for 1.2
  */
 #if defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS)
-    CL_EXT_PREFIX__VERSION_1_1_DEPRECATED 
-    cl_int enqueueMarker(Event* event = NULL) const CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+    CL_API_PREFIX__VERSION_1_1_DEPRECATED
+    cl_int enqueueMarker(Event* event = NULL) const CL_API_SUFFIX__VERSION_1_1_DEPRECATED
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
@@ -7913,8 +7913,8 @@ public:
         return err;
     }
 
-    CL_EXT_PREFIX__VERSION_1_1_DEPRECATED
-    cl_int enqueueWaitForEvents(const vector<Event>& events) const CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+    CL_API_PREFIX__VERSION_1_1_DEPRECATED
+    cl_int enqueueWaitForEvents(const vector<Event>& events) const CL_API_SUFFIX__VERSION_1_1_DEPRECATED
     {
         return detail::errHandler(
             ::clEnqueueWaitForEvents(
@@ -8050,8 +8050,8 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *PFN_clEnqueueReleaseD3D10ObjectsKHR)(
  * Deprecated APIs for 1.2
  */
 #if defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS)
-    CL_EXT_PREFIX__VERSION_1_1_DEPRECATED
-    cl_int enqueueBarrier() const CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+    CL_API_PREFIX__VERSION_1_1_DEPRECATED
+    cl_int enqueueBarrier() const CL_API_SUFFIX__VERSION_1_1_DEPRECATED
     {
         return detail::errHandler(
             ::clEnqueueBarrier(object_),

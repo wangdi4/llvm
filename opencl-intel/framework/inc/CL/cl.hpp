@@ -194,12 +194,12 @@
 
 // Define deprecated prefixes and suffixes to ensure compilation
 // in case they are not pre-defined
-#if !defined(CL_EXT_PREFIX__VERSION_1_1_DEPRECATED)
-#define CL_EXT_PREFIX__VERSION_1_1_DEPRECATED  
-#endif // #if !defined(CL_EXT_PREFIX__VERSION_1_1_DEPRECATED)
-#if !defined(CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED)
-#define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
-#endif // #if !defined(CL_EXT_PREFIX__VERSION_1_1_DEPRECATED)
+#if !defined(CL_API_PREFIX__VERSION_1_1_DEPRECATED)
+#define CL_API_PREFIX__VERSION_1_1_DEPRECATED
+#endif // #if !defined(CL_API_PREFIX__VERSION_1_1_DEPRECATED)
+#if !defined(CL_API_SUFFIX__VERSION_1_1_DEPRECATED)
+#define CL_API_SUFFIX__VERSION_1_1_DEPRECATED
+#endif // #if !defined(CL_API_PREFIX__VERSION_1_1_DEPRECATED)
 
 #if !defined(CL_CALLBACK)
 #define CL_CALLBACK
@@ -481,7 +481,7 @@ typedef std::string STRING_CLASS;
  *  re-define the string class to match the std::string
  *  interface by defining STRING_CLASS
  */
-class CL_EXT_PREFIX__VERSION_1_1_DEPRECATED string CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+class CL_API_PREFIX__VERSION_1_1_DEPRECATED string CL_API_SUFFIX__VERSION_1_1_DEPRECATED
 {
 private:
     ::size_t size_;
@@ -683,7 +683,7 @@ typedef cl::string STRING_CLASS;
  *  \param N maximum size of the vector.
  */
 template <typename T, unsigned int N = __MAX_DEFAULT_VECTOR_SIZE>
-class CL_EXT_PREFIX__VERSION_1_1_DEPRECATED vector
+class CL_API_PREFIX__VERSION_1_1_DEPRECATED vector
 {
 private:
     T data_[N];
@@ -1035,7 +1035,7 @@ public:
     {
         return data_[size_-1];
     }
-} CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
+} CL_API_SUFFIX__VERSION_1_1_DEPRECATED;
 #endif // #if !defined(__USE_DEV_VECTOR) && !defined(__NO_STD_VECTOR)
 
 
@@ -2138,7 +2138,7 @@ public:
                 const cl_device_partition_property_ext * /* properties */,
                 cl_uint /*num_entries*/,
                 cl_device_id * /*out_devices*/,
-                cl_uint * /*num_devices*/ ) CL_EXT_SUFFIX__VERSION_1_1;
+                cl_uint * /*num_devices*/ ) CL_API_SUFFIX__VERSION_1_1;
 
         static PFN_clCreateSubDevicesEXT pfn_clCreateSubDevicesEXT = NULL;
         __INIT_CL_EXT_FCN_PTR(clCreateSubDevicesEXT);
@@ -2434,8 +2434,8 @@ public:
  * Unload the OpenCL compiler.
  * \note Deprecated for OpenCL 1.2. Use Platform::unloadCompiler instead.
  */
-inline CL_EXT_PREFIX__VERSION_1_1_DEPRECATED cl_int
-UnloadCompiler() CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
+inline CL_API_PREFIX__VERSION_1_1_DEPRECATED cl_int
+UnloadCompiler() CL_API_SUFFIX__VERSION_1_1_DEPRECATED;
 inline cl_int
 UnloadCompiler()
 {
@@ -4015,7 +4015,7 @@ public:
  *  \see Memory
  *  \note Deprecated for OpenCL 1.2. Please use ImageGL instead.
  */
-class CL_EXT_PREFIX__VERSION_1_1_DEPRECATED Image2DGL CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED : public Image2D
+class CL_API_PREFIX__VERSION_1_1_DEPRECATED Image2DGL CL_API_SUFFIX__VERSION_1_1_DEPRECATED : public Image2D
 {
 public:
     /*! \brief Constructs an Image2DGL in a specified context, from a given
@@ -4812,8 +4812,8 @@ struct KernelArgumentHandler<LocalSpaceArg>
  * \brief Helper function for generating LocalSpaceArg objects.
  * Deprecated. Replaced with Local.
  */
-inline CL_EXT_PREFIX__VERSION_1_1_DEPRECATED LocalSpaceArg
-__local(::size_t size) CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
+inline CL_API_PREFIX__VERSION_1_1_DEPRECATED LocalSpaceArg
+__local(::size_t size) CL_API_SUFFIX__VERSION_1_1_DEPRECATED;
 inline LocalSpaceArg
 __local(::size_t size)
 {
@@ -6407,8 +6407,8 @@ public:
  * Deprecated APIs for 1.2
  */
 #if defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS) || (defined(CL_VERSION_1_1) && !defined(CL_VERSION_1_2)) 
-    CL_EXT_PREFIX__VERSION_1_1_DEPRECATED 
-    cl_int enqueueMarker(Event* event = NULL) const CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+    CL_API_PREFIX__VERSION_1_1_DEPRECATED
+    cl_int enqueueMarker(Event* event = NULL) const CL_API_SUFFIX__VERSION_1_1_DEPRECATED
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
@@ -6423,8 +6423,8 @@ public:
         return err;
     }
 
-    CL_EXT_PREFIX__VERSION_1_1_DEPRECATED
-    cl_int enqueueWaitForEvents(const VECTOR_CLASS<Event>& events) const CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+    CL_API_PREFIX__VERSION_1_1_DEPRECATED
+    cl_int enqueueWaitForEvents(const VECTOR_CLASS<Event>& events) const CL_API_SUFFIX__VERSION_1_1_DEPRECATED
     {
         return detail::errHandler(
             ::clEnqueueWaitForEvents(
@@ -6560,8 +6560,8 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *PFN_clEnqueueReleaseD3D10ObjectsKHR)(
  * Deprecated APIs for 1.2
  */
 #if defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS) || (defined(CL_VERSION_1_1) && !defined(CL_VERSION_1_2)) 
-    CL_EXT_PREFIX__VERSION_1_1_DEPRECATED
-    cl_int enqueueBarrier() const CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+    CL_API_PREFIX__VERSION_1_1_DEPRECATED
+    cl_int enqueueBarrier() const CL_API_SUFFIX__VERSION_1_1_DEPRECATED
     {
         return detail::errHandler(
             ::clEnqueueBarrier(object_),

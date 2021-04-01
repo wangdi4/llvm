@@ -45,45 +45,45 @@ extern "C" {
 
 extern CL_API_ENTRY cl_int CL_API_CALL
 clReadPipeIntelFPGA(cl_mem    pipe,
-                    void *    ptr) CL_EXT_SUFFIX__VERSION_1_0;
+                    void *    ptr) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL * clReadPipeIntelFPGA_fn)(
     cl_mem    pipe,
-    void *    ptr) CL_EXT_SUFFIX__VERSION_1_0;
+    void *    ptr) CL_API_SUFFIX__VERSION_1_0;
 
 extern CL_API_ENTRY cl_int CL_API_CALL
 clWritePipeIntelFPGA(cl_mem          pipe,
-                     const void *    ptr) CL_EXT_SUFFIX__VERSION_1_0;
+                     const void *    ptr) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL * clWritePipeIntelFPGA_fn)(
     cl_mem          pipe,
-    const void *    ptr) CL_EXT_SUFFIX__VERSION_1_0;
+    const void *    ptr) CL_API_SUFFIX__VERSION_1_0;
 
 extern CL_API_ENTRY void * CL_API_CALL
 clMapHostPipeIntelFPGA(cl_mem       pipe,
                        cl_map_flags map_flags,
                        size_t       requested_size,
                        size_t *     mapped_size,
-                       cl_int *     errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+                       cl_int *     errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY void * (CL_API_CALL * clMapHostPipeIntelFPGA_fn)(
     cl_mem          pipe,
     cl_map_flags    map_flags,
     size_t          requested_size,
     size_t *        mapped_size,
-    cl_int *        errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+    cl_int *        errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
 extern CL_API_ENTRY cl_int CL_API_CALL
 clUnmapHostPipeIntelFPGA(cl_mem     pipe,
                          void *     mapped_ptr,
                          size_t     size_to_unmap,
-                         size_t *   unmapped_size) CL_EXT_SUFFIX__VERSION_1_0;
+                         size_t *   unmapped_size) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL * clUnmapHostPipeIntelFPGA_fn)(
     cl_mem      pipe,
     void *      mapped_ptr,
     size_t      size_to_unmap,
-    size_t *    unmapped_size) CL_EXT_SUFFIX__VERSION_1_0;
+    size_t *    unmapped_size) CL_API_SUFFIX__VERSION_1_0;
 
 extern CL_API_ENTRY cl_int CL_API_CALL
 clGetProfileDataDeviceIntelFPGA(
@@ -95,7 +95,7 @@ clGetProfileDataDeviceIntelFPGA(
     size_t          param_value_size,
     void *          param_value,
     size_t *        param_value_size_ret,
-    cl_int *        errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+    cl_int *        errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL * clGetProfileDataDeviceIntelFPGA_fn)(
     cl_device_id    device_id,
@@ -106,7 +106,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL * clGetProfileDataDeviceIntelFPGA_fn)(
     size_t          param_value_size,
     void *          param_value,
     size_t *        param_value_size_ret,
-    cl_int *        errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+    cl_int *        errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
 
 extern CL_API_ENTRY cl_mem CL_API_CALL
@@ -116,7 +116,7 @@ clCreateBufferWithPropertiesINTEL(
     cl_mem_flags flags,
     size_t       size,
     void *       host_ptr,
-    cl_int *     errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+    cl_int *     errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_mem (CL_API_CALL * clCreateBufferWithPropertiesINTEL_fn)(
     cl_context   context,
@@ -124,7 +124,7 @@ typedef CL_API_ENTRY cl_mem (CL_API_CALL * clCreateBufferWithPropertiesINTEL_fn)
     cl_mem_flags flags,
     size_t       size,
     void *       host_ptr,
-    cl_int *     errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+    cl_int *     errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
 #ifdef __cplusplus
 }

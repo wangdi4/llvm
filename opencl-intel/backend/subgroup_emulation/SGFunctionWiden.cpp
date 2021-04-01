@@ -143,7 +143,8 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
   }
 
   SmallVector<ReturnInst *, 8> Returns;
-  CloneFunctionInto(Clone, &F, VMap, true, Returns);
+  CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
+                    Returns);
 
   auto &Context = Clone->getContext();
   auto Attrs = Clone->getAttributes();

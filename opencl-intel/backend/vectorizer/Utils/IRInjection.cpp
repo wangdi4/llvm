@@ -235,7 +235,8 @@ private:
       }
       SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
 
-      CloneFunctionInto(F, newF, m_VMap, /*ModuleLevelChanges=*/true, Returns);
+      CloneFunctionInto(F, newF, m_VMap, CloneFunctionChangeType::LocalChangesOnly,
+                        Returns);
     }
 
     // Fixing cases of opaque ptr since their type is changes into different opaque ptr.

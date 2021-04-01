@@ -306,7 +306,8 @@ namespace intel {
       }
 
       SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
-      CloneFunctionInto(NF, F, VMap, /*ModuleLevelChanges=*/true, Returns);
+      CloneFunctionInto(NF, F, VMap, CloneFunctionChangeType::ClonedModule,
+                        Returns);
 
       if (F->hasPersonalityFn())
         NF->setPersonalityFn(MapValue(F->getPersonalityFn(), VMap));

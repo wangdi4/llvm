@@ -68,8 +68,9 @@ static void BuildProgram(cl_context context, cl_device_id device) {
 
 static void CheckOutput(int fd) {
   static const int TEST_NUM = 2;
-  static char *refs[TEST_NUM] = {"*** IR Dump Before Simplify the CFG ***",
-                                 "*** IR Dump After CLWGLoopCreator ***"};
+  static char *refs[TEST_NUM] = {
+      "*** IR Dump Before Simplify the CFG (simplifycfg) ***",
+      "*** IR Dump After CLWGLoopCreator (cl-loop-creator) ***"};
 
   size_t size = 256;
   char *buf = (char *)malloc(size);
