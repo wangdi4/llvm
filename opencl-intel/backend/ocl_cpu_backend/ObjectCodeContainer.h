@@ -30,10 +30,10 @@ public:
     ObjectCodeContainer(const void *pBinary, size_t uiBinarySize);
     ~ObjectCodeContainer();
 
-    const void* GetCode() const;
-    size_t GetCodeSize() const;
+    const void *GetCode() const override;
+    size_t GetCodeSize() const override;
 
-private:
+  private:
     char* m_pBinary;
     size_t m_uiBinarySize;
 

@@ -25,7 +25,7 @@ public:
     CPUBuiltinLibrary(cpuId, false) { }
     virtual ~EyeQBuiltinLibrary() { }
 
-    virtual void Load();
+    virtual void Load() override;
 };
 
 }}} // namespace

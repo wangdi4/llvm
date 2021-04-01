@@ -477,14 +477,13 @@ cl_err_code Context::CreateProgramWithIL(const unsigned char* pIL, const size_t 
     }
     cl_err_code clErrRet = CL_SUCCESS;
     // create new program object
-    SharedPtr<Program> pProgram = ProgramWithIL::Allocate(this, pIL, length, &clErrRet);
-    if (NULL == pProgram)
-    {
-        if (CL_SUCCESS != clErrRet)
-        {
-            return clErrRet;
-        }
-        return CL_OUT_OF_HOST_MEMORY;
+    SharedPtr<Program> pProgram =
+        ProgramWithIL::Allocate(this, pIL, length, &clErrRet);
+    if (NULL == pProgram.GetPtr()) {
+      if (CL_SUCCESS != clErrRet) {
+        return clErrRet;
+      }
+      return CL_OUT_OF_HOST_MEMORY;
     }
     pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
@@ -521,13 +520,11 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
     cl_err_code clErrRet = CL_SUCCESS;
     // create new program object
     SharedPtr<Program> pProgram = ProgramWithSource::Allocate(this, uiCount,ppcStrings, szLengths, &clErrRet);
-    if (NULL == pProgram)
-    {
-        if (CL_SUCCESS != clErrRet)
-        {
-            return clErrRet;
-        }
-        return CL_OUT_OF_HOST_MEMORY;
+    if (NULL == pProgram.GetPtr()) {
+      if (CL_SUCCESS != clErrRet) {
+        return clErrRet;
+      }
+      return CL_OUT_OF_HOST_MEMORY;
     }
     pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
@@ -584,10 +581,9 @@ cl_err_code Context::CreateProgramForLink(cl_uint                IN  uiNumDevice
     SharedPtr<Program> pProgram = ProgramForLink::Allocate(this, uiNumDevices, ppDevices, &clErrRet);
     delete[] ppDevices;
 
-    if (NULL == pProgram)
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
-        return CL_OUT_OF_HOST_MEMORY;
+    if (NULL == pProgram.GetPtr()) {
+      LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
+      return CL_OUT_OF_HOST_MEMORY;
     }
     pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
@@ -610,10 +606,9 @@ cl_err_code Context::CompileProgram(cl_program    IN  clProgram,
                            void*                IN  user_data)
 {
     SharedPtr<Program> pProg =m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
-    if (NULL == pProg)
-    {
-        LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
-        return CL_INVALID_PROGRAM;
+    if (NULL == pProg.GetPtr()) {
+      LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+      return CL_INVALID_PROGRAM;
     }
 
     SharedPtr<Program>* ppHeaders = nullptr;
@@ -630,11 +625,12 @@ cl_err_code Context::CompileProgram(cl_program    IN  clProgram,
         for (unsigned int i = 0; i < uiNumHeaders; ++i)
         {
             ppHeaders[i] = m_mapPrograms.GetOCLObject((_cl_program_int*)pclHeaders[i]).DynamicCast<Program>();
-            if (NULL == ppHeaders[i])
-            {
-                delete[] ppHeaders;
-                LOG_ERROR(TEXT("One of the header programs %d isn't valid program"), clProgram);
-                return CL_INVALID_PROGRAM;
+            if (NULL == ppHeaders[i].GetPtr()) {
+              delete[] ppHeaders;
+              LOG_ERROR(
+                  TEXT("One of the header programs %d isn't valid program"),
+                  clProgram);
+              return CL_INVALID_PROGRAM;
             }
         }
     }
@@ -658,10 +654,9 @@ cl_err_code Context::LinkProgram(cl_program                IN  clProgram,
                                 void*                   IN  user_data)
 {
     SharedPtr<Program> pProg = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
-    if (NULL == pProg)
-    {
-        LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
-        return CL_INVALID_PROGRAM;
+    if (NULL == pProg.GetPtr()) {
+      LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+      return CL_INVALID_PROGRAM;
     }
 
     SharedPtr<Program>* ppBinaries = nullptr;
@@ -678,11 +673,12 @@ cl_err_code Context::LinkProgram(cl_program                IN  clProgram,
         for (unsigned int i = 0; i < uiNumBinaries; ++i)
         {
             ppBinaries[i] = m_mapPrograms.GetOCLObject((_cl_program_int*)pclBinaries[i]).DynamicCast<Program>();
-            if (NULL== ppBinaries[i])
-            {
-                delete[] ppBinaries;
-                LOG_ERROR(TEXT("One of the binaries programs %d isn't valid program"), clProgram);
-                return CL_INVALID_PROGRAM;
+            if (NULL == ppBinaries[i].GetPtr()) {
+              delete[] ppBinaries;
+              LOG_ERROR(
+                  TEXT("One of the binaries programs %d isn't valid program"),
+                  clProgram);
+              return CL_INVALID_PROGRAM;
             }
         }
     }
@@ -704,10 +700,9 @@ cl_err_code Context::BuildProgram(cl_program            IN  clProgram,
                                   void*                 IN  user_data)
 {
     SharedPtr<Program> pProg = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
-    if (NULL == pProg)
-    {
-        LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
-        return CL_INVALID_PROGRAM;
+    if (NULL == pProg.GetPtr()) {
+      LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+      return CL_INVALID_PROGRAM;
     }
 
     cl_int clErr = m_programService.BuildProgram(pProg, uiNumDevices, pclDeviceList, szOptions, pfn_notify, user_data);
@@ -737,10 +732,10 @@ bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices
     for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
     {
         SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)pclDevices[ui]).DynamicCast<FissionableDevice>();
-        if (NULL == pDevice)
-        {
-            LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
-            return false;
+        if (NULL == pDevice.GetPtr()) {
+          LOG_ERROR(TEXT("device %d wasn't found in this context"),
+                    pclDevices[ui]);
+          return false;
         }
     }
     return true;
@@ -762,10 +757,10 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclD
     for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
     {
         ppDevices[ui] = m_mapDevices.GetOCLObject((_cl_device_id_int*)pclDevices[ui]).DynamicCast<FissionableDevice>();
-        if (NULL == ppDevices[ui])
-        {
-            LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
-            return false;
+        if (NULL == ppDevices[ui].GetPtr()) {
+          LOG_ERROR(TEXT("device %d wasn't found in this context"),
+                    pclDevices[ui]);
+          return false;
         }
     }
     return true;
@@ -831,10 +826,9 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
     SharedPtr<Program> pProgram = ProgramWithBinary::Allocate(this, uiNumDevices, ppDevices, pszLengths, ppBinaries, piBinaryStatus, &clErrRet);
     delete[] ppDevices;
 
-    if (NULL == pProgram)
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
-        return CL_OUT_OF_HOST_MEMORY;
+    if (NULL == pProgram.GetPtr()) {
+      LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
+      return CL_OUT_OF_HOST_MEMORY;
     }
     pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
@@ -911,10 +905,9 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(cl_uint IN uiNumDevices,
     SharedPtr<Program> pProgram = ProgramWithBuiltInKernels::Allocate(this, uiNumDevices, ppDevices, szKernelNames, &clErrRet);
     delete[] ppDevices;
 
-    if (NULL == pProgram)
-    {
-        LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
-        return CL_OUT_OF_HOST_MEMORY;
+    if (NULL == pProgram.GetPtr()) {
+      LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
+      return CL_OUT_OF_HOST_MEMORY;
     }
     pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
@@ -1237,9 +1230,8 @@ cl_err_code Context::GetMaxImageDimensions(size_t &psz2dWidth,
     for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
     {
         SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-        if (NULL == pDevice)
-        {
-            continue;
+        if (NULL == pDevice.GetPtr()) {
+          continue;
         }
         clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &sz2dWith, nullptr);
         if (CL_SUCCEEDED(clErr))
@@ -1372,14 +1364,12 @@ cl_device_id * Context::GetDeviceIds(cl_uint * puiNumDevices)
 cl_dev_subdevice_id Context::GetSubdeviceId(cl_device_id id)
 {
     SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)id).DynamicCast<FissionableDevice>();
-    if (NULL == pDevice)
-    {
-        return 0;
+    if (NULL == pDevice.GetPtr()) {
+      return 0;
     }
     SharedPtr<SubDevice> pSubdevice = pDevice.DynamicCast<SubDevice>();
-    if (NULL == pSubdevice)
-    {
-        return 0;
+    if (NULL == pSubdevice.GetPtr()) {
+      return 0;
     }
     return pSubdevice->GetSubdeviceId();
 }
@@ -1631,11 +1621,11 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_ex
             std::vector<SharedPtr<SVMBuffer> > svmBufs;
             for (size_t i = 0; i < szParamValueSize / sizeof(void*); i++)
             {
-                SharedPtr<SVMBuffer> pSvmBuf = GetSVMBufferContainingAddr(((void**)pParamValue)[i]);
-                if (NULL == pSvmBuf)
-                {
-                    return CL_INVALID_VALUE;
-                }
+              SharedPtr<SVMBuffer> pSvmBuf =
+                  GetSVMBufferContainingAddr(((void *const *)pParamValue)[i]);
+              if (NULL == pSvmBuf.GetPtr()) {
+                return CL_INVALID_VALUE;
+              }
                 svmBufs.push_back(pSvmBuf);
             }
             pKernel->SetNonArgSvmBuffers(svmBufs);
@@ -1647,11 +1637,12 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_ex
             {
                 return CL_INVALID_VALUE;
             }
-            if (CL_TRUE == *(cl_bool*)pParamValue && !pKernel->GetContext()->DoesSupportSvmSystem())
-            {
-                return CL_INVALID_OPERATION;
+            if (CL_TRUE == *(const cl_bool *)pParamValue &&
+                !pKernel->GetContext()->DoesSupportSvmSystem()) {
+              return CL_INVALID_OPERATION;
             }
-            pKernel->SetSvmFineGrainSystem(CL_TRUE == *(cl_bool*)pParamValue);
+            pKernel->SetSvmFineGrainSystem(CL_TRUE ==
+                                           *(const cl_bool *)pParamValue);
             break;
         }
     case CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL:
@@ -1659,33 +1650,32 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_ex
             if (szParamValueSize == 0 || szParamValueSize % sizeof(void*) != 0)
                 return CL_INVALID_VALUE;
             std::vector<SharedPtr<USMBuffer> > usmBufs;
-            for (size_t i = 0; i < szParamValueSize / sizeof(void*); i++)
-            {
-                void *ptr = ((void**)pParamValue)[i];
-                SharedPtr<USMBuffer> buf = GetUSMBufferContainingAddr(ptr);
-                if (nullptr == buf.GetPtr()) {
-                    // Try to allocate USM wrapper for the system pointer.
-                    // There is no way to know size of system buffer, so we
-                    // just set size to query of CL_DEVICE_MAX_MEM_ALLOC_SIZE.
-                    cl_int err;
-                    cl_ulong size = 0;
-                    cl_uint numDevices = m_mapDevices.Count();
-                    for (cl_uint i = 0; i < numDevices; i++) {
-                        cl_ulong allocSize;
-                        err = m_ppAllDevices[i]->GetRootDevice()->GetInfo(
-                            CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(allocSize),
-                            &allocSize, nullptr);
-                        if (CL_SUCCESS != err)
-                            return CL_INVALID_VALUE;
-                        size = (0 == i) ? allocSize : std::min(size, allocSize);
-                    }
-                    void* usmPtr = USMAlloc(CL_MEM_TYPE_SHARED_INTEL, nullptr,
-                                            nullptr, size, ptr, 0, &err);
-                    if (CL_SUCCESS != err)
-                        return CL_INVALID_VALUE;
-                    buf = m_usmBuffers[usmPtr];
+            for (size_t i = 0; i < szParamValueSize / sizeof(void *); i++) {
+              void *ptr = ((void *const *)pParamValue)[i];
+              SharedPtr<USMBuffer> buf = GetUSMBufferContainingAddr(ptr);
+              if (nullptr == buf.GetPtr()) {
+                // Try to allocate USM wrapper for the system pointer.
+                // There is no way to know size of system buffer, so we
+                // just set size to query of CL_DEVICE_MAX_MEM_ALLOC_SIZE.
+                cl_int err;
+                cl_ulong size = 0;
+                cl_uint numDevices = m_mapDevices.Count();
+                for (cl_uint i = 0; i < numDevices; i++) {
+                  cl_ulong allocSize;
+                  err = m_ppAllDevices[i]->GetRootDevice()->GetInfo(
+                      CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(allocSize),
+                      &allocSize, nullptr);
+                  if (CL_SUCCESS != err)
+                    return CL_INVALID_VALUE;
+                  size = (0 == i) ? allocSize : std::min(size, allocSize);
                 }
-                usmBufs.push_back(buf);
+                void *usmPtr = USMAlloc(CL_MEM_TYPE_SHARED_INTEL, nullptr,
+                                        nullptr, size, ptr, 0, &err);
+                if (CL_SUCCESS != err)
+                  return CL_INVALID_VALUE;
+                buf = m_usmBuffers[usmPtr];
+              }
+              usmBufs.push_back(buf);
             }
             pKernel->SetNonArgUsmBuffers(usmBufs);
             break;
@@ -1693,33 +1683,36 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_ex
     case CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL:
         {
             if (szParamValueSize < sizeof(cl_bool))
-                return CL_INVALID_VALUE;
-            if (CL_TRUE == *(cl_bool*)pParamValue &&
+              return CL_INVALID_VALUE;
+            if (CL_TRUE == *(const cl_bool *)pParamValue &&
                 !pKernel->GetContext()->DoesSupportUsmHost())
-                return CL_INVALID_OPERATION;
-            pKernel->SetUsmIndirectHost(CL_TRUE == *(cl_bool*)pParamValue);
+              return CL_INVALID_OPERATION;
+            pKernel->SetUsmIndirectHost(CL_TRUE ==
+                                        *(const cl_bool *)pParamValue);
             break;
         }
     case CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL:
         {
             if (szParamValueSize < sizeof(cl_bool))
-                return CL_INVALID_VALUE;
-            if (CL_TRUE == *(cl_bool*)pParamValue &&
+              return CL_INVALID_VALUE;
+            if (CL_TRUE == *(const cl_bool *)pParamValue &&
                 !pKernel->GetContext()->DoesSupportUsmDevice())
-                return CL_INVALID_OPERATION;
-            pKernel->SetUsmIndirectDevice(CL_TRUE == *(cl_bool*)pParamValue);
+              return CL_INVALID_OPERATION;
+            pKernel->SetUsmIndirectDevice(CL_TRUE ==
+                                          *(const cl_bool *)pParamValue);
             break;
         }
     case CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL:
         {
             if (szParamValueSize < sizeof(cl_bool))
-                return CL_INVALID_VALUE;
-            if (CL_TRUE == *(cl_bool*)pParamValue &&
+              return CL_INVALID_VALUE;
+            if (CL_TRUE == *(const cl_bool *)pParamValue &&
                 !(pKernel->GetContext()->DoesSupportUsmSharedSingle() ||
                   pKernel->GetContext()->DoesSupportUsmSharedCross() ||
                   pKernel->GetContext()->DoesSupportUsmSharedSystem()))
-                return CL_INVALID_OPERATION;
-            pKernel->SetUsmIndirectShared(CL_TRUE == *(cl_bool*)pParamValue);
+              return CL_INVALID_OPERATION;
+            pKernel->SetUsmIndirectShared(CL_TRUE ==
+                                          *(const cl_bool *)pParamValue);
             break;
         }
     default:
@@ -1771,9 +1764,8 @@ void* Context::SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlig
     }
 
     SharedPtr<SVMBuffer> pSvmBuf = SVMBuffer::Allocate(this);
-    if (NULL == pSvmBuf)
-    {
-        return nullptr;
+    if (NULL == pSvmBuf.GetPtr()) {
+      return nullptr;
     }
     // these flags aren't needed anymore
     pSvmBuf->Initialize(flags & ~(CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS), nullptr, 1, &size, nullptr, nullptr, 0);
@@ -1821,11 +1813,9 @@ ConstSharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(const void* ptr) c
 
 bool Context::IsSVMPointer(const void* ptr) const
 {
-    if (nullptr != ptr &&
-        NULL != GetSVMBufferContainingAddr(ptr))
-    {
-        return true;
-    }
+  if (nullptr != ptr && NULL != GetSVMBufferContainingAddr(ptr).GetPtr()) {
+    return true;
+  }
     return false;
 }
 

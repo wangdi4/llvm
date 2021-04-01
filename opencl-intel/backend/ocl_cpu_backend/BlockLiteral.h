@@ -39,7 +39,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   struct BlockLiteral {
   private:
     int32_t size;
-    int32_t alignment;
     void    *invoke;
 
     /// imported (captured) variables go here

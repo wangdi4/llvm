@@ -29,14 +29,15 @@ public:
     CPUSerializationService(const ICLDevBackendOptions* pBackendOptions);
 
     // Program Functions
-    virtual cl_dev_err_code GetSerializationBlobSize(
-        cl_serialization_type serializationType,
-        const ICLDevBackendProgram_* pProgram, size_t* pSize) const;
+    virtual cl_dev_err_code
+    GetSerializationBlobSize(cl_serialization_type serializationType,
+                             const ICLDevBackendProgram_ *pProgram,
+                             size_t *pSize) const override;
 
-    virtual cl_dev_err_code SerializeProgram(
-        cl_serialization_type serializationType, 
-        const ICLDevBackendProgram_* pProgram, 
-        void* pBlob, size_t blobSize) const;
+    virtual cl_dev_err_code
+    SerializeProgram(cl_serialization_type serializationType,
+                     const ICLDevBackendProgram_ *pProgram, void *pBlob,
+                     size_t blobSize) const override;
 
     virtual cl_dev_err_code ReloadProgram(
         cl_serialization_type serializationType, 
@@ -44,15 +45,16 @@ public:
         const void* pBlob, size_t blobSize,
         size_t maxPrivateMemSize) const;
 
-    virtual cl_dev_err_code DeSerializeProgram(
-        cl_serialization_type serializationType, 
-        ICLDevBackendProgram_** ppProgram, 
-        const void* pBlob, size_t blobSize) const;
-    
-    virtual void ReleaseProgram(ICLDevBackendProgram_* pProgram) const;
+    virtual cl_dev_err_code
+    DeSerializeProgram(cl_serialization_type serializationType,
+                       ICLDevBackendProgram_ **ppProgram, const void *pBlob,
+                       size_t blobSize) const override;
 
-    virtual void Release();
-private:
+    virtual void ReleaseProgram(ICLDevBackendProgram_ *pProgram) const override;
+
+    virtual void Release() override;
+
+  private:
     IAbstractBackendFactory* m_pBackendFactory;
 };
 

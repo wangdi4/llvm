@@ -70,21 +70,22 @@ using namespace intel;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-static void BEFatalErrorHandler(void *user_data, const std::string& reason,
-                                bool gen_crash_diag)
-{
-    errs() << "**Internal compiler error** " << reason << "\n" <<
-              "Please report the issue on Intel OpenCL forum \n" <<
-              "https://software.intel.com/en-us/forums/opencl for assistance. \n ";
-    // If the error is allocation memory failure, the info of big channel
-    // will be shown as a hint for user.
-    if (reason.find("Unable to allocate section memory") != std::string::npos &&
-        !Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.empty()) {
-      errs() << "**The potential reason is the following big channel declaration:\n";
-      errs() << Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog;
-    }
+static void BEFatalErrorHandler(void * /*user_data*/, const std::string &reason,
+                                bool /*gen_crash_diag*/) {
+  errs()
+      << "**Internal compiler error** " << reason << "\n"
+      << "Please report the issue on Intel OpenCL forum \n"
+      << "https://software.intel.com/en-us/forums/opencl for assistance. \n ";
+  // If the error is allocation memory failure, the info of big channel
+  // will be shown as a hint for user.
+  if (reason.find("Unable to allocate section memory") != std::string::npos &&
+      !Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.empty()) {
+    errs()
+        << "**The potential reason is the following big channel declaration:\n";
+    errs() << Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog;
+  }
 
-    abort();
+  abort();
 }
 
 /*
@@ -339,9 +340,9 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 }
 
 KernelProperties *ProgramBuilder::CreateKernelProperties(
-    const Program *pProgram, Function *func,
+    const Program * /*pProgram*/, Function *func,
     const CompilerBuildOptions &buildOptions,
-    const ProgramBuildResult &buildResult) const {
+    const ProgramBuildResult & /*buildResult*/) const {
   Module *pModule = func->getParent();
 
   auto kmd = KernelMetadataAPI(func);

@@ -60,16 +60,14 @@ public:
     CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& pConfig);
     ~CPUProgramBuilder();
 
-    Compiler* GetCompiler() { return &m_compiler; }
-    const Compiler* GetCompiler() const { return &m_compiler; }
+    Compiler *GetCompiler() override { return &m_compiler; }
+    const Compiler *GetCompiler() const override { return &m_compiler; }
 
-protected:
+  protected:
+    KernelSet *CreateKernels(Program *pProgram, const char *pBuildOpts,
+                             ProgramBuildResult &buildResult) const override;
 
-    KernelSet* CreateKernels(Program* pProgram,
-                             const char* pBuildOpts,
-                             ProgramBuildResult& buildResult) const;
-
-    void PostOptimizationProcessing(Program* pProgram) const;
+    void PostOptimizationProcessing(Program *pProgram) const override;
 
     void JitProcessing(Program* program,
                        const ICLDevBackendOptions* options,
@@ -80,8 +78,9 @@ protected:
     /// @param pProgram
     /// @param llvm module
     /// @return IBlockToKernelMapper object
-    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram,
-      const llvm::Module* pModule) const;
+    virtual IBlockToKernelMapper *
+    CreateBlockToKernelMapper(Program *pProgram,
+                              const llvm::Module *pModule) const override;
 
     /// @brief Post build step. For CPU it is used for creating
     /// IBlockToKernelMapper object and running global ctors
@@ -89,13 +88,14 @@ protected:
       const ICLDevBackendOptions* pOptions) const override;
 
     // reloads the program container from the cached binary object
-    virtual bool ReloadProgramFromCachedExecutable(Program* pProgram);
+    virtual bool ReloadProgramFromCachedExecutable(Program *pProgram) override;
     // builds binary object for the built program
-    virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const;
+    virtual void BuildProgramCachedExecutable(ObjectCodeCache *pCache,
+                                              Program *pProgram) const override;
 
-private:
-  Kernel *CreateKernel(llvm::Function *pFunc, const std::string &funcName,
-                       KernelProperties *pProps, bool useTLSGlobals) const;
+  private:
+    Kernel *CreateKernel(llvm::Function *pFunc, const std::string &funcName,
+                         KernelProperties *pProps, bool useTLSGlobals) const;
 
     void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel,
                       llvm::Function* pFunc, KernelJITProperties* pProps) const;

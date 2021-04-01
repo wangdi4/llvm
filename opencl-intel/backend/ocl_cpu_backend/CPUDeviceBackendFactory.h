@@ -33,20 +33,19 @@ public:
 
     static CPUDeviceBackendFactory* GetInstance();
 
-    virtual Program* CreateProgram();
-    virtual Kernel* CreateKernel();
+    virtual Program *CreateProgram() override;
+    virtual Kernel *CreateKernel() override;
 
-    virtual Kernel* CreateKernel(
-        const std::string& name,
-        const std::vector<cl_kernel_argument>& args,
-        const std::vector<unsigned int>& memArgs,
-        KernelProperties* pProps);
+    virtual Kernel *CreateKernel(const std::string &name,
+                                 const std::vector<cl_kernel_argument> &args,
+                                 const std::vector<unsigned int> &memArgs,
+                                 KernelProperties *pProps) override;
 
-    virtual KernelProperties* CreateKernelProperties();
-    virtual KernelJITProperties* CreateKernelJITProperties();
-    virtual IKernelJITContainer* CreateKernelJITContainer();
- 
-protected:
+    virtual KernelProperties *CreateKernelProperties() override;
+    virtual KernelJITProperties *CreateKernelJITProperties() override;
+    virtual IKernelJITContainer *CreateKernelJITContainer() override;
+
+  protected:
     static CPUDeviceBackendFactory* s_pInstance;
 };
 

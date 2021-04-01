@@ -201,7 +201,8 @@ public:
 
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 
-    virtual void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures=""){}
+    virtual void SetBuiltinModules(const std::string & /*cpuName*/,
+                                   const std::string & /*cpuFeatures*/ = "") {}
 
     virtual std::string& getBuiltinInitLog() {
         return m_builtinInitLog;

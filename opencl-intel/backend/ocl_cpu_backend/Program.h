@@ -46,7 +46,7 @@ public:
      * @returns an unsigned long which represents the program id - this id is unique
      *  per program - ; in case of failure 0 will be returned
      */
-    virtual unsigned long long int GetProgramID() const;
+    virtual unsigned long long int GetProgramID() const override;
 
     /**
      * Gets the program build log
@@ -55,25 +55,28 @@ public:
      *  if the log already exist , pointer to the build log will be returned; otherwise NULL
      *  will be returned
      */
-    virtual const char* GetBuildLog() const;
+    virtual const char *GetBuildLog() const override;
 
     /**
      * @returns the virtual IR code container which represents the program
      */
-    virtual const ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const;
+    virtual const ICLDevBackendCodeContainer *
+    GetProgramIRCodeContainer() const override;
 
     /**
      * Gets the program Code; Program code is an abstraction between which contain all
      * the kernel's codes (the executable code, the IR and with some metadata)
      */
-     virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const;
+    virtual const ICLDevBackendCodeContainer *
+    GetProgramCodeContainer() const override;
 
     /**
      * Gets the program JIT Code Properties;
      *
      * @returns JIT Code properties interface, NULL in case of failure
      */
-    virtual const ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const;
+    virtual const ICLDevBackendProgramJITCodeProperties *
+    GetProgramJITCodeProperties() const override;
 
     /**
      * Retrieves a pointer to a kernel object by kernel name
@@ -89,9 +92,9 @@ public:
      *  else
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
-    virtual cl_dev_err_code GetKernelByName(
-        const char* pKernelName,
-        const ICLDevBackendKernel_** ppKernel) const;
+    virtual cl_dev_err_code
+    GetKernelByName(const char *pKernelName,
+                    const ICLDevBackendKernel_ **ppKernel) const override;
 
     /**
      * OpenCL 2.0 introduced a feature called Extended Execution. Programs may have so called
@@ -104,7 +107,7 @@ public:
      *  if the program already build:
      *      the number of the non-block kernels in the program will be returned
      */
-    virtual int GetNonBlockKernelsCount() const;
+    virtual int GetNonBlockKernelsCount() const override;
 
     /**
      * Gets how many kernels in the program
@@ -115,7 +118,7 @@ public:
      *  else
      *      0 will be returned
      */
-    virtual int GetKernelsCount() const;
+    virtual int GetKernelsCount() const override;
 
     /**
      * Retrieves a pointer to a kernel object by kernel index
@@ -131,9 +134,9 @@ public:
      *  else
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
-    virtual cl_dev_err_code GetKernel(
-        int kernelIndex,
-        const ICLDevBackendKernel_** ppKernel) const;
+    virtual cl_dev_err_code
+    GetKernel(int kernelIndex,
+              const ICLDevBackendKernel_ **ppKernel) const override;
 
     /**
      * Gets the total amount of storage, in bytes, used by
@@ -145,8 +148,8 @@ public:
      *  otherwise
      *      0 will be returned
      */
-    virtual size_t GetGlobalVariableTotalSize() const {
-        return m_globalVariableTotalSize;
+    virtual size_t GetGlobalVariableTotalSize() const override {
+      return m_globalVariableTotalSize;
     }
 
     /**
@@ -246,9 +249,10 @@ public:
      */
     std::unique_ptr<llvm::Module> GetModuleOwner();
 
-    virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module*, 2> bltnFuncList) {}
+    virtual void
+    SetBuiltinModule(llvm::SmallVector<llvm::Module *, 2> /*bltnFuncList*/) {}
 
-    virtual void SetExecutionEngine(void *eE) {}
+    virtual void SetExecutionEngine(void * /*eE*/) {}
 
     virtual void SetLLJIT(std::unique_ptr<llvm::orc::LLJIT> LLJIT) = 0;
 

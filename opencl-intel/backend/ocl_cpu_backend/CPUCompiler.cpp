@@ -402,11 +402,11 @@ CPUCompiler::CreateLLJIT(llvm::Module *M,
         llvm::orc::LLJITBuilder()
             .setJITTargetMachineBuilder(std::move(JTMB))
             .setCompileFunctionCreator(
-                [&](llvm::orc::JITTargetMachineBuilder JTMB)
+                [&](llvm::orc::JITTargetMachineBuilder /*JTMB*/)
                     -> Expected<std::unique_ptr<
                         llvm::orc::IRCompileLayer::IRCompiler>> {
-                    return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
-                        std::move(TM), ObjCache);
+                  return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+                      std::move(TM), ObjCache);
                 })
             .create();
     if (!LLJITOrErr)
@@ -443,7 +443,7 @@ CPUCompiler::CreateLLJIT(llvm::Module *M,
     return std::move(LLJIT);
 }
 
-bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
+bool CPUCompiler::useLLDJITForExecution(llvm::Module *pModule) const {
 #ifdef _WIN32
     bool hasCUs =
         (pModule->debug_compile_units_begin() !=
@@ -456,7 +456,9 @@ bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
   
     return useLLDJIT;
 #else
-    return false;
+  // The parameter is used in Windows code
+  (void)pModule;
+  return false;
 #endif
 }
 
@@ -468,9 +470,9 @@ bool CPUCompiler::isObjectFromLLDJIT(llvm::StringRef ObjBuf) const {
 #endif
 }
 
-llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule) const
-{
-    llvm::ExecutionEngine* pExecEngine = nullptr;
+llvm::ExecutionEngine *
+CPUCompiler::CreateCPUExecutionEngine(llvm::Module *pModule) const {
+  llvm::ExecutionEngine *pExecEngine = nullptr;
 #ifdef _WIN32
     LLDJITBuilder::prepareModuleForLLD(pModule);
     auto TargetMachine = GetTargetMachine(pModule);
@@ -481,6 +483,8 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     if (m_pVTuneListener)
         pExecEngine->RegisterJITEventListener(m_pVTuneListener);
 #endif
+    // The parameter is used in Windows code
+    (void)pModule;
     return pExecEngine;
 }
 

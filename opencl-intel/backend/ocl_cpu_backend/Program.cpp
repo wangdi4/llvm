@@ -176,7 +176,7 @@ llvm::Module* Program::GetModule()
 std::unique_ptr<llvm::Module> Program::GetModuleOwner()
 {
     assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return std::move(m_pIRCodeContainer->GetModuleOwner());
+    return m_pIRCodeContainer->GetModuleOwner();
 }
 
 void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
@@ -188,7 +188,10 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
     for(unsigned int i = 0; i < m_kernels->GetCount(); ++i)
     {
         Kernel* currentKernel = m_kernels->GetKernel(i);
-        Serializer::SerialPointerHint((const void**)&currentKernel, ost);
+        Serializer::SerialPointerHint(
+            const_cast<const void **>(
+                reinterpret_cast<void **>(&currentKernel)),
+            ost);
         if(nullptr != currentKernel)
         {
             currentKernel->Serialize(ost, stats);

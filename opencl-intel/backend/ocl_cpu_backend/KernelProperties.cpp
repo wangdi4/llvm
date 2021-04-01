@@ -27,16 +27,16 @@ KernelJITProperties::KernelJITProperties():
 KernelJITProperties::~KernelJITProperties()
 {}
 
-void KernelJITProperties::Serialize(IOutputStream& ost, SerializationStatus* stats) const
-{
-    Serializer::SerialPrimitive<bool>(&m_useVTune, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_vectorSize, ost);
+void KernelJITProperties::Serialize(IOutputStream &ost,
+                                    SerializationStatus * /*stats*/) const {
+  Serializer::SerialPrimitive<bool>(&m_useVTune, ost);
+  Serializer::SerialPrimitive<unsigned int>(&m_vectorSize, ost);
 }
 
-void KernelJITProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
-{
-    Serializer::DeserialPrimitive<bool>(&m_useVTune, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_vectorSize, ist);
+void KernelJITProperties::Deserialize(IInputStream &ist,
+                                      SerializationStatus * /*stats*/) {
+  Serializer::DeserialPrimitive<bool>(&m_useVTune, ist);
+  Serializer::DeserialPrimitive<unsigned int>(&m_vectorSize, ist);
 }
 
 KernelProperties::KernelProperties():
@@ -69,133 +69,128 @@ KernelProperties::KernelProperties():
     memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
 
-void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats) const
-{
-    // Need to revert dbgPrint flag
-    //Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
-    Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
-    Serializer::SerialPrimitive<bool>(&m_hasBarrier, ost);
-    Serializer::SerialPrimitive<bool>(&m_hasGlobalSync, ost);
-    Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
-    Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
-    Serializer::SerialPrimitive(&m_cpuId, ost);
+void KernelProperties::Serialize(IOutputStream &ost,
+                                 SerializationStatus * /*stats*/) const {
+  // Need to revert dbgPrint flag
+  // Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
+  Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
+  Serializer::SerialPrimitive<bool>(&m_hasBarrier, ost);
+  Serializer::SerialPrimitive<bool>(&m_hasGlobalSync, ost);
+  Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
+  Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
+  Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
+  Serializer::SerialPrimitive(&m_cpuId, ost);
 
-    // using unsigned long long int instead of size_t is because that size_t
-    // varies in it's size relating to the platform (32/64 bit)
-    unsigned long long int dim = MAX_WORK_DIM;
-    Serializer::SerialPrimitive<unsigned long long int>(&dim, ost);
+  // using unsigned long long int instead of size_t is because that size_t
+  // varies in it's size relating to the platform (32/64 bit)
+  unsigned long long int dim = MAX_WORK_DIM;
+  Serializer::SerialPrimitive<unsigned long long int>(&dim, ost);
 
-    for(int i = 0; i < MAX_WORK_DIM; ++i)
-    {
-        unsigned long long int tmp = (unsigned long long int)m_reqdWGSize[i];
-        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    }
-    for(int i = 0; i < MAX_WORK_DIM; ++i)
-    {
-        unsigned long long int tmp = (unsigned long long int)m_hintWGSize[i];
-        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    }
+  for (int i = 0; i < MAX_WORK_DIM; ++i) {
+    unsigned long long int tmp = (unsigned long long int)m_reqdWGSize[i];
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  }
+  for (int i = 0; i < MAX_WORK_DIM; ++i) {
+    unsigned long long int tmp = (unsigned long long int)m_hintWGSize[i];
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  }
 
-    unsigned long long int tmp = (unsigned long long int)m_totalImplSize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    tmp = (unsigned long long int)m_barrierBufferSize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    tmp = (unsigned long long int)m_privateMemorySize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    tmp = (unsigned long long int)m_maxPrivateMemorySize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    tmp = (unsigned long long int)m_reqdNumSG;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
-    tmp = (unsigned long long int)m_kernelExecutionLength;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    tmp = (unsigned long long int)m_vectorizationWidth;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    tmp = (unsigned long long int)m_reqdSubGroupSize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    Serializer::SerialString(m_kernelAttributes, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
-    Serializer::SerialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ost);
-    Serializer::SerialPrimitive<bool>(&m_canUniteWG, ost);
-    Serializer::SerialPrimitive<unsigned int>(&m_verctorizeOnDimention, ost);
-    Serializer::SerialPrimitive<bool>(&m_debugInfo, ost);
-    Serializer::SerialPrimitive<bool>(&m_bIsAutorun, ost);
-    Serializer::SerialPrimitive<bool>(&m_bNeedSerializeWGs, ost);
-    Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
-    Serializer::SerialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ost);
-    Serializer::SerialPrimitive<DeviceMode>(&m_targetDevice, ost);
-    tmp = (unsigned long long int)m_cpuMaxWGSize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  unsigned long long int tmp = (unsigned long long int)m_totalImplSize;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  tmp = (unsigned long long int)m_barrierBufferSize;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  tmp = (unsigned long long int)m_privateMemorySize;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  tmp = (unsigned long long int)m_maxPrivateMemorySize;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  tmp = (unsigned long long int)m_reqdNumSG;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
+  tmp = (unsigned long long int)m_kernelExecutionLength;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  tmp = (unsigned long long int)m_vectorizationWidth;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  tmp = (unsigned long long int)m_reqdSubGroupSize;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  Serializer::SerialString(m_kernelAttributes, ost);
+  Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
+  Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
+  Serializer::SerialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ost);
+  Serializer::SerialPrimitive<bool>(&m_canUniteWG, ost);
+  Serializer::SerialPrimitive<unsigned int>(&m_verctorizeOnDimention, ost);
+  Serializer::SerialPrimitive<bool>(&m_debugInfo, ost);
+  Serializer::SerialPrimitive<bool>(&m_bIsAutorun, ost);
+  Serializer::SerialPrimitive<bool>(&m_bNeedSerializeWGs, ost);
+  Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
+  Serializer::SerialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ost);
+  Serializer::SerialPrimitive<DeviceMode>(&m_targetDevice, ost);
+  tmp = (unsigned long long int)m_cpuMaxWGSize;
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 }
 
-void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t maxPrivateMemSize)
-{
-    // Need to revert dbgPrint flag
-    //Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
-    Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
-    Serializer::DeserialPrimitive<bool>(&m_hasBarrier, ist);
-    Serializer::DeserialPrimitive<bool>(&m_hasGlobalSync, ist);
-    Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
-    Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
-    Serializer::DeserialPrimitive(&m_cpuId, ist);
+void KernelProperties::Deserialize(IInputStream &ist,
+                                   SerializationStatus * /*stats*/,
+                                   size_t maxPrivateMemSize) {
+  // Need to revert dbgPrint flag
+  // Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
+  Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
+  Serializer::DeserialPrimitive<bool>(&m_hasBarrier, ist);
+  Serializer::DeserialPrimitive<bool>(&m_hasGlobalSync, ist);
+  Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
+  Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
+  Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
+  Serializer::DeserialPrimitive(&m_cpuId, ist);
 
-    // using unsigned long long int instead of size_t is because that size_t
-    // varies in it's size relating to the platform (32/64 bit)
-    unsigned long long int tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    assert((MAX_WORK_DIM == tmp) && "WORK DIM dont match!");
+  // using unsigned long long int instead of size_t is because that size_t
+  // varies in it's size relating to the platform (32/64 bit)
+  unsigned long long int tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  assert((MAX_WORK_DIM == tmp) && "WORK DIM dont match!");
 
-    for(int i = 0; i < MAX_WORK_DIM; ++i)
-    {
-        Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-        m_reqdWGSize[i] = (size_t)tmp;
-    }
-    for(int i = 0; i < MAX_WORK_DIM; ++i)
-    {
-        Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-        m_hintWGSize[i] = (size_t)tmp;
-    }
+  for (int i = 0; i < MAX_WORK_DIM; ++i) {
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_reqdWGSize[i] = (size_t)tmp;
+  }
+  for (int i = 0; i < MAX_WORK_DIM; ++i) {
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_hintWGSize[i] = (size_t)tmp;
+  }
 
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_totalImplSize = (size_t)tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_barrierBufferSize = (size_t)tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_privateMemorySize = (size_t)tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_maxPrivateMemorySize =
-      maxPrivateMemSize ? maxPrivateMemSize : (size_t)tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_reqdNumSG = (size_t)tmp;
-    Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_kernelExecutionLength = (size_t)tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_vectorizationWidth = (size_t)tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_reqdSubGroupSize = (size_t)tmp;
-    Serializer::DeserialString(m_kernelAttributes, ist);
-    unsigned int ui_tmp;
-    Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
-    m_minGroupSizeFactorial = ui_tmp;
-    Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
-    m_uiSizeT = ui_tmp;
-    Serializer::DeserialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ist);
-    Serializer::DeserialPrimitive<bool>(&m_canUniteWG, ist);
-    Serializer::DeserialPrimitive<unsigned int>(&m_verctorizeOnDimention, ist);
-    Serializer::DeserialPrimitive<bool>(&m_debugInfo, ist);
-    Serializer::DeserialPrimitive<bool>(&m_bIsAutorun, ist);
-    Serializer::DeserialPrimitive<bool>(&m_bNeedSerializeWGs, ist);
-    Serializer::DeserialPrimitive<bool>(&m_bIsTask, ist);
-    Serializer::DeserialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ist);
-    Serializer::DeserialPrimitive<DeviceMode>(&m_targetDevice, ist);
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_cpuMaxWGSize = (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_totalImplSize = (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_barrierBufferSize = (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_privateMemorySize = (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_maxPrivateMemorySize = maxPrivateMemSize ? maxPrivateMemSize : (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_reqdNumSG = (size_t)tmp;
+  Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_kernelExecutionLength = (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_vectorizationWidth = (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_reqdSubGroupSize = (size_t)tmp;
+  Serializer::DeserialString(m_kernelAttributes, ist);
+  unsigned int ui_tmp;
+  Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
+  m_minGroupSizeFactorial = ui_tmp;
+  Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
+  m_uiSizeT = ui_tmp;
+  Serializer::DeserialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ist);
+  Serializer::DeserialPrimitive<bool>(&m_canUniteWG, ist);
+  Serializer::DeserialPrimitive<unsigned int>(&m_verctorizeOnDimention, ist);
+  Serializer::DeserialPrimitive<bool>(&m_debugInfo, ist);
+  Serializer::DeserialPrimitive<bool>(&m_bIsAutorun, ist);
+  Serializer::DeserialPrimitive<bool>(&m_bNeedSerializeWGs, ist);
+  Serializer::DeserialPrimitive<bool>(&m_bIsTask, ist);
+  Serializer::DeserialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ist);
+  Serializer::DeserialPrimitive<DeviceMode>(&m_targetDevice, ist);
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_cpuMaxWGSize = (size_t)tmp;
 }
-
 
 size_t KernelProperties::GetKernelExecutionLength() const
 {

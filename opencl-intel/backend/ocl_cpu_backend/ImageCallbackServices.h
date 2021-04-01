@@ -37,7 +37,7 @@ public:
     /**
     returns the size of the auxilary structure for
     **/
-    size_t GetAuxilarySize() const {return sizeof(image_aux_data);}
+    size_t GetAuxilarySize() const override { return sizeof(image_aux_data); }
 
     /**
      * Endues the image object with the auxilary data, and the proper callback functions assigned, according to the architecture
@@ -46,23 +46,28 @@ public:
      *  auxObject - Pointer to auxiliary data structure to fill in.
      *              It is initialized with callbacks and set to pImageObject->imageAuxData
      **/
-    cl_dev_err_code CreateImageObject(cl_mem_obj_descriptor* pImageObject, void* auxObject) const;
+    cl_dev_err_code CreateImageObject(cl_mem_obj_descriptor *pImageObject,
+                                      void *auxObject) const override;
 
     /**
     *  Releases the auxilary data from the image object
     **/
 
-    cl_dev_err_code DeleteImageObject(cl_mem_obj_descriptor* pImageObject, void** auxObject) const;
+    cl_dev_err_code DeleteImageObject(cl_mem_obj_descriptor *pImageObject,
+                                      void **auxObject) const override;
 
     /**
     *  Returns an array of supported image formats
     ***/
 
-    const cl_image_format* GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType, cl_mem_flags flags);
+    const cl_image_format *
+    GetSupportedImageFormats(unsigned int *numFormats,
+                             cl_mem_object_type imageType,
+                             cl_mem_flags flags) override;
 
-    void Release();
+    void Release() override;
 
-private:
+  private:
     /*
      * Initializes the given pointer to 'trap' function.
      */

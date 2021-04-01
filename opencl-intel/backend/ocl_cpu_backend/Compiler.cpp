@@ -698,8 +698,7 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
         builtinsModules.push_back(pModule);
     }
 
-    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(
-                                        pLibrary->GetRtlBuffer()));
+    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(pLibrary->GetRtlBuffer());
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
     llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
       expectedToErrorOrAndEmitErrors(Ctx,
@@ -726,8 +725,8 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
     builtinsModules.push_back(pModule);
 
     // the shared RTL is loaded here
-    std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(std::move(
-                                      pLibrary->GetRtlBufferSvmlShared()));
+    std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(
+        pLibrary->GetRtlBufferSvmlShared());
     llvm::Expected<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
         llvm::getOwningLazyBitcodeModule(std::move(RtlBufferSvmlShared), Ctx));
 

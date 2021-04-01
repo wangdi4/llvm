@@ -63,22 +63,20 @@ OclAutoMutex::~OclAutoMutex()
 }
 #else
 #include <pthread.h>
-OclMutex::OclMutex(unsigned int uiSpinCount) : m_uiSpinCount(uiSpinCount)
-{
-    m_mutexAttr = new pthread_mutexattr_t;
-    if (0 != pthread_mutexattr_init((pthread_mutexattr_t*)m_mutexAttr))
-    {
-        assert(0 && "Failed init pthread mutex attribute");
-    }
-    if (0 != pthread_mutexattr_settype((pthread_mutexattr_t*)m_mutexAttr, PTHREAD_MUTEX_RECURSIVE))
-    {
-        assert(0 && "Failed settype pthread mutex attribute");
-    }
-    m_mutexHndl = new pthread_mutex_t;
-    if (0 != pthread_mutex_init((pthread_mutex_t*)m_mutexHndl, (pthread_mutexattr_t*)m_mutexAttr))
-    {
-        assert(0 && "Failed initialize pthread mutex");
-    }
+OclMutex::OclMutex(unsigned int /*uiSpinCount*/) {
+  m_mutexAttr = new pthread_mutexattr_t;
+  if (0 != pthread_mutexattr_init((pthread_mutexattr_t *)m_mutexAttr)) {
+    assert(0 && "Failed init pthread mutex attribute");
+  }
+  if (0 != pthread_mutexattr_settype((pthread_mutexattr_t *)m_mutexAttr,
+                                     PTHREAD_MUTEX_RECURSIVE)) {
+    assert(0 && "Failed settype pthread mutex attribute");
+  }
+  m_mutexHndl = new pthread_mutex_t;
+  if (0 != pthread_mutex_init((pthread_mutex_t *)m_mutexHndl,
+                              (pthread_mutexattr_t *)m_mutexAttr)) {
+    assert(0 && "Failed initialize pthread mutex");
+  }
 }
 
 /************************************************************************

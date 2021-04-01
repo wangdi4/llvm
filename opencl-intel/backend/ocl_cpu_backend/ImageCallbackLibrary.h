@@ -92,6 +92,7 @@ class CbkDesc
 {
 public:
     virtual std::string GetName() const = 0;
+    virtual ~CbkDesc() {}
 };
 
 class UndefCbkDesc : public CbkDesc
@@ -99,9 +100,9 @@ class UndefCbkDesc : public CbkDesc
 public:
 
     UndefCbkDesc(UndefCbkType _type, VecSize _vecSize = SCALAR);
-    virtual std::string GetName() const;
+    virtual std::string GetName() const override;
 
-private:
+  private:
     UndefCbkType Type;
     VecSize Size;
 };
@@ -109,11 +110,10 @@ private:
 class TransCbkDesc : public CbkDesc
 {
 public:
-
     TransCbkDesc(bool _isInt, SamplerType _sampler, VecSize _vectorSize = SCALAR);
-    virtual std::string GetName() const;
+    virtual std::string GetName() const override;
 
-private:
+  private:
     bool IsIntFormat;
     SamplerType Sampler;
     VecSize VectorSize;
@@ -131,9 +131,9 @@ public:
         cl_mem_object_type _imageType = CL_MEM_OBJECT_IMAGE2D,
         VecSize _vectorSize = SCALAR);
 
-    virtual std::string GetName() const;
+    virtual std::string GetName() const override;
 
-private:
+  private:
     cl_image_format     Format;
     bool                IsClamp;
     cl_filter_mode      Filter;
@@ -147,9 +147,9 @@ public:
 
     WriteCbkDesc(cl_channel_order _ch_order, cl_channel_type _ch_type, VecSize _vectorSize = SCALAR);
     // Returns llvm name of a function
-    virtual std::string GetName() const;
+    virtual std::string GetName() const override;
 
-private:
+  private:
     VecSize VectorSize;
     cl_image_format Format;
 };

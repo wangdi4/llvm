@@ -31,10 +31,10 @@ int printFormatCommon(OutputAccumulator& output, const char* format, const char*
 //
 static llvm::sys::Mutex m_lock;
 
-extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, void* pCallback, void* pHandle)
-{
-    std::lock_guard<llvm::sys::Mutex> locked(m_lock);
-    StreamOutputAccumulator output(stdout);
-    return printFormatCommon(output, format, args);
+extern "C" LLVM_BACKEND_API int opencl_printf(const char *format, char *args,
+                                              void * /*pCallback*/,
+                                              void * /*pHandle*/) {
+  std::lock_guard<llvm::sys::Mutex> locked(m_lock);
+  StreamOutputAccumulator output(stdout);
+  return printFormatCommon(output, format, args);
 }
-

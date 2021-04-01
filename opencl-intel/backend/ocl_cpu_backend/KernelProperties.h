@@ -65,20 +65,20 @@ public:
      * @returns the number of Work Items handled by each kernel instance,
      *  0 will be returned in case of failure or not present
      */
-    virtual unsigned int GetKernelPackCount() const;
+    virtual unsigned int GetKernelPackCount() const override;
 
     /**
      * @returns the required work-group size that was declared during kernel compilation.
      *  NULL when this attribute is not present;
      *  whereas work-group size is array of MAX_WORK_DIM entries
      */
-    virtual const size_t* GetRequiredWorkGroupSize() const;
+    virtual const size_t *GetRequiredWorkGroupSize() const override;
 
     /**
      * @returns the required barrier buffer memory size for single Work Item execution
      *  0 when there are no WG level built-ins in the kernel.
      */
-    virtual size_t GetBarrierBufferSize() const;
+    virtual size_t GetBarrierBufferSize() const override;
 
     /**
      * @returns the min required private memory size for single Work Item execution.
@@ -86,7 +86,7 @@ public:
      *          barrier buffer size. It also migth include some extra space for
      *          external functions called by the kernel.
      */
-    virtual size_t GetPrivateMemorySize() const;
+    virtual size_t GetPrivateMemorySize() const override;
     virtual size_t GetMaxPrivateMemorySize() const;
 
     /**
@@ -94,16 +94,20 @@ public:
      * @param   wgPrivateMemSizeUpperBound - maximum possible private memory size per WG.
      * @return  the max. possible WG size with respect to the specified limits.
      */
-    virtual size_t GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
-                                       size_t const wgPrivateMemSizeUpperBound) const;
+    virtual size_t
+    GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
+                        size_t const wgPrivateMemSizeUpperBound) const override;
 
-    virtual size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const;
+    virtual size_t GetNumberOfSubGroups(size_t size,
+                                        const size_t *WGSizes) const override;
 
-    virtual size_t GetMaxNumSubGroups(size_t const wgSizeUpperBound) const;
+    virtual size_t
+    GetMaxNumSubGroups(size_t const wgSizeUpperBound) const override;
 
-    virtual size_t GetRequiredNumSubGroups() const;
+    virtual size_t GetRequiredNumSubGroups() const override;
 
-    virtual size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const;
+    virtual size_t GetMaxSubGroupSize(size_t size,
+                                      const size_t *WGSizes) const override;
 
     /**
      * @returns locals size that would give the desired number of subgroups
@@ -113,52 +117,51 @@ public:
      * @param OUT pValue - output local sizes
      * @param     dim - number of dimensions we need to fill
      */
-    virtual void GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
-                                              size_t const wgSizeUpperBound,
-                                              size_t const wgPrivateMemSizeUpperBound,
-                                              size_t* pValue,
-                                              size_t const dim) const;
+    virtual void GetLocalSizeForSubGroupCount(
+        size_t const desiredSGCount, size_t const wgSizeUpperBound,
+        size_t const wgPrivateMemSizeUpperBound, size_t *pValue,
+        size_t const dim) const override;
 
     /**
      * @returns the required minimum group size factorial
      *  1 when no minimum is required
      */
-    unsigned int GetMinGroupSizeFactorial() const;
+    unsigned int GetMinGroupSizeFactorial() const override;
 
     /**
      * @returns the size in bytes of the implicit local memory buffer required by this kernel
      * (implicit local memory buffer is the size of all the local buffers declared and used
      *  in the kernel body)
      */
-    virtual size_t GetImplicitLocalMemoryBufferSize() const;
+    virtual size_t GetImplicitLocalMemoryBufferSize() const override;
 
     /**
      * @returns true if the specified kernel has print operation in the kernel body,
      *  false otherwise
      */
-    virtual bool HasPrintOperation() const;
+    virtual bool HasPrintOperation() const override;
 
     /**
      * @returns an estimation of the kernel execution
      */
-    virtual size_t GetKernelExecutionLength() const;
+    virtual size_t GetKernelExecutionLength() const override;
 
     /**
      * @returns a string of the kernel attributes
      */
-    virtual const char *GetKernelAttributes() const;
+    virtual const char *GetKernelAttributes() const override;
 
     /**
      * @returns true if the specified kernel has barrier operation in the kernel body,
      *  false otherwise
      */
-    virtual bool HasBarrierOperation() const;
+    virtual bool HasBarrierOperation() const override;
 
     /**
      * @returns true if the specified kernel has debug info,
      *  false otherwise
      */
-    virtual bool HasDebugInfo() const;
+    virtual bool HasDebugInfo() const override;
 
     /**
      * @returns true if the specified kernel has global synchronization
@@ -171,19 +174,19 @@ public:
      * @returns true if the specified kernel calls other kernerls in the kernel body,
      *  false otherwise
      */
-    virtual bool HasKernelCallOperation() const;
+    virtual bool HasKernelCallOperation() const override;
 
     /**
      * @returns true if the specified kernel is created from clang's block
      *  false otherwise
      */
-    virtual bool IsBlock() const;
+    virtual bool IsBlock() const override;
 
     /**
      * @returns true if the specified kernel is an autorun kernel
      *  false otherwise
      */
-    virtual bool IsAutorun() const;
+    virtual bool IsAutorun() const override;
 
     /**
      * @returns target device for the platform
@@ -194,25 +197,25 @@ public:
      * @returns true if the specified kernel is a single-work item kernel
      *  false otherwise
      */
-    virtual bool IsTask() const;
+    virtual bool IsTask() const override;
 
     /**
      * @returns true if the specified kernel may use global work offset
      *  false otherwise
      */
-    virtual bool CanUseGlobalWorkOffset() const;
+    virtual bool CanUseGlobalWorkOffset() const override;
 
     /**
      * @returns true if the specified kernel needs to serialize workgroups
      *  false otherwise
      */
-    virtual bool NeedSerializeWGs() const;
+    virtual bool NeedSerializeWGs() const override;
 
     /**
      * @returns true if the specified kernel doesn't support non-unifrom WG size
      *  false otherwise
      */
-    virtual bool IsNonUniformWGSizeSupported() const;
+    virtual bool IsNonUniformWGSizeSupported() const override;
 
     /**
      * @returns required Intel sub group size (0 if none was required)

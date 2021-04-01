@@ -101,7 +101,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:       Arnon Peleg
         *
         ******************************************************************************************/
-        void Cleanup( bool bTerminate = false );
+        void Cleanup(bool bTerminate = false) override;
 
         /******************************************************************************************
         * Function:     GetInfo    
@@ -115,7 +115,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:       Uri Levy
         * Date:         December 2008
         ******************************************************************************************/
-        virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
+        virtual cl_err_code
+        GetInfo(cl_int param_name, size_t param_value_size, void *param_value,
+                size_t *param_value_size_ret) const override;
 
         /******************************************************************************************
         * Function:     SetSpecializationConstant
