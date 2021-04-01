@@ -10,7 +10,7 @@ define void @example(<8 x i64>* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:    [[ADDR_NT_STORE_ALLOCA:%.*]] = alloca i8, i64 8280, align 64
 ; CHECK-NEXT:    [[ADDR_NT_STORE_STRUCT:%.*]] = bitcast i8* [[ADDR_NT_STORE_ALLOCA]] to %__nontemporal_buffer_data*
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [[__NONTEMPORAL_BUFFER_DATA:%.*]], %__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i32 0, i32 4
-; CHECK-NEXT:    [[ADDR_NT_STORE_BUFFER:%.*]] = bitcast [0 x i8]* [[TMP0]] to <8 x i64>*
+; CHECK-NEXT:    [[ADDR_NT_STORE_BUFFER:%.*]] = bitcast [0 x i8]* [[TMP0]] to [1 x <8 x i64>]*
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr [[__NONTEMPORAL_BUFFER_DATA]], %__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i32 0, i32 1
 ; CHECK-NEXT:    store i64 [[DEST1]], i64* [[TMP1]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = and i64 [[DEST1]], 63
@@ -25,7 +25,7 @@ define void @example(<8 x i64>* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[SPLAT:%.*]] = insertelement <8 x i64> zeroinitializer, i64 [[INDEX]], i32 0
 ; CHECK-NEXT:    [[ADDR:%.*]] = getelementptr inbounds <8 x i64>, <8 x i64>* [[DEST]], i64 [[INDEX]]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr <8 x i64>, <8 x i64>* [[ADDR_NT_STORE_BUFFER]], i64 [[ADDR_NT_BUF_IDX]]
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr [1 x <8 x i64>], [1 x <8 x i64>]* [[ADDR_NT_STORE_BUFFER]], i64 [[ADDR_NT_BUF_IDX]], i64 0
 ; CHECK-NEXT:    store <8 x i64> [[SPLAT]], <8 x i64>* [[TMP5]], align 4
 ; CHECK-NEXT:    [[ADDR_NT_BUF_IDX2:%.*]] = add nuw nsw i64 [[ADDR_NT_BUF_IDX]], 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 128, [[ADDR_NT_BUF_IDX2]]

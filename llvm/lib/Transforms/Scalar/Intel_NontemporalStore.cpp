@@ -59,6 +59,47 @@ static cl::opt<uint64_t> NumBufferElements(DEBUG_TYPE "-buffer-elements",
 
 namespace {
 
+/// A block of stores which may be able to be converted together using a common
+/// temp buffer. To be converted together as a single block, stores within a
+/// loop must:
+///
+/// * Have a common type
+/// * Have a common static stride
+/// * Have static relative offsets smaller than the stride
+/// * Not overlap
+//
+// TODO: Generalize to support stores of different types within structs.
+struct StoreBlock {
+
+  /// The loop this block is contiguous in.
+  Loop *ContiguousLoop;
+
+  /// The overall type of this block of stores.
+  ///
+  /// This should be an array type, with the element type matching the stores'
+  /// value type and the element count matching the total number of stores
+  /// expected based on the stride.
+  ArrayType *BlockType;
+
+  /// The "last" store of this block in control flow order.
+  ///
+  /// This should be dominated by all of the other stores in this StoreBlock.
+  StoreInst *LastExecuted;
+
+  /// The stores that make up this block, ordered by store address.
+  ///
+  /// This should be an array with the same element count as \ref BlockType. The
+  /// first element is required to be non-null, but the other elements may be
+  /// nullptr as the stores are collected and will be filled in as more matching
+  /// stores are found. None of the entries should still be nullptr when the
+  /// store block is converted, which can be verified with \ref isComplete.
+  SmallVector<StoreInst *, 1> Stores;
+
+  /// Determines whether all of the stores in this StoreBlock have been found,
+  /// which is required for converting this store block.
+  bool isComplete() const;
+};
+
 class NontemporalStore {
   Function &F;
   AAResults &AA;
@@ -87,12 +128,32 @@ public:
       HasLibFunc = false;
   }
   void run();
-  Optional<Loop *> getContiguousInLoop(StoreInst &SI);
-  bool hasConflictingLoads(StoreInst &SI, const Loop *L);
+
+  /// Determines whether \p SI is independent and has a statically known stride
+  /// within its containing loop. If so, a pair containing the loop and the
+  /// static stride (in bytes) is returned.
+  Optional<std::pair<Loop *, int64_t>> getStaticStrideInLoop(StoreInst &SI);
+
+  /// Determines whether any memory accesses in \p L may conflict with \p SI.
+  /// \p StoreStride should be the stride of \p SI in bytes.
+  bool hasConflictingLoads(StoreInst &SI, int64_t StoreStride, const Loop *L);
+
+  /// Creates a new StoreBlock within \p ContiguousLoop with an initial store
+  /// \p InitialStore. \p StoreStride should be the stride of \p InitialStore in
+  /// bytes.
+  StoreBlock createStoreBlock(Loop *ContiguousLoop, StoreInst *InitialStore,
+                              int64_t StoreStride);
+
+  /// Attempts to add \p NewStore within \p ContiguousLoop to one of the
+  /// existing store blocks in \p Blocks. If it is part of one of them, it is
+  /// added and this will return true. Otherwise, this returns false.
+  /// \p StoreStride should be the stride of \p NewStore in bytes.
+  bool collectStore(SmallVectorImpl<StoreBlock> &Blocks, Loop *ContiguousLoop,
+                    StoreInst *NewStore, int64_t StoreStride);
 };
 
 void NontemporalStore::run() {
-  SmallVector<std::pair<StoreInst *, Loop *>, 2> Worklist;
+  SmallVector<StoreBlock, 2> Worklist;
   for (auto &BB : F) {
     // Only consider instructions in loops.
     if (LI.getLoopFor(&BB) == nullptr)
@@ -119,9 +180,12 @@ void NontemporalStore::run() {
 
         LLVM_DEBUG(dbgs() << "Found unaligned nontemporal store: " <<
             *SI << "\n");
-        Loop *L = getContiguousInLoop(*SI).getValueOr(nullptr);
-        if (HasLibFunc && L) {
-          Worklist.push_back(std::make_pair(SI, L));
+        const auto LoopAndStride = getStaticStrideInLoop(*SI);
+        if (HasLibFunc && LoopAndStride) {
+          if (!collectStore(Worklist, LoopAndStride->first, SI,
+                            LoopAndStride->second))
+            Worklist.push_back(createStoreBlock(LoopAndStride->first, SI,
+                                                LoopAndStride->second));
         } else {
           LLVM_DEBUG(dbgs() << "Dropping nontemporal annotation\n");
           SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
@@ -129,6 +193,28 @@ void NontemporalStore::run() {
       }
     }
   }
+
+  // Drop any store blocks in the worklist that are incomplete.
+  Worklist.erase(
+      remove_if(Worklist,
+                [](const StoreBlock &Block) {
+                  if (Block.isComplete())
+                    return false;
+
+                  LLVM_DEBUG(dbgs()
+                             << "Removing incomplete block of stores and "
+                                "dropping nontemporal annotations:\n");
+                  for (StoreInst *const Store : Block.Stores) {
+                    if (Store) {
+                      LLVM_DEBUG(dbgs() << *Store << "\n");
+                      Store->setMetadata(LLVMContext::MD_nontemporal, nullptr);
+                    } else {
+                      LLVM_DEBUG(dbgs() << "  <Not found>\n");
+                    }
+                  }
+                  return true;
+                }),
+      Worklist.end());
 
   if (Worklist.empty())
     return;
@@ -174,27 +260,32 @@ void NontemporalStore::run() {
       Builder.getInt32Ty(),
     }, false));
 
-  for (auto &Pair : Worklist) {
-    StoreInst *SI = Pair.first;
-    Loop *L = Pair.second;
+  for (const StoreBlock &Block : Worklist) {
+    Loop *L = Block.ContiguousLoop;
+    assert(Block.isComplete());
+    StoreInst *const FirstStore = Block.Stores.front();
 
-    LLVM_DEBUG(dbgs() << "Converting " << *SI << "...\n");
+    LLVM_DEBUG({
+      dbgs() << "Converting block of contiguous stores:\n";
+      for (const StoreInst *const SI : Block.Stores)
+        dbgs() << *SI << "\n";
+    });
     BasicBlock *ExitBB = L->getExitBlock();
     BasicBlock *PreheaderBB = L->getLoopPredecessor();
     if (!ExitBB || !PreheaderBB || !DT.dominates(PreheaderBB, ExitBB)) {
       LLVM_DEBUG(dbgs() << "Unable to convert, as the exit and preheader blocks"
           " are not in the right configuration\n");
-      SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
+      for (StoreInst *const SI : Block.Stores)
+        SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
       continue;
     }
 
-    StringRef Name = SI->getPointerOperand()->getName();
-    Type *StoreType = SI->getValueOperand()->getType();
-    uint64_t StoreSize = DL.getTypeStoreSize(StoreType).getFixedSize();
+    StringRef Name = FirstStore->getPointerOperand()->getName();
+    uint64_t StoreSize = DL.getTypeStoreSize(Block.BlockType).getFixedSize();
     uint64_t BufferCount = StoreSize * NumBufferElements;
-    Type *StoreArrayTy = PointerType::getUnqual(StoreType);
-    Builder.SetInstDebugLocation(SI);
-    Align DesiredAlign(DL.getABITypeAlignment(StoreType));
+    Type *StoreArrayTy = PointerType::getUnqual(Block.BlockType);
+    Builder.SetInstDebugLocation(FirstStore);
+    Align DesiredAlign(DL.getABITypeAlignment(Block.BlockType));
 
     // Create the alloca for the data. We're allocating as a char array, so
     // that the buffer is allocated in the padding of the store struct.
@@ -219,9 +310,9 @@ void NontemporalStore::run() {
     // expressions).
     Builder.SetInsertPoint(PreheaderBB->getTerminator());
     SEExpander.setInsertPoint(PreheaderBB->getTerminator());
-    SEExpander.SetCurrentDebugLocation(SI->getDebugLoc());
+    SEExpander.SetCurrentDebugLocation(FirstStore->getDebugLoc());
     auto *PointerSCEV =
-      cast<SCEVAddRecExpr>(SE.getSCEV(SI->getPointerOperand()));
+        cast<SCEVAddRecExpr>(SE.getSCEV(FirstStore->getPointerOperand()));
     Value *BasePtr = SEExpander.expandCodeFor(PointerSCEV->getStart(),
       IntptrTy);
     Builder.CreateStore(BasePtr,
@@ -245,19 +336,24 @@ void NontemporalStore::run() {
         Name + ".nt_buf_idx");
     IndexPHI->addIncoming(Builder.getInt64(0), PreheaderBB);
 
-    // Replace the store with a store into the buffer.
-    Builder.SetInsertPoint(SI);
-    Builder.CreateAlignedStore(SI->getValueOperand(),
-        Builder.CreateGEP(StoreBufferPtr, IndexPHI),
-        MaybeAlign(DL.getABITypeAlignment(IntptrTy)));
+    // Replace the stores with stores into the buffer.
+    for (const auto &SI : enumerate(Block.Stores)) {
+      Builder.SetInsertPoint(SI.value());
+      Builder.CreateAlignedStore(
+          SI.value()->getValueOperand(),
+          Builder.CreateGEP(StoreBufferPtr,
+                            {IndexPHI, Builder.getInt64(SI.index())}),
+          MaybeAlign(DL.getABITypeAlignment(IntptrTy)));
+    }
+
+    // Insert a branch, if we are drained.
+    Builder.SetInsertPoint(Block.LastExecuted);
     Value *IncPHI = Builder.CreateAdd(IndexPHI, Builder.getInt64(1),
         Name + ".nt_buf_idx", true, true);
     Value *ShouldBr = Builder.CreateICmpEQ(Builder.getInt64(NumBufferElements),
         IncPHI);
-
-    // Insert a branch, if we are drained.
-    BasicBlock *OrigBB = SI->getParent();
-    BasicBlock *TailBB = SplitBlock(OrigBB, SI, &DT, &LI);
+    BasicBlock *OrigBB = Block.LastExecuted->getParent();
+    BasicBlock *TailBB = SplitBlock(OrigBB, Block.LastExecuted, &DT, &LI);
     BasicBlock *DrainBB = BasicBlock::Create(F.getContext(),
         Name + ".nt_buf_drain", &F, TailBB);
     Builder.SetInsertPoint(OrigBB->getTerminator());
@@ -301,12 +397,14 @@ void NontemporalStore::run() {
         Builder.CreateMul(ExitCount, Builder.getInt64(StoreSize)),
         Builder.getInt32(1) });
 
-    // Remove the original store instruction.
-    SI->eraseFromParent();
+    // Remove the original store instructions.
+    for (StoreInst *const SI : Block.Stores)
+      SI->eraseFromParent();
   }
 }
 
-Optional<Loop *> NontemporalStore::getContiguousInLoop(StoreInst &SI) {
+Optional<std::pair<Loop *, int64_t>>
+NontemporalStore::getStaticStrideInLoop(StoreInst &SI) {
   Loop *ContainingLoop = LI.getLoopFor(SI.getParent());
   assert(ContainingLoop && "Shouldn't be considering stores not in loops");
 
@@ -318,10 +416,21 @@ Optional<Loop *> NontemporalStore::getContiguousInLoop(StoreInst &SI) {
   Type *StoreType = SI.getValueOperand()->getType();
   uint64_t StoreSize = DL.getTypeStoreSize(StoreType).getFixedSize();
   const SCEV *StepSCEV = AddRec->getStepRecurrence(SE);
-  const SCEV *SizeSCEV = SE.getConstant(AddRec->getType(), StoreSize);
-  if (!SE.getURemExpr(StepSCEV, SizeSCEV)->isZero() ||
-      !SE.getUDivExpr(StepSCEV, SizeSCEV)->isOne()) {
-    LLVM_DEBUG(dbgs() << "Store is not contiguous\n");
+  const auto *const ConstStepSCEV = dyn_cast<SCEVConstant>(StepSCEV);
+  if (!ConstStepSCEV) {
+    LLVM_DEBUG(dbgs() << "Store stride is not statically known\n");
+    return {};
+  }
+  const int64_t StoreStride = ConstStepSCEV->getValue()->getSExtValue();
+  if (StoreStride <= 0) {
+    LLVM_DEBUG(dbgs() << "Store stride " << StoreStride
+                      << " is not positive\n");
+    return {};
+  }
+  if (StoreStride % StoreSize != 0) {
+    LLVM_DEBUG(dbgs() << "Store stride " << StoreStride
+                      << " is not a multiple of store size " << StoreSize
+                      << "\n");
     return {};
   }
 
@@ -351,18 +460,28 @@ Optional<Loop *> NontemporalStore::getContiguousInLoop(StoreInst &SI) {
     return {};
   }
 
-  if (hasConflictingLoads(SI, ContainingLoop)) {
+  if (hasConflictingLoads(SI, StoreStride, ContainingLoop)) {
     LLVM_DEBUG(dbgs() << "Store cannot be delayed to end of loop.\n");
     return {};
   }
 
-  LLVM_DEBUG(dbgs() << "Store is contiguous\n");
+  LLVM_DEBUG(dbgs() << "Store has statically known stride " << StoreStride
+                    << " and may be part of a contiguous block of "
+                    << StoreStride / StoreSize << " stores\n");
 
   // TODO: try to guard in an outer loop.
-  return ContainingLoop;
+  return {{ContainingLoop, StoreStride}};
 }
 
-bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
+/// Computes \p X mod \p Y. Unlike operator%, this value is adjusted to be
+/// non-negative regardless of the sign of \p X.
+static int64_t nonNegativeModulus(int64_t X, int64_t Y) {
+  const int64_t BaseMod = X % Y;
+  return BaseMod >= 0 ? BaseMod : BaseMod + Y;
+}
+
+bool NontemporalStore::hasConflictingLoads(StoreInst &SI, int64_t StoreStride,
+                                           const Loop *L) {
   // Volatiles generally can't be reordered.
   if (SI.isVolatile())
     return true;
@@ -401,8 +520,8 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
   LocationSize Size = LocationSize::beforeOrAfterPointer();
   if (TripCount) {
     Size = LocationSize::precise(
-        DL.getTypeStoreSize(SI.getValueOperand()->getType()) *
-        TripCount->getAPInt().getZExtValue());
+        (TripCount->getAPInt().getZExtValue() - 1) * StoreStride +
+        DL.getTypeStoreSize(SI.getValueOperand()->getType()));
     LLVM_DEBUG(dbgs() << "  (uses up to " << Size << ")\n");
   }
   MemoryLocation Loc = MemoryLocation::get(&SI).getWithNewSize(Size);
@@ -456,9 +575,10 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
         // For simplicity, we don't actually check which pointer is greater;
         // instead we check that the absolute difference is greater than either
         // location's footprint. This is slightly conservative.
+        const SCEV *Diff =
+            SE.getMinusSCEV(QuerySCEV, SE.getSCEV(SI.getPointerOperand()));
+        assert(Diff && "Unexpected nullptr SCEV");
         if (Loc.Size.hasValue() && QuerySize.hasValue()) {
-          const SCEV *Diff = SE.getMinusSCEV(QuerySCEV, SE.getSCEV(SI.getPointerOperand()));
-          assert(Diff && "Unexpected nullptr SCEV");
           const SCEV *Abs = SE.getAbsExpr(Diff, false);
           assert(Abs && "Unexpected nullptr SCEV");
           uint64_t LargestFootprint = std::max(Loc.Size.getValue(), QuerySize.getValue());
@@ -466,6 +586,31 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
           assert(Footprint && "Unexpected nullptr SCEV");
 
           if (SE.isKnownPredicate(ICmpInst::ICMP_UGT, Abs, Footprint))
+            continue;
+        }
+
+        // Try to prove another simple test: if the accesses have a common
+        // stride, they can't overlap if the distance between them modulo the
+        // stride in both directions is at least as big as the individual access
+        // sizes:
+        // +            +             +            +
+        // |--------- Stride -------->|--------- Stride -------->
+        // |--->SISize  |-->InstSize  |--->SISize  |-->InstSize
+        // SI           Inst          SI           Inst
+        //
+        // This can never be the case for individual contiguous stores as
+        // SIToInst < StoreStride == SISize in that case, but this test is
+        // needed to prove that there is no interference between multiple stores
+        // within a contiguous block.
+        const auto *const ConstDiff = dyn_cast<SCEVConstant>(Diff);
+        if (ConstDiff && ILoc->Size.hasValue()) {
+          const int64_t Distance = ConstDiff->getAPInt().getSExtValue();
+          const uint64_t SIToInst = nonNegativeModulus(Distance, StoreStride);
+          const uint64_t InstToSI = nonNegativeModulus(-Distance, StoreStride);
+          const uint64_t SISize =
+              DL.getTypeStoreSize(SI.getValueOperand()->getType());
+          const uint64_t InstSize = ILoc->Size.getValue();
+          if (SIToInst >= SISize && InstToSI >= InstSize)
             continue;
         }
       }
@@ -476,6 +621,104 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, const Loop *L) {
         return true;
       }
     }
+  }
+
+  return false;
+}
+
+bool StoreBlock::isComplete() const {
+  assert(!Stores.empty());
+  assert(Stores.front());
+  return none_of(drop_begin(Stores),
+                 [](const StoreInst *Store) { return Store == nullptr; });
+}
+
+StoreBlock NontemporalStore::createStoreBlock(Loop *ContiguousLoop,
+                                              StoreInst *InitialStore,
+                                              int64_t StoreStride) {
+
+  // Determine the BlockType, which should be an array of StoreStride/StoreSize
+  // elements of the store's type.
+  Type *const StoreType = InitialStore->getValueOperand()->getType();
+  const int64_t StoreSize = DL.getTypeStoreSize(StoreType);
+  assert(StoreStride > 0);
+  assert(StoreStride % StoreSize == 0);
+  const int64_t StoreCount = StoreStride / StoreSize;
+  auto *const BlockType = ArrayType::get(StoreType, StoreCount);
+
+  // Construct an initial Stores array where InitialStore is the first element
+  // and the rest are nullptr.
+  SmallVector<StoreInst *, 1> Stores(StoreCount, nullptr);
+  Stores.front() = InitialStore;
+
+  return {ContiguousLoop, BlockType, InitialStore, std::move(Stores)};
+}
+
+bool NontemporalStore::collectStore(SmallVectorImpl<StoreBlock> &Blocks,
+                                    Loop *ContiguousLoop, StoreInst *NewStore,
+                                    int64_t StoreStride) {
+  for (StoreBlock &Block : Blocks) {
+
+    // Skip blocks that are already complete.
+    if (Block.isComplete())
+      continue;
+
+    // For this store to be compatible, the loop, type, and stride must match.
+    if (Block.ContiguousLoop != ContiguousLoop)
+      continue;
+    Type *const StoreType = NewStore->getValueOperand()->getType();
+    if (Block.BlockType->getElementType() != StoreType)
+      continue;
+    if (DL.getTypeStoreSize(Block.BlockType) != uint64_t(StoreStride))
+      continue;
+
+    // Make sure there is a known static offset between this store and the ones
+    // in the block which is less than StoreStride.
+    assert(!Block.Stores.empty());
+    assert(Block.Stores.front());
+    const SCEV *const NewStoreSCEV = SE.getSCEV(NewStore->getPointerOperand());
+    const SCEV *const FirstStoreSCEV =
+        SE.getSCEV(Block.Stores.front()->getPointerOperand());
+    const SCEV *const OffsetSCEV =
+        SE.getMinusSCEV(NewStoreSCEV, FirstStoreSCEV);
+    const auto *const ConstOffsetSCEV = dyn_cast<SCEVConstant>(OffsetSCEV);
+    if (!ConstOffsetSCEV)
+      continue;
+    const int64_t Offset = ConstOffsetSCEV->getAPInt().getSExtValue();
+    if (std::abs(Offset) >= StoreStride)
+      continue;
+
+    // Determine where this store should go in the Stores array.
+    const int64_t StoreSize = DL.getTypeStoreSize(StoreType);
+    assert(Offset % StoreSize == 0);
+    const int64_t Index = Offset / StoreSize;
+    assert(Index != 0);
+
+    // If it is after the first store, put it in the correct slot.
+    if (Index > 0) {
+      assert(!Block.Stores[Index]);
+      Block.Stores[Index] = NewStore;
+    }
+
+    // Otherwise, make this the new first store by shifting all of the existing
+    // stores.
+    else {
+      const int64_t Shift = -Index;
+      const auto StoresBegin = std::begin(Block.Stores);
+      const auto StoresEnd = std::end(Block.Stores);
+      std::move_backward(StoresBegin, StoresEnd - Shift, StoresEnd);
+      *StoresBegin = NewStore;
+      std::fill(StoresBegin + 1, StoresBegin + Shift, nullptr);
+    }
+
+    // Update LastExecuted if needed.
+    if (DT.dominates(Block.LastExecuted, NewStore)) {
+      Block.LastExecuted = NewStore;
+    } else {
+      assert(DT.dominates(NewStore, Block.LastExecuted));
+    }
+
+    return true;
   }
 
   return false;
