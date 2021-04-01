@@ -6119,7 +6119,7 @@ void Driver::BuildJobs(Compilation &C) const {
       else
         LinkingOutput = getDefaultImageName();
 
-      if (!CCPrintStatReportFilename) {
+      if (CCPrintStatReportFilename.empty()) {
         using namespace llvm;
         // Human readable output.
         outs() << sys::path::filename(Cmd.getExecutable()) << ": "
@@ -6142,7 +6142,7 @@ void Driver::BuildJobs(Compilation &C) const {
             << '\n';
         Out.flush();
         std::error_code EC;
-        llvm::raw_fd_ostream OS(CCPrintStatReportFilename, EC,
+        llvm::raw_fd_ostream OS(CCPrintStatReportFilename.c_str(), EC,
                                 llvm::sys::fs::OF_Append |
                                     llvm::sys::fs::OF_Text);
         if (EC)
