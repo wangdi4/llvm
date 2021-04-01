@@ -223,7 +223,7 @@ protected:
                                                 const VPValue *Op1,
                                                 const VPValue *Op2,
                                                 const Type *ScalarTy,
-                                                const unsigned VF) {
+                                                const unsigned VF) override {
     return VPlanTTICostModel::getArithmeticInstructionCost(
       Opcode, Op1, Op2, ScalarTy, VF);
   }
