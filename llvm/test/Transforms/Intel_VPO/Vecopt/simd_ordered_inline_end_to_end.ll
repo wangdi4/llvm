@@ -27,10 +27,9 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[WIDE_TRIP_COUNT0]], 2
-; CHECK-NEXT:    [[N_VEC0:%.*]] = sub nuw nsw i64 [[WIDE_TRIP_COUNT0]], [[N_MOD_VF0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[WIDE_TRIP_COUNT0]], 4294967294
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 0, [[TMP0]]
+; CHECK-NEXT:    br i1 [[TMP1]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i32 0
@@ -38,8 +37,8 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP2:%.*]], [[VPLANNEDBB40:%.*]] ], [ 0, [[VECTOR_PH0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP1:%.*]], [[VPLANNEDBB40]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP3:%.*]], [[VPLANNEDBB40:%.*]] ], [ 0, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP2:%.*]], [[VPLANNEDBB40]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[VEC_PHI0]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 0
@@ -57,29 +56,29 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[VPLANNEDBB40]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[TMP2]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], [[TMP0]]
+; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP4:%.*]] = mul i64 1, [[N_VEC0]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add i64 0, [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = mul i64 1, [[TMP0]]
+; CHECK-NEXT:    [[TMP6:%.*]] = add i64 0, [[TMP5]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  middle.block:
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP6]], label [[SCALAR_PH0]], label [[VPLANNEDBB60:%.*]]
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[TMP0]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[SCALAR_PH0]], label [[VPLANNEDBB60:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  scalar.ph:
-; CHECK-NEXT:    [[UNI_PHI70:%.*]] = phi i64 [ [[TMP5]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI70:%.*]] = phi i64 [ [[TMP6]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:
 ; CHECK-NEXT:    br label [[FOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[UNI_PHI90:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[LATCH0:%.*]] ], [ [[TMP5]], [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    [[UNI_PHI90:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[LATCH0:%.*]] ], [ [[TMP6]], [[MIDDLE_BLOCK0]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB10:
@@ -90,9 +89,9 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[INDVARS_IV0]]
 ; CHECK-NEXT:    br label [[CODEREPL0:%.*]]
 ; CHECK-EMPTY:
+; CHECK-NEXT:  codeRepl:
 ;
 ; Inline the ordered region again:
-; CHECK-NEXT:  codeRepl:
 ; CHECK-NEXT:    [[VAL_I110:%.*]] = load i32, i32* [[X0]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I110]], i32* [[ARRAYIDX0]], align 4
 ; CHECK-NEXT:    br label [[LATCH0]]
