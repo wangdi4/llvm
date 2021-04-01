@@ -49,9 +49,11 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; HIRCHECK-EMPTY:
 ; HIRCHECK-NEXT:  <0>          BEGIN REGION { modified }
 ; HIRCHECK-NEXT:  <17>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; HIRCHECK-NEXT:  <18>               |   [[COMB_SHUF0:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; HIRCHECK-NEXT:  <19>               |   [[VLS_INTERLEAVE0:%.*]] = shufflevector [[COMB_SHUF0]],  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>
-; HIRCHECK-NEXT:  <20>               |   (<8 x i64>*)([[ARR0:%.*]])[2 * i1] = [[VLS_INTERLEAVE0]]
+; HIRCHECK-NEXT:  <18>               |   %shuffle = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; HIRCHECK-NEXT:  <19>               |   %shuffle1 = shufflevector undef,  %shuffle,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
+; HIRCHECK-NEXT:  <20>               |   %shuffle2 = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; HIRCHECK-NEXT:  <21>               |   %shuffle3 = shufflevector %shuffle1,  %shuffle2,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
+; HIRCHECK-NEXT:  <22>               |   (<8 x i64>*)(%arr)[2 * i1] = %shuffle3;
 ; HIRCHECK-NEXT:  <17>               + END LOOP
 ; HIRCHECK-NEXT:  <0>          END REGION
 ;

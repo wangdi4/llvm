@@ -21,13 +21,15 @@
 ; CHECK:         BEGIN REGION { modified }
 ; CHECK-NEXT:    + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:    |   %.vls.load = (<8 x i64>*)(@arr)[0][2 * i1];
-; CHECK-NEXT:    |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; CHECK-NEXT:    |   %vls.shuf1 = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:    |   %comb.shuf = shufflevector %vls.shuf,  %vls.shuf1,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
-; CHECK-NEXT:    |   %vls.interleave = shufflevector %comb.shuf,  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>;
-; CHECK-NEXT:    |   (<8 x i64>*)(@arr2)[0][2 * i1] = %vls.interleave;
+; CHECK-NEXT:    |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
+; CHECK-NEXT:    |   %vls.extract1 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
+; CHECK-NEXT:    |   %shuffle = shufflevector %vls.extract,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; CHECK-NEXT:    |   %shuffle2 = shufflevector undef,  %shuffle,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
+; CHECK-NEXT:    |   %shuffle3 = shufflevector %vls.extract1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; CHECK-NEXT:    |   %shuffle4 = shufflevector %shuffle2,  %shuffle3,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
+; CHECK-NEXT:    |   (<8 x i64>*)(@arr2)[0][2 * i1] = %shuffle4;
 ; CHECK-NEXT:    + END LOOP
-; CHECK:         %1 = extractelement %vls.shuf1,  3;
+; CHECK:         %1 = extractelement %vls.extract1,  3;
 ; CHECK-NEXT:    END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -16,6 +16,7 @@
 
 #include "IntelLoopVectorizationPlannerHIR.h"
 #include "../IntelVPlanCallVecDecisions.h"
+#include "../IntelVPlanVLSTransform.h"
 #include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
@@ -47,6 +48,8 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
+
+  applyVLSTransform(*Plan, *VLSA, BestVF);
 
   // Process all loop entities and create refs for them if needed.
   CG->createAndMapLoopEntityRefs(BestVF);
