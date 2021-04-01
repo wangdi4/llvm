@@ -11,6 +11,8 @@
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 
 #include "Intel_DTrans/Analysis/DTransUtils.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
@@ -52,6 +54,27 @@ llvm::Type *DTransType::getLLVMType() const {
     return cast<DTransSequentialType>(this)->getLLVMType();
   case DTransFunctionTypeID:
     return cast<DTransFunctionType>(this)->getLLVMType();
+  }
+
+  llvm_unreachable("Switch table not completely covered");
+}
+
+// The base class just dispatches the request to one of the
+// derived classes based on the actual type of this DTransType object.
+MDNode *DTransType::createMetadataReference() const {
+  switch (ID) {
+  case DTransAtomicTypeID:
+    return cast<DTransAtomicType>(this)->createMetadataReference();
+  case DTransPointerTypeID:
+    return cast<DTransPointerType>(this)->createMetadataReference();
+  case DTransStructTypeID:
+    return cast<DTransStructType>(this)->createMetadataReference();
+  case DTransArrayTypeID:
+    return cast<DTransSequentialType>(this)->createMetadataReference();
+  case DTransVectorTypeID:
+    return cast<DTransSequentialType>(this)->createMetadataReference();
+  case DTransFunctionTypeID:
+    return cast<DTransFunctionType>(this)->createMetadataReference();
   }
 
   llvm_unreachable("Switch table not completely covered");
@@ -121,6 +144,32 @@ DTransAtomicType *DTransAtomicType::get(DTransTypeManager &TM, llvm::Type *Ty) {
   return TM.getOrCreateAtomicType(Ty);
 }
 
+// For atomic types the general form is:
+//   !{<type> zeroinitializer, i32 <pointer level>}
+// For 'void' types or 'metadata' types there is a special form:
+//   !{!"void", i32 <pointer level>}
+//   !{!"metadata", i32 <pointer level>}
+MDNode *DTransAtomicType::createMetadataReference(unsigned PtrLevel) const {
+  LLVMContext &Ctx = getContext();
+
+  if (isVoidTy()) {
+    // Special encoding for VoidTy.
+    return MDNode::get(Ctx, {MDString::get(Ctx, "void"),
+                             ConstantAsMetadata::get(ConstantInt::get(
+                                 Type::getInt32Ty(Ctx), PtrLevel))});
+  } else if (isMetadataTy()) {
+    // Special encoding for MetadataTy.
+    return MDNode::get(Ctx, {MDString::get(Ctx, "metadata"),
+                             ConstantAsMetadata::get(ConstantInt::get(
+                                 Type::getInt32Ty(Ctx), PtrLevel))});
+  }
+
+  return MDNode::get(
+      Ctx, {ConstantAsMetadata::get(Constant::getNullValue(getLLVMType())),
+            ConstantAsMetadata::get(
+                ConstantInt::get(Type::getInt32Ty(Ctx), PtrLevel))});
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransAtomicType::print(raw_ostream &OS) const { OS << *LLVMType; }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -131,6 +180,36 @@ void DTransAtomicType::print(raw_ostream &OS) const { OS << *LLVMType; }
 DTransPointerType *DTransPointerType::get(DTransTypeManager &TM,
                                           DTransType *PointeeTy) {
   return TM.getOrCreatePointerType(PointeeTy);
+}
+
+// For pointer types the general form is:
+//   !{!MDNode, i32 <pointer level>}
+// to reference another encoded type, and specify the level of pointer
+// indirection.
+//
+// However, some types will use an abbreviated form when the
+// type can be encoded directly as the first operand of the
+// metadata, such as:
+//   !{float 0.0, i32 1} ; float*
+//   !{%struct.test zeroinitializer, i32 2} ; %struct.test**
+MDNode *DTransPointerType::createMetadataReference() const {
+  LLVMContext &Ctx = getContext();
+  unsigned PtrLevel = 1;
+  DTransType *BaseTy = PointeeType;
+  while (BaseTy->isPointerTy()) {
+    ++PtrLevel;
+    BaseTy = (cast<DTransPointerType>(BaseTy))->getPointerElementType();
+  }
+
+  if (BaseTy->isAtomicTy())
+    return (cast<DTransAtomicType>(BaseTy))->createMetadataReference(PtrLevel);
+  if (BaseTy->isStructTy() &&
+      !(cast<DTransStructType>(BaseTy))->isLiteralStruct())
+    return (cast<DTransStructType>(BaseTy))->createMetadataReference(PtrLevel);
+
+  return MDNode::get(Ctx, {BaseTy->createMetadataReference(),
+                           ConstantAsMetadata::get(ConstantInt::get(
+                               Type::getInt32Ty(Ctx), PtrLevel))});
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -167,6 +246,62 @@ bool DTransCompositeType::indexValid(unsigned Idx) const {
 DTransStructType *DTransStructType::get(DTransTypeManager &TM,
                                         llvm::StructType *Ty) {
   return TM.getOrCreateStructType(Ty);
+}
+
+// Named structures have the form of a zero initialized instance and
+// a level of pointer indirection:
+//   !{%struct.test zeroinitializer, i32 2} ; %struct.test**
+//
+// Literal structures use the form:
+//   !{!"L", i32 <numFields>, !FieldTy0_MD, !FieldTy1_MD, ... }
+MDNode *DTransStructType::createMetadataReference(unsigned PtrLevel) const {
+  LLVMContext &Ctx = getContext();
+
+  if (isLiteralStruct()) {
+    SmallVector<Metadata *, 16> MDOps;
+    MDOps.emplace_back(MDString::get(Ctx, "L"));
+    MDOps.emplace_back(ConstantAsMetadata::get(
+        ConstantInt::get(Type::getInt32Ty(Ctx), getNumFields())));
+    for (auto &FieldMember : elements()) {
+      DTransType *FieldTy = FieldMember.getType();
+      assert(FieldTy && "Field member type not set");
+      MDOps.emplace_back(FieldTy->createMetadataReference());
+    }
+    return MDTuple::get(Ctx, MDOps);
+  }
+
+  return MDNode::get(
+      Ctx, {ConstantAsMetadata::get(Constant::getNullValue(getLLVMType())),
+            ConstantAsMetadata::get(
+                ConstantInt::get(Type::getInt32Ty(Ctx), PtrLevel))});
+}
+
+// The general form of the metadata node is:
+//   !{!"S", %struct.test zeroinitializer, i32 <numFields>,
+//     !FieldTy0_MD, !FieldTy1_MD, ... }
+// Opaque structures use a numFields value of -1.
+MDNode *DTransStructType::createMetadataStructureDescriptor() const {
+  assert(!isLiteralStruct() && "Method is for named structs only");
+
+  LLVMContext &Ctx = getContext();
+  SmallVector<Metadata *, 16> MDOps;
+  MDOps.emplace_back(MDString::get(Ctx, "S"));
+  MDOps.emplace_back(
+      ConstantAsMetadata::get(Constant::getNullValue(getLLVMType())));
+  if (isOpaque())
+    MDOps.emplace_back(
+        ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), -1)));
+  else
+    MDOps.emplace_back(ConstantAsMetadata::get(
+        ConstantInt::get(Type::getInt32Ty(Ctx), getNumFields())));
+
+  for (auto &FieldMember : elements()) {
+    DTransType *FieldTy = FieldMember.getType();
+    assert(FieldTy && "Field member type not set");
+    MDOps.emplace_back(FieldTy->createMetadataReference());
+  }
+
+  return MDTuple::get(Ctx, MDOps);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -218,6 +353,19 @@ void DTransStructType::print(raw_ostream &OS, bool Detailed) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// For array types the form is:
+//   !{!"A", i32 <numElements>, !MDNode}
+// For vector types the form is:
+//   !{!"V", i32 <numElements>, !MDNode}
+// Where the referenced MDNode contains the element type.
+MDNode *DTransSequentialType::createMetadataReference() const {
+  LLVMContext &Ctx = getContext();
+  return MDNode::get(Ctx, {MDString::get(Ctx, (isArrayTy() ? "A" : "V")),
+                           ConstantAsMetadata::get(ConstantInt::get(
+                               Type::getInt32Ty(Ctx), getNumElements())),
+                           getElementType()->createMetadataReference()});
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // Methods for DTransArrayType
 //////////////////////////////////////////////////////////////////////////////
@@ -253,6 +401,31 @@ void DTransVectorType::print(raw_ostream &OS) const {
 //////////////////////////////////////////////////////////////////////////////
 // Methods for DTransFunctionType
 //////////////////////////////////////////////////////////////////////////////
+
+// For function types the form is:
+//   !{!"F", i1 <isVarArg>, i32 <numArgs>, !RetTy_MD,
+//     !ArgTy0_MD, !ArgTy1_MD, ...}
+// Where references to other MDNodes are used for the return type, and each
+// argument type.
+MDNode *DTransFunctionType::createMetadataReference() const {
+  LLVMContext &Ctx = getContext();
+  SmallVector<Metadata *, 16> MDOps;
+  MDOps.emplace_back(MDString::get(Ctx, "F"));
+  MDOps.emplace_back(ConstantAsMetadata::get(
+      ConstantInt::get(Type::getInt1Ty(Ctx), isVarArg() ? 1 : 0)));
+  MDOps.emplace_back(ConstantAsMetadata::get(
+      ConstantInt::get(Type::getInt32Ty(Ctx), getNumArgs())));
+  DTransType *DTRetTy = getReturnType();
+  assert(DTRetTy && "Function return type should have been set");
+  MDOps.emplace_back(DTRetTy->createMetadataReference());
+  for (auto *Arg : args()) {
+    assert(Arg && "Function arg type should have been set");
+    MDOps.emplace_back(Arg->createMetadataReference());
+  }
+
+  return MDTuple::get(Ctx, MDOps);
+}
+
 DTransFunctionType *
 DTransFunctionType::get(DTransTypeManager &TM, DTransType *DTRetTy,
                         SmallVectorImpl<DTransType *> &ParamTypes,
@@ -638,10 +811,10 @@ std::vector<DTransStructType *>
 DTransTypeManager::getIdentifiedStructTypes() const {
   std::vector<DTransStructType *> TypeList;
   std::transform(StructTypeInfoMap.begin(), StructTypeInfoMap.end(),
-    std::back_inserter(TypeList),
-    [](const llvm::StringMapEntry<DTransStructType *> &KV) {
-    return KV.second;
-  });
+                 std::back_inserter(TypeList),
+                 [](const llvm::StringMapEntry<DTransStructType *> &KV) {
+                   return KV.second;
+                 });
   return TypeList;
 }
 

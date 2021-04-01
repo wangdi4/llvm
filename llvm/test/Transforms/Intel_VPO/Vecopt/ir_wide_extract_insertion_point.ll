@@ -15,15 +15,15 @@ define dso_local void @_ZGVeN16uuuu_kernel_extract_pipelined(i16* %fused_grid, i
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_7:%.*]] = shufflevector <32 x i16> [[WIDE_INSERT]], <32 x i16> undef, <8 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23>
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_6:%.*]] = shufflevector <32 x i16> [[WIDE_INSERT]], <32 x i16> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <32 x i16> [[WIDE_INSERT]], <32 x i16> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    br i1 [[UNI_COND:%.*]], label [[VPLANNEDBB4:%.*]], label [[VPLANNEDBB5:%.*]]
+; CHECK-NEXT:    br i1 [[UNI_COND:%.*]], label %[[VPLANNEDBB4:.*]], label %[[VPLANNEDBB5:.*]]
 
-; CHECK:       VPlannedBB4:
+; CHECK:       [[VPLANNEDBB4]]:
 ; CHECK-NEXT:    [[TMP2:%.*]] = tail call <8 x i16> @_Z3minDv8_tS_(<8 x i16> [[EXTRACTSUBVEC_]])
 ; CHECK-NEXT:    [[TMP3:%.*]] = tail call <8 x i16> @_Z3minDv8_tS_(<8 x i16> [[EXTRACTSUBVEC_6]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = tail call <8 x i16> @_Z3minDv8_tS_(<8 x i16> [[EXTRACTSUBVEC_7]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = tail call <8 x i16> @_Z3minDv8_tS_(<8 x i16> [[EXTRACTSUBVEC_8]])
-; CHECK-NEXT:    br label [[VPLANNEDBB5]]
-; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    br label %[[VPLANNEDBB5]]
+; CHECK:       [[VPLANNEDBB5]]:
 ; CHECK-NEXT:    [[TMP6:%.*]] = tail call <8 x i16> @_Z3minDv8_tS_(<8 x i16> [[EXTRACTSUBVEC_]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = tail call <8 x i16> @_Z3minDv8_tS_(<8 x i16> [[EXTRACTSUBVEC_6]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = tail call <8 x i16> @_Z3minDv8_tS_(<8 x i16> [[EXTRACTSUBVEC_7]])

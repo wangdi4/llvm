@@ -81,7 +81,6 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI40:%.*]] = phi <8 x float> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
@@ -92,11 +91,10 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI30]], 8
-; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI0]], 8
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], 1000
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]]
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 1000
+; CHECK-NEXT:    br i1 [[TMP4]], label %[[VPLANNEDBB50:.*]], label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
+; CHECK-NEXT:  [[VPLANNEDBB50]]:
 ; CHECK-NEXT:    [[WIDE_LOAD60:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD60]])
 ; CHECK-NEXT:    store float [[TMP6]], float* [[X0]], align 1

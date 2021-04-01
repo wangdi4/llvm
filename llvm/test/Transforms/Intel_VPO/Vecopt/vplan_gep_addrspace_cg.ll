@@ -3,8 +3,7 @@
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_PHI0:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_PHI0_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_PHI1:%.*]] = phi  [ i64 [[TMP:%.*]], [[BB1]] ],  [ i64 [[VP_PHI_NEXT1:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_PHI1:%.*]] = phi  [ i64 [[TMP:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_PHI_NEXT1:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_GEP:%.*]] = getelementptr inbounds [1024 x i32]* %src i64 0 i64 [[VP_PHI1]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32 addrspace(4)* [[VP_GEP_ASCAST:%.*]] = addrspacecast i32* [[VP_GEP]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOAD:%.*]] = load i32 addrspace(4)* [[VP_GEP_ASCAST]]
@@ -19,7 +18,6 @@ define dso_local void @test_gep_addrpspace_cast([1024 x i32]* %src) {
 ; CHECK-NEXT:    br label %vector.body
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, %vector.ph ], [ [[UNI_PHI0_NEXT:%.*]], %vector.body ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, %vector.ph ], [ [[UNI_PHI1_NEXT:%.*]], %vector.body ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, %vector.ph ], [ [[VEC_PHI_NEXT:%.]], %vector.body ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* %src, i64 0, i64 [[UNI_PHI1]]

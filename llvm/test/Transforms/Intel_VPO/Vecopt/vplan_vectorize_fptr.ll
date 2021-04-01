@@ -45,14 +45,13 @@ define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"cla
 ; CHECK-NEXT:    store <8 x double> [[INDIRECT_CALL_RETURN_LCSSA_PHI0]], <8 x double> addrspace(1)* [[TMP17]], align 8
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB13:
+; CHECK-NEXT:  VPlannedBB12:
 ; CHECK-NEXT:    [[TMP18:%.*]] = add nuw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
 ; CHECK-NEXT:    [[TMP19:%.*]] = add nuw i32 [[UNI_PHI10:%.*]], 8
-; CHECK-NEXT:    [[TMP20:%.*]] = add i32 [[UNI_PHI0:%.*]], 8
-; CHECK-NEXT:    [[TMP21:%.*]] = icmp ult i32 [[TMP20]], 8
+; CHECK-NEXT:    [[TMP20:%.*]] = icmp ult i32 [[TMP19]], 8
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB140:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB14:
+; CHECK-NEXT:  VPlannedBB13:
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:

@@ -147,6 +147,18 @@ static Type *getSOAType(Type *InTy, unsigned VF) {
     llvm_unreachable("Unexpected type encountered.");
 }
 
+static Value *calculateVectorTC(Value *OrigTC, IRBuilder<> &Builder,
+                                unsigned CStep) {
+  // We need to generate the expression for the part of the loop that the
+  // vectorized body will execute. This is equal to (OrigTC/Step)*Step. Step
+  // is equal to the vectorization factor (number of SIMD elements) times the
+  // unroll factor (number of SIMD instructions).
+  auto *Step = ConstantInt::get(OrigTC->getType(), CStep);
+  auto *Rem = Builder.CreateURem(OrigTC, Step, "n.mod.vf");
+  return Builder.CreateSub(OrigTC, Rem, "n.vec", /*HasNUW=*/true,
+                           /*HasNSW=*/true);
+}
+
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                              ArrayRef<Value *> ScalarOperands) {
   SmallVector<Value *, 4> Ops(ScalarOperands.begin(), ScalarOperands.end());
@@ -1363,12 +1375,9 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
   case VPInstruction::VectorTripCountCalculation: {
     auto *VTCCalc = cast<VPVectorTripCountCalculation>(VPInst);
-    // TODO: Inline getOrCreateVectorTripCount's implementation to here once we
-    // complete transition to an explicit CFG representation in VPlan.
-    Loop *L =
-        cast<VPOrigTripCountCalculation>(VTCCalc->getOperand(0))->getOrigLoop();
-    VPScalarMap[VPInst][0] = getOrCreateVectorTripCount(L, Builder);
-
+    Value *OrigTC = getScalarValue(VTCCalc->getOperand(0), 0);
+    VectorTripCount = calculateVectorTC(OrigTC, Builder, UF * VF);
+    VPScalarMap[VPInst][0] = VectorTripCount;
     // Meanwhile, assert that the UF implicitly used by the CG is the same as
     // represented explicitly.
     assert(VTCCalc->getUF() == UF && "Mismatch in UFs!");
@@ -1456,15 +1465,7 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
   assert(L && "Unexpected null loop for trip count create");
   Value *TC = getOrCreateTripCount(L, IBuilder);
 
-  // Now we need to generate the expression for the part of the loop that the
-  // vectorized body will execute. This is equal to N - (N % Step) if scalar
-  // iterations are not required for correctness, or N - Step, otherwise. Step
-  // is equal to the vectorization factor (number of SIMD elements) times the
-  // unroll factor (number of SIMD instructions).
-  Constant *Step = ConstantInt::get(TC->getType(), VF * UF);
-  Value *R = IBuilder.CreateURem(TC, Step, "n.mod.vf");
-
-  VectorTripCount = IBuilder.CreateSub(TC, R, "n.vec");
+  VectorTripCount = calculateVectorTC(TC, IBuilder, UF * VF);
   return VectorTripCount;
 }
 

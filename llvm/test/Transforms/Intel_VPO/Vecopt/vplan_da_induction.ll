@@ -7,7 +7,7 @@
 ; RUN: -vplan-force-vf=2 %s 2>&1 | FileCheck %s
 
 define void @test_induction_strides(i64* %g.arr) {
-; CHECK:       Printing Divergence info for
+; CHECK:       Printing Divergence info for test_induction_strides:simd.loop
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -20,14 +20,11 @@ define void @test_induction_strides(i64* %g.arr) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ARRAYIDX_CURRENT_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_G_ARRAYIDX_CURRENT_IND_INIT:%.*]] = induction-init{getelementptr} i64* live-in2 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_G_ARRAYIDX_CURRENT_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX_CURRENT:%.*]] = phi  [ i32* [[VP_ARRAYIDX_CURRENT_IND_INIT]], [[BB1]] ],  [ i32* [[VP0:%.*]], [[BB3]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_G_ARRAYIDX_CURRENT:%.*]] = phi  [ i64* [[VP_G_ARRAYIDX_CURRENT_IND_INIT]], [[BB1]] ],  [ i64* [[VP1:%.*]], [[BB3]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
@@ -38,9 +35,8 @@ define void @test_induction_strides(i64* %g.arr) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP1]] = getelementptr inbounds i64* [[VP_G_ARRAYIDX_CURRENT]] i64 [[VP_G_ARRAYIDX_CURRENT_IND_INIT_STEP]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_G_ARRAYIDX_NEXT:%.*]] = getelementptr inbounds i64* [[VP_G_ARRAYIDX_CURRENT]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB2]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1

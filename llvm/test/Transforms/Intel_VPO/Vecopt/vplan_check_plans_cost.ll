@@ -2,23 +2,23 @@
 
 ; CHECK: Evaluators for VF=2
 ; CHECK-NEXT: There is no peel loop.
-; CHECK-NEXT: The main loop is vectorized with vector factor 2. The vector cost is 325000(65 x 5000)
-; CHECK-NEXT: The remainder loop is scalar with trip count 1. The scalar cost is 5000(1 x 5000)
+; CHECK-NEXT: The main loop is vectorized with vector factor 2. The vector cost is 260000(65 x 4000)
+; CHECK-NEXT: The remainder loop is scalar with trip count 1. The scalar cost is 4000(1 x 4000)
 ; CHECK-NEXT: Evaluators for VF=4
 ; CHECK-NEXT: There is no peel loop.
-; CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 192000(32 x 6000)
-; CHECK-NEXT: The remainder loop is scalar with trip count 3. The scalar cost is 15000(3 x 5000)
+; CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 160000(32 x 5000)
+; CHECK-NEXT: The remainder loop is scalar with trip count 3. The scalar cost is 12000(3 x 4000)
 ;
 ; RUN: opt -S -VPlanDriver -vplan-print-after-evaluator -vplan-disable-vector-peel-and-vector-remainder=false -disable-output %s 2>&1 | FileCheck %s --check-prefix=VECTOR-CHECK
 
 ; VECTOR-CHECK: Evaluators for VF=2
 ; VECTOR-CHECK-NEXT: There is no peel loop.
-; VECTOR-CHECK-NEXT: The main loop is vectorized with vector factor 2. The vector cost is 325000(65 x 5000). 
-; VECTOR-CHECK-NEXT: The remainder loop is scalar with trip count 1. The scalar cost is 5000(1 x 5000).
+; VECTOR-CHECK-NEXT: The main loop is vectorized with vector factor 2. The vector cost is 260000(65 x 4000).
+; VECTOR-CHECK-NEXT: The remainder loop is scalar with trip count 1. The scalar cost is 4000(1 x 4000).
 ; VECTOR-CHECK-NEXT: Evaluators for VF=4
 ; VECTOR-CHECK-NEXT: There is no peel loop.
-; VECTOR-CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 192000(32 x 6000). 
-; VECTOR-CHECK-NEXT: The remainder loop has trip count 1 and it is vectorized with vector factor 2. The vector cost is 10000.
+; VECTOR-CHECK-NEXT: The main loop is vectorized with vector factor 4. The vector cost is 160000(32 x 5000).
+; VECTOR-CHECK-NEXT: The remainder loop has trip count 1 and it is vectorized with vector factor 2. The vector cost is 8000.
 ; VECTOR-CHECK-NEXT: The remainder loop has a new remainder loop with trip count 1.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

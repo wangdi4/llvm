@@ -7,8 +7,7 @@
 ; MERGE-LABEL:  VPlan after CFG merge before CG:
 ; MERGE-NEXT:  VPlan IR for: _ZGVdN8u_testKernel:simd.loop
 ; MERGE-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; MERGE-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop
-; MERGE-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; MERGE-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 8, UF = 1
 ; MERGE-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP_VECTOR_TRIP_COUNT]]
 ; MERGE-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[SCALAR_PH0:.*]], [[VECTOR_PH0:.*]]
 ; MERGE:           [[VECTOR_PH0]]: # preds: [[BB0]]

@@ -23,7 +23,7 @@
 ; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x float> [ <float 0xFFF0000000000000, float 0xFFF0000000000000, float 0xFFF0000000000000, float 0xFFF0000000000000>, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
 ; CHECK-LLVMIR: [[RED_CMP:%.*]] = fcmp ogt <4 x float> [[RED_PHI]], [[VEC_LD:%.*]]
 ; CHECK-LLVMIR: [[RED_SELECT:%.*]] = select <4 x i1> [[RED_CMP]], <4 x float> [[RED_PHI]], <4 x float> [[VEC_LD]]
-; CHECK-LLVMIR-LABEL: VPlannedBB6:
+; CHECK-LLVMIR-LABEL: VPlannedBB5:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call float @llvm.vector.reduce.fmax.v4f32(<4 x float> [[RED_SELECT]])
 ; CHECK-LLVMIR-LABEL: scalar.ph:
 ; CHECK-LLVMIR: [[UNI_PHI80:%.*]] = phi float [ [[RED_LVC]], [[MIDDLE_BLOCK0:%.*]] ], [ 0xFFF0000000000000, [[VPLANNEDBB20:%.*]] ]

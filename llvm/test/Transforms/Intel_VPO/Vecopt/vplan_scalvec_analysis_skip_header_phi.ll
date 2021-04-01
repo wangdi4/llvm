@@ -15,20 +15,17 @@ define void @test_uni_inner(i64 *%p) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.header (SVAOpBits )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 64, UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_SIMD_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV:%.*]] = phi  [ i64 [[VP_SIMD_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_SIMD_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV:%.*]] = phi  [ i64 [[VP_SIMD_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_SIMD_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_SIMD_IV]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -51,17 +48,16 @@ define void @test_uni_inner(i64 *%p) {
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB6]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV_NEXT]] = add i64 [[VP_SIMD_IV]] i64 [[VP_SIMD_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV_NEXT]] = add i64 [[VP_SIMD_IV]] i64 [[VP_SIMD_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_SIMD_EXITCOND:%.*]] = icmp eq i64 [[VP_SIMD_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_SIMD_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_SIMD_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br middle.block (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB7]]
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 64 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB8:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -132,20 +128,17 @@ define void @test_self_user_phi(i64 *%p) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.header (SVAOpBits )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 64, UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_SIMD_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV:%.*]] = phi  [ i64 [[VP_SIMD_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_SIMD_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV:%.*]] = phi  [ i64 [[VP_SIMD_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_SIMD_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_SIMD_IV]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -166,17 +159,16 @@ define void @test_self_user_phi(i64 *%p) {
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB6]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_SIMD_IV_NEXT]] = add i64 [[VP_SIMD_IV]] i64 [[VP_SIMD_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV_NEXT]] = add i64 [[VP_SIMD_IV]] i64 [[VP_SIMD_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_SIMD_EXITCOND:%.*]] = icmp eq i64 [[VP_SIMD_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_SIMD_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_SIMD_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br middle.block (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB7]]
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 64 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB8:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block

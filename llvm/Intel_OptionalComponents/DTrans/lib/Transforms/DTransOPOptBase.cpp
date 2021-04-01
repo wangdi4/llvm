@@ -20,6 +20,7 @@
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 
@@ -397,6 +398,11 @@ bool DTransOPOptBase::run(Module &M) {
     TypeRemapper.dump();
   });
 
+  ValueMapper Mapper(VMap, RF_IgnoreMissingLocals, &TypeRemapper,
+                     nullptr /*Materializer*/);
+
+  updateDTransTypesMetadata(M, Mapper);
+
   // TODO: Implement the calls to perform the function transformation.
   return true;
 }
@@ -680,6 +686,39 @@ void DTransOPOptBase::populateDependentTypes(
       LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New DTrans structure body: "
                         << *DTReplTy << "\n";);
     }
+  }
+}
+
+void DTransOPOptBase::updateDTransTypesMetadata(Module &M,
+                                                ValueMapper &Mapper) {
+  NamedMDNode *DTMDTypes = TypeMetadataReader::getDTransTypesMetadata(M);
+  if (!DTMDTypes)
+    return;
+
+  SmallVector<MDNode *, 32> Remaps;
+  if (DTMDTypes) {
+    for (MDNode *Op : DTMDTypes->operands()) {
+      assert(Op->getNumOperands() >= 2 && "Invalid metadata operand");
+      auto *TypeMD = dyn_cast<ConstantAsMetadata>(Op->getOperand(1));
+      assert(TypeMD && isa<llvm::StructType>(TypeMD->getType()) &&
+             "Expected struct type");
+      llvm::StructType *StTy = cast<llvm::StructType>(TypeMD->getType());
+      if (!TypeRemapper.hasRemappedType(StTy))
+        Remaps.emplace_back(Mapper.mapMDNode(*Op));
+      else {
+        // Create metadata encoding.
+        llvm::Type *ReplTy = TypeRemapper.remapType(StTy);
+        if (!ReplTy->isStructTy())
+          continue;
+
+        StructType *ReplStructTy = cast<StructType>(ReplTy);
+        DTransStructType *DTReplTy = TM.getStructType(ReplStructTy->getName());
+        Remaps.emplace_back(DTReplTy->createMetadataStructureDescriptor());
+      }
+    }
+    DTMDTypes->clearOperands();
+    for (auto *M : Remaps)
+      DTMDTypes->addOperand(M);
   }
 }
 

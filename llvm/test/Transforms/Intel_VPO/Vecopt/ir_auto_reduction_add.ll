@@ -16,7 +16,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK:         vector.ph:
 ; CHECK-NEXT:    [[RED_INIT_INSERT:%.*]] = insertelement <4 x i32> <i32 poison, i32 0, i32 0, i32 0>, i32 [[INIT:%.*]], i32 0
 ; CHECK:         vector.body:
-; CHECK:         [[VEC_PHI1:%.*]] = phi <4 x i32> [ [[RED_INIT_INSERT]], [[VECTOR_PH:%.*]] ], [ [[TMP0:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK:         [[VEC_PHI1:%.*]] = phi <4 x i32>  [ [[TMP0:%.*]], [[VECTOR_BODY:%.*]] ], [ [[RED_INIT_INSERT]], [[VECTOR_PH:%.*]] ]
 ; CHECK:         [[TMP0]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER:%.*]], [[VEC_PHI1]]
 ; CHECK:         {{VPlannedBB[0-9]+|[0-9]?}}:
 ; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP0]])

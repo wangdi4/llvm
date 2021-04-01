@@ -38,7 +38,7 @@ if.then:                                          ; preds = %simd.loop
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[WIDE_LOAD]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
-; CHECK:       VPlannedBB4:
+; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[MASKEXT:%.*]] = sext <4 x i1> [[TMP2]] to <4 x i64>
 ; CHECK-NEXT:    call void @_ZGVbM4v__Z3fooP1S(<4 x %struct.S*> nonnull [[A_VEC_BASE_ADDR:%.*]], <4 x i64> [[MASKEXT]])
   call void @_Z3fooP1S(%struct.S* nonnull %a)

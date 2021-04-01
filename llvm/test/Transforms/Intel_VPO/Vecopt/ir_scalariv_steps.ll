@@ -24,7 +24,6 @@ define void @foo() {
 ; CHECK:       vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI_EXTRACT_1_:%.*]] = extractelement <2 x i64> [[VEC_PHI]], i32 1
@@ -32,10 +31,9 @@ define void @foo() {
 ; CHECK-NEXT:    call void @baz1(i64 [[VEC_PHI_EXTRACT_1_]])
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], 1024
-; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB4:%.*]], label [[VECTOR_BODY]], [[LOOP1:!llvm.loop !.*]]
-; CHECK:       VPlannedBB4:
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i64 [[TMP1]], 1024
+; CHECK-NEXT:    br i1 [[TMP2]], label %[[VPLANNEDBB4:.*]], label [[VECTOR_BODY]], [[LOOP1:!llvm.loop !.*]]
+; CHECK:       [[VPLANNEDBB4]]:
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2) ]

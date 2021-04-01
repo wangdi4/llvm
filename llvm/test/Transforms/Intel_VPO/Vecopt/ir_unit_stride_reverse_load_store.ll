@@ -9,16 +9,14 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP0:%.*]] = sub i64 1023 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[SRC0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[DEST0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP1]] i32* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
@@ -42,8 +40,7 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub nuw nsw <4 x i64> <i64 1023, i64 1023, i64 1023, i64 1023>, [[VEC_PHI0]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
@@ -59,9 +56,8 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    store <4 x i32> [[REVERSE50]], <4 x i32>* [[TMP4]], align 8
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i64 [[TMP7]], 1024
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[TMP6]], 1024
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

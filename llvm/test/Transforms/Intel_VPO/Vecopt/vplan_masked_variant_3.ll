@@ -14,20 +14,16 @@ define void @main() {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:     [DA: Div] i32 [[VP1:%.*]] = induction-init{add} i32 live-in1 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP3:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP4:%.*]] = orig-trip-count for original loop header
-; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = vector-trip-count i32 [[VP4]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP3:%.*]] = vector-trip-count i32 128, UF = 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP6:%.*]] = phi  [ i32 0, Cloned.[[BB1]] ],  [ i32 [[VP7:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP1]], Cloned.[[BB1]] ],  [ i32 [[VP8:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB1]] ],  [ i32 [[VP9:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP10:%.*]] = icmp uge i32 [[VP6]] i32 [[VP5]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP10]], [[BB3:BB[0-9]+]], new_latch
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP1]], Cloned.[[BB1]] ],  [ i32 [[VP_IV_NEXT:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB1]] ],  [ i32 [[VP4:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_IV]] i32 [[VP3]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP_BOTTOM_TEST]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: Cloned.[[BB2]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_IV_NEXT:%.*]] = add i32 [[VP_IV]] i32 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_COND1:%.*]] = icmp eq i32 [[VP_IV]] i32 8
 ; CHECK-NEXT:       [DA: Div] br i1 [[VP_COND1]], Cloned.[[BB4:BB[0-9]+]], Cloned.[[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -49,24 +45,23 @@ define void @main() {
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: Cloned.[[BB5]], Cloned.[[BB2]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP8]] = phi  [ i32 [[VP_IV_NEXT]], Cloned.[[BB5]] ],  [ i32 [[VP_IV]], Cloned.[[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP9]] = phi  [ i32 [[VP_ADD]], Cloned.[[BB5]] ],  [ i32 [[VP_ADD_PHI]], Cloned.[[BB2]] ]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP7]] = add i32 [[VP6]] i32 [[VP3]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP11:%.*]] = icmp uge i32 [[VP7]] i32 [[VP5]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP11]], Cloned.[[BB8:BB[0-9]+]], Cloned.[[BB2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = phi  [ i32 [[VP_ADD]], Cloned.[[BB5]] ],  [ i32 [[VP_ADD_PHI]], Cloned.[[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP2]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BOTTOM_TEST_1:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 [[VP3]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_BOTTOM_TEST_1]], Cloned.[[BB8:BB[0-9]+]], Cloned.[[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB8]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP12:%.*]] = reduction-final{u_add} i32 [[VP9]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP13:%.*]] = induction-final{add} i32 live-in1 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = reduction-final{u_add} i32 [[VP4]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP6:%.*]] = induction-final{add} i32 live-in1 i32 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB9]]: # preds: Cloned.[[BB8]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0:%.*]] = phi i32 [ [[ADD0:%.*]], [[LATCH0:%.*]] ] i32 [[VP12]] -> i32 [[ADD0]]
+; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0:%.*]] = phi i32 [ [[ADD0:%.*]], [[LATCH0:%.*]] ] i32 [[VP5]] -> i32 [[ADD0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   no underlying for i32 [[VP13]]
+; CHECK-NEXT:  Id: 1   no underlying for i32 [[VP6]]
 ;
 entry:
   br label %preheader

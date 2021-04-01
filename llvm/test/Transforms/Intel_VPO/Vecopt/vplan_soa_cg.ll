@@ -3,14 +3,14 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=2 -vplan-enable-soa \
 ; RUN: -vplan-print-after-transformed-soa-geps -S %s 2>&1 | FileCheck %s
 
+define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-LABEL:  VPlan after Dump Transformed SOA GEPs:
 ; CHECK-NEXT:  VPlan IR for: test_memref_transform:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
 ; CHECK-EMPTY:
@@ -18,11 +18,9 @@
 ; CHECK-NEXT:       [DA: Div] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB2]], vector.ph
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], vector.ph ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_UNI_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_UNI_GEP2:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP1]] i64 1
@@ -43,16 +41,15 @@
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_LD_3:%.*]] = load i32* [[VP_RND_GEP1]]
 ; CHECK-NEXT:       [DA: Div] store i32 30 i32* [[VP_RND_GEP1]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:       [DA: Uni] br middle.block
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 1024 i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -76,8 +73,8 @@
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_IV1_IND_FINAL]]
 ;
-define dso_local void @test_memref_transform(i32 %n) {
-; CHECK:       omp.inner.for.body.lr.ph:
+; CHECK:  define dso_local void @test_memref_transform(i32 [[N0:%.*]]) {
+; CHECK-NEXT:  omp.inner.for.body.lr.ph:
 ; CHECK-NEXT:    [[ARR_PRIV0:%.*]] = alloca [1024 x i32], align 4
 ; CHECK-NEXT:    [[ARR_PRIV_SOA_VEC0:%.*]] = alloca [1024 x <2 x i32>], align 8
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_10:%.*]]
@@ -98,29 +95,27 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP0:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], i64 0, i64 0
-; CHECK-NEXT:    [[SOA_SCALAR_GEP40:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP0]], i64 1
-; CHECK-NEXT:    [[SOA_SCALAR_GEP50:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP40]], i64 2
-; CHECK-NEXT:    [[SOA_SCALAR_GEP60:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP50]], i64 3
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP60]], align 4
-; CHECK-NEXT:    store <2 x i32> <i32 10, i32 10>, <2 x i32>* [[SOA_SCALAR_GEP60]], align 4
+; CHECK-NEXT:    [[SOA_SCALAR_GEP30:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP0]], i64 1
+; CHECK-NEXT:    [[SOA_SCALAR_GEP40:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP30]], i64 2
+; CHECK-NEXT:    [[SOA_SCALAR_GEP50:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP40]], i64 3
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP50]], align 4
+; CHECK-NEXT:    store <2 x i32> <i32 10, i32 10>, <2 x i32>* [[SOA_SCALAR_GEP50]], align 4
 ; CHECK-NEXT:    [[SOA_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI0]]
-; CHECK-NEXT:    [[SOA_VECTORGEP70:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI0]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[SOA_VECTORGEP80:%.*]] = getelementptr inbounds <2 x i32>, <2 x <2 x i32>*> [[SOA_VECTORGEP0]], <2 x i64> [[VEC_PHI0]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[SOA_VECTORGEP70]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 20, i32 20>, <2 x i32*> [[SOA_VECTORGEP80]], i32 4, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:    [[SOA_VECTORGEP60:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI0]], <2 x i64> <i64 0, i64 1>
+; CHECK-NEXT:    [[SOA_VECTORGEP70:%.*]] = getelementptr inbounds <2 x i32>, <2 x <2 x i32>*> [[SOA_VECTORGEP0]], <2 x i64> [[VEC_PHI0]], <2 x i64> <i64 0, i64 1>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[SOA_VECTORGEP60]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 20, i32 20>, <2 x i32*> [[SOA_VECTORGEP70]], i32 4, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext <2 x i32> [[WIDE_LOAD0]] to <2 x i64>
-; CHECK-NEXT:    [[SOA_VECTORGEP90:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[TMP0]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER100:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[SOA_VECTORGEP90]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 30, i32 30>, <2 x i32*> [[SOA_VECTORGEP90]], i32 4, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:    [[SOA_VECTORGEP80:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[TMP0]], <2 x i64> <i64 0, i64 1>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER90:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[SOA_VECTORGEP80]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 30, i32 30>, <2 x i32*> [[SOA_VECTORGEP80]], i32 4, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI30]], 2
-; CHECK-NEXT:    [[TMP3]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY0]], label [[VPLANNEDBB110:%.*]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i64 [[TMP2]], 1024
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB100:%.*]], !llvm.loop !0
 ;
 omp.inner.for.body.lr.ph:
   %arr.priv = alloca [1024 x i32], align 4

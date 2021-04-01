@@ -17,19 +17,16 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
-; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      vector.ph: # preds: [[BB1]]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CALLVECDEC-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], vector.ph ]
 ; CALLVECDEC-NEXT:       [DA: Div] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @src i64 0 i64 [[VP_INDVARS_IV]]
 ; CALLVECDEC-NEXT:       [DA: Div] float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]]
@@ -61,16 +58,15 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:       [DA: Div] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]]
 ; CALLVECDEC-NEXT:       [DA: Div] store float [[VP6]] float* [[VP_ARRAYIDX2]]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB5]]: # preds: [[BB3]]
 ; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CALLVECDEC-NEXT:       [DA: Uni] br middle.block
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      middle.block: # preds: [[BB5]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 1024 i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB6:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -100,19 +96,16 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:    [[BB1]]: # preds: [[BB0]]
-; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body (SVAOpBits )
-; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      vector.ph: # preds: [[BB1]]
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], vector.ph ] (SVAOpBits 0->FV 1->FV )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @src i64 0 i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
@@ -144,16 +137,15 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] store float [[VP6]] float* [[VP_ARRAYIDX2]] (SVAOpBits 0->V 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB5]]: # preds: [[BB3]]
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br middle.block (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      middle.block: # preds: [[BB5]]
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 1024 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB6:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -244,19 +236,16 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body
-; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      vector.ph: # preds: [[BB1]]
 ; CALLVECDEC-NEXT:       [DA: Div] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CALLVECDEC-NEXT:       [DA: Uni] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
-; CALLVECDEC-NEXT:       [DA: Uni] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
 ; CALLVECDEC-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB2]]: # preds: [[BB2]], vector.ph
-; CALLVECDEC-NEXT:       [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, vector.ph ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; CALLVECDEC-NEXT:       [DA: Div] i32 [[VP__OMP_IV_LOCAL_014:%.*]] = phi  [ i32 [[VP_ADD6:%.*]], [[BB2]] ],  [ i32 [[VP__OMP_IV_LOCAL_014_IND_INIT]], vector.ph ]
 ; CALLVECDEC-NEXT:       [DA: Div] float [[VP_CONV:%.*]] = sitofp i32 [[VP__OMP_IV_LOCAL_014]] to float
 ; CALLVECDEC-NEXT:       [DA: Div] float [[VP_PUMP_CALL:%.*]] = call float [[VP_CONV]] __svml_sinf64 [x 2]
@@ -264,16 +253,15 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:       [DA: Div] float* [[VP_ARRAYIDXA:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_IDXPROM]]
 ; CALLVECDEC-NEXT:       [DA: Div] store float [[VP_PUMP_CALL]] float* [[VP_ARRAYIDXA]]
 ; CALLVECDEC-NEXT:       [DA: Div] i32 [[VP_ADD6]] = add i32 [[VP__OMP_IV_LOCAL_014]] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP]]
-; CALLVECDEC-NEXT:       [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
-; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_ADD6]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CALLVECDEC-NEXT:       [DA: Uni] i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CALLVECDEC-NEXT:       [DA: Uni] br middle.block
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      middle.block: # preds: [[BB3]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 [[VP_ORIG_TRIP_COUNT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 [[N0]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB4:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -303,19 +291,16 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:    [[BB1]]: # preds: [[BB0]]
-; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop omp.inner.for.body (SVAOpBits )
-; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1 (SVAOpBits 0->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      vector.ph: # preds: [[BB1]]
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1 (SVAOpBits 0->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB2]]: # preds: [[BB2]], vector.ph
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, vector.ph ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i32 [[VP__OMP_IV_LOCAL_014:%.*]] = phi  [ i32 [[VP_ADD6:%.*]], [[BB2]] ],  [ i32 [[VP__OMP_IV_LOCAL_014_IND_INIT]], vector.ph ] (SVAOpBits 0->FV 1->FV )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] float [[VP_CONV:%.*]] = sitofp i32 [[VP__OMP_IV_LOCAL_014]] to float (SVAOpBits 0->V )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] float [[VP_PUMP_CALL:%.*]] = call float [[VP_CONV]] __svml_sinf64 [x 2] (SVAOpBits 0->V 1->F )
@@ -323,16 +308,15 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDXA:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_IDXPROM]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] store float [[VP_PUMP_CALL]] float* [[VP_ARRAYIDXA]] (SVAOpBits 0->V 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i32 [[VP_ADD6]] = add i32 [[VP__OMP_IV_LOCAL_014]] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_ADD6]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1 (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br middle.block (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      middle.block: # preds: [[BB3]]
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 [[VP_ORIG_TRIP_COUNT]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 [[N0]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB4:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -404,19 +388,16 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; CALLVECDEC-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop header
-; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CALLVECDEC-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 2, UF = 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      vector.ph: # preds: [[BB1]]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CALLVECDEC-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ]
 ; CALLVECDEC-NEXT:       [DA: Div] i1 [[VP_COND:%.*]] = call i64 [[VP_IV]] i1 (i64)* @some_cond [Serial]
 ; CALLVECDEC-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
@@ -429,8 +410,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB3]]: # preds: [[BB4]]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:       [DA: Uni] br i1 true, [[BB5:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-NEXT:       Condition(external): i1 true
 ; CALLVECDEC-EMPTY:
@@ -439,7 +419,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; CALLVECDEC-NEXT:       [DA: Uni] br middle.block
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      middle.block: # preds: [[BB5]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 2 i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB6:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
@@ -469,20 +449,17 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:    [[BB1]]: # preds: [[BB0]]
-; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop header (SVAOpBits )
-; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
+; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 2, UF = 1 (SVAOpBits 0->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      vector.ph: # preds: [[BB1]]
-; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
-; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
+; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_COND:%.*]] = call i64 [[VP_IV]] i1 (i64)* @some_cond [Serial] (SVAOpBits 0->V 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
@@ -493,9 +470,8 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB3]]: # preds: [[BB4]]
-; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 true, [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-NEXT:       Condition(external): i1 true
 ; SVAPREFIX-EMPTY:
@@ -504,7 +480,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br middle.block (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      middle.block: # preds: [[BB5]]
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 2 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB6:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      scalar.ph: # preds: [[BB1]], middle.block

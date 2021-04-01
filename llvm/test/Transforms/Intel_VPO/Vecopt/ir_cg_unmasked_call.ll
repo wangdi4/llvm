@@ -22,7 +22,7 @@ define void @test() local_unnamed_addr #1 {
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i1 @some_cond(i64 [[VEC_PHI_EXTRACT_1_:%.*]])
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i1> [[TMP1]], i1 [[TMP2]], i32 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
-; CHECK:       VPlannedBB4:
+; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x i1> @ballot.vec(<2 x i1> <i1 true, i1 true>, <2 x i1> [[TMP3]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i1> [[TMP3]] to i2
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i2 [[TMP5]], 0
@@ -34,11 +34,10 @@ define void @test() local_unnamed_addr #1 {
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
 ; CHECK:       pred.call.continue:
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
-; CHECK:       VPlannedBB5:
+; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP10:%.*]] = add i64 [[UNI_PHI:%.*]], 2
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp uge i64 [[TMP10]], 2
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[TMP9]], 2
 ; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

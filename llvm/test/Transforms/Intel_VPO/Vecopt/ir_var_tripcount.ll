@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: var_tripcount
 ; CHECK: vector.body
-; CHECK: [[SCALAR_IV:%.*]] = phi i64 [ 0,
+; CHECK: [[SCALAR_IV:%.*]] = phi i64 [ %
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i64> [
 ; CHECK: store {{.*}} <4 x i32>
 ; CHECK: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>

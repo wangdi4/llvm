@@ -18,15 +18,14 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ;
 ; LLVM-CG-LABEL: define dso_local void @func(
 ; LLVM-CG:       vector.body:
-; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP20:%.*]], [[VPLANNEDBB60:%.*]] ]
-; LLVM-CG-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ [[TMP19:%.*]], [[VPLANNEDBB60]] ], [ 0, [[VECTOR_PH0]] ]
-; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP18:%.*]], [[VPLANNEDBB60]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; LLVM-CG-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ [[TMP19:%.*]], %[[VPLANNEDBB60:.*]] ], [ 0, [[VECTOR_PH0:%.*]] ]
+; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP18:%.*]], %[[VPLANNEDBB60]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
 ; LLVM-CG-NEXT:    [[VEC_PHI_EXTRACT_1_0:%.*]] = extractelement <2 x i64> [[VEC_PHI0]], i32 1
 ; LLVM-CG-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], <i64 42, i64 42>
 ; LLVM-CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds [256 x i8]*, [256 x i8]** [[STORAGE0:%.*]], i64 [[UNI_PHI30]]
-; LLVM-CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; LLVM-CG-NEXT:    br label %[[VPLANNEDBB40:.*]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  VPlannedBB4:
+; LLVM-CG-NEXT:  [[VPLANNEDBB40]]:
 ; LLVM-CG-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
 ; LLVM-CG-NEXT:    [[TMP2:%.*]] = icmp eq i1 [[PREDICATE0]], true
 ; LLVM-CG-NEXT:    br i1 [[TMP2]], label [[PRED_ALLOCA_IF0:%.*]], label [[TMP5:%.*]]
@@ -37,29 +36,29 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-CG-NEXT:    br label [[TMP5]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  5:
-; LLVM-CG-NEXT:    [[TMP6:%.*]] = phi <2 x [256 x i8]*> [ undef, [[VPLANNEDBB40]] ], [ [[TMP4]], [[PRED_ALLOCA_IF0]] ]
+; LLVM-CG-NEXT:    [[TMP6:%.*]] = phi <2 x [256 x i8]*> [ undef, %[[VPLANNEDBB40]] ], [ [[TMP4]], [[PRED_ALLOCA_IF0]] ]
 ; LLVM-CG-NEXT:    br label [[PRED_ALLOCA_CONTINUE0:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.alloca.continue:
 ; LLVM-CG-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP1]], i64 1
 ; LLVM-CG-NEXT:    [[TMP7:%.*]] = icmp eq i1 [[PREDICATE50]], true
-; LLVM-CG-NEXT:    br i1 [[TMP7]], label [[PRED_ALLOCA_IF130:%.*]], label [[TMP10:%.*]]
+; LLVM-CG-NEXT:    br i1 [[TMP7]], label %[[PRED_ALLOCA_IF130:.*]], label [[TMP10:%.*]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  pred.alloca.if13:
+; LLVM-CG-NEXT:  [[PRED_ALLOCA_IF130]]:
 ; LLVM-CG-NEXT:    [[TMP8:%.*]] = alloca [256 x i8], i64 [[VEC_PHI_EXTRACT_1_0]], align 16
 ; LLVM-CG-NEXT:    [[TMP9:%.*]] = insertelement <2 x [256 x i8]*> [[TMP6]], [256 x i8]* [[TMP8]], i32 1
 ; LLVM-CG-NEXT:    br label [[TMP10]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  10:
-; LLVM-CG-NEXT:    [[TMP11:%.*]] = phi <2 x [256 x i8]*> [ [[TMP6]], [[PRED_ALLOCA_CONTINUE0]] ], [ [[TMP9]], [[PRED_ALLOCA_IF130]] ]
-; LLVM-CG-NEXT:    br label [[PRED_ALLOCA_CONTINUE140:%.*]]
+; LLVM-CG-NEXT:    [[TMP11:%.*]] = phi <2 x [256 x i8]*> [ [[TMP6]], [[PRED_ALLOCA_CONTINUE0]] ], [ [[TMP9]], %[[PRED_ALLOCA_IF130]] ]
+; LLVM-CG-NEXT:    br label %[[PRED_ALLOCA_CONTINUE140:.*]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  pred.alloca.continue14:
+; LLVM-CG-NEXT:  [[PRED_ALLOCA_CONTINUE140]]:
 ; LLVM-CG-NEXT:    [[TMP12:%.*]] = bitcast [256 x i8]** [[SCALAR_GEP0]] to <2 x [256 x i8]*>*
 ; LLVM-CG-NEXT:    call void @llvm.masked.store.v2p0a256i8.p0v2p0a256i8(<2 x [256 x i8]*> [[TMP11]], <2 x [256 x i8]*>* [[TMP12]], i32 16, <2 x i1> [[TMP1]])
-; LLVM-CG-NEXT:    br label [[VPLANNEDBB60]]
+; LLVM-CG-NEXT:    br label %[[VPLANNEDBB60]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  VPlannedBB6:
+; LLVM-CG-NEXT:  [[VPLANNEDBB60]]:
 ; LLVM-CG-NEXT:    [[TMP13:%.*]] = alloca [256 x i8], align 16
 ; LLVM-CG-NEXT:    [[TMP14:%.*]] = insertelement <2 x [256 x i8]*> undef, [256 x i8]* [[TMP13]], i32 0
 ; LLVM-CG-NEXT:    [[TMP15:%.*]] = alloca [256 x i8], align 16

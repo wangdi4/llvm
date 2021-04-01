@@ -4,7 +4,7 @@
 ; CHECK: vector.body
 ; CHECK:  [[VRES:%.*]] = fadd <8 x float>
 
-; CHECK: VPlannedBB5
+; CHECK: VPlannedBB4
 ; CHECK:  [[RES:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float %x.promoted, <8 x float> [[VRES]])
 
 ; CHECK:  scalar.ph:
@@ -57,7 +57,7 @@ DIR.QUAL.LIST.END.3:                              ; preds = %for.end
 ; CHECK: vector.body
 ; CHECK: [[VRES:%.*]] = fsub <8 x float>
 
-; CHECK: VPlannedBB5
+; CHECK: VPlannedBB4
 ; CHECK: [[RES:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float %x.promoted, <8 x float> [[VRES]])
 
 ; CHECK:  scalar.ph:

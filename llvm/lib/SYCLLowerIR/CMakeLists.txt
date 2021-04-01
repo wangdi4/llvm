@@ -20,6 +20,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
 # INTEL_FEATURE_ESIMD_EMBARGO
       if( IS_INTERNAL_ESIMD_BUILD )
         # use different git repo and tag for the internal ESIMD EMBARGO build
+        add_compile_definitions(__INTEL_EMBARGO__)
         set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
         set( LLVMGenXIntrinsics_GIT_TAG 4dec1a45eaa935adbb0a60fae99344e27c2c7b24 )
       endif()

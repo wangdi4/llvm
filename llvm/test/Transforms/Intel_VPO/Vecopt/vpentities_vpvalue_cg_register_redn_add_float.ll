@@ -39,7 +39,7 @@
 ; CHECK-LLVMIR-LABEL: vector.body:
 ; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x float> [ zeroinitializer, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
 ; CHECK-LLVMIR: [[RED_ADD]] = fadd <4 x float> [[RED_PHI]], {{%.*}}
-; CHECK-LLVMIR-LABEL: VPlannedBB6:
+; CHECK-LLVMIR-LABEL: VPlannedBB5:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> [[RED_ADD]])
 ; CHECK-LLVMIR-LABEL: scalar.ph:
 ; CHECK-LLVMIR: [[UNI_PHI80:%.*]] = phi float [ [[RED_LVC]], [[MIDDLE_BLOCK0:%.*]] ], [ 0.000000e+00, [[VPLANNEDBB20:%.*]] ]

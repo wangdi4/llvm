@@ -67,6 +67,112 @@ public:
   typedef BlobDDRefsTy::reverse_iterator reverse_blob_iterator;
   typedef ConstBlobDDRefsTy::const_reverse_iterator const_reverse_blob_iterator;
 
+  /// Traverses all DDRefs in HLDDNode.
+  /// RegDDRef is traversed before all BlobDDRefs associated with RegDDRef.
+  ///
+  /// Traversal corresponds to the following loop nest:
+  /// for (RegIt: make_range(ddref_begin(), ddref_end())) {
+  ///   // Processing of *RegIt
+  ///   for (BlobIt:
+  ///     make_range((*RegIt)->blob_begin(), (*RegIt)->blob_begin())) {
+  ///      // Processing of *BlobIt
+  ///   }
+  /// }
+  ///
+  /// value and reference types are DDRef* in std::iterator
+  template <typename DDRefIteratorTy>
+  class const_all_ddref_iterator
+      : public std::iterator<std::bidirectional_iterator_tag, const DDRef *,
+                             std::ptrdiff_t, const DDRef *const *,
+                             const DDRef *> {
+
+    typedef RegDDRef::const_blob_iterator const_blob_iterator;
+
+  public:
+    explicit const_all_ddref_iterator(DDRefIteratorTy RegIt)
+        : RegIt(RegIt), BlobIt(nullptr), IsRegDDRef(true) {}
+
+    bool operator==(const const_all_ddref_iterator &It) const {
+      return RegIt == It.RegIt && IsRegDDRef == It.IsRegDDRef &&
+          BlobIt == It.BlobIt;
+    }
+
+    bool operator!=(const const_all_ddref_iterator &It) const {
+      return !(operator==(It));
+    }
+
+    iterator &operator++() {
+      // See descriptors in private section
+      if (IsRegDDRef) {
+        IsRegDDRef = false;
+        BlobIt = (*RegIt)->blob_begin();
+      } else {
+        ++BlobIt;
+      }
+      if (BlobIt == (*RegIt)->blob_end()) {
+        IsRegDDRef = true;
+        BlobIt = nullptr;
+        ++RegIt;
+      }
+      return *this;
+    }
+
+    iterator &operator--() {
+      // See descriptors in private section
+      if (IsRegDDRef) {
+        IsRegDDRef = false;
+        BlobIt = (*(--RegIt))->blob_end();
+      }
+      if (BlobIt == (*RegIt)->blob_begin()) {
+        IsRegDDRef = true;
+        BlobIt = nullptr;
+      } else {
+        --BlobIt;
+      }
+      return *this;
+    }
+
+    iterator operator++(int) {
+      iterator retval = *this;
+      ++(*this);
+      return retval;
+    }
+
+    iterator operator--(int) {
+      iterator retval = *this;
+      --(*this);
+      return retval;
+    }
+
+    reference operator*() const {
+      if (IsRegDDRef) {
+        return *RegIt;
+      }
+      return *BlobIt;
+    }
+
+  private:
+    // This iterator is one-past-end when RegIt is one-past-end and IsRegDDRef
+    // is true.
+    //
+    // This iterator can be dereferenced when RegIt can be dereferenced and
+    // either IsRegDDRef is true or BlobIt can be dereferenced.
+    DDRefIteratorTy RegIt;
+    const_blob_iterator BlobIt;
+    bool IsRegDDRef;
+  };
+
+  template <typename T>
+  using addressof_iterator =
+      mapped_iterator<T, decltype(&std::pointer_traits<T>::pointer_to)>;
+
+  struct const_all_ddref_single_iterator
+      : public const_all_ddref_iterator<addressof_iterator<const RegDDRef *>> {
+    const_all_ddref_single_iterator(const RegDDRef *Ref)
+        : const_all_ddref_iterator(addressof_iterator<const RegDDRef *>(
+              Ref, std::pointer_traits<const RegDDRef *>::pointer_to)) {}
+  };
+
 private:
   typedef SmallVector<unsigned, 2> OffsetsTy;
 
@@ -690,6 +796,13 @@ public:
   IntegerRangeIterator dim_num_begin() const { return IntegerRangeIterator(1); }
   IntegerRangeIterator dim_num_end() const {
     return IntegerRangeIterator(getNumDimensions() + 1);
+  }
+
+  const_all_ddref_single_iterator all_dd_begin() const {
+    return const_all_ddref_single_iterator(this);
+  }
+  const_all_ddref_single_iterator all_dd_end() const {
+    return const_all_ddref_single_iterator(std::next(this));
   }
 
   bool hasBlobDDRefs() const { return !BlobDDRefs.empty(); }

@@ -58,11 +58,11 @@ DIR.QUAL.LIST.END.2:
 ; CHECK:         [[MM_VECTORGEP60:%.*]] = getelementptr inbounds [[STRUCT0:%.*]], <2 x %Struct*> [[MM_VECTORGEP0:%.*]], <2 x i32> <i32 1, i32 1>, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[MM_VECTORGEP80:%.*]] = getelementptr inbounds [[STRUCT0]], <2 x %Struct*> [[MM_VECTORGEP0]], <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:  VPlannedBB8:
 ; CHECK-NEXT:    [[PREDBLEND0:%.*]] = select <2 x i1> [[TMP1:%.*]], <2 x <3 x i32>*> [[MM_VECTORGEP80]], <2 x <3 x i32>*> [[MM_VECTORGEP60]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x <3 x i32>*> [[PREDBLEND0]] to <2 x i32*>
 ; CHECK-NEXT:    [[VECBASEPTR_100:%.*]] = shufflevector <2 x i32*> [[TMP3]], <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>

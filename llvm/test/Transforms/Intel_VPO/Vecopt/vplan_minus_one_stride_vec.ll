@@ -9,8 +9,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ;
 ; IRCHECK:  define dso_local void @foo(i64* noalias nocapture [[LARR0:%.*]]) local_unnamed_addr {
 ; IRCHECK:       vector.body:
-; IRCHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP9:%.*]], [[VPLANNEDBB70:%.*]] ]
-; IRCHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[VPLANNEDBB70]] ]
+  ; IRCHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP8:%.*]], [[VPLANNEDBB70:%.*]] ]
 ; IRCHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VPLANNEDBB70]] ]
 ; IRCHECK-NEXT:    [[TMP0:%.*]] = sub nsw <4 x i64> zeroinitializer, [[VEC_PHI0]]
 ; IRCHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
@@ -22,7 +21,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; IRCHECK-NEXT:    [[TMP3:%.*]] = icmp sgt <4 x i64> [[REVERSE0]], <i64 10, i64 10, i64 10, i64 10>
 ; IRCHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; IRCHECK-EMPTY:
-; IRCHECK-NEXT:  VPlannedBB4:
+; IRCHECK-NEXT:  VPlannedBB3:
 ; IRCHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i64> [[REVERSE0]], <i64 1, i64 1, i64 1, i64 1>
 ; IRCHECK-NEXT:    [[TMP5:%.*]] = getelementptr i64, i64* [[SCALAR_GEP0]], i32 -3
 ; IRCHECK-NEXT:    [[TMP6:%.*]] = bitcast i64* [[TMP5]] to <4 x i64>*
@@ -31,12 +30,11 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; IRCHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[REVERSE50]], <4 x i64>* [[TMP6]], i32 8, <4 x i1> [[REVERSE60]])
 ; IRCHECK-NEXT:    br label [[VPLANNEDBB70]]
 ; IRCHECK-EMPTY:
-; IRCHECK-NEXT:  VPlannedBB7:
+; IRCHECK-NEXT:  VPlannedBB6:
 ; IRCHECK-NEXT:    [[TMP7]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; IRCHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI30]], 4
-; IRCHECK-NEXT:    [[TMP9]] = add i64 [[UNI_PHI0]], 4
-; IRCHECK-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], 100
-; IRCHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
+; IRCHECK-NEXT:    [[TMP9:%.*]] = icmp eq i64 [[TMP8]], 100
+; IRCHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIRCHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>

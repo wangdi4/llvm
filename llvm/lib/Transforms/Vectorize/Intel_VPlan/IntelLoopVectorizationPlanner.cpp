@@ -865,7 +865,7 @@ bool LoopVectorizationPlanner::hasNormalizedInduction(const VPLoop *Loop) const 
       if (!Loop->isDefOutside(SecOp) && !isa<VPConstant>(SecOp))
         return false;
       // Check step.
-      if (auto StepInit = dyn_cast<VPInductionInitStep>(AddI->getOperand(0)))
+      if (auto *StepInit = dyn_cast<VPInductionInitStep>(AddI->getOperand(0)))
         SecOp = StepInit->getOperand(0);
       else {
         StepInit = cast<VPInductionInitStep>(AddI->getOperand(1));
@@ -929,24 +929,40 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   auto *PreHeader = CandidateLoop->getLoopPreheader();
   assert(PreHeader && "Single pre-header is expected!");
 
-  Type *VectorLoopIVType = Legal->getWidestInductionType();
-  if (!VectorLoopIVType) {
-    // Ugly workaround for tests forcing VPlan build when we can't actually do
-    // that. Shouldn't happen outside stress/forced pipeline.
-    VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
-  }
-  auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
-
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
-  auto *VF = Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
+  VPValue *OrigTC;
+  bool HasNormalizedInd = hasNormalizedInduction(CandidateLoop);
+  if (!HasNormalizedInd) {
+    // If loop does not have normalized induction then emit it.
+    Type *VectorLoopIVType = Legal->getWidestInductionType();
+    if (!VectorLoopIVType) {
+      // Ugly workaround for tests forcing VPlan build when we can't actually do
+      // that. Shouldn't happen outside stress/forced pipeline.
+      VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
+    }
+    auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
 
-  auto *OrigTC = Builder.create<VPOrigTripCountCalculation>(
-      "orig.trip.count", TheLoop, CandidateLoop, VectorLoopIVType);
-  auto *TC =
-      Builder.create<VPVectorTripCountCalculation>("vector.trip.count", OrigTC);
+    auto *VF =
+        Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
 
-  emitVectorLoopIV(Plan, TC, VF);
+    OrigTC = Builder.create<VPOrigTripCountCalculation>(
+        "orig.trip.count", TheLoop, CandidateLoop, VectorLoopIVType);
+    auto *TC = Builder.create<VPVectorTripCountCalculation>("vector.trip.count",
+                                                            OrigTC);
+
+    emitVectorLoopIV(Plan, TC, VF);
+  } else {
+    // Having normalized induction we just replace the upper bound.
+    VPInstruction *Cond;
+    std::tie(OrigTC, Cond) = getLoopUpperBound(CandidateLoop);
+    auto *VTC = Builder.create<VPVectorTripCountCalculation>(
+        "vector.trip.count", OrigTC);
+    // TODO: propagate attributes from OrigTC, if possible.
+    if (auto *IOrigTC = dyn_cast<VPInstruction>(OrigTC))
+      VTC->setDebugLocation(IOrigTC->getDebugLocation());
+    Cond->replaceUsesOfWith(OrigTC, VTC);
+  }
 }
 
 void LoopVectorizationPlanner::emitVectorLoopIV(VPlanVector *Plan,

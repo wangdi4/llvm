@@ -8,8 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo(<2 x float>* nocapture readonly %p) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <2 x float>, <2 x float>* [[P:%.*]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x float>* [[SCALAR_GEP]] to <8 x float>*
@@ -20,9 +19,8 @@ define void @foo(<2 x float>* nocapture readonly %p) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x float> [[WIDE_LOAD]], <8 x float> [[TMP1]], <12 x i32> <i32 0, i32 undef, i32 9, i32 2, i32 undef, i32 11, i32 4, i32 undef, i32 13, i32 6, i32 undef, i32 15>
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI1]], 4
-; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 1024
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[TMP6]], 1024
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
