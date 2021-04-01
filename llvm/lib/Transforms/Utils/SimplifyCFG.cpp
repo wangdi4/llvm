@@ -2701,20 +2701,21 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       auto Invertible = m_CombineOr(m_Not(m_Value()), m_AnyIntegralConstant());
       return match(V0, m_Not(m_Value())) && match(V1, Invertible);
     };
-  // Don't fold i1 branches on PHIs which contain binary operators or
-  // select form of or/ands, unless one of the incoming values is an 'not' and
-  // another one is freely invertible.
-  // These can often be turned into switches and other things.
-  auto IsBinOpOrAnd = [](Value *V) {
-    return match(
-        V, m_CombineOr(m_BinOp(), m_CombineOr(m_LogicalAnd(), m_LogicalOr())));
-  };
-  if (PN->getType()->isIntegerTy(1) &&
-      (IsBinOpOrAnd(PN->getIncomingValue(0)) ||
-       IsBinOpOrAnd(PN->getIncomingValue(1)) || IsBinOpOrAnd(IfCond)) &&
-      !CanHoistNotFromBothValues(PN->getIncomingValue(0),
-                                 PN->getIncomingValue(1)))
-    return Changed;
+
+    // Don't fold i1 branches on PHIs which contain binary operators or
+    // select form of or/ands, unless one of the incoming values is an 'not' and
+    // another one is freely invertible.
+    // These can often be turned into switches and other things.
+    auto IsBinOpOrAnd = [](Value *V) {
+      return match(
+          V, m_CombineOr(m_BinOp(), m_CombineOr(m_LogicalAnd(), m_LogicalOr())));
+    };
+    if (PN->getType()->isIntegerTy(1) &&
+        (IsBinOpOrAnd(PN->getIncomingValue(0)) ||
+         IsBinOpOrAnd(PN->getIncomingValue(1)) || IsBinOpOrAnd(IfCond)) &&
+        !CanHoistNotFromBothValues(PN->getIncomingValue(0),
+                                   PN->getIncomingValue(1)))
+      return Changed;
 
     // Don't fold i1 branches on PHIs which contain binary operators, unless one
     // of the incoming values is an 'not' and another one is freely invertible.

@@ -6495,7 +6495,7 @@ def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
 
 #if INTEL_CUSTOMIZATION
 def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>,
-  Flags<[CC1Option, NoArgumentUnused, CoreOption]>,
+  Flags<[CC1Option, NoArgumentUnused, CoreOption, DpcppOption]>,
   HelpText<"SYCL language standard to compile for.">,
   Values<"2020,2017,121,1.2.1,sycl-1.2.1">,
   NormalizedValues<["SYCL_2020", "SYCL_2017", "SYCL_2017", "SYCL_2017", "SYCL_2017"]>,

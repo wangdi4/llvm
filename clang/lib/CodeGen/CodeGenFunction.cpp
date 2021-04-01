@@ -1711,19 +1711,6 @@ llvm::Intrinsic::ID CodeGenFunction::getContainerIntrinsic(
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool
-shouldUseUndefinedBehaviorReturnOptimization(const FunctionDecl *FD,
-                                             const ASTContext &Context) {
-  QualType T = FD->getReturnType();
-  // Avoid the optimization for functions that return a record type with a
-  // trivial destructor or another trivially copyable type.
-  if (const RecordType *RT = T.getCanonicalType()->getAs<RecordType>()) {
-    if (const auto *ClassDecl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
-      return !ClassDecl->hasTrivialDestructor();
-  }
-  return !T.isTriviallyCopyableType(Context);
-}
-
 void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                    const CGFunctionInfo &FnInfo) {
   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());

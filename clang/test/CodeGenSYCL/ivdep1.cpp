@@ -1,4 +1,6 @@
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -O0 -fsycl-is-device  -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -O0 -fsycl-is-device -internal-isystem %S/Inputs -emit-llvm -o - %s | FileCheck %s
+
+#include "sycl.hpp"
 
 #define SIZE 10
 unsigned char ucharVar[SIZE];
@@ -167,6 +169,24 @@ int do_stuff(int N) {
 
 int dut() {
   return do_stuff<5>(10);
+}
+
+int main() {
+  cl::sycl::kernel_single_task([]() {
+    long l;
+    foo0();
+    foo1();
+    foo2();
+    foo2a();
+    foo3();
+    foo4();
+    foo5();
+    foo6();
+    foo7();
+    foo8();
+    foo9(&l);
+    dut();
+  });
 }
 
 //CHECK: [[MD3]] = distinct !{[[MD3]], ![[LOOP_MUSTPROGRESS:[0-9]+]], [[MD4:![0-9]+]]}

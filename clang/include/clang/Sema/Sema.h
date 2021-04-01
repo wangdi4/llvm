@@ -3621,7 +3621,6 @@ public:
   AllowCpuFeaturesAttr *
   MergeAllowCpuFeaturesAttr(Decl *D, const AllowCpuFeaturesAttr &AL);
 #endif // INTEL_CUSTOMIZATION
-
   SYCLIntelLoopFuseAttr *
   mergeSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E);
   void mergeDeclAttributes(NamedDecl *New, Decl *Old,

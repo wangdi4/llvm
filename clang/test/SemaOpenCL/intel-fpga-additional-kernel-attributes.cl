@@ -200,13 +200,13 @@ __attribute__((num_simd_work_items(4)))
 __kernel void kernel_8d() {
 }
 
-__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute conflicts with ''reqd_work_group_size'' attribute}}
+__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute must evenly divide the work-group size for the 'reqd_work_group_size' attribute}}
 __attribute__((reqd_work_group_size(5, 5, 5))) //expected-note{{conflicting attribute is here}}
 __kernel void kernel_8e() {
 }
 
 __attribute__((reqd_work_group_size(5, 5, 5))) //expected-note{{conflicting attribute is here}}
-__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute conflicts with 'reqd_work_group_size' attribute}}
+__attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items' attribute must evenly divide the work-group size for the 'reqd_work_group_size' attribute}}
 __kernel void kernel_8f() {
 }
 

@@ -37,21 +37,21 @@
 // CHECK-OUTPUT-FILE: clang{{.*}} "-o" "dummy.out"
 
 /// -fsycl-device-only with preprocessing should only do the device compile
-// RUN: %clang -ccc-print-phases -E -fsycl -fsycl-device-only %s 2>&1 \
+// RUN: %clang -ccc-print-phases -E -fsycl -fsycl-device-only -target x86_64-unknown-linux-gnu %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=PHASES-PREPROCESS %s
-// RUN: %clang_cl -ccc-print-phases -E -fsycl -fsycl-device-only %s 2>&1 \
+// RUN: %clang_cl -ccc-print-phases -E -fsycl -fsycl-device-only --target=x86_64-pc-windows-msvc %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=PHASES-PREPROCESS %s
-// RUN: %clang_cl -ccc-print-phases -P -fsycl -fsycl-device-only %s 2>&1 \
+// RUN: %clang_cl -ccc-print-phases -P -fsycl -fsycl-device-only --target=x86_64-pc-windows-msvc %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=PHASES-PREPROCESS %s
-// RUN: %clang_cl -ccc-print-phases -EP -fsycl -fsycl-device-only %s 2>&1 \
+// RUN: %clang_cl -ccc-print-phases -EP -fsycl -fsycl-device-only --target=x86_64-pc-windows-msvc %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=PHASES-PREPROCESS %s
 // PHASES-PREPROCESS: 0: input, {{.*}}, c++, (device-sycl)
 // PHASES-PREPROCESS: 1: preprocessor, {0}, c++-cpp-output, (device-sycl)
 // PHASES-PREPROCESS: 2: offload, "device-sycl (spir64-unknown-unknown-sycldevice)" {1}, c++-cpp-output
 
-// RUN: %clang -ccc-print-phases -MM -fsycl -fsycl-device-only %s 2>&1 \
+// RUN: %clang -ccc-print-phases -MM -fsycl -fsycl-device-only -target x86_64-unknown-linux-gnu %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=PHASES-PREPROC-DEPS %s
-// RUN: %clang -ccc-print-phases -M -fsycl -fsycl-device-only %s 2>&1 \
+// RUN: %clang -ccc-print-phases -M -fsycl -fsycl-device-only -target x86_64-unknown-linux-gnu %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=PHASES-PREPROC-DEPS %s
 // PHASES-PREPROC-DEPS: 0: input, {{.*}}, c++, (device-sycl)
 // PHASES-PROPROC-DEPS: 1: preprocessor, {0}, dependencies, (device-sycl)

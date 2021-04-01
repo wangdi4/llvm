@@ -641,11 +641,12 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
 #if INTEL_CUSTOMIZATION
       // We are not a GEP, but GEPOrSubsOperators may still be in bounds.
       // Note that upstream does this for GEPs below.
-      if (auto *GOS = dyn_cast<GEPOrSubsOperator>(V))
+      if (auto *GOS = dyn_cast<GEPOrSubsOperator>(V)) {
         if (Decomposed.InBounds == None)
           Decomposed.InBounds = GOS->isInBounds();
         else if (!GOS->isInBounds())
           Decomposed.InBounds = false;
+      }
 
       // Matches getUnderlyingObject
       if (auto *Subs = dyn_cast<SubscriptInst>(V)) {

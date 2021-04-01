@@ -37,6 +37,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/InitializePasses.h"  // INTEL
 #include "llvm/SYCLLowerIR/LowerESIMD.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
@@ -672,6 +673,9 @@ static string_vector saveResultSymbolsLists(string_vector &ResSymbolsLists,
 // we can safely process ESIMD part.
 // TODO: support options like -debug-pass, -print-[before|after], and others
 static void LowerEsimdConstructs(Module &M) {
+#if INTEL_CUSTOMIZATION
+  initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
+#endif // INTEL_CUSTOMIZATION
   legacy::PassManager MPM;
   MPM.add(createSYCLLowerESIMDPass());
   if (!OptLevelO0) {

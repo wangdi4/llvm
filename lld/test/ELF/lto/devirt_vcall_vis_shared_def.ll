@@ -4,11 +4,17 @@
 ;; First check that we get devirtualization when the defs are in the
 ;; LTO unit.
 
+;; INTEL_CUSTOMIZATION
+
+;; We need to turn off the multiversioning for devirtualization in the Intel
+;; customization.
+
 ;; Index based WPD
 ;; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt --thinlto-bc -o %t1a.o %s
 ; RUN: opt --thinlto-bc -o %t2a.o %S/Inputs/devirt_vcall_vis_shared_def.ll
 ; RUN: ld.lld %t1a.o %t2a.o -o %t3a -save-temps --lto-whole-program-visibility \
+; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1a.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
@@ -17,6 +23,7 @@
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t1b.o %s
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t2b.o %S/Inputs/devirt_vcall_vis_shared_def.ll
 ; RUN: ld.lld %t1b.o %t2b.o -o %t3b -save-temps --lto-whole-program-visibility \
+; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1b.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
@@ -24,8 +31,11 @@
 ; RUN: opt -o %t1c.o %s
 ; RUN: opt -o %t2c.o %S/Inputs/devirt_vcall_vis_shared_def.ll
 ; RUN: ld.lld %t1c.o %t2c.o -o %t3c -save-temps --lto-whole-program-visibility \
+; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3c.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+
+;; END INTEL_CUSTOMIZATION
 
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1A1nEi
 
