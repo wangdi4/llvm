@@ -26,6 +26,9 @@ static LoopVPlanDumpControl VLSDumpControl("vls",
 
 template <class VLSMemoryOpTy>
 static void combineMetadata(VLSMemoryOpTy *VLSMemoryOp, OVLSGroup *Group) {
+  static_assert(std::is_same<VLSMemoryOpTy, VPVLSLoad>::value ||
+                    std::is_same<VLSMemoryOpTy, VPVLSStore>::value,
+                "Unexpected type!");
   unsigned PreservedMDKinds[] = {
       LLVMContext::MD_tbaa,        LLVMContext::MD_alias_scope,
       LLVMContext::MD_noalias,     LLVMContext::MD_fpmath,
@@ -207,6 +210,7 @@ createGroupLoad(OVLSGroup *Group, unsigned VF) {
       Builder.create<VPVLSLoad>("vls.load", LeaderAddress, Ty, Size,
                                 FirstGroupInst->getAlignment(), Group->size());
   Plan.getVPlanDA()->markUniform(*WideLoad);
+  WideLoad->HIR().setSymbase(FirstGroupInst->HIR().getSymbase());
 
   combineMetadata(WideLoad, Group);
 
@@ -391,12 +395,14 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
     auto *WideStore = Builder.create<VPVLSStore>(
         "vls.store", WideValue, BaseAddr, Size, FirstMemrefInst->getAlignment(),
         Group->size());
+    WideStore->HIR().setSymbase(FirstMemrefInst->HIR().getSymbase());
 
     combineMetadata(WideStore, Group);
   }
 
   while (!InstsToRemove.empty()) {
     auto *Inst = *InstsToRemove.begin();
+    Inst->invalidateUnderlyingIR(); // For HIR.
     InstsToRemove.erase(Inst);
     SmallVector<VPValue *, 8> Operands(Inst->operands());
     Inst->getParent()->eraseInstruction(Inst);

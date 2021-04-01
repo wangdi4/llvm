@@ -3329,6 +3329,26 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   return MemRef;
 }
 
+template <class VLSOpTy>
+RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
+  RegDDRef *MemRef = getOrCreateScalarRef(LoadStore->getPointerOperand(), 0);
+  if (MemRef->isAddressOf())
+    MemRef->setAddressOf(false);
+  else
+    MemRef = createMemrefFromBlob(MemRef, 0, 1);
+  MemRef->setBitCastDestType(
+      PointerType::get(LoadStore->getValueType(),
+                       cast<PointerType>(LoadStore->getPointerOperand()->getType())
+                           ->getAddressSpace()));
+  MemRef->setAlignment(LoadStore->getAlignment().value());
+  MemRef->setSymbase(LoadStore->HIR().getSymbase());
+
+  for (std::pair<unsigned, MDNode *> It : LoadStore->getMetadata())
+    MemRef->setMetadata(It.first, It.second);
+
+  return MemRef;
+}
+
 // Widen blend instruction. The implementation here generates a sequence
 // of selects. Consider the following scalar blend in bb0:
 //      vp1 = blend [vp2, bp2] [vp3, bp3] [vp4, bp4].
@@ -4119,6 +4139,48 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
              dbgs() << "\n");
 }
 
+RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
+                                             int GroupSize) {
+  if (!CurMaskValue) {
+    if (VF * GroupSize == WideValueType->getNumElements())
+      // No mask needed.
+      return nullptr;
+
+    auto *True = ConstantInt::getTrue(WideValueType->getContext());
+    auto *False = ConstantInt::getFalse(WideValueType->getContext());
+    SmallVector<Constant *, 32> Mask;
+    unsigned Idx;
+    for (Idx = 0; Idx < VF*GroupSize; ++Idx)
+      Mask.push_back(True);
+    for (unsigned End = WideValueType->getNumElements(); Idx < End; ++Idx)
+      Mask.push_back(False);
+
+    return DDRefUtilities.createConstDDRef(ConstantVector::get(Mask));
+  }
+
+  auto *Int32Ty = Type::getInt32Ty(WideValueType->getContext());
+  SmallVector<Constant *, 32> ShuffleMask;
+  for (unsigned Lane = 0; Lane < VF; ++Lane)
+    for (int Elt = 0; Elt < GroupSize; ++Elt)
+      ShuffleMask.push_back(ConstantInt::get(Int32Ty, Lane));
+
+  for (unsigned Idx = VF * GroupSize; Idx < WideValueType->getNumElements();
+       ++Idx)
+    ShuffleMask.push_back(ConstantInt::get(Int32Ty, VF));
+
+  auto *ShuffleMaskRef =
+      DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask));
+
+  auto *False = DDRefUtilities.createConstDDRef(
+      ConstantInt::getFalse(CurMaskValue->getDestType()));
+
+  HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+      CurMaskValue->clone(), False, ShuffleMaskRef, "vls.mask");
+  addInstUnmasked(Shuffle);
+
+  return Shuffle->getLvalDDRef();
+}
+
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex, bool Widen,
@@ -4229,6 +4291,119 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         DDRefUtilities.createConstDDRef(ConstantVector::get(MaskIndices)));
     addInstUnmasked(Shuffle);
     addVPValueWideRefMapping(VPInst, Shuffle->getLvalDDRef());
+
+    return;
+  }
+  case VPInstruction::VLSLoad: {
+    auto *VLSLoad = cast<VPVLSLoad>(VPInst);
+    RegDDRef *MemRef = getVLSMemoryRef(VLSLoad);
+    HLInst *WideLoad = HLNodeUtilities.createLoad(MemRef, ".vls.load");
+    RegDDRef *Mask = getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
+                                         VLSLoad->getGroupSize());
+    addInst(WideLoad, Mask);
+
+    if (Mask)
+      OptRptStats.MaskedVLSLoads += VLSLoad->getNumOrigLoads();
+    else
+      OptRptStats.UnmaskedVLSLoads += VLSLoad->getNumOrigLoads();
+
+    addVPValueScalRefMapping(VLSLoad, WideLoad->getLvalDDRef(), 0);
+    return;
+  }
+  case VPInstruction::VLSExtract: {
+    auto *Extract = cast<VPVLSExtract>(VPInst);
+
+    auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
+
+    auto Offset = Extract->getOffset();
+    auto GroupSize = Extract->getGroupSize();
+
+    auto *Int32Ty = Type::getInt32Ty(Extract->getType()->getContext());
+
+    SmallVector<Constant *, 32> ShuffleMask;
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part)
+        ShuffleMask.push_back(
+            ConstantInt::get(Int32Ty, Lane * GroupSize + Offset + Part));
+
+    RegDDRef *WideValue = getOrCreateScalarRef(Extract->getOperand(0), 0);
+    HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+        WideValue, WideValue->clone(),
+        DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask)),
+        "vls.extract");
+    addInstUnmasked(Shuffle);
+
+    auto *ResultRef = Shuffle->getLvalDDRef();
+    auto *ResultType = getWidenedType(Extract->getType(), VF);
+    if (ResultType != ResultRef->getDestType()) {
+      auto *Cast = HLNodeUtilities.createBitCast(ResultType, ResultRef->clone(),
+                                                 "vls.extract.cast");
+      addInstUnmasked(Cast);
+      ResultRef = Cast->getLvalDDRef();
+    }
+    addVPValueWideRefMapping(Extract, ResultRef);
+
+    return;
+  }
+  case VPInstruction::VLSInsert: {
+    auto *Insert = cast<VPVLSInsert>(VPInst);
+    RegDDRef *OrigWideValue = getOrCreateScalarRef(Insert->getOperand(0), 0);
+    RegDDRef *ValueToInsert = widenRef(Insert->getOperand(1), VF);
+
+    auto NumEltsPerValue = Insert->getNumGroupEltsPerValue();
+    auto *GroupType = cast<VectorType>(Insert->getOperand(0)->getType());
+    Type *GroupEltType = GroupType->getElementType();
+    auto NumEltsInGroup = GroupType->getNumElements();
+
+    auto *CastedType = getWidenedType(GroupEltType, VF * NumEltsPerValue);
+    RegDDRef *Casted = ValueToInsert;
+    if (CastedType != Casted->getDestType()) {
+      auto *Cast =
+          HLNodeUtilities.createBitCast(CastedType, Casted, "vls.insert.cast");
+      addInstUnmasked(Cast);
+      Casted = Cast->getLvalDDRef()->clone();
+    }
+
+    auto *Extend = extendVector(Casted, NumEltsInGroup);
+    addInstUnmasked(Extend);
+
+    auto Offset = Insert->getOffset();
+    auto GroupSize = Insert->getGroupSize();
+    auto *Int32Ty = Type::getInt32Ty(Insert->getType()->getContext());
+    SmallVector<Constant *, 32> ShuffleMask;
+
+    // Initialize as if we'd want to keep OrigWideValue only.
+    for (unsigned Idx = 0; Idx < NumEltsInGroup; ++Idx)
+      ShuffleMask.push_back(ConstantInt::get(Int32Ty, Idx));
+
+    // Now update indices where we'd like to change the data.
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part) {
+        auto TargetIdx = GroupSize * Lane + Offset + Part;
+        auto SrcIdx = NumEltsInGroup + Lane * NumEltsPerValue + Part;
+        ShuffleMask[TargetIdx] = ConstantInt::get(Int32Ty, SrcIdx);
+      }
+
+    auto *Result = HLNodeUtilities.createShuffleVectorInst(
+        OrigWideValue, Extend->getLvalDDRef()->clone(),
+        DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask)));
+    addInstUnmasked(Result);
+    addVPValueScalRefMapping(Insert, Result->getLvalDDRef(), 0);
+    return;
+  }
+  case VPInstruction::VLSStore: {
+    auto *VLSStore = cast<VPVLSStore>(VPInst);
+    RegDDRef *MemRef = getVLSMemoryRef(VLSStore);
+    HLInst *WideStore = HLNodeUtilities.createStore(
+        getOrCreateScalarRef(VPInst->getOperand(0), 0), ".vls.store", MemRef);
+    RegDDRef *Mask = getVLSLoadStoreMask(
+        cast<VectorType>(VLSStore->getOperand(0)->getType()),
+        VLSStore->getGroupSize());
+    addInst(WideStore, Mask);
+    if (Mask)
+      OptRptStats.MaskedVLSStores += VLSStore->getNumOrigStores();
+    else
+      OptRptStats.UnmaskedVLSStores += VLSStore->getNumOrigStores();
 
     return;
   }
@@ -4624,6 +4799,53 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // If we have a single operand GEP, we can simply reuse RefOp0
     if (VPInst->getNumOperands() == 1) {
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
+      return;
+    }
+
+    if (VPInst->getNumOperands() == 2) {
+      // VPlan VLS transformation introduces this kind of GEPs:
+      //   %base = ....
+      //   %gep = getelementptr %base, i32 offset ; usually negative
+      auto SVA = Plan->getVPlanSVA();
+      (void)SVA;
+      assert(SVA->retValNeedsFirstScalarCode(VPInst) &&
+             !SVA->retValNeedsLastScalarCode(VPInst) &&
+             !SVA->retValNeedsVectorCode(VPInst) &&
+             "GetElementPtr not fully supported!");
+      if (!Widen) {
+        // FIXME: generateHIR is called two times. Non-widen case has more
+        // conditions, so generate during the widening call.
+        return;
+      }
+
+      RegDDRef *PointerRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+      if (PointerRef->getNumDimensions() > 0 &&
+          !PointerRef->hasTrailingStructOffsets()) {
+        if (auto *Const = dyn_cast<VPConstant>(VPInst->getOperand(1))) {
+          // Consider VPInst being
+          //   %gep = getelementptr i32* %base i64 -1
+          // with PointerRef for %base
+          //   &((i32*)(@arr1)[0][3 * i1 + 1])
+          //
+          // Instead of storing that to a temp and then creating a new compute
+          // based on that temp, we can fix the CannonExpr in place resulting in
+          // a nicer outgoing HIR, i.e. generate simply
+          //   &((i32*)(@arr1)[0][3 * i1]).
+          CanonExpr *CE = PointerRef->getDimensionIndex(1);
+          CE->addConstant(Const->getSExtValue(), true /* IsMathAdd */);
+          addVPValueScalRefMapping(VPInst, PointerRef, 0);
+          return;
+        }
+      }
+      auto *CopyInst = HLNodeUtilities.createCopyInst(PointerRef, "gep.base");
+      addInstUnmasked(CopyInst);
+      PointerRef = CopyInst->getLvalDDRef()->clone();
+
+      auto *NewRef = DDRefUtilities.createAddressOfRef(
+          PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
+      RegDDRef *Idx = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+      NewRef->addDimension(Idx->getSingleCanonExpr());
+      addVPValueScalRefMapping(VPInst, NewRef, 0);
       return;
     }
 

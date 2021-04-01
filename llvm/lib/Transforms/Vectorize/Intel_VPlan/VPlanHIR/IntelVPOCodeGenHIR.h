@@ -489,6 +489,11 @@ public:
   RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
 
+  /// Given VPVLSLoad/VPVLSStore setup the memory ref to be used as wide memory
+  /// operation.
+  template <class VLSOpTy>
+  RegDDRef *getVLSMemoryRef(const VLSOpTy *LoadStore);
+
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
   }
@@ -961,6 +966,8 @@ private:
     return Widen ? widenRef(VPVal, getVF())
                  : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
+
+  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

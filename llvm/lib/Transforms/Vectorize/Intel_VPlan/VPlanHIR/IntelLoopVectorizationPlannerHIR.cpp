@@ -16,6 +16,7 @@
 
 #include "IntelLoopVectorizationPlannerHIR.h"
 #include "../IntelVPlanCallVecDecisions.h"
+#include "../IntelVPlanVLSTransform.h"
 #include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
@@ -33,7 +34,17 @@ static cl::opt<bool>
     EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
                            cl::Hidden, cl::desc("Enable in memory entities."));
 
-bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
+namespace llvm {
+namespace vpo {
+bool EnableExplicitVLS = false;
+}
+}
+static cl::opt<bool, true> EnableExplicitVLSOpt(
+    "enable-explicit-vplan-vls-hir", cl::location(EnableExplicitVLS),
+    cl::Hidden, cl::desc("Enable explicit VPlan-to-VPlan VLS transformation."));
+
+bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
+                                                  unsigned UF) {
   unsigned BestVF = getBestVF();
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlanVector *Plan = getBestVPlan();
@@ -47,6 +58,9 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
+
+  if (EnableExplicitVLS)
+    applyVLSTransform(*Plan, *VLSA, BestVF);
 
   // Process all loop entities and create refs for them if needed.
   CG->createAndMapLoopEntityRefs(BestVF);
