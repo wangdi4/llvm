@@ -17,11 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-LABEL:  Cost Model for VPlan HIR foo.14 with VF = 4:
-; FIXME -- The issue with the store group cost being applied twice can
-; be seen here. Note that the base cost is 86000 and the total cost is
-; 118000 (additional 32000 from store group cost being counted twice).
-; CMCHECK-NEXT:  Total Cost: 118000
-; CMCHECK-NEXT:  Base Cost: 86000
+; CMCHECK-NEXT:  Total Cost: 86000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0

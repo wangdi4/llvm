@@ -232,7 +232,18 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
              dbgs() << " from " << Cost << " (TTI group cost " << TTIGroupCost
                     << " to group cost " << VLSGroupCost << ")\n");
   ProcessedOVLSGroups[Group] = true;
-  return VLSGroupCost;
+
+  // We are encountering an OVLS group for the first time. The group cost is
+  // returned if we are dealing with the instruction corresponding to insertion
+  // point of the group. We return 0 otherwise.
+  if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
+      VPInst) {
+    LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
+               VPInst->printWithoutAnalyses(dbgs()); dbgs() << '\n');
+    return VLSGroupCost;
+  } else {
+    return 0;
+  }
 }
 
 unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
