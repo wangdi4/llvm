@@ -46,20 +46,19 @@ using namespace Intel::OpenCL::Utils;
 #if defined(USE_ITT)
 
 #ifdef WIN32
-#define thread_local __declspec(thread)
+#define itt_thread_local __declspec(thread)
 #else
-#define thread_local __thread
+#define itt_thread_local __thread
 #endif
 
-#define __startITTTask(pGPAData, ittID, fnctName)	\
-    ittID = __itt_id_make(&ittID, (unsigned long long)0);\
-	__itt_id_create(pGPAData->pAPIDomain, ittID);\
-	static thread_local __itt_string_handle* pAPINameHandle = nullptr;\
-	if ( nullptr == pAPINameHandle )\
-	{\
-		pAPINameHandle = __itt_string_handle_create(fnctName);\
-	}\
-	__itt_task_begin(pGPAData->pAPIDomain, ittID, __itt_null, pAPINameHandle);
+#define __startITTTask(pGPAData, ittID, fnctName)                              \
+  ittID = __itt_id_make(&ittID, (unsigned long long)0);                        \
+  __itt_id_create(pGPAData->pAPIDomain, ittID);                                \
+  static itt_thread_local __itt_string_handle *pAPINameHandle = nullptr;       \
+  if (nullptr == pAPINameHandle) {                                             \
+    pAPINameHandle = __itt_string_handle_create(fnctName);                     \
+  }                                                                            \
+  __itt_task_begin(pGPAData->pAPIDomain, ittID, __itt_null, pAPINameHandle);
 
 #define __endITTTask(pGPAData, ittID)	\
 	__itt_task_end(pGPAData->pAPIDomain); \
@@ -367,9 +366,10 @@ public:
  * @param ELEM_TYPE type of elements in the list
  * @param SIZE_TYPE type of the list's size
  */
-template<typename ELEM_TYPE, typename SIZE_TYPE, class VALUE_PRINTER = SimpleValuePrinter<ELEM_TYPE> >
-class OutputListPrinter : public OutputParamsValueProvider::SpecialOutputParamPrinter
-{
+template <typename ELEM_TYPE, typename SIZE_TYPE,
+          class VALUE_PRINTER = SimpleValuePrinter<ELEM_TYPE>>
+class OutputListPrinter
+    : public OutputParamsValueProvider::SpecialOutputParamPrinter {
 public:
 
     /**
@@ -381,28 +381,25 @@ public:
      */
     OutputListPrinter(const std::string& listName, const ELEM_TYPE* pList, const SIZE_TYPE* pListSize, SIZE_TYPE defaultListSize = 0) :
         m_listName(listName), m_pList(pList), m_pListSize(pListSize), m_defaultListSize(defaultListSize) { }
-
+    virtual ~OutputListPrinter() {}
     // overriden methods:
 
-    virtual std::string GetStringToPrint() const
-    {
-        if (nullptr == m_pList)
-        {
-            return "";
+    virtual std::string GetStringToPrint() const override {
+      if (nullptr == m_pList) {
+        return "";
+      }
+      std::ostringstream stream;
+      stream << m_listName << ":";
+      const SIZE_TYPE actualListSize =
+          nullptr != m_pListSize ? *m_pListSize : m_defaultListSize;
+      VALUE_PRINTER valPrinter;
+      for (cl_uint i = 0; i < actualListSize; ++i) {
+        stream << " " << valPrinter.Print(m_pList[i]);
+        if (i < actualListSize - 1) {
+          stream << ",";
         }
-        std::ostringstream stream;
-        stream << m_listName << ":";
-        const SIZE_TYPE actualListSize = nullptr != m_pListSize ? *m_pListSize : m_defaultListSize;
-        VALUE_PRINTER valPrinter;
-        for (cl_uint i = 0; i < actualListSize; ++i)
-        {
-            stream << " " << valPrinter.Print(m_pList[i]);
-            if (i < actualListSize - 1)
-            {
-                stream << ",";
-            }
-        }
-        return stream.str();
+      }
+      return stream.str();
     }
 
 private:
@@ -411,7 +408,6 @@ private:
     const ELEM_TYPE* m_pList;
     const SIZE_TYPE* m_pListSize;
     const SIZE_TYPE m_defaultListSize;
-
 };
 
 cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms)
@@ -3027,22 +3023,21 @@ cl_int CL_API_CALL clGetPipeInfo(cl_mem pipe,
 SET_ALIAS(clGetPipeInfo);
 // OpenCL 2.0 functions:
 
-static vector<cl_command_queue_properties> GetCommandQueueProps(cl_context context, cl_device_id device_id, const cl_queue_properties* properties)
-{
-	  vector<cl_command_queue_properties> propVec;
-	  if (nullptr != properties)
-	  {
-		    const cl_queue_properties* pCurrProp = properties;
-		    while (*pCurrProp != 0)
-		    {
-			      propVec.push_back((cl_command_queue_properties)*pCurrProp);
-			      ++pCurrProp;
-			      propVec.push_back((cl_command_queue_properties)*pCurrProp);
-			      ++pCurrProp;
-		    }
-		    propVec.push_back(0);
-	  }
-    return propVec;
+static vector<cl_command_queue_properties>
+GetCommandQueueProps(cl_context /*context*/, cl_device_id /*device_id*/,
+                     const cl_queue_properties *properties) {
+  vector<cl_command_queue_properties> propVec;
+  if (nullptr != properties) {
+    const cl_queue_properties *pCurrProp = properties;
+    while (*pCurrProp != 0) {
+      propVec.push_back((cl_command_queue_properties)*pCurrProp);
+      ++pCurrProp;
+      propVec.push_back((cl_command_queue_properties)*pCurrProp);
+      ++pCurrProp;
+    }
+    propVec.push_back(0);
+  }
+  return propVec;
 }
 
 cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context context,

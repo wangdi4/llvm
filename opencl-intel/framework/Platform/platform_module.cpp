@@ -374,7 +374,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         break;
     case CL_PLATFORM_ICD_SUFFIX_KHR:
         pValue = (void*)pcPlatformICDSuffixKhr;
-        szParamSize = strlen((char*)pcPlatformICDSuffixKhr) + 1;
+        szParamSize = strlen((const char *)pcPlatformICDSuffixKhr) + 1;
         break;
     case CL_PLATFORM_HOST_TIMER_RESOLUTION:
         if (m_oclVersion >= OPENCL_VERSION_2_1)
@@ -410,117 +410,104 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetDeviceIDs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
-                                     cl_device_type clDeviceType,
-                                     cl_uint uiNumEntries,
-                                     cl_device_id* pclDevices,
-                                     cl_uint* puiNumDevices)
-{
-    LOG_INFO(TEXT("Enter GetDeviceIDs (device_type=%d, num_entried=%d, pclDevices=%d, puiNumDevices=%d)"),
-        clDeviceType, uiNumEntries, pclDevices, puiNumDevices);
+cl_int PlatformModule::GetDeviceIDs(cl_platform_id /*clPlatform*/,
+                                    cl_device_type clDeviceType,
+                                    cl_uint uiNumEntries,
+                                    cl_device_id *pclDevices,
+                                    cl_uint *puiNumDevices) {
+  LOG_INFO(TEXT("Enter GetDeviceIDs (device_type=%d, num_entried=%d, "
+                "pclDevices=%d, puiNumDevices=%d)"),
+           clDeviceType, uiNumEntries, pclDevices, puiNumDevices);
 
-    if (!(clDeviceType & CL_DEVICE_TYPE_DEFAULT)        &&
-        !(clDeviceType & CL_DEVICE_TYPE_CPU)            &&
-        !(clDeviceType & CL_DEVICE_TYPE_GPU)            &&
-        !(clDeviceType & CL_DEVICE_TYPE_ACCELERATOR)    &&
-        !(clDeviceType & CL_DEVICE_TYPE_CUSTOM))
-    {
-        return CL_INVALID_DEVICE_TYPE;
-    }
+  if (!(clDeviceType & CL_DEVICE_TYPE_DEFAULT) &&
+      !(clDeviceType & CL_DEVICE_TYPE_CPU) &&
+      !(clDeviceType & CL_DEVICE_TYPE_GPU) &&
+      !(clDeviceType & CL_DEVICE_TYPE_ACCELERATOR) &&
+      !(clDeviceType & CL_DEVICE_TYPE_CUSTOM)) {
+    return CL_INVALID_DEVICE_TYPE;
+  }
 
-    if ((nullptr != pclDevices && 0 == uiNumEntries) ||
-        (nullptr == pclDevices && nullptr == puiNumDevices))
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDevices && NULL == puiNumDevices"));
-        return CL_INVALID_VALUE;
-    }
+  if ((nullptr != pclDevices && 0 == uiNumEntries) ||
+      (nullptr == pclDevices && nullptr == puiNumDevices)) {
+    LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDevices && NULL == puiNumDevices"));
+    return CL_INVALID_VALUE;
+  }
 
-    size_t uiNumDevices = m_uiRootDevicesCount;
-    cl_uint uiRetNumDevices = 0; // this will be used for the num_devices return value;
-    SharedPtr<Device>* ppDevices = nullptr;
-    cl_device_id * pDeviceIds = nullptr;
+  size_t uiNumDevices = m_uiRootDevicesCount;
+  cl_uint uiRetNumDevices =
+      0; // this will be used for the num_devices return value;
+  SharedPtr<Device> *ppDevices = nullptr;
+  cl_device_id *pDeviceIds = nullptr;
 
-    if (uiNumDevices == 0)
-    {
-        return CL_DEVICE_NOT_FOUND;
-    }
-    if (clDeviceType == CL_DEVICE_TYPE_DEFAULT && m_pDefaultDevice == 0)
-    {
-        return CL_DEVICE_NOT_FOUND;
-    }
+  if (uiNumDevices == 0) {
+    return CL_DEVICE_NOT_FOUND;
+  }
+  if (clDeviceType == CL_DEVICE_TYPE_DEFAULT && m_pDefaultDevice == 0) {
+    return CL_DEVICE_NOT_FOUND;
+  }
 
-    // prepare list for all devices
-    ppDevices = new SharedPtr<Device> [uiNumDevices];
-    if (nullptr == ppDevices)
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("can't allocate memory for devices (NULL == ppDevices)"));
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-    for (size_t i = 0; i < m_uiRootDevicesCount; i++)
-    {
-        ppDevices[i] = m_ppRootDevices[i];
-    }
-    pDeviceIds = new cl_device_id[uiNumDevices];
-    if (nullptr == pDeviceIds)
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("can't allocate memory for device ids (NULL == pDeviceIds)"));
-        delete[] ppDevices;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
-    for (cl_uint ui=0; ui<uiNumDevices; ++ui)
-    {
-        if (0 != ppDevices[ui])
-        {
-            if ((clDeviceType & CL_DEVICE_TYPE_DEFAULT) &&
-                ppDevices[ui]->GetId() == m_pDefaultDevice->GetId())
-            {
-                //found the default device
-                pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
-                continue;
-            }
-            if (clDeviceType == CL_DEVICE_TYPE_ALL)
-            {
-                pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
-            }
-            else
-            {
-                // get device type
-                cl_device_type clType;
-                cl_int iErrRet = ppDevices[ui]->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, nullptr);
-                // check that the current device type satisfactory
-                if (iErrRet == 0 && ((clType & clDeviceType) == clType))
-                {
-                    pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
-                }
-            }
-        }
-    }
+  // prepare list for all devices
+  ppDevices = new SharedPtr<Device>[uiNumDevices];
+  if (nullptr == ppDevices) {
+    LOG_ERROR(TEXT("%s"),
+              TEXT("can't allocate memory for devices (NULL == ppDevices)"));
+    return CL_OUT_OF_HOST_MEMORY;
+  }
+  for (size_t i = 0; i < m_uiRootDevicesCount; i++) {
+    ppDevices[i] = m_ppRootDevices[i];
+  }
+  pDeviceIds = new cl_device_id[uiNumDevices];
+  if (nullptr == pDeviceIds) {
+    LOG_ERROR(
+        TEXT("%s"),
+        TEXT("can't allocate memory for device ids (NULL == pDeviceIds)"));
     delete[] ppDevices;
+    return CL_OUT_OF_HOST_MEMORY;
+  }
 
-    if (uiRetNumDevices == 0)
-    {
-        delete[] pDeviceIds;
-        return CL_DEVICE_NOT_FOUND;
-    }
-
-    if (nullptr != pclDevices)
-    {
-        cl_uint uiNumDevicesToAdd = min(uiRetNumDevices,uiNumEntries);
-
-        for (cl_uint ui=0; ui < uiNumDevicesToAdd; ++ui)
-        {
-            pclDevices[ui] = pDeviceIds[ui];
+  for (cl_uint ui = 0; ui < uiNumDevices; ++ui) {
+    if (0 != ppDevices[ui]) {
+      if ((clDeviceType & CL_DEVICE_TYPE_DEFAULT) &&
+          ppDevices[ui]->GetId() == m_pDefaultDevice->GetId()) {
+        // found the default device
+        pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
+        continue;
+      }
+      if (clDeviceType == CL_DEVICE_TYPE_ALL) {
+        pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
+      } else {
+        // get device type
+        cl_device_type clType;
+        cl_int iErrRet = ppDevices[ui]->GetInfo(
+            CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, nullptr);
+        // check that the current device type satisfactory
+        if (iErrRet == 0 && ((clType & clDeviceType) == clType)) {
+          pDeviceIds[uiRetNumDevices++] = ppDevices[ui]->GetHandle();
         }
+      }
     }
+  }
+  delete[] ppDevices;
 
-    if (nullptr != puiNumDevices)
-    {
-        *puiNumDevices = uiRetNumDevices;
-    }
-
+  if (uiRetNumDevices == 0) {
     delete[] pDeviceIds;
-    return CL_SUCCESS;
+    return CL_DEVICE_NOT_FOUND;
+  }
+
+  if (nullptr != pclDevices) {
+    cl_uint uiNumDevicesToAdd = min(uiRetNumDevices, uiNumEntries);
+
+    for (cl_uint ui = 0; ui < uiNumDevicesToAdd; ++ui) {
+      pclDevices[ui] = pDeviceIds[ui];
+    }
+  }
+
+  if (nullptr != puiNumDevices) {
+    *puiNumDevices = uiRetNumDevices;
+  }
+
+  delete[] pDeviceIds;
+  return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

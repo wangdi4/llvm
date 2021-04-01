@@ -213,7 +213,9 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*     szProgramBinary,
     int err = CL_SUCCESS;
 
     assert(sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiProgramBinarySize &&
-           _CL_SPIRV_MAGIC_NUMBER_ == ((unsigned int*)szProgramBinary)[0] && "The binary is not SPIRV program.");
+           _CL_SPIRV_MAGIC_NUMBER_ ==
+               ((const unsigned int *)szProgramBinary)[0] &&
+           "The binary is not SPIRV program.");
 
     FESPIRVProgramDescriptor spirvDesc;
 
@@ -355,16 +357,20 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin,
                                                const char*        szKernelName,
                                                IOCLFEKernelArgInfo*   *ppArgInfo) const
 {
-    LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p)"), (void*)pBin, szKernelName, (void*)ppArgInfo);
+  LOG_DEBUG(
+      TEXT("Enter GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p)"),
+      pBin, szKernelName, (void *)ppArgInfo);
 
-    if ( (nullptr == pBin) || (nullptr == szKernelName) || (nullptr==ppArgInfo) )
-    {
-        return CL_INVALID_VALUE;
-    }
+  if ((nullptr == pBin) || (nullptr == szKernelName) ||
+      (nullptr == ppArgInfo)) {
+    return CL_INVALID_VALUE;
+  }
 
     int err = m_pFECompiler->GetKernelArgInfo(pBin, uiBinarySize, szKernelName, ppArgInfo);
 
-    LOG_DEBUG(TEXT("Exit GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p, err=%d)"), (void*)pBin, szKernelName, (void*)ppArgInfo, err);
+    LOG_DEBUG(TEXT("Exit GetKernelArgInfo(pBin=%p, szKernelName=<%s>, "
+                   "ppArgInfo=%p, err=%d)"),
+              pBin, szKernelName, (void *)ppArgInfo, err);
 
     return err;
 }

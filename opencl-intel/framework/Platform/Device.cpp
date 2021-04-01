@@ -57,23 +57,20 @@ Device::~Device()
     LOG_DEBUG(TEXT("%s"), TEXT("Device destructor enter"));
 }
 
-void Device::Cleanup( bool bIsTerminate )
-{
-    // release logger clients
-    map<cl_int,LoggerClient*>::iterator it = m_mapDeviceLoggerClinets.begin();
-    while (it != m_mapDeviceLoggerClinets.end())
-    {
-        LoggerClient * pLoggerClient = it->second;
-        if (nullptr != pLoggerClient)
-        {
-            delete pLoggerClient;
-        }
-        it++;
+void Device::Cleanup(bool /*bIsTerminate*/) {
+  // release logger clients
+  map<cl_int, LoggerClient *>::iterator it = m_mapDeviceLoggerClinets.begin();
+  while (it != m_mapDeviceLoggerClinets.end()) {
+    LoggerClient *pLoggerClient = it->second;
+    if (nullptr != pLoggerClient) {
+      delete pLoggerClient;
     }
-    m_mapDeviceLoggerClinets.clear();
+    it++;
+  }
+  m_mapDeviceLoggerClinets.clear();
 
-    m_dlModule.Close();
-    delete this;
+  m_dlModule.Close();
+  delete this;
 }
 
 cl_ulong Device::GetDeviceTimer() const
@@ -395,27 +392,24 @@ cl_err_code Device::CloseDeviceInstance()
     return CL_SUCCESS;
 }
 
-cl_int Device::clLogCreateClient(cl_int device_id, const char* client_name, cl_int * client_id)
-{
-    if (nullptr == client_id)
-    {
-        return CL_INVALID_VALUE;
-    }
+cl_int Device::clLogCreateClient(cl_int /*device_id*/, const char *client_name,
+                                 cl_int *client_id) {
+  if (nullptr == client_id) {
+    return CL_INVALID_VALUE;
+  }
 
-    if (!Logger::GetInstance().IsActive())
-    {
-        *client_id = 0;
-        return CL_SUCCESS;
-    }
-
-    LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG);
-    if (nullptr == pLoggerClient)
-    {
-        return CL_ERR_LOGGER_FAILED;
-    }
-    *client_id = m_iNextClientId++;
-    m_mapDeviceLoggerClinets[*client_id] = pLoggerClient;
+  if (!Logger::GetInstance().IsActive()) {
+    *client_id = 0;
     return CL_SUCCESS;
+  }
+
+  LoggerClient *pLoggerClient = new LoggerClient(client_name, LL_DEBUG);
+  if (nullptr == pLoggerClient) {
+    return CL_ERR_LOGGER_FAILED;
+  }
+  *client_id = m_iNextClientId++;
+  m_mapDeviceLoggerClinets[*client_id] = pLoggerClient;
+  return CL_SUCCESS;
 }
 
 cl_int Device::clLogReleaseClient(cl_int client_id)
@@ -456,13 +450,14 @@ cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
     return CL_SUCCESS;
 }
 
-void Device::clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus)
-{
-    IBuildDoneObserver * pBuildDoneObserver = (IBuildDoneObserver*)pData;
+void Device::clDevBuildStatusUpdate(cl_dev_program /*clDevProg*/, void *pData,
+                                    cl_build_status clBuildStatus) {
+  IBuildDoneObserver *pBuildDoneObserver = (IBuildDoneObserver *)pData;
 
-    assert(pBuildDoneObserver);
-    pBuildDoneObserver->NotifyBuildDone(reinterpret_cast<cl_device_id>((intptr_t)m_iId), clBuildStatus);
-    return;
+  assert(pBuildDoneObserver);
+  pBuildDoneObserver->NotifyBuildDone(
+      reinterpret_cast<cl_device_id>((intptr_t)m_iId), clBuildStatus);
+  return;
 }
 
 void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer)

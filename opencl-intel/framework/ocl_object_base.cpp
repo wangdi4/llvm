@@ -46,8 +46,7 @@ void OCLObjectBase::PrintDependencyGraph(std::ostream& os)
     m_muAcquireRelease.Unlock();
 }
 
-void OCLObjectBase::InsertToDependencySet(OCLObjectBase* pObj)
-{
+void OCLObjectBase::InsertToDependencySet(OCLObjectBase * /*pObj*/) {
 #if defined DEBUG_DEPENDENCY
     m_muAcquireRelease.Lock();
     m_dependencySet.insert(pObj);
@@ -56,8 +55,7 @@ void OCLObjectBase::InsertToDependencySet(OCLObjectBase* pObj)
 #endif
 }
 
-void OCLObjectBase::EraseFromDependecySet(OCLObjectBase* pObj)
-{
+void OCLObjectBase::EraseFromDependecySet(OCLObjectBase * /*pObj*/) {
 #if defined DEBUG_DEPENDENCY
     m_muAcquireRelease.Lock();
     m_dependencySet.erase(m_dependencySet.find(pObj));   // remove only one occurrence
