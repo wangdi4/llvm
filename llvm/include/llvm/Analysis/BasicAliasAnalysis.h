@@ -222,12 +222,6 @@ private:
   /// Tracks instructions visited by pointsToConstantMemory.
   SmallPtrSet<const Value *, 16> Visited;
 
-  static const Value *
-  GetLinearExpression(const Value *V, APInt &Scale, APInt &Offset,
-                      unsigned &ZExtBits, unsigned &SExtBits,
-                      const DataLayout &DL, unsigned Depth, AssumptionCache *AC,
-                      DominatorTree *DT, bool &NSW, bool &NUW);
-
 #if INTEL_CUSTOMIZATION
   /// Corresponds to processing of single GEP in DecomposeGEPExpression.
   static void DecomposeSubscript(const SubscriptInst *V,
