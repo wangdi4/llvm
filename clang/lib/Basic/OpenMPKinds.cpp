@@ -174,6 +174,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_REDUCTION_MODIFIER(Name) .Case(#Name, OMPC_REDUCTION_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_REDUCTION_unknown);
+#if INTEL_COLLAB
+  case OMPC_adjust_args:
+    return llvm::StringSwitch<OpenMPAdjustArgsOpKind>(Str)
+#define OPENMP_ADJUST_ARGS_KIND(Name) .Case(#Name, OMPC_ADJUST_ARGS_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_ADJUST_ARGS_unknown);
+#endif // INTEL_COLLAB
   case OMPC_unknown:
 #if INTEL_COLLAB
   case OMPC_subdevice:
@@ -238,6 +245,9 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+#if INTEL_COLLAB
+  case OMPC_append_args:
+#endif // INTEL_COLLAB
     break;
   default:
     break;
@@ -445,6 +455,18 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'reduction' clause modifier");
+#if INTEL_COLLAB
+  case OMPC_adjust_args:
+    switch (Type) {
+    case OMPC_ADJUST_ARGS_unknown:
+      return "unknown";
+#define OPENMP_ADJUST_ARGS_KIND(Name)                                          \
+  case OMPC_ADJUST_ARGS_##Name:                                                \
+    return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'adjust_args' clause kind");
+#endif // INTEL_COLLAB
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -506,6 +528,9 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+#if INTEL_COLLAB
+  case OMPC_append_args:
+#endif // INTEL_COLLAB
     break;
   default:
     break;

@@ -3275,6 +3275,22 @@ private:
   /// Parses OpenMP context selectors.
   bool parseOMPContextSelectors(SourceLocation Loc, OMPTraitInfo &TI);
 
+#if INTEL_COLLAB
+  /// Parse a `match`, 'adjust_args', or 'append_args' clause for an
+  /// '#pragma omp declare variant'. Return true if there was an error.
+  bool parseOMPDeclareVariantAnyClause(
+      SourceLocation Loc, OMPTraitInfo &TI, OMPTraitInfo *ParentTI,
+      SmallVectorImpl<Expr *> &AdjustNothing,
+      SmallVectorImpl<Expr *> &AdjustNeedDevicePtr,
+      SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &AppendArgs,
+      SourceLocation &AdjustArgsLoc, SourceLocation &AppendArgsLoc);
+
+  // Parse 'append_args' clause.
+  bool ParseOpenMPAppendArgs(
+      OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
+      SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes);
+#endif // INTEL_COLLAB
+
   /// Parse a `match` clause for an '#pragma omp declare variant'. Return true
   /// if there was an error.
   bool parseOMPDeclareVariantMatchClause(SourceLocation Loc, OMPTraitInfo &TI,
