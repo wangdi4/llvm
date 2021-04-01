@@ -527,9 +527,6 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
       SExtBits += PointerSize - Width;
 
     // Use GetLinearExpression to decompose the index into a C1*V+C2 form.
-    APInt IndexScale(Width, 0), IndexOffset(Width, 0);
-
-    // IndexOld = IndexScale * IndexNew + IndexOffset
     LinearExpression LE = GetLinearExpression(
         ExtendedValue(Index, 0, SExtBits), DL, 0, AC, DT);
     Decomposed.Offset += LE.Offset.getSExtValue() * Scale;
