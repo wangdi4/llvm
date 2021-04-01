@@ -35,8 +35,8 @@ ObjectCodeCache::ObjectCodeCache(llvm::Module* pModule, const char* pObject, siz
 ObjectCodeCache::~ObjectCodeCache() {
 }
 
-void ObjectCodeCache::notifyObjectCompiled(const llvm::Module* pModule,
-   llvm::MemoryBufferRef pBuffer) {
+void ObjectCodeCache::notifyObjectCompiled(const llvm::Module * /*pModule*/,
+                                           llvm::MemoryBufferRef pBuffer) {
 
   assert(!m_isObjectAvailable && "We do not expect a second Module to save its object");
 

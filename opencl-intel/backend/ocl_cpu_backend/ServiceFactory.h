@@ -63,8 +63,8 @@ public:
      *  CL_DEV_ERROR_FAIL in any other failure
      */
     virtual cl_dev_err_code GetCompilationService(
-        const ICLDevBackendOptions* pBackendOptions,
-        ICLDevBackendCompilationService** pBackendCompilationService);
+        const ICLDevBackendOptions *pBackendOptions,
+        ICLDevBackendCompilationService **pBackendCompilationService) override;
 
     /**
      * Creates Execution Service object
@@ -80,8 +80,8 @@ public:
      *  CL_DEV_ERROR_FAIL in any other failure
      */
     virtual cl_dev_err_code GetExecutionService(
-        const ICLDevBackendOptions* pBackendOptions,
-        ICLDevBackendExecutionService** pBackendExecutionService);
+        const ICLDevBackendOptions *pBackendOptions,
+        ICLDevBackendExecutionService **pBackendExecutionService) override;
 
     /**
      * Creates Serialization Service object
@@ -95,9 +95,10 @@ public:
      *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
      *  CL_DEV_ERROR_FAIL in any other failure
      */
-    virtual cl_dev_err_code GetSerializationService(
-        const ICLDevBackendOptions* pBackendOptions,
-        ICLDevBackendSerializationService** pBackendSerializationService);
+    virtual cl_dev_err_code
+    GetSerializationService(const ICLDevBackendOptions *pBackendOptions,
+                            ICLDevBackendSerializationService *
+                                *pBackendSerializationService) override;
 
     /**
      * Creates Image Service object
@@ -111,9 +112,9 @@ public:
      *  CL_DEV_OUT_OF_MEMORY in case of lack of memory
      *  CL_DEV_ERROR_FAIL in any other failure
      */
-    virtual cl_dev_err_code GetImageService(
-      const ICLDevBackendOptions* pBackendOptions,
-      ICLDevBackendImageService** ppBackendImageService);
+    virtual cl_dev_err_code
+    GetImageService(const ICLDevBackendOptions *pBackendOptions,
+                    ICLDevBackendImageService **ppBackendImageService) override;
 
     /**
      * Creates a Debugging Service object
@@ -125,10 +126,10 @@ public:
      *  CL_DEV_SUCCESS in case of success, otherwise:
      *  CL_DEV_ERROR_FAIL in case of failure
      */
-    virtual cl_dev_err_code GetDebuggingService(
-        ICLDebuggingService** pDebuggingService);
+    virtual cl_dev_err_code
+    GetDebuggingService(ICLDebuggingService **pDebuggingService) override;
 
-private:
+  private:
     static ServiceFactory* s_pInstance;
 };
 

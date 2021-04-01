@@ -41,7 +41,7 @@ class Program;
     /// @brief map key to ICLDevBackendKernel object
     /// @param key - unique block id. For CPU supposed to be block function entry point
     /// @return pointer to ICLDevBackendKernel_  object
-    virtual const ICLDevBackendKernel_ * Map(const void * key) const;
+    virtual const ICLDevBackendKernel_ *Map(const void *key) const override;
 
     /// @brief dtor. No reference counters
     virtual ~CPUBlockToKernelMapper() {}

@@ -31,16 +31,19 @@ public:
     CPUCompileService(const ICompilerConfig& config);
     virtual ~CPUCompileService() { }
 
-    const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
-    ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
+    const ProgramBuilder *GetProgramBuilder() const override {
+      return &m_programBuilder;
+    }
+    ProgramBuilder *GetProgramBuilder() override { return &m_programBuilder; }
 
-    cl_dev_err_code DumpJITCodeContainer(
-        const ICLDevBackendCodeContainer* codeContainer,
-        const ICLDevBackendOptions* options) const;
+    cl_dev_err_code
+    DumpJITCodeContainer(const ICLDevBackendCodeContainer *codeContainer,
+                         const ICLDevBackendOptions *options) const override;
 
-    cl_dev_err_code CheckProgramBinary( const void* pBinary,
-                                        size_t uiBinarySize );
-private:
+    cl_dev_err_code CheckProgramBinary(const void *pBinary,
+                                       size_t uiBinarySize) override;
+
+  private:
     CPUProgramBuilder m_programBuilder;
 };
 

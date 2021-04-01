@@ -39,11 +39,7 @@ public:
     ~BuiltinModules();
 
     llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() { return m_BuiltinsModules; }
-
-private:
-    int m_cpuId;
-
-    llvm::SmallVector<llvm::Module*, 2> m_BuiltinsModules;
+    llvm::SmallVector<llvm::Module *, 2> m_BuiltinsModules;
 };
 
 class BuiltinLibrary : public IDynamicFunctionsResolver
@@ -64,14 +60,13 @@ public:
 
     ECPU GetCPU() const { return m_cpuId.GetCPU();}
 
-    virtual void SetContext(const void* pContext)
-    {
-        assert(false && "Set Builtin Library Context Not Implemented");
+    virtual void SetContext(const void * /*pContext*/) {
+      assert(false && "Set Builtin Library Context Not Implemented");
     }
-    virtual unsigned long long int GetFunctionAddress(const std::string& functionName) const
-    {
-        assert(false && "Get Function Address Not Implemented");
-        return 0;
+    virtual unsigned long long int
+    GetFunctionAddress(const std::string & /*functionName*/) const override {
+      assert(false && "Get Function Address Not Implemented");
+      return 0;
     }
 
     virtual void Load() = 0;

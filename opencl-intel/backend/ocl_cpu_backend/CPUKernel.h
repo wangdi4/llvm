@@ -38,16 +38,18 @@ public:
      * @param state object to save the old state in
      * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
      */
-    virtual cl_dev_err_code PrepareThreadState(ICLDevExecutionState& state) const;
+    virtual cl_dev_err_code
+    PrepareThreadState(ICLDevExecutionState &state) const override;
 
     /**
      * @effects restore the thread state after kernel execution
      * @param state object to restore from
      * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
      */
-    virtual cl_dev_err_code RestoreThreadState(ICLDevExecutionState& state) const;
+    virtual cl_dev_err_code
+    RestoreThreadState(ICLDevExecutionState &state) const override;
 
-protected:
+  protected:
     bool m_hasAVX1;        // Are we running on a CPU supporting AVX?
     bool m_hasAVX2;        // Running on Haswell
 };

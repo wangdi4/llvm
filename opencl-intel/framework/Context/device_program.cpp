@@ -660,13 +660,15 @@ cl_err_code DeviceProgram::GetAutorunKernelsNames(
 
         if (numKernels > 0)
         {
-            std::vector<cl_dev_kernel*> devKernels(numKernels);
+          std::vector<cl_dev_kernel *> devKernels(numKernels);
 
-            errRet = devAgent->clDevGetProgramKernels(m_programHandle,
-                numKernels, (cl_dev_kernel*)&devKernels.front(), nullptr);
-            if (CL_FAILED(errRet))
-            {
-                return errRet;
+          errRet = devAgent->clDevGetProgramKernels(
+              m_programHandle, numKernels,
+              const_cast<cl_dev_kernel *>(
+                  reinterpret_cast<const cl_dev_kernel *>(&devKernels.front())),
+              nullptr);
+          if (CL_FAILED(errRet)) {
+            return errRet;
             }
 
             for (size_t i = 0; i < numKernels; ++i)
@@ -774,13 +776,13 @@ bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary, cl
         return CL_DEV_SUCCEEDED(m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinSize, pBinary));
     }
 
-    //check if it is SPIRV object
-    if (sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiBinSize && _CL_SPIRV_MAGIC_NUMBER_ == ((unsigned int*)pBinary)[0])
-    {
-        if( pBinaryType )
-            *pBinaryType = CL_PROG_BIN_COMPILED_SPIRV;
+    // check if it is SPIRV object
+    if (sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiBinSize &&
+        _CL_SPIRV_MAGIC_NUMBER_ == ((const unsigned int *)pBinary)[0]) {
+      if (pBinaryType)
+        *pBinaryType = CL_PROG_BIN_COMPILED_SPIRV;
 
-        return true;
+      return true;
     }
 
     return false;

@@ -33,10 +33,10 @@ public:
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 
-    bool EnableTiming() const { return m_enableTiming;  }
-    bool DisableStackDump() const { return m_disableStackDump; }
-    std::string InfoOutputFile() const { return m_infoOutputFile; }
-    std::string LLVMOptions() const { return m_LLVMOptions; }
+    bool EnableTiming() const override { return m_enableTiming; }
+    bool DisableStackDump() const override { return m_disableStackDump; }
+    std::string InfoOutputFile() const override { return m_infoOutputFile; }
+    std::string LLVMOptions() const override { return m_LLVMOptions; }
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
 private:
@@ -65,47 +65,53 @@ public:
     void SkipBuiltins() { m_loadBuiltins = false; }
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 
-    std::string GetCpuArch() const     { return m_cpuArch; }
-    std::string GetCpuFeatures() const { return m_cpuFeatures; }
+    std::string GetCpuArch() const override { return m_cpuArch; }
+    std::string GetCpuFeatures() const override { return m_cpuFeatures; }
     size_t GetCpuMaxWGSize() const override { return m_cpuMaxWGSize; }
-    ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
-    int GetRTLoopUnrollFactor() const         { return m_rtLoopUnrollFactor; }
-    bool GetUseVTune() const                  { return m_useVTune; }
-    bool GetSerializeWorkGroups() const       { return m_serializeWorkGroups; }
-    bool GetLoadBuiltins() const              { return m_loadBuiltins; }
-    size_t GetForcedPrivateMemorySize() const { return m_forcedPrivateMemorySize; }
-    bool UseAutoMemory() const { return m_useAutoMemory; }
-    std::vector<int> GetIRDumpOptionsAfter() const
-    {
-        if(!m_DumpIROptionAfter){
-            std::vector<int> tempVecotr;
-            return tempVecotr;
-        }
-        std::vector<int> optionsVector(m_DumpIROptionAfter->begin(), m_DumpIROptionAfter->end());
-        //sort the vector for later use (binary_search)
-        std::sort(optionsVector.begin(), optionsVector.end());
-        return optionsVector;
+    ETransposeSize GetTransposeSize() const override { return m_transposeSize; }
+    int GetRTLoopUnrollFactor() const override { return m_rtLoopUnrollFactor; }
+    bool GetUseVTune() const override { return m_useVTune; }
+    bool GetSerializeWorkGroups() const override {
+      return m_serializeWorkGroups;
     }
-    std::vector<int> GetIRDumpOptionsBefore() const
-    {
-       if(!m_DumpIROptionBefore){
-            std::vector<int> tempVecotr;
-            return tempVecotr;
-        }
-        std::vector<int> optionsVector(m_DumpIROptionBefore->begin(), m_DumpIROptionBefore->end());
-        //sort the vector for later use (binary_search)
-        std::sort(optionsVector.begin(), optionsVector.end());
-        return optionsVector;
+    bool GetLoadBuiltins() const override { return m_loadBuiltins; }
+    size_t GetForcedPrivateMemorySize() const override {
+      return m_forcedPrivateMemorySize;
     }
-    std::string GetDumpIRDir() const { return m_dumpIRDir; }
+    bool UseAutoMemory() const override { return m_useAutoMemory; }
+    std::vector<int> GetIRDumpOptionsAfter() const override {
+      if (!m_DumpIROptionAfter) {
+        std::vector<int> tempVecotr;
+        return tempVecotr;
+      }
+      std::vector<int> optionsVector(m_DumpIROptionAfter->begin(),
+                                     m_DumpIROptionAfter->end());
+      // sort the vector for later use (binary_search)
+      std::sort(optionsVector.begin(), optionsVector.end());
+      return optionsVector;
+    }
+    std::vector<int> GetIRDumpOptionsBefore() const override {
+      if (!m_DumpIROptionBefore) {
+        std::vector<int> tempVecotr;
+        return tempVecotr;
+      }
+      std::vector<int> optionsVector(m_DumpIROptionBefore->begin(),
+                                     m_DumpIROptionBefore->end());
+      // sort the vector for later use (binary_search)
+      std::sort(optionsVector.begin(), optionsVector.end());
+      return optionsVector;
+    }
+    std::string GetDumpIRDir() const override { return m_dumpIRDir; }
 
-    bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
+    bool GetDumpHeuristicIRFlag() const override { return m_dumpHeuristicIR; }
 
-    const std::string &GetStatFileBaseName() const { return m_statFileBaseName;}
+    const std::string &GetStatFileBaseName() const override {
+      return m_statFileBaseName;
+    }
 
-    bool GetStreamingAlways() const { return m_streamingAlways; }
+    bool GetStreamingAlways() const override { return m_streamingAlways; }
 
-    unsigned GetExpensiveMemOpts() const { return m_expensiveMemOpts; }
+    unsigned GetExpensiveMemOpts() const override { return m_expensiveMemOpts; }
 
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 

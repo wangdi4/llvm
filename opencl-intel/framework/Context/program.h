@@ -63,25 +63,40 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			size_t * pszParamValueSizeRet);
 
 		// Implement the common queries. Specific queries like binaries or source go to implementing classes
-		virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
+                virtual cl_err_code
+                GetInfo(cl_int param_name, size_t param_value_size,
+                        void *param_value,
+                        size_t *param_value_size_ret) const override;
 
-        // Returns a read only pointer to internal binary, used for build stages by program service
-        const char*     GetBinaryInternal(cl_device_id clDevice);
+                // Returns a read only pointer to internal binary, used for
+                // build stages by program service
+                const char *GetBinaryInternal(cl_device_id clDevice);
 
-        // Returns internal binary size, used for build stages by program service
-        size_t          GetBinarySizeInternal(cl_device_id clDevice);
+                // Returns internal binary size, used for build stages by
+                // program service
+                size_t GetBinarySizeInternal(cl_device_id clDevice);
 
-        // Returns internal binary type, used for build stages by program service
-        cl_program_binary_type  GetBinaryTypeInternal(cl_device_id clDevice);
+                // Returns internal binary type, used for build stages by
+                // program service
+                cl_program_binary_type
+                GetBinaryTypeInternal(cl_device_id clDevice);
 
-        // Sets the binary type for a specific device, used for build stages by program service
-        cl_err_code     SetBinaryTypeInternal(cl_device_id clDevice, cl_program_binary_type clBinaryType);
+                // Sets the binary type for a specific device, used for build
+                // stages by program service
+                cl_err_code
+                SetBinaryTypeInternal(cl_device_id clDevice,
+                                      cl_program_binary_type clBinaryType);
 
-        // Sets the binary for a specific device, used for build stages by program service
-        cl_err_code     SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void* pBinary, cl_program_binary_type clBinaryType);
+                // Sets the binary for a specific device, used for build stages
+                // by program service
+                cl_err_code
+                SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize,
+                                  const void *pBinary,
+                                  cl_program_binary_type clBinaryType);
 
-        // Clears the current build log, called in the beginning of each build sequence
-		cl_err_code   ClearBuildLogInternal(cl_device_id clDevice);
+                // Clears the current build log, called in the beginning of each
+                // build sequence
+                cl_err_code   ClearBuildLogInternal(cl_device_id clDevice);
 
         // Set the program build log for a specific device, used for build stages by program service
 		cl_err_code   SetBuildLogInternal(cl_device_id clDevice, const char* szBuildLog);

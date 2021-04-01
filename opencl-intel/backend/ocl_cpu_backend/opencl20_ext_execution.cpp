@@ -283,10 +283,9 @@ ocl20_capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
   return;
 }
 
-extern "C" LLVM_BACKEND_API uint32_t
-ocl20_get_kernel_wg_size(void *block_invoke, void *block_literal,
-                         IDeviceCommandManager *DCM,
-                         const IBlockToKernelMapper *Mapper) {
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_wg_size(
+    void *block_invoke, void * /*block_literal*/, IDeviceCommandManager *DCM,
+    const IBlockToKernelMapper *Mapper) {
   assert(DCM && "IDeviceCommandManager is NULL");
   assert(Mapper && "const IBlockToKernelMapper is NULL");
   LLVM_DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Entry point \n");
@@ -307,7 +306,7 @@ ocl20_get_kernel_wg_size(void *block_invoke, void *block_literal,
 
 extern "C" LLVM_BACKEND_API uint32_t
 ocl20_get_kernel_preferred_wg_size_multiple(
-    void *block_invoke, void *block_literal, IDeviceCommandManager *DCM,
+    void *block_invoke, void * /*block_literal*/, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *Mapper) {
   LLVM_DEBUG(
       dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Entry point \n");

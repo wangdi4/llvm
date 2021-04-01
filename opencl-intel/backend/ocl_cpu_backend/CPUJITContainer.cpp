@@ -48,25 +48,29 @@ CPUJITContainer::~CPUJITContainer()
 
 void CPUJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 {
-    Serializer::SerialPointerHint((const void**)&m_pFuncCode, ost);
-    Serializer::SerialPointerHint((const void**)&m_pFunction, ost);
-    if(m_pFunction)
-    {
-        std::string name = std::string(m_pFunction->getName());
-        Serializer::SerialString(name, ost);
-    }
-    Serializer::SerialPointerHint((const void**)&m_pModule, ost);
-    Serializer::SerialPointerHint((const void**)&m_pProps, ost);
-    if(m_pProps)
-    {
-        m_pProps->Serialize(ost, stats);
-    }
+  Serializer::SerialPointerHint(const_cast<const void **>(&m_pFuncCode), ost);
+  Serializer::SerialPointerHint(
+      const_cast<const void **>(reinterpret_cast<void *const *>(&m_pFunction)),
+      ost);
+  if (m_pFunction) {
+    std::string name = std::string(m_pFunction->getName());
+    Serializer::SerialString(name, ost);
+  }
+  Serializer::SerialPointerHint(
+      const_cast<const void **>(reinterpret_cast<void *const *>(&m_pModule)),
+      ost);
+  Serializer::SerialPointerHint(
+      const_cast<const void **>(reinterpret_cast<void *const *>(&m_pProps)),
+      ost);
+  if (m_pProps) {
+    m_pProps->Serialize(ost, stats);
+  }
 }
 
 void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     std::string name;
-    Serializer::DeserialPointerHint((void**)&m_pFuncCode, ist);
+    Serializer::DeserialPointerHint(const_cast<void **>(&m_pFuncCode), ist);
     Serializer::DeserialPointerHint((void**)&m_pFunction, ist);
     if(m_pFunction)
     {

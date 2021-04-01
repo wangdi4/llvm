@@ -25,7 +25,7 @@ public:
     CPUBuiltinLibrary(cpuId) { }
     virtual ~FPGAEmuBuiltinLibrary() { }
 
-    virtual void Load();
+    virtual void Load() override;
 };
 
 }}} // namespace

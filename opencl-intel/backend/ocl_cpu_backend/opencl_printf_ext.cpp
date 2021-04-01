@@ -337,8 +337,8 @@ union DoubleUtil{
 
 //Purpose: appends a string to the output buffer, with respect to the value of
 //the given double value (d).
-static void purgeDouble(OutputAccumulator& output, const double& d,
-                        char* buffer, bool capitalCase) {
+static void purgeDouble(OutputAccumulator &output, const double &d,
+                        char *buffer, bool capitalCase) {
 //window's sprintf does not conform with OpenCL when it comes to NAN and INF values
 #if defined(_WIN32) || defined(_WIN64)
     DoubleUtil dutil(d);
@@ -352,6 +352,10 @@ static void purgeDouble(OutputAccumulator& output, const double& d,
         output.append(capitalCase ? "INF" : "inf");
         return;
     }
+#else
+  // The parameters are used in Windows code
+  (void)d;
+  (void)capitalCase;
 #endif //WIN
     output.append(buffer);
 }
@@ -591,16 +595,15 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 }
                 break;
             case 's':
-              if (nullptr != *(const char**)args) {
-                  args = CopyAndAdvance(args, str_val);
-                }
-                else{
-                  //a 'fatalic' case, in which the string pointer is NULL.
-                  //We print the null string, and advancing the buffer pointer
-                  //by sizeof(addr) bytes.
-                  str_val = "(null)";
-                  args += sizeof(char*);
-                }
+              if (nullptr != *(const char *const *)args) {
+                args = CopyAndAdvance(args, str_val);
+              } else {
+                // a 'fatalic' case, in which the string pointer is NULL.
+                // We print the null string, and advancing the buffer pointer
+                // by sizeof(addr) bytes.
+                str_val = "(null)";
+                args += sizeof(char *);
+              }
                 if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, str_val)) >= cbuflen)
                     return -1;
                 output.append(cbuf);
@@ -746,8 +749,10 @@ int printFormatCommon(OutputAccumulator& output, const char* format, const char*
     return rc < 0 ? rc : output.output_count();
 }
 
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, void* pCallback, void* pHandle)
-{
-    StringOutputAccumulator output(outstr, size);
-    return printFormatCommon(output, format, args);
+extern "C" LLVM_BACKEND_API int opencl_snprintf(char *outstr, size_t size,
+                                                const char *format, char *args,
+                                                void * /*pCallback*/,
+                                                void * /*pHandle*/) {
+  StringOutputAccumulator output(outstr, size);
+  return printFormatCommon(output, format, args);
 }

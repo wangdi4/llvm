@@ -20,8 +20,7 @@
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
-Logger::Logger(const wchar_t * name, Logger::LogLevel level) : m_pLogDescriptor(0),m_iLogHandle(0)
-{
+Logger::Logger(const wchar_t * /*name*/, Logger::LogLevel /*level*/) {
 #ifdef _DEBUG
   //// TODO : fix m_uiCpuId
   //cl_int m_uiCpuId = 0;

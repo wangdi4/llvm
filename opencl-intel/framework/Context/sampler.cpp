@@ -45,11 +45,11 @@ cl_err_code Sampler::Initialize(SharedPtr<Context> pContext, cl_bool bNormalized
 {
 	LOG_DEBUG(TEXT("%s"), TEXT("Enter Initialize"));
 
-	assert( pContext != NULL );
+        assert(pContext.GetPtr() != nullptr);
 
-	m_pContext = pContext;
+        m_pContext = pContext;
 
-	// Combine sampler properties
+        // Combine sampler properties
 	m_clSamlerProps = 0;
 
 	// Set normalized coords

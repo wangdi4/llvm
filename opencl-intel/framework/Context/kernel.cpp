@@ -68,11 +68,10 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
         *pErr = CL_INVALID_PROGRAM_EXECUTABLE;
         return;
     }
-    if (NULL == m_pKernel || NULL == m_pDevice)
-    {
-        LOG_ERROR(TEXT("%s"), TEXT("NULL == m_pKernel || NULL == m_pDevice"));
-        *pErr = CL_INVALID_VALUE;
-        return;
+    if (NULL == m_pKernel || NULL == m_pDevice.GetPtr()) {
+      LOG_ERROR(TEXT("%s"), TEXT("NULL == m_pKernel || NULL == m_pDevice"));
+      *pErr = CL_INVALID_VALUE;
+      return;
     }
 
     const char* pKernelName = pKernel->GetName();
@@ -306,16 +305,15 @@ void KernelArg::Init( char* baseAddress, const cl_kernel_argument& clKernelArgTy
     }
 }
 
-void KernelArg::SetValuePlaceHolder( void * pValuePlaceHolder, size_t offset )
-{
-    assert( NULL != pValuePlaceHolder && "Invalid placeholder was provided" );
-    m_pValueLocation    = pValuePlaceHolder;
+void KernelArg::SetValuePlaceHolder(void *pValuePlaceHolder,
+                                    size_t /*offset*/) {
+  assert(NULL != pValuePlaceHolder && "Invalid placeholder was provided");
+  m_pValueLocation = pValuePlaceHolder;
 
-    if (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type)
-    {
-        // Initial local pointer sizes with 0
-        *(size_t*)pValuePlaceHolder = 0;
-    }    
+  if (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type) {
+    // Initial local pointer sizes with 0
+    *(size_t *)pValuePlaceHolder = 0;
+  }
 }
 
 void KernelArg::GetValue( size_t size, void* pValue ) const
@@ -354,12 +352,12 @@ void KernelArg::SetValue( size_t size, const void * pValue )
             switch (size)
             {
                 case sizeof(cl_uint):
-                    *((cl_uint*)m_pValueLocation) = *((cl_uint*)pValue);
-                    break;
+                  *((cl_uint *)m_pValueLocation) = *((const cl_uint *)pValue);
+                  break;
 
                 case sizeof(cl_long):
-                    *((cl_long*)m_pValueLocation) = *((cl_long*)pValue);
-                    break;
+                  *((cl_long *)m_pValueLocation) = *((const cl_long *)pValue);
+                  break;
 
                 default:
                     MEMCPY_S( m_pValueLocation, GetSize(), pValue, size );
@@ -396,9 +394,8 @@ OCLObject<_cl_kernel_int>(pProgram->GetParentHandle(), "Kernel"),
 {
     m_sKernelPrototype.m_szKernelName = psKernelName;
 
-    if (NULL != pProgram)
-    {
-        m_pContext = pProgram->GetContext();
+    if (NULL != pProgram.GetPtr()) {
+      m_pContext = pProgram->GetContext();
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -451,20 +448,18 @@ cl_err_code Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
         pValue = &m_uiRefCount;
         break;
     case CL_KERNEL_CONTEXT:
-        if (NULL != m_pProgram && NULL != m_pContext)
-        {
-            szParamSize = sizeof(cl_context);
-            iParam = (cl_long)m_pContext->GetHandle();
-            pValue = &iParam;
-        }
+      if (NULL != m_pProgram.GetPtr() && NULL != m_pContext.GetPtr()) {
+        szParamSize = sizeof(cl_context);
+        iParam = (cl_long)m_pContext->GetHandle();
+        pValue = &iParam;
+      }
         break;
     case CL_KERNEL_PROGRAM:
-        if (NULL != m_pProgram)
-        {
-            szParamSize = sizeof(cl_program);
-            iParam = (cl_ulong)m_pProgram->GetHandle();
-            pValue = &iParam;
-        }
+      if (NULL != m_pProgram.GetPtr()) {
+        szParamSize = sizeof(cl_program);
+        iParam = (cl_ulong)m_pProgram->GetHandle();
+        pValue = &iParam;
+      }
         break;
     case CL_KERNEL_ATTRIBUTES:
         szParamSize = m_sKernelPrototype.m_szKernelAttributes.length() + 1;
@@ -504,17 +499,17 @@ cl_err_code Kernel::GetSubGroupInfo(const       SharedPtr<FissionableDevice>& de
                                     void *      pParamValue,
                                     size_t*     pszParamValueSizeRet)
 {
-    LOG_DEBUG(TEXT("Enter Kernel::GetSubGroupInfo (pDevice=%p, iParamName=%d,\
+  LOG_DEBUG(TEXT("Enter Kernel::GetSubGroupInfo (pDevice=%p, iParamName=%d,\
                     szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
-                    device.GetPtr(), iParamName, szParamValueSize,
-                    pParamValue, pszParamValueSizeRet);
-    assert("No context assigned to the kernel" && (NULL != m_pProgram) && (NULL != m_pContext));
+            device.GetPtr(), iParamName, szParamValueSize, pParamValue,
+            pszParamValueSizeRet);
+  assert("No context assigned to the kernel" && (NULL != m_pProgram.GetPtr()) &&
+         (NULL != m_pContext.GetPtr()));
 
-    FissionableDevice* pDevice = device.GetPtr();
-    // check input parameters
-    if ( (NULL == pDevice) && (m_szAssociatedDevices > 1) )
-    {
-        return CL_INVALID_DEVICE;
+  FissionableDevice *pDevice = device.GetPtr();
+  // check input parameters
+  if ((NULL == pDevice) && (m_szAssociatedDevices > 1)) {
+    return CL_INVALID_DEVICE;
     }
 
     if ( NULL == pDevice )
@@ -616,7 +611,8 @@ cl_err_code    Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice>& devi
         device.GetPtr(), iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
 #ifdef _DEBUG
-    assert ( "No context assigned to the kernel" && (NULL != m_pProgram) && (NULL != m_pContext) );
+    assert("No context assigned to the kernel" &&
+           (NULL != m_pProgram.GetPtr()) && (NULL != m_pContext.GetPtr()));
 #endif
 
     FissionableDevice* pDevice = device.GetPtr();
@@ -807,67 +803,69 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
 
     cl_err_code clErrCode = CL_SUCCESS;
 
-    if ( (NULL != pFECompiler) && (NULL != pBin) )
-    {
-        // First use Front-end compiler for the information
-        ClangFE::IOCLFEKernelArgInfo* pArgsInfo;
-        clErrCode = pFECompiler->GetKernelArgInfo(pBin, uiBinSize, m_sKernelPrototype.m_szKernelName.c_str(), &pArgsInfo );
-        if ( CL_FAILED(clErrCode) )
-        {
-            // If no kernel arg info, so just ignore.
-            // Otherwise, free internal data
-            // [OpenCL2.1 Development] Temporary disable assert below due to in case of SPIRV FE compiler returns CL_OUT_OF_HOST_MEMORY instead of CL_KERNEL_ARG_INFO_NOT_AVAILABLE.
-            //assert(  CL_KERNEL_ARG_INFO_NOT_AVAILABLE == clErrCode && "other codes indicates logical errors and should never occure");
-            return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
-        }
+    if ((NULL != pFECompiler.GetPtr()) && (NULL != pBin)) {
+      // First use Front-end compiler for the information
+      ClangFE::IOCLFEKernelArgInfo *pArgsInfo;
+      clErrCode = pFECompiler->GetKernelArgInfo(
+          pBin, uiBinSize, m_sKernelPrototype.m_szKernelName.c_str(),
+          &pArgsInfo);
+      if (CL_FAILED(clErrCode)) {
+        // If no kernel arg info, so just ignore.
+        // Otherwise, free internal data
+        // [OpenCL2.1 Development] Temporary disable assert below due to in case
+        // of SPIRV FE compiler returns CL_OUT_OF_HOST_MEMORY instead of
+        // CL_KERNEL_ARG_INFO_NOT_AVAILABLE.
+        // assert(  CL_KERNEL_ARG_INFO_NOT_AVAILABLE == clErrCode && "other
+        // codes indicates logical errors and should never occure");
+        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+      }
 
-        // Fill information
-        size_t numArgs =pArgsInfo->getNumArgs();
-        m_vArgumentsInfo.resize(numArgs);
-        for(size_t i=0; i<m_vArgumentsInfo.size(); ++i)
-        {
-            SKernelArgumentInfo& argInfo = m_vArgumentsInfo[i];
-             
-            argInfo.accessQualifier = pArgsInfo->getArgAccessQualifier(i);
-            argInfo.addressQualifier = pArgsInfo->getArgAdressQualifier(i);
-            const char *name = pArgsInfo->getArgName(i);
-            argInfo.name            = name ? name : "";
-            argInfo.typeName        = pArgsInfo->getArgTypeName(i);
-            argInfo.typeQualifier   = pArgsInfo->getArgTypeQualifier(i);
-            argInfo.hostAccessible  = pArgsInfo->getArgHostAccessible(i);
-            argInfo.localMemSize    = pArgsInfo->getArgLocalMemSize(i);
-        }
+      // Fill information
+      size_t numArgs = pArgsInfo->getNumArgs();
+      m_vArgumentsInfo.resize(numArgs);
+      for (size_t i = 0; i < m_vArgumentsInfo.size(); ++i) {
+        SKernelArgumentInfo &argInfo = m_vArgumentsInfo[i];
 
-        delete pArgsInfo;
-    }
-    else
-    {
-        size_t numArgs = m_sKernelPrototype.m_vArguments.size();
-        m_vArgumentsInfo.resize(numArgs);
+        argInfo.accessQualifier = pArgsInfo->getArgAccessQualifier(i);
+        argInfo.addressQualifier = pArgsInfo->getArgAdressQualifier(i);
+        const char *name = pArgsInfo->getArgName(i);
+        argInfo.name = name ? name : "";
+        argInfo.typeName = pArgsInfo->getArgTypeName(i);
+        argInfo.typeQualifier = pArgsInfo->getArgTypeQualifier(i);
+        argInfo.hostAccessible = pArgsInfo->getArgHostAccessible(i);
+        argInfo.localMemSize = pArgsInfo->getArgLocalMemSize(i);
+      }
 
-        clLocalArray<cl_kernel_argument_info>  argInfoArray(numArgs);
+      delete pArgsInfo;
+    } else {
+      size_t numArgs = m_sKernelPrototype.m_vArguments.size();
+      m_vArgumentsInfo.resize(numArgs);
 
-        cl_dev_err_code clDevErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(
-            pDeviceKernel->GetId(), CL_DEV_KERNEL_ARG_INFO, 0, nullptr, numArgs*sizeof(cl_kernel_argument_info), &argInfoArray[0], nullptr);
-        if (CL_DEV_FAILED(clDevErr))
-        {
-            m_vArgumentsInfo.clear();
-            clErrCode = (clDevErr == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
-        }
+      clLocalArray<cl_kernel_argument_info> argInfoArray(numArgs);
 
-        // Now assign the values
-        for(size_t i=0; i<m_vArgumentsInfo.size(); ++i)
-        {
-            SKernelArgumentInfo& argInfo = m_vArgumentsInfo[i];
-             
-            argInfo.accessQualifier = argInfoArray[i].accessQualifier;
-            argInfo.addressQualifier = argInfoArray[i].addressQualifier;
-            argInfo.name = argInfoArray[i].name ? argInfoArray[i].name : "";
-            argInfo.typeName        = argInfoArray[i].typeName ? argInfoArray[i].typeName : "";
-            argInfo.typeQualifier   = argInfoArray[i].typeQualifier;
-            argInfo.hostAccessible  = argInfoArray[i].hostAccessible;
-            argInfo.localMemSize    = argInfoArray[i].localMemSize;
-        }
+      cl_dev_err_code clDevErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(
+          pDeviceKernel->GetId(), CL_DEV_KERNEL_ARG_INFO, 0, nullptr,
+          numArgs * sizeof(cl_kernel_argument_info), &argInfoArray[0], nullptr);
+      if (CL_DEV_FAILED(clDevErr)) {
+        m_vArgumentsInfo.clear();
+        clErrCode = (clDevErr == CL_DEV_INVALID_KERNEL_NAME)
+                        ? CL_INVALID_KERNEL_NAME
+                        : CL_OUT_OF_HOST_MEMORY;
+      }
+
+      // Now assign the values
+      for (size_t i = 0; i < m_vArgumentsInfo.size(); ++i) {
+        SKernelArgumentInfo &argInfo = m_vArgumentsInfo[i];
+
+        argInfo.accessQualifier = argInfoArray[i].accessQualifier;
+        argInfo.addressQualifier = argInfoArray[i].addressQualifier;
+        argInfo.name = argInfoArray[i].name ? argInfoArray[i].name : "";
+        argInfo.typeName =
+            argInfoArray[i].typeName ? argInfoArray[i].typeName : "";
+        argInfo.typeQualifier = argInfoArray[i].typeQualifier;
+        argInfo.hostAccessible = argInfoArray[i].hostAccessible;
+        argInfo.localMemSize = argInfoArray[i].localMemSize;
+      }
     }
 
     return clErrCode;
@@ -1023,7 +1021,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
         if (NULL == pValue) {
           clArg.SetValue(sizeof(cl_mem), nullptr);
         } else {
-          cl_mem clMemId = *((cl_mem *)(pValue));
+          cl_mem clMemId = *((const cl_mem *)(pValue));
           LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%p)"), clMemId);
           clArg.SetSvmObject(nullptr);
           clArg.SetUsmObject(nullptr);
@@ -1053,15 +1051,14 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
             return CL_INVALID_ARG_VALUE;
         }
 
-        cl_mem clMemId = *((cl_mem*)(pValue));
+        cl_mem clMemId = *((const cl_mem *)(pValue));
 
         LOG_DEBUG(TEXT("SetKernelArg image (cl_mem=%p)"), clMemId);
 
         const SharedPtr<MemoryObject>& pMemObj = pContext->GetMemObject(clMemId);
-        if (NULL == pMemObj)
-        {
-            return CL_INVALID_ARG_VALUE;
-        }     
+        if (NULL == pMemObj.GetPtr()) {
+          return CL_INVALID_ARG_VALUE;
+        }
 
         cl_image_format imgFormat;
         cl_err_code err = pMemObj->GetImageInfo(CL_IMAGE_FORMAT, sizeof(imgFormat), &imgFormat, nullptr);
@@ -1105,7 +1102,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
 
         // local memory pointer 
         m_totalLocalSize -= clArg.GetLocalBufferSize();
-        clArg.SetValue(szSize, (void*)pValue);
+        clArg.SetValue(szSize, pValue);
         m_totalLocalSize += clArg.GetLocalBufferSize();
     }
     else if (clArg.IsSampler())
@@ -1120,12 +1117,11 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
         {
             return CL_INVALID_SAMPLER;
         }
-        
-        cl_sampler clSamplerId = *((cl_sampler*)(pValue));
-        SharedPtr<Sampler> pSampler = pContext->GetSampler(clSamplerId); 
-        if (NULL == pSampler)
-        {
-            return CL_INVALID_SAMPLER;
+
+        cl_sampler clSamplerId = *((const cl_sampler *)(pValue));
+        SharedPtr<Sampler> pSampler = pContext->GetSampler(clSamplerId);
+        if (NULL == pSampler.GetPtr()) {
+          return CL_INVALID_SAMPLER;
         }
         //Support for new(opaque ptr) and old(int32) sampler.
         if (clArg.IsInt32Sampler())
@@ -1152,12 +1148,11 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
             return CL_INVALID_ARG_SIZE;
         }
 
-        const cl_command_queue queueId = *(cl_command_queue*)pValue;
+        const cl_command_queue queueId = *(const cl_command_queue *)pValue;
         ExecutionModule& pExecutionModule = *FrameworkProxy::Instance()->GetExecutionModule();
         const SharedPtr<OclCommandQueue> pQueue = pExecutionModule.GetCommandQueue(queueId);
-        if (NULL == pQueue)
-        {
-            return CL_INVALID_QUEUE;
+        if (NULL == pQueue.GetPtr()) {
+          return CL_INVALID_QUEUE;
         }
 
         void* const pCmdListPtr = pQueue->GetDeviceCommandListPtr();
@@ -1177,57 +1172,48 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
             return CL_INVALID_ARG_VALUE;
         }
 
-        if (clArg.IsPipe())
-        {
-            cl_mem clMemId = *((cl_mem*)(pValue));
-            const SharedPtr<MemoryObject>& pMemObj = pContext->GetMemObject(clMemId);
-            if (!pMemObj)
-            {
-                return CL_INVALID_ARG_VALUE;
-            }
-            const SharedPtr<Pipe>& pPipe = pMemObj.DynamicCast<Pipe>();
-            if (!pPipe)
-            {
-                return CL_INVALID_ARG_VALUE;
-            }
+        if (clArg.IsPipe()) {
+          cl_mem clMemId = *((const cl_mem *)(pValue));
+          const SharedPtr<MemoryObject> &pMemObj =
+              pContext->GetMemObject(clMemId);
+          if (!pMemObj) {
+            return CL_INVALID_ARG_VALUE;
+          }
+          const SharedPtr<Pipe> &pPipe = pMemObj.DynamicCast<Pipe>();
+          if (!pPipe) {
+            return CL_INVALID_ARG_VALUE;
+          }
 
-            if (pPipe->IsHostAccessible() !=
-                m_vArgumentsInfo[uiIndex].hostAccessible)
-            {
-                return CL_INVALID_ARG_VALUE;
-            }
+          if (pPipe->IsHostAccessible() !=
+              m_vArgumentsInfo[uiIndex].hostAccessible) {
+            return CL_INVALID_ARG_VALUE;
+          }
 
-            if (pPipe->IsHostAccessible())
-            {
-                cl_kernel_arg_access_qualifier argQual =
-                    m_vArgumentsInfo[uiIndex].accessQualifier;
+          if (pPipe->IsHostAccessible()) {
+            cl_kernel_arg_access_qualifier argQual =
+                m_vArgumentsInfo[uiIndex].accessQualifier;
 
-                //  The direction  indicated in the  clCreatePipe flag
-                //  must be opposite to the pipe access type specified
-                //  on the kernel argument.
+            //  The direction  indicated in the  clCreatePipe flag
+            //  must be opposite to the pipe access type specified
+            //  on the kernel argument.
 
-                if (argQual == CL_KERNEL_ARG_ACCESS_READ_ONLY &&
-                    !(pPipe->GetFlags() & CL_MEM_HOST_WRITE_ONLY))
-                {
-                    return CL_INVALID_ARG_VALUE;
-                }
-                if (argQual == CL_KERNEL_ARG_ACCESS_WRITE_ONLY &&
-                    !(pPipe->GetFlags() & CL_MEM_HOST_READ_ONLY))
-                {
-                    return CL_INVALID_ARG_VALUE;
-                }
+            if (argQual == CL_KERNEL_ARG_ACCESS_READ_ONLY &&
+                !(pPipe->GetFlags() & CL_MEM_HOST_WRITE_ONLY)) {
+              return CL_INVALID_ARG_VALUE;
             }
-        }
-        else
-        {
-            if (m_vArgumentsInfo[uiIndex].hostAccessible)
-            {
-                // Only a pipe can be host accessible
-                return CL_INVALID_ARG_VALUE;
+            if (argQual == CL_KERNEL_ARG_ACCESS_WRITE_ONLY &&
+                !(pPipe->GetFlags() & CL_MEM_HOST_READ_ONLY)) {
+              return CL_INVALID_ARG_VALUE;
             }
+          }
+        } else {
+          if (m_vArgumentsInfo[uiIndex].hostAccessible) {
+            // Only a pipe can be host accessible
+            return CL_INVALID_ARG_VALUE;
+          }
         }
 
-        clArg.SetValue(szSize, (void*)pValue);
+        clArg.SetValue(szSize, pValue);
     }
 
     if (!clArg.IsValid())

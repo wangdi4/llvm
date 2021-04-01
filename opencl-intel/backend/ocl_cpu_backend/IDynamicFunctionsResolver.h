@@ -30,6 +30,7 @@ public:
      */
     virtual unsigned long long int GetFunctionAddress(const std::string& functionName) 
         const = 0;
+    virtual ~IDynamicFunctionsResolver() {}
 };
 
 }}} // namespace

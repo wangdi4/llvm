@@ -758,10 +758,14 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     newContext.uc_link = &originalContext;
     // workaround "might be clobbered" warning
     if (isUniform)
-      makecontext(&newContext, (void(*)())pKernelUniformImplicitArgs->pUniformJITEntryPoint,
+      makecontext(&newContext,
+                  (void (*)())(const_cast<void *>(
+                      pKernelUniformImplicitArgs->pUniformJITEntryPoint)),
                   3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
     else
-      makecontext(&newContext, (void(*)())pKernelUniformImplicitArgs->pNonUniformJITEntryPoint,
+      makecontext(&newContext,
+                  (void (*)())(const_cast<void *>(
+                      pKernelUniformImplicitArgs->pNonUniformJITEntryPoint)),
                   3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
     swapcontext(&originalContext, &newContext);
     ReleaseStack(stackBase);
@@ -827,7 +831,9 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
     Serializer::SerialPrimitive<unsigned int>(&m_memArgs[i], ost);
   }
 
-  Serializer::SerialPointerHint((const void **)&m_pProps, ost);
+  Serializer::SerialPointerHint(
+      const_cast<const void **>(reinterpret_cast<void *const *>(&m_pProps)),
+      ost);
   if (nullptr != m_pProps) {
     m_pProps->Serialize(ost, stats);
   }
@@ -838,7 +844,10 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
   for (std::vector<IKernelJITContainer *>::const_iterator it = m_JITs.begin();
        it != m_JITs.end(); ++it) {
     IKernelJITContainer *currentArgument = (*it);
-    Serializer::SerialPointerHint((const void **)&currentArgument, ost);
+    Serializer::SerialPointerHint(
+        const_cast<const void **>(
+            reinterpret_cast<void *const *>(&currentArgument)),
+        ost);
     if (nullptr != currentArgument) {
       currentArgument->Serialize(ost, stats);
     }

@@ -22,8 +22,8 @@ public:
     virtual ~IMutex(){}
 private:
     //Disallow copying
-    IMutex( const IMutex& im ) {}
-    void operator =(const IMutex&);
+  IMutex(const IMutex & /*im*/) {}
+  void operator=(const IMutex &);
 };
 
 
@@ -32,13 +32,12 @@ class OclMutex: public IMutex
 public:
     OclMutex( unsigned int uiSpinCount = 4000 );
     virtual ~OclMutex ();
-    void Lock();
-    void Unlock();
-protected:
+    void Lock() override;
+    void Unlock() override;
+
+  protected:
     void* m_mutexHndl;
     void* m_mutexAttr;
-private:
-    unsigned int m_uiSpinCount;
 };
 
 
