@@ -410,6 +410,7 @@ namespace {
       (void)llvm::createImplicitArgsAnalysisLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::createResolveWICallLegacyPass(false, false);
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
