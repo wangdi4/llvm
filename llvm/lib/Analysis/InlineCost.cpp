@@ -562,8 +562,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // Whether inlining is decided by cost-benefit analysis.
   bool DecidedByCostBenefit = false;
 
-  bool SingleBB = true;
-
   unsigned SROACostSavings = 0;
   unsigned SROACostSavingsLost = 0;
 
