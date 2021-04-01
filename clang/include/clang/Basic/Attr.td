@@ -1911,13 +1911,14 @@ def SYCLIntelFPGAIVDep : StmtAttr {
   let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
 }
 
-def SYCLIntelFPGAInitiationInterval : StmtAttr {
+def SYCLIntelFPGAInitiationInterval : DeclOrStmtAttr {
   let Spellings = [CXX11<"intelfpga","ii">,
                    Pragma<"", "ii">, //INTEL
                    CXX11<"intel","ii">,
                    CXX11<"intel", "initiation_interval">];
-  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
-                             ErrorDiag, "'for', 'while', and 'do' statements">;
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
+                              ErrorDiag,
+                              "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"IntervalExpr", /*opt*/1>];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
@@ -1932,6 +1933,7 @@ def SYCLIntelFPGAInitiationInterval : StmtAttr {
     // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGAInitiationIntervalAttrDocs];
+  let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelFPGAMaxConcurrency : StmtAttr {
@@ -1972,12 +1974,13 @@ def SYCLIntelFPGALoopCoalesce : StmtAttr {
   let Documentation = [SYCLIntelFPGALoopCoalesceAttrDocs];
 }
 
-def SYCLIntelFPGADisableLoopPipelining : StmtAttr {
+def SYCLIntelFPGADisableLoopPipelining : DeclOrStmtAttr {
   let Spellings = [CXX11<"intelfpga","disable_loop_pipelining">,
                    Pragma<"", "disable_loop_pipelining">, //INTEL
                    CXX11<"intel","disable_loop_pipelining">];
-  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
-                             ErrorDiag, "'for', 'while', and 'do' statements">;
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
+                              ErrorDiag,
+                              "'for', 'while', 'do' statements, and functions">;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
   let AdditionalMembers = [{
@@ -1991,6 +1994,7 @@ def SYCLIntelFPGADisableLoopPipelining : StmtAttr {
     // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGADisableLoopPipeliningAttrDocs];
+  let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelFPGAMaxInterleaving : StmtAttr {
