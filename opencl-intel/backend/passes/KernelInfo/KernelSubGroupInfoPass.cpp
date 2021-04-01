@@ -59,24 +59,22 @@ bool KernelSubGroupInfo::runOnModule(Module &M) {
 
   bool Changed = false;
 
-  for (auto &F : M) {
+  for (auto &F : M)
     Changed |= runOnFunction(F);
-  }
 
   // Get all kernels.
   CompilationUtils::FunctionSet kernelsFunctionSet;
   CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
 
-  // If a kernel has subgroup callees, mark it with a kernel metadata.
+  // Note: We should always set this metadata because it's used to indicate
+  // we are under native SG mode.
   for (auto *F : kernelsFunctionSet) {
-    if (F->hasFnAttribute(CompilationUtils::ATTR_HAS_SUBGROUPS)) {
-      auto kimd = KernelInternalMetadataAPI(F);
-      kimd.KernelHasSubgroups.set(true);
-      Changed = true;
-    }
+    auto kimd = KernelInternalMetadataAPI(F);
+    kimd.KernelHasSubgroups.set(
+        F->hasFnAttribute(CompilationUtils::ATTR_HAS_SUBGROUPS));
   }
 
-  return Changed;
+  return Changed || !kernelsFunctionSet.empty();
 }
 
 } // namespace intel
