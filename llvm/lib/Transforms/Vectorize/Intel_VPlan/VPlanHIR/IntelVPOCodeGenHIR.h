@@ -802,7 +802,7 @@ private:
   // Helper utility to get result type corresponding to \p RefTy based on \p
   // Widen.
   Type *getResultRefTy(Type *RefTy, unsigned VF, bool Widen) {
-    return Widen ? FixedVectorType::get(RefTy, VF) : RefTy;
+    return Widen ? getWidenedType(RefTy, VF) : RefTy;
   }
 
   // Helper utility to make \p Ref consistent and map it to \p VPInst based on
