@@ -210,7 +210,11 @@ createGroupLoad(OVLSGroup *Group, unsigned VF) {
       Builder.create<VPVLSLoad>("vls.load", LeaderAddress, Ty, Size,
                                 FirstGroupInst->getAlignment(), Group->size());
   Plan.getVPlanDA()->markUniform(*WideLoad);
+
   WideLoad->HIR().setSymbase(FirstGroupInst->HIR().getSymbase());
+  for (auto *Memref : *Group)
+    WideLoad->HIR().addFakeSymbase(
+        cast<VPVLSClientMemref>(Memref)->getInstruction()->HIR().getSymbase());
 
   combineMetadata(WideLoad, Group);
 
@@ -395,7 +399,13 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
     auto *WideStore = Builder.create<VPVLSStore>(
         "vls.store", WideValue, BaseAddr, Size, FirstMemrefInst->getAlignment(),
         Group->size());
+
     WideStore->HIR().setSymbase(FirstMemrefInst->HIR().getSymbase());
+    for (auto *Memref : *Group)
+      WideStore->HIR().addFakeSymbase(cast<VPVLSClientMemref>(Memref)
+                                          ->getInstruction()
+                                          ->HIR()
+                                          .getSymbase());
 
     combineMetadata(WideStore, Group);
   }

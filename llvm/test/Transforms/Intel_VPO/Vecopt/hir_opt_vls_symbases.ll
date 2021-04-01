@@ -24,16 +24,20 @@ define void @foo(%S1 *%p) {
 ; CHECK:      END LOOP
 
 ; HIR after VPlan:
-; FIXME: Note that [[SB_DBL]] is completely lost during VLS transformation.
 ; CHECK:      DO i64 i1 = 0, 127, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:        %.vls.load = (<8 x i64>*)(%p)[i1].0;
 ; CHECK-NEXT:   <LVAL-REG> NON-LINEAR <8 x i64> %.vls.load
-; CHECK-NEXT:   <RVAL-REG> {al:8}(<8 x i64>*)(LINEAR %S1* %p)[LINEAR i64 i1].0 inbounds !tbaa <{{.*}}> [[SB_I64]]
-; CHECK-NOT: FAKE
+; CHECK:        <RVAL-REG> {al:8}(<8 x i64>*)(LINEAR %S1* %p)[LINEAR i64 i1].0 inbounds !tbaa <{{.*}}> [[SB_I64]]
+; CHECK-NEXT:      <BLOB> LINEAR %S1* %p
+; CHECK-NEXT:   <FAKE-RVAL-REG> {al:8}(<8 x i64>*)(LINEAR %S1* %p)[LINEAR i64 i1].0 inbounds !tbaa <{{.*}}> [[SB_DBL]]
+; CHECK-NEXT:      <BLOB> LINEAR %S1* %p
 
-; CHECK:        (<8 x i64>*)(%p)[i1].0 = %shuffle{{[0-9]*}};
+; CHECK:        (<8 x i64>*)(%p)[i1].0 = [[SHUFFLE:%shuffle[0-9]*]];
 ; CHECK-NEXT:   <LVAL-REG> {al:8}(<8 x i64>*)(LINEAR %S1* %p)[LINEAR i64 i1].0 inbounds !tbaa <{{.*}}> [[SB_I64]]
-; CHECK-NOT: FAKE
+; CHECK-NEXT:      <BLOB> LINEAR %S1* %p
+; CHECK-NEXT:   <RVAL-REG> NON-LINEAR <8 x i64> [[SHUFFLE]]
+; CHECK-NEXT:   <FAKE-LVAL-REG> {al:8}(<8 x i64>*)(LINEAR %S1* %p)[LINEAR i64 i1].0 inbounds !tbaa <{{.*}}> [[SB_DBL]]
+; CHECK-NEXT:      <BLOB> LINEAR %S1*
 ; CHECK:      END LOOP
 entry:
   br label %header
