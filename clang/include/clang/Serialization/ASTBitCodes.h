@@ -1954,6 +1954,7 @@ enum StmtCode {
   STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE,
 #endif // INTEL_COLLAB
   STMT_OMP_INTEROP_DIRECTIVE,
+  STMT_OMP_DISPATCH_DIRECTIVE,
   EXPR_OMP_ARRAY_SECTION,
   EXPR_OMP_ARRAY_SHAPING,
   EXPR_OMP_ITERATOR,
@@ -2105,8 +2106,6 @@ public:
     return A.Kind == B.Kind && A.Data == B.Data;
   }
 };
-
-/// @}
 
 } // namespace serialization
 } // namespace clang

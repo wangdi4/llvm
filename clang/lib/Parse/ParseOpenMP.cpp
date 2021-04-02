@@ -47,7 +47,6 @@ enum OpenMPDirectiveKindEx {
   OMPD_target_exit,
   OMPD_update,
 #if INTEL_COLLAB
-  OMPD_dispatch,
   OMPD_target_variant,
 #endif // INTEL_COLLAB
   OMPD_distribute_parallel,
@@ -117,9 +116,6 @@ static unsigned getOpenMPDirectiveKindEx(StringRef S) {
       .Case("mapper", OMPD_mapper)
       .Case("variant", OMPD_variant)
       .Case("begin", OMPD_begin)
-#if INTEL_COLLAB
-      .Case("dispatch", OMPD_dispatch)
-#endif // INTEL_COLLAB
       .Default(OMPD_unknown);
 }
 
@@ -2255,6 +2251,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_target_teams_distribute_simd:
+  case OMPD_dispatch:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -2587,7 +2584,8 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_teams_distribute:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
-  case OMPD_target_teams_distribute_simd: {
+  case OMPD_target_teams_distribute_simd:
+  case OMPD_dispatch: {
     // Special processing for flush and depobj clauses.
     Token ImplicitTok;
     bool ImplicitClauseAllowed = false;

@@ -1163,6 +1163,7 @@ __OMP_TRAIT_SELECTOR(device, isa, true)
 OMP_TRAIT_PROPERTY(device_isa___ANY, device, device_isa,
                    "<any, entirely target dependent>")
 
+__OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, dispatch)
 
 #undef OMP_TRAIT_SET
 #undef __OMP_TRAIT_SET
