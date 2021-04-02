@@ -1666,6 +1666,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
       auto *WideLoad = cast<LoadInst>(Builder.CreateAlignedLoad(
           CastedBase, VLSLoad->getAlignment(), "vls.load"));
+
+      for (std::pair<unsigned, MDNode *> It : VLSLoad->getMetadata())
+        WideLoad->setMetadata(It.first, It.second);
+
       VPScalarMap[VLSLoad][0] = WideLoad;
       OptRptStats.UnmaskedVLSLoads += VLSLoad->getNumOrigLoads();
       return;
@@ -1748,7 +1752,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
       auto *WideStore = cast<StoreInst>(Builder.CreateAlignedStore(
           StoredValue, CastedBase, VLSStore->getAlignment()));
-      (void)WideStore;
+
+      for (std::pair<unsigned, MDNode *> It : VLSStore->getMetadata())
+        WideStore->setMetadata(It.first, It.second);
+
       OptRptStats.UnmaskedVLSStores += VLSStore->getNumOrigStores();
       return;
     }
