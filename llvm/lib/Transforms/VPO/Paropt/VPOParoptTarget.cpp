@@ -3574,6 +3574,80 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
   return InteropObj;
 }
 
+bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
+    LLVM_DEBUG(
+        dbgs() << "\nEnter VPOParoptTransform::genInteropCode\n");
+
+    W->populateBBSet();
+
+    Value* DeviceNum = W->getDevice();
+    InteropActionClause& ActionClause = W->getInteropAction();
+    DependClause const& DepClause = W->getDepend();
+    bool IsAsync = W->getNowait();
+
+    BasicBlock* BranchBB = createEmptyPrivInitBB(W);
+
+    Instruction* InsertPt = BranchBB->getTerminator();
+    IRBuilder<> Builder(InsertPt);
+    IntegerType* Int64Ty = Builder.getInt64Ty();
+
+    if(IsAsync) {
+      OptimizationRemarkMissed R("openmp", "Interop", W->getEntryDirective());
+      R << "Nowait clause on interop construct was ignored (not yet "
+           "supported).";
+      ORE.emit(R);
+    }
+
+    if (!DeviceNum)
+      DeviceNum = VPOParoptUtils::genOmpGetDefaultDevice(InsertPt);
+
+    DeviceNum = Builder.CreateZExtOrTrunc(DeviceNum, Int64Ty);
+    assert(DeviceNum->getType()->isIntegerTy(64) && "DeviceID is not an i64.");
+
+    CallInst *TaskAllocCI =
+        VPOParoptUtils::genKmpcTaskAllocWithoutCallback(W, IdentTy, InsertPt);
+
+    if (!DepClause.empty()) {
+      AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
+      genTaskDeps(W, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
+                  DummyTaskTDependRec, InsertPt, true);
+    }
+
+    assert(!ActionClause.empty() && "Interop construct has no action clause");
+    VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                                        InsertPt);
+
+    PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+    PointerType *Int8PtrPtrTy = Int8PtrTy->getPointerTo();
+
+    for (auto *Item : ActionClause.items()) {
+      Value *InteropVarAddr = Item->getOrig();
+      auto *InteropVarAddrCast = Builder.CreateBitOrPointerCast(
+          InteropVarAddr, Int8PtrPtrTy,
+          InteropVarAddr->getName() + "interop.addr.cast");
+      if (Item->getIsInit()) {
+        CallInst *Interop = VPOParoptUtils::genTgtCreateInterop(
+            DeviceNum, Item->getIsTarget() ? 0 : 1, Item->getPreferList(),
+            InsertPt);
+        Builder.CreateStore(Interop, InteropVarAddrCast);
+      } else if (Item->getIsDestroy() || Item->getIsUse()) {
+        Value *InteropVar =
+            Builder.CreateLoad(Int8PtrTy, InteropVarAddrCast,
+                               InteropVarAddr->getName() + "interop.obj.val");
+        if (Item->getIsDestroy())
+          VPOParoptUtils::genTgtReleaseInterop(
+              InteropVar, InsertPt, /*EmitTgtReleaseInteropObj=*/false);
+        else
+          VPOParoptUtils::genTgtUseInterop(InteropVar, InsertPt);
+      } else {
+        llvm_unreachable("Unexpected interop action clause item type");
+      }
+    }
+    VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
+                                           TaskAllocCI, InsertPt);
+    return true;
+}
+
 /// Gen code for the target variant dispatch construct
 ///
 /// Case 1. No use_device_ptr clause:
@@ -3813,7 +3887,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // Release the interop object for synchronous execution (no NOWAIT clause).
   // Don't do this for the asynchronous case; the async_handler will do it.
   if (InteropObj != nullptr && W->getNowait() == false)
-    VPOParoptUtils::genTgtReleaseInteropObj(InteropObj, BaseCall); //       (9)
+    VPOParoptUtils::genTgtReleaseInterop(InteropObj, BaseCall, true); //    (9)
 
   BaseCall->replaceAllUsesWith(VariantCall);
   assert(BaseCall->use_empty());

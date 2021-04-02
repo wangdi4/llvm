@@ -264,13 +264,13 @@ void InteropItem::populatePreferList(const Use *Args, unsigned NumArgs) {
     ConstantInt *CI = cast<ConstantInt>(Args[i]);
     if (CI->getValue() == 3) {
       setIsPreferOpenCL();
-      PreferList.push_back(InitPreferOpenCL);
+      PreferList.push_back(3);
     } else if (CI->getValue() == 4) {
       setIsPreferSycl();
-      PreferList.push_back(InitPreferSycl);
+      PreferList.push_back(4);
     } else if (CI->getValue() == 6) {
       setIsPreferL0();
-      PreferList.push_back(InitPreferL0);
+      PreferList.push_back(6);
     } else
       llvm_unreachable("Non acceptable option of preference-list");
   }

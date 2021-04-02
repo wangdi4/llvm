@@ -1082,6 +1082,11 @@ public:
                    int KmpSharedTySz, PointerType *KmpRoutineEntryPtrTy,
                    Function *MicroTaskFn, Instruction *InsertPt, bool UseTbb);
 
+  /// Generate a call to `__kmpc_omp_task_alloc` without a callback
+  static CallInst *genKmpcTaskAllocWithoutCallback(WRegionNode *W,
+                                                   StructType *IdentTy,
+                                                   Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
   /// for the TARGET VARIANT DISPATCH NOWAIT construct corresponding to \p W
   static CallInst *genKmpcTaskAllocForAsyncObj(WRegionNode *W,
@@ -1506,12 +1511,30 @@ public:
                                           Value *AsyncObj,
                                           Instruction *InsertPt);
 
+  /// /// Generate a call to `__tgt_create_interop`.
+  /// \code
+  ///    void *__tgt_create_interop(int64_t device_id,
+  ///                               int32_t interop_type,
+  ///                               int32_t num_prefers,
+  ///                               intptr_t* prefer_ids)
+  /// \endcode
+  static CallInst *
+  genTgtCreateInterop(Value *DeviceNum, int32_t OmpInteropContext,
+                      const SmallVectorImpl<unsigned> &PreferList,
+                      Instruction *InsertPt);
+
+  /// Generate a call to `__tgt_release_interop_obj`
+  /// if \p EmitTgtReleaseInteropObj is true,
+  /// `__tgt_release_interop` otherwise.
+  static CallInst *genTgtReleaseInterop(Value *InteropObj,
+                                        Instruction *InsertPt,
+                                        bool EmitTgtReleaseInteropObj = false);
+
   /// Generate a call to
   /// \code
-  ///    int __tgt_release_interop_obj(void *interop_obj)
+  ///   int __tgt_use_interop(omp_interop_t interop)
   /// \endcode
-  static CallInst *genTgtReleaseInteropObj(Value *InteropObj,
-                                           Instruction *InsertPt);
+  static CallInst* genTgtUseInterop(Value* InteropObj, Instruction* InsertPt);
 
   /// Generate a call to
   /// \code

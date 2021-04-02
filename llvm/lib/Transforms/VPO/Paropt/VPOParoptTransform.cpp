@@ -2106,6 +2106,14 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
 
+      case WRegionNode::WRNInterop:
+        if (Mode & ParPrepare) {
+          if (!hasOffloadCompilation())
+            Changed |= genInteropCode(W);
+          RemoveDirectives = true;
+        }
+        break;
+
       case WRegionNode::WRNVecLoop:
         if (Mode & ParPrepare) {
           Changed |= regularizeOMPLoop(W);
