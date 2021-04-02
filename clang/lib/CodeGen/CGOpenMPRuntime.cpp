@@ -7953,32 +7953,16 @@ public:
           return BaseLV;
         };
         if (OAShE) {
-<<<<<<< HEAD
-          LB = Address(CGF.EmitScalarExpr(OAShE->getBase()),
-                       CGF.getContext().getTypeAlignInChars(
-                           OAShE->getBase()->getType()));
-#if INTEL_COLLAB
-        } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
-                   isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
-          LB = Address(CGF.EmitScalarExpr(OASE->getBase()),
-                       CGF.getContext().getTypeAlignInChars(
-                           OASE->getBase()->getType()));
-#endif  // INTEL_COLLAB
-        } else {
-          LB = CGF.EmitOMPSharedLValue(I->getAssociatedExpression())
-=======
           LowestElem = LB = Address(CGF.EmitScalarExpr(OAShE->getBase()),
                                     CGF.getContext().getTypeAlignInChars(
                                         OAShE->getBase()->getType()));
-        } else if (IsMemberReference) {
-          const auto *ME = cast<MemberExpr>(I->getAssociatedExpression());
-          LValue BaseLVal = EmitMemberExprBase(CGF, ME);
-          LowestElem = CGF.EmitLValueForFieldInitialization(
-                              BaseLVal, cast<FieldDecl>(MapDecl))
-                           .getAddress(CGF);
-          LB = CGF.EmitLoadOfReferenceLValue(LowestElem, MapDecl->getType())
->>>>>>> 0411b2331916cc8c7a8be9dd0eb540b731e6d9ce
-                   .getAddress(CGF);
+#if INTEL_COLLAB
+        } else if (CGF.CGM.getLangOpts().OpenMPLateOutline && OASE &&
+                   isa<CXXThisExpr>(OASE->getBase()->IgnoreParenImpCasts())) {
+          LowestElem = LB = Address(CGF.EmitScalarExpr(OASE->getBase()),
+                       CGF.getContext().getTypeAlignInChars(
+                           OASE->getBase()->getType()));
+#endif  // INTEL_COLLAB
         } else {
           LowestElem = LB =
               CGF.EmitOMPSharedLValue(I->getAssociatedExpression())
