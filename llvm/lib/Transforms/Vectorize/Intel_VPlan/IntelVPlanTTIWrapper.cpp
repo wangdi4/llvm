@@ -30,13 +30,12 @@ static cl::opt<unsigned>
 // load reads data from cache line(s). Moving the data to the cache buffer is
 // more expensive than moving it from the buffer.
 static cl::opt<unsigned> CMStoreCostAdjustment(
-    "vplan-cm-store-cost-adjustment", cl::init(3), cl::Hidden,
+    "vplan-cm-store-cost-adjustment", cl::init(1000), cl::Hidden,
     cl::desc("Store cost adjustment on top of TTI value"));
 
-static cl::opt<unsigned>
-    CMLoadCostAdjustment("vplan-cm-load-cost-adjustment", cl::init(2),
-                         cl::Hidden,
-                         cl::desc("Load cost adjustment on top of TTI value"));
+static cl::opt<unsigned> CMLoadCostAdjustment(
+    "vplan-cm-load-cost-adjustment", cl::init(500), cl::Hidden,
+    cl::desc("Load cost adjustment on top of TTI value"));
 
 // Estimate probability ([0.0f; 1.0f] range) of a memref to cross a cache line
 // boundary.

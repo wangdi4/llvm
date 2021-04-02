@@ -13,46 +13,45 @@ define void @foo(i64* nocapture %ptr, i64 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[N0]], 4
-; CHECK-NEXT:    [[N_VEC0:%.*]] = sub nuw nsw i64 [[N0]], [[N_MOD_VF0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq i64 0, [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP0]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[N0]], 4294967292
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 0, [[TMP0]]
+; CHECK-NEXT:    br i1 [[TMP1]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI30:%.*]] = phi <4 x i64> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI30]], [[VEC_PHI0]]
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP2]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[VEC_PHI30:%.*]] = phi <4 x i64> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw <4 x i64> [[VEC_PHI30]], [[VEC_PHI0]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP3]], [[TMP0]]
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[TMP5:%.*]] = call i64 @llvm.vector.reduce.add.v4i64(<4 x i64> [[TMP3]])
-; CHECK-NEXT:    [[TMP6:%.*]] = sub i64 [[N_VEC0]], 1
-; CHECK-NEXT:    [[TMP7:%.*]] = mul i64 1, [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add i64 0, [[TMP7]]
+; CHECK-NEXT:    [[TMP6:%.*]] = call i64 @llvm.vector.reduce.add.v4i64(<4 x i64> [[TMP4]])
+; CHECK-NEXT:    [[TMP7:%.*]] = sub i64 [[TMP0]], 1
+; CHECK-NEXT:    [[TMP8:%.*]] = mul i64 1, [[TMP7]]
+; CHECK-NEXT:    [[TMP9:%.*]] = add i64 0, [[TMP8]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  middle.block:
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne i64 [[N0]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP9]], label [[SCALAR_PH0]], label [[VPLANNEDBB50:%.*]]
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp ne i64 [[N0]], [[TMP0]]
+; CHECK-NEXT:    br i1 [[TMP10]], label [[SCALAR_PH0]], label [[VPLANNEDBB50:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  scalar.ph:
-; CHECK-NEXT:    [[UNI_PHI60:%.*]] = phi i64 [ [[TMP8]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
-; CHECK-NEXT:    [[UNI_PHI70:%.*]] = phi i64 [ [[TMP5]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI60:%.*]] = phi i64 [ [[TMP9]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI70:%.*]] = phi i64 [ [[TMP6]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:
 ; CHECK-NEXT:    br label [[HEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[UNI_PHI90:%.*]] = phi i64 [ [[IV0:%.*]], [[HEADER0]] ], [ [[TMP8]], [[MIDDLE_BLOCK0]] ]
-; CHECK-NEXT:    [[UNI_PHI100:%.*]] = phi i64 [ [[RED_NEXT0:%.*]], [[HEADER0]] ], [ [[TMP5]], [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    [[UNI_PHI90:%.*]] = phi i64 [ [[IV0:%.*]], [[HEADER0]] ], [ [[TMP9]], [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    [[UNI_PHI100:%.*]] = phi i64 [ [[RED_NEXT0:%.*]], [[HEADER0]] ], [ [[TMP6]], [[MIDDLE_BLOCK0]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:

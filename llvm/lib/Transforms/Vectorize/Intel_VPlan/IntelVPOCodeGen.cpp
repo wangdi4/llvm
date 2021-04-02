@@ -150,10 +150,15 @@ static Type *getSOAType(Type *InTy, unsigned VF) {
 static Value *calculateVectorTC(Value *OrigTC, IRBuilder<> &Builder,
                                 unsigned CStep) {
   // We need to generate the expression for the part of the loop that the
-  // vectorized body will execute. This is equal to (OrigTC/Step)*Step. Step
-  // is equal to the vectorization factor (number of SIMD elements) times the
-  // unroll factor (number of SIMD instructions).
+  // vectorized body will execute. Step is equal to the vectorization factor
+  // (number of SIMD elements) times the unroll factor (number of SIMD
+  // instructions). If the Step is a power of 2, then the vector trip count is
+  // calculated using the following formula: &(OrigTC, ~(Step-1)). Otherwise, we
+  // substract the remainder of OrigTC/Step from OrigTC.
   auto *Step = ConstantInt::get(OrigTC->getType(), CStep);
+  if (isPowerOf2_32(CStep))
+    return Builder.CreateAnd(OrigTC,
+                             ConstantInt::get(OrigTC->getType(), ~(CStep - 1)));
   auto *Rem = Builder.CreateURem(OrigTC, Step, "n.mod.vf");
   return Builder.CreateSub(OrigTC, Rem, "n.vec", /*HasNUW=*/true,
                            /*HasNSW=*/true);

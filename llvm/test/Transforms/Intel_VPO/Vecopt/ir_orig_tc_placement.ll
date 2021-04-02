@@ -11,13 +11,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i64 @foo(i64* nocapture %larr, i32 %n1) local_unnamed_addr #0 {
-; CHECK:       for.body:
+; CHECK:  define dso_local i64 @foo(i64* nocapture [[LARR0:%.*]], i32 [[N10:%.*]]) local_unnamed_addr {
 ; CHECK:         [[DIV0:%.*]] = sdiv i64 [[TC_0390:%.*]], 2
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[DIV0]], 4
-; CHECK-NEXT:    [[N_VEC0:%.*]] = sub nuw nsw i64 [[DIV0]], [[N_MOD_VF0]]
+; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[DIV0]], 4294967292
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 0, [[TMP0]]
 ; CHECK:       middle.block:
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne i64 [[DIV0]], [[N_VEC0]]
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp ne i64 [[DIV0]], [[TMP0]]
 
 entry:
   %l1.linear.iv = alloca i64, align 8

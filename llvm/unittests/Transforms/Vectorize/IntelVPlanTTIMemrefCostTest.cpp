@@ -120,7 +120,7 @@ TEST_F(VPlanTTIMemrefCostTest, Check_1xi1) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8Ptr) {
-  const int Expected = 1000;
+  const int Expected = 1063;
   const unsigned Alignment = 4;
   const unsigned VF = 1;
   const auto Tyi8Ptr = Type::getInt8Ty(*Ctx);
@@ -166,7 +166,7 @@ TEST_F(VPlanTTIMemrefCostTest, AlignedStore) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreLowProbility) {
-  const int Expected = 1001;
+  const int Expected = 1188;
   const unsigned Alignment = 4;
   const unsigned VF = 4;
   // Within the cache line it has low probability to be unaligned.
@@ -177,7 +177,7 @@ TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreLowProbility) {
 }
 
 TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreHighProbability) {
-  const int Expected = 1003;
+  const int Expected = 1875;
   const unsigned Alignment = 8;
   const unsigned VF = 16;
   // Within 64 byte cache line it has high probability to be unaligned.
@@ -189,7 +189,7 @@ TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreHighProbability) {
 
 TEST_F(VPlanTTIMemrefCostTest, Check2PartLoadCost) {
   // Expect double penalty for very wide store.
-  const int Expected = 2006;
+  const int Expected = 3876;
   const unsigned Alignment = 4;
   const unsigned VF = 32;
   auto VecTy = FixedVectorType::get(Type::getInt32Ty(*Ctx), VF);
