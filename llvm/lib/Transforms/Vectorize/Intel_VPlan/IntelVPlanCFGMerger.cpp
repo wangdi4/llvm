@@ -590,6 +590,24 @@ void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
   Plan.computePDT();
 }
 
+void VPlanCFGMerger::insertPushPopVF(VPlan &P, unsigned VF, unsigned UF) {
+  VPBasicBlock *FirstBB = P.getEntryBlock();
+  VPBuilder Builder;
+  Builder.setInsertPoint(FirstBB, FirstBB->begin());
+  VPInstruction *PushVF =
+      Builder.create<VPPushVF>("pushvf", P.getLLVMContext(), VF, UF);
+
+  auto LastBB = &*P.getExitBlock();
+  Builder.setInsertPoint(LastBB);
+  VPValue *PopVF = Builder.createNaryOp(
+      VPInstruction::PopVF, Type::getVoidTy(*P.getLLVMContext()), {});
+
+  if (auto *DA = dyn_cast<VPlanDivergenceAnalysis>(P.getVPlanDA())) {
+    DA->markUniform(*PopVF);
+    DA->markUniform(*PushVF);
+  }
+}
+
 void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
                                  const SingleLoopVecScenario &Scen,
                                  std::list<CfgMergerPlanDescr> &PlanDescrs,
@@ -1202,12 +1220,14 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
 
   VPBasicBlock *FinalMerge, *LastMerge;
   VPBasicBlock *FinalRemainderMerge = nullptr;
-  auto LastVPBB = &*find_if(
-      Plan, [](const VPBasicBlock &BB) { return BB.getNumSuccessors() == 0; });
+  auto LastVPBB = &*Plan.getExitBlock();
 
   // Find original upper bound of the main loop. We need it to generate trip
   // count checks.
   updateOrigUB();
+
+  // Insert push/popVF around the original main VPlan, guarding its body.
+  insertPushPopVF(Plan, MainVF, MainUF);
 
   FinalMerge = LastMerge = createMergeBlock(LastVPBB);
   FinalMerge->setName("final.merge");
@@ -1234,6 +1254,10 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
       // is masked remainder.
       Succ = (IsFirst || P.isMaskedRemainder()) ? FinalMerge : LastMerge;
       createAdapterBB(P, LastMerge, Succ);
+
+      // Insert PushVF/PopVF around VPlan for non-main plan.
+      // For main plan we inserted them already at beginnnig of the routine.
+      insertPushPopVF(*P.Plan, P.VF, 1);
     } else {
       // Special case for main loop. We don't create basic block with adaptor,
       // just setting First/Last basic blocks.
@@ -1293,6 +1317,11 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
       createTCCheckBeforeMain(nullptr, P, PrevD);
     }
   }
+
+  // Now insert push/popVF once again around the whole merged CFG. We need this
+  // for correct pre-main-loop tests (peel and top test).
+  insertPushPopVF(Plan, MainVF, MainUF);
+
   // Hoist the original upper bound (if it's a VPInstruction) to the first
   // non-empty block. We use it in several places of CFG and need it to be in
   // the most dominating block.

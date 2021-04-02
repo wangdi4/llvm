@@ -3461,6 +3461,18 @@ public:
     return &front();
   }
 
+  /// Return the last VPBasicBlock in VPlan, i.e. the one with no successors.
+  const_iterator getExitBlock() const {
+    return find_if(*this, [](const VPBasicBlock &BB) {
+      return BB.getNumSuccessors() == 0;
+    });
+  }
+  iterator getExitBlock() {
+    return find_if(*this, [](const VPBasicBlock &BB) {
+      return BB.getNumSuccessors() == 0;
+    });
+  }
+
   const VPBasicBlockListTy &getVPBasicBlockList() const {
     return VPBasicBlocks;
   }

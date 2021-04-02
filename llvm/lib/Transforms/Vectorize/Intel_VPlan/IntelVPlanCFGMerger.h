@@ -331,6 +331,11 @@ private:
   // insertion point.
   VPInvSCEVWrapper *emitPeelBasePtr(VPlanDynamicPeeling &Peeling,
                                     VPBuilder &Builder);
+
+  // Insert VPPushVF/VPPopVF in the VPlan body. VPPushVF is inserted at the
+  // beginning of the first VPBasicBlock of VPlan and VPPopVF is inserted in the
+  // end of the last VPBasicBlock of VPlan.
+  static void insertPushPopVF(VPlan &P, unsigned VF, unsigned UF);
 };
 
 } // namespace vpo

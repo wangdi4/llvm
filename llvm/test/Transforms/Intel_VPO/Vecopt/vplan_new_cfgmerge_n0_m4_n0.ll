@@ -59,6 +59,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan after merge skeleton creation:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
 ; CHECK-NEXT:    Cloned.[[BB0]]: # preds:
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB1]]: # preds: Cloned.[[BB0]]
@@ -91,10 +93,12 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB4]]
+; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: Cloned.[[BB5]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP8:%.*]] = phi-merge  [ i64 live-out0, Cloned.[[BB5]] ]
+; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
