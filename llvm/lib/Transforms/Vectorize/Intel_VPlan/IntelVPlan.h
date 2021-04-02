@@ -560,6 +560,7 @@ public:
     VLSStore,
     VLSExtract,
     VLSInsert,
+    InvSCEVWrapper,
   };
 
 private:
@@ -2816,6 +2817,46 @@ public:
 
   /// Get the original use at index \p Idx.
   Use *getOrigUse(unsigned Idx) const { return getLiveIn(Idx); }
+};
+
+/// Class for representing the vp-scev-wrapper instruction.
+/// This class uses alignment analysis infrastructure to capture peeling
+/// information for the dynamic-peeling scenario. The CG is responsible to
+/// converting this VPInstruction to invoke the SCEVExpander and compute the
+/// actual pointer address.
+class VPInvSCEVWrapper : public VPInstruction {
+
+  // SCEV object.
+  VPlanSCEV *Scev;
+
+public:
+  // TODO: Not sure about this. We might have to revisit this when we support
+  // HIR.
+
+  VPInvSCEVWrapper(VPlanSCEV *S)
+      : VPInstruction(VPInstruction::InvSCEVWrapper,
+                      VPlanScalarEvolutionLLVM::toSCEV(S)->getType(), {}),
+        Scev(S) {
+    // We don't support AddREC SCEV.
+    assert(VPlanScalarEvolutionLLVM::toSCEV(Scev)->getSCEVType() !=
+               SCEVTypes::scAddRecExpr &&
+           "An add-expr SCEV is not expected here.");
+  }
+
+  VPlanSCEV *getSCEV() const { return Scev; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::InvSCEVWrapper;
+  }
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 /// The VPlanAdapter is a placeholder for a VPlan in CFG of another VPlan.

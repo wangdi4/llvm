@@ -160,7 +160,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB15]], [[BB13]], [[BB11]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP9:%.*]] = phi-merge  [ token [[VP_VPLAN_ADAPTER]], [[BB15]] ],  [ i64 live-out0, [[BB13]] ],  [ i64 live-out0, [[BB11]] ]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP9:%.*]] = phi-merge  [ token [[VP_VPLAN_ADAPTER]], [[BB15]] ],  [ i64 live-out0, [[BB13]] ],  [ i64 0, [[BB11]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB16:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB16]]: # preds: [[MERGE_BLK0]]

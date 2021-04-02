@@ -3,12 +3,12 @@
 ; RUN: opt < %s -VPlanDriver -mtriple=x86_64-unknown-linux-gnu -tti -mattr=+sse4.2 \
 ; RUN: -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass \
 ; RUN: -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -disable-output \
-; RUN: -vplan-enable-new-cfg-merge -vplan-new-cfg-merge-list-only -S 2>&1 | FileCheck %s
+; RUN: -vplan-enable-new-cfg-merge -disable-vplan-codegen -S 2>&1 | FileCheck %s
 
 ; RUN: opt < %s -passes="vplan-driver" -mtriple=x86_64-unknown-linux-gnu -mattr=+sse4.2 \
 ; RUN: -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops \
 ; RUN: -vplan-print-after-all-zero-bypass -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 \
-; RUN: -disable-output -vplan-enable-new-cfg-merge -vplan-new-cfg-merge-list-only -S 2>&1 | FileCheck %s
+; RUN: -disable-output -vplan-enable-new-cfg-merge -disable-vplan-codegen -S 2>&1 | FileCheck %s
 
 ; This test inserts two separate all-zero bypasses for two regions using the same block-predicate, but are
 ; split due to other non-predicated code in between the regions.

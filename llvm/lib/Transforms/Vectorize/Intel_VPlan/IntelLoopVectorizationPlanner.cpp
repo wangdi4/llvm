@@ -61,13 +61,11 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableCFGMerge("vplan-enable-cfg-merge", cl::init(true), cl::Hidden,
                    cl::desc("Enable CFG merge before VPlan code gen."));
+
 static cl::opt<bool, true>
     EnableNewCFGMergeOpt("vplan-enable-new-cfg-merge", cl::Hidden,
                          cl::location(EnableNewCFGMerge),
                          cl::desc("Enable the new CFG merger."));
-static cl::opt<bool>
-    NewCFGMergeListOnly("vplan-new-cfg-merge-list-only", cl::init(false), cl::Hidden,
-                   cl::desc("Enable new CFG merger vplans list creation only."));
 
 static cl::opt<bool> EnableAllZeroBypassNonLoops(
     "vplan-enable-all-zero-bypass-non-loops", cl::init(true), cl::Hidden,
@@ -1407,7 +1405,7 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
   // Run CFGMerger.
   if (!EnableNewCFGMerge)
     CFGMerger.createSimpleVectorRemainderChain(TheLoop);
-  else if (!NewCFGMergeListOnly)
+  else
     CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
 
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
