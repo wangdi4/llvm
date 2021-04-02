@@ -779,34 +779,13 @@ EXTERN omp_interop_t __tgt_create_interop(
 
   omp_interop_t Interop = omp_interop_none;
 
-#if 0
-  // Disabled due to unclear interpretation of 5.1 specification
-  // First, try to create an interop with preferred ids.
-  if (num_prefers > 0 && prefer_ids != nullptr) {
-    PM->RTLsMtx.lock();
-    size_t NumDevices = PM->Devices.size();
-    PM->RTLsMtx.unlock();
-    for (int32_t I = 0; I < num_prefers; I++) {
-      for (size_t D = 0; D < NumDevices; D++) {
-        if (!device_is_ready(D))
-          continue;
-        Interop = PM->Devices[D].createInterop(interop_type, prefer_ids[I]);
-        if (Interop != omp_interop_none) {
-          DP("Created an interop " DPxMOD " from preferred ids\n",
-             DPxPTR(Interop));
-          return Interop;
-        }
-      }
-    }
-  }
-#endif
-
   // Now, try to create an interop with device_num.
   if (device_num == OFFLOAD_DEVICE_DEFAULT)
     device_num = omp_get_default_device();
 
   if (device_is_ready(device_num)) {
-    Interop = PM->Devices[device_num].createInterop(interop_type);
+    Interop = PM->Devices[device_num].createInterop(interop_type, num_prefers,
+                                                    prefer_ids);
     DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
        DPxPTR(Interop), device_num);
   }

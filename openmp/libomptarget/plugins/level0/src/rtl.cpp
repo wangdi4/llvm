@@ -3716,16 +3716,9 @@ EXTERN void __tgt_rtl_deinit(void) {
 }
 
 EXTERN __tgt_interop *__tgt_rtl_create_interop(
-    int32_t DeviceId, int32_t InteropContext, intptr_t PreferID) {
-#if 0
-  // Disabled due to unclear interpretation of 5.1 specification
-  // Check preferred ID first
-  if (PreferID >= 0 && PreferID != L0Interop::FrId) {
-    IDP("%s returns omp_interop_none due to preference mismatch\n", __func__);
-    return omp_interop_none;
-  }
-#endif
-  // RTL is preferred or device is specified.
+    int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
+    intptr_t *PreferIDs) {
+  // Preference-list is ignored since we cannot have multiple runtimes.
   auto ret = new __tgt_interop();
   ret->FrId = L0Interop::FrId;
   ret->FrName = L0Interop::FrName;
@@ -3759,6 +3752,7 @@ EXTERN int32_t __tgt_rtl_release_interop(
 
   if (Interop->TargetSync) {
     auto cmdQueue = static_cast<ze_command_queue_handle_t>(Interop->TargetSync);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
   }
 

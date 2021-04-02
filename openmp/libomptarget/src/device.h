@@ -259,7 +259,8 @@ struct DeviceTy {
   int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
   int32_t isSupportedDevice(void *DeviceType);
-  __tgt_interop *createInterop(int32_t InteropContext, intptr_t PreferID = -1);
+  __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
+                               intptr_t *PreferIDs);
   int32_t releaseInterop(__tgt_interop *Interop);
   int32_t getNumInteropProperties(void);
   int32_t getInteropPropertyValue(__tgt_interop *Interop,
