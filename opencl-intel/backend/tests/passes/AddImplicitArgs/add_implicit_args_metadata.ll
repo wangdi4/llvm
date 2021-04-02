@@ -1,4 +1,5 @@
-; RUN: %oclopt -add-implicit-args -verify -S < %s | FileCheck %s
+; RUN: %oclopt -add-implicit-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -add-implicit-args -S -verify < %s | FileCheck %s
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 
 ; adding implicit arguments to the metadata of a function
@@ -30,3 +31,5 @@ entry:
 
 ; CHECK:        !opencl.kernels = !{!0}
 ; CHECK:        !0 = !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }*, i32*, [4 x i32], i8*, {}*)* @functionWithBody, void (i32, i32)* @functionWithoutBody}
+
+; DEBUGIFY-NOT: WARNING

@@ -13,7 +13,6 @@
 // License.
 
 #include "cl_sys_info.h"
-#include "cl_utils.h"
 
 #include <sstream>
 
@@ -24,6 +23,7 @@ using namespace Intel::OpenCL::Utils;
 #include <time.h>
 #include <assert.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
@@ -415,12 +415,74 @@ bool Intel::OpenCL::Utils::IsHyperThreadingEnabled()
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 {
-#ifdef USE_NUMA
-    int ret = numa_max_node();
-    return (unsigned long)ret;
-#else
-    return 0;
-#endif // USE_NUMA
+    // TODO use hwloc to get the number numa nodes
+    const char *sysNodePath = "/sys/devices/system/node";
+    int numNodes = 0;
+    DIR *dir;
+    struct dirent *entry;
+    dir = opendir(sysNodePath);
+
+    if (dir == nullptr)
+    {
+        assert(dir && "failed to open node dir");
+        return 0;
+    }
+
+    while ((entry = readdir(dir)))
+    {
+        if (entry->d_type == DT_DIR &&
+            strncmp("node", entry->d_name, 4) == 0)
+        numNodes++;
+    }
+
+    closedir(dir);
+    return numNodes;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return an index representing the processors in a given NUMA node
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(unsigned long node, std::vector<cl_uint> &index)
+{
+    // TODO use hwloc to get the cpu index of numa node
+    const char *prefix = "/sys/devices/system/node/node";
+    std::string path(prefix);
+    path.append(std::to_string(node) + "/cpumap");
+    FILE *cpumap = fopen(path.c_str(), "r");
+
+    if (cpumap == nullptr)
+    {
+        assert(cpumap && "failed to open cpumap");
+        return false;
+    }
+
+    char cpumask[128];
+    if (fgets(cpumask, 128, cpumap))
+    {
+        int len = strlen(cpumask);
+        const char *maskEnd = cpumask + len - 2;
+        uint16_t core = 0;
+        while (maskEnd >= cpumask)
+        {
+            if (*maskEnd == ',') {
+                maskEnd--;
+                continue;
+            }
+            int cpu = CharToHexDigit(*maskEnd);
+            if (cpu & 1)
+                index.push_back(core);
+            if (cpu & 2)
+                index.push_back(core + 1);
+            if (cpu & 4)
+                index.push_back(core + 2);
+            if (cpu & 8)
+                index.push_back(core + 3);
+            maskEnd--;
+            core += 4;
+        }
+    }
+    fclose(cpumap);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

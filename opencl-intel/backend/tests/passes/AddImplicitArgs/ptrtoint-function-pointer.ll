@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args %s -S | FileCheck %s
 ;
 ; CHECK: define spir_kernel void @_ZTS1K
@@ -86,3 +87,9 @@ attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !11 = !{!"omnipotent char", !12, i64 0}
 !12 = !{!"Simple C++ TBAA"}
 !13 = !{i32 (i32, i32)* @_Z3addii}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZTS1K -- {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZTS1K -- {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZTS1K -- {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZTS1K -- {{.*}} bitcast
+; DEBUGIFY-NOT: WARNING

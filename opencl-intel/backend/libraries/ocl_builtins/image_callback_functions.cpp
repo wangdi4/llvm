@@ -1579,14 +1579,48 @@ float4 dummyFnc(float4 input)
 }
 
 
+// For linear filter w/ none addressing mode, when the given coordinate is 0,
+// image[-1] can be used, which leads to out-of-bound memory access and program
+// crash. We can return undefined values for such cases, but we can't just let
+// the program crash. So we do a bound check before loading.
+// Also, we may not need to initialize the return value `ret` to 0 for
+// performance, but it can lead to some issues when we read the 'pixel center'
+// of a border pixel. E.g., given an image with 2 pixels, when we read the
+// pixel at 1.5f, it's calucated as follows:
+//   a := frac(1.5 - .5) = 0;
+//   i0 := floor(1.5 - .5) = 1;
+//   i1 := floor(1.5 - .5) + 1 = 2;
+//   ret_val := (1 - a) * img[i0] + a * img[i1]
+//            = 1 * img[1] + 0 * img[2];
+// and img[2] is a out-of-bound value and we can return any value in theory,
+// and because of the 0 coefficient of img[2], the ret_val always equals to
+// img[1]. However, if `ret` below is uninitialized, img[2] may be NaN, and
+// ret_val also becomes NaN. so we initialize `ret` to 0 to avoid the issue.
+#define check_bound_and_load_pixel(TYPE, image, point, data) \
+  __extension__ ({ \
+    float4 ret = 0; \
+    if (__builtin_expect(!isOutOfBoundsInt(image, point), 1)) \
+      ret = \
+        load_pixel_##TYPE(extract_pixel_pointer_quad(image, point, data)); \
+    ret; \
+  })
+#define check_bound_and_load_value(TYPE, image, point, data) \
+  __extension__ ({ \
+    float ret = 0; \
+    if (__builtin_expect(!isOutOfBoundsInt(image, point), 1)) \
+      ret = \
+        load_value_##TYPE(extract_pixel_pointer_quad(image, point, data)); \
+    ret; \
+  })
+
 #define IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(TYPE, POST_PROCESSING) \
     float4 read_sample_LINEAR1D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     int4 point0   = square0;\
     int4 point1   = square1;\
     \
-    float4 Ti0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point0, pData));\
-    float4 Ti1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point1, pData));\
+    float4 Ti0 = check_bound_and_load_pixel(TYPE, image, point0, pData);\
+    float4 Ti1 = check_bound_and_load_pixel(TYPE, image, point1, pData);\
     \
     float4 result=SampleImage1DFloat(Ti0, Ti1, fraction);\
     return POST_PROCESSING(result);\
@@ -1642,10 +1676,10 @@ IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
     int4 point11   = square1;\
     \
     float4 components;\
-    components.x = load_value_##TYPE(extract_pixel_pointer_quad(image, point00, pData));\
-    components.y = load_value_##TYPE(extract_pixel_pointer_quad(image, point10, pData));\
-    components.z = load_value_##TYPE(extract_pixel_pointer_quad(image, point01, pData));\
-    components.w = load_value_##TYPE(extract_pixel_pointer_quad(image, point11, pData));\
+    components.x = check_bound_and_load_value(TYPE, image, point00, pData);\
+    components.y = check_bound_and_load_value(TYPE, image, point10, pData);\
+    components.z = check_bound_and_load_value(TYPE, image, point01, pData);\
+    components.w = check_bound_and_load_value(TYPE, image, point11, pData);\
     \
     float4 result=SampleImage2DFloatCh1(components, fraction);\
     return POST_PROCESSING(result);\
@@ -1662,10 +1696,10 @@ IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
     int4 point01   = (int4)(square0.x, square1.y, 0, 0);\
     int4 point11   = square1;\
     \
-    float4 Ti0j0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point00, pData));\
-    float4 Ti1j0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point10, pData));\
-    float4 Ti0j1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point01, pData));\
-    float4 Ti1j1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point11, pData));\
+    float4 Ti0j0 = check_bound_and_load_pixel(TYPE, image, point00, pData);\
+    float4 Ti1j0 = check_bound_and_load_pixel(TYPE, image, point10, pData);\
+    float4 Ti0j1 = check_bound_and_load_pixel(TYPE, image, point01, pData);\
+    float4 Ti1j1 = check_bound_and_load_pixel(TYPE, image, point11, pData);\
     \
     float4 result=SampleImage2DFloat(Ti0j0, Ti1j0, Ti0j1, Ti1j1, fraction);\
     return POST_PROCESSING(result);\
@@ -1722,14 +1756,14 @@ float4 read_sample_LINEAR3D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 
     int4 point011   = (int4)(square0.x, square1.y, square1.z, 0);\
     int4 point111   = square1;\
 \
-    float4 Ti0j0k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point000, pData));\
-    float4 Ti1j0k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point100, pData));\
-    float4 Ti0j1k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point010, pData));\
-    float4 Ti1j1k0 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point110, pData));\
-    float4 Ti0j0k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point001, pData));\
-    float4 Ti1j0k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point101, pData));\
-    float4 Ti0j1k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point011, pData));\
-    float4 Ti1j1k1 = load_pixel_##TYPE(extract_pixel_pointer_quad(image, point111, pData));\
+    float4 Ti0j0k0 = check_bound_and_load_pixel(TYPE, image, point000, pData);\
+    float4 Ti1j0k0 = check_bound_and_load_pixel(TYPE, image, point100, pData);\
+    float4 Ti0j1k0 = check_bound_and_load_pixel(TYPE, image, point010, pData);\
+    float4 Ti1j1k0 = check_bound_and_load_pixel(TYPE, image, point110, pData);\
+    float4 Ti0j0k1 = check_bound_and_load_pixel(TYPE, image, point001, pData);\
+    float4 Ti1j0k1 = check_bound_and_load_pixel(TYPE, image, point101, pData);\
+    float4 Ti0j1k1 = check_bound_and_load_pixel(TYPE, image, point011, pData);\
+    float4 Ti1j1k1 = check_bound_and_load_pixel(TYPE, image, point111, pData);\
 \
     float4 result=SampleImage3DFloat(Ti0j0k0, Ti1j0k0, Ti0j1k0, Ti1j1k0, Ti0j0k1, Ti1j0k1, Ti0j1k1, Ti1j1k1, fraction);\
     return POST_PROCESSING(result);\

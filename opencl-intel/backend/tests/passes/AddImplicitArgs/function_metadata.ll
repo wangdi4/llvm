@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -S -verify < %s | FileCheck %s
 ; check the metadata is preserved correctly during transformations
 
@@ -27,3 +28,5 @@ entry:
 
 ; CHECK-DAG: ![[SCAL]] = !{void {{.*}} @UniformAddKernel}
 ; CHECK-DAG: ![[VEC]] = !{void {{.*}} @__Vectorized_.UniformAddKernel}
+
+; DEBUGIFY-NOT: WARNING

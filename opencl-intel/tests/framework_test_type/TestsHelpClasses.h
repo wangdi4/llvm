@@ -110,10 +110,10 @@ protected:
 
 //================ Google test helpers ===================================
 //googleTest specialized assertions 
-#define EXPECT_OCL_EQ(expected, actual, function_name) EXPECT_EQ(oclErr(expected),oclErr(actual)) << ERR_FUNCTION(#function_name)
-#define ASSERT_OCL_EQ(expected, actual, function_name) ASSERT_EQ(oclErr(expected),oclErr(actual)) << ERR_FUNCTION(#function_name)
-#define EXPECT_OCL_SUCCESS(actual, function_name) EXPECT_OCL_EQ(CL_SUCCESS, actual, function_name)
-#define ASSERT_OCL_SUCCESS(actual, function_name) ASSERT_OCL_EQ(CL_SUCCESS, actual, function_name)
+#define EXPECT_OCL_EQ(actual, expected, function_name) EXPECT_EQ(oclErr(actual),oclErr(expected)) << ERR_FUNCTION(#function_name)
+#define ASSERT_OCL_EQ(actual, expected, function_name) ASSERT_EQ(oclErr(actual),oclErr(expected)) << ERR_FUNCTION(#function_name)
+#define EXPECT_OCL_SUCCESS(actual, function_name) EXPECT_OCL_EQ(actual, CL_SUCCESS, function_name)
+#define ASSERT_OCL_SUCCESS(actual, function_name) ASSERT_OCL_EQ(actual, CL_SUCCESS, function_name)
 /*#define ASSERT_EQ(rowPitch , getRowPitch()) << ERR_FUNCTION("clEnqueueMapImage") << ERR_IN_LOOP(index);*/
 
 #define ERROR_RESET 1

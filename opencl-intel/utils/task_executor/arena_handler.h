@@ -177,7 +177,8 @@ public:
      */
     virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice>
     CreateSubDevice(unsigned int uiNumSubdevComputeUnits,
-                    void *user_handle = nullptr) override;
+                    void *user_handle = nullptr,
+                    bool disableMasterJoin = true) override;
 
     /**
      * Reset ITaskExecutorObserver passed during device creation. Note: sub-devices share the same observer, so it will be reset for sub-devices also.

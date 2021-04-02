@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args %s -S | FileCheck %s
 ;
 ; Generated from:
@@ -64,3 +65,7 @@ attributes #2 = { convergent noinline nounwind optnone }
 !9 = !{!"int", !10, i64 0}
 !10 = !{!"omnipotent char", !11, i64 0}
 !11 = !{!"Simple C/C++ TBAA"}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} bitcast
+; DEBUGIFY-NOT: WARNING

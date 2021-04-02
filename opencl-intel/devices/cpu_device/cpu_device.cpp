@@ -674,10 +674,11 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
     else if (need_mutex)
     {
         Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
-        if (m_pCoreToThread[core_index] != tid)
+        if (m_threadToCore[tid] != (int)core_index ||
+            m_threadToCore.find(tid) != m_threadToCore.end())
         {
             // Update map
-            m_pCoreToThread[core_index] = tid;
+            m_threadToCore[tid] = core_index;
 
             //Set the caller's affinity as requested
             clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
@@ -685,10 +686,20 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
     }
     else
     {
-        if (m_pCoreToThread[core_index] != tid)
+        // m_threadToCore is more robust than m_pCoreToThread.
+        // Imagine a scene where tid1234 will be pinned two times:
+        // 1. tid1234 is running on core 60 and it will be migrated
+        // to core 20;
+        // 2. now tid1234 is running on core 20 and it will be migrated
+        // back to core 60 again.
+        // In the step two, since the value of tid1234 has been stored
+        // in m_pCoreToThread[60]. The re-pin operation will not be
+        // performed.
+        if (m_threadToCore[tid] != (int)core_index ||
+            m_threadToCore.find(tid) != m_threadToCore.end())
         {
             // Update map
-            m_pCoreToThread[core_index] = tid;
+            m_threadToCore[tid] = core_index;
 
             //Set the caller's affinity as requested
             clSetThreadAffinityToCore(m_pComputeUnitMap[core_index], tid);
@@ -2349,12 +2360,76 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 
             break;
         }
+    case CL_DEV_PARTITION_AFFINITY_NUMA:
+        {
+            unsigned int numNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
+            if (nullptr == subdevice_ids)
+            {
+                *num_subdevices = numNodes;
+                return CL_DEV_SUCCESS;
+            }
+            if (nullptr == param)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (nullptr != pParent || numNodes <= 1)
+            {
+                return CL_DEV_NOT_SUPPORTED;
+            }
+            size_t *numUnits = (size_t*)param;
+
+            // create a subdevice for each numa node
+            for (cl_uint i = 0; i < numNodes; i++)
+            {
+                std::vector<cl_uint> index;
+                if (!Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(
+                        i, index))
+                {
+                  return CL_DEV_NOT_SUPPORTED;
+                }
+                numUnits[i] = index.size();
+                cl_dev_internal_subdevice_id *pNewsubdeviceId =
+                    new cl_dev_internal_subdevice_id;
+                if (nullptr == pNewsubdeviceId)
+                {
+                    return CL_DEV_OUT_OF_MEMORY;
+                }
+                pNewsubdeviceId->legal_core_ids = new uint32_t[numUnits[i]];
+                if (nullptr == pNewsubdeviceId->legal_core_ids)
+                {
+                    delete pNewsubdeviceId;
+                    return CL_DEV_OUT_OF_MEMORY;
+                }
+                // since we need to specify which device a cpu core wound be
+                // bound to, each subdevice is allocated according to the name
+                // of cpu cores.
+                pNewsubdeviceId->is_by_names = true;
+                pNewsubdeviceId->num_compute_units = numUnits[i];
+                std::copy(index.begin(), index.end(),
+                          pNewsubdeviceId->legal_core_ids);
+                for (unsigned int core = 0; core < numUnits[i]; core++)
+                {
+                    if (!CoreToCoreIndex(pNewsubdeviceId->legal_core_ids + core))
+                    {
+                        // Invalid core looked up, outside the affinity mask
+                        delete[] pNewsubdeviceId->legal_core_ids;
+                        delete pNewsubdeviceId;
+                        return CL_DEV_INVALID_VALUE;
+                    }
+                }
+                subdevice_ids[i] = pNewsubdeviceId;
+            }
+
+            // If we don't pin master thread, the numa affinity can't be set
+            // correctly.
+            m_pinMaster = true;
+            break;
+        }
     //Non-supported modes
     case CL_DEV_PARTITION_AFFINITY_L1:
     case CL_DEV_PARTITION_AFFINITY_L2:
     case CL_DEV_PARTITION_AFFINITY_L3:
     case CL_DEV_PARTITION_AFFINITY_L4:
-    case CL_DEV_PARTITION_AFFINITY_NUMA:
     case CL_DEV_PARTITION_AFFINITY_NEXT:
         return CL_DEV_INVALID_PROPERTIES;
     }
@@ -2363,7 +2438,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     for (size_t i = 0; i < *num_subdevices; i++)
     {
         cl_dev_internal_subdevice_id& subdevId = *(cl_dev_internal_subdevice_id*)subdevice_ids[i];
-        subdevId.pSubDevice = m_pTaskDispatcher->GetRootDevice()->CreateSubDevice(subdevId.num_compute_units, &subdevId);
+        subdevId.pSubDevice = m_pTaskDispatcher->GetRootDevice()->CreateSubDevice(subdevId.num_compute_units, &subdevId, i != 0);
         if (0 == subdevId.pSubDevice)
         {
             for (size_t j = 0; j < i; j++)
