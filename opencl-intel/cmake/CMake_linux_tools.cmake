@@ -15,20 +15,6 @@ else()
   endif (TARGET_CPU STREQUAL "Atom")
 endif()
 
-macro(ocl_add_flags_if_supported)
-  foreach(flag ${ARGN})
-    string(REGEX REPLACE "^-" "" flag_name ${flag})
-    string(REPLACE "-" "_" flag_name ${flag_name})
-    string(TOUPPER ${flag_name} flag_name)
-    add_flag_if_supported(${flag} "${flag_name}")
-  endforeach()
-endmacro()
-
-# Warning level
-ocl_add_flags_if_supported(
-  -pedantic -Wall -Wextra -Werror
-)
-
 # Compiler switches that CANNOT be modified during makefile generation
 set(FSTACK_PROTECTOR_STRONG_FLAG -fstack-protector-strong)
 set(FSTACK_PROTECTOR_FLAG -fstack-protector)
