@@ -303,6 +303,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       replaceCallInst(CI, NewTypes, NewF);
     } else if (auto *CI = dyn_cast<PtrToIntInst>(U)) {
       auto *NewCE = CastInst::CreatePointerCast(NewF, CI->getType(), "", CI);
+      NewCE->setDebugLoc(CI->getDebugLoc());
       CI->replaceAllUsesWith(NewCE);
       CI->eraseFromParent();
     } else if (auto *SI = dyn_cast<StoreInst>(U)) {
@@ -317,6 +318,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
 
       auto *Cast = CastInst::CreatePointerCast(NewF, OldFPtrTy, "", SI);
       auto *NewSI = new StoreInst(Cast, SI->getPointerOperand(), SI);
+      NewSI->setDebugLoc(SI->getDebugLoc());
       SI->replaceAllUsesWith(NewSI);
       SI->eraseFromParent();
     } else {
