@@ -238,8 +238,6 @@ public:
       Cost = getUserCost(I, kind);
       break;
     }
-    if (Cost == -1)
-      Cost.setInvalid();
     return Cost;
   }
 
