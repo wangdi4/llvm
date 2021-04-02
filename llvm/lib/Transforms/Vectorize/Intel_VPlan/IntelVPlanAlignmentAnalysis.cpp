@@ -380,7 +380,7 @@ void VPlanPeelingAnalysis::dump() {
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
-    const VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) {
+    const VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) const {
   assert(isa<VPlanStaticPeeling>(Peeling) &&
          "Dynamic peeling is not supported yet");
   assert(cast<VPlanStaticPeeling>(Peeling).peelCount() == 0 &&

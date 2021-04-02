@@ -23,8 +23,14 @@ using namespace llvm::vpo;
 VPlanSCEV *
 VPlanScalarEvolutionHIR::computeAddressSCEV(const VPLoadStoreInst &LSI) {
   LLVM_DEBUG(dbgs() << "computeAddressSCEV(" << LSI << ")\n");
-  LLVM_DEBUG(dbgs() << "  -> nil\n");
-  return nullptr;
+
+  VPlanAddRecHIR *Expr = computeAddressSCEVImpl(LSI);
+  if (Expr)
+    LLVM_DEBUG(dbgs() << "  -> " << *Expr << '\n');
+  else
+    LLVM_DEBUG(dbgs() << "  -> nil\n");
+
+  return toVPlanSCEV(Expr);
 }
 
 VPlanSCEV *VPlanScalarEvolutionHIR::getMinusExpr(VPlanSCEV *LHS,
@@ -40,4 +46,105 @@ VPlanScalarEvolutionHIR::asConstStepLinear(VPlanSCEV *Expr) const {
 Optional<VPConstStepInduction>
 VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *Expr) const {
   return None;
+}
+
+// Check if access address of a load/store instruction can be represented as
+// VPlanAddRecHIR expression which roughly corresponds to SCEVAddRecExpr.
+VPlanAddRecHIR *
+VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
+  // The code below assumes that MainLoop IV starts with 0 and is incremented
+  // by 1. This assumption is valid only for normalized loops.
+  if (!MainLoop->isNormalized())
+    return nullptr;
+
+  const VPValue &Ptr = *LSI.getPointerOperand();
+  if (!Ptr.isUnderlyingIRValid())
+    return nullptr;
+
+  if (maybePointerToPrivateMemory(Ptr))
+    return nullptr;
+
+  const RegDDRef *Ref = LSI.getHIRMemoryRef();
+  if (!Ref || !Ref->isMemRef())
+    return nullptr;
+
+  // FIXME: Support multidimensional arrays.
+  if (!Ref->isSingleDimension())
+    return nullptr;
+
+  // One-dimensional arrays have only one CanonExpr (index expression).
+  const CanonExpr *AddressCE = Ref->getSingleCanonExpr();
+  if (AddressCE->getDenominator() != 1)
+    return nullptr;
+
+  // Only expressions with loop invariant blobs and without nested IVs can be
+  // represented as AddRecExpr.
+  unsigned MainLoopLevel = MainLoop->getNestingLevel();
+  if (!AddressCE->isLinearAtLevel(MainLoopLevel))
+    return nullptr;
+
+  for (unsigned Lvl = MainLoopLevel + 1; Lvl <= loopopt::MaxLoopNestLevel; ++Lvl)
+    if (AddressCE->hasIV(Lvl))
+      return nullptr;
+
+  int64_t ElementSize = Ref->getDimensionConstStride(1);
+  if (!ElementSize)
+    return nullptr;
+
+  // HIR Base is not the same as the base for AddRecExpr. HIR base is not the
+  // address of the first access. For instance, access like ptr[i + x] would
+  // have Base = ptr, while the address of the first access is (ptr + x).
+  // AdjustedBase is the address of the first access and the base for
+  // AddRecExpr.
+  //
+  // Notice that in order to build AdjustedBase we need to multiply by
+  // ElementSize all offsets from Base, including constant offset, outer loop
+  // IVs and blobs.
+  const CanonExpr *Base = Ref->getBaseCE();
+  CanonExprUtils &CEU = AddressCE->getCanonExprUtils();
+  CanonExpr *AdjustedBase =
+      CEU.createCanonExpr(Base->getDestType(), MainLoopLevel,
+                          ElementSize * AddressCE->getConstant());
+
+  if (!CEU.add(AdjustedBase, Base))
+    return nullptr;
+
+  // IVs of outer loops should be part of AdjustedBase. That is, when
+  // vectorizing Loop(Level = 2), IV for Loop(Level = 1) should be treated as if
+  // it were a blob. For instance, AdjustedBase for ptr[i1 + i2] should be:
+  // (ptr + ElementSize * i1).
+  for (unsigned Lvl = 1; Lvl < MainLoopLevel; ++Lvl) {
+    unsigned IV_Index;
+    int64_t IV_Coeff;
+    AddressCE->getIVCoeff(Lvl, &IV_Index, &IV_Coeff);
+    AdjustedBase->addIV(Lvl, IV_Index, ElementSize * IV_Coeff);
+  }
+
+  // Copy blobs from index expression
+  for (auto &B : make_range(AddressCE->blob_begin(), AddressCE->blob_end())) {
+    AdjustedBase->addBlob(B.Index, ElementSize * B.Coeff);
+  }
+
+  int64_t MainLoopIVCoeff;
+  AddressCE->getIVCoeff(MainLoopLevel, nullptr, &MainLoopIVCoeff);
+
+  return makeVPlanAddRecHIR(AdjustedBase, ElementSize * MainLoopIVCoeff);
+}
+
+VPlanAddRecHIR *
+VPlanScalarEvolutionHIR::makeVPlanAddRecHIR(loopopt::CanonExpr *Base,
+                                            int64_t Stride) const {
+  auto SmartPtr = std::make_unique<VPlanAddRecHIR>(Base, Stride);
+  VPlanAddRecHIR *Ptr = SmartPtr.get();
+  Storage.emplace_back(std::move(SmartPtr));
+  return Ptr;
+}
+
+raw_ostream &vpo::operator<<(raw_ostream &OS, const VPlanAddRecHIR &E) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  OS << "{(";
+  E.Base->print(OS);
+  OS << "),+," << E.Stride << '}';
+#endif
+  return OS;
 }

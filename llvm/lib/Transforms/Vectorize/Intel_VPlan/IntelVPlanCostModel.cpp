@@ -21,6 +21,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 #include <numeric>
 
@@ -528,6 +529,19 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
     TTI::TCK_RecipThroughput);
 }
 
+unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
+  // For unit stride loads and stores account for selected peeling variant.
+  bool NegativeStride = false;
+  if (DefaultPeelingVariant && isUnitStrideLoadStore(VPInst, NegativeStride)) {
+    auto *LS = cast<VPLoadStoreInst>(VPInst);
+    // VPAA method takes alignment from IR as a base.
+    // Alignment computed by VPAA in most cases is not guaranteed if we skip
+    // the peel loop at runtime.
+    return VPAA.getAlignmentUnitStride(*LS, *DefaultPeelingVariant).value();
+  }
+  return VPlanTTICostModel::getMemInstAlignment(VPInst);
+}
+
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   return VPlanTTICostModel::getTTICost(VPInst);
 }
@@ -754,7 +768,14 @@ unsigned VPlanCostModel::getTTICost() {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost() {
+// Get VPlan cost with specified peeling.
+unsigned VPlanCostModel::getCost(
+    VPlanPeelingVariant *PeelingVariant) {
+  VPlanStaticPeeling VPlanNoPeel(0);
+  // Assume no peeling if it is not specified.
+  SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+      DefaultPeelingVariant,
+      PeelingVariant ? PeelingVariant : &VPlanNoPeel);
   unsigned TTICost = getTTICost();
   return applyHeuristics(TTICost);
 }

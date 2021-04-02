@@ -1131,7 +1131,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   for (auto &Pair : LVP.getAllVPlans()) {
     auto &Plan = *Pair.second.MainPlan;
     if (!Plan.getVPSE())
-      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionHIR>());
+      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionHIR>(Lp));
   }
 
   // VPlan construction stress test ends here.
