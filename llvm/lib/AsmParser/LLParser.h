@@ -346,7 +346,6 @@ namespace llvm {
                                     bool inAttrGrp, LocTy &BuiltinLoc);
     bool parseRequiredTypeAttr(Type *&Result, lltok::Kind AttrName);
     bool parsePreallocated(Type *&Result);
-    bool parseInalloca(Type *&Result);
     bool parseByRef(Type *&Result);
 
     // Module Summary Index Parsing.
