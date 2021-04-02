@@ -1468,14 +1468,13 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   }
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
+  if (CurrentVPInstUnrollPart > 0)
+    WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
 
   // For unit stride ref, nothing else to do. We assume unit stride for
   // interleaved access.
-  if (isUnitStrideRef(Ref) || InterLeaveAccess) {
-    if (CurrentVPInstUnrollPart > 0)
-      WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
+  if (isUnitStrideRef(Ref) || InterLeaveAccess)
     return WideRef;
-  }
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
   RegDDRef::CanonExprsTy WideRefCEs;
@@ -1516,8 +1515,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       CE->getIVCoeff(NestingLevel, &BlobCoeff, &ConstCoeff);
 
       for (unsigned i = 0; i < VF; ++i) {
-        CA.push_back(ConstantInt::getSigned(
-            Int64Ty, ConstCoeff * (i + CurrentVPInstUnrollPart * VF)));
+        CA.push_back(ConstantInt::getSigned(Int64Ty, ConstCoeff * i));
       }
       ArrayRef<Constant *> AR(CA);
       auto CV = ConstantVector::get(AR);
