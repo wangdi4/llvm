@@ -44,9 +44,9 @@ public:
     {
     }
 
-    bool runOnModule(Module& M);
+    bool runOnModule(Module &M) override;
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<BuiltinLibInfo>();
     }
 

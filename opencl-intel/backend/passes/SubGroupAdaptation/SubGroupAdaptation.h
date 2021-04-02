@@ -28,9 +28,11 @@ public:
 
   SubGroupAdaptation() : ModulePass(ID){};
 
-  virtual llvm::StringRef getPassName() const { return "SubGroupAdaptation"; }
+  virtual llvm::StringRef getPassName() const override {
+    return "SubGroupAdaptation";
+  }
 
-  virtual bool runOnModule(llvm::Module &M);
+  virtual bool runOnModule(llvm::Module &M) override;
 
 private:
   llvm::Module *m_pModule;

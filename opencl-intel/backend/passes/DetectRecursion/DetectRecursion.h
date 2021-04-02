@@ -37,24 +37,24 @@ namespace intel{
 
     DetectRecursion();
 
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
-		/// @brief LLVM Interface
-		/// @param AU Analysis
-		virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-		  // Depends on CallGraph for SCC
-		  AU.addRequired<CallGraphWrapperPass>();
-		}
+    /// @brief LLVM Interface
+    /// @param AU Analysis
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
+      // Depends on CallGraph for SCC
+      AU.addRequired<CallGraphWrapperPass>();
+    }
 
     bool hasRecursion() { return m_recursionExists; }
 
-    void print(raw_ostream &O, const Module *M) const;
+    void print(raw_ostream &O, const Module *M) const override;
 
-	private:
-		bool m_recursionExists;
+  private:
+    bool m_recursionExists;
 
-		 /// function handling
-		bool DetectRecursionInFunction(Function* fn);
+    /// function handling
+    bool DetectRecursionInFunction(Function *fn);
   };
 }
 

@@ -147,38 +147,40 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc = stderr);
+                cl_err_code Init(ELogLevel level, const char *fileName,
+                                 const char *title,
+                                 FILE *fileDesc = stderr) override;
 
-		/******************************************************************************************
-		* Function: 	Log
-		* Description:	log message
-		* Arguments:	logMessage [in] -	wrappes all message info
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		void Log(LogMessage& logMessage);
+                /******************************************************************************************
+                 * Function: 	Log
+                 * Description:	log message
+                 * Arguments:	logMessage [in] -	wrappes all message info
+                 * Return value:
+                 * Author:		Uri Levy
+                 * Date:			December 2008
+                 ******************************************************************************************/
+                void Log(LogMessage &logMessage) override;
 
-		/******************************************************************************************
-		* Function: 	Flush
-		* Description:	dump data to file
-		* Arguments:
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		void Flush();
+                /******************************************************************************************
+                 * Function: 	Flush
+                 * Description:	dump data to file
+                 * Arguments:
+                 * Return value:
+                 * Author:		Uri Levy
+                 * Date:			December 2008
+                 ******************************************************************************************/
+                void Flush() override;
 
-	protected:
-		FILE*   m_fileHandler;          // file handle of the logging file
+              protected:
+                FILE *m_fileHandler; // file handle of the logging file
 
-	private:
-		int     m_dupStderr;             // duplicate file descriptor of stderr. (stderr redirect to m_fileName in order to get log messages from MIC device)
+              private:
+                int m_dupStderr; // duplicate file descriptor of stderr. (stderr
+                                 // redirect to m_fileName in order to get log
+                                 // messages from MIC device)
+        };
 
-	};
-
-
-	/**********************************************************************************************
+        /**********************************************************************************************
 	* Class name:	ConsoleLogHandler
 	*
 	* Inharit:		LogHandler
@@ -217,14 +219,14 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code Init(ELogLevel level, const char* fileName, const char* title = nullptr, FILE* fileDesc = stderr);
+                cl_err_code Init(ELogLevel level, const char *fileName,
+                                 const char *title = nullptr,
+                                 FILE *fileDesc = stderr) override;
 
-	private:
-        FileLogHandler& operator=(const FileLogHandler&);
-        FileLogHandler(const FileLogHandler&);
+              private:
+                FileLogHandler &operator=(const FileLogHandler &);
+                FileLogHandler(const FileLogHandler &);
 
-		char*	m_fileName;             // filename of the logging file
-
-	};
-
+                char *m_fileName; // filename of the logging file
+        };
 }}}

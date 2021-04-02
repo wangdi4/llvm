@@ -120,7 +120,7 @@ public:
   ~CLWGLoopCreator();
 
   /// @brief Provides name of pass.
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "CLWGLoopCreator";
   }
 
@@ -129,10 +129,10 @@ public:
   bool runOnFunction(Function &F, Function *vectorFunc, unsigned packetWidth);
 
   ///@brief LLVM interface.
-  virtual bool runOnModule(Module &M);
+  virtual bool runOnModule(Module &M) override;
 
   ///@brief LLVM interface.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
     AU.addRequired<BuiltinLibInfo>();
   };

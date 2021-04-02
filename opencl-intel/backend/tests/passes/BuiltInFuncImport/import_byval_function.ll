@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
+; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
@@ -42,3 +43,5 @@ declare <8 x i32> @_Z18convert_uchar8_satDv8_j(<8 x i32>)
 
 ; CHECK: define linkonce_odr <8 x i32> @_Z18convert_uchar8_satDv8_j(<8 x i32>* nocapture readonly byval(<8 x i32>) align 32 %0) {
 ; CHECK-NOT: declare @_Z18convert_uchar8_satDv8_j
+
+; DEBUGIFY-NOT: WARNING

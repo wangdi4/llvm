@@ -24,27 +24,21 @@
 namespace reflection{
 
   struct PrimitiveVisitor : TypeVisitor {
-    void visit(const PrimitiveType* t) {
+    void visit(const PrimitiveType *t) override {
       m_primitivType = t->getPrimitive();
     }
 
-    void visit(const VectorType* v) {
+    void visit(const VectorType *v) override {
       v->getScalarType()->accept(this);
     }
 
-    void visit(const PointerType* p) {
-      p->getPointee()->accept(this);
-    }
+    void visit(const PointerType *p) override { p->getPointee()->accept(this); }
 
-    void visit(const AtomicType* a) {
-      a->getBaseType()->accept(this);
-    }
+    void visit(const AtomicType *a) override { a->getBaseType()->accept(this); }
 
-    void visit(const BlockType*) {
-      m_primitivType = PRIMITIVE_NONE;
-    }
+    void visit(const BlockType *) override { m_primitivType = PRIMITIVE_NONE; }
 
-    void visit(const UserDefinedType*) {
+    void visit(const UserDefinedType *) override {
       m_primitivType = PRIMITIVE_NONE;
     }
 
@@ -473,17 +467,6 @@ createBiV_V(TypePrimitiveEnum p, const std::string& n){
   fd.parameters.push_back(vTy);
   fd.parameters.push_back(vTy);
   return std::make_pair(fd, vTy);
-}
-
-template<>
-std::pair<FunctionDescriptor, RefParamType>
-createBiV_V<1>(TypePrimitiveEnum p, const std::string& n){
-  FunctionDescriptor fd;
-  fd.name = n;
-  RefParamType primitiveTy(new PrimitiveType(p));
-  fd.parameters.push_back(primitiveTy);
-  fd.parameters.push_back(primitiveTy);
-  return std::make_pair(fd, primitiveTy);
 }
 
 template<int w>

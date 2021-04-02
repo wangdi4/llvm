@@ -57,17 +57,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
         virtual ~InOrderCommandQueue();
 
-        virtual cl_err_code Enqueue(Command* cmd);
-        virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
-        virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) { return Enqueue(marker); }
-        virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) { return Enqueue(barrier); }
+        virtual cl_err_code Enqueue(Command *cmd) override;
+        virtual cl_err_code EnqueueWaitForEvents(Command *cmd) override {
+          return Enqueue(cmd);
+        }
+        virtual cl_err_code
+        EnqueueMarkerWaitForEvents(Command *marker) override {
+          return Enqueue(marker);
+        }
+        virtual cl_err_code
+        EnqueueBarrierWaitForEvents(Command *barrier) override {
+          return Enqueue(barrier);
+        }
 
-        virtual cl_err_code Flush(bool bBlocking);
-        virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
-        virtual cl_err_code SendCommandsToDevice();
+        virtual cl_err_code Flush(bool bBlocking) override;
+        virtual cl_err_code
+        NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
+                          OclEventState prevColor,
+                          OclEventState newColor) override;
+        virtual cl_err_code SendCommandsToDevice() override;
 
-	protected:
-
+      protected:
         InOrderCommandQueue(
             SharedPtr<Context>                    pContext,
             cl_device_id                clDefaultDeviceID,

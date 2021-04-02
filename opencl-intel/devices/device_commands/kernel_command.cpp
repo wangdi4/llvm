@@ -168,11 +168,11 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
     }
     else
     {
-        cl_dev_err_code err = AddChildKernelToLists(pChild, flags, (CommandSubmitionLists*)pHandle);
-        if ( CL_DEV_FAILED(err) )
-        {
-            return CL_INVALID_ARG_VALUE;
-        }
+      cl_dev_err_code err = AddChildKernelToLists(
+          pChild, flags, (CommandSubmitionLists *)(uintptr_t)pHandle);
+      if (CL_DEV_FAILED(err)) {
+        return CL_INVALID_ARG_VALUE;
+      }
     }
 
     // update pEventRet
@@ -281,8 +281,8 @@ void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_i
     }
     if (!pCmd->SetExecTimeUserPtr(pValue))    // otherwise the information will be available when the command completes
     {
-        ((cl_ulong*)pValue)[0] = pCmd->GetExecutionTime();
-        ((cl_ulong*)pValue)[1] = pCmd->GetCompleteTime();
+      ((volatile cl_ulong *)pValue)[0] = pCmd->GetExecutionTime();
+      ((volatile cl_ulong *)pValue)[1] = pCmd->GetCompleteTime();
     }        
 }
 

@@ -67,33 +67,43 @@ public:
 
     virtual ~InPlaceTaskList();
 
-    virtual unsigned int    Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
-    virtual bool            Flush();
+    virtual unsigned int
+    Enqueue(const SharedPtr<ITaskBase> &pTaskBase) override;
+    virtual bool Flush() override;
     //Todo: WaitForCompletion only immediately returns if bImmediate is true
-    virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
+    virtual te_wait_result
+    WaitForCompletion(const SharedPtr<ITaskBase> & /*pTask*/) override {
+      return TE_WAIT_COMPLETED;
+    };
     virtual void            Retain();
     virtual void            Release();
-    virtual void            Cancel() {};
+    virtual void Cancel() override{};
 
-    virtual bool            IsMasterJoined() const { return true;}
-    virtual bool            CanMasterJoin() const { return true;}
-    virtual int             GetDeviceConcurency() const { return 1;}
-    virtual void            DisableMasterJoin() {}
+    virtual bool IsMasterJoined() const override { return true; }
+    virtual bool CanMasterJoin() const override { return true; }
+    virtual int GetDeviceConcurency() const override { return 1; }
+    virtual void DisableMasterJoin() override {}
 
-    virtual SharedPtr<ITEDevice> GetDevice() { return nullptr; }
-    virtual ConstSharedPtr<ITEDevice> GetDevice() const { return nullptr; }
+    virtual SharedPtr<ITEDevice> GetDevice() override { return nullptr; }
+    virtual ConstSharedPtr<ITEDevice> GetDevice() const override {
+      return nullptr;
+    }
 
-    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+    virtual SharedPtr<IThreadLibTaskGroup>
+    GetNDRangeChildrenTaskGroup() override {
+      return m_ndrangeChildrenTaskGroup;
+    }
 
-    virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) { }
+    virtual void
+    Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase> & /*pTask*/) {}
 
-    bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
+    bool DoesSupportDeviceSideCommandEnqueue() const override { return false; }
 
-    virtual bool IsProfilingEnabled() const { return false; }
+    virtual bool IsProfilingEnabled() const override { return false; }
 
-    void Spawn(const SharedPtr<ITaskBase> &,Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup &)
-    {
-        assert(false && "Spawn shouldn't be called for InPlaceTaskList");
+    void Spawn(const SharedPtr<ITaskBase> &,
+               Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup &) override {
+      assert(false && "Spawn shouldn't be called for InPlaceTaskList");
     }
 
 protected:
@@ -620,12 +630,10 @@ void* TaskDispatcher::OnThreadEntry(bool registerThread)
     return m_pTaskExecutor;
 }
 
-void  TaskDispatcher::OnThreadExit( void* currentThreadData )
-{
-}
+void TaskDispatcher::OnThreadExit(void * /*currentThreadData*/) {}
 
-TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData )
-{
+TE_BOOLEAN_ANSWER
+TaskDispatcher::MayThreadLeaveDevice(void * /*currentThreadData*/) {
 #ifdef __SOFT_TRAPPING__ // Moving to "hard" trapping
     cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
     if ( (nullptr!=pSubDevID) && (nullptr!=pSubDevID->legal_core_ids) )
@@ -656,54 +664,52 @@ void AffinitizeThreads::WaitForEndOfTask() const
     }
 }
 
-int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount, size_t numberOfThreads)
-{
-    // copy execution parameters
-    unsigned int i;
-    for (i = 1; i < MAX_WORK_DIM; ++i)
-    {
-      region[i] = 1;
-    }
-    dimCount = 1;
-    region[0] = m_numThreads;
-    m_barrier = m_numThreads;
-    m_startTime = Intel::OpenCL::Utils::HostTime();
+int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount,
+                            size_t /*numberOfThreads*/) {
+  // copy execution parameters
+  unsigned int i;
+  for (i = 1; i < MAX_WORK_DIM; ++i) {
+    region[i] = 1;
+  }
+  dimCount = 1;
+  region[0] = m_numThreads;
+  m_barrier = m_numThreads;
+  m_startTime = Intel::OpenCL::Utils::HostTime();
 
-    return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
-void* AffinitizeThreads::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
-{
-    // cast to WGContext* and only then to void* - in order to pass WGContext* to ExecuteIteration
-    // casting to and from void* must be done to the same type
-    return pWgContextBase; // return non-NULL
+void *AffinitizeThreads::AttachToThread(void *pWgContextBase,
+                                        size_t /*uiNumberOfWorkGroups*/,
+                                        size_t /*firstWGID*/[],
+                                        size_t /*lastWGID*/[]) {
+  // cast to WGContext* and only then to void* - in order to pass WGContext* to
+  // ExecuteIteration casting to and from void* must be done to the same type
+  return pWgContextBase; // return non-NULL
 }
 
-void AffinitizeThreads::DetachFromThread(void* pWgContext)
-{
-    return;
-}
+void AffinitizeThreads::DetachFromThread(void * /*pWgContext*/) { return; }
 
-bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
-{
-    if (m_failed)
-      return true;
-
-    m_barrier--;
-
-    if (m_timeOut > 0) {
-        while ((m_barrier > 0) && (!m_failed)) {
-            unsigned long long now = Intel::OpenCL::Utils::HostTime();
-            if (now - m_startTime > m_timeOut) {
-                m_failed = true;
-                break;
-            }
-            hw_pause();
-        }
-    } else {
-        while (m_barrier > 0)
-            hw_pause();
-    }
-
+bool AffinitizeThreads::ExecuteIteration(size_t /*x*/, size_t /*y*/,
+                                         size_t /*z*/, void * /*pWgContext*/) {
+  if (m_failed)
     return true;
+
+  m_barrier--;
+
+  if (m_timeOut > 0) {
+    while ((m_barrier > 0) && (!m_failed)) {
+      unsigned long long now = Intel::OpenCL::Utils::HostTime();
+      if (now - m_startTime > m_timeOut) {
+        m_failed = true;
+        break;
+      }
+      hw_pause();
+    }
+  } else {
+    while (m_barrier > 0)
+      hw_pause();
+  }
+
+  return true;
 }

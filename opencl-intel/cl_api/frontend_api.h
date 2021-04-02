@@ -182,6 +182,8 @@ public:
 
     // release compiler instance
     virtual void Release() = 0;
+
+    virtual ~IOCLFECompiler() {}
 };
 
 // Create an instance of the FE compiler tagged to specific device

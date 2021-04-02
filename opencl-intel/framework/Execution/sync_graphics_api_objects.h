@@ -82,15 +82,19 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         // inherited methods:
 
-        virtual cl_command_type GetCommandType() const  { return m_cmdType; }
+        virtual cl_command_type GetCommandType() const override {
+          return m_cmdType;
+        }
 
-        virtual ECommandExecutionType GetExecutionType() const { return RUNTIME_EXECUTION_TYPE; }
+        virtual ECommandExecutionType GetExecutionType() const override {
+          return RUNTIME_EXECUTION_TYPE;
+        }
 
-        virtual cl_err_code Init();
+        virtual cl_err_code Init() override;
 
-        cl_err_code CommandDone();
+        cl_err_code CommandDone() override;
 
-        virtual bool isControlCommand()	const { return false; }
+        virtual bool isControlCommand() const override { return false; }
 
         /**
          * @fn  const GraphicsApiMemoryObject& SyncGraphicsApiObjects::GetMemoryObject(size_t Index) const

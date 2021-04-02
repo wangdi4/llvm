@@ -1,6 +1,7 @@
 
 ; This test checks that the TLS globals are not internalized by the pass
 
+; RUN: %oclopt -add-tls-globals -internalize-global-variables %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-tls-globals -internalize-global-variables %s -S | FileCheck %s
 
 ; CHECK: @pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef
@@ -14,3 +15,5 @@
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
+
+; DEBUGIFY-NOT: WARNING

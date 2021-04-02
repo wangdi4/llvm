@@ -53,9 +53,7 @@ public:
   Predicator();
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
-    return "Predicator";
-  }
+  virtual llvm::StringRef getPassName() const override { return "Predicator"; }
 
   struct BranchInfo {
     BranchInfo(BasicBlock * succ0, BasicBlock * succ1, Value* cond) : m_succ0(succ0), m_succ1(succ1), m_cond(cond) {}
@@ -413,10 +411,10 @@ public:
   /// @brief LLVM module pass interface
   /// @param F function to predicate
   /// @return true if modified
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(Function &F) override;
   /// @brief requests analysis from LLVM system
   /// @param AU
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     // We need to canonicalize PHIs
     //AU.addRequired<PhiCanon>();
     // We need loop info

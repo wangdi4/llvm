@@ -169,20 +169,18 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
 /******************************************************************
  *
  ******************************************************************/
- cl_bool OclCommandQueue::EnableProfiling( cl_bool bEnabled )
- {
-     // Profiling is not yet supported!!!
-     // always return false
-     return CL_FALSE;
- }
+cl_bool OclCommandQueue::EnableProfiling(cl_bool /*bEnabled*/) {
+  // Profiling is not yet supported!!!
+  // always return false
+  return CL_FALSE;
+}
 
 /******************************************************************
  * This has been deprecated, so support it vacuously for backwards compatibility
  ******************************************************************/
-cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
-{
-    cl_err_code res = CL_SUCCESS;
-    return res;
+cl_bool OclCommandQueue::EnableOutOfOrderExecMode(cl_bool /*bEnabled*/) {
+  cl_err_code res = CL_SUCCESS;
+  return res;
 }
 
 /******************************************************************
@@ -267,9 +265,9 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 cl_err_code OclCommandQueue::CancelAll()
 {
     m_bCancelAll = true;
-    if (NULL != m_pDefaultDevice)
-    {
-        m_pDefaultDevice->GetDeviceAgent()->clDevCommandListCancel(m_clDevCmdListId);
+    if (NULL != m_pDefaultDevice.GetPtr()) {
+      m_pDefaultDevice->GetDeviceAgent()->clDevCommandListCancel(
+          m_clDevCmdListId);
     }
     return CL_SUCCESS;
 }

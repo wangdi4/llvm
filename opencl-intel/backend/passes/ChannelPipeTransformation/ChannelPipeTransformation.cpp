@@ -656,11 +656,11 @@ static Argument *getFunctionArg(Function *F, const unsigned ArgNo) {
   return F->arg_begin() + ArgNo;
 }
 
-static void
-replaceLocalChannelUses(Function *UserFunc, Type *ChannelTy, Type *PipeTy,
-                        const unsigned ArgNo, ValueToValueMap &VMap,
-                        SmallPtrSetImpl<Instruction *> &ToDelete,
-                        WorkListType &WorkList) {
+static void replaceLocalChannelUses(Function *UserFunc, Type * /*ChannelTy*/,
+                                    Type *PipeTy, const unsigned ArgNo,
+                                    ValueToValueMap &VMap,
+                                    SmallPtrSetImpl<Instruction *> &ToDelete,
+                                    WorkListType &WorkList) {
   Argument *Arg = getFunctionArg(UserFunc, ArgNo);
   assert(Arg->getType() == PipeTy && "No appropriate function argument found");
 

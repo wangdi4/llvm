@@ -27,15 +27,18 @@ using namespace std;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-MemoryObject::MemoryObject(SharedPtr<Context> pContext):
-    OCLObject<_cl_mem_int>(pContext != NULL ? pContext->GetHandle() : NULL, "MemoryObject"),
-    m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
-    m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
-    m_mapCount(0), m_pMappedDevice(NULL), m_stMemObjSize(0), m_bRegisteredInContextModule(false)
-{
-    memset(m_stOrigin, 0, sizeof(m_stOrigin));
+MemoryObject::MemoryObject(SharedPtr<Context> pContext)
+    : OCLObject<_cl_mem_int>(pContext.GetPtr() != NULL ? pContext->GetHandle()
+                                                       : NULL,
+                             "MemoryObject"),
+      m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
+      m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0),
+      m_pMemObjData(NULL), m_pParentObject(NULL), m_mapCount(0),
+      m_pMappedDevice(NULL), m_stMemObjSize(0),
+      m_bRegisteredInContextModule(false) {
+  memset(m_stOrigin, 0, sizeof(m_stOrigin));
 
-    m_mapMappedRegions.clear();
+  m_mapMappedRegions.clear();
 }
 
 MemoryObject::~MemoryObject()
@@ -123,9 +126,8 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
     case CL_MEM_ASSOCIATED_MEMOBJECT:
         szSize = sizeof(cl_mem);
         pValue = &clMem;
-        if ( NULL != m_pParentObject )
-        {
-            clMem = m_pParentObject->GetHandle();
+        if (NULL != m_pParentObject.GetPtr()) {
+          clMem = m_pParentObject->GetHandle();
         }
         break;
     case CL_MEM_OFFSET:
@@ -378,9 +380,11 @@ cl_err_code MemoryObject::CreateMappedRegion(
     pclDevCmdParamMap->cmd_param_map.flags = clMapFlags;
     pclDevCmdParamMap->full_object_ovewrite = full_overwrite;
 
-    assert( ((0 == m_mapCount) == (NULL == m_pMappedDevice)) && "m_mapCount and m_pMappedDevice must be both either 0 or not" );
+    assert(((0 == m_mapCount) == (NULL == m_pMappedDevice.GetPtr())) &&
+           "m_mapCount and m_pMappedDevice must be both either 0 or not");
 
-    SharedPtr<FissionableDevice> device_to_map = (NULL != m_pMappedDevice) ? m_pMappedDevice : pDevice;
+    SharedPtr<FissionableDevice> device_to_map =
+        (NULL != m_pMappedDevice.GetPtr()) ? m_pMappedDevice : pDevice;
 
     cl_err_code err = MemObjCreateDevMappedRegion(device_to_map, &pclDevCmdParamMap->cmd_param_map, pHostMapDataPtr);
     if (CL_FAILED(err))
@@ -436,7 +440,7 @@ cl_err_code MemoryObject::GetMappedRegionInfo(ConstSharedPtr<FissionableDevice> 
             found = true;
             *pMapInfo = &(info->cmd_param_map);
 
-            assert( NULL != m_pMappedDevice );
+            assert(NULL != m_pMappedDevice.GetPtr());
             *pMappedOnDevice = m_pMappedDevice;
 
             if (pbWasFullyOverwritten)
@@ -680,11 +684,10 @@ bool MemoryObject::IsWholeObjectCovered( cl_uint dims, const size_t* pszOrigin, 
 /******************************************************************
  * This object may hold an extra reference count as it is recorded in ContextModule
  ******************************************************************/
-void MemoryObject::EnterZombieState( EnterZombieStateLevel call_level ) 
-{
-    if (m_bRegisteredInContextModule)
-    {
-        m_pContext->GetContextModule().UnRegisterMappedMemoryObject( const_cast<MemoryObject*>(this) );
-    }
-    OCLObject<_cl_mem_int>::EnterZombieState(RECURSIVE_CALL);
+void MemoryObject::EnterZombieState(EnterZombieStateLevel /*call_level*/) {
+  if (m_bRegisteredInContextModule) {
+    m_pContext->GetContextModule().UnRegisterMappedMemoryObject(
+        const_cast<MemoryObject *>(this));
+  }
+  OCLObject<_cl_mem_int>::EnterZombieState(RECURSIVE_CALL);
 }

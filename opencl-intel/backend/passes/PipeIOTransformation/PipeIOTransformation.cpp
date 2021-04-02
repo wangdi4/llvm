@@ -117,7 +117,8 @@ PipeIOTransformation::PipeIOTransformation() : ModulePass(ID) {
   initializePipeIOTransformationPass(*llvm::PassRegistry::getPassRegistry());
 }
 
-static void initializeGlobalPipeReleaseCall(Module &M, Function *GlobalDtor,
+static void initializeGlobalPipeReleaseCall(Module & /*M*/,
+                                            Function *GlobalDtor,
                                             Function *PipeReleaseFunc,
                                             GlobalVariable *PipeGV) {
   IRBuilder<> Builder(GlobalDtor->getEntryBlock().getTerminator());

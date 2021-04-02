@@ -240,17 +240,19 @@ long AtomicCounter::operator ++() //prefix, returns new val
 {
     return __sync_add_and_fetch(&m_val, 1);
 }
-long AtomicCounter::operator ++(int alwaysZero) //postfix, returns previous val
+long AtomicCounter::operator++(
+    int /*alwaysZero*/) // postfix, returns previous val
 {
-    return __sync_fetch_and_add(&m_val, 1);
+  return __sync_fetch_and_add(&m_val, 1);
 }
 long AtomicCounter::operator --() //prefix, returns new val
 {
     return __sync_sub_and_fetch(&m_val, 1);
 }
-long AtomicCounter::operator --(int alwaysZero) //postfix, returns previous val
+long AtomicCounter::operator--(
+    int /*alwaysZero*/) // postfix, returns previous val
 {
-    return __sync_fetch_and_sub(&m_val, 1);
+  return __sync_fetch_and_sub(&m_val, 1);
 }
 long AtomicCounter::add(long val)
 {

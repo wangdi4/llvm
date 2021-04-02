@@ -47,17 +47,17 @@ public:
   /// @brief D'tor
   ~nameByInstType(){}
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "nameByInstType";
   }
-  
+
   ///s@brief LLVM interface.
-  virtual bool runOnFunction(Function &F) ;
+  virtual bool runOnFunction(Function &F) override;
 
   ///@brief public API to be use not as a pass.
   void RenameValues(Function &F);
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {}
+  virtual void getAnalysisUsage(AnalysisUsage & /*AU*/) const override {}
 };
 }
 #endif //define __INST_TYPE_NAMER_H_

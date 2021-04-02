@@ -41,17 +41,16 @@ public:
   /// @brief execute pass on given module
   /// @param M module to optimize
   /// @returns True if module was modified
-  virtual bool runOnModule(Module &M);
+  virtual bool runOnModule(Module &M) override;
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
-    return "Smart GVN";
-  }
+  virtual llvm::StringRef getPassName() const override { return "Smart GVN"; }
   /// @brief Inform about usage/mofication/dependency of this pass
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     if (noLoadAnalysis) {
       AU.addRequired<LoopInfoWrapperPass>();
     }
   }
+
 protected:
   /// @brief Analyse the function body and returns true if disabling GVN-PRE
   /// for loads seems to be profitable. This will reduce register pressure in

@@ -35,7 +35,7 @@ namespace intel{
         ///        entries for primitive types.  These are never used for linking in GCC and
         ///        they make the output uglier to look at, so we nuke them.
         ///        Also, initialize instance variables.
-        bool runOnModule(Module &M);
+        bool runOnModule(Module &M) override;
 
         /// @brief Pass identification, replacement for typeid
         static char ID;

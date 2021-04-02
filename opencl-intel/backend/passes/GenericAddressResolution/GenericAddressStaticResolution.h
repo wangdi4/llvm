@@ -57,18 +57,18 @@ namespace intel {
     ~GenericAddressStaticResolution();
 
     /// @brief  Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "GenericAddressStaticResolution";
     }
 
     /// @brief  LLVM Module pass entry
     /// @param  M Module to transform
     /// @returns  true if changed
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
     /// @brief  LLVM Interface
     /// @param  AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage & /*AU*/) const override {
       // We could declare 'PromotePass' here (as mem2reg pass is a
       // mandatory pre-requisite), however it is not exposed by LLVM,
       // hence we suppose that Optimizer flow will invoke its factory

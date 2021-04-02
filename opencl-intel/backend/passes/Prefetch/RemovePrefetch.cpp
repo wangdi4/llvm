@@ -48,7 +48,7 @@ namespace intel {
 
       ~RemovePrefetch() {} ;
 
-      virtual bool runOnModule(Module &M);
+      virtual bool runOnModule(Module &M) override;
 
     private:
       // prefix of the prefetch builtin name

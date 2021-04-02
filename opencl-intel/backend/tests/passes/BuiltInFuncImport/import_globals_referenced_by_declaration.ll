@@ -1,5 +1,6 @@
 ; RUN: llvm-as %s.1.rtl -o %t.1.rtl.bc
 ; RUN: llvm-as %s.2.rtl -o %t.2.rtl.bc
+; RUN: %oclopt -runtimelib=%t.1.rtl.bc,%t.2.rtl.bc -builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.1.rtl.bc,%t.2.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
@@ -44,3 +45,5 @@ declare i32 @_Z12native_ilogbd(double)
 
 ; CHECK:  define linkonce_odr i32 @__ocl_trunc_v1i64_v1i32(i64 %x)
 ; CHECK:  define linkonce_odr i32 @_Z12native_ilogbd(double %x)
+
+; DEBUGIFY-NOT: WARNING

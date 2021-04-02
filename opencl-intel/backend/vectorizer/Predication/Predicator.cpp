@@ -268,7 +268,7 @@ bool Predicator::hasOutsideRandomUsers(Instruction* inst, Loop* loop) {
   return false;
 }
 
-Function* Predicator::createSelect(PHINode* phi, Value* mask) {
+Function *Predicator::createSelect(PHINode *phi, Value * /*mask*/) {
   V_ASSERT(phi->getNumIncomingValues() == 2 &&
            "Phi node must have only two incoming edges");
 
@@ -1544,9 +1544,8 @@ bool Predicator::isUCFRegion(BasicBlock * const entryBB, BasicBlock * const exit
   return true;
 }
 
-void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
-                                   PostDominatorTree * PDT,
-                                   DominatorTree * DT) {
+void Predicator::collectUCFRegions(Function * /*F*/, LoopInfo *LI,
+                                   PostDominatorTree *PDT, DominatorTree *DT) {
   // Go over divergent regions identified by WIAnalysys and collect largest UCF regions
   // nested inside divergent regions.
   SchdConstMap & predSched = m_WIA->getSchedulingConstraints();

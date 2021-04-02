@@ -66,18 +66,18 @@ namespace intel {
     ~GenericAddressDynamicResolution();
 
     /// @brief  Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "GenericAddressDynamicResolution";
     }
 
     /// @brief  LLVM Module pass entry
     /// @param  M Module to transform
     /// @returns  true if changed
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
     /// @brief  LLVM Interface
     /// @param  AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage & /*AU*/) const override {
       // Performance-wise, we could reduce overhead of run-time
       // identification if we had 'FunctionInliningPass' as a
       // pre-requisite. However, that would break Debug mode

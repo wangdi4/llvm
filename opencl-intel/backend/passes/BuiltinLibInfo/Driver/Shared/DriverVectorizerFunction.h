@@ -25,15 +25,15 @@ public:
 
   ~DriverVectorizerFunction();
 
-  unsigned getWidth() const;
+  unsigned getWidth() const override;
 
-  bool isPacketizable() const;
+  bool isPacketizable() const override;
 
-  bool isScalarizable() const;
+  bool isScalarizable() const override;
 
-  std::string getVersion(unsigned index) const;
+  std::string getVersion(unsigned index) const override;
 
-  bool isNull() const;
+  bool isNull() const override;
 
 private:
   bool isMangled() const;

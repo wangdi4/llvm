@@ -231,14 +231,11 @@ protected:
 
 template <class BlockedRange, class TaskLoopBodySpecific>
 void TBB_ExecutionSchedulers::auto_executor(
-    const size_t                                      dimsBegin[],
-    const size_t                                      dimsEnd[],
-    size_t                                            grainsize,
-    const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
-    base_command_list&                                cmdList )
-{
-    tbb::parallel_for(BlockedRange(dimsBegin, dimsEnd, grainsize),
-                      TaskLoopBodySpecific(task), tbb::auto_partitioner());
+    const size_t dimsBegin[], const size_t dimsEnd[], size_t grainsize,
+    const Intel::OpenCL::Utils::SharedPtr<ITaskSet> &task,
+    base_command_list & /*cmdList*/) {
+  tbb::parallel_for(BlockedRange(dimsBegin, dimsEnd, grainsize),
+                    TaskLoopBodySpecific(task), tbb::auto_partitioner());
 }
 
 template <class BlockedRange, class TaskLoopBodySpecific>        

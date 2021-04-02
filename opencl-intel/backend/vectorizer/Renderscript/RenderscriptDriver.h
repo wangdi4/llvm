@@ -56,17 +56,17 @@ public:
     ~RenderscriptVectorizer();
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
-        return "Intel RenderScript Vectorizer";
+    virtual llvm::StringRef getPassName() const override {
+      return "Intel RenderScript Vectorizer";
     }
 
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    virtual bool runOnModule(Module &M);
+    virtual bool runOnModule(Module &M) override;
 
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<BuiltinLibInfo>();
     }
 

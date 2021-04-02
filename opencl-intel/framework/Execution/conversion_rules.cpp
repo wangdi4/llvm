@@ -126,12 +126,12 @@ static __m128i convert_to_int(const __m128 &val)
  */
 void NOOPTIMIZE sat(cl_int4 &trgt, const __m128i &intVal)
 {
-	trgt = *(cl_int4*)&intVal;
+  trgt = *(const cl_int4 *)&intVal;
 }
 
 void NOOPTIMIZE sat(cl_uint4 &trgt, const __m128i &intVal)
 {
-	trgt = *(cl_uint4*)&intVal;
+  trgt = *(const cl_uint4 *)&intVal;
 }
 
 // short/ushort 16 bits
@@ -143,16 +143,15 @@ void NOOPTIMIZE sat(cl_short4 &trgt, const __m128i &intVal)
 
 void NOOPTIMIZE sat(cl_ushort4 &trgt, const __m128i &intVal)
 {
-    cl_int4 *cl_intVal = (cl_int4 *)&intVal;
+  const cl_int4 *cl_intVal = (const cl_int4 *)&intVal;
 
-    //
-	//if AVX: __m128i ushortVal = _mm_packus_epi32(intVal, (__m128i)allzero);
-    // no single command to convert to unsigned, so value is signed.
-    //
-    for (int i = 0 ; i < 4 ; ++i)
-    {
-        trgt.s[i] = CLAMP(cl_intVal->s[i], 0, USHRT_MAX);
-    }
+  //
+  // if AVX: __m128i ushortVal = _mm_packus_epi32(intVal, (__m128i)allzero);
+  // no single command to convert to unsigned, so value is signed.
+  //
+  for (int i = 0; i < 4; ++i) {
+    trgt.s[i] = CLAMP(cl_intVal->s[i], 0, USHRT_MAX);
+  }
 }
 
 // char/uchar 8 bits
@@ -413,53 +412,52 @@ cl_int __RGBA_fp_to_NORM(const cl_float4 *color,
  * - CL_INVALID_ARG_SIZE if trgtLength is inappropriate for channel type.
  * 	@
  */
-cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, const cl_channel_order channelOrder,
-                           const cl_channel_type channelType, void* trgtColor, const size_t trgtLength)
-{
-    assert(trgtColor);
+cl_int Intel::OpenCL::Framework::norm_float_to_image(
+    const cl_float4 *color, const cl_channel_order channelOrder,
+    const cl_channel_type channelType, void *trgtColor,
+    const size_t /*trgtLength*/) {
+  assert(trgtColor);
 
-    switch (channelType)
-    {
-        case CL_SNORM_INT8:
-        	return __RGBA_fp_to_NORM<cl_char4>(color, channelOrder, (cl_char4*)trgtColor, 127.0);
-            break;
-        case CL_SNORM_INT16:
-        	return __RGBA_fp_to_NORM<cl_short4>(color, channelOrder, (cl_short4*)trgtColor, 32767.0);
-            break;
-        case CL_UNORM_INT8:
-        	return __RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, (cl_uchar4*)trgtColor, 255.0);
-            break;
-        case CL_UNORM_INT16:
-        	return __RGBA_fp_to_NORM<cl_ushort4>(color, channelOrder, (cl_ushort4*)trgtColor, 65535.0);
-            break;
-        case CL_UNORM_INT_101010:
-        	{
-        		// convert to cl_ushort, and from there round down.
-        		cl_ushort4 tempColor;
-    			cl_uint &trgt = *(cl_uint*)trgtColor; // output is 32 bit
+  switch (channelType) {
+  case CL_SNORM_INT8:
+    return __RGBA_fp_to_NORM<cl_char4>(color, channelOrder,
+                                       (cl_char4 *)trgtColor, 127.0);
+    break;
+  case CL_SNORM_INT16:
+    return __RGBA_fp_to_NORM<cl_short4>(color, channelOrder,
+                                        (cl_short4 *)trgtColor, 32767.0);
+    break;
+  case CL_UNORM_INT8:
+    return __RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder,
+                                        (cl_uchar4 *)trgtColor, 255.0);
+    break;
+  case CL_UNORM_INT16:
+    return __RGBA_fp_to_NORM<cl_ushort4>(color, channelOrder,
+                                         (cl_ushort4 *)trgtColor, 65535.0);
+    break;
+  case CL_UNORM_INT_101010: {
+    // convert to cl_ushort, and from there round down.
+    cl_ushort4 tempColor;
+    cl_uint &trgt = *(cl_uint *)trgtColor; // output is 32 bit
 
-    			__RGBA_fp_to_NORM<cl_ushort4>(color, channelOrder, &tempColor, 1023.0);
-    			trgt = 0;
-				trgt |= OCL_MIN(tempColor.s[0], TEN_BIT_MAX);
-				trgt <<= 10;
-        		trgt |= OCL_MIN(tempColor.s[1], TEN_BIT_MAX);
-				trgt <<= 10;
-        		trgt |= OCL_MIN(tempColor.s[2], TEN_BIT_MAX);
-        	}
-            break;
-        case CL_FLOAT:
-        	{
-				// same as input.
-				cl_float4 *trgt = (cl_float4 *)trgtColor;
-                __arrange_by_channel_order<cl_float4>(trgt, color, channelOrder);
-        	}
-        	break;
-        case CL_HALF_FLOAT:
-			{
-				cl_ushort4 *trgt = (cl_ushort4 *)trgtColor;
-                
-                cl_float4 orderedFloat; // start by rearranging channel order.
-                __arrange_by_channel_order<cl_float4>(&orderedFloat, color, channelOrder);
+    __RGBA_fp_to_NORM<cl_ushort4>(color, channelOrder, &tempColor, 1023.0);
+    trgt = 0;
+    trgt |= OCL_MIN(tempColor.s[0], TEN_BIT_MAX);
+    trgt <<= 10;
+    trgt |= OCL_MIN(tempColor.s[1], TEN_BIT_MAX);
+    trgt <<= 10;
+    trgt |= OCL_MIN(tempColor.s[2], TEN_BIT_MAX);
+  } break;
+  case CL_FLOAT: {
+    // same as input.
+    cl_float4 *trgt = (cl_float4 *)trgtColor;
+    __arrange_by_channel_order<cl_float4>(trgt, color, channelOrder);
+  } break;
+  case CL_HALF_FLOAT: {
+    cl_ushort4 *trgt = (cl_ushort4 *)trgtColor;
+
+    cl_float4 orderedFloat; // start by rearranging channel order.
+    __arrange_by_channel_order<cl_float4>(&orderedFloat, color, channelOrder);
 
 #ifdef FLOAT2HALF_SIMD
                 // using SIMD intrinsics:
@@ -488,8 +486,7 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, con
                         );
                 */
 
-			}
-        	break;
+  } break;
         case CL_UNORM_SHORT_565:
 			{
 				// convert to uint8, and from there round down.
@@ -522,11 +519,10 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, con
 			break;
         default:
             return CL_IMAGE_FORMAT_NOT_SUPPORTED;
-    }
+        }
 
     return CL_SUCCESS;
 }
-
 
 template <typename OrigVecType, typename VecType>
 cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr, const cl_channel_order order)
@@ -555,36 +551,31 @@ cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr, const cl_chan
  * - CL_INVALID_ARG_SIZE if trgtLength is inappropriate for channel type.
  * 	@
  */
-cl_int Intel::OpenCL::Framework::non_norm_signed_to_image(const cl_int4 *color, const cl_channel_order channelOrder,
-                           const cl_channel_type channelType, void* trgtColor, const size_t trgtLength)
-{
-    assert(trgtColor);
+cl_int Intel::OpenCL::Framework::non_norm_signed_to_image(
+    const cl_int4 *color, const cl_channel_order channelOrder,
+    const cl_channel_type channelType, void *trgtColor,
+    const size_t /*trgtLength*/) {
+  assert(trgtColor);
 
-    switch (channelType)
-    {
-    case CL_SIGNED_INT8:
-    	{
-    		return __ANYINT_to_ANYINT<cl_int4, cl_char4>(color, trgtColor, channelOrder);
-    	}
-    	break;
-    case CL_SIGNED_INT16:
-		{
-	    	return __ANYINT_to_ANYINT<cl_int4, cl_short4>(color, trgtColor, channelOrder);
-		}
-		break;
-    case CL_SIGNED_INT32:
-		{
-			// same as input
-    		return __ANYINT_to_ANYINT<cl_int4, cl_int4>(color, trgtColor, channelOrder);
-		}
-		break;
-    default:
-    	return CL_IMAGE_FORMAT_NOT_SUPPORTED;
-	}
+  switch (channelType) {
+  case CL_SIGNED_INT8: {
+    return __ANYINT_to_ANYINT<cl_int4, cl_char4>(color, trgtColor,
+                                                 channelOrder);
+  } break;
+  case CL_SIGNED_INT16: {
+    return __ANYINT_to_ANYINT<cl_int4, cl_short4>(color, trgtColor,
+                                                  channelOrder);
+  } break;
+  case CL_SIGNED_INT32: {
+    // same as input
+    return __ANYINT_to_ANYINT<cl_int4, cl_int4>(color, trgtColor, channelOrder);
+  } break;
+  default:
+    return CL_IMAGE_FORMAT_NOT_SUPPORTED;
+  }
 
-	return CL_SUCCESS;
+  return CL_SUCCESS;
 }
-
 
 /**
  * Convert non normalized unsigned int point color to image format requested.
@@ -601,33 +592,29 @@ cl_int Intel::OpenCL::Framework::non_norm_signed_to_image(const cl_int4 *color, 
  * - CL_INVALID_ARG_SIZE if trgtLength is inappropriate for channel type.
  * 	@
  */
-cl_int Intel::OpenCL::Framework::non_norm_unsigned_to_image(const cl_uint4 *color, const cl_channel_order channelOrder,
-                           const cl_channel_type channelType, void* trgtColor, const size_t trgtLength)
-{
-    assert(trgtColor);
+cl_int Intel::OpenCL::Framework::non_norm_unsigned_to_image(
+    const cl_uint4 *color, const cl_channel_order channelOrder,
+    const cl_channel_type channelType, void *trgtColor,
+    const size_t /*trgtLength*/) {
+  assert(trgtColor);
 
-    switch (channelType)
-    {
-    case CL_UNSIGNED_INT8:
-    	{
-    		return __ANYINT_to_ANYINT<cl_uint4, cl_uchar4>(color, trgtColor, channelOrder);
-    	}
-    	break;
-    case CL_UNSIGNED_INT16:
-		{
-	    	return __ANYINT_to_ANYINT<cl_uint4, cl_ushort4>(color, trgtColor, channelOrder);
-		}
-		break;
-    case CL_UNSIGNED_INT32:
-		{
-			// same as input
-    		return __ANYINT_to_ANYINT<cl_uint4, cl_uint4>(color, trgtColor, channelOrder);
-		}
-		break;
-    default:
-    	return CL_IMAGE_FORMAT_NOT_SUPPORTED;
-	}
+  switch (channelType) {
+  case CL_UNSIGNED_INT8: {
+    return __ANYINT_to_ANYINT<cl_uint4, cl_uchar4>(color, trgtColor,
+                                                   channelOrder);
+  } break;
+  case CL_UNSIGNED_INT16: {
+    return __ANYINT_to_ANYINT<cl_uint4, cl_ushort4>(color, trgtColor,
+                                                    channelOrder);
+  } break;
+  case CL_UNSIGNED_INT32: {
+    // same as input
+    return __ANYINT_to_ANYINT<cl_uint4, cl_uint4>(color, trgtColor,
+                                                  channelOrder);
+  } break;
+  default:
+    return CL_IMAGE_FORMAT_NOT_SUPPORTED;
+  }
 
-	return CL_SUCCESS;
+  return CL_SUCCESS;
 }
-

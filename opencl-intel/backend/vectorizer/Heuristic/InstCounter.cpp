@@ -938,6 +938,9 @@ void WeightedInstCounter::
     // since we do not want the allones optimization to influence heuristics
     // results (vs. without using allones), we have several specail cases.
     Predicator::AllOnesBlockType blockType = Predicator::getAllOnesBlockType(BB);
+    V_ASSERT((blockType >= Predicator::NONE &&
+              blockType <= Predicator::SINGLE_BLOCK_LOOP_EXIT) &&
+             "Unknown block type");
     switch (blockType)
     {
     case Predicator::ALLONES : // not counting, this is a duplication of ORIGINAL.
@@ -975,9 +978,6 @@ void WeightedInstCounter::
     // but we do that later. First we calculate the probability
     // to be used for the SINGLE_BLOCK_LOOP_ORIGINAL.
     case Predicator::SINGLE_BLOCK_LOOP_ENTRY :
-      break;
-    default :
-      V_ASSERT(false && "unknown type");
       break;
     }
 

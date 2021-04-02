@@ -48,18 +48,20 @@ DebuggingServiceType getUserDefinedDebuggingServiceType() {
 DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
                                              llvm::Module *M,
                                              bool useNativeDebugger) {
-    if (!debuggingEnabled &&
-        !CompilationUtils::getDebugFlagFromMetadata(M)) {
-        return None;
-    }
+  if (!debuggingEnabled && !CompilationUtils::getDebugFlagFromMetadata(M)) {
+    return None;
+  }
 
-    DebuggingServiceType serviceType;
+  DebuggingServiceType serviceType;
 #if _WIN32
     if (useNativeDebugger)
         serviceType = Native;
     else
         serviceType = Simulator;
 #else
+    // The parameter is used in Windows code
+    (void)useNativeDebugger;
+
     // CL_CONFIG_DBG_ENABLE != 1 or unset implies native (GDB) debugging.
     serviceType = Native;
 #endif
@@ -67,10 +69,10 @@ DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
     // Allow the environment variable to override the flag choice.
     DebuggingServiceType userOverride = getUserDefinedDebuggingServiceType();
     if (userOverride != None) {
-        serviceType = userOverride;
+      serviceType = userOverride;
     }
+
 
     return serviceType;
 }
-
 }

@@ -286,9 +286,9 @@ namespace intel{
 
         InstToFuncCall(const Intel::CPUId *CpuId = nullptr);
 
-        bool runOnModule(Module &M);
+        bool runOnModule(Module &M) override;
 
-    private:
+      private:
         Inst2FunctionLookup m_I2F;
 
         static void replaceInstWithCall(Function *func,

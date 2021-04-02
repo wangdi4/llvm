@@ -680,18 +680,17 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // in outer loop
       // Random accesses can be loop variant
       if (!isRandom && !m_SE->hasComputableLoopEvolution(SAddr, L)) {
-        OCLSTAT_GATHER_CHECK (
-          switch (m_SE->getLoopDisposition(SAddr, L)) {
-            default:
-            case ScalarEvolution::LoopComputable:
-              assert (false && "unexpected loop disposition detected in SCEV");
-              break;
-            case ScalarEvolution::LoopVariant:
-              Access_step_is_loop_variant++; break;
-            case ScalarEvolution::LoopInvariant:
-              Access_step_is_loop_invariant++; break;
-          }
-        );
+        OCLSTAT_GATHER_CHECK(switch (m_SE->getLoopDisposition(SAddr, L)) {
+          default: /*ScalarEvolution::LoopComputable*/
+            assert(false && "unexpected loop disposition detected in SCEV");
+            break;
+          case ScalarEvolution::LoopVariant:
+            Access_step_is_loop_variant++;
+            break;
+          case ScalarEvolution::LoopInvariant:
+            Access_step_is_loop_invariant++;
+            break;
+        });
         continue;
       }
 
@@ -1041,7 +1040,7 @@ unsigned int Prefetch::IterLength(Loop *L)
 
 // getPFDistance(Loop *, loopPFInfo &) - calculate the prefetch distance
 // for a loop
-void Prefetch::getPFDistance(Loop *L, loopPFInfo &info) {
+void Prefetch::getPFDistance(Loop * /*L*/, loopPFInfo &info) {
 
   // start with the minimum number of threads set by previously processed loops
   info.numThreads = m_numThreads;

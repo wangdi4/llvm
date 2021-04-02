@@ -32,23 +32,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Interface implementation
     /// @brief Returns the size of this argument
     /// @returns  The size of this argument
-    virtual size_t getSize() const { return m_size; }
-    
+    virtual size_t getSize() const override { return m_size; }
+
     /// @brief Interface implementation
     /// @brief Returns the alignment of this argument
     /// @returns  The alignment of this argument
-    virtual size_t getAlignment() const { return m_alignment; }
-    
+    virtual size_t getAlignment() const override { return m_alignment; }
+
     /// @brief Interface implementation
     /// @brief  Returns the size with alignments needed to be done 
     ///         to destination pointer of this argument
     /// @returns  The aligned size of this argument
-    virtual size_t getAlignedSize() const { return m_alignedSize; }
-    
+    virtual size_t getAlignedSize() const override { return m_alignedSize; }
+
     /// @brief Interface implementation
     /// @brief Sets the value of this argument
-    /// @param pValue       The src from which to copy the value 
-    virtual void setValue(const char* pValue);
+    /// @param pValue       The src from which to copy the value
+    virtual void setValue(const char *pValue) override;
 
     /// @brief Gets the value of this argument
     /// @return The pointer to the value 

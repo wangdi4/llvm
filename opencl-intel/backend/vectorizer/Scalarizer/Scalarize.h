@@ -51,17 +51,17 @@ public:
   ~ScalarizeFunction();
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "ScalarizeFunction";
   }
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<SoaAllocaAnalysis>();
     AU.addRequired<BuiltinLibInfo>();
   }
 
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(Function &F) override;
 
 private:
 

@@ -30,6 +30,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         virtual cl_event getUserEvent(cl_event notifierEvent) = 0;
         virtual cl_event getNotifierEvent(cl_event userEvent) = 0;
         virtual void delEvent(cl_event userEvent) = 0;
+        virtual ~EventsMapper() {}
     };
 
     // The class below helps the notifier collection to wrap
@@ -39,10 +40,12 @@ namespace Intel { namespace OpenCL { namespace Utils {
     class NotifierEventsMapper : public EventsMapper
     {
     public:
-        virtual void addEventPair(cl_event userEvent, cl_event notifierEvent);
-        virtual cl_event getUserEvent(cl_event notifierEvent);
-        virtual cl_event getNotifierEvent(cl_event userEvent);
-        virtual void delEvent(cl_event userEvent);
+      virtual void addEventPair(cl_event userEvent,
+                                cl_event notifierEvent) override;
+      virtual cl_event getUserEvent(cl_event notifierEvent) override;
+      virtual cl_event getNotifierEvent(cl_event userEvent) override;
+      virtual void delEvent(cl_event userEvent) override;
+
     private:
         OclMutex m_lock;
 

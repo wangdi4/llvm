@@ -48,14 +48,11 @@ QueueEvent::QueueEvent(const SharedPtr<IOclCommandQueueBase>& cmdQueue) :
     m_bCommandCompleteValid = false;
     m_bVisibleToUser      = false;
 
-    if (cmdQueue != NULL)
-    {
-        m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
-        m_pGPAData = cmdQueue->GetGPAData();
-    }
-    else
-    {
-        m_pGPAData = NULL;
+    if (cmdQueue.GetPtr() != NULL) {
+      m_bProfilingEnabled = cmdQueue->IsProfilingEnabled() ? true : false;
+      m_pGPAData = cmdQueue->GetGPAData();
+    } else {
+      m_pGPAData = NULL;
     }
 
 #if defined(USE_ITT)
@@ -277,12 +274,12 @@ void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData
 
 void QueueEvent::IncludeProfilingInfo( const SharedPtr<QueueEvent>& other )
 {
-    assert( NULL != other );
+  assert(NULL != other.GetPtr());
 
-    if (other->m_bCommandQueuedValid)
-    {
-        SetProfilingInfo( CL_PROFILING_COMMAND_QUEUED, other->m_sProfilingInfo.m_ulCommandQueued );
-    }
+  if (other->m_bCommandQueuedValid) {
+    SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED,
+                     other->m_sProfilingInfo.m_ulCommandQueued);
+  }
 
     if (other->m_bCommandSubmitValid)
     {
@@ -372,8 +369,9 @@ void QueueEvent::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
     if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
     {
         SharedPtr<QueueEvent>   pQEvent    = pEvent.DynamicCast<QueueEvent>();
-        
-        bool                    bSameQueue = ((NULL != pQEvent) && (pQEvent->GetEventQueueId() == m_pEventQueueId));
+
+        bool bSameQueue = ((NULL != pQEvent.GetPtr()) &&
+                           (pQEvent->GetEventQueueId() == m_pEventQueueId));
 
         if (bSameQueue && !m_pEventQueueIsOOO)
         {
@@ -452,8 +450,8 @@ void QueueEvent::operator delete(void* p)
     OclEvent::operator delete(p);
 }
 
-void QueueEvent::AddProfilerMarker(const char* szMarkerName, int iMarkerMask)
-{
+void QueueEvent::AddProfilerMarker(const char *szMarkerName,
+                                   int /*iMarkerMask*/) {
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
     {

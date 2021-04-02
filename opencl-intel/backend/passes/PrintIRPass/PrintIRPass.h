@@ -73,7 +73,7 @@ public:
     PrintIRPass(IRDumpOptions option, dump_IR_options optionLocation,
                             std::string dumpDir);
     // doPassInitialization - prints the IR
-    bool runOnModule(llvm::Module &M);
+    bool runOnModule(llvm::Module &M) override;
 };
 }}}
 #endif

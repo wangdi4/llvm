@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
+; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
@@ -25,3 +26,5 @@ declare i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
 
 ; CHECK:  define linkonce_odr <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i(i8* nocapture %image, <4 x i32> %coord)
 ; CHECK:  define linkonce_odr i8 addrspace(2)* @call_coord_translate_i_callback(i32 %samplerIndex)
+
+; DEBUGIFY-NOT: WARNING

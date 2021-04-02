@@ -58,7 +58,7 @@ bool SGSizeAnalysis::runOnModule(Module &M) {
   return false;
 }
 
-void SGSizeAnalysis::print(raw_ostream &OS, const Module *M) const {
+void SGSizeAnalysis::print(raw_ostream &OS, const Module * /*M*/) const {
   for (auto &Item : FuncToEmuSizes) {
     const Function *F = Item.first;
     const std::set<unsigned> &SGEmuSizes = Item.second;

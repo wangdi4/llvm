@@ -33,7 +33,7 @@ public:
 
   bool runOnModule(llvm::Module &M) override;
 
-  void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {}
+  void getAnalysisUsage(llvm::AnalysisUsage & /*AU*/) const override {}
 
 private:
   struct ComputeID {

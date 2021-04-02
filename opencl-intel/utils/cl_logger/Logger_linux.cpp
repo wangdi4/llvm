@@ -106,11 +106,10 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::GetLogHandlerParams
 /////////////////////////////////////////////////////////////////////////////////////////
-const char* Logger::GetLogHandlerParams(const char* logHandler)
-{
-    // not implemented yet
-    assert(false);
-    return "";
+const char *Logger::GetLogHandlerParams(const char * /*logHandler*/) {
+  // not implemented yet
+  assert(false);
+  return "";
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -141,12 +140,11 @@ void Logger::Log(ELogLevel level, ELogConfigField config,
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient Ctor
 /////////////////////////////////////////////////////////////////////////////////////////
-LoggerClient::LoggerClient(const char* clientHandle, ELogLevel loglevel)
-{
-    m_logLevel = loglevel;
-    m_eLogConfig =    (ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
-                                        LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
-    m_handle = nullptr;
+LoggerClient::LoggerClient(const char * /*clientHandle*/, ELogLevel loglevel) {
+  m_logLevel = loglevel;
+  m_eLogConfig = (ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
+                                   LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
+  m_handle = nullptr;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

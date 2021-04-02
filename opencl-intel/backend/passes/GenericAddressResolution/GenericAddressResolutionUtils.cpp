@@ -176,28 +176,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   static reflection::TypeAttributeEnum
   translateAddrSpaceToAttr(OCLAddressSpace::spaces space) {
-    reflection::TypeAttributeEnum attr = reflection::ATTR_NONE;
     switch (space) {
     case OCLAddressSpace::Private:
-      attr = reflection::ATTR_PRIVATE;
-      break;
+      return reflection::ATTR_PRIVATE;
     case OCLAddressSpace::Global:
-      attr = reflection::ATTR_GLOBAL;
-      break;
+      return reflection::ATTR_GLOBAL;
     case OCLAddressSpace::Local:
-      attr = reflection::ATTR_LOCAL;
-      break;
+      return reflection::ATTR_LOCAL;
     case OCLAddressSpace::Constant:
-      attr = reflection::ATTR_CONSTANT;
-      break;
+      return reflection::ATTR_CONSTANT;
     case OCLAddressSpace::Generic:
-      attr = reflection::ATTR_GENERIC;
-      break;
-    default:
-      assert(0 && "Unsupported type of address space!");
-      break;
+      return reflection::ATTR_GENERIC;
     }
-    return attr;
+
+    assert(false && "Unsupported type of address space!");
+    return reflection::ATTR_NONE;
   }
 
   std::string getResolvedMangledName(
@@ -305,8 +298,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   }
 
   void emitWarning(std::string warning, Instruction *pInstr,
-                   llvm::SmallVectorImpl<int> &GASWarnings, LLVMContext *pLLVMContext) {
-
+                   llvm::SmallVectorImpl<int> &GASWarnings, LLVMContext *) {
     // Print-out the message ...
     LLVM_DEBUG(
       dbgs() << "WARNING: " << warning << ": line# ";

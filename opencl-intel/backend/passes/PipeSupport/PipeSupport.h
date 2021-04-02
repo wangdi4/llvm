@@ -62,7 +62,7 @@ public:
 
   llvm::StringRef getPassName() const override { return "PipeSupport"; }
 
-  bool runOnModule(llvm::Module &M);
+  bool runOnModule(llvm::Module &M) override;
 
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 };

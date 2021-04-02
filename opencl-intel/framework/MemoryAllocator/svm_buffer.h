@@ -46,15 +46,17 @@ public:
      */
     bool IsContainedInBuffer(const void* ptr, size_t size) const
     {
-        return ptr >= GetAddr() && (char*)ptr + size <= (char*)GetAddr() + GetSize();
+      return ptr >= GetAddr() &&
+             (const char *)ptr + size <= (const char *)GetAddr() + GetSize();
     }
 
     // overriden methods:
 
-    int ValidateChildFlags(const cl_mem_flags childFlags)
-    {
-        // We don't use this flag, but our child does. This is by design, so we have to disable this flag for validation.
-        return GenericMemObject::ValidateChildFlags(childFlags & ~CL_MEM_USE_HOST_PTR);
+    int ValidateChildFlags(const cl_mem_flags childFlags) override {
+      // We don't use this flag, but our child does. This is by design, so we
+      // have to disable this flag for validation.
+      return GenericMemObject::ValidateChildFlags(childFlags &
+                                                  ~CL_MEM_USE_HOST_PTR);
     }
 };
 
@@ -94,38 +96,54 @@ public:
     // overriden methods:
 
     virtual cl_err_code Initialize(cl_mem_flags clMemFlags,
-                                   const cl_image_format* pclImageFormat,
+                                   const cl_image_format *pclImageFormat,
                                    unsigned int dim_count,
-                                   const size_t* dimension,
-                                   const size_t* pitches,
-                                   void* pHostPtr,
+                                   const size_t *dimension,
+                                   const size_t *pitches, void *pHostPtr,
                                    cl_rt_memobj_creation_flags creation_flags,
-                                   size_t force_alignment = 0);
+                                   size_t force_alignment = 0) override;
 
-    virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
+    virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags,
+                                      void *pHostPtr) override;
 
-    virtual cl_err_code ReadData(void* pOutData, const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
+    virtual cl_err_code ReadData(void *pOutData, const size_t *pszOrigin,
+                                 const size_t *pszRegion, size_t szRowPitch = 0,
+                                 size_t szSlicePitch = 0) override;
 
-    virtual cl_err_code WriteData(const void* pOutData,    const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
+    virtual cl_err_code WriteData(const void *pOutData, const size_t *pszOrigin,
+                                  const size_t *pszRegion,
+                                  size_t szRowPitch = 0,
+                                  size_t szSlicePitch = 0) override;
 
-    virtual bool IsSynchDataWithHostRequired(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr) const;
+    virtual bool
+    IsSynchDataWithHostRequired(cl_dev_cmd_param_map *IN pMapInfo,
+                                void *IN pHostMapDataPtr) const override;
 
-    virtual cl_err_code SynchDataToHost(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr);
+    virtual cl_err_code SynchDataToHost(cl_dev_cmd_param_map *IN pMapInfo,
+                                        void *IN pHostMapDataPtr) override;
 
-    virtual cl_err_code SynchDataFromHost(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr);
+    virtual cl_err_code SynchDataFromHost(cl_dev_cmd_param_map *IN pMapInfo,
+                                          void *IN pHostMapDataPtr) override;
 
     virtual cl_err_code CreateSubBuffer(
         cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
         const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
         bool RequireAlign) override;
 
-    virtual bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
+    virtual bool
+    IsSupportedByDevice(const SharedPtr<FissionableDevice> &pDevice) override;
 
-protected:
+  protected:
+    virtual cl_err_code
+    MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
+                                cl_dev_cmd_param_map *cmd_param_map,
+                                void **pHostMapDataPtr) override;
 
-    virtual    cl_err_code    MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice>&, cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr);
-
-    virtual    cl_err_code    MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&, cl_dev_cmd_param_map*    cmd_param_map, void* pHostMapDataPtr, bool force_unmap = false);
+    virtual cl_err_code
+    MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice> &,
+                                 cl_dev_cmd_param_map *cmd_param_map,
+                                 void *pHostMapDataPtr,
+                                 bool force_unmap = false) override;
 
     /**
      * @param pBuf    an shared memory Buffer (it will be nullptr for system pointers)
@@ -151,27 +169,38 @@ protected:
 
         // overriden methods:
 
-        virtual cl_dev_err_code clDevMemObjCreateMappedRegion(cl_dev_cmd_param_map* pMapParams);
+        virtual cl_dev_err_code clDevMemObjCreateMappedRegion(
+            cl_dev_cmd_param_map *pMapParams) override;
 
-        virtual cl_dev_err_code clDevMemObjUnmapAndReleaseMappedRegion(cl_dev_cmd_param_map* pMapParams);
+        virtual cl_dev_err_code clDevMemObjUnmapAndReleaseMappedRegion(
+            cl_dev_cmd_param_map *pMapParams) override;
 
-        virtual cl_dev_err_code clDevMemObjReleaseMappedRegion(cl_dev_cmd_param_map* pMapParams);
+        virtual cl_dev_err_code clDevMemObjReleaseMappedRegion(
+            cl_dev_cmd_param_map *pMapParams) override;
 
-        virtual cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle* handle);
+        virtual cl_dev_err_code
+        clDevMemObjGetDescriptor(cl_device_type dev_type,
+                                 cl_dev_subdevice_id node_id,
+                                 cl_dev_memobj_handle *handle) override;
 
-        virtual cl_dev_err_code clDevMemObjCreateSubObject(cl_mem_flags mem_flags, const size_t IN* origin, const size_t IN* size, IOCLDevRTMemObjectService IN* pBSService,
-            IOCLDevMemoryObject* OUT* ppSubObject);
+        virtual cl_dev_err_code clDevMemObjCreateSubObject(
+            cl_mem_flags mem_flags, const size_t IN *origin,
+            const size_t IN *size, IOCLDevRTMemObjectService IN *pBSService,
+            IOCLDevMemoryObject *OUT *ppSubObject) override;
 
-        virtual cl_dev_err_code clDevMemObjUpdateBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState);
+        virtual cl_dev_err_code clDevMemObjUpdateBackingStore(
+            void *operation_handle,
+            cl_dev_bs_update_state *pUpdateState) override;
 
-        virtual cl_dev_err_code clDevMemObjUpdateFromBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState);
+        virtual cl_dev_err_code clDevMemObjUpdateFromBackingStore(
+            void *operation_handle,
+            cl_dev_bs_update_state *pUpdateState) override;
 
-        virtual cl_dev_err_code clDevMemObjInvalidateData();
+        virtual cl_dev_err_code clDevMemObjInvalidateData() override;
 
-        virtual cl_dev_err_code clDevMemObjRelease();
+        virtual cl_dev_err_code clDevMemObjRelease() override;
 
-    private:
-
+      private:
         IOCLDevMemoryObject*  m_pBufDevMemObj;
         cl_mem_obj_descriptor m_objDecr;
 
@@ -198,39 +227,55 @@ class BufferPointerArg : public SharedPointerArg
 
     // overriden methods:
 
-    virtual cl_err_code LockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent);
+    virtual cl_err_code
+    LockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                 IN MemObjUsage usage, OUT MemObjUsage *pOutActuallyUsage,
+                 OUT SharedPtr<OclEvent> &pOutEvent) override;
 
-    virtual cl_err_code UnLockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage);
+    virtual cl_err_code
+    UnLockOnDevice(IN const SharedPtr<FissionableDevice> &dev,
+                   IN MemObjUsage usage) override;
 
-    virtual cl_err_code GetDimensionSizes(size_t* pszRegion) const;
+    virtual cl_err_code GetDimensionSizes(size_t *pszRegion) const override;
 
-    virtual size_t GetRowPitchSize() const;
+    virtual size_t GetRowPitchSize() const override;
 
-    virtual size_t GetSlicePitchSize() const;
+    virtual size_t GetSlicePitchSize() const override;
 
-    virtual size_t GetPixelSize() const;
+    virtual size_t GetPixelSize() const override;
 
-    virtual void GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch) const;
+    virtual void GetLayout(OUT size_t *dimensions, OUT size_t *rowPitch,
+                           OUT size_t *slicePitch) const override;
 
-    virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+    virtual cl_err_code CheckBounds(const size_t *pszOrigin,
+                                    const size_t *pszRegion) const override;
 
-    virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
+    virtual cl_err_code CheckBoundsRect(const size_t *pszOrigin,
+                                        const size_t *pszRegion,
+                                        size_t szRowPitch,
+                                        size_t szSlicePitch) const override;
 
-    virtual void* GetBackingStoreData(const size_t* pszOrigin = nullptr) const;
+    virtual void *
+    GetBackingStoreData(const size_t *pszOrigin = nullptr) const override;
 
-    virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
+    virtual cl_err_code
+    CreateDeviceResource(const SharedPtr<FissionableDevice> &pDevice) override;
 
-    virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent);
+    virtual cl_err_code
+    GetDeviceDescriptor(const SharedPtr<FissionableDevice> &IN pDevice,
+                        IOCLDevMemoryObject *OUT *ppDevObject,
+                        SharedPtr<OclEvent> OUT *ppEvent) override;
 
-    virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject);
+    virtual cl_err_code
+    UpdateDeviceDescriptor(const SharedPtr<FissionableDevice> &IN pDevice,
+                           IOCLDevMemoryObject *OUT *ppDevObject) override;
 
-private:
-
-    BufferPointerArg(SharedBuffer* pBuf, const void* pArgValue) :
-       SharedPointerArg(pBuf), m_pBuf(pBuf), m_szOffset((char*)pArgValue - (char*)pBuf->GetAddr())
-       {
-           assert(pArgValue >= pBuf->GetAddr());
-       }
+  private:
+    BufferPointerArg(SharedBuffer *pBuf, const void *pArgValue)
+        : SharedPointerArg(pBuf), m_pBuf(pBuf),
+          m_szOffset((const char *)pArgValue - (char *)pBuf->GetAddr()) {
+      assert(pArgValue >= pBuf->GetAddr());
+    }
 
     SharedBuffer* m_pBuf;
     const size_t m_szOffset;
@@ -256,42 +301,72 @@ public:
     }
 
     // overriden methods:
-
-    virtual cl_err_code LockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
-    {
-        return CL_SUCCESS;
+    virtual cl_err_code
+    LockOnDevice(IN const SharedPtr<FissionableDevice> & /*dev*/,
+                 IN MemObjUsage /*usage*/,
+                 OUT MemObjUsage * /*pOutActuallyUsage*/,
+                 OUT SharedPtr<OclEvent> & /*pOutEvent*/) override {
+      return CL_SUCCESS;
     }
 
-    virtual cl_err_code UnLockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
-    {
-        return CL_SUCCESS;
+    virtual cl_err_code
+    UnLockOnDevice(IN const SharedPtr<FissionableDevice> & /*dev*/,
+                   IN MemObjUsage /*usage*/) override {
+      return CL_SUCCESS;
     }
 
-    virtual cl_err_code GetDimensionSizes(size_t* pszRegion) const { ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION); }
-
-    virtual size_t GetRowPitchSize() const { return 0; }
-
-    virtual size_t GetSlicePitchSize() const { return 0; }
-
-    virtual size_t GetPixelSize() const { return 0; }
-
-    virtual void GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch) const { }
-
-    virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const { return CL_SUCCESS; }
-
-    virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const { return CL_SUCCESS; }
-
-    virtual void* GetBackingStoreData(const size_t* pszOrigin = nullptr) const { return const_cast<void*>(m_ptr); }
-
-    virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice) { return CL_SUCCESS; }
-
-    virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent)
-    {
-        *ppDevObject = new PointerArgDevMemoryObject(this, nullptr, 0);
-        return CL_SUCCESS;
+    virtual cl_err_code
+    GetDimensionSizes(size_t * /*pszRegion*/) const override {
+      ASSERT_RET_VAL(false, "this method should never be called",
+                     CL_INVALID_OPERATION);
     }
 
-    virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject) { return CL_SUCCESS; }
+    virtual size_t GetRowPitchSize() const override { return 0; }
+
+    virtual size_t GetSlicePitchSize() const override { return 0; }
+
+    virtual size_t GetPixelSize() const override { return 0; }
+
+    virtual void GetLayout(OUT size_t * /*dimensions*/,
+                           OUT size_t * /*rowPitch*/,
+                           OUT size_t * /*slicePitch*/) const override {}
+
+    virtual cl_err_code
+    CheckBounds(const size_t * /*pszOrigin*/,
+                const size_t * /*pszRegion*/) const override {
+      return CL_SUCCESS;
+    }
+
+    virtual cl_err_code
+    CheckBoundsRect(const size_t * /*pszOrigin*/, const size_t * /*pszRegion*/,
+                    size_t /*szRowPitch*/,
+                    size_t /*szSlicePitch*/) const override {
+      return CL_SUCCESS;
+    }
+
+    virtual void *
+    GetBackingStoreData(const size_t * /*pszOrigin*/ = nullptr) const override {
+      return const_cast<void *>(m_ptr);
+    }
+
+    virtual cl_err_code CreateDeviceResource(
+        const SharedPtr<FissionableDevice> & /*pDevice*/) override {
+      return CL_SUCCESS;
+    }
+
+    virtual cl_err_code
+    GetDeviceDescriptor(const SharedPtr<FissionableDevice> &IN /*pDevice*/,
+                        IOCLDevMemoryObject *OUT *ppDevObject,
+                        SharedPtr<OclEvent> OUT * /*ppEvent*/) override {
+      *ppDevObject = new PointerArgDevMemoryObject(this, nullptr, 0);
+      return CL_SUCCESS;
+    }
+
+    virtual cl_err_code UpdateDeviceDescriptor(
+        const SharedPtr<FissionableDevice> &IN /*pDevice*/,
+        IOCLDevMemoryObject *OUT * /*ppDevObject*/) override {
+      return CL_SUCCESS;
+    }
 
 private:
 

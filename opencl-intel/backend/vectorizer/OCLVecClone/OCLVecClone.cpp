@@ -665,6 +665,10 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       Function *parentFunc = CI->getFunction();
       if (parentFunc != Clone)
         continue;
+      assert((Action >= FnAction::MoveAndUpdateUses &&
+              Action <= FnAction::UpdateOnly) &&
+             "Unexpected Action.");
+
       switch (Action) {
       case FnAction::MoveAndUpdateUsesForDim: {
         ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
@@ -712,9 +716,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
             FuncName != CompilationUtils::mangledGetLocalLinearId() &&
             "get_global_linear_id() and get_local_linear_id() should have been "
             "resolved in earlier passes");
-        LLVM_FALLTHROUGH;
-      default:
-        llvm_unreachable("Unexpected Action");
+        break;
       }
     }
   }

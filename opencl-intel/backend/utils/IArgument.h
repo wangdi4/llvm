@@ -41,7 +41,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Sets the value of this argument
     /// @param pValue       The src from which to copy the value
     virtual void setValue(const char* pValue) = 0;
-  
+
+    virtual ~IArgument() {}
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -162,21 +162,18 @@ cl_err_code ExecutionModule::SetDefaultDeviceCommandQueue(
                 )
 {
     SharedPtr<Context> pContext = m_pContextModule->GetContext(context);
-    if (NULL == pContext)
-    {
-        return CL_INVALID_CONTEXT;
+    if (NULL == pContext.GetPtr()) {
+      return CL_INVALID_CONTEXT;
     }
 
     SharedPtr<FissionableDevice> pDevice = pContext->GetDevice(device);
-    if (NULL == pDevice)
-    {
-        return CL_INVALID_DEVICE;
+    if (NULL == pDevice.GetPtr()) {
+      return CL_INVALID_DEVICE;
     }
 
     SharedPtr<DeviceQueue> pCommandQueue = GetCommandQueue(command_queue).DynamicCast<DeviceQueue>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     cl_int ret_code = pCommandQueue->SetDefaultOnDevice(pDevice);
@@ -243,26 +240,21 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
             }
         }
 
-        if ( NULL != pCommandQueue )
-        {
-            errVal = pCommandQueue->Initialize();
-            if(CL_SUCCEEDED(errVal))
-            {
-                // TODO: guard ObjMap... better doing so inside the map
-                m_pOclCommandQueueMap->AddObject(pCommandQueue);
-                iQueueID = pCommandQueue->GetHandle();
+        if (NULL != pCommandQueue.GetPtr()) {
+          errVal = pCommandQueue->Initialize();
+          if (CL_SUCCEEDED(errVal)) {
+            // TODO: guard ObjMap... better doing so inside the map
+            m_pOclCommandQueueMap->AddObject(pCommandQueue);
+            iQueueID = pCommandQueue->GetHandle();
 
-                // this is the first place where we are sure that the commmand queue was created
-                errVal = pCommandQueue->GPA_InitializeQueue();
-            }
-            else
-            {
-                pCommandQueue->Release();
-            }
-        }
-        else
-        {
-            errVal = CL_OUT_OF_HOST_MEMORY;
+            // this is the first place where we are sure that the commmand queue
+            // was created
+            errVal = pCommandQueue->GPA_InitializeQueue();
+          } else {
+            pCommandQueue->Release();
+          }
+        } else {
+          errVal = CL_OUT_OF_HOST_MEMORY;
         }
     }
     if (pErrRet) *pErrRet = errVal;
@@ -327,15 +319,13 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
                                                             cl_command_queue_properties& queueProps, cl_uint& uiQueueSize)
 {
     *ppContext = m_pContextModule->GetContext(clContext);
-    if (NULL == *ppContext)
-    {
-        return CL_INVALID_CONTEXT;
+    if (NULL == ppContext->GetPtr()) {
+      return CL_INVALID_CONTEXT;
     }
 
     SharedPtr<FissionableDevice> pDev = (*ppContext)->GetDevice(clDevice);
-    if (NULL == pDev)
-    {
-        return CL_INVALID_DEVICE;
+    if (NULL == pDev.GetPtr()) {
+      return CL_INVALID_DEVICE;
     }
     if (NULL == clQueueProperties)
     {
@@ -362,7 +352,9 @@ SharedPtr<OclCommandQueue> ExecutionModule::GetCommandQueue(cl_command_queue clC
 
 bool ExecutionModule::IsValidQueueHandle(cl_command_queue clCommandQueue)
 {
-    return NULL != m_pOclCommandQueueMap->GetOCLObject((_cl_command_queue_int*)clCommandQueue);
+  return NULL != m_pOclCommandQueueMap
+                     ->GetOCLObject((_cl_command_queue_int *)clCommandQueue)
+                     .GetPtr();
 }
 
 /******************************************************************
@@ -371,9 +363,8 @@ bool ExecutionModule::IsValidQueueHandle(cl_command_queue clCommandQueue)
 cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue clCommandQueue)
 {
     SharedPtr<OclCommandQueue> pCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     pCommandQueue->Retain();
     return  CL_SUCCESS;
@@ -404,13 +395,11 @@ cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueu
 {
     cl_err_code res = CL_SUCCESS;
     SharedPtr<OclCommandQueue> pOclCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pOclCommandQueue)
-    {
-        res = CL_INVALID_COMMAND_QUEUE;
-    }
-    else
-    {
-        res = pOclCommandQueue->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+    if (NULL == pOclCommandQueue.GetPtr()) {
+      res = CL_INVALID_COMMAND_QUEUE;
+    } else {
+      res = pOclCommandQueue->GetInfo(clParamName, szParamValueSize,
+                                      pParamValue, pszParamValueSizeRet);
     }
     return res;
 }
@@ -422,9 +411,8 @@ cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueu
 cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties)
 {
     SharedPtr<OclCommandQueue> pOclCommandQueue = GetCommandQueue(clCommandQueue);
-    if (NULL == pOclCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pOclCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     // Set old properties if not NULL
@@ -495,16 +483,15 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
     cl_start;
     cl_err_code res = CL_SUCCESS;
     SharedPtr<IOclCommandQueueBase> pOclCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pOclCommandQueue)
-    {
-        if (!IsValidQueueHandle(clCommandQueue))    // otherwise it's just a device queue, which isn't a IOclCommandQueueBase
-        {
-            res = CL_INVALID_COMMAND_QUEUE;
-        }
-    }
-    else
-    {
-        res = pOclCommandQueue->Flush(true);
+    if (NULL == pOclCommandQueue.GetPtr()) {
+      if (!IsValidQueueHandle(
+              clCommandQueue)) // otherwise it's just a device queue, which
+                               // isn't a IOclCommandQueueBase
+      {
+        res = CL_INVALID_COMMAND_QUEUE;
+      }
+    } else {
+      res = pOclCommandQueue->Flush(true);
     }
     cl_return res;
 }
@@ -516,9 +503,8 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
 cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 {
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     return Finish(pCommandQueue);
@@ -537,9 +523,8 @@ cl_err_code ExecutionModule::Finish ( const SharedPtr<IOclCommandQueueBase>& pCo
 
     SharedPtr<QueueEvent> pQueueEvent = m_pEventsManager->GetEventClass<QueueEvent>(dummy);
     assert(pQueueEvent && "Expecting non NULL dummy-queue event");
-    if (NULL == pQueueEvent)
-    {
-        return CL_INVALID_VALUE;
+    if (NULL == pQueueEvent.GetPtr()) {
+      return CL_INVALID_VALUE;
     }
     res = pCommandQueue->WaitForCompletion(pQueueEvent);
     if ( CL_FAILED(res) )
@@ -556,9 +541,8 @@ cl_err_code ExecutionModule::Finish ( const SharedPtr<IOclCommandQueueBase>& pCo
 cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
 {
     SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     return EnqueueMarkerWithWaitList(  pCommandQueue, uiNumEvents, pEventList, pEvent, pApiLogger);
 }
@@ -598,9 +582,8 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclComma
 cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
 {
     SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     if ((NULL == pEventList && uiNumEvents > 0) || (NULL != pEventList && 0 == uiNumEvents))
     {
@@ -655,9 +638,8 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     // Create Command
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, uiNumEvents > 0);
@@ -704,9 +686,8 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
 
     // Validate event context
     SharedPtr<OclEvent> pEvent = m_pEventsManager->GetEventClass<OclEvent>(cpEventList[0]);
-    if ( NULL == pEvent )
-    {
-        return CL_INVALID_EVENT_WAIT_LIST;
+    if (NULL == pEvent.GetPtr()) {
+      return CL_INVALID_EVENT_WAIT_LIST;
     }
 
     // This call is blocking
@@ -790,21 +771,17 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
     cl_event evt = (cl_event)0;
     //Validate the context is legit
     SharedPtr<Context> pContext = m_pContextModule->GetContext(context);
-    if (NULL == pContext)
-    {
-        err = CL_INVALID_CONTEXT;
-    }
-    else
-    {
-        SharedPtr<UserEvent> pUserEvent  = m_pEventsManager->CreateEventClass<UserEvent>((_cl_context_int*)context);
-        if (pUserEvent)
-        {
-            evt = pUserEvent->GetHandle();
-        }
-        else
-        {
-            err = CL_OUT_OF_HOST_MEMORY;
-        }
+    if (NULL == pContext.GetPtr()) {
+      err = CL_INVALID_CONTEXT;
+    } else {
+      SharedPtr<UserEvent> pUserEvent =
+          m_pEventsManager->CreateEventClass<UserEvent>(
+              (_cl_context_int *)context);
+      if (pUserEvent) {
+        evt = pUserEvent->GetHandle();
+      } else {
+        err = CL_OUT_OF_HOST_MEMORY;
+      }
     }
 
     if (NULL != errcode_ret)
@@ -821,9 +798,8 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
 cl_int ExecutionModule::SetUserEventStatus(cl_event evt, cl_int status)
 {
     SharedPtr<UserEvent> pUserEvent = m_pEventsManager->GetEventClass<UserEvent>(evt);
-    if (NULL == pUserEvent)
-    {
-        return CL_INVALID_EVENT;
+    if (NULL == pUserEvent.GetPtr()) {
+      return CL_INVALID_EVENT;
     }
 
     if ((status != CL_COMPLETE) && (status > 0))
@@ -868,9 +844,8 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
     }
 
     SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     MigrateMemObjCommand* pMigrateCommand = new MigrateMemObjCommand(
@@ -918,15 +893,13 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
     }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
-    if (NULL == pBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -1016,15 +989,13 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
     }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
-    if (NULL == pBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -1059,14 +1030,11 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
     }
 
     // Is Sub-buffer
-    if ( NULL != pBuffer->GetParent() )
-    {
-        if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
-        {
-            return CL_MISALIGNED_SUB_BUFFER_OFFSET;
-        }
+    if (NULL != pBuffer->GetParent().GetPtr()) {
+      if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice())) {
+        return CL_MISALIGNED_SUB_BUFFER_OFFSET;
+      }
     }
-
 
     Command* pEnqueueReadBufferRectCmd = new ReadBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch,
         buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
@@ -1110,15 +1078,13 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
-    if (NULL == pBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -1213,15 +1179,13 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
-    if (NULL == pBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -1256,14 +1220,11 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
         return errVal;
     }
 
-    if ( NULL != pBuffer->GetParent() )
-    {
-        if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
-        {
-            return CL_MISALIGNED_SUB_BUFFER_OFFSET;
-        }
+    if (NULL != pBuffer->GetParent().GetPtr()) {
+      if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice())) {
+        return CL_MISALIGNED_SUB_BUFFER_OFFSET;
+      }
     }
-
 
     Command* pWriteBufferRectCmd = new WriteBufferRectCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch,
         buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
@@ -1334,15 +1295,13 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
     }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
-    if (NULL == pBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -1429,9 +1388,8 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 {
     cl_err_code errVal = CL_SUCCESS;
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     if (m_opencl_ver < OPENCL_VERSION_2_1 && 0 == szCb)
@@ -1441,9 +1399,8 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
     SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
-    if (NULL == pSrcBuffer || NULL == pDstBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pSrcBuffer.GetPtr() || NULL == pDstBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
@@ -1537,16 +1494,14 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
         return CL_INVALID_VALUE;
     }
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
     SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
-    if (NULL == pSrcBuffer || NULL == pDstBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pSrcBuffer.GetPtr() || NULL == pDstBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
@@ -1582,20 +1537,16 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
         return errVal;
     }
 
-    if ( NULL != pSrcBuffer->GetParent())
-    {
-        if (!pSrcBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
-        {
-            return CL_MISALIGNED_SUB_BUFFER_OFFSET;
-        }
+    if (NULL != pSrcBuffer->GetParent().GetPtr()) {
+      if (!pSrcBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice())) {
+        return CL_MISALIGNED_SUB_BUFFER_OFFSET;
+      }
     }
 
-    if ( NULL != pDstBuffer->GetParent())
-    {
-        if (!pDstBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
-        {
-            return CL_MISALIGNED_SUB_BUFFER_OFFSET;
-        }
+    if (NULL != pDstBuffer->GetParent().GetPtr()) {
+      if (!pDstBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice())) {
+        return CL_MISALIGNED_SUB_BUFFER_OFFSET;
+      }
     }
 
     if( clSrcBuffer == clDstBuffer)
@@ -1725,15 +1676,13 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
     cl_err_code errVal = CL_SUCCESS;
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> img = m_pContextModule->GetMemoryObject(clImage);
-    if (NULL == img)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == img.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (img->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -1834,10 +1783,9 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
         pErrcodeRet = &err;
     }
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
-        return NULL;
+    if (NULL == pCommandQueue.GetPtr()) {
+      *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
+      return NULL;
     }
 
     // Check that flags CL_MAP_READ or CL_MAP_WRITE only
@@ -1849,10 +1797,9 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 
 
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
-    if (NULL == pBuffer)
-    {
-        *pErrcodeRet =  CL_INVALID_MEM_OBJECT;
-        return NULL;
+    if (NULL == pBuffer.GetPtr()) {
+      *pErrcodeRet = CL_INVALID_MEM_OBJECT;
+      return NULL;
     }
 
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -1867,13 +1814,11 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
         return NULL;
     }
 
-    if (NULL != pBuffer->GetParent())
-    {
-        if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
-        {
-            *pErrcodeRet = CL_MISALIGNED_SUB_BUFFER_OFFSET;
-            return NULL;
-        }
+    if (NULL != pBuffer->GetParent().GetPtr()) {
+      if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice())) {
+        *pErrcodeRet = CL_MISALIGNED_SUB_BUFFER_OFFSET;
+        return NULL;
+      }
     }
 
     if (pBuffer->GetSize() < (szOffset+szCb))
@@ -1925,15 +1870,13 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
 {
     cl_err_code errVal;
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     SharedPtr<MemoryObject> pMemObject = m_pContextModule->GetMemoryObject(clMemObj);
-    if (NULL == pMemObject)
-    {
-        return  CL_INVALID_MEM_OBJECT;
+    if (NULL == pMemObject.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pMemObject->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -2127,14 +2070,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
     // TODO: Check for optimization
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     SharedPtr<Kernel> pKernel = m_pContextModule->GetKernel(clKernel);
-    if (NULL == pKernel)
-    {
-        return CL_INVALID_KERNEL;
+    if (NULL == pKernel.GetPtr()) {
+      return CL_INVALID_KERNEL;
     }
 
     if (pKernel->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -2382,14 +2323,12 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
     cl_err_code errVal = CL_SUCCESS;
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     SharedPtr<Kernel> pKernel = m_pContextModule->GetKernel(clKernel);
-    if (NULL == pKernel)
-    {
-        return CL_INVALID_KERNEL;
+    if (NULL == pKernel.GetPtr()) {
+      return CL_INVALID_KERNEL;
     }
 
     if (pKernel->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -2466,9 +2405,8 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
     }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     SharedPtr<MemoryObject>* pMemObjectsList = NULL;
     if (uNumMemObjects > 0)
@@ -2485,10 +2423,9 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
         {
             // Check that buffer is available
             pMemObjectsList[i] = m_pContextModule->GetMemoryObject(clMemList[i]);
-            if ( NULL == pMemObjectsList[i] )
-            {
-                delete[] pMemObjectsList;
-                return CL_INVALID_MEM_OBJECT;
+            if (NULL == pMemObjectsList[i].GetPtr()) {
+              delete[] pMemObjectsList;
+              return CL_INVALID_MEM_OBJECT;
             }
         }
     }
@@ -2679,9 +2616,8 @@ cl_err_code ExecutionModule::EnqueueReadImage(
     }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
@@ -2689,9 +2625,8 @@ cl_err_code ExecutionModule::EnqueueReadImage(
     }
 
     SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
-    if (NULL == pImage)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pImage.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -2767,9 +2702,8 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
     }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     if (pCommandQueue->GetContext()->IsFPGAEmulator())
@@ -2778,9 +2712,8 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
     }
 
     SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
-    if (NULL == pImage)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pImage.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
@@ -2918,9 +2851,8 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
         return CL_INVALID_VALUE;
     }
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
@@ -2929,9 +2861,8 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
 
     SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
     SharedPtr<MemoryObject> pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
-    if (NULL == pSrcImage || NULL == pDstImage)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pSrcImage.GetPtr() || NULL == pDstImage.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pSrcImage->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
@@ -3023,9 +2954,8 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
 {
     cl_err_code errVal = CL_SUCCESS;
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
@@ -3034,9 +2964,8 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
 
     SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
     SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
-    if (NULL == pSrcImage || NULL == pDstBuffer)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pSrcImage.GetPtr() || NULL == pDstBuffer.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pSrcImage->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
@@ -3113,9 +3042,8 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
 {
     cl_err_code errVal = CL_SUCCESS;
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pCommandQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pCommandQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
@@ -3124,9 +3052,8 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
 
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
     SharedPtr<MemoryObject> pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
-    if (NULL == pSrcBuffer || NULL == pDstImage)
-    {
-        return CL_INVALID_MEM_OBJECT;
+    if (NULL == pSrcBuffer.GetPtr() || NULL == pDstImage.GetPtr()) {
+      return CL_INVALID_MEM_OBJECT;
     }
 
     if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
@@ -3220,48 +3147,33 @@ void * ExecutionModule::EnqueueMapImage(
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
 
-    if (NULL == pCommandQueue)
-    {
-        *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
-    }
-    else if (pCommandQueue->GetContext()->IsFPGAEmulator())
-    {
-        *pErrcodeRet = CL_INVALID_OPERATION;
-    }
-    else if (NULL == pImage)
-    {
-        *pErrcodeRet =  CL_INVALID_MEM_OBJECT;
-    }
-    else if ( CL_SUCCESS != checkMapFlagsMutex(clMapFlags) )
-    {
-        // Check that flags CL_MAP_READ or CL_MAP_WRITE only
-        *pErrcodeRet = CL_INVALID_VALUE;
-    }
-    else if (CL_SUCCESS != pImage->ValidateMapFlags(clMapFlags))
-    {
-        *pErrcodeRet = CL_INVALID_VALUE;
-    }
-    else if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId())
-    {
-        *pErrcodeRet = CL_INVALID_CONTEXT;
-        return NULL;
-    }
-    else
-    {
-        if (CL_SUCCESS != (err = pImage->CheckBounds(szOrigin, szRegion)))
-        {
-            *pErrcodeRet = err;
+    if (NULL == pCommandQueue.GetPtr()) {
+      *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
+    } else if (pCommandQueue->GetContext()->IsFPGAEmulator()) {
+      *pErrcodeRet = CL_INVALID_OPERATION;
+    } else if (NULL == pImage.GetPtr()) {
+      *pErrcodeRet = CL_INVALID_MEM_OBJECT;
+    } else if (CL_SUCCESS != checkMapFlagsMutex(clMapFlags)) {
+      // Check that flags CL_MAP_READ or CL_MAP_WRITE only
+      *pErrcodeRet = CL_INVALID_VALUE;
+    } else if (CL_SUCCESS != pImage->ValidateMapFlags(clMapFlags)) {
+      *pErrcodeRet = CL_INVALID_VALUE;
+    } else if (pImage->GetContext()->GetId() != pCommandQueue->GetContextId()) {
+      *pErrcodeRet = CL_INVALID_CONTEXT;
+      return NULL;
+    } else {
+      if (CL_SUCCESS != (err = pImage->CheckBounds(szOrigin, szRegion))) {
+        *pErrcodeRet = err;
+      } else {
+        const cl_mem_object_type imgType = pImage->GetType();
+        if ((NULL == pszImageRowPitch) ||
+            ((CL_MEM_OBJECT_IMAGE3D == imgType ||
+              CL_MEM_OBJECT_IMAGE1D_ARRAY == imgType ||
+              CL_MEM_OBJECT_IMAGE2D_ARRAY == imgType) &&
+             (NULL == pszImageSlicePitch))) {
+          *pErrcodeRet = CL_INVALID_VALUE;
         }
-        else
-        {
-            const cl_mem_object_type imgType = pImage->GetType();
-            if ((NULL == pszImageRowPitch)                                      ||
-                ((CL_MEM_OBJECT_IMAGE3D == imgType || CL_MEM_OBJECT_IMAGE1D_ARRAY == imgType || CL_MEM_OBJECT_IMAGE2D_ARRAY == imgType) && (NULL == pszImageSlicePitch))
-                )
-            {
-                *pErrcodeRet = CL_INVALID_VALUE;
-            }
-        }
+      }
     }
     if(CL_FAILED(*pErrcodeRet))
     {
@@ -3336,9 +3248,8 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
                                     void* pUserData, cl_uint uiNumEventsInWaitList,    const cl_event* pEventWaitList,    cl_event* pEvent, ApiLogger* apiLogger)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
     {
@@ -3411,9 +3322,8 @@ cl_err_code ExecutionModule::EnqueueSVMMigrateMem(cl_command_queue clCommandQueu
     }
 
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     MigrateSVMMemCommand* pMigrateSVMCommand = new MigrateSVMMemCommand(pQueue, m_pContextModule, flags,
@@ -3447,9 +3357,8 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
 {
     // validate parameters:
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
     if (NULL == pDstPtr || NULL == pSrcPtr)
     {
@@ -3460,22 +3369,30 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
         return CL_INVALID_VALUE;
     }
 
-    if (((char*)pDstPtr >= (char*)pSrcPtr && (char*)pDstPtr < (char*)pSrcPtr + size) || ((char*)pSrcPtr >= (char*)pDstPtr && (char*)pSrcPtr < (char*)pDstPtr + size))
-    {
-        return CL_MEM_COPY_OVERLAP;
+    if (((char *)pDstPtr >= (const char *)pSrcPtr &&
+         (char *)pDstPtr < (const char *)pSrcPtr + size) ||
+        ((const char *)pSrcPtr >= (char *)pDstPtr &&
+         (const char *)pSrcPtr < (char *)pDstPtr + size)) {
+      return CL_MEM_COPY_OVERLAP;
     }
 
     SharedPtr<Context> pContext = pQueue->GetContext();
     SharedPtr<SVMBuffer> pSrcSvmBuffer = pContext->GetSVMBufferContainingAddr(const_cast<void*>(pSrcPtr));
     SharedPtr<SVMBuffer> pDstSvmBuffer = pContext->GetSVMBufferContainingAddr(pDstPtr);
-    if ((pSrcSvmBuffer != NULL && !pSrcSvmBuffer->IsContainedInBuffer(pSrcPtr, size)) || (pDstSvmBuffer != NULL && !pDstSvmBuffer->IsContainedInBuffer(pDstPtr, size)))
-    {
-        LOG_ERROR(TEXT("either source or destination pointers define a region that spans beyond an SVM buffer"), "");
-        return CL_INVALID_VALUE;
+    if ((pSrcSvmBuffer.GetPtr() != NULL &&
+         !pSrcSvmBuffer->IsContainedInBuffer(pSrcPtr, size)) ||
+        (pDstSvmBuffer.GetPtr() != NULL &&
+         !pDstSvmBuffer->IsContainedInBuffer(pDstPtr, size))) {
+      LOG_ERROR(TEXT("either source or destination pointers define a region "
+                     "that spans beyond an SVM buffer"),
+                "");
+      return CL_INVALID_VALUE;
     }
-    if ((pSrcSvmBuffer != NULL && pSrcSvmBuffer->GetContext() != pContext) || (pDstSvmBuffer != NULL && pDstSvmBuffer->GetContext() != pContext))
-    {
-        return CL_INVALID_VALUE;
+    if ((pSrcSvmBuffer.GetPtr() != NULL &&
+         pSrcSvmBuffer->GetContext() != pContext) ||
+        (pDstSvmBuffer.GetPtr() != NULL &&
+         pDstSvmBuffer->GetContext() != pContext)) {
+      return CL_INVALID_VALUE;
     }
 
     cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
@@ -3498,30 +3415,36 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
     // do the work:
     Command* pCmd;
     const size_t
-        pszSrcOrigin[] = { pSrcSvmBuffer != NULL ? (size_t)((char*)pSrcPtr - (char*)pSrcSvmBuffer->GetAddr()) : 0, 0, 0 },
-        pszDstOrigin[] = { pDstSvmBuffer != NULL ? (size_t)((char*)pDstPtr - (char*)pDstSvmBuffer->GetAddr()) : 0, 0, 0 },
-        pszRegion[] = { size, 1, 1 };
-    if (NULL == pSrcSvmBuffer)
-    {
-        if (NULL == pDstSvmBuffer)
-        {
-            pCmd = new RuntimeSVMMemcpyCommand(pDstPtr, pSrcPtr, size, pQueue, uiNumEventsInWaitList > 0);
-        }
-        else
-        {
-            pCmd = new WriteSvmBufferCommand(pQueue, m_pOclEntryPoints, bBlockingCopy, pDstSvmBuffer, pszDstOrigin, pszRegion, pSrcPtr);
-        }
-    }
-    else
-    {
-        if (NULL == pDstSvmBuffer)
-        {
-            pCmd = new ReadSvmBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pszSrcOrigin, pszRegion, pDstPtr);
-        }
-        else
-        {
-            pCmd = new CopySvmBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pDstSvmBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
-        }
+        pszSrcOrigin[] = {pSrcSvmBuffer.GetPtr() != NULL
+                              ? (size_t)((const char *)pSrcPtr -
+                                         (char *)pSrcSvmBuffer->GetAddr())
+                              : 0,
+                          0, 0},
+        pszDstOrigin[] = {pDstSvmBuffer.GetPtr() != NULL
+                              ? (size_t)((char *)pDstPtr -
+                                         (char *)pDstSvmBuffer->GetAddr())
+                              : 0,
+                          0, 0},
+        pszRegion[] = {size, 1, 1};
+    if (NULL == pSrcSvmBuffer.GetPtr()) {
+      if (NULL == pDstSvmBuffer.GetPtr()) {
+        pCmd = new RuntimeSVMMemcpyCommand(pDstPtr, pSrcPtr, size, pQueue,
+                                           uiNumEventsInWaitList > 0);
+      } else {
+        pCmd = new WriteSvmBufferCommand(pQueue, m_pOclEntryPoints,
+                                         bBlockingCopy, pDstSvmBuffer,
+                                         pszDstOrigin, pszRegion, pSrcPtr);
+      }
+    } else {
+      if (NULL == pDstSvmBuffer.GetPtr()) {
+        pCmd =
+            new ReadSvmBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer,
+                                     pszSrcOrigin, pszRegion, pDstPtr);
+      } else {
+        pCmd = new CopySvmBufferCommand(pQueue, m_pOclEntryPoints,
+                                        pSrcSvmBuffer, pDstSvmBuffer,
+                                        pszSrcOrigin, pszDstOrigin, pszRegion);
+      }
     }
     if (NULL == pCmd)
     {
@@ -3548,9 +3471,8 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
 {
     // validate parameters:
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1
@@ -3571,9 +3493,10 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
     }
 
     SharedPtr<SVMBuffer> pSvmBuf = pQueue->GetContext()->GetSVMBufferContainingAddr(pSvmPtr);
-    if (pSvmBuf != NULL && (pSvmBuf->GetContext() != pQueue->GetContext() || !pSvmBuf->IsContainedInBuffer(pSvmPtr, size)))
-    {
-        return CL_INVALID_VALUE;
+    if (pSvmBuf.GetPtr() != NULL &&
+        (pSvmBuf->GetContext() != pQueue->GetContext() ||
+         !pSvmBuf->IsContainedInBuffer(pSvmPtr, size))) {
+      return CL_INVALID_VALUE;
     }
 
     // Do parallel fill.
@@ -3588,13 +3511,14 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
 
     // do the work:
     Command* pCmd;
-    if (pSvmBuf != NULL)
-    {
-        pCmd = new FillSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pPattern, szPatternSize, (ptrdiff_t)pSvmPtr - (ptrdiff_t)pSvmBuf->GetAddr(), size);
-    }
-    else
-    {
-        pCmd = new RuntimeSVMMemFillCommand(pSvmPtr, pPattern, szPatternSize, size, pQueue, uiNumEventsInWaitList > 0);
+    if (pSvmBuf.GetPtr() != NULL) {
+      pCmd = new FillSvmBufferCommand(
+          pQueue, m_pOclEntryPoints, pSvmBuf, pPattern, szPatternSize,
+          (ptrdiff_t)pSvmPtr - (ptrdiff_t)pSvmBuf->GetAddr(), size);
+    } else {
+      pCmd =
+          new RuntimeSVMMemFillCommand(pSvmPtr, pPattern, szPatternSize, size,
+                                       pQueue, uiNumEventsInWaitList > 0);
     }
     if (NULL == pCmd)
     {
@@ -3620,9 +3544,8 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
                                       const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
@@ -3681,9 +3604,8 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
 cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    if (NULL == pQueue)
-    {
-        return CL_INVALID_COMMAND_QUEUE;
+    if (NULL == pQueue.GetPtr()) {
+      return CL_INVALID_COMMAND_QUEUE;
     }
 
     cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
@@ -3943,11 +3865,11 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
     if (nullptr == dst_ptr || nullptr == src_ptr)
         return CL_INVALID_MEM_OBJECT;
 
-    if (((char*)dst_ptr >= (char*)src_ptr &&
-         (char*)dst_ptr < (char*)src_ptr + size) ||
-        ((char*)src_ptr >= (char*)dst_ptr &&
-         (char*)src_ptr < (char*)dst_ptr + size))
-        return CL_MEM_COPY_OVERLAP;
+    if (((const char *)dst_ptr >= (const char *)src_ptr &&
+         (const char *)dst_ptr < (const char *)src_ptr + size) ||
+        ((const char *)src_ptr >= (const char *)dst_ptr &&
+         (const char *)src_ptr < (const char *)dst_ptr + size))
+      return CL_MEM_COPY_OVERLAP;
 
     SharedPtr<Context> context = queue->GetContext();
     SharedPtr<USMBuffer> srcBuffer = context->GetUSMBufferContainingAddr(
@@ -3991,8 +3913,12 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
 
     // do the work:
     Command* memcpyCommand;
-    const size_t srcOrigin[] = { nullptr != srcBuffer.GetPtr() ?
-            (size_t)((char*)src_ptr - (char*)srcBuffer->GetAddr()) : 0, 0, 0 };
+    const size_t srcOrigin[] = {
+        nullptr != srcBuffer.GetPtr()
+            ? (size_t)((const char *)src_ptr -
+                       (const char *)srcBuffer->GetAddr())
+            : 0,
+        0, 0};
     const size_t dstOrigin[] = { nullptr != dstBuffer.GetPtr() ?
             (size_t)((char*)dst_ptr - (char*)dstBuffer->GetAddr()) : 0, 0, 0 };
     const size_t region[] = { size, 1, 1 };
@@ -4249,7 +4175,7 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
         return CL_INVALID_VALUE;
 
     // Check pattern has the same value.
-    unsigned char *p = (unsigned char*)pattern;
+    const unsigned char *p = (const unsigned char *)pattern;
     unsigned char value = p[0];
     if (!std::all_of(p, p + pattern_size,
                      [&](unsigned char v){ return v == value; }))
@@ -4327,30 +4253,28 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
 class QueueFlusher
 {
 public:
+  QueueFlusher(cl_context /*context*/) : m_context() {}
 
-    QueueFlusher(cl_context context) : m_context() { }
-
-    bool operator()(const SharedPtr<OCLObject<_cl_command_queue_int, _cl_context_int> >& pObj)
-    {
-        assert(pObj != NULL && "got NULL for queue");
-        if (NULL == pObj)
-        {
-            return false;
-        }
-
-        SharedPtr<IOclCommandQueueBase> pQueue = pObj.DynamicCast<IOclCommandQueueBase>();
-        if (NULL == pQueue)
-        {
-            return false;
-        }
-
-        cl_context queueContext = (cl_context)pQueue->GetParentHandle();
-        if (queueContext == m_context)
-        {
-            pQueue->Flush(false);
-        }
-        return true;
+  bool
+  operator()(const SharedPtr<OCLObject<_cl_command_queue_int, _cl_context_int>>
+                 &pObj) {
+    assert(pObj.GetPtr() != NULL && "got NULL for queue");
+    if (NULL == pObj.GetPtr()) {
+      return false;
     }
+
+    SharedPtr<IOclCommandQueueBase> pQueue =
+        pObj.DynamicCast<IOclCommandQueueBase>();
+    if (NULL == pQueue.GetPtr()) {
+      return false;
+    }
+
+    cl_context queueContext = (cl_context)pQueue->GetParentHandle();
+    if (queueContext == m_context) {
+      pQueue->Flush(false);
+    }
+    return true;
+  }
 
 private:
 
@@ -4398,20 +4322,20 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags)
  * Callback for pEvent status change. if it's changed to CL_COMPLETE, we need to remove
  * it from kernel-event map.
  */
-void callbackForKernelEventMap(cl_event pEvent, cl_int returnStatus, void *data) {
-    OclAutoMutex mu(&KernelEventMutex);
-    std::map<std::string, cl_event> *kernelevent_map =
-        (std::map<std::string, cl_event> *)data;
-    assert(kernelevent_map && "Kernel-event map should not be null.");
-    for (auto it = kernelevent_map->begin(); it != kernelevent_map->end(); it++)
-    {
-       if (pEvent == it->second)
-       {
-           kernelevent_map->erase(it->first);
-           break;
-       }
+
+void callbackForKernelEventMap(cl_event pEvent, cl_int /*returnStatus*/,
+                               void *data) {
+  OclAutoMutex mu(&KernelEventMutex);
+  std::map<std::string, cl_event> *kernelevent_map =
+      (std::map<std::string, cl_event> *)data;
+  assert(kernelevent_map && "Kernel-event map should not be null.");
+  for (auto it = kernelevent_map->begin(); it != kernelevent_map->end(); it++) {
+    if (pEvent == it->second) {
+      kernelevent_map->erase(it->first);
+      break;
     }
-    return;
+  }
+  return;
 }
 
 } //anonymous namespace

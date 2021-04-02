@@ -57,14 +57,14 @@ public:
     WIAnalysis(unsigned int vectorizationDimension);
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "WIAnalysis";
     }
 
     /// @brief LLVM Function pass entry
     /// @param F Function to transform
     /// @return True if changed
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnFunction(Function &F) override;
 
     /// @brief Update dependency relations between all values
     void updateDeps();
@@ -182,7 +182,7 @@ private:
 
     /// @brief  LLVM Interface
     /// @param AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Analysis pass preserve all
       AU.setPreservesAll();
       AU.addRequired<SoaAllocaAnalysis>();
@@ -195,9 +195,9 @@ private:
     /// @brief print data collected by the pass on the given module
     /// @param OS stream to print the info regarding the module into
     /// @param M pointer to the Module
-    void print(raw_ostream &OS, const Module *M) const;
+    void print(raw_ostream &OS, const Module *M) const override;
 
-private:
+  private:
     // @brief pointer to Soa alloca analysis performed for this function
     SoaAllocaAnalysis *m_soaAllocaAnalysis;
     /// Stores an updated list of all dependencies

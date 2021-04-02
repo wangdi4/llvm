@@ -212,21 +212,18 @@ cl_kernel_arg_address_qualifier Intel::OpenCL::BuiltInKernels::ArgType2AddrQual(
 #ifndef __OMP2TBB__
 #define INIT_NUM_OF_EVENTS 10
 
-OMPExecutorThread::OMPExecutorThread(unsigned int uiNumOfThreads) :
-	OclThread("MKLExecutor")
-{
-	m_StartEvent.Init(true); // Auto-reset event
+OMPExecutorThread::OMPExecutorThread(unsigned int /*uiNumOfThreads*/)
+    : OclThread("MKLExecutor") {
+  m_StartEvent.Init(true); // Auto-reset event
 
-	// Pre-allocate the pool of OS events
-	for(int i=0;i<INIT_NUM_OF_EVENTS;++i)
-	{
-		OclOsDependentEvent* pEvent = new OclOsDependentEvent();
-		if ( nullptr != pEvent )
-		{
-			pEvent->Init(true);
-			m_OSEventPool.PushBack(pEvent);
-		}
-	}
+  // Pre-allocate the pool of OS events
+  for (int i = 0; i < INIT_NUM_OF_EVENTS; ++i) {
+    OclOsDependentEvent *pEvent = new OclOsDependentEvent();
+    if (nullptr != pEvent) {
+      pEvent->Init(true);
+      m_OSEventPool.PushBack(pEvent);
+    }
+  }
 }
 
 OMPExecutorThread::~OMPExecutorThread()

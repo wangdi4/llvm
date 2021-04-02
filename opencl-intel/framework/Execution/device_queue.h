@@ -35,16 +35,16 @@ public:
 
 	// overriden methods:
 
-	virtual cl_err_code Initialize();
+        virtual cl_err_code Initialize() override;
 
-	virtual size_t GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf) const;
+        virtual size_t GetInfoInternal(cl_int iParamName, void *pBuf,
+                                       size_t szBuf) const override;
 
-	virtual void BecomeVisible();
+        virtual void BecomeVisible() override;
 
-	cl_err_code SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice)
-	{
-		return pDevice->SetDefaultDeviceQueue(this, m_clDevCmdListId);
-	}
+        cl_err_code SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice) {
+          return pDevice->SetDefaultDeviceQueue(this, m_clDevCmdListId);
+        }
 
 protected:
 	virtual ~DeviceQueue()
@@ -66,12 +66,17 @@ private:
 	 * @param bIsDefault			whether this command-queue is the default device queue
 	 * @param uiSize				size of the device queue in bytes
 	 */
-	DeviceQueue(const SharedPtr<Context>& pContext, cl_device_id clDefaultDeviceID, cl_command_queue_properties clProperties, EventsManager* pEventManager, bool bEnableProfiling, bool bIsDefault,
-		cl_uint uiSize) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager), m_bIsDefault(bIsDefault), m_uiSize(uiSize) { }
+  DeviceQueue(const SharedPtr<Context> &pContext,
+              cl_device_id clDefaultDeviceID,
+              cl_command_queue_properties clProperties,
+              EventsManager *pEventManager, bool /*bEnableProfiling*/,
+              bool bIsDefault, cl_uint uiSize)
+      : OclCommandQueue(pContext, clDefaultDeviceID, clProperties,
+                        pEventManager),
+        m_bIsDefault(bIsDefault), m_uiSize(uiSize) {}
 
-	const bool m_bIsDefault;
-	const cl_uint m_uiSize;
-
+  const bool m_bIsDefault;
+  const cl_uint m_uiSize;
 };
 
 }}}

@@ -54,17 +54,17 @@ public:
   ~KernelAnalysis();
   
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "KernelAnalysis";
   }
 
   ///@brief LLVM interface.
   ///@param M - module to process.
   ///@returns true if the module changed
-  virtual bool runOnModule(Module &M);
+  virtual bool runOnModule(Module &M) override;
 
   ///@brief LLVM interface.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {}
+  virtual void getAnalysisUsage(AnalysisUsage &) const override {}
 
 private:
 
@@ -104,7 +104,7 @@ private:
   /// @brief print data collected by the pass on the given module
   /// @param OS stream to print the info regarding the module into
   /// @param M pointer to the Module
-  void print(raw_ostream &OS, const Module *M = 0) const;
+  void print(raw_ostream &OS, const Module *M = 0) const override;
 
 };// KernelAnalysis
 

@@ -23,10 +23,11 @@ class ocl_string_exception : public std::exception {
 public:
 	ocl_string_exception(const char *exception) throw();
 	ocl_string_exception(const std::string& exception) throw();
-	virtual ~ocl_string_exception() throw() {}
+        virtual ~ocl_string_exception() throw() {}
 
-	const char *what() const throw();
-private:
-	std::string m_exception;
+        const char *what() const throw() override;
+
+      private:
+        std::string m_exception;
 };
 }}}

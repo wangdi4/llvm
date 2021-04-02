@@ -43,16 +43,16 @@ namespace intel {
     KernelInfoWrapper() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "KernelInfoWrapper";
     }
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesAll();
     }
 
     /// @brief performs KernelInfo pass on the module
-    bool runOnModule(Module& M);
+    bool runOnModule(Module &M) override;
 
   protected:
   };
@@ -68,16 +68,16 @@ namespace intel {
     KernelInfoPass();
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "KernelInfoPass";
     }
 
     /// @brief gets the required info on specific function
     /// @param pFunc ptr to function
     /// @returns True if module was modified
-    bool runOnFunction(Function &Func);
+    bool runOnFunction(Function &Func) override;
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<LoopInfoWrapperPass>();
       AU.setPreservesAll();
     }

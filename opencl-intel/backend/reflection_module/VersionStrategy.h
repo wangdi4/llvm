@@ -48,7 +48,7 @@ struct VersionStrategy{
 //Factory for the creation of null descriptors
 //
 struct NullDescriptorStrategy: VersionStrategy{
-  PairSW operator()(const PairSW&)const;
+  PairSW operator()(const PairSW &) const override;
   ~NullDescriptorStrategy();
 };
 
@@ -70,13 +70,14 @@ public:
   //initialized by the 'init' method.
   //Return: the transposed function descriptor
   //////////////////////////////////////////////////////////////////////////////
-  PairSW operator()(const PairSW&)const;
-  void visit(const PrimitiveType*);
-  void visit(const VectorType*);
-  void visit(const PointerType*);
-  void visit(const AtomicType*);
-  void visit(const BlockType*);
-  void visit(const UserDefinedType*);
+  PairSW operator()(const PairSW &) const override;
+  void visit(const PrimitiveType *) override;
+  void visit(const VectorType *) override;
+  void visit(const PointerType *) override;
+  void visit(const AtomicType *) override;
+  void visit(const BlockType *) override;
+  void visit(const UserDefinedType *) override;
+
 private:
 
   FunctionDescriptor scalarReturnTranspose(const PairSW& sw)const;
@@ -104,7 +105,8 @@ public:
   // reflection::FunctionDescriptor::nullString()
   void assumeResponsability(const TableRow*);
 
-  PairSW operator()(const PairSW&)const;
+  PairSW operator()(const PairSW &) const override;
+
 private:
   //Maps each version to the list of containing rows in the table
   //Duplicate entries in the table are supported by using TableRowList as the container.
@@ -119,7 +121,7 @@ private:
 // "Identity strategy", which returns the pair past as parameter.
 ////////////////////////////////////////////////////////////////////////////////
 struct IdentityStrategy: VersionStrategy{
-  PairSW operator()(const PairSW&)const;
+  PairSW operator()(const PairSW &) const override;
 };
 
 std::pair<std::string,width::V> fdToPair(const FunctionDescriptor&);

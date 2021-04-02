@@ -47,16 +47,22 @@ public:
     static Intel::OpenCL::Utils::SharedPtr<SyncTask> Allocate() { return Intel::OpenCL::Utils::SharedPtr<SyncTask>(new SyncTask()); }
 
     void	Reset() { m_bFired = false;}
-    void    Cancel() { Execute(); }
+    void Cancel() override { Execute(); }
 
     // ITask interface
-    bool	        SetAsSyncPoint() {return false;}
-    bool	        CompleteAndCheckSyncPoint() { return m_bFired;}
-    bool	        IsCompleted() const {return m_bFired;}
-    bool	        Execute() { m_bFired = true; return true;}
-    long	        Release() { return 0; }	//Persistent member, don't release
-    TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
+    bool SetAsSyncPoint() override { return false; }
+    bool CompleteAndCheckSyncPoint() override { return m_bFired; }
+    bool IsCompleted() const override { return m_bFired; }
+    bool Execute() override {
+      m_bFired = true;
+      return true;
+    }
+    long Release() override { return 0; } // Persistent member, don't release
+    TASK_PRIORITY GetPriority() const override { return TASK_PRIORITY_MEDIUM; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
+    GetNDRangeChildrenTaskGroup() override {
+      return nullptr;
+    }
 
 protected:
     SyncTask() {m_bFired = false;}
@@ -86,7 +92,7 @@ public:
 
     // overriden methods
 
-    virtual TaskGroupStatus Wait();
+    virtual TaskGroupStatus Wait() override;
 
     virtual ~TbbTaskGroup();
 
@@ -102,19 +108,21 @@ public:
 
     PREPARE_SHARED_PTR(base_command_list)
 
-    ~base_command_list();    
+    ~base_command_list();
 
-    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
+    unsigned int
+    Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask) override;
 
-    te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait);
+    te_wait_result WaitForCompletion(
+        const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTaskToWait) override;
 
-    bool CanMasterJoin() const;
+    bool CanMasterJoin() const override;
 
-    void DisableMasterJoin();
+    void DisableMasterJoin() override;
 
-    int  GetDeviceConcurency() const;
+    int GetDeviceConcurency() const override;
 
-    bool Flush();
+    bool Flush() override;
 
     ConcurrentTaskQueue* GetExecutingContainer()
     {
@@ -132,10 +140,12 @@ public:
     TEDevice* GetTEDevice() { return m_device.GetPtr(); }
 
     virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() const { return m_scheduling;}
-	
-    SharedPtr<ITEDevice> GetDevice() { return m_device; }
 
-    ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_device.GetPtr(); }
+    SharedPtr<ITEDevice> GetDevice() override { return m_device; }
+
+    ConstSharedPtr<ITEDevice> GetDevice() const override {
+      return (const ITEDevice *)m_device.GetPtr();
+    }
 
     tbb::task_group* GetNumaTaskGroups() const { return m_numaTaskGroups; }
     std::vector<std::vector<size_t>>& GetNumaDimsBegin() {
@@ -151,7 +161,7 @@ public:
         return m_staticPartitioner;
     }
 
-    virtual void Cancel() { m_bCanceled = true; }
+    virtual void Cancel() override { m_bCanceled = true; }
     bool         Is_canceled() const { return m_bCanceled; }
    
     friend class immediate_executor_task;
@@ -161,11 +171,13 @@ public:
         return !m_quIncomingWork.IsEmpty();
     }
 
-    virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }    
+    virtual bool IsProfilingEnabled() const override {
+      return m_bProfilingEnabled;
+    }
 
-    virtual ITaskList* GetDebugInOrderDeviceQueue();
+    virtual ITaskList *GetDebugInOrderDeviceQueue() override;
 
-protected:
+  protected:
     friend class in_order_executor_task;
     friend class out_of_order_executor_task;
 
@@ -232,27 +244,30 @@ public:
     }
 
     // This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
-    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup()
-    {
-        if (0 != m_ndrangeChildrenTaskGroup)
-        {
-            return m_ndrangeChildrenTaskGroup;
-        }
-        return TbbTaskGroup::Allocate();
+    virtual SharedPtr<IThreadLibTaskGroup>
+    GetNDRangeChildrenTaskGroup() override {
+      if (0 != m_ndrangeChildrenTaskGroup) {
+        return m_ndrangeChildrenTaskGroup;
+      }
+      return TbbTaskGroup::Allocate();
     }
 
-    virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
+    virtual bool DoesSupportDeviceSideCommandEnqueue() const override {
+      return true;
+    }
 
-    virtual bool IsMasterJoined() const { return m_bMasterRunning;}  
+    virtual bool IsMasterJoined() const override { return m_bMasterRunning; }
 
-    virtual void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
+    virtual void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask,
+                       IThreadLibTaskGroup &taskGroup) override;
 
-protected:
+  protected:
+    virtual unsigned int
+    LaunchExecutorTask(bool blocking,
+                       const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask =
+                           nullptr) override;
 
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = nullptr );
-
-private:
-
+  private:
     SharedPtr<IThreadLibTaskGroup>          m_ndrangeChildrenTaskGroup;
 
     in_order_command_list(
@@ -304,16 +319,23 @@ public:
 
      // overriden methods:
 
-    bool IsMasterJoined() const { return false;}
-    void WaitForIdle();
-    bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
+    bool IsMasterJoined() const override { return false; }
+    void WaitForIdle() override;
+    bool DoesSupportDeviceSideCommandEnqueue() const override { return true; }
 
-    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return TbbTaskGroup::Allocate(); }    
+    virtual SharedPtr<IThreadLibTaskGroup>
+    GetNDRangeChildrenTaskGroup() override {
+      return TbbTaskGroup::Allocate();
+    }
 
-    void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
+    void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask,
+               IThreadLibTaskGroup &taskGroup) override;
 
-private:
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = nullptr);
+  private:
+    virtual unsigned int
+    LaunchExecutorTask(bool blocking,
+                       const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask =
+                           nullptr) override;
 
     SharedPtr<SpawningTaskGroup> m_oooTaskGroup;
 
@@ -354,30 +376,38 @@ public:
         return new immediate_command_list(pTBBExec, device, param);
     }
 
-    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
+    unsigned int
+    Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask) override;
 
-    te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait)
-    {
-        return TE_WAIT_NOT_SUPPORTED;
+    te_wait_result WaitForCompletion(
+        const Intel::OpenCL::Utils::SharedPtr<ITaskBase> & /*pTaskToWait*/)
+        override {
+      return TE_WAIT_NOT_SUPPORTED;
     }
 
-    bool Flush() { return true; }
+    bool Flush() override { return true; }
 
-    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return TbbTaskGroup::Allocate(); }
+    virtual SharedPtr<IThreadLibTaskGroup>
+    GetNDRangeChildrenTaskGroup() override {
+      return TbbTaskGroup::Allocate();
+    }
 
-    bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
+    bool DoesSupportDeviceSideCommandEnqueue() const override { return false; }
 
-    virtual bool IsProfilingEnabled() const { return false; }
+    virtual bool IsProfilingEnabled() const override { return false; }
 
-    bool IsMasterJoined() const { return true;}
+    bool IsMasterJoined() const override { return true; }
 
-    virtual void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
+    virtual void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask,
+                       IThreadLibTaskGroup &taskGroup) override;
 
-protected:
+  protected:
+    virtual unsigned int
+    LaunchExecutorTask(bool blocking,
+                       const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask =
+                           nullptr) override;
 
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = nullptr);
-
-private:
+  private:
     tbb::affinity_partitioner m_ap;
     
     immediate_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :

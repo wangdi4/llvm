@@ -45,16 +45,14 @@ namespace intel {
     BIImport(const char *CPUPrefix = "");
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
-      return "BIImport";
-    }
+    virtual llvm::StringRef getPassName() const override { return "BIImport"; }
 
     /// @brief Main entry point. Find all builtins to import, and import them
     ///        along with callees and globals.
     /// @param M The destination module.
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<BuiltinLibInfo>();
     }
 

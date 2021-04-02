@@ -88,13 +88,13 @@ namespace intel{
 
       ~Prefetch();
 
-      virtual llvm::StringRef getPassName() const {
+      virtual llvm::StringRef getPassName() const override {
         return "Prefetch";
       }
 
-      virtual bool runOnFunction(Function &F);
+      virtual bool runOnFunction(Function &F) override;
 
-      virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
         AU.addRequired<LoopInfoWrapperPass>();
         AU.addRequired<ScalarEvolutionWrapperPass>();
         AU.addRequired<BranchProbabilityInfoWrapperPass>();
@@ -113,8 +113,6 @@ namespace intel{
                                   // prefetch level, which accesses to consider for prefetching:
       int  m_level;               // 0 - none, 1 - loads/stores, 2 - all sequential accesses, 3 - all accesses
                                   // if MPF is detected don't generate
-      bool m_exclusiveMPF;        // prefetches at all
-      bool m_coopAPFMPF;          // if MPF is detected continue to generated APF
       bool m_disableAPF;          // don't APF
       bool m_disableAPFGS;        // don't APF gathers and scatters
                                   // don't APF gathers and scatters and don't

@@ -107,4 +107,6 @@ public:
 	 * @return the default queue for the device on which the kernel is executing
 	 */
 	virtual queue_t GetDefaultQueueForDevice() const = 0;
+
+        virtual ~IDeviceCommandManager() {}
 };

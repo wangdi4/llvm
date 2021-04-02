@@ -34,7 +34,9 @@ public:
   AddTLSGlobals();
 
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const { return "AddTLSGlobals"; }
+  virtual llvm::StringRef getPassName() const override {
+    return "AddTLSGlobals";
+  }
 
   /// @brief LLVM Module pass entry
   /// @param M Module to transform
@@ -43,7 +45,7 @@ public:
 
   /// @brief LLVM Interface
   /// @param AU Analysis
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     // Depends on LocalBuffAnalysis for finding all local buffers each function
     // uses directly
     AU.addRequired<LocalBuffAnalysis>();

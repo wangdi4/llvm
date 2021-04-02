@@ -46,7 +46,7 @@ CLStreamSampler::CLStreamSampler() : LoopPass(ID), m_rtServices(nullptr) {
   initializeCLStreamSamplerPass(*PassRegistry::getPassRegistry());
 }
 
-bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
+bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
   //errs() << "CLStreamSampler on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
 
@@ -104,7 +104,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   // return always true.
   return true;
 }
-  
+
 /// Ripped out of 3.0 LLVM LoopInfo, as a workaround for it not being available in 3.2
 /// getTripCount - Return a loop-invariant LLVM value indicating the number of
 /// times the loop will be executed.

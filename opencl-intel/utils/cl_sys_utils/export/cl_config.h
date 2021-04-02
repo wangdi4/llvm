@@ -201,51 +201,52 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		string SetDelimiter(const string& strDelimiter)
-		{
-			string strPrefDelimiter = m_sDelimiter;
-			m_sDelimiter = strPrefDelimiter;
-			return strPrefDelimiter;
-		}
+                string SetDelimiter(const string &strDelimiter) {
+                  string strPrefDelimiter = m_sDelimiter;
+                  m_sDelimiter = strDelimiter;
+                  return strPrefDelimiter;
+                }
 
-		/******************************************************************************************
-		* Function: 	SetComment
-		* Description:	set new comment value to the configuration syntax
-		*				call as old_commens = SetComment(new_comment)
-		* Arguments:	const string& s [in] -	new comment
-		* Return value:	previous value of comment of configuration syntax
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		string SetComment(const string& strComment)
-		{
-			string strOldComment = m_sComment;
-			m_sComment = strComment;
-			return strOldComment;
-		}
+                /******************************************************************************************
+                 * Function: 	SetComment
+                 * Description:	set new comment value to the configuration
+                 *syntax call as old_commens = SetComment(new_comment)
+                 * Arguments:	const string& s [in] -	new comment
+                 * Return value:	previous value of comment of
+                 *configuration syntax Author:		Uri Levy Date: December
+                 *2008
+                 ******************************************************************************************/
+                string SetComment(const string &strComment) {
+                  string strOldComment = m_sComment;
+                  m_sComment = strComment;
+                  return strOldComment;
+                }
 
-		/******************************************************************************************
-		* Function: 	ReadFile
-		* Description:	read configuration file into ConfigFile object
-		* Arguments:	string fileName [in] -	full path of configuration file
-		*				ConfigFile& cf [in] -	reference to configuration file object
-		* Return value:	CL_SUCCESS - file was read successfully
-		*				CL_ERR_FILE_NOT_EXISTS - file name doesn't exists
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		static cl_err_code ReadFile(const string& fileName, ConfigFile& cf);
+                /******************************************************************************************
+                 * Function: 	ReadFile
+                 * Description:	read configuration file into ConfigFile object
+                 * Arguments:	string fileName [in] -	full path of
+                 *configuration file ConfigFile& cf [in] -	reference to
+                 *configuration file object
+                 * Return value:	CL_SUCCESS - file was read successfully
+                 *				CL_ERR_FILE_NOT_EXISTS - file
+                 *name doesn't exists Author:		Uri Levy Date: December
+                 *2008
+                 ******************************************************************************************/
+                static cl_err_code ReadFile(const string &fileName,
+                                            ConfigFile &cf);
 
-		/******************************************************************************************
-		* Function: 	WriteFile
-		* Description:	write ConfigFile object into configuration file
-		* Arguments:	string fileName [in] -	full path of configuration file
-		*				ConfigFile& cf [in] -	reference to configuration file object
-		* Return value:	CL_SUCCESS - file was read successfully
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		static cl_err_code WriteFile(string fileName, ConfigFile& cf);
+                /******************************************************************************************
+                 * Function: 	WriteFile
+                 * Description:	write ConfigFile object into configuration file
+                 * Arguments:	string fileName [in] -	full path of
+                 *configuration file ConfigFile& cf [in] -	reference to
+                 *configuration file object
+                 * Return value:	CL_SUCCESS - file was read successfully
+                 * Author:		Uri Levy
+                 * Date:			December 2008
+                 ******************************************************************************************/
+                static cl_err_code WriteFile(string fileName, ConfigFile& cf);
 
 		/******************************************************************************************
 		* Function: 	tokenize

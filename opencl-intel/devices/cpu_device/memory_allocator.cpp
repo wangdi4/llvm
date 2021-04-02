@@ -60,22 +60,24 @@ MemoryAllocator::~MemoryAllocator()
 	Input
 		format 				    Image format
 ********************************************************************************************************************/
-cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp )
-{
-	assert( nullptr != pAllocProp );
+cl_dev_err_code
+MemoryAllocator::GetAllocProperties(cl_mem_object_type IN /*memObjType*/,
+                                    cl_dev_alloc_prop *OUT pAllocProp) {
+  assert(nullptr != pAllocProp);
 
-	pAllocProp->bufferSharingGroupId = CL_DEV_CPU_BUFFER_SHARING_GROUP_ID;
-	pAllocProp->imageSharingGroupId  = CL_DEV_CPU_IMAGE_SHARING_GROUP_ID;
-	pAllocProp->mustAllocRawMemory   = false; // CPU should not allocate data instead of RT
-	pAllocProp->usedByDMA            = false;
-	pAllocProp->alignment            = CPU_DEV_MAXIMUM_ALIGN;
-	pAllocProp->preferred_alignment  = CPU_DEV_MAXIMUM_ALIGN;
-	pAllocProp->maxBufferSize        = m_maxAllocSize;
-    pAllocProp->imagesSupported      = true;
-	pAllocProp->DXSharing            = false;
-	pAllocProp->GLSharing            = false;
+  pAllocProp->bufferSharingGroupId = CL_DEV_CPU_BUFFER_SHARING_GROUP_ID;
+  pAllocProp->imageSharingGroupId = CL_DEV_CPU_IMAGE_SHARING_GROUP_ID;
+  pAllocProp->mustAllocRawMemory =
+      false; // CPU should not allocate data instead of RT
+  pAllocProp->usedByDMA = false;
+  pAllocProp->alignment = CPU_DEV_MAXIMUM_ALIGN;
+  pAllocProp->preferred_alignment = CPU_DEV_MAXIMUM_ALIGN;
+  pAllocProp->maxBufferSize = m_maxAllocSize;
+  pAllocProp->imagesSupported = true;
+  pAllocProp->DXSharing = false;
+  pAllocProp->GLSharing = false;
 
-	return CL_DEV_SUCCESS;
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
@@ -237,12 +239,14 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjRelease( )
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code CPUDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle)
-{
-	assert(nullptr != handle);
+cl_dev_err_code
+CPUDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type /*dev_type*/,
+                                             cl_dev_subdevice_id /*node_id*/,
+                                             cl_dev_memobj_handle *handle) {
+  assert(nullptr != handle);
 
-	*handle = (void*)(&m_objDecr);
-	return CL_DEV_SUCCESS;
+  *handle = (void *)(&m_objDecr);
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_param_map* pMapParams)
@@ -262,10 +266,11 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code CPUDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
-{
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseMappedRegion enter"));
-	return CL_DEV_SUCCESS;
+cl_dev_err_code CPUDevMemoryObject::clDevMemObjReleaseMappedRegion(
+    cl_dev_cmd_param_map *IN /*pMapParams*/) {
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+             TEXT("ReleaseMappedRegion enter"));
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem_flags, const size_t *origin,
@@ -292,21 +297,21 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore(
-                            void* operation_handle, cl_dev_bs_update_state* pUpdateState )
-{
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateBackingStore enter"));
-    assert( nullptr != pUpdateState );
-    *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
-    return CL_DEV_SUCCESS;
+    void * /*operation_handle*/, cl_dev_bs_update_state *pUpdateState) {
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+             TEXT("clDevMemObjUpdateBackingStore enter"));
+  assert(nullptr != pUpdateState);
+  *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateFromBackingStore(
-                            void* operation_handle, cl_dev_bs_update_state* pUpdateState )
-{
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
-    assert( nullptr != pUpdateState );
-    *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
-    return CL_DEV_SUCCESS;
+    void * /*operation_handle*/, cl_dev_bs_update_state *pUpdateState) {
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+             TEXT("clDevMemObjUpdateFromBackingStore enter"));
+  assert(nullptr != pUpdateState);
+  *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
+  return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjInvalidateData( )

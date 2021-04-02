@@ -276,36 +276,30 @@ void Pipe::MapRead(MapSegment seg)
     }
 }
 
-void Pipe::MapWrite(MapSegment seg)
-{
-    // MapWrite is no-op: we just allocate memory where packets would go.
-    return;
+void Pipe::MapWrite(MapSegment /*seg*/) {
+  // MapWrite is no-op: we just allocate memory where packets would go.
+  return;
 }
 
-
-void Pipe::UnmapRead(MapSegment seg)
-{
-    // UnmapRead is a no-op: we don't have to do anything after we
-    // read.
+void Pipe::UnmapRead(MapSegment /*seg*/) {
+  // UnmapRead is a no-op: we don't have to do anything after we
+  // read.
 }
 
-void Pipe::UnmapWrite(MapSegment seg)
-{
-    assert(seg.size % m_uiPacketSize == 0 &&
-           "Segment size must have integral number of packets");
+void Pipe::UnmapWrite(MapSegment seg) {
+  assert(seg.size % m_uiPacketSize == 0 &&
+         "Segment size must have integral number of packets");
 
-    void* pPipe = GetBackingStoreData();
+  void *pPipe = GetBackingStoreData();
 
-    size_t numPackets = seg.size / m_uiPacketSize;
-    for (size_t i = 0; i < numPackets; ++i)
-    {
-        while (__write_pipe_2_fpga(pPipe, seg.ptr + i * m_uiPacketSize,
-                                   /*size=*/m_uiPacketSize,
-                                   /*align=*/m_uiPacketSize))
-        {
-            FlushWrite();
-        }
+  size_t numPackets = seg.size / m_uiPacketSize;
+  for (size_t i = 0; i < numPackets; ++i) {
+    while (__write_pipe_2_fpga(pPipe, seg.ptr + i * m_uiPacketSize,
+                               /*size=*/m_uiPacketSize,
+                               /*align=*/m_uiPacketSize)) {
+      FlushWrite();
     }
+  }
 }
 cl_err_code Pipe::ReadPacket(void* pDst)
 {

@@ -96,7 +96,7 @@ OCLAliasAnalysis::OCLAliasAnalysis() : ImmutablePass(ID) {
 void OCLAAResult::deleteValue(Value *V) {
   ValueMap.erase(V);
 }
-void OCLAAResult::copyValue(Value *From, Value *To) {
+void OCLAAResult::copyValue(Value * /*From*/, Value * /*To*/) {
   // Do nothing, i.e. let new value compute in resolveAddressSpace.
 }
 void OCLAAResult::addEscapingUse(Use &U) {

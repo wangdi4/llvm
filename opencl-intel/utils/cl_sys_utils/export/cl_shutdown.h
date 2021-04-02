@@ -41,6 +41,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         virtual void SetDllUnloadingState( bool value ) = 0;
         virtual bool isDllUnloadingState() const = 0;
         virtual void AtExitTrigger( at_exit_dll_callback_fn fn ) = 0;
+        virtual ~IAtExitCentralPoint() {}
     };
     
     class UseShutdownHandler

@@ -28,12 +28,11 @@ MemoryObjectEvent::~MemoryObjectEvent()
 {
 }
 
-cl_err_code MemoryObjectEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode )
-{
-	if ( returnCode == CL_SUCCESS )
-	{
-		returnCode = m_pMemObject->UpdateDeviceDescriptor(m_pDevice, m_ppDevMemObj);
-	}
-	OclEvent::NotifyComplete(returnCode);
-	return CL_SUCCESS;
+cl_err_code MemoryObjectEvent::ObservedEventStateChanged(
+    const SharedPtr<OclEvent> & /*pEvent*/, cl_int returnCode) {
+  if (returnCode == CL_SUCCESS) {
+    returnCode = m_pMemObject->UpdateDeviceDescriptor(m_pDevice, m_ppDevMemObj);
+  }
+  OclEvent::NotifyComplete(returnCode);
+  return CL_SUCCESS;
 }

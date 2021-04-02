@@ -40,7 +40,7 @@ namespace intel {
     llvm::StringRef getPassName() const override { return "PipeOrdering"; }
 
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
       AU.addRequired<llvm::LoopInfoWrapperPass>();
     }
 

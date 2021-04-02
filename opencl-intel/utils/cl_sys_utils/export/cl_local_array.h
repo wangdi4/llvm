@@ -52,13 +52,12 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 	protected:
 		//It makes no sense to allocate this class on the heap
-		void* operator new(size_t sz) noexcept {return nullptr;}
-		//Probably a good idea not to allocate more than 1kb on the stack 
-		static const size_t m_maxSizeToAllocateOnStack = 0x400; 
+          void *operator new(size_t /*sz*/) noexcept { return nullptr; }
+          // Probably a good idea not to allocate more than 1kb on the stack
+          static const size_t m_maxSizeToAllocateOnStack = 0x400;
 
-		T*   m_data;
-		T    m_storage[m_maxSizeToAllocateOnStack / sizeof(T)];
-		bool m_heapAllocated;
-
-	};
+          T *m_data;
+          T m_storage[m_maxSizeToAllocateOnStack / sizeof(T)];
+          bool m_heapAllocated;
+        };
 }}}

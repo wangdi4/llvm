@@ -34,7 +34,7 @@ class IRPrinter : public llvm::FunctionPass
 public:
     IRPrinter(std::string dumpDir, std::string dumpName);
     // doPassInitialization - prints the IR
-    bool runOnFunction(llvm::Function &F);
+    bool runOnFunction(llvm::Function &F) override;
 };
 
 }

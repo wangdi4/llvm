@@ -38,13 +38,13 @@ namespace intel {
     SoaAllocaAnalysis() : FunctionPass(ID) {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "SoaAllocaAnalysis";
     }
 
     /// @brief LLVM Interface
     /// @param AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Analysis pass preserve all
       AU.setPreservesAll();
     }
@@ -52,7 +52,7 @@ namespace intel {
     /// @brief LLVM Function pass entry
     /// @param F Function to transform
     /// @return True if changed
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnFunction(Function &F) override;
 
     /// @brief Returns true if given value is derived from
     ///   SOA-alloca instruction
@@ -87,7 +87,7 @@ namespace intel {
     /// @brief print data collected by the pass on the given module
     /// @param OS stream to print the info regarding the module into
     /// @param M pointer to the Module
-    void print(raw_ostream &OS, const Module *M = 0) const;
+    void print(raw_ostream &OS, const Module *M = 0) const override;
 
   private:
     /// @brief Returns true if given alloca instruction is supported.

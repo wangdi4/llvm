@@ -69,6 +69,7 @@ struct VectorizerFunction{
 
 struct VFunctionFactory{
   virtual VectorizerFunction* create(const char*) = 0;
+  virtual ~VFunctionFactory() {}
 };
 
 }

@@ -31,11 +31,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		SharedPtr<Context>  GetContext() const { return m_pContext; }
 
 		// OCLObject implementation
-		cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const { return CL_INVALID_VALUE; }
+                cl_err_code
+                GetInfo(cl_int /*iParamName*/, size_t /*szParamValueSize*/,
+                        void * /*paramValue*/,
+                        size_t * /*szParamValueSizeRet*/) const override {
+                  return CL_INVALID_VALUE;
+                }
 
-		virtual void        SetComplete(cl_int returnCode);
+                virtual void SetComplete(cl_int returnCode);
 
-	protected:
+              protected:
 
 		SharedPtr<Context>   m_pContext;
 	};

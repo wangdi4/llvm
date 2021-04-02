@@ -91,14 +91,14 @@ public:
   /// @brief D'tor
   ~CLWGLoopBoundaries();
   /// @brief Provides name of pass
-  virtual llvm::StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const override {
     return "CLWGLoopBoundaries";
   }
 
   ///@brief LLVM interface.
   ///@param M - module to process.
   ///@returns true if the module changed
-  virtual bool runOnModule(llvm::Module &M);
+  virtual bool runOnModule(llvm::Module &M) override;
 
   ///@brief additional interface to be on a function not as Pass.
   ///@param F - function to process.
@@ -106,7 +106,7 @@ public:
   virtual bool runOnFunction(llvm::Function &F);
 
   ///@brief LLVM interface.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<BuiltinLibInfo>();
   };
 
@@ -380,7 +380,7 @@ private:
   /// @brief print data collected by the pass on the given module
   /// @param OS stream to print the info regarding the module into
   /// @param M pointer to the Module
-  void print(raw_ostream &OS, const llvm::Module *M = 0) const;
+  void print(raw_ostream &OS, const llvm::Module *M = 0) const override;
 
   /// @brief sign extends the bound in case a trunc instruction was called
   /// over the result and the comparison is signed

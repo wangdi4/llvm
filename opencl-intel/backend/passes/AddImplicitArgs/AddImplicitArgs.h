@@ -39,7 +39,7 @@ namespace intel {
     AddImplicitArgs();
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "AddImplicitArgs";
     }
 
@@ -50,7 +50,7 @@ namespace intel {
 
     /// @brief LLVM Interface
     /// @param AU Analysis
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Depends on LocalBuffAnalysis for finding all local buffers each function uses directly
       AU.addRequired<LocalBuffAnalysis>();
       AU.addRequired<ImplicitArgsAnalysis>();
@@ -95,8 +95,6 @@ namespace intel {
 
     /// @brief Maps the original and modified Function with implicit args
     llvm::DenseMap<llvm::Function *, llvm::Function *> m_fixupFunctionsRefs;
-
-    Type* m_struct_WorkDim;
   };
 
 } // namespace intel

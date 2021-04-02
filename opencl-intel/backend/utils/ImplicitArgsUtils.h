@@ -23,32 +23,30 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   class CallbackContext;
   class ExtendedExecutionContext;
-  namespace NDInfo {
-  // Keep these values in same order as structure so they can be used as indices
-  // for GEP accesses
-  enum _NDInfo {
-    WORK_DIM,
-    GLOBAL_OFFSET,
-    GLOBAL_SIZE,
-    LOCAL_SIZE,
-    WG_NUMBER,
-    RUNTIME_INTERFACE,
-    BLOCK2KERNEL_MAPPER,
-    LAST
-  };
-  static const char* getRecordName(unsigned RecordID) {
-    const char* Names[LAST] = {
-      "WorkDim",
-      "GlobalOffset_",
-      "GlobalSize_",
-      "LocalSize_",
-      "NumGroups_",
-      "RuntimeInterface",
-      "Block2KernelMapper",
+
+  class NDInfo {
+  public:
+    // Keep these values in same order as structure so they can be used as
+    // indices for GEP accesses
+    enum _NDInfo {
+      WORK_DIM,
+      GLOBAL_OFFSET,
+      GLOBAL_SIZE,
+      LOCAL_SIZE,
+      WG_NUMBER,
+      RUNTIME_INTERFACE,
+      BLOCK2KERNEL_MAPPER,
+      LAST
     };
-    return Names[RecordID];
-  }
-  }
+    static const char *getRecordName(unsigned RecordID) {
+      const char *Names[LAST] = {
+          "WorkDim",    "GlobalOffset_",    "GlobalSize_",        "LocalSize_",
+          "NumGroups_", "RuntimeInterface", "Block2KernelMapper",
+      };
+      return Names[RecordID];
+    }
+  };
+
   enum TInternalCallType {
     ICT_NONE,
     ICT_GET_BASE_GLOBAL_ID,
@@ -69,29 +67,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
     ICT_NUMBER
  };
-  static unsigned InternalCall2NDInfo(unsigned InternalCall) {
-    assert(InternalCall < ICT_NUMBER);
-    switch (InternalCall) {
-    case ICT_GET_GLOBAL_OFFSET:
-      return NDInfo::GLOBAL_OFFSET;
-    case ICT_GET_GLOBAL_SIZE:
-      return NDInfo::GLOBAL_SIZE;
-    case ICT_GET_LOCAL_SIZE:
-    case ICT_GET_ENQUEUED_LOCAL_SIZE:
-      return NDInfo::LOCAL_SIZE;
-    case ICT_GET_NUM_GROUPS:
-      return NDInfo::WG_NUMBER;
-    }
-    assert(false && "Unhandled case");
-    return NDInfo::LAST;
-  }
 
   struct sWorkInfo;
 
   /// @brief  ImplicitArgsUtils class used to provide helper utilies for handling
   ///         implicit arguments.
   class ImplicitArgsUtils {
-  
+
   public:
     enum IMPLICIT_ARGS {
       IA_SLM_BUFFER,

@@ -35,9 +35,8 @@ public:
   const char *getDesc() const { return Desc; }
 
   /// construct - This should only be called for non-global statistics.
-  Statistic(const char *category, const char *name, const char *desc,
-      ActiveStatsT &as) :
-      Name(name), Desc(desc), ActiveStats(as) {
+  Statistic(const char *, const char *name, const char *desc, ActiveStatsT &as)
+      : Name(name), Desc(desc), ActiveStats(as) {
     Value = 0; Initialized = false;
   }
 

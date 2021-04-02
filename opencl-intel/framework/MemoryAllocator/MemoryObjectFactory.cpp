@@ -77,11 +77,10 @@ cl_err_code MemoryObjectFactory::CreateMemoryObject( cl_bitfield iRequiredDevice
         }
 	}
 	SharedPtr<MemoryObject> pMemObj = it->second(pContext, clObjType );
-	if (NULL == pMemObj)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+        if (NULL == pMemObj.GetPtr()) {
+          return CL_OUT_OF_HOST_MEMORY;
+        }
 
-	*pMemObject = pMemObj;
-	return CL_SUCCESS;
+        *pMemObject = pMemObj;
+        return CL_SUCCESS;
 }

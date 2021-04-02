@@ -34,7 +34,7 @@ private: /* this is to prevent taking SharedPtrs of non-heap objects */        \
   }                                                                            \
                                                                                \
 public:                                                                        \
-  const char *GetTypeName() const { return #T; }                               \
+  const char *GetTypeName() const override { return #T; }                      \
                                                                                \
 public:
 
@@ -112,7 +112,7 @@ public:
      * Do any clean up and delete this
      * @param bIsTerminate whether the application is terminating
      */
-    virtual void Cleanup(bool bIsTerminate = false) { delete this; }
+    virtual void Cleanup(bool /*bIsTerminate*/ = false) { delete this; }
 
     /**
      * @return the type name of this object
@@ -559,9 +559,9 @@ public:
 protected:
 
     // overriden method
-    virtual void HandleRefCnt0(T* ptr);
+  virtual void HandleRefCnt0(T *ptr) override;
 
-    friend class ConstSharedPtr<T>;
+  friend class ConstSharedPtr<T>;
 };
 
 /**
@@ -648,8 +648,7 @@ public:
 protected:
 
     // overriden method
-    virtual void HandleRefCnt0(const T* ptr);
-    
+  virtual void HandleRefCnt0(const T *ptr) override;
 };
 
 /**

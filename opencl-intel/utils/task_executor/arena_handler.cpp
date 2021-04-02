@@ -454,84 +454,78 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
     }
 }
 
-void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
-{
-    TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
-    TBB_PerActiveThreadData* tls = thread_manager.GetCurrentThreadDescriptor();
+void TEDevice::on_scheduler_exit(bool /*bIsWorker*/, ArenaHandler &arena) {
+  TBBTaskExecutor::ThreadManager &thread_manager =
+      m_taskExecutor.GetThreadManager();
+  TBB_PerActiveThreadData *tls = thread_manager.GetCurrentThreadDescriptor();
 
-    if ((nullptr == tls) && new_threads_disabled())
-    {
-        // thread entered after disabling
-        return;
+  if ((nullptr == tls) && new_threads_disabled()) {
+    // thread entered after disabling
+    return;
+  }
+
+  assert((nullptr != tls) && "TBB Thread Manager lost entry?");
+  assert((nullptr != tls->device) &&
+         "Something wrong with observers - thread exits without enter");
+  assert((this == tls->device) &&
+         "Something wrong with observers - thread exits the wrong device");
+
+  unsigned int curr_arena_level = arena.GetArenaLevel();
+
+  if (curr_arena_level != tls->attach_level) {
+    // We are leaving low level arena but still inside device or leaving
+    // arena above attach level, preserve all resources and do not report.
+    return;
+  }
+
+  // now the only case - we are leaving our attach_level - out from device
+  if (tls->enter_reported) {
+    if ((nullptr != m_observer) && (!IsShutdownMode())) {
+      // per thread user data recides inside per-thread descriptor
+      m_observer->OnThreadExit(tls->user_tls);
     }
+  }
 
-    assert( (nullptr != tls) && "TBB Thread Manager lost entry?" );
-    assert( (nullptr != tls->device) && "Something wrong with observers - thread exits without enter" );
-    assert( (this == tls->device) && "Something wrong with observers - thread exits the wrong device" );
-
-    unsigned int curr_arena_level = arena.GetArenaLevel();
-
-    if (curr_arena_level != tls->attach_level )
-    {
-        // We are leaving low level arena but still inside device or leaving
-        // arena above attach level, preserve all resources and do not report.
-        return;
-    }
-
-    // now the only case - we are leaving our attach_level - out from device
-    if (tls->enter_reported)
-    {
-        if ((nullptr != m_observer) && (!IsShutdownMode()))
-        {
-            // per thread user data recides inside per-thread descriptor
-            m_observer->OnThreadExit( tls->user_tls );
-        }
-    }
-
-    free_thread_arenas_resources( tls, tls->attach_level );
-    tls->reset();
-    thread_manager.UnregisterCurrentThread();
-    if (--m_numOfActiveThreads < 0)
-    {
-        assert( false && "Thread exits device while device already does not contain running threads while leaving normally" );
-        ++m_numOfActiveThreads;
-    }
+  free_thread_arenas_resources(tls, tls->attach_level);
+  tls->reset();
+  thread_manager.UnregisterCurrentThread();
+  if (--m_numOfActiveThreads < 0) {
+    assert(false && "Thread exits device while device already does not contain "
+                    "running threads while leaving normally");
+    ++m_numOfActiveThreads;
+  }
 }
 
-bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
-{
-    if (isTerminating())
-    {
-        return true; // always allow leaving during shutdown
+bool TEDevice::on_scheduler_leaving(ArenaHandler & /*arena*/) {
+  if (isTerminating()) {
+    return true; // always allow leaving during shutdown
+  }
+
+  TE_BOOLEAN_ANSWER user_answer = TE_USE_DEFAULT;
+
+  TBBTaskExecutor::ThreadManager &thread_manager =
+      m_taskExecutor.GetThreadManager();
+  TBB_PerActiveThreadData *tls = thread_manager.GetCurrentThreadDescriptor();
+
+  if ((nullptr != tls) && (nullptr != tls->device) && (tls->enter_reported)) {
+    assert((this == tls->device) && "Something wrong with observers - thread "
+                                    "tries to leave the wrong device");
+
+    if ((nullptr != m_observer) && (!IsShutdownMode())) {
+      user_answer = m_observer->MayThreadLeaveDevice(&(tls->user_tls));
     }
+  }
 
-    TE_BOOLEAN_ANSWER user_answer = TE_USE_DEFAULT;
+  bool may_leave = true;
+  if (TE_USE_DEFAULT == user_answer) {
+    // We return true, because of TBB bug #1967 and because just returning true
+    // instead of going over all the command lists actually gives 3% speedup!
+    may_leave = true;
+  } else {
+    may_leave = (TE_YES == user_answer);
+  }
 
-    TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
-    TBB_PerActiveThreadData* tls = thread_manager.GetCurrentThreadDescriptor();
-
-    if ((nullptr != tls) && (nullptr != tls->device) && (tls->enter_reported))
-    {
-        assert( (this == tls->device) && "Something wrong with observers - thread tries to leave the wrong device" );
-
-        if ((nullptr != m_observer) && (!IsShutdownMode()))
-        {
-            user_answer = m_observer->MayThreadLeaveDevice( &(tls->user_tls) );
-        }
-    }
-
-    bool may_leave = true;
-    if (TE_USE_DEFAULT == user_answer)
-    {
-        // We return true, because of TBB bug #1967 and because just returning true instead of going over all the command lists actually gives 3% speedup!
-        may_leave = true;
-    }
-    else
-    {
-        may_leave = (TE_YES == user_answer);
-    }
-
-    return may_leave;
+  return may_leave;
 }
 void TEDevice::ResetObserver()
 { 
@@ -571,36 +565,26 @@ SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeU
     return Allocate( device_desc, user_data, m_observer, m_taskExecutor, this );
 }
 
-SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& param)
-{
-    SharedPtr<ITaskList> pList = nullptr;
+SharedPtr<ITaskList>
+TEDevice::CreateTaskList(const CommandListCreationParam &param) {
+  assert((TE_CMD_LIST_PREFERRED_SCHEDULING_LAST > param.preferredScheduling) &&
+         "Trying to create TaskExecutor Command list with unknown scheduler");
+  if (param.preferredScheduling >= TE_CMD_LIST_PREFERRED_SCHEDULING_LAST) {
+    return nullptr;
+  }
 
-    assert( (TE_CMD_LIST_PREFERRED_SCHEDULING_LAST > param.preferredScheduling) && "Trying to create TaskExecutor Command list with unknown scheduler" );
+  switch (param.cmdListType) {
+  case TE_CMD_LIST_IN_ORDER:
+    return in_order_command_list::Allocate(m_taskExecutor, this, param);
+  case TE_CMD_LIST_OUT_OF_ORDER:
+    return out_of_order_command_list::Allocate(m_taskExecutor, this, param);
+  case TE_CMD_LIST_IMMEDIATE:
+    return immediate_command_list::Allocate(m_taskExecutor, this, param);
+  }
 
-    if ( param.preferredScheduling >= TE_CMD_LIST_PREFERRED_SCHEDULING_LAST)
-    {
-        return pList;
-    }
-
-    switch ( param.cmdListType )
-    {
-        case TE_CMD_LIST_IN_ORDER:
-            pList = in_order_command_list::Allocate(m_taskExecutor, this, param);
-            break;
-
-        case TE_CMD_LIST_OUT_OF_ORDER:
-            pList = out_of_order_command_list::Allocate(m_taskExecutor, this, param);
-            break;
-
-        case TE_CMD_LIST_IMMEDIATE:
-            pList = immediate_command_list::Allocate(m_taskExecutor, this, param);
-            break;
-
-        default:
-            assert( false && "Trying to create TaskExecutor Command list with unknown type");
-    }
-
-    return pList;
+  assert(false &&
+         "Trying to create TaskExecutor Command list with unknown type");
+  return nullptr;
 }
 
 /**

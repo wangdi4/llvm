@@ -42,11 +42,11 @@ namespace intel{
   /// Register pass to for opt
   OCL_INITIALIZE_PASS(AddImplicitArgs, "add-implicit-args", "Adds the implicit arguments to signature of all functions of the module (that are defined inside the module)", false, false)
 
-  AddImplicitArgs::AddImplicitArgs() :
-    ModulePass(ID), m_pModule(nullptr), m_localBuffersAnalysis(nullptr),
-    m_IAA(nullptr), m_pLLVMContext(nullptr), m_struct_WorkDim(nullptr) {
-      initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
-      initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+  AddImplicitArgs::AddImplicitArgs()
+      : ModulePass(ID), m_pModule(nullptr), m_localBuffersAnalysis(nullptr),
+        m_IAA(nullptr), m_pLLVMContext(nullptr) {
+    initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+    initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool AddImplicitArgs::runOnModule(Module &M) {

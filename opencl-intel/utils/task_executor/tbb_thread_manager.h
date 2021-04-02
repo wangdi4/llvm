@@ -80,6 +80,11 @@ private:
     TBB_ThreadManager& operator=( const TBB_ThreadManager& o );
 };
 
+template <class Data>
+THREAD_LOCAL TBB_ThreadDescriptor<Data>
+    *TBB_ThreadManager<Data>::m_CurrentThreadGlobalID = nullptr;
+template <class Data> bool TBB_ThreadManager<Data>::m_object_exists = false;
+
 #include "tbb_thread_manager.hpp"
 
 }}}

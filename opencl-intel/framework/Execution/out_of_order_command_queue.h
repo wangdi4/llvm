@@ -44,26 +44,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		
 		~OutOfOrderCommandQueue();
 
-		cl_err_code Initialize();
-        long Release();
-		virtual cl_err_code Enqueue(Command* cmd);
-		virtual cl_err_code EnqueueWaitForEvents(Command* cmd);
-        virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker);
-        virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier);
+                cl_err_code Initialize() override;
+                long Release() override;
+                virtual cl_err_code Enqueue(Command *cmd) override;
+                virtual cl_err_code EnqueueWaitForEvents(Command *cmd) override;
+                virtual cl_err_code
+                EnqueueMarkerWaitForEvents(Command *marker) override;
+                virtual cl_err_code
+                EnqueueBarrierWaitForEvents(Command *barrier) override;
 
-		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
-		// No need for explicit "send commands to device" method, commands are submitted as they become ready
-		virtual cl_err_code SendCommandsToDevice() {return CL_SUCCESS; }
+                virtual cl_err_code Flush(bool bBlocking) override;
+                virtual cl_err_code
+                NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
+                                  OclEventState prevColor,
+                                  OclEventState newColor) override;
+                // No need for explicit "send commands to device" method,
+                // commands are submitted as they become ready
+                virtual cl_err_code SendCommandsToDevice() override {
+                  return CL_SUCCESS;
+                }
 
-	protected:
-
-        OutOfOrderCommandQueue(
-			SharedPtr<Context>                    pContext,
-			cl_device_id                clDefaultDeviceID, 
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager
-			);
+              protected:
+                OutOfOrderCommandQueue(SharedPtr<Context> pContext,
+                                       cl_device_id clDefaultDeviceID,
+                                       cl_command_queue_properties clProperties,
+                                       EventsManager *pEventManager);
 
 		virtual cl_err_code AddDependentOnAll(Command* cmd);
 

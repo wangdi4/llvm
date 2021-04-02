@@ -164,47 +164,40 @@ cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
     return CL_SUCCESS;    
 }
 
-cl_err_code OutOfOrderCommandQueue::Flush(bool bBlocking)
-{    
-    long prev = m_unflushedCommands.exchange(0);
-    if (prev > 0)
-    {
-        m_pDefaultDevice->GetDeviceAgent()->clDevFlushCommandList(m_clDevCmdListId);
-    }
+cl_err_code OutOfOrderCommandQueue::Flush(bool /*bBlocking*/) {
+  long prev = m_unflushedCommands.exchange(0);
+  if (prev > 0) {
+    m_pDefaultDevice->GetDeviceAgent()->clDevFlushCommandList(m_clDevCmdListId);
+  }
 
-    return CL_SUCCESS;    
+  return CL_SUCCESS;
 }
 
-cl_err_code OutOfOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
-{    
-    if ((EVENT_STATE_READY_TO_EXECUTE == newColor) || m_bCancelAll)
-    {
-        Command* cmd = pEvent->GetCommand();
-        if ( cmd->isControlCommand() )
-        {
-            bool isMarker = (CL_COMMAND_MARKER == cmd->GetCommandType());
-            // Control command is Ready
-            pEvent->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
-            cmd->Execute(); // CommandDone() and color change are applied inside Execute() call.
+cl_err_code
+OutOfOrderCommandQueue::NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
+                                          OclEventState /*prevColor*/,
+                                          OclEventState newColor) {
+  if ((EVENT_STATE_READY_TO_EXECUTE == newColor) || m_bCancelAll) {
+    Command *cmd = pEvent->GetCommand();
+    if (cmd->isControlCommand()) {
+      bool isMarker = (CL_COMMAND_MARKER == cmd->GetCommandType());
+      // Control command is Ready
+      pEvent->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
+      cmd->Execute(); // CommandDone() and color change are applied inside
+                      // Execute() call.
 
-            if ( !isMarker )
-            {                            
-                OclAutoMutex mu(&m_muLastBarrer);
-                if (pEvent == m_lastBarrier)
-                {
-                    m_lastBarrier = nullptr;
-                }
-            }
+      if (!isMarker) {
+        OclAutoMutex mu(&m_muLastBarrer);
+        if (pEvent == m_lastBarrier) {
+          m_lastBarrier = nullptr;
         }
-        else
-        {
-            Submit(cmd);
-        }
+      }
+    } else {
+      Submit(cmd);
     }
-    return CL_SUCCESS;
+  }
+  return CL_SUCCESS;
 }
-
-
 
 cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 {

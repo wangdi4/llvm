@@ -118,9 +118,9 @@ public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     ReadWriteMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
@@ -135,9 +135,9 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     CopyMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 };
 
@@ -151,9 +151,9 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     NativeFunction(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 
     char*               m_pArgV;
@@ -169,9 +169,9 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     MapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 };
 
@@ -185,9 +185,9 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     UnmapMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 };
 
@@ -204,30 +204,42 @@ public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
 
     // ITaskSet interface
-    int     Init(size_t region[], unsigned int &regCount, size_t numberOfThreads);
-    void*   AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-    void    DetachFromThread(void* pWgContext);
-    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext);
-    bool    Finish(FINISH_REASON reason);
+    int Init(size_t region[], unsigned int &regCount,
+             size_t numberOfThreads) override;
+    void *AttachToThread(void *pWgContext, size_t uiNumberOfWorkGroups,
+                         size_t firstWGID[], size_t lastWGID[]) override;
+    void DetachFromThread(void *pWgContext) override;
+    bool ExecuteIteration(size_t x, size_t y, size_t z,
+                          void *pWgContext) override;
+    bool Finish(FINISH_REASON reason) override;
 
     // Optimize By
-    TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
+    TASK_SET_OPTIMIZATION OptimizeBy() const override {
+      return TASK_SET_OPTIMIZE_DEFAULT;
+    }
     size_t          PreferredSequentialItemsPerThread() const override;
     bool    PreferNumaNodes() const override { return true; }
 
-    bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
+    bool IsCompleted() const override {
+      return CommandBaseClass<ITaskSet>::IsCompleted();
+    }
 
-    IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
+    IThreadLibTaskGroup *GetNDRangeChildrenTaskGroup() override {
+      return GetParentTaskGroup().GetPtr();
+    }
     char* GetParamsPtr() { return (char*)(((cl_dev_cmd_param_kernel*)m_pCmd->params)->arg_values); }
 
-    KernelCommand* AllocateChildCommand(ITaskList* pList, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-        const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount,
-        const _ndrange_t* pNDRange) const;
+    KernelCommand *AllocateChildCommand(
+        ITaskList *pList,
+        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_ *pKernel,
+        const void *pBlockLiteral, size_t stBlockSize,
+        const size_t *pLocalSizes, size_t stLocalSizeCount,
+        const _ndrange_t *pNDRange) const override;
 
     // IDeviceCommandManager
-    queue_t GetDefaultQueueForDevice() const;
+    queue_t GetDefaultQueueForDevice() const override;
 
-protected:
+  protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskList* pList, KernelCommand* parent);
 
     cl_int                                      m_lastError;
@@ -285,13 +297,14 @@ public:
     /**
      * @return the next available command ID for DeviceNDRange commands
      */
-    static long GetNextCmdId() { return sm_cmdIdCnt++; }    
+        static long GetNextCmdId() { return sm_cmdIdCnt++; }
 
-    // inherited methods:    
-    void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);
-    void Cleanup(bool bIsTerminate = false)
-    { 
-        const cl_dev_cmd_param_kernel& paramKerel = *((cl_dev_cmd_param_kernel*)m_cmdDesc.params);
+        // inherited methods:
+        void NotifyCommandStatusChanged(cl_dev_cmd_desc *cmd, unsigned uStatus,
+                                        int iErr) override;
+        void Cleanup(bool /*bIsTerminate*/ = false) override {
+          const cl_dev_cmd_param_kernel &paramKerel =
+              *((cl_dev_cmd_param_kernel *)m_cmdDesc.params);
 #if 0
         m_deviceNDRangeContextAllocator.deallocate((char*)paramKerel.arg_values, paramKerel.arg_size);
         m_deviceNDRangeAllocator.deallocate(this, sizeof(DeviceNDRange));        
@@ -299,7 +312,7 @@ public:
         ALIGNED_FREE(paramKerel.arg_values);
         delete this;
 #endif
-    }
+        }
 
 private:
 
@@ -327,9 +340,9 @@ public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     FillMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
@@ -341,9 +354,9 @@ public:
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     MigrateMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
@@ -357,9 +370,9 @@ public:
                                   const SharedPtr<ITaskList>& pList);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     MigrateUSMMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };
@@ -375,9 +388,9 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     NativeKernelTask(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd);
 
     const Intel::OpenCL::BuiltInKernels::IBuiltInKernel* m_pBIKernel;
@@ -394,9 +407,9 @@ public:
                                   const SharedPtr<ITaskList>& pList);
 
     // ITask interface
-    bool    Execute();
+    bool Execute() override;
 
-protected:
+  protected:
     AdviseUSMMemObject(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 };

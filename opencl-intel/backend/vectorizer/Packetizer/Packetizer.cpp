@@ -417,7 +417,9 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
   }
 }
 
-bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isLoad, bool isScatterGather, bool isMasked) {
+bool PacketizeFunction::canTransposeMemory(Value * /*addr*/, Value *origVal,
+                                           bool isLoad, bool isScatterGather,
+                                           bool isMasked) {
 
   // There is no point to transpose uniform value.
   if (m_depAnalysis->whichDepend(origVal) == WIAnalysis::UNIFORM) return false;
@@ -1082,6 +1084,9 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   Type *ElemTy = 0;
 
+  V_ASSERT((MO.type == STORE || MO.type == LOAD || MO.type == PREFETCH) &&
+           "Unexpected memory operation type.");
+
   switch (MO.type) {
   case STORE:
     ElemTy = MO.Data->getType();
@@ -1092,8 +1097,6 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   case PREFETCH:
     ElemTy = cast<PointerType>(MO.Ptr->getType())->getElementType();
     break;
-  default:
-    V_ASSERT(false && "Invalid memory operation tiple");
   }
 
   if (isa<VectorType>(ElemTy) && MO.type == PREFETCH) {
@@ -1114,8 +1117,6 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   case PREFETCH:
     type = Mangler::GatherPrefetch;
     break;
-  default:
-    V_ASSERT(false && "Invalid memory type");
   }
 
   // Check if this type is supported and if we have a name for it
@@ -1326,10 +1327,10 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
         SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
   }
-  default:
-    V_ASSERT(false && "unexpected type of memory operation");
-    return 0;
   }
+
+  V_ASSERT(false && "Unexpected memory operation type.");
+  return 0;
 }
 
 
@@ -1365,6 +1366,9 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   Value *bitCastPtr = CastInst::CreatePointerCast(SclrPtr[0], VecTy, "ptrTypeCast",MO.Orig);
   Type *DT = VecElemTy;
 
+  V_ASSERT((MO.type == STORE || MO.type == LOAD || MO.type == PREFETCH) &&
+           "Unexpected memory operation type.");
+
   // Implement the function call
   SmallVector<Value*, 8> args;
   switch(MO.type) {
@@ -1395,9 +1399,6 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       DT = MO.Orig->getType();
       break;
     }
-    default:
-      V_ASSERT(false && "unexpected type of memory operation");
-      break;
   }
   return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args,
       SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
@@ -1587,6 +1588,8 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   // Attempt to find if the pointer can be expressed as base + index.
   obtainBaseIndex(MO);
 
+  V_ASSERT((MO.type == STORE || MO.type == LOAD || MO.type == PREFETCH) &&
+           "Unexpected memory operation type.");
   // Find the data type;
   Type *DT = nullptr;
   switch (MO.type) {
@@ -1599,8 +1602,6 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   case PREFETCH:
     DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
     break;
-  default:
-    V_ASSERT(0 && "Unsupported memory operation type");
   }
 
   bool isVectorPrefetch = DT->isVectorTy() &&  MO.type == PREFETCH;

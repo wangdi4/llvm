@@ -57,61 +57,57 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
 
-        bool GetBooleanValue(int optionId, bool defaultValue) const
-        {
-            switch (optionId)
-            {
-                case CL_DEV_BACKEND_OPTION_USE_VTUNE:
-                    return m_useVTune;
-                case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
-                    return m_serializeWorkGroups;
-                case CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS:
-                    return m_streamingAlways;
-                case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
-                    return m_enableNativeSubgroups;
-                case CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY:
-                    return m_useAutoMemory;
-                default:
-                    return defaultValue;
-            }
-        }
-
-        virtual int GetIntValue(int optionId, int defaultValue) const
-        {
-            switch(optionId )
-            {
-                case CL_DEV_BACKEND_OPTION_DEVICE:
-                    return m_targetDevice;
-                case CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE:
-                    return (int)m_cpuMaxWGSize;
-                case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-                    // The transpoze size is applicable only then
-                    // CL_CONFIG_USE_VECTORIZER is false.
-                    return m_useVectorizer ? m_vectorizerMode
-                                           : TRANSPOSE_SIZE_1;
-                case CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR:
-                    return std::max(1, std::min(16, m_rtLoopUnrollFactor));
-                case CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE:
-                    return m_forcedPrivateMemorySize;
-                case CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE:
-                    return m_channelDepthEmulationMode;
-                case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
-                    return m_vectorizerType;
-                case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
-                    return m_expensiveMemOpts;
-                default:
-                    return defaultValue;
-            }
-        }
-
-        virtual const char* GetStringValue(int optionId, const char* defaultValue)const
-        {
+        bool GetBooleanValue(int optionId, bool defaultValue) const override {
+          switch (optionId) {
+          case CL_DEV_BACKEND_OPTION_USE_VTUNE:
+            return m_useVTune;
+          case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
+            return m_serializeWorkGroups;
+          case CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS:
+            return m_streamingAlways;
+          case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
+            return m_enableNativeSubgroups;
+          case CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY:
+            return m_useAutoMemory;
+          default:
             return defaultValue;
+          }
         }
 
-        virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-        {
-            return false;
+        virtual int GetIntValue(int optionId, int defaultValue) const override {
+          switch (optionId) {
+          case CL_DEV_BACKEND_OPTION_DEVICE:
+            return m_targetDevice;
+          case CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE:
+            return (int)m_cpuMaxWGSize;
+          case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+            // The transpoze size is applicable only then
+            // CL_CONFIG_USE_VECTORIZER is false.
+            return m_useVectorizer ? m_vectorizerMode : TRANSPOSE_SIZE_1;
+          case CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR:
+            return std::max(1, std::min(16, m_rtLoopUnrollFactor));
+          case CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE:
+            return m_forcedPrivateMemorySize;
+          case CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE:
+            return m_channelDepthEmulationMode;
+          case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
+            return m_vectorizerType;
+          case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
+            return m_expensiveMemOpts;
+          default:
+            return defaultValue;
+          }
+        }
+
+        virtual const char *
+        GetStringValue(int /*optionId*/,
+                       const char *defaultValue) const override {
+          return defaultValue;
+        }
+
+        virtual bool GetValue(int /*optionId*/, void * /*Value*/,
+                              size_t * /*pSize*/) const override {
+          return false;
         }
 
     private:
@@ -144,29 +140,28 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         void InitFromString(const char* options);
 
-        bool GetBooleanValue(int optionId, bool defaultValue) const
-        {
+        bool GetBooleanValue(int /*optionId*/,
+                             bool defaultValue) const override {
+          return defaultValue;
+        }
+
+        virtual int GetIntValue(int /*optionId*/,
+                                int defaultValue) const override {
+          return defaultValue;
+        }
+
+        virtual const char *
+        GetStringValue(int optionId, const char *defaultValue) const override {
+          if (CL_DEV_BACKEND_OPTION_DUMPFILE != optionId) {
             return defaultValue;
+          }
+
+          return m_fileName.c_str();
         }
 
-        virtual int GetIntValue( int optionId, int defaultValue) const
-        {
-            return defaultValue;
-        }
-
-        virtual const char* GetStringValue(int optionId, const char* defaultValue)const
-        {
-            if( CL_DEV_BACKEND_OPTION_DUMPFILE != optionId )
-            {
-                return defaultValue;
-            }
-
-            return m_fileName.c_str();
-        }
-
-        virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-        {
-            return false;
+        virtual bool GetValue(int /*optionId*/, void * /*Value*/,
+                              size_t * /*pSize*/) const override {
+          return false;
         }
 
     private:

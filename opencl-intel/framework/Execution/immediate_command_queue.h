@@ -53,23 +53,35 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual ~ImmediateCommandQueue();
 
-        virtual cl_err_code Initialize();  
+        virtual cl_err_code Initialize() override;
 
-        virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
-        virtual cl_err_code Enqueue(Command* cmd);
-        virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
-        virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker);
-        virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier);
+        virtual cl_err_code EnqueueCommand(Command *pCommand, cl_bool bBlocking,
+                                           cl_uint uNumEventsInWaitList,
+                                           const cl_event *cpEeventWaitList,
+                                           cl_event *pEvent,
+                                           ApiLogger *apiLogger) override;
+        virtual cl_err_code Enqueue(Command *cmd) override;
+        virtual cl_err_code EnqueueWaitForEvents(Command *cmd) override {
+          return Enqueue(cmd);
+        }
+        virtual cl_err_code
+        EnqueueMarkerWaitForEvents(Command *marker) override;
+        virtual cl_err_code
+        EnqueueBarrierWaitForEvents(Command *barrier) override;
 
-        virtual cl_err_code Flush(bool bBlocking);
-        virtual cl_err_code NotifyStateChange(const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
-        virtual cl_err_code SendCommandsToDevice();
+        virtual cl_err_code Flush(bool bBlocking) override;
+        virtual cl_err_code
+        NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
+                          OclEventState prevColor,
+                          OclEventState newColor) override;
+        virtual cl_err_code SendCommandsToDevice() override;
 
-        virtual void        AddFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const {}
-        virtual void        RemoveFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const {}
+        virtual void AddFloatingDependence(
+            const SharedPtr<QueueEvent> & /*pCmdEvent*/) const override {}
+        virtual void RemoveFloatingDependence(
+            const SharedPtr<QueueEvent> & /*pCmdEvent*/) const override {}
 
-    protected:
-
+      protected:
         ImmediateCommandQueue(
             SharedPtr<Context>                    pContext,
             cl_device_id                clDefaultDeviceID, 

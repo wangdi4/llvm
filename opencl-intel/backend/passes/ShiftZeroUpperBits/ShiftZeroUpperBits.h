@@ -43,14 +43,14 @@ namespace intel{
     ShiftZeroUpperBits() : FunctionPass(ID) {}
 
     /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const override {
       return "ShiftZeroUpperBits";
     }
 
     /// @brief    LLVM Function pass entry
     /// @param F  Function to transform
     /// @returns  true if changed
-    virtual bool runOnFunction(Function &F);
+    virtual bool runOnFunction(Function &F) override;
 
   private:
     /// @brief    Finds all possible vector shifts instructions (vector shl and ashr) in F

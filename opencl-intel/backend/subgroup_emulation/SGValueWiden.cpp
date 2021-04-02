@@ -199,7 +199,7 @@ bool SGValueWiden::runOnModule(Module &M) {
   return true;
 }
 
-void SGValueWiden::collectWideCalls(Module &M) {
+void SGValueWiden::collectWideCalls(Module &) {
   FuncSet EmulateFuncs;
   for (auto &Pair : FuncMap)
     EmulateFuncs.insert(Pair.second);

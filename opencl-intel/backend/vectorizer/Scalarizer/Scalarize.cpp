@@ -1247,9 +1247,10 @@ void ScalarizeFunction::handleScalarRetVector(CallInst* callerInst, SmallVectorI
   m_removedInsts.insert(callerInst);
 }
 
-void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsConstant,
-                                               Value *origValue, Instruction *origInst)
-{
+void ScalarizeFunction::obtainScalarizedValues(Value *retValues[],
+                                               bool *retIsConstant,
+                                               Value *origValue,
+                                               Instruction * /*origInst*/) {
   V_PRINT(scalarizer, "\t\t\tObtaining scalar value... " << *origValue << "\n");
 
   bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
@@ -1364,7 +1365,6 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
 
   }
 }
-
 
 void ScalarizeFunction::obtainVectorValueWhichMightBeScalarized(Value * vectorVal)
 {

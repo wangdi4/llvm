@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
+; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.rtl.bc -builtin-import -verify %s -S | FileCheck %s
 
 ;********************************************************************************
@@ -32,3 +33,5 @@ declare <4 x double> @function_from_rtl(<4 x double>) nounwind
 
 ; CHECK-NOT:  target-cpu
 ; CHECK-NOT:  target-features
+
+; DEBUGIFY-NOT: WARNING
