@@ -264,6 +264,7 @@
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/MetaRenamer.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
+#include "llvm/Transforms/Utils/RelLookupTableConverter.h"
 #include "llvm/Transforms/Utils/StripGCRelocates.h"
 #include "llvm/Transforms/Utils/StripNonLineTableDebugInfo.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
@@ -1781,6 +1782,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   MPM.addPass(InlineReportEmitterPass(Level.getSpeedupLevel(),
                                       Level.getSizeLevel(), LTOPreLink));
 #endif // INTEL_CUSTOMIZATION
+  MPM.addPass(RelLookupTableConverterPass());
 
   return MPM;
 }

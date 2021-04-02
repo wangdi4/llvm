@@ -627,6 +627,7 @@ FunctionPass *createLoopDataPrefetchPass();
 
 ///===---------------------------------------------------------------------===//
 ModulePass *createNameAnonGlobalPass();
+ModulePass *createRelLookupTableConverterPass();
 ModulePass *createCanonicalizeAliasesPass();
 
 //===----------------------------------------------------------------------===//
