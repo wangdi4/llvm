@@ -106,7 +106,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.ScalarRemainder}
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.ScalarRemainder} i64 [[VP1]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB8]], [[BB7]]

@@ -1112,6 +1112,27 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
                             true /* UseLiveIn */);
 }
 
+void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,
+                                           VPBasicBlock *MergeBB) {
+
+  assert(MergeBB->getSingleSuccessor() == AdapterBB && "unexpected successor");
+  assert(AdapterBB->getSinglePredecessor() == MergeBB &&
+         "unexpected predecessor");
+  assert((isMergeBlock(MergeBB) && MergeBB->size() > 1) &&
+         "expected non-empty merge block");
+
+  auto AdapterI = llvm::find_if(*AdapterBB, [](const VPInstruction &I) {
+    return isa<VPlanAdapter>(I);
+  });
+  assert(AdapterI != AdapterBB->end() && "expected basic block with adapter");
+  assert(!isa<VPlanPeelAdapter>(AdapterI) && "peel adapter is not expected");
+
+  auto *Adapter = cast<VPlanAdapter>(&*AdapterI);
+  for (auto &I : *MergeBB)
+    if (isa<VPPHINode>(I))
+      Adapter->addOperand(&I);
+}
+
 // Example CFG skeleton for scenario:
 //     peel + non-masked main + non-masked remainder + scalar remainder
 //       where RemVF < MainVF
@@ -1256,6 +1277,10 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
       // current one.
       LastMerge = createMergeBlockBefore(P.FirstBB);
       P.MergeBefore = LastMerge;
+
+      if (P.Type != LT::LTMain)
+        updateAdapterOperands(P.FirstBB, LastMerge);
+
       if (!FinalRemainderMerge && P.Type == LT::LTRemainder &&
           !isa<VPlanNonMasked>(P.Plan))
         FinalRemainderMerge = LastMerge;

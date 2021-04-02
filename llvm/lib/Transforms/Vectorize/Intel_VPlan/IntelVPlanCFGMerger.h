@@ -315,6 +315,10 @@ private:
     return Plan.getVPConstant(ConstantInt::get(Ty, V));
   }
 
+  // Set operands of VPlanAdapter from \p AdapterBB to the phis that are
+  // in the \p MergeBB.
+  void updateAdapterOperands(VPBasicBlock *AdapterBB, VPBasicBlock *MergeBB);
+
   // Emit the sequence of instructions to calculate peel count by the following
   // formula.
   //   Quotient = BasePtr / DP.RequiredAlignment;

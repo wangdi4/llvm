@@ -131,7 +131,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned.masked}
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned.masked} i64 [[VP9]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB12]], [[BB11]]

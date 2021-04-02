@@ -9,7 +9,6 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @test_store(i64* nocapture %ary, i32 %c) {
-;
 ; CHECK-LABEL:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: masked, VF=4
@@ -197,7 +196,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB19:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB19]]: # preds: [[MERGE_BLK1]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned.masked.cloned}
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned.masked.cloned} i64 [[VP20]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB19]], [[BB18]]

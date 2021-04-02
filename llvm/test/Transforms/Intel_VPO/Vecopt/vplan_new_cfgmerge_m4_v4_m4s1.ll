@@ -177,7 +177,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB19:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB19]]: # preds: [[MERGE_BLK1]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.ScalarRemainder}
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.ScalarRemainder} i64 [[VP17]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB18]], [[PEEL_CHECKZ0]]
@@ -222,7 +222,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB22:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB22]]: # preds: [[MERGE_BLK2]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER_1:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned.masked.cloned}
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER_1:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned.masked.cloned} i64 [[VP21]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB19]], [[BB22]], [[BB21]]
