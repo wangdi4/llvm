@@ -62,6 +62,51 @@ NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   return DTMDTypes;
 }
 
+MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
+  if (auto *F = dyn_cast<Function>(&V)) {
+    MDNode *MD = F->getMetadata(DTransFuncTypeMDTag);
+    if (MD)
+      return MD;
+
+    // Temporary fallback to the legacy tag name for existing LIT tests.
+    // TODO: Remove when LIT tests are updated.
+    return F->getMetadata(MDDTransTypeTagLegacy);
+  }
+
+  if (auto *I = dyn_cast<Instruction>(&V)) {
+    MDNode *MD = I->getMetadata(MDDTransTypeTag);
+    // Temporary fallback to the legacy tag name for existing LIT tests.
+    // TODO: Remove when LIT tests are updated.
+    if (!MD)
+      MD = I->getMetadata(MDDTransTypeTagLegacy);
+
+    return MD;
+  }
+
+  if (auto *G = dyn_cast<GlobalObject>(&V)) {
+    MDNode *MD = G->getMetadata(MDDTransTypeTag);
+
+    // Temporary fallback to the legacy tag name for existing LIT tests.
+    // TODO: Remove when LIT tests are updated.
+    if (!MD)
+      MD = G->getMetadata(MDDTransTypeTagLegacy);
+    return MD;
+  }
+
+  return nullptr;
+}
+
+void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
+  if (auto *F = dyn_cast<Function>(&V))
+    F->setMetadata(DTransFuncTypeMDTag, MD);
+  else if (auto *I = dyn_cast<Instruction>(&V))
+    I->setMetadata(MDDTransTypeTag, MD);
+  else if (auto *G = dyn_cast<GlobalObject>(&V))
+    G->setMetadata(MDDTransTypeTag, MD);
+  else
+    llvm_unreachable("Unexpected Value type passed into addDTransMDNode");
+}
+
 bool TypeMetadataReader::initialize(Module &M) {
   NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)
@@ -413,39 +458,28 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
 // has DTransType metadata, and returns it if available.
 // Otherwise, returns nullptr.
 DTransType *TypeMetadataReader::getDTransTypeFromMD(Value *V) {
-  MDNode *MDNode = nullptr;
-  if (auto *I = dyn_cast<Instruction>(V)) {
-    MDNode = I->getMetadata(MDDTransTypeTag);
+  if (auto *F = dyn_cast<Function>(V)) {
+    // Functions that had metadata were decoded during the initialize() method,
+    // and the results stored in a table.
+    DTransFunctionType *Ty = getDTransType(F);
+    if (Ty)
+      return Ty;
+  }
 
-    // Temporary fallback to the legacy tag name for existing LIT tests.
-    // TODO: Remove when LIT tests are updated.
-    if (!MDNode)
-      MDNode = I->getMetadata(MDDTransTypeTagLegacy);
-  } else if (auto *G = dyn_cast<GlobalObject>(V)) {
-    if (auto *F = dyn_cast<Function>(V)) {
-      // Try to get the metadata from the FunctionToDTransTypeMap table.
-      DTransFunctionType *Ty = getDTransType(F);
-      if (Ty)
-        return Ty;
-    }
-    MDNode = G->getMetadata(MDDTransTypeTag);
+  MDNode *MD = getDTransMDNode(*V);
 
-    // Temporary fallback to the legacy tag name for existing LIT tests.
-    // TODO: Remove when LIT tests are updated.
-    if (!MDNode)
-      MDNode = G->getMetadata(MDDTransTypeTagLegacy);
-
-    if (!MDNode) {
-      // Deprecated:
-      // TODO: Remove when LIT tests are updated.
-      // Try to find a type from the table of declaration types.
+  // Deprecated:
+  // TODO: Remove when LIT tests are updated.
+  // Try to find a type from the table of declaration types.
+  if (!MD)
+    if (auto *G = dyn_cast<GlobalObject>(V)) {
       auto It = SymbolNameToMDNodeMap.find(G->getName());
       if (It != SymbolNameToMDNodeMap.end())
-        MDNode = It->second;
+        MD = It->second;
     }
-  }
-  if (MDNode)
-    return decodeMDNode(MDNode);
+
+  if (MD)
+    return decodeMDNode(MD);
 
   return nullptr;
 }
@@ -984,13 +1018,7 @@ public:
     for (auto &GV : M.globals()) {
       llvm::Type *GVType = GV.getValueType();
       if (dtrans::hasPointerType(GVType)) {
-        MDNode *MD = GV.getMetadata(MDDTransTypeTag);
-
-        // Temporary fallback to the legacy tag name for existing LIT tests.
-        // TODO: Remove when LIT tests are updated.
-        if (!MD)
-          MD = GV.getMetadata(MDDTransTypeTagLegacy);
-
+        MDNode *MD = Reader.getDTransMDNode(GV);
         if (!MD) {
           ErrorsFound = true;
           LLVM_DEBUG(dbgs()
@@ -1045,31 +1073,26 @@ public:
 
     llvm::Type *FnType = F.getValueType();
     if (dtrans::hasPointerType(FnType)) {
-      // TODO: Remove check for metadata attachment when LIT tests are updated
-      // to use new form of tagging.
-      MDNode *MD = F.getMetadata(MDDTransTypeTag);
-
-      // Temporary fallback to the legacy tag name for existing LIT tests.
-      // TODO: Remove when LIT tests are updated.
-      if (!MD)
-        MD = F.getMetadata(MDDTransTypeTagLegacy);
-
-      DTransType *DType = nullptr;
-      if (!MD) {
-        DType = Reader.getDTransType(&F);
-        if (!DType) {
+      DTransType *DType = Reader.getDTransType(&F);
+      if (!DType) {
+        // TODO: Remove check for metadata attachment when LIT tests are updated
+        // to use new form of tagging.
+        MDNode *MD = Reader.getDTransMDNode(F);
+        if (!MD) {
           ErrorsFound = true;
           LLVM_DEBUG(dbgs() << DEBUG_TYPE
                             << ":   ERROR: Missing fn type metadata for: "
                             << F.getName() << "\n");
-        }
-      } else {
-        DType = Reader.decodeMDNode(MD);
-        if (!DType) {
-          ErrorsFound = true;
-          LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                            << ":  ERROR: Failed to decode fn type metadata: "
-                            << " - " << *MD << "\n");
+        } else {
+          assert(F.getMetadata(DTransFuncTypeMDTag) == nullptr &&
+                 "Expected a legacy DTrans encoding format to be in use");
+          DType = Reader.decodeMDNode(MD);
+          if (!DType) {
+            ErrorsFound = true;
+            LLVM_DEBUG(dbgs() << DEBUG_TYPE
+                              << ":  ERROR: Failed to decode fn type metadata: "
+                              << " - " << *MD << "\n");
+          }
         }
       }
 
@@ -1092,13 +1115,7 @@ public:
       if (auto *AI = dyn_cast<AllocaInst>(&I)) {
         llvm::Type *AllocType = AI->getAllocatedType();
         if (dtrans::hasPointerType(AllocType)) {
-          MDNode *MD = AI->getMetadata(MDDTransTypeTag);
-
-          // Temporary fallback to the legacy tag name for existing LIT tests.
-          // TODO: Remove when LIT tests are updated.
-          if (!MD)
-            MD = AI->getMetadata(MDDTransTypeTagLegacy);
-
+          MDNode *MD = Reader.getDTransMDNode(*AI);
           if (!MD) {
             ErrorsFound = true;
             LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   ERROR: Missing metadata: "
@@ -1128,13 +1145,7 @@ public:
       } else if (auto *Call = dyn_cast<CallBase>(&I)) {
         if (Call->isIndirectCall() &&
             dtrans::hasPointerType(Call->getFunctionType())) {
-          MDNode *MD = Call->getMetadata(MDDTransTypeTag);
-
-          // Temporary fallback to the legacy tag name for existing LIT tests.
-          // TODO: Remove when LIT tests are updated.
-          if (!MD)
-            MD = Call->getMetadata(MDDTransTypeTagLegacy);
-
+          MDNode *MD = Reader.getDTransMDNode(*Call);
           if (!MD) {
             ErrorsFound = true;
             LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   ERROR: Missing metadata: "

@@ -215,6 +215,30 @@ protected:
   virtual void populateTypes(Module &M) = 0;
 
   //===-------------------------------------------------------------------===//
+  // Methods that may be implemented by the derived classes that perform some
+  // transformation.
+  //===-------------------------------------------------------------------===//
+
+  // Derived classes may implement this method to create the replacement
+  // variable for an existing global variable. If a replacement is made, then
+  // the new variable must be returned, and the derived class will be
+  // responsible for initializing the variable when a call to
+  // initializeGlobalVariable is made. If the child class does not need to do
+  // something specific for replacing the variable, it should return nullptr. An
+  // example of the use would be if a global variable is instantiated for a type
+  // that is having some field deleted, the base class would not know how to
+  // initialize the value of a newly created variable, but the derived class
+  // would.
+  virtual GlobalVariable *createGlobalVariableReplacement(GlobalVariable *GV) {
+    return nullptr;
+  }
+
+  // Derived classes may implement this method to update uses of global
+  // variables after the global variables have been updated.
+  virtual void postprocessGlobalVariable(GlobalVariable *OrigGV,
+                                         GlobalVariable *NewGV) {}
+
+  //===-------------------------------------------------------------------===//
   // Methods that are exposed to the derived classes
   //===-------------------------------------------------------------------===//
 
@@ -224,6 +248,19 @@ protected:
   // on types computed by the TypeRemapper.
   void populateDependentTypes(Module &M,
                               const LLVMTypeToTypeMap &DependentTypeMapping);
+
+  // Derived class that override createReplacementGlobalVariable must implement
+  // this method to handle the initialization of any GlobalVariable objects the
+  // derived class returned during calls to that method so that fields of the
+  // new structure body are properly initialized. However, the base class
+  // version is exposed to the derived classes because there are some cases
+  // where they can simply rely on the base class implementation, such as if the
+  // initialization value was a zeroinitializer.
+  virtual void initializeGlobalVariableReplacement(GlobalVariable *OrigGV,
+                                                   GlobalVariable *NewGV,
+                                                   ValueMapper &Mapper) {
+    initializeGlobalVariableReplacementBaseImpl(OrigGV, NewGV, Mapper);
+  }
 
 private:
   //===-------------------------------------------------------------------===//
@@ -236,6 +273,13 @@ private:
   void prepareDependentTypes(Module &M,
                              LLVMTypeToTypeMap &DependentTypeMapping);
   void updateDTransTypesMetadata(Module &M, ValueMapper &Mapper);
+  void createCloneFunctionDeclarations(Module &M);
+  void convertGlobalVariables(Module &M, ValueMapper &Mapper);
+  void initializeGlobalVariableReplacementBaseImpl(GlobalVariable *OrigGV,
+                                                   GlobalVariable *NewGV,
+                                                   ValueMapper &Mapper);
+  void transformIR(Module &M, ValueMapper &Mapper);
+  void removeDeadValues();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpTypeToTypeSetMapping(StringRef Header,
                                 DTransTypeToTypeSetMap &TypeToDependentTypes);
@@ -296,6 +340,11 @@ protected:
   // Initially, it will be primed with the global variables and functions that
   // need cloning. As the ValueMapper replaces values those will get inserted.
   ValueToValueMapTy VMap;
+
+  // List of global variables that are being replaced with variables of the new
+  // types due to type remapping. The variables in this list need to be
+  // destroyed once the entire module has been remapped.
+  SmallVector<GlobalValue *, 16> GlobalsForRemoval;
 };
 
 } // namespace dtransOP
