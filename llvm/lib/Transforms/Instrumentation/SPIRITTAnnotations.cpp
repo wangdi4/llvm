@@ -163,6 +163,7 @@ bool insertSimpleInstrumentationCall(Module &M, StringRef Name,
   ArrayRef<Value *> Args;
   Instruction *InstrumentationCall = emitCall(M, VoidTy, Name, Args, Position);
   assert(InstrumentationCall && "Instrumentation call creation failed");
+  (void)InstrumentationCall; // INTEL
   return true;
 }
 
@@ -225,6 +226,7 @@ bool insertAtomicInstrumentationCall(Module &M, StringRef Name,
   Value *Args[] = {Ptr, AtomicOp, MemOrder};
   Instruction *InstrumentationCall = emitCall(M, VoidTy, Name, Args, Position);
   assert(InstrumentationCall && "Instrumentation call creation failed");
+  (void)InstrumentationCall; // INTEL
   return true;
 }
 
