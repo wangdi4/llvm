@@ -77,6 +77,10 @@ public:
      */
     virtual const char* GetBuildLog() const = 0;
 
+    /// Finalize program, e.g. run global ctor, load program dll for windows
+    /// native debugger, and retrieve global variable address.
+    virtual cl_dev_err_code Finalize() = 0;
+
     /**
      * Gets the program Code Container; Program code is an abstraction which contain all
      * the kernel's codes (the executable code with it's metadata)

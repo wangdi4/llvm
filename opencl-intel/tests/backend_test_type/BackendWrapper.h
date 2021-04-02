@@ -182,9 +182,13 @@ public:
 
     virtual const ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const { return NULL; }
 
-    virtual cl_dev_err_code GetKernelByName(
-        const char* pKernelName,
-        const ICLDevBackendKernel_** ppKernel) const { return CL_DEV_ERROR_FAIL; }
+    cl_dev_err_code Finalize() override { return CL_DEV_SUCCESS; }
+
+    virtual cl_dev_err_code
+    GetKernelByName(const char *pKernelName,
+                    const ICLDevBackendKernel_ **ppKernel) const override {
+      return CL_DEV_ERROR_FAIL;
+    }
 
     virtual int GetNonBlockKernelsCount() const { return 0; }
 

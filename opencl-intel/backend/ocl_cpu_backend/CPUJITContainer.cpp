@@ -39,7 +39,10 @@ CPUJITContainer::CPUJITContainer(const void* pFuncCode,
     m_pFunction(pFunction),
     m_pModule(pModule),
     m_pProps(pProps) // get ownership of the pProps pointer
-{}
+{
+  if (m_pFunction)
+    m_FuncName = std::string(m_pFunction->getName());
+}
 
 CPUJITContainer::~CPUJITContainer()
 {
@@ -52,10 +55,8 @@ void CPUJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) 
   Serializer::SerialPointerHint(
       const_cast<const void **>(reinterpret_cast<void *const *>(&m_pFunction)),
       ost);
-  if (m_pFunction) {
-    std::string name = std::string(m_pFunction->getName());
-    Serializer::SerialString(name, ost);
-  }
+  if (m_pFunction)
+    Serializer::SerialString(m_FuncName, ost);
   Serializer::SerialPointerHint(
       const_cast<const void **>(reinterpret_cast<void *const *>(&m_pModule)),
       ost);
@@ -69,12 +70,11 @@ void CPUJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) 
 
 void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
-    std::string name;
     Serializer::DeserialPointerHint(const_cast<void **>(&m_pFuncCode), ist);
     Serializer::DeserialPointerHint((void**)&m_pFunction, ist);
     if(m_pFunction)
     {
-        Serializer::DeserialString(name, ist);
+        Serializer::DeserialString(m_FuncName, ist);
     }
     Serializer::DeserialPointerHint((void**)&m_pModule, ist);
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);
@@ -89,7 +89,7 @@ void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
     CPUProgram* pProgram = (CPUProgram*)stats->GetPointerMark("pProgram");
     if(pProgram && m_pFuncCode && m_pFunction)
-        m_pFuncCode = pProgram->GetPointerToFunction(name);
+        m_pFuncCode = pProgram->GetPointerToFunction(m_FuncName);
 }
 
 }}} // namespace

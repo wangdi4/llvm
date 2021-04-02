@@ -66,6 +66,7 @@ public:
                                         const char* IN options,
                                         cl_build_status* OUT buildStatus
                                        );
+    cl_dev_err_code FinalizeProgram(cl_dev_program IN prog);
     cl_dev_err_code ReleaseProgram( cl_dev_program IN prog );
     cl_dev_err_code UnloadCompiler();
     cl_dev_err_code GetProgramBinary( cl_dev_program IN prog,
