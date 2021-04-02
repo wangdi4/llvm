@@ -134,12 +134,12 @@ public:
   void operator()(const reflection::ParamType *t) { t->accept(this); }
 
   // visit methods
-  void visit(const reflection::PrimitiveType *t);
-  void visit(const reflection::PointerType *p);
-  void visit(const reflection::VectorType *v);
-  void visit(const reflection::AtomicType *p);
-  void visit(const reflection::BlockType *p);
-  void visit(const reflection::UserDefinedType *pTy);
+  void visit(const reflection::PrimitiveType *t) override;
+  void visit(const reflection::PointerType *p) override;
+  void visit(const reflection::VectorType *v) override;
+  void visit(const reflection::AtomicType *p) override;
+  void visit(const reflection::BlockType *p) override;
+  void visit(const reflection::UserDefinedType *pTy) override;
 
 private:
   int getTypeIndex(const reflection::ParamType *t) const;

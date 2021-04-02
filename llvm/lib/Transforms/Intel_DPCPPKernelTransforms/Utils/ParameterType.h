@@ -170,16 +170,16 @@ struct PrimitiveType : public ParamType {
   ///       When overridden in subclasses, preform a 'double dispatch' to the
   ///       appropriate visit method in the given visitor.
   ///@param TypeVisitor type visitor
-  void accept(TypeVisitor *) const;
+  void accept(TypeVisitor *) const override;
 
   ///@brief returns a string representation of the underlying type.
   ///@return type as string
-  std::string toString() const;
+  std::string toString() const override;
 
   ///@brief returns true if given param type is equal to this type.
   ///@param ParamType given param type
   ///@return true if given param type is equal to this type and false otherwise
-  bool equals(const ParamType *) const;
+  bool equals(const ParamType *) const override;
 
   /// Non-Common Methods ///
   TypePrimitiveEnum getPrimitive() const { return m_primitive; }
@@ -210,16 +210,16 @@ struct PointerType : public ParamType {
   ///       When overridden in subclasses, preform a 'double dispatch' to the
   ///       appropriate visit method in the given visitor.
   ///@param TypeVisitor type visitor
-  void accept(TypeVisitor *) const;
+  void accept(TypeVisitor *) const override;
 
   ///@brief returns a string representation of the underlying type.
   ///@return type as string
-  std::string toString() const;
+  std::string toString() const override;
 
   ///@brief returns true if given param type is equal to this type.
   ///@param ParamType given param type
   ///@return true if given param type is equal to this type and false otherwise
-  bool equals(const ParamType *) const;
+  bool equals(const ParamType *) const override;
 
   /// Non-Common Methods ///
 
@@ -264,16 +264,16 @@ struct VectorType : public ParamType {
   ///       When overridden in subclasses, preform a 'double dispatch' to the
   ///       appropriate visit method in the given visitor.
   ///@param TypeVisitor type visitor
-  void accept(TypeVisitor *) const;
+  void accept(TypeVisitor *) const override;
 
   ///@brief returns a string representation of the underlying type.
   ///@return type as string
-  std::string toString() const;
+  std::string toString() const override;
 
   ///@brief returns true if given param type is equal to this type.
   ///@param ParamType given param type
   ///@return true if given param type is equal to this type and false otherwise
-  bool equals(const ParamType *) const;
+  bool equals(const ParamType *) const override;
 
   /// Non-Common Methods ///
 
@@ -306,16 +306,16 @@ struct AtomicType : public ParamType {
   ///       When overridden in subclasses, preform a 'double dispatch' to the
   ///       appropriate visit method in the given visitor.
   ///@param TypeVisitor type visitor
-  void accept(TypeVisitor *) const;
+  void accept(TypeVisitor *) const override;
 
   ///@brief returns a string representation of the underlying type.
   ///@return type as string
-  std::string toString() const;
+  std::string toString() const override;
 
   ///@brief returns true if given param type is equal to this type.
   ///@param ParamType given param type
   ///@return true if given param type is equal to this type and false otherwise
-  bool equals(const ParamType *) const;
+  bool equals(const ParamType *) const override;
 
   /// Non-Common Methods ///
 
@@ -341,16 +341,16 @@ struct BlockType : public ParamType {
   ///       When overridden in subclasses, preform a 'double dispatch' to the
   ///       appropriate visit method in the given visitor.
   ///@param TypeVisitor type visitor
-  void accept(TypeVisitor *) const;
+  void accept(TypeVisitor *) const override;
 
   ///@brief returns a string representation of the underlying type.
   ///@return type as string
-  std::string toString() const;
+  std::string toString() const override;
 
   ///@brief returns true if given param type is equal to this type.
   ///@param ParamType given param type
   ///@return true if given param type is equal to this type and false otherwise
-  bool equals(const ParamType *) const;
+  bool equals(const ParamType *) const override;
 
   /// Non-Common Methods ///
 
@@ -397,16 +397,16 @@ struct UserDefinedType : public ParamType {
   ///       When overridden in subclasses, preform a 'double dispatch' to the
   ///       appropriate visit method in the given visitor.
   ///@param TypeVisitor type visitor
-  void accept(TypeVisitor *) const;
+  void accept(TypeVisitor *) const override;
 
   ///@brief returns a string representation of the underlying type.
   ///@return type as string
-  std::string toString() const;
+  std::string toString() const override;
 
   ///@brief returns true if given param type is equal to this type.
   ///@param ParamType given param type
   ///@return true if given param type is equal to this type and false otherwise
-  bool equals(const ParamType *) const;
+  bool equals(const ParamType *) const override;
 
 protected:
   /// the name of the user defined type
@@ -422,6 +422,7 @@ struct TypeVisitor {
   virtual void visit(const AtomicType *) = 0;
   virtual void visit(const BlockType *) = 0;
   virtual void visit(const UserDefinedType *) = 0;
+  virtual ~TypeVisitor() {}
 };
 
 ///@brief template dynamic cast function for ParamType derived classes
