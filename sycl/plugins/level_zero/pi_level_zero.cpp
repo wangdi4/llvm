@@ -412,7 +412,7 @@ inline void zeParseError(ze_result_t ZeError, std::string &ErrorString) {
 
 #undef ZE_ERRCASE
   default:
-    assert("Unexpected Error code");
+    assert(false && "Unexpected Error code");
   } // switch
 }
 
