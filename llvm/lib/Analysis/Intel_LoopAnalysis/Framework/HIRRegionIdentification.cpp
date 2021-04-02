@@ -2463,7 +2463,8 @@ void HIRRegionIdentification::runImpl(Function &F) {
   }
 
   if (BuildFunctionRegion || isLoopConcatenationCandidate() ||
-      F.hasFnAttribute("may_have_huge_local_malloc")) {
+      F.hasFnAttribute("may_have_huge_local_malloc") ||
+      F.hasFnAttribute("prefer-function-level-region")) {
     if (canFormFunctionLevelRegion(F)) {
       createFunctionLevelRegion(F);
     }
