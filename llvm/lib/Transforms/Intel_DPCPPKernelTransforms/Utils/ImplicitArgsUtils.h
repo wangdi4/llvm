@@ -86,6 +86,8 @@ public:
   /// Gets the value of this argument.
   virtual void *getValue() { return *((void **)Val); }
 
+  virtual ~FunctionArgument() {}
+
 protected:
   /// Implict argument's value destination pointer.
   char *Val;

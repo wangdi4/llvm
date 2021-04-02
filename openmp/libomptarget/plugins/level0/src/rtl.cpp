@@ -211,7 +211,7 @@ class MemoryPoolTy {
     /// Number of slots in use
     uint32_t NumUsedSlots = 0;
 
-    /// Free slot returned by the last free() call
+    /// Free slot returned by the last dealloc() call
     uint32_t FreeSlot = UINT32_MAX;
 
     /// Marker for the currently used slots
@@ -259,7 +259,7 @@ class MemoryPoolTy {
     }
 
     /// Return the memory to the block
-    void free(void *Mem) {
+    void dealloc(void *Mem) {
       if (!contains(Mem))
         FATAL_ERROR("Inconsistent state while returning memory to pool");
       uint32_t slot = (reinterpret_cast<uintptr_t>(Mem) - Base) / ChunkSize;
@@ -336,6 +336,9 @@ public:
 
   /// Allocate memory from the pool with Size and Offset
   void *alloc(size_t Size, intptr_t Offset = 0) {
+    if (!Initialized)
+      return nullptr;
+
     std::unique_lock<std::mutex> lock(PoolMtx);
 
     if (Size == 0 || Size > AllocMax)
@@ -382,14 +385,17 @@ public:
   }
 
   /// Return the memory to the pool
-  bool free(void *Mem) {
+  bool dealloc(void *Mem) {
+    if (!Initialized)
+      return false;
+
     std::unique_lock<std::mutex> lock(PoolMtx);
 
     auto key = reinterpret_cast<intptr_t>(Mem);
     if (PtrToBlock.count(key) == 0)
       return false;
 
-    PtrToBlock[key]->free(Mem);
+    PtrToBlock[key]->dealloc(Mem);
     LOG_MEM_USAGE_POOL(Device, 0, Mem, PtrToBlock[key]->ChunkSize);
 
     PtrToBlock.erase(key);
@@ -1028,12 +1034,13 @@ public:
   uint32_t ThreadLimit = 0; // Global thread limit
   uint32_t NumTeams = 0; // Global max number of teams
 
-  /// Max memory size in MB allocatable from pool
-  uint32_t MemPoolAllocMax = 1;
-  /// Capacity of each block in the memory pool (over-allocation factor)
-  uint32_t MemPoolCapacity = 4;
-  /// Max pool size allowed in MB
-  uint32_t MemPoolSizeMax = 256;
+  /// Memory pool parameters
+  /// MemPoolInfo[MemType] = {AllocMax(MB), Capacity, PoolSize(MB)}
+  std::map<int32_t, std::vector<int32_t>> MemPoolInfo = {
+      {TARGET_ALLOC_DEVICE, {1, 4, 256}},
+      {TARGET_ALLOC_HOST, {1, 4, 256}},
+      {TARGET_ALLOC_SHARED, {1, 4, 256}}
+  };
 
   /// User-directed allocation kind
   int32_t TargetAllocKind = TARGET_ALLOC_DEFAULT;
@@ -1208,34 +1215,92 @@ public:
     }
 
     // Memory pool
+    // LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>
+    //  <Option>       := 0 | <PoolInfoList>
+    //  <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]
+    //  <PoolInfo>     := <MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]
+    //  <MemType>      := all | device | host | shared
+    //  <AllocMax>     := positive integer, max allocation size in MB
+    //                    (default: 1)
+    //  <Capacity>     := positive integer, number of allocations from a single
+    //                    block (default: 4)
+    //  <PoolSize>     := positive integer, max pool size in MB (default: 256)
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_MEMORY_POOL")) {
-      if (env[0] == 'F' || env[0] == 'f' || env[0] == '0') {
+      if (env[0] == '0' && env[1] == '\0') {
         Flags.UseMemoryPool = 0;
-      } else if (env[0] == 'T' || env[0] == 't' || env[0] == '1') {
-        Flags.UseMemoryPool = 1;
+      } else {
         std::istringstream str(env);
-        int i = 0;
-        int params[4] = {0, 0, 0, 0};
-        for (std::string token; std::getline(str, token, ',') && i < 4; i++)
-          params[i] = std::atoi(token.c_str());
-        auto allocMax = MemPoolAllocMax;
-        auto capacity = MemPoolCapacity;
-        auto sizeMax = MemPoolSizeMax;
-        if (params[1] > 0)
-          allocMax = params[1];
-        if (params[2] > 0)
-          capacity = params[2];
-        if (params[3] > 0)
-          sizeMax = params[3];
-        if (allocMax * capacity > sizeMax) {
-          IDP("LIBOMPTARGET_LEVEL0_MEMORY_POOL=%s results in inconsistent "
-              "memory pool configuration (alloctable memory block from pool "
-              "exceeds maximum pool size) -- specified value is ignored.\n",
-              env);
+        int32_t memType = -1;
+        int32_t offset = 0;
+        int32_t valid = 1;
+        const std::vector<int32_t> defaultValue{1, 4, 256};
+        const int32_t allMemType = INT32_MAX;
+        std::vector<int32_t> allInfo{1, 4, 256};
+        std::map<int32_t, std::vector<int32_t>> poolInfo;
+        for (std::string token; std::getline(str, token, ',') && valid > 0;) {
+          if (token == "device") {
+            memType = TARGET_ALLOC_DEVICE;
+            poolInfo.emplace(memType, defaultValue);
+            offset = 0;
+          } else if (token == "host") {
+            memType = TARGET_ALLOC_HOST;
+            poolInfo.emplace(memType, defaultValue);
+            offset = 0;
+          } else if (token == "shared") {
+            memType = TARGET_ALLOC_SHARED;
+            poolInfo.emplace(memType, defaultValue);
+            offset = 0;
+          } else if (token == "all") {
+            memType = allMemType;
+            offset = 0;
+            valid = 2;
+          } else if (offset < 3 && memType >= 0) {
+            int32_t num = std::atoi(token.c_str());
+            if (num > 0 && memType == allMemType)
+              allInfo[offset++] = num;
+            else if (num > 0)
+              poolInfo[memType][offset++] = num;
+            else
+              valid = 0;
+          } else {
+            valid = 0;
+          }
+        }
+        if (valid > 0) {
+          MemPoolInfo.clear();
+          if (valid == 2) {
+            // "all" is specified -- ignore other inputs
+            MemPoolInfo.emplace(TARGET_ALLOC_DEVICE, allInfo);
+            MemPoolInfo.emplace(TARGET_ALLOC_HOST, allInfo);
+            MemPoolInfo.emplace(TARGET_ALLOC_SHARED, allInfo);
+          } else {
+            // Only enable what user specified
+            for (auto &I : poolInfo)
+              MemPoolInfo.emplace(I.first, I.second);
+          }
+          // Set total pool size large enough (2 * AllocMax * Capacity)
+          for (auto &I : MemPoolInfo) {
+            int32_t poolSize = 2 * I.second[0] * I.second[1];
+            if (poolSize > I.second[2]) {
+              I.second[2] = poolSize;
+              IDP("Adjusted memory pool size to %" PRId32 "MB\n", poolSize);
+            }
+          }
         } else {
-          MemPoolAllocMax = allocMax;
-          MemPoolCapacity = capacity;
-          MemPoolSizeMax = sizeMax;
+          IDP("Ignoring incorrect memory pool configuration "
+              "LIBOMPTARGET_LEVEL0_MEMORY_POOL=%s\n", env);
+          IDP("LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>\n");
+          IDP("  <Option>       := 0 | <PoolInfoList>\n");
+          IDP("  <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]\n");
+          IDP("  <PoolInfo>     := "
+              "<MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]\n");
+          IDP("  <MemType>      := all | device | host | shared\n");
+          IDP("  <AllocMax>     := positive integer, "
+              "max allocation size in MB (default: 1)\n");
+          IDP("  <Capacity>     := positive integer, number of allocations "
+              "from a single block (default: 4)\n");
+          IDP("  <PoolSize>     := positive integer, "
+              "max pool size in MB (default: 256)\n");
         }
       }
     }
@@ -1706,29 +1771,68 @@ static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
   return allocDataExplicit(device, Size, Kind);
 }
 
+static uint64_t getDeviceArch(uint32_t L0DeviceId) {
+  for (auto &arch : DeviceArchMap)
+    for (auto id : arch.second)
+      if (L0DeviceId == id || (L0DeviceId & 0xFF00) == id)
+        return arch.first; // Exact match or prefix match
+
+  IDP("Warning: Cannot decide device arch for %" PRIx32 ".\n", L0DeviceId);
+  return DeviceArch_None;
+}
+
+static bool isDiscrete(uint32_t L0DeviceId) {
+  uint32_t prefix = L0DeviceId & 0xFF00;
+  return prefix == 0x4900 || prefix == 0x0200;
+}
+
+// Decide device's default memory kind for internal allocation (e.g., map)
+static int32_t getAllocKinds(uint32_t L0DeviceId) {
+  return isDiscrete(L0DeviceId) ? TARGET_ALLOC_DEVICE : TARGET_ALLOC_SHARED;
+}
+
 /// Initialize memory pool with the parameters
 void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
   if (Initialized)
     return;
 
-  // Convert MB to B and round up to power of 2
-  AllocMax = AllocMin << getBucketId(RTL->MemPoolAllocMax * (1 << 20));
-  auto minSize = getBucketId(AllocMin);
-  auto maxSize = getBucketId(AllocMax);
-  Buckets.resize(maxSize - minSize + 1);
+  if (RTL->MemPoolInfo.count(allocKind) == 0) {
+    IDP("Memory pool is disabled for %s\n", ALLOC_KIND_TO_STR(allocKind));
+    return;
+  }
+
+  // Use fixed parameters for shared memory pool on discrete device.
+  ze_device_properties_t properties;
+  bool fixedParams = false;
+  if (allocKind == TARGET_ALLOC_SHARED) {
+    CALL_ZE_EXIT_FAIL(zeDeviceGetProperties, Device, &properties);
+    fixedParams = isDiscrete(properties.deviceId);
+  }
+
+  size_t userAllocMax = RTL->MemPoolInfo[allocKind][0];
+  size_t userCapacity = fixedParams ? 1 : RTL->MemPoolInfo[allocKind][1];
+  size_t userPoolSize = RTL->MemPoolInfo[allocKind][2];
+
   Context = RTL->Context;
   AllocKind = allocKind;
-  BlockCapacity = RTL->MemPoolCapacity;
-  PoolSizeMax = RTL->MemPoolSizeMax << 20; // MB to B
+  BlockCapacity = userCapacity;
+  PoolSizeMax = userPoolSize << 20; // MB to B
   PoolSize = 0;
-  assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
-         "Invalid parameters while initializing memory pool");
 
   // Decide AllocUnit. Do not log this allocation.
   void *mem = allocDataExplicit(Device, 8, AllocKind, false);
   CALL_ZE_EXIT_FAIL(zeMemGetAddressRange, Context, mem, nullptr,
                     &AllocUnit);
   CALL_ZE_EXIT_FAIL(zeMemFree, Context, mem);
+
+  // Convert MB to B and round up to power of 2
+  AllocMax = fixedParams ? AllocUnit / BlockCapacity
+                         : AllocMin << getBucketId(userAllocMax * (1 << 20));
+  auto minSize = getBucketId(AllocMin);
+  auto maxSize = getBucketId(AllocMax);
+  Buckets.resize(maxSize - minSize + 1);
+  assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
+         "Invalid parameters while initializing memory pool");
 
   // Set bucket parameters
   for (size_t i = 0; i < Buckets.size(); i++) {
@@ -1877,13 +1981,13 @@ bool RTLDeviceInfoTy::poolFree(int32_t DeviceId, void *Ptr) {
 
   switch (memType) {
   case ZE_MEMORY_TYPE_HOST:
-    ret = MemPoolHost.free(Ptr);
+    ret = MemPoolHost.dealloc(Ptr);
     break;
   case ZE_MEMORY_TYPE_SHARED:
-    ret = MemPoolShared[device].free(Ptr);
+    ret = MemPoolShared[device].dealloc(Ptr);
     break;
   case ZE_MEMORY_TYPE_DEVICE:
-    ret = MemPoolDevice[device].free(Ptr);
+    ret = MemPoolDevice[device].dealloc(Ptr);
     break;
   default:
     IDP("Invalid memory type while freeing memory to pool\n");
@@ -2052,25 +2156,6 @@ static int32_t getSubDevices(
   }
 
   return OFFLOAD_SUCCESS;
-}
-
-static uint64_t getDeviceArch(uint32_t L0DeviceId) {
-  for (auto &arch : DeviceArchMap)
-    for (auto id : arch.second)
-      if (L0DeviceId == id || (L0DeviceId & 0xFF00) == id)
-        return arch.first; // Exact match or prefix match
-
-  IDP("Warning: Cannot decide device arch for %" PRIx32 ".\n", L0DeviceId);
-  return DeviceArch_None;
-}
-
-// Decide device's default memory kind for internal allocation (e.g., map)
-static int32_t getAllocKinds(uint32_t L0DeviceId) {
-  uint32_t prefix = L0DeviceId & 0xFF00;
-  if (prefix == 0x4900 || prefix == 0x0200)
-    return TARGET_ALLOC_DEVICE; // Discrete device
-  else
-    return TARGET_ALLOC_SHARED; // Integrated device
 }
 
 static int32_t appendDeviceProperties(ze_device_handle_t Device) {

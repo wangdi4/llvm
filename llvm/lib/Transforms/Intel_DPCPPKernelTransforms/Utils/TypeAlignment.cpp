@@ -59,10 +59,9 @@ size_t TypeAlignment::getSize(const KernelArgument &Arg) {
   case KRNL_ARG_PTR_PIPE_T:
   case KRNL_ARG_PTR_CLK_EVENT_T:
     return Arg.SizeInBytes;
-
-  default:
-    llvm_unreachable("Unknown KernelArgument type");
   }
+
+  llvm_unreachable("Unknown KernelArgument type");
 }
 
 size_t TypeAlignment::getAlignment(const KernelArgument &Arg) {

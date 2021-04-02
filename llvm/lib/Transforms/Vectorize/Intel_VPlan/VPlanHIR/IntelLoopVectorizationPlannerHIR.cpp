@@ -25,10 +25,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-cl::opt<uint64_t>
-    VPlanDefaultEstTripHIR("vplan-default-est-trip-hir", cl::init(300),
-                           cl::desc("Default estimated trip count"));
-
 static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
                                            cl::init(false), cl::Hidden,
                                            cl::desc("Force CFG linearization"));
