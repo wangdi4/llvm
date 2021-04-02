@@ -7,7 +7,7 @@
 ; INTEL - Enable loop vectorizer as it is needed.
 ; INTEL - Disable loopopt as it significantly changes the test case.
 ; RUN: llvm-lto -use-new-pm=false -pass-remarks=inline -enable-lv -loopopt=0 \
-; RUN:          -exported-symbol _func2 -pass-remarks-missed=loop-vectorize \
+; RUN:          -exported-symbol _func2 -pass-remarks-analysis=loop-vectorize \
 ; RUN:          -exported-symbol _main -o %t.o %t.bc 2>&1 | \
 ; RUN:     FileCheck %s -allow-empty -check-prefix=REMARKS
 ; RUN: llvm-nm %t.o | FileCheck %s -check-prefix NM
@@ -15,7 +15,7 @@
 ; INTEL - Enable loop vectorizer as it is needed.
 ; INTEL - Disable loopopt as it significantly changes the test case.
 ; RUN: llvm-lto -use-new-pm=false -pass-remarks=inline -use-diagnostic-handler -enable-lv -loopopt=0 \
-; RUN:          -exported-symbol _func2 -pass-remarks-missed=loop-vectorize \
+; RUN:          -exported-symbol _func2 -pass-remarks-analysis=loop-vectorize \
 ; RUN:          -exported-symbol _main -o %t.o %t.bc 2>&1 | \
 ; RUN:     FileCheck %s -allow-empty -check-prefix=REMARKS_DH
 ; RUN: llvm-nm %t.o | FileCheck %s -check-prefix NM
