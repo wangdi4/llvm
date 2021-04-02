@@ -104,6 +104,7 @@ def floor      : SvmlVariants<[FPBothMasked]>;
 def fmod       : SvmlVariants<[FPBothMasked]>;
 def hypot      : SvmlVariants<[FPBothMasked]>;
 def invsqrt    : SvmlVariants<[FPBothMasked]>;
+def ldexp      : SvmlVariants<[FPBothMaskedIntrin]>;
 def log10      : SvmlVariants<[FPBothMaskedIntrin]>;
 def log1p      : SvmlVariants<[FPBothMasked]>;
 def log2       : SvmlVariants<[FPBothMaskedIntrin]>;
