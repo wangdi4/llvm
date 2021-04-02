@@ -297,7 +297,8 @@ namespace intel{
 
     if (m_useTLSGlobals) {
       builder.SetInsertPoint(pFirstInst);
-      pLocalMem = builder.CreateLoad(pLocalMem);
+      pLocalMem = builder.CreateLoad(
+          pLocalMem->getType()->getPointerElementType(), pLocalMem);
     }
     // Iterate through local buffers
     for ( LocalBuffAnalysis::TUsedLocals::const_iterator gi = localsSet.begin(),

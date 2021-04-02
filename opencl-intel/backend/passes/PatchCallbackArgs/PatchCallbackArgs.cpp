@@ -90,8 +90,10 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
           assert(RuntimeHandle && "RuntimeHandle should not be null");
           IRBuilder<> B(
               dyn_cast<Instruction>(CallingF->getEntryBlock().begin()));
-          ImplicitArgs.first = B.CreateLoad(WorkInfo);
-          ImplicitArgs.second = B.CreateLoad(RuntimeHandle);
+          ImplicitArgs.first = B.CreateLoad(
+              WorkInfo->getType()->getPointerElementType(), WorkInfo);
+          ImplicitArgs.second = B.CreateLoad(
+              RuntimeHandle->getType()->getPointerElementType(), RuntimeHandle);
         } else {
           Value *WorkInfo;      // Used to access CallbackContext
           Value *RuntimeHandle; // Needed by some callbacks

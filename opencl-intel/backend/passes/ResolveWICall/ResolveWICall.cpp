@@ -104,7 +104,7 @@ namespace intel {
       ImplicitArgsUtils::IMPLICIT_ARGS arg) {
     auto TLSG = CompilationUtils::getTLSGlobal(module, arg);
     assert(TLSG && "TLS Global cannot be nullptr");
-    return builder.CreateLoad(TLSG);
+    return builder.CreateLoad(TLSG->getValueType(), TLSG);
   }
 
   Function* ResolveWICall::runOnFunction(Function *pFunc) {

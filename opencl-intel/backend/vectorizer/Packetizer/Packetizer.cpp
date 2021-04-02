@@ -3083,7 +3083,9 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   SmallVector<Instruction *, 16> SOA;
   for (unsigned int i = numInputPointers; i < numInputPointers + numDestVectors; ++i) {
     // First funcArg is pLoadAddr, only then we have our destination vectors
-    SOA.push_back(Builder.CreateLoad(funcArgs[i]));
+    Value *Ptr = funcArgs[i];
+    SOA.push_back(
+        Builder.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr));
   }
 
   // Map original extracts to their SOA version obtained from the transpose

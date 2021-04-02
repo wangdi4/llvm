@@ -202,14 +202,17 @@ namespace intel {
     // various values. Most rely on that m_currBarrierKeyValues is set for the
     // function being processed.
     Instruction *createGetCurrBarrierId(IRBuilder<> &B) {
-      return B.CreateLoad(m_currBarrierKeyValues->m_pCurrBarrierId,
+      auto *Ptr = m_currBarrierKeyValues->m_pCurrBarrierId;
+      return B.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr,
                           "CurrBarrierId");
     }
     Instruction *createSetCurrBarrierId(Value *V, IRBuilder<> &B) {
       return B.CreateStore(V, m_currBarrierKeyValues->m_pCurrBarrierId);
     }
     Instruction *createGetCurrSBIndex(IRBuilder<> &B) {
-      return B.CreateLoad(m_currBarrierKeyValues->m_pCurrSBIndex, "SBIndex");
+      auto *Ptr = m_currBarrierKeyValues->m_pCurrSBIndex;
+      return B.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr,
+                          "SBIndex");
     }
     Instruction *createSetCurrSBIndex(Value *V, IRBuilder<> &B) {
       return B.CreateStore(V, m_currBarrierKeyValues->m_pCurrSBIndex);
@@ -217,20 +220,23 @@ namespace intel {
     Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(Dim);
       return B.CreateLoad(
-          Ptr, CompilationUtils::AppendWithDimension("LocalId_", Dim));
+          Ptr->getType()->getPointerElementType(), Ptr,
+          CompilationUtils::AppendWithDimension("LocalId_", Dim));
     }
     Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                   IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(LocalIdValues, Dim, B);
       return B.CreateLoad(
-          Ptr, CompilationUtils::AppendWithDimension("LocalId_", Dim));
+          Ptr->getType()->getPointerElementType(), Ptr,
+          CompilationUtils::AppendWithDimension("LocalId_", Dim));
     }
     Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                   IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(
           LocalIdValues, ConstantInt::get(m_I32Type, APInt(32, Dim)), B);
       return B.CreateLoad(
-          Ptr, CompilationUtils::AppendWithDimension("LocalId_", Dim));
+          Ptr->getType()->getPointerElementType(), Ptr,
+          CompilationUtils::AppendWithDimension("LocalId_", Dim));
     }
     Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
       Value *Ptr = createGetPtrToLocalId(Dim);
