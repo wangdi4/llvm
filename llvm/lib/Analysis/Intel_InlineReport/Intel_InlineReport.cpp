@@ -688,7 +688,6 @@ void InlineReport::print() const {
     // as it may have changed.
     InlineReportFunction *IRF = Mit->second;
     IRF->setLinkageChar(F);
-    IRF->setLanguageChar(F);
     if (IRF->getSuppressPrint())
       continue;
     if (!IRF->getIsDeclaration()) {
@@ -939,7 +938,8 @@ void InlineReport::cloneFunction(Function *OldFunction,
   if (!isClassicIREnabled())
     return;
   auto MapIt = IRFunctionMap.find(OldFunction);
-  assert(MapIt != IRFunctionMap.end());
+  if (MapIt == IRFunctionMap.end())
+    return;
   InlineReportFunction *OldIRF = MapIt->second;
   InlineReportFunction *NewIRF = addFunction(NewFunction);
   for (InlineReportCallSite *IRCS : OldIRF->getCallSites()) {
@@ -956,6 +956,18 @@ InlineReportCallSite *InlineReport::getCallSite(CallBase *Call) {
   if (MapItC == IRCallBaseCallSiteMap.end())
     return nullptr;
   return MapItC->second;
+}
+
+void InlineReport::setCalledFunction(CallBase *CB, Function *F) {
+  auto MapItC = IRCallBaseCallSiteMap.find(CB);
+  if (MapItC == IRCallBaseCallSiteMap.end())
+    return;
+  InlineReportCallSite *IRCS = MapItC->second;
+  auto MapIt = IRFunctionMap.find(F);
+  if (MapIt == IRFunctionMap.end())
+    return;
+  InlineReportFunction *IRF = MapIt->second;
+  IRCS->setIRCallee(IRF);
 }
 
 InlineReport::~InlineReport(void) {
@@ -977,5 +989,4 @@ InlineReport *llvm::getInlineReport() {
     SavedInlineReport = new llvm::InlineReport(IntelInlineReportLevel);
   return SavedInlineReport;
 }
-
 
