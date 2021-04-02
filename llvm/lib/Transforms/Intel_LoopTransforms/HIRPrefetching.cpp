@@ -72,7 +72,7 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 // Threshold for min allowed number of cachelines
 static cl::opt<uint64_t>
     NumCachelinesThreshold("hir-prefetching-num-cachelines-threshold",
-                           cl::init(8192), cl::Hidden,
+                           cl::init(4096), cl::Hidden,
                            cl::desc("Threshold for number of cachelines"));
 
 // Threshold for min allowed number of memory streams
