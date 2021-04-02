@@ -1,21 +1,35 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 ;
-;void foo(float *A, int NX, int NY) {
-;#pragma omp parallel for
-;  for (int Y = 0; Y < NY; ++Y)
-;#pragma omp simd nontemporal(A)
-;    for (int X = 0; X < NX; ++X)
-;      A[Y*NX+X] = X*2.5f;
-;}
+; void foo(float *A, int NX, int NY) {
+; #pragma omp parallel for
+;   for (int Y = 0; Y < NY; ++Y)
+; #pragma omp simd aligned(A:32)
+;     for (int X = 0; X < NX; ++X)
+;       A[Y*NX+X] = X*2.5f;
+; }
 ;
-; Check that we can parse the nontemporal clause and translate it into
-; !nontemporal metadata on a store to 'A'.
+; Check that we can parse the aligned clause and translate it into
+; alignment assumptions.
 ;
+; CHECK: define void @foo(
+; CHECK:   call{{.*}} @__kmpc_fork_call({{.+}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float**, i32*, i64, i32*)* [[FOO_OUTLINED:@.+]] to void (i32*, i32*, ...)*)
+; CHECK: }
+
+; CHECK: define internal void [[FOO_OUTLINED]](i32* %{{.+}}, i32* %{{.+}}, float** [[AADDR:%.+]], i32* %{{.+}}, i64 %{{.+}}, i32* %{{.+}}) #{{[0-9]+}} {
+; CHECK:   [[TOKEN:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(float** null, i32 32)
+;
+; CHECK:   [[PTR:%.+]] = load float*, float** [[AADDR]]
+; CHECK:   call void @llvm.assume(i1 true) [ "align"(float* [[PTR]], i64 32) ]
+;
+; CHECK:   call void @llvm.directive.region.exit(token [[TOKEN]]) [ "DIR.OMP.END.SIMD"() ]
+; CHECK: }
+
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(float* %A, i32 %NX, i32 %NY) {
+define void @foo(float* %A, i32 %NX, i32 %NY) {
 entry:
   %A.addr = alloca float*, align 8
   %NX.addr = alloca i32, align 4
@@ -85,8 +99,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
 omp.precond.then12:                               ; preds = %omp.inner.for.body
   %12 = load i32, i32* %.capture_expr.1, align 4
   store i32 %12, i32* %.omp.ub14, align 4
-  %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** %A.addr), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv13), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub14), "QUAL.OMP.LINEAR:IV"(i32* %X, i32 1) ]
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** null),
+  %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(float** %A.addr, i32 32), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv13), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub14), "QUAL.OMP.LINEAR:IV"(i32* %X, i32 1) ]
   store i32 0, i32* %.omp.iv13, align 4
   br label %omp.inner.for.cond15
 
@@ -113,7 +126,6 @@ omp.inner.for.body17:                             ; preds = %omp.inner.for.cond1
   %idxprom = sext i32 %add22 to i64
   %ptridx = getelementptr inbounds float, float* %18, i64 %idxprom
   store float %mul20, float* %ptridx, align 4
-; CHECK: store float %mul20, float* %ptridx, align 4, {{.*}}!nontemporal ![[NTMD:[0-9]+]]
   %22 = load i32, i32* %.omp.iv13, align 4
   %add23 = add nsw i32 %22, 1
   store i32 %add23, i32* %.omp.iv13, align 4
@@ -140,5 +152,3 @@ omp.precond.end29:                                ; preds = %omp.loop.exit28, %e
 declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
-
-; CHECK: ![[NTMD]] = !{i32 1}

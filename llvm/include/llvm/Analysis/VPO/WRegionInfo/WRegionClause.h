@@ -1318,17 +1318,23 @@ public:
 class AlignedItem
 {
   private:
-    VAR   Base;           // pointer or base of array
-    int   Alignment;      // 0 if unspecified
+    VAR Base;                // pointer or base of array
+    int Alignment;           // 0 if unspecified
+    bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
 
   public:
-    AlignedItem(VAR V=nullptr) : Base(V), Alignment(0) {}
+    AlignedItem(VAR V = nullptr)
+        : Base(V), Alignment(0), IsPointerToPointer(false) {}
     void setOrig(VAR V)      { Base = V; }
     void setAlign(int Align) { Alignment = Align; }
-    VAR  getOrig()  const { return Base; }
+    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    VAR getOrig() const { return Base; }
     int  getAlign() const { return Alignment; }
+    bool getIsPointerToPointer() const { return IsPointerToPointer; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsPointerToPointer())
+        OS << "PTR_TO_PTR";
       OS << "(";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ", " << getAlign() << ") ";

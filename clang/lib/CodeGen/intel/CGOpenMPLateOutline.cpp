@@ -1405,17 +1405,17 @@ void OpenMPLateOutliner::emitOMPCollapseClause(const OMPCollapseClause *Cl) {
 }
 
 void OpenMPLateOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_aligned);
-  addArg("QUAL.OMP.ALIGNED");
   for (auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_aligned, "QUAL.OMP.ALIGNED");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
     E = E->IgnoreParenImpCasts();
     if (E->getType()->isPointerType())
-      addArg(CGF.EmitScalarExpr(E));
-    else
-      addArg(E);
+      CSB.setPtrToPtr();
+    addArg(CSB.getString());
+    addArg(E);
+    addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
+                              : CGF.Builder.getInt32(0));
   }
-  addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
-                            : CGF.Builder.getInt32(0));
 }
 
 void OpenMPLateOutliner::emitOMPGrainsizeClause(const OMPGrainsizeClause *Cl) {
