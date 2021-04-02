@@ -1327,7 +1327,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
     return false;
 
   PredicatedScalarEvolution PSE(*SE, *Lp);
-  LoopVectorizationRequirements Requirements(*ORE);
+  LoopVectorizationRequirements Requirements;
   LoopVectorizeHints Hints(Lp, true, *ORE);
   LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
                                 &Requirements, &Hints, DB, AC, BFI, PSI);
