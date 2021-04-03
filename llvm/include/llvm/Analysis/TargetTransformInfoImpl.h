@@ -971,8 +971,8 @@ public:
     return TTI::TCC_Basic;
   }
 
-  int getUserCost(const User *U, ArrayRef<const Value *> Operands,
-                  TTI::TargetCostKind CostKind) {
+  InstructionCost getUserCost(const User *U, ArrayRef<const Value *> Operands,
+                              TTI::TargetCostKind CostKind) {
     auto *TargetTTI = static_cast<T *>(this);
     // Handle non-intrinsic calls, invokes, and callbr.
     // FIXME: Unlikely to be true for anything but CodeSize.
@@ -1191,7 +1191,7 @@ public:
     return TTI::TCC_Basic;
   }
 
-  int getInstructionLatency(const Instruction *I) {
+  InstructionCost getInstructionLatency(const Instruction *I) {
     SmallVector<const Value *, 4> Operands(I->operand_values());
     if (getUserCost(I, Operands, TTI::TCK_Latency) == TTI::TCC_Free)
       return 0;
