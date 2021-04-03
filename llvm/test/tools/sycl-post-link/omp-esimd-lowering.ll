@@ -96,6 +96,22 @@ define dso_local spir_kernel <8 x float> @test_sqrt_fast(<8 x float> %a0) {
   ret <8 x float> %1
 }
 
+define dso_local spir_kernel void @test_wg_barrier() {
+; CHECK: call void @llvm.genx.fence(i8 33)
+; CHECK-NEXT  call void @llvm.genx.barrier()
+  call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+  ret void
+}
+
+define dso_local spir_kernel void @test_sg_barrier() {
+; CHECK: call void @llvm.genx.fence(i8 33)
+  call spir_func void @_Z22__spirv_ControlBarrieriii(i32 3, i32 2, i32 784)
+  ret void
+}
+
+; Function Attrs: convergent
+declare spir_func void @_Z22__spirv_ControlBarrieriii(i32, i32, i32)
+
 declare <8 x double> @llvm.sqrt.v8f64(<8 x double>)
 declare <8 x float> @llvm.sqrt.v8f32(<8 x float>)
 
