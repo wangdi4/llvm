@@ -9352,8 +9352,10 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
                                                    SuccEndMasterBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(ThenMasterBB, MasterTestBB);
-  if (IDomOfSuccEndMasterBBNeedsUpdating)
+  if (!DT->isReachableFromEntry(SuccEndMasterBB) ||
+      !DT->isReachableFromEntry(MasterTestBB))
+    DT->insertEdge(MasterTestBB, SuccEndMasterBB);
+  else if (IDomOfSuccEndMasterBBNeedsUpdating)
     DT->changeImmediateDominator(SuccEndMasterBB, MasterTestBB);
 
   assert(DT->verify() && "DominatorTree update failed after Master codegen.");
@@ -9451,8 +9453,10 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
                                                    EndSingleSuccBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(ThenSingleBB, SingleTestBB);
-  if (IDomOfEndSingleSuccBBNeedsUpdating)
+  if (!DT->isReachableFromEntry(EndSingleSuccBB) ||
+      !DT->isReachableFromEntry(SingleTestBB))
+    DT->insertEdge(SingleTestBB, EndSingleSuccBB);
+  else if (IDomOfEndSingleSuccBBNeedsUpdating)
     DT->changeImmediateDominator(EndSingleSuccBB, SingleTestBB);
 
   assert(DT->verify() && "DominatorTree update failed after Single codegen.");
