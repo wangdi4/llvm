@@ -50,7 +50,7 @@ public:
     return TTI.getRegisterClassForType(Vector, Ty);
   }
   unsigned getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
-    return TTI.getRegisterBitWidth(K);
+    return TTI.getRegisterBitWidth(K).getFixedSize();
   }
   unsigned getCacheLineSize() const { return TTI.getCacheLineSize(); }
   Optional<unsigned> getCacheSize(TargetTransformInfo::CacheLevel Level) const {

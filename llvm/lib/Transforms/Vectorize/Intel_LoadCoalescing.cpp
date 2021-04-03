@@ -623,12 +623,16 @@ bool LoadCoalescing::run(BasicBlock &Block) {
 
 
 bool LoadCoalescing::run() {
-  MaxVecRegSize = (MaxVecRegSizeOpt == 0) ?
-      TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) :
-      MaxVecRegSizeOpt;
-  MinVecRegSize = (MinVecRegSizeOpt == 0) ?
-      TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) :
-      MinVecRegSizeOpt;
+  MaxVecRegSize =
+      (MaxVecRegSizeOpt == 0)
+          ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+                .getFixedSize()
+          : MaxVecRegSizeOpt;
+  MinVecRegSize =
+      (MinVecRegSizeOpt == 0)
+          ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+                .getFixedSize()
+          : MinVecRegSizeOpt;
 
   bool Changed = false;
 
