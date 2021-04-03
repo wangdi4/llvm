@@ -96,6 +96,22 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
 
+static cl::opt<unsigned> IgnoreRegionsStartingWith(
+    "vpo-paropt-ignore-regions-starting-with", cl::Hidden, cl::init(0),
+    cl::desc("Ignore OpenMP regions starting with the one matching the given "
+             "index (>=1). Can be combined with "
+             "'-vpo-paropt-ignore-regions-up-to' to specify a range."));
+
+static cl::opt<unsigned> IgnoreRegionsUpTo(
+    "vpo-paropt-ignore-regions-up-to", cl::Hidden, cl::init(0),
+    cl::desc("Ignore OpenMP regions up to the one matching the given "
+             "index (>=1). Can be combined with "
+             "'-vpo-paropt-ignore-regions-starting-with' to specify a range."));
+
+static cl::list<unsigned> IgnoreRegionIDs(
+    "vpo-paropt-ignore-regions-matching", cl::Hidden, cl::CommaSeparated,
+    cl::desc("Ignore OpenMP regions matching the given indices."));
+
 static cl::opt<bool> OptimizeScalarFirstprivate(
     "vpo-paropt-opt-scalar-fp", cl::Hidden, cl::init(true),
     cl::desc("Pass scalar firstprivates as literals."));
@@ -1602,6 +1618,29 @@ bool VPOParoptTransform::paroptTransforms() {
     bool RemoveDirectives = false;
     bool HandledWithoutRemovingDirectives = false;
 
+    auto ignoreRegion = [&](unsigned WID) {
+      if (!(Mode & ParPrepare))
+        return false;
+
+      if (IgnoreRegionsStartingWith && IgnoreRegionsUpTo) {
+        if (WID >= IgnoreRegionsStartingWith && WID <= IgnoreRegionsUpTo)
+          return true;
+      } else if (IgnoreRegionsStartingWith) {
+        if (WID >= IgnoreRegionsStartingWith)
+          return true;
+      } else if (IgnoreRegionsUpTo) {
+        if (WID <= IgnoreRegionsUpTo)
+          return true;
+      }
+      if (IgnoreRegionIDs.empty())
+        return false;
+      if (std::find(IgnoreRegionIDs.begin(), IgnoreRegionIDs.end(), WID) !=
+          IgnoreRegionIDs.end())
+        return true;
+
+      return false;
+    };
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     if (isTargetCSA() && !isSupportedOnCSA(W)) {
@@ -1613,18 +1652,24 @@ bool VPOParoptTransform::paroptTransforms() {
             break;
         }
       RemoveDirectives = true;
-    }
-    else
+    } else
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-    if (W->getIsOmpLoop() && !W->getIsSections()
-        &&  W->getWRNLoopInfo().getLoop()==nullptr) {
+    if (ignoreRegion(W->getNumber())) {
+      Function *F = W->getEntryDirective()->getFunction();
+      OptimizationRemark R("openmp", "Ignored", W->getEntryDirective());
+      R << ("construct " + Twine(W->getNumber()) + " (" + W->getName() +
+            ") ignored on user's direction")
+               .str();
+      F->getContext().diagnose(R);
+      RemoveDirectives = true;
+    } else if (W->getIsOmpLoop() && !W->getIsSections() &&
+               W->getWRNLoopInfo().getLoop() == nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.
       RemoveDirectives = true;
-    }
-    else {
+    } else {
       if (isModeOmpNoFECollapse() &&
           W->canHaveCollapse()) {
         Changed |= collapseOmpLoops(W);
@@ -2383,7 +2428,7 @@ bool VPOParoptTransform::paroptTransforms() {
     if (RemoveDirectives) {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
-      (void) DirRemoved;
+      RoutineChanged |= DirRemoved;
     } else if (Mode & ParPrepare)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

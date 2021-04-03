@@ -21,8 +21,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-LABEL:  Cost Model for VPlan HIR foo.17 with VF = 4:
-; CMCHECK-NEXT:  Total Cost: 110000
-; CMCHECK-NEXT:  Base Cost: 102000
+; CMCHECK-NEXT:  Total Cost: 102000
+; CMCHECK-NEXT:  Base Cost: 94000
 ; CMCHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 8000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
@@ -32,21 +32,18 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 102000
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 94000
 ; CMCHECK-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 8000
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = hir-copy i32 [[VP0]] , OriginPhiId: -1
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[LP0:%.*]] i64 [[VP5]]
-; FIXME --- the cost for the load is wrong here. It is using the cost of doing the gather.
-; we can see the same cost being reused for the subsequent load instead of being zero.
-; Generated HIR shows VLS wide load and shuffles.
-; CMCHECK-NEXT:    Cost 24000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] ( OVLS )
+; CMCHECK-NEXT:    Cost 40000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] ( OVLS )
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[LP0]] i64 [[VP7]]
-; CMCHECK-NEXT:    Cost 24000 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] ( OVLS )
+; CMCHECK-NEXT:    Cost 0 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] ( OVLS )
 ; CMCHECK-NEXT:    Cost 1000 for i32 [[VP8:%.*]] = add i32 [[VP_LOAD]] i32 [[VP4]]
 ; CMCHECK-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP8]] i32 [[VP_LOAD_1]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]

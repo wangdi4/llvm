@@ -153,7 +153,7 @@ inline VPValue *getPointerOperand(const VPInstruction *VPI) {
 
 /// Helper function that returns the address space of the pointer operand of
 /// load or store VPInstruction.
-inline unsigned getLoadStoreAddressSpace(VPInstruction *VPI) {
+inline unsigned getLoadStoreAddressSpace(const VPInstruction *VPI) {
   assert((VPI->getOpcode() == Instruction::Load ||
           VPI->getOpcode() == Instruction::Store) &&
          "Expect 'VPI' to be either a LoadInst or a StoreInst");

@@ -133,6 +133,17 @@ public:
                                                    VariableMask, Alignment,
                                                    AddressSpace, CostKind, I);
   }
+  int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
+                                 ArrayRef<unsigned> Indices, Align Alignment,
+                                 unsigned AddressSpace,
+                                 TTI::TargetCostKind CostKind,
+                                 bool UseMaskForCond,
+                                 bool UseMaskForGaps) const {
+    return Multiplier *
+           TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
+                                          Alignment, AddressSpace, CostKind,
+                                          UseMaskForCond, UseMaskForGaps);
+  }
 #endif // INTEL_CUSTOMIZATION
   int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                             TTI::TargetCostKind CostKind) const {
