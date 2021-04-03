@@ -1161,6 +1161,7 @@ __OMP_TRAIT_PROPERTY(user, condition, true)
 __OMP_TRAIT_PROPERTY(user, condition, false)
 __OMP_TRAIT_PROPERTY(user, condition, unknown)
 
+__OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, dispatch)
 #if INTEL_COLLAB
 __OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, target_variant_dispatch)
 #endif // INTEL_COLLAB
