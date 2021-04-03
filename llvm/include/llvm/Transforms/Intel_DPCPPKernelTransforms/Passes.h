@@ -32,6 +32,8 @@ ModulePass* createPostBarrierPass();
 ModulePass *createImplicitArgsAnalysisLegacyPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
+ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
+                                          bool UseTLSGlobals);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H

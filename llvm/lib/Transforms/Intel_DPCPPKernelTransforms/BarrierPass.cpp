@@ -622,7 +622,7 @@ void KernelBarrier::fixAllocaValues(Function &F) {
           Offset, AI->getType(), InsertBefore, &InsertBefore->getDebugLoc());
       IRBuilder<> Builder(InsertBefore);
       Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
-      LoadInst *LI = Builder.CreateLoad(AddrAI);
+      LoadInst *LI = Builder.CreateLoad(AddrAI->getAllocatedType(), AddrAI);
       if (IsNativeDBG && DI) {
         const DebugLoc *DB = &DI->getDebugLoc();
         DIB.insertDbgValueIntrinsic(LI, DI->getVariable(), Expr, DB->get(),

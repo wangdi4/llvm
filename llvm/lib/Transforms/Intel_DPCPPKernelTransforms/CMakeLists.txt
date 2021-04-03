@@ -21,6 +21,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   BarrierPass.cpp
   BarrierInFunctionPass.cpp
   PostBarrierPass.cpp
+  ResolveWICall.cpp
 
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp

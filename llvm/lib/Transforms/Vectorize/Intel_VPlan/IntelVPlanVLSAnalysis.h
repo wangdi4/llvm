@@ -134,6 +134,14 @@ public:
 int computeInterleaveIndex(OVLSMemref *Memref, OVLSGroup *Group);
 int computeInterleaveFactor(OVLSMemref *Memref);
 
+/// Return optimized group info which includes the VLS group that VPInst belongs
+/// to, its interleave factor and interleave index if VPInst is part of a VLS
+/// group that is currently handled. Function returns None otherwise. and \p
+/// Plan are used to get VLS group information for \p VPInst.
+Optional<std::tuple<OVLSGroup *, int, int>>
+getOptimizedVLSGroupData(const VPInstruction *VPInst,
+                         const VPlanVLSAnalysis *VLSA, const VPlan *Plan);
+
 } // namespace vpo
 } // namespace llvm
 
