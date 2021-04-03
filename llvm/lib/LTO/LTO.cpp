@@ -1252,7 +1252,7 @@ public:
         return MOrErr.takeError();
 
       return thinBackend(Conf, Task, AddStream, **MOrErr, CombinedIndex,
-                         ImportList, DefinedGlobals, ModuleMap);
+                         ImportList, DefinedGlobals, &ModuleMap);
     };
 
     auto ModuleID = BM.getModuleIdentifier();

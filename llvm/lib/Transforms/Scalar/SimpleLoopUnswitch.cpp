@@ -1995,10 +1995,12 @@ static void unswitchNontrivialInvariants(
   bool Direction = true;
   int ClonedSucc = 0;
   if (!FullUnswitch) {
+    Value *Cond = BI->getCondition();
+    (void)Cond;
+    assert((match(Cond, m_LogicalAnd()) ^ match(Cond, m_LogicalOr())) &&
+           "Only `or`, `and`, an `select` instructions can combine "
+           "invariants being unswitched.");
     if (!match(BI->getCondition(), m_LogicalOr())) {
-      assert(match(BI->getCondition(), m_LogicalAnd()) &&
-             "Only `or`, `and`, an `select` instructions can combine "
-             "invariants being unswitched.");
       Direction = false;
       ClonedSucc = 1;
     }
