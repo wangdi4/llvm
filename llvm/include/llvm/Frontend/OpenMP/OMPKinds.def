@@ -1162,6 +1162,7 @@ __OMP_TRAIT_PROPERTY(user, condition, false)
 __OMP_TRAIT_PROPERTY(user, condition, unknown)
 
 __OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, dispatch)
+
 #if INTEL_COLLAB
 __OMP_TRAIT_SELECTOR_AND_PROPERTY(construct, target_variant_dispatch)
 #endif // INTEL_COLLAB
@@ -1175,7 +1176,6 @@ __OMP_TRAIT_SELECTOR(device, isa, true)
 // we use is not important except that it will show up in diagnostics.
 OMP_TRAIT_PROPERTY(device_isa___ANY, device, device_isa,
                    "<any, entirely target dependent>")
-
 
 #undef OMP_TRAIT_SET
 #undef __OMP_TRAIT_SET

@@ -2107,8 +2107,6 @@ public:
   }
 };
 
-/// @}
-
 } // namespace serialization
 } // namespace clang
 

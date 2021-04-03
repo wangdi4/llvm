@@ -116,9 +116,6 @@ static unsigned getOpenMPDirectiveKindEx(StringRef S) {
       .Case("mapper", OMPD_mapper)
       .Case("variant", OMPD_variant)
       .Case("begin", OMPD_begin)
-#if INTEL_COLLAB
-      .Case("dispatch", OMPD_dispatch)
-#endif // INTEL_COLLAB
       .Default(OMPD_unknown);
 }
 
