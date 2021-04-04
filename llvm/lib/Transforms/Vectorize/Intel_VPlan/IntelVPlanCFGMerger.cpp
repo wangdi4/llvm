@@ -1405,3 +1405,24 @@ void VPlanCFGMerger::moveOrigUBToBegin() {
     Moved.insert(*I);
   }
 }
+
+void VPlanCFGMerger::copyDA(std::list<PlanDescr> &Plans) {
+  using LT = CfgMergerPlanDescr::LoopType;
+  VPlanDivergenceAnalysis *DA =
+      cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
+  for (auto P : Plans) {
+    if (P.Type == LT::LTMain)
+      continue;
+
+    if (isa<VPlanScalar>(P.Plan)) {
+      auto *ScalarDA = cast<VPlanDivergenceAnalysisScalar>(P.Plan->getVPlanDA());
+      auto ScalarShapes = vplan_da_shapes(P.Plan, ScalarDA);
+      DA->copyShapes(ScalarShapes.begin(), ScalarShapes.end());
+    } else {
+      // Specialize for non-scalar to have a faster version.
+      auto *VectorDA = cast<VPlanDivergenceAnalysis>(P.Plan->getVPlanDA());
+      auto VectorShapes = VectorDA->shapes();
+      DA->copyShapes(VectorShapes.begin(), VectorShapes.end());
+    }
+  }
+}

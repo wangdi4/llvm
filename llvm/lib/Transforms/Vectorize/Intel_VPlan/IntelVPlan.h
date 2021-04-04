@@ -46,6 +46,7 @@
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
@@ -3473,29 +3474,29 @@ public:
     });
   }
 
-  const VPBasicBlockListTy &getVPBasicBlockList() const {
+  const VPBasicBlockListTy &getBasicBlockList() const {
     return VPBasicBlocks;
   }
-  VPBasicBlockListTy &getVPBasicBlockList() { return VPBasicBlocks; }
+  VPBasicBlockListTy &getBasicBlockList() { return VPBasicBlocks; }
 
   void insertAtFront(VPBasicBlock *CurBB) {
-    getVPBasicBlockList().push_front(CurBB);
+    getBasicBlockList().push_front(CurBB);
   }
 
   void insertBefore(VPBasicBlock *CurBB, VPBasicBlock *MovePos) {
-    getVPBasicBlockList().insert(MovePos->getIterator(), CurBB);
+    getBasicBlockList().insert(MovePos->getIterator(), CurBB);
   }
 
   void insertAfter(VPBasicBlock *CurBB, VPBasicBlock *MovePos) {
-    getVPBasicBlockList().insertAfter(MovePos->getIterator(), CurBB);
+    getBasicBlockList().insertAfter(MovePos->getIterator(), CurBB);
   }
 
   void insertAtBack(VPBasicBlock *CurBB) {
-    getVPBasicBlockList().push_back(CurBB);
+    getBasicBlockList().push_back(CurBB);
   }
 
   void insertBefore(VPBasicBlock *CurBB, iterator InsertBefore) {
-    getVPBasicBlockList().insert(InsertBefore, CurBB);
+    getBasicBlockList().insert(InsertBefore, CurBB);
   }
 
   /// Returns a pointer to a member of VPBasicBlock list.
@@ -4191,6 +4192,39 @@ inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan *Plan) {
   VPLAN_DUMP(Control, *Plan);
 }
 #endif
+
+using vpinst_iterator = InstIterator<VPlan::VPBasicBlockListTy, VPlan::iterator,
+                                     VPBasicBlock::iterator, VPInstruction>;
+using vpinst_range = iterator_range<vpinst_iterator>;
+
+inline vpinst_iterator vpinst_begin(VPlan *F) { return vpinst_iterator(*F); }
+inline vpinst_iterator vpinst_end(VPlan *F) { return vpinst_iterator(*F, true); }
+inline vpinst_range vpinstructions(VPlan *F) {
+  return vpinst_range(vpinst_begin(F), vpinst_end(F));
+}
+
+using const_vpinst_iterator =
+    InstIterator<const VPlan::VPBasicBlockListTy, VPlan::const_iterator,
+                 VPBasicBlock::const_iterator, const VPInstruction>;
+using const_vpinst_range = iterator_range<const_vpinst_iterator>;
+
+inline const_vpinst_iterator vpinst_begin(const VPlan *F) {
+  return const_vpinst_iterator(*F);
+}
+inline const_vpinst_iterator vpinst_end(const VPlan *F) {
+  return const_vpinst_iterator(*F, true);
+}
+inline const_vpinst_range vpinstructions(const VPlan *F) {
+  return const_vpinst_range(vpinst_begin(F), vpinst_end(F));
+}
+
+template <class DivergenceAnalysis>
+inline decltype(auto) vplan_da_shapes(const VPlan *P,
+                                      const DivergenceAnalysis *DA) {
+  return map_range(vpinstructions(P), [DA](auto &I) {
+    return std::make_pair<const VPValue *, VPVectorShape>(&I, DA->getVectorShape(I));
+  });
+}
 
 } // namespace vpo
 

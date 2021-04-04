@@ -336,6 +336,9 @@ private:
   // beginning of the first VPBasicBlock of VPlan and VPPopVF is inserted in the
   // end of the last VPBasicBlock of VPlan.
   static void insertPushPopVF(VPlan &P, unsigned VF, unsigned UF);
+
+  // Copy DA data from all VPlans in the list to the main VPlan DA.
+  void copyDA(std::list<PlanDescr> &Plans);
 };
 
 } // namespace vpo
