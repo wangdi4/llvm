@@ -378,6 +378,10 @@ private:
   /// Vectorize blend instructions using selects.
   void vectorizeBlend(VPBlendInst *Blend);
 
+  // In the original loop header phis remove operands coming from original
+  // preheader.
+  void unlinkOrigHeaderPhis();
+
   /// The original loop.
   Loop *OrigLoop;
 
@@ -428,6 +432,18 @@ private:
 
   // IR Builder to use to generate instructions
   IRBuilder<> Builder;
+
+  // Flag to indicate that the original loop is used either as peel or
+  // remainder.
+  // In case it's not used, in the end of CG we need to update original header
+  // block phi-s removing incoming values from the loop preheader. E.g. the
+  // phi-s will remain in the form
+  //   %indvars.iv = phi i64 [ %indvars.iv.next, %for.end ], [ 0, %preheader ]
+  // but the %preheader is not a predecessor of the header anymore as we
+  // replaced it by the vector loop.
+  // When the original loop is used somehow we update those phis incoming values
+  // in a different way (see fixNonInductionVPPhis()).
+  bool OrigLoopUsed = false;
 
   /// Holds a mapping between the VPPHINode and the corresponding vector LLVM
   /// IR PHI node that needs fix up. The operands of the VPPHINode are used

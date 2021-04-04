@@ -417,10 +417,19 @@ void VPOCodeGen::createEmptyLoop() {
   Builder.SetInsertPoint(&*LoopVectorPreHeader->getFirstInsertionPt());
 }
 
+void VPOCodeGen::unlinkOrigHeaderPhis() {
+  BasicBlock *Header = OrigLoop->getHeader();
+  for (auto &Phi: Header->phis())
+    Phi.removeIncomingValue(OrigPreHeader, false);
+}
+
 void VPOCodeGen::finalizeLoop() {
   if (Plan->hasExplicitRemainder()) {
     // Fix phis.
     fixNonInductionVPPhis();
+
+    if (!OrigLoopUsed)
+      unlinkOrigHeaderPhis();
 
     // Attach the new loop to the original preheader
     auto *Plan = const_cast<VPlanVector *>(this->Plan);
@@ -1454,6 +1463,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         Phi->setIncomingBlock(OrigUse->getOperandNo(),
                               Builder.GetInsertBlock());
     }
+    OrigLoopUsed = true;
     return;
   }
   case VPInstruction::OrigLiveOut: {
@@ -3893,9 +3903,11 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
 
   VPScalarMap[RedFinal][0] = Ret;
 
-  const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
-  assert(Entity && "Unexpected: reduction last value is not for entity");
-  EntitiesFinalVPInstMap[Entity] = RedFinal;
+  if (!Plan->hasExplicitRemainder()) {
+    const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
+    assert(Entity && "Unexpected: reduction last value is not for entity");
+    EntitiesFinalVPInstMap[Entity] = RedFinal;
+  }
 }
 
 void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
@@ -4095,8 +4107,6 @@ void VPOCodeGen::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
 
 void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   Value *LastValue = nullptr;
-  const VPLoopEntity *Entity = VPEntities->getInduction(VPInst);
-  assert(Entity && "Induction last value is not for entity");
   if (VPInst->getNumOperands() == 1) {
     // One operand - extract from vector
     Value *VecVal = getVectorValue(VPInst->getOperand(0));
@@ -4138,7 +4148,11 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   }
   // The value is scalar
   VPScalarMap[VPInst][0] = LastValue;
-  EntitiesFinalVPInstMap[Entity] = VPInst;
+  if (!Plan->hasExplicitRemainder()) {
+    const VPLoopEntity *Entity = VPEntities->getInduction(VPInst);
+    assert(Entity && "Induction last value is not for entity");
+    EntitiesFinalVPInstMap[Entity] = VPInst;
+  }
 }
 
 void VPOCodeGen::fixOutgoingValues() {

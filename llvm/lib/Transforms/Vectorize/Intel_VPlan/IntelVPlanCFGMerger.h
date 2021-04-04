@@ -92,6 +92,8 @@ public:
   void createMergedCFG(SingleLoopVecScenario &Scen,
                        std::list<CfgMergerPlanDescr> &Plans);
 
+  void mergeVPlans(std::list<CfgMergerPlanDescr> &Plans);
+
 private:
   using PlanDescr = CfgMergerPlanDescr;
 
@@ -339,6 +341,29 @@ private:
 
   // Copy DA data from all VPlans in the list to the main VPlan DA.
   void copyDA(std::list<PlanDescr> &Plans);
+
+  // The utility function to update incoming values of VPlans from list by
+  // corresponding values from merged CFG skeleton. In skeleton, we have
+  // VPlanAdapter instructions inserted in the corresponding blocks. The
+  // incoming values of each VPlan (except the main VPlan) are replaced by
+  // operands of VPlanAdapter. The incoming values of the main VPlan are
+  // replaced using phi nodes of the merge block before main VPlan if that block
+  // exists. It may be absent in case when we have no peel.
+  void updateVPlansIncomings(std::list<PlanDescr> &Plans);
+
+  // Replace all uses of \p Adapter with corresponding outgoing values of VPlan.
+  // Each use is expected to be a VPPHINode with non-undefined merge id. Then we
+  // get a corresponding VPLiveOut from VPlan and replace \p Adapter uses by
+  // VPLiveOut operand.
+  void replaceAdapterUses(VPlanAdapter *Adapter, VPlan &P);
+
+  // Merge all basic blocks in VPlans from the list into main VPlan.
+  void mergeVPlanBodies(std::list<PlanDescr> &Plans);
+
+  // Copy LoopInfo from VPlan \p P to the main VPlan. The loops are added
+  // at the same level as they exist in \p P.
+  void mergeLoopInfo(VPlanVector &P);
+
 };
 
 } // namespace vpo

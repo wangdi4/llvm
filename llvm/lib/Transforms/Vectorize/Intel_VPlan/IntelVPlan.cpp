@@ -124,6 +124,24 @@ void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {
   delete VPBB;
 }
 
+void ilist_traits<VPBasicBlock>::transferNodesFromList(ilist_traits &FromList,
+                                                       instr_iterator First,
+                                                       instr_iterator Last) {
+  // If it's within the same list, there's nothing to do.
+  if (this == &FromList)
+    return;
+
+  VPlan *CurP = getListOwner<VPlan, VPBasicBlock>(this);
+  VPlan *FromP = getListOwner<VPlan, VPBasicBlock>(&FromList);
+  assert(CurP != FromP && "Two lists have the same parent?");
+  (void)CurP;
+  (void)FromP;
+
+  // If splicing between two VPlans then update the parent pointers.
+  for (; First != Last; ++First)
+    First->setParent(getListOwner<VPlan, VPBasicBlock>(this));
+}
+
 void VPInstruction::moveBefore(VPInstruction *MovePos) {
   moveBefore(*MovePos->getParent(), MovePos->getIterator());
 }
@@ -755,20 +773,27 @@ void VPlanVector::execute(VPTransformState *State) {
     // one succesor.
     // TODO. That might need correction if we will insert some
     // if-then-else initilization sequences before VPLoop preheader.
-     VPBasicBlock *BB;
+    VPBasicBlock *BB;
     for (BB = VLoop->getLoopPreheader();
-         BB && BB->getSinglePredecessor()->getNumSuccessors() == 1;
+         BB && BB->getSinglePredecessor() &&
+         BB->getSinglePredecessor()->getNumSuccessors() == 1;
          BB = BB->getSinglePredecessor())
       ;
     assert(BB && "Can't find first executable VPlan block");
-    // Sanity check: lookup for the VPVectorTripCountCalculation in
-    // the predecessor.
-    auto I = llvm::find_if(*BB->getSinglePredecessor(),
-                           [](VPInstruction &Inst) -> bool {
-                             return isa<VPVectorTripCountCalculation>(Inst);
-                           });
-    assert(I != BB->getSinglePredecessor()->end() && "Incorrect basic block");
-    (void)I;
+    if (isa<VPlanNonMasked>(this)) {
+      // Sanity check: lookup for the VPVectorTripCountCalculation in
+      // the predecessor.
+      // We can create main loop w/o trip check, in case when TC is known and
+      // evenly divisible by VF, so check the predecessor.
+      VPBasicBlock* BBToCheck = BB->getSinglePredecessor();
+      if (!BBToCheck)
+        BBToCheck = BB;
+      auto I = llvm::find_if(*BBToCheck, [](VPInstruction &Inst) -> bool {
+        return isa<VPVectorTripCountCalculation>(Inst);
+      });
+      assert(I != BBToCheck->end() && "Incorrect basic block");
+      (void)I;
+    }
     State->CFG.FirstExecutableVPBB = BB;
   } else {
     BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
@@ -784,7 +809,6 @@ void VPlanVector::execute(VPTransformState *State) {
 
     // Temporarily terminate with unreachable until CFG is rewired.
     // Note: this asserts xform code's assumption that getFirstInsertionPt()
-    // can be dereferenced into an Instruction.
     VectorHeaderBB->getTerminator()->eraseFromParent();
     State->Builder.SetInsertPoint(VectorHeaderBB);
     State->Builder.CreateUnreachable();

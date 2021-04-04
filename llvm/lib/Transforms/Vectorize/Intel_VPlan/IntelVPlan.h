@@ -943,7 +943,7 @@ public:
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == Instruction::Br;
   }
-  static bool classof(const VPUser *U) {
+  static bool classof(const VPValue *U) {
     return isa<VPInstruction>(U) && classof(cast<VPInstruction>(U));
   }
 
