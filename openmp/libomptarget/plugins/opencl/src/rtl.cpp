@@ -3376,16 +3376,9 @@ EXTERN void __tgt_rtl_deinit(void) {
 }
 
 EXTERN __tgt_interop *__tgt_rtl_create_interop(
-    int32_t DeviceId, int32_t InteropContext, intptr_t PreferID) {
-#if 0
-  // Disabled due to unclear interpretation of 5.1 specification
-  // Check preferred ID first
-  if (PreferID >= 0 && PreferID != OCLInterop::FrId) {
-    IDP("%s returns omp_interop_none due to preference mismatch\n", __func__);
-    return omp_interop_none;
-  }
-#endif
-  // RTL is preferred or device is specified.
+    int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
+    intptr_t *PreferIDs) {
+  // Preference-list is ignored since we cannot have multiple runtimes.
   auto ret = new __tgt_interop();
   ret->FrId = OCLInterop::FrId;
   ret->FrName = OCLInterop::FrName;
@@ -3393,14 +3386,33 @@ EXTERN __tgt_interop *__tgt_rtl_create_interop(
   ret->VendorName = OCLInterop::VendorName;
   ret->DeviceNum = DeviceId;
 
+  auto platform = DeviceInfo->Platforms[DeviceId];
+  auto context = DeviceInfo->getContext(DeviceId);
+  auto device = DeviceInfo->deviceIDs[DeviceId];
+
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGET ||
       InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
-    ret->Platform = DeviceInfo->Platforms[DeviceId];
-    ret->Device = DeviceInfo->deviceIDs[DeviceId];
-    ret->DeviceContext = DeviceInfo->getContext(DeviceId);
+    ret->Platform = platform;
+    ret->Device = device;
+    ret->DeviceContext = context;
   }
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
-    ret->TargetSync = DeviceInfo->Queues[DeviceId];
+    // Create a new out-of-order queue with profiling enabled.
+    cl_queue_properties properties[] = {
+      CL_QUEUE_PROPERTIES,
+      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE,
+      0
+    };
+    cl_command_queue cmdQueue = nullptr;
+    cl_int rc;
+    CALL_CL_RVRC(cmdQueue, clCreateCommandQueueWithProperties, rc, context,
+                 device, properties);
+    if (rc != CL_SUCCESS) {
+      IDP("Error: Failed to create targetsync for interop\n");
+      delete ret;
+      return nullptr;
+    }
+    ret->TargetSync = cmdQueue;
   }
 
   ret->RTLProperty = new OCLInterop::Property();
@@ -3414,6 +3426,12 @@ EXTERN int32_t __tgt_rtl_release_interop(
       Interop->FrId != OCLInterop::FrId) {
     IDP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
     return OFFLOAD_FAIL;
+  }
+
+  if (Interop->TargetSync) {
+    auto cmdQueue = static_cast<cl_command_queue>(Interop->TargetSync);
+    CALL_CL_RET_FAIL(clFinish, cmdQueue);
+    CALL_CL_RET_FAIL(clReleaseCommandQueue, cmdQueue);
   }
 
   auto OCL = static_cast<OCLInterop::Property *>(Interop->RTLProperty);

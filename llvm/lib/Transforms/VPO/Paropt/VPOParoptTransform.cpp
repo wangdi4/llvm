@@ -5328,7 +5328,11 @@ static void genPrivatizationDebug(WRegionNode *W,
 
     if (CastInst *CI = dyn_cast_or_null<CastInst>(Current)) {
       if (CI->isNoopCast(M->getDataLayout()))
+        // No expression operator necessary for noop casts.
         Current = CI->getOperand(0);
+      else if (auto *ASCI = dyn_cast_or_null<AddrSpaceCastInst>(CI))
+        // Ignore, an addrSpace expression is not currently supported by LLVM.
+        Current = ASCI->getPointerOperand();
       else
         Current = nullptr;
     } else {

@@ -33,19 +33,51 @@ VPlanScalarEvolutionHIR::computeAddressSCEV(const VPLoadStoreInst &LSI) {
   return toVPlanSCEV(Expr);
 }
 
-VPlanSCEV *VPlanScalarEvolutionHIR::getMinusExpr(VPlanSCEV *LHS,
-                                                 VPlanSCEV *RHS) {
-  return nullptr;
+VPlanSCEV *VPlanScalarEvolutionHIR::getMinusExpr(VPlanSCEV *OpaqueLHS,
+                                                 VPlanSCEV *OpaqueRHS) {
+  VPlanAddRecHIR *LHS = toVPlanAddRecHIR(OpaqueLHS);
+  VPlanAddRecHIR *RHS = toVPlanAddRecHIR(OpaqueRHS);
+
+  if (LHS)
+    LLVM_DEBUG(dbgs() << "getMinusExpr(" << *LHS << ",\n");
+  else
+    LLVM_DEBUG(dbgs() << "getMinusExpr(nil,\n");
+
+  if (RHS)
+    LLVM_DEBUG(dbgs() << "             " << *RHS << ")\n");
+  else
+    LLVM_DEBUG(dbgs() << "             nil)\n");
+
+  VPlanAddRecHIR *Result = getMinusExprImpl(LHS, RHS);
+
+  if (Result)
+    LLVM_DEBUG(dbgs() << "  -> " << *Result << '\n');
+  else
+    LLVM_DEBUG(dbgs() << "  -> nil\n");
+
+  return toVPlanSCEV(Result);
 }
 
 Optional<VPConstStepLinear>
 VPlanScalarEvolutionHIR::asConstStepLinear(VPlanSCEV *Expr) const {
-  return None;
+  // FIXME: This implementation of asConstStepLinear simply delegates the
+  //        request to asConstStepInduction. That is, no variables that are
+  //        linear but non-inductive can be detected by this routine yet.
+  Optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
+  return Ind.map([](const auto &I) {
+    return VPConstStepLinear{I.InvariantBase, I.Step};
+  });
 }
 
 Optional<VPConstStepInduction>
-VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *Expr) const {
-  return None;
+VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *OpaqueExpr) const {
+  VPlanAddRecHIR *Expr = toVPlanAddRecHIR(OpaqueExpr);
+
+  if (!Expr)
+    return None;
+
+  return VPConstStepInduction{toVPlanSCEV(makeVPlanAddRecHIR(Expr->Base, 0)),
+                              Expr->Stride};
 }
 
 // Check if access address of a load/store instruction can be represented as
@@ -129,6 +161,17 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
   AddressCE->getIVCoeff(MainLoopLevel, nullptr, &MainLoopIVCoeff);
 
   return makeVPlanAddRecHIR(AdjustedBase, ElementSize * MainLoopIVCoeff);
+}
+
+VPlanAddRecHIR *VPlanScalarEvolutionHIR::getMinusExprImpl(VPlanAddRecHIR *LHS,
+                                                          VPlanAddRecHIR *RHS) {
+  if (!LHS || !RHS)
+    return nullptr;
+
+  CanonExpr *Diff = CanonExprUtils::cloneAndSubtract(LHS->Base, RHS->Base);
+  assert(Diff && "CanonExprs are not mergeable");
+
+  return makeVPlanAddRecHIR(Diff, LHS->Stride - RHS->Stride);
 }
 
 VPlanAddRecHIR *

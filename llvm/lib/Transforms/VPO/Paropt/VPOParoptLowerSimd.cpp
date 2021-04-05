@@ -160,6 +160,38 @@ static Instruction *generateGenXForSpirv(CallInst &CI, StringRef Suff,
   return CastI;
 }
 
+static void translateBarrier(CallInst *CI) {
+  auto ScopeV = CI->getArgOperand(0);
+  assert(isa<ConstantInt>(ScopeV) &&
+         "Barrier execution scope should be a constant");
+  ConstantInt *ScopeC = cast<ConstantInt>(ScopeV);
+  // if work-group scope
+  //    generate a slm-fence then work-group-barrier
+  // else if subgroup scope
+  //    generate a slm-fence
+  auto M = CI->getModule();
+  if (ScopeC->equalsInt(2) || ScopeC->equalsInt(3)) {
+    std::string IntrName =
+        std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "fence";
+    auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+    Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(M, ID, {});
+    // ESIMD_GLOBAL_COHERENT_FENCE | ESIMD_LOCAL_BARRIER
+    // 0x01 | 0x20
+    Type *I8Ty = Type::getInt8Ty(M->getContext());
+    auto CtrlV = ConstantInt::get(I8Ty, 0x21);
+    IntrinsicInst::Create(NewFDecl, {CtrlV}, "", CI);
+  } else
+    assert(false && "Unsupported barrier execution scope");
+
+  if (ScopeC->equalsInt(2)) {
+    std::string IntrName =
+        std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "barrier";
+    auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+    Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(M, ID, {});
+    IntrinsicInst::Create(NewFDecl, {}, "", CI);
+  }
+}
+
 // This function translates SPIRV intrinsic into GenX intrinsic.
 // TODO: Currently, we do not support mixing SYCL and Simd kernels.
 // Later for Simd and SYCL kernels to coexist, we likely need to
@@ -168,6 +200,13 @@ static Instruction *generateGenXForSpirv(CallInst &CI, StringRef Suff,
 static void
 translateSpirvIntrinsic(CallInst *CI, StringRef SpirvIntrName,
                         SmallVector<Instruction *, 8> &SimdToErases) {
+
+  if (SpirvIntrName.startswith("ControlBarrieriii")) {
+    translateBarrier(CI);
+    SimdToErases.push_back(CI);
+    return;
+  }
+
   auto translateSpirvIntr = [&SpirvIntrName, &SimdToErases,
                              CI](StringRef SpvIName, auto TranslateFunc) {
     if (SpirvIntrName.consume_front(SpvIName)) {
@@ -747,65 +786,64 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
 //
 // f32 mapping
 std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
-//  Basic functions
+    //  Basic functions
     //{Intrinsic::fma,        NA}, // llvm fma is supported by BE
-    {Intrinsic::maxnum,       GenXIntrinsic::genx_fmax},
-    {Intrinsic::minnum,       GenXIntrinsic::genx_fmin},
+    {Intrinsic::maxnum, GenXIntrinsic::genx_fmax},
+    {Intrinsic::minnum, GenXIntrinsic::genx_fmin},
 
-//  Exponential functions
-    {Intrinsic::exp,          GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::exp2,         GenXIntrinsic::genx_exp},
-    {Intrinsic::log,          GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::log2,         GenXIntrinsic::genx_log},
-    {Intrinsic::log10,        GenXIntrinsic::not_genx_intrinsic},
+    //  Exponential functions
+    {Intrinsic::exp, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::exp2, GenXIntrinsic::genx_exp},
+    {Intrinsic::log, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log2, GenXIntrinsic::genx_log},
+    {Intrinsic::log10, GenXIntrinsic::not_genx_intrinsic},
 
-//  Power functions
-    {Intrinsic::pow,          GenXIntrinsic::genx_pow},
+    //  Power functions
+    {Intrinsic::pow, GenXIntrinsic::genx_pow},
 
-//  Trig & hyperbolic functions
-    {Intrinsic::sin,          GenXIntrinsic::genx_sin},
-    {Intrinsic::cos,          GenXIntrinsic::genx_cos},
+    //  Trig & hyperbolic functions
+    {Intrinsic::sin, GenXIntrinsic::genx_sin},
+    {Intrinsic::cos, GenXIntrinsic::genx_cos},
 
-//  Rounding functions
-    {Intrinsic::ceil,         GenXIntrinsic::genx_rnde},
-    {Intrinsic::floor,        GenXIntrinsic::genx_rndd},
-    {Intrinsic::trunc,        GenXIntrinsic::genx_rndz},
-    {Intrinsic::round,        GenXIntrinsic::genx_rnde},
+    //  Rounding functions
+    {Intrinsic::ceil, GenXIntrinsic::genx_rnde},
+    {Intrinsic::floor, GenXIntrinsic::genx_rndd},
+    {Intrinsic::trunc, GenXIntrinsic::genx_rndz},
+    {Intrinsic::round, GenXIntrinsic::genx_rnde},
 
-//  Floating-point manipulation functions
-    {Intrinsic::copysign,     GenXIntrinsic::not_genx_intrinsic},
+    //  Floating-point manipulation functions
+    {Intrinsic::copysign, GenXIntrinsic::not_genx_intrinsic},
 };
 
 // f64 mapping
 std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath64 = {
-//  Basic functions
-    {Intrinsic::fma,          GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::maxnum,       GenXIntrinsic::genx_fmax},
-    {Intrinsic::minnum,       GenXIntrinsic::genx_fmin},
+    //  Basic functions
+    {Intrinsic::fma, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::maxnum, GenXIntrinsic::genx_fmax},
+    {Intrinsic::minnum, GenXIntrinsic::genx_fmin},
 
-//  Exponential functions
-    {Intrinsic::exp,          GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::exp2,         GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::log,          GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::log2,         GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::log10,        GenXIntrinsic::not_genx_intrinsic},
+    //  Exponential functions
+    {Intrinsic::exp, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::exp2, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log2, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::log10, GenXIntrinsic::not_genx_intrinsic},
 
-//  Power functions
-    {Intrinsic::pow,          GenXIntrinsic::not_genx_intrinsic},
+    //  Power functions
+    {Intrinsic::pow, GenXIntrinsic::not_genx_intrinsic},
 
-//  Trig & hyperbolic functions
-    {Intrinsic::sin,          GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::cos,          GenXIntrinsic::not_genx_intrinsic},
+    //  Trig & hyperbolic functions
+    {Intrinsic::sin, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::cos, GenXIntrinsic::not_genx_intrinsic},
 
-//  Rounding functions
-    {Intrinsic::ceil,         GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::floor,        GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::trunc,        GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::round,        GenXIntrinsic::not_genx_intrinsic},
+    //  Rounding functions
+    {Intrinsic::ceil, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::floor, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::trunc, GenXIntrinsic::not_genx_intrinsic},
+    {Intrinsic::round, GenXIntrinsic::not_genx_intrinsic},
 
-//  Floating-point manipulation functions
-    {Intrinsic::copysign,     GenXIntrinsic::not_genx_intrinsic}
-};
+    //  Floating-point manipulation functions
+    {Intrinsic::copysign, GenXIntrinsic::not_genx_intrinsic}};
 
 static Value *translateLLVMInst(Instruction *Inst) {
   LLVMContext &CTX = Inst->getContext();
@@ -887,7 +925,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
         std::string IntrName =
-          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "gather.scaled";
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+            "gather.scaled";
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
         assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
@@ -901,12 +940,14 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
         // create the intrinsic call
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-          CallOp->getModule(), ID, {DTy, PredV->getType(), VOffset->getType()});
-        auto RepI = IntrinsicInst::Create(NewFDecl,
-                                 {PredV, NumBlksC, ScaleC, BTI, SLMOffset,
-                                  VOffset, UndefValue::get(DTy)},
-                                 "slm.block.gather", CallOp);
-	return RepI;
+            CallOp->getModule(), ID,
+            {DTy, PredV->getType(), VOffset->getType()});
+        auto RepI =
+            IntrinsicInst::Create(NewFDecl,
+                                  {PredV, NumBlksC, ScaleC, BTI, SLMOffset,
+                                   VOffset, UndefValue::get(DTy)},
+                                  "slm.block.gather", CallOp);
+        return RepI;
       } else
         return CallOp;
     } break;
@@ -952,7 +993,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto CIntTy = Type::getInt32Ty(CTX);
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
         std::string IntrName =
-            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "scatter.scaled";
+            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+            "scatter.scaled";
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
@@ -966,10 +1008,11 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
         // create the intrinsic call
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-            CallOp->getModule(), ID, {PredV->getType(), VOffset->getType(), DTy});
+            CallOp->getModule(), ID,
+            {PredV->getType(), VOffset->getType(), DTy});
         auto RepI = Builder.CreateCall(
             NewFDecl, {PredV, NumBlksC, ScaleC, BTI, SLMOffset, VOffset, DTV});
-	return RepI;
+        return RepI;
       } else
         return CallOp;
     } break;
@@ -982,7 +1025,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
-      assert (AS != SYCL_SLM_AS && "yet to support masked SLM gather");
+      assert(AS != SYCL_SLM_AS && "yet to support masked SLM gather");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();
@@ -1037,7 +1080,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
-      assert (AS != SYCL_SLM_AS && "yet to support masked SLM scatter");
+      assert(AS != SYCL_SLM_AS && "yet to support masked SLM scatter");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();
@@ -1091,8 +1134,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
             llvm::report_fatal_error(Msg, false /*no crash diag*/);
           }
         }
-      }
-      else if (DTy->isDoubleTy()) {
+      } else if (DTy->isDoubleTy()) {
         auto Map = GenXMath32.find(ID);
         if (Map != GenXMath64.end()) {
           GID = Map->second;
@@ -1106,8 +1148,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
       if (GID != GenXIntrinsic::not_genx_intrinsic) {
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
             CallOp->getModule(), GID, {CallOp->getType()});
-        SmallVector<Value*, 2> ValueOperands(CallOp->arg_operands());
-        Value* RepI = IntrinsicInst::Create(NewFDecl, ValueOperands,
+        SmallVector<Value *, 2> ValueOperands(CallOp->arg_operands());
+        Value *RepI = IntrinsicInst::Create(NewFDecl, ValueOperands,
                                             CallOp->getName(), CallOp);
         CallOp->replaceAllUsesWith(RepI);
         return RepI;

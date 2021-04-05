@@ -478,6 +478,9 @@ public:
     addFunction(F, true /*MakeNewCurrent */);
   }
 
+  // Change the called Function of 'CB' to 'F'.
+  void setCalledFunction(CallBase *CB, Function *F);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.

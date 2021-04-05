@@ -32,6 +32,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"     // INTEL
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"
@@ -223,6 +224,51 @@ SmallDenseMap<Value *, Value *> SpecialConstPropagatedValueMap;
 // and GEP Instruction that is used to compute address of arrays. It
 // basically helps to get NumIndices during transformation.
 SmallDenseMap<Value *, GetElementPtrInst *> SpecialConstGEPMap;
+
+/// Wrapper functions for creating clones and operating on callsites that
+/// also update the classic inlining report.
+
+// Clone the Function 'F' using 'VMap', update the classic inlining report,
+// and return the newly cloned Function.
+static Function *IPCloneFunction(Function *F, ValueToValueMapTy &VMap) {
+  Function *NewF = CloneFunction(F, VMap);
+  getInlineReport()->cloneFunction(F, NewF, VMap);
+  return NewF;
+}
+
+// Set the called Function for 'CB' to 'F', and update the classic inlining
+// report.
+static void setCalledFunction(CallBase *CB, Function *F) {
+  CB->setCalledFunction(F);
+  getInlineReport()->setCalledFunction(CB, F);
+}
+
+// Create a 'CallInst' using 'CI' as a model, inserting it before the
+// Instruction 'InsertBefore'. Return the new 'CallInst' and indicate to
+// the class inlining report that it was cloned from 'CI'.
+static CallInst *CallInstCreate(CallInst *CI, FunctionCallee Func,
+                                ArrayRef<Value *> Args,
+                                const Twine &NameStr,
+                                Instruction *InsertBefore) {
+  auto NewCI = CallInst::Create(Func, Args, NameStr, InsertBefore);
+  getInlineReport()->cloneCallBaseToCallBase(CI, NewCI);
+  return NewCI;
+}
+
+// Create a 'CallInst' using 'CI' as a model, inserting it at the end of
+// BasicBlock 'InsertAtEnd'. Return the new 'CallInst' and indicate to
+// the class inlining report that it was cloned from 'CI'.
+static CallInst *CallInstCreate(CallInst *CI, FunctionCallee Func,
+                                ArrayRef<Value *> Args,
+                                const Twine &NameStr,
+                                BasicBlock *InsertAtEnd) {
+  auto NewCI = CallInst::Create(Func, Args, NameStr, InsertAtEnd);
+  getInlineReport()->cloneCallBaseToCallBase(CI, NewCI);
+  return NewCI;
+}
+
+/// End of wrapper functions for creating clones and operating on callsites
+/// that also update the classic inlining report.
 
 // Returns true if 'Arg' is considered as constant for
 // cloning based on FuncPtrsClone.
@@ -1798,7 +1844,7 @@ static void createRecProgressionClones(Function &F, unsigned ArgPos,
   assert(Count > 0 && "Expecting at least one RecProgression Clone");
   for (unsigned I = 0; I < Count; ++I) {
     ValueToValueMapTy VMap;
-    Function *NewF = CloneFunction(&F, VMap);
+    Function *NewF = IPCloneFunction(&F, VMap);
     // Mark the first Count - 1 clones as preferred for inlining, the last
     // preferred for not inlining.
     if (!IsCyclic || I < Count - 1)
@@ -1858,7 +1904,7 @@ static void createRecProgressionClones(Function &F, unsigned ArgPos,
                                     &SIUpper1, &SIUpper2, &CVLower, &CVUpper)) {
       // Create the extra clone
       ValueToValueMapTy VMapNew;
-      ExtraCloneF = CloneFunction(LastCloneF, VMapNew);
+      ExtraCloneF = IPCloneFunction(LastCloneF, VMapNew);
       ExtraCloneF->addFnAttr("prefer-inline-rec-pro-clone");
       ExtraCloneF->addFnAttr("contains-rec-pro-clone");
       LLVM_DEBUG(dbgs() << "Extra RecProClone Candidate: "
@@ -2238,7 +2284,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
     auto CI = cast<CallInst>(&*II);
     Function *Callee = CI->getCalledFunction();
     if (Callee == OriginalFn && okayEliminateRecursion(ClonedFn, index, *CI)) {
-      CI->setCalledFunction(ClonedFn);
+      setCalledFunction(CI, ClonedFn);
       NumIPCallsCloned++;
       LLVM_DEBUG(dbgs() << " Replaced Cloned call:   " << *CI << "\n");
     }
@@ -2570,7 +2616,7 @@ void CallbackCloner::cloneCallbackFunction(Function &F, CBIMapTy &CBIMap) {
     Function *NewF = FCloneMap[Index];
     if (!NewF) {
       ValueToValueMapTy VMap;
-      NewF = CloneFunction(&F, VMap);
+      NewF = IPCloneFunction(&F, VMap);
       FCloneMap[Index] = NewF;
       NumIPCloned++;
     }
@@ -2588,7 +2634,7 @@ void CallbackCloner::cloneCallbackFunction(Function &F, CBIMapTy &CBIMap) {
           Args[I] = NewF;
         std::string New_Name = CB->hasName() ? CB->getName().str() +
             ".clone.callback.cs" : "";
-        auto NewCI = CallInst::Create(CB->getCalledFunction(), Args,
+        auto NewCI = CallInstCreate(CB, CB->getCalledFunction(), Args,
             New_Name, CB);
         NewCI->setDebugLoc(CB->getDebugLoc());
         NewCI->setCallingConv(CB->getCallingConv());
@@ -2647,7 +2693,7 @@ static void cloneFunction(bool AttemptCallbackCloning) {
 
     // Create new clone if it is not there for constant argument set
     if (NewFn == nullptr) {
-      NewFn = CloneFunction(SrcFn, VMap);
+      NewFn = IPCloneFunction(SrcFn, VMap);
       if (CBCloner)
         CBCloner->remapCBVec(index, VMap);
       ArgSetIndexClonedFunctionMap[index] = NewFn;
@@ -2655,7 +2701,7 @@ static void cloneFunction(bool AttemptCallbackCloning) {
       NumIPCloned++;
     }
 
-    CI->setCalledFunction(NewFn);
+    setCalledFunction(CI, NewFn);
     NumIPCallsCloned++;
     eliminateRecursionIfPossible(NewFn, SrcFn, index);
     LLVM_DEBUG(dbgs() << " Cloned call:   " << *CI << "\n");
@@ -2904,7 +2950,7 @@ static CallInst *createNewCall(CallInst &CI, BasicBlock *Insert_BB,
   // Create new cloned function for ConstantArgs if it is not already
   // there.
   if (NewFn == nullptr) {
-    NewFn = CloneFunction(SrcFn, VMap);
+    NewFn = IPCloneFunction(SrcFn, VMap);
     ArgSetIndexClonedFunctionMap[Index] = NewFn;
     ClonedFunctionList.insert(NewFn);
     propagateArgumentsToClonedFunction(NewFn, ArgsIndex, &CI);
@@ -2914,7 +2960,7 @@ static CallInst *createNewCall(CallInst &CI, BasicBlock *Insert_BB,
   // NameStr should be "" if return type is void.
   std::string New_Name;
   New_Name = CI.hasName() ? CI.getName().str() + ".clone.spec.cs" : "";
-  New_CI = CallInst::Create(NewFn, Args, New_Name, Insert_BB);
+  New_CI = CallInstCreate(&CI, NewFn, Args, New_Name, Insert_BB);
   New_CI->setDebugLoc(CI.getDebugLoc());
   New_CI->setCallingConv(CI.getCallingConv());
   New_CI->setAttributes(CI.getAttributes());
@@ -4394,8 +4440,11 @@ Function *Splitter::makeNewFxnWithExtraArg(Type *ArgTy, Argument **Arg,
   ValueToValueMapTy VMap;
   for (auto I = F->arg_begin(), E = F->arg_end(); I != E; ++I, ++A)
     VMap[&*I] = &*A;
+  // This is a special case that does not fit the standard wrapper functions
+  // defined above for use with the classic inlining report.
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Rets);
+  getInlineReport()->cloneFunction(F, NewF, VMap);
   Argument *ArgLast = nullptr;
   for (auto &ArgNew : NewF->args())
     ArgLast = &ArgNew;
@@ -4421,13 +4470,11 @@ void Splitter::splitCallSites() {
     Constant *CI0 = ConstantInt::get(NewTy1, 0);
     Constant *CI1 = ConstantInt::get(NewTy1, 1);
     new StoreInst(CI0, AI, false, Align(4), CI);
-    SmallVector<OperandBundleDef, 1> OpBundles;
-    CI->getOperandBundlesAsDefs(OpBundles);
     std::vector<Value *> Args;
     for (Value *V : CI->args())
       Args.push_back(V);
     Args.push_back(AI);
-    CallInst *CLI1 = CallInst::Create(F1, Args, OpBundles, "", CI);
+    CallInst *CLI1 = CallInstCreate(CI, F1, Args, "", CI);
     CLI1->setDebugLoc(CI->getDebugLoc());
     LoadInst *LI = new LoadInst(NewTy1, AI, "", false, Align(4), CI);
     CmpInst *IC =
@@ -4437,7 +4484,7 @@ void Splitter::splitCallSites() {
     for (Value *V : CI->args())
       Args.push_back(V);
     Args.push_back(CLI1);
-    CallInst *CLI2 = CallInst::Create(F2, Args, OpBundles, "", NewBBT);
+    CallInst *CLI2 = CallInstCreate(CI, F2, Args, "", NewBBT);
     CLI2->setDebugLoc(CI->getDebugLoc());
     PHINode *PHIN = PHINode::Create(CLI1->getType(), 2, "",
                                     &NewBBT->getSuccessor(0)->front());
@@ -4584,7 +4631,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
       auto *NCB = dyn_cast<CallBase>(U.getUser());
       if (NCB == CB) {
         U.set(NewF);
-        NCB->setCalledFunction(NewF);
+        setCalledFunction(NCB, NewF);
         return;
       }
     }
@@ -4801,7 +4848,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
   for (CallBase *CB : BestCBs) {
     ValueToValueMapTy VMap;
     // Clone the original F to NewF
-    Function *NewF = CloneFunction(&F, VMap);
+    Function *NewF = IPCloneFunction(&F, VMap);
     LLVM_DEBUG(dbgs() << "MRC Cloning: " << F.getName() << " TO "
                       << NewF->getName() << "\n");
     // Surround the best callsite with a test which allows the clone
@@ -5184,13 +5231,13 @@ static void createManyLoopSpecializationClones(Function *F,
                                                unsigned TCNumber) {
   // Clone F.
   ValueToValueMapTy VMap;
-  Function *NewF = CloneFunction(F, VMap);
+  Function *NewF = IPCloneFunction(F, VMap);
   // Get the unique call site, and split the BasicBlock it is in so we can
   // put in the specialization test.
   CallInst *CI = uniqueCallSite(*F);
   assert(CI && "Expecting unique callsite for F");
   CallInst *NewCI = cast<CallInst>(CI->clone());
-  NewCI->setCalledFunction(NewF);
+  setCalledFunction(NewCI, NewF);
   Instruction *TrueT = nullptr;
   Instruction *FalseT = nullptr;
   SplitBlockAndInsertIfThenElse(IC, CI, &TrueT, &FalseT);

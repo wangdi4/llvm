@@ -52,8 +52,14 @@ public:
     return reinterpret_cast<VPlanSCEV *>(Expr);
   }
 
+  static VPlanAddRecHIR *toVPlanAddRecHIR(VPlanSCEV *Expr) {
+    return reinterpret_cast<VPlanAddRecHIR *>(Expr);
+  }
+
 private:
   VPlanAddRecHIR *computeAddressSCEVImpl(const VPLoadStoreInst &LSI);
+
+  VPlanAddRecHIR *getMinusExprImpl(VPlanAddRecHIR *LHS, VPlanAddRecHIR *RHS);
 
   VPlanAddRecHIR *makeVPlanAddRecHIR(loopopt::CanonExpr *Base,
                                      int64_t Stride) const;
