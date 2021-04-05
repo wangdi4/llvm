@@ -1078,6 +1078,9 @@ static bool isRedundantStacksaveStackrestore(CallInst *SSCI,
     BasicBlock *BB = Worklist.front();
     Worklist.pop();
 
+    if (Visited.contains(BB))
+      continue;
+
     // If block is terminated by something other than branch or switch
     // instruction we cannot guarantee that every path from the stacksave block
     // leads to the stackrestore block.
