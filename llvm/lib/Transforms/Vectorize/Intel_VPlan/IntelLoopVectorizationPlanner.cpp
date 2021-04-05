@@ -87,7 +87,7 @@ static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
 static cl::opt<bool> EnableGeneralPeelingCostModel(
-    "vplan-enable-general-peeling-cost-model", cl::init(false),
+    "vplan-enable-general-peeling-cost-model", cl::init(true),
     cl::desc("Use more advanced general cost model instead of a simple one for "
              "peeling decisions"));
 
