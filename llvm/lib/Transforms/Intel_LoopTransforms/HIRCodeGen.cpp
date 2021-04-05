@@ -1878,6 +1878,9 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
 
     CallInst *ResCall =
         Builder.CreateCall(Call->getFunctionType(), FuncVal, Ops, Bundles);
+    getInlineReport()->cloneCallBaseToCallBase(const_cast<CallInst *>(Call),
+                                               ResCall);
+
 
     // TODO: Copy parameter attributes as well.
     ResCall->setCallingConv(Call->getCallingConv());
