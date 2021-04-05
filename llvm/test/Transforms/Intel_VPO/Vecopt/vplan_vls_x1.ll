@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -debug-only=ovls < %s 2>&1 | FileCheck %s
+; RUN: opt -S -VPlanDriver < %s | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -8,18 +8,6 @@ define void @foo(i32* nocapture %ary) {
 ;  for (i = 0; i < 1024; i += 1) {
 ;    ary[i + 0] += 7;
 ;  }
-;
-; CHECK:       Printing Groups- Total Groups 2
-; CHECK-NEXT:  Group#1
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 4
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #1 <4 x 32> SLoad
-; CHECK-NEXT:  Group#2
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 4
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #2 <4 x 32> SStore
 ;
 ; CHECK-LABEL: @foo(
 ; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[ARY:%.*]], i64 [[UNI_PHI:%.*]]

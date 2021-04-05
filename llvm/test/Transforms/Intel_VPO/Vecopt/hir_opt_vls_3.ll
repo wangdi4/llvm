@@ -20,8 +20,8 @@
 ; field accesses.
 ;
 
-; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=1 -S -enable-explicit-vplan-vls-hir -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -enable-vp-value-codegen-hir=1 -S -enable-explicit-vplan-vls-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=1 -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -enable-vp-value-codegen-hir=1 -S < %s 2>&1 | FileCheck %s
 
 ; ModuleID = 't6.c'
 source_filename = "t6.c"

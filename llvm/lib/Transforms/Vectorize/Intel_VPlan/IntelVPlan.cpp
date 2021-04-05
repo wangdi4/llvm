@@ -209,24 +209,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   //  2) the decomposed VPInstructions don't precede their master VPInstruction
   //     (rule to be refined), and
   //  3) the decomposed VPInstructions have more than one use.
-
-  const OVLSGroup *Group = nullptr;
-  int InterleaveFactor = 0, InterleaveIndex = 0;
-
-  // Compute group information for VLS optimized accesses that we currently
-  // handle.
-  unsigned Opcode = getOpcode();
-
-  if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
-    VPlanVLSAnalysis *VLSA = CG->getVLS();
-    const VPlan *Plan = CG->getPlan();
-
-    auto GrpData = getOptimizedVLSGroupData(this, VLSA, Plan);
-    if (GrpData)
-      std::tie(Group, InterleaveFactor, InterleaveIndex) = GrpData.getValue();
-  }
-
-  CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex);
+  CG->widenNode(this, nullptr);
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
 }

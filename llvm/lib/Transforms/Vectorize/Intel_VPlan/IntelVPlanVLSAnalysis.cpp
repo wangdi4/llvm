@@ -226,8 +226,6 @@ int computeInterleaveFactor(OVLSMemref *Memref) {
   return InterleaveFactor;
 }
 
-extern bool EnableExplicitVLS;
-
 Optional<std::tuple<OVLSGroup *, int, int>>
 getOptimizedVLSGroupData(const VPInstruction *VPInst,
                          const VPlanVLSAnalysis *VLSA, const VPlan *Plan) {
@@ -243,15 +241,6 @@ getOptimizedVLSGroupData(const VPInstruction *VPInst,
 
   if (!isTransformableVLSGroup(Group))
     return None;
-
-  if (!EnableExplicitVLS)
-    // Non-explicit VLS doesn't support mixed types.
-    if (!std::equal(Group->begin() + 1, Group->end(), Group->begin(),
-                    [](const OVLSMemref *LHS, const OVLSMemref *RHS) {
-                      return instruction(LHS)->getValueType() ==
-                             instruction(RHS)->getValueType();
-                    }))
-      return None;
 
   VPVLSClientMemref *VPInstMemref = cast<VPVLSClientMemref>(
       *find_if(*Group, [VPInst](const OVLSMemref *Memref) {

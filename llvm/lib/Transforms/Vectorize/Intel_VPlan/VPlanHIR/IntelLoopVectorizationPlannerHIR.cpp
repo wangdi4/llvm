@@ -34,15 +34,6 @@ static cl::opt<bool>
     EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
                            cl::Hidden, cl::desc("Enable in memory entities."));
 
-namespace llvm {
-namespace vpo {
-bool EnableExplicitVLS = true;
-}
-}
-static cl::opt<bool, true> EnableExplicitVLSOpt(
-    "enable-explicit-vplan-vls-hir", cl::location(EnableExplicitVLS),
-    cl::Hidden, cl::desc("Enable explicit VPlan-to-VPlan VLS transformation."));
-
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
                                                   unsigned UF) {
   unsigned BestVF = getBestVF();
@@ -59,8 +50,7 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
 
-  if (EnableExplicitVLS)
-    applyVLSTransform(*Plan, *VLSA, BestVF);
+  applyVLSTransform(*Plan, *VLSA, BestVF);
 
   // Process all loop entities and create refs for them if needed.
   CG->createAndMapLoopEntityRefs(BestVF);
