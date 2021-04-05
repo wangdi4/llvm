@@ -147,7 +147,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                             TTI::TargetCostKind CostKind) const {
-    return Multiplier * TTI.getIntrinsicInstrCost(ICA, CostKind);
+    return Multiplier * *TTI.getIntrinsicInstrCost(ICA, CostKind).getValue();
   }
   unsigned getNumberOfParts(Type *Tp) const { return TTI.getNumberOfParts(Tp); }
 #if INTEL_CUSTOMIZATION
