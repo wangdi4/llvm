@@ -1912,6 +1912,7 @@ void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *) {}
 void OpenMPLateOutliner::emitOMPUseClause(const OMPUseClause *) {}
+void OpenMPLateOutliner::emitOMPNovariantsClause(const OMPNovariantsClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
