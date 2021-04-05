@@ -136,6 +136,7 @@ namespace X86 {
     Cmp,
     // AND
     And,
+    // FIXME: Zen 3 support branch fusion for OR/XOR.
     // ADD, SUB
     AddSub,
     // INC, DEC
@@ -204,6 +205,7 @@ namespace X86 {
     case X86::AND8rr:
     case X86::AND8rr_REV:
       return FirstMacroFusionInstKind::And;
+    // FIXME: Zen 3 support branch fusion for OR/XOR.
     // CMP
     case X86::CMP16i16:
     case X86::CMP16mr:

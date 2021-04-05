@@ -178,8 +178,9 @@ public:
 
   unsigned getAtomicMemIntrinsicMaxElementSize() const;
 
-  int getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
-                                     TTI::TargetCostKind CostKind);
+  InstructionCost
+  getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                 TTI::TargetCostKind CostKind);
   int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                             TTI::TargetCostKind CostKind);
 
