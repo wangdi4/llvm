@@ -67,6 +67,10 @@ static cl::opt<bool>
                      cl::desc("Print VPlan instructions' details like "
                               "underlying attributes/metadata."));
 
+static cl::opt<bool> VPlanDumpDebugLoc(
+    "vplan-dump-debug-loc", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan instructions' debug location information."));
+
 static cl::opt<bool> VPlanDumpInductionInitDetails(
   "vplan-dump-induction-init-details", cl::init(false), cl::Hidden,
   cl::desc("Print induction value range information."));
@@ -392,12 +396,14 @@ void VPInstruction::print(raw_ostream &O) const {
     O << ")";
   }
 
-  if (VPlanDumpDetails) {
+  if (VPlanDumpDetails || VPlanDumpDebugLoc) {
     O << "\n";
     // TODO: How to get Indent here?
     O << "    DbgLoc: ";
     getDebugLocation().print(O);
     O << "\n";
+  }
+  if (VPlanDumpDetails) {
     O << "    OperatorFlags -\n";
     O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
       << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
